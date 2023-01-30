@@ -264,6 +264,38 @@ static int sqlite_authorize(void *dbq_, int code,
 		return SQLITE_OK;
 	}
 
+	/* Some functions are fairly necessary: */
+	if (code == SQLITE_FUNCTION) {
+		if (streq(b, "abs"))
+			return SQLITE_OK;
+		if (streq(b, "avg"))
+			return SQLITE_OK;
+		if (streq(b, "coalesce"))
+			return SQLITE_OK;
+		if (streq(b, "count"))
+			return SQLITE_OK;
+		if (streq(b, "hex"))
+			return SQLITE_OK;
+		if (streq(b, "quote"))
+			return SQLITE_OK;
+		if (streq(b, "length"))
+			return SQLITE_OK;
+		if (streq(b, "like"))
+			return SQLITE_OK;
+		if (streq(b, "lower"))
+			return SQLITE_OK;
+		if (streq(b, "upper"))
+			return SQLITE_OK;
+		if (streq(b, "min"))
+			return SQLITE_OK;
+		if (streq(b, "max"))
+			return SQLITE_OK;
+		if (streq(b, "sum"))
+			return SQLITE_OK;
+		if (streq(b, "total"))
+			return SQLITE_OK;
+	}
+
 	/* See https://www.sqlite.org/c3ref/c_alter_table.html to decode these! */
 	dbq->authfail = tal_fmt(dbq, "Unauthorized: %u arg1=%s arg2=%s dbname=%s caller=%s",
 				code,
