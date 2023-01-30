@@ -528,7 +528,7 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            local_offer_id: c.local_offer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            local_offer_id: c.local_offer_id.map(|v| v.to_vec()), // Rule #2 for type hash?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -1041,7 +1041,7 @@ impl From<responses::ListforwardsResponse> for pb::ListforwardsResponse {
 impl From<responses::ListpaysPays> for pb::ListpaysPays {
     fn from(c: responses::ListpaysPays) -> Self {
         Self {
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at, // Rule #2 for type u64
@@ -1050,7 +1050,7 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             bolt11: c.bolt11, // Rule #2 for type string?
             description: c.description, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            preimage: c.preimage.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             number_of_parts: c.number_of_parts, // Rule #2 for type u64?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }

@@ -59,10 +59,8 @@
             "description": "the BOLT12 string (always present unless *bolt11* is)"
           },
           "local_offer_id": {
-            "type": "hex",
-            "description": "the *id* of our offer which created this invoice (**experimental-offers** only).",
-            "maxLength": 64,
-            "minLength": 64
+            "type": "hash",
+            "description": "the *id* of our offer which created this invoice (**experimental-offers** only)."
           },
           "invreq_payer_note": {
             "type": "string",

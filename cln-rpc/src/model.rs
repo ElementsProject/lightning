@@ -2362,7 +2362,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_offer_id: Option<String>,
+	    pub local_offer_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3430,7 +3430,7 @@ pub mod responses {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpaysPays {
-	    pub payment_hash: String,
+	    pub payment_hash: Sha256,
 	    // Path `ListPays.pays[].status`
 	    pub status: ListpaysPaysStatus,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3447,7 +3447,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub preimage: Option<String>,
+	    pub preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub number_of_parts: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
