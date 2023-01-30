@@ -135,4 +135,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:dab3d2111fac44ea7d0183485e6f67566d2c577f9dafde8a897f438fab04e7e6)
+[comment]: # ( SHA256STAMP:88fc091802bfa0295ce3b2e445160d2357a66d6501328bdb086498960b2f915d)
