@@ -3280,10 +3280,16 @@ def test_block_added_notifications(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @pytest.mark.developer("wants dev-announce-localhost so we see listnodes.addresses")
 def test_sql(node_factory, bitcoind):
+    opts = {'experimental-offers': None,
+            'dev-allow-localhost': None}
+    l2opts = {'lease-fee-basis': 50,
+              'lease-fee-base-sat': '2000msat',
+              'channel-fee-max-base-msat': '500sat',
+              'channel-fee-max-proportional-thousandths': 200,
+              'sqlfilename': 'sql.sqlite3'}
+    l2opts.update(opts)
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'experimental-offers': None,
-                                               'sqlfilename': 'sql.sqlite3',
-                                               'dev-allow-localhost': None})
+                                         opts=[opts, l2opts, opts])
 
     ret = l2.rpc.sql("SELECT * FROM forwards;")
     assert ret == {'rows': []}
@@ -3793,6 +3799,27 @@ def test_sql(node_factory, bitcoind):
 
     with pytest.raises(RpcError, match='query failed with no such table: peers_channels'):
         l2.rpc.sql("SELECT * FROM peers_channels;")
+
+    # Test subobject case (option_will_fund)
+    ret = l2.rpc.sql("SELECT option_will_fund_lease_fee_base_msat,"
+                     " option_will_fund_lease_fee_basis,"
+                     " option_will_fund_funding_weight,"
+                     " option_will_fund_channel_fee_max_base_msat,"
+                     " option_will_fund_channel_fee_max_proportional_thousandths,"
+                     " option_will_fund_compact_lease"
+                     " FROM nodes WHERE HEX(nodeid) = '{}';".format(l2.info['id'].upper()))
+    optret = only_one(l2.rpc.listnodes(l2.info['id'])['nodes'])['option_will_fund']
+    row = only_one(ret['rows'])
+    assert row == [v for v in optret.values()]
+
+    # Correctly handles missing object.
+    assert l2.rpc.sql("SELECT option_will_fund_lease_fee_base_msat,"
+                      " option_will_fund_lease_fee_basis,"
+                      " option_will_fund_funding_weight,"
+                      " option_will_fund_channel_fee_max_base_msat,"
+                      " option_will_fund_channel_fee_max_proportional_thousandths,"
+                      " option_will_fund_compact_lease"
+                      " FROM nodes WHERE HEX(nodeid) = '{}';".format(l1.info['id'].upper())) == {'rows': [[None] * 6]}
 
 
 def test_sql_deprecated(node_factory, bitcoind):
