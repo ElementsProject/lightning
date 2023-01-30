@@ -154,15 +154,9 @@
             "type": "msat",
             "description": "available satoshis on our node's end of the channel"
           },
-          "channel_sat": {
-            "deprecated": true
-          },
           "amount_msat": {
             "type": "msat",
             "description": "total channel value"
-          },
-          "channel_total_sat": {
-            "deprecated": true
           },
           "funding_txid": {
             "type": "txid",

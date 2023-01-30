@@ -34,9 +34,6 @@
       "type": "u64",
       "description": "UNIX timestamp of when it will become / became unpayable"
     },
-    "msatoshi": {
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "the amount required to pay this invoice"
@@ -83,9 +80,6 @@
           "pay_index": {
             "type": "u64",
             "description": "Unique incrementing index for this payment"
-          },
-          "msatoshi_received": {
-            "deprecated": true
           },
           "amount_received_msat": {
             "type": "msat",

@@ -114,9 +114,6 @@
                   "type": "msat",
                   "description": "the amount of the output"
                 },
-                "msat": {
-                  "deprecated": true
-                },
                 "scriptPubKey": {
                   "type": "hex",
                   "description": "the scriptPubKey"

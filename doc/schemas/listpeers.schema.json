@@ -445,39 +445,6 @@
                   "type": "u32",
                   "description": "Maximum number of incoming HTLC we will accept at once"
                 },
-                "msatoshi_to_us": {
-                  "deprecated": true
-                },
-                "msatoshi_to_us_min": {
-                  "deprecated": true
-                },
-                "msatoshi_to_us_max": {
-                  "deprecated": true
-                },
-                "msatoshi_total": {
-                  "deprecated": true
-                },
-                "dust_limit_satoshis": {
-                  "deprecated": true
-                },
-                "max_htlc_value_in_flight_msat": {
-                  "deprecated": true
-                },
-                "our_channel_reserve_satoshis": {
-                  "deprecated": true
-                },
-                "their_channel_reserve_satoshis": {
-                  "deprecated": true
-                },
-                "spendable_msatoshi": {
-                  "deprecated": true
-                },
-                "receivable_msatoshi": {
-                  "deprecated": true
-                },
-                "htlc_minimum_msat": {
-                  "deprecated": true
-                },
                 "alias": {
                   "type": "object",
                   "required": [],
@@ -578,9 +545,6 @@
                   "type": "msat",
                   "description": "Total amount of incoming payment attempts"
                 },
-                "in_msatoshi_offered": {
-                  "deprecated": true
-                },
                 "in_payments_fulfilled": {
                   "type": "u64",
                   "description": "Number of successful incoming payment attempts"
@@ -588,9 +552,6 @@
                 "in_fulfilled_msat": {
                   "type": "msat",
                   "description": "Total amount of successful incoming payment attempts"
-                },
-                "in_msatoshi_fulfilled": {
-                  "deprecated": true
                 },
                 "out_payments_offered": {
                   "type": "u64",
@@ -600,9 +561,6 @@
                   "type": "msat",
                   "description": "Total amount of outgoing payment attempts"
                 },
-                "out_msatoshi_offered": {
-                  "deprecated": true
-                },
                 "out_payments_fulfilled": {
                   "type": "u64",
                   "description": "Number of successful outgoing payment attempts"
@@ -610,9 +568,6 @@
                 "out_fulfilled_msat": {
                   "type": "msat",
                   "description": "Total amount of successful outgoing payment attempts"
-                },
-                "out_msatoshi_fulfilled": {
-                  "deprecated": true
                 },
                 "htlcs": {
                   "type": "array",
@@ -644,9 +599,6 @@
                       "amount_msat": {
                         "type": "msat",
                         "description": "Amount send/received for this HTLC"
-                      },
-                      "msatoshi": {
-                        "deprecated": true
                       },
                       "expiry": {
                         "type": "u32",

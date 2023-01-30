@@ -85,9 +85,7 @@
             "type": "msat",
             "description": "The smallest payment *source* will allow via this channel"
           },
-          "satoshis": {
-            "deprecated": true
-          },
+          "satoshis": {},
           "htlc_maximum_msat": {
             "type": "msat",
             "description": "The largest payment *source* will allow via this channel"

@@ -21,9 +21,6 @@
       "type": "string",
       "description": "BOLT12 string"
     },
-    "msatoshi": {
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "the amount required to pay this invoice"
@@ -143,9 +140,6 @@
           "amount_received_msat": {
             "type": "msat",
             "description": "how much was actually received"
-          },
-          "msatoshi_received": {
-            "deprecated": true
           },
           "paid_at": {
             "type": "u64",

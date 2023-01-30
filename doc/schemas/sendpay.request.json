@@ -21,9 +21,6 @@
           "amount_msat": {
             "type": "msat"
           },
-          "msatoshi": {
-            "deprecated": true
-          },
           "id": {
             "type": "pubkey"
           },

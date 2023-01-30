@@ -36,9 +36,6 @@
             ],
             "description": "status of the payment"
           },
-          "msatoshi_sent": {
-            "deprecated": true
-          },
           "amount_sent_msat": {
             "type": "msat",
             "description": "the amount we actually sent, including fees"
@@ -50,9 +47,6 @@
           "destination": {
             "type": "pubkey",
             "description": "the final destination of the payment if known"
-          },
-          "msatoshi": {
-            "deprecated": true
           },
           "amount_msat": {
             "type": "msat",

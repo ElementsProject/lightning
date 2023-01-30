@@ -1259,10 +1259,6 @@
             "type": "pubkey",
             "description": "the public key of the recipient"
           },
-          "msatoshi": {
-            "type": "u64",
-            "deprecated": true
-          },
           "amount_msat": {
             "type": "msat",
             "description": "Amount the invoice asked for"
