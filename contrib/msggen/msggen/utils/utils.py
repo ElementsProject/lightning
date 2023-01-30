@@ -83,7 +83,6 @@ def load_jsonrpc_service(schema_dir: str):
         "ListPays",
         # "multifundchannel",
         # "multiwithdraw",
-        # "offerout",
         # "offer",
         # "openchannel_abort",
         # "openchannel_bump",
