@@ -1,6 +1,7 @@
 /* Brilliant or insane?  You decide! */
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/err/err.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
@@ -9,8 +10,12 @@
 #include <plugins/libplugin.h>
 #include <sqlite3.h>
 
+/* Minimized schemas.  C23 #embed, Where Art Thou? */
+static const char schemas[] =
+	#include "sql-schema_gen.h"
+	;
+
 /* TODO:
- * 1. Generate from schemas.
  * 2. Refresh time in API.
  * 3. Colnames API to return dict.
  * 4. sql-schemas command.
@@ -66,8 +71,12 @@ static const struct fieldtypemap fieldtypemap[] = {
 };
 
 struct column {
-	const char *name;
+	/* We rename some fields to avoid sql keywords! */
+	const char *dbname, *jsonname;
 	enum fieldtype ftype;
+
+	/* If this is actually a subtable: */
+	struct table_desc *sub;
 };
 
 struct db_query {
@@ -77,15 +86,37 @@ struct db_query {
 };
 
 struct table_desc {
+	/* e.g. listpeers */
+	const char *cmdname;
 	/* e.g. peers for listpeers */
 	const char *name;
+	/* e.g. "payments" for listsendpays */
+	const char *arrname;
 	struct column *columns;
 	char *update_stmt;
+	/* If we are a subtable */
+	struct table_desc *parent;
+	/* Is this a sub object (otherwise, subarray if parent is true) */
+	bool is_subobject;
+	/* function to refresh it. */
+	struct command_result *(*refresh)(struct command *cmd,
+					  const struct table_desc *td,
+					  struct db_query *dbq);
 };
 static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
 static struct sqlite3 *db;
 static const char *dbfilename;
+
+static enum fieldtype find_fieldtype(const jsmntok_t *name)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(fieldtypemap); i++) {
+		if (json_tok_streq(schemas, name, fieldtypemap[i].name))
+			return i;
+	}
+	errx(1, "Unknown JSON type %.*s",
+	     name->end - name->start, schemas + name->start);
+}
 
 static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 {
@@ -165,6 +196,9 @@ static int sqlite_authorize(void *dbq_, int code,
 			dbq->authfail = tal_fmt(dbq, "Unknown table %s", a);
 			return SQLITE_DENY;
 		}
+		/* If it has a parent, we refresh that instead */
+		while (td->parent)
+			td = td->parent;
 		if (!has_table_desc(dbq->tables, td))
 			tal_arr_expand(&dbq->tables, td);
 		return SQLITE_OK;
@@ -284,6 +318,13 @@ static struct command_result *one_refresh_done(struct command *cmd,
 	return refresh_tables(cmd, dbq);
 }
 
+/* Mutual recursion */
+static struct command_result *process_json_list(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *arr,
+						const u64 *rowid,
+						const struct table_desc *td);
+
 /* Returns NULL on success, otherwise has failed cmd. */
 static struct command_result *process_json_obj(struct command *cmd,
 					       const char *buf,
@@ -295,20 +336,47 @@ static struct command_result *process_json_obj(struct command *cmd,
 					       sqlite3_stmt *stmt)
 {
 	int err;
+	u64 parent_rowid;
+
+	/* Subtables have row, arrindex as first two columns. */
+	if (rowid) {
+		sqlite3_bind_int64(stmt, (*sqloff)++, *rowid);
+		sqlite3_bind_int64(stmt, (*sqloff)++, row);
+	}
 
 	/* FIXME: This is O(n^2): hash td->columns and look up the other way. */
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
 		const struct column *col = &td->columns[i];
 		const jsmntok_t *coltok;
 
+		if (col->sub) {
+			struct command_result *ret;
+			/* Handle sub-tables below: we need rowid! */
+			if (!col->sub->is_subobject)
+				continue;
+
+			coltok = json_get_member(buf, t, col->jsonname);
+			ret = process_json_obj(cmd, buf, coltok, col->sub, row, NULL,
+					       sqloff, stmt);
+			if (ret)
+				return ret;
+			continue;
+		}
+
+		/* This can happen if subobject does not exist in output! */
 		if (!t)
 			coltok = NULL;
 		else
-			coltok = json_get_member(buf, t, col->name);
+			coltok = json_get_member(buf, t, col->jsonname);
 
-		if (!coltok)
+		if (!coltok) {
+			if (td->parent)
+				plugin_log(cmd->plugin, LOG_DBG,
+					   "Did not find json %s for %s in %.*s",
+					   col->jsonname, td->name,
+					   t ? json_tok_full_len(t) : 4, t ? json_tok_full(buf, t): "NULL");
 			sqlite3_bind_null(stmt, (*sqloff)++);
-		else {
+		} else {
 			u64 val64;
 			struct amount_msat valmsat;
 			u8 *valhex;
@@ -386,6 +454,10 @@ static struct command_result *process_json_obj(struct command *cmd,
 		}
 	}
 
+	/* Sub objects get folded into parent's SQL */
+	if (td->parent && td->is_subobject)
+		return NULL;
+
 	err = sqlite3_step(stmt);
 	if (err != SQLITE_DONE) {
 		return command_fail(cmd, LIGHTNINGD,
@@ -394,16 +466,37 @@ static struct command_result *process_json_obj(struct command *cmd,
 				    row,
 				    sqlite3_errmsg(db));
 	}
+
+	/* Now we have rowid, we can insert into any subtables. */
+	parent_rowid = sqlite3_last_insert_rowid(db);
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		const struct column *col = &td->columns[i];
+		const jsmntok_t *coltok;
+		struct command_result *ret;
+
+		if (!col->sub || col->sub->is_subobject)
+			continue;
+
+		coltok = json_get_member(buf, t, col->jsonname);
+		if (!coltok)
+			continue;
+
+		ret = process_json_list(cmd, buf, coltok, &parent_rowid, col->sub);
+		if (ret)
+			return ret;
+	}
 	return NULL;
 }
 
+/* A list, such as in the top-level reply, or for a sub-table */
 static struct command_result *process_json_list(struct command *cmd,
 						const char *buf,
-						const jsmntok_t *result,
+						const jsmntok_t *arr,
+						const u64 *rowid,
 						const struct table_desc *td)
 {
 	size_t i;
-	const jsmntok_t *t, *arr = json_get_member(buf, result, td->name);
+	const jsmntok_t *t;
 	int err;
 	sqlite3_stmt *stmt;
 	struct command_result *ret = NULL;
@@ -415,16 +508,27 @@ static struct command_result *process_json_list(struct command *cmd,
 				    sqlite3_errmsg(db));
 	}
 
- 	json_for_each_arr(i, t, arr) {
+	json_for_each_arr(i, t, arr) {
 		/* sqlite3 columns are 1-based! */
 		size_t off = 1;
-		ret = process_json_obj(cmd, buf, t, td, i, NULL, &off, stmt);
+		ret = process_json_obj(cmd, buf, t, td, i, rowid, &off, stmt);
 		if (ret)
 			break;
 		sqlite3_reset(stmt);
 	}
 	sqlite3_finalize(stmt);
 	return ret;
+}
+
+/* Process top-level JSON result object */
+static struct command_result *process_json_result(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  const struct table_desc *td)
+{
+	return process_json_list(cmd, buf,
+				 json_get_member(buf, result, td->arrname),
+				 NULL, td);
 }
 
 static struct command_result *default_list_done(struct command *cmd,
@@ -445,7 +549,7 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_list(cmd, buf, result, td);
+	ret = process_json_result(cmd, buf, result, td);
 	if (ret)
 		return ret;
 
@@ -457,8 +561,7 @@ static struct command_result *default_refresh(struct command *cmd,
 					      struct db_query *dbq)
 {
 	struct out_req *req;
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    tal_fmt(tmpctx, "list%s", td->name),
+	req = jsonrpc_request_start(cmd->plugin, cmd, td->cmdname,
 				    default_list_done, forward_error,
 				    dbq);
 	return send_outreq(cmd->plugin, req);
@@ -473,7 +576,7 @@ static struct command_result *refresh_tables(struct command *cmd,
 		return refresh_complete(cmd, dbq);
 
 	td = dbq->tables[0];
-	return default_refresh(cmd, td, dbq);
+	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
 static struct command_result *json_sql(struct command *cmd,
@@ -513,64 +616,74 @@ static struct command_result *json_sql(struct command *cmd,
 	return refresh_tables(cmd, dbq);
 }
 
-static void init_tablemap(struct plugin *plugin)
+static bool ignore_column(const struct table_desc *td, const jsmntok_t *t)
 {
-	struct table_desc *td;
+	/* We don't use peers.log, since it'll always be empty unless we were to
+	 * ask for it in listpeers, and it's not very useful. */
+	if (streq(td->name, "peers") && json_tok_streq(schemas, t, "log"))
+		return true;
+	/* FIXME: peers.netaddr is an array of strings, which we don't handle. */
+	if (streq(td->name, "peers") && json_tok_streq(schemas, t, "netaddr"))
+		return true;
+	/* FIXME: peers.channels.features is an array of strings, which we don't handle. */
+	if (streq(td->name, "peers_channels") && json_tok_streq(schemas, t, "features"))
+		return true;
+	if (streq(td->name, "peers_channels") && json_tok_streq(schemas, t, "status"))
+		return true;
+	return false;
+}
+
+/* Creates sql statements, initializes table, adds to tablemap */
+static void finish_td(struct plugin *plugin, struct table_desc *td)
+{
 	char *create_stmt;
 	int err;
 	char *errmsg;
-	struct column col;
+	const char *sep = "";
 
-	strmap_init(&tablemap);
-
-	/* FIXME: Load from schemas! */
-	td = tal(NULL, struct table_desc);
-	td->name = "forwards";
-	td->columns = tal_arr(td, struct column, 0);
-	col.name = "in_htlc_id";
-	col.ftype = FIELD_U64;
-	tal_arr_expand(&td->columns, col);
-	col.name = "in_channel";
-	col.ftype = FIELD_SCID;
-	tal_arr_expand(&td->columns, col);
-	col.name = "in_msat";
-	col.ftype = FIELD_MSAT;
-	tal_arr_expand(&td->columns, col);
-	col.name = "status";
-	col.ftype = FIELD_STRING;
-	tal_arr_expand(&td->columns, col);
-	col.name = "received_time";
-	col.ftype = FIELD_NUMBER;
-	tal_arr_expand(&td->columns, col);
-	col.name = "out_channel";
-	col.ftype = FIELD_SCID;
-	tal_arr_expand(&td->columns, col);
-	col.name = "out_htlc_id";
-	col.ftype = FIELD_U64;
-	tal_arr_expand(&td->columns, col);
-	col.name = "style";
-	col.ftype = FIELD_STRING;
-	tal_arr_expand(&td->columns, col);
-	col.name = "fee_msat";
-	col.ftype = FIELD_MSAT;
-	tal_arr_expand(&td->columns, col);
-	col.name = "out_msat";
-	col.ftype = FIELD_MSAT;
-	tal_arr_expand(&td->columns, col);
-	col.name = "resolved_time";
-	col.ftype = FIELD_NUMBER;
-	tal_arr_expand(&td->columns, col);
+	/* subobject are separate at JSON level, folded at db level! */
+	if (td->is_subobject)
+		return;
 
 	/* FIXME: Primary key from schema? */
 	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
 	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
+
+	/* If we're a child array, we reference the parent column */
+	if (td->parent) {
+		tal_append_fmt(&create_stmt,
+			       "row INTEGER REFERENCES %s(rowid) ON DELETE CASCADE,"
+			       " arrindex INTEGER",
+			       td->parent->name);
+		tal_append_fmt(&td->update_stmt, "?,?");
+		sep = ",";
+	}
+
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
-		tal_append_fmt(&td->update_stmt, "%s?",
-			       i == 0 ? "" : ",");
+		const struct column *col = &td->columns[i];
+
+		if (col->sub) {
+			/* sub-arrays are a completely separate table. */
+			if (!col->sub->is_subobject)
+				continue;
+			/* sub-objects are folded into this table. */
+			for (size_t j = 0; j < tal_count(col->sub->columns); j++) {
+				const struct column *subcol = &col->sub->columns[j];
+				tal_append_fmt(&td->update_stmt, "%s?", sep);
+				tal_append_fmt(&create_stmt, "%s%s %s",
+					       sep,
+					       subcol->dbname,
+					       fieldtypemap[subcol->ftype].sqltype);
+				sep = ",";
+			}
+			continue;
+		}
+		tal_append_fmt(&td->update_stmt, "%s?", sep);
 		tal_append_fmt(&create_stmt, "%s%s %s",
-			       i == 0 ? "" : ",",
-			       td->columns[i].name,
-			       fieldtypemap[td->columns[i].ftype].sqltype);
+			       sep,
+			       col->dbname,
+			       fieldtypemap[col->ftype].sqltype);
+		sep = ",";
 	}
 	tal_append_fmt(&create_stmt, ");");
 	tal_append_fmt(&td->update_stmt, ");");
@@ -580,6 +693,185 @@ static void init_tablemap(struct plugin *plugin)
 		plugin_err(plugin, "Could not create %s: %s", td->name, errmsg);
 
 	strmap_add(&tablemap, td->name, td);
+
+	/* Now do any children */
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		const struct column *col = &td->columns[i];
+		if (col->sub)
+			finish_td(plugin, col->sub);
+	}
+}
+
+/* Don't use SQL keywords as column names: sure, you can use quotes,
+ * but it's a PITA. */
+static const char *db_column_name(const tal_t *ctx,
+				  const struct table_desc *td,
+				  const jsmntok_t *nametok)
+{
+	const char *name = json_strdup(tmpctx, schemas, nametok);
+
+	if (streq(name, "index"))
+		name = tal_strdup(tmpctx, "idx");
+
+	/* Prepend td->name to make column unique in table. */
+	if (td->is_subobject)
+		return tal_fmt(ctx, "%s_%s", td->cmdname, name);
+
+	return tal_steal(ctx, name);
+}
+
+/* Remove 'list', turn - into _ in name */
+static const char *db_table_name(const tal_t *ctx, const char *cmdname)
+{
+	const char *list = strstr(cmdname, "list");
+	char *ret = tal_arr(ctx, char, strlen(cmdname) + 1), *dst = ret;
+	const char *src = cmdname;
+
+	while (*src) {
+		if (src == list)
+			src += strlen("list");
+		else if (cisalnum(*src))
+			*(dst++) = *(src++);
+		else {
+			(*dst++) = '_';
+			src++;
+		}
+	}
+	*dst = '\0';
+	return ret;
+}
+
+static struct table_desc *new_table_desc(struct table_desc *parent,
+					 const jsmntok_t *cmd,
+					 const jsmntok_t *arrname,
+					 bool is_subobject)
+{
+	struct table_desc *td;
+	const char *name;
+
+	td = tal(parent, struct table_desc);
+	td->cmdname = json_strdup(td, schemas, cmd);
+	name = db_table_name(tmpctx, td->cmdname);
+	if (!parent)
+		td->name = tal_steal(td, name);
+	else
+		td->name = tal_fmt(td, "%s_%s", parent->name, name);
+	td->parent = parent;
+	td->is_subobject = is_subobject;
+	td->arrname = json_strdup(td, schemas, arrname);
+	td->columns = tal_arr(td, struct column, 0);
+	td->refresh = default_refresh;
+	return td;
+}
+
+static bool find_column(const struct table_desc *td,
+			const char *dbname)
+{
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		if (streq(td->columns[i].dbname, dbname))
+			return true;
+	}
+	return false;
+}
+
+/* Recursion */
+static void add_table_object(struct table_desc *td, const jsmntok_t *tok);
+
+static void add_table_properties(struct table_desc *td,
+				 const jsmntok_t *properties)
+{
+	const jsmntok_t *t;
+	size_t i;
+
+	json_for_each_obj(i, t, properties) {
+		const jsmntok_t *type;
+		struct column col;
+
+		if (ignore_column(td, t))
+			continue;
+		type = json_get_member(schemas, t+1, "type");
+		/* Stub properties don't have types, it should exist in
+		 * another branch with actual types, so ignore this */
+		if (!type)
+			continue;
+		if (json_tok_streq(schemas, type, "array")) {
+			const jsmntok_t *items;
+
+			items = json_get_member(schemas, t+1, "items");
+			type = json_get_member(schemas, items, "type");
+			assert(json_tok_streq(schemas, type, "object"));
+
+			col.sub = new_table_desc(td, t, t, false);
+			add_table_object(col.sub, items);
+		} else if (json_tok_streq(schemas, type, "object")) {
+			col.sub = new_table_desc(td, t, t, true);
+			add_table_object(col.sub, t+1);
+		} else {
+			col.ftype = find_fieldtype(type);
+			col.sub = NULL;
+		}
+		col.dbname = db_column_name(td->columns, td, t);
+		/* Some schemas repeat, assume they're the same */
+		if (find_column(td, col.dbname)) {
+			tal_free(col.dbname);
+		} else {
+			col.jsonname = json_strdup(td->columns, schemas, t);
+			tal_arr_expand(&td->columns, col);
+		}
+	}
+}
+
+/* tok is the JSON schema member for an object */
+static void add_table_object(struct table_desc *td, const jsmntok_t *tok)
+{
+	const jsmntok_t *t, *properties, *allof, *cond;
+	size_t i;
+
+	/* This might not exist inside allOf, for example */
+	properties = json_get_member(schemas, tok, "properties");
+	if (properties)
+		add_table_properties(td, properties);
+
+	allof = json_get_member(schemas, tok, "allOf");
+	if (allof) {
+		json_for_each_arr(i, t, allof)
+			add_table_object(td, t);
+	}
+	/* We often find interesting things in then and else branches! */
+	cond = json_get_member(schemas, tok, "then");
+	if (cond)
+		add_table_object(td, cond);
+	cond = json_get_member(schemas, tok, "else");
+	if (cond)
+		add_table_object(td, cond);
+}
+
+static void init_tablemap(struct plugin *plugin)
+{
+	const jsmntok_t *toks, *t;
+	size_t i;
+
+	strmap_init(&tablemap);
+
+	toks = json_parse_simple(tmpctx, schemas, strlen(schemas));
+	json_for_each_obj(i, t, toks) {
+		struct table_desc *td;
+		const jsmntok_t *cmd, *items, *type;
+
+		/* First member of properties object is command. */
+		cmd = json_get_member(schemas, t+1, "properties") + 1;
+
+		/* We assume it's an object containing an array of objects */
+		items = json_get_member(schemas, cmd + 1, "items");
+		type = json_get_member(schemas, items, "type");
+		assert(json_tok_streq(schemas, type, "object"));
+
+		td = new_table_desc(NULL, t, cmd, false);
+		tal_steal(plugin, td);
+		add_table_object(td, items);
+
+		finish_td(plugin, td);
+	}
 }
 
 #if DEVELOPER
