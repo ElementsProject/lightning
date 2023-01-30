@@ -8,12 +8,14 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <plugins/libplugin.h>
 #include <sqlite3.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -25,8 +27,6 @@ static const char schemas[] =
 
 /* TODO:
  * 2. Refresh time in API.
- * 3. Colnames API to return dict.
- * 4. sql-schemas command.
  * 5. documentation.
  * 6. test on mainnet.
  * 7. Some cool query for documentation.
@@ -94,9 +94,10 @@ struct db_query {
 };
 
 struct table_desc {
-	/* e.g. listpeers */
+	/* e.g. listpeers.  For sub-tables, the raw name without
+	 * parent prepended */
 	const char *cmdname;
-	/* e.g. peers for listpeers */
+	/* e.g. peers for listpeers, peers_channels for listpeers.channels. */
 	const char *name;
 	/* e.g. "payments" for listsendpays */
 	const char *arrname;
@@ -969,7 +970,7 @@ static bool ignore_column(const struct table_desc *td, const jsmntok_t *t)
 	return false;
 }
 
-/* Creates sql statements, initializes table, adds to tablemap */
+/* Creates sql statements, initializes table */
 static void finish_td(struct plugin *plugin, struct table_desc *td)
 {
 	char *create_stmt;
@@ -1026,8 +1027,6 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 	err = sqlite3_exec(db, create_stmt, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(plugin, "Could not create %s: %s", td->name, errmsg);
-
-	strmap_add(&tablemap, td->name, td);
 
 	/* Now do any children */
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
@@ -1101,6 +1100,11 @@ static struct table_desc *new_table_desc(struct table_desc *parent,
 		td->refresh = nodes_refresh;
 	else
 		td->refresh = default_refresh;
+
+	/* sub-objects are a JSON thing, not a real table! */
+	if (!td->is_subobject)
+		strmap_add(&tablemap, td->name, td);
+
 	return td;
 }
 
@@ -1238,6 +1242,7 @@ static void add_table_object(struct table_desc *td, const jsmntok_t *tok)
 		add_table_object(td, cond);
 }
 
+/* plugin is NULL if we're just doing --print-docs */
 static void init_tablemap(struct plugin *plugin)
 {
 	const jsmntok_t *toks, *t;
@@ -1259,10 +1264,14 @@ static void init_tablemap(struct plugin *plugin)
 		assert(json_tok_streq(schemas, type, "object"));
 
 		td = new_table_desc(NULL, t, cmd, false);
-		tal_steal(plugin, td);
+		if (plugin)
+			tal_steal(plugin, td);
+		else
+			tal_steal(tmpctx, td);
 		add_table_object(td, items);
 
-		finish_td(plugin, td);
+		if (plugin)
+			finish_td(plugin, td);
 	}
 }
 
@@ -1315,9 +1324,102 @@ static const struct plugin_command commands[] = { {
 	},
 };
 
+static const char *fmt_indexes(const tal_t *ctx, const char *table)
+{
+	char *ret = NULL;
+
+	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
+		if (!streq(indices[i].tablename, table))
+			continue;
+		/* FIXME: Handle multiple indices! */
+		assert(!ret);
+		BUILD_ASSERT(ARRAY_SIZE(indices[i].fields) == 2);
+		if (indices[i].fields[1])
+			ret = tal_fmt(tmpctx, "%s and %s",
+				      indices[i].fields[0],
+				      indices[i].fields[1]);
+		else
+			ret = tal_fmt(tmpctx, "%s",
+				      indices[i].fields[0]);
+	}
+	if (!ret)
+		return "";
+	return tal_fmt(ctx, " indexed by `%s`", ret);
+}
+
+static void print_columns(const struct table_desc *td, const char *indent,
+			  const char *objsrc)
+{
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		const char *origin;
+		if (td->columns[i].sub) {
+			const struct table_desc *subtd = td->columns[i].sub;
+
+			if (!subtd->is_subobject) {
+				const char *subindent;
+
+				subindent = tal_fmt(tmpctx, "%s  ", indent);
+				printf("%s- related table `%s`%s\n",
+				       indent, subtd->name, objsrc);
+				printf("%s- `row` (reference to `%s.rowid`, sqltype `INTEGER`)\n"
+				       "%s- `arrindex` (index within array, sqltype `INTEGER`)\n",
+				       subindent, td->name, subindent);
+				print_columns(subtd, subindent, "");
+			} else {
+				const char *subobjsrc;
+
+				subobjsrc = tal_fmt(tmpctx,
+						    ", from JSON object `%s`",
+						    td->columns[i].jsonname);
+				print_columns(subtd, indent, subobjsrc);
+			}
+			continue;
+		}
+
+		if (streq(objsrc, "")
+		    && td->columns[i].jsonname
+		    && !streq(td->columns[i].dbname, td->columns[i].jsonname)) {
+			origin = tal_fmt(tmpctx, ", from JSON field `%s`",
+					 td->columns[i].jsonname);
+		} else
+			origin = "";
+		printf("%s- `%s` (type `%s`, sqltype `%s`%s%s)\n",
+		       indent, td->columns[i].dbname,
+		       fieldtypemap[td->columns[i].ftype].name,
+		       fieldtypemap[td->columns[i].ftype].sqltype,
+		       origin, objsrc);
+	}
+}
+
+static bool print_one_table(const char *member,
+			    struct table_desc *td,
+			    void *unused)
+{
+	if (td->parent)
+		return true;
+
+	printf("- `%s`%s (see lightning-%s(7))\n",
+	       member, fmt_indexes(tmpctx, member), td->cmdname);
+
+	print_columns(td, "  ", "");
+	printf("\n");
+	return true;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
+
+	if (argc == 2 && streq(argv[1], "--print-docs")) {
+		common_setup(argv[0]);
+		/* plugin is NULL, so just sets up tables */
+		init_tablemap(NULL);
+
+		printf("The following tables are currently supported:\n");
+		strmap_iterate(&tablemap, print_one_table, NULL);
+		common_shutdown();
+		return 0;
+	}
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option("sqlfilename",
