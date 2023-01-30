@@ -3278,7 +3278,9 @@ def test_block_added_notifications(node_factory, bitcoind):
 
 
 def test_sql(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'experimental-offers': None,
+                                               'sqlfilename': 'sql.sqlite3'})
 
     ret = l2.rpc.sql("SELECT * FROM forwards;")
     assert ret == {'rows': []}
@@ -3286,11 +3288,32 @@ def test_sql(node_factory, bitcoind):
     # This should create a forward through l2
     l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
+    # Very rough checks of other list commands:
+    ret = l1.rpc.sql("SELECT * FROM htlcs;")
+    assert len(only_one(ret['rows'])) == 7
+
+    ret = l3.rpc.sql("SELECT * FROM invoices;")
+    assert len(only_one(ret['rows'])) == 14
+
+    ret = l3.rpc.sql("SELECT * FROM nodes;")
+    assert len(ret['rows']) == 3
+    assert len(ret['rows'][0]) == 11
+
+    ret = l3.rpc.sql("SELECT * FROM peers;")
+    assert len(only_one(ret['rows'])) == 4
+
+    l3.rpc.offer(1, 'desc')
+    ret = l3.rpc.sql("SELECT * FROM offers;")
+    assert len(only_one(ret['rows'])) == 6
+
+    ret = l1.rpc.sql("SELECT * FROM sendpays;")
+    assert len(only_one(ret['rows'])) == 15
+
+    ret = l3.rpc.sql("SELECT * FROM transactions;")
+    assert len(only_one(ret['rows'])) == 6
+
     ret = l2.rpc.sql("SELECT in_htlc_id,out_msat,status,out_htlc_id FROM forwards;")
-    assert only_one(ret['rows'])[0] == 0
-    assert only_one(ret['rows'])[1] == 12300
-    assert only_one(ret['rows'])[2] == 'settled'
-    assert only_one(ret['rows'])[3] == 0
+    assert only_one(ret['rows']) == [0, 12300, 'settled', 0]
 
     with pytest.raises(RpcError, match='Unauthorized'):
         l2.rpc.sql("DELETE FROM forwards;")
