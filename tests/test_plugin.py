@@ -3734,7 +3734,7 @@ def test_sql(node_factory, bitcoind):
 
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
     l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
-                        holdtime=10000)
+                        holdtime=TIMEOUT * 2)
     inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
     route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -3772,3 +3772,18 @@ def test_sql(node_factory, bitcoind):
 
     with pytest.raises(RpcError, match='Unauthorized'):
         l2.rpc.sql("DELETE FROM forwards;")
+
+    assert len(l3.rpc.sql("SELECT * FROM channels;")['rows']) == 4
+    # Check that channels gets refreshed!
+    scid = l1.get_channel_scid(l2)
+    l1.rpc.setchannel(scid, feebase=123)
+    wait_for(lambda: l3.rpc.sql("SELECT short_channel_id FROM channels WHERE base_fee_millisatoshi = 123;")['rows'] == [[scid]])
+    l3.daemon.wait_for_log("Refreshing channels...")
+    l3.daemon.wait_for_log("Refreshing channel: {}".format(scid))
+
+    # This has to wait for the hold_invoice plugin to let go!
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(13, wait_for_mempool=1)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+    assert len(l3.rpc.sql("SELECT * FROM channels;")['rows']) == 2
+    l3.daemon.wait_for_log("Deleting channel: {}".format(scid))
