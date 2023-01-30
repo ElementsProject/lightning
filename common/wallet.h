@@ -21,10 +21,8 @@ enum wallet_tx_type {
        TX_CHANNEL_CHEAT = 1024,
 };
 
-/* What part of a transaction are we annotating? The entire transaction, an
- * input or an output. */
+/* What part of a transaction are we annotating? An input or an output. */
 enum wallet_tx_annotation_type {
-	TX_ANNOTATION = 0,
 	OUTPUT_ANNOTATION = 1,
 	INPUT_ANNOTATION = 2,
 };
