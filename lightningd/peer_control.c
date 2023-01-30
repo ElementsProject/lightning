@@ -2365,10 +2365,10 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_add_num(response, "num_inactive_channels", inactive_channels);
 
 	/* Add network info */
+	json_array_start(response, "address");
 	if (cmd->ld->listen) {
 		/* These are the addresses we're announcing */
 		count_announceable = tal_count(cmd->ld->announceable);
-		json_array_start(response, "address");
 		for (size_t i = 0; i < count_announceable; i++)
 			json_add_address(response, NULL, cmd->ld->announceable+i);
 
@@ -2396,8 +2396,9 @@ static struct command_result *json_getinfo(struct command *cmd,
 		for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
 			json_add_address_internal(response, NULL,
 					cmd->ld->binding+i);
-		json_array_end(response);
 	}
+	json_array_end(response);
+
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", cmd->ld->blockheight);
 	json_add_string(response, "network", chainparams->network_name);
