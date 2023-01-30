@@ -84,10 +84,6 @@ periods.  This is encoded in the offer.
 period which exists.  eg. "12" means there are 13 periods, from 0 to
 12 inclusive.  This is encoded in the offer.
 
-*refund\_for* is the payment\_preimage of a previous (paid) invoice.
-This implies *send\_invoice* and *single\_use*.  This is encoded in the
-offer.
-
 *single\_use* (default false) indicates that the offer is only valid
 once; we may issue multiple invoices, but as soon as one is paid all other
 invoices will be expired (i.e. only one person can pay this offer).
@@ -128,7 +124,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-offerout(7), lightning-listoffers(7), lightning-disableoffer(7).
+lightning-listoffers(7), lightning-disableoffer(7).
 
 RESOURCES
 ---------
