@@ -14,7 +14,8 @@
     "blockheight",
     "network",
     "fees_collected_msat",
-    "lightning-dir"
+    "lightning-dir",
+    "address"
   ],
   "properties": {
     "id": {
