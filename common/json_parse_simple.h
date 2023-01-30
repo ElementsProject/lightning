@@ -42,6 +42,9 @@ bool json_str_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num);
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_u32(const char *buffer, const jsmntok_t *tok, u32 *num);
 
+/* Extract double from this (generally a bad idea!) */
+bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
+
 /* Extract boolean from this */
 bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b);
 
