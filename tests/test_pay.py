@@ -4556,7 +4556,6 @@ def test_offer(node_factory, bitcoind):
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
 
 
-@pytest.mark.xfail(strict=True)
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
                                               'allow-deprecated-apis': True})
