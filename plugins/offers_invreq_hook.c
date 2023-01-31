@@ -280,6 +280,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 		const jsmntok_t *pftok;
 		u8 *features;
 		const char *err;
+		struct amount_msat feebase;
 
 		err = json_scan(tmpctx, buf, t,
 				"{id:%,"
@@ -295,7 +296,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 				JSON_SCAN(json_to_msat, &ci.capacity),
 				JSON_SCAN(json_to_msat, &ci.htlc_min),
 				JSON_SCAN(json_to_msat, &ci.htlc_max),
-				JSON_SCAN(json_to_u32, &ci.feebase),
+				JSON_SCAN(json_to_msat, &feebase),
 				JSON_SCAN(json_to_u32, &ci.feeppm),
 				JSON_SCAN(json_to_u32, &ci.cltv),
 				JSON_SCAN(json_to_short_channel_id, &ci.scid),
@@ -306,7 +307,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 				   err);
 			continue;
 		}
-
+		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
 		any_public |= ci.public;
 
 		/* Not presented if there's no channel_announcement for peer:
