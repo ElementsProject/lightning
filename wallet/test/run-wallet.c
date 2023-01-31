@@ -1784,7 +1784,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* Update the PSBT for both inflights, check that are updated
 	 * correctly on save */
-	funding_psbt = psbt_from_b64(w, "cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAACg8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA=", strlen("cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAACg8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA="));
+	funding_psbt = psbt_from_b64(w, "cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAADfwB7g8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA=", strlen("cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAADfwB7g8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA="));
 	list_for_each(&chan->inflights, inflight, list)
 		inflight->funding_psbt = funding_psbt;
 	wallet_channel_save(w, chan);
