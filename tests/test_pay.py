@@ -4556,6 +4556,20 @@ def test_offer(node_factory, bitcoind):
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
 
 
+@pytest.mark.xfail(strict=True)
+def test_offer_deprecated_api(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
+                                              'allow-deprecated-apis': True})
+
+    offer = l2.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'test_offer_deprecated_api'})
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+
+    # Deprecated fields make schema checker upset.
+    l1.rpc.jsonschemas = {}
+    l1.rpc.pay(inv['invoice'])
+
+
 @pytest.mark.developer("dev-no-modern-onion is DEVELOPER-only")
 def test_fetchinvoice_3hop(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
