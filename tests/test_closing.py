@@ -46,6 +46,8 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     # check for the substring
     assert 'CHANNELD_NORMAL:Channel ready for use.' in billboard[0]
 
+    # Make sure all HTLCs resolved before we close!
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
     l1.rpc.close(chan)
 
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
