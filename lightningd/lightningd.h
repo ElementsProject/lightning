@@ -183,6 +183,8 @@ struct lightningd {
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *connectd;
+	/* Reconnection attempts */
+	struct delayed_reconnect_map *delayed_reconnect_map;
 
 	/* All peers we're tracking (by node_id) */
 	struct peer_node_id_map *peers;
