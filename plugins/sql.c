@@ -117,6 +117,7 @@ static struct sqlite3 *db;
 static const char *dbfilename;
 static int gosstore_fd = -1;
 static size_t gosstore_nodes_off = 0, gosstore_channels_off = 0;
+static u64 next_rowid = 1;
 
 /* It was tempting to put these in the schema, but they're really
  * just for our usage.  Though that would allow us to autogen the
@@ -224,6 +225,10 @@ static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(plugin, "Could not set max_page_count: %s", errmsg);
+
+	err = sqlite3_exec(db, "PRAGMA foreign_keys = ON;", NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+		plugin_err(plugin, "Could not set foreign_keys: %s", errmsg);
 
 	return db;
 }
@@ -423,16 +428,16 @@ static struct command_result *process_json_obj(struct command *cmd,
 					       const jsmntok_t *t,
 					       const struct table_desc *td,
 					       size_t row,
-					       const u64 *rowid,
+					       u64 this_rowid,
+					       const u64 *parent_rowid,
 					       size_t *sqloff,
 					       sqlite3_stmt *stmt)
 {
 	int err;
-	u64 parent_rowid;
 
 	/* Subtables have row, arrindex as first two columns. */
-	if (rowid) {
-		sqlite3_bind_int64(stmt, (*sqloff)++, *rowid);
+	if (parent_rowid) {
+		sqlite3_bind_int64(stmt, (*sqloff)++, *parent_rowid);
 		sqlite3_bind_int64(stmt, (*sqloff)++, row);
 	}
 
@@ -448,8 +453,8 @@ static struct command_result *process_json_obj(struct command *cmd,
 				continue;
 
 			coltok = json_get_member(buf, t, col->jsonname);
-			ret = process_json_obj(cmd, buf, coltok, col->sub, row, NULL,
-					       sqloff, stmt);
+			ret = process_json_obj(cmd, buf, coltok, col->sub, row, this_rowid,
+					       NULL, sqloff, stmt);
 			if (ret)
 				return ret;
 			continue;
@@ -564,8 +569,6 @@ static struct command_result *process_json_obj(struct command *cmd,
 				    sqlite3_errmsg(db));
 	}
 
-	/* Now we have rowid, we can insert into any subtables. */
-	parent_rowid = sqlite3_last_insert_rowid(db);
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
 		const struct column *col = &td->columns[i];
 		const jsmntok_t *coltok;
@@ -578,7 +581,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 		if (!coltok)
 			continue;
 
-		ret = process_json_list(cmd, buf, coltok, &parent_rowid, col->sub);
+		ret = process_json_list(cmd, buf, coltok, &this_rowid, col->sub);
 		if (ret)
 			return ret;
 	}
@@ -589,7 +592,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 static struct command_result *process_json_list(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *arr,
-						const u64 *rowid,
+						const u64 *parent_rowid,
 						const struct table_desc *td)
 {
 	size_t i;
@@ -608,7 +611,11 @@ static struct command_result *process_json_list(struct command *cmd,
 	json_for_each_arr(i, t, arr) {
 		/* sqlite3 columns are 1-based! */
 		size_t off = 1;
-		ret = process_json_obj(cmd, buf, t, td, i, rowid, &off, stmt);
+		u64 this_rowid = next_rowid++;
+
+		/* First entry is always the rowid */
+		sqlite3_bind_int64(stmt, off++, this_rowid);
+		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt);
 		if (ret)
 			break;
 		sqlite3_reset(stmt);
@@ -1049,6 +1056,7 @@ static void json_add_schema(struct json_stream *js,
 	/* This needs to be an array, not a dictionary, since dicts
 	 * are often treated as unordered, and order is critical! */
 	json_array_start(js, "columns");
+	json_add_column(js, "rowid", "INTEGER");
 	if (td->parent) {
 		json_add_column(js, "row", "INTEGER");
 		json_add_column(js, "arrindex", "INTEGER");
@@ -1118,8 +1126,11 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 	if (td->is_subobject)
 		return;
 
-	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
-	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
+	/* We make an explicit rowid in each table, for subtables to access.  This is
+	 * becuase the implicit rowid can't be used as a foreign key! */
+	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (rowid INTEGER PRIMARY KEY, ",
+			      td->name);
+	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (?, ", td->name);
 
 	/* If we're a child array, we reference the parent column */
 	if (td->parent) {
