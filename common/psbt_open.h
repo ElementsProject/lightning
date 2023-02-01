@@ -15,14 +15,12 @@ struct wally_psbt_output;
 struct wally_map;
 
 struct input_set {
-	struct wally_tx_input tx_input;
 	struct wally_psbt_input input;
 	/* index on PSBT of this input */
 	size_t idx;
 };
 
 struct output_set {
-	struct wally_tx_output tx_output;
 	struct wally_psbt_output output;
 	/* index on PSBT of this output */
 	size_t idx;

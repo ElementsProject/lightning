@@ -26,6 +26,7 @@ void psbt_finalize_input(const tal_t *ctx,
 			 struct wally_psbt_input *in,
 			 const struct witness_element **elements)
 {
+	const struct wally_map_item *redeem_script;
 	psbt_input_set_final_witness_stack(ctx, in, elements);
 
 	/* There's this horrible edgecase where we set the final_witnesses
@@ -35,18 +36,16 @@ void psbt_finalize_input(const tal_t *ctx,
 	 * on these just .. ignores it!? Murder. Anyway, here we do a final
 	 * scriptsig check -- if there's a redeemscript field still around we
 	 * just go ahead and mush it into the final_scriptsig field. */
-	if (in->redeem_script) {
+	redeem_script = wally_map_get_integer(&in->psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
+	if (redeem_script) {
 		u8 *redeemscript = tal_dup_arr(NULL, u8,
-					       in->redeem_script,
-					       in->redeem_script_len, 0);
-		in->final_scriptsig =
+					       redeem_script->value,
+					       redeem_script->value_len, 0);
+		u8 *final_scriptsig =
 			bitcoin_scriptsig_redeem(NULL,
 						 take(redeemscript));
-		in->final_scriptsig_len =
-			tal_bytelen(in->final_scriptsig);
-
-		in->redeem_script = tal_free(in->redeem_script);
-		in->redeem_script_len = 0;
+		wally_psbt_input_set_final_scriptsig(in, final_scriptsig, tal_bytelen(final_scriptsig));
+		wally_psbt_input_set_redeem_script(in, tal_arr(NULL, u8, 0), 0);
 	}
 }
 

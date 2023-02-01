@@ -81,10 +81,6 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt UNNEEDED,
 					   const u8 *input_wscript UNNEEDED,
 					   const u8 *redeemscript UNNEEDED)
 { fprintf(stderr, "psbt_append_input called!\n"); abort(); }
-/* Generated stub for psbt_elements_input_set_asset */
-void psbt_elements_input_set_asset(struct wally_psbt *psbt UNNEEDED, size_t in UNNEEDED,
-				   struct amount_asset *asset UNNEEDED)
-{ fprintf(stderr, "psbt_elements_input_set_asset called!\n"); abort(); }
 /* Generated stub for psbt_final_tx */
 struct wally_tx *psbt_final_tx(const tal_t *ctx UNNEEDED, const struct wally_psbt *psbt UNNEEDED)
 { fprintf(stderr, "psbt_final_tx called!\n"); abort(); }

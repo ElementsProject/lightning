@@ -441,6 +441,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
 def test_reserveinputs(node_factory, bitcoind, chainparams):
     amount = 1000000
     total_outs = 12
@@ -494,6 +495,7 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     assert not any('reserved_to_block' in o for o in l1.rpc.listfunds()['outputs'])
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
 def test_fundpsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
     total_outs = 4
@@ -577,6 +579,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
         l1.rpc.fundpsbt(amount // 2, feerate, 0)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
 def test_utxopsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node()
@@ -691,6 +694,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
                     reservedok=True)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
 def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     """
     A PSBT w/ one of our inputs should be signable (we can fill
@@ -719,6 +723,7 @@ def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     l1.rpc.signpsbt(psbt)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs

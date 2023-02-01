@@ -216,7 +216,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	utx = tal(NULL, struct unreleased_tx);
 	utx->is_upgrade = txp->is_upgrade;
 	utx->psbt = tal_steal(utx, txp->psbt);
-	psbt_txid(utx, txp->psbt, &utx->txid, &utx->tx);
+	psbt_txid(utx, utx->psbt, &utx->txid, &utx->tx);
 
 	/* If this is a withdraw, we sign and send immediately. */
 	if (txp->is_withdraw) {
@@ -300,6 +300,11 @@ static struct command_result *psbt_created(struct command *cmd,
 				    "Unparsable psbt: '%.*s'",
 				    psbttok->end - psbttok->start,
 				    buf + psbttok->start);
+
+	if (!psbt_set_version(txp->psbt, 2)) {
+		return command_fail(cmd, LIGHTNINGD,
+					"Unable to convert PSBT to version 2.");
+	}
 
 	if (!json_to_number(buf, json_get_member(buf, result, "feerate_per_kw"),
 			    &txp->feerate))

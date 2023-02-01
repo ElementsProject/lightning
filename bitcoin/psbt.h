@@ -29,7 +29,7 @@ struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_o
 
 /*
  * new_psbt - Create a PSBT, using the passed in tx
- * 	      as the global_tx
+ * 	      as the locktime/inputs/output psbt fields
  *
  * @ctx - allocation context
  * @wtx - global_tx starter kit
@@ -227,6 +227,33 @@ struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt);
  */
 bool psbt_has_input(const struct wally_psbt *psbt,
 		    const struct bitcoin_outpoint *outpoint);
+
+/* wally_psbt_input_spends - Returns true if PSBT input spends given outpoint
+ *
+ * @input - psbt input
+ * @outpoint - outpoint
+ */
+bool wally_psbt_input_spends(const struct wally_psbt_input *input,
+               const struct bitcoin_outpoint *outpoint);
+
+void wally_psbt_input_get_outpoint(const struct wally_psbt_input *in,
+                 struct bitcoin_outpoint *outpoint);
+
+const u8 *wally_psbt_output_get_script(const tal_t *ctx,
+                     const struct wally_psbt_output *output);
+
+void wally_psbt_input_get_txid(const struct wally_psbt_input *in,
+                 struct bitcoin_txid *txid);
+
+struct amount_asset
+wally_psbt_output_get_amount(const struct wally_psbt_output *output);
+
+/* psbt_set_version - Returns false if there was any issue with the PSBT.
+ * Returns true if it was a well-formed PSET and treats it as a no-op
+ */
+bool psbt_set_version(struct wally_psbt *psbt, u32 version);
+
+bool elements_psbt_output_is_fee(const struct wally_psbt *psbt, size_t outnum);
 
 struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 const char *b64,

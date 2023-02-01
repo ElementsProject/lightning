@@ -2180,11 +2180,11 @@ static void handle_validate_rbf(struct subd *dualopend,
 	list_for_each(&channel->inflights, inflight, list) {
 		/* Remove every non-matching input from set */
 		for (size_t i = 0; i < candidate_psbt->num_inputs; i++) {
-			struct wally_tx_input *input =
-				&candidate_psbt->tx->inputs[i];
+			const struct wally_psbt_input *input =
+				&candidate_psbt->inputs[i];
 			struct bitcoin_outpoint outpoint;
 
-			wally_tx_input_get_outpoint(input, &outpoint);
+			wally_psbt_input_get_outpoint(input, &outpoint);
 
 			if (!psbt_has_input(inflight->funding_psbt,
 					    &outpoint))
@@ -2792,6 +2792,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		   p_opt("compact_lease", param_lease_hex, &rates),
 		   NULL))
 		return command_param_failed();
+
+	/* We only deal in v2 */
+	if (!psbt_set_version(psbt, 2)) {
+		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+	}
 
 	/* Gotta expect some rates ! */
 	if (!amount_sat_zero(*request_amt) && !rates)

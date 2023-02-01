@@ -53,9 +53,6 @@ void pubkey_to_der(u8 der[PUBKEY_CMPR_LEN] UNNEEDED, const struct pubkey *key UN
 /* Generated stub for pubkey_to_hash160 */
 void pubkey_to_hash160(const struct pubkey *pk UNNEEDED, struct ripemd160 *hash UNNEEDED)
 { fprintf(stderr, "pubkey_to_hash160 called!\n"); abort(); }
-/* Generated stub for script_push_bytes */
-void script_push_bytes(u8 **scriptp UNNEEDED, const void *mem UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "script_push_bytes called!\n"); abort(); }
 /* Generated stub for scriptpubkey_p2wsh */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx UNNEEDED, const u8 *witnessscript UNNEEDED)
 { fprintf(stderr, "scriptpubkey_p2wsh called!\n"); abort(); }
@@ -105,7 +102,8 @@ int main(int argc, char *argv[])
 
 	/* Witness/scriptsig data is saved down into psbt */
 	assert(tx2->psbt->num_inputs == 1);
-	assert(tx2->psbt->inputs[0].final_scriptsig_len > 0);
+	const struct wally_map_item *final_scriptsig = wally_map_get_integer(&tx2->psbt->inputs[0].psbt_fields, /* PSBT_IN_FINAL_SCRIPTSIG */ 0x07);
+	assert(final_scriptsig->value_len > 0);
 	assert(tx2->psbt->inputs[0].final_witness != NULL);
 
 	common_shutdown();
