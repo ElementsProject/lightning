@@ -250,8 +250,8 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 						 in->input.utxo);
 
 		msg = towire_tx_add_input(ctx, cid, serial_id,
-					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence);
+					  prevtx, in->input.index,
+					  in->input.sequence);
 
 		tal_arr_remove(&set->added_ins, 0);
 		return msg;
@@ -274,10 +274,11 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		if (!psbt_get_serial_id(&out->output.unknowns, &serial_id))
 			abort();
 
-		asset_amt = wally_tx_output_get_amount(&out->tx_output);
+		asset_amt = wally_psbt_output_get_amount(&out->output);
 		sats = amount_asset_to_sat(&asset_amt);
-		const u8 *script = wally_tx_output_get_script(ctx,
-							      &out->tx_output);
+		const u8 *script = wally_psbt_output_get_script(ctx,
+							      &out->output);
+
 
 		msg = towire_tx_add_output(ctx, cid, serial_id,
 					   sats.satoshis, /* Raw: wire interface */
@@ -596,12 +597,20 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 				size_t in)
 {
 	size_t weight;
+	const struct wally_map_item *redeem_script;
+
+	redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
 
 	/* txid + txout + sequence */
 	weight = (32 + 4 + 4) * 4;
-	weight +=
-		(psbt->inputs[in].redeem_script_len +
-			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
+	if (redeem_script) {
+		weight +=
+			(redeem_script->value_len +
+				(varint_t) varint_size(redeem_script->value_len)) * 4;
+	} else {
+		/* zero scriptSig length */
+		weight += (varint_t) varint_size(0) * 4;
+	}
 
 	return weight;
 }
@@ -609,15 +618,15 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 static size_t psbt_output_weight(struct wally_psbt *psbt,
 				 size_t outnum)
 {
-	return (8 + psbt->tx->outputs[outnum].script_len +
-		varint_size(psbt->tx->outputs[outnum].script_len)) * 4;
+	return (8 + psbt->outputs[outnum].script_len +
+		varint_size(psbt->outputs[outnum].script_len)) * 4;
 }
 
 static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u32 *funding_txout)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
-		if (memeq(wscript, tal_bytelen(wscript), psbt->tx->outputs[i].script,
-			  psbt->tx->outputs[i].script_len)) {
+		if (memeq(wscript, tal_bytelen(wscript), psbt->outputs[i].script,
+			  psbt->outputs[i].script_len)) {
 			*funding_txout = i;
 			return true;
 		}
@@ -2382,9 +2391,17 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!tx_state->psbt)
 		tx_state->psbt = create_psbt(tx_state, 0, 0,
 					     tx_state->tx_locktime);
-	else
+	else {
 		/* Locktimes must match! */
-		tx_state->psbt->tx->locktime = tx_state->tx_locktime;
+		tx_state->psbt->fallback_locktime = tx_state->tx_locktime;
+		if (!psbt_set_version(tx_state->psbt, 2)) {
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+						  "Could not set PSBT version: %s",
+						  type_to_string(tmpctx,
+						  struct wally_psbt,
+						  tx_state->psbt));
+		}
+	}
 
 	/* BOLT- #2:
 	 *
@@ -2914,6 +2931,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
 	struct amount_sat *requested_lease;
+	size_t locktime;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
 					    &tx_state->psbt,
@@ -2930,8 +2948,8 @@ static void opener_start(struct state *state, u8 *msg)
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
-	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-
+	wally_psbt_get_locktime(tx_state->psbt, &locktime);
+	tx_state->tx_locktime = locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	/* BOLT #2:
@@ -3456,6 +3474,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 
 	/* tmpctx gets cleaned midway, so we have a context for this fn */
 	char *rbf_ctx = notleak_with_children(tal(state, char));
+	size_t locktime;
 
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(rbf_ctx);
@@ -3490,8 +3509,8 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		return;
 	}
 
-	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-
+	wally_psbt_get_locktime(tx_state->psbt, &locktime);
+	tx_state->tx_locktime = locktime;
 	/* For now, we always just echo/send the funding amount */
 	init_rbf_tlvs->funding_output_contribution
 		= tal(init_rbf_tlvs, u64);

@@ -461,6 +461,7 @@ def test_bech32_funding(node_factory, chainparams):
     assert only_one(fundingtx['vin'])['txid'] == res['wallettxid']
 
 
+@unittest.skipIf(not TEST_NETWORK == 'regtest', 'no support for PSETv0')
 def test_withdraw_misc(node_factory, bitcoind, chainparams):
     def dont_spend_outputs(n, txid):
         """Reserve both outputs (we assume there are two!) in case any our ours, so we don't spend change: wrecks accounting checks"""

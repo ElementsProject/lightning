@@ -5,6 +5,7 @@
  */
 #include "config.h"
 #include <bitcoin/feerate.h>
+#include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
@@ -212,14 +213,14 @@ remember_channel_utxos(struct command *cmd,
 				    signed_psbt);
 
 	utxos_bin = tal_arr(cmd, u8, 0);
-	for (size_t i = 0; i < signed_psbt->tx->num_inputs; i++) {
+	for (size_t i = 0; i < signed_psbt->num_inputs; i++) {
 		struct bitcoin_outpoint outpoint;
 
 		/* Don't save peer's UTXOS */
 		if (!psbt_input_is_ours(&signed_psbt->inputs[i]))
 			continue;
 
-		wally_tx_input_get_outpoint(&signed_psbt->tx->inputs[i],
+		wally_psbt_input_get_outpoint(&signed_psbt->inputs[i],
 					    &outpoint);
 		towire_bitcoin_outpoint(&utxos_bin, &outpoint);
 	}

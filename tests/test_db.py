@@ -1,8 +1,7 @@
-from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEOUT, only_one, scid_to_int
+from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEOUT, scid_to_int
 
 import base64
 import os
@@ -171,21 +170,16 @@ def test_scid_upgrade(node_factory, bitcoind):
 def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
-    prior_txs = ['02000000019CCCA2E59D863B00B5BD835BF7BA93CC257932D2C7CDBE51EFE2EE4A9D29DFCB01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620', '020000000122F9EBE38F54208545B681AD7F73A7AE3504A09C8201F502673D34E28424687C01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620']
+    # FIXME: Re-add dynamic checks once PSBTv2 support is in both Core/Elements, or get python support
+    # These PSBTs were manually checked for 0.001 BTC multisig witness utxos in a single input
+    upgraded_psbts = ['cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRjBDAiBgFZ+8xOkvxfBoC9QdAhBuX6zhpvKsqWw8QeN2gK1b4wIfQdSIq+vNMfnFZqLyv3Un4s7i2MzHUiTs2morB/t/SwEBAwQBAAAAAQVHUiECMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUshAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XUq4iBgIyQmbehAOzqxV6CfH3hNWHr2GDHJmMFRvMIbt0wrIxSwhK0xNpAAAAACIGAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XCBq8wdAAAAAAAQ4gnMyi5Z2GOwC1vYNb97qTzCV5MtLHzb5R7+LuSp0p38sBDwQBAAAAARAEnbDigAABAwhKAQAAAAAAAAEEIgAgvnk1p3ypq3CkuLGQaCVjd2f+08AIJKqQyYiYNYfWhIgAAQMI8IIBAAAAAAABBCIAIJ9GhN2yis3HOVm8GU0aJd+Qb2HtAw9S0WPm8eJH0yy7AA==', 'cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRzBEAiBWXvsSYMpD69abqr7X9XurE6B6GkhyI5JeGuKYByBukAIgUmk9q/g3PIS9HjTVJ4OmRoSZAMKLFdsowq15Sl9OAD8BAQMEAQAAAAEFR1IhAjJCZt6EA7OrFXoJ8feE1YevYYMcmYwVG8whu3TCsjFLIQLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOV1KuIgYCMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUsIStMTaQAAAAAiBgLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOVwgavMHQAAAAAAEOICL56+OPVCCFRbaBrX9zp641BKCcggH1Amc9NOKEJGh8AQ8EAQAAAAEQBJ2w4oAAAQMISgEAAAAAAAABBCIAIL55Nad8qatwpLixkGglY3dn/tPACCSqkMmImDWH1oSIAAEDCPCCAQAAAAAAAQQiACCfRoTdsorNxzlZvBlNGiXfkG9h7QMPUtFj5vHiR9MsuwA=']
 
     l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz',
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channel_funding_inflights ORDER BY channel_id, funding_feerate;')]
     for i in range(len(b64_last_txs)):
-        bpsbt = b64_last_txs[i]
-        psbt = bitcoind.rpc.decodepsbt(bpsbt)
-        tx = prior_txs[i]
-        assert psbt['tx']['txid'] == bitcoind.rpc.decoderawtransaction(tx)['txid']
-        funding_input = only_one(psbt['inputs'])
-        assert funding_input['witness_utxo']['amount'] == Decimal('0.001')
-        assert funding_input['witness_utxo']['scriptPubKey']['type'] == 'witness_v0_scripthash'
-        assert funding_input['witness_script']['type'] == 'multisig'
+        assert b64_last_txs[i] == upgraded_psbts[i]
 
 
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
@@ -194,22 +188,16 @@ def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
 def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
-    prior_txs = ['02000000018DD699861B00061E50937A233DB584BF8ED4C0BF50B44C0411F71B031A06455000000000000EF7A9800350C300000000000022002073356CFF7E1588F14935EF138E142ABEFB5F7E3D51DE942758DCD5A179449B6250A90600000000002200202DF545EA882889846C52FC5E111AC07CE07E0C09418AC15743A6F6284C2A4FA720A1070000000000160014E89954FAC8F7A2DCE51E095D7BEB5271C3F7DA56EF81DC20', '02000000018A0AE4C63BCDF9D78B07EB4501BB23404FDDBC73973C592793F047BE1495074B010000000074D99980010A2D0F00000000002200203B8CB644781CBECA96BE8B2BF1827AFD908B3CFB5569AC74DAB9395E8DDA39E4C9555420', '020000000135DAB2996E57762E3EC158C0D57D39F43CA657E882D93FC24F5FEBAA8F36ED9A0100000000566D1D800350C30000000000002200205679A7D06E1BD276AA25F56E9E4DF7E07D9837EFB0C5F63604F10CD9F766A03ED4DD0600000000001600147E5B5C8F4FC1A9484E259F92CA4CBB7FA2814EA49A6C070000000000220020AB6226DEBFFEFF4A741C01367FA3C875172483CFB3E327D0F8C7AA4C51EDECAA27AA4720']
+    # FIXME: Re-add dynamic checks once PSBTv2 support is in both Core/Elements, or get python support
+    # These PSBTs were manually checked for 0.01 BTC multisig witness utxos in a single input
+    upgraded_psbts = ['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']
 
     l1 = node_factory.get_node(dbfile='last_tx_upgrade.sqlite3.xz',
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
     for i in range(len(b64_last_txs)):
-        bpsbt = b64_last_txs[i]
-        psbt = bitcoind.rpc.decodepsbt(bpsbt)
-        tx = prior_txs[i]
-        assert psbt['tx']['txid'] == bitcoind.rpc.decoderawtransaction(tx)['txid']
-        funding_input = only_one(psbt['inputs'])
-        # Every opened channel was funded with the same amount: 1M sats
-        assert funding_input['witness_utxo']['amount'] == Decimal('0.01')
-        assert funding_input['witness_utxo']['scriptPubKey']['type'] == 'witness_v0_scripthash'
-        assert funding_input['witness_script']['type'] == 'multisig'
+        assert b64_last_txs[i] == upgraded_psbts[i]
 
     l1.stop()
     # Test again, but this time with a database with a closed channel + forgotten peer
@@ -222,8 +210,9 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
                                options={'database-upgrade': True})
     last_txs = [x['last_tx'] for x in l2.db_query('SELECT last_tx FROM channels ORDER BY id;')]
 
-    # The first tx should be psbt, the second should still be hex
-    bitcoind.rpc.decodepsbt(base64.b64encode(last_txs[0]).decode('utf-8'))
+    # The first tx should be psbt, the second should still be hex (Newer Core version required for better error message)
+    assert last_txs[0][:4] == b'psbt'
+
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
 

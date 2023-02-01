@@ -3,7 +3,6 @@
 #include <wally_psbt.h>
 
 static void swap_wally_outputs(struct wally_tx_output *outputs,
-			       struct wally_tx_output *psbt_global_outs,
 			       struct wally_psbt_output *psbt_outs,
 			       const void **map, u32 *cltvs,
 			       size_t i1, size_t i2)
@@ -17,12 +16,6 @@ static void swap_wally_outputs(struct wally_tx_output *outputs,
 	tmpoutput = outputs[i1];
 	outputs[i1] = outputs[i2];
 	outputs[i2] = tmpoutput;
-
-	/* For the PSBT, we swap the psbt outputs and
-	 * the global tx's outputs */
-	tmpoutput = psbt_global_outs[i1];
-	psbt_global_outs[i1] = psbt_global_outs[i2];
-	psbt_global_outs[i2] = tmpoutput;
 
 	tmppsbtout = psbt_outs[i1];
 	psbt_outs[i1] = psbt_outs[i2];
@@ -106,7 +99,6 @@ void permute_outputs(struct bitcoin_tx *tx, u32 *cltvs, const void **map)
 
 		/* Swap best into first place. */
 		swap_wally_outputs(tx->wtx->outputs,
-				   tx->psbt->tx->outputs,
 				   tx->psbt->outputs,
 				   map, cltvs, i, best_pos);
 	}

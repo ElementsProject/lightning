@@ -421,6 +421,8 @@ mw_after_fundpsbt(struct command *cmd,
 				      field->end - field->start) : NULL;
 	ok = ok && mw->psbt;
 
+	ok = ok && psbt_set_version(mw->psbt, 2);
+
 	field = ok ? json_get_member(buf, result, "feerate_per_kw") : NULL;
 	ok = ok && field;
 	ok = ok && json_to_number(buf, field, &feerate_per_kw);

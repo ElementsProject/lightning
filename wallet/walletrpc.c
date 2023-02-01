@@ -616,14 +616,14 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 							 struct utxo ***utxos)
 {
 	*utxos = tal_arr(cmd, struct utxo *, 0);
-	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct utxo *utxo;
 		struct bitcoin_outpoint outpoint;
 
 		if (only_inputs && !in_only_inputs(only_inputs, i))
 			continue;
 
-		wally_tx_input_get_outpoint(&psbt->tx->inputs[i], &outpoint);
+		wally_psbt_input_get_outpoint(&psbt->inputs[i], &outpoint);
 		utxo = wallet_utxo_get(*utxos, cmd->ld->wallet, &outpoint);
 		if (!utxo) {
 			if (only_inputs)
@@ -676,7 +676,6 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 				  struct wallet *w)
 {
-	assert(psbt->tx->num_outputs == psbt->num_outputs);
 	tal_wally_start();
 	for (size_t outndx = 0; outndx < psbt->num_outputs; ++outndx) {
 		u32 index;
@@ -684,8 +683,8 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 		const u8 *script;
 		struct ext_key ext;
 
-		script = wally_tx_output_get_script(tmpctx,
-						    &psbt->tx->outputs[outndx]);
+		script = wally_psbt_output_get_script(tmpctx,
+						    &psbt->outputs[outndx]);
 		if (!script)
 			continue;
 
@@ -738,12 +737,22 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	struct wally_psbt *psbt, *signed_psbt;
 	struct utxo **utxos;
 	u32 *input_nums;
+	u32 psbt_version;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
 		   p_opt("signonly", param_input_numbers, &input_nums),
 		   NULL))
 		return command_param_failed();
+
+	/* We internally deal with v2 only but we want to return V2 if given */
+	psbt_version = psbt->version;
+	if (!psbt_set_version(psbt, 2)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not set PSBT version: %s",
+					 type_to_string(tmpctx, struct wally_psbt,
+					 	psbt));
+	}
 
 	/* Sanity check! */
 	for (size_t i = 0; i < tal_count(input_nums); i++) {
@@ -784,6 +793,13 @@ static struct command_result *json_signpsbt(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad sign_withdrawal_reply %s",
 				    tal_hex(tmpctx, msg));
+
+	if (!psbt_set_version(signed_psbt, psbt_version)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Signed PSBT unable to have version set: %s",
+					 type_to_string(tmpctx, struct wally_psbt,
+					 	psbt));
+	}
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "signed_psbt", signed_psbt);
@@ -827,8 +843,8 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 		return;
 
 	/* If it's going to our wallet, ignore */
-	script = wally_tx_output_get_script(tmpctx,
-					    &psbt->tx->outputs[outnum]);
+	script = wally_psbt_output_get_script(tmpctx,
+					    &psbt->outputs[outnum]);
 	if (wallet_can_spend(ld->wallet, script, &index, &is_p2sh))
 		return;
 
@@ -871,6 +887,11 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 					 type_to_string(tmpctx, struct wally_tx,
 							sending->wtx)));
 		return;
+	}
+
+	/* Internal-only after, set to v2 */
+	if (!psbt_set_version(sending->psbt, 2)) {
+		abort(); // Send succeeded but later calls may fail
 	}
 
 	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
