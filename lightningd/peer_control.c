@@ -1891,6 +1891,8 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */
+	log_debug(channel->log, "Watching for funding txid: %s",
+		type_to_string(tmpctx, struct bitcoin_txid, &channel->funding.txid));
 	watch_txid(channel, ld->topology, channel,
 		   &channel->funding.txid, funding_depth_cb);
 	watch_txo(channel, ld->topology, channel,

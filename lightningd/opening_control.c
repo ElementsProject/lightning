@@ -1009,10 +1009,15 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 
 	fc = peer->uncommitted_channel->fc;
 
+	/* We only deal with V2 internally */
+	if (!psbt_set_version(funding_psbt, 2)) {
+		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+	}
+
 	/* Figure out the correct output, and perform sanity checks. */
-	for (size_t i = 0; i < funding_psbt->tx->num_outputs; i++) {
-		if (memeq(funding_psbt->tx->outputs[i].script,
-			  funding_psbt->tx->outputs[i].script_len,
+	for (size_t i = 0; i < funding_psbt->num_outputs; i++) {
+		if (memeq(funding_psbt->outputs[i].script,
+			  funding_psbt->outputs[i].script_len,
 			  fc->funding_scriptpubkey,
 			  tal_bytelen(fc->funding_scriptpubkey))) {
 			if (funding_txout_num)
@@ -1028,14 +1033,14 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 
 	/* Can't really check amounts for elements. */
 	if (!chainparams->is_elements
-	    && !amount_sat_eq(amount_sat(funding_psbt->tx->outputs
-					 [*funding_txout_num].satoshi),
+	    && !amount_sat_eq(amount_sat(funding_psbt->outputs
+					 [*funding_txout_num].amount),
 			      fc->funding_sats))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Output to open channel is %"PRIu64"sat,"
 				    " should be %s",
-				    funding_psbt->tx->outputs
-				    [*funding_txout_num].satoshi,
+				    funding_psbt->outputs
+				    [*funding_txout_num].amount,
 				    type_to_string(tmpctx, struct amount_sat,
 						   &fc->funding_sats));
 

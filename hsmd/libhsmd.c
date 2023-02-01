@@ -466,7 +466,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			struct privkey privkey;
 			struct pubkey pubkey;
 
-			if (!wally_tx_input_spends(&psbt->tx->inputs[j],
+			if (!wally_psbt_input_spends(&psbt->inputs[j],
 						   &utxo->outpoint))
 				continue;
 

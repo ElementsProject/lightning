@@ -14,7 +14,7 @@ void psbt_set_keypath(u32 index, const struct ext_key *ext, struct wally_map *ma
 	u32 path[1];
 	path[0] = index;
 
-	if (wally_map_add_keypath_item(map_in,
+	if (wally_map_keypath_add(map_in,
 				       ext->pub_key, sizeof(ext->pub_key),
 				       fingerprint, sizeof(fingerprint),
 				       path, 1) != WALLY_OK)
