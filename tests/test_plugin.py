@@ -3294,6 +3294,9 @@ def test_sql(node_factory, bitcoind):
     ret = l2.rpc.sql("SELECT * FROM forwards;")
     assert ret == {'rows': []}
 
+    # Test that we correctly clean up subtables!
+    assert len(l2.rpc.sql("SELECT * from peerchannels_features")['rows']) == len(l2.rpc.sql("SELECT * from peerchannels_features")['rows'])
+
     # This should create a forward through l2
     l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
@@ -3798,12 +3801,13 @@ def test_sql(node_factory, bitcoind):
                   'number': 'REAL',
                   'short_channel_id': 'TEXT'}
 
-    # Check schemas match.
+    # Check schemas match (each one has rowid at start)
+    rowidcol = {'name': 'rowid', 'type': 'u64'}
     for table, schema in expected_schemas.items():
         res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
-        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in schema['columns']]
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
         assert res['columns'] == sqlcolumns
 
     # Make sure we didn't miss any
@@ -3827,7 +3831,11 @@ def test_sql(node_factory, bitcoind):
 
     for table, schema in expected_schemas.items():
         ret = l2.rpc.sql("SELECT * FROM {};".format(table))
-        assert len(ret['rows'][0]) == len(schema['columns'])
+        assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+
+        # First column is always rowid!
+        for row in ret['rows']:
+            assert row[0] > 0
 
         for col in schema['columns']:
             val = only_one(l2.rpc.sql("SELECT {} FROM {};".format(col['name'], table))['rows'][0])
