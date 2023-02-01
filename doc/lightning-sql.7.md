@@ -80,6 +80,12 @@ Additionally, only the following functions are allowed:
 
 TABLES
 ------
+Note that the first column of every table is a unique integer called
+`rowid`: this is used for related tables to refer to specific rows in
+their parent.  sqlite3 usually has this as an implicit column, but we
+make it explicit as the implicit version is not allowed to be used as
+a foreign key.
+
 [comment]: # (GENERATE-DOC-START)
 The following tables are currently supported:
 - `bkpr_accountevents` (see lightning-bkpr-listaccountevents(7))
