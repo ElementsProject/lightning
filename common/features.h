@@ -15,7 +15,8 @@ enum feature_place {
 	BOLT12_INVOICE_FEATURE,
 };
 #define NUM_FEATURE_PLACE (BOLT12_INVOICE_FEATURE+1)
-
+#define PEER_STORAGE_FEATURE 42
+#define YOUR_PEER_STORAGE_FEATURE 40
 extern const char *feature_place_names[NUM_FEATURE_PLACE];
 
 /* The complete set of features for all contexts */
