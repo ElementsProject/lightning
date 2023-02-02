@@ -5,6 +5,7 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/features.h>
@@ -166,57 +167,51 @@ static void maybe_create_new_scb(struct plugin *p,
 	rename("scb.tmp", FILENAME);
 }
 
+static u8* get_file_data(struct plugin *p)
+{
+	u8 *scb = grab_file(tmpctx, "emergency.recover");
+	if (!scb) {
+		plugin_err(p, "Cannot read emergency.recover: %s", strerror(errno));
+	} else {
+		/* grab_file adds nul term */
+		tal_resize(&scb, tal_bytelen(scb) - 1);
+	}
+	return scb;
+}
 
 /* Returns decrypted SCB in form of a u8 array */
 static u8 *decrypt_scb(struct plugin *p)
 {
-	struct stat st;
-	int fd = open(FILENAME, O_RDONLY);
-
-	if (stat(FILENAME, &st) != 0)
-		plugin_err(p, "SCB file is corrupted!: %s",
-                          strerror(errno));
-
-	u8 final[st.st_size];
-
-	if (!read_all(fd, &final, st.st_size)) {
-		plugin_log(p, LOG_DBG, "SCB file is corrupted!: %s",
-                           strerror(errno));
-		return NULL;
-	}
+	u8 *filedata = get_file_data(p);
 
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 
-	if (st.st_size < ABYTES +
+	if (tal_bytelen(filedata) < ABYTES +
 			 HEADER_LEN)
 		plugin_err(p, "SCB file is corrupted!");
 
-	u8 *ans = tal_arr(tmpctx, u8, st.st_size -
+	u8 *decrypt_scb = tal_arr(tmpctx, u8, tal_bytelen(filedata) -
                           ABYTES -
                           HEADER_LEN);
 
 	/* The header part */
 	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
-							    final,
+							    filedata,
 							    (&secret)->data) != 0)
 	{
 		plugin_err(p, "SCB file is corrupted!");
 	}
 
-	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, ans,
+	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, decrypt_scb,
 						       NULL, 0,
-						       final +
+						       filedata +
 						       HEADER_LEN,
-						       st.st_size -
+						       tal_bytelen(filedata)-
 						       HEADER_LEN,
 						       NULL, 0) != 0) {
 		plugin_err(p, "SCB file is corrupted!");
 	}
-
-	if (close(fd) != 0)
-		plugin_err(p, "Closing: %s", strerror(errno));
-
-	return ans;
+	return decrypt_scb;
 }
 
 static struct command_result *after_recover_rpc(struct command *cmd,
