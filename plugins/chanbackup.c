@@ -7,6 +7,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/features.h>
 #include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -409,7 +410,12 @@ static const struct plugin_command commands[] = { {
 
 int main(int argc, char *argv[])
 {
-	setup_locale();
+        setup_locale();
+	struct feature_set *features = feature_set_for_feature(NULL, PEER_STORAGE_FEATURE);
+	feature_set_or(features,
+		       take(feature_set_for_feature(NULL,
+						    YOUR_PEER_STORAGE_FEATURE)));
+
 	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 	        notifs, ARRAY_SIZE(notifs), NULL, 0,
