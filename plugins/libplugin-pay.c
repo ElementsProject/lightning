@@ -3270,6 +3270,7 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 		/* Must have either a local alias for zeroconf
 		 * channels or a final scid. */
 		assert(chan->alias[LOCAL] || chan->scid);
+		tal_free(d->chan);
 		d->chan = tal(d, struct short_channel_id_dir);
 		if (chan->scid) {
 			d->chan->scid = *chan->scid;
