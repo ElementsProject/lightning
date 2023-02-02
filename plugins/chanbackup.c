@@ -338,14 +338,9 @@ static struct command_result *json_state_changed(struct command *cmd,
                                                     "channel_state_changed"),
 	*statetok = json_get_member(buf, notiftok, "new_state");
 
-	/* FIXME: I wanted to update the file on CHANNELD_AWAITING_LOCKIN,
-	 * But I don't get update for it, maybe because there is
-	 * no previous_state, also apparently `channel_opened` gets published
-	 * when *peer* funded a channel with us?
-	 * So, is their no way to get a notif on CHANNELD_AWAITING_LOCKIN? */
 	if (json_tok_streq(buf, statetok, "CLOSED") ||
-		json_tok_streq(buf, statetok, "CHANNELD_NORMAL")) {
-
+		json_tok_streq(buf, statetok, "CHANNELD_AWAITING_LOCKIN") ||
+		json_tok_streq(buf, statetok, "DUALOPENED_AWAITING_LOCKIN")) {
 		struct out_req *req;
 		req = jsonrpc_request_start(cmd->plugin,
                                             cmd,
