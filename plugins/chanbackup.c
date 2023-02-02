@@ -410,7 +410,7 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
+	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 	        notifs, ARRAY_SIZE(notifs), NULL, 0,
 		    NULL, 0,  /* Notification topics we publish */
