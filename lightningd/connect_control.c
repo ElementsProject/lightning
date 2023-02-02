@@ -752,7 +752,9 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 		return command_param_failed();
 
 	type = fromwire_peektype(msg);
-	if (peer_wire_is_defined(type)) {
+
+	/* Allow peer_storage and your_peer_storage msgtypes */
+	if (peer_wire_is_internal(type)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_REQUEST,
 		    "Cannot send messages of type %d (%s). It is not possible "
