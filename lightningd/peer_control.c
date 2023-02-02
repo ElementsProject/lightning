@@ -1424,7 +1424,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (peer->remote_addr)
 		tal_free(peer->remote_addr);
 	peer->remote_addr = NULL;
-	peer_update_features(peer, their_features);
+	peer_update_features(peer, take(their_features));
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
