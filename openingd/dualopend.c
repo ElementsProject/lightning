@@ -2232,6 +2232,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->their_points.delayed_payment,
 				    &state->their_points.htlc,
 				    &state->first_per_commitment_point[REMOTE],
+				    /* We don't actually do anything with this currently,
+				     * as they send it to us again in `channel_ready` */
 				    &state->second_per_commitment_point[REMOTE],
 				    &state->channel_flags,
 				    &open_tlv))
@@ -3036,6 +3038,8 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.delayed_payment,
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
+				      /* We don't actually do anything with this currently,
+				       * as they send it to us again in `channel_ready` */
 				      &state->second_per_commitment_point[REMOTE],
 				      &a_tlv))
 		open_err_fatal(state,  "Parsing accept_channel2 %s",
@@ -4197,13 +4201,33 @@ static u8 *handle_peer_in(struct state *state)
 	peer_failed_connection_lost();
 }
 
+static void fetch_per_commitment_point(u32 point_count,
+				       struct pubkey *commit_point)
+{
+	u8 *msg;
+	struct secret *none;
+
+	wire_sync_write(HSM_FD,
+			take(towire_hsmd_get_per_commitment_point(NULL, point_count)));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
+							  commit_point,
+							  &none))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad get_per_commitment_point_reply %s",
+			      tal_hex(tmpctx, msg));
+
+	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
+	 * N'th per-commitment point.  But since N=0, it won't give us one. */
+	assert(none == NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 
 	struct pollfd pollfd[2];
 	struct state *state = tal(NULL, struct state);
-	struct secret *none;
 	struct fee_states *fee_states;
 	enum side opener;
 	u8 *msg;
@@ -4362,18 +4386,8 @@ int main(int argc, char *argv[])
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
 	 * so we might as well get the hsm daemon to generate it now. */
-	wire_sync_write(HSM_FD,
-			take(towire_hsmd_get_per_commitment_point(NULL, 0)));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
-							  &state->first_per_commitment_point[LOCAL],
-							  &none))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Bad get_per_commitment_point_reply %s",
-			      tal_hex(tmpctx, msg));
-	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
-	 * N'th per-commitment point.  But since N=0, it won't give us one. */
-	assert(none == NULL);
+	fetch_per_commitment_point(0, &state->first_per_commitment_point[LOCAL]);
+	fetch_per_commitment_point(1, &state->second_per_commitment_point[LOCAL]);
 
 	/*~ We manually run a little poll() loop here.  With only two fds */
 	pollfd[0].fd = REQ_FD;
