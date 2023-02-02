@@ -1573,6 +1573,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_add_amount_msat_only(req->js, "amount_msat", first->amount);
 	json_add_num(req->js, "delay", first->delay);
 	json_add_node_id(req->js, "id", &first->node_id);
+	json_add_short_channel_id(req->js, "channel", &first->scid);
 	json_object_end(req->js);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
