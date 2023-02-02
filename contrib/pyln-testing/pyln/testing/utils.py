@@ -1099,14 +1099,13 @@ class LightningNode(object):
     # `scids` can be a list of strings. If unset wait on all channels.
     def wait_for_htlcs(self, scids=None):
         peers = self.rpc.listpeers()['peers']
-        for p, peer in enumerate(peers):
-            if 'channels' in peer:
-                channels_peer = self.rpc.listpeerchannels(peer['id'])
-                for c, channel in enumerate(channels_peer['channels']):
-                    if scids is not None and channel['short_channel_id'] not in scids:
-                        continue
-                    if 'htlcs' in channel:
-                        wait_for(lambda: len(self.rpc.listpeerchannels(peer["id"])['channels'][c]['htlcs']) == 0)
+        for peer in peers:
+            channels = self.rpc.listpeerchannels(peer['id'])['channels']
+            for idx, channel in enumerate(channels):
+                if scids is not None and channel['short_channel_id'] not in scids:
+                    continue
+                if 'htlcs' in channel:
+                    wait_for(lambda: len(self.rpc.listpeerchannels(peer["id"])['channels'][idx]['htlcs']) == 0)
 
     # This sends money to a directly connected peer
     def pay(self, dst, amt, label=None):
