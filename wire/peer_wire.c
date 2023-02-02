@@ -120,6 +120,20 @@ bool is_unknown_msg_discardable(const u8 *cursor)
 	return unknown_type(t) && (t & 1);
 }
 
+/* Returns true if the message type should be handled by CLN's core */
+bool peer_wire_is_internal(enum peer_wire type)
+{
+	/* Unknown messages are not handled by CLN */
+	if (!peer_wire_is_defined(type))
+		return false;
+
+	/* handled by pluigns */
+	if (type == WIRE_PEER_STORAGE || type == WIRE_YOUR_PEER_STORAGE)
+		return false;
+
+	return true;
+}
+
 /* Extract channel_id from various packets, return true if possible. */
 bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 {
