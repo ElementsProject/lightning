@@ -779,11 +779,11 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 				    type_to_string(cmd, struct node_id, dest));
 	}
 
-	if (peer->connected != PEER_CONNECTED)
+	/* We allow messages from plugins responding to peer_connected hook,
+	 * so can be PEER_CONNECTING. */
+	if (peer->connected == PEER_DISCONNECTED)
 		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
-				    "Peer is %s",
-				    peer->connected == PEER_DISCONNECTED
-				    ? "not connected" : "still connecting");
+				    "Peer is not connected");
 
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_custommsg_out(cmd, dest, msg)));
