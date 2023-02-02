@@ -5305,11 +5305,8 @@ def test_payerkey(node_factory):
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
 
 
-@pytest.mark.xfail
-@pytest.mark.parametrize("payment_method", ["pay", "getroute_sendpay"])
-@pytest.mark.parametrize("confirm_zeroconf_channel", [False, True], ids=["no_confirm_zeroconf", "yes_confirm_zeroconf"])
-@pytest.mark.parametrize("open_existing_normal_channel", [False, True], ids=["zeroconf_only", "add_existing_normal"])
-def test_cln_sendpay_weirdness(bitcoind, node_factory, open_existing_normal_channel, payment_method, confirm_zeroconf_channel):
+@pytest.mark.xfail(strict=True)
+def test_cln_sendpay_weirdness(bitcoind, node_factory):
     # 0. Setup
 
     # 0.1 Setup the payer node
@@ -5329,12 +5326,11 @@ def test_cln_sendpay_weirdness(bitcoind, node_factory, open_existing_normal_chan
     # 0.3 Connect the nodes
     l1.connect(l2)
 
-    # 0.4 Optionally open a normal channel l1 -> l2 if we're testing that
-    if open_existing_normal_channel:
-        normal_sats = 200_000
-        print("CARL: Opening normal channel btw l1 and l2")
-        l1.fundchannel(l2, amount=normal_sats)  # This will mine a block!
-        print("CARL: DONE: Opening normal channel btw l1 and l2")
+    # 0.4 Open a normal channel l1 -> l2
+    normal_sats = 200_000
+    print("CARL: Opening normal channel btw l1 and l2")
+    l1.fundchannel(l2, amount=normal_sats)  # This will mine a block!
+    print("CARL: DONE: Opening normal channel btw l1 and l2")
 
     # 0.5 Define a helper that syncs nodes to bitcoind and returns the blockheight
     def synced_blockheight(nodes):
@@ -5357,15 +5353,9 @@ def test_cln_sendpay_weirdness(bitcoind, node_factory, open_existing_normal_chan
     l1.rpc.fundchannel(l2.info['id'], zeroconf_sats, announce=False, mindepth=0)
     print("CARL: DONE Opening zeroconf channel btw l1 and l2")
 
-    # 1.2 Optionally generate a block to confirm the zeroconf channel if we're testing that
-    if confirm_zeroconf_channel:
-        bitcoind.generate_block(1)
-        l1.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
-        l2.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
-
     # 1.3 Wait until the channel becomes active
     print("CARL: Waiting until channel becomes active")
-    num_channels = 4 if open_existing_normal_channel else 2
+    num_channels = 4
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == num_channels)
     wait_for(lambda: len(l2.rpc.listchannels()['channels']) == num_channels)
     print("CARL: DONE Waiting until channel becomes active")
@@ -5390,28 +5380,9 @@ def test_cln_sendpay_weirdness(bitcoind, node_factory, open_existing_normal_chan
     ## 3.1 Sanity check that we're at the block height we expect
     payment_blockheight = synced_blockheight([l1, l2])
     print(f"CARL: blockheight before payment: {payment_blockheight}")
-    if confirm_zeroconf_channel:
-        assert(fundchannel_blockheight + 1 == payment_blockheight)
-    else:
-        assert(fundchannel_blockheight == payment_blockheight)
+    assert(fundchannel_blockheight == payment_blockheight)
 
-    if payment_method == "getroute_sendpay":
-        ## 3.2 Get a route to l2
-        route = l1.rpc.getroute(l2.info['id'], 1, riskfactor)['route']
-        print(f"CARL: l1's route to l2 for 1sat: {json.dumps(route, indent=4)}")
-        route = l1.rpc.getroute(l2.info['id'], invoice_sats * 1_000, riskfactor)['route']
-        print(f"CARL: l1's route to l2 for invoice amount {invoice_sats * 1_000}msat: {json.dumps(route, indent=4)}")
-
-        ## 3.3 Send the payment via SENDPAY
-        print("CARL: SENDPAY via l1's route to l2 for invoice")
-        l1.rpc.sendpay(route, rhash, payment_secret=psecret, bolt11=inv['bolt11'])
-        result = l1.rpc.waitsendpay(rhash)
-        assert(result.get('status') == 'complete')
-        print("CARL: DONE: SENDPAY via l1's route to l2 for invoice")
-    elif payment_method == "pay":
-        ## 3.2 Alternatively, send the payment via PAY
-        print("CARL: PAY via l1's route to l2 for invoice")
-        l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
-        print("CARL: DONE: PAY via l1's route to l2 for invoice")
-    else:
-        raise
+    ## 3.2 Send the payment via PAY
+    print("CARL: PAY via l1's route to l2 for invoice")
+    l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
+    print("CARL: DONE: PAY via l1's route to l2 for invoice")
