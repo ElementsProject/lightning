@@ -1439,6 +1439,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_WARNING:
 		case WIRE_PING:
 		case WIRE_PONG:
+		case WIRE_PEER_STORAGE:
+		case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
 #endif
@@ -1813,6 +1815,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		case WIRE_PING:
 		case WIRE_PONG:
+		case WIRE_PEER_STORAGE:
+		case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
 #endif
@@ -4170,6 +4174,8 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_WARNING:
 	case WIRE_PING:
 	case WIRE_PONG:
+	case WIRE_PEER_STORAGE:
+	case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 #endif
