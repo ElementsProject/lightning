@@ -171,9 +171,10 @@ struct state {
 	/* Information we need between funding_start and funding_complete */
 	struct basepoints their_points;
 
-	/* hsmd gives us our first per-commitment point, and peer tells us
+	/* hsmd gives us our first+second per-commitment points, and peer tells us
 	 * theirs */
 	struct pubkey first_per_commitment_point[NUM_SIDES];
+	struct pubkey second_per_commitment_point[NUM_SIDES];
 
 	struct channel_id channel_id;
 	u8 channel_flags;
@@ -1101,7 +1102,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 				      tal_hex(msg, msg));
 
 		elem = cast_const2(const struct witness_element **,
-				   ws[j++]->witness_element);
+				   ws[j++]->witness_elements);
 		psbt_finalize_input(tx_state->psbt, in, elem);
 	}
 
@@ -2231,6 +2232,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->their_points.delayed_payment,
 				    &state->their_points.htlc,
 				    &state->first_per_commitment_point[REMOTE],
+				    &state->second_per_commitment_point[REMOTE],
 				    &state->channel_flags,
 				    &open_tlv))
 		open_err_fatal(state, "Parsing open_channel2 %s",
@@ -2549,6 +2551,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				     &state->our_points.delayed_payment,
 				     &state->our_points.htlc,
 				     &state->first_per_commitment_point[LOCAL],
+				     &state->second_per_commitment_point[LOCAL],
 				     a_tlv);
 
 	/* Everything's ok. Let's figure out the actual channel_id now */
@@ -3004,6 +3007,7 @@ static void opener_start(struct state *state, u8 *msg)
 				   &state->our_points.delayed_payment,
 				   &state->our_points.htlc,
 				   &state->first_per_commitment_point[LOCAL],
+				   &state->second_per_commitment_point[LOCAL],
 				   state->channel_flags,
 				   open_tlv);
 
@@ -3032,6 +3036,7 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.delayed_payment,
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
+				      &state->second_per_commitment_point[REMOTE],
 				      &a_tlv))
 		open_err_fatal(state,  "Parsing accept_channel2 %s",
 			       tal_hex(msg, msg));
