@@ -258,7 +258,7 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 
 	if (version != VERSION) {
 		plugin_err(cmd->plugin,
-                           "Incompatible SCB file version on disk, contact the admin!");
+                           "Incompatible version, Contact the admin!");
 	}
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "recoverchannel",
@@ -314,6 +314,82 @@ static void update_scb(struct plugin *p, struct scb_chan **channels)
 
 	/* This will atomically replace the main file */
 	rename("scb.tmp", FILENAME);
+}
+
+
+static struct command_result
+*peer_after_send_their_peer_strg(struct command *cmd,
+                            const char *buf,
+                            const jsmntok_t *params,
+                            void *cb_arg UNUSED)
+{
+        plugin_log(cmd->plugin, LOG_DBG, "Sent their peer storage!");
+	return command_hook_success(cmd);
+}
+
+static struct command_result
+*peer_after_send_their_peer_strg_err(struct command *cmd,
+                            const char *buf,
+                            const jsmntok_t *params,
+                            void *cb_arg UNUSED)
+{
+        plugin_log(cmd->plugin, LOG_DBG, "Unable to send Peer storage!");
+	return command_hook_success(cmd);
+}
+
+static struct command_result *peer_after_listdatastore(struct command *cmd,
+						       const u8 *hexdata,
+						       struct node_id *nodeid)
+{
+        if (tal_bytelen(hexdata) == 0)
+        	return command_hook_success(cmd);
+        struct out_req *req;
+
+        u8 *payload = towire_your_peer_storage(cmd, hexdata);
+
+        plugin_log(cmd->plugin, LOG_DBG,
+                   "sending their backup from our datastore");
+
+        req = jsonrpc_request_start(cmd->plugin,
+                                    cmd,
+                                    "sendcustommsg",
+                                    peer_after_send_their_peer_strg,
+                                    peer_after_send_their_peer_strg_err,
+                                    NULL);
+
+        json_add_node_id(req->js, "node_id", nodeid);
+        json_add_hex(req->js, "msg", payload,
+                     tal_bytelen(payload));
+
+        return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *peer_after_send_scb(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *params,
+						  struct node_id *nodeid)
+{
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage sent!");
+
+	return jsonrpc_get_datastore_binary(cmd->plugin,
+				     	    cmd,
+				     	    tal_fmt(cmd,
+				     		    "chanbackup/peers/%s",
+					     	     type_to_string(tmpctx,
+							            struct node_id,
+							    	    nodeid)),
+				     	    peer_after_listdatastore,
+				     	    nodeid);
+}
+
+static struct command_result *peer_after_send_scb_failed(struct command *cmd,
+							 const char *buf,
+							 const jsmntok_t *params,
+							 struct node_id *nodeid)
+{
+        plugin_log(cmd->plugin, LOG_DBG, "Peer storage send failed %.*s!",
+		   json_tok_full_len(params), json_tok_full(buf, params));
+	return command_hook_success(cmd);
 }
 
 struct info {
@@ -440,6 +516,43 @@ static struct command_result *json_state_changed(struct command *cmd,
 	return notification_handled(cmd);
 }
 
+
+/* We use the hook here, since we want to send data to peer before any
+ * reconnect messages (which might make it hang up!) */
+static struct command_result *peer_connected(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
+{
+	struct node_id *node_id = tal(cmd, struct node_id);
+	struct out_req *req;
+	u8 *scb = get_file_data(cmd->plugin);
+        u8 *serialise_scb = towire_peer_storage(cmd, scb);
+	const char *err;
+
+	err = json_scan(cmd, buf, params,
+			"{peer:{id:%}}",
+			JSON_SCAN(json_to_node_id, node_id));
+	if (err) {
+		plugin_err(cmd->plugin,
+			   "peer_connected hook did not scan %s: %.*s",
+			   err, json_tok_full_len(params),
+			   json_tok_full(buf, params));
+	}
+
+        req = jsonrpc_request_start(cmd->plugin,
+                                    cmd,
+                                    "sendcustommsg",
+                                    peer_after_send_scb,
+                                    peer_after_send_scb_failed,
+                                    node_id);
+
+        json_add_node_id(req->js, "node_id", node_id);
+        json_add_hex(req->js, "msg", serialise_scb,
+                     tal_bytelen(serialise_scb));
+
+        return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *failed_peer_restore(struct command *cmd,
 						  struct node_id *node_id,
 						  char *reason)
@@ -552,67 +665,6 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
         }
 }
 
-static struct command_result *after_latestscb(struct command *cmd,
-					        const u8 *res,
-					        void *cb_arg UNUSED)
-{
-        u64 version;
-	u32 timestamp;
-	struct scb_chan **scb;
-        struct json_stream *response;
-        struct out_req *req;
-
-        if (tal_bytelen(res) == 0) {
-        	response = jsonrpc_stream_success(cmd);
-
-		json_add_string(response, "result",
-				"No backup received from peers");
-		return command_finished(cmd, response);
-        }
-
-	if (!fromwire_static_chan_backup(cmd,
-                                         res,
-                                         &version,
-                                         &timestamp,
-                                         &scb)) {
-		plugin_err(cmd->plugin, "Corrupted SCB on disk!");
-	}
-
-	if (version != VERSION) {
-		plugin_err(cmd->plugin,
-                           "Incompatible version, Contact the admin!");
-	}
-
-        req = jsonrpc_request_start(cmd->plugin, cmd, "recoverchannel",
-				after_recover_rpc,
-				&forward_error, NULL);
-
-	json_array_start(req->js, "scb");
-	for (size_t i=0; i<tal_count(scb); i++) {
-		u8 *scb_hex = tal_arr(cmd, u8, 0);
-		towire_scb_chan(&scb_hex,scb[i]);
-		json_add_hex(req->js, NULL, scb_hex, tal_bytelen(scb_hex));
-	}
-	json_array_end(req->js);
-
-	return send_outreq(cmd->plugin, req);
-
-}
-
-static struct command_result *json_restorefrompeer(struct command *cmd,
-				      const char *buf,
-                                      const jsmntok_t *params)
-{
-	if (!param(cmd, buf, params, NULL))
-		return command_param_failed();
-
-	return jsonrpc_get_datastore_binary(cmd->plugin,
-				     	    cmd,
-				     	    "chanbackup/latestscb",
-				     	    after_latestscb,
-				     	    NULL);
-}
-
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -654,6 +706,10 @@ static const struct plugin_hook hooks[] = {
                 "custommsg",
                 handle_your_peer_storage,
         },
+	{
+		"peer_connected",
+		peer_connected,
+	},
 };
 
 static const struct plugin_command commands[] = { {
@@ -663,15 +719,6 @@ static const struct plugin_command commands[] = { {
 		"returns stub channel-id's on completion",
 		json_emergencyrecover,
 	},
-        {
-                "restorefrompeer",
-                "recovery",
-                "Checks if i have got a backup from a peer, and if so, will stub "
-		"those channels in the database and if is successful, will return "
-		"list of channels that have been successfully stubbed",
-                "return channel-id's on completion",
-                json_restorefrompeer,
-        },
 };
 
 int main(int argc, char *argv[])
