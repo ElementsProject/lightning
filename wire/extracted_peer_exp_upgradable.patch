@@ -13,6 +13,6 @@
 +tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
 +tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
 +tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
- msgtype,announcement_signatures,259
- msgdata,announcement_signatures,channel_id,channel_id,
- msgdata,announcement_signatures,short_channel_id,short_channel_id,
+ msgtype,peer_storage,7
+ msgdata,peer_storage,len,u16,
+ msgdata,peer_storage,blob,byte,len

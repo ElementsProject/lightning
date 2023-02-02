@@ -1,0 +1,15 @@
+--- wire/peer_wire.csv	2022-07-18 13:49:29.079542016 +0530
++++ -	2022-07-18 13:58:17.706696582 +0530
+@@ -249,6 +249,12 @@
+ msgdata,channel_reestablish,next_revocation_number,u64,
+ msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
+ msgdata,channel_reestablish,my_current_per_commitment_point,point,
++msgtype,peer_storage,7
++msgdata,peer_storage,len,u16,
++msgdata,peer_storage,blob,byte,len
++msgtype,your_peer_storage,9
++msgdata,your_peer_storage,len,u16,
++msgdata,your_peer_storage,blob,byte,len
+ msgtype,announcement_signatures,259
+ msgdata,announcement_signatures,channel_id,channel_id,
+ msgdata,announcement_signatures,short_channel_id,short_channel_id,
