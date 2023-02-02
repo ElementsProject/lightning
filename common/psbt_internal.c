@@ -17,8 +17,8 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 
 	for (size_t i = 0; i < tal_count(elements); i++)
 		wally_tx_witness_stack_add(in->final_witness,
-					   elements[i]->witness,
-					   tal_bytelen(elements[i]->witness));
+					   elements[i]->witness_data,
+					   tal_bytelen(elements[i]->witness_data));
 	tal_wally_end(ctx);
 }
 
@@ -78,13 +78,13 @@ psbt_to_witness_stacks(const tal_t *ctx,
 				tal(stacks, struct witness_stack);
 			/* Convert the wally_tx_witness_stack to
 			 * a witness_stack entry */
-			stack->witness_element =
+			stack->witness_elements =
 				tal_arr(stack, struct witness_element *,
 					wtx_s->num_items);
-			for (size_t j = 0; j < tal_count(stack->witness_element); j++) {
-				stack->witness_element[j] = tal(stack,
+			for (size_t j = 0; j < tal_count(stack->witness_elements); j++) {
+				stack->witness_elements[j] = tal(stack,
 								struct witness_element);
-				stack->witness_element[j]->witness =
+				stack->witness_elements[j]->witness_data =
 					tal_dup_arr(stack, u8,
 						    wtx_s->items[j].witness,
 						    wtx_s->items[j].witness_len,
