@@ -5305,7 +5305,6 @@ def test_payerkey(node_factory):
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
 
 
-@pytest.mark.xfail(strict=True)
 def test_cln_sendpay_weirdness(bitcoind, node_factory):
     # 0. Setup
 
