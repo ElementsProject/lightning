@@ -1,5 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from pathlib import Path
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
@@ -10,7 +11,6 @@ from utils import (
 )
 import copy
 import os
-import json
 import pytest
 import random
 import re
@@ -5305,83 +5305,33 @@ def test_payerkey(node_factory):
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
 
 
-def test_cln_sendpay_weirdness(bitcoind, node_factory):
-    # 0. Setup
-
-    # 0.1 Setup the payer node
-    l1 = node_factory.get_node()
-    print("CARL: DONE l1 setup")
-
-    # 0.2 Setup the receiver node
+def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
+    """Check that we use the zeroconf direct channel to pay when we need to"""
+    # 0. Setup normal channel, 200k sats.
     zeroconf_plugin = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
-    l2 = node_factory.get_node(
-        options={
-            'plugin': zeroconf_plugin,
-            'zeroconf-allow': l1.info['id'],
-        },
-    )
-    print("CARL: DONE l2 setup")
-
-    # 0.3 Connect the nodes
-    l1.connect(l2)
-
-    # 0.4 Open a normal channel l1 -> l2
-    normal_sats = 200_000
-    print("CARL: Opening normal channel btw l1 and l2")
-    l1.fundchannel(l2, amount=normal_sats)  # This will mine a block!
-    print("CARL: DONE: Opening normal channel btw l1 and l2")
-
-    # 0.5 Define a helper that syncs nodes to bitcoind and returns the blockheight
-    def synced_blockheight(nodes):
-        blockcount = bitcoind.rpc.getblockcount()
-        print(f"CARL: bitcoind blockcount {blockcount}")
-        wait_for(lambda: all([node.rpc.getinfo()['blockheight'] == blockcount for node in nodes]))
-        return blockcount
-
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=False,
+                                     fundamount=200_000,
+                                     opts=[{},
+                                           {'plugin': zeroconf_plugin,
+                                            'zeroconf-allow': 'any'}])
 
     # 1. Open a zeoconf channel l1 -> l2
     zeroconf_sats = 1_000_000
 
     # 1.1 Add funds to l1's wallet for the channel open
     l1.fundwallet(zeroconf_sats * 2)  # This will mine a block!
-    fundchannel_blockheight = synced_blockheight([l1, l2])
-    print(f"CARL: blockheight before fundchannel: {fundchannel_blockheight}")
+    sync_blockheight(bitcoind, [l1, l2])
 
     # 1.2 Open the zeroconf channel
-    print("CARL: Opening zeroconf channel btw l1 and l2")
     l1.rpc.fundchannel(l2.info['id'], zeroconf_sats, announce=False, mindepth=0)
-    print("CARL: DONE Opening zeroconf channel btw l1 and l2")
 
-    # 1.3 Wait until the channel becomes active
-    print("CARL: Waiting until channel becomes active")
-    num_channels = 4
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == num_channels)
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == num_channels)
-    print("CARL: DONE Waiting until channel becomes active")
-
-    # 1.4 Print out channels as seen from both nodes
-    channels = l1.rpc.listchannels()
-    print(f"CARL: l1's channels after zeroconf channel open:\n{json.dumps(channels, indent=4)}")
-    channels = l2.rpc.listchannels()
-    print(f"CARL: l2's channels after zeroconf channel open:\n{json.dumps(channels, indent=4)}")
-
+    # 1.3 Wait until all channels active.
+    wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels'] + l2.rpc.listpeerchannels()['channels']]))
 
     # 2. Have l2 generate an invoice to be paid
-    invoice_sats = 500_000
-    inv = l2.rpc.invoice(invoice_sats * 1_000, "test", "test")
-    psecret = l1.rpc.decodepay(inv['bolt11'])['payment_secret']
-    rhash = inv['payment_hash']
-
+    invoice_sats = "500000sat"
+    inv = l2.rpc.invoice(invoice_sats, "test", "test")
 
     # 3. Send a payment over the zeroconf channel
-    riskfactor=0
-
-    ## 3.1 Sanity check that we're at the block height we expect
-    payment_blockheight = synced_blockheight([l1, l2])
-    print(f"CARL: blockheight before payment: {payment_blockheight}")
-    assert(fundchannel_blockheight == payment_blockheight)
-
-    ## 3.2 Send the payment via PAY
-    print("CARL: PAY via l1's route to l2 for invoice")
+    riskfactor = 0
     l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
-    print("CARL: DONE: PAY via l1's route to l2 for invoice")

@@ -12,7 +12,7 @@ def on_openchannel(openchannel, plugin, **kwargs):
     plugin.log(repr(openchannel))
     mindepth = int(plugin.options['zeroconf-mindepth']['value'])
 
-    if openchannel['id'] == plugin.options['zeroconf-allow']['value']:
+    if openchannel['id'] == plugin.options['zeroconf-allow']['value'] or plugin.options['zeroconf-allow']['value'] == 'any':
         plugin.log(f"This peer is in the zeroconf allowlist, setting mindepth={mindepth}")
         return {'result': 'continue', 'mindepth': mindepth}
     else:
