@@ -351,8 +351,9 @@ static void channel_hints_update(struct payment *p,
 				hint->estimated_capacity = *estimated_capacity;
 				modified = true;
 			}
-			if (htlc_budget != NULL && *htlc_budget < hint->htlc_budget) {
-				hint->htlc_budget = *htlc_budget;
+			if (htlc_budget != NULL) {
+				assert(hint->local);
+				hint->local->htlc_budget = *htlc_budget;
 				modified = true;
 			}
 
@@ -376,16 +377,14 @@ static void channel_hints_update(struct payment *p,
 	newhint.enabled = enabled;
 	newhint.scid.scid = scid;
 	newhint.scid.dir = direction;
-	newhint.local = local;
+	if (local) {
+		newhint.local = tal(root->channel_hints, struct local_hint);
+		assert(htlc_budget);
+		newhint.local->htlc_budget = *htlc_budget;
+	} else
+		newhint.local = NULL;
 	if (estimated_capacity != NULL)
 		newhint.estimated_capacity = *estimated_capacity;
-
-	/* This happens if we get a temporary channel failure: we don't know
-	 * htlc capacity here, so assume it's not a problem. */
-	if (htlc_budget != NULL)
-		newhint.htlc_budget = *htlc_budget;
-	else
-		newhint.htlc_budget = 20;
 
 	tal_arr_expand(&root->channel_hints, newhint);
 
@@ -515,7 +514,8 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 
 		/* For local channels we check that we don't overwhelm
 		 * them with too many HTLCs. */
-		apply = (!curhint->local) || curhint->htlc_budget > 0;
+		apply = (!curhint->local) ||
+			(curhint->local->htlc_budget > 0);
 
 		/* For all channels we check that they have a
 		 * sufficiently large estimated capacity to have some
@@ -538,12 +538,15 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 			paymod_log(
 			    p, LOG_DBG,
 			    "Capacity: estimated_capacity=%s, hop_amount=%s. "
-			    "HTLC Budget: htlc_budget=%d, local=%d",
+			    "local=%s%s",
 			    type_to_string(tmpctx, struct amount_msat,
 					   &curhint->estimated_capacity),
 			    type_to_string(tmpctx, struct amount_msat,
 					   &curhop->amount),
-			    curhint->htlc_budget, curhint->local);
+			    curhint->local ? "Y" : "N",
+			    curhint->local ?
+			    tal_fmt(tmpctx, " HTLC Budget: htlc_budget=%d",
+				    curhint->local->htlc_budget) : "");
 			return false;
 		}
 	}
@@ -558,10 +561,12 @@ apply_changes:
 
 		/* Update the number of htlcs for any local
 		 * channel in the route */
-		if (curhint->local && remove)
-			curhint->htlc_budget++;
-		else if (curhint->local)
-			curhint->htlc_budget--;
+		if (curhint->local) {
+			if (remove)
+				curhint->local->htlc_budget++;
+			else
+				curhint->local->htlc_budget--;
+		}
 
 		if (remove && !amount_msat_add(
 			    &curhint->estimated_capacity,
@@ -602,7 +607,7 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 					     hint->estimated_capacity))
 			tal_arr_expand(&res, hint->scid);
 
-		else if (hint->local && hint->htlc_budget == 0)
+		else if (hint->local && hint->local->htlc_budget == 0)
 			/* If we cannot add any HTLCs to the channel we
 			 * shouldn't look for a route through that channel */
 			tal_arr_expand(&res, hint->scid);
@@ -679,7 +684,7 @@ static bool payment_route_check(const struct gossmap *gossmap,
 		 * estimate to the smallest failed attempt. */
 		return false;
 
-	if (hint->local && hint->htlc_budget == 0)
+	if (hint->local && hint->local->htlc_budget == 0)
 		/* If we cannot add any HTLCs to the channel we
 		 * shouldn't look for a route through that channel */
 		return false;
@@ -3469,7 +3474,7 @@ static u32 payment_max_htlcs(const struct payment *p)
 	for (size_t i = 0; i < tal_count(p->channel_hints); i++) {
 		h = &p->channel_hints[i];
 		if (h->local && h->enabled)
-			res += h->htlc_budget;
+			res += h->local->htlc_budget;
 	}
 	root = p;
 	while (root->parent)

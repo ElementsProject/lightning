@@ -53,6 +53,13 @@ struct payment_result {
 	int *erring_direction;
 };
 
+struct local_hint {
+	/* How many more htlcs can we send over this channel? Only set if this
+	 * is a local channel, because those are the channels we have exact
+	 * numbers on, and they are the bottleneck onto the network. */
+	u16 htlc_budget;
+};
+
 /* Information about channels we inferred from a) looking at our channels, and
  * b) from failures encountered during attempts to perform a payment. These
  * are attached to the root payment, since that information is
@@ -73,13 +80,9 @@ struct channel_hint {
 	/* Is the channel enabled? */
 	bool enabled;
 
-	/* True if we are one endpoint of this channel */
-	bool local;
+	/* Non-null if we are one endpoint of this channel */
+	struct local_hint *local;
 
-	/* How many more htlcs can we send over this channel? Only set if this
-	 * is a local channel, because those are the channels we have exact
-	 * numbers on, and they are the bottleneck onto the network. */
-	u16 htlc_budget;
 };
 
 /* Each payment goes through a number of steps that are always processed in
