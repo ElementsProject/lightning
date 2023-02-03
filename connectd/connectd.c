@@ -1567,11 +1567,13 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 						 strerror(errno));
 				break;
 			}
-			notleak(io_new_listener(daemon,
-						daemon->listen_fds[i]->fd,
-						get_in_cb(daemon->listen_fds[i]
-							  ->is_websocket),
-						daemon));
+			/* Add to listeners array */
+			tal_arr_expand(&daemon->listeners,
+				       io_new_listener(daemon->listeners,
+						       daemon->listen_fds[i]->fd,
+						       get_in_cb(daemon->listen_fds[i]
+								 ->is_websocket),
+						       daemon));
 		}
 	}
 
@@ -2024,6 +2026,7 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->connection_counter = 1;
 	daemon->peers = tal(daemon, struct peer_htable);
+	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
 	peer_htable_init(daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
