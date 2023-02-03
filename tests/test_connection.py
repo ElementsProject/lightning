@@ -10,7 +10,7 @@ from utils import (
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
     EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid,
-    anchor_expected
+    anchor_expected, CHANNEL_SIZE
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -530,13 +530,13 @@ def test_disconnect_opener(node_factory):
     for d in disconnects:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
-            l1.rpc.fundchannel(l2.info['id'], 25000)
+            l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
         # First peer valishes, but later it just disconnects
         wait_for(lambda: all([p['connected'] is False for p in l1.rpc.listpeers()['peers']]))
 
     # This one will succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel(l2.info['id'], 25000)
+    l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
 
     # Should still only have one peer!
     assert len(l1.rpc.listpeers()['peers']) == 1
@@ -575,13 +575,13 @@ def test_disconnect_fundee(node_factory):
     for d in disconnects:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
-            l1.rpc.fundchannel(l2.info['id'], 25000)
+            l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
         # First peer valishes, but later it just disconnects
         wait_for(lambda: all([p['connected'] is False for p in l1.rpc.listpeers()['peers']]))
 
     # This one will succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel(l2.info['id'], 25000)
+    l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
 
     # Should still only have one peer!
     assert len(l1.rpc.listpeers()) == 1
@@ -615,12 +615,12 @@ def test_disconnect_fundee_v2(node_factory):
     for d in disconnects:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
-            l1.rpc.fundchannel(l2.info['id'], 25000)
+            l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
         assert l1.rpc.getpeer(l2.info['id']) is None
 
     # This one will succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel(l2.info['id'], 25000)
+    l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
 
     # Should still only have one peer!
     assert len(l1.rpc.listpeers()['peers']) == 1
@@ -643,7 +643,7 @@ def test_disconnect_half_signed(node_factory):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], 25000)
+        l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
 
     # Peer remembers, opener doesn't.
     wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
@@ -666,7 +666,7 @@ def test_reconnect_signed(node_factory):
     l1.fundwallet(2000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel(l2.info['id'], 25000)
+    l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
 
     # They haven't forgotten each other.
     assert l1.rpc.getpeer(l2.info['id'])['id'] == l2.info['id']
@@ -706,7 +706,7 @@ def test_reconnect_openingd(node_factory):
 
     # l2 closes on l1, l1 forgets.
     with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], 25000)
+        l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
     assert l1.rpc.getpeer(l2.info['id']) is None
 
     # Reconnect.
@@ -717,7 +717,7 @@ def test_reconnect_openingd(node_factory):
     l2.daemon.wait_for_log('Handed peer, entering loop')
 
     # Should work fine.
-    l1.rpc.fundchannel(l2.info['id'], 25000)
+    l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
     l1.daemon.wait_for_log('sendrawtx exit 0')
 
     l1.bitcoin.generate_block(3)
