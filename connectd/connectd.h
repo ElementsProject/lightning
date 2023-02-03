@@ -187,6 +187,9 @@ struct daemon {
 	/* We only announce websocket addresses if !deprecated_apis */
 	bool announce_websocket;
 
+	/* Shutting down, don't send new stuff */
+	bool shutting_down;
+
 #if DEVELOPER
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;

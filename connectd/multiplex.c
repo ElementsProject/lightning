@@ -1133,6 +1133,14 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        subd = find_subd(peer, &channel_id);
        if (!subd) {
 	       enum peer_wire t = fromwire_peektype(decrypted);
+
+	       /* Simplest to close on them at this point. */
+	       if (peer->daemon->shutting_down) {
+		       status_peer_debug(&peer->id,
+					 "Shutting down: hanging up for %s",
+					 peer_wire_name(t));
+		       return io_close(peer_conn);
+	       }
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
 	       subd = new_subd(peer, &channel_id);
