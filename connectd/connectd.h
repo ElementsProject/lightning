@@ -145,6 +145,9 @@ struct daemon {
 	/* Connection to gossip daemon. */
 	struct daemon_conn *gossipd;
 
+	/* Any listening sockets we have. */
+	struct io_listener **listeners;
+
 	/* Allow localhost to be considered "public": DEVELOPER-only option,
 	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
 	bool dev_allow_localhost;
