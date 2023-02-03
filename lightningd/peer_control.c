@@ -1071,7 +1071,8 @@ struct peer_connected_hook_payload {
 	struct wireaddr_internal addr;
 	struct wireaddr *remote_addr;
 	bool incoming;
-	struct peer *peer;
+	/* We don't keep a pointer to peer: it might be freed! */
+	struct node_id peer_id;
 	u8 *error;
 };
 
@@ -1079,9 +1080,8 @@ static void
 peer_connected_serialize(struct peer_connected_hook_payload *payload,
 			 struct json_stream *stream, struct plugin *plugin)
 {
-	const struct peer *p = payload->peer;
 	json_object_start(stream, "peer");
-	json_add_node_id(stream, "id", &p->id);
+	json_add_node_id(stream, "id", &payload->peer_id);
 	json_add_string(stream, "direction", payload->incoming ? "in" : "out");
 	json_add_string(
 	    stream, "addr",
@@ -1090,7 +1090,10 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 		json_add_string(
 		    stream, "remote_addr",
 		    type_to_string(stream, struct wireaddr, payload->remote_addr));
-	json_add_hex_talarr(stream, "features", p->their_features);
+	/* Since this is start of hook, peer is always in table! */
+	json_add_hex_talarr(stream, "features",
+			    peer_by_id(payload->ld, &payload->peer_id)
+			    ->their_features);
 	json_object_end(stream); /* .peer */
 }
 
@@ -1186,7 +1189,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	struct lightningd *ld = payload->ld;
 	struct channel *channel;
 	struct wireaddr_internal addr = payload->addr;
-	struct peer *peer = payload->peer;
+	struct peer *peer;
 	u8 *error;
 
 	/* Whatever happens, we free payload (it's currently a child
@@ -1194,9 +1197,16 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	 * subd). */
 	tal_steal(tmpctx, payload);
 
+	/* Peer might have gone away while we were waiting for plugin! */
+	peer = peer_by_id(ld, &payload->peer_id);
+	if (!peer)
+		return;
+
 	/* If we disconnected in the meantime, forget about it.
-	 * (disconnect will have failed any connect commands). */
-	if (peer->connected == PEER_DISCONNECTED)
+	 * (disconnect will have failed any connect commands).
+	 * And if it has reconnected, and we're the second time the
+	 * hook has been called, it'll be PEER_CONNECTED. */
+	if (peer->connected != PEER_CONNECTING)
 		return;
 
 	/* Check for specific errors of a hook */
@@ -1424,10 +1434,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (peer->remote_addr)
 		tal_free(peer->remote_addr);
 	peer->remote_addr = NULL;
-	peer_update_features(peer, take(their_features));
-
-	tal_steal(peer, hook_payload);
-	hook_payload->peer = peer;
+	peer_update_features(peer, their_features);
+	hook_payload->peer_id = id;
 
 	/* If there's a connect command, use its id as basis for hook id */
 	cmd_id = connect_any_cmd_id(tmpctx, ld, peer);
