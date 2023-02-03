@@ -8,6 +8,10 @@ import time
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
 
+# Big enough to make channels with 10k effective capacity, including Elements channels
+# which have bigger txns
+CHANNEL_SIZE = 50000
+
 
 def default_ln_port(network: str) -> int:
     network_map = {
