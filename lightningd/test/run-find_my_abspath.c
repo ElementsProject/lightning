@@ -20,6 +20,9 @@ void connectd_activate(struct lightningd *ld UNNEEDED)
 /* Generated stub for connectd_init */
 int connectd_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_init called!\n"); abort(); }
+/* Generated stub for connectd_start_shutdown */
+void connectd_start_shutdown(struct subd *connectd UNNEEDED)
+{ fprintf(stderr, "connectd_start_shutdown called!\n"); abort(); }
 /* Generated stub for daemon_poll */
 int daemon_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
 { fprintf(stderr, "daemon_poll called!\n"); abort(); }
