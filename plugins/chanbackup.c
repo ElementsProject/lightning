@@ -425,11 +425,10 @@ static struct command_result *after_listpeers(struct command *cmd,
 					      const jsmntok_t *params,
 					      void *cb_arg UNUSED)
 {
-	const jsmntok_t *peers, *peer, *nodeid;
+	const jsmntok_t *peers, *peer;
         struct out_req *req;
 	size_t i;
 	struct info *info = tal(cmd, struct info);
-	struct node_id *node_id = tal(cmd, struct node_id);
 	bool is_connected;
 
 	u8 *scb = get_file_data(cmd->plugin);
@@ -444,8 +443,11 @@ static struct command_result *after_listpeers(struct command *cmd,
 			     &is_connected);
 
 		if (is_connected) {
+			const jsmntok_t *nodeid;
+			struct node_id node_id;
+
 			nodeid = json_get_member(buf, peer, "id");
-			json_to_node_id(buf, nodeid, node_id);
+			json_to_node_id(buf, nodeid, &node_id);
 
 			req = jsonrpc_request_start(cmd->plugin,
 						    cmd,
@@ -454,7 +456,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 						    after_send_scb_single_fail,
 						    info);
 
-			json_add_node_id(req->js, "node_id", node_id);
+			json_add_node_id(req->js, "node_id", &node_id);
 			json_add_hex(req->js, "msg", serialise_scb,
 				     tal_bytelen(serialise_scb));
 			info->idx++;
