@@ -168,9 +168,9 @@ static void maybe_create_new_scb(struct plugin *p,
 	rename("scb.tmp", FILENAME);
 }
 
-static u8* get_file_data(struct plugin *p)
+static u8 *get_file_data(const tal_t *ctx, struct plugin *p)
 {
-	u8 *scb = grab_file(tmpctx, "emergency.recover");
+	u8 *scb = grab_file(ctx, FILENAME);
 	if (!scb) {
 		plugin_err(p, "Cannot read emergency.recover: %s", strerror(errno));
 	} else {
@@ -183,7 +183,7 @@ static u8* get_file_data(struct plugin *p)
 /* Returns decrypted SCB in form of a u8 array */
 static u8 *decrypt_scb(struct plugin *p)
 {
-	u8 *filedata = get_file_data(p);
+	u8 *filedata = get_file_data(tmpctx, p);
 
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 
@@ -430,10 +430,10 @@ static struct command_result *after_listpeers(struct command *cmd,
 	size_t i;
 	struct info *info = tal(cmd, struct info);
 	bool is_connected;
+        u8 *serialise_scb;
 
-	u8 *scb = get_file_data(cmd->plugin);
-
-        u8 *serialise_scb = towire_peer_storage(cmd, scb);
+	serialise_scb = towire_peer_storage(cmd,
+					    get_file_data(tmpctx, cmd->plugin));
 
 	peers = json_get_member(buf, params, "peers");
 
@@ -525,12 +525,14 @@ static struct command_result *peer_connected(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *params)
 {
-	struct node_id *node_id = tal(cmd, struct node_id);
+	struct node_id *node_id;
 	struct out_req *req;
-	u8 *scb = get_file_data(cmd->plugin);
-        u8 *serialise_scb = towire_peer_storage(cmd, scb);
+        u8 *serialise_scb;
 	const char *err;
 
+	serialise_scb = towire_peer_storage(cmd,
+					    get_file_data(tmpctx, cmd->plugin));
+	node_id = tal(cmd, struct node_id);
 	err = json_scan(cmd, buf, params,
 			"{peer:{id:%}}",
 			JSON_SCAN(json_to_node_id, node_id));
