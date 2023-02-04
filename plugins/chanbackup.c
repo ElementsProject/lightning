@@ -795,10 +795,10 @@ static const struct plugin_command commands[] = {
 int main(int argc, char *argv[])
 {
         setup_locale();
-	struct feature_set *features = feature_set_for_feature(NULL, PEER_STORAGE_FEATURE);
+	struct feature_set *features = feature_set_for_feature(NULL, OPT_WANT_PEER_BACKUP_STORAGE);
 	feature_set_or(features,
 		       take(feature_set_for_feature(NULL,
-						    YOUR_PEER_STORAGE_FEATURE)));
+						    OPT_PROVIDE_PEER_BACKUP_STORAGE)));
 
 	plugin_main(argv, init, PLUGIN_STATIC, true, features,
 		    commands, ARRAY_SIZE(commands),

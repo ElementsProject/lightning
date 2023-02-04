@@ -136,12 +136,12 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
-	{ PEER_STORAGE_FEATURE,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL } },
-	{ YOUR_PEER_STORAGE_FEATURE,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL } },
+	{ OPT_WANT_PEER_BACKUP_STORAGE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_PROVIDE_PEER_BACKUP_STORAGE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
 };
 
 struct dependency {
@@ -462,8 +462,8 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_quiesce", /* https://github.com/lightning/bolts/pull/869 */
 		NULL,
 		"option_onion_messages",  /* https://github.com/lightning/bolts/pull/759 */
-		"option_your_peer_storage", /* 40/41 */
-		"option_peer_storage",
+		"option_want_peer_backup_storage", /* 40/41 */ /* https://github.com/lightning/bolts/pull/881/files */
+		"option_provide_peer_backup_storage", /* https://github.com/lightning/bolts/pull/881/files */
 		"option_channel_type",
 		"option_scid_alias", /* https://github.com/lightning/bolts/pull/910 */
 		"option_payment_metadata",

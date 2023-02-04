@@ -15,8 +15,6 @@ enum feature_place {
 	BOLT12_INVOICE_FEATURE,
 };
 #define NUM_FEATURE_PLACE (BOLT12_INVOICE_FEATURE+1)
-#define PEER_STORAGE_FEATURE 42
-#define YOUR_PEER_STORAGE_FEATURE 40
 extern const char *feature_place_names[NUM_FEATURE_PLACE];
 
 /* The complete set of features for all contexts */
@@ -165,5 +163,13 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_ONION_MESSAGES			38
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
+
+/* BOLT-peer-storage #9:
+ *
+ * | 40/41 | `want_peer_backup_storage`        | Want to use other nodes to store encrypted backup data    | IN ...
+ * | 42/43 | `provide_peer_backup_storage`     | Can store other nodes' encrypted backup data              | IN ...
+ */
+#define OPT_WANT_PEER_BACKUP_STORAGE		40
+#define OPT_PROVIDE_PEER_BACKUP_STORAGE		42
 
 #endif /* LIGHTNING_COMMON_FEATURES_H */
