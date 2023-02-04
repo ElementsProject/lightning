@@ -1235,6 +1235,9 @@ stop:
 	/* Stop *new* JSON RPC requests. */
 	jsonrpc_stop_listening(ld->jsonrpc);
 
+	/* Stop new connectd requests */
+	connectd_start_shutdown(ld->connectd);
+
 	/* Give permission for things to get destroyed without getting upset. */
 	ld->state = LD_STATE_SHUTDOWN;
 

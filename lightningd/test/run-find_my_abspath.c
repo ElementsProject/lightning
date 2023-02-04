@@ -20,6 +20,9 @@ void connectd_activate(struct lightningd *ld UNNEEDED)
 /* Generated stub for connectd_init */
 int connectd_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_init called!\n"); abort(); }
+/* Generated stub for connectd_start_shutdown */
+void connectd_start_shutdown(struct subd *connectd UNNEEDED)
+{ fprintf(stderr, "connectd_start_shutdown called!\n"); abort(); }
 /* Generated stub for daemon_poll */
 int daemon_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
 { fprintf(stderr, "daemon_poll called!\n"); abort(); }
@@ -109,7 +112,7 @@ void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
 /* Generated stub for htlcs_resubmit */
 void htlcs_resubmit(struct lightningd *ld UNNEEDED,
-		    struct htlc_in_map *unconnected_htlcs_in UNNEEDED)
+		    struct htlc_in_map *unconnected_htlcs_in STEALS UNNEEDED)
 { fprintf(stderr, "htlcs_resubmit called!\n"); abort(); }
 /* Generated stub for jsonrpc_listen */
 void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)

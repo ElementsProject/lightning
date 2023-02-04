@@ -251,15 +251,15 @@ bool fromwire_connectd_peer_spoke(const void *p UNNEEDED, struct node_id *id UNN
 /* Generated stub for fromwire_dualopend_dev_memleak_reply */
 bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_dualopend_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsmd_sign_bolt12_reply */
-bool fromwire_hsmd_sign_bolt12_reply(const void *p UNNEEDED, struct bip340sig *sig UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_sign_bolt12_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_preapprove_invoice_reply */
 bool fromwire_hsmd_preapprove_invoice_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_preapprove_invoice_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_preapprove_keysend_reply */
 bool fromwire_hsmd_preapprove_keysend_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_preapprove_keysend_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_sign_bolt12_reply */
+bool fromwire_hsmd_sign_bolt12_reply(const void *p UNNEEDED, struct bip340sig *sig UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_sign_bolt12_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_commitment_tx_reply */
 bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_commitment_tx_reply called!\n"); abort(); }
@@ -779,15 +779,15 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_gossipd_discovered_ip */
 u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
 { fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
-/* Generated stub for towire_hsmd_sign_bolt12 */
-u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
 /* Generated stub for towire_hsmd_preapprove_invoice */
 u8 *towire_hsmd_preapprove_invoice(const tal_t *ctx UNNEEDED, const wirestring *invstring UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_invoice called!\n"); abort(); }
 /* Generated stub for towire_hsmd_preapprove_keysend */
-u8 *towire_hsmd_preapprove_keysend(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount UNNEEDED)
+u8 *towire_hsmd_preapprove_keysend(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount_msat UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_keysend called!\n"); abort(); }
+/* Generated stub for towire_hsmd_sign_bolt12 */
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 commit_num UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
