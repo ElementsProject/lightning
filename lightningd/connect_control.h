@@ -17,6 +17,7 @@ struct wireaddr_internal;
 /* Returns fd for gossipd to talk to connectd */
 int connectd_init(struct lightningd *ld);
 void connectd_activate(struct lightningd *ld);
+void connectd_start_shutdown(struct subd *connectd);
 
 void try_reconnect(const tal_t *ctx,
 		   struct peer *peer,
