@@ -714,6 +714,12 @@ connections on that port, on any IPv4 and IPv6 addresses you listen
 to ([bolt][bolt] #891).  The normal protocol is expected to be sent over WebSocket binary
 frames once the connection is upgraded.
 
+* **experimental-peer-storage**
+
+  Specifying this option means we will store up to 64k of encrypted
+data for our peers, and give them our (encrypted!) backup data to
+store as well, based on a protocol similar to [bolt][bolt] #881.
+
 BUGS
 ----
 

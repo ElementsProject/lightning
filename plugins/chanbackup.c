@@ -30,6 +30,7 @@
 
 /* Global secret object to keep the derived encryption key for the SCB */
 static struct secret secret;
+static bool peer_backup;
 
 /* Helper to fetch out SCB from the RPC call */
 static bool json_to_scb_chan(const char *buffer,
@@ -530,6 +531,9 @@ static struct command_result *peer_connected(struct command *cmd,
         u8 *serialise_scb;
 	const char *err;
 
+	if (!peer_backup)
+		return command_hook_success(cmd);
+
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 	node_id = tal(cmd, struct node_id);
@@ -592,13 +596,15 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 {
         struct node_id node_id;
         u8 *payload, *payload_deserialise;
-	const char *err = json_scan(cmd, buf, params,
-				    "{payload:%,peer_id:%}",
-				    JSON_SCAN_TAL(cmd,
-				    		  json_tok_bin_from_hex,
-				    		  &payload),
-				    JSON_SCAN(json_to_node_id,
-				    	      &node_id));
+	const char *err;
+
+	if (!peer_backup)
+		return command_hook_success(cmd);
+
+	err = json_scan(cmd, buf, params,
+			"{payload:%,peer_id:%}",
+			JSON_SCAN_TAL(cmd, json_tok_bin_from_hex, &payload),
+			JSON_SCAN(json_to_node_id, &node_id));
 	if (err) {
 		plugin_err(cmd->plugin,
 			   "`your_peer_storage` response did not scan %s: %.*s",
@@ -737,6 +743,14 @@ static const char *init(struct plugin *p,
 	struct scb_chan **scb_chan;
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
+	u8 *features;
+
+	/* Figure out if they specified --experimental-peer-storage */
+	rpc_scan(p, "getinfo",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{our_features:{init:%}}",
+		 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
+	peer_backup = feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE);
 
 	rpc_scan(p, "staticbackup",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -799,12 +813,8 @@ static const struct plugin_command commands[] = {
 int main(int argc, char *argv[])
 {
         setup_locale();
-	struct feature_set *features = feature_set_for_feature(NULL, OPT_WANT_PEER_BACKUP_STORAGE);
-	feature_set_or(features,
-		       take(feature_set_for_feature(NULL,
-						    OPT_PROVIDE_PEER_BACKUP_STORAGE)));
 
-	plugin_main(argv, init, PLUGIN_STATIC, true, features,
+	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,  /* Notification topics we publish */
