@@ -3971,6 +3971,8 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     # create l2->l1 channel.
     l2.fundwallet(amount_sat * 5)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Make sure l2 considers it fully connected too!
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id']) != {'peers': []})
     l2.rpc.fundchannel(l1.info['id'], amount_sat * 3)
 
     # Let the channel confirm.
