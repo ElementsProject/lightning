@@ -2510,8 +2510,11 @@ def test_restorefrompeer(node_factory, bitcoind):
     """
     Test restorefrompeer
     """
-    l1, l2 = node_factory.get_nodes(2, opts=[{'allow_broken_log': True, 'may_reconnect': True},
-                                             {'may_reconnect': True}])
+    l1, l2 = node_factory.get_nodes(2, [{'allow_broken_log': True,
+                                         'experimental-peer-storage': None,
+                                         'may_reconnect': True},
+                                        {'experimental-peer-storage': None,
+                                         'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
