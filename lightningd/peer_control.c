@@ -2418,7 +2418,16 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_array_end(response);
 
 	json_add_string(response, "version", version());
-	json_add_num(response, "blockheight", cmd->ld->blockheight);
+	/* If we're still syncing, put the height we're up to here, so
+	 * they can see progress!  Otherwise use the height gossipd knows
+	 * about, so tests work properly. */
+	if (!topology_synced(cmd->ld->topology)) {
+		json_add_num(response, "blockheight",
+			     get_block_height(cmd->ld->topology));
+	} else {
+		json_add_num(response, "blockheight",
+			     cmd->ld->gossip_blockheight);
+	}
 	json_add_string(response, "network", chainparams->network_name);
 	json_add_amount_msat_compat(response,
 			wallet_total_forward_fees(cmd->ld->wallet),
