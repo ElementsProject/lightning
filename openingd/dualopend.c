@@ -603,11 +603,6 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 		(psbt->inputs[in].redeem_script_len +
 			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
 
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
-	 *
-	 * The minimum witness weight for an input is 110.
-	 */
-	weight += 110;
 	return weight;
 }
 
