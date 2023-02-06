@@ -871,6 +871,12 @@ def setchannel2py(m):
     })
 
 
+def signinvoice2py(m):
+    return remove_default({
+        "bolt11": m.bolt11,  # PrimitiveField in generate_composite
+    })
+
+
 def signmessage2py(m):
     return remove_default({
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
