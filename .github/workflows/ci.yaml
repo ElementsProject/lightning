@@ -170,7 +170,7 @@ jobs:
     env:
       COMPAT: 1
       BITCOIN_VERSION: 24.0.1
-      ELEMENTS_VERSION: 0.18.1.8
+      ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
     needs:
       - compile
@@ -277,7 +277,7 @@ jobs:
     env:
       COMPAT: 1
       BITCOIN_VERSION: 24.0.1
-      ELEMENTS_VERSION: 0.18.1.8
+      ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
       VALGRIND: 1
       CFG: gcc-dev1-exp1

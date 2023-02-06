@@ -5,13 +5,13 @@ set -e
 DIRNAME="bitcoin-${BITCOIN_VERSION}"
 EDIRNAME="elements-${ELEMENTS_VERSION}"
 FILENAME="${DIRNAME}-x86_64-linux-gnu.tar.gz"
-EFILENAME="${EDIRNAME}-x86_64-linux-gnu.tar.bz2"
+EFILENAME="${EDIRNAME}-x86_64-linux-gnu.tar.gz"
 
 cd /tmp/
 wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/${FILENAME}"
-wget -q "https://storage.googleapis.com/c-lightning-tests/${EFILENAME}"
+wget "https://github.com/ElementsProject/elements/releases/download/elements-${ELEMENTS_VERSION}/${EFILENAME}"
 tar -xf "${FILENAME}"
-tar -xaf "${EFILENAME}"
+tar -xf "${EFILENAME}"
 sudo mv "${DIRNAME}"/bin/* "/usr/local/bin"
 sudo mv "${EDIRNAME}"/bin/* "/usr/local/bin"
 
