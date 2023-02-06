@@ -201,7 +201,7 @@ static void gossipd_new_blockheight_reply(struct subd *gossipd,
 	}
 
 	/* Now, finally update getinfo's blockheight */
-	gossipd->ld->blockheight = ptr2int(blockheight);
+	gossipd->ld->gossip_blockheight = ptr2int(blockheight);
 }
 
 void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
