@@ -1102,6 +1102,15 @@ impl From<responses::SetchannelResponse> for pb::SetchannelResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SigninvoiceResponse> for pb::SigninvoiceResponse {
+    fn from(c: responses::SigninvoiceResponse) -> Self {
+        Self {
+            bolt11: c.bolt11, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SignmessageResponse> for pb::SignmessageResponse {
     fn from(c: responses::SignmessageResponse) -> Self {
         Self {
@@ -1686,6 +1695,15 @@ impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
             htlcmin: c.htlcmin.map(|a| a.into()), // Rule #1 for type msat?
             htlcmax: c.htlcmax.map(|a| a.into()), // Rule #1 for type msat?
             enforcedelay: c.enforcedelay, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SigninvoiceRequest> for requests::SigninvoiceRequest {
+    fn from(c: pb::SigninvoiceRequest) -> Self {
+        Self {
+            invstring: c.invstring, // Rule #1 for type string
         }
     }
 }

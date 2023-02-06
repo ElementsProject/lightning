@@ -1466,6 +1466,38 @@ async fn set_channel(
 
 }
 
+async fn sign_invoice(
+    &self,
+    request: tonic::Request<pb::SigninvoiceRequest>,
+) -> Result<tonic::Response<pb::SigninvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SigninvoiceRequest = req.into();
+    debug!("Client asked for sign_invoice");
+    trace!("sign_invoice request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SignInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SignInvoice: {:?}", e)))?;
+    match result {
+        Response::SignInvoice(r) => {
+           trace!("sign_invoice response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SignInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn sign_message(
     &self,
     request: tonic::Request<pb::SignmessageRequest>,

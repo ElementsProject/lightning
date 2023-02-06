@@ -53,6 +53,7 @@ service Node {
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
+	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 }
@@ -1321,6 +1322,14 @@ message SetchannelChannels {
 	optional string warning_htlcmin_too_low = 7;
 	Amount maximum_htlc_out_msat = 8;
 	optional string warning_htlcmax_too_high = 9;
+}
+
+message SigninvoiceRequest {
+	string invstring = 1;
+}
+
+message SigninvoiceResponse {
+	string bolt11 = 1;
 }
 
 message SignmessageRequest {
