@@ -152,7 +152,8 @@ def test_closing_disconnected_notify(node_factory, bitcoind, executor):
 
     l1.pay(l2, 200000000)
     l2.stop()
-    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    # Wait until channeld is definitely gone.
+    wait_for(lambda: 'owner' not in only_one(l1.rpc.listpeerchannels()['channels']))
 
     out = subprocess.check_output(['cli/lightning-cli',
                                    '--network={}'.format(TEST_NETWORK),
