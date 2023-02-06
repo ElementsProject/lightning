@@ -61,6 +61,7 @@ pub enum Request {
 	ListPays(requests::ListpaysRequest),
 	Ping(requests::PingRequest),
 	SetChannel(requests::SetchannelRequest),
+	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Stop(requests::StopRequest),
 }
@@ -114,6 +115,7 @@ pub enum Response {
 	ListPays(responses::ListpaysResponse),
 	Ping(responses::PingResponse),
 	SetChannel(responses::SetchannelResponse),
+	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Stop(responses::StopResponse),
 }
@@ -1239,6 +1241,21 @@ pub mod requests {
 
 	impl IntoRequest for SetchannelRequest {
 	    type Response = super::responses::SetchannelResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SigninvoiceRequest {
+	    pub invstring: String,
+	}
+
+	impl From<SigninvoiceRequest> for Request {
+	    fn from(r: SigninvoiceRequest) -> Self {
+	        Request::SignInvoice(r)
+	    }
+	}
+
+	impl IntoRequest for SigninvoiceRequest {
+	    type Response = super::responses::SigninvoiceResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3512,6 +3529,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SetChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SigninvoiceResponse {
+	    pub bolt11: String,
+	}
+
+	impl TryFrom<Response> for SigninvoiceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SignInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
