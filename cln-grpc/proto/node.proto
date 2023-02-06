@@ -52,6 +52,7 @@ service Node {
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
+	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
@@ -1298,6 +1299,15 @@ message PingRequest {
 
 message PingResponse {
 	uint32 totlen = 1;
+}
+
+message SendcustommsgRequest {
+	bytes node_id = 1;
+	bytes msg = 2;
+}
+
+message SendcustommsgResponse {
+	string status = 1;
 }
 
 message SetchannelRequest {

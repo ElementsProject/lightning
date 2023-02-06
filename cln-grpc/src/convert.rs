@@ -1082,6 +1082,15 @@ impl From<responses::PingResponse> for pb::PingResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SendcustommsgResponse> for pb::SendcustommsgResponse {
+    fn from(c: responses::SendcustommsgResponse) -> Self {
+        Self {
+            status: c.status, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::SetchannelChannels> for pb::SetchannelChannels {
     fn from(c: responses::SetchannelChannels) -> Self {
         Self {
@@ -1692,6 +1701,16 @@ impl From<requests::PingRequest> for pb::PingRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SendcustommsgRequest> for pb::SendcustommsgRequest {
+    fn from(c: requests::SendcustommsgRequest) -> Self {
+        Self {
+            node_id: c.node_id.serialize().to_vec(), // Rule #2 for type pubkey
+            msg: hex::decode(&c.msg).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
     fn from(c: requests::SetchannelRequest) -> Self {
         Self {
@@ -2283,6 +2302,16 @@ impl From<pb::PingRequest> for requests::PingRequest {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             len: c.len.map(|v| v as u16), // Rule #1 for type u16?
             pongbytes: c.pongbytes.map(|v| v as u16), // Rule #1 for type u16?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SendcustommsgRequest> for requests::SendcustommsgRequest {
+    fn from(c: pb::SendcustommsgRequest) -> Self {
+        Self {
+            node_id: PublicKey::from_slice(&c.node_id).unwrap(), // Rule #1 for type pubkey
+            msg: hex::encode(&c.msg), // Rule #1 for type hex
         }
     }
 }
@@ -3387,6 +3416,15 @@ impl From<pb::PingResponse> for responses::PingResponse {
     fn from(c: pb::PingResponse) -> Self {
         Self {
             totlen: c.totlen as u16, // Rule #1 for type u16
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SendcustommsgResponse> for responses::SendcustommsgResponse {
+    fn from(c: pb::SendcustommsgResponse) -> Self {
+        Self {
+            status: c.status, // Rule #1 for type string
         }
     }
 }
