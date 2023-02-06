@@ -852,6 +852,12 @@ def ping2py(m):
     })
 
 
+def sendcustommsg2py(m):
+    return remove_default({
+        "status": m.status,  # PrimitiveField in generate_composite
+    })
+
+
 def setchannel_channels2py(m):
     return remove_default({
         "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite

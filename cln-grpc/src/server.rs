@@ -1434,6 +1434,38 @@ async fn ping(
 
 }
 
+async fn send_custom_msg(
+    &self,
+    request: tonic::Request<pb::SendcustommsgRequest>,
+) -> Result<tonic::Response<pb::SendcustommsgResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SendcustommsgRequest = req.into();
+    debug!("Client asked for send_custom_msg");
+    trace!("send_custom_msg request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SendCustomMsg(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SendCustomMsg: {:?}", e)))?;
+    match result {
+        Response::SendCustomMsg(r) => {
+           trace!("send_custom_msg response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SendCustomMsg",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn set_channel(
     &self,
     request: tonic::Request<pb::SetchannelRequest>,
