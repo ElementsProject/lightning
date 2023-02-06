@@ -905,6 +905,13 @@
         "PingResponse": {
             "Ping.totlen": 1
         },
+        "SendcustommsgRequest": {
+            "SendCustomMsg.msg": 2,
+            "SendCustomMsg.node_id": 1
+        },
+        "SendcustommsgResponse": {
+            "SendCustomMsg.status": 1
+        },
         "SendonionFirst_hop": {
             "SendOnion.first_hop.amount_msat": 2,
             "SendOnion.first_hop.delay": 3,
