@@ -547,6 +547,7 @@ class ElementsD(BitcoinD):
             '-nowallet',
             '-validatepegin=0',
             '-con_blocksubsidy=5000000000',
+            '-acceptnonstdtxn=1',  # FIXME Issues such as dust limit interacting with anchors
         ]
         conf_file = os.path.join(bitcoin_dir, 'elements.conf')
         config['rpcport'] = self.rpcport
