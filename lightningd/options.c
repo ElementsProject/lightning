@@ -1644,6 +1644,9 @@ static void add_config(struct lightningd *ld,
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
+		} else if (opt->show == (void *)opt_show_charp) {
+			/* Don't truncate! */
+			answer = tal_strdup(tmpctx, *(char **)opt->u.carg);
 		} else if (opt->show) {
 			opt->show(buf, opt->u.carg);
 			strcpy(buf + OPT_SHOW_LEN - 1, "...");
@@ -1655,14 +1658,7 @@ static void add_config(struct lightningd *ld,
 				json_add_primitive(response, name0, buf);
 				return;
 			}
-
-			/* opt_show_charp surrounds with "", strip them */
-			if (strstarts(buf, "\"")) {
-				char *end = strrchr(buf, '"');
-				memmove(end, end + 1, strlen(end));
-				answer = buf + 1;
-			} else
-				answer = buf;
+			answer = buf;
 		} else if (opt->cb_arg == (void *)opt_set_talstr
 			   || opt->cb_arg == (void *)opt_set_charp
 			   || is_restricted_print_if_nonnull(opt->cb_arg)) {
