@@ -1719,6 +1719,7 @@ pub mod responses {
 	pub struct ListpeersPeers {
 	    pub id: PublicKey,
 	    pub connected: bool,
+	    pub num_channels: u32,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub log: Option<Vec<ListpeersPeersLog>>,
 	    #[deprecated]

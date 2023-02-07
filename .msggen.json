@@ -702,6 +702,7 @@
             "ListPeers.peers[].id": 1,
             "ListPeers.peers[].log[]": 3,
             "ListPeers.peers[].netaddr[]": 5,
+            "ListPeers.peers[].num_channels": 8,
             "ListPeers.peers[].remote_addr": 7
         },
         "ListpeersPeersChannels": {
