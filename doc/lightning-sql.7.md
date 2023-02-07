@@ -299,6 +299,7 @@ The following tables are currently supported:
 - `peers` indexed by `id` (see lightning-listpeers(7))
   - `id` (type `pubkey`, sqltype `BLOB`)
   - `connected` (type `boolean`, sqltype `INTEGER`)
+  - `num_channels` (type `u32`, sqltype `INTEGER`)
   - related table `peers_netaddr`
     - `row` (reference to `peers.rowid`, sqltype `INTEGER`)
     - `arrindex` (index within array, sqltype `INTEGER`)
@@ -471,4 +472,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:dbb9286cf31dc82b33143d5274b1c4eecc75c5ba1dfc18bdf21b4baab585bd45)
+[comment]: # ( SHA256STAMP:d25af4b0655ebd31db68932c5ea6b532bd134477e42df5d0c7428e4a03fd0335)
