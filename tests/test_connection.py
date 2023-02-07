@@ -25,26 +25,28 @@ import websocket
 
 def test_connect_basic(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1id = l1.info['id']
+    l2id = l2.info['id']
 
     # These should be in openingd.
-    assert l1.rpc.getpeer(l2.info['id'])['connected']
-    assert l2.rpc.getpeer(l1.info['id'])['connected']
-    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 0
-    assert len(l2.rpc.listpeerchannels(l1.info['id'])['channels']) == 0
+    assert l1.rpc.getpeer(l2id)['connected']
+    assert l2.rpc.getpeer(l1id)['connected']
+    assert len(l1.rpc.listpeerchannels(l2id)['channels']) == 0
+    assert len(l2.rpc.listpeerchannels(l1id)['channels']) == 0
 
     # Reconnect should be a noop
-    ret = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
-    assert ret['id'] == l2.info['id']
+    ret = l1.rpc.connect(l2id, 'localhost', port=l2.port)
+    assert ret['id'] == l2id
     assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l2.port}
 
-    ret = l2.rpc.connect(l1.info['id'], host='localhost', port=l1.port)
-    assert ret['id'] == l1.info['id']
+    ret = l2.rpc.connect(l1id, host='localhost', port=l1.port)
+    assert ret['id'] == l1id
     # FIXME: This gives a bogus address (since they connected to us): better to give none!
     assert 'address' in ret
 
     # Should still only have one peer!
-    assert len(l1.rpc.listpeers()) == 1
-    assert len(l2.rpc.listpeers()) == 1
+    assert len(l1.rpc.listpeers()['peers']) == 1
+    assert len(l2.rpc.listpeers()['peers']) == 1
 
     # Should get reasonable error if unknown addr for peer.
     with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
@@ -57,6 +59,13 @@ def test_connect_basic(node_factory):
     # Should get reasonable error if wrong key for peer.
     with pytest.raises(RpcError, match=r'Cryptographic handshake: peer closed connection \(wrong key\?\)'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
+
+    # test new `num_channels` param
+    assert l1.rpc.listpeers(l2id)['peers'][0]['num_channels'] == 0
+    l1.fundchannel(l2)
+    assert l1.rpc.listpeers(l2id)['peers'][0]['num_channels'] == 1
+    l1.fundchannel(l2)
+    assert l1.rpc.listpeers(l2id)['peers'][0]['num_channels'] == 2
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for fast gossip and --dev-allow-localhost for local remote_addr")
