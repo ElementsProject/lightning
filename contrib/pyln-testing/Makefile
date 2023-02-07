@@ -28,7 +28,7 @@ check-flake8:
 	flake8 --ignore=E501,E731,W503,E741  --exclude '*_pb2*.py,grpc2py.py' pyln tests
 
 check-pytest:
-	pytest tests
+	pytest -vv --capture=no tests
 
 check-mypy:
 #	MYPYPATH=$(PYTHONPATH) mypy --namespace-packages --follow-imports=skip tests pyln
