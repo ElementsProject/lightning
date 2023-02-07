@@ -185,6 +185,7 @@ def listpeers_peers2py(m):
     return remove_default({
         "id": hexlify(m.id),  # PrimitiveField in generate_composite
         "connected": m.connected,  # PrimitiveField in generate_composite
+        "num_channels": m.num_channels,  # PrimitiveField in generate_composite
         "log": [listpeers_peers_log2py(i) for i in m.log],  # ArrayField[composite] in generate_composite
         "channels": [listpeers_peers_channels2py(i) for i in m.channels],  # ArrayField[composite] in generate_composite
         "netaddr": [m.netaddr for i in m.netaddr], # ArrayField[primitive] in generate_composite
