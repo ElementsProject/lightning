@@ -1932,11 +1932,16 @@ static void json_add_peer(struct lightningd *ld,
 			  const enum log_level *ll)
 {
 	struct channel *channel;
+	u32 num_channels;
 
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
 	json_add_bool(response, "connected", p->connected == PEER_CONNECTED);
+	num_channels = 0;
+	list_for_each(&p->channels, channel, list)
+		num_channels++;
+	json_add_num(response, "num_channels", num_channels);
 
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
@@ -1954,7 +1959,6 @@ static void json_add_peer(struct lightningd *ld,
 					fmt_wireaddr(response, p->remote_addr));
 		json_add_hex_talarr(response, "features", p->their_features);
 	}
-
 	if (deprecated_apis) {
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
