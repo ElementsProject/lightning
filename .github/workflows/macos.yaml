@@ -6,6 +6,7 @@ jobs:
   smoke-test:
     name: Smoke Test macOS
     runs-on: macos-latest
+    timeout-minutes: 120
     env:
       DEVELOPER: 1
       VALGRIND: 0

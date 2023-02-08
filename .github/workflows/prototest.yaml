@@ -9,7 +9,7 @@ jobs:
   proto-test:
     name: Protocol Test Config
     runs-on: ubuntu-22.04
-    timeout-minutes: 300
+    timeout-minutes: 120
     strategy:
       fail-fast: true
       matrix:
