@@ -6,6 +6,111 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 <!--
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
+## [23.02rc1] - 2023-02-08
+
+### Added
+
+ - Plugins: `sql` plugin command to perform server-side complex queries. ([#5679])
+ - JSON-RPC: `preapprovekeysend`: New command to preapprove payment details with an HSM. ([#5821])
+ - JSON-RPC: `preapproveinvoice`: New command to preapprove a BOLT11 invoice with an HSM. ([#5821])
+ - JSON-RPC: `listpeerchannels`: New command to return information on direct channels with our peers. ([#5825])
+ - JSON-RPC: `signinvoice`: New command to sign a BOLT11 invoice. ([#5697])
+ - JSON-RPC: `upgradewallet`: New command to sweep all p2sh-wrapped outputs to a native segwit output. ([#5670])
+ - JSON-RPC: `fundpsbt` option `nonwrapped` filters out p2sh wrapped inputs. ([#5670])
+ - JSON-RPC: `listpeers` output now has `num_channels` as `channels` is deprecated (see `listpeerchannels`). ([#5968])
+ - JSON-RPC: `listchannels` added a `direction` field (0 or 1) as per gossip specification. ([#5679])
+ - cli: `--commando=peerid:rune` (or `-c peerid:rune`) as convenient shortcut for running commando commands. ([#5866])
+ - Plugins: `commando` now supports `filter` as a parameter (for send and receive). ([#5866])
+ - Config: Added config option `announce-addr-discovered-port` to set custom port for IP discovery. ([#5842])
+ - Config: Added config switch `announce-addr-discovered`: on/off/auto ([#5841])
+ - doc: we now annotate what versions JSON field additions and deprecations happenened. ([#5867])
+ - SECURITY.md: Where to send sensitive bug reports, and dev GPG fingerprints. ([#5960])
+
+
+### Changed
+
+ - JSON-RPC: `sendcustommsg` can now be called by a plugin from within the `peer_connected` hook. ([#5361])
+ - JSON-RPC: `getinfo` `address` array is always present (though may be empty.) ([#5904])
+ - postgres: Ordering of HTLCs in `listhtlcs` are now ordered by time of creation. ([#5863])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Config: The --disable-ip-discovery config switch: use `announce-addr-discovered`. ([#5841])
+ - JSON-RPC: `newaddr`: `addresstype` `p2sh-segwit` (use default, or `bech32`.) ([#5751])
+ - JSON-RPC: `listpeers` `channels` array: use `listpeerchannels`. ([#5825])
+ - plugins: `commando` JSON commands without an `id` (see doc/lightningd-rpc.7.md for how to construct a good id field). ([#5866])
+
+
+### Removed
+
+ - JSON-RPC: `sendpay` `route` argument `style` "legacy" (deprecated v0.11.0) ([#5747])
+ - JSON-RPC: `close` `destination` no longer allows p2pkh or p2sh addresses. (deprecated v0.11.0) ([#5747])
+ - JSON-RPC: `fundpsbt`/`utxopsbt` `reserve` must be a number, not bool. (deprecated v0.11.0) ([#5747])
+ - JSON-RPC: `invoice` `expiry` no longer allowed to be a string with suffix, use an integer number of seconds. (deprecated v0.11.0) ([#5747])
+ - JSON-RPC: `pay` for a bolt11 which uses a `description_hash`, without setting `description`. (deprecated v0.11.0) ([#5747])
+
+
+### Fixed
+
+ - gossip: We removed a warning for old `node_announcement` that was causing LND peers to disconnect ([#5925])
+ - gossip: We removed a warning for malformed `channel_update` that was causing LND peers to disconnect  ([#5897])
+ - cli: accepts long paths as options ([#5883])
+ - JSON-RPC: `getinfo` `blockheight` no longer sits on 0 while we sync with bitcoind the first time. ([#5963])
+ - lightningd: we no longer stack multiple reconnection attempts if connections fail. ([#5946])
+ - Plugins: `pay` uses the correct local channel for payments when there are multiple available (not just always the first!) ([#5947])
+ - Pruned channels are more reliably restored. ([#5839])
+ - pay: don't assert() on malformed BOLT11 strings. ([#5891])
+ - channeld no longer retains dead HTLCs in memory. ([#5882])
+ - database: Correctly identity official release versions for database upgrade. ([#5880])
+ - Plugins: `commando` now responds to remote JSON calls with the correct JSON `id` field. ([#5866])
+ - JSON-RPC: `sendpay` now can send to a short-channel-id alias for the first hop. ([#5846])
+ - topology: Fixed memleak in `listchannels` ([#5865])
+
+
+### EXPERIMENTAL
+
+ - Protocol: Peer Storage: Distribute your encrypted backup to your peers, which can be retrieved to recover funds upon complete dataloss. ([#5361])
+ - Protocol: `offers` breaking blinded payments change (total_amount_sat required, update_add_tlvs fix, Eclair compat.) ([#5892])
+ - Protocol: Dual-funding spec changed in incompatible ways, won't work with old versions (but maybe soon with Eclair!!) ([#5956])
+ - Experimental-Dual-Fund: Open failures don't disconnect, but instead fail the opening process. ([#5767])
+ - JSON-RPC: `listtransactions` `channel` and `type` field removed at top level. ([#5679])
+
+
+[#5825]: https://github.com/ElementsProject/lightning/pull/5825
+[#5882]: https://github.com/ElementsProject/lightning/pull/5882
+[#5839]: https://github.com/ElementsProject/lightning/pull/5839
+[#5892]: https://github.com/ElementsProject/lightning/pull/5892
+[#5751]: https://github.com/ElementsProject/lightning/pull/5751
+[#5963]: https://github.com/ElementsProject/lightning/pull/5963
+[#5891]: https://github.com/ElementsProject/lightning/pull/5891
+[#5747]: https://github.com/ElementsProject/lightning/pull/5747
+[#5670]: https://github.com/ElementsProject/lightning/pull/5670
+[#5846]: https://github.com/ElementsProject/lightning/pull/5846
+[#5880]: https://github.com/ElementsProject/lightning/pull/5880
+[#5866]: https://github.com/ElementsProject/lightning/pull/5866
+[#5697]: https://github.com/ElementsProject/lightning/pull/5697
+[#5867]: https://github.com/ElementsProject/lightning/pull/5867
+[#5883]: https://github.com/ElementsProject/lightning/pull/5883
+[#5960]: https://github.com/ElementsProject/lightning/pull/5960
+[#5679]: https://github.com/ElementsProject/lightning/pull/5679
+[#5821]: https://github.com/ElementsProject/lightning/pull/5821
+[#5946]: https://github.com/ElementsProject/lightning/pull/5946
+[#5968]: https://github.com/ElementsProject/lightning/pull/5968
+[#5947]: https://github.com/ElementsProject/lightning/pull/5947
+[#5863]: https://github.com/ElementsProject/lightning/pull/5863
+[#5925]: https://github.com/ElementsProject/lightning/pull/5925
+[#5361]: https://github.com/ElementsProject/lightning/pull/5361
+[#5767]: https://github.com/ElementsProject/lightning/pull/5767
+[#5841]: https://github.com/ElementsProject/lightning/pull/5841
+[#5865]: https://github.com/ElementsProject/lightning/pull/5865
+[#5842]: https://github.com/ElementsProject/lightning/pull/5842
+[#5956]: https://github.com/ElementsProject/lightning/pull/5956
+[#5897]: https://github.com/ElementsProject/lightning/pull/5897
+[#5904]: https://github.com/ElementsProject/lightning/pull/5904
+
 
 ## [22.11.1] - 2022-12-09: "Alameda Yield Generator II"
 
@@ -2116,6 +2221,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[23.02rc1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02rc1
 [0.12.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 [0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
