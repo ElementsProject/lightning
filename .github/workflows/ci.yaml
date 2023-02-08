@@ -20,6 +20,7 @@ jobs:
   prebuild:
     name: Pre-build checks
     runs-on: ubuntu-20.04
+    timeout-minutes: 30
     env:
       RUST: 1
       COMPAT: 1
@@ -58,6 +59,7 @@ jobs:
     # on the integration tests), so run them with `valgrind`
     name: Run unit tests
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     env:
       COMPAT: 1
       VALGRIND: 1
@@ -92,6 +94,7 @@ jobs:
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     env:
       COMPAT: 1
     needs:
@@ -163,6 +166,7 @@ jobs:
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
     env:
       COMPAT: 1
       BITCOIN_VERSION: 24.0.1
@@ -269,6 +273,7 @@ jobs:
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
     env:
       COMPAT: 1
       BITCOIN_VERSION: 24.0.1
