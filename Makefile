@@ -30,7 +30,7 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 -include config.vars
 
 SORT=LC_ALL=C sort
-
+CHECK_PROTO=1
 
 ifeq ($V,1)
 VERBOSE = $(ECHO) '$(2)'; $(2)
@@ -457,7 +457,11 @@ ifeq ($(PYTEST),)
 	@echo "py.test is required to run the protocol tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."; false
 else
 ifeq ($(DEVELOPER),1)
+ifeq ($(CHECK_PROTO), 1)
 	@(cd external/lnprototest && PYTHONPATH=$(MY_CHECK_PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
+else
+	@echo "lnprototed is disabled, use CHECK_PROTO=1 to include it"
+endif
 else
 	@echo "lnprototest target requires DEVELOPER=1, skipping"
 endif
