@@ -232,6 +232,7 @@ mod test {
                 "127.0.0.1:39152"
               ],
               "features": "8808226aa2",
+              "num_channels": 0,
               "channels": [
                 {
                   "state": "CHANNELD_NORMAL",
@@ -333,6 +334,7 @@ mod test {
                 "127.0.0.1:38321"
               ],
               "features": "8808226aa2",
+              "num_channels": 0,
               "channels": [
                 {
                   "state": "CHANNELD_NORMAL",
