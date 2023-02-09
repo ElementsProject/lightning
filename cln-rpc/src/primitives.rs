@@ -10,7 +10,7 @@ use std::string::ToString;
 pub use bitcoin::hashes::sha256::Hash as Sha256;
 pub use bitcoin::secp256k1::PublicKey;
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum ChannelState {
     OPENINGD = 0,
