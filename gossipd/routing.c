@@ -1524,7 +1524,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* Handle resurrection of zombie channels if the other side of the
 	 * zombie channel has a recent timestamp. */
 	if (zombie && timestamp_reasonable(rstate,
-		chan->half[!direction].bcast.timestamp)) {
+		chan->half[!direction].bcast.timestamp) &&
+		chan->half[!direction].bcast.index) {
 		status_peer_debug(peer ? &peer->id : NULL,
 				  "Resurrecting zombie channel %s.",
 				  type_to_string(tmpctx,
