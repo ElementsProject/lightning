@@ -2624,7 +2624,7 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		u64 serial;
 
 		if (!psbt_get_serial_id(&pv->psbt->inputs[i].unknowns, &serial)) {
-			err = tal_fmt(pv, "PSBT input at index %"PRIu64
+			err = tal_fmt(pv, "PSBT input at index %zu"
 				      " missing serial id", i);
 			pv->invalid_input(pv, err);
 			return;
