@@ -45,9 +45,6 @@ On success, an object containing **transactions** is returned.  It is an array o
   - **scriptPubKey** (hex): the scriptPubKey
   - **type** (string, optional): the purpose of this output (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
   - **channel** (short\_channel\_id, optional): the channel this output is associated with (*EXPERIMENTAL\_FEATURES* only)
-- **type** (array of strings, optional):
-  - Reason we care about this transaction (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
-- **channel** (short\_channel\_id, optional): the channel this transaction is associated with (*EXPERIMENTAL\_FEATURES* only)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -106,4 +103,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:450383460036860bfeb65fac98582b4c075d9b6c8df326f22ee1aabde7980d74)
+[comment]: # ( SHA256STAMP:525f24511eb9687dc16d5b2156d4d8df28b371e287512a749d2d9dfd5701e093)

@@ -27,6 +27,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
+#include <common/peer_status_wiregen.h>
 #include <common/per_peer_state.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
@@ -192,6 +193,9 @@ struct state {
 	 * channeld-specific as initial channels never have HTLCs. */
 	struct channel *channel;
 
+	/* Channel type we agreed on (even before channel populated) */
+	struct channel_type *channel_type;
+
 	struct feature_set *our_features;
 
 	/* Tally of which sides are locked, or not */
@@ -202,6 +206,9 @@ struct state {
 
 	/* Were we reconnected at start ? */
 	bool reconnected;
+
+	/* Did we send tx-abort? */
+	const char *aborted_err;
 
 	/* State of inflight funding transaction attempt */
 	struct tx_state *tx_state;
@@ -231,7 +238,6 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
 			abort();
@@ -239,17 +245,9 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
 
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
-
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence,
-					  script);
+					  in->tx_input.sequence);
 
 		tal_arr_remove(&set->added_ins, 0);
 		return msg;
@@ -326,18 +324,46 @@ static bool shutdown_complete(const struct state *state)
 static void negotiation_aborted(struct state *state, const char *why)
 {
 	status_debug("aborted opening negotiation: %s", why);
+
+	/* Tell master that funding failed. */
+	peer_failed_received_errmsg(state->pps, why,
+				    &state->channel_id, true);
+}
+
+/* Softer version of 'warning' (we don't disconnect)
+ * Only valid iff *we* haven't sent tx-sigs for a in-progress
+ * negotiation */
+static void open_abort(struct state *state,
+		       const char *fmt, ...)
+{
+	va_list ap;
+	const char *errmsg;
+	u8 *msg;
+
+	va_start(ap, fmt);
+	errmsg = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+
+	status_debug("aborted open negotiation, tx-abort: %s", errmsg);
+
 	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
 	 * call) is a transient per-channel area which indicates important
 	 * information about what is happening.  It has a "permanent" area for
 	 * each state, which can be used to indicate what went wrong in that
 	 * state (such as here), and a single transient area for current
 	 * status. */
-	peer_billboard(true, why);
+	peer_billboard(true, errmsg);
+	msg = towire_tx_abort(NULL, &state->channel_id,
+			      (u8 *)tal_dup_arr(errmsg, char, errmsg,
+					  strlen(errmsg), 0));
+	peer_write(state->pps, take(msg));
 
-	/* Tell master that funding failed. Issue a "warning",
-	 * so we'll reconnect */
-	peer_failed_received_errmsg(state->pps, why,
-				    &state->channel_id, true);
+	/* We're now in aborted mode, all
+	 * subsequent msgs will be dropped */
+	if (!state->aborted_err)
+		state->aborted_err = tal_steal(state, errmsg);
+	else
+		tal_free(errmsg);
 }
 
 static void open_err_warn(struct state *state,
@@ -351,7 +377,6 @@ static void open_err_warn(struct state *state,
 	va_end(ap);
 
 	status_debug("aborted open negotiation, warn: %s", errmsg);
-	peer_billboard(true, errmsg);
 	peer_failed_warn(state->pps, &state->channel_id, "%s", errmsg);
 }
 
@@ -366,7 +391,6 @@ static void open_err_fatal(struct state *state,
 	va_end(ap);
 
 	status_debug("aborted open negotiation, fatal: %s", errmsg);
-	peer_billboard(true, errmsg);
 	peer_failed_err(state->pps, &state->channel_id, "%s", errmsg);
 }
 
@@ -382,7 +406,7 @@ static void negotiation_failed(struct state *state,
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	open_err_warn(state, "You gave bad parameters: %s", errmsg);
+	open_abort(state, "You gave bad parameters: %s", errmsg);
 }
 
 static void billboard_update(struct state *state)
@@ -413,13 +437,13 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 	struct tlv_shutdown_tlvs *tlvs;
 
 	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey, &tlvs))
-		open_err_warn(state, "Bad shutdown %s", tal_hex(msg, msg));
+		open_err_fatal(state, "Bad shutdown %s", tal_hex(msg, msg));
 
 	if (tal_count(state->upfront_shutdown_script[REMOTE])
 	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
 		      state->upfront_shutdown_script[REMOTE],
 		      tal_count(state->upfront_shutdown_script[REMOTE])))
-		open_err_warn(state,
+		open_err_fatal(state,
 			      "scriptpubkey %s is not as agreed upfront (%s)",
 			   tal_hex(state, scriptpubkey),
 			   tal_hex(state,
@@ -428,7 +452,7 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 	/* @niftynei points out that negotiated this together, so this
 	 * hack is not required (or safe!). */
 	if (tlvs->wrong_funding)
-		open_err_warn(state,
+		open_err_fatal(state,
 			      "wrong_funding shutdown"
 			      " invalid for dual-funding");
 
@@ -475,12 +499,12 @@ static void check_channel_id(struct state *state,
 			     struct channel_id *orig_id)
 {
 	if (!channel_id_eq(id_in, orig_id))
-		open_err_warn(state, "channel ids don't match."
-			      " expected %s, got %s",
-			      type_to_string(tmpctx, struct channel_id,
-					     orig_id),
-			      type_to_string(tmpctx, struct channel_id,
-					     id_in));
+		open_err_fatal(state, "channel ids don't match."
+			       " expected %s, got %s",
+			       type_to_string(tmpctx, struct channel_id,
+					      orig_id),
+			       type_to_string(tmpctx, struct channel_id,
+					      id_in));
 }
 
 static bool is_dust(struct tx_state *tx_state,
@@ -573,6 +597,14 @@ static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u32 *funding_
 	return false;
 }
 
+static char *insufficient_err_msg(const tal_t *ctx,
+				  char *error,
+				  struct wally_psbt *psbt)
+{
+	return tal_fmt(tmpctx, "Insufficiently funded funding tx, %s. %s",
+		       error, type_to_string(tmpctx, struct wally_psbt, psbt));
+}
+
 static char *check_balances(const tal_t *ctx,
 			    struct state *state,
 			    struct tx_state *tx_state,
@@ -616,10 +648,11 @@ static char *check_balances(const tal_t *ctx,
 	 *  - there are more than 252 inputs
 	 */
 	if (tx_state->psbt->num_inputs > MAX_FUNDING_INPUTS)
-		negotiation_failed(state, "Too many inputs. Have %zu,"
-				   " Max allowed %zu",
-				   tx_state->psbt->num_inputs,
-				   MAX_FUNDING_INPUTS);
+		return tal_fmt(ctx,
+			       "Too many inputs. Have %zu,"
+			       " Max allowed %u",
+			       tx_state->psbt->num_inputs,
+			       MAX_FUNDING_INPUTS);
 	/*
 	 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The receiving node: ...
@@ -627,10 +660,10 @@ static char *check_balances(const tal_t *ctx,
 	 *  - there are more than 252 outputs
 	 */
 	if (tx_state->psbt->num_outputs > MAX_FUNDING_OUTPUTS)
-		negotiation_failed(state, "Too many inputs. Have %zu,"
-				   " Max allowed %zu",
-				   tx_state->psbt->num_outputs,
-				   MAX_FUNDING_OUTPUTS);
+		return tal_fmt(ctx, "Too many inputs. Have %zu,"
+			       " Max allowed %u",
+			       tx_state->psbt->num_outputs,
+			       MAX_FUNDING_OUTPUTS);
 
 	/* Find funding output, check balance */
 	if (find_txout(psbt,
@@ -643,7 +676,9 @@ static char *check_balances(const tal_t *ctx,
 		if (!amount_sat_add(&total_funding,
 				    tx_state->accepter_funding,
 				    tx_state->opener_funding)) {
-			return "overflow adding desired funding";
+			return insufficient_err_msg(ctx,
+					"overflow adding desired funding",
+					tx_state->psbt);
 		}
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -656,16 +691,17 @@ static char *check_balances(const tal_t *ctx,
 		 *       sum of `open_channel2`.`funding_satoshis`
 		 *       and `accept_channel2`. `funding_satoshis`
 		 */
-		if (!amount_sat_eq(total_funding, output_val)) {
-			return tal_fmt(tmpctx, "total desired funding %s != "
-				       "funding output %s",
-				       type_to_string(tmpctx,
-						      struct amount_sat,
-						      &total_funding),
-				       type_to_string(tmpctx,
-						      struct amount_sat,
-						      &output_val));
-		}
+		if (!amount_sat_eq(total_funding, output_val))
+			return insufficient_err_msg(ctx,
+					tal_fmt(tmpctx, "total desired funding %s != "
+						"funding output %s",
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &total_funding),
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &output_val)),
+					tx_state->psbt);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 		 *
@@ -677,7 +713,8 @@ static char *check_balances(const tal_t *ctx,
 		 *       less than the `dust_limit`
 		 */
 		if (is_dust(tx_state, output_val))
-			return "funding output is dust";
+			return insufficient_err_msg(ctx, "funding output is dust",
+						    tx_state->psbt);
 	} else {
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 		 *
@@ -687,7 +724,8 @@ static char *check_balances(const tal_t *ctx,
 		 *     - MUST fail the negotiation if:
 		 *     - no funding output was received
 		 */
-		return "funding output not present";
+		return insufficient_err_msg(ctx, "funding output not present",
+					    tx_state->psbt);
 	}
 
 	/* Find the total input and output sums */
@@ -701,7 +739,9 @@ static char *check_balances(const tal_t *ctx,
 		/* Add to total balance check */
 		if (!amount_sat_add(&tot_input_amt,
 				    tot_input_amt, amt)) {
-			return "overflow adding input total";
+			return insufficient_err_msg(ctx,
+						    "overflow adding input total",
+						    tx_state->psbt);
 		}
 
 		if (is_openers(&psbt->inputs[i].unknowns)) {
@@ -732,10 +772,14 @@ static char *check_balances(const tal_t *ctx,
 	 * so we do a little switcheroo here */
 	if (!amount_sat_add(&initiator_outs, initiator_outs,
 			    tx_state->lease_fee))
-		return "overflow adding lease_fee to initiator's funding";
+		return insufficient_err_msg(ctx, "overflow adding lease_fee"
+					    " to initiator's funding",
+					    tx_state->psbt);
 	if (!amount_sat_sub(&accepter_outs, accepter_outs,
 			    tx_state->lease_fee))
-		return "unable to subtract lease_fee from accepter's funding";
+		return insufficient_err_msg(ctx, "unable to subtract lease_fee"
+					    " from accepter's funding",
+					    tx_state->psbt);
 
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		struct amount_sat amt =
@@ -744,7 +788,9 @@ static char *check_balances(const tal_t *ctx,
 		/* Add to total balance check */
 		if (!amount_sat_add(&tot_output_amt,
 				    tot_output_amt, amt)) {
-			return "overflow adding output total";
+			return insufficient_err_msg(ctx,
+						    "overflow adding output total",
+						    tx_state->psbt);
 		}
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -756,7 +802,8 @@ static char *check_balances(const tal_t *ctx,
 		 *     the `dust_limit`
 		 */
 		if (is_dust(tx_state, amt))
-			return "output is dust";
+			return insufficient_err_msg(ctx, "output is dust",
+						    tx_state->psbt);
 
 		if (is_openers(&psbt->outputs[i].unknowns)) {
 			/* Don't add the funding output to
@@ -790,15 +837,20 @@ static char *check_balances(const tal_t *ctx,
 	 */
 	/* We check both, why not? */
 	if (!amount_sat_greater_eq(initiator_inputs, initiator_outs)) {
-		return tal_fmt(tmpctx,
-			       "initiator inputs less than outputs (%s < %s)"
-			       " (lease fee %s)",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &initiator_inputs),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &initiator_outs),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &tx_state->lease_fee));
+		return insufficient_err_msg(ctx,
+					    tal_fmt(tmpctx, "initiator inputs"
+						    " less than outputs (%s < %s)"
+						    " (lease fee %s)",
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &initiator_inputs),
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &initiator_outs),
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &tx_state->lease_fee)),
+					    tx_state->psbt);
 
 
 	}
@@ -814,16 +866,27 @@ static char *check_balances(const tal_t *ctx,
 	 */
 	if (!amount_sat_sub(&accepter_diff, accepter_inputs,
 			    accepter_outs)) {
-		return tal_fmt(tmpctx, "accepter inputs %s less than outputs %s (lease fee %s)",
-			       type_to_string(tmpctx, struct amount_sat, &accepter_inputs),
-			       type_to_string(tmpctx, struct amount_sat, &accepter_outs),
-			       type_to_string(tmpctx, struct amount_sat,
-				              &tx_state->lease_fee));
+		return insufficient_err_msg(ctx,
+					    tal_fmt(tmpctx, "accepter inputs"
+						    " %s less than outputs %s"
+						    " (lease fee %s)",
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &accepter_inputs),
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &accepter_outs),
+						    type_to_string(tmpctx,
+								   struct amount_sat,
+								   &tx_state->lease_fee)),
+					    tx_state->psbt);
 	}
 
 	if (!amount_sat_sub(&initiator_diff, initiator_inputs,
 			    initiator_outs)) {
-		return "initiator inputs less than outputs";
+		return insufficient_err_msg(ctx,
+					    "initiator inputs less than outputs",
+					    tx_state->psbt);
 	}
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -838,44 +901,53 @@ static char *check_balances(const tal_t *ctx,
 	initiator_fee = amount_tx_fee(feerate_per_kw_funding,
 				      initiator_weight);
 
-	if (!amount_sat_greater_eq(accepter_diff, accepter_fee)) {
-		return tal_fmt(ctx, "accepter fee not covered"
-			       " (need %s > have %s)",
-			       type_to_string(ctx,
-					      struct amount_sat,
-					      &accepter_fee),
-			       type_to_string(ctx,
-					      struct amount_sat,
-					      &accepter_diff));
-	}
+	if (!amount_sat_greater_eq(accepter_diff, accepter_fee))
+		return insufficient_err_msg(ctx,
+					    tal_fmt(ctx, "accepter fee not covered"
+						    " (need %s > have %s)",
+						    type_to_string(ctx,
+								   struct amount_sat,
+								   &accepter_fee),
+						    type_to_string(ctx,
+								   struct amount_sat,
+								   &accepter_diff)),
+					    tx_state->psbt);
 
-	if (!amount_sat_greater_eq(initiator_diff, initiator_fee)) {
-		return tal_fmt(ctx,
-			       "initiator fee %s (%zux%d) not covered %s",
-			       type_to_string(ctx,
-					      struct amount_sat,
-					      &initiator_fee),
-			       initiator_weight,
-			       feerate_per_kw_funding,
-			       type_to_string(ctx,
-					      struct amount_sat,
-					      &initiator_diff));
-
-	}
+	if (!amount_sat_greater_eq(initiator_diff, initiator_fee))
+		return insufficient_err_msg(ctx,
+					    tal_fmt(ctx, "initiator fee %s"
+						    " (%zux%d) not covered %s",
+						    type_to_string(ctx,
+								   struct amount_sat,
+								   &initiator_fee),
+						    initiator_weight,
+						    feerate_per_kw_funding,
+						    type_to_string(ctx,
+								   struct amount_sat,
+								   &initiator_diff)),
+					    tx_state->psbt);
 
 	return NULL;
 }
 
-static bool is_segwit_output(struct wally_tx_output *output,
-			     const u8 *redeemscript)
+static bool is_segwit_output(struct wally_tx_output *output)
 {
-	const u8 *wit_prog;
-	if (tal_bytelen(redeemscript) > 0)
-		wit_prog = redeemscript;
-	else
-		wit_prog = wally_tx_output_get_script(tmpctx, output);
-
+	const u8 *wit_prog = wally_tx_output_get_script(tmpctx, output);
 	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
+}
+
+static void set_remote_upfront_shutdown(struct state *state,
+					u8 *shutdown_scriptpubkey STEALS)
+{
+	char *err;
+
+	err = validate_remote_upfront_shutdown(state, state->our_features,
+					       state->their_features,
+					       shutdown_scriptpubkey,
+					       &state->upfront_shutdown_script[REMOTE]);
+
+	if (err)
+		peer_failed_err(state->pps, &state->channel_id, "%s", err);
 }
 
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
@@ -1050,14 +1122,14 @@ static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 	wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
 }
 
-static struct wally_psbt *
+static bool
 fetch_psbt_changes(struct state *state,
 		   struct tx_state *tx_state,
-		   const struct wally_psbt *psbt)
+		   const struct wally_psbt *psbt,
+		   struct wally_psbt **updated_psbt)
 {
 	u8 *msg;
 	char *err;
-	struct wally_psbt *updated_psbt;
 
 	/* Go ask lightningd what other changes we've got */
 	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
@@ -1075,23 +1147,25 @@ fetch_psbt_changes(struct state *state,
 #endif
 
 	if (fromwire_dualopend_fail(msg, msg, &err)) {
-		open_err_warn(state, "%s", err);
-	} else if (fromwire_dualopend_psbt_updated(state, msg, &updated_psbt)) {
-		return updated_psbt;
+		open_abort(state, "%s", err);
+	} else if (fromwire_dualopend_psbt_updated(state, msg, updated_psbt)) {
+		return true;
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
 
-	return NULL;
+	return false;
 }
 
 static bool send_next(struct state *state,
 		      struct tx_state *tx_state,
-		      struct wally_psbt **psbt)
+		      struct wally_psbt **psbt,
+		      bool *aborted)
 {
 	u8 *msg;
 	bool finished = false;
 	struct wally_psbt *updated_psbt;
 	struct psbt_changeset *cs = tx_state->changeset;
+	*aborted = false;
 
 	/* First we check our cached changes */
 	msg = psbt_changeset_get_next(tmpctx, &state->channel_id, cs);
@@ -1100,11 +1174,11 @@ static bool send_next(struct state *state,
 
 	/* If we don't have any changes cached, go ask Alice for
 	 * what changes they've got for us */
-	updated_psbt = fetch_psbt_changes(state, tx_state, *psbt);
-
-	/* We should always get a updated psbt back */
-	if (!updated_psbt)
-		open_err_fatal(state, "%s", "Uncaught error");
+	if (!fetch_psbt_changes(state, tx_state, *psbt,
+				&updated_psbt)) {
+		*aborted = true;
+		return !finished;
+	}
 
 	tx_state->changeset = tal_free(tx_state->changeset);
 	tx_state->changeset = psbt_get_changeset(tx_state, *psbt, updated_psbt);
@@ -1136,6 +1210,34 @@ static void init_changeset(struct tx_state *tx_state, struct wally_psbt *psbt)
 	tx_state->changeset = psbt_get_changeset(tx_state, empty_psbt, psbt);
 }
 
+static void handle_tx_abort(struct state *state, u8 *msg)
+{
+	const char *desc;
+
+	/* If they sent this after tx-sigs, it's a
+	 * protocol error */
+	if (state->tx_state->remote_funding_sigs_rcvd)
+		open_err_fatal(state, "tx-abort rcvd after"
+			       " tx-sigs");
+
+	/*
+	 * BOLT-07cc0edc791aff78398a48fc31ee23b45374d8d9 #2:
+	 *
+	 * Echoing back `tx_abort` allows the peer to ack
+	 * that they've seen the abort message, permitting
+	 * the originating peer to terminate the in-flight
+	 * process without worrying about stale messages.
+	 */
+	if (!state->aborted_err) {
+		open_abort(state, "%s", "Rcvd tx-abort");
+		desc = tal_fmt(tmpctx, "They sent %s",
+			       sanitize_error(tmpctx, msg, NULL));
+	} else
+		desc = state->aborted_err;
+
+	negotiation_aborted(state, desc);
+}
+
 static u8 *handle_channel_ready(struct state *state, u8 *msg)
 {
 	struct channel_id cid;
@@ -1146,12 +1248,7 @@ static u8 *handle_channel_ready(struct state *state, u8 *msg)
 		open_err_fatal(state, "Bad channel_ready %s",
 			       tal_hex(msg, msg));
 
-	if (!channel_id_eq(&cid, &state->channel_id))
-		open_err_fatal(state, "channel_ready ids don't match:"
-			       " expected %s, got %s",
-			       type_to_string(msg, struct channel_id,
-					      &state->channel_id),
-			       type_to_string(msg, struct channel_id, &cid));
+	check_channel_id(state, &cid, &state->channel_id);
 
 	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
 	if (!state->tx_state->remote_funding_sigs_rcvd) {
@@ -1249,10 +1346,18 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		 * it's possible we can get some different messages in
 		 * the meantime! */
 		t = fromwire_peektype(msg);
+		if (state->aborted_err && t != WIRE_TX_ABORT) {
+			status_debug("Rcvd %s but already"
+				     " sent TX_ABORT,"
+				     " dropping",
+				     peer_wire_name(t));
+			continue;
+		}
 		switch (t) {
 		case WIRE_TX_SIGNATURES:
 			/* We can get these when we restart and immediately
 			 * startup an RBF */
+
 			handle_tx_sigs(state, msg);
 			continue;
 		case WIRE_CHANNEL_READY:
@@ -1264,7 +1369,10 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			if (shutdown_complete(state))
 				dualopen_shutdown(state);
 			return NULL;
-		case WIRE_INIT_RBF:
+		case WIRE_TX_ABORT:
+			handle_tx_abort(state, msg);
+			return NULL;
+		case WIRE_TX_INIT_RBF:
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_INIT:
 		case WIRE_ERROR:
@@ -1291,7 +1399,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_TX_ADD_OUTPUT:
 		case WIRE_TX_REMOVE_OUTPUT:
 		case WIRE_TX_COMPLETE:
-		case WIRE_ACK_RBF:
+		case WIRE_TX_ACK_RBF:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -1327,6 +1435,7 @@ static bool run_tx_interactive(struct state *state,
 		struct channel_id cid;
 		enum peer_wire t;
 		u64 serial_id;
+		bool aborted;
 
 		/* Reset their_complete to false every round,
 		 * they have to re-affirm every time  */
@@ -1338,7 +1447,7 @@ static bool run_tx_interactive(struct state *state,
 		t = fromwire_peektype(msg);
 		switch (t) {
 		case WIRE_TX_ADD_INPUT: {
-			const u8 *tx_bytes, *redeemscript;
+			const u8 *tx_bytes;
 			u32 sequence;
 			size_t len;
 			struct bitcoin_tx *tx;
@@ -1349,9 +1458,7 @@ static bool run_tx_interactive(struct state *state,
 						   &serial_id,
 						   cast_const2(u8 **,
 							       &tx_bytes),
-						   &outpoint.n, &sequence,
-						   cast_const2(u8 **,
-							       &redeemscript)))
+						   &outpoint.n, &sequence))
 				open_err_fatal(state,
 					       "Parsing tx_add_input %s",
 					       tal_hex(tmpctx, msg));
@@ -1365,19 +1472,24 @@ static bool run_tx_interactive(struct state *state,
 			 *   - if has received 4096 `tx_add_input`
 			 *   messages during this negotiation
 			 */
-			if (++tx_state->tx_msg_count[TX_ADD_INPUT] > MAX_TX_MSG_RCVD)
-				open_err_warn(state, "Too many `tx_add_input`s"
-					      " received %d", MAX_TX_MSG_RCVD);
+			if (++tx_state->tx_msg_count[TX_ADD_INPUT] > MAX_TX_MSG_RCVD) {
+				open_abort(state, "Too many `tx_add_input`s"
+					   " received %d", MAX_TX_MSG_RCVD);
+				return false;
+			}
+
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the `serial_id` has the wrong parity
 			 */
-			if (serial_id % 2 == our_role)
-				open_err_warn(state,
-					      "Invalid serial_id rcvd. %"PRIu64,
-					      serial_id);
+			if (serial_id % 2 == our_role) {
+				open_abort(state,
+					   "Invalid serial_id rcvd. %"PRIu64,
+					   serial_id);
+				return false;
+			}
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
@@ -1385,20 +1497,26 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the `serial_id` is already included in
 			 *   the transaction
 			 */
-			if (psbt_find_serial_input(psbt, serial_id) != -1)
-				open_err_warn(state, "Duplicate serial_id rcvd."
-					      " %"PRIu64, serial_id);
+			if (psbt_find_serial_input(psbt, serial_id) != -1) {
+				open_abort(state, "Duplicate serial_id rcvd."
+					   " %"PRIu64, serial_id);
+				return false;
+			}
 
 			/* Convert tx_bytes to a tx! */
 			len = tal_bytelen(tx_bytes);
 			tx = pull_bitcoin_tx(tmpctx, &tx_bytes, &len);
-			if (!tx || len != 0)
-				open_err_warn(state, "%s", "Invalid tx sent.");
+			if (!tx || len != 0) {
+				open_abort(state, "%s", "Invalid tx sent.");
+				return false;
+			}
 
-			if (outpoint.n >= tx->wtx->num_outputs)
-				open_err_warn(state,
-					      "Invalid tx outnum sent. %u",
-					      outpoint.n);
+			if (outpoint.n >= tx->wtx->num_outputs) {
+				open_abort(state,
+					   "Invalid tx outnum sent. %u",
+					   outpoint.n);
+				return false;
+			}
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
@@ -1406,13 +1524,14 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the `prevtx_out` input of `prevtx` is
 			 *   not an `OP_0` to `OP_16` followed by a single push
 			 */
-			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n],
-					      redeemscript))
-				open_err_warn(state,
-					      "Invalid tx sent. Not SegWit %s",
-					      type_to_string(tmpctx,
-							     struct bitcoin_tx,
-							     tx));
+			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n])) {
+				open_abort(state,
+					   "Invalid tx sent. Not SegWit %s",
+					   type_to_string(tmpctx,
+							  struct bitcoin_tx,
+							  tx));
+				return false;
+			}
 
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -1423,13 +1542,15 @@ static bool run_tx_interactive(struct state *state,
 			 *    removed) input's
 			 */
 			bitcoin_txid(tx, &outpoint.txid);
-			if (psbt_has_input(psbt, &outpoint))
-				open_err_warn(state,
-					      "Unable to add input %s- "
-					      "already present",
-					      type_to_string(tmpctx,
-							     struct bitcoin_outpoint,
-							     &outpoint));
+			if (psbt_has_input(psbt, &outpoint)) {
+				open_abort(state,
+					   "Unable to add input %s- "
+					   "already present",
+					   type_to_string(tmpctx,
+							  struct bitcoin_outpoint,
+							  &outpoint));
+				return false;
+			}
 
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -1439,14 +1560,15 @@ static bool run_tx_interactive(struct state *state,
 			struct wally_psbt_input *in =
 				psbt_append_input(psbt, &outpoint,
 						  sequence, NULL,
-						  NULL,
-						  redeemscript);
-			if (!in)
-				open_err_warn(state,
-					      "Unable to add input %s",
-					      type_to_string(tmpctx,
-							     struct bitcoin_outpoint,
-							     &outpoint));
+						  NULL, NULL);
+			if (!in) {
+				open_abort(state,
+					   "Unable to add input %s",
+					   type_to_string(tmpctx,
+							  struct bitcoin_outpoint,
+							  &outpoint));
+				return false;
+			}
 
 			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);
@@ -1486,10 +1608,13 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the input or output identified by the
 			 *   `serial_id` was not added by the sender
 			 */
-			if (serial_id % 2 == our_role)
-				open_err_warn(state,
-					      "Invalid serial_id rcvd. %"PRIu64,
-					      serial_id);
+			if (serial_id % 2 == our_role) {
+				open_abort(state,
+					   "Invalid serial_id rcvd. %"PRIu64,
+					   serial_id);
+				return false;
+			}
+
 
 			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node:  ...
@@ -1499,10 +1624,12 @@ static bool run_tx_interactive(struct state *state,
 			 */
 			input_index = psbt_find_serial_input(psbt, serial_id);
 			/* We choose to error/fail negotiation */
-			if (input_index == -1)
-				open_err_warn(state,
-					      "No input added with serial_id"
-					      " %"PRIu64, serial_id);
+			if (input_index == -1) {
+				open_abort(state,
+					   "No input added with serial_id"
+					   " %"PRIu64, serial_id);
+				return false;
+			}
 
 			psbt_rm_input(psbt, input_index);
 			break;
@@ -1527,39 +1654,47 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it has received 4096 `tx_add_output`
 			 *   messages during this negotiation
 			 */
-			if (++tx_state->tx_msg_count[TX_ADD_OUTPUT] > MAX_TX_MSG_RCVD)
-				open_err_warn(state,
-					      "Too many `tx_add_output`s"
-					      " received (%d)",
-					      MAX_TX_MSG_RCVD);
+			if (++tx_state->tx_msg_count[TX_ADD_OUTPUT] > MAX_TX_MSG_RCVD) {
+				open_abort(state,
+					   "Too many `tx_add_output`s"
+					   " received (%d)",
+					   MAX_TX_MSG_RCVD);
+				return false;
+			}
 
 			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the `serial_id` has the wrong parity
 			 */
-			if (serial_id % 2 == our_role)
-				open_err_warn(state,
-					      "Invalid serial_id rcvd. %"PRIu64,
-					      serial_id);
+			if (serial_id % 2 == our_role) {
+				open_abort(state,
+					   "Invalid serial_id rcvd. %"PRIu64,
+					   serial_id);
+				return false;
+			}
 
 			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the `serial_id` is already included
 			 *   in the transaction */
-			if (psbt_find_serial_output(psbt, serial_id) != -1)
-				open_err_warn(state,
-					      "Duplicate serial_id rcvd."
-					      " %"PRIu64, serial_id);
+			if (psbt_find_serial_output(psbt, serial_id) != -1) {
+				open_abort(state,
+					   "Duplicate serial_id rcvd."
+					   " %"PRIu64, serial_id);
+				return false;
+			}
 			amt = amount_sat(value);
 
 			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
 			 * - MAY fail the negotiation if `script`
 			 *   is non-standard */
-			if (!is_known_scripttype(scriptpubkey))
-				open_err_warn(state, "Script is not standard");
+			if (!is_known_scripttype(scriptpubkey)) {
+				open_abort(state, "Script is not standard");
+				return false;
+			}
 
 			out = psbt_append_output(psbt, scriptpubkey, amt);
 			psbt_output_set_serial_id(psbt, out, serial_id);
@@ -1581,10 +1716,11 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the input or output identified by the
 			 *   `serial_id` was not added by the sender
 			 */
-			if (serial_id % 2 == our_role)
-				open_err_warn(state,
-					      "Invalid serial_id rcvd."
-					      " %"PRIu64, serial_id);
+			if (serial_id % 2 == our_role) {
+				open_abort(state, "Invalid serial_id rcvd."
+					   " %"PRIu64, serial_id);
+				return false;
+			}
 
 			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
@@ -1593,10 +1729,11 @@ static bool run_tx_interactive(struct state *state,
 			 *     currently added input (or output)
 			 */
 			output_index = psbt_find_serial_output(psbt, serial_id);
-			if (output_index == -1)
-				open_err_warn(state, false,
-					   "No output added with serial_id"
+			if (output_index == -1) {
+				open_abort(state, "No output added with serial_id"
 					   " %"PRIu64, serial_id);
+				return false;
+			}
 			psbt_rm_output(psbt, output_index);
 			break;
 		}
@@ -1608,6 +1745,9 @@ static bool run_tx_interactive(struct state *state,
 			check_channel_id(state, &cid, &state->channel_id);
 			they_complete = true;
 			break;
+		case WIRE_TX_ABORT:
+			handle_tx_abort(state, msg);
+			return false;
 		case WIRE_INIT:
 		case WIRE_ERROR:
 		case WIRE_WARNING:
@@ -1633,8 +1773,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_TX_SIGNATURES:
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_ACCEPT_CHANNEL2:
-		case WIRE_INIT_RBF:
-		case WIRE_ACK_RBF:
+		case WIRE_TX_INIT_RBF:
+		case WIRE_TX_ACK_RBF:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -1647,13 +1787,16 @@ static bool run_tx_interactive(struct state *state,
 #if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
 #endif
-			open_err_warn(state, "Unexpected wire message %s",
-				      tal_hex(tmpctx, msg));
+			open_abort(state, "Unexpected wire message %s",
+				   tal_hex(tmpctx, msg));
 			return false;
 		}
 
-		if (!(we_complete && they_complete))
-			we_complete = !send_next(state, tx_state, &psbt);
+		if (!(we_complete && they_complete)) {
+			we_complete = !send_next(state, tx_state, &psbt, &aborted);
+			if (aborted)
+				return false;
+		}
 	}
 
 	/* Sort psbt! */
@@ -1672,7 +1815,6 @@ static void revert_channel_state(struct state *state)
 	struct amount_sat total;
 	struct amount_msat our_msats;
 	enum side opener = state->our_role == TX_INITIATOR ? LOCAL : REMOTE;
-	const struct channel_type *type;
 
 	/* We've already checked this */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -1687,8 +1829,6 @@ static void revert_channel_state(struct state *state)
 		abort();
 
 	tal_free(state->channel);
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
 					     &tx_state->funding,
@@ -1707,7 +1847,7 @@ static void revert_channel_state(struct state *state)
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     opener);
@@ -1730,7 +1870,6 @@ static u8 *accepter_commits(struct state *state,
 	const u8 *wscript;
 	u8 *msg;
 	char *error;
-	const struct channel_type *type;
 
 	/* Find the funding transaction txid */
 	psbt_txid(NULL, tx_state->psbt, &tx_state->funding.txid, NULL);
@@ -1742,25 +1881,22 @@ static u8 *accepter_commits(struct state *state,
 	/* Figure out the txout */
 	if (!find_txout(tx_state->psbt,
 			scriptpubkey_p2wsh(tmpctx, wscript),
-			&tx_state->funding.n))
-		open_err_warn(state,
-			      "Expected output %s not found on funding tx %s",
-			      tal_hex(tmpctx,
-				      scriptpubkey_p2wsh(tmpctx, wscript)),
-			      type_to_string(tmpctx, struct wally_psbt,
-					     tx_state->psbt));
-
-	/* Check tx funds are sane */
-	error = check_balances(tmpctx, state, tx_state,
-			       tx_state->psbt,
-			       tx_state->feerate_per_kw_funding);
-	if (error) {
-		*err_reason = tal_fmt(tmpctx, "Insufficiently funded"
-				      " funding tx, %s. %s", error,
-				      type_to_string(tmpctx, struct wally_psbt,
-						     tx_state->psbt));
+			&tx_state->funding.n)) {
+		*err_reason = tal_fmt(tmpctx, "Expected output %s not"
+				       " found on funding tx %s",
+				       tal_hex(tmpctx,
+					       scriptpubkey_p2wsh(tmpctx, wscript)),
+				       type_to_string(tmpctx, struct wally_psbt,
+						      tx_state->psbt));
 		return NULL;
 	}
+
+	/* Check tx funds are sane */
+	*err_reason = check_balances(tmpctx, state, tx_state,
+			       tx_state->psbt,
+			       tx_state->feerate_per_kw_funding);
+	if (*err_reason)
+		return NULL;
 
 	/* Wait for the peer to send us our commitment tx signature */
 	msg = opening_negotiate_msg(tmpctx, state);
@@ -1787,9 +1923,6 @@ static u8 *accepter_commits(struct state *state,
 			      "Overflow converting accepter_funding "
 			      "to msats");
 
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
-
 	/*~ Report the channel parameters to the signer. */
 	msg = towire_hsmd_ready_channel(NULL,
 				       false,	/* is_outbound */
@@ -1804,7 +1937,7 @@ static u8 *accepter_commits(struct state *state,
 				       &state->their_funding_pubkey,
 				       tx_state->remoteconf.to_self_delay,
 				       state->upfront_shutdown_script[REMOTE],
-				       type);
+				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_ready_channel_reply(msg))
@@ -1831,7 +1964,7 @@ static u8 *accepter_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
@@ -1955,12 +2088,16 @@ static u8 *accepter_commits(struct state *state,
 					   state->feerate_per_kw_commitment,
 					   state->upfront_shutdown_script[LOCAL],
 					   state->upfront_shutdown_script[REMOTE],
+					   state->requested_lease ?
+						   *state->requested_lease :
+						   AMOUNT_SAT(0),
 					   tx_state->blockheight,
 					   tx_state->lease_expiry,
 					   tx_state->lease_fee,
 					   tx_state->lease_commit_sig,
 					   tx_state->lease_chan_max_msat,
-					   tx_state->lease_chan_max_ppt);
+					   tx_state->lease_chan_max_ppt,
+					   state->channel_type);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2066,11 +2203,62 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
-	if (open_tlv->option_upfront_shutdown_script) {
-		state->upfront_shutdown_script[REMOTE] = tal_steal(state,
-			open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
-	} else
+	if (open_tlv->upfront_shutdown_script)
+		set_remote_upfront_shutdown(state, open_tlv->upfront_shutdown_script);
+	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
+
+	/* BOLT-* #2
+	 * If the peer's revocation basepoint is unknown (e.g.
+	 * `open_channel2`), a temporary `channel_id` should be found
+	 * by using a zeroed out basepoint for the unknown peer.
+	 */
+	derive_tmp_channel_id(&state->channel_id, /* Temporary! */
+			      &state->their_points.revocation);
+	if (!channel_id_eq(&state->channel_id, &cid)) {
+		peer_failed_err(state->pps, &cid,
+				"open_channel2 channel_id incorrect."
+				" Expected %s, received %s",
+				type_to_string(tmpctx, struct channel_id,
+					       &state->channel_id),
+				type_to_string(tmpctx, struct channel_id, &cid));
+	}
+
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - It supports `channel_type` and `channel_type` was set:
+	 *     - if `type` is not suitable.
+	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 */
+	if (open_tlv->channel_type) {
+		state->channel_type =
+			channel_type_accept(state,
+					    open_tlv->channel_type,
+					    state->our_features,
+					    state->their_features);
+		if (!state->channel_type) {
+			negotiation_failed(state,
+					   "Did not support channel_type %s",
+					   fmt_featurebits(tmpctx,
+							   open_tlv->channel_type));
+			return;
+		}
+	} else
+		state->channel_type
+			= default_channel_type(state,
+					       state->our_features,
+					       state->their_features);
+
+	/* Since anchor outputs are optional, we
+	 * only support liquidity ads if those are enabled. */
+	if (open_tlv->request_funds &&
+	    !anchors_negotiated(state->our_features,
+				state->their_features)) {
+		negotiation_failed(state, "liquidity ads not supported,"
+				   " no anchors.");
+		return;
+	}
 
 	/* This is an `option_will_fund` request */
 	if (open_tlv->request_funds) {
@@ -2080,21 +2268,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		tx_state->blockheight
 			= open_tlv->request_funds->blockheight;
 	}
-
-	/* BOLT-* #2
-	 * If the peer's revocation basepoint is unknown (e.g.
-	 * `open_channel2`), a temporary `channel_id` should be found
-	 * by using a zeroed out basepoint for the unknown peer.
-	 */
-	derive_tmp_channel_id(&state->channel_id, /* Temporary! */
-			      &state->their_points.revocation);
-	if (!channel_id_eq(&state->channel_id, &cid))
-		negotiation_failed(state, "open_channel2 channel_id incorrect."
-				   " Expected %s, received %s",
-				   type_to_string(tmpctx, struct channel_id,
-						  &state->channel_id),
-				   type_to_string(tmpctx, struct channel_id,
-						  &cid));
 
 	/* BOLT #2:
 	 *
@@ -2154,7 +2327,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
-		open_err_warn(state, "%s", err_reason);
+		open_abort(state, "%s", err_reason);
 		return;
 	}
 
@@ -2208,15 +2381,16 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					  tx_state->accepter_funding,
 					  *state->requested_lease,
 					  tx_state->feerate_per_kw_funding,
-					  &tx_state->lease_fee))
+					  &tx_state->lease_fee)) {
 			negotiation_failed(state,
 					   "Unable to calculate lease fee");
+			return;
+		}
 
 		/* Add it to the accepter's total */
 		if (!amount_sat_add(&tx_state->accepter_funding,
 				    tx_state->accepter_funding,
-				    tx_state->lease_fee))
-
+				    tx_state->lease_fee)) {
 			negotiation_failed(state,
 					   "Unable to add accepter's funding"
 					   " and channel lease fee (%s + %s)",
@@ -2226,17 +2400,21 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					   type_to_string(tmpctx,
 							  struct amount_sat,
 							  &tx_state->lease_fee));
+			return;
+		}
 	}
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
-			    tx_state->accepter_funding))
-		open_err_fatal(state,
-			       "Amount overflow. Local sats %s. Remote sats %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &tx_state->accepter_funding),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &tx_state->opener_funding));
+			    tx_state->accepter_funding)) {
+		negotiation_failed(state,
+				   "Amount overflow. Local sats %s. Remote sats %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &tx_state->accepter_funding),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &tx_state->opener_funding));
+		return;
+	}
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
 	/* BOLT #2:
@@ -2267,7 +2445,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 true, /* v2 means we use anchor outputs */
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
@@ -2282,14 +2461,18 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						     state->their_features);
 
 	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
-		a_tlv->option_upfront_shutdown_script
-			= tal(a_tlv, struct tlv_accept_tlvs_option_upfront_shutdown_script);
-		a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey
+		a_tlv->upfront_shutdown_script
 			= tal_dup_arr(a_tlv, u8,
 				      state->upfront_shutdown_script[LOCAL],
 				      tal_count(state->upfront_shutdown_script[LOCAL]),
 				      0);
 	}
+
+	/* BOLT #2:
+	 * - if `option_channel_type` was negotiated:
+	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 */
+	a_tlv->channel_type = state->channel_type->features;
 
 	/* BOLT- #2:
 	 * The accepting node:
@@ -2387,7 +2570,6 @@ static u8 *opener_commits(struct state *state,
 	u8 *msg;
 	char *error;
 	struct amount_msat their_msats;
-	const struct channel_type *type;
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
@@ -2437,10 +2619,6 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
-	/* Ok, we're mostly good now? Let's do this */
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
-
 	/*~ Report the channel parameters to the signer. */
 	msg = towire_hsmd_ready_channel(NULL,
 				       true,	/* is_outbound */
@@ -2455,7 +2633,7 @@ static u8 *opener_commits(struct state *state,
 				       &state->their_funding_pubkey,
 				       tx_state->remoteconf.to_self_delay,
 				       state->upfront_shutdown_script[REMOTE],
-				       type);
+				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_ready_channel_reply(msg))
@@ -2480,7 +2658,7 @@ static u8 *opener_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
@@ -2654,13 +2832,16 @@ static u8 *opener_commits(struct state *state,
 					    state->feerate_per_kw_commitment,
 					    state->upfront_shutdown_script[LOCAL],
 					    state->upfront_shutdown_script[REMOTE],
+					    state->requested_lease ?
+						    *state->requested_lease :
+						    AMOUNT_SAT(0),
 					    tx_state->blockheight,
 					    tx_state->lease_expiry,
 					    tx_state->lease_fee,
 					    tx_state->lease_commit_sig,
 					    tx_state->lease_chan_max_msat,
-					    tx_state->lease_chan_max_ppt);
-
+					    tx_state->lease_chan_max_ppt,
+					    state->channel_type);
 }
 
 static void opener_start(struct state *state, u8 *msg)
@@ -2670,7 +2851,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total;
-	bool dry_run;
+	bool dry_run, aborted;
 	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
 	struct amount_sat *requested_lease;
@@ -2691,7 +2872,21 @@ static void opener_start(struct state *state, u8 *msg)
 
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
+
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
+
+	/* BOLT #2:
+	 *  - if it includes `channel_type`:
+	 *     - MUST set it to a defined type representing the type it wants.
+	 *     - MUST use the smallest bitmap possible to represent the channel
+	 *       type.
+	 *     - SHOULD NOT set it to a type containing a feature which was not
+	 *       negotiated.
+	 */
+	state->channel_type = default_channel_type(state,
+						   state->our_features,
+						   state->their_features);
+	open_tlv->channel_type = state->channel_type->features;
 
 	if (requested_lease)
 		state->requested_lease = tal_steal(state, requested_lease);
@@ -2711,11 +2906,10 @@ static void opener_start(struct state *state, u8 *msg)
 						     state->their_features);
 
 	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
-		open_tlv->option_upfront_shutdown_script =
-			tal(open_tlv,
-			    struct tlv_opening_tlvs_option_upfront_shutdown_script);
-		open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
-			state->upfront_shutdown_script[LOCAL];
+		open_tlv->upfront_shutdown_script =
+			tal_dup_arr(open_tlv, u8,
+				    state->upfront_shutdown_script[LOCAL],
+				    tal_bytelen(state->upfront_shutdown_script[LOCAL]), 0);
 	}
 
 	if (state->requested_lease) {
@@ -2795,12 +2989,9 @@ static void opener_start(struct state *state, u8 *msg)
 		}
 	}
 
-	if (a_tlv->option_upfront_shutdown_script) {
-		state->upfront_shutdown_script[REMOTE]
-			= tal_steal(state,
-				    a_tlv->option_upfront_shutdown_script
-					 ->shutdown_scriptpubkey);
-	} else
+	if (a_tlv->upfront_shutdown_script)
+		set_remote_upfront_shutdown(state, a_tlv->upfront_shutdown_script);
+	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
 	/* Now we know the 'real channel id' */
@@ -2825,7 +3016,23 @@ static void opener_start(struct state *state, u8 *msg)
 		 * sending a message to master just before this,
 		 * which works as expected as long as
 		 * these messages are queued+processed sequentially */
-		open_err_warn(state, "%s", "Abort requested");
+		open_abort(state, "%s", "Abort requested");
+		return;
+	}
+
+	/* BOLT #2:
+	 * - if `channel_type` is set, and `channel_type` was set in
+	 *   `open_channel`, and they are not equal types:
+	 *    - MUST reject the channel.
+	 */
+	if (a_tlv->channel_type
+	    && !featurebits_eq(a_tlv->channel_type,
+			       state->channel_type->features)) {
+		negotiation_failed(state,
+				   "Return unoffered channel_type: %s",
+				   fmt_featurebits(tmpctx,
+						   a_tlv->channel_type));
+		return;
 	}
 
 	/* If we've requested funds and they've failed to provide
@@ -2833,17 +3040,19 @@ static void opener_start(struct state *state, u8 *msg)
 	 * This isn't spec'd but it makes the UX predictable */
 	if (state->requested_lease
 	    && amount_sat_less(tx_state->accepter_funding,
-			       *state->requested_lease))
-			negotiation_failed(state,
-					   "We requested %s, which is more"
-					   " than they've offered to provide"
-					   " (%s)",
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  state->requested_lease),
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  &tx_state->accepter_funding));
+			       *state->requested_lease)) {
+		negotiation_failed(state,
+				   "We requested %s, which is more"
+				   " than they've offered to provide"
+				   " (%s)",
+				   type_to_string(tmpctx,
+						  struct amount_sat,
+						  state->requested_lease),
+				   type_to_string(tmpctx,
+						  struct amount_sat,
+						  &tx_state->accepter_funding));
+		return;
+	}
 
 	/* BOLT- #2:
 	 * The accepting node:  ...
@@ -2854,7 +3063,7 @@ static void opener_start(struct state *state, u8 *msg)
 		char *err_msg;
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
 
-		if (!lease_rates_eq(rates, expected_rates))
+		if (!lease_rates_eq(rates, expected_rates)) {
 			negotiation_failed(state,
 					   "Expected lease rates (%s),"
 					   " their returned lease rates (%s)",
@@ -2862,6 +3071,8 @@ static void opener_start(struct state *state, u8 *msg)
 							   expected_rates),
 					   lease_rates_fmt(tmpctx,
 							   rates));
+			return;
+		}
 
 
 		tx_state->lease_expiry = tx_state->blockheight + LEASE_RATE_DURATION;
@@ -2881,8 +3092,10 @@ static void opener_start(struct state *state, u8 *msg)
 							     &err_msg))
 			master_badmsg(WIRE_DUALOPEND_VALIDATE_LEASE_REPLY, msg);
 
-		if (err_msg)
-			open_err_warn(state, "%s", err_msg);
+		if (err_msg) {
+			open_abort(state, "%s", err_msg);
+			return;
+		}
 
 		/* BOLT- #2:
 		 * The lease fee is added to the accepter's balance
@@ -2895,9 +3108,11 @@ static void opener_start(struct state *state, u8 *msg)
 		if (!lease_rates_calc_fee(rates, tx_state->accepter_funding,
 					  *state->requested_lease,
 					  tx_state->feerate_per_kw_funding,
-					  &tx_state->lease_fee))
+					  &tx_state->lease_fee)) {
 			negotiation_failed(state,
 					   "Unable to calculate lease fee");
+			return;
+		}
 
 		/* Add it to the accepter's total */
 		if (!amount_sat_add(&tx_state->accepter_funding,
@@ -2929,13 +3144,15 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
-			    tx_state->accepter_funding))
-		open_err_warn(state, "Amount overflow. Local sats %s. "
-			      "Remote sats %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->opener_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->accepter_funding));
+			    tx_state->accepter_funding)) {
+		negotiation_failed(state, "Amount overflow. Local sats %s. "
+				   "Remote sats %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &tx_state->opener_funding),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &tx_state->accepter_funding));
+		return;
+	}
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
 	/* BOLT #2:
@@ -2976,15 +3193,19 @@ static void opener_start(struct state *state, u8 *msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 true, /* v2 means we use anchor outputs */
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
 
 	/* Send our first message, we're opener we initiate here */
-	if (!send_next(state, tx_state, &tx_state->psbt))
-		open_err_warn(state, "%s", "Peer error, no updates to send");
+	if (!send_next(state, tx_state, &tx_state->psbt, &aborted)) {
+		if (!aborted)
+			open_abort(state, "%s", "Peer error, no updates to send");
+		return;
+	}
 
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR))
@@ -2993,9 +3214,9 @@ static void opener_start(struct state *state, u8 *msg)
 	msg = opener_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
 		if (err_reason)
-			open_err_warn(state, "%s", err_reason);
+			open_abort(state, "%s", err_reason);
 		else
-			open_err_warn(state, "%s", "Opener commits failed");
+			open_abort(state, "%s", "Opener commits failed");
 		return;
 	}
 
@@ -3037,6 +3258,7 @@ static void rbf_wrap_up(struct state *state,
 {
 	enum dualopend_wire msg_type;
 	char *err_reason;
+	bool aborted;
 	u8 *msg;
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -3055,9 +3277,9 @@ static void rbf_wrap_up(struct state *state,
 
 	if (state->our_role == TX_INITIATOR) {
 		/* Send our first message; opener initiates */
-		if (!send_next(state, tx_state, &tx_state->psbt)) {
-			open_err_warn(state,
-				      "Peer error, has no tx updates.");
+		if (!send_next(state, tx_state, &tx_state->psbt, &aborted)) {
+			if (!aborted)
+				open_abort(state, "Peer error, has no tx updates.");
 			return;
 		}
 	}
@@ -3083,7 +3305,7 @@ static void rbf_wrap_up(struct state *state,
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
-		open_err_warn(state, "%s", err_reason);
+		open_abort(state, "%s", err_reason);
 		return;
 	}
 
@@ -3101,17 +3323,13 @@ static void rbf_wrap_up(struct state *state,
 
 	if (!msg) {
 		if (err_reason)
-			open_err_warn(state, "%s", err_reason);
+			open_abort(state, "%s", err_reason);
 		else
-			open_err_warn(state, "%s", "Unable to commit");
+			open_abort(state, "%s", "Unable to commit");
 		/* We need to 'reset' the channel to what it
 		 * was before we did this. */
 		return;
 	}
-
-	/*  Promote tx_state */
-	tal_free(state->tx_state);
-	state->tx_state = tal_steal(state, tx_state);
 
 	if (state->our_role == TX_ACCEPTER)
 		handle_send_tx_sigs(state, msg);
@@ -3125,6 +3343,9 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	struct amount_sat total;
 	char *err_reason;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+
 	/* tmpctx gets cleaned midway, so we have a context for this fn */
 	char *rbf_ctx = notleak_with_children(tal(state, char));
 
@@ -3134,6 +3355,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	 * the reserve will be the same */
 	tx_state->localconf = state->tx_state->localconf;
 	tx_state->remoteconf = state->tx_state->remoteconf;
+	init_rbf_tlvs = tlv_tx_init_rbf_tlvs_new(tmpctx);
 
 	if (!fromwire_dualopend_rbf_init(tx_state, msg,
 					 &tx_state->opener_funding,
@@ -3145,54 +3367,76 @@ static void rbf_local_start(struct state *state, u8 *msg)
 
 	if (!check_funding_feerate(tx_state->feerate_per_kw_funding,
 				   state->tx_state->feerate_per_kw_funding)) {
-		open_err_warn(state, "Proposed funding feerate (%u) invalid",
-			      tx_state->feerate_per_kw_funding);
-		goto free_rbf_ctx;
+		open_abort(state, "Proposed funding feerate (%u) invalid",
+			   tx_state->feerate_per_kw_funding);
+		return;
 	}
 
 	/* Have you sent us everything we need yet ? */
 	if (!state->tx_state->remote_funding_sigs_rcvd) {
 		/* we're still waiting for the last sigs, master
 		 * should know better. Tell them no! */
-		open_err_warn(state, "%s",
-			      "Still waiting for remote funding sigs"
-			      " for last open attempt");
-		goto free_rbf_ctx;
+		open_abort(state, "%s",
+			   "Still waiting for remote funding sigs"
+			   " for last open attempt");
+		return;
 	}
 
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-	msg = towire_init_rbf(tmpctx, &state->channel_id,
-			      tx_state->opener_funding,
-			      tx_state->tx_locktime,
-			      tx_state->feerate_per_kw_funding);
+
+	/* For now, we always just echo/send the funding amount */
+	init_rbf_tlvs->funding_output_contribution
+		= tal(init_rbf_tlvs, u64);
+	*init_rbf_tlvs->funding_output_contribution
+	       = tx_state->opener_funding.satoshis; /* Raw: wire conversion */
+
+	msg = towire_tx_init_rbf(tmpctx, &state->channel_id,
+				 tx_state->tx_locktime,
+				 tx_state->feerate_per_kw_funding,
+				 init_rbf_tlvs);
 
 	peer_write(state->pps, take(msg));
 
 	/* ... since their reply should be immediate. */
 	msg = opening_negotiate_msg(tmpctx, state);
 	if (!msg) {
-		open_err_warn(state, "%s", "Unable to init rbf");
-		goto free_rbf_ctx;
+		open_abort(state, "%s", "Unable to init rbf");
+		return;
 	}
 
-	if (!fromwire_ack_rbf(msg, &cid,
-			      &tx_state->accepter_funding))
-		open_err_fatal(state, "Parsing ack_rbf %s",
-			       tal_hex(tmpctx, msg));
+	if (!fromwire_tx_ack_rbf(tmpctx, msg, &cid, &ack_rbf_tlvs)) {
+		open_abort(state, "Parsing tx_ack_rbf %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
 
 	peer_billboard(false, "channel rbf: ack received");
 	check_channel_id(state, &cid, &state->channel_id);
 
+	if (ack_rbf_tlvs && ack_rbf_tlvs->funding_output_contribution) {
+		tx_state->accepter_funding =
+			amount_sat(*ack_rbf_tlvs->funding_output_contribution);
+
+		if (!amount_sat_eq(state->tx_state->accepter_funding,
+				   tx_state->accepter_funding))
+			status_debug("RBF: accepter amt changed %s->%s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &state->tx_state->accepter_funding),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &tx_state->accepter_funding));
+	} else
+		tx_state->accepter_funding = state->tx_state->accepter_funding;
+
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
 			    tx_state->accepter_funding)) {
-		open_err_warn(state, "Amount overflow. Local sats %s."
-			      " Remote sats %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->accepter_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->opener_funding));
-		goto free_rbf_ctx;
+		open_abort(state, "Amount overflow. Local sats %s."
+			   " Remote sats %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->accepter_funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->opener_funding));
+		return;
 	}
 	/* Check that total funding doesn't exceed allowed channel capacity */
 	/* BOLT #2:
@@ -3205,11 +3449,11 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(total, chainparams->max_funding)) {
-		open_err_warn(state, "Total funding_satoshis %s too large",
-			      type_to_string(tmpctx,
-					     struct amount_sat,
-					     &total));
-		goto free_rbf_ctx;
+		open_abort(state, "Total funding_satoshis %s too large",
+			   type_to_string(tmpctx,
+					  struct amount_sat,
+					  &total));
+		return;
 	}
 
 	/* If their new amount is less than the lease we asked for,
@@ -3227,7 +3471,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 				   type_to_string(tmpctx,
 						  struct amount_sat,
 						  &tx_state->accepter_funding));
-		goto free_rbf_ctx;
+		return;
 	}
 
 	/* Now that we know the total of the channel, we can set the reserve */
@@ -3239,16 +3483,19 @@ static void rbf_local_start(struct state *state, u8 *msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 true, /* v2 means we use anchor outputs */
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
 				 &err_reason)) {
-		open_err_warn(state, "%s", err_reason);
-		goto free_rbf_ctx;
+		open_abort(state, "%s", err_reason);
+		return;
 	}
+
+	/*  Promote tx_state */
+	tal_free(state->tx_state);
+	state->tx_state = tal_steal(state, tx_state);
 
 	/* We merge with RBF's we've initiated now */
 	rbf_wrap_up(state, tx_state, total);
-
-free_rbf_ctx:
 	tal_free(rbf_ctx);
 }
 
@@ -3259,34 +3506,56 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	char *err_reason;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+
 	u8 *msg;
 	/* tmpctx gets cleaned midway, so we have a context for this fn */
 	char *rbf_ctx = notleak_with_children(tal(state, char));
 
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(rbf_ctx);
+	ack_rbf_tlvs = tlv_tx_ack_rbf_tlvs_new(tmpctx);
 
-	if (!fromwire_init_rbf(rbf_msg, &cid,
-			       &tx_state->opener_funding,
-			       &tx_state->tx_locktime,
-			       &tx_state->feerate_per_kw_funding))
-		open_err_fatal(state, "Parsing init_rbf %s",
+	if (!fromwire_tx_init_rbf(tmpctx, rbf_msg, &cid,
+				  &tx_state->tx_locktime,
+				  &tx_state->feerate_per_kw_funding,
+				  &init_rbf_tlvs))
+		open_err_fatal(state, "Parsing tx_init_rbf %s",
 			       tal_hex(tmpctx, rbf_msg));
 
 	/* Is this the correct channel? */
 	check_channel_id(state, &cid, &state->channel_id);
 	peer_billboard(false, "channel rbf: init received from peer");
 
-	if (state->our_role == TX_INITIATOR)
-		open_err_warn(state, "%s",
-			      "Only the channel initiator is allowed"
-			      " to initiate RBF");
-
 	/* Have you sent us everything we need yet ? */
 	if (!state->tx_state->remote_funding_sigs_rcvd)
 		open_err_warn(state, "%s",
 			      "Last funding attempt not complete:"
 			      " missing your funding tx_sigs");
+
+	if (state->our_role == TX_INITIATOR) {
+		open_abort(state, "%s",
+			   "Only the channel initiator is allowed"
+			   " to initiate RBF");
+		goto free_rbf_ctx;
+	}
+
+	/* Maybe they want a different funding amount! */
+	if (init_rbf_tlvs && init_rbf_tlvs->funding_output_contribution) {
+		tx_state->opener_funding =
+			amount_sat(*init_rbf_tlvs->funding_output_contribution);
+
+		if (!amount_sat_eq(tx_state->opener_funding,
+				   state->tx_state->opener_funding))
+			status_debug("RBF: opener amt changed %s->%s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &state->tx_state->opener_funding),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &tx_state->opener_funding));
+	} else
+		/* Otherwise we use the last known funding amount */
+		tx_state->opener_funding = state->tx_state->opener_funding;
 
 	/* Copy over the channel config info -- everything except
 	 * the reserve will be the same */
@@ -3295,10 +3564,10 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 
 	if (!check_funding_feerate(tx_state->feerate_per_kw_funding,
 				   state->tx_state->feerate_per_kw_funding)) {
-		open_err_warn(state, "Funding feerate not greater than last."
-			      "Proposed %u, last feerate %u",
-			      tx_state->feerate_per_kw_funding,
-			      state->tx_state->feerate_per_kw_funding);
+		open_abort(state, "Funding feerate not greater than last."
+			   "Proposed %u, last feerate %u",
+			   tx_state->feerate_per_kw_funding,
+			   state->tx_state->feerate_per_kw_funding);
 		goto free_rbf_ctx;
 	}
 
@@ -3318,14 +3587,12 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
-		open_err_warn(state, "%s", err_reason);
+		open_abort(state, "%s", err_reason);
 		goto free_rbf_ctx;
 	}
 
 	if (!fromwire_dualopend_got_rbf_offer_reply(state, msg,
-						    state->our_role == TX_INITIATOR ?
-							&tx_state->opener_funding :
-							&tx_state->accepter_funding,
+						    &tx_state->accepter_funding,
 						    &tx_state->psbt))
 		master_badmsg(WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY, msg);
 
@@ -3336,12 +3603,28 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
 			    tx_state->accepter_funding)) {
-		open_err_warn(state, "Amount overflow. Local sats %s. "
-			      "Remote sats %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->accepter_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->opener_funding));
+		open_abort(state,
+			   "Amount overflow. Local sats %s. Remote sats %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->accepter_funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->opener_funding));
+		goto free_rbf_ctx;
+	}
+
+	/* Now that we know the total of the channel, we can set the reserve */
+	set_reserve(tx_state, total, state->our_role);
+
+	if (!check_config_bounds(tmpctx, total,
+				 state->feerate_per_kw_commitment,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &tx_state->remoteconf,
+				 &tx_state->localconf,
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
+				 &err_reason)) {
+		negotiation_failed(state, "%s", err_reason);
 		goto free_rbf_ctx;
 	}
 
@@ -3356,34 +3639,25 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(total, chainparams->max_funding)) {
-		open_err_warn(state, "Total funding_satoshis %s too large",
-			      type_to_string(tmpctx,
-					     struct amount_sat,
-					     &total));
+		open_abort(state, "Total funding_satoshis %s too large",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &total));
 		goto free_rbf_ctx;
 	}
 
-	/* Now that we know the total of the channel, we can set the reserve */
-	set_reserve(tx_state, total, state->our_role);
+	/* We always send the funding amount */
+	ack_rbf_tlvs->funding_output_contribution
+		= tal(ack_rbf_tlvs, u64);
+	*ack_rbf_tlvs->funding_output_contribution
+	       = tx_state->accepter_funding.satoshis; /* Raw: wire conversion */
 
-	if (!check_config_bounds(tmpctx, total,
-				 state->feerate_per_kw_commitment,
-				 state->max_to_self_delay,
-				 state->min_effective_htlc_capacity,
-				 &tx_state->remoteconf,
-				 &tx_state->localconf,
-				 true, /* v2 means we use anchor outputs */
-				 &err_reason)) {
-		open_err_warn(state, "%s", err_reason);
-		goto free_rbf_ctx;
-	}
-
-	msg = towire_ack_rbf(tmpctx, &state->channel_id,
-			     state->our_role == TX_INITIATOR ?
-				tx_state->opener_funding :
-				tx_state->accepter_funding);
+	msg = towire_tx_ack_rbf(tmpctx, &state->channel_id, ack_rbf_tlvs);
 	peer_write(state->pps, msg);
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
+
+	/*  Promote tx_state */
+	tal_free(state->tx_state);
+	state->tx_state = tal_steal(state, tx_state);
 
 	/* We merge with RBF's we've initiated now */
 	rbf_wrap_up(state, tx_state, total);
@@ -3722,6 +3996,14 @@ static u8 *handle_peer_in(struct state *state)
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
+	if (state->aborted_err && t != WIRE_TX_ABORT) {
+		status_debug("Rcvd %s but already"
+			     " sent TX_ABORT,"
+			     " dropping",
+			     peer_wire_name(t));
+		return NULL;
+	}
+
 	switch (t) {
 	case WIRE_OPEN_CHANNEL2:
 		if (state->channel) {
@@ -3739,8 +4021,11 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(state, msg);
 		return NULL;
-	case WIRE_INIT_RBF:
+	case WIRE_TX_INIT_RBF:
 		rbf_remote_start(state, msg);
+		return NULL;
+	case WIRE_TX_ABORT:
+		handle_tx_abort(state, msg);
 		return NULL;
 	/* Otherwise we fall through */
 	case WIRE_INIT:
@@ -3768,7 +4053,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_TX_ADD_OUTPUT:
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
-	case WIRE_ACK_RBF:
+	case WIRE_TX_ACK_RBF:
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
@@ -3817,7 +4102,6 @@ int main(int argc, char *argv[])
 	u8 *msg;
 	struct amount_sat total_funding, *requested_lease;
 	struct amount_msat our_msat;
-	const struct channel_type *type;
 
 	subdaemon_setup(argc, argv);
 
@@ -3827,6 +4111,9 @@ int main(int argc, char *argv[])
 	/*~ This makes status_failed, status_debug etc work synchronously by
 	 * writing to REQ_FD */
 	status_setup_sync(REQ_FD);
+
+	/* Init state to not aborted */
+	state->aborted_err = NULL;
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -3861,7 +4148,6 @@ int main(int argc, char *argv[])
 
 		/* No lease requested at start! */
 		state->requested_lease = NULL;
-
 	} else if (fromwire_dualopend_reinit(state, msg,
 					     &chainparams,
 					     &state->our_features,
@@ -3898,16 +4184,17 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_commit_sig,
 					     &state->tx_state->lease_chan_max_msat,
 					     &state->tx_state->lease_chan_max_ppt,
-					     &requested_lease)) {
+					     &requested_lease,
+					     &state->channel_type)) {
+
+		bool ok;
 
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
-		type = default_channel_type(NULL,
-					    state->our_features,
-					    state->their_features);
-
 		if (requested_lease)
 			state->requested_lease = tal_steal(state, requested_lease);
+		else
+			state->requested_lease = NULL;
 
 		state->channel = new_initial_channel(state,
 						     &state->channel_id,
@@ -3925,15 +4212,25 @@ int main(int argc, char *argv[])
 						     &state->their_points,
 						     &state->our_funding_pubkey,
 						     &state->their_funding_pubkey,
-						     take(type),
+						     state->channel_type,
 						     feature_offered(state->their_features,
 								     OPT_LARGE_CHANNELS),
 						     opener);
 
-		if (opener == LOCAL)
+		if (opener == LOCAL) {
 			state->our_role = TX_INITIATOR;
-		else
+			ok = amount_msat_to_sat(&state->tx_state->opener_funding, our_msat);
+			ok &= amount_sat_sub(&state->tx_state->accepter_funding,
+					    total_funding,
+					    state->tx_state->opener_funding);
+		} else {
 			state->our_role = TX_ACCEPTER;
+			ok = amount_msat_to_sat(&state->tx_state->accepter_funding, our_msat);
+			ok &= amount_sat_sub(&state->tx_state->opener_funding,
+					    total_funding,
+					    state->tx_state->accepter_funding);
+		}
+		assert(ok);
 
 		/* We can pull the commitment feerate out of the feestates */
 		state->feerate_per_kw_commitment

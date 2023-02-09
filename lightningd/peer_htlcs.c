@@ -92,20 +92,33 @@ static bool htlc_out_update_state(struct channel *channel,
 	return true;
 }
 
+/* BOLT-route-blinding #4:
+ *   - if `blinding_point` is set in the incoming `update_add_htlc`:
+ *     - MUST return an `invalid_onion_blinding` error.
+ *   - if `current_blinding_point` is set in the onion payload and it is not the
+ *     final node:
+ *     - MUST return an `invalid_onion_blinding` error.
+ */
+static bool blind_error_return(const struct htlc_in *hin)
+{
+	if (hin->blinding)
+		return true;
+
+	if (hin->payload
+	    && hin->payload->blinding
+	    && !hin->payload->final)
+		return true;
+
+	return false;
+}
+
 static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 						   const struct htlc_in *hin,
 						   enum onion_wire badonion)
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
-	/* BOLT-route-blinding #4:
-	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
-	 *    - MUST return `invalid_onion_blinding` for any local error or
-	 *      other downstream errors.
-	 */
-	/* FIXME: That's not enough!  Don't leak information about forward
-	 * failures either! */
-	if (hin->blinding || (hin->payload && hin->payload->blinding))
+	if (blind_error_return(hin))
 		badonion = WIRE_INVALID_ONION_BLINDING;
 
 	f->id = hin->key.id;
@@ -123,12 +136,7 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
-	/* BOLT-route-blinding #4:
-	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
-	 *    - MUST return `invalid_onion_blinding` for any local error or
-	 *      other downstream errors.
-	 */
-	if (hin->blinding) {
+	if (blind_error_return(hin)) {
 		return mk_failed_htlc_badonion(ctx, hin,
 					       WIRE_INVALID_ONION_BLINDING);
 	}
@@ -369,7 +377,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		return;
 	}
 
-	if (channel_on_chain(channel)) {
+	if (streq(channel->owner->name, "onchaind")) {
 		msg = towire_onchaind_known_preimage(hin, preimage);
 	} else {
 		struct fulfilled_htlc fulfilled_htlc;
@@ -1201,17 +1209,16 @@ REGISTER_PLUGIN_HOOK(htlc_accepted,
 
 /* Figures out how to fwd, allocating return off hp */
 static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
-						  struct htlc_accepted_hook_payload *hp,
-						  const struct route_step *rs)
+						  struct htlc_accepted_hook_payload *hp)
 {
 	const struct onion_payload *p = hp->payload;
 	struct peer *peer;
 	struct channel *c, *best;
 
-	if (rs->nextcase != ONION_FORWARD)
+	if (!p)
 		return NULL;
 
-	if (!p)
+	if (p->final)
 		return NULL;
 
 	if (p->forward_channel) {
@@ -1402,7 +1409,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	/* We don't store actual channel as it could vanish while
 	 * we're in hook */
 	hook_payload->fwd_channel_id
-		= calc_forwarding_channel(ld, hook_payload, rs);
+		= calc_forwarding_channel(ld, hook_payload);
 
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 
@@ -1975,7 +1982,7 @@ static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 	channel->next_index[LOCAL]++;
 
 	/* Update channel->last_sig and channel->last_tx before saving to db */
-	channel_set_last_tx(channel, tx, commit_sig, TX_CHANNEL_UNILATERAL);
+	channel_set_last_tx(channel, tx, commit_sig);
 
 	return true;
 }

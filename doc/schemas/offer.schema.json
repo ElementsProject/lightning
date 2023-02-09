@@ -12,10 +12,8 @@
   ],
   "properties": {
     "offer_id": {
-      "type": "hex",
-      "description": "the id of this offer (merkle hash of non-signature fields)",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the id of this offer (merkle hash of non-signature fields)"
     },
     "active": {
       "type": "boolean",

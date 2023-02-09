@@ -24,14 +24,14 @@ RETURN VALUE
 On success, an object containing **invoices** is returned.  It is an array of objects, where each object contains:
 
 - **label** (string): unique label supplied at invoice creation
-- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): Whether it's paid, unpaid or unpayable (one of "unpaid", "paid", "expired")
 - **expires\_at** (u64): UNIX timestamp of when it will become / became unpayable
 - **description** (string, optional): description used in the invoice
 - **amount\_msat** (msat, optional): the amount required to pay this invoice
 - **bolt11** (string, optional): the BOLT11 string (always present unless *bolt12* is)
 - **bolt12** (string, optional): the BOLT12 string (always present unless *bolt11* is)
-- **local\_offer\_id** (hex, optional): the *id* of our offer which created this invoice (**experimental-offers** only). (always 64 characters)
+- **local\_offer\_id** (hash, optional): the *id* of our offer which created this invoice (**experimental-offers** only).
 - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice (**experimental-offers** only).
 
 If **status** is "paid":
@@ -39,7 +39,7 @@ If **status** is "paid":
   - **pay\_index** (u64): Unique incrementing index for this payment
   - **amount\_received\_msat** (msat): the amount actually received (could be slightly greater than *amount\_msat*, since clients may overpay)
   - **paid\_at** (u64): UNIX timestamp of when it was paid
-  - **payment\_preimage** (secret): proof of payment (always 64 characters)
+  - **payment\_preimage** (secret): proof of payment
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -58,4 +58,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0dd6207e711b96094310c9d6b56575eb7e475a4a5bf728cd2b6e8d408ed3abbe)
+[comment]: # ( SHA256STAMP:7b1b70f04245395de28eb378e364537920e2f690db3c97ee638cefd282712dca)

@@ -12,7 +12,7 @@
 
 /* Current versions we support */
 #define GSTORE_MAJOR 0
-#define GSTORE_MINOR 10
+#define GSTORE_MINOR 12
 
 int main(int argc, char *argv[])
 {
@@ -65,16 +65,17 @@ int main(int argc, char *argv[])
 	while (read(fd, &hdr, sizeof(hdr)) == sizeof(hdr)) {
 		struct amount_sat sat;
 		struct short_channel_id scid;
-		u32 msglen = be32_to_cpu(hdr.len);
+		u16 flags = be16_to_cpu(hdr.flags);
+		u16 msglen = be16_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted, push, ratelimit;
+		bool deleted, push, ratelimit, zombie;
 		u32 blockheight;
 
-		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
-		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
-		ratelimit = (msglen & GOSSIP_STORE_LEN_RATELIMIT_BIT);
+		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
+		push = (flags & GOSSIP_STORE_PUSH_BIT);
+		ratelimit = (flags & GOSSIP_STORE_RATELIMIT_BIT);
+		zombie = (msglen & GOSSIP_STORE_ZOMBIE_BIT);
 
-		msglen &= GOSSIP_STORE_LEN_MASK;
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);
@@ -83,10 +84,11 @@ int main(int argc, char *argv[])
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
-		printf("%zu: %s%s%s", off,
+		printf("%zu: %s%s%s%s", off,
 		       deleted ? "DELETED " : "",
 		       push ? "PUSH " : "",
-		       ratelimit ? "RATE-LIMITED " : "");
+		       ratelimit ? "RATE-LIMITED " : "",
+		       zombie ? "ZOMBIE " : "");
 		if (print_timestamp)
 			printf("T=%u ", be32_to_cpu(hdr.timestamp));
 		if (deleted && !print_deleted) {

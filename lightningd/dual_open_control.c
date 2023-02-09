@@ -161,9 +161,14 @@ void json_add_unsaved_channel(struct json_stream *response,
 	}
 
 	json_array_start(response, "features");
-	/* v2 channels assumed to have both static_remotekey + anchor_outputs */
+	/* v2 channels assume static_remotekey */
 	json_add_string(response, NULL, "option_static_remotekey");
-	json_add_string(response, NULL, "option_anchor_outputs");
+
+	if (feature_negotiated(channel->peer->ld->our_features,
+			       channel->peer->their_features,
+			       OPT_ANCHOR_OUTPUTS))
+		json_add_string(response, NULL, "option_anchor_outputs");
+
 	json_array_end(response);
 	json_object_end(response);
 }
@@ -1108,7 +1113,8 @@ wallet_update_channel(struct lightningd *ld,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
 		      const u16 lease_chan_max_ppt,
-		      const u32 lease_blockheight_start)
+		      const u32 lease_blockheight_start,
+		      struct amount_sat lease_amt)
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
@@ -1149,8 +1155,7 @@ wallet_update_channel(struct lightningd *ld,
 
 	channel_set_last_tx(channel,
 			    tal_steal(channel, remote_commit),
-			    remote_commit_sig,
-			    TX_CHANNEL_UNILATERAL);
+			    remote_commit_sig);
 
 	/* Update in database */
 	wallet_channel_save(ld->wallet, channel);
@@ -1169,7 +1174,8 @@ wallet_update_channel(struct lightningd *ld,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
 				lease_blockheight_start,
-				channel->push);
+				channel->push,
+				lease_amt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -1190,12 +1196,14 @@ wallet_commit_channel(struct lightningd *ld,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
 		      struct wally_psbt *psbt STEALS,
+		      const struct amount_sat lease_amt,
 		      const u32 lease_blockheight_start,
 		      const u32 lease_expiry,
 		      const struct amount_sat lease_fee,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
-		      const u16 lease_chan_max_ppt)
+		      const u16 lease_chan_max_ppt,
+		      const struct channel_type *type)
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
@@ -1238,7 +1246,6 @@ wallet_commit_channel(struct lightningd *ld,
 
 	channel->last_tx = tal_steal(channel, remote_commit);
 	channel->last_sig = *remote_commit_sig;
-	channel->last_tx_type = TX_CHANNEL_UNILATERAL;
 
 	channel->channel_info = *channel_info;
 	channel->fee_states = new_fee_states(channel,
@@ -1253,7 +1260,9 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->scb->funding = *funding;
 	channel->scb->cid = channel->cid;
 	channel->scb->funding_sats = total_funding;
-	channel->scb->type = channel_type_dup(channel->scb, channel->type);
+
+	channel->type = channel_type_dup(channel, type);
+	channel->scb->type = channel_type_dup(channel->scb, type);
 
 	if (our_upfront_shutdown_script)
 		channel->shutdown_scriptpubkey[LOCAL]
@@ -1310,7 +1319,8 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
 				lease_blockheight_start,
-				channel->push);
+				channel->push,
+				lease_amt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	/* We might have disconnected and decided we didn't need to
@@ -2367,9 +2377,33 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_sat,
 						   &chainparams->max_funding));
 
-	if (!channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				      "Peer not connected.");
+	/* It's possible that the last open failed/was aborted.
+	 * So now we restart the attempt! */
+	if (!channel->owner) {
+		int fds[2];
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(channel->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					    "Unable to create socket: %s",
+					    strerror(errno));
+		}
+
+		if (!peer_restart_dualopend(channel->peer,
+					    new_peer_fd(tmpctx, fds[0]),
+					    channel)) {
+			close(fds[1]);
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					      "Peer not connected.");
+		}
+		subd_send_msg(cmd->ld->connectd,
+			      take(towire_connectd_peer_connect_subd(NULL,
+								     &channel->peer->id,
+								     channel->peer->connectd_counter,
+								     &channel->cid)));
+		subd_send_fd(cmd->ld->connectd, fds[1]);
+	}
 
 	if (channel->open_attempt)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2602,8 +2636,6 @@ static struct command_result *init_set_feerate(struct command *cmd,
 	}
 	if (!*feerate_per_kw) {
 		*feerate_per_kw = tal(cmd, u32);
-		/* FIXME: Anchors are on by default, we should use the lowest
-		 * possible feerate */
 		**feerate_per_kw = **feerate_per_kw_funding;
 	}
 
@@ -2905,7 +2937,7 @@ static void handle_commit_received(struct subd *dualopend,
 	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
 	    lease_chan_max_msat, lease_blockheight_start;
-	struct amount_sat total_funding, funding_ours, lease_fee;
+	struct amount_sat total_funding, funding_ours, lease_fee, lease_amt;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
 	struct penalty_base *pbase;
@@ -2914,6 +2946,7 @@ static void handle_commit_received(struct subd *dualopend,
 	struct openchannel2_psbt_payload *payload;
 	struct channel_inflight *inflight;
 	struct command *cmd = oa->cmd;
+	struct channel_type *channel_type;
 	secp256k1_ecdsa_signature *lease_commit_sig;
 
 	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
@@ -2936,12 +2969,14 @@ static void handle_commit_received(struct subd *dualopend,
 					    &feerate_commitment,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script,
+					    &lease_amt,
 					    &lease_blockheight_start,
 					    &lease_expiry,
 					    &lease_fee,
 					    &lease_commit_sig,
 					    &lease_chan_max_msat,
-					    &lease_chan_max_ppt)) {
+					    &lease_chan_max_ppt,
+					    &channel_type)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
 				       tal_hex(msg, msg));
@@ -2970,12 +3005,14 @@ static void handle_commit_received(struct subd *dualopend,
 								local_upfront_shutdown_script,
 						       remote_upfront_shutdown_script,
 						       psbt,
+						       lease_amt,
 						       lease_blockheight_start,
 						       lease_expiry,
 						       lease_fee,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
-						       lease_chan_max_ppt))) {
+						       lease_chan_max_ppt,
+						       channel_type))) {
 			channel_internal_error(channel,
 					       "wallet_commit_channel failed"
 					       " (chan %s)",
@@ -3009,7 +3046,8 @@ static void handle_commit_received(struct subd *dualopend,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
 						       lease_chan_max_ppt,
-						       lease_blockheight_start))) {
+						       lease_blockheight_start,
+						       lease_amt))) {
 			channel_internal_error(channel,
 					       "wallet_update_channel failed"
 					       " (chan %s)",
@@ -3522,8 +3560,9 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->lease_commit_sig,
 				      inflight->lease_chan_max_msat,
 				      inflight->lease_chan_max_ppt,
-				      /* FIXME: requested lease? */
-				      NULL);
+				      amount_sat_zero(inflight->lease_amt) ?
+					      NULL : &inflight->lease_amt,
+				      channel->type);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

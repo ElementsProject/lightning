@@ -216,7 +216,7 @@ static struct command_result *json_sendonionmessage(struct command *cmd,
 		sphinx_add_hop(sphinx_path, &hops[i].node, hops[i].tlv);
 
 	/* BOLT-onion-message #4:
-	 * - SHOULD set `len` to 1366 or 32834.
+	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
 	 */
 	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
 		onion_size = ROUTING_INFO_SIZE;

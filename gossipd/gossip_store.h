@@ -41,11 +41,13 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update);
  * @timestamp: the timestamp for filtering of this messsage.
  * @push: true if this should be sent to peers despite any timestamp filters.
  * @spam: true if this message is rate-limited and squelched to peers.
+ * @zombie: true if this channel is missing a current channel_update.
  * @addendum: another message to append immediately after this
  *            (for appending amounts to channel_announcements for internal use).
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool push, bool spam, const u8 *addendum);
+		     u32 timestamp, bool push, bool zombie, bool spam,
+		     const u8 *addendum);
 
 
 /**
@@ -63,6 +65,20 @@ void gossip_store_delete(struct gossip_store *gs,
  */
 void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid);
+
+/*
+ * Marks the length field of a channel announcement with a zombie flag bit.
+ * This allows the channel_announcement to be retained in the store while
+ * waiting for channel updates to reactivate it.
+ */
+void gossip_store_mark_channel_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast);
+
+void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast);
+
+void gossip_store_mark_nannounce_zombie(struct gossip_store *gs,
+					struct broadcastable *bcast);
 
 /**
  * Direct store accessor: loads gossip msg back from store.

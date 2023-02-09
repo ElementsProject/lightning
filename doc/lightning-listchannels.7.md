@@ -36,6 +36,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **source** (pubkey): the source node
 - **destination** (pubkey): the destination node
 - **short\_channel\_id** (short\_channel\_id): short channel id of channel
+- **direction** (u32): direction (0 if source < destination, 1 otherwise).
 - **public** (boolean): true if this is announced (otherwise it must be our channel)
 - **amount\_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
 - **message\_flags** (u8): as defined by BOLT #7
@@ -79,4 +80,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:d8d52272963a9ec4708fd3ae41585ddd8120bb5444c03219a7b728f0b2e09ec3)
+[comment]: # ( SHA256STAMP:cef9786aeca2eddaca0d1adf6dc3d0eef442297e0f63d7c49647e65dbca73396)

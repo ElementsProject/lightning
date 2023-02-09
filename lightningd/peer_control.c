@@ -283,9 +283,6 @@ static void sign_and_send_last(struct lightningd *ld,
 	sign_last_tx(channel, last_tx, last_sig);
 	bitcoin_txid(last_tx, &txid);
 	wallet_transaction_add(ld->wallet, last_tx->wtx, 0, 0);
-	wallet_transaction_annotate(ld->wallet, &txid,
-				    channel->last_tx_type,
-				    channel->dbid);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
@@ -362,7 +359,7 @@ void channel_errmsg(struct channel *channel,
 
 	if (channel_unsaved(channel)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
-			 " Disconnecting and deleting channel.");
+			 " Deleting channel.");
 		delete_channel(channel);
 		return;
 	}
@@ -384,8 +381,8 @@ void channel_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning) {
-		channel_fail_transient_delayreconnect(channel, "%s WARNING: %s",
-						      channel->owner->name, desc);
+		channel_fail_transient(channel, "%s WARNING: %s",
+				       channel->owner->name, desc);
 		return;
 	}
 
@@ -1485,8 +1482,26 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 
 		/* If channel is active, we raced, so ignore this:
 		 * subd will get it soon. */
-		if (channel_active(channel))
+		if (channel_active(channel)) {
+			log_debug(channel->log,
+				  "channel already active");
+			if (!channel->owner &&
+			    channel->state == DUALOPEND_AWAITING_LOCKIN) {
+				if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+					log_broken(ld->log,
+						   "Failed to create socketpair: %s",
+						   strerror(errno));
+					error = towire_warningfmt(tmpctx, &channel_id,
+								  "Trouble in paradise?");
+					goto send_error;
+				}
+				if (peer_restart_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel))
+					goto tell_connectd;
+				/* FIXME: Send informative error? */
+				close(fds[1]);
+			}
 			return;
+		}
 
 		if (msgtype == WIRE_CHANNEL_REESTABLISH) {
 			log_debug(channel->log,
@@ -1739,8 +1754,7 @@ static void update_channel_from_inflight(struct lightningd *ld,
 	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,
 			    bitcoin_tx_with_psbt(channel, psbt_copy),
-			    &inflight->last_sig,
-			    TX_CHANNEL_UNILATERAL);
+			    &inflight->last_sig);
 
 	/* Update the reserve */
 	channel_update_reserve(channel,
@@ -1840,7 +1854,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 										  warning)));
 			/* When we restart channeld, it will be initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_transient_delayreconnect(channel,
+			channel_fail_transient(channel,
 					       "short_channel_id changed to %s (was %s)",
 					       short_channel_id_to_str(tmpctx, &scid),
 					       short_channel_id_to_str(tmpctx, channel->scid));
@@ -2369,10 +2383,10 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_add_num(response, "num_inactive_channels", inactive_channels);
 
 	/* Add network info */
+	json_array_start(response, "address");
 	if (cmd->ld->listen) {
 		/* These are the addresses we're announcing */
 		count_announceable = tal_count(cmd->ld->announceable);
-		json_array_start(response, "address");
 		for (size_t i = 0; i < count_announceable; i++)
 			json_add_address(response, NULL, cmd->ld->announceable+i);
 
@@ -2400,8 +2414,9 @@ static struct command_result *json_getinfo(struct command *cmd,
 		for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
 			json_add_address_internal(response, NULL,
 					cmd->ld->binding+i);
-		json_array_end(response);
 	}
+	json_array_end(response);
+
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", cmd->ld->blockheight);
 	json_add_string(response, "network", chainparams->network_name);

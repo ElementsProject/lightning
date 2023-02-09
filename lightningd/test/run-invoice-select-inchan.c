@@ -74,10 +74,6 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 void channel_fail_transient(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
-/* Generated stub for channel_fail_transient_delayreconnect */
-void channel_fail_transient_delayreconnect(struct channel *channel UNNEEDED,
-					   const char *fmt UNNEEDED,...)
-{ fprintf(stderr, "channel_fail_transient_delayreconnect called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
 struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }
@@ -97,8 +93,7 @@ u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
 /* Generated stub for channel_set_last_tx */
 void channel_set_last_tx(struct channel *channel UNNEEDED,
 			 struct bitcoin_tx *tx UNNEEDED,
-			 const struct bitcoin_signature *sig UNNEEDED,
-			 enum wallet_tx_type type UNNEEDED)
+			 const struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "channel_set_last_tx called!\n"); abort(); }
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)
@@ -252,6 +247,12 @@ bool fromwire_connectd_peer_spoke(const void *p UNNEEDED, struct node_id *id UNN
 /* Generated stub for fromwire_dualopend_dev_memleak_reply */
 bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_dualopend_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_preapprove_invoice_reply */
+bool fromwire_hsmd_preapprove_invoice_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_preapprove_invoice_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_preapprove_keysend_reply */
+bool fromwire_hsmd_preapprove_keysend_reply(const void *p UNNEEDED, bool *approved UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_preapprove_keysend_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_bolt12_reply */
 bool fromwire_hsmd_sign_bolt12_reply(const void *p UNNEEDED, struct bip340sig *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_bolt12_reply called!\n"); abort(); }
@@ -774,6 +775,12 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_gossipd_discovered_ip */
 u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
 { fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
+/* Generated stub for towire_hsmd_preapprove_invoice */
+u8 *towire_hsmd_preapprove_invoice(const tal_t *ctx UNNEEDED, const wirestring *invstring UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_preapprove_invoice called!\n"); abort(); }
+/* Generated stub for towire_hsmd_preapprove_keysend */
+u8 *towire_hsmd_preapprove_keysend(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount_msat UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_preapprove_keysend called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_bolt12 */
 u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
@@ -934,11 +941,6 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
 			    const u32 blockheight UNNEEDED, const u32 txindex UNNEEDED)
 { fprintf(stderr, "wallet_transaction_add called!\n"); abort(); }
-/* Generated stub for wallet_transaction_annotate */
-void wallet_transaction_annotate(struct wallet *w UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED,
-				 enum wallet_tx_type type UNNEEDED, u64 channel_id UNNEEDED)
-{ fprintf(stderr, "wallet_transaction_annotate called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED)

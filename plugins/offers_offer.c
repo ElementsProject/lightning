@@ -415,9 +415,9 @@ struct command_result *json_invoicerequest(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - otherwise (not responding to an offer):
-	 *   - MUST set (or not set) `offer_metadata`, `offer_description`, `offer_absolute_expiry`, `offer_paths` and `offer_issuer` as it would for an offer.
+	 *   - MUST set (or not set) `offer_description`, `offer_absolute_expiry`, `offer_paths` and `offer_issuer` as it would for an offer.
 	 *   - MUST set `invreq_payer_id` as it would set `offer_node_id` for an offer.
-	 *   - MUST NOT include `signature`, `offer_chains`, `offer_amount`, `offer_currency`, `offer_features`, `offer_quantity_max` or `offer_node_id`
+	 *   - MUST NOT include `signature`, `offer_metadata`, `offer_chains`, `offer_amount`, `offer_currency`, `offer_features`, `offer_quantity_max` or `offer_node_id`
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST specify `invreq_chain` the offer is valid for.
 	 *   - MUST set `invreq_amount`.

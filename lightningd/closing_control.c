@@ -266,7 +266,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	}
 
 	if (closing_fee_is_acceptable(ld, channel, tx)) {
-		channel_set_last_tx(channel, tx, &sig, TX_CHANNEL_CLOSE);
+		channel_set_last_tx(channel, tx, &sig);
 		wallet_channel_save(ld->wallet, channel);
 	}
 

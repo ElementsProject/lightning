@@ -3,6 +3,7 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/fee_states.h>
@@ -68,6 +69,7 @@ msgdata,dualopend_reinit,lease_commit_sig,?secp256k1_ecdsa_signature,
 msgdata,dualopend_reinit,lease_chan_max_msat,u32,
 msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
 msgdata,dualopend_reinit,requested_lease,?amount_sat,
+msgdata,dualopend_reinit,channel_type,channel_type,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
@@ -149,12 +151,14 @@ msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_rcvd,lease_amt,amount_sat,
 msgdata,dualopend_commit_rcvd,lease_start_blockheight,u32,
 msgdata,dualopend_commit_rcvd,lease_expiry,u32,
 msgdata,dualopend_commit_rcvd,lease_fee,amount_sat,
 msgdata,dualopend_commit_rcvd,lease_commit_sig,?secp256k1_ecdsa_signature,
 msgdata,dualopend_commit_rcvd,lease_chan_max_msat,u32,
 msgdata,dualopend_commit_rcvd,lease_chan_max_ppt,u16,
+msgdata,dualopend_commit_rcvd,channel_type,channel_type,
 
 # dualopend->master: peer updated the psbt
 msgtype,dualopend_psbt_changed,7107

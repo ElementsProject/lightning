@@ -145,6 +145,9 @@ struct daemon {
 	/* Connection to gossip daemon. */
 	struct daemon_conn *gossipd;
 
+	/* Any listening sockets we have. */
+	struct io_listener **listeners;
+
 	/* Allow localhost to be considered "public": DEVELOPER-only option,
 	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
 	bool dev_allow_localhost;
@@ -183,6 +186,9 @@ struct daemon {
 
 	/* We only announce websocket addresses if !deprecated_apis */
 	bool announce_websocket;
+
+	/* Shutting down, don't send new stuff */
+	bool shutting_down;
 
 #if DEVELOPER
 	/* Hack to speed up gossip timer */

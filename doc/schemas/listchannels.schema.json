@@ -15,6 +15,7 @@
           "source",
           "destination",
           "short_channel_id",
+          "direction",
           "public",
           "amount_msat",
           "message_flags",
@@ -39,6 +40,10 @@
           "short_channel_id": {
             "type": "short_channel_id",
             "description": "short channel id of channel"
+          },
+          "direction": {
+            "type": "u32",
+            "description": "direction (0 if source < destination, 1 otherwise)."
           },
           "public": {
             "type": "boolean",
@@ -80,9 +85,7 @@
             "type": "msat",
             "description": "The smallest payment *source* will allow via this channel"
           },
-          "satoshis": {
-            "deprecated": true
-          },
+          "satoshis": {},
           "htlc_maximum_msat": {
             "type": "msat",
             "description": "The largest payment *source* will allow via this channel"

@@ -3,6 +3,7 @@
 #include <common/channel_config.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>
+#include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -209,6 +210,48 @@ u8 *no_upfront_shutdown_script(const tal_t *ctx,
 
 	return NULL;
 }
+
+bool anchors_negotiated(struct feature_set *our_features,
+			const u8 *their_features)
+{
+	return feature_negotiated(our_features, their_features,
+				  OPT_ANCHOR_OUTPUTS)
+		|| feature_negotiated(our_features,
+				      their_features,
+				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+}
+
+char *validate_remote_upfront_shutdown(const tal_t *ctx,
+				       struct feature_set *our_features,
+				       const u8 *their_features,
+				       u8 *shutdown_scriptpubkey STEALS,
+				       u8 **state_script)
+{
+	bool anysegwit = feature_negotiated(our_features,
+					    their_features,
+					    OPT_SHUTDOWN_ANYSEGWIT);
+
+	bool anchors = anchors_negotiated(our_features, their_features);
+	/* BOLT #2:
+	 *
+	 * - MUST include `upfront_shutdown_script` with either a valid
+         *   `shutdown_scriptpubkey` as required by `shutdown` `scriptpubkey`,
+         *   or a zero-length `shutdown_scriptpubkey` (ie. `0x0000`).
+	 */
+	/* We turn empty into NULL. */
+	if (tal_bytelen(shutdown_scriptpubkey) == 0)
+		shutdown_scriptpubkey = tal_free(shutdown_scriptpubkey);
+
+	*state_script = tal_steal(ctx, shutdown_scriptpubkey);
+
+	if (shutdown_scriptpubkey
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, !anchors))
+		return tal_fmt(tmpctx,
+			       "Unacceptable upfront_shutdown_script %s",
+			       tal_hex(tmpctx, shutdown_scriptpubkey));
+	return NULL;
+}
+
 
 void validate_initial_commitment_signature(int hsm_fd,
 					   struct bitcoin_tx *tx,

@@ -1390,8 +1390,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub msatoshi_fees_collected: Option<u64>,
 	    pub fees_collected_msat: Amount,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub address: Option<Vec<GetinfoAddress>>,
+	    pub address: Vec<GetinfoAddress>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub binding: Option<Vec<GetinfoBinding>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1869,6 +1868,7 @@ pub mod responses {
 	    pub source: PublicKey,
 	    pub destination: PublicKey,
 	    pub short_channel_id: ShortChannelId,
+	    pub direction: u32,
 	    pub public: bool,
 	    pub amount_msat: Amount,
 	    pub message_flags: u8,
@@ -2361,7 +2361,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_offer_id: Option<String>,
+	    pub local_offer_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -2472,6 +2472,8 @@ pub mod responses {
 	pub struct ListsendpaysPayments {
 	    pub id: u64,
 	    pub groupid: u64,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
 	    pub payment_hash: Sha256,
 	    // Path `ListSendPays.payments[].status`
 	    pub status: ListsendpaysPaymentsStatus,
@@ -2632,8 +2634,6 @@ pub mod responses {
 	    pub rawtx: String,
 	    pub blockheight: u32,
 	    pub txindex: u32,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel: Option<ShortChannelId>,
 	    pub locktime: u32,
 	    pub version: u32,
 	    pub inputs: Vec<ListtransactionsTransactionsInputs>,
@@ -3429,7 +3429,7 @@ pub mod responses {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpaysPays {
-	    pub payment_hash: String,
+	    pub payment_hash: Sha256,
 	    // Path `ListPays.pays[].status`
 	    pub status: ListpaysPaysStatus,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3446,7 +3446,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub preimage: Option<String>,
+	    pub preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub number_of_parts: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

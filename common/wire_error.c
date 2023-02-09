@@ -93,6 +93,8 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		warning = false;
 	else if (fromwire_warning(ctx, errmsg, channel_id, &data))
 		warning = true;
+	else if (fromwire_tx_abort(ctx, errmsg, channel_id, &data))
+		warning = false;
 	else
 		return tal_fmt(ctx, "Invalid ERROR message '%s'",
 			       tal_hex(ctx, errmsg));

@@ -742,8 +742,11 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     # the third plugin must now not be called anymore
     assert not l2.daemon.is_in_log("reject on principle")
 
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    if not EXPERIMENTAL_DUAL_FUND:
+        wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    else:
+        assert only_one(l1.rpc.listpeers()['peers'])['connected']
     # 100000sat is good for hook_accepter, so it should fail 'on principle'
     # at third hook openchannel_reject.py
     with pytest.raises(RpcError, match=r'reject on principle'):
@@ -1606,15 +1609,10 @@ def test_plugin_feature_announce(node_factory):
         wait_for_announce=True
     )
 
-    extra = []
-    if l1.config('experimental-dual-fund'):
-        extra.append(21)  # option-anchor-outputs
-        extra.append(29)  # option-dual-fund
-
     # Check the featurebits we've set in the `init` message from
     # feature-test.py.
     assert l1.daemon.is_in_log(r'\[OUT\] 001000022100....{}'
-                               .format(expected_peer_features(extra=[201] + extra)))
+                               .format(expected_peer_features(extra=[201])))
 
     # Check the invoice featurebit we set in feature-test.py
     inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
@@ -1623,7 +1621,7 @@ def test_plugin_feature_announce(node_factory):
 
     # Check the featurebit set in the `node_announcement`
     node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
-    assert node['features'] == expected_node_features(extra=[203] + extra)
+    assert node['features'] == expected_node_features(extra=[203])
 
 
 def test_hook_chaining(node_factory):
@@ -3275,3 +3273,651 @@ def test_block_added_notifications(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l2])
     ret = l2.rpc.call("blockscatched")
     assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2
+
+
+@pytest.mark.openchannel('v2')
+@pytest.mark.developer("wants dev-announce-localhost so we see listnodes.addresses")
+def test_sql(node_factory, bitcoind):
+    opts = {'experimental-offers': None,
+            'dev-allow-localhost': None}
+    l2opts = {'lease-fee-basis': 50,
+              'lease-fee-base-sat': '2000msat',
+              'channel-fee-max-base-msat': '500sat',
+              'channel-fee-max-proportional-thousandths': 200,
+              'sqlfilename': 'sql.sqlite3'}
+    l2opts.update(opts)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[opts, l2opts, opts])
+
+    ret = l2.rpc.sql("SELECT * FROM forwards;")
+    assert ret == {'rows': []}
+
+    # Test that we correctly clean up subtables!
+    assert len(l2.rpc.sql("SELECT * from peerchannels_features")['rows']) == len(l2.rpc.sql("SELECT * from peerchannels_features")['rows'])
+
+    # This should create a forward through l2
+    l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
+
+    expected_schemas = {
+        'channels': {
+            'indices': [['short_channel_id']],
+            'columns': [{'name': 'source',
+                         'type': 'pubkey'},
+                        {'name': 'destination',
+                         'type': 'pubkey'},
+                        {'name': 'short_channel_id',
+                         'type': 'short_channel_id'},
+                        {'name': 'direction',
+                         'type': 'u32'},
+                        {'name': 'public',
+                         'type': 'boolean'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'message_flags',
+                         'type': 'u8'},
+                        {'name': 'channel_flags',
+                         'type': 'u8'},
+                        {'name': 'active',
+                         'type': 'boolean'},
+                        {'name': 'last_update',
+                         'type': 'u32'},
+                        {'name': 'base_fee_millisatoshi',
+                         'type': 'u32'},
+                        {'name': 'fee_per_millionth',
+                         'type': 'u32'},
+                        {'name': 'delay',
+                         'type': 'u32'},
+                        {'name': 'htlc_minimum_msat',
+                         'type': 'msat'},
+                        {'name': 'htlc_maximum_msat',
+                         'type': 'msat'},
+                        {'name': 'features',
+                         'type': 'hex'}]},
+        'nodes': {
+            'indices': [['nodeid']],
+            'columns': [{'name': 'nodeid',
+                         'type': 'pubkey'},
+                        {'name': 'last_timestamp',
+                         'type': 'u32'},
+                        {'name': 'alias',
+                         'type': 'string'},
+                        {'name': 'color',
+                         'type': 'hex'},
+                        {'name': 'features',
+                         'type': 'hex'},
+                        {'name': 'option_will_fund_lease_fee_base_msat',
+                         'type': 'msat'},
+                        {'name': 'option_will_fund_lease_fee_basis',
+                         'type': 'u32'},
+                        {'name': 'option_will_fund_funding_weight',
+                         'type': 'u32'},
+                        {'name': 'option_will_fund_channel_fee_max_base_msat',
+                         'type': 'msat'},
+                        {'name': 'option_will_fund_channel_fee_max_proportional_thousandths',
+                         'type': 'u32'},
+                        {'name': 'option_will_fund_compact_lease',
+                         'type': 'hex'},
+                        ]},
+        'nodes_addresses': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'type',
+                         'type': 'string'},
+                        {'name': 'port',
+                         'type': 'u16'},
+                        {'name': 'address',
+                         'type': 'string'}]},
+        'forwards': {
+            'indices': [['in_channel', 'in_htlc_id']],
+            'columns': [{'name': 'in_channel',
+                         'type': 'short_channel_id'},
+                        {'name': 'in_htlc_id',
+                         'type': 'u64'},
+                        {'name': 'in_msat',
+                         'type': 'msat'},
+                        {'name': 'status',
+                         'type': 'string'},
+                        {'name': 'received_time',
+                         'type': 'number'},
+                        {'name': 'out_channel',
+                         'type': 'short_channel_id'},
+                        {'name': 'out_htlc_id',
+                         'type': 'u64'},
+                        {'name': 'style',
+                         'type': 'string'},
+                        {'name': 'fee_msat',
+                         'type': 'msat'},
+                        {'name': 'out_msat',
+                         'type': 'msat'},
+                        {'name': 'resolved_time',
+                         'type': 'number'},
+                        {'name': 'failcode',
+                         'type': 'u32'},
+                        {'name': 'failreason',
+                         'type': 'string'}]},
+        'htlcs': {
+            'indices': [['short_channel_id', 'id']],
+            'columns': [{'name': 'short_channel_id',
+                         'type': 'short_channel_id'},
+                        {'name': 'id',
+                         'type': 'u64'},
+                        {'name': 'expiry',
+                         'type': 'u32'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'direction',
+                         'type': 'string'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'state',
+                         'type': 'string'}]},
+        'invoices': {
+            'indices': [['payment_hash']],
+            'columns': [{'name': 'label',
+                         'type': 'string'},
+                        {'name': 'description',
+                         'type': 'string'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'status',
+                         'type': 'string'},
+                        {'name': 'expires_at',
+                         'type': 'u64'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'bolt11',
+                         'type': 'string'},
+                        {'name': 'bolt12',
+                         'type': 'string'},
+                        {'name': 'local_offer_id',
+                         'type': 'hex'},
+                        {'name': 'invreq_payer_note',
+                         'type': 'string'},
+                        {'name': 'pay_index',
+                         'type': 'u64'},
+                        {'name': 'amount_received_msat',
+                         'type': 'msat'},
+                        {'name': 'paid_at',
+                         'type': 'u64'},
+                        {'name': 'payment_preimage',
+                         'type': 'secret'}]},
+        'offers': {
+            'indices': [['offer_id']],
+            'columns': [{'name': 'offer_id',
+                         'type': 'hex'},
+                        {'name': 'active',
+                         'type': 'boolean'},
+                        {'name': 'single_use',
+                         'type': 'boolean'},
+                        {'name': 'bolt12',
+                         'type': 'string'},
+                        {'name': 'used',
+                         'type': 'boolean'},
+                        {'name': 'label',
+                         'type': 'string'}]},
+        'peers': {
+            'indices': [['id']],
+            'columns': [{'name': 'id',
+                         'type': 'pubkey'},
+                        {'name': 'connected',
+                         'type': 'boolean'},
+                        {'name': 'remote_addr',
+                         'type': 'string'},
+                        {'name': 'features',
+                         'type': 'hex'}]},
+        'peers_netaddr': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'netaddr',
+                         'type': 'string'}]},
+        'sendpays': {
+            'indices': [['payment_hash']],
+            'columns': [{'name': 'id',
+                         'type': 'u64'},
+                        {'name': 'groupid',
+                         'type': 'u64'},
+                        {'name': 'partid',
+                         'type': 'u64'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'status',
+                         'type': 'string'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'destination',
+                         'type': 'pubkey'},
+                        {'name': 'created_at',
+                         'type': 'u64'},
+                        {'name': 'amount_sent_msat',
+                         'type': 'msat'},
+                        {'name': 'label',
+                         'type': 'string'},
+                        {'name': 'bolt11',
+                         'type': 'string'},
+                        {'name': 'description',
+                         'type': 'string'},
+                        {'name': 'bolt12',
+                         'type': 'string'},
+                        {'name': 'payment_preimage',
+                         'type': 'secret'},
+                        {'name': 'erroronion',
+                         'type': 'hex'}]},
+        'peerchannels': {
+            'indices': [['peer_id']],
+            'columns': [{'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'peer_connected',
+                         'type': 'boolean'},
+                        {'name': 'state',
+                         'type': 'string'},
+                        {'name': 'scratch_txid',
+                         'type': 'txid'},
+                        {'name': 'feerate_perkw',
+                         'type': 'u32'},
+                        {'name': 'feerate_perkb',
+                         'type': 'u32'},
+                        {'name': 'owner',
+                         'type': 'string'},
+                        {'name': 'short_channel_id',
+                         'type': 'short_channel_id'},
+                        {'name': 'channel_id',
+                         'type': 'hash'},
+                        {'name': 'funding_txid',
+                         'type': 'txid'},
+                        {'name': 'funding_outnum',
+                         'type': 'u32'},
+                        {'name': 'initial_feerate',
+                         'type': 'string'},
+                        {'name': 'last_feerate',
+                         'type': 'string'},
+                        {'name': 'next_feerate',
+                         'type': 'string'},
+                        {'name': 'next_fee_step',
+                         'type': 'u32'},
+                        {'name': 'close_to',
+                         'type': 'hex'},
+                        {'name': 'private',
+                         'type': 'boolean'},
+                        {'name': 'opener',
+                         'type': 'string'},
+                        {'name': 'closer',
+                         'type': 'string'},
+                        {'name': 'funding_pushed_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_local_funds_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_remote_funds_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_fee_paid_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_fee_rcvd_msat',
+                         'type': 'msat'},
+                        {'name': 'to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'min_to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'max_to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'total_msat',
+                         'type': 'msat'},
+                        {'name': 'fee_base_msat',
+                         'type': 'msat'},
+                        {'name': 'fee_proportional_millionths',
+                         'type': 'u32'},
+                        {'name': 'dust_limit_msat',
+                         'type': 'msat'},
+                        {'name': 'max_total_htlc_in_msat',
+                         'type': 'msat'},
+                        {'name': 'their_reserve_msat',
+                         'type': 'msat'},
+                        {'name': 'our_reserve_msat',
+                         'type': 'msat'},
+                        {'name': 'spendable_msat',
+                         'type': 'msat'},
+                        {'name': 'receivable_msat',
+                         'type': 'msat'},
+                        {'name': 'minimum_htlc_in_msat',
+                         'type': 'msat'},
+                        {'name': 'minimum_htlc_out_msat',
+                         'type': 'msat'},
+                        {'name': 'maximum_htlc_out_msat',
+                         'type': 'msat'},
+                        {'name': 'their_to_self_delay',
+                         'type': 'u32'},
+                        {'name': 'our_to_self_delay',
+                         'type': 'u32'},
+                        {'name': 'max_accepted_htlcs',
+                         'type': 'u32'},
+                        {'name': 'alias_local',
+                         'type': 'short_channel_id'},
+                        {'name': 'alias_remote',
+                         'type': 'short_channel_id'},
+                        {'name': 'in_payments_offered',
+                         'type': 'u64'},
+                        {'name': 'in_offered_msat',
+                         'type': 'msat'},
+                        {'name': 'in_payments_fulfilled',
+                         'type': 'u64'},
+                        {'name': 'in_fulfilled_msat',
+                         'type': 'msat'},
+                        {'name': 'out_payments_offered',
+                         'type': 'u64'},
+                        {'name': 'out_offered_msat',
+                         'type': 'msat'},
+                        {'name': 'out_payments_fulfilled',
+                         'type': 'u64'},
+                        {'name': 'out_fulfilled_msat',
+                         'type': 'msat'},
+                        {'name': 'close_to_addr',
+                         'type': 'string'},
+                        {'name': 'last_tx_fee_msat',
+                         'type': 'msat'},
+                        {'name': 'direction',
+                         'type': 'u32'}]},
+        'peerchannels_features': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'features',
+                         'type': 'string'}]},
+        'peerchannels_htlcs': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'direction',
+                         'type': 'string'},
+                        {'name': 'id',
+                         'type': 'u64'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'expiry',
+                         'type': 'u32'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'local_trimmed',
+                         'type': 'boolean'},
+                        {'name': 'status',
+                         'type': 'string'},
+                        {'name': 'state',
+                         'type': 'string'}]},
+        'peerchannels_inflight': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'funding_txid',
+                         'type': 'txid'},
+                        {'name': 'funding_outnum',
+                         'type': 'u32'},
+                        {'name': 'feerate',
+                         'type': 'string'},
+                        {'name': 'total_funding_msat',
+                         'type': 'msat'},
+                        {'name': 'our_funding_msat',
+                         'type': 'msat'},
+                        {'name': 'scratch_txid',
+                         'type': 'txid'}]},
+        'peerchannels_status': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'status',
+                         'type': 'string'}]},
+        'peerchannels_state_changes': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'timestamp',
+                         'type': 'string'},
+                        {'name': 'old_state',
+                         'type': 'string'},
+                        {'name': 'new_state',
+                         'type': 'string'},
+                        {'name': 'cause',
+                         'type': 'string'},
+                        {'name': 'message',
+                         'type': 'string'}]},
+        'transactions': {
+            'indices': [['hash']],
+            'columns': [{'name': 'hash',
+                         'type': 'txid'},
+                        {'name': 'rawtx',
+                         'type': 'hex'},
+                        {'name': 'blockheight',
+                         'type': 'u32'},
+                        {'name': 'txindex',
+                         'type': 'u32'},
+                        {'name': 'locktime',
+                         'type': 'u32'},
+                        {'name': 'version',
+                         'type': 'u32'}]},
+        'transactions_inputs': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'txid',
+                         'type': 'hex'},
+                        {'name': 'idx',
+                         'type': 'u32'},
+                        {'name': 'sequence',
+                         'type': 'u32'},
+                        {'name': 'type',
+                         'type': 'string'},
+                        {'name': 'channel',
+                         'type': 'short_channel_id'}]},
+        'transactions_outputs': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'idx',
+                         'type': 'u32'},
+                        {'name': 'amount_msat',
+                         'type': 'msat'},
+                        {'name': 'scriptPubKey',
+                         'type': 'hex'},
+                        {'name': 'type',
+                         'type': 'string'},
+                        {'name': 'channel',
+                         'type': 'short_channel_id'}]},
+        'bkpr_accountevents': {
+            'columns': [{'name': 'account',
+                         'type': 'string'},
+                        {'name': 'type',
+                         'type': 'string'},
+                        {'name': 'tag',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'currency',
+                         'type': 'string'},
+                        {'name': 'timestamp',
+                         'type': 'u32'},
+                        {'name': 'outpoint',
+                         'type': 'string'},
+                        {'name': 'blockheight',
+                         'type': 'u32'},
+                        {'name': 'origin',
+                         'type': 'string'},
+                        {'name': 'payment_id',
+                         'type': 'hex'},
+                        {'name': 'txid',
+                         'type': 'txid'},
+                        {'name': 'description',
+                         'type': 'string'},
+                        {'name': 'fees_msat',
+                         'type': 'msat'},
+                        {'name': 'is_rebalance',
+                         'type': 'boolean'},
+                        {'name': 'part_id',
+                         'type': 'u32'}]},
+        'bkpr_income': {
+            'columns': [{'name': 'account',
+                         'type': 'string'},
+                        {'name': 'tag',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'currency',
+                         'type': 'string'},
+                        {'name': 'timestamp',
+                         'type': 'u32'},
+                        {'name': 'description',
+                         'type': 'string'},
+                        {'name': 'outpoint',
+                         'type': 'string'},
+                        {'name': 'txid',
+                         'type': 'txid'},
+                        {'name': 'payment_id',
+                         'type': 'hex'}]}}
+
+    sqltypemap = {'string': 'TEXT',
+                  'boolean': 'INTEGER',
+                  'u8': 'INTEGER',
+                  'u16': 'INTEGER',
+                  'u32': 'INTEGER',
+                  'u64': 'INTEGER',
+                  'msat': 'INTEGER',
+                  'hex': 'BLOB',
+                  'hash': 'BLOB',
+                  'txid': 'BLOB',
+                  'pubkey': 'BLOB',
+                  'secret': 'BLOB',
+                  'number': 'REAL',
+                  'short_channel_id': 'TEXT'}
+
+    # Check schemas match (each one has rowid at start)
+    rowidcol = {'name': 'rowid', 'type': 'u64'}
+    for table, schema in expected_schemas.items():
+        res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
+        assert res['tablename'] == table
+        assert res.get('indices') == schema.get('indices')
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
+        assert res['columns'] == sqlcolumns
+
+    # Make sure we didn't miss any
+    assert (sorted([s['tablename'] for s in l1.rpc.listsqlschemas()['schemas']])
+            == sorted(expected_schemas.keys()))
+    assert len(l1.rpc.listsqlschemas()['schemas']) == len(expected_schemas)
+
+    # Very rough checks of other list commands (make sure l2 has one of each)
+    l2.rpc.offer(1, 'desc')
+    l2.rpc.invoice(1, 'label', 'desc')
+    l2.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv2', description='description')['bolt11'])
+
+    # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
+    l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
+                        holdtime=TIMEOUT * 2)
+    inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
+    route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    # And an in-flight channel open...
+    l2.openchannel(l3, confirm=False, wait_for_announce=False)
+
+    for table, schema in expected_schemas.items():
+        ret = l2.rpc.sql("SELECT * FROM {};".format(table))
+        assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+
+        # First column is always rowid!
+        for row in ret['rows']:
+            assert row[0] > 0
+
+        for col in schema['columns']:
+            val = only_one(l2.rpc.sql("SELECT {} FROM {};".format(col['name'], table))['rows'][0])
+            # Could be null
+            if val is None:
+                continue
+            if col['type'] == "hex":
+                bytes.fromhex(val)
+            elif col['type'] in ("hash", "secret", "txid"):
+                assert len(bytes.fromhex(val)) == 32
+            elif col['type'] == "pubkey":
+                assert len(bytes.fromhex(val)) == 33
+            elif col['type'] in ("msat", "integer", "u64", "u32", "u16", "u8", "boolean"):
+                int(val)
+            elif col['type'] == "number":
+                float(val)
+            elif col['type'] == "string":
+                val += ""
+            elif col['type'] == "short_channel_id":
+                assert len(val.split('x')) == 3
+            else:
+                assert False
+
+    ret = l2.rpc.sql("SELECT in_htlc_id,out_msat,status,out_htlc_id FROM forwards WHERE in_htlc_id = 0;")
+    assert only_one(ret['rows']) == [0, 12300, 'settled', 0]
+
+    with pytest.raises(RpcError, match='Unauthorized'):
+        l2.rpc.sql("DELETE FROM forwards;")
+
+    assert len(l3.rpc.sql("SELECT * FROM channels;")['rows']) == 4
+    # Check that channels gets refreshed!
+    scid = l1.get_channel_scid(l2)
+    l1.rpc.setchannel(scid, feebase=123)
+    wait_for(lambda: l3.rpc.sql("SELECT short_channel_id FROM channels WHERE base_fee_millisatoshi = 123;")['rows'] == [[scid]])
+    l3.daemon.wait_for_log("Refreshing channels...")
+    l3.daemon.wait_for_log("Refreshing channel: {}".format(scid))
+
+    # This has to wait for the hold_invoice plugin to let go!
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(13, wait_for_mempool=1)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+    assert len(l3.rpc.sql("SELECT * FROM channels;")['rows']) == 2
+    l3.daemon.wait_for_log("Deleting channel: {}".format(scid))
+
+    # No deprecated fields!
+    with pytest.raises(RpcError, match='query failed with no such column: funding_local_msat'):
+        l2.rpc.sql("SELECT funding_local_msat FROM peerchannels;")
+
+    with pytest.raises(RpcError, match='query failed with no such column: funding_remote_msat'):
+        l2.rpc.sql("SELECT funding_remote_msat FROM peerchannels;")
+
+    with pytest.raises(RpcError, match='query failed with no such table: peers_channels'):
+        l2.rpc.sql("SELECT * FROM peers_channels;")
+
+    # Test subobject case (option_will_fund)
+    ret = l2.rpc.sql("SELECT option_will_fund_lease_fee_base_msat,"
+                     " option_will_fund_lease_fee_basis,"
+                     " option_will_fund_funding_weight,"
+                     " option_will_fund_channel_fee_max_base_msat,"
+                     " option_will_fund_channel_fee_max_proportional_thousandths,"
+                     " option_will_fund_compact_lease"
+                     " FROM nodes WHERE HEX(nodeid) = '{}';".format(l2.info['id'].upper()))
+    optret = only_one(l2.rpc.listnodes(l2.info['id'])['nodes'])['option_will_fund']
+    row = only_one(ret['rows'])
+    assert row == [v for v in optret.values()]
+
+    # Correctly handles missing object.
+    assert l2.rpc.sql("SELECT option_will_fund_lease_fee_base_msat,"
+                      " option_will_fund_lease_fee_basis,"
+                      " option_will_fund_funding_weight,"
+                      " option_will_fund_channel_fee_max_base_msat,"
+                      " option_will_fund_channel_fee_max_proportional_thousandths,"
+                      " option_will_fund_compact_lease"
+                      " FROM nodes WHERE HEX(nodeid) = '{}';".format(l1.info['id'].upper())) == {'rows': [[None] * 6]}
+
+
+def test_sql_deprecated(node_factory, bitcoind):
+    # deprecated-apis breaks schemas...
+    l1 = node_factory.get_node(start=False, options={'allow-deprecated-apis': True})
+    l1.rpc.check_request_schemas = False
+    l1.start()
+
+    # FIXME: we have no fields which have been deprecated since sql plugin was
+    # introduced.  When we do, add them here! (I manually tested a fake one)
+
+    #  ret = l1.rpc.sql("SELECT funding_local_msat, funding_remote_msat FROM peerchannels;")
+    #  assert ret == {'rows': []}

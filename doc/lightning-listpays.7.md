@@ -19,7 +19,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **pays** is returned.  It is an array of objects, where each object contains:
 
-- **payment\_hash** (hex): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **destination** (pubkey, optional): the final destination of the payment if known
@@ -31,7 +31,7 @@ On success, an object containing **pays** is returned.  It is an array of object
 
 If **status** is "complete":
 
-  - **preimage** (hex): proof of payment (always 64 characters)
+  - **preimage** (secret): proof of payment
   - **number\_of\_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
 
 If **status** is "failed":
@@ -57,4 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ebdcb353fc2b11f6d83610c538206ef348a24b77af4cb2dcd535235f50ee5c39)
+[comment]: # ( SHA256STAMP:716bcbf01d946c6e4da0bd2f6817c34e6471a1fcd2f0f388ce47984271285c72)

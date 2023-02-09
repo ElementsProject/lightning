@@ -252,6 +252,22 @@ struct delayed_reconnect {
 	bool dns_fallback;
 };
 
+static const struct node_id *delayed_reconnect_keyof(const struct delayed_reconnect *d)
+{
+	return &d->id;
+}
+
+static bool node_id_delayed_reconnect_eq(const struct delayed_reconnect *d,
+					 const struct node_id *node_id)
+{
+	return node_id_eq(node_id, &d->id);
+}
+
+HTABLE_DEFINE_TYPE(struct delayed_reconnect,
+		   delayed_reconnect_keyof,
+		   node_id_hash, node_id_delayed_reconnect_eq,
+		   delayed_reconnect_map);
+
 static void gossipd_got_addrs(struct subd *subd,
 			      const u8 *msg,
 			      const int *fds,
@@ -281,6 +297,11 @@ static void do_connect(struct delayed_reconnect *d)
 	subd_req(d, d->ld->gossip, take(msg), -1, 0, gossipd_got_addrs, d);
 }
 
+static void destroy_delayed_reconnect(struct delayed_reconnect *d)
+{
+	delayed_reconnect_map_del(d->ld->delayed_reconnect_map, d);
+}
+
 static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
@@ -291,11 +312,23 @@ static void try_connect(const tal_t *ctx,
 	struct delayed_reconnect *d;
 	struct peer *peer;
 
+	/* Don't stack, unless this is an instant reconnect */
+	d = delayed_reconnect_map_get(ld->delayed_reconnect_map, id);
+	if (d) {
+		if (seconds_delay) {
+			log_peer_debug(ld->log, id, "Already reconnecting");
+			return;
+		}
+		tal_free(d);
+	}
+
 	d = tal(ctx, struct delayed_reconnect);
 	d->ld = ld;
 	d->id = *id;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
 	d->dns_fallback = dns_fallback;
+	delayed_reconnect_map_add(ld->delayed_reconnect_map, d);
+	tal_add_destructor(d, destroy_delayed_reconnect);
 
 	if (!seconds_delay) {
 		do_connect(d);
@@ -489,6 +522,32 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
+static void connectd_start_shutdown_reply(struct subd *connectd,
+					  const u8 *reply,
+					  const int *fds UNUSED,
+					  void *unused UNUSED)
+{
+	if (!fromwire_connectd_start_shutdown_reply(reply))
+		fatal("Bad connectd_start_shutdown_reply: %s",
+		      tal_hex(reply, reply));
+
+	/* Break out of loop now, so we can continue shutdown. */
+	log_debug(connectd->ld->log, "io_break: %s", __func__);
+	io_break(connectd);
+}
+
+void connectd_start_shutdown(struct subd *connectd)
+{
+	const u8 *msg = towire_connectd_start_shutdown(NULL);
+
+	subd_req(connectd, connectd, take(msg), -1, 0,
+		 connectd_start_shutdown_reply, NULL);
+
+	/* Wait for shutdown_reply.  Note that since we're shutting down,
+	 * start_json_stream can io_break too! */
+	while (io_loop(NULL, NULL) != connectd);
+}
+
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
 	enum connectd_wire t = fromwire_peektype(msg);
@@ -506,11 +565,13 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
+	case WIRE_CONNECTD_START_SHUTDOWN:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_PING_REPLY:
+	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
@@ -576,6 +637,9 @@ int connectd_init(struct lightningd *ld)
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
 	const char *websocket_helper_path;
 	void *ret;
+
+	ld->delayed_reconnect_map = tal(ld, struct delayed_reconnect_map);
+	delayed_reconnect_map_init(ld->delayed_reconnect_map);
 
 	websocket_helper_path = subdaemon_path(tmpctx, ld,
 					       "lightning_websocketd");

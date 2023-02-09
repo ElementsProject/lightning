@@ -1018,43 +1018,6 @@ static void ignore_output(struct tracked_output *out)
 	out->resolved->tx_type = SELF;
 }
 
-static enum wallet_tx_type onchain_txtype_to_wallet_txtype(enum tx_type t)
-{
-	switch (t) {
-	case FUNDING_TRANSACTION:
-		return TX_CHANNEL_FUNDING;
-	case MUTUAL_CLOSE:
-		return TX_CHANNEL_CLOSE;
-	case OUR_UNILATERAL:
-		return TX_CHANNEL_UNILATERAL;
-	case THEIR_HTLC_FULFILL_TO_US:
-	case OUR_HTLC_SUCCESS_TX:
-		return TX_CHANNEL_HTLC_SUCCESS;
-	case OUR_HTLC_TIMEOUT_TO_US:
-	case OUR_HTLC_TIMEOUT_TX:
-		return TX_CHANNEL_HTLC_TIMEOUT;
-	case OUR_DELAYED_RETURN_TO_WALLET:
-	case SELF:
-		return TX_CHANNEL_SWEEP;
-	case OUR_PENALTY_TX:
-		return TX_CHANNEL_PENALTY;
-	case THEIR_DELAYED_CHEAT:
-		return TX_CHANNEL_CHEAT | TX_THEIRS;
-	case THEIR_UNILATERAL:
-	case UNKNOWN_UNILATERAL:
-	case THEIR_REVOKED_UNILATERAL:
-		return TX_CHANNEL_UNILATERAL | TX_THEIRS;
-	case THEIR_HTLC_TIMEOUT_TO_THEM:
-		return TX_CHANNEL_HTLC_TIMEOUT | TX_THEIRS;
-	case OUR_HTLC_FULFILL_TO_THEM:
-		return TX_CHANNEL_HTLC_SUCCESS | TX_THEIRS;
-	case IGNORING_TINY_PAYMENT:
-	case UNKNOWN_TXTYPE:
-		return TX_UNKNOWN;
-	}
-	abort();
-}
-
 /** proposal_is_rbfable
  *
  * @brief returns true if the given proposal
@@ -1141,8 +1104,6 @@ static void proposal_should_rbf(struct tracked_output *out)
 
 	/* Broadcast the transaction.  */
 	if (tx) {
-		enum wallet_tx_type wtt;
-
 		status_debug("Broadcasting RBF %s (%s) to resolve %s/%s "
 			     "depth=%"PRIu32"",
 			     tx_type_name(out->proposal->tx_type),
@@ -1151,11 +1112,9 @@ static void proposal_should_rbf(struct tracked_output *out)
 			     output_type_name(out->output_type),
 			     depth);
 
-		wtt = onchain_txtype_to_wallet_txtype(out->proposal->tx_type);
 		wire_sync_write(REQ_FD,
 				take(towire_onchaind_broadcast_tx(NULL, tx,
-								 wtt,
-								 true)));
+								  true)));
 	}
 }
 
@@ -1186,9 +1145,7 @@ static void proposal_meets_depth(struct tracked_output *out)
 	wire_sync_write(
 	    REQ_FD,
 	    take(towire_onchaind_broadcast_tx(
-		 NULL, out->proposal->tx,
-		 onchain_txtype_to_wallet_txtype(out->proposal->tx_type),
-		 is_rbf)));
+		 NULL, out->proposal->tx, is_rbf)));
 
 	/* Don't wait for this if we're ignoring the tiny payment. */
 	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {

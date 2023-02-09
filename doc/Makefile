@@ -60,13 +60,13 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listpeerchannels.7 \
 	doc/lightning-listsendpays.7 \
+	doc/lightning-listsqlschemas.7 \
 	doc/lightning-makesecret.7 \
 	doc/lightning-multifundchannel.7 \
 	doc/lightning-multiwithdraw.7 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-notifications.7 \
 	doc/lightning-offer.7 \
-	doc/lightning-offerout.7 \
 	doc/lightning-openchannel_abort.7 \
 	doc/lightning-openchannel_bump.7 \
 	doc/lightning-openchannel_init.7 \
@@ -75,6 +75,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-pay.7 \
 	doc/lightning-parsefeerate.7 \
 	doc/lightning-plugin.7 \
+	doc/lightning-preapproveinvoice.7 \
+	doc/lightning-preapprovekeysend.7 \
 	doc/lightning-recoverchannel.7 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
@@ -84,6 +86,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-setchannel.7 \
 	doc/lightning-sendcustommsg.7 \
 	doc/lightning-signmessage.7 \
+	doc/lightning-sql.7 \
 	doc/lightning-staticbackup.7 \
 	doc/lightning-txprepare.7 \
 	doc/lightning-txdiscard.7 \
@@ -148,6 +151,14 @@ $(MANPAGES): doc/%: doc/%.md tools/md2man.sh version_gen.h
 $(MANPAGES): $(FORCE)
 $(MARKDOWN_WITH_SCHEMA): $(FORCE)
 
+# Use awk for preamble, then again for post, with the new docs in the middle.
+# We can't put plugins/sql in deps directly, since they all get sha256!
+doc/.sqlgen: plugins/sql
+	@plugins/sql --print-docs > $@
+
+doc/lightning-sql.7.md: doc/.sqlgen $(FORCE)
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "sql-print-docs $@", awk "/GENERATE-DOC-START/ { print \$$0; exit } { print \$$0 }" < $@ > $@.tmp && cat doc/.sqlgen >> $@.tmp && (awk "/GENERATE-DOC-END/ { PRINT=1 } { if (PRINT) { print \$$0 } }" | grep -v SHA256STAMP) < $@ >> $@.tmp && mv $@.tmp $@ && $(call SHA256STAMP,[comment]: # $(LBRACKET),$(RBRACKET))); else touch $@; fi 
+
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
 
@@ -201,7 +212,7 @@ doc/index.rst: $(MANPAGES:=.md)
 	@$(call VERBOSE, "genidx $@", \
 	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
 	  cut -b 5- | LC_ALL=C sort | \
-	  sed 's/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/' | \
+	  sed "s/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/" | \
 	  python3 devtools/blockreplace.py doc/index.rst manpages --language=rst --indent "   " \
 	)
 

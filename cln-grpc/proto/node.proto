@@ -362,6 +362,7 @@ message ListchannelsChannels {
 	bytes source = 1;
 	bytes destination = 2;
 	string short_channel_id = 3;
+	uint32 direction = 16;
 	bool public = 4;
 	Amount amount_msat = 5;
 	uint32 message_flags = 6;
@@ -718,6 +719,7 @@ message ListsendpaysPayments {
 	}
 	uint64 id = 1;
 	uint64 groupid = 2;
+	optional uint64 partid = 15;
 	bytes payment_hash = 3;
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -744,7 +746,6 @@ message ListtransactionsTransactions {
 	bytes rawtx = 2;
 	uint32 blockheight = 3;
 	uint32 txindex = 4;
-	optional string channel = 6;
 	uint32 locktime = 7;
 	uint32 version = 8;
 	repeated ListtransactionsTransactionsInputs inputs = 9;

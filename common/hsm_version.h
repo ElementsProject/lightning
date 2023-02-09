@@ -11,7 +11,7 @@
 #define HSM_MIN_VERSION 1
 
 /* wire/hsmd_wire.csv contents version:
- *    dd89bf9323dff42200003fb864abb6608f3aa645b636fdae3ec81d804ac05196
+ *    edd3d288fc88a5470adc2f99abcbfe4d4af29fae0c7a80b4226f28810a815524
  */
-#define HSM_MAX_VERSION 2
+#define HSM_MAX_VERSION 3
 #endif /* LIGHTNING_COMMON_HSM_VERSION_H */

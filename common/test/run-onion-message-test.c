@@ -126,8 +126,8 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 		abort();
 }
 
-/* This established by trial and error! */
-#define LARGEST_TLV_SIZE 70
+/* This established by trial and error. */
+#define LARGEST_DAVE_TLV_SIZE 42
 
 /* Generic, ugly, function to calc encrypted_recipient_data,
    alias and next blinding, and print out JSON */
@@ -175,17 +175,22 @@ static u8 *add_hop(const char *name,
 	enctlv = tal_arr(tmpctx, u8, 0);
 	towire_tlv_encrypted_data_tlv(&enctlv, tlv);
 
-	/* Now create padding, and reencode */
-	if (tal_bytelen(enctlv) + tal_bytelen(additional) != LARGEST_TLV_SIZE)
+	/* Now create padding (in Dave's path) */
+	if (tal_bytelen(enctlv) + tal_bytelen(additional)
+	    < LARGEST_DAVE_TLV_SIZE) {
+		/* Add padding: T and L take 2 bytes, even before V */
+		assert(tal_bytelen(enctlv) + tal_bytelen(additional) + 2
+		       <= LARGEST_DAVE_TLV_SIZE);
 		tlv->padding = tal_arrz(tlv, u8,
-					LARGEST_TLV_SIZE
+					LARGEST_DAVE_TLV_SIZE
 					- tal_bytelen(enctlv)
-					- tal_bytelen(additional)
-					- 2);
+					- tal_bytelen(additional) - 2);
+	}
 	enctlv = tal_arr(tmpctx, u8, 0);
 	towire_tlv_encrypted_data_tlv(&enctlv, tlv);
 	towire(&enctlv, additional, tal_bytelen(additional));
-	assert(tal_bytelen(enctlv) == LARGEST_TLV_SIZE);
+	if (!override_blinding)
+		assert(tal_bytelen(enctlv) == LARGEST_DAVE_TLV_SIZE);
 
 	json_start("tlvs", '{');
 	if (tlv->padding)
@@ -332,7 +337,7 @@ int main(int argc, char *argv[])
 	sphinx_path->session_key = &session_key;
 
 	/* BOLT-onion-message #4:
-	 * - SHOULD set `len` to 1366 or 32834.
+	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
 	 */
 	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE,
 				&path_secrets);

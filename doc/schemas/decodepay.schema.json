@@ -28,19 +28,13 @@
       "type": "pubkey",
       "description": "the public key of the recipient"
     },
-    "msatoshi": {
-      "type": "u64",
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "Amount the invoice asked for"
     },
     "payment_hash": {
-      "type": "hex",
-      "description": "the hash of the *payment_preimage*",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the hash of the *payment_preimage*"
     },
     "signature": {
       "type": "signature",
@@ -51,20 +45,16 @@
       "description": "the description of the purpose of the purchase"
     },
     "description_hash": {
-      "type": "hex",
-      "description": "the hash of the description, in place of *description*",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the hash of the description, in place of *description*"
     },
     "min_final_cltv_expiry": {
       "type": "u32",
       "description": "the minimum CLTV delay for the final node"
     },
     "payment_secret": {
-      "type": "hex",
-      "description": "the secret to hand to the payee node",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the secret to hand to the payee node"
     },
     "features": {
       "type": "hex",

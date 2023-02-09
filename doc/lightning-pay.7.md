@@ -96,8 +96,8 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash** (always 64 characters)
-- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
+- **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash**
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **created\_at** (number): the UNIX timestamp showing when this payment was initiated
 - **parts** (u32): how many attempts this took
 - **amount\_msat** (msat): Amount the recipient received
@@ -168,4 +168,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:772f97fc664c5c6ca4cc24eade35b82d55681732518351e6343caed25bd7c2b5)
+[comment]: # ( SHA256STAMP:f72845c2600efdf48d5c9d32be5f3154c48bd5852df28b3a941f8e7f65bd1193)

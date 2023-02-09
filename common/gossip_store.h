@@ -25,51 +25,56 @@ struct gossip_rcvd_filter;
 #define GOSSIP_STORE_MINOR_VERSION(verbyte) ((verbyte) & GOSSIP_STORE_MINOR_VERSION_MASK)
 
 /**
- * Bit of length we use to mark a deleted record.
+ * Bit of flags we use to mark a deleted record.
  */
-#define GOSSIP_STORE_LEN_DELETED_BIT 0x80000000U
+#define GOSSIP_STORE_DELETED_BIT 0x8000U
 
 /**
- * Bit of length we use to mark an important record.
+ * Bit of flags we use to mark an important record.
  */
-#define GOSSIP_STORE_LEN_PUSH_BIT 0x40000000U
+#define GOSSIP_STORE_PUSH_BIT 0x4000U
 
 /**
- * Bit of length used to define a rate-limited record (do not rebroadcast)
+ * Bit of flags used to define a rate-limited record (do not rebroadcast)
  */
-#define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
+#define GOSSIP_STORE_RATELIMIT_BIT 0x2000U
 
 /**
- * Full flags mask
+ * Bit of flags used to mark a channel announcement as inactive (needs channel updates.)
  */
-#define GOSSIP_STORE_FLAGS_MASK 0xFFFF0000U
+#define GOSSIP_STORE_ZOMBIE_BIT 0x1000U
 
-/* Mask for extracting just the length part of len field */
-#define GOSSIP_STORE_LEN_MASK \
-	(~(GOSSIP_STORE_FLAGS_MASK))
 
 /**
  * gossip_hdr -- On-disk format header.
  */
 struct gossip_hdr {
-	beint32_t len; /* Length of message after header. */
+	beint16_t flags; /* Length of message after header. */
+	beint16_t len; /* GOSSIP_STORE_xxx_BIT flags. */
 	beint32_t crc; /* crc of message of timestamp, after header. */
 	beint32_t timestamp; /* timestamp of msg. */
 };
 
 /**
- * Direct store accessor: loads gossip msg from store.
+ * Direct store accessor: read gossip msg hdr from store.
+ * @gossip_store_fd: the readable file descriptor
+ * @off: the offset to read
+ * @len (out): the length of the message (not including header)
+ * @timestamp (out): if non-NULL, set to the timestamp.
+ * @flags (out): if non-NULL, set to the flags.
+ * @type (out): if non-NULL, set to the msg type.
  *
- * Returns NULL if there are no more gossip msgs.
- * Updates *end if the known end of file has moved.
- * Updates *gossip_store_fd if file has been compacted.
+ * Returns false if there are no more gossip msgs.  If you
+ * want to read the message, use gossip_store_next, if you
+ * want to skip, simply add sizeof(gossip_hdr) + *len to *off.
+ * Note: it's possible that entire record isn't there yet,
+ * so gossip_store_next can fail.
  */
-u8 *gossip_store_next(const tal_t *ctx,
-		      int *gossip_store_fd,
-		      u32 timestamp_min, u32 timestamp_max,
-		      bool push_only,
-		      bool with_spam,
-		      size_t *off, size_t *end);
+bool gossip_store_readhdr(int gossip_store_fd, size_t off,
+			  size_t *len,
+			  u32 *timestamp,
+			  u16 *flags,
+			  u16 *type);
 
 /**
  * Gossipd will be writing to this, and it's not atomic!  Safest
@@ -77,11 +82,4 @@ u8 *gossip_store_next(const tal_t *ctx,
  * @old_end: 1 if no previous end.
  */
 size_t find_gossip_store_end(int gossip_store_fd, size_t old_end);
-
-/**
- * Return offset of first entry >= this timestamp.
- */
-size_t find_gossip_store_by_timestamp(int gossip_store_fd,
-				      size_t off,
-				      u32 timestamp);
 #endif /* LIGHTNING_COMMON_GOSSIP_STORE_H */

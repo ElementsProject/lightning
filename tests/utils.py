@@ -22,7 +22,7 @@ def default_ln_port(network: str) -> int:
 
 
 def anchor_expected():
-    return EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND
+    return EXPERIMENTAL_FEATURES
 
 
 def hex_bits(features):
@@ -48,8 +48,6 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
-        # option_anchor_outputs
-        features += [21]
         # option_dual_fund
         features += [29]
     return hex_bits(features + extra)
@@ -70,8 +68,6 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
-        # option_anchor_outputs
-        features += [21]
         # option_dual_fund
         features += [29]
     return hex_bits(features + extra)
@@ -418,7 +414,7 @@ def first_scid(n1, n2):
 
 
 def basic_fee(feerate):
-    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:
+    if anchor_expected():
         # option_anchor_outputs
         weight = 1124
     else:

@@ -9,6 +9,54 @@
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
+/* BOLT-route-blinding #4:
+ * - If `encrypted_recipient_data` is present:
+ *...
+ *     - If it is not the final node:
+ *       - MUST return an error if the payload contains other tlv fields than
+ *         `encrypted_recipient_data` and `current_blinding_point`.
+ */
+static bool check_nonfinal_tlv(const struct tlv_tlv_payload *tlv,
+			       u64 *failtlvtype)
+{
+	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
+		switch (tlv->fields[i].numtype) {
+		case TLV_TLV_PAYLOAD_BLINDING_POINT:
+		case TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
+			continue;
+		}
+		*failtlvtype = tlv->fields[i].numtype;
+		return false;
+	}
+	return true;
+}
+
+/* BOLT-route-blinding #4:
+ * - If `encrypted_recipient_data` is present:
+ *...
+ *   - If it is the final node:
+ *     - MUST return an error if the payload contains other tlv fields than
+ *      `encrypted_recipient_data`, `current_blinding_point`, `amt_to_forward`,
+ *      `outgoing_cltv_value` and `total_amount_msat`.
+ */
+static bool check_final_tlv(const struct tlv_tlv_payload *tlv,
+			    u64 *failtlvtype)
+{
+	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
+		switch (tlv->fields[i].numtype) {
+		case TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
+		case TLV_TLV_PAYLOAD_BLINDING_POINT:
+		case TLV_TLV_PAYLOAD_AMT_TO_FORWARD:
+		case TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE:
+		case TLV_TLV_PAYLOAD_TOTAL_AMOUNT_MSAT:
+			continue;
+		}
+		*failtlvtype = tlv->fields[i].numtype;
+		return false;
+	}
+	return true;
+}
+
 static u64 ceil_div(u64 a, u64 b)
 {
 	return (a + b - 1) / b;
@@ -23,18 +71,8 @@ static bool handle_blinded_forward(struct onion_payload *p,
 {
 	u64 amt = amount_in.millisatoshis; /* Raw: allowed to wrap */
 
-	/* BOLT-route-blinding #4:
-	 * - If it is not the final node:
-	 *   - MUST return an error if the payload contains other tlv fields
-	 *     than `encrypted_recipient_data` and `current_blinding_point`.
-	 */
-	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
-		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA) {
-			*failtlvtype = tlv->fields[i].numtype;
-			return false;
-		}
-	}
+	if (!check_nonfinal_tlv(tlv, failtlvtype))
+		return false;
 
 	/* BOLT-route-blinding #4:
 	 * - If it is not the final node:
@@ -84,26 +122,12 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 				    const struct tlv_encrypted_data_tlv *enc,
 				    u64 *failtlvtype)
 {
-	/* BOLT-route-blinding #4:
-	 * - If it is the final node:
-	 *   - MUST return an error if the payload contains other tlv fields than
-	 *     `encrypted_recipient_data`, `current_blinding_point`, `amt_to_forward`,
-	 *     `outgoing_cltv_value` and `total_amount_msat`.
-	 */
-	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
-		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_AMT_TO_FORWARD
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_TOTAL_AMOUNT_MSAT) {
-			*failtlvtype = tlv->fields[i].numtype;
-			return false;
-		}
-	}
+	if (!check_final_tlv(tlv, failtlvtype))
+		return false;
 
 	/* BOLT-route-blinding #4:
-	 *   - MUST return an error if `amt_to_forward` or
-	 *     `outgoing_cltv_value` are not present.
+	 *   - MUST return an error if `amt_to_forward`, `outgoing_cltv_value`
+	 *     or `total_amount_msat` are not present.
 	 *   - MUST return an error if `amt_to_forward` is below what it expects
 	 *     for the payment.
 	 */
@@ -114,6 +138,11 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 
 	if (!tlv->outgoing_cltv_value) {
 		*failtlvtype = TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
+		return false;
+	}
+
+	if (!tlv->total_amount_msat) {
+		*failtlvtype = TLV_TLV_PAYLOAD_TOTAL_AMOUNT_MSAT;
 		return false;
 	}
 
@@ -150,6 +179,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
+
+	p->final = (rs->nextcase == ONION_END);
 
 	/* BOLT-remove-legacy-onion #4:
 	 * 1. type: `hop_payloads`
@@ -276,7 +307,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			goto field_bad;
 		}
 
-		if (rs->nextcase == ONION_FORWARD) {
+		if (!p->final) {
 			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
 						    p->tlv, enc, failtlvtype))
 				goto field_bad;
@@ -333,7 +364,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *  - For every non-final node:
 	 *    - MUST include `short_channel_id`
 	 */
-	if (rs->nextcase == ONION_FORWARD) {
+	if (!p->final) {
 		if (!p->tlv->short_channel_id) {
 			*failtlvtype = TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID;
 			goto field_bad;

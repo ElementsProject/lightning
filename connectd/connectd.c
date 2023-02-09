@@ -47,6 +47,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
 /*~ We are passed two file descriptors when exec'ed from `lightningd`: the
@@ -305,8 +306,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		status_peer_unusual(id, "Unsupported feature %u", unsup);
 		msg = towire_warningfmt(NULL, NULL, "Unsupported feature %u",
 					unsup);
-		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
-		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+		msg = cryptomsg_encrypt_msg(NULL, cs, take(msg));
+		return io_write_wire(conn, take(msg), io_close_cb, NULL);
 	}
 
 	if (!feature_check_depends(their_features, &depender, &missing)) {
@@ -315,8 +316,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		msg = towire_warningfmt(NULL, NULL,
 				      "Feature %zu requires feature %zu",
 				      depender, missing);
-		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
-		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+		msg = cryptomsg_encrypt_msg(NULL, cs, take(msg));
+		return io_write_wire(conn, take(msg), io_close_cb, NULL);
 	}
 
 	/* We've successfully connected. */
@@ -1567,11 +1568,13 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 						 strerror(errno));
 				break;
 			}
-			notleak(io_new_listener(daemon,
-						daemon->listen_fds[i]->fd,
-						get_in_cb(daemon->listen_fds[i]
-							  ->is_websocket),
-						daemon));
+			/* Add to listeners array */
+			tal_arr_expand(&daemon->listeners,
+				       io_new_listener(daemon->listeners,
+						       daemon->listen_fds[i]->fd,
+						       get_in_cb(daemon->listen_fds[i]
+								 ->is_websocket),
+						       daemon));
 		}
 	}
 
@@ -1837,6 +1840,20 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 	tal_free(peer);
 }
 
+static void start_shutdown(struct daemon *daemon, const u8 *msg)
+{
+	if (!fromwire_connectd_start_shutdown(msg))
+		master_badmsg(WIRE_CONNECTD_START_SHUTDOWN, msg);
+
+	daemon->shutting_down = true;
+
+	/* No more incoming connections! */
+	daemon->listeners = tal_free(daemon->listeners);
+
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_start_shutdown_reply(NULL)));
+}
+
 /* lightningd tells us to send a msg and disconnect. */
 static void peer_final_msg(struct io_conn *conn,
 			   struct daemon *daemon, const u8 *msg)
@@ -1937,6 +1954,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return daemon_conn_read_with_fd(conn, daemon->master,
 						recv_peer_connect_subd, daemon);
 
+	case WIRE_CONNECTD_START_SHUTDOWN:
+		start_shutdown(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER
 		dev_connect_memleak(daemon, msg);
@@ -1958,6 +1979,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
+	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 		break;
 	}
 
@@ -2024,11 +2046,13 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->connection_counter = 1;
 	daemon->peers = tal(daemon, struct peer_htable);
+	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
 	peer_htable_init(daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossip_store_fd = -1;
+	daemon->shutting_down = false;
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,

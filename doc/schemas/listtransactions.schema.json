@@ -38,30 +38,6 @@
             "type": "u32",
             "description": "the transaction number within the block"
           },
-          "type": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "theirs",
-                "deposit",
-                "withdraw",
-                "channel_funding",
-                "channel_mutual_close",
-                "channel_unilateral_close",
-                "channel_sweep",
-                "channel_htlc_success",
-                "channel_htlc_timeout",
-                "channel_penalty",
-                "channel_unilateral_cheat"
-              ],
-              "description": "Reason we care about this transaction (*EXPERIMENTAL_FEATURES* only)"
-            }
-          },
-          "channel": {
-            "type": "short_channel_id",
-            "description": "the channel this transaction is associated with (*EXPERIMENTAL_FEATURES* only)"
-          },
           "locktime": {
             "type": "u32",
             "description": "The nLocktime for this tx"
@@ -137,9 +113,6 @@
                 "amount_msat": {
                   "type": "msat",
                   "description": "the amount of the output"
-                },
-                "msat": {
-                  "deprecated": true
                 },
                 "scriptPubKey": {
                   "type": "hex",

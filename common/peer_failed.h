@@ -7,6 +7,9 @@
 struct channel_id;
 struct per_peer_state;
 
+/* peer_fatal_continue - Send a message to master, we've failed */
+void NORETURN peer_fatal_continue(const u8 *msg TAKES, const struct per_peer_state *pps);
+
 /**
  * peer_failed_warn - Send a warning msg and close the connection.
  * @pps: the per-peer state.

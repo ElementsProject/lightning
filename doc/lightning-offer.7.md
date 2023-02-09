@@ -84,10 +84,6 @@ periods.  This is encoded in the offer.
 period which exists.  eg. "12" means there are 13 periods, from 0 to
 12 inclusive.  This is encoded in the offer.
 
-*refund\_for* is the payment\_preimage of a previous (paid) invoice.
-This implies *send\_invoice* and *single\_use*.  This is encoded in the
-offer.
-
 *single\_use* (default false) indicates that the offer is only valid
 once; we may issue multiple invoices, but as soon as one is paid all other
 invoices will be expired (i.e. only one person can pay this offer).
@@ -98,7 +94,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **offer\_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+- **offer\_id** (hash): the id of this offer (merkle hash of non-signature fields)
 - **active** (boolean): whether this can still be used (always *true*)
 - **single\_use** (boolean): whether this expires as soon as it's paid (reflects the *single\_use* parameter)
 - **bolt12** (string): the bolt12 encoding of the offer
@@ -128,11 +124,11 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-offerout(7), lightning-listoffers(7), lightning-disableoffer(7).
+lightning-listoffers(7), lightning-disableoffer(7).
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ea0d06ff5697d92e37b9c737324ed0c10417b5fc2374cde2590c59c48821bc88)
+[comment]: # ( SHA256STAMP:3ad09aed48fb17db5fae6d401f21e50a4479e970199bd039b453868057829653)

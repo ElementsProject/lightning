@@ -19,10 +19,8 @@
       "description": "description used in the invoice"
     },
     "payment_hash": {
-      "type": "hex",
-      "description": "the hash of the *payment_preimage* which will prove payment",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the hash of the *payment_preimage* which will prove payment"
     },
     "status": {
       "type": "string",
@@ -36,9 +34,6 @@
     "expires_at": {
       "type": "u64",
       "description": "UNIX timestamp of when it will become / became unpayable"
-    },
-    "msatoshi": {
-      "deprecated": true
     },
     "amount_msat": {
       "type": "msat",
@@ -82,9 +77,6 @@
             "type": "u64",
             "description": "Unique incrementing index for this payment"
           },
-          "msatoshi_received": {
-            "deprecated": true
-          },
           "amount_received_msat": {
             "type": "msat",
             "description": "the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)"
@@ -94,10 +86,8 @@
             "description": "UNIX timestamp of when it was paid"
           },
           "payment_preimage": {
-            "type": "hex",
-            "description": "proof of payment",
-            "maxLength": 64,
-            "minLength": 64
+            "type": "secret",
+            "description": "proof of payment"
           }
         }
       }

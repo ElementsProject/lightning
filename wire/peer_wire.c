@@ -42,10 +42,11 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
 	case WIRE_TX_SIGNATURES:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 #endif
@@ -94,10 +95,11 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
 	case WIRE_TX_SIGNATURES:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
 	case WIRE_ONION_MESSAGE:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
@@ -221,6 +223,12 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
+	case WIRE_TX_ABORT:
+		/* BOLT-dualfund #2:
+		 * 1. type: 74 (`tx_abort`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
 	case WIRE_ACCEPT_CHANNEL:
 		/* BOLT #2:
 		 * 1. type: 33 (`accept_channel`)
@@ -251,15 +259,15 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
-	case WIRE_INIT_RBF:
+	case WIRE_TX_INIT_RBF:
 		/* BOLT-dualfund #2:
-		 * 1. type: 72 (`init_rbf`)
+		 * 1. type: 72 (`tx_init_rbf`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
 		 */
-	case WIRE_ACK_RBF:
+	case WIRE_TX_ACK_RBF:
 		/* BOLT-dualfund #2:
-		 * 1. type: 73 (`ack_rbf`)
+		 * 1. type: 73 (`tx_ack_rbf`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */

@@ -1404,6 +1404,9 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 					    &mfc_forward_error,
 					    mfc);
 		json_add_u32(req->js, "minconf", mfc->minconf);
+		/* If there's any v2 opens, we can't use p2sh inputs */
+		json_add_bool(req->js, "nonwrapped",
+			      dest_count(mfc, OPEN_CHANNEL) > 0);
 	}
 
 	/* The entire point is to reserve the inputs. */

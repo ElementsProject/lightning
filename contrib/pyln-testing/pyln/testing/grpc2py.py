@@ -258,6 +258,7 @@ def listchannels_channels2py(m):
         "source": hexlify(m.source),  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "direction": m.direction,  # PrimitiveField in generate_composite
         "public": m.public,  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "message_flags": m.message_flags,  # PrimitiveField in generate_composite
@@ -464,6 +465,7 @@ def listsendpays_payments2py(m):
     return remove_default({
         "id": m.id,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
+        "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
@@ -511,8 +513,6 @@ def listtransactions_transactions2py(m):
         "rawtx": hexlify(m.rawtx),  # PrimitiveField in generate_composite
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
         "txindex": m.txindex,  # PrimitiveField in generate_composite
-        "type": [str(i) for i in m.type],  # ArrayField[composite] in generate_composite
-        "channel": m.channel,  # PrimitiveField in generate_composite
         "locktime": m.locktime,  # PrimitiveField in generate_composite
         "version": m.version,  # PrimitiveField in generate_composite
         "inputs": [listtransactions_transactions_inputs2py(i) for i in m.inputs],  # ArrayField[composite] in generate_composite

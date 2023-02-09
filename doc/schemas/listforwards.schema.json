@@ -26,9 +26,6 @@
             "type": "u64",
             "description": "the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)"
           },
-          "in_msatoshi": {
-            "deprecated": true
-          },
           "in_msat": {
             "type": "msat",
             "description": "the value of the incoming HTLC"
@@ -91,15 +88,9 @@
                 "out_htlc_id": {},
                 "failcode": {},
                 "failreason": {},
-                "fee": {
-                  "deprecated": true
-                },
                 "fee_msat": {
                   "type": "msat",
                   "description": "the amount this paid in fees"
-                },
-                "out_msatoshi": {
-                  "deprecated": true
                 },
                 "out_msat": {
                   "type": "msat",

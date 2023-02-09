@@ -47,6 +47,9 @@ the actual witness weight will be used.
 *excess\_as\_change* is an optional boolean to flag to add a change output
 for the excess sats.
 
+*nonwrapped* is an optional boolean to signal to filter out any p2sh-wrapped
+inputs from funding this PSBT.
+
 EXAMPLE USAGE
 -------------
 
@@ -115,4 +118,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:90e5335b405a3ca2f0a84f3a13044f7f990ae74c29155330f9ba10f4e102f43d)
+[comment]: # ( SHA256STAMP:13e35920ba8810db082e3cca62d1141a67498a2756da2479a24eaa62567ff4fe)

@@ -492,6 +492,8 @@ static struct migration dbmigrations[] = {
     /* remote signatures for channel announcement */
     {SQL("ALTER TABLE channels ADD remote_ann_node_sig BLOB;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_ann_bitcoin_sig BLOB;"), NULL},
+    /* FIXME: We now use the transaction_annotations table to type each
+     * input and output instead of type and channel_id! */
     /* Additional information for transaction tracking and listing */
     {SQL("ALTER TABLE transactions ADD type BIGINT;"), NULL},
     /* Not a foreign key on purpose since we still delete channels from
@@ -943,6 +945,7 @@ static struct migration dbmigrations[] = {
     /* A reference into our own invoicerequests table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_invreq_id BLOB DEFAULT NULL REFERENCES invoicerequests(invreq_id);"), NULL},
     /* FIXME: Remove payments local_offer_id column! */
+    {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN lease_satoshi BIGINT;"), NULL},
 };
 
 /**

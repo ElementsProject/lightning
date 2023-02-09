@@ -246,7 +246,7 @@ To Build on macOS
 
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext libsodium
+    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext libsodium protobuf
     $ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
     $ export PATH="/usr/local/opt:$PATH"
 
@@ -266,9 +266,9 @@ If you need Python 3.x for mako (or get a mako build error):
     $ brew install pyenv
     $ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
     $ source ~/.bash_profile
-    $ pyenv install 3.7.4
-    $ pip install --upgrade pip
-    $ pip install poetry
+    $ pyenv install 3.7.8
+    $ pip3 install --upgrade pip
+    $ pip3 install poetry
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
@@ -306,9 +306,9 @@ need to include `testnet=1`
     ./cli/lightning-cli help
 
 
-To install the built binaries into your system, you'll need to run `make install`:
+To install the built binaries into your system, you'll need to run `sudo make install`:
 
-    make install
+    sudo make install
 
 On an M1 mac you may need to use this command instead:
 

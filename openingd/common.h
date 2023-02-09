@@ -19,6 +19,9 @@ bool check_config_bounds(const tal_t *ctx,
 			 bool option_anchor_outputs,
 			 char **err_reason);
 
+bool anchors_negotiated(struct feature_set *our_features,
+			const u8 *their_features);
+
 u8 *no_upfront_shutdown_script(const tal_t *ctx,
 			       struct feature_set *our_features,
 			       const u8 *their_features);
@@ -26,4 +29,10 @@ u8 *no_upfront_shutdown_script(const tal_t *ctx,
 void validate_initial_commitment_signature(int hsm_fd,
 					   struct bitcoin_tx *tx,
 					   struct bitcoin_signature *sig);
+
+char *validate_remote_upfront_shutdown(const tal_t *ctx,
+				       struct feature_set *our_features,
+				       const u8 *their_features,
+				       u8 *shutdown_scriptpubkey STEALS,
+				       u8 **state_script);
 #endif /* LIGHTNING_OPENINGD_COMMON_H */

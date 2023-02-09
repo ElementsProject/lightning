@@ -1478,7 +1478,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *   - MUST set `invoice_created_at` to the number of seconds since Midnight 1
-	 *      January 1970, UTC when the offer was created.
+	 *      January 1970, UTC when the invoice was created.
 	 *    - MUST set `invoice_amount` to the minimum amount it will accept, in units of
 	 *      the minimal lightning-payable unit (e.g. milli-satoshis for bitcoin) for
 	 *      `invreq_chain`.

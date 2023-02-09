@@ -444,7 +444,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
-	const u32 our_minversion = 2, our_maxversion = 2;
+	const u32 our_minversion = 2, our_maxversion = 3;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -668,6 +668,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER:
 	case WIRE_HSMD_SIGN_BOLT12:
+	case WIRE_HSMD_PREAPPROVE_INVOICE:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
@@ -708,6 +710,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 		return bad_req_fmt(conn, c, c->msg_in,
 				   "Received an incoming message of type %s, "
 				   "which is not a request",

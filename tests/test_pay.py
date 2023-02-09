@@ -1,5 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from pathlib import Path
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
@@ -3970,6 +3971,8 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     # create l2->l1 channel.
     l2.fundwallet(amount_sat * 5)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Make sure l2 considers it fully connected too!
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id']) != {'peers': []})
     l2.rpc.fundchannel(l1.info['id'], amount_sat * 3)
 
     # Let the channel confirm.
@@ -4553,6 +4556,19 @@ def test_offer(node_factory, bitcoind):
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
+
+
+def test_offer_deprecated_api(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
+                                              'allow-deprecated-apis': True})
+
+    offer = l2.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'test_offer_deprecated_api'})
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+
+    # Deprecated fields make schema checker upset.
+    l1.rpc.jsonschemas = {}
+    l1.rpc.pay(inv['invoice'])
 
 
 @pytest.mark.developer("dev-no-modern-onion is DEVELOPER-only")
@@ -5302,3 +5318,35 @@ def test_payerkey(node_factory):
     for n, k in zip(nodes, expected_keys):
         b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu', False)['bolt12']
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
+
+
+def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
+    """Check that we use the zeroconf direct channel to pay when we need to"""
+    # 0. Setup normal channel, 200k sats.
+    zeroconf_plugin = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=False,
+                                     fundamount=200_000,
+                                     opts=[{},
+                                           {'plugin': zeroconf_plugin,
+                                            'zeroconf-allow': 'any'}])
+
+    # 1. Open a zeoconf channel l1 -> l2
+    zeroconf_sats = 1_000_000
+
+    # 1.1 Add funds to l1's wallet for the channel open
+    l1.fundwallet(zeroconf_sats * 2)  # This will mine a block!
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # 1.2 Open the zeroconf channel
+    l1.rpc.fundchannel(l2.info['id'], zeroconf_sats, announce=False, mindepth=0)
+
+    # 1.3 Wait until all channels active.
+    wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels'] + l2.rpc.listpeerchannels()['channels']]))
+
+    # 2. Have l2 generate an invoice to be paid
+    invoice_sats = "500000sat"
+    inv = l2.rpc.invoice(invoice_sats, "test", "test")
+
+    # 3. Send a payment over the zeroconf channel
+    riskfactor = 0
+    l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)

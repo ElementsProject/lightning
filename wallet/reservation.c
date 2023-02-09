@@ -443,7 +443,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff;
-	bool all, *excess_as_change;
+	bool all, *excess_as_change, *nonwrapped;
 	u32 *locktime, *reserve, maxheight;
 
 	if (!param(cmd, buffer, params,
@@ -458,6 +458,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 			     &min_witness_weight, 0),
 		   p_opt_def("excess_as_change", param_bool,
 			     &excess_as_change, false),
+		   p_opt_def("nonwrapped", param_bool,
+			     &nonwrapped, false),
 		   NULL))
 		return command_param_failed();
 
@@ -479,6 +481,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					&diff,
 					*feerate_per_kw,
 					maxheight,
+					*nonwrapped,
 					cast_const2(const struct utxo **, utxos));
 		if (utxo) {
 			utxo_weight = utxo_spend_weight(utxo,

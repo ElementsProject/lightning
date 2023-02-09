@@ -77,9 +77,7 @@
           },
           "channel_id": {
             "type": "hash",
-            "description": "The full channel_id (funding txid Xored with output number)",
-            "minLength": 64,
-            "maxLength": 64
+            "description": "The full channel_id (funding txid Xored with output number)"
           },
           "funding_txid": {
             "type": "txid",
@@ -193,11 +191,13 @@
             "properties": {
               "local_msat": {
                 "type": "msat",
-                "description": "Amount of channel we funded (deprecated)"
+                "deprecated": "v0.12.0",
+                "description": "Amount of channel we funded"
               },
               "remote_msat": {
                 "type": "msat",
-                "description": "Amount of channel they funded (deprecated)"
+                "deprecated": "v0.12.0",
+                "description": "Amount of channel they funded"
               },
               "pushed_msat": {
                 "type": "msat",
@@ -292,39 +292,6 @@
           "max_accepted_htlcs": {
             "type": "u32",
             "description": "Maximum number of incoming HTLC we will accept at once"
-          },
-          "msatoshi_to_us": {
-            "deprecated": true
-          },
-          "msatoshi_to_us_min": {
-            "deprecated": true
-          },
-          "msatoshi_to_us_max": {
-            "deprecated": true
-          },
-          "msatoshi_total": {
-            "deprecated": true
-          },
-          "dust_limit_satoshis": {
-            "deprecated": true
-          },
-          "max_htlc_value_in_flight_msat": {
-            "deprecated": true
-          },
-          "our_channel_reserve_satoshis": {
-            "deprecated": true
-          },
-          "their_channel_reserve_satoshis": {
-            "deprecated": true
-          },
-          "spendable_msatoshi": {
-            "deprecated": true
-          },
-          "receivable_msatoshi": {
-            "deprecated": true
-          },
-          "htlc_minimum_msat": {
-            "deprecated": true
           },
           "alias": {
             "type": "object",
@@ -426,9 +393,6 @@
             "type": "msat",
             "description": "Total amount of incoming payment attempts"
           },
-          "in_msatoshi_offered": {
-            "deprecated": true
-          },
           "in_payments_fulfilled": {
             "type": "u64",
             "description": "Number of successful incoming payment attempts"
@@ -436,9 +400,6 @@
           "in_fulfilled_msat": {
             "type": "msat",
             "description": "Total amount of successful incoming payment attempts"
-          },
-          "in_msatoshi_fulfilled": {
-            "deprecated": true
           },
           "out_payments_offered": {
             "type": "u64",
@@ -448,9 +409,6 @@
             "type": "msat",
             "description": "Total amount of outgoing payment attempts"
           },
-          "out_msatoshi_offered": {
-            "deprecated": true
-          },
           "out_payments_fulfilled": {
             "type": "u64",
             "description": "Number of successful outgoing payment attempts"
@@ -458,9 +416,6 @@
           "out_fulfilled_msat": {
             "type": "msat",
             "description": "Total amount of successful outgoing payment attempts"
-          },
-          "out_msatoshi_fulfilled": {
-            "deprecated": true
           },
           "htlcs": {
             "type": "array",
@@ -493,18 +448,13 @@
                   "type": "msat",
                   "description": "Amount send/received for this HTLC"
                 },
-                "msatoshi": {
-                  "deprecated": true
-                },
                 "expiry": {
                   "type": "u32",
                   "description": "Block this HTLC expires at (after which an `in` direction HTLC will be returned to the peer, an `out` returned to us).  If this expiry is too close, lightningd(8) will automatically unilaterally close the channel in order to enforce the timeout onchain."
                 },
                 "payment_hash": {
                   "type": "hash",
-                  "description": "the hash of the payment_preimage which will prove payment",
-                  "maxLength": 64,
-                  "minLength": 64
+                  "description": "the hash of the payment_preimage which will prove payment"
                 },
                 "local_trimmed": {
                   "type": "boolean",

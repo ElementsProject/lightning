@@ -14,6 +14,8 @@ enum onion_payload_type {
 
 struct onion_payload {
 	enum onion_payload_type type;
+	/* Is this the final hop? */
+	bool final;
 
 	struct amount_msat amt_to_forward;
 	u32 outgoing_cltv;
@@ -51,8 +53,9 @@ u8 *onion_final_hop(const tal_t *ctx,
  * generic interface, as used by blindedpay.h */
 u8 *onion_blinded_hop(const tal_t *ctx,
 		      const struct amount_msat *amt_to_forward,
+		      const struct amount_msat *total_amount_msat,
 		      const u32 *outgoing_cltv_value,
 		      const u8 *enctlv,
 		      const struct pubkey *blinding)
-	NON_NULL_ARGS(4);
+	NON_NULL_ARGS(5);
 #endif /* LIGHTNING_COMMON_ONION_ENCODE_H */

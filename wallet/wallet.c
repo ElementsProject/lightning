@@ -530,6 +530,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 			      struct amount_sat *amount_hint,
 			      unsigned feerate_per_kw,
 			      u32 maxheight,
+			      bool nonwrapped,
 			      const struct utxo **excludes)
 {
 	struct db_stmt *stmt;
@@ -569,6 +570,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	while (!utxo && db_step(stmt)) {
 		utxo = wallet_stmt2output(ctx, stmt);
 		if (excluded(excludes, utxo)
+		    || (nonwrapped && utxo->is_p2sh)
 		    || !deep_enough(maxheight, utxo, current_blockheight))
 			utxo = tal_free(utxo);
 
@@ -1041,8 +1043,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", lease_expiry"
 				 ", lease_blockheight_start"
 				 ", lease_fee"
+				 ", lease_satoshi"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, inflight->channel->dbid);
 	db_bind_txid(stmt, 1, &inflight->funding->outpoint.txid);
@@ -1062,6 +1065,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_int(stmt, 13, inflight->lease_expiry);
 		db_bind_int(stmt, 14, inflight->lease_blockheight_start);
 		db_bind_amount_msat(stmt, 15, &inflight->lease_fee);
+		db_bind_amount_sat(stmt, 16, &inflight->lease_amt);
 	} else {
 		db_bind_null(stmt, 10);
 		db_bind_null(stmt, 11);
@@ -1069,6 +1073,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_int(stmt, 13, 0);
 		db_bind_null(stmt, 14);
 		db_bind_null(stmt, 15);
+		db_bind_int(stmt, 16, 0);
 	}
 
 	db_exec_prepared_v2(stmt);
@@ -1134,6 +1139,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	u32 lease_blockheight_start;
 	u64 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
+	struct amount_sat lease_amt;
 
 	db_col_txid(stmt, "funding_tx_id", &funding.txid);
 	funding.n = db_col_int(stmt, "funding_tx_outnum"),
@@ -1151,17 +1157,20 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		lease_chan_max_ppt = db_col_int(stmt, "lease_chan_max_ppt");
 		lease_blockheight_start = db_col_int(stmt, "lease_blockheight_start");
 		db_col_amount_msat(stmt, "lease_fee", &lease_fee);
+		db_col_amount_sat(stmt, "lease_satoshi", &lease_amt);
 	} else {
 		lease_commit_sig = NULL;
 		lease_chan_max_msat = 0;
 		lease_chan_max_ppt = 0;
 		lease_blockheight_start = 0;
 		lease_fee = AMOUNT_MSAT(0);
+		lease_amt = AMOUNT_SAT(0);
 
 		db_col_ignore(stmt, "lease_chan_max_msat");
 		db_col_ignore(stmt, "lease_chan_max_ppt");
 		db_col_ignore(stmt, "lease_blockheight_start");
 		db_col_ignore(stmt, "lease_fee");
+		db_col_ignore(stmt, "lease_satoshi");
 	}
 
 	/* last_tx is null for stub channels used for recovering funds through
@@ -1183,7 +1192,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				lease_chan_max_msat,
 				lease_chan_max_ppt,
 				lease_blockheight_start,
-				lease_fee);
+				lease_fee,
+				lease_amt);
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_col_int(stmt, "funding_tx_remote_sigs_received");
@@ -1212,6 +1222,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", lease_chan_max_ppt"
 					", lease_blockheight_start"
 					", lease_fee"
+					", lease_satoshi"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
@@ -4133,66 +4144,6 @@ void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
 	wallet_annotation_add(w, txid, innum, INPUT_ANNOTATION, type, channel);
 }
 
-void wallet_transaction_annotate(struct wallet *w,
-				 const struct bitcoin_txid *txid, enum wallet_tx_type type,
-				 u64 channel_id)
-{
-	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT type, channel_id FROM transactions WHERE id=?"));
-	db_bind_txid(stmt, 0, txid);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt))
-		fatal("Attempting to annotate a transaction we don't have: %s",
-		      type_to_string(tmpctx, struct bitcoin_txid, txid));
-
-	if (!db_col_is_null(stmt, "type"))
-		type |= db_col_u64(stmt, "type");
-
-	if (channel_id == 0 && !db_col_is_null(stmt, "channel_id"))
-		channel_id = db_col_u64(stmt, "channel_id");
-	else
-		db_col_ignore(stmt, "channel_id");
-
-	tal_free(stmt);
-
-	stmt = db_prepare_v2(w->db, SQL("UPDATE transactions "
-					"SET type = ?"
-					", channel_id = ? "
-					"WHERE id = ?"));
-
-	db_bind_u64(stmt, 0, type);
-
-	if (channel_id)
-		db_bind_int(stmt, 1, channel_id);
-	else
-		db_bind_null(stmt, 1);
-
-	db_bind_txid(stmt, 2, txid);
-	db_exec_prepared_v2(take(stmt));
-}
-
-bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
-			     enum wallet_tx_type *type)
-{
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT type FROM transactions WHERE id=?"));
-	db_bind_sha256(stmt, 0, &txid->shad.sha);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt)) {
-		tal_free(stmt);
-		return false;
-	}
-
-	if (!db_col_is_null(stmt, "type"))
-		*type = db_col_u64(stmt, "type");
-	else
-		*type = 0;
-
-	tal_free(stmt);
-	return true;
-}
-
 struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
 					  const struct bitcoin_txid *txid)
 {
@@ -4794,8 +4745,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		", t.rawtx"
 		", t.blockheight"
 		", t.txindex"
-		", t.type as txtype"
-		", c2.scid as txchan"
 		", a.location"
 		", a.idx as ann_idx"
 		", a.type as annotation_type"
@@ -4803,8 +4752,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		" FROM"
 		"  transactions t LEFT JOIN"
 		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
-		"  channels c ON (a.channel = c.id) LEFT JOIN"
-		"  channels c2 ON (t.channel_id = c2.id) "
+		"  channels c ON (a.channel = c.id) "
 		"ORDER BY t.blockheight, t.txindex ASC"));
 	db_query_prepared(stmt);
 
@@ -4836,16 +4784,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 				cur->blockheight = 0;
 				cur->txindex = 0;
 			}
-			if (!db_col_is_null(stmt, "txtype"))
-				cur->annotation.type
-					= db_col_u64(stmt, "txtype");
-			else
-				cur->annotation.type = 0;
-			if (!db_col_is_null(stmt, "txchan"))
-				db_col_scid(stmt, "txchan", &cur->annotation.channel);
-			else
-				cur->annotation.channel.u64 = 0;
-
 			cur->output_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_outputs);
 			cur->input_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_inputs);
 		}
@@ -4863,14 +4801,17 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 			struct tx_annotation *ann;
 
 			/* Select annotation from array to fill in. */
-			if (loc == OUTPUT_ANNOTATION)
+			switch (loc) {
+			case OUTPUT_ANNOTATION:
 				ann = &cur->output_annotations[idx];
-			else if (loc == INPUT_ANNOTATION)
+				goto got_ann;
+			case INPUT_ANNOTATION:
 				ann = &cur->input_annotations[idx];
-			else
-				fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
+				goto got_ann;
+			}
+			fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
 
-			/* cppcheck-suppress uninitvar - false positive on fatal() above */
+		got_ann:
 			ann->type = db_col_int(stmt, "annotation_type");
 			if (!db_col_is_null(stmt, "c.scid"))
 				db_col_scid(stmt, "c.scid", &ann->channel);

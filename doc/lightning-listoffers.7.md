@@ -32,7 +32,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **offers** is returned.  It is an array of objects, where each object contains:
 
-- **offer\_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+- **offer\_id** (hash): the id of this offer (merkle hash of non-signature fields)
 - **active** (boolean): whether this can still be used
 - **single\_use** (boolean): whether this expires as soon as it's paid
 - **bolt12** (string): the bolt12 encoding of the offer
@@ -74,11 +74,11 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-offer(7), lightning-offerout(7), lightning-listoffers(7).
+lightning-offer(7), lightning-listoffers(7).
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e3e1446c2c1bf74852663c1d417bb386908c47898b05e958f153f806e73a9b4c)
+[comment]: # ( SHA256STAMP:863d9f666cbbbd013b86b4075a7c8b7e7bda47049c562cba080d0a88626636a1)

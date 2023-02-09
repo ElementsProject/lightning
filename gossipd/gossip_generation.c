@@ -342,7 +342,8 @@ static void update_own_node_announcement_after_startup(struct daemon *daemon)
 static void force_self_nannounce_regen(struct daemon *daemon)
 {
 	struct node *self = get_node(daemon->rstate, &daemon->id);
-
+	/* Clear timer pointer now. */
+	daemon->node_announce_regen_timer = NULL;
 	/* No channels left?  We'll restart timer once we have one. */
 	if (!self || !self->bcast.index)
 		return;

@@ -545,6 +545,7 @@
             "ListChannels.channels[].channel_flags": 7,
             "ListChannels.channels[].delay": 12,
             "ListChannels.channels[].destination": 2,
+            "ListChannels.channels[].direction": 16,
             "ListChannels.channels[].features": 15,
             "ListChannels.channels[].fee_per_millionth": 11,
             "ListChannels.channels[].htlc_maximum_msat": 14,
@@ -818,6 +819,7 @@
             "ListSendPays.payments[].groupid": 2,
             "ListSendPays.payments[].id": 1,
             "ListSendPays.payments[].label": 9,
+            "ListSendPays.payments[].partid": 15,
             "ListSendPays.payments[].payment_hash": 3,
             "ListSendPays.payments[].payment_preimage": 12,
             "ListSendPays.payments[].status": 4

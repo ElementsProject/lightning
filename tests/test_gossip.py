@@ -425,6 +425,10 @@ def test_gossip_jsonrpc(node_factory):
     channels2 = l2.rpc.listchannels(source=l1.info['id'])['channels']
     assert only_one(channels1)['source'] == l1.info['id']
     assert only_one(channels1)['destination'] == l2.info['id']
+    if l1.info['id'] > l2.info['id']:
+        assert only_one(channels1)['direction'] == 1
+    else:
+        assert only_one(channels1)['direction'] == 0
     assert channels1 == channels2
 
     # Test listchannels-by-destination
@@ -432,6 +436,10 @@ def test_gossip_jsonrpc(node_factory):
     channels2 = l2.rpc.listchannels(destination=l1.info['id'])['channels']
     assert only_one(channels1)['destination'] == l1.info['id']
     assert only_one(channels1)['source'] == l2.info['id']
+    if l2.info['id'] > l1.info['id']:
+        assert only_one(channels1)['direction'] == 1
+    else:
+        assert only_one(channels1)['direction'] == 0
     assert channels1 == channels2
 
     # Test only one of short_channel_id, source or destination can be supplied
@@ -1159,7 +1167,7 @@ def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1217,7 +1225,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
     """Make sure we can read canned gossip store with node_announce before update.  This happens when a channel_update gets replaced, leaving node_announce before it"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1262,7 +1270,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1299,12 +1307,8 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
 
-    lfeatures = expected_node_features()
-    if l1.config('experimental-dual-fund'):
-        lfeatures = expected_node_features(extra=[21, 29])
-
     # Make sure it gets features correct.
-    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == lfeatures
+    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == expected_node_features()
 
     l1.stop()
     l1.daemon.opts['alias'] = 'SENIORBEAM'
@@ -1727,7 +1731,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("0b"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1754,7 +1758,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("0b")
+        assert bytearray(f.read()) == bytearray.fromhex("0c")
 
 
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
@@ -2223,3 +2227,71 @@ def test_gossip_private_updates(node_factory, bitcoind):
     l1.restart()
 
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store_compact_offline: 5 deleted, 3 copied'))
+
+
+@pytest.mark.developer("Needs --dev-fast-gossip, --dev-fast-gossip-prune")
+def test_channel_resurrection(node_factory, bitcoind):
+    """When a node goes offline long enough to prune a channel, the
+    channel_announcement should be retained in case the node comes back online.
+    """
+    opts = {'dev-fast-gossip-prune': None,
+            'may_reconnect': True}
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+    opts.update({'log-level': 'debug'})
+    l3, = node_factory.get_nodes(1, opts=opts)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid, _ = l1.fundchannel(l2, 10**6, True, True)
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+    l3.wait_channel_active(scid)
+    start_time = int(time.time())
+    # Channel_update should now be refreshed.
+    refresh_due = start_time + 44
+    prune_due = start_time + 61
+    l2.rpc.call('dev-gossip-set-time', [refresh_due])
+    l3.rpc.call('dev-gossip-set-time', [refresh_due])
+    # Automatic reconnect is too fast, so shutdown l1 instead of disconnecting
+    l1.stop()
+    l2.daemon.wait_for_log('Sending keepalive channel_update')
+    l3.daemon.wait_for_log('Received channel_update for channel 103x1')
+    # Wait for the next pruning cycle
+    l2.rpc.call('dev-gossip-set-time', [prune_due])
+    l3.rpc.call('dev-gossip-set-time', [prune_due])
+    # Make sure l1 is recognized as disconnected
+    wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'] is False)
+    # Wait for the channel to be pruned.
+    l3.daemon.wait_for_log("Pruning channel")
+    assert l3.rpc.listchannels()['channels'] == []
+    l1.start()
+    time.sleep(1)
+    l1.rpc.call('dev-gossip-set-time', [prune_due])
+    time.sleep(1)
+    l1.rpc.call('dev-gossip-set-time', [prune_due])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True])
+    l1.rpc.call('dev-gossip-set-time', [prune_due + 30])
+    l2.rpc.call('dev-gossip-set-time', [prune_due + 30])
+    l3.rpc.call('dev-gossip-set-time', [prune_due + 30])
+    # l2 should recognize its own channel as announceable
+    wait_for(lambda: [[c['public'], c['active']] for c in l2.rpc.listchannels()['channels']] == [[True, True], [True, True]], timeout=30)
+    # l3 should be able to recover the zombie channel
+    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True, True], timeout=30)
+
+    # Now test spending the outpoint and removing a zombie channel from the store.
+    l2.stop()
+    prune_again = prune_due + 91
+    l1.rpc.call('dev-gossip-set-time', [prune_again])
+    l3.rpc.call('dev-gossip-set-time', [prune_again])
+    l3.daemon.wait_for_log("Pruning channel")
+    txid = l1.rpc.close(l2.info['id'], 1)['txid']
+    bitcoind.generate_block(13, txid)
+    l3.daemon.wait_for_log(f"Deleting channel {scid} due to the funding "
+                           "outpoint being spent", 30)
+    # gossip_store is cleaned of zombie channels once outpoint is spent.
+    gs_path = os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    gs = subprocess.run(['devtools/dump-gossipstore', '--print-deleted', gs_path],
+                        check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
+    print(gs.stdout.decode())
+    for l in gs.stdout.decode().splitlines():
+        if "ZOMBIE" in l:
+            assert ("DELETED" in l)

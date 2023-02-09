@@ -32,8 +32,8 @@ If **type** is "bolt12 offer", and **valid** is *true*:
   - **offer\_id** (hex): the id we use to identify this offer (always 64 characters)
   - **offer\_description** (string): the description of the purpose of the offer
   - **offer\_node\_id** (pubkey): public key of the offering node
-  - **offer\_chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
-    - the genesis blockhash (always 64 characters)
+  - **offer\_chains** (array of hashs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
+    - the genesis blockhash
   - **offer\_metadata** (hex, optional): any metadata the creater of the offer includes
   - **offer\_currency** (string, optional): ISO 4217 code of the currency (missing implies Bitcoin) (always 3 characters)
   - **currency\_minor\_unit** (u32, optional): the number of decimal places to apply to amount (if currency known)
@@ -148,13 +148,14 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **invoice\_paths** (array of objects): Paths to pay the destination:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
+    - **payinfo** (object):
+      - **fee\_base\_msat** (msat): basefee for path
+      - **fee\_proportional\_millionths** (u32): proportional fee for path
+      - **cltv\_expiry\_delta** (u32): CLTV delta for path
+      - **features** (hex): features allowed for path
     - **path** (array of objects): an individual path:
       - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
-      - **fee\_base\_msat** (msat, optional): basefee for path
-      - **fee\_proportional\_millionths** (u32, optional): proportional fee for path
-      - **cltv\_expiry\_delta** (u32, optional): CLTV delta for path
-      - **features** (hex, optional): features allowed for path
   - **invoice\_created\_at** (u64): the UNIX timestamp of invoice creation
   - **invoice\_payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
   - **invoice\_amount\_msat** (msat): the amount required to fulfill invoice
@@ -238,13 +239,13 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **created\_at** (u64): the UNIX-style timestamp of the invoice
   - **expiry** (u64): the number of seconds this is valid after `created_at`
   - **payee** (pubkey): the public key of the recipient
-  - **payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
+  - **payment\_hash** (hash): the hash of the *payment\_preimage*
   - **signature** (signature): signature of the *payee* on this invoice
   - **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node
   - **amount\_msat** (msat, optional): Amount the invoice asked for
   - **description** (string, optional): the description of the purpose of the purchase
-  - **description\_hash** (hex, optional): the hash of the description, in place of *description* (always 64 characters)
-  - **payment\_secret** (hex, optional): the secret to hand to the payee node (always 64 characters)
+  - **description\_hash** (hash, optional): the hash of the description, in place of *description*
+  - **payment\_secret** (secret, optional): the secret to hand to the payee node
   - **features** (hex, optional): the features bitmap for this invoice
   - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
   - **fallbacks** (array of objects, optional): onchain addresses:
@@ -290,7 +291,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-pay(7), lightning-offer(7), lightning-offerout(7), lightning-fetchinvoice(7), lightning-sendinvoice(7), lightning-commando-rune(7)
+lightning-pay(7), lightning-offer(7), lightning-fetchinvoice(7), lightning-sendinvoice(7), lightning-commando-rune(7)
 
 [BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)
 
@@ -302,4 +303,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:eadd9b06e6cb495a794568f3a9e2371c09718311c0b61ad05b0fca3014c429d3)
+[comment]: # ( SHA256STAMP:2f77622e54345ebdffbbc0823f73c8f709a29de536be0c84290aac65e5405d3a)

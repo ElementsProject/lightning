@@ -22,7 +22,6 @@
 #include <common/peer_io.h>
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
-#include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -287,35 +286,15 @@ static bool setup_channel_funder(struct state *state)
 static void set_remote_upfront_shutdown(struct state *state,
 					u8 *shutdown_scriptpubkey STEALS)
 {
-	bool anysegwit = feature_negotiated(state->our_features,
-					    state->their_features,
-					    OPT_SHUTDOWN_ANYSEGWIT);
-	bool anchors = feature_negotiated(state->our_features,
-					  state->their_features,
-					  OPT_ANCHOR_OUTPUTS)
-		|| feature_negotiated(state->our_features,
-				      state->their_features,
-				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+	char *err;
 
-	/* BOLT #2:
-	 *
-	 * - MUST include `upfront_shutdown_script` with either a valid
-         *   `shutdown_scriptpubkey` as required by `shutdown` `scriptpubkey`,
-         *   or a zero-length `shutdown_scriptpubkey` (ie. `0x0000`).
-	 */
-	/* We turn empty into NULL. */
-	if (tal_bytelen(shutdown_scriptpubkey) == 0)
-		shutdown_scriptpubkey = tal_free(shutdown_scriptpubkey);
+	err = validate_remote_upfront_shutdown(state, state->our_features,
+					       state->their_features,
+					       shutdown_scriptpubkey,
+					       &state->upfront_shutdown_script[REMOTE]);
 
-	state->upfront_shutdown_script[REMOTE]
-		= tal_steal(state, shutdown_scriptpubkey);
-
-	if (shutdown_scriptpubkey
-	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, !anchors))
-		peer_failed_err(state->pps,
-				&state->channel_id,
-				"Unacceptable upfront_shutdown_script %s",
-				tal_hex(tmpctx, shutdown_scriptpubkey));
+	if (err)
+		peer_failed_err(state->pps, &state->channel_id, "%s", err);
 }
 
 /* We start the 'open a channel' negotation with the supplied peer, but
@@ -525,9 +504,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
 				 &state->localconf,
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHOR_OUTPUTS),
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;
@@ -1033,9 +1011,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
 				 &state->localconf,
-				 feature_negotiated(state->our_features,
-						    state->their_features,
-						    OPT_ANCHOR_OUTPUTS),
+				 anchors_negotiated(state->our_features,
+						    state->their_features),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;

@@ -28,9 +28,7 @@
           },
           "payment_hash": {
             "type": "hash",
-            "description": "the hash of the *payment_preimage* which will prove payment",
-            "maxLength": 64,
-            "minLength": 64
+            "description": "the hash of the *payment_preimage* which will prove payment"
           },
           "status": {
             "type": "string",
@@ -45,9 +43,6 @@
             "type": "u64",
             "description": "UNIX timestamp of when it will become / became unpayable"
           },
-          "msatoshi": {
-            "deprecated": true
-          },
           "amount_msat": {
             "type": "msat",
             "description": "the amount required to pay this invoice"
@@ -61,10 +56,8 @@
             "description": "the BOLT12 string (always present unless *bolt11* is)"
           },
           "local_offer_id": {
-            "type": "hex",
-            "description": "the *id* of our offer which created this invoice (**experimental-offers** only).",
-            "maxLength": 64,
-            "minLength": 64
+            "type": "hash",
+            "description": "the *id* of our offer which created this invoice (**experimental-offers** only)."
           },
           "invreq_payer_note": {
             "type": "string",
@@ -107,9 +100,6 @@
                   "type": "u64",
                   "description": "Unique incrementing index for this payment"
                 },
-                "msatoshi_received": {
-                  "deprecated": true
-                },
                 "amount_received_msat": {
                   "type": "msat",
                   "description": "the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)"
@@ -120,9 +110,7 @@
                 },
                 "payment_preimage": {
                   "type": "secret",
-                  "description": "proof of payment",
-                  "maxLength": 64,
-                  "minLength": 64
+                  "description": "proof of payment"
                 }
               }
             },

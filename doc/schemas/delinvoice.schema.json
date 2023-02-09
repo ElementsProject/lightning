@@ -21,9 +21,6 @@
       "type": "string",
       "description": "BOLT12 string"
     },
-    "msatoshi": {
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "the amount required to pay this invoice"
@@ -34,9 +31,7 @@
     },
     "payment_hash": {
       "type": "hash",
-      "description": "the hash of the *payment_preimage* which will prove payment",
-      "maxLength": 64,
-      "minLength": 64
+      "description": "the hash of the *payment_preimage* which will prove payment"
     },
     "status": {
       "type": "string",
@@ -146,18 +141,13 @@
             "type": "msat",
             "description": "how much was actually received"
           },
-          "msatoshi_received": {
-            "deprecated": true
-          },
           "paid_at": {
             "type": "u64",
             "description": "UNIX timestamp of when payment was received"
           },
           "payment_preimage": {
             "type": "secret",
-            "description": "SHA256 of this is the *payment_hash* offered in the invoice",
-            "maxLength": 64,
-            "minLength": 64
+            "description": "SHA256 of this is the *payment_hash* offered in the invoice"
           }
         }
       },

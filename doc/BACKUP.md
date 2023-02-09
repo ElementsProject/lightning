@@ -420,62 +420,6 @@ This can be difficult to create remote replicas due to the latency.
 
 [pqsyncreplication]: https://www.postgresql.org/docs/13/warm-standby.html#SYNCHRONOUS-REPLICATION
 
-## SQLite Litestream Replication
-
-`/!\` **CAUTION** `/!\` Previous versions of this document recommended
-this technique, but we no longer do so.
-According to [issue 4857][], even with a 60-second timeout that we added
-in 0.10.2, this leads to constant crashing of `lightningd` in some
-situations.
-This section will be removed completely six months after 0.10.3.
-Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
-
-[issue 4857]: https://github.com/ElementsProject/lightning/issues/4857
-
-One of the simpler things on any system is to use Litestream to replicate the SQLite database.
-It continuously streams SQLite changes to file or external storage - the cloud storage option
-should not be used.
-Backups/replication should not be on the same disk as the original SQLite DB.
-
-You need to enable WAL mode on your database.
-To do so, first stop `lightningd`, then:
-
-    $ sqlite3 lightningd.sqlite3
-    sqlite3> PRAGMA journal_mode = WAL;
-    sqlite3> .quit
-
-Then just restart `lightningd`.
-
-/etc/litestream.yml :
-
-    dbs:
-     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
-       replicas:
-         - path: /media/storage/lightning_backup
-
- and start the service using systemctl:
-
-    $ sudo systemctl start litestream
-
-Restore:
-
-    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
-
-Because Litestream only copies small changes and not the entire
-database (holding a read lock on the file while doing so), the
-60-second timeout on locking should not be reached unless
-something has made your backup medium very very slow.
-
-Litestream has its own timer, so there is a tiny (but
-non-negligible) probability that `lightningd` updates the
-database, then irrevocably commits to the update by sending
-revocation keys to the counterparty, and *then* your main
-storage media crashes before Litestream can replicate the
-update.
-Treat this as a superior version of "Database File Backups"
-section below and prefer recovering via other backup methods
-first.
-
 ## Database File Backups
 
 `/!\` WHO SHOULD DO THIS: Those who already have at least one of the
@@ -584,36 +528,3 @@ still not assured with this backup strategy.
 `sqlite3` has `.dump` and `VACUUM INTO` commands, but note that
 those lock the main database for long time periods, which will
 negatively affect your `lightningd` instance.
-
-### `sqlite3` `.dump` or `VACUUM INTO` Commands
-
-`/!\` **CAUTION** `/!\` Previous versions of this document recommended
-this technique, but we no longer do so.
-According to [issue 4857][], even with a 60-second timeout that we added
-in 0.10.2, this may lead to constant crashing of `lightningd` in some
-situations; this technique uses substantially the same techniques as
-`litestream`.
-This section will be removed completely six months after 0.10.3.
-Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
-
-Use the `sqlite3` command on the `lightningd.sqlite3` file, and
-feed it with `.dump "/path/to/backup.sqlite3"` or `VACUUM INTO
-"/path/to/backup.sqlite3";`.
-
-These create a snapshot copy that, unlike the previous technique,
-is assuredly uncorrupted (barring any corruption caused by your
-backup media).
-
-However, if the copying process takes a long time (approaching the
-timeout of 60 seconds) then you run the risk of `lightningd`
-attempting to grab a write lock, waiting up to 60 seconds, and
-then failing with a "database is locked" error.
-Your backup system could `.dump` to a fast `tmpfs` RAMDISK or
-local media, and *then* copy to the final backup media on a remote
-system accessed via slow network, for example, to reduce this
-risk.
-
-It is recommended that you use `.dump` instead of `VACUUM INTO`,
-as that is assuredly faster; you can just open the backup copy
-in a new `sqlite3` session and `VACUUM;` to reduce the size
-of the backup.

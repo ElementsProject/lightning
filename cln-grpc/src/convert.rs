@@ -65,7 +65,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
             network: c.network, // Rule #2 for type string
             msatoshi_fees_collected: c.msatoshi_fees_collected, // Rule #2 for type u64?
             fees_collected_msat: Some(c.fees_collected_msat.into()), // Rule #2 for type msat
-            address: c.address.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            address: c.address.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetinfoAddress 
             binding: c.binding.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             warning_bitcoind_sync: c.warning_bitcoind_sync, // Rule #2 for type string?
             warning_lightningd_sync: c.warning_lightningd_sync, // Rule #2 for type string?
@@ -306,6 +306,7 @@ impl From<responses::ListchannelsChannels> for pb::ListchannelsChannels {
             source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
             short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            direction: c.direction, // Rule #2 for type u32
             public: c.public, // Rule #2 for type boolean
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             message_flags: c.message_flags.into(), // Rule #2 for type u8
@@ -527,7 +528,7 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            local_offer_id: c.local_offer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            local_offer_id: c.local_offer_id.map(|v| v.to_vec()), // Rule #2 for type hash?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -573,6 +574,7 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
         Self {
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64
+            partid: c.partid, // Rule #2 for type u64?
             payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -632,7 +634,6 @@ impl From<responses::ListtransactionsTransactions> for pb::ListtransactionsTrans
             rawtx: hex::decode(&c.rawtx).unwrap(), // Rule #2 for type hex
             blockheight: c.blockheight, // Rule #2 for type u32
             txindex: c.txindex, // Rule #2 for type u32
-            channel: c.channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             locktime: c.locktime, // Rule #2 for type u32
             version: c.version, // Rule #2 for type u32
             inputs: c.inputs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListtransactionsTransactionsInputs 
@@ -1040,7 +1041,7 @@ impl From<responses::ListforwardsResponse> for pb::ListforwardsResponse {
 impl From<responses::ListpaysPays> for pb::ListpaysPays {
     fn from(c: responses::ListpaysPays) -> Self {
         Self {
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at, // Rule #2 for type u64
@@ -1049,7 +1050,7 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             bolt11: c.bolt11, // Rule #2 for type string?
             description: c.description, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            preimage: c.preimage.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             number_of_parts: c.number_of_parts, // Rule #2 for type u64?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }

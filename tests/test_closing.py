@@ -46,6 +46,8 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     # check for the substring
     assert 'CHANNELD_NORMAL:Channel ready for use.' in billboard[0]
 
+    # Make sure all HTLCs resolved before we close!
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
     l1.rpc.close(chan)
 
     l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -737,7 +739,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_falls_behind(node_factory, bitcoind):
     '''
     If our peer falls too far behind/doesn't send us an update for
@@ -747,6 +749,11 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -755,8 +762,6 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
@@ -777,7 +782,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 @pytest.mark.slow_test
 def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
@@ -786,6 +791,9 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True, 'plugin': coin_mvt_plugin,
             'dev-no-reconnect': None}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -797,8 +805,6 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     # l1 leases a channel from l2
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
                        compact_lease=rates['compact_lease'])
@@ -891,7 +897,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     Check that channel leases work
@@ -902,6 +908,9 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'funder-lease-requests-only': False}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     # Allow l2 some warnings
@@ -915,8 +924,6 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
@@ -925,8 +932,6 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     # l2 leases a channel from l3
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     rates = l2.rpc.dev_queryrates(l3.info['id'], amount, amount)
-    wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers']) == 0)
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.rpc.fundchannel(l3.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate), minconf=0,
                        compact_lease=rates['compact_lease'])
@@ -952,7 +957,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     inv = l2.rpc.invoice(10**4, '3', 'no_3')
     l3.rpc.pay(inv['bolt11'])
 
-    bitcoind.generate_block(6)
+    bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
     # make sure we're at the right place for the csv lock
     l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 110')
@@ -1003,7 +1008,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessee can recover funds if lessor cheats
@@ -1017,6 +1022,11 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_broken_log': True,
              'plugin': balance_snaps}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1025,8 +1035,6 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
@@ -1079,7 +1087,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect")
+@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect, dev-force-features")
 def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessor can recover funds if lessee cheats
@@ -1091,6 +1099,11 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'dev-no-reconnect': None}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1099,8 +1112,6 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
@@ -3401,7 +3412,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # This causes us to *exceed* previous requirements!
-    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16560sat \(not 1000000sat\)')
+    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> .*sat \(not 1000000sat\)')
 
     # This will fail because l1 restarted!
     with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):

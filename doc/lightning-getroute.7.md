@@ -286,6 +286,7 @@ On success, an object containing **route** is returned.  It is an array of objec
 - **amount\_msat** (msat): The amount expected by the node at the end of this hop
 - **delay** (u32): The total CLTV expected by the node at the end of this hop
 - **style** (string): The features understood by the destination node (always "tlv")
+- **msatoshi** (u64, optional) **deprecated, removal in v23.05**
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -310,4 +311,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:baddf8e1a08e80c52b89d7a4d03c671d4a34a79eae3ae9c53b8ea6cea8ae5e4d)
+[comment]: # ( SHA256STAMP:336fb7d687a26e733ca0cc5f0ca49fb00edfaf311edc43773375201b1180f716)
