@@ -3278,6 +3278,7 @@ def test_block_added_notifications(node_factory, bitcoind):
 
 @pytest.mark.openchannel('v2')
 @pytest.mark.developer("wants dev-announce-localhost so we see listnodes.addresses")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "SQL plugin is only available with sqlite3")
 def test_sql(node_factory, bitcoind):
     opts = {'experimental-offers': None,
             'dev-allow-localhost': None}
@@ -3911,6 +3912,7 @@ def test_sql(node_factory, bitcoind):
                       " FROM nodes WHERE HEX(nodeid) = '{}';".format(l1.info['id'].upper())) == {'rows': [[None] * 6]}
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "SQL plugin is only available with sqlite3")
 def test_sql_deprecated(node_factory, bitcoind):
     # deprecated-apis breaks schemas...
     l1 = node_factory.get_node(start=False, options={'allow-deprecated-apis': True})
