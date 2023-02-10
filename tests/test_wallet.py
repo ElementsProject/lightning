@@ -1476,7 +1476,7 @@ def test_withdraw_bech32m(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l1.fundwallet(10000000)
 
-    # Based on BIP-320, but all changed to regtest.
+    # Based on BIP-350, but all changed to valid regtest.
     addrs = ("BCRT1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KYGT080",
              "bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry",
              "bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56",
@@ -1496,7 +1496,11 @@ def test_withdraw_bech32m(node_factory, bitcoind):
     args = []
     for addr in addrs:
         args += [{addr: 10**3}]
-    l1.rpc.multiwithdraw(args)["txid"]
+    res = l1.rpc.multiwithdraw(args)
+
+    # Let's check to make sure outputs are as expected (plus change)
+    outputs = bitcoind.rpc.decoderawtransaction(res['tx'])["vout"]
+    assert set([output['scriptPubKey']['address'] for output in outputs]).issuperset([addr.lower() for addr in addrs])
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
