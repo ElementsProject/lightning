@@ -62,6 +62,7 @@ On success, an object is returned, containing:
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
 - **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default
+- **experimental-peer-storage** (boolean, optional): `experimental-peer-storage` field from config or cmdline, or default *(added v23.02)*
 - **database-upgrade** (boolean, optional): `database-upgrade` field from config or cmdline
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
 - **alias** (string, optional): `alias` field from config or cmdline, or default
@@ -104,6 +105,7 @@ On success, an object is returned, containing:
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 - **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement *(added v22.11.1)*
+- **require-confirmed-inputs** (boolean, optional): Request peers to only send confirmed inputs (dual-fund only)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -222,4 +224,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:11ff355ba2ee2d5c636cf140f54349a536f3d33554c3ec33fe2a096c0b6fb29c)
+[comment]: # ( SHA256STAMP:1088401b9aeae1e079dab550d3b035ef82195f0466ad471bc7373386182f37dc)

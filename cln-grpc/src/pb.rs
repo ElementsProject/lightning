@@ -50,11 +50,34 @@ impl From<Feerate> for cln_rpc::primitives::Feerate {
     }
 }
 
+impl From<cln_rpc::primitives::Feerate> for Feerate {
+    fn from(f: cln_rpc::primitives::Feerate) -> Feerate {
+        use feerate::Style;
+        let style = Some(match f {
+            JFeerate::Slow => Style::Slow(true),
+            JFeerate::Normal => Style::Normal(true),
+            JFeerate::Urgent => Style::Urgent(true),
+            JFeerate::PerKb(i) => Style::Perkb(i),
+            JFeerate::PerKw(i) => Style::Perkw(i),
+        });
+        Self { style }
+    }
+}
+
 impl From<OutputDesc> for JOutputDesc {
     fn from(od: OutputDesc) -> JOutputDesc {
         JOutputDesc {
             address: od.address,
             amount: od.amount.unwrap().into(),
+        }
+    }
+}
+
+impl From<JOutputDesc> for OutputDesc {
+    fn from(od: JOutputDesc) -> Self {
+        Self {
+            address: od.address,
+            amount: Some(od.amount.into()),
         }
     }
 }
@@ -131,6 +154,34 @@ impl From<RoutehintList> for cln_rpc::primitives::RoutehintList {
     }
 }
 
+impl From<cln_rpc::primitives::Routehop> for RouteHop {
+    fn from(c: cln_rpc::primitives::Routehop) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(),
+            feebase: Some(c.feebase.into()),
+            feeprop: c.feeprop,
+            expirydelta: c.expirydelta as u32,
+            short_channel_id: c.scid.to_string(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::Routehint> for Routehint {
+    fn from(c: cln_rpc::primitives::Routehint) -> Self {
+        Self {
+            hops: c.hops.into_iter().map(|h| h.into()).collect(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::RoutehintList> for RoutehintList {
+    fn from(c: cln_rpc::primitives::RoutehintList) -> Self {
+        Self {
+            hints: c.hints.into_iter().map(|e| e.into()).collect(),
+        }
+    }
+}
+
 impl From<TlvStream> for cln_rpc::primitives::TlvStream {
     fn from(s: TlvStream) -> Self {
         Self {
@@ -143,6 +194,23 @@ impl From<TlvEntry> for cln_rpc::primitives::TlvEntry {
     fn from(e: TlvEntry) -> Self {
         Self {
             typ: e.r#type,
+            value: e.value,
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::TlvStream> for TlvStream {
+    fn from(s: cln_rpc::primitives::TlvStream) -> Self {
+        Self {
+            entries: s.entries.into_iter().map(|e| e.into()).collect(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::TlvEntry> for TlvEntry {
+    fn from(e: cln_rpc::primitives::TlvEntry) -> Self {
+        Self {
+            r#type: e.typ,
             value: e.value,
         }
     }
@@ -164,6 +232,7 @@ mod test {
                 "127.0.0.1:39152"
               ],
               "features": "8808226aa2",
+              "num_channels": 0,
               "channels": [
                 {
                   "state": "CHANNELD_NORMAL",
@@ -265,6 +334,7 @@ mod test {
                 "127.0.0.1:38321"
               ],
               "features": "8808226aa2",
+              "num_channels": 0,
               "channels": [
                 {
                   "state": "CHANNELD_NORMAL",

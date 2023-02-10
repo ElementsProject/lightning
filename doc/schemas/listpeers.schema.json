@@ -13,7 +13,8 @@
         "additionalProperties": true,
         "required": [
           "id",
-          "connected"
+          "connected",
+          "num_channels"
         ],
         "properties": {
           "id": {
@@ -23,6 +24,11 @@
           "connected": {
             "type": "boolean",
             "description": "True if the peer is currently connected"
+          },
+          "num_channels": {
+            "type": "u32",
+            "description": "The number of channels the peer has with this node",
+            "added": "v23.02"
           },
           "log": {
             "type": "array",
@@ -1091,6 +1097,7 @@
                 "id": {},
                 "channels": {},
                 "connected": {},
+                "num_channels": {},
                 "htlcs": {},
                 "log": {},
                 "netaddr": {

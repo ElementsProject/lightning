@@ -862,7 +862,8 @@ static void json_add_channel(struct lightningd *ld,
 
 	json_object_start(response, "funding");
 
-	if (deprecated_apis) {
+	/* We don't put v0.12-deprecated fields into listpeerchannels */
+	if (deprecated_apis && !peer) {
 		json_add_sat_only(response, "local_msat", channel->our_funds);
 		json_add_sat_only(response, "remote_msat", peer_funded_sats);
 		json_add_amount_msat_only(response, "pushed_msat", channel->push);
@@ -921,7 +922,7 @@ static void json_add_channel(struct lightningd *ld,
 				  channel->our_funds);
 		json_add_sat_only(response, "remote_funds_msat",
 				  peer_funded_sats);
-		if (!deprecated_apis)
+		if (!deprecated_apis || peer)
 			json_add_amount_msat_only(response, "pushed_msat",
 						  channel->push);
 	}
@@ -1071,7 +1072,8 @@ struct peer_connected_hook_payload {
 	struct wireaddr_internal addr;
 	struct wireaddr *remote_addr;
 	bool incoming;
-	struct peer *peer;
+	/* We don't keep a pointer to peer: it might be freed! */
+	struct node_id peer_id;
 	u8 *error;
 };
 
@@ -1079,9 +1081,8 @@ static void
 peer_connected_serialize(struct peer_connected_hook_payload *payload,
 			 struct json_stream *stream, struct plugin *plugin)
 {
-	const struct peer *p = payload->peer;
 	json_object_start(stream, "peer");
-	json_add_node_id(stream, "id", &p->id);
+	json_add_node_id(stream, "id", &payload->peer_id);
 	json_add_string(stream, "direction", payload->incoming ? "in" : "out");
 	json_add_string(
 	    stream, "addr",
@@ -1090,7 +1091,10 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 		json_add_string(
 		    stream, "remote_addr",
 		    type_to_string(stream, struct wireaddr, payload->remote_addr));
-	json_add_hex_talarr(stream, "features", p->their_features);
+	/* Since this is start of hook, peer is always in table! */
+	json_add_hex_talarr(stream, "features",
+			    peer_by_id(payload->ld, &payload->peer_id)
+			    ->their_features);
 	json_object_end(stream); /* .peer */
 }
 
@@ -1186,7 +1190,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	struct lightningd *ld = payload->ld;
 	struct channel *channel;
 	struct wireaddr_internal addr = payload->addr;
-	struct peer *peer = payload->peer;
+	struct peer *peer;
 	u8 *error;
 
 	/* Whatever happens, we free payload (it's currently a child
@@ -1194,9 +1198,16 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	 * subd). */
 	tal_steal(tmpctx, payload);
 
+	/* Peer might have gone away while we were waiting for plugin! */
+	peer = peer_by_id(ld, &payload->peer_id);
+	if (!peer)
+		return;
+
 	/* If we disconnected in the meantime, forget about it.
-	 * (disconnect will have failed any connect commands). */
-	if (peer->connected == PEER_DISCONNECTED)
+	 * (disconnect will have failed any connect commands).
+	 * And if it has reconnected, and we're the second time the
+	 * hook has been called, it'll be PEER_CONNECTED. */
+	if (peer->connected != PEER_CONNECTING)
 		return;
 
 	/* Check for specific errors of a hook */
@@ -1425,9 +1436,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 		tal_free(peer->remote_addr);
 	peer->remote_addr = NULL;
 	peer_update_features(peer, their_features);
-
-	tal_steal(peer, hook_payload);
-	hook_payload->peer = peer;
+	hook_payload->peer_id = id;
 
 	/* If there's a connect command, use its id as basis for hook id */
 	cmd_id = connect_any_cmd_id(tmpctx, ld, peer);
@@ -1932,11 +1941,16 @@ static void json_add_peer(struct lightningd *ld,
 			  const enum log_level *ll)
 {
 	struct channel *channel;
+	u32 num_channels;
 
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
 	json_add_bool(response, "connected", p->connected == PEER_CONNECTED);
+	num_channels = 0;
+	list_for_each(&p->channels, channel, list)
+		num_channels++;
+	json_add_num(response, "num_channels", num_channels);
 
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
@@ -1954,7 +1968,6 @@ static void json_add_peer(struct lightningd *ld,
 					fmt_wireaddr(response, p->remote_addr));
 		json_add_hex_talarr(response, "features", p->their_features);
 	}
-
 	if (deprecated_apis) {
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
@@ -2418,7 +2431,16 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_array_end(response);
 
 	json_add_string(response, "version", version());
-	json_add_num(response, "blockheight", cmd->ld->blockheight);
+	/* If we're still syncing, put the height we're up to here, so
+	 * they can see progress!  Otherwise use the height gossipd knows
+	 * about, so tests work properly. */
+	if (!topology_synced(cmd->ld->topology)) {
+		json_add_num(response, "blockheight",
+			     get_block_height(cmd->ld->topology));
+	} else {
+		json_add_num(response, "blockheight",
+			     cmd->ld->gossip_blockheight);
+	}
 	json_add_string(response, "network", chainparams->network_name);
 	json_add_amount_msat_compat(response,
 			wallet_total_forward_fees(cmd->ld->wallet),

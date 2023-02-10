@@ -1655,7 +1655,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   NULL,
 			   DUALOPEND_AWAITING_LOCKIN,
 			   LOCAL, NULL, "billboard",
-			   8, &our_config,
+			   8, false, false, &our_config,
 			   101, 1, 1, 1,
 			   &outpoint,
 			   funding_sats, AMOUNT_MSAT(0),

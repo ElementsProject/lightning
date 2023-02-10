@@ -657,13 +657,14 @@ def test_openchannel_hook(node_factory, bitcoind):
         # openchannel2 var checks
         expected.update({
             'channel_id': '.*',
+            'channel_max_msat': 16777215000,
             'commitment_feerate_per_kw': '7500',
             'funding_feerate_per_kw': '7500',
             'feerate_our_max': '150000',
             'feerate_our_min': '1875',
             'locktime': '.*',
+            'require_confirmed_inputs': False,
             'their_funding_msat': 100000000,
-            'channel_max_msat': 16777215000,
         })
     else:
         expected.update({

@@ -77,6 +77,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/status_wire.o			\
 	common/status_wiregen.o			\
 	common/subdaemon.o			\
+	common/tx_roles.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\

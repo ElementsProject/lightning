@@ -322,11 +322,24 @@ class GrpcConverterGenerator(IGenerator):
                     'hash?': f'c.{name}.map(|v| v.to_vec())',
                     'secret': f'c.{name}.to_vec()',
                     'secret?': f'c.{name}.map(|v| v.to_vec())',
+
+                    'msat_or_any': f'Some(c.{name}.into())',
+                    'msat_or_all': f'Some(c.{name}.into())',
+                    'msat_or_all?': f'c.{name}.map(|o|o.into())',
+                    'feerate?': f'c.{name}.map(|o|o.into())',
+                    'feerate': f'Some(c.{name}.into())',
+                    'outpoint?': f'c.{name}.map(|o|o.into())',
+                    'TlvStream?': f'c.{name}.map(|s| s.into())',
+                    'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
+
+
                 }.get(
                     typ,
                     f'c.{name}'  # default to just assignment
                 )
 
+                if f.deprecated:
+                    self.write(f"#[allow(deprecated)]\n", numindent=3)
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
 
             elif isinstance(f, CompositeField):
@@ -377,6 +390,7 @@ class GrpcConverterGenerator(IGenerator):
         """)
 
         self.generate_responses(service)
+        self.generate_requests(service)
 
     def write(self, text: str, numindent: int = 0) -> None:
         raw = dedent(text)
@@ -391,6 +405,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
     """
     def generate(self, service: Service):
         self.generate_requests(service)
+        self.generate_responses(service)
 
     def generate_composite(self, prefix, field: CompositeField) -> None:
         # First pass: generate any sub-fields before we generate the
@@ -422,12 +437,22 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'u32': f's',
                     'secret': f's.try_into().unwrap()'
                 }.get(typ, f's.into()')
+
+                # TODO fix properly
+                if typ in ["ListtransactionsTransactionsType"]:
+                    continue
+                if name == 'state_changes':
+                    self.write(f" state_changes: None,")
+                    continue
+
                 if f.required:
                     self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
                 else:
                     self.write(f"{name}: Some(c.{name}.into_iter().map(|s| {mapping}).collect()), // Rule #4\n", numindent=3)
 
             elif isinstance(f, EnumField):
+                if f.path == 'ListPeers.peers[].channels[].htlcs[].state':
+                    continue
                 if f.required:
                     self.write(f"{name}: c.{name}.try_into().unwrap(),\n", numindent=3)
                 else:
@@ -439,7 +464,12 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 # types, or have some conversion such as
                 # hex-decoding. Also includes the `Some()` that grpc
                 # requires for non-native types.
+
+                if name == "scriptPubKey":
+                    name = "script_pub_key"
+
                 rhs = {
+                    'u8': f'c.{name} as u8',
                     'u16': f'c.{name} as u16',
                     'u16?': f'c.{name}.map(|v| v as u16)',
                     'hex': f'hex::encode(&c.{name})',

@@ -60,7 +60,9 @@ pub enum Request {
 	ListForwards(requests::ListforwardsRequest),
 	ListPays(requests::ListpaysRequest),
 	Ping(requests::PingRequest),
+	SendCustomMsg(requests::SendcustommsgRequest),
 	SetChannel(requests::SetchannelRequest),
+	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Stop(requests::StopRequest),
 }
@@ -113,7 +115,9 @@ pub enum Response {
 	ListForwards(responses::ListforwardsResponse),
 	ListPays(responses::ListpaysResponse),
 	Ping(responses::PingResponse),
+	SendCustomMsg(responses::SendcustommsgResponse),
 	SetChannel(responses::SetchannelResponse),
+	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Stop(responses::StopResponse),
 }
@@ -1217,6 +1221,22 @@ pub mod requests {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendcustommsgRequest {
+	    pub node_id: PublicKey,
+	    pub msg: String,
+	}
+
+	impl From<SendcustommsgRequest> for Request {
+	    fn from(r: SendcustommsgRequest) -> Self {
+	        Request::SendCustomMsg(r)
+	    }
+	}
+
+	impl IntoRequest for SendcustommsgRequest {
+	    type Response = super::responses::SendcustommsgResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelRequest {
 	    pub id: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1239,6 +1259,21 @@ pub mod requests {
 
 	impl IntoRequest for SetchannelRequest {
 	    type Response = super::responses::SetchannelResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SigninvoiceRequest {
+	    pub invstring: String,
+	}
+
+	impl From<SigninvoiceRequest> for Request {
+	    fn from(r: SigninvoiceRequest) -> Self {
+	        Request::SignInvoice(r)
+	    }
+	}
+
+	impl IntoRequest for SigninvoiceRequest {
+	    type Response = super::responses::SigninvoiceResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1702,6 +1737,7 @@ pub mod responses {
 	pub struct ListpeersPeers {
 	    pub id: PublicKey,
 	    pub connected: bool,
+	    pub num_channels: u32,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub log: Option<Vec<ListpeersPeersLog>>,
 	    #[deprecated]
@@ -3486,6 +3522,22 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendcustommsgResponse {
+	    pub status: String,
+	}
+
+	impl TryFrom<Response> for SendcustommsgResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SendCustomMsg(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelChannels {
 	    pub peer_id: PublicKey,
 	    pub channel_id: String,
@@ -3512,6 +3564,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SetChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SigninvoiceResponse {
+	    pub bolt11: String,
+	}
+
+	impl TryFrom<Response> for SigninvoiceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SignInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

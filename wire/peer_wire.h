@@ -23,7 +23,8 @@
 bool is_unknown_msg_discardable(const u8 *cursor);
 /* Return true if it's a message for gossipd. */
 bool is_msg_for_gossipd(const u8 *cursor);
-
+/* Returns true if the message type should be treated as a custommsg */
+bool peer_wire_is_internal(enum peer_wire type);
 /* Extract channel_id from various packets, return true if possible. */
 bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id);
 

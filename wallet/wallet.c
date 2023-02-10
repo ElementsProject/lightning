@@ -1492,6 +1492,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   NULL, /* Set up fresh log */
 			   "Loaded from database",
 			   db_col_int(stmt, "channel_flags"),
+			   db_col_int(stmt, "require_confirm_inputs_local") != 0,
+			   db_col_int(stmt, "require_confirm_inputs_remote") != 0,
 			   &our_config,
 			   db_col_int(stmt, "minimum_depth"),
 			   db_col_u64(stmt, "next_index_local"),
@@ -1582,6 +1584,8 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", state"
 					", funder"
 					", channel_flags"
+					", require_confirm_inputs_local"
+					", require_confirm_inputs_remote"
 					", minimum_depth"
 					", next_index_local"
 					", next_index_remote"
@@ -2210,7 +2214,9 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 		       ", htlc_basepoint_local"
 		       ", delayed_payment_basepoint_local"
 		       ", funding_pubkey_local"
-		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);"));
+		       ", require_confirm_inputs_remote"
+		       ", require_confirm_inputs_local"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_u64(stmt, 0, chan->peer->dbid);
 	db_bind_int(stmt, 1, chan->first_blocknum);
 	db_bind_int(stmt, 2, chan->dbid);
@@ -2220,6 +2226,8 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	db_bind_pubkey(stmt, 5, &chan->local_basepoints.htlc);
 	db_bind_pubkey(stmt, 6, &chan->local_basepoints.delayed_payment);
 	db_bind_pubkey(stmt, 7, &chan->local_funding_pubkey);
+	db_bind_int(stmt, 8, chan->req_confirmed_ins[REMOTE]);
+	db_bind_int(stmt, 9, chan->req_confirmed_ins[LOCAL]);
 
 	db_exec_prepared_v2(take(stmt));
 

@@ -9,6 +9,7 @@
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/penalty_base.h>
+#include <common/tx_roles.h>
 #include <secp256k1.h>
 #include <wire/peer_wire.h>
 
@@ -27,6 +28,7 @@ msgdata,dualopend_init,our_basepoints,basepoints,
 msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
 msgdata,dualopend_init,minimum_depth,u32,
+msgdata,dualopend_init,require_confirmed_inputs,bool,
 
 # master-dualopend: peer has reconnected
 msgtype,dualopend_reinit,7001
@@ -70,6 +72,8 @@ msgdata,dualopend_reinit,lease_chan_max_msat,u32,
 msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
 msgdata,dualopend_reinit,requested_lease,?amount_sat,
 msgdata,dualopend_reinit,channel_type,channel_type,
+msgdata,dualopend_reinit,we_require_confirmed_inputs,bool,
+msgdata,dualopend_reinit,they_require_confirmed_inputs,bool,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
@@ -88,6 +92,7 @@ msgdata,dualopend_got_offer,shutdown_len,u16,
 msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 msgdata,dualopend_got_offer,requested_amt,?amount_sat,
 msgdata,dualopend_got_offer,lease_blockheight_start,u32,
+msgdata,dualopend_got_offer,require_confirmed_inputs,bool,
 
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dualopend_got_offer_reply,7105
@@ -163,6 +168,7 @@ msgdata,dualopend_commit_rcvd,channel_type,channel_type,
 # dualopend->master: peer updated the psbt
 msgtype,dualopend_psbt_changed,7107
 msgdata,dualopend_psbt_changed,channel_id,channel_id,
+msgdata,dualopend_psbt_changed,requires_confirmed_inputs,bool,
 msgdata,dualopend_psbt_changed,funding_serial,u64,
 msgdata,dualopend_psbt_changed,psbt,wally_psbt,
 
@@ -239,8 +245,17 @@ msgtype,dualopend_dry_run,7026
 msgdata,dualopend_dry_run,channel_id,channel_id,
 msgdata,dualopend_dry_run,our_funding,amount_sat,
 msgdata,dualopend_dry_run,their_funding,amount_sat,
+msgdata,dualopend_dry_run,requires_confirmed_inputs,bool,
 # must go last because of embedded tu32
 msgdata,dualopend_dry_run,lease_rates,?lease_rates,
+
+# dualopend -> master: are inputs in this psbt confirmed?
+msgtype,dualopend_validate_inputs,7029
+msgdata,dualopend_validate_inputs,psbt,wally_psbt,
+msgdata,dualopend_validate_inputs,side,enum tx_role,
+
+# master -> dualopend: confirms inputs are valid
+msgtype,dualopend_validate_inputs_reply,7030
 
 # dualopend -> master:  validate liqudity offer sig
 msgtype,dualopend_validate_lease,7027

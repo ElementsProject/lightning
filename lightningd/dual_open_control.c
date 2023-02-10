@@ -185,6 +185,7 @@ struct rbf_channel_payload {
 	struct amount_sat our_last_funding;
 	u32 funding_feerate_per_kw;
 	u32 locktime;
+	bool req_confirmed_ins_remote;
 
 	/* General info */
 	u32 feerate_our_max;
@@ -228,6 +229,8 @@ static void rbf_channel_hook_serialize(struct rbf_channel_payload *payload,
 	if (payload->requested_lease_amt)
 		json_add_amount_sat_msat(stream, "requested_lease_msat",
 					 *payload->requested_lease_amt);
+	json_add_bool(stream, "require_confirmed_inputs",
+		      payload->req_confirmed_ins_remote);
 	json_object_end(stream);
 }
 
@@ -270,6 +273,7 @@ struct openchannel2_payload {
 	struct amount_sat *requested_lease_amt;
 	u32 lease_blockheight_start;
 	u32 node_blockheight;
+	bool req_confirmed_ins_remote;
 
 	struct amount_sat accepter_funding;
 	struct wally_psbt *psbt;
@@ -319,6 +323,8 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 		json_add_num(stream, "node_blockheight",
 			     payload->node_blockheight);
 	}
+	json_add_bool(stream, "require_confirmed_inputs",
+		      payload->req_confirmed_ins_remote);
 	json_object_end(stream);
 }
 
@@ -339,6 +345,8 @@ openchannel2_changed_hook_serialize(struct openchannel2_psbt_payload *payload,
 	json_add_string(stream, "channel_id",
 			type_to_string(tmpctx, struct channel_id,
 				       &payload->channel->cid));
+	json_add_bool(stream, "require_confirmed_inputs",
+		      payload->channel->req_confirmed_ins[REMOTE]);
 	json_object_end(stream);
 }
 
@@ -692,6 +700,8 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	channel->cid = payload->channel_id;
 	channel->opener = REMOTE;
 	channel->open_attempt = new_channel_open_attempt(channel);
+	channel->req_confirmed_ins[REMOTE] =
+		payload->req_confirmed_ins_remote;
 	msg = towire_dualopend_got_offer_reply(NULL,
 					       payload->accepter_funding,
 					       payload->psbt,
@@ -1243,6 +1253,8 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->push = lease_fee_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
+	channel->req_confirmed_ins[LOCAL] =
+		ld->config.require_confirmed_inputs;
 
 	channel->last_tx = tal_steal(channel, remote_commit);
 	channel->last_sig = *remote_commit_sig;
@@ -1705,6 +1717,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	struct command *cmd;
 	struct lease_rates *rates;
 	struct amount_sat their_funding, our_funding;
+	bool requires_confirms;
 
 	assert(channel->open_attempt);
 	cmd = channel->open_attempt->cmd;
@@ -1713,6 +1726,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	if (!fromwire_dualopend_dry_run(msg, msg, &c_id,
 					&our_funding,
 					&their_funding,
+					&requires_confirms,
 					&rates)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_DRY_RUN_FINISHED: %s",
@@ -1727,6 +1741,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	response = json_stream_success(cmd);
 	json_add_amount_sat_msat(response, "our_funding_msat", our_funding);
 	json_add_amount_sat_msat(response, "their_funding_msat", their_funding);
+	json_add_bool(response, "requires_confirmed_inputs", requires_confirms);
 
 	if (rates) {
 		json_add_lease_rates(response, rates);
@@ -1876,6 +1891,8 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 	payload->peer_id = channel->peer->id;
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
 	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
+	payload->req_confirmed_ins_remote =
+		channel->req_confirmed_ins[REMOTE];
 
 	payload->psbt = NULL;
 
@@ -1930,7 +1947,8 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->locktime,
 					  &payload->shutdown_scriptpubkey,
 					  &payload->requested_lease_amt,
-					  &payload->lease_blockheight_start)) {
+					  &payload->lease_blockheight_start,
+					  &payload->req_confirmed_ins_remote)) {
 		channel_internal_error(channel, "Bad DUALOPEND_GOT_OFFER: %s",
 				       tal_hex(tmpctx, msg));
 		return;
@@ -2562,6 +2580,92 @@ json_openchannel_signed(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+struct psbt_validator {
+	struct command *cmd;
+	struct channel *channel;
+	struct wally_psbt *psbt;
+	enum tx_role role_to_validate;
+	size_t next_index;
+
+	/* on success */
+	void (*success)(struct psbt_validator *pv);
+
+	/* on invalid psbt input */
+	void (*invalid_input)(struct psbt_validator *pv, const char *err_msg);
+};
+
+static void validate_input_unspent(struct bitcoind *bitcoind,
+				   const struct bitcoin_tx_output *txout,
+				   void *arg)
+{
+	struct psbt_validator *pv = arg;
+	char *err;
+
+	/* First time thru bitcoind will be NULL, otherwise is response */
+	if (bitcoind && !txout) {
+		struct bitcoin_outpoint outpoint;
+
+		assert(pv->next_index > 0);
+		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[pv->next_index - 1],
+					    &outpoint);
+
+		err = tal_fmt(pv, "Requested only confirmed"
+			      " inputs for this open."
+			      " Input %s is not confirmed.",
+			      type_to_string(tmpctx,
+					     struct bitcoin_outpoint,
+					     &outpoint));
+		pv->invalid_input(pv, err);
+		return;
+	}
+
+	for (size_t i = pv->next_index; i < pv->psbt->num_inputs; i++) {
+		struct bitcoin_outpoint outpoint;
+		u64 serial;
+
+		if (!psbt_get_serial_id(&pv->psbt->inputs[i].unknowns, &serial)) {
+			err = tal_fmt(pv, "PSBT input at index %"PRIu64
+				      " missing serial id", i);
+			pv->invalid_input(pv, err);
+			return;
+		}
+		/* Ignore any input that's not what we're looking for  */
+		if (serial % 2 != pv->role_to_validate)
+			continue;
+
+		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[i],
+					    &outpoint);
+		pv->next_index = i + 1;
+
+		/* Confirm input is in a block */
+		bitcoind_getutxout(pv->channel->owner->ld->topology->bitcoind,
+				   &outpoint,
+				   validate_input_unspent,
+				   pv);
+		return;
+	}
+
+	pv->success(pv);
+}
+
+static void openchannel_update_valid_psbt(struct psbt_validator *pv)
+{
+	u8 *msg;
+	assert(pv->cmd);
+	pv->channel->open_attempt->cmd = pv->cmd;
+
+	msg = towire_dualopend_psbt_updated(NULL, pv->psbt);
+	subd_send_msg(pv->channel->owner, take(msg));
+}
+
+static void openchannel_invalid_psbt(struct psbt_validator *pv, const char *err_msg)
+{
+	assert(pv->cmd);
+	was_pending(command_fail(pv->cmd,
+				 FUNDING_PSBT_INVALID,
+				 "%s", err_msg));
+}
+
 
 static struct command_result *json_openchannel_update(struct command *cmd,
 						       const char *buffer,
@@ -2571,7 +2675,8 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct channel_id *cid;
 	struct channel *channel;
-	u8 *msg;
+	struct psbt_validator *pv;
+	struct command_result *ret;
 
 	if (!param(cmd, buffer, params,
 		   p_req("channel_id", param_channel_id, &cid),
@@ -2614,10 +2719,27 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
-	channel->open_attempt->cmd = cmd;
+	/* Set up the psbt-validator, we only validate in the
+	 * case of requiring confirmations */
+	pv = tal(cmd, struct psbt_validator);
+	pv->cmd = cmd;
+	pv->channel = channel;
+	pv->next_index = 0;
+	pv->psbt = psbt;
+	pv->role_to_validate = TX_INITIATOR;
+	pv->success = openchannel_update_valid_psbt;
+	pv->invalid_input = openchannel_invalid_psbt;
 
-	msg = towire_dualopend_psbt_updated(NULL, psbt);
-	subd_send_msg(channel->owner, take(msg));
+	if (channel->req_confirmed_ins[REMOTE]) {
+		/* We might fail/terminate in validate's first call,
+		 * which expects us to be at "command still pending" */
+		ret = command_still_pending(cmd);
+		validate_input_unspent(NULL, NULL, pv);
+		return ret;
+	}
+
+	/* Jump straight to the end here! */
+	openchannel_update_valid_psbt(pv);
 	return command_still_pending(cmd);
 }
 
@@ -2846,6 +2968,63 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static void psbt_request_valid(struct psbt_validator *pv)
+{
+	struct subd *dualopend = pv->channel->owner;
+
+	if (!dualopend)
+		goto done;
+
+	assert(!pv->cmd);
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_validate_inputs_reply(NULL)));
+done:
+	tal_free(pv);
+}
+
+static void psbt_request_invalid(struct psbt_validator *pv, const char *err_msg)
+{
+	struct subd *dualopend = pv->channel->owner;
+
+	if (!dualopend)
+		goto done;
+
+	assert(!pv->cmd);
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_fail(NULL, err_msg)));
+
+done:
+	tal_free(pv);
+}
+
+static void handle_validate_inputs(struct subd *dualopend,
+				   const u8 *msg)
+{
+	struct psbt_validator *pv;
+	pv = tal(NULL, struct psbt_validator);
+
+	if (!fromwire_dualopend_validate_inputs(pv, msg,
+						&pv->psbt,
+						&pv->role_to_validate)) {
+		channel_internal_error(dualopend->channel,
+				       "Bad DUALOPEND_VALIDATE_INPUTS: %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+	log_debug(dualopend->ld->log,
+		  "validating psbt for role: %s",
+		  pv->role_to_validate == TX_INITIATOR ?
+			"initiator" : "accepter");
+
+	pv->cmd = NULL;
+	pv->channel = dualopend->channel;
+	pv->next_index = 0;
+	pv->success = psbt_request_valid;
+	pv->invalid_input = psbt_request_invalid;
+	validate_input_unspent(NULL, NULL, pv);
+}
+
 static void
 channel_fail_fallen_behind(struct subd* dualopend, const u8 *msg)
 {
@@ -2879,6 +3058,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 
 	if (!fromwire_dualopend_psbt_changed(tmpctx, msg,
 					     &cid,
+					     &channel->req_confirmed_ins[REMOTE],
 					     &funding_serial,
 					     &psbt)) {
 		channel_internal_error(channel,
@@ -2906,6 +3086,8 @@ static void handle_psbt_changed(struct subd *dualopend,
 		json_add_psbt(response, "psbt", psbt);
 		json_add_bool(response, "commitments_secured", false);
 		json_add_u64(response, "funding_serial", funding_serial);
+		json_add_bool(response, "requires_confirmed_inputs",
+			      channel->req_confirmed_ins[REMOTE]);
 
 		oa->cmd = NULL;
 		was_pending(command_success(cmd, response));
@@ -3170,6 +3352,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
 			handle_local_private_channel(dualopend, msg);
 			return 0;
+		case WIRE_DUALOPEND_VALIDATE_INPUTS:
+			handle_validate_inputs(dualopend, msg);
+			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
@@ -3177,6 +3362,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_RBF_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
+		case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 		case WIRE_DUALOPEND_RBF_VALID:
 		case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 		case WIRE_DUALOPEND_FAIL:
@@ -3454,7 +3640,8 @@ bool peer_start_dualopend(struct peer *peer,
 				    min_effective_htlc_capacity,
 				    &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
-				    channel->minimum_depth);
+				    channel->minimum_depth,
+				    peer->ld->config.require_confirmed_inputs);
 	subd_send_msg(channel->owner, take(msg));
 	return true;
 }
@@ -3562,7 +3749,9 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->lease_chan_max_ppt,
 				      amount_sat_zero(inflight->lease_amt) ?
 					      NULL : &inflight->lease_amt,
-				      channel->type);
+				      channel->type,
+				      channel->req_confirmed_ins[LOCAL],
+				      channel->req_confirmed_ins[REMOTE]);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

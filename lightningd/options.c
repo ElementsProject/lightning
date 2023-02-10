@@ -858,6 +858,8 @@ static const struct config testnet_config = {
 	.exp_offers = IFEXPERIMENTAL(true, false),
 
 	.allowdustreserve = false,
+
+	.require_confirmed_inputs = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -927,6 +929,8 @@ static const struct config mainnet_config = {
 	.exp_offers = IFEXPERIMENTAL(true, false),
 
 	.allowdustreserve = false,
+
+	.require_confirmed_inputs = false,
 };
 
 static void check_config(struct lightningd *ld)
@@ -1074,6 +1078,15 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_peer_storage(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL, OPT_PROVIDE_PEER_BACKUP_STORAGE)));
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL, OPT_WANT_PEER_BACKUP_STORAGE)));
+	return NULL;
+}
+
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
@@ -1152,6 +1165,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
+	opt_register_early_noarg("--experimental-peer-storage",
+				 opt_set_peer_storage, ld,
+				 "EXPERIMENTAL: enable peer backup storage and restore");
 	opt_register_early_arg("--announce-addr-dns",
 			       opt_set_bool_arg, opt_show_bool,
 			       &ld->announce_dns,
@@ -1180,6 +1196,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
+	opt_register_arg("--require-confirmed-inputs", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.require_confirmed_inputs,
+			 "Confirmations required for inputs to funding transaction (v2 opens only)");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");
@@ -1634,6 +1653,11 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_SHUTDOWN_WRONG_FUNDING));
+		} else if (opt->cb == (void *)opt_set_peer_storage) {
+			json_add_bool(response, name0,
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_PROVIDE_PEER_BACKUP_STORAGE));
 		} else if (opt->cb == (void *)plugin_opt_flag_set) {
 			/* Noop, they will get added below along with the
 			 * OPT_HASARG options. */
@@ -1644,6 +1668,9 @@ static void add_config(struct lightningd *ld,
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
+		} else if (opt->show == (void *)opt_show_charp) {
+			/* Don't truncate! */
+			answer = tal_strdup(tmpctx, *(char **)opt->u.carg);
 		} else if (opt->show) {
 			opt->show(buf, opt->u.carg);
 			strcpy(buf + OPT_SHOW_LEN - 1, "...");
@@ -1655,14 +1682,7 @@ static void add_config(struct lightningd *ld,
 				json_add_primitive(response, name0, buf);
 				return;
 			}
-
-			/* opt_show_charp surrounds with "", strip them */
-			if (strstarts(buf, "\"")) {
-				char *end = strrchr(buf, '"');
-				memmove(end, end + 1, strlen(end));
-				answer = buf + 1;
-			} else
-				answer = buf;
+			answer = buf;
 		} else if (opt->cb_arg == (void *)opt_set_talstr
 			   || opt->cb_arg == (void *)opt_set_charp
 			   || is_restricted_print_if_nonnull(opt->cb_arg)) {

@@ -136,6 +136,12 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_WANT_PEER_BACKUP_STORAGE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_PROVIDE_PEER_BACKUP_STORAGE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
 };
 
 struct dependency {
@@ -168,12 +174,6 @@ static const struct dependency feature_deps[] = {
 	 * `option_anchors_zero_fee_htlc_tx` | ...      | ...      | `option_static_remotekey`
 	 */
 	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX, OPT_STATIC_REMOTEKEY },
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
-	 * Name                | Description  | Context  | Dependencies  |
-	 * ...
-	 * `option_dual_fund`  | ...          | ...      | `option_static_remotekey`
-	 */
-	{ OPT_DUAL_FUND, OPT_STATIC_REMOTEKEY },
 	/* BOLT-route-blinding #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 * ...
@@ -456,8 +456,8 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_quiesce", /* https://github.com/lightning/bolts/pull/869 */
 		NULL,
 		"option_onion_messages",  /* https://github.com/lightning/bolts/pull/759 */
-		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightning/bolts/pull/881 */
-		"option_provide_peer_backup", /* https://github.com/lightning/bolts/pull/881 */
+		"option_want_peer_backup_storage", /* 40/41 */ /* https://github.com/lightning/bolts/pull/881/files */
+		"option_provide_peer_backup_storage", /* https://github.com/lightning/bolts/pull/881/files */
 		"option_channel_type",
 		"option_scid_alias", /* https://github.com/lightning/bolts/pull/910 */
 		"option_payment_metadata",

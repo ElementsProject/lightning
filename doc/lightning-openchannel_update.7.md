@@ -36,6 +36,7 @@ On success, an object is returned, containing:
 - **commitments\_secured** (boolean): whether the *psbt* is complete (if true, sign *psbt* and call `openchannel_signed` to complete the channel open)
 - **funding\_outnum** (u32): The index of the funding output in the psbt
 - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
+- **requires\_confirmed\_inputs** (boolean, optional): Does peer require confirmed inputs in psbt?
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -73,4 +74,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:11e23b688eb714707cf3203397761454b140a96ab5d7512208013700227aff4c)
+[comment]: # ( SHA256STAMP:8916c7600248fc14275508962f9ea09c55d43157f525a4bbe385b621074384e6)

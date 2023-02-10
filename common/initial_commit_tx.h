@@ -28,6 +28,7 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 					   bool option_anchor_outputs)
 {
 	size_t weight;
+	size_t num_outputs;
 
 	/* BOLT #3:
 	 *
@@ -35,11 +36,13 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 	 *  - MUST be calculated to match:
 	 *    1. Start with `weight` = 724 (1124 if `option_anchors` applies).
 	 */
-	if (option_anchor_outputs)
+	if (option_anchor_outputs) {
 		weight = 1124;
-	else
+		num_outputs = 4;
+	} else {
 		weight = 724;
-
+		num_outputs = 2;
+	}
 	/* BOLT #3:
 	 *
 	 *    2. For each committed HTLC, if that output is not trimmed as
@@ -47,9 +50,10 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 	 *       to `weight`.
 	 */
 	weight += 172 * num_untrimmed_htlcs;
+	num_outputs += num_untrimmed_htlcs;
 
 	/* Extra fields for Elements */
-	weight += elements_tx_overhead(chainparams, 1, 1);
+	weight += elements_tx_overhead(chainparams, 1, num_outputs);
 
 	return weight;
 }

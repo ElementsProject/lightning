@@ -82,6 +82,9 @@ struct config {
 	 * slight spec incompatibility, but implementations do this
 	 * already. */
 	bool allowdustreserve;
+
+	/* Require peer to send confirmed inputs */
+	bool require_confirmed_inputs;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
@@ -198,7 +201,7 @@ struct lightningd {
 	struct chain_topology *topology;
 
 	/* Blockheight (as acknowledged by gossipd) */
-	u32 blockheight;
+	u32 gossip_blockheight;
 
 	/* HTLCs in flight. */
 	struct htlc_in_map *htlcs_in;

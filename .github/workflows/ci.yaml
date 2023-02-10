@@ -153,6 +153,8 @@ jobs:
 
           # Rename now so we don't clash
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
+      - name: Check rust packages
+        run: cargo test --all
       - uses: actions/upload-artifact@v2.2.4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
@@ -163,7 +165,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       COMPAT: 1
-      BITCOIN_VERSION: 0.20.1
+      BITCOIN_VERSION: 24.0.1
       ELEMENTS_VERSION: 0.18.1.8
       RUST_PROFILE: release  # Has to match the one in the compile step
     needs:
@@ -269,7 +271,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       COMPAT: 1
-      BITCOIN_VERSION: 0.20.1
+      BITCOIN_VERSION: 24.0.1
       ELEMENTS_VERSION: 0.18.1.8
       RUST_PROFILE: release  # Has to match the one in the compile step
       VALGRIND: 1

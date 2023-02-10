@@ -171,9 +171,10 @@ struct state {
 	/* Information we need between funding_start and funding_complete */
 	struct basepoints their_points;
 
-	/* hsmd gives us our first per-commitment point, and peer tells us
+	/* hsmd gives us our first+second per-commitment points, and peer tells us
 	 * theirs */
 	struct pubkey first_per_commitment_point[NUM_SIDES];
+	struct pubkey second_per_commitment_point[NUM_SIDES];
 
 	struct channel_id channel_id;
 	u8 channel_flags;
@@ -216,6 +217,9 @@ struct state {
 	/* Amount of leased sats requested, persisted across
 	 * RBF attempts, so we know when we've messed up lol */
 	struct amount_sat *requested_lease;
+
+	/* Does this negotation require confirmed inputs? */
+	bool require_confirmed_inputs[NUM_SIDES];
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -514,6 +518,35 @@ static bool is_dust(struct tx_state *tx_state,
 		|| !amount_sat_greater(amount, tx_state->remoteconf.dust_limit);
 }
 
+static char *validate_inputs(struct state *state,
+			     struct tx_state *tx_state,
+			     enum tx_role role_to_validate)
+{
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *  Upon receipt of consecutive `tx_complete`s, the receiving node:
+	 *  ...
+	 *  - if it has sent `require_confirmed_inputs` in `open_channel2`
+	 *    or `accept_channel2`:
+	 *    - MUST fail the negotiation if:
+	 *      - one of the inputs added by the other peer is unconfirmed
+      */
+	u8 *msg;
+	char *err_reason;
+
+	msg = towire_dualopend_validate_inputs(NULL, tx_state->psbt,
+					       role_to_validate);
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if (!fromwire_dualopend_validate_inputs_reply(msg)) {
+		if (!fromwire_dualopend_fail(tmpctx, msg, &err_reason))
+			master_badmsg(fromwire_peektype(msg), msg);
+		return err_reason;
+	}
+
+	return NULL;
+}
+
 static void set_reserve(struct tx_state *tx_state,
 			struct amount_sat funding_total,
 			enum tx_role our_role)
@@ -570,11 +603,6 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 		(psbt->inputs[in].redeem_script_len +
 			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
 
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
-	 *
-	 * The minimum witness weight for an input is 110.
-	 */
-	weight += 110;
 	return weight;
 }
 
@@ -1069,7 +1097,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 				      tal_hex(msg, msg));
 
 		elem = cast_const2(const struct witness_element **,
-				   ws[j++]->witness_element);
+				   ws[j++]->witness_elements);
 		psbt_finalize_input(tx_state->psbt, in, elem);
 	}
 
@@ -1133,6 +1161,7 @@ fetch_psbt_changes(struct state *state,
 
 	/* Go ask lightningd what other changes we've got */
 	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
+					    state->require_confirmed_inputs[REMOTE],
 					    tx_state->funding_serial,
 					    psbt);
 
@@ -1410,6 +1439,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_WARNING:
 		case WIRE_PING:
 		case WIRE_PONG:
+		case WIRE_PEER_STORAGE:
+		case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
 #endif
@@ -1784,6 +1815,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		case WIRE_PING:
 		case WIRE_PONG:
+		case WIRE_PEER_STORAGE:
+		case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
 #endif
@@ -2198,10 +2231,16 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->their_points.delayed_payment,
 				    &state->their_points.htlc,
 				    &state->first_per_commitment_point[REMOTE],
+				    /* We don't actually do anything with this currently,
+				     * as they send it to us again in `channel_ready` */
+				    &state->second_per_commitment_point[REMOTE],
 				    &state->channel_flags,
 				    &open_tlv))
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
+
+	state->require_confirmed_inputs[REMOTE] =
+		open_tlv->require_confirmed_inputs != NULL;
 
 	if (open_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, open_tlv->upfront_shutdown_script);
@@ -2319,7 +2358,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->tx_locktime,
 					 state->upfront_shutdown_script[REMOTE],
 					 state->requested_lease,
-					 tx_state->blockheight);
+					 tx_state->blockheight,
+					 state->require_confirmed_inputs[REMOTE]);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2486,6 +2526,16 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				     state->our_funding_pubkey,
 				     tx_state->blockheight);
 
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *
+	 * The sending node may require the other participant to
+	 * only use confirmed inputs.  This ensures that the sending
+	 * node doesn't end up paying the fees of a low feerate
+	 * unconfirmed ancestor of one of the other participant's inputs.
+	 */
+	if (state->require_confirmed_inputs[LOCAL])
+		a_tlv->require_confirmed_inputs =
+			tal(a_tlv, struct tlv_accept_tlvs_require_confirmed_inputs);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     /* Our amount w/o the lease fee */
@@ -2502,6 +2552,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				     &state->our_points.delayed_payment,
 				     &state->our_points.htlc,
 				     &state->first_per_commitment_point[LOCAL],
+				     &state->second_per_commitment_point[LOCAL],
 				     a_tlv);
 
 	/* Everything's ok. Let's figure out the actual channel_id now */
@@ -2519,6 +2570,14 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_ACCEPTER))
 		return;
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state, TX_INITIATOR);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
 
 	msg = accepter_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
@@ -2920,6 +2979,17 @@ static void opener_start(struct state *state, u8 *msg)
 		open_tlv->request_funds->blockheight = tx_state->blockheight;
 	}
 
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *
+	 * The sending node may require the other participant to
+	 * only use confirmed inputs.  This ensures that the sending
+	 * node doesn't end up paying the fees of a low feerate
+	 * unconfirmed ancestor of one of the other participant's inputs.
+	 */
+	if (state->require_confirmed_inputs[LOCAL])
+		open_tlv->require_confirmed_inputs =
+			tal(open_tlv, struct tlv_opening_tlvs_require_confirmed_inputs);
+
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &state->channel_id,
@@ -2938,6 +3008,7 @@ static void opener_start(struct state *state, u8 *msg)
 				   &state->our_points.delayed_payment,
 				   &state->our_points.htlc,
 				   &state->first_per_commitment_point[LOCAL],
+				   &state->second_per_commitment_point[LOCAL],
 				   state->channel_flags,
 				   open_tlv);
 
@@ -2966,6 +3037,9 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.delayed_payment,
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
+				      /* We don't actually do anything with this currently,
+				       * as they send it to us again in `channel_ready` */
+				      &state->second_per_commitment_point[REMOTE],
 				      &a_tlv))
 		open_err_fatal(state,  "Parsing accept_channel2 %s",
 			       tal_hex(msg, msg));
@@ -2989,6 +3063,10 @@ static void opener_start(struct state *state, u8 *msg)
 		}
 	}
 
+	/* Set the require confirms from peer's TLVs */
+	state->require_confirmed_inputs[REMOTE] =
+		a_tlv->require_confirmed_inputs != NULL;
+
 	if (a_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, a_tlv->upfront_shutdown_script);
 	else
@@ -3005,9 +3083,10 @@ static void opener_start(struct state *state, u8 *msg)
 		msg = towire_dualopend_dry_run(NULL, &state->channel_id,
 					       tx_state->opener_funding,
 					       tx_state->accepter_funding,
+					       state->require_confirmed_inputs[REMOTE],
 					       a_tlv->will_fund
-						? &a_tlv->will_fund->lease_rates : NULL);
-
+						? &a_tlv->will_fund->lease_rates
+						: NULL);
 
 		wire_sync_write(REQ_FD, take(msg));
 
@@ -3172,6 +3251,16 @@ static void opener_start(struct state *state, u8 *msg)
 		return;
 	}
 
+	/* We need to check that the inputs we've already provided
+	 * via the API are confirmed :/ */
+	if (state->require_confirmed_inputs[REMOTE]) {
+		err_reason = validate_inputs(state, tx_state, state->our_role);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
+
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The sending node:
 	 * - if is the *opener*:
@@ -3210,6 +3299,15 @@ static void opener_start(struct state *state, u8 *msg)
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR))
 		return;
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state, TX_ACCEPTER);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
+
 
 	msg = opener_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
@@ -3288,6 +3386,16 @@ static void rbf_wrap_up(struct state *state,
 				&tx_state->psbt,
 				state->our_role)) {
 		return;
+	}
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state,
+					     state->our_role == TX_INITIATOR ?
+					     TX_ACCEPTER : TX_INITIATOR);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
 	}
 
 	/* Is this an eligible RBF (at least one overlapping input) */
@@ -3964,6 +4072,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_RBF_VALID:
 	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+	case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
@@ -3981,6 +4090,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_DRY_RUN:
 	case WIRE_DUALOPEND_VALIDATE_LEASE:
 	case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
+	case WIRE_DUALOPEND_VALIDATE_INPUTS:
 		break;
 	}
 	status_failed(STATUS_FAIL_MASTER_IO,
@@ -4064,6 +4174,8 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_WARNING:
 	case WIRE_PING:
 	case WIRE_PONG:
+	case WIRE_PEER_STORAGE:
+	case WIRE_YOUR_PEER_STORAGE:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 #endif
@@ -4090,13 +4202,33 @@ static u8 *handle_peer_in(struct state *state)
 	peer_failed_connection_lost();
 }
 
+static void fetch_per_commitment_point(u32 point_count,
+				       struct pubkey *commit_point)
+{
+	u8 *msg;
+	struct secret *none;
+
+	wire_sync_write(HSM_FD,
+			take(towire_hsmd_get_per_commitment_point(NULL, point_count)));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
+							  commit_point,
+							  &none))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad get_per_commitment_point_reply %s",
+			      tal_hex(tmpctx, msg));
+
+	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
+	 * N'th per-commitment point.  But since N=0, it won't give us one. */
+	assert(none == NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 
 	struct pollfd pollfd[2];
 	struct state *state = tal(NULL, struct state);
-	struct secret *none;
 	struct fee_states *fee_states;
 	enum side opener;
 	u8 *msg;
@@ -4126,7 +4258,8 @@ int main(int argc, char *argv[])
 				    &state->min_effective_htlc_capacity,
 				    &state->our_points,
 				    &state->our_funding_pubkey,
-				    &state->minimum_depth)) {
+				    &state->minimum_depth,
+				    &state->require_confirmed_inputs[LOCAL])) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));
@@ -4185,7 +4318,9 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_chan_max_msat,
 					     &state->tx_state->lease_chan_max_ppt,
 					     &requested_lease,
-					     &state->channel_type)) {
+					     &state->channel_type,
+					     &state->require_confirmed_inputs[LOCAL],
+					     &state->require_confirmed_inputs[REMOTE])) {
 
 		bool ok;
 
@@ -4252,18 +4387,8 @@ int main(int argc, char *argv[])
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
 	 * so we might as well get the hsm daemon to generate it now. */
-	wire_sync_write(HSM_FD,
-			take(towire_hsmd_get_per_commitment_point(NULL, 0)));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
-							  &state->first_per_commitment_point[LOCAL],
-							  &none))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Bad get_per_commitment_point_reply %s",
-			      tal_hex(tmpctx, msg));
-	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
-	 * N'th per-commitment point.  But since N=0, it won't give us one. */
-	assert(none == NULL);
+	fetch_per_commitment_point(0, &state->first_per_commitment_point[LOCAL]);
+	fetch_per_commitment_point(1, &state->second_per_commitment_point[LOCAL]);
 
 	/*~ We manually run a little poll() loop here.  With only two fds */
 	pollfd[0].fd = REQ_FD;

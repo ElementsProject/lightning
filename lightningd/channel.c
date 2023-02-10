@@ -336,6 +336,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct log *log,
 			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
+			    bool req_confirmed_ins_local,
+			    bool req_confirmed_ins_remote,
 			    const struct channel_config *our_config,
 			    u32 minimum_depth,
 			    u64 next_index_local,
@@ -430,6 +432,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 				       dbid);
 	} else
 		channel->log = tal_steal(channel, log);
+	channel->req_confirmed_ins[LOCAL] = req_confirmed_ins_local;
+	channel->req_confirmed_ins[REMOTE] = req_confirmed_ins_remote;
 	channel->channel_flags = channel_flags;
 	channel->our_config = *our_config;
 	channel->minimum_depth = minimum_depth;

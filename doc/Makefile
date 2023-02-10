@@ -60,7 +60,6 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listpeerchannels.7 \
 	doc/lightning-listsendpays.7 \
-	doc/lightning-listsqlschemas.7 \
 	doc/lightning-makesecret.7 \
 	doc/lightning-multifundchannel.7 \
 	doc/lightning-multiwithdraw.7 \
@@ -85,8 +84,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannel.7 \
 	doc/lightning-sendcustommsg.7 \
+	doc/lightning-signinvoice.7 \
 	doc/lightning-signmessage.7 \
-	doc/lightning-sql.7 \
 	doc/lightning-staticbackup.7 \
 	doc/lightning-txprepare.7 \
 	doc/lightning-txdiscard.7 \
@@ -109,6 +108,11 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-help.7 \
 	doc/lightning-getlog.7 \
 	doc/reckless.7
+
+ifeq ($(HAVE_SQLITE3),1)
+MANPAGES += doc/lightning-listsqlschemas.7 \
+	    doc/lightning-sql.7
+endif
 
 doc-all: $(MANPAGES) doc/index.rst
 

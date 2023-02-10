@@ -87,7 +87,6 @@ PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_PAY_LIB_HEADER)		\
 	$(PLUGIN_OFFERS_HEADER)			\
 	$(PLUGIN_SPENDER_HEADER)
-PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 C_PLUGINS :=					\
 	plugins/autoclean			\
@@ -101,10 +100,16 @@ C_PLUGINS :=					\
 	plugins/offers				\
 	plugins/pay				\
 	plugins/txprepare			\
-	plugins/sql				\
 	plugins/spenderp
 
+ifeq ($(HAVE_SQLITE3),1)
+C_PLUGINS += plugins/sql
+PLUGIN_ALL_SRC += $(PLUGIN_SQL_SRC)
+PLUGIN_ALL_HEADER += $(PLUGIN_SQL_HEADER)
+endif
+
 PLUGINS := $(C_PLUGINS)
+PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed

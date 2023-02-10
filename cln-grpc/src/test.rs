@@ -12,6 +12,7 @@ fn test_listpeers() {
             "127.0.0.1:39152"
           ],
           "features": "8808226aa2",
+          "num_channels": 0,
           "channels": [
             {
               "state": "CHANNELD_NORMAL",
@@ -113,6 +114,7 @@ fn test_listpeers() {
             "127.0.0.1:38321"
           ],
           "features": "8808226aa2",
+          "num_channels": 0,
           "channels": [
             {
               "state": "CHANNELD_NORMAL",
@@ -218,8 +220,13 @@ fn test_listpeers() {
         }
       ]
     });
-    let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j).unwrap();
-    let _: ListpeersResponse = u.into();
+    let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j.clone()).unwrap();
+    let l: ListpeersResponse = u.into();
+    let u2: cln_rpc::model::ListpeersResponse = l.into();
+    let j2 = serde_json::to_value(u2).unwrap();
+    println!("{}", j);
+    println!("{}", j2);
+    // assert_eq!(j, j2); // TODO, still some differences to fix
 }
 
 #[test]
@@ -240,8 +247,11 @@ fn test_getinfo() {
 	    "msatoshi_fees_collected": 0,
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
-    let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j).unwrap();
-    let _g: GetinfoResponse = u.into();
+    let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
+    let g: GetinfoResponse = u.into();
+    let u2: cln_rpc::model::GetinfoResponse = g.into();
+    let j2 = serde_json::to_value(u2).unwrap();
+    assert_eq!(j, j2);
 }
 
 #[test]
@@ -301,6 +311,11 @@ fn test_keysend() {
 	"status": "complete"
     }"#;
     let u: cln_rpc::model::KeysendResponse = serde_json::from_str(j).unwrap();
-    let g: KeysendResponse = u.into();
+    let g: KeysendResponse = u.clone().into();
     println!("{:?}", g);
+
+    let v: serde_json::Value = serde_json::to_value(u.clone()).unwrap();
+    let g: cln_rpc::model::KeysendResponse = u.into();
+    let v2 = serde_json::to_value(g).unwrap();
+    assert_eq!(v, v2);
 }
