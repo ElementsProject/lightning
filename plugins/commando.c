@@ -989,6 +989,7 @@ static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	struct secret rune_secret;
+	const char *err;
 
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
@@ -1000,13 +1001,16 @@ static const char *init(struct plugin *p,
 #endif
 
 	rune_counter = tal(p, u64);
-	if (!rpc_scan_datastore_str(plugin, "commando/rune_counter",
-				    JSON_SCAN(json_to_u64, rune_counter)))
+	/* If this fails, it probably doesn't exist */
+	err = rpc_scan_datastore_str(tmpctx, plugin, "commando/rune_counter",
+				     JSON_SCAN(json_to_u64, rune_counter));
+	if (err)
 		rune_counter = tal_free(rune_counter);
 
 	/* Old python commando used to store secret */
-	if (!rpc_scan_datastore_hex(plugin, "commando/secret",
-				    JSON_SCAN(json_to_secret, &rune_secret))) {
+	err = rpc_scan_datastore_hex(tmpctx, plugin, "commando/secret",
+				     JSON_SCAN(json_to_secret, &rune_secret));
+	if (err) {
 		rpc_scan(plugin, "makesecret",
 			 /* $ i commando
 			  * 99 0x63 0143 0b1100011 'c'

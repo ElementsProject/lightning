@@ -627,14 +627,14 @@ static void json_add_keypath(struct json_out *jout, const char *fieldname, const
 	json_out_end(jout, ']');
 }
 
-static bool rpc_scan_datastore(struct plugin *plugin,
-			       const char *path,
-			       const char *hex_or_string,
-			       va_list ap)
+static const char *rpc_scan_datastore(const tal_t *ctx,
+				      struct plugin *plugin,
+				      const char *path,
+				      const char *hex_or_string,
+				      va_list ap)
 {
 	const char *guide;
 	struct json_out *params;
-	const char *err;
 
 	params = json_out_new(NULL);
 	json_out_start(params, NULL, '{');
@@ -643,37 +643,35 @@ static bool rpc_scan_datastore(struct plugin *plugin,
 	json_out_finished(params);
 
 	guide = tal_fmt(tmpctx, "{datastore:[0:{%s:%%}]}", hex_or_string);
-	/* FIXME: Could be some other error, but that's probably a caller bug! */
-	err = rpc_scan_core(tmpctx, plugin, "listdatastore", take(params), guide, ap);
-	if (!err)
-		return true;
-	plugin_log(plugin, LOG_DBG, "listdatastore error %s: %s", path, err);
-	return false;
+	return rpc_scan_core(ctx, plugin, "listdatastore", take(params),
+			     guide, ap);
 }
 
-bool rpc_scan_datastore_str(struct plugin *plugin,
-			    const char *path,
-			    ...)
+const char *rpc_scan_datastore_str(const tal_t *ctx,
+				   struct plugin *plugin,
+				   const char *path,
+				   ...)
 {
-	bool ret;
+	const char *ret;
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(plugin, path, "string", ap);
+	ret = rpc_scan_datastore(ctx, plugin, path, "string", ap);
 	va_end(ap);
 	return ret;
 }
 
 /* This variant scans the hex encoding, not the string */
-bool rpc_scan_datastore_hex(struct plugin *plugin,
-			    const char *path,
-			    ...)
+const char *rpc_scan_datastore_hex(const tal_t *ctx,
+				   struct plugin *plugin,
+				   const char *path,
+				   ...)
 {
-	bool ret;
+	const char *ret;
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(plugin, path, "hex", ap);
+	ret = rpc_scan_datastore(ctx, plugin, path, "hex", ap);
 	va_end(ap);
 	return ret;
 }
