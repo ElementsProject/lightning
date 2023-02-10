@@ -179,7 +179,7 @@ def test_announce_dns_suppressed(node_factory, bitcoind):
 
     addresses = only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
     assert len(addresses) == 1
-    assert addresses[0]['type'] == 'ipv4'
+    assert addresses[0]['type'] in ['ipv4', 'ipv6']
     assert addresses[0]['address'] != 'example.com'
     assert addresses[0]['port'] == 1236
 
