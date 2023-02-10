@@ -574,8 +574,11 @@ static const char *init(struct plugin *p,
 
 	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean_timer, NULL);
 
+	/* We don't care if this fails (it usually does, since entries
+	 * don't exist! */
 	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-		rpc_scan_datastore_str(plugin, datastore_path(tmpctx, i, "num"),
+		rpc_scan_datastore_str(tmpctx, plugin,
+				       datastore_path(tmpctx, i, "num"),
 				       JSON_SCAN(json_to_u64, &total_cleaned[i]));
 	}
 

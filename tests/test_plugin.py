@@ -1499,8 +1499,8 @@ def test_libplugin(node_factory):
 
     # Test startup
     assert l1.daemon.is_in_log("test_libplugin initialised!")
-    assert l1.daemon.is_in_log("String name from datastore: NOT FOUND")
-    assert l1.daemon.is_in_log("Hex name from datastore: NOT FOUND")
+    assert l1.daemon.is_in_log("String name from datastore:.*token has no index 0")
+    assert l1.daemon.is_in_log("Hex name from datastore:.*token has no index 0")
 
     # This will look on datastore for default, won't find it.
     assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
@@ -1519,7 +1519,7 @@ def test_libplugin(node_factory):
     # yet whether strings are allowed:
     l1.daemon.wait_for_log(r"test_libplugin: [0-9]*\[OUT\]")
 
-    l1.daemon.wait_for_log("String name from datastore: NOT FOUND")
+    l1.daemon.wait_for_log("String name from datastore:.*object does not have member string")
     l1.daemon.wait_for_log("Hex name from datastore: 00010203")
 
     # Test commands

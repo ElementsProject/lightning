@@ -131,7 +131,7 @@ static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	const char *name;
+	const char *name, *err_str, *err_hex;
 	const u8 *binname;
 
 	plugin_log(p, LOG_DBG, "test_libplugin initialised!");
@@ -143,19 +143,21 @@ static const char *init(struct plugin *p,
 		return "Disabled via selfdisable option";
 
 	/* Test rpc_scan_datastore funcs */
-	if (!rpc_scan_datastore_str(p, "test_libplugin/name",
-				    JSON_SCAN_TAL(tmpctx, json_strdup,
-						  &name)))
+	err_str = rpc_scan_datastore_str(tmpctx, p, "test_libplugin/name",
+					 JSON_SCAN_TAL(tmpctx, json_strdup,
+						       &name));
+	if (err_str)
 		name = NULL;
-	if (!rpc_scan_datastore_hex(p, "test_libplugin/name",
-				    JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
-						  &binname)))
+	err_hex = rpc_scan_datastore_hex(tmpctx, p, "test_libplugin/name",
+					 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+						       &binname));
+	if (err_hex)
 		binname = NULL;
 
 	plugin_log(p, LOG_INFORM, "String name from datastore: %s",
-		   name ? name : "NOT FOUND");
+		   name ? name : err_str);
 	plugin_log(p, LOG_INFORM, "Hex name from datastore: %s",
-		   binname ? tal_hex(tmpctx, binname) : "NOT FOUND");
+		   binname ? tal_hex(tmpctx, binname) : err_hex);
 
  	return NULL;
 }
