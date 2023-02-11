@@ -968,7 +968,8 @@ static struct command_result *json_commando_rune(struct command *cmd,
 		*rune_counter = 1;
 		json_add_string(req->js, "mode", "must-create");
 	}
-	json_add_u64(req->js, "string", *rune_counter);
+	json_add_string(req->js, "string",
+			tal_fmt(tmpctx, "%"PRIu64, *rune_counter));
 	return send_outreq(plugin, req);
 }
 
