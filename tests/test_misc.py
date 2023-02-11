@@ -2831,6 +2831,18 @@ def test_force_feerates(node_factory):
         "max_acceptable": 150000}
 
 
+def test_datastore_escapeing(node_factory):
+    """ This test demonstrates that there is some character escaping issue
+        issue in the datastore API and error messages during startup that
+        affect plugins init method. """
+    setdata = '{"foo": "bar"}'
+    l1 = node_factory.get_node()
+    l1.rpc.datastore(key='foo_bar', string=setdata)
+    getdata = l1.rpc.listdatastore('foo_bar')['datastore'][0]['string']
+    assert not l1.daemon.is_in_log(r".*listdatastore error.*token has no index 0.*")
+    assert getdata == setdata
+
+
 def test_datastore(node_factory):
     l1 = node_factory.get_node()
 
