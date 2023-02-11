@@ -136,7 +136,7 @@ static struct command_result *json_datastore(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_list_or_string, &key),
-		   p_opt("string", param_string, &strdata),
+		   p_opt("string", param_escaped_string, &strdata),
 		   p_opt("hex", param_bin_from_hex, &data),
 		   p_opt_def("mode", param_mode, &mode, DS_MUST_NOT_EXIST),
 		   p_opt("generation", param_u64, &generation),
