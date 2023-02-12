@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 <!--
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
-## [23.02rc1] - 2023-02-08
+## [23.02rc2] - 2023-02-12
 
 ### Added
 
@@ -66,6 +66,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - channeld no longer retains dead HTLCs in memory. ([#5882])
  - database: Correctly identity official release versions for database upgrade. ([#5880])
  - Plugins: `commando` now responds to remote JSON calls with the correct JSON `id` field. ([#5866])
+ - JSON-RPC: `datastore` handles escapes in `string` parameter correctly. ([#5994])
  - JSON-RPC: `sendpay` now can send to a short-channel-id alias for the first hop. ([#5846])
  - topology: Fixed memleak in `listchannels` ([#5865])
 
@@ -110,6 +111,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5956]: https://github.com/ElementsProject/lightning/pull/5956
 [#5897]: https://github.com/ElementsProject/lightning/pull/5897
 [#5904]: https://github.com/ElementsProject/lightning/pull/5904
+[#5994]: https://github.com/ElementsProject/lightning/pull/5994
 
 
 ## [22.11.1] - 2022-12-09: "Alameda Yield Generator II"
