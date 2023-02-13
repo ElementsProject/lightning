@@ -447,7 +447,7 @@ static bool node_announce_predates_channels(const struct node *node)
 }
 
 /* Move this node's announcement to the tail of the gossip_store, to
- * make everyone send it again. */
+ * make everyone send it again (unless the node is a zombie.) */
 static void force_node_announce_rexmit(struct routing_state *rstate,
 				       struct node *node)
 {
@@ -463,7 +463,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     announce,
 					     node->bcast.timestamp,
 					     is_local,
-					     false,
+					     is_node_zombie(node),
 					     false,
 					     NULL);
 	if (node->rgraph.index == initial_bcast_index){
@@ -477,10 +477,20 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 						      announce,
 						      node->rgraph.timestamp,
 						      is_local,
-						      false,
-						      false,
+						      is_node_zombie(node),
+						      true,
 						      NULL);
 	}
+}
+
+static void zombify_node_announcement(struct gossip_store *gs, struct node *node) {
+	assert(is_node_zombie(node));
+	if (node->rgraph.index != node->bcast.index)
+		gossip_store_mark_nannounce_zombie(gs, &node->rgraph);
+	gossip_store_mark_nannounce_zombie(gs, &node->bcast);
+	status_debug("Node %s zombified",
+		     type_to_string(tmpctx, struct node_id,
+				    &node->id));
 }
 
 static void remove_chan_from_node(struct routing_state *rstate,
@@ -520,6 +530,12 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
+		/* If the remaining channels are zombies, this takes care
+		 * of the node announcement too. */
+		if (is_node_zombie(node)) {
+			zombify_node_announcement(rstate->gs, node);
+			return;
+		}
 		if(node->rgraph.index != node->bcast.index)
 			gossip_store_delete(rstate->gs,
 					    &node->rgraph,
@@ -846,7 +862,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 						     channel_announce,
 						     chan->bcast.timestamp,
 						     is_local,
-						     false,
+						     is_chan_zombie(chan),
 						     false,
 						     addendum);
 	rstate->local_channel_announced |= is_local;
@@ -2055,12 +2071,7 @@ static void zombify_channel(struct gossip_store *gs, struct chan *channel)
 		struct node *node = channel->nodes[i];
 		if (!is_node_zombie(node) || !node->bcast.index)
 			continue;
-		if (node->rgraph.index != node->bcast.index)
-			gossip_store_mark_nannounce_zombie(gs, &node->rgraph);
-		gossip_store_mark_nannounce_zombie(gs, &node->bcast);
-		status_debug("Node %s zombified",
-			     type_to_string(tmpctx, struct node_id,
-					    &node->id));
+		zombify_node_announcement(gs, node);
 	}
 }
 
