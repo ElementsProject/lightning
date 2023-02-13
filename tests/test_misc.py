@@ -2547,6 +2547,22 @@ def test_restorefrompeer(node_factory, bitcoind):
     assert l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
 
 
+def test_peer_backup_normal_peer(node_factory, bitcoind):
+    l1 = node_factory.get_node(options={'experimental-peer-storage': None})
+
+    # Ask for one-byte pong reply.
+    msgs = subprocess.run(['devtools/gossipwith',
+                           '--initial-sync',
+                           '--timeout-after={}'.format(5),
+                           '--hex',
+                           '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                          check=True,
+                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
+
+    # Should not send peer backup to us!
+    assert not any([m.startswith('0007') for m in msgs])
+
+
 def test_commitfee_option(node_factory):
     """Sanity check for the --commit-fee startup option."""
     l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200"}, {}])
