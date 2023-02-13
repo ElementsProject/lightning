@@ -973,11 +973,6 @@ class LightningNode(object):
 
         self.start()
 
-    def fund_channel(self, l2, amount, wait_for_active=True, announce_channel=True):
-        warnings.warn("LightningNode.fund_channel is deprecated in favor of "
-                      "LightningNode.fundchannel", category=DeprecationWarning)
-        return self.fundchannel(l2, amount, wait_for_active, announce_channel)
-
     def fundchannel(self, l2, amount=FUNDAMOUNT, wait_for_active=True,
                     announce_channel=True, **kwargs):
         # Give yourself some funds to work with
