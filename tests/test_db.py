@@ -292,6 +292,8 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
         }
     ]
 
+    l1.stop()
+
     l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
                                options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
