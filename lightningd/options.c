@@ -1081,9 +1081,11 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 static char *opt_set_peer_storage(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL, OPT_PROVIDE_PEER_BACKUP_STORAGE)));
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_PROVIDE_PEER_BACKUP_STORAGE))));
 	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL, OPT_WANT_PEER_BACKUP_STORAGE)));
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_WANT_PEER_BACKUP_STORAGE))));
 	return NULL;
 }
 
