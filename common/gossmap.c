@@ -582,8 +582,8 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 
 	feature_len = map_be16(map, nann_off + feature_len_off);
 	map_nodeid(map, nann_off + feature_len_off + 2 + feature_len + 4, &id);
-	n = gossmap_find_node(map, &id);
-	n->nann_off = nann_off;
+	if ((n = gossmap_find_node(map, &id)))
+		n->nann_off = nann_off;
 }
 
 static void reopen_store(struct gossmap *map, size_t ended_off)
