@@ -868,7 +868,7 @@ class LightningNode(object):
             self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         return addr, txid
 
-    def fundbalancedchannel(self, remote_node, total_capacity, announce=True):
+    def fundbalancedchannel(self, remote_node, total_capacity=FUNDAMOUNT, announce=True):
         '''
         Creates a perfectly-balanced channel, as all things should be.
         '''
