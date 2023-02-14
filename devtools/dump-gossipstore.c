@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
 		push = (flags & GOSSIP_STORE_PUSH_BIT);
 		ratelimit = (flags & GOSSIP_STORE_RATELIMIT_BIT);
-		zombie = (msglen & GOSSIP_STORE_ZOMBIE_BIT);
+		zombie = (flags & GOSSIP_STORE_ZOMBIE_BIT);
 
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
