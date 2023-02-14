@@ -258,7 +258,7 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     ]
 
     # Test the first time, all entries are with option_static_remotekey
-    l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
+    l1 = node_factory.get_node(node_id=2, dbfile='pubkey_regen.sqlite.xz',
                                options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
