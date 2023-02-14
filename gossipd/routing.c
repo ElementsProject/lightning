@@ -424,8 +424,10 @@ static bool node_has_broadcastable_channels(struct node *node)
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (!is_chan_public(c))
 			continue;
-		if ((is_halfchan_defined(&c->half[0])
-		    || is_halfchan_defined(&c->half[1])) && !is_chan_zombie(c))
+		if (is_chan_zombie(c))
+			continue;
+		if (is_halfchan_defined(&c->half[0])
+		    || is_halfchan_defined(&c->half[1]))
 			return true;
 	}
 	return false;
