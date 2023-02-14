@@ -1378,7 +1378,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u8 direction;
 	struct amount_sat sat;
 	bool spam;
-	bool zombie;
+	bool chan_was_zombie;
+	bool node_was_zombie;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(update))
@@ -1399,7 +1400,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (chan) {
 		uc = NULL;
 		sat = chan->sat;
-		zombie = is_chan_zombie(chan);
+		chan_was_zombie = is_chan_zombie(chan);
 	} else {
 		/* Maybe announcement was waiting for this update? */
 		uc = get_unupdated_channel(rstate, &short_channel_id);
@@ -1407,7 +1408,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return false;
 		}
 		sat = uc->sat;
-		zombie = false;
+		chan_was_zombie = false;
 	}
 
 	/* Reject update if the `htlc_maximum_msat` is greater
@@ -1431,6 +1432,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		chan = new_chan(rstate, &short_channel_id,
 				&uc->id[0], &uc->id[1], sat);
 	}
+	node_was_zombie = is_node_zombie(chan->nodes[0]) ||
+			  is_node_zombie(chan->nodes[1]);
 
 	/* Discard older updates */
 	hc = &chan->half[direction];
@@ -1539,7 +1542,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Handle resurrection of zombie channels if the other side of the
 	 * zombie channel has a recent timestamp. */
-	if (zombie && timestamp_reasonable(rstate,
+	if (chan_was_zombie && timestamp_reasonable(rstate,
 		chan->half[!direction].bcast.timestamp) &&
 		chan->half[!direction].bcast.index) {
 		status_peer_debug(peer ? &peer->id : NULL,
@@ -1604,7 +1607,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* It's a miracle! */
 		chan->half[0].zombie = false;
 		chan->half[1].zombie = false;
-		zombie = false;
+		chan_was_zombie = false;
 	}
 
 	/* If we're loading from store, this means we don't re-add to store. */
@@ -1616,7 +1619,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->rgraph.index
 			= gossip_store_add(rstate->gs, update, timestamp,
 					   local_direction(rstate, chan, NULL),
-					   zombie, spam, NULL);
+					   chan_was_zombie, spam, NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = hc->bcast.timestamp;
@@ -1632,6 +1635,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		process_pending_node_announcement(rstate, &chan->nodes[0]->id);
 		process_pending_node_announcement(rstate, &chan->nodes[1]->id);
 		tal_free(uc);
+		/* A fully zombie node now has a valid channel, but the node
+		 * announcement comes from the gossip store. */
+		if (node_was_zombie)
+			resurrect_nannouncements(rstate, chan);
 	}
 
 	status_peer_debug(peer ? &peer->id : NULL,
