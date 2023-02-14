@@ -13,6 +13,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      build-essential \
      clang \
      cppcheck \
+     curl \
      docbook-xml \
      eatmydata \
      gcc-aarch64-linux-gnu \
