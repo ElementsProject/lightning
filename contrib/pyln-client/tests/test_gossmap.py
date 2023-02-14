@@ -119,3 +119,58 @@ def test_objects():
     assert boltz_node < acinq_node
     assert acinq_node > boltz_node
     assert boltz_node != acinq_node
+
+
+def test_mesh(tmp_path):
+    """This gossip store is a nice mesh created with pyln-testing:
+
+       l1--l2--l3
+       |   |   |
+       l4--l5--l6
+       |   |   |
+       l7--l8--l9
+    """
+    sfile = unxz_data_tmp("gossip_store.mesh-3x3.xz", tmp_path, "gossip_store", "xb")
+    g = Gossmap(sfile)
+    assert len(g.nodes) == 9
+    assert len(g.channels) == 12
+
+    nodeids = ['0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+               '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+               '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
+               '0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199',
+               '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e',
+               '0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518',
+               '0269f9862c311261241e5aee7abe0ec93c88613cc8f3c5f33cb1eea90d2bc4ddb6',
+               '03a7fd8070eea99341418fefe0b31086054d09cff64649eec3605db2340631c616',
+               '030eeb52087b9dbb27b7aec79ca5249369f6ce7b20a5684ce38d9f4595a21c2fda']
+    scid12 = '103x1x0'
+    scid14 = '105x1x1'
+    scid23 = '107x1x1'
+    scid25 = '109x1x1'
+    scid36 = '111x1x0'
+    scid45 = '113x1x0'
+    scid47 = '115x1x1'
+    scid56 = '117x1x1'
+    scid58 = '119x1x0'
+    scid69 = '121x1x1'
+    scid78 = '123x1x1'
+    scid89 = '125x1x1'
+    scids = [scid12, scid14, scid23, scid25, scid36, scid45, scid47, scid56,
+             scid58, scid69, scid78, scid89]
+
+    # check all nodes are there
+    for nodeid in nodeids:
+        node = g.get_node(nodeid)
+        assert node
+        assert str(node.node_id) == nodeid
+        for channel in node.channels:
+            assert str(channel.scid) in scids
+
+    # assert all channels are there
+    for scid in scids:
+        channel = g.get_channel(scid)
+        assert channel
+        assert str(channel.scid) == scid
+        assert channel.half_channels[0]
+        assert channel.half_channels[1]
