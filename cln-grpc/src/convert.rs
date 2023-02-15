@@ -1505,6 +1505,31 @@ impl From<responses::ListpaysResponse> for pb::ListpaysResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListhtlcsHtlcs> for pb::ListhtlcsHtlcs {
+    fn from(c: responses::ListhtlcsHtlcs) -> Self {
+        Self {
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            id: c.id, // Rule #2 for type u64
+            expiry: c.expiry, // Rule #2 for type u32
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            direction: c.direction as i32,
+            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            state: c.state as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListhtlcsResponse> for pb::ListhtlcsResponse {
+    fn from(c: responses::ListhtlcsResponse) -> Self {
+        Self {
+            // Field: ListHtlcs.htlcs[]
+            htlcs: c.htlcs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListhtlcsHtlcs
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::PingResponse> for pb::PingResponse {
     fn from(c: responses::PingResponse) -> Self {
         Self {
@@ -2198,6 +2223,15 @@ impl From<requests::ListpaysRequest> for pb::ListpaysRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
+    fn from(c: requests::ListhtlcsRequest) -> Self {
+        Self {
+            id: c.id, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::PingRequest> for pb::PingRequest {
     fn from(c: requests::PingRequest) -> Self {
         Self {
@@ -2863,6 +2897,15 @@ impl From<pb::ListpaysRequest> for requests::ListpaysRequest {
             bolt11: c.bolt11, // Rule #1 for type string?
             payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             status: c.status.map(|v| v.try_into().unwrap()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
+    fn from(c: pb::ListhtlcsRequest) -> Self {
+        Self {
+            id: c.id, // Rule #1 for type string?
         }
     }
 }

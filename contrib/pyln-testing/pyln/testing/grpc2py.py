@@ -1289,6 +1289,24 @@ def listpays2py(m):
     })
 
 
+def listhtlcs_htlcs2py(m):
+    return remove_default({
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "id": m.id,  # PrimitiveField in generate_composite
+        "expiry": m.expiry,  # PrimitiveField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "direction": str(m.direction),  # EnumField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "state": str(m.state),  # EnumField in generate_composite
+    })
+
+
+def listhtlcs2py(m):
+    return remove_default({
+        "htlcs": [listhtlcs_htlcs2py(i) for i in m.htlcs],  # ArrayField[composite] in generate_composite
+    })
+
+
 def ping2py(m):
     return remove_default({
         "totlen": m.totlen,  # PrimitiveField in generate_composite
