@@ -484,7 +484,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 						      node->rgraph.timestamp,
 						      is_local,
 						      false,
-						      false,
+						      true,
 						      NULL);
 	}
 }
