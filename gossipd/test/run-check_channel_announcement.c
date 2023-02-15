@@ -94,10 +94,6 @@ void gossip_store_mark_channel_zombie(struct gossip_store *gs UNNEEDED,
 void gossip_store_mark_cupdate_zombie(struct gossip_store *gs UNNEEDED,
 				      struct broadcastable *bcast UNNEEDED)
 { fprintf(stderr, "gossip_store_mark_cupdate_zombie called!\n"); abort(); }
-/* Generated stub for gossip_store_mark_nannounce_zombie */
-void gossip_store_mark_nannounce_zombie(struct gossip_store *gs UNNEEDED,
-					struct broadcastable *bcast UNNEEDED)
-{ fprintf(stderr, "gossip_store_mark_nannounce_zombie called!\n"); abort(); }
 /* Generated stub for gossip_store_new */
 struct gossip_store *gossip_store_new(struct routing_state *rstate UNNEEDED,
 				      struct list_head *peers UNNEEDED)
