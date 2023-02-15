@@ -94,6 +94,9 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
+/* Generated stub for node_has_broadcastable_channels */
+bool node_has_broadcastable_channels(const struct node *node UNNEEDED)
+{ fprintf(stderr, "node_has_broadcastable_channels called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }

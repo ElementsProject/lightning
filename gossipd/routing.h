@@ -434,6 +434,9 @@ bool would_ratelimit_cupdate(struct routing_state *rstate,
 			     const struct half_chan *hc,
 			     u32 timestamp);
 
+/* Does this node have public, non-zombie channels? */
+bool node_has_broadcastable_channels(const struct node *node);
+
 /* Returns an error string if there are unfinalized entries after load */
 const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate);
 

@@ -416,7 +416,7 @@ static bool is_node_zombie(struct node* node)
 
 /* We can *send* a channel_announce for a channel attached to this node:
  * we only send once we have a channel_update. */
-static bool node_has_broadcastable_channels(struct node *node)
+bool node_has_broadcastable_channels(const struct node *node)
 {
 	struct chan_map_iter i;
 	struct chan *c;

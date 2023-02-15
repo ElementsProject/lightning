@@ -68,6 +68,9 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
+/* Generated stub for node_has_broadcastable_channels */
+bool node_has_broadcastable_channels(const struct node *node UNNEEDED)
+{ fprintf(stderr, "node_has_broadcastable_channels called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
