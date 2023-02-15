@@ -696,13 +696,6 @@ void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
 	mark_zombie(gs, bcast, WIRE_CHANNEL_UPDATE);
 }
 
-/* Marks the length field of a node_announcement with the zombie flag bit */
-void gossip_store_mark_nannounce_zombie(struct gossip_store *gs,
-					struct broadcastable *bcast)
-{
-	mark_zombie(gs, bcast, WIRE_NODE_ANNOUNCEMENT);
-}
-
 const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
