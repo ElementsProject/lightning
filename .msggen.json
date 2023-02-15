@@ -102,6 +102,32 @@
             "spent": 2,
             "unconfirmed": 0
         },
+        "ListhtlcsHtlcsDirection": {
+            "in": 1,
+            "out": 0
+        },
+        "ListhtlcsHtlcsState": {
+            "RCVD_ADD_ACK_COMMIT": 3,
+            "RCVD_ADD_ACK_REVOCATION": 14,
+            "RCVD_ADD_COMMIT": 11,
+            "RCVD_ADD_HTLC": 10,
+            "RCVD_ADD_REVOCATION": 2,
+            "RCVD_REMOVE_ACK_COMMIT": 18,
+            "RCVD_REMOVE_ACK_REVOCATION": 9,
+            "RCVD_REMOVE_COMMIT": 6,
+            "RCVD_REMOVE_HTLC": 5,
+            "RCVD_REMOVE_REVOCATION": 17,
+            "SENT_ADD_ACK_COMMIT": 13,
+            "SENT_ADD_ACK_REVOCATION": 4,
+            "SENT_ADD_COMMIT": 1,
+            "SENT_ADD_HTLC": 0,
+            "SENT_ADD_REVOCATION": 12,
+            "SENT_REMOVE_ACK_COMMIT": 8,
+            "SENT_REMOVE_ACK_REVOCATION": 19,
+            "SENT_REMOVE_COMMIT": 16,
+            "SENT_REMOVE_HTLC": 15,
+            "SENT_REMOVE_REVOCATION": 7
+        },
         "ListinvoicesIndex": {
             "created": 0,
             "updated": 1
@@ -924,6 +950,21 @@
         "ListfundsResponse": {
             "ListFunds.channels[]": 2,
             "ListFunds.outputs[]": 1
+        },
+        "ListhtlcsHtlcs": {
+            "ListHtlcs.htlcs[].amount_msat": 4,
+            "ListHtlcs.htlcs[].direction": 5,
+            "ListHtlcs.htlcs[].expiry": 3,
+            "ListHtlcs.htlcs[].id": 2,
+            "ListHtlcs.htlcs[].payment_hash": 6,
+            "ListHtlcs.htlcs[].short_channel_id": 1,
+            "ListHtlcs.htlcs[].state": 7
+        },
+        "ListhtlcsRequest": {
+            "ListHtlcs.id": 1
+        },
+        "ListhtlcsResponse": {
+            "ListHtlcs.htlcs[]": 1
         },
         "ListinvoicesInvoices": {
             "ListInvoices.invoices[].amount_msat": 6,
@@ -3574,6 +3615,46 @@
             "deprecated": false
         },
         "ListFunds.spent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "ListHtlcs.htlcs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].direction": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].expiry": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].short_channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.htlcs[].state": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListHtlcs.id": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

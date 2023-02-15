@@ -1530,6 +1530,38 @@ async fn list_pays(
 
 }
 
+async fn list_htlcs(
+    &self,
+    request: tonic::Request<pb::ListhtlcsRequest>,
+) -> Result<tonic::Response<pb::ListhtlcsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListhtlcsRequest = req.into();
+    debug!("Client asked for list_htlcs");
+    trace!("list_htlcs request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListHtlcs(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListHtlcs: {:?}", e)))?;
+    match result {
+        Response::ListHtlcs(r) => {
+           trace!("list_htlcs response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListHtlcs",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn ping(
     &self,
     request: tonic::Request<pb::PingRequest>,

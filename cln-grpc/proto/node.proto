@@ -55,6 +55,7 @@ service Node {
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
+	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
@@ -1629,6 +1630,29 @@ message ListpaysPays {
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
 	optional bytes erroronion = 10;
+}
+
+message ListhtlcsRequest {
+	optional string id = 1;
+}
+
+message ListhtlcsResponse {
+	repeated ListhtlcsHtlcs htlcs = 1;
+}
+
+message ListhtlcsHtlcs {
+	// ListHtlcs.htlcs[].direction
+	enum ListhtlcsHtlcsDirection {
+		OUT = 0;
+		IN = 1;
+	}
+	string short_channel_id = 1;
+	uint64 id = 2;
+	uint32 expiry = 3;
+	Amount amount_msat = 4;
+	ListhtlcsHtlcsDirection direction = 5;
+	bytes payment_hash = 6;
+	HtlcState state = 7;
 }
 
 message PingRequest {
