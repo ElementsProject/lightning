@@ -263,6 +263,10 @@ static bool update_own_node_announcement(struct daemon *daemon,
 	/* Discard existing timer. */
 	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
 
+	/* If we don't have any channels now, don't send node_announcement */
+	if (!self || !node_has_broadcastable_channels(self))
+		goto reset_timer;
+
 	/* If we ever use set-based propagation, ensuring the toggle the lower
 	 * bit in consecutive timestamps makes it more robust. */
 	if (self && self->bcast.index
@@ -327,6 +331,7 @@ static bool update_own_node_announcement(struct daemon *daemon,
 send:
 	sign_and_send_nannounce(daemon, nannounce, timestamp);
 
+reset_timer:
 	/* Generate another one in 24 hours. */
 	setup_force_nannounce_regen_timer(daemon);
 
@@ -341,13 +346,6 @@ static void update_own_node_announcement_after_startup(struct daemon *daemon)
 /* This creates and transmits a *new* node announcement */
 static void force_self_nannounce_regen(struct daemon *daemon)
 {
-	struct node *self = get_node(daemon->rstate, &daemon->id);
-	/* Clear timer pointer now. */
-	daemon->node_announce_regen_timer = NULL;
-	/* No channels left?  We'll restart timer once we have one. */
-	if (!self || !self->bcast.index)
-		return;
-
 	update_own_node_announcement(daemon, false, true);
 }
 
