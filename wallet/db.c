@@ -67,6 +67,10 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 					       struct db *db,
 					       const struct migration_context *mc);
 
+static void fillin_missing_lease_satoshi(struct lightningd *ld,
+					 struct db *db,
+					 const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -948,6 +952,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN lease_satoshi BIGINT;"), NULL},
     {SQL("ALTER TABLE channels ADD require_confirm_inputs_remote INTEGER DEFAULT 0;"), NULL},
     {SQL("ALTER TABLE channels ADD require_confirm_inputs_local INTEGER DEFAULT 0;"), NULL},
+    {NULL, fillin_missing_lease_satoshi},
 };
 
 /**
@@ -1577,4 +1582,17 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 
 	if (!db->config->delete_columns(db, "payments", colnames, ARRAY_SIZE(colnames)))
 		db_fatal("Could not delete payments.failchannel");
+}
+
+static void fillin_missing_lease_satoshi(struct lightningd *ld,
+					 struct db *db,
+					 const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE channel_funding_inflights"
+				     " SET lease_satoshi = 0"
+				     " WHERE lease_satoshi IS NULL;"));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
 }
