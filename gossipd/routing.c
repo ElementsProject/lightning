@@ -1816,9 +1816,12 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		if (!pna) {
 			if (was_unknown)
 				*was_unknown = true;
-			bad_gossip_order(msg, peer,
-					 type_to_string(tmpctx, struct node_id,
-							&node_id));
+			/* Don't complain if it's a zombie node! */
+			if (!node || !is_node_zombie(node)) {
+				bad_gossip_order(msg, peer,
+						 type_to_string(tmpctx, struct node_id,
+								&node_id));
+			}
 			return false;
 		} else if (timestamp <= pna->timestamp)
 			/* Ignore old ones: they're OK (unless from store). */
