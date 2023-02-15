@@ -1774,9 +1774,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	node = get_node(rstate, &node_id);
 
-	if (node == NULL
-	    || !node_has_broadcastable_channels(node)
-	    || is_node_zombie(node)) {
+	if (node == NULL || !node_has_broadcastable_channels(node)) {
 		struct pending_node_announce *pna;
 		/* BOLT #7:
 		 *
