@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 <!--
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
-## [23.02rc2] - 2023-02-12
+## [23.02rc3] - 2023-02-15
 
 ### Added
 
@@ -63,6 +63,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Plugins: `pay` uses the correct local channel for payments when there are multiple available (not just always the first!) ([#5947])
  - Pruned channels are more reliably restored. ([#5839])
  - pay: don't assert() on malformed BOLT11 strings. ([#5891])
+ - gossmap: Fixed `FATAL SIGNAL 11` on gossmap node announcement parsing. ([#6005])
  - channeld no longer retains dead HTLCs in memory. ([#5882])
  - database: Correctly identity official release versions for database upgrade. ([#5880])
  - Plugins: `commando` now responds to remote JSON calls with the correct JSON `id` field. ([#5866])
@@ -112,6 +113,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5897]: https://github.com/ElementsProject/lightning/pull/5897
 [#5904]: https://github.com/ElementsProject/lightning/pull/5904
 [#5994]: https://github.com/ElementsProject/lightning/pull/5994
+[#6005]: https://github.com/ElementsProject/lightning/pull/6005
 
 
 ## [22.11.1] - 2022-12-09: "Alameda Yield Generator II"
