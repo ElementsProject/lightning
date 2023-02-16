@@ -62,9 +62,7 @@ class ShortChannelId(object):
 
     @classmethod
     def from_str(self, s):
-        block, txnum, outnum = s.split('x')
-        return ShortChannelId(block=int(block), txnum=int(txnum),
-                              outnum=int(outnum))
+        return ShortChannelId(*map(int, s.split('x')))
 
     def to_int(self):
         return self.block << 40 | self.txnum << 16 | self.outnum
