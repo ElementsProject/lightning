@@ -262,6 +262,17 @@ class Gossmap(object):
             short_channel_id = ShortChannelId.from_str(short_channel_id)
         return self.channels.get(short_channel_id)
 
+    def get_halfchannel(self,
+                        short_channel_id: Union[ShortChannelId, str],
+                        direction: int):
+        """ Returns a GossmapHalfchannel identified by a scid and direction. """
+        assert short_channel_id is not None
+        if isinstance(short_channel_id, str):
+            short_channel_id = ShortChannelId.from_str(short_channel_id)
+        assert direction in [0, 1], "direction can only be 0 or 1"
+        channel = self.get_channel(short_channel_id)
+        return channel.half_channels[direction]
+
     def get_node(self, node_id: Union[GossmapNodeId, str]):
         """ Resolves a node by its public key node_id """
         if isinstance(node_id, str):
