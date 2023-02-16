@@ -3102,3 +3102,48 @@ def test_hsm_capabilities(node_factory):
     l1 = node_factory.get_node()
     # This appears before the start message, so it'll already be present.
     assert l1.daemon.is_in_log(r"hsmd: capability \+WIRE_HSMD_CHECK_PUBKEY")
+
+
+@pytest.mark.skip(reason="Fails by intention for creating test gossip stores")
+def test_create_gossip_mesh(node_factory, bitcoind):
+    """
+    Feel free to modify this test and remove the '@pytest.mark.skip' above.
+    Run it to get a customized gossip store. It fails on purpose, see below.
+
+    This builds a small mesh
+
+      l1--l2--l3
+      |   |   |
+      l4--l5--l6
+      |   |   |
+      l7--l8--l9
+    """
+    nodes = node_factory.get_nodes(9)
+    nodeids = [n.info['id'] for n in nodes]
+
+    [l1, l2, l3, l4, l5, l6, l7, l8, l9] = nodes
+    scid12, _ = l1.fundchannel(l2, wait_for_active=False, connect=True)
+    scid14, _ = l1.fundchannel(l4, wait_for_active=False, connect=True)
+    scid23, _ = l2.fundchannel(l3, wait_for_active=False, connect=True)
+    scid25, _ = l2.fundchannel(l5, wait_for_active=False, connect=True)
+    scid36, _ = l3.fundchannel(l6, wait_for_active=False, connect=True)
+    scid45, _ = l4.fundchannel(l5, wait_for_active=False, connect=True)
+    scid47, _ = l4.fundchannel(l7, wait_for_active=False, connect=True)
+    scid56, _ = l5.fundchannel(l6, wait_for_active=False, connect=True)
+    scid58, _ = l5.fundchannel(l8, wait_for_active=False, connect=True)
+    scid69, _ = l6.fundchannel(l9, wait_for_active=False, connect=True)
+    scid78, _ = l7.fundchannel(l8, wait_for_active=False, connect=True)
+    scid89, _ = l8.fundchannel(l9, wait_for_active=False, connect=True)
+    bitcoind.generate_block(10)
+
+    scids = [scid12, scid14, scid23, scid25, scid36, scid45, scid47, scid56,
+             scid58, scid69, scid78, scid89]
+
+    # waits for all nodes to have all scids gossip active
+    for n in nodes:
+        for scid in scids:
+            n.wait_channel_active(scid)
+
+    print("nodeids", nodeids)
+    print("scids", scids)
+    assert False, "Test failed on purpose, grab the gossip store from /tmp/ltests-..."

@@ -838,7 +838,7 @@ class LightningNode(object):
         )
 
     def connect(self, remote_node):
-        self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
+        self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.port)
 
     def is_connected(self, remote_node):
         return remote_node.info['id'] in [p['id'] for p in self.rpc.listpeers()['peers']]
@@ -846,6 +846,7 @@ class LightningNode(object):
     def openchannel(self, remote_node, capacity=FUNDAMOUNT, addrtype="bech32", confirm=True, wait_for_announce=True, connect=True):
         addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
 
+        # connect if necessary
         if connect and not self.is_connected(remote_node):
             self.connect(remote_node)
 
@@ -892,7 +893,9 @@ class LightningNode(object):
         else:
             chan_capacity = total_capacity
 
-        self.rpc.connect(remote_node.info['id'], 'localhost', remote_node.port)
+        # connect if necessary
+        if not self.is_connected(remote_node):
+            self.connect(remote_node)
 
         res = self.rpc.fundchannel(remote_node.info['id'], chan_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(chan_capacity * 500))
         blockid = self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])[0]
@@ -993,6 +996,10 @@ class LightningNode(object):
 
         # Now we should.
         wait_for(lambda: has_funds_on_addr(addr))
+
+        # connect if necessary
+        if not self.is_connected(l2):
+            self.connect(l2)
 
         # Now go ahead and open a channel
         res = self.rpc.fundchannel(l2.info['id'], amount,
