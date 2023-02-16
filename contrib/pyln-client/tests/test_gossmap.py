@@ -70,7 +70,7 @@ def test_gossmap_halfchannel(tmp_path):
     assert chan.node2 == n2
 
     half0 = chan.get_direction(0)
-    half1 = chan.get_direction(1)
+    half1 = g.get_halfchannel("103x1x1", 1)
     assert half0
     assert half1
     assert half0.direction == 0
