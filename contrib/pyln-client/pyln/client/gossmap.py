@@ -3,7 +3,7 @@
 from pyln.spec.bolt7 import (channel_announcement, channel_update,
                              node_announcement)
 from pyln.proto import ShortChannelId, PublicKey
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Set, Optional, Union
 
 import io
 import struct
@@ -273,11 +273,96 @@ class Gossmap(object):
         channel = self.get_channel(short_channel_id)
         return channel.half_channels[direction]
 
+    def get_neighbors_hc(self,
+                         source: Union[GossmapNodeId, str, None] = None,
+                         destination: Union[GossmapNodeId, str, None] = None,
+                         depth: int = 0,
+                         excludes: Union[Set[Any], List[Any]] = set()):
+        """ Returns a set[GossmapHalfchannel]` from `source` or towards
+            `destination` node ID. Using the optional `depth` greater than `0`
+            will result in a second, third, ...  order list of connected
+            channels towards or from that node.
+            Note: only one of `source` or `destination` can be given. """
+        assert (source is None) ^ (destination is None), "Only one of source or destination must be given"
+        assert depth >= 0, "Depth cannot be smaller than 0"
+        node = self.get_node(source if source else destination)
+        assert node is not None, "source or destination unknown"
+        if isinstance(excludes, List):
+            excludes = set(excludes)
+
+        # first get set of reachable nodes ...
+        reachable = self.get_neighbors(source, destination, depth, excludes)
+        # and iterate and check any each source/dest channel from here
+        result = set()
+        for node in reachable:
+            for channel in node.channels:
+                if channel in excludes:
+                    continue
+                other = channel.node1 if node != channel.node1 else channel.node2
+                if other in reachable or other in excludes:
+                    continue
+                direction = 0
+                if source is not None and node > other:
+                    direction = 1
+                if destination is not None and node < other:
+                    direction = 1
+                hc = channel.half_channels[direction]
+                # skip excluded or non existent halfchannels
+                if hc is None or hc in excludes:
+                    continue
+                result.add(hc)
+        return result
+
     def get_node(self, node_id: Union[GossmapNodeId, str]):
         """ Resolves a node by its public key node_id """
         if isinstance(node_id, str):
             node_id = GossmapNodeId.from_str(node_id)
         return self.nodes.get(node_id)
+
+    def get_neighbors(self,
+                      source: Union[GossmapNodeId, str, None] = None,
+                      destination: Union[GossmapNodeId, str, None] = None,
+                      depth: int = 0,
+                      excludes: Union[Set[Any], List[Any]] = set()):
+        """ Returns a set of nodes within a given depth from a source node """
+        assert (source is None) ^ (destination is None), "Only one of source or destination must be given"
+        assert depth >= 0, "Depth cannot be smaller than 0"
+        node = self.get_node(source if source else destination)
+        assert node is not None, "source or destination unknown"
+        if isinstance(excludes, List):
+            excludes = set(excludes)
+
+        result = set()
+        result.add(node)
+        inner = set()
+        inner.add(node)
+        while depth > 0:
+            shell = set()
+            for node in inner:
+                for channel in node.channels:
+                    if channel in excludes:  # skip excluded channels
+                        continue
+                    other = channel.node1 if channel.node1 != node else channel.node2
+                    direction = 0
+                    if source is not None and node > other:
+                        direction = 1
+                    if destination is not None and node < other:
+                        direction = 1
+                    if channel.half_channels[direction] is None:
+                        continue  # one way channel in the wrong direction
+                    halfchannel = channel.half_channels[direction]
+                    if halfchannel in excludes:  # skip excluded halfchannels
+                        continue
+                    # skip excluded or already seen nodes
+                    if other in excludes or other in inner or other in result:
+                        continue
+                    shell.add(other)
+            if len(shell) == 0:
+                break
+            depth -= 1
+            result.update(shell)
+            inner = shell
+        return result
 
     def _update_channel(self, rec: bytes, hdr: GossipStoreHeader):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
