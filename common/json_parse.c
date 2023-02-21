@@ -683,6 +683,26 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	return rpath;
 }
 
+bool json_to_uintarr(const char *buffer, const jsmntok_t *tok, u64 **dest)
+{
+	char *str = json_strdup(NULL, buffer, tok);
+	char *endp, **elements = tal_strsplit(str, str, ",", STR_NO_EMPTY);
+	unsigned long long l;
+	u64 u;
+	for (int i = 0; elements[i] != NULL; i++) {
+		/* This is how the manpage says to do it.  Yech. */
+		errno = 0;
+		l = strtoull(elements[i], &endp, 0);
+		if (*endp || !str[0])
+			return tal_fmt(NULL, "'%s' is not a number", elements[i]);
+		u = l;
+		if (errno || u != l)
+			return tal_fmt(NULL, "'%s' is out of range", elements[i]);
+		tal_arr_expand(dest, u);
+	}
+	tal_free(str);
+	return NULL;
+}
 
 bool
 json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
