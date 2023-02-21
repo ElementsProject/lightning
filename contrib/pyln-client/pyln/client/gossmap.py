@@ -6,6 +6,8 @@ from pyln.proto import ShortChannelId, PublicKey
 from typing import Any, Dict, List, Set, Optional, Union
 
 import io
+import base64
+import socket
 import struct
 
 # These duplicate constants in lightning/common/gossip_store.h
@@ -173,10 +175,13 @@ class GossmapNode(object):
         self.hdr: GossipStoreHeader = None
         self.channels: List[GossmapChannel] = []
         self.node_id = node_id
+        self.announced = False
 
         self._hash = self.node_id.__hash__()
 
     def __repr__(self):
+        if hasattr(self, 'alias'):
+            return f"GossmapNode[{self.node_id.nodeid.hex()}, \"{self.alias}\"]"
         return f"GossmapNode[{self.node_id.nodeid.hex()}]"
 
     def __eq__(self, other):
@@ -194,6 +199,52 @@ class GossmapNode(object):
 
     def __str__(self):
         return str(self.node_id)
+
+    def _parse_addresses(self, data: bytes):
+        """ parse address descriptors defined in bolts 07-routing-gossip.md """
+        result = []
+        try:
+            stream = io.BytesIO(data)
+            while stream.tell() < len(data):
+                _type = int.from_bytes(stream.read(1), byteorder='big')
+                if _type == 1:      # IPv4  length   6
+                    ip = socket.inet_ntoa(stream.read(4))
+                    port = int.from_bytes(stream.read(2), byteorder='big')
+                    result.append(f"{ip}:{port}")
+                elif _type == 2:    # IPv6  length  18
+                    ip = socket.inet_ntop(socket.AF_INET6, stream.read(16))
+                    port = int.from_bytes(stream.read(2), byteorder='big')
+                    result.append(f"[{ip}]:{port}")
+                elif _type == 3:    # TORv2 length  12 (deprecated)
+                    stream.read(12)
+                elif _type == 4:    # TORv3 length  37
+                    addr = base64.b32encode(stream.read(35)).decode('ascii').lower()
+                    port = int.from_bytes(stream.read(2), byteorder='big')
+                    result.append(f"{addr}.onion:{port}")
+                elif _type == 5:    # DNS   up to  258
+                    hostname_len = int.from_bytes(stream.read(1), byteorder='big')
+                    hostname = stream.read(hostname_len).decode('ascii')
+                    port = int.from_bytes(stream.read(2), byteorder='big')
+                    result.append(f"{hostname}:{port}")
+                else:  # Stop parsing at the first unknown type
+                    break
+        # we simply pass exceptions and return what we were able to read so far
+        except Exception:
+            pass
+        self.addresses = result
+
+    def get_address_type(self, idx: int):
+        """ I know this can be more sophisticated, but works """
+        if not self.announced or len(self.addresses) <= idx:
+            return None
+        addrstr = self.addresses[idx]
+        if ".onion:" in addrstr:
+            return 'tor'
+        if addrstr[0].isdigit():
+            return 'ipv4'
+        if addrstr.startswith("["):
+            return 'ipv6'
+        return 'dns'
 
 
 class Gossmap(object):
@@ -382,6 +433,12 @@ class Gossmap(object):
         node = self.nodes[node_id]
         node.fields = fields
         node.hdr = hdr
+
+        node.timestamp = fields['timestamp']
+        node.alias = bytes(fields['alias']).decode('utf-8')
+        node.rgb = fields['rgb_color']
+        node._parse_addresses(bytes(fields['addresses']))
+        node.announced = True
 
     def reopen_store(self):
         assert False, "FIXME: Implement!"
