@@ -303,6 +303,7 @@ message ListfundsChannels {
 	uint32 funding_output = 5;
 	bool connected = 6;
 	ChannelState state = 7;
+	bytes channel_id = 9;
 	optional string short_channel_id = 8;
 }
 
