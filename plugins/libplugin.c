@@ -583,6 +583,14 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 	return contents;
 }
 
+const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx, struct plugin *plugin,
+				      const char *method,
+				      const struct json_out *params TAKES,
+				      const char **resp)
+{
+	return sync_req(ctx, plugin, method, params, resp);
+}
+
 /* Returns contents of scanning guide on 'result' */
 static const char *rpc_scan_core(const tal_t *ctx,
 				 struct plugin *plugin,
