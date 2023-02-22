@@ -15,6 +15,7 @@
 #define KEYSEND_FEATUREBIT 55
 static unsigned int maxdelay_default;
 static struct node_id my_id;
+static u64 *accepted_extra_tlvs;
 
 /*****************************************************************************
  * Keysend modifier
@@ -163,13 +164,26 @@ REGISTER_PAYMENT_MODIFIER(check_preapprovekeysend, void *, NULL,
 static const char *init(struct plugin *p, const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
+	const jsmntok_t *maxdelay, *extratlvs, *ctok;
+	const char *cbuf;
 
-	rpc_scan(p, "listconfigs",
-		 take(json_out_obj(NULL, "config", "max-locktime-blocks")),
-		 "{max-locktime-blocks:%}",
-		 JSON_SCAN(json_to_number, &maxdelay_default));
+	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)), "{id:%}",
+		 JSON_SCAN(json_to_node_id, &my_id));
+
+	ctok =
+	    jsonrpc_request_sync(tmpctx, p, "listconfigs",
+				 take(json_out_obj(NULL, NULL, NULL)), &cbuf);
+	/* `accept-htlc-tlv-types` may be missing if not set in the
+	 * config */
+	maxdelay = json_get_member(cbuf, ctok, "max-locktime-blocks");
+	extratlvs = json_get_member(cbuf, ctok, "accept-htlc-tlv-types");
+	accepted_extra_tlvs = notleak(tal_arr(NULL, u64, 0));
+
+	assert(maxdelay != NULL);
+	json_to_number(cbuf, maxdelay, &maxdelay_default);
+
+	if (extratlvs != NULL)
+		json_to_uintarr(cbuf, extratlvs, &accepted_extra_tlvs);
 
 	return NULL;
 }
