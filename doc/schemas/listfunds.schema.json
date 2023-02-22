@@ -143,7 +143,8 @@
           "funding_txid",
           "funding_output",
           "connected",
-          "state"
+          "state",
+          "channel_id"
         ],
         "properties": {
           "peer_id": {
@@ -186,6 +187,11 @@
               "DUALOPEND_AWAITING_LOCKIN"
             ],
             "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+          },
+          "channel_id": {
+            "type": "hash",
+            "description": "The full channel_id (funding txid Xored with output number)",
+            "added": "v23.05"
           }
         },
         "allOf": [
@@ -215,6 +221,7 @@
                 "funding_output": {},
                 "connected": {},
                 "state": {},
+                "channel_id": {},
                 "short_channel_id": {
                   "type": "short_channel_id",
                   "description": "short channel id of channel"
@@ -251,6 +258,7 @@
                 "funding_output": {},
                 "connected": {},
                 "state": {},
+                "channel_id": {},
                 "short_channel_id": {
                   "type": "short_channel_id",
                   "description": "short channel id of channel (only if funding reached lockin depth before closing)"

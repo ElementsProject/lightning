@@ -600,6 +600,7 @@
         },
         "ListfundsChannels": {
             "ListFunds.channels[].amount_msat": 3,
+            "ListFunds.channels[].channel_id": 9,
             "ListFunds.channels[].connected": 6,
             "ListFunds.channels[].funding_output": 5,
             "ListFunds.channels[].funding_txid": 4,

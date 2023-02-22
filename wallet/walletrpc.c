@@ -355,6 +355,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 				      channel_is_connected(c));
 			json_add_string(response, "state",
 					channel_state_name(c));
+			json_add_channel_id(response, "channel_id", &c->cid);
 			if (c->scid)
 				json_add_short_channel_id(response,
 							  "short_channel_id",
