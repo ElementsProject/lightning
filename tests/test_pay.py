@@ -3586,7 +3586,7 @@ def test_keysend(node_factory):
 def test_keysend_strip_tlvs(node_factory):
     """Use the extratlvs option to deliver a message with sphinx' TLV type, which keysend strips.
     """
-    amt = 10000
+    amt = 10**7
     l1, l2 = node_factory.line_graph(
         2,
         wait_for_announce=True,
@@ -3594,6 +3594,7 @@ def test_keysend_strip_tlvs(node_factory):
             {
                 # Not needed, just for listconfigs test.
                 'accept-htlc-tlv-types': '133773310,99990',
+                "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
             },
             {
                 "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
@@ -3604,6 +3605,7 @@ def test_keysend_strip_tlvs(node_factory):
     # Make sure listconfigs works here
     assert l1.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310,99990'
 
+    # l1 is configured to accept, so l2 should still filter them out
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert not l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de')
@@ -3635,6 +3637,18 @@ More info
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: ' + ksinfo
     l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
+
+    # Now reverse the direction. l1 accepts 133773310, but filters out
+    # other even unknown types (like 133773312).
+    l2.rpc.keysend(l1.info['id'], amt, extratlvs={
+        "133773310": b"helloworld".hex(),  # This one is allowlisted
+        "133773312": b"filterme".hex(),  # This one will get stripped
+    })
+
+    # The invoice_payment hook must contain the allowlisted TLV type,
+    # but not the stripped one.
+    assert l1.daemon.wait_for_log(r'plugin-sphinx-receiver.py: invoice_payment.*extratlvs.*133773310')
+    assert not l1.daemon.is_in_log(r'plugin-sphinx-receiver.py: invoice_payment.*extratlvs.*133773312')
 
 
 def test_keysend_routehint(node_factory):
