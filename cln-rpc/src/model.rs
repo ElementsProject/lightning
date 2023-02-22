@@ -1809,6 +1809,7 @@ pub mod responses {
 	    pub connected: bool,
 	    // Path `ListFunds.channels[].state`
 	    pub state: ChannelState,
+	    pub channel_id: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	}

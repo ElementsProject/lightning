@@ -259,6 +259,7 @@ impl From<responses::ListfundsChannels> for pb::ListfundsChannels {
             funding_output: c.funding_output, // Rule #2 for type u32
             connected: c.connected, // Rule #2 for type boolean
             state: c.state as i32,
+            channel_id: c.channel_id.to_vec(), // Rule #2 for type hash
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
@@ -2595,6 +2596,7 @@ impl From<pb::ListfundsChannels> for responses::ListfundsChannels {
             funding_output: c.funding_output, // Rule #1 for type u32
             connected: c.connected, // Rule #1 for type boolean
             state: c.state.try_into().unwrap(),
+            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
             short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
         }
     }

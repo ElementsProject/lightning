@@ -220,6 +220,7 @@ def listfunds_channels2py(m):
         "funding_output": m.funding_output,  # PrimitiveField in generate_composite
         "connected": m.connected,  # PrimitiveField in generate_composite
         "state": str(m.state),  # EnumField in generate_composite
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
     })
 
