@@ -478,4 +478,11 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 						 struct htable *memtable));
 #endif /* DEVELOPER */
 
+/* Synchronously call a JSON-RPC method and return its contents and
+ * the parser token. */
+const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx, struct plugin *plugin,
+				      const char *method,
+				      const struct json_out *params TAKES,
+				      const char **resp);
+
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */
