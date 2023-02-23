@@ -26,6 +26,64 @@ WIRE_GOSSIP_STORE_ENDED = 4105
 WIRE_GOSSIP_STORE_CHANNEL_AMOUNT = 4101
 
 
+class LnFeatureBits(object):
+    """ feature flags taken from bolts.git/09-features.md
+
+ Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
+ an _even_ bit). They are generally assigned in pairs so that features
+ can be introduced as optional (_odd_ bits) and later upgraded to be compulsory
+ (_even_ bits), which will be refused by outdated nodes:
+
+ CONTEXT:
+ * `I`: presented in the `init` message.
+ * `N`: presented in the `node_announcement` messages
+ * `C`: presented in the `channel_announcement` message.
+ * `C-`: presented in the `channel_announcement` message, but always odd (optional).
+ * `C+`: presented in the `channel_announcement` message, but always even (required).
+ * `9`: presented in [BOLT 11](11-payment-encoding.md) invoices.
+
+    FEATURE_NAME                                    # CONTEXT   # PRs
+    ----------------------------------------------------------------- """
+    OPTION_DATA_LOSS_PROTECT = 0                    # IN
+    INITIAL_ROUTING_SYNC = 2                        # I
+    OPTION_UPFRONT_SHUTDOWN_SCRIPT = 4              # IN
+    GOSSIP_QUERIES = 6                              # IN
+    VAR_ONION_OPTIN = 8                             # IN9
+    GOSSIP_QUERIES_EX = 10                          # IN
+    OPTION_STATIC_REMOTEKEY = 12                    # IN
+    PAYMENT_SECRET = 14                             # IN9
+    BASIC_MPP = 16                                  # IN9
+    OPTION_SUPPORT_LARGE_CHANNEL = 18               # IN
+    OPTION_ANCHOR_OUTPUTS = 20                      # IN
+    OPTION_ANCHORS_ZERO_FEE_HTLC_TX = 22            # IN
+    OPTION_SHUTDOWN_ANYSEGWIT = 26                  # IN
+    OPTION_CHANNEL_TYPE = 44                        # IN
+    OPTION_SCID_ALIAS = 46                          # IN
+    OPTION_PAYMENT_METADATA = 48                    # 9
+    OPTION_ZEROCONF = 50                            # IN
+
+    OPTION_PROPOSED_ROUTE_BLINDING = 24             # IN9       #765 #798
+    OPTION_PROPOSED_DUAL_FUND = 28                  # IN        #851 #1009
+    OPTION_PROPOSED_ALTERNATIVE_FEERATES = 32       # IN        #1036
+    OPTION_PROPOSED_QUIESCE = 34                    # IN        #869 #868
+    OPTION_PROPOSED_ONION_MESSAGES = 38             # IN        #759
+    OPTION_PROPOSED_WANT_PEER_BACKUP_STORAGE = 40   # IN        #881
+    OPTION_PROPOSED_PROVIDE_PEER_BACKUP = 42        # IN        #881
+    OPTION_PROPOSED_TRAMPOLINE_ROUTING = 56         # IN9       #836
+    OPTION_PROPOSED_UPFRONT_FEE = 56                # IN9       #1052
+    OPTION_PROPOSED_CLOSING_REJECTED = 60           # IN        #1016
+    OPTION_PROPOSED_SPLICE = 62                     # IN        #863
+
+
+def _parse_features(featurebytes):
+    # featurebytes e.g.: [136, 160, 0, 8, 2, 105, 162]
+    result = 0
+    for byte in featurebytes:
+        result <<= 8
+        result |= byte
+    return result
+
+
 class GossipStoreHeader(object):
     def __init__(self, buf: bytes, off: int):
         self.flags, self.length, self.crc, self.timestamp = struct.unpack('>HHII', buf)
@@ -136,6 +194,7 @@ class GossmapChannel(object):
         self.node2 = node2
         self.satoshis = None
         self.half_channels: List[Optional[GossmapHalfchannel]] = [None, None]
+        self.features = _parse_features(fields['features'])
 
     def _update_channel(self,
                         direction: int,
@@ -163,6 +222,21 @@ class GossmapChannel(object):
 
     def __hash__(self):
         return self.scid.__hash__()
+
+    def has_feature(self, bit):
+        return 3 << bit & self.features != 0
+
+    def has_feature_compulsory(self, bit):
+        return 1 << bit & self.features != 0
+
+    def has_feature_optional(self, bit):
+        return 2 << bit & self.features != 0
+
+    def has_features(self, *bits):
+        for bit in bits:
+            if not self.has_feature(bit):
+                return False
+        return True
 
 
 class GossmapNode(object):
@@ -200,6 +274,29 @@ class GossmapNode(object):
 
     def __str__(self):
         return str(self.node_id)
+
+    def has_feature(self, bit):
+        if not self.announced:
+            return None
+        return 3 << bit & self.features != 0
+
+    def has_feature_compulsory(self, bit):
+        if not self.announced:
+            return None
+        return 1 << bit & self.features != 0
+
+    def has_feature_optional(self, bit):
+        if not self.announced:
+            return None
+        return 2 << bit & self.features != 0
+
+    def has_features(self, *bits):
+        if not self.announced:
+            return None
+        for bit in bits:
+            if not self.has_feature(bit):
+                return False
+        return True
 
     def _parse_addresses(self, data: bytes):
         """ parse address descriptors defined in bolts 07-routing-gossip.md """
@@ -435,6 +532,8 @@ class Gossmap(object):
         node.fields = fields
         node.hdr = hdr
 
+        # read metadata
+        node.features = _parse_features(fields['features'])
         node.timestamp = fields['timestamp']
         node.alias = bytes(fields['alias']).decode('utf-8')
         node.rgb = fields['rgb_color']
