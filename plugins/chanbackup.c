@@ -346,6 +346,9 @@ static struct command_result *peer_after_listdatastore(struct command *cmd,
         	return command_hook_success(cmd);
         struct out_req *req;
 
+	if (!peer_backup)
+		return command_hook_success(cmd);
+
         u8 *payload = towire_your_peer_storage(cmd, hexdata);
 
         plugin_log(cmd->plugin, LOG_DBG,
@@ -443,7 +446,7 @@ static struct command_result *after_listpeers(struct command *cmd,
 		json_to_bool(buf, json_get_member(buf, peer, "connected"),
 			     &is_connected);
 
-		if (is_connected) {
+		if (is_connected && peer_backup) {
 			const jsmntok_t *nodeid;
 			struct node_id node_id;
 
