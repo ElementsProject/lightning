@@ -1317,7 +1317,6 @@ static void call_plugin_timer(struct plugin *p, struct timer *timer)
 {
 	struct plugin_timer *t = container_of(timer, struct plugin_timer, timer);
 
-	p->in_timer++;
 	/* Free this if they don't. */
 	tal_steal(tmpctx, t);
 	t->cb(t->cb_arg);
@@ -1338,6 +1337,7 @@ struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
 	timer_init(&timer->timer);
 	timer_addrel(&p->timers, &timer->timer, t);
 	tal_add_destructor2(timer, destroy_plugin_timer, p);
+	p->in_timer++;
 	return timer;
 }
 
