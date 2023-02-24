@@ -588,7 +588,8 @@ where
                 }
             }
             Some(Err(e)) => Err(anyhow!("Error reading command: {}", e)),
-            None => Err(anyhow!("Error reading from master")),
+            // Connection to CLN over STDIN has disconnected, so we exit
+            None => std::process::exit(0),
         }
     }
 
