@@ -691,12 +691,21 @@ impl<S> Plugin<S>
 where
     S: Send + Clone,
 {
+    /// Wait for plugin shutdown
     pub async fn join(&self) -> Result<(), Error> {
         self.wait_handle
             .subscribe()
             .recv()
             .await
             .context("error waiting for shutdown")
+    }
+
+    /// Request plugin shutdown
+    pub fn shutdown(&self) -> Result<(), Error> {
+        self.wait_handle
+            .send(())
+            .context("error waiting for shutdown")?;
+        Ok(())
     }
 }
 
