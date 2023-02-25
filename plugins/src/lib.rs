@@ -322,7 +322,7 @@ where
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
             dynamic: self.dynamic,
-	    nonnumericids: true,
+            nonnumericids: true,
         }
     }
 
@@ -458,8 +458,8 @@ where
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(async move {
             if let Err(e) = driver.run(receiver, input, output).await {
-		log::warn!("Plugin loop returned error {:?}", e);
-	    }
+                log::warn!("Plugin loop returned error {:?}", e);
+            }
 
             // Now that we have left the reader loop its time to
             // notify any waiting tasks. This most likely will cause
@@ -526,17 +526,17 @@ where
             // the user-code, which may require some cleanups or
             // similar.
             tokio::select! {
-                e = self.dispatch_one(&mut input, &self.plugin) => {
-                    if let Err(e) = e {
-			return Err(e)
-                    }
-		},
-		v = receiver.recv() => {
-                    output.lock().await.send(
-			v.context("internal communication error")?
-                    ).await?;
-		},
-            }
+                    e = self.dispatch_one(&mut input, &self.plugin) => {
+                        if let Err(e) = e {
+                return Err(e)
+                        }
+            },
+            v = receiver.recv() => {
+                        output.lock().await.send(
+                v.context("internal communication error")?
+                        ).await?;
+            },
+                }
         }
     }
 
@@ -706,7 +706,7 @@ mod test {
 
     #[tokio::test]
     async fn init() {
-	let state = ();
+        let state = ();
         let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
         let _ = builder.start(state);
     }

@@ -11,8 +11,8 @@ use std::str::FromStr;
 use std::{io, str};
 use tokio_util::codec::{Decoder, Encoder};
 
-use crate::messages::{Notification, Request};
 use crate::messages::JsonRpc;
+use crate::messages::{Notification, Request};
 
 /// A simple codec that parses messages separated by two successive
 /// `\n` newlines.
