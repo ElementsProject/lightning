@@ -9,6 +9,7 @@ import io
 import base64
 import socket
 import struct
+import time
 
 # These duplicate constants in lightning/common/gossip_store.h
 GOSSIP_STORE_MAJOR_VERSION = (0 << 5)
@@ -238,6 +239,10 @@ class GossmapChannel(object):
                 return False
         return True
 
+    def is_tor_only(c):
+        """ Checks if a channel has TOR only nodes on both ends """
+        return c.node1.is_tor_only() and c.node2.is_tor_only()
+
 
 class GossmapNode(object):
     """A node: fields of node_announcement are in .fields,
@@ -343,6 +348,45 @@ class GossmapNode(object):
         if addrstr.startswith("["):
             return 'ipv6'
         return 'dns'
+
+    def has_clearnet(self):
+        """ Checks if a node has one or more clearnet addresses """
+        if not self.announced or len(self.addresses) == 0:
+            return False
+        for i in range(len(self.addresses)):
+            if self.get_address_type(i) != 'tor':
+                return True
+        return False
+
+    def has_tor(self):
+        """ Checks if a node has one or more TOR addresses """
+        if not self.announced or len(self.addresses) == 0:
+            return False
+        for i in range(len(self.addresses)):
+            if self.get_address_type(i) == 'tor':
+                return True
+        return False
+
+    def is_tor_only(self):
+        """ Checks if a node has only TOR and no addresses announced """
+        if not self.announced or len(self.addresses) == 0:
+            return False
+        for i in range(len(self.addresses)):
+            if self.get_address_type(i) != 'tor':
+                return False
+        return True
+
+    def is_tor_strict(self):
+        """ Checks if a node is TOR only
+            and is not publicly connected to any non-TOR nodes """
+        if not self.is_tor_only():
+            return False
+        for c in self.channels:
+            other = c.node1 if self != c.node1 else c.node2
+            if other.has_tor():
+                continue
+            return False
+        return True
 
 
 class Gossmap(object):
@@ -572,6 +616,7 @@ class Gossmap(object):
 
     def refresh(self):
         """Catch up with any changes to the gossip store"""
+        start_time = time.time()
         while True:
             rec, hdr = self._read_record()
             if rec is None:  # EOF
@@ -602,3 +647,4 @@ class Gossmap(object):
                 self.reopen_store()
             else:
                 continue
+        self.processing_time += time.time() - start_time
