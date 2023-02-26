@@ -3142,6 +3142,14 @@ def test_autoclean(node_factory):
     assert l2.rpc.getinfo()['fees_collected_msat'] == amt_before
 
 
+def test_autoclean_timer_crash(node_factory):
+    """Running two autocleans at once crashed timer code"""
+    node_factory.get_node(options={'autoclean-cycle': 1,
+                                   'autoclean-failedforwards-age': 31536000,
+                                   'autoclean-expiredinvoices-age': 31536000})
+    time.sleep(20)
+
+
 def test_autoclean_once(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True},
                                          wait_for_announce=True)
