@@ -850,7 +850,7 @@ static void delete_node_from_db(struct command *cmd,
 	err = sqlite3_exec(db,
 			   tal_fmt(tmpctx,
 				   "DELETE FROM nodes"
-				   " WHERE nodeid = %s",
+				   " WHERE nodeid = '%s'",
 				   node_id_to_hexstr(tmpctx, id)),
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
