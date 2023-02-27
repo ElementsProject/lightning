@@ -1702,7 +1702,7 @@ static struct command_result *json_delpay(struct command *cmd,
 				    "No payment for that payment_hash with that partid and groupid");
 	}
 
-	wallet_payment_delete(cmd->ld->wallet, payment_hash, partid, groupid);
+	wallet_payment_delete(cmd->ld->wallet, payment_hash, groupid, partid);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "payments");
