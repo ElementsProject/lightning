@@ -3472,6 +3472,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'pubkey'},
                         {'name': 'connected',
                          'type': 'boolean'},
+                        {'name': 'num_channels',
+                         'type': 'u32'},
                         {'name': 'remote_addr',
                          'type': 'string'},
                         {'name': 'features',
