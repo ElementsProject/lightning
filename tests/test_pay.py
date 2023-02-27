@@ -5350,3 +5350,34 @@ def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
     # 3. Send a payment over the zeroconf channel
     riskfactor = 0
     l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
+
+
+@pytest.mark.developer("needs dev-no-reconnect, dev-routes to force failover")
+def test_delpay_works(node_factory, bitcoind):
+    """
+    One failure, one success; deleting the success works (groupid=1, partid=2)
+    """
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
+                                         wait_for_announce=True)
+    # Expensive route!
+    l4 = node_factory.get_node(options={'fee-per-satoshi': 1000,
+                                        'fee-base': 2000})
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    # Don't give a hint, so l1 chooses cheapest.
+    inv = l3.dev_invoice(10**5, 'lbl', 'desc', dev_routes=[])
+    l3.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.pay(inv['bolt11'])
+
+    assert len(l1.rpc.listsendpays()['payments']) == 2
+    failed = [p for p in l1.rpc.listsendpays()['payments'] if p['status'] == 'complete'][0]
+    l1.rpc.delpay(payment_hash=failed['payment_hash'],
+                  status=failed['status'],
+                  groupid=failed['groupid'],
+                  partid=failed['partid'])
+
+    with pytest.raises(RpcError, match=r'No payment for that payment_hash'):
+        l1.rpc.delpay(payment_hash=failed['payment_hash'],
+                      status=failed['status'],
+                      groupid=failed['groupid'],
+                      partid=failed['partid'])
