@@ -33,17 +33,28 @@ def unsupported_entry(name):
     return [f'{name}.go', f'{name}.sh']
 
 
+def entry_guesses(name: str):
+    guesses = []
+    global INSTALLERS
+    for iname, inst in INSTALLERS.items():
+        for entry in inst.entries:
+            guesses.append(entry.format(name=name))
+    return guesses
+
+
 class Installer:
     '''
     The identification of a plugin language, compiler or interpreter
     availability, and the install procedures.
     '''
-    def __init__(self, name, mimetype, exe=None, compiler=None, manager=None):
+    def __init__(self, name, mimetype, exe=None, compiler=None, manager=None, entry=None):
         self.name = name
         self.mimetype = mimetype
-        # The required interpreter or compiler if any
+        self.entries = []
+        if entry:
+            self.entries.append(entry)
         self.exe = exe            # interpreter (if required)
-        self.compiler = compiler  # compiler bin
+        self.compiler = compiler  # compiler bin (if required)
         self.manager = manager    # dependency manager (if required)
         self.dependency_file = None
         self.dependency_call = None
@@ -58,7 +69,7 @@ class Installer:
                 f'exe: {self.exe}, manager: {self.manager}>')
 
     def executable(self):
-        '''Validate the necessary executables are available.'''
+        '''Validate the necessary bins are available to execute the plugin.'''
         if self.exe:
             if shutil.which(self.exe):
                 # This should arguably not be checked here.
@@ -70,12 +81,29 @@ class Installer:
             return False
 
     def installable(self):
-        '''Validate the necessary executables are available.'''
+        '''Validate the necessary compiler and package manager executables are
+        available to install.  If these are defined, they are considered
+        mandatory even though the user may have the requisite packages already
+        installed.'''
         if self.compiler and not shutil.which(self.compiler):
             return False
         if self.manager and not shutil.which(self.manager):
             return False
         return True
+
+    def add_entrypoint(self, entry: str):
+        self.entries.append(entry)
+
+    def add_dependency_file(self, dep: str):
+        self.dependency_file = dep
+
+    def add_dependency_call(self, call: list):
+        if self.dependency_call is None:
+            self.dependency_call = []
+        self.dependency_call.append(call)
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 class InstInfo:
@@ -110,8 +138,7 @@ class InstInfo:
             tree = json.loads(r.read().decode())['tree']
         else:
             tree = json.loads(r.read().decode())
-        entry_guesses = py_entry_guesses(self.name)
-        for g in entry_guesses:
+        for g in entry_guesses(self.name):
             for f in tree:
                 if f['path'] == g:
                     self.entry = g
@@ -125,14 +152,11 @@ class InstInfo:
                         # FIXME: This should be easier to implement
                         print(f'entrypoint {g} is not yet supported')
                         return False
-        dependency_info = ['requirements.txt', 'pyproject.toml']
-        for d in dependency_info:
+        for name, inst in INSTALLERS.items():
+            # FIXME: Allow multiple depencencies
             for f in tree:
-                if f['path'] == d:
-                    self.deps = d
-                    break
-            if self.deps is not None:
-                break
+                if f['path'] == inst.dependency_file:
+                    return True
         if not self.entry:
             return False
         if not self.deps:
@@ -298,14 +322,14 @@ class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
     def __init__(self, name: str):
         reck_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
-        if name[-3:] == '.py':
+        if name[-3:] == '.py' or name[-3:] == '.js':
             name = name[:-3]
         if name in reck_contents:
             self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
         else:
             raise Exception(f"Could not find a reckless directory for {name}")
         plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
-        for guess in py_entry_guesses(name):
+        for guess in entry_guesses(name):
             for content in plug_dir.iterdir():
                 if content.name == guess:
                     self.entry = str(content)
@@ -323,20 +347,10 @@ INSTALLERS['python3pip'].add_dependency_file('requirements.txt')
 INSTALLERS['python3pip'].add_dependency_call(['pip', 'install', '-r',
                                               'requirements.txt'])
 
-# Use pyproject.toml (fallback when requirements.txt is missing)
-INSTALLERS['python3piptoml'] = INSTALLERS['python3pip'].copy()
-INSTALLERS['python3piptoml'].dependency_call = [['pip', 'install', '-e', '.']]
-INSTALLERS['python3piptoml'].dependency_file = 'pyproject.toml'
-
 INSTALLERS['python3pip3'] = INSTALLERS['python3pip'].copy()
 INSTALLERS['python3pip3'].manager = 'pip3'
 INSTALLERS['python3pip3'].dependency_call = [['pip3', 'install', '-r',
                                               'requirements.txt']]
-
-INSTALLERS['python3pip3toml'] = INSTALLERS['python3pip3'].copy()
-INSTALLERS['python3pip3toml'].dependency_call = [['pip3', 'install',
-                                                  '-e', '.']]
-INSTALLERS['python3pip3toml'].dependency_file = 'pyproject.toml'
 
 # Nodejs plugin installer
 Installer('nodejs', 'application/javascript', exe='node', manager='npm',
