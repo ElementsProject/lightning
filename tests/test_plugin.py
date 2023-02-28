@@ -3284,13 +3284,15 @@ def test_block_added_notifications(node_factory, bitcoind):
     assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2
 
 
-@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.developer("wants dev-announce-localhost so we see listnodes.addresses")
 def test_sql(node_factory, bitcoind):
     opts = {'experimental-offers': None,
+            'experimental-dual-fund': None,
             'dev-allow-localhost': None,
             'may_reconnect': True}
     l2opts = {'lease-fee-basis': 50,
+              'experimental-dual-fund': None,
               'lease-fee-base-sat': '2000msat',
               'channel-fee-max-base-msat': '500sat',
               'channel-fee-max-proportional-thousandths': 200,
