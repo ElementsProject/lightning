@@ -1507,7 +1507,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 * zombie channel has a recent timestamp. */
 	if (zombie && timestamp_reasonable(rstate,
 		chan->half[!direction].bcast.timestamp) &&
-		chan->half[!direction].bcast.index) {
+		chan->half[!direction].bcast.index && !index) {
 		status_peer_debug(peer ? &peer->id : NULL,
 				  "Resurrecting zombie channel %s.",
 				  type_to_string(tmpctx,
@@ -2030,11 +2030,19 @@ static void zombify_channel(struct gossip_store *gs, struct chan *channel)
 				    &channel->scid));
 
 	/* If one of the nodes has no remaining active channels, forget
-	 * the node_announcement. */
+	 * the node_announcement. Also recheck node_announcement order. */
 	for (int i = 0; i < 2; i++) {
 		struct node *node = channel->nodes[i];
-		if (node_has_broadcastable_channels(node))
+		if (node_has_broadcastable_channels(node)) {
+			if (!node->bcast.index)
+				continue;
+			if (node_announce_predates_channels(node)) {
+				/* Make sure the node announcement follows a channel
+				* announcement. */
+				force_node_announce_rexmit(rstate, node);
+			}
 			continue;
+		}
 		if (node->rgraph.index != node->bcast.index)
 			gossip_store_delete(gs, &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
