@@ -980,10 +980,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* If we had private updates, they'll immediately create the channel. */
 	if (private_updates[0])
 		routing_add_channel_update(rstate, take(private_updates[0]), 0,
-					   peer, false, false);
+					   peer, false, false, false);
 	if (private_updates[1])
 		routing_add_channel_update(rstate, take(private_updates[1]), 0,
-					   peer, false, false);
+					   peer, false, false, false);
 
 	/* Now we can finish cleanup of gossip store, so there's no window where
 	 * channel (or nodes) vanish. */
@@ -1327,7 +1327,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				u32 index,
 				struct peer *peer,
 				bool ignore_timestamp,
-				bool force_spam_flag)
+				bool force_spam_flag,
+				bool force_zombie_flag)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1373,7 +1374,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return false;
 		}
 		sat = uc->sat;
-		zombie = false;
+		/* When loading zombies from the store. */
+		zombie = force_zombie_flag;
 	}
 
 	/* Reject update if the `htlc_maximum_msat` is greater
@@ -1396,6 +1398,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		assert(!chan);
 		chan = new_chan(rstate, &short_channel_id,
 				&uc->id[0], &uc->id[1], sat);
+		/* Assign zombie flag if loading zombie from store */
+		if (force_zombie_flag)
+			chan->half[direction].zombie = true;
 	}
 
 	/* Discard older updates */
@@ -1735,7 +1740,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return warn;
 	}
 
-	routing_add_channel_update(rstate, take(serialized), 0, peer, force, false);
+	routing_add_channel_update(rstate, take(serialized), 0, peer, force,
+				   false, false);
 	return NULL;
 }
 
@@ -2009,20 +2015,21 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 
 /* Set zombie flags in gossip_store and tombstone the channel for any
  * gossip_store consumers. Remove any orphaned node_announcements. */
-static void zombify_channel(struct gossip_store *gs, struct chan *channel)
+static void zombify_channel(struct routing_state *rstate, struct chan *channel)
 {
 	struct half_chan *half;
 	assert(!is_chan_zombie(channel));
-	gossip_store_mark_channel_zombie(gs, &channel->bcast);
-	gossip_store_mark_channel_deleted(gs, &channel->scid);
+	gossip_store_mark_channel_zombie(rstate->gs, &channel->bcast);
+	gossip_store_mark_channel_deleted(rstate->gs, &channel->scid);
 	for (int i = 0; i < 2; i++) {
 		half = &channel->half[i];
 		half->zombie = true;
 		if (half->bcast.index) {
-			gossip_store_mark_cupdate_zombie(gs, &half->bcast);
+			gossip_store_mark_cupdate_zombie(rstate->gs, &half->bcast);
 			/* Channel may also have a spam entry */
 			if (half->bcast.index != half->rgraph.index)
-				gossip_store_mark_cupdate_zombie(gs, &half->rgraph);
+				gossip_store_mark_cupdate_zombie(rstate->gs,
+								 &half->rgraph);
 		}
 	}
 	status_debug("Channel %s zombified",
@@ -2044,9 +2051,9 @@ static void zombify_channel(struct gossip_store *gs, struct chan *channel)
 			continue;
 		}
 		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(gs, &node->rgraph,
+			gossip_store_delete(rstate->gs, &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
-		gossip_store_delete(gs, &node->bcast,
+		gossip_store_delete(rstate->gs, &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 		node->rgraph.index = node->bcast.index = 0;
 	}
@@ -2110,7 +2117,7 @@ void route_prune(struct routing_state *rstate)
 	 * stashed away for later use. If all remaining channels for a node are
 	 * zombies, the node is zombified too. */
 	for (size_t i = 0; i < tal_count(pruned); i++) {
-		zombify_channel(rstate->gs, pruned[i]);
+		zombify_channel(rstate, pruned[i]);
 	}
 }
 
