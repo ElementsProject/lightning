@@ -778,6 +778,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	gs->writable = false;
 	while (pread(gs->fd, &hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
 		bool spam;
+		bool zombie;
 
 		msglen = be16_to_cpu(hdr.len);
 		checksum = be32_to_cpu(hdr.crc);
@@ -802,6 +803,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto next;
 		}
 		spam = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_RATELIMIT_BIT);
+		zombie = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_ZOMBIE_BIT);
 
 		switch (fromwire_peektype(msg)) {
 		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: {
@@ -872,7 +874,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		case WIRE_CHANNEL_UPDATE:
 			if (!routing_add_channel_update(rstate,
 							take(msg), gs->len,
-							NULL, false, spam)) {
+							NULL, false,
+							spam, zombie)) {
 				bad = "Bad channel_update";
 				goto badmsg;
 			}
