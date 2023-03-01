@@ -2,7 +2,7 @@ from .lightning import LightningRpc, RpcError, Millisatoshi
 from .plugin import Plugin, monkey_patch, RpcException
 from .gossmap import Gossmap, GossmapNode, GossmapChannel, GossmapNodeId
 
-__version__ = "23.02rc1"
+__version__ = "23.02"
 
 __all__ = [
     "LightningRpc",
