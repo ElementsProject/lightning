@@ -17,7 +17,6 @@
 [submodule "external/lnprototest"]
 	path = external/lnprototest
 	url = https://github.com/rustyrussell/lnprototest.git
-	branch = nifty/ripemd160-fallback
 [submodule "external/lowdown"]
 	path = external/lowdown
 	url = https://github.com/kristapsdz/lowdown.git
