@@ -53,6 +53,7 @@ class GossmapHalfchannel(object):
         self.htlc_maximum_msat: Optional[int] = fields.get('htlc_maximum_msat', None)
         self.fee_base_msat: int = fields['fee_base_msat']
         self.fee_proportional_millionths: int = fields['fee_proportional_millionths']
+        self.disabled = fields['channel_flags'] & 2 > 0
 
         # Cache the _scidd and hash to have faster operation later
         # Unfortunately the @final decorator only comes for python3.8
