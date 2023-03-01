@@ -381,6 +381,13 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
+static bool is_chan_zombie(struct chan *chan)
+{
+	if (chan->half[0].zombie || chan->half[1].zombie)
+		return true;
+	return false;
+}
+
 /* We've received a channel_announce for a channel attached to this node:
  * otherwise it's in the map only because it's a peer, or us. */
 static bool node_has_public_channels(struct node *node)
@@ -389,16 +396,9 @@ static bool node_has_public_channels(struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (is_chan_public(c))
+		if (is_chan_public(c) && !is_chan_zombie(c))
 			return true;
 	}
-	return false;
-}
-
-static bool is_chan_zombie(struct chan *chan)
-{
-	if (chan->half[0].zombie || chan->half[1].zombie)
-		return true;
 	return false;
 }
 
@@ -1907,7 +1907,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, msg, timestamp,
 					   node_id_eq(&node_id,
 						      &rstate->local_id),
-					   is_node_zombie(node), spam, NULL);
+					   false, spam, NULL);
 		if (node->bcast.timestamp > rstate->last_timestamp
 		    && node->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = node->bcast.timestamp;
