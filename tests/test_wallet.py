@@ -813,6 +813,7 @@ def test_psbt_version(node_factory, bitcoind, chainparams):
         with pytest.raises(RpcError, match=r"Could not set PSBT version"):
             l1.rpc.setpsbtversion(v2_funding, i)
 
+
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'Core/Elements need joinpsbt support for v2')
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
