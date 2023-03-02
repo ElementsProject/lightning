@@ -816,6 +816,42 @@ static const struct json_command signpsbt_command = {
 
 AUTODATA(json_command, &signpsbt_command);
 
+static struct command_result *json_setpsbtversion(struct command *cmd,
+                        const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+                        const jsmntok_t *params)
+{
+    struct json_stream *response;
+    unsigned int *version;
+    struct wally_psbt *psbt;
+
+    if (!param(cmd, buffer, params,
+           p_req("psbt", param_psbt, &psbt),
+           p_req("version", param_number, &version),
+           NULL))
+        return command_param_failed();
+
+    if (!psbt_set_version(psbt, *version)) {
+        return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+                    "Could not set PSBT version");
+    }
+
+    response = json_stream_success(cmd);
+    json_add_psbt(response, "psbt", psbt);
+
+    return command_success(cmd, response);
+}
+
+static const struct json_command setpsbtversion_command = {
+	"setpsbtversion",
+	"bitcoin",
+	json_setpsbtversion,
+	"Convert a given PSBT to the {version} requested (v0 or v2)",
+	false
+};
+
+AUTODATA(json_command, &setpsbtversion_command);
+
 struct sending_psbt {
 	struct command *cmd;
 	struct utxo **utxos;
