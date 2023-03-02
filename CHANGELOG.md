@@ -8,6 +8,10 @@ TODO: Insert version codename, and username of the contributor that named the re
 -->
 ## [23.02rc3] - 2023-02-15
 
+Note: This release will prune 'zombie' nodes and channels from the gossip store.
+      When that happened, the cli `listnodes` will return about ~9k nodes, which
+      is intended. Also the number of visible `listchannels` will go down noticeable.
+
 ### Added
 
  - Plugins: `sql` plugin command to perform server-side complex queries. ([#5679])
