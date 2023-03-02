@@ -4,6 +4,7 @@ ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV RUST_PROFILE=release
 ENV PATH=/root/.cargo/bin:/root/.pyenv/shims:/root/.pyenv/bin:$PATH
+ENV PROTOC_VERSION=22.0
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list
@@ -46,6 +47,14 @@ RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     bash rustup-install.sh --default-toolchain none --quiet -y && \
     rm rustup-install.sh && \
     /root/.cargo/bin/rustup install 1.62
+
+# Download protoc manually, it is in the update repos which we
+# disabled above, so `apt-get` can't find it anymore.
+RUN cd /tmp/ && \
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
+    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
+    mv bin/protoc /usr/local/bin && \
+    rm -rf include bin protoc-${PROTOC_VERSION}-linux-x86_64.zip
 
 RUN mkdir /build
 WORKDIR /build
