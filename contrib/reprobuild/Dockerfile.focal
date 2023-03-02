@@ -3,7 +3,7 @@ FROM focal
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV RUST_PROFILE=release
-ENV PATH=/root/.cargo/bin:$PATH
+ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:$PATH
 ENV PROTOC_VERSION=22.0
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
@@ -22,11 +22,22 @@ RUN apt-get update \
 	libsodium23 \
 	libtool \
 	m4 \
-	python3-setuptools \
 	sudo \
 	unzip \
 	wget \
 	zip
+
+# install Python3.8 (more reproducible than relying on python3-setuptools)
+RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
+    apt-get install -y --no-install-recommends \
+    libbz2-dev \
+    libffi-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    zlib1g-dev && \
+    pyenv install 3.8.0 && \
+    pyenv global 3.8.0
 
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp/get-pip.py \
     && rm /tmp/get-pip.py \
