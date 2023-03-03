@@ -1546,10 +1546,15 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* FIXME: Handle spam case probably needs a helper f'n */
 		zombie_update[0] = gossip_store_get(tmpctx, rstate->gs,
 			chan->half[!direction].bcast.index);
-		if (chan->half[!direction].bcast.index != chan->half[!direction].rgraph.index)
+		if (chan->half[!direction].bcast.index != chan->half[!direction].rgraph.index) {
 			/* Don't forget the spam channel_update */
 			zombie_update[1] = gossip_store_get(tmpctx, rstate->gs,
 				chan->half[!direction].rgraph.index);
+			gossip_store_delete(rstate->gs, &chan->half[!direction].rgraph,
+					    is_chan_public(chan)
+					    ? WIRE_CHANNEL_UPDATE
+					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+		}
 		gossip_store_delete(rstate->gs, &chan->half[!direction].bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_UPDATE
