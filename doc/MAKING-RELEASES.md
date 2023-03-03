@@ -43,7 +43,7 @@ Here's a checklist for the release process.
 3. Update the /topic on #c-lightning on Libera.
 4. Prepare draft release notes (see devtools/credit), and share with team for editing.
 5. Upgrade your personal nodes to the rc1, to help testing.
-6. Test `tools/build-release.sh` to build the non-reprodicible images
+6. Test `tools/build-release.sh` to build the non-reproducible images
    and reproducible zipfile.
 7. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
 
@@ -58,26 +58,37 @@ Here's a checklist for the release process.
 ### Tagging the Release
 
 1. Update the CHANGELOG.md; remove -rcN in both places, update the date and add title and namer.
-2. Add a PR with that release.
-3. Merge the PR, then:
+2. Update the contrib/pyln package versions: `make update-pyln-versions NEW_VERSION=<VERSION>`
+3. Add a PR with that release.
+4. Merge the PR, then:
    - `export VERSION=0.9.3`
    - `git pull`
    - `git tag -a -s v${VERSION} -m v${VERSION}`
    - `git push --tags`
-4. Run `tools/build-release.sh` to build the non-reprodicible images
+5. Run `tools/build-release.sh` to build the non-reprodicible images
    and reproducible zipfile.
-5. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
-6. Create the checksums for signing: `sha256sum release/* > release/SHA256SUMS`
-7. Create the first signature with `gpg -sb --armor release/SHA256SUMS`
-8. Upload the files resulting files to github and
-   save as a draft.
-   (https://github.com/ElementsProject/lightning/releases/)
-9. Ping the rest of the team to check the SHA256SUMS file and have them send their
-   `gpg -sb --armor SHA256SUMS`.
-10. Append the signatures into a file called `SHA256SUMS.asc`, verify
-   with `gpg --verify SHA256SUMS.asc` and include the file in the draft
-   release.
-11.`make pyln-release` to upload pyln modules to pypi.org.
+6. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
+7. To create and sign checksums, start by entering the release dir: `cd release`
+8. Create the checksums for signing: `sha256sum * > SHA256SUMS`
+9. Create the first signature with `gpg -sb --armor SHA256SUMS`
+10. The tarballs may be owned by root, so revert ownership if necessary:
+    `sudo chown ${USER}:${USER} *${VERSION}*`
+11. Upload the resulting files to github and save as a draft.
+    (https://github.com/ElementsProject/lightning/releases/)
+12. Ping the rest of the team to check the SHA256SUMS file and have them send their
+    `gpg -sb --armor SHA256SUMS`.
+13. Append the signatures into a file called `SHA256SUMS.asc`, verify
+    with `gpg --verify SHA256SUMS.asc` and include the file in the draft
+    release.
+14. `make pyln-release` to upload pyln modules to pypi.org.  This requires keys
+    for each of pyln-client, pyln-proto, and pyln-testing accessible to poetry.
+    This can be done by configuring the python keyring library along with a
+    suitable backend.  Alternatively, the key can be set as an environment
+    variable and each of the pyln releases can be built and published
+    independently:
+    - `export POETRY_PYPI_TOKEN_PYPI=<pyln-client token>`
+    - `make pyln-release-client`
+    - ... repeat for each pyln package.
 
 ### Performing the Release
 

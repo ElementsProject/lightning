@@ -146,8 +146,13 @@ this point we have a container image that has been prepared to build
 reproducibly. As you can see from the `Dockerfile` above we assume the source
 git repository gets mounted as `/repo` in the docker container. The container
 will clone the repository to an internal path, in order to keep the repository
-clean, build the artifacts there, and then copy them back to
-`/repo/release`. We can simply execute the following command inside the git
+clean, build the artifacts there, and then copy them back to `/repo/release`.
+We'll need the release directory available for this, so create it now if it
+doesn't exist:
+
+`mkdir release`
+
+Then we can simply execute the following command inside the git
 repository (remember to checkout the tag you are trying to build):
 
 ```bash
