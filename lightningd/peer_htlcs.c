@@ -582,7 +582,7 @@ static void htlc_offer_timeout(struct htlc_out *out)
 	assert(out->hstate == SENT_ADD_HTLC);
 
 	/* If owner died, we should already be taken care of. */
-	if (!channel->owner || channel->state != CHANNELD_NORMAL)
+	if (!channel->owner || !channel_state_normalish(channel))
 		return;
 
 	log_unusual(channel->owner->log,

@@ -819,6 +819,7 @@ static struct command_result *json_close(struct command *cmd,
 	 * waiting) */
 	switch (channel->state) {
 		case CHANNELD_NORMAL:
+		case CHANNELD_AWAITING_SPLICE:
 		case CHANNELD_AWAITING_LOCKIN:
 		case DUALOPEND_AWAITING_LOCKIN:
 			channel_set_state(channel,

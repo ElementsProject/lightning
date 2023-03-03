@@ -26,11 +26,13 @@ void psbt_finalize_input(const tal_t *ctx,
  * @ctx - allocation context
  * @psbt - PSBT to copy sigs from
  * @opener - which side initiated this tx
+ * @input_index_to_ignore - which input to not include. Pass -1 to include all.
  */
 const struct witness_stack **
 psbt_to_witness_stacks(const tal_t *ctx,
 		       const struct wally_psbt *psbt,
-		       enum tx_role side_to_stack);
+		       enum tx_role side_to_stack,
+                       int input_index_to_ignore);
 
 /* psbt_input_weight - Calculate the tx weight for input index `in` */
 size_t psbt_input_weight(struct wally_psbt *psbt,

@@ -510,7 +510,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
-		if(node->rgraph.index != node->bcast.index)
+		if (node->rgraph.index != node->bcast.index)
 			gossip_store_delete(rstate->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
@@ -527,7 +527,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
-		if(node->rgraph.index != node->bcast.index)
+		if (node->rgraph.index != node->bcast.index)
 			gossip_store_delete(rstate->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
@@ -1607,12 +1607,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	}
 
 	status_peer_debug(peer ? &peer->id : NULL,
-			  "Received %schannel_update for channel %s/%d now %s",
+			  "Received %schannel_update for channel %s/%d now %s%s",
 			  ignore_timestamp ? "(forced) " : "",
 			  type_to_string(tmpctx, struct short_channel_id,
 					 &short_channel_id),
 			  channel_flags & 0x01,
-			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+			  channel_flags & ROUTING_FLAGS_SPLICING ? " SPLICING" : "");
 
 	return true;
 }

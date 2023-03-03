@@ -13,9 +13,11 @@
  *...
  * | 0             | `direction` | Direction this update refers to. |
  * | 1             | `disable`   | Disable the channel.             |
+ * | 2             | `splicing`  | Temporarily ignore channel spend.|
  */
 #define ROUTING_FLAGS_DIRECTION (1 << 0)
 #define ROUTING_FLAGS_DISABLED  (1 << 1)
+#define ROUTING_FLAGS_SPLICING  (1 << 2)
 
 /* BOLT #7:
  *

@@ -252,10 +252,17 @@ static void update_connection(int store_fd,
 			      struct amount_msat max,
 			      u32 base_fee, s32 proportional_fee,
 			      u32 delay,
-			      bool disable)
+			      bool disable,
+			      bool splicing)
 {
 	secp256k1_ecdsa_signature dummy_sig;
+	u8 flags = node_id_idx(from, to);
 	u8 *msg;
+
+	if (disable)
+		flags |= ROUTING_FLAGS_DISABLED;
+	if (splicing)
+		flags |= ROUTING_FLAGS_SPLICING;
 
 	/* So valgrind doesn't complain */
 	memset(&dummy_sig, 0, sizeof(dummy_sig));
@@ -265,8 +272,7 @@ static void update_connection(int store_fd,
 				    &chainparams->genesis_blockhash,
 				    scid, 0,
 				    ROUTING_OPT_HTLC_MAX_MSAT,
-				    node_id_idx(from, to)
-				    + (disable ? ROUTING_FLAGS_DISABLED : 0),
+				    flags,
 				    delay,
 				    min,
 				    base_fee,
@@ -314,7 +320,7 @@ static void add_connection(int store_fd,
 
 	update_connection(store_fd, from, to, scid, min, max,
 			  base_fee, proportional_fee,
-			  delay, false);
+			  delay, false, false);
 }
 
 static void node_id_from_privkey(const struct privkey *p, struct node_id *id)

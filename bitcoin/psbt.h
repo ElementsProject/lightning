@@ -103,7 +103,7 @@ struct wally_tx *psbt_final_tx(const tal_t *ctx, const struct wally_psbt *psbt);
 u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data);
 
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
-					struct wally_tx_input *input,
+					const struct wally_tx_input *input,
 					size_t insert_at);
 
 /* One stop shop for adding an input + metadata to a PSBT */
