@@ -916,6 +916,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey bitcoin_key_2;
 	struct unupdated_channel *uc;
 	const u8 *private_updates[2] = { NULL, NULL };
+	bool zombie;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(msg))
@@ -931,6 +932,16 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
 	oldchan = get_channel(rstate, &scid);
+
+	/* zombie chan*/
+	if (oldchan)
+		zombie = is_chan_zombie(oldchan);
+	else
+		zombie = false;
+	/* If the channel exists because it is a zombie, it's not a private
+	 * channel. */
+	if (zombie)
+		oldchan = NULL;
 
 	/* private updates will exist in the store before the announce: we
 	 * can't index those for broadcast since they would predate it, so we
@@ -974,8 +985,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	tal_add_destructor2(uc, destroy_unupdated_channel, rstate);
 
 	/* If a node_announcement comes along, save it for once we're updated */
-	catch_node_announcement(uc, rstate, &node_id_1);
-	catch_node_announcement(uc, rstate, &node_id_2);
+	if (!zombie) {
+		catch_node_announcement(uc, rstate, &node_id_1);
+		catch_node_announcement(uc, rstate, &node_id_2);
+	}
 
 	/* If we had private updates, they'll immediately create the channel. */
 	if (private_updates[0])
@@ -1484,7 +1497,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *   - MUST consider whether to send the `channel_announcement` after
 	 *     receiving the first corresponding `channel_update`.
 	 */
-	if (uc) {
+	if (zombie) {
+		/* Do not broadcast the channel announcement if we do not
+		 * intend to send the update. */
+		if (uc) {
+			/* Unannounced channels should only be zombie flagged
+			 * if loaded from the gossip_store. */
+			assert(uc->index);
+			chan->bcast.timestamp = timestamp;
+			chan->bcast.index = uc->index;
+		}
+	} else if (uc) {
 		add_channel_announce_to_broadcast(rstate, chan,
 						  uc->channel_announce,
 						  timestamp,
@@ -1601,8 +1624,12 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (uc) {
 		/* If we were waiting for these nodes to appear (or gain a
 		   public channel), process node_announcements now */
-		process_pending_node_announcement(rstate, &chan->nodes[0]->id);
-		process_pending_node_announcement(rstate, &chan->nodes[1]->id);
+		if (!zombie) {
+			process_pending_node_announcement(rstate,
+							  &chan->nodes[0]->id);
+			process_pending_node_announcement(rstate,
+							  &chan->nodes[1]->id);
+		}
 		tal_free(uc);
 	}
 

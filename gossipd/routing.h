@@ -72,6 +72,11 @@ void free_chan(struct routing_state *rstate, struct chan *chan);
  * to indicate this. */
 static inline bool is_chan_public(const struct chan *chan)
 {
+	/* When loading from the gossip_store, zombie channels may also
+	 * temporarily be in the unannounced channel list. However, only public
+	 * channels may be zombies. */
+	if (chan->half[0].zombie || chan->half[1].zombie)
+		return true;
 	return chan->bcast.timestamp != 0;
 }
 
