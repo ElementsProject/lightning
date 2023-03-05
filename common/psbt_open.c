@@ -77,6 +77,8 @@ static const u8 *linearize_input(const tal_t *ctx,
 	wally_psbt_input_set_redeem_script(&psbt->inputs[0], NULL, 0);
 	psbt->inputs[0].keypaths.num_items = 0;
 	psbt->inputs[0].signatures.num_items = 0;
+	psbt->inputs[0].utxo = NULL;
+	psbt->inputs[0].witness_utxo = NULL;
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
