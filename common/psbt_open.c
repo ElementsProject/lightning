@@ -80,6 +80,8 @@ static const u8 *linearize_input(const tal_t *ctx,
 	psbt->inputs[0].taproot_leaf_paths.num_items = 0;
 	psbt->inputs[0].keypaths.num_items = 0;
 	psbt->inputs[0].signatures.num_items = 0;
+	psbt->inputs[0].utxo = NULL;
+	psbt->inputs[0].witness_utxo = NULL;
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
