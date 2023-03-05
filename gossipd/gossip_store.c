@@ -652,6 +652,10 @@ static void mark_zombie(struct gossip_store *gs,
 			const struct broadcastable *bcast,
 			enum peer_wire expected_type)
 {
+	struct {
+		beint16_t beflags;
+		beint16_t belen;
+	} hdr;
 	beint16_t beflags;
 	u32 index = bcast->index;
 
@@ -661,6 +665,11 @@ static void mark_zombie(struct gossip_store *gs,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 	assert(index);
+
+	if (pread(gs->fd, &hdr, sizeof(hdr), index) != sizeof(hdr))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed reading header to zombify @%u: %s",
+			      index, strerror(errno));
 
 #if DEVELOPER
 	const u8 *msg = gossip_store_get(tmpctx, gs, index);
@@ -680,6 +689,30 @@ static void mark_zombie(struct gossip_store *gs,
 			      "Failed writing flags to zombie %s @%u: %s",
 			      peer_wire_name(expected_type),
 			      index, strerror(errno));
+
+	/* If this is a node_announcement, flag the addendum as well. */
+	if (expected_type == WIRE_CHANNEL_ANNOUNCEMENT) {
+		index = index + sizeof(struct gossip_hdr) + \
+			   be16_to_cpu(hdr.belen);
+		if (pread(gs->fd, &beflags, sizeof(beflags), index) != sizeof(beflags))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed reading flags to zombie %s @%u: %s",
+				      peer_wire_name(WIRE_GOSSIP_STORE_CHANNEL_AMOUNT),
+				      index, strerror(errno));
+
+#if DEVELOPER
+		msg = gossip_store_get(tmpctx, gs, index);
+		assert(fromwire_peektype(msg) == WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
+#endif
+
+		assert((be16_to_cpu(beflags) & GOSSIP_STORE_DELETED_BIT) == 0);
+		beflags |= cpu_to_be16(GOSSIP_STORE_ZOMBIE_BIT);
+		if (pwrite(gs->fd, &beflags, sizeof(beflags), index) != sizeof(beflags))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed writing flags to zombie %s @%u: %s",
+				      peer_wire_name(WIRE_GOSSIP_STORE_CHANNEL_AMOUNT),
+				      index, strerror(errno));
+	}
 }
 
 /* Marks the length field of a channel_announcement with the zombie flag bit */
