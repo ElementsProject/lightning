@@ -299,6 +299,23 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				u64 commitment_number,
 				enum side side)
 {
+	return channel_splice_txs(ctx, &channel->funding, channel->funding_sats,
+				  htlcmap, direct_outputs, funding_wscript,
+				  channel, per_commitment_point,
+				  commitment_number, side);
+}
+
+struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
+				       const struct bitcoin_outpoint *funding,
+				       struct amount_sat funding_sats,
+				       const struct htlc ***htlcmap,
+				       struct wally_tx_output *direct_outputs[NUM_SIDES],
+				       const u8 **funding_wscript,
+				       const struct channel *channel,
+				       const struct pubkey *per_commitment_point,
+				       u64 commitment_number,
+				       enum side side)
+{
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	struct keyset keyset;
@@ -321,8 +338,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
-	    ctx, &channel->funding,
-	    channel->funding_sats,
+	    ctx, funding,
+	    funding_sats,
 	    &channel->funding_pubkey[side],
 	    &channel->funding_pubkey[!side],
 	    channel->opener,

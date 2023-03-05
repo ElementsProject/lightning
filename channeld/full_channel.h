@@ -76,6 +76,20 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				u64 commitment_number,
 				enum side side);
 
+/* Version of `channel_txs` that lets you specify a custom funding outpoint
+ * and funding_sats.
+ */
+struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
+				       const struct bitcoin_outpoint *funding,
+				       struct amount_sat funding_sats,
+				       const struct htlc ***htlcmap,
+				       struct wally_tx_output *direct_outputs[NUM_SIDES],
+				       const u8 **funding_wscript,
+				       const struct channel *channel,
+				       const struct pubkey *per_commitment_point,
+				       u64 commitment_number,
+				       enum side side);
+
 /**
  * actual_feerate: what is the actual feerate for the local side.
  * @channel: The channel state
