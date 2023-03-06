@@ -2018,52 +2018,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	return NULL;
 }
 
-/* Set zombie flags in gossip_store and tombstone the channel for any
- * gossip_store consumers. Remove any orphaned node_announcements. */
-static void zombify_channel(struct routing_state *rstate, struct chan *channel)
-{
-	struct half_chan *half;
-	assert(!is_chan_zombie(channel));
-	gossip_store_mark_channel_zombie(rstate->gs, &channel->bcast);
-	gossip_store_mark_channel_deleted(rstate->gs, &channel->scid);
-	for (int i = 0; i < 2; i++) {
-		half = &channel->half[i];
-		half->zombie = true;
-		if (half->bcast.index) {
-			gossip_store_mark_cupdate_zombie(rstate->gs, &half->bcast);
-			/* Channel may also have a spam entry */
-			if (half->bcast.index != half->rgraph.index)
-				gossip_store_mark_cupdate_zombie(rstate->gs,
-								 &half->rgraph);
-		}
-	}
-	status_debug("Channel %s zombified",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &channel->scid));
-
-	/* If one of the nodes has no remaining active channels, forget
-	 * the node_announcement. Also recheck node_announcement order. */
-	for (int i = 0; i < 2; i++) {
-		struct node *node = channel->nodes[i];
-		if (node_has_broadcastable_channels(node)) {
-			if (!node->bcast.index)
-				continue;
-			if (node_announce_predates_channels(node)) {
-				/* Make sure the node announcement follows a channel
-				* announcement. */
-				force_node_announce_rexmit(rstate, node);
-			}
-			continue;
-		}
-		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(rstate->gs, &node->rgraph,
-					    WIRE_NODE_ANNOUNCEMENT);
-		gossip_store_delete(rstate->gs, &node->bcast,
-				    WIRE_NODE_ANNOUNCEMENT);
-		node->rgraph.index = node->bcast.index = 0;
-	}
-}
-
 void route_prune(struct routing_state *rstate)
 {
 	u64 now = gossip_time_now(rstate).ts.tv_sec;
@@ -2117,12 +2071,10 @@ void route_prune(struct routing_state *rstate)
 		}
 	}
 
-	/* Any channels missing an update are now considered zombies. They may
-	 * come back later, in which case the channel_announcement needs to be
-	 * stashed away for later use. If all remaining channels for a node are
-	 * zombies, the node is zombified too. */
+	/* Now free all the chans and maybe even nodes. */
 	for (size_t i = 0; i < tal_count(pruned); i++) {
-		zombify_channel(rstate, pruned[i]);
+		remove_channel_from_store(rstate, pruned[i]);
+		free_chan(rstate, pruned[i]);
 	}
 }
 
