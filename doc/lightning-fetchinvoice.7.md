@@ -19,13 +19,12 @@ If **fetchinvoice-noconnect** is not specified in the configuation, it
 will connect to the destination in the (currently common!) case where it
 cannot find a route which supports `option_onion_messages`.
 
-The offer must not contain *send\_invoice*; see lightning-sendinvoice(7).
-
-*amount\_msat* is required if the *offer* does not specify
-an amount at all, otherwise it is not allowed.
+*amount\_msat* is required if the *offer* does not specify an amount
+at all, otherwise it is optional (but presumably if you set it to less
+than the offer, you will get an error from the issuer).
 
 *quantity* is is required if the *offer* specifies
-*quantity\_min* or *quantity\_max*, otherwise it is not allowed.
+*quantity\_max*, otherwise it is not allowed.
 
 *recurrence\_counter* is required if the *offer*
 specifies *recurrence*, otherwise it is not allowed.
@@ -43,7 +42,8 @@ calls for the same recurrence, as it is used to link them together.
 *timeout* is an optional timeout; if we don't get a reply before this
 we fail (default, 60 seconds).
 
-*payer\_note* is an optional payer note to include in the fetched invoice.
+*payer\_note* is an optional payer note to ask the issuer to include
+in the fetched invoice.
 
 RETURN VALUE
 ------------
