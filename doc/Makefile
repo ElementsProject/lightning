@@ -34,6 +34,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delforward.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
+	doc/lightning-disableinvoicerequest.7 \
 	doc/lightning-disableoffer.7 \
 	doc/lightning-disconnect.7 \
 	doc/lightning-emergencyrecover.7 \
@@ -48,6 +49,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-getroute.7 \
 	doc/lightning-hsmtool.8 \
 	doc/lightning-invoice.7 \
+	doc/lightning-invoicerequest.7 \
 	doc/lightning-keysend.7 \
 	doc/lightning-listchannels.7 \
 	doc/lightning-listdatastore.7 \
@@ -55,6 +57,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listfunds.7 \
 	doc/lightning-listhtlcs.7 \
 	doc/lightning-listinvoices.7 \
+	doc/lightning-listinvoicerequests.7 \
 	doc/lightning-listoffers.7 \
 	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
