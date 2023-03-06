@@ -16,9 +16,8 @@ one), which is a precursor to creating one or more invoices.  It
 automatically enables the processing of an incoming invoice\_request,
 and issuing of invoices.
 
-Note that it creates two variants of the offer: a signed and an
-unsigned one (which is smaller).  Wallets should accept both: the
-current specification allows either.
+Note that for making an offer to *pay* someone else, see
+lightning-invoicerequest(7).
 
 The *amount* parameter can be the string "any", which creates an offer
 that can be paid with any amount (e.g. a donation).  Otherwise it can
@@ -41,7 +40,8 @@ The *issuer* is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i.e. you) if appropriate.
 
 The *label* field is an internal-use name for the offer, which can
-be any UTF-8 string.
+be any UTF-8 string.  This is *NOT* encoded in the offer not sent
+to the issuer.
 
 The presence of *quantity\_max* indicates that the
 invoice can specify more than one of the items up (and including)
@@ -124,7 +124,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listoffers(7), lightning-disableoffer(7).
+lightning-listoffers(7), lightning-disableoffer(7), lightning-invoicerequest(7).
 
 RESOURCES
 ---------
