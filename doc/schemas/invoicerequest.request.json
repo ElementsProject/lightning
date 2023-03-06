@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount",
+    "description"
+  ],
+  "added": "v22.11",
+  "properties": {
+    "amount": {
+      "type": "msat",
+      "description": ""
+    },
+    "description": {
+      "type": "string",
+      "description": ""
+    },
+    "issuer": {
+      "type": "string",
+      "description": ""
+    },
+    "absolute_expiry": {
+      "type": "u64",
+      "description": ""
+    },
+    "single_use": {
+      "type": "boolean",
+      "description": ""
+    }
+  }
+}
