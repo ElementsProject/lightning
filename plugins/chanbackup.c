@@ -436,6 +436,9 @@ static struct command_result *after_listpeers(struct command *cmd,
 	bool is_connected;
         u8 *serialise_scb;
 
+	if (!peer_backup)
+		return notification_handled(cmd);
+
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 
@@ -443,10 +446,20 @@ static struct command_result *after_listpeers(struct command *cmd,
 
 	info->idx = 0;
 	json_for_each_arr(i, peer, peers) {
-		json_to_bool(buf, json_get_member(buf, peer, "connected"),
-			     &is_connected);
+		const char *err;
+		u8 *features;
 
-		if (is_connected && peer_backup) {
+		/* If connected is false, features is missing, so this fails */
+		err = json_scan(cmd, buf, peer,
+				"{connected:%,features:%}",
+				JSON_SCAN(json_to_bool, &is_connected),
+				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+					      &features));
+		if (err || !is_connected)
+			continue;
+
+		/* We shouldn't have to check, but LND hangs up? */
+		if (feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
 			const jsmntok_t *nodeid;
 			struct node_id node_id;
 
@@ -533,6 +546,7 @@ static struct command_result *peer_connected(struct command *cmd,
 	struct out_req *req;
         u8 *serialise_scb;
 	const char *err;
+	u8 *features;
 
 	if (!peer_backup)
 		return command_hook_success(cmd);
@@ -541,13 +555,20 @@ static struct command_result *peer_connected(struct command *cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 	node_id = tal(cmd, struct node_id);
 	err = json_scan(cmd, buf, params,
-			"{peer:{id:%}}",
-			JSON_SCAN(json_to_node_id, node_id));
+			"{peer:{id:%,features:%}}",
+			JSON_SCAN(json_to_node_id, node_id),
+			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
 	if (err) {
 		plugin_err(cmd->plugin,
 			   "peer_connected hook did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
+	}
+
+	/* We shouldn't have to check, but LND hangs up? */
+	if (!feature_offered(features, OPT_WANT_PEER_BACKUP_STORAGE)
+	    && !feature_offered(features, OPT_PROVIDE_PEER_BACKUP_STORAGE)) {
+		return command_hook_success(cmd);
 	}
 
         req = jsonrpc_request_start(cmd->plugin,
