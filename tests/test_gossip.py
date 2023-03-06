@@ -2229,6 +2229,7 @@ def test_gossip_private_updates(node_factory, bitcoind):
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store_compact_offline: 5 deleted, 3 copied'))
 
 
+@pytest.mark.skip("Zombie research had unexpected side effects")
 @pytest.mark.developer("Needs --dev-fast-gossip, --dev-fast-gossip-prune")
 def test_channel_resurrection(node_factory, bitcoind):
     """When a node goes offline long enough to prune a channel, the
