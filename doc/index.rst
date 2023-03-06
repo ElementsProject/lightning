@@ -57,6 +57,7 @@ Core Lightning Documentation
    lightning-delforward <lightning-delforward.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-delpay <lightning-delpay.7.md>
+   lightning-disableinvoicerequest <lightning-disableinvoicerequest.7.md>
    lightning-disableoffer <lightning-disableoffer.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
    lightning-emergencyrecover <lightning-emergencyrecover.7.md>
@@ -74,6 +75,7 @@ Core Lightning Documentation
    lightning-help <lightning-help.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-invoice <lightning-invoice.7.md>
+   lightning-invoicerequest <lightning-invoicerequest.7.md>
    lightning-keysend <lightning-keysend.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
    lightning-listconfigs <lightning-listconfigs.7.md>
@@ -81,6 +83,7 @@ Core Lightning Documentation
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
    lightning-listhtlcs <lightning-listhtlcs.7.md>
+   lightning-listinvoicerequests <lightning-listinvoicerequests.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
    lightning-listnodes <lightning-listnodes.7.md>
    lightning-listoffers <lightning-listoffers.7.md>
