@@ -1532,8 +1532,8 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 	}
 
 	if (changes != tal_count(scids))
-		fatal("migrate_channels_scids_as_integers: only converted %zu of %zu scids!",
-		      changes, tal_count(scids));
+		log_broken(ld->log, "migrate_channels_scids_as_integers: only converted %zu of %zu scids!",
+			   changes, tal_count(scids));
 
 	/* FIXME: We cannot use ->delete_columns to remove
 	 * short_channel_id, as other tables reference the channels
