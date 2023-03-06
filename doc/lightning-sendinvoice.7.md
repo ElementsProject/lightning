@@ -6,20 +6,19 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**sendinvoice** *offer* *label* [*amount\_msat*] [*timeout*] [*quantity*]
+**sendinvoice** *invreq* *label* [*amount\_msat*] [*timeout*] [*quantity*]
 
 DESCRIPTION
 -----------
 
 The **sendinvoice** RPC command creates and sends an invoice to the
-issuer of an *offer* for it to pay: the offer must contain
-*send\_invoice*; see lightning-fetchinvoice(7).
+issuer of an *invoice\_request* for it to pay: lightning-invoicerequest(7).
 
 If **fetchinvoice-noconnect** is not specified in the configuation, it
 will connect to the destination in the (currently common!) case where it
 cannot find a route which supports `option_onion_messages`.
 
-*offer* is the bolt12 offer string beginning with "lno1".
+*invreq* is the bolt12 invoice\_request string beginning with "lnr1".
 
 *label* is the unique label to use for this invoice.
 
@@ -33,7 +32,7 @@ invoice or return an error, default 90 seconds.  This will also be the
 timeout on the invoice that is sent.
 
 *quantity* is optional: it is required if the *offer* specifies
-*quantity\_min* or *quantity\_max*, otherwise it is not allowed.
+*quantity\_max*, otherwise it is not allowed.
 
 RETURN VALUE
 ------------
