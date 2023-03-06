@@ -1570,7 +1570,7 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 			}
 			/* Add to listeners array */
 			tal_arr_expand(&daemon->listeners,
-				       io_new_listener(daemon->listeners,
+				       io_new_listener(daemon,
 						       daemon->listen_fds[i]->fd,
 						       get_in_cb(daemon->listen_fds[i]
 								 ->is_websocket),
