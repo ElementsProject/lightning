@@ -778,7 +778,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	gs->writable = false;
 	while (pread(gs->fd, &hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
 		bool spam;
-		bool zombie;
 
 		msglen = be16_to_cpu(hdr.len);
 		checksum = be32_to_cpu(hdr.crc);
@@ -803,7 +802,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto next;
 		}
 		spam = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_RATELIMIT_BIT);
-		zombie = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_ZOMBIE_BIT);
 
 		switch (fromwire_peektype(msg)) {
 		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: {
@@ -875,20 +873,13 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			if (!routing_add_channel_update(rstate,
 							take(msg), gs->len,
 							NULL, false,
-							spam, zombie)) {
+							spam, false)) {
 				bad = "Bad channel_update";
 				goto badmsg;
 			}
 			stats[1]++;
 			break;
 		case WIRE_NODE_ANNOUNCEMENT:
-			/* In early v23.02 rcs we had zombie node announcements,
-			 * so throw them away here. */
-			if (zombie) {
-				status_unusual("gossip_store: removing zombie"
-					       " node_announcement from v23.02 rcs");
-				break;
-			}
 			if (!routing_add_node_announcement(rstate,
 							   take(msg), gs->len,
 							   NULL, NULL, spam)) {
