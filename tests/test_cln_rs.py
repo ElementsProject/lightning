@@ -181,6 +181,11 @@ def test_grpc_generate_certificate(node_factory):
     assert contents[-2] != files[-2].open().read()
     assert contents[-1] != files[-1].open().read()
 
+    keys = [f for f in files if f.name.endswith('-key.pem')]
+    modes = [f.stat().st_mode for f in keys]
+    private = [m % 8 == 0 and (m // 8) % 8 == 0 for m in modes]
+    assert all(private)
+
 
 def test_grpc_no_auto_start(node_factory):
     """Ensure that we do not start cln-grpc unless a port is configured.
