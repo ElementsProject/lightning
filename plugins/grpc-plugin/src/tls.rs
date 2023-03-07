@@ -59,6 +59,8 @@ fn generate_or_load_identity(
     filename: &str,
     parent: Option<&Identity>,
 ) -> Result<Identity> {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
     // Just our naming convention here.
     let cert_path = directory.join(format!("{}.pem", filename));
     let key_path = directory.join(format!("{}-key.pem", filename));
@@ -70,7 +72,18 @@ fn generate_or_load_identity(
             &key_path
         );
         let keypair = KeyPair::generate(&rcgen::PKCS_ECDSA_P256_SHA256)?;
-        std::fs::write(&key_path, keypair.serialize_pem())?;
+
+        // Create the file, but make it user-readable only:
+        let mut file = std::fs::File::create(&key_path)?;
+        let mut perms = std::fs::metadata(&key_path)?.permissions();
+        perms.set_mode(0o600);
+        std::fs::set_permissions(&key_path, perms)?;
+
+	// Only after changing the permissions we can write the
+	// private key
+        file.write_all(keypair.serialize_pem().as_bytes())?;
+        drop(file);
+
         debug!(
             "Generating a new certificate for key {:?} at {:?}",
             &key_path, &cert_path
