@@ -267,7 +267,7 @@ class GrpcConverterGenerator(IGenerator):
         pbname = self.to_camel_case(field.typename)
         # And now we can convert the current field:
         self.write(f"""\
-        #[allow(unused_variables)]
+        #[allow(unused_variables,deprecated)]
         impl From<{prefix}::{field.typename}> for pb::{pbname} {{
             fn from(c: {prefix}::{field.typename}) -> Self {{
                 Self {{
@@ -289,9 +289,9 @@ class GrpcConverterGenerator(IGenerator):
                 }.get(typ, f'i.into()')
 
                 if f.required:
-                    self.write(f"{name}: c.{name}.into_iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ} \n", numindent=3)
+                    self.write(f"{name}: c.{name}.into_iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ}\n", numindent=3)
                 else:
-                    self.write(f"{name}: c.{name}.map(|arr| arr.into_iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3 \n", numindent=3)
+                    self.write(f"{name}: c.{name}.map(|arr| arr.into_iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3\n", numindent=3)
             elif isinstance(f, EnumField):
                 if f.required:
                     self.write(f"{name}: c.{name} as i32,\n", numindent=3)
@@ -391,6 +391,7 @@ class GrpcConverterGenerator(IGenerator):
 
         self.generate_responses(service)
         self.generate_requests(service)
+        self.write("\n")
 
     def write(self, text: str, numindent: int = 0) -> None:
         raw = dedent(text)
@@ -422,7 +423,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         pbname = self.to_camel_case(field.typename)
         # And now we can convert the current field:
         self.write(f"""\
-        #[allow(unused_variables)]
+        #[allow(unused_variables,deprecated)]
         impl From<pb::{pbname}> for {prefix}::{field.typename} {{
             fn from(c: pb::{pbname}) -> Self {{
                 Self {{
