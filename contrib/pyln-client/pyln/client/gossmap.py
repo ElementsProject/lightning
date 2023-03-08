@@ -85,7 +85,7 @@ def _parse_features(featurebytes):
     return result
 
 
-class GossipStoreHeader(object):
+class GossipStoreMsgHeader(object):
     def __init__(self, buf: bytes, off: int):
         self.flags, self.length, self.crc, self.timestamp = struct.unpack('>HHII', buf)
         self.off = off
@@ -97,14 +97,14 @@ class GossipStoreHeader(object):
 class GossmapHalfchannel(object):
     """One direction of a GossmapChannel."""
     def __init__(self, channel: 'GossmapChannel', direction: int,
-                 fields: Dict[str, Any], hdr: GossipStoreHeader):
+                 fields: Dict[str, Any], hdr: GossipStoreMsgHeader):
         assert direction in [0, 1], "direction can only be 0 or 1"
         self.channel = channel
         self.direction = direction
         self.source = channel.node1 if direction == 0 else channel.node2
         self.destination = channel.node2 if direction == 0 else channel.node1
         self.fields: Dict[str, Any] = fields
-        self.hdr: GossipStoreHeader = hdr
+        self.hdr: GossipStoreMsgHeader = hdr
 
         self.timestamp: int = fields['timestamp']
         self.cltv_expiry_delta: int = fields['cltv_expiry_delta']
@@ -185,9 +185,9 @@ class GossmapChannel(object):
                  node1: 'GossmapNode',
                  node2: 'GossmapNode',
                  is_private: bool,
-                 hdr: GossipStoreHeader):
+                 hdr: GossipStoreMsgHeader):
         self.fields: Dict[str, Any] = fields
-        self.hdr: GossipStoreHeader = hdr
+        self.hdr: GossipStoreMsgHeader = hdr
 
         self.is_private = is_private
         self.scid = ShortChannelId.from_str(scid) if isinstance(scid, str) else scid
@@ -200,7 +200,7 @@ class GossmapChannel(object):
     def _update_channel(self,
                         direction: int,
                         fields: Dict[str, Any],
-                        hdr: GossipStoreHeader):
+                        hdr: GossipStoreMsgHeader):
 
         half = GossmapHalfchannel(self, direction, fields, hdr)
         self.half_channels[direction] = half
@@ -252,7 +252,7 @@ class GossmapNode(object):
         if isinstance(node_id, bytes) or isinstance(node_id, str):
             node_id = GossmapNodeId(node_id)
         self.fields: Optional[Dict[str, Any]] = None
-        self.hdr: GossipStoreHeader = None
+        self.hdr: GossipStoreMsgHeader = None
         self.channels: List[GossmapChannel] = []
         self.node_id = node_id
         self.announced = False
@@ -412,7 +412,7 @@ class Gossmap(object):
                      node1: GossmapNode,
                      node2: GossmapNode,
                      is_private: bool,
-                     hdr: GossipStoreHeader):
+                     hdr: GossipStoreMsgHeader):
         c = GossmapChannel(fields, scid, node1, node2, is_private, hdr)
         self._last_scid = scid
         self.channels[scid] = c
@@ -430,7 +430,7 @@ class Gossmap(object):
         if len(c.node2.channels) == 0:
             del self.nodes[c.node2.node_id]
 
-    def _add_channel(self, rec: bytes, is_private: bool, hdr: GossipStoreHeader):
+    def _add_channel(self, rec: bytes, is_private: bool, hdr: GossipStoreMsgHeader):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
         # Add nodes one the fly
         node1_id = GossmapNodeId(fields['node_id_1'])
@@ -557,7 +557,7 @@ class Gossmap(object):
             inner = shell
         return result
 
-    def _update_channel(self, rec: bytes, hdr: GossipStoreHeader):
+    def _update_channel(self, rec: bytes, hdr: GossipStoreMsgHeader):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
         direction = fields['channel_flags'] & 1
         scid = ShortChannelId.from_int(fields['short_channel_id'])
@@ -567,7 +567,7 @@ class Gossmap(object):
         else:
             self.orphan_channel_updates.add(scid)
 
-    def _add_node_announcement(self, rec: bytes, hdr: GossipStoreHeader):
+    def _add_node_announcement(self, rec: bytes, hdr: GossipStoreMsgHeader):
         fields = node_announcement.read(io.BytesIO(rec[2:]), {})
         node_id = GossmapNodeId(fields['node_id'])
         if node_id not in self.nodes:
@@ -607,7 +607,7 @@ class Gossmap(object):
         off = self.bytes_read + 1
         if not self._pull_bytes(12):
             return None, None
-        hdr = GossipStoreHeader(self.store_buf[:12], off)
+        hdr = GossipStoreMsgHeader(self.store_buf[:12], off)
         if not self._pull_bytes(12 + hdr.length):
             return None, hdr
         rec = self.store_buf[12:]
