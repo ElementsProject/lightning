@@ -467,7 +467,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	json_add_bool(req->js, "exposeid", true);
 	json_add_bool(req->js, "single_use", *single_use);
 	if (label)
-		json_add_string(req->js, "label", label);
+		json_add_string(req->js, "recurrence_label", label);
 	return send_outreq(cmd->plugin, req);
 }
 
