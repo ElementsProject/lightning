@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.02.1] - 2023-03-10: "CBDC Backing Layer II"
+
+This release named by @whitslack
+
+### Added
+
+
+### Changed
+
+ - gossipd: Revert zombification change, keep all gossip for now. ([#6069])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+
+### Removed
+
+
+### Fixed
+
+ - Plugins: `sql` nodes table now gets refreshed when gossip changes. ([#6068])
+ - connectd: Fixed a crash on new connections. ([#6070])
+ - wallet: Don't crash on broken database migrations. ([#6071])
+
+
+### EXPERIMENTAL
+
+ - `experimental-peer-storage`: only send to peers which support it. ([#6072])
+
+
+[#6068]: https://github.com/ElementsProject/lightning/pull/6068
+[#6069]: https://github.com/ElementsProject/lightning/pull/6069
+[#6070]: https://github.com/ElementsProject/lightning/pull/6070
+[#6071]: https://github.com/ElementsProject/lightning/pull/6071
+[#6072]: https://github.com/ElementsProject/lightning/pull/6072
+
+
 ## [23.02] - 2023-03-01: "CBDC Backing Layer"
 
 This release named by @whitslack
@@ -2236,6 +2275,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[23.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02.1
 [23.02]: https://github.com/ElementsProject/lightning/releases/tag/v23.02
 [0.12.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
