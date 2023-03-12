@@ -1,5 +1,4 @@
 #include "config.h"
-#include <ccan/err/err.h>
 #include <ccan/rbuf/rbuf.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -272,10 +271,12 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
 	if (fd < 0)
-		err(1, "Creating stream socket for Tor");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Creating stream socket for Tor");
 
 	if (connect(fd, ai_tor->ai_addr, ai_tor->ai_addrlen) != 0)
-		err(1, "Connecting stream socket to Tor service");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Connecting stream socket to Tor service");
 
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
@@ -312,10 +313,12 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
 	if (fd < 0)
-		err(1, "Creating stream socket for Tor");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Creating stream socket for Tor");
 
 	if (connect(fd, ai_tor->ai_addr, ai_tor->ai_addrlen) != 0)
-		err(1, "Connecting stream socket to Tor service");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Connecting stream socket to Tor service");
 
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
