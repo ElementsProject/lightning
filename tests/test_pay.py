@@ -5395,3 +5395,29 @@ def test_delpay_works(node_factory, bitcoind):
                       status=failed['status'],
                       groupid=failed['groupid'],
                       partid=failed['partid'])
+
+
+def test_fetchinvoice_with_no_quantity(node_factory):
+    """
+    Reproducer for https://github.com/ElementsProject/lightning/issues/6089
+
+    The issue is when the offer has the quantity_max and the parameter.
+
+    In particular, in the fetchinvoice we forget to map the
+    quantity parameter with the invoice request quantity field.
+    """
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'experimental-offers': None})
+    offer1 = l2.rpc.call('offer', {'amount': '2msat',
+                                   'description': 'simple test',
+                                   'quantity_max': 10})
+
+    assert offer1['created'] is True, f"offer created is {offer1['created']}"
+
+    with pytest.raises(RpcError, match="quantity parameter required"):
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'quantity': 2})
+    inv = inv['invoice']
+    decode_inv = l2.rpc.decode(inv)
+    assert decode_inv['invreq_quantity'] == 2, f'`invreq_quantity` in the invoice did not match, received {decode_inv["quantity"]}, expected 2'
