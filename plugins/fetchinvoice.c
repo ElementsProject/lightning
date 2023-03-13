@@ -1029,6 +1029,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	invreq = invoice_request_for_offer(sent, sent->offer);
 	invreq->invreq_recurrence_counter = tal_steal(invreq, recurrence_counter);
 	invreq->invreq_recurrence_start = tal_steal(invreq, recurrence_start);
+	invreq->invreq_quantity = tal_steal(invreq, quantity);
 
 	/* BOLT-offers-recurrence #12:
 	 * - if `offer_amount` is not present:
