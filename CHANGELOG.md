@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.02.2] - 2023-03-14: "CBDC Backing Layer III"
+
+
+### Added
+
+ - JSON-RPC: Restore `pay` for a bolt11 which uses a `description_hash`, without setting `description` (still deprecated, but the world is not ready) [
+
+[#6092]: https://github.com/ElementsProject/lightning/pull/6092
+
+
 ## [23.02.1] - 2023-03-10: "CBDC Backing Layer II"
 
 This release named by @whitslack
