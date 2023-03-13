@@ -1067,7 +1067,7 @@ static struct command_result *json_pay(struct command *cmd,
 		 * - MUST check that the SHA2 256-bit hash in the `h` field
 		 *   exactly matches the hashed description.
 		 */
-		if (!b11->description) {
+		if (!b11->description && !deprecated_apis) {
 			if (!b11->description_hash) {
 				return command_fail(cmd,
 						    JSONRPC2_INVALID_PARAMS,
