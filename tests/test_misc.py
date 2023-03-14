@@ -2011,8 +2011,7 @@ def test_relative_config_dir(node_factory):
 
 
 def test_signmessage(node_factory):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
     l1.rpc.jsonschemas = {}
 
     corpus = [[None,
@@ -2049,13 +2048,17 @@ def test_signmessage(node_factory):
 
         assert l1.rpc.checkmessage(c[1], c[2], c[3])['verified']
         assert not l1.rpc.checkmessage(c[1] + "modified", c[2], c[3])['verified']
-        checknokey = l1.rpc.checkmessage(c[1], c[2])
+
         # Of course, we know our own pubkey
         if c[3] == l1.info['id']:
-            assert checknokey['verified']
+            assert l1.rpc.checkmessage(c[1], c[2])['verified']
         else:
-            assert not checknokey['verified']
-        assert checknokey['pubkey'] == c[3]
+            # It will error, as it can't verify.
+            with pytest.raises(RpcError, match="pubkey not found in the graph") as err:
+                l1.rpc.checkmessage(c[1], c[2])
+
+            # But error contains the key which it claims.
+            assert err.value.error['data']['claimed_key'] == c[3]
 
     # l2 knows about l1, so it can validate it.
     zm = l1.rpc.signmessage(message="message for you")['zbase']
