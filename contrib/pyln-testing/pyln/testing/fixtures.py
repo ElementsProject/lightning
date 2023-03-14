@@ -353,7 +353,7 @@ def _extra_validator(is_request: bool):
             return False
 
     def is_msat_response(checker, instance):
-        """String number ending in msat (deprecated) or integer"""
+        """An integer, but we convert to Millisatoshi in JSON parsing"""
         return type(instance) is Millisatoshi
 
     def is_txid(checker, instance):
