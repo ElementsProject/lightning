@@ -1088,14 +1088,14 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 		if (p->payload->forward_node_id)
 			json_add_pubkey(s, "next_node_id",
 					p->payload->forward_node_id);
-		json_add_amount_msat_only(s, "forward_msat",
-					  p->payload->amt_to_forward);
+		json_add_amount_msat(s, "forward_msat",
+				     p->payload->amt_to_forward);
 		json_add_u32(s, "outgoing_cltv_value", p->payload->outgoing_cltv);
 		/* These are specified together in TLV, so only print total_msat
 		 * if payment_secret set (ie. modern, and final hop) */
 		if (p->payload->payment_secret) {
-			json_add_amount_msat_only(s, "total_msat",
-						  *p->payload->total_msat);
+			json_add_amount_msat(s, "total_msat",
+					     *p->payload->total_msat);
 			json_add_secret(s, "payment_secret",
 					p->payload->payment_secret);
 		}
@@ -1116,7 +1116,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	    s, "short_channel_id",
 	    channel_scid_or_local_alias(hin->key.channel));
 	json_add_u64(s, "id", hin->key.id);
-	json_add_amount_msat_only(s, "amount_msat", hin->msat);
+	json_add_amount_msat(s, "amount_msat", hin->msat);
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
 	json_add_sha256(s, "payment_hash", &hin->payment_hash);
@@ -3122,7 +3122,7 @@ static struct command_result *json_listhtlcs(struct command *cmd,
 		json_add_u32(response, "expiry", cltv_expiry);
 		json_add_string(response, "direction",
 				owner == LOCAL ? "out": "in");
-		json_add_amount_msat_only(response, "amount_msat", msat);
+		json_add_amount_msat(response, "amount_msat", msat);
 		json_add_sha256(response, "payment_hash", &payment_hash);
 		json_add_string(response, "state", htlc_state_name(hstate));
 		json_object_end(response);

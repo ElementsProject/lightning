@@ -216,7 +216,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 
 		if (p->invstring)
 			json_add_invstring(ret, p->invstring);
-		json_add_amount_msat_only(ret, "amount_msat", p->amount);
+		json_add_amount_msat(ret, "amount_msat", p->amount);
 
 		json_add_node_id(ret, "destination", p->destination);
 
@@ -406,10 +406,9 @@ static void add_new_entry(struct json_stream *ret,
 	/* This is only tallied for pending and successful payments, not
 	 * failures. */
 	if (pm->amount != NULL && pm->num_nonfailed_parts > 0)
-		json_add_amount_msat_only(ret, "amount_msat", *pm->amount);
+		json_add_amount_msat(ret, "amount_msat", *pm->amount);
 
-	json_add_amount_msat_only(ret, "amount_sent_msat",
-				  pm->amount_sent);
+	json_add_amount_msat(ret, "amount_sent_msat", pm->amount_sent);
 
 	if (pm->num_nonfailed_parts > 1)
 		json_add_u64(ret, "number_of_parts",
@@ -668,7 +667,7 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	json_add_amount_msat_only(s, "amount_msat", p->amount);
+	json_add_amount_msat(s, "amount_msat", p->amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
 

@@ -887,8 +887,8 @@ static void json_add_channel(struct lightningd *ld,
 			}
 			json_add_sat_only(response, "remote_funds_msat", total);
 
-			json_add_amount_msat_only(response, "fee_paid_msat",
-						  channel->push);
+			json_add_amount_msat(response, "fee_paid_msat",
+					     channel->push);
 		} else {
 			if (!amount_sat_add(&total, peer_funded_sats, funds)) {
 				log_broken(channel->log,
@@ -904,8 +904,8 @@ static void json_add_channel(struct lightningd *ld,
 				total = channel->our_funds;
 			}
 			json_add_sat_only(response, "local_funds_msat", total);
-			json_add_amount_msat_only(response, "fee_rcvd_msat",
-						  channel->push);
+			json_add_amount_msat(response, "fee_rcvd_msat",
+					     channel->push);
 		}
 
 	} else {
@@ -913,8 +913,8 @@ static void json_add_channel(struct lightningd *ld,
 				  channel->our_funds);
 		json_add_sat_only(response, "remote_funds_msat",
 				  peer_funded_sats);
-		json_add_amount_msat_only(response, "pushed_msat",
-					  channel->push);
+		json_add_amount_msat(response, "pushed_msat",
+				     channel->push);
 	}
 
 	json_object_end(response);
@@ -934,8 +934,8 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_amount_msat(response, "total_msat", funding_msat);
 
 	/* routing fees */
-	json_add_amount_msat_only(response, "fee_base_msat",
-				  amount_msat(channel->feerate_base));
+	json_add_amount_msat(response, "fee_base_msat",
+			     amount_msat(channel->feerate_base));
 	json_add_u32(response, "fee_proportional_millionths",
 		     channel->feerate_ppm);
 
@@ -972,12 +972,12 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_amount_msat(response,
 			     "minimum_htlc_in_msat",
 			     channel->our_config.htlc_minimum);
-	json_add_amount_msat_only(response,
-				  "minimum_htlc_out_msat",
-				  channel->htlc_minimum_msat);
-	json_add_amount_msat_only(response,
-				  "maximum_htlc_out_msat",
-				  channel->htlc_maximum_msat);
+	json_add_amount_msat(response,
+			     "minimum_htlc_out_msat",
+			     channel->htlc_minimum_msat);
+	json_add_amount_msat(response,
+			     "maximum_htlc_out_msat",
+			     channel->htlc_maximum_msat);
 
 	/* The `to_self_delay` is imposed on the *other*
 	 * side, so our configuration `to_self_delay` is
@@ -2707,19 +2707,19 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 
 	/* setchannel lists these explicitly */
 	if (add_details) {
-		json_add_amount_msat_only(response, "fee_base_msat",
-					  amount_msat(channel->feerate_base));
+		json_add_amount_msat(response, "fee_base_msat",
+				     amount_msat(channel->feerate_base));
 		json_add_u32(response, "fee_proportional_millionths",
 			     channel->feerate_ppm);
-		json_add_amount_msat_only(response,
-					  "minimum_htlc_out_msat",
-					  channel->htlc_minimum_msat);
+		json_add_amount_msat(response,
+				     "minimum_htlc_out_msat",
+				     channel->htlc_minimum_msat);
 		if (warn_cannot_set_min)
 			json_add_string(response, "warning_htlcmin_too_low",
 					"Set minimum_htlc_out_msat to minimum allowed by peer");
-		json_add_amount_msat_only(response,
-					  "maximum_htlc_out_msat",
-					  channel->htlc_maximum_msat);
+		json_add_amount_msat(response,
+				     "maximum_htlc_out_msat",
+				     channel->htlc_maximum_msat);
 		if (warn_cannot_set_max)
 			json_add_string(response, "warning_htlcmax_too_high",
 					"Set maximum_htlc_out_msat to maximum possible in channel");

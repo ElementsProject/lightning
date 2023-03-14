@@ -11,8 +11,8 @@ void json_add_chain_event(struct json_stream *out, struct chain_event *ev)
 		json_add_string(out, "origin", ev->origin_acct);
 	json_add_string(out, "type", "chain");
 	json_add_string(out, "tag", ev->tag);
-	json_add_amount_msat_only(out, "credit_msat", ev->credit);
-	json_add_amount_msat_only(out, "debit_msat", ev->debit);
+	json_add_amount_msat(out, "credit_msat", ev->credit);
+	json_add_amount_msat(out, "debit_msat", ev->debit);
 	json_add_string(out, "currency", ev->currency);
 	json_add_outpoint(out, "outpoint", &ev->outpoint);
 

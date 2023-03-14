@@ -333,12 +333,12 @@ void json_add_address_internal(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
-/* Generated stub for json_add_amount_msat_only */
-void json_add_amount_msat_only(struct json_stream *result UNNEEDED,
+/* Generated stub for json_add_amount_msat */
+void json_add_amount_msat(struct json_stream *result UNNEEDED,
 			  const char *msatfieldname UNNEEDED,
 			  struct amount_msat msat)
 
-{ fprintf(stderr, "json_add_amount_msat_only called!\n"); abort(); }
+{ fprintf(stderr, "json_add_amount_msat called!\n"); abort(); }
 /* Generated stub for json_add_amount_sat_msat */
 void json_add_amount_sat_msat(struct json_stream *result UNNEEDED,
 			      const char *msatfieldname UNNEEDED,

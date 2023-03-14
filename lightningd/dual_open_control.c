@@ -290,10 +290,10 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	json_add_amount_sat_msat(stream,
 				 "dust_limit_msat", payload->dust_limit_satoshis);
 
-	json_add_amount_msat_only(stream, "max_htlc_value_in_flight_msat",
-				  payload->max_htlc_value_in_flight_msat);
-	json_add_amount_msat_only(stream, "htlc_minimum_msat",
-				  payload->htlc_minimum_msat);
+	json_add_amount_msat(stream, "max_htlc_value_in_flight_msat",
+			     payload->max_htlc_value_in_flight_msat);
+	json_add_amount_msat(stream, "htlc_minimum_msat",
+			     payload->htlc_minimum_msat);
 	json_add_num(stream, "funding_feerate_per_kw",
 		     payload->funding_feerate_per_kw);
 	json_add_num(stream, "commitment_feerate_per_kw",

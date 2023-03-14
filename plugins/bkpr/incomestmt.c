@@ -436,8 +436,8 @@ void json_add_income_event(struct json_stream *out, struct income_event *ev)
 	json_object_start(out, NULL);
 	json_add_string(out, "account", ev->acct_name);
 	json_add_string(out, "tag", ev->tag);
-	json_add_amount_msat_only(out, "credit_msat", ev->credit);
-	json_add_amount_msat_only(out, "debit_msat", ev->debit);
+	json_add_amount_msat(out, "credit_msat", ev->credit);
+	json_add_amount_msat(out, "debit_msat", ev->debit);
 	json_add_string(out, "currency", ev->currency);
 	json_add_u64(out, "timestamp", ev->timestamp);
 

@@ -1575,14 +1575,14 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
 
 	json_object_start(req->js, "first_hop");
-	json_add_amount_msat_only(req->js, "amount_msat", first->amount);
+	json_add_amount_msat(req->js, "amount_msat", first->amount);
 	json_add_num(req->js, "delay", first->delay);
 	json_add_node_id(req->js, "id", &first->node_id);
 	json_add_short_channel_id(req->js, "channel", &first->scid);
 	json_object_end(req->js);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
-	json_add_amount_msat_only(req->js, "amount_msat", p->amount);
+	json_add_amount_msat(req->js, "amount_msat", p->amount);
 
 	json_array_start(req->js, "shared_secrets");
 	secrets = p->createonion_response->shared_secrets;
@@ -1896,7 +1896,7 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	json_add_amount_msat_only(s, "amount_msat", p->amount);
+	json_add_amount_msat(s, "amount_msat", p->amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
 
