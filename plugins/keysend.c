@@ -150,7 +150,7 @@ static void check_preapprovekeysend_start(void *d UNUSED, struct payment *p)
 				    &preapprovekeysend_rpc_failure, p);
 	json_add_node_id(req->js, "destination", p->destination);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
-	json_add_amount_msat_only(req->js, "amount_msat", p->amount);
+	json_add_amount_msat(req->js, "amount_msat", p->amount);
 	(void) send_outreq(p->plugin, req);
 }
 

@@ -1117,7 +1117,7 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 		json_add_string(req->js, "feerate", mfc->feerate_str);
 
 	json_add_bool(req->js, "announce", dest->announce);
-	json_add_amount_msat_only(req->js, "push_msat", dest->push_msat);
+	json_add_amount_msat(req->js, "push_msat", dest->push_msat);
 
 	if (dest->close_to_str)
 		json_add_string(req->js, "close_to", dest->close_to_str);

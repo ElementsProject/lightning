@@ -281,11 +281,11 @@ static struct command_result *json_inspect(struct command *cmd,
 
 		fee_sum = find_sum_for_txid(fee_sums, set->txid);
 		if (fee_sum)
-			json_add_amount_msat_only(res, "fees_paid_msat",
-						  fee_sum->fees_paid);
+			json_add_amount_msat(res, "fees_paid_msat",
+					     fee_sum->fees_paid);
 		else
-			json_add_amount_msat_only(res, "fees_paid_msat",
-						  AMOUNT_MSAT(0));
+			json_add_amount_msat(res, "fees_paid_msat",
+					     AMOUNT_MSAT(0));
 
 		json_array_start(res, "outputs");
 		for (size_t j = 0; j < tal_count(set->pairs); j++) {
@@ -312,10 +312,10 @@ static struct command_result *json_inspect(struct command *cmd,
 				json_add_num(res, "outnum",
 					     ev->outpoint.n);
 				json_add_string(res, "output_tag", ev->tag);
-				json_add_amount_msat_only(res, "output_value_msat",
-							  ev->output_value);
-				json_add_amount_msat_only(res, "credit_msat",
-							  ev->credit);
+				json_add_amount_msat(res, "output_value_msat",
+						     ev->output_value);
+				json_add_amount_msat(res, "credit_msat",
+						     ev->credit);
 				json_add_string(res, "currency", ev->currency);
 				if (ev->origin_acct)
 					json_add_string(res, "originating_account",
@@ -329,15 +329,17 @@ static struct command_result *json_inspect(struct command *cmd,
 							ev->acct_name);
 					json_add_num(res, "outnum",
 						     ev->outpoint.n);
-					json_add_amount_msat_only(res, "output_value_msat",
-								  ev->output_value);
+					json_add_amount_msat(res,
+							     "output_value_msat",
+							     ev->output_value);
 					json_add_string(res, "currency",
 							ev->currency);
 				}
 				json_add_string(res, "spend_tag", ev->tag);
 				json_add_txid(res, "spending_txid",
 					      ev->spending_txid);
-				json_add_amount_msat_only(res, "debit_msat", ev->debit);
+				json_add_amount_msat(res,
+						     "debit_msat", ev->debit);
 				if (ev->payment_id)
 					json_add_sha256(res, "payment_id",
 							ev->payment_id);
@@ -507,8 +509,8 @@ static struct command_result *json_list_balances(struct command *cmd,
 		json_array_start(res, "balances");
 		for (size_t j = 0; j < tal_count(balances); j++) {
 			json_object_start(res, NULL);
-			json_add_amount_msat_only(res, "balance_msat",
-						  balances[j]->balance);
+			json_add_amount_msat(res, "balance_msat",
+					     balances[j]->balance);
 			json_add_string(res, "coin_type",
 					balances[j]->currency);
 			json_object_end(res);

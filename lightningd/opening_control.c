@@ -646,15 +646,15 @@ static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	json_add_node_id(stream, "id", &uc->peer->id);
 	json_add_amount_sat_msat(stream, "funding_msat",
 				 payload->funding_satoshis);
-	json_add_amount_msat_only(stream, "push_msat", payload->push_msat);
+	json_add_amount_msat(stream, "push_msat", payload->push_msat);
 	json_add_amount_sat_msat(stream, "dust_limit_msat",
 				 payload->dust_limit_satoshis);
-	json_add_amount_msat_only(stream, "max_htlc_value_in_flight_msat",
-				  payload->max_htlc_value_in_flight_msat);
+	json_add_amount_msat(stream, "max_htlc_value_in_flight_msat",
+			     payload->max_htlc_value_in_flight_msat);
 	json_add_amount_sat_msat(stream, "channel_reserve_msat",
 				 payload->channel_reserve_satoshis);
-	json_add_amount_msat_only(stream, "htlc_minimum_msat",
-				  payload->htlc_minimum_msat);
+	json_add_amount_msat(stream, "htlc_minimum_msat",
+			     payload->htlc_minimum_msat);
 	json_add_num(stream, "feerate_per_kw", payload->feerate_per_kw);
 	json_add_num(stream, "to_self_delay", payload->to_self_delay);
 	json_add_num(stream, "max_accepted_htlcs", payload->max_accepted_htlcs);

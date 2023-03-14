@@ -490,8 +490,8 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 		json_add_string(stream, "originating_account",
 				mvt->originating_acct);
 	json_mvt_id(stream, mvt->type, &mvt->id);
-	json_add_amount_msat_only(stream, "credit_msat", mvt->credit);
-	json_add_amount_msat_only(stream, "debit_msat", mvt->debit);
+	json_add_amount_msat(stream, "credit_msat", mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", mvt->debit);
 
 	/* Only chain movements */
 	if (mvt->output_val)
@@ -502,8 +502,7 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 			     mvt->output_count);
 
 	if (mvt->fees) {
-		json_add_amount_msat_only(stream, "fees_msat",
-					  *mvt->fees);
+		json_add_amount_msat(stream, "fees_msat", *mvt->fees);
 	}
 
 	json_array_start(stream, "tags");
@@ -548,8 +547,8 @@ static void balance_snapshot_notification_serialize(struct json_stream *stream, 
 		json_object_start(stream, NULL);
 		json_add_string(stream, "account_id",
 				snap->accts[i]->acct_id);
-		json_add_amount_msat_only(stream, "balance_msat",
-					  snap->accts[i]->balance);
+		json_add_amount_msat(stream, "balance_msat",
+				     snap->accts[i]->balance);
 		json_add_string(stream, "coin_type", snap->accts[i]->bip173_name);
 		json_object_end(stream);
 	}

@@ -272,8 +272,8 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	/* We always tell them this unless it's trivial to calc and
 	 * exactly as expected. */
 	if (!expected_amount || *inv->invoice_amount != *expected_amount) {
-		json_add_amount_msat_only(out, "amount_msat",
-					  amount_msat(*inv->invoice_amount));
+		json_add_amount_msat(out, "amount_msat",
+				     amount_msat(*inv->invoice_amount));
 	}
 	json_object_end(out);
 

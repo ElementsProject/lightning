@@ -267,10 +267,10 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "fee_per_millionth",
 			     fee_proportional_millionths);
 		json_add_num(response, "delay", c->half[dir].delay);
-		json_add_amount_msat_only(response, "htlc_minimum_msat",
-					  htlc_minimum_msat);
-		json_add_amount_msat_only(response, "htlc_maximum_msat",
-					  htlc_maximum_msat);
+		json_add_amount_msat(response, "htlc_minimum_msat",
+				     htlc_minimum_msat);
+		json_add_amount_msat(response, "htlc_maximum_msat",
+				     htlc_maximum_msat);
 		json_add_hex_talarr(response, "features", chanfeatures);
 		json_object_end(response);
 	}
@@ -574,21 +574,19 @@ static struct command_result *json_listincoming(struct command *cmd,
 		gossmap_node_get_id(gossmap, peer, &peer_id);
 		json_add_node_id(js, "id", &peer_id);
 		json_add_short_channel_id(js, "short_channel_id", &scid);
-		json_add_amount_msat_only(js, "fee_base_msat",
-					  amount_msat(ourchan->half[!dir]
-						      .base_fee));
-		json_add_amount_msat_only(js, "htlc_min_msat",
-					  amount_msat(fp16_to_u64(ourchan->half[!dir]
-								  .htlc_min)));
-		json_add_amount_msat_only(js, "htlc_max_msat",
-					  amount_msat(fp16_to_u64(ourchan->half[!dir]
-								  .htlc_max)));
+		json_add_amount_msat(js, "fee_base_msat",
+				     amount_msat(ourchan->half[!dir].base_fee));
+		json_add_amount_msat(js, "htlc_min_msat",
+				     amount_msat(fp16_to_u64(ourchan->half[!dir]
+							     .htlc_min)));
+		json_add_amount_msat(js, "htlc_max_msat",
+				     amount_msat(fp16_to_u64(ourchan->half[!dir]
+							     .htlc_max)));
 		json_add_u32(js, "fee_proportional_millionths",
 			     ourchan->half[!dir].proportional_fee);
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
-		json_add_amount_msat_only(js, "incoming_capacity_msat",
-					 peer_capacity(gossmap,
-						       me, peer, ourchan));
+		json_add_amount_msat(js, "incoming_capacity_msat",
+				     peer_capacity(gossmap, me, peer, ourchan));
 		json_add_bool(js, "public", !ourchan->private);
 		peer_features = gossmap_node_get_features(tmpctx, gossmap, peer);
 		if (peer_features)

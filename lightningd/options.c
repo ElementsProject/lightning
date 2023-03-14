@@ -1752,7 +1752,7 @@ static void add_config(struct lightningd *ld,
 			 * --plugin for each one, so ignore these */
 		} else if (opt->cb_arg == (void *)opt_set_msat) {
 			/* We allow -msat not _msat here, unlike
-			 * json_add_amount_msat_only */
+			 * json_add_amount_msat */
 			assert(strends(name0, "-msat"));
 			json_add_string(response, name0,
 					fmt_amount_msat(tmpctx,
