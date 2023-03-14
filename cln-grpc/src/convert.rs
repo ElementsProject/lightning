@@ -117,10 +117,6 @@ impl From<responses::ListpeersPeersChannelsInflight> for pb::ListpeersPeersChann
 impl From<responses::ListpeersPeersChannelsFunding> for pb::ListpeersPeersChannelsFunding {
     fn from(c: responses::ListpeersPeersChannelsFunding) -> Self {
         Self {
-            #[allow(deprecated)]
-            local_msat: c.local_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            remote_msat: c.remote_msat.map(|f| f.into()), // Rule #2 for type msat?
             pushed_msat: c.pushed_msat.map(|f| f.into()), // Rule #2 for type msat?
             local_funds_msat: Some(c.local_funds_msat.into()), // Rule #2 for type msat
             remote_funds_msat: Some(c.remote_funds_msat.into()), // Rule #2 for type msat
@@ -2460,8 +2456,6 @@ impl From<pb::ListpeersPeersChannelsInflight> for responses::ListpeersPeersChann
 impl From<pb::ListpeersPeersChannelsFunding> for responses::ListpeersPeersChannelsFunding {
     fn from(c: pb::ListpeersPeersChannelsFunding) -> Self {
         Self {
-            local_msat: c.local_msat.map(|a| a.into()), // Rule #1 for type msat?
-            remote_msat: c.remote_msat.map(|a| a.into()), // Rule #1 for type msat?
             pushed_msat: c.pushed_msat.map(|a| a.into()), // Rule #1 for type msat?
             local_funds_msat: c.local_funds_msat.unwrap().into(), // Rule #1 for type msat
             remote_funds_msat: c.remote_funds_msat.unwrap().into(), // Rule #1 for type msat
