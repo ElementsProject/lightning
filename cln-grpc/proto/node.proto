@@ -241,8 +241,6 @@ message ListpeersPeersChannelsInflight {
 }
 
 message ListpeersPeersChannelsFunding {
-	optional Amount local_msat = 1;
-	optional Amount remote_msat = 2;
 	optional Amount pushed_msat = 3;
 	Amount local_funds_msat = 4;
 	Amount remote_funds_msat = 7;
