@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 			json_object_start(js, NULL);
 
 			json_add_u32(js, "index", i+j);
-			json_add_amount_msat_only(js, "amount_msat", amount_msat(12));
+			json_add_amount_msat(js, "amount_msat", amount_msat(12));
 			if (j == 0)
 				json_add_string(js, "type", "sometype");
 			json_add_string(js, "scriptPubKey", "00000000");

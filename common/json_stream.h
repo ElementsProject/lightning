@@ -325,13 +325,10 @@ void json_add_address_internal(struct json_stream *response,
 			       const struct wireaddr_internal *addr);
 
 /* Adds an 'msat' field */
-void json_add_amount_msat_only(struct json_stream *result,
+void json_add_amount_msat(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 	NO_NULL_ARGS;
-
-/* Compat shim */
-#define json_add_amount_msat json_add_amount_msat_only
 
 /* Adds an 'msat' field */
 void json_add_amount_sat_msat(struct json_stream *result,

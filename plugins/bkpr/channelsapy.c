@@ -301,21 +301,21 @@ void json_add_channel_apy(struct json_stream *res,
 
 	json_add_string(res, "account", apy->acct_name);
 
-	json_add_amount_msat_only(res, "routed_out_msat", apy->routed_out);
-	json_add_amount_msat_only(res, "routed_in_msat", apy->routed_in);
-	json_add_amount_msat_only(res, "lease_fee_paid_msat", apy->lease_out);
-	json_add_amount_msat_only(res, "lease_fee_earned_msat", apy->lease_in);
-	json_add_amount_msat_only(res, "pushed_out_msat", apy->push_out);
-	json_add_amount_msat_only(res, "pushed_in_msat", apy->push_in);
+	json_add_amount_msat(res, "routed_out_msat", apy->routed_out);
+	json_add_amount_msat(res, "routed_in_msat", apy->routed_in);
+	json_add_amount_msat(res, "lease_fee_paid_msat", apy->lease_out);
+	json_add_amount_msat(res, "lease_fee_earned_msat", apy->lease_in);
+	json_add_amount_msat(res, "pushed_out_msat", apy->push_out);
+	json_add_amount_msat(res, "pushed_in_msat", apy->push_in);
 
-	json_add_amount_msat_only(res, "our_start_balance_msat", apy->our_start_bal);
-	json_add_amount_msat_only(res, "channel_start_balance_msat",
-				  apy->total_start_bal);
+	json_add_amount_msat(res, "our_start_balance_msat", apy->our_start_bal);
+	json_add_amount_msat(res, "channel_start_balance_msat",
+			     apy->total_start_bal);
 
 	ok = amount_msat_add(&total_fees, apy->fees_in, apy->fees_out);
 	assert(ok);
-	json_add_amount_msat_only(res, "fees_out_msat", apy->fees_out);
-	json_add_amount_msat_only(res, "fees_in_msat", apy->fees_in);
+	json_add_amount_msat(res, "fees_out_msat", apy->fees_out);
+	json_add_amount_msat(res, "fees_in_msat", apy->fees_in);
 
 	/* utilization (out): routed_out/total_balance */
 	assert(!amount_msat_zero(apy->total_start_bal));

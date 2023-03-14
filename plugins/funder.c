@@ -440,8 +440,7 @@ psbt_funded(struct command *cmd,
 	response = jsonrpc_stream_success(cmd);
 	json_add_string(response, "result", "continue");
 	json_add_psbt(response, "psbt", psbt);
-	json_add_amount_msat_only(response, "our_funding_msat",
-				  our_funding_msat);
+	json_add_amount_msat(response, "our_funding_msat", our_funding_msat);
 
 	/* If we're accepting an lease request, *and* they've
 	 * requested one, fill in our most recent infos */

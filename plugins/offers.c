@@ -272,7 +272,7 @@ static bool json_add_blinded_paths(struct json_stream *js,
 		/* Don't crash if we're short a payinfo! */
 		if (i < tal_count(blindedpay)) {
 			json_object_start(js, "payinfo");
-			json_add_amount_msat_only(js, "fee_base_msat",
+			json_add_amount_msat(js, "fee_base_msat",
 						  amount_msat(blindedpay[i]->fee_base_msat));
 			json_add_u32(js, "fee_proportional_millionths",
 				     blindedpay[i]->fee_proportional_millionths);
@@ -372,8 +372,8 @@ static bool json_add_offer_fields(struct json_stream *js,
 			json_add_string(js, "warning_unknown_offer_currency",
 					"unknown currency code");
 	} else if (offer_amount)
-		json_add_amount_msat_only(js, "offer_amount_msat",
-					  amount_msat(*offer_amount));
+		json_add_amount_msat(js, "offer_amount_msat",
+				     amount_msat(*offer_amount));
 
 	/* BOLT-offers #12:
 	 * A reader of an offer:
@@ -533,8 +533,8 @@ static bool json_add_invreq_fields(struct json_stream *js,
 		json_add_sha256(js, "invreq_chain", &invreq_chain->shad.sha);
 
 	if (invreq_amount)
-		json_add_amount_msat_only(js, "invreq_amount_msat",
-					  amount_msat(*invreq_amount));
+		json_add_amount_msat(js, "invreq_amount_msat",
+				     amount_msat(*invreq_amount));
 	if (invreq_features)
 		json_add_hex_talarr(js, "invreq_features", invreq_features);
 	if (invreq_quantity)
@@ -797,8 +797,8 @@ static void json_add_b12_invoice(struct json_stream *js,
 	 * - MUST reject the invoice if `invoice_amount` is not present.
 	 */
 	if (invoice->invoice_amount)
-		json_add_amount_msat_only(js, "invoice_amount_msat",
-					  amount_msat(*invoice->invoice_amount));
+		json_add_amount_msat(js, "invoice_amount_msat",
+				     amount_msat(*invoice->invoice_amount));
 	else {
 		json_add_string(js, "warning_missing_invoice_amount",
 				"invoices without an amount are invalid");
