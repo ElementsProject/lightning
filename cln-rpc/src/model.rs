@@ -1561,12 +1561,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsFunding {
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_msat: Option<Amount>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub remote_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pushed_msat: Option<Amount>,
 	    pub local_funds_msat: Amount,

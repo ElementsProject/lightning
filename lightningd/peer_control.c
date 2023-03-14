@@ -862,13 +862,6 @@ static void json_add_channel(struct lightningd *ld,
 
 	json_object_start(response, "funding");
 
-	/* We don't put v0.12-deprecated fields into listpeerchannels */
-	if (deprecated_apis && !peer) {
-		json_add_sat_only(response, "local_msat", channel->our_funds);
-		json_add_sat_only(response, "remote_msat", peer_funded_sats);
-		json_add_amount_msat_only(response, "pushed_msat", channel->push);
-	}
-
 	if (channel->lease_commit_sig) {
 		struct amount_sat funds, total;
 		if (!amount_msat_to_sat(&funds, channel->push)) {
@@ -922,9 +915,8 @@ static void json_add_channel(struct lightningd *ld,
 				  channel->our_funds);
 		json_add_sat_only(response, "remote_funds_msat",
 				  peer_funded_sats);
-		if (!deprecated_apis || peer)
-			json_add_amount_msat_only(response, "pushed_msat",
-						  channel->push);
+		json_add_amount_msat_only(response, "pushed_msat",
+					  channel->push);
 	}
 
 	json_object_end(response);
