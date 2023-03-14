@@ -707,7 +707,7 @@ static void replace_command(struct rpc_command_hook_payload *p,
 			    const char *buffer,
 			    const jsmntok_t *replacetok)
 {
-	const jsmntok_t *method = NULL, *params = NULL;
+	const jsmntok_t *method = NULL, *params = NULL, *jsonrpc;
 	const char *bad;
 
 	/* Must contain "method", "params" and "id" */
@@ -739,14 +739,10 @@ static void replace_command(struct rpc_command_hook_payload *p,
 		goto fail;
 	}
 
-	// deprecated phase to give the possibility to all to migrate and stay safe
-	// from this more restrictive change.
-	if (!deprecated_apis) {
-		const jsmntok_t *jsonrpc = json_get_member(buffer, replacetok, "jsonrpc");
-		if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
-			bad = "jsonrpc: \"2.0\" must be specified in the request";
-			goto fail;
-		}
+	jsonrpc = json_get_member(buffer, replacetok, "jsonrpc");
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
+		bad = "jsonrpc: \"2.0\" must be specified in the request";
+		goto fail;
 	}
 
 	was_pending(command_exec(p->cmd->jcon, p->cmd, buffer, replacetok,
@@ -883,7 +879,7 @@ REGISTER_PLUGIN_HOOK(rpc_command,
 static struct command_result *
 parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
-	const jsmntok_t *method, *id, *params, *filter;
+	const jsmntok_t *method, *id, *params, *filter, *jsonrpc;
 	struct command *c;
 	struct rpc_command_hook_payload *rpc_hook;
 	bool completed;
@@ -910,15 +906,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	// Adding a deprecated phase to make sure that all the Core Lightning wrapper
-	// can migrate all the frameworks
-	if (!deprecated_apis) {
-		const jsmntok_t *jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
-
-		if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
-			json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
-			return NULL;
-		}
+	jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
+		json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
+		return NULL;
 	}
 
 	/* Allocate the command off of the `jsonrpc` object and not
