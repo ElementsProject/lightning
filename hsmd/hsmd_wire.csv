@@ -19,13 +19,6 @@ msgdata,hsmd_init,hsm_wire_min_version,u32,
 msgdata,hsmd_init,hsm_wire_max_version,u32,
 
 #include <common/bip32.h>
-# DEPRECATED after v0.12, remove in two versions!
-msgtype,hsmd_init_reply_v1,111
-msgdata,hsmd_init_reply_v1,node_id,node_id,
-msgdata,hsmd_init_reply_v1,bip32,ext_key,
-msgdata,hsmd_init_reply_v1,bolt12,u8,32
-msgdata,hsmd_init_reply_v1,onion_reply_secret,secret,
-
 msgtype,hsmd_init_reply_v2,113
 msgdata,hsmd_init_reply_v2,node_id,node_id,
 msgdata,hsmd_init_reply_v2,bip32,ext_key,
