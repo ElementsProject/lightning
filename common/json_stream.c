@@ -593,13 +593,8 @@ void json_add_amount_msat_only(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 {
-	if (!deprecated_apis)
-		assert(strends(msatfieldname, "_msat"));
-	if (deprecated_apis)
-		json_add_string(result, msatfieldname,
-				type_to_string(tmpctx, struct amount_msat, &msat));
-	else
-		json_add_u64(result, msatfieldname, msat.millisatoshis); /* Raw: low-level helper */
+	assert(strends(msatfieldname, "_msat"));
+	json_add_u64(result, msatfieldname, msat.millisatoshis); /* Raw: low-level helper */
 }
 
 void json_add_amount_sat_msat(struct json_stream *result,
