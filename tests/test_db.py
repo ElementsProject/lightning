@@ -227,6 +227,7 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
 
+@pytest.mark.slow_test
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
 def test_backfill_scriptpubkeys(node_factory, bitcoind):
