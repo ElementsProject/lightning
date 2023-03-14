@@ -1896,8 +1896,6 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	if (deprecated_apis)
-		json_add_amount_msat_only(s, "amount", p->amount);
 	json_add_amount_msat_only(s, "amount_msat", p->amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
@@ -1975,11 +1973,9 @@ static void payment_finished(struct payment *p)
 			json_add_timeabs(ret, "created_at", p->start_time);
 			json_add_num(ret, "parts", result.attempts);
 
-			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
-						    "amount_msat");
-			json_add_amount_msat_compat(ret, result.sent,
-						    "msatoshi_sent",
-						    "amount_sent_msat");
+			json_add_amount_msat(ret, "amount_msat", p->amount);
+			json_add_amount_msat(ret, "amount_sent_msat",
+					     result.sent);
 
 			if (result.leafstates != PAYMENT_STEP_SUCCESS)
 				json_add_string(
@@ -2069,12 +2065,9 @@ static void payment_finished(struct payment *p)
 				json_add_string(ret, "status", "failed");
 			}
 
-			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
-						    "amount_msat");
-
-			json_add_amount_msat_compat(ret, result.sent,
-						    "msatoshi_sent",
-						    "amount_sent_msat");
+			json_add_amount_msat(ret, "amount_msat", p->amount);
+			json_add_amount_msat(ret, "amount_sent_msat",
+					     result.sent);
 
 			if (failure != NULL) {
 				if (failure->erring_index)

@@ -244,7 +244,6 @@ fn test_getinfo() {
 	    "version": "v0.10.2-509-ged26651-modded",
 	    "blockheight": 103,
 	    "network": "regtest",
-	    "msatoshi_fees_collected": 0,
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
     let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();

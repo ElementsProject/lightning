@@ -33,13 +33,6 @@ bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
-/* Generated stub for json_add_amount_msat_compat */
-void json_add_amount_msat_compat(struct json_stream *result UNNEEDED,
-				 struct amount_msat msat UNNEEDED,
-				 const char *rawfieldname UNNEEDED,
-				 const char *msatfieldname)
-
-{ fprintf(stderr, "json_add_amount_msat_compat called!\n"); abort(); }
 /* Generated stub for json_add_amount_msat_only */
 void json_add_amount_msat_only(struct json_stream *result UNNEEDED,
 			  const char *msatfieldname UNNEEDED,

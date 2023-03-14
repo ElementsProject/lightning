@@ -32,10 +32,6 @@
             "type": "u32",
             "description": "0 if this channel is traversed from lesser to greater **id**, otherwise 1"
           },
-          "msatoshi": {
-            "type": "u64",
-            "deprecated": "v0.12.0"
-          },
           "amount_msat": {
             "type": "msat",
             "description": "The amount expected by the node at the end of this hop"

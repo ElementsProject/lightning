@@ -123,11 +123,9 @@ void json_add_payment_fields(struct json_stream *response,
 	/* If we have a 0 amount delivered at the remote end we simply don't
 	 * know since the onion was generated externally. */
 	if (amount_msat_greater(t->msatoshi, AMOUNT_MSAT(0)))
-		json_add_amount_msat_compat(response, t->msatoshi, "msatoshi",
-					    "amount_msat");
+		json_add_amount_msat(response, "amount_msat", t->msatoshi);
 
-	json_add_amount_msat_compat(response, t->msatoshi_sent,
-				    "msatoshi_sent", "amount_sent_msat");
+	json_add_amount_msat(response, "amount_sent_msat", t->msatoshi_sent);
 	json_add_u32(response, "created_at", t->timestamp);
 	if (t->completed_at)
 		json_add_u32(response, "completed_at", *t->completed_at);

@@ -205,7 +205,7 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 {
 	json_object_start(stream, "channel_opened");
 	json_add_node_id(stream, "id", node_id);
-	json_add_amount_sats_deprecated(stream, "amount", "funding_msat", *funding_sat);
+	json_add_amount_sat_msat(stream, "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
 	if (deprecated_apis)
 		json_add_bool(stream, "funding_locked", channel_ready);
@@ -490,26 +490,18 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 		json_add_string(stream, "originating_account",
 				mvt->originating_acct);
 	json_mvt_id(stream, mvt->type, &mvt->id);
-	if (deprecated_apis) {
-		json_add_amount_msat_only(stream, "credit", mvt->credit);
-		json_add_amount_msat_only(stream, "debit", mvt->debit);
-	}
 	json_add_amount_msat_only(stream, "credit_msat", mvt->credit);
 	json_add_amount_msat_only(stream, "debit_msat", mvt->debit);
 
 	/* Only chain movements */
 	if (mvt->output_val)
-		json_add_amount_sats_deprecated(stream, "output_value",
-						"output_msat",
-						*mvt->output_val);
+		json_add_amount_sat_msat(stream,
+					 "output_msat", *mvt->output_val);
 	if (mvt->output_count > 0)
 		json_add_num(stream, "output_count",
 			     mvt->output_count);
 
 	if (mvt->fees) {
-		if (deprecated_apis)
-			json_add_amount_msat_only(stream, "fees",
-						  *mvt->fees);
 		json_add_amount_msat_only(stream, "fees_msat",
 					  *mvt->fees);
 	}
@@ -556,9 +548,6 @@ static void balance_snapshot_notification_serialize(struct json_stream *stream, 
 		json_object_start(stream, NULL);
 		json_add_string(stream, "account_id",
 				snap->accts[i]->acct_id);
-		if (deprecated_apis)
-			json_add_amount_msat_only(stream, "balance",
-						  snap->accts[i]->balance);
 		json_add_amount_msat_only(stream, "balance_msat",
 					  snap->accts[i]->balance);
 		json_add_string(stream, "coin_type", snap->accts[i]->bip173_name);

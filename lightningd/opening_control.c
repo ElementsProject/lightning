@@ -62,10 +62,8 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	/* These should never fail. */
 	if (amount_sat_to_msat(&total, uc->fc->funding_sats)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
-		json_add_amount_msat_compat(response, ours,
-					    "msatoshi_to_us", "to_us_msat");
-		json_add_amount_msat_compat(response, total,
-					    "msatoshi_total", "total_msat");
+		json_add_amount_msat(response, "to_us_msat", ours);
+		json_add_amount_msat(response, "total_msat", total);
 	}
 
 	json_array_start(response, "features");
@@ -646,14 +644,14 @@ static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	struct uncommitted_channel *uc = payload->openingd->channel;
 	json_object_start(stream, "openchannel");
 	json_add_node_id(stream, "id", &uc->peer->id);
-	json_add_amount_sats_deprecated(stream, "funding_satoshis", "funding_msat",
-					payload->funding_satoshis);
+	json_add_amount_sat_msat(stream, "funding_msat",
+				 payload->funding_satoshis);
 	json_add_amount_msat_only(stream, "push_msat", payload->push_msat);
-	json_add_amount_sats_deprecated(stream, "dust_limit_satoshis", "dust_limit_msat",
-					payload->dust_limit_satoshis);
+	json_add_amount_sat_msat(stream, "dust_limit_msat",
+				 payload->dust_limit_satoshis);
 	json_add_amount_msat_only(stream, "max_htlc_value_in_flight_msat",
 				  payload->max_htlc_value_in_flight_msat);
-	json_add_amount_sats_deprecated(stream, "channel_reserve_satoshis", "channel_reserve_msat",
+	json_add_amount_sat_msat(stream, "channel_reserve_msat",
 				 payload->channel_reserve_satoshis);
 	json_add_amount_msat_only(stream, "htlc_minimum_msat",
 				  payload->htlc_minimum_msat);

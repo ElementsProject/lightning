@@ -1421,9 +1421,6 @@ pub mod responses {
 	    pub our_features: Option<GetinfoOur_features>,
 	    pub blockheight: u32,
 	    pub network: String,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub msatoshi_fees_collected: Option<u64>,
 	    pub fees_collected_msat: Amount,
 	    pub address: Vec<GetinfoAddress>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
@@ -3329,9 +3326,6 @@ pub mod responses {
 	    pub id: PublicKey,
 	    pub channel: ShortChannelId,
 	    pub direction: u32,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub msatoshi: Option<u64>,
 	    pub amount_msat: Amount,
 	    pub delay: u32,
 	    // Path `GetRoute.route[].style`

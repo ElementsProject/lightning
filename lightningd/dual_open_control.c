@@ -150,13 +150,9 @@ void json_add_unsaved_channel(struct json_stream *response,
 	/* funding + our_upfront_shutdown only available if we're initiator */
 	if (oa->role == TX_INITIATOR) {
 		if (amount_sat_to_msat(&total, oa->funding)) {
-			json_add_amount_msat_compat(response, total,
-						    "msatoshi_to_us",
-						    "to_us_msat");
+			json_add_amount_msat(response, "to_us_msat", total);
 			/* This will change if peer adds funds */
-			json_add_amount_msat_compat(response, total,
-						    "msatoshi_total",
-						    "total_msat");
+			json_add_amount_msat(response, "total_msat", total);
 		}
 	}
 
@@ -289,11 +285,11 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	json_object_start(stream, "openchannel2");
 	json_add_node_id(stream, "id", &payload->peer_id);
 	json_add_channel_id(stream, "channel_id", &payload->channel_id);
-	json_add_amount_sats_deprecated(stream, "their_funding", "their_funding_msat",
-					payload->their_funding);
-	json_add_amount_sats_deprecated(stream, "dust_limit_satoshis",
-					"dust_limit_msat",
-					payload->dust_limit_satoshis);
+	json_add_amount_sat_msat(stream,
+				 "their_funding_msat", payload->their_funding);
+	json_add_amount_sat_msat(stream,
+				 "dust_limit_msat", payload->dust_limit_satoshis);
+
 	json_add_amount_msat_only(stream, "max_htlc_value_in_flight_msat",
 				  payload->max_htlc_value_in_flight_msat);
 	json_add_amount_msat_only(stream, "htlc_minimum_msat",

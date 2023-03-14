@@ -44,14 +44,12 @@ static void json_add_invoice_fields(struct json_stream *response,
 		json_add_invstring(response, inv->invstring);
 	json_add_sha256(response, "payment_hash", &inv->rhash);
 	if (inv->msat)
-		json_add_amount_msat_compat(response, *inv->msat,
-					    "msatoshi", "amount_msat");
+		json_add_amount_msat(response, "amount_msat", *inv->msat);
 	json_add_string(response, "status", invoice_status_str(inv));
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
-		json_add_amount_msat_compat(response, inv->received,
-					    "msatoshi_received",
-					    "amount_received_msat");
+		json_add_amount_msat(response,
+				     "amount_received_msat", inv->received);
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
 		json_add_preimage(response, "payment_preimage", &inv->r);
 	}

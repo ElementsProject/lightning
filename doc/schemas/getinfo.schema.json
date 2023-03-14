@@ -94,10 +94,6 @@
       "type": "string",
       "description": "represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)"
     },
-    "msatoshi_fees_collected": {
-      "type": "u64",
-      "deprecated": "v0.12.0"
-    },
     "fees_collected_msat": {
       "type": "msat",
       "description": "Total routing fees collected by this node"
