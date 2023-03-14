@@ -122,24 +122,9 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	if (!fromwire_hsmd_init_reply_v2(msg,
 					 &ld->id, bip32_base,
 					 &ld->bolt12_base)) {
-		/* v1 had x-only pubkey */
-		u8 pubkey32[33];
-		/* And gave us a secret to use for onion_reply paths */
-		struct secret onion_reply_secret;
-
-		pubkey32[0] = SECP256K1_TAG_PUBKEY_EVEN;
-		if (!fromwire_hsmd_init_reply_v1(msg,
-					 &ld->id, bip32_base,
-					 pubkey32 + 1,
-					 &onion_reply_secret)) {
-			if (ld->config.keypass)
-				errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
-			errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
-		}
-		if (!pubkey_from_der(pubkey32, sizeof(pubkey32),
-				     &ld->bolt12_base))
-			errx(EXITCODE_HSM_GENERIC_ERROR,
-			     "HSM gave invalid v1 bolt12_base");
+		if (ld->config.keypass)
+			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
+		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
 	}
 
 	/* This is equivalent to makesecret("bolt12-invoice-base") */
