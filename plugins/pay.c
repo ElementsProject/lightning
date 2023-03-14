@@ -630,10 +630,8 @@ static void on_payment_success(struct payment *payment)
 		json_add_timeabs(ret, "created_at", p->start_time);
 		json_add_num(ret, "parts", result.attempts);
 
-		json_add_amount_msat_compat(ret, p->amount, "msatoshi",
-					    "amount_msat");
-		json_add_amount_msat_compat(ret, result.sent, "msatoshi_sent",
-					    "amount_sent_msat");
+		json_add_amount_msat(ret, "amount_msat", p->amount);
+		json_add_amount_msat(ret, "amount_sent_msat", result.sent);
 
 		if (result.leafstates != PAYMENT_STEP_SUCCESS)
 			json_add_string(
@@ -670,8 +668,6 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	if (deprecated_apis)
-		json_add_amount_msat_only(s, "amount", p->amount);
 	json_add_amount_msat_only(s, "amount_msat", p->amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
@@ -772,12 +768,10 @@ static void on_payment_failure(struct payment *payment)
 				json_add_string(ret, "status", "failed");
 			}
 
-			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
-						    "amount_msat");
+			json_add_amount_msat(ret, "amount_msat", p->amount);
 
-			json_add_amount_msat_compat(ret, result.sent,
-						    "msatoshi_sent",
-						    "amount_sent_msat");
+			json_add_amount_msat(ret, "amount_sent_msat",
+					     result.sent);
 
 			if (failure != NULL) {
 				if (failure->erring_index)
@@ -902,10 +896,8 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		ret = jsonrpc_stream_success(cmd);
 		json_add_preimage(ret, "payment_preimage", &preimage);
 		json_add_string(ret, "status", "complete");
-		json_add_amount_msat_compat(ret, msat, "msatoshi",
-					    "amount_msat");
-		json_add_amount_msat_compat(ret, sent, "msatoshi_sent",
-					    "amount_sent_msat");
+		json_add_amount_msat(ret, "amount_msat", msat);
+		json_add_amount_msat(ret, "amount_sent_msat", sent);
 		json_add_node_id(ret, "destination", p->destination);
 		json_add_sha256(ret, "payment_hash", p->payment_hash);
 		json_add_u32(ret, "created_at", created_at);

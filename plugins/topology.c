@@ -104,7 +104,7 @@ static void json_add_route_hop(struct json_stream *js,
 	json_add_node_id(js, "id", &r->node_id);
 	json_add_short_channel_id(js, "channel", &r->scid);
 	json_add_num(js, "direction", r->direction);
-	json_add_amount_msat_compat(js, r->amount, "msatoshi", "amount_msat");
+	json_add_amount_msat(js, "amount_msat", r->amount);
 	json_add_num(js, "delay", r->delay);
 	json_add_string(js, "style", "tlv");
 	json_object_end(js);
@@ -256,8 +256,7 @@ static void json_add_halfchan(struct json_stream *response,
 						&htlc_minimum_msat,
 						&htlc_maximum_msat);
 
-		json_add_amount_sat_compat(response, capacity,
-					   "satoshis", "amount_msat");
+		json_add_amount_sat_msat(response, "amount_msat", capacity);
 		json_add_num(response, "message_flags", message_flags);
 		json_add_num(response, "channel_flags", channel_flags);
 

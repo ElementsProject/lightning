@@ -1088,10 +1088,6 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 		if (p->payload->forward_node_id)
 			json_add_pubkey(s, "next_node_id",
 					p->payload->forward_node_id);
-		if (deprecated_apis)
-			json_add_string(s, "forward_amount",
-					fmt_amount_msat(tmpctx,
-							p->payload->amt_to_forward));
 		json_add_amount_msat_only(s, "forward_msat",
 					  p->payload->amt_to_forward);
 		json_add_u32(s, "outgoing_cltv_value", p->payload->outgoing_cltv);
@@ -1120,8 +1116,6 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	    s, "short_channel_id",
 	    channel_scid_or_local_alias(hin->key.channel));
 	json_add_u64(s, "id", hin->key.id);
-	if (deprecated_apis)
-		json_add_amount_msat_only(s, "amount", hin->msat);
 	json_add_amount_msat_only(s, "amount_msat", hin->msat);
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
@@ -2897,18 +2891,12 @@ void json_add_forwarding_object(struct json_stream *response,
 		if (cur->htlc_id_out)
 			json_add_u64(response, "out_htlc_id", *cur->htlc_id_out);
 	}
-	json_add_amount_msat_compat(response,
-				    cur->msat_in,
-				    "in_msatoshi", "in_msat");
+	json_add_amount_msat(response, "in_msat", cur->msat_in);
 
 	/* These can be unset (aka zero) if we failed before channel lookup */
 	if (!amount_msat_eq(cur->msat_out, AMOUNT_MSAT(0))) {
-		json_add_amount_msat_compat(response,
-					    cur->msat_out,
-					    "out_msatoshi",  "out_msat");
-		json_add_amount_msat_compat(response,
-					    cur->fee,
-					    "fee", "fee_msat");
+		json_add_amount_msat(response, "out_msat", cur->msat_out);
+		json_add_amount_msat(response, "fee_msat", cur->fee);
 	}
 	json_add_string(response, "status", forward_status_name(cur->status));
 

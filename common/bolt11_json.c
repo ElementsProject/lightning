@@ -51,8 +51,7 @@ void json_add_bolt11(struct json_stream *response,
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_node_id(response, "payee", &b11->receiver_id);
         if (b11->msat)
-                json_add_amount_msat_compat(response, *b11->msat,
-					    "msatoshi", "amount_msat");
+                json_add_amount_msat(response, "amount_msat", *b11->msat);
         if (b11->description)
                 json_add_string(response, "description", b11->description);
         if (b11->description_hash)

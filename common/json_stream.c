@@ -589,16 +589,6 @@ void json_add_psbt(struct json_stream *stream,
 		tal_free(psbt);
 }
 
-void json_add_amount_msat_compat(struct json_stream *result,
-				 struct amount_msat msat,
-				 const char *rawfieldname,
-				 const char *msatfieldname)
-{
-	if (deprecated_apis)
-		json_add_u64(result, rawfieldname, msat.millisatoshis); /* Raw: low-level helper */
-	json_add_amount_msat_only(result, msatfieldname, msat);
-}
-
 void json_add_amount_msat_only(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
@@ -612,16 +602,6 @@ void json_add_amount_msat_only(struct json_stream *result,
 		json_add_u64(result, msatfieldname, msat.millisatoshis); /* Raw: low-level helper */
 }
 
-void json_add_amount_sat_compat(struct json_stream *result,
-				struct amount_sat sat,
-				const char *rawfieldname,
-				const char *msatfieldname)
-{
-	if (deprecated_apis)
-		json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
-	json_add_amount_sat_msat(result, msatfieldname, sat);
-}
-
 void json_add_amount_sat_msat(struct json_stream *result,
 			      const char *msatfieldname,
 			      struct amount_sat sat)
@@ -630,22 +610,6 @@ void json_add_amount_sat_msat(struct json_stream *result,
 	assert(strends(msatfieldname, "_msat"));
 	if (amount_sat_to_msat(&msat, sat))
 		json_add_amount_msat_only(result, msatfieldname, msat);
-}
-
-/* When I noticed that we were adding "XXXmsat" fields *not* ending in _msat */
-void json_add_amount_sats_deprecated(struct json_stream *result,
-				     const char *fieldname,
-				     const char *msatfieldname,
-				     struct amount_sat sat)
-{
-	if (deprecated_apis) {
-		struct amount_msat msat;
-		assert(!strends(fieldname, "_msat"));
-		if (amount_sat_to_msat(&msat, sat))
-			json_add_string(result, fieldname,
-					take(fmt_amount_msat(NULL, msat)));
-	}
-	json_add_amount_sat_msat(result, msatfieldname, sat);
 }
 
 void json_add_sats(struct json_stream *result,

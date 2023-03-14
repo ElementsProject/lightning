@@ -57,9 +57,6 @@ struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
 /* Generated stub for deprecated_apis */
 bool deprecated_apis;
-/* Generated stub for fmt_amount_msat */
-const char *fmt_amount_msat(const tal_t *ctx UNNEEDED, struct amount_msat msat UNNEEDED)
-{ fprintf(stderr, "fmt_amount_msat called!\n"); abort(); }
 /* Generated stub for fmt_amount_sat */
 const char *fmt_amount_sat(const tal_t *ctx UNNEEDED, struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "fmt_amount_sat called!\n"); abort(); }

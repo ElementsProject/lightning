@@ -247,8 +247,7 @@ static void json_add_utxo(struct json_stream *response,
 	json_object_start(response, fieldname);
 	json_add_txid(response, "txid", &utxo->outpoint.txid);
 	json_add_num(response, "output", utxo->outpoint.n);
-	json_add_amount_sat_compat(response, utxo->amount,
-				   "value", "amount_msat");
+	json_add_amount_sat_msat(response, "amount_msat", utxo->amount);
 
 	if (utxo->is_p2sh) {
 		struct pubkey key;
@@ -360,13 +359,12 @@ static struct command_result *json_listfunds(struct command *cmd,
 							  "short_channel_id",
 							  c->scid);
 
-			json_add_amount_sat_compat(response,
-						   amount_msat_to_sat_round_down(c->our_msat),
-						   "channel_sat",
-						   "our_amount_msat");
-			json_add_amount_sat_compat(response, c->funding_sats,
-						   "channel_total_sat",
-						   "amount_msat");
+			json_add_amount_msat(response,
+					     "our_amount_msat",
+					     c->our_msat);
+			json_add_amount_sat_msat(response,
+						 "amount_msat",
+						 c->funding_sats);
 			json_add_txid(response, "funding_txid",
 				      &c->funding.txid);
 			json_add_num(response, "funding_output",
@@ -547,7 +545,7 @@ static void json_transaction_details(struct json_stream *response,
 			json_object_start(response, NULL);
 
 			json_add_u32(response, "index", i);
-			json_add_amount_sats_deprecated(response, "msat", "amount_msat", sat);
+			json_add_amount_sat_msat(response, "amount_msat", sat);
 
 #if EXPERIMENTAL_FEATURES
 			struct tx_annotation *ann = &tx->output_annotations[i];

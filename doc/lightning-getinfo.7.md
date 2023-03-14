@@ -52,7 +52,6 @@ On success, an object is returned, containing:
   - **node** (hex): features in our node\_announcement message
   - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel\_announcement message
   - **invoice** (hex): features in our BOLT11 invoices
-- **msatoshi\_fees\_collected** (u64, optional) **deprecated, removal in v23.05**
 - **binding** (array of objects, optional): The addresses we are listening on:
   - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
   - **address** (string, optional): address in expected format for **type**
@@ -133,4 +132,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:5c7c4d6279279b6c92cd3b039dcb24429214b2460a6ad82bed384796389a9b5c)
+[comment]: # ( SHA256STAMP:ac7ea19a5294ebb8d8e0acaa3e813849ce1b1f7f8ef2f3e52a9ca22e5e5d82fc)
