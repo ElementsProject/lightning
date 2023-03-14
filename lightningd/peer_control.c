@@ -452,8 +452,7 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "in");
 		json_add_u64(response, "id", hin->key.id);
-		json_add_amount_msat_compat(response, hin->msat,
-					    "msatoshi", "amount_msat");
+		json_add_amount_msat(response, "amount_msat", hin->msat);
 		json_add_u32(response, "expiry", hin->cltv_expiry);
 		json_add_sha256(response, "payment_hash", &hin->payment_hash);
 		json_add_string(response, "state",
@@ -476,8 +475,7 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "direction", "out");
 		json_add_u64(response, "id", hout->key.id);
-		json_add_amount_msat_compat(response, hout->msat,
-					    "msatoshi", "amount_msat");
+		json_add_amount_msat(response, "amount_msat", hout->msat);
 		json_add_u64(response, "expiry", hout->cltv_expiry);
 		json_add_sha256(response, "payment_hash", &hout->payment_hash);
 		json_add_string(response, "state",
@@ -928,14 +926,12 @@ static void json_add_channel(struct lightningd *ld,
 					  &channel->funding_sats));
 		funding_msat = AMOUNT_MSAT(0);
 	}
-	json_add_amount_msat_compat(response, channel->our_msat,
-				    "msatoshi_to_us", "to_us_msat");
-	json_add_amount_msat_compat(response, channel->msat_to_us_min,
-				    "msatoshi_to_us_min", "min_to_us_msat");
-	json_add_amount_msat_compat(response, channel->msat_to_us_max,
-				    "msatoshi_to_us_max", "max_to_us_msat");
-	json_add_amount_msat_compat(response, funding_msat,
-				    "msatoshi_total", "total_msat");
+	json_add_amount_msat(response, "to_us_msat", channel->our_msat);
+	json_add_amount_msat(response,
+			     "min_to_us_msat", channel->msat_to_us_min);
+	json_add_amount_msat(response,
+			     "max_to_us_msat", channel->msat_to_us_max);
+	json_add_amount_msat(response, "total_msat", funding_msat);
 
 	/* routing fees */
 	json_add_amount_msat_only(response, "fee_base_msat",
@@ -944,13 +940,10 @@ static void json_add_channel(struct lightningd *ld,
 		     channel->feerate_ppm);
 
 	/* channel config */
-	json_add_amount_sat_compat(response,
-				   channel->our_config.dust_limit,
-				   "dust_limit_satoshis", "dust_limit_msat");
-	json_add_amount_msat_compat(response,
-				    channel->our_config.max_htlc_value_in_flight,
-				    "max_htlc_value_in_flight_msat",
-				    "max_total_htlc_in_msat");
+	json_add_amount_sat_msat(response, "dust_limit_msat",
+				 channel->our_config.dust_limit);
+	json_add_amount_msat(response, "max_total_htlc_in_msat",
+			     channel->our_config.max_htlc_value_in_flight);
 
 	/* The `channel_reserve_satoshis` is imposed on
 	 * the *other* side (see `channel_reserve_msat`
@@ -959,29 +952,26 @@ static void json_add_channel(struct lightningd *ld,
 	 * is imposed on their side, while their
 	 * configuration `channel_reserve_satoshis` is
 	 * imposed on ours. */
-	json_add_amount_sat_compat(response,
-				   channel->our_config.channel_reserve,
-				   "their_channel_reserve_satoshis",
-				   "their_reserve_msat");
-	json_add_amount_sat_compat(response,
-				   channel->channel_info.their_config.channel_reserve,
-				   "our_channel_reserve_satoshis",
-				   "our_reserve_msat");
+	json_add_amount_sat_msat(response,
+				 "their_reserve_msat",
+				 channel->our_config.channel_reserve);
+	json_add_amount_sat_msat(response,
+				 "our_reserve_msat",
+				 channel->channel_info.their_config.channel_reserve);
 
 	/* append spendable to JSON output */
-	json_add_amount_msat_compat(response,
-				    channel_amount_spendable(channel),
-				    "spendable_msatoshi", "spendable_msat");
+	json_add_amount_msat(response,
+			     "spendable_msat",
+			     channel_amount_spendable(channel));
 
 	/* append receivable to JSON output */
-	json_add_amount_msat_compat(response,
-				    channel_amount_receivable(channel),
-				    "receivable_msatoshi", "receivable_msat");
+	json_add_amount_msat(response,
+			     "receivable_msat",
+			     channel_amount_receivable(channel));
 
-	json_add_amount_msat_compat(response,
-				    channel->our_config.htlc_minimum,
-				    "htlc_minimum_msat",
-				    "minimum_htlc_in_msat");
+	json_add_amount_msat(response,
+			     "minimum_htlc_in_msat",
+			     channel->our_config.htlc_minimum);
 	json_add_amount_msat_only(response,
 				  "minimum_htlc_out_msat",
 				  channel->htlc_minimum_msat);
@@ -1032,28 +1022,24 @@ static void json_add_channel(struct lightningd *ld,
 	wallet_channel_stats_load(ld->wallet, channel->dbid, &channel_stats);
 	json_add_u64(response, "in_payments_offered",
 		     channel_stats.in_payments_offered);
-	json_add_amount_msat_compat(response,
-				    channel_stats.in_msatoshi_offered,
-				    "in_msatoshi_offered",
-				    "in_offered_msat");
+	json_add_amount_msat(response,
+			     "in_offered_msat",
+			     channel_stats.in_msatoshi_offered);
 	json_add_u64(response, "in_payments_fulfilled",
 		     channel_stats.in_payments_fulfilled);
-	json_add_amount_msat_compat(response,
-				    channel_stats.in_msatoshi_fulfilled,
-				    "in_msatoshi_fulfilled",
-				    "in_fulfilled_msat");
+	json_add_amount_msat(response,
+			     "in_fulfilled_msat",
+			     channel_stats.in_msatoshi_fulfilled);
 	json_add_u64(response, "out_payments_offered",
 		     channel_stats.out_payments_offered);
-	json_add_amount_msat_compat(response,
-				    channel_stats.out_msatoshi_offered,
-				    "out_msatoshi_offered",
-				    "out_offered_msat");
+	json_add_amount_msat(response,
+			     "out_offered_msat",
+			     channel_stats.out_msatoshi_offered);
 	json_add_u64(response, "out_payments_fulfilled",
 		     channel_stats.out_payments_fulfilled);
-	json_add_amount_msat_compat(response,
-				    channel_stats.out_msatoshi_fulfilled,
-				    "out_msatoshi_fulfilled",
-				    "out_fulfilled_msat");
+	json_add_amount_msat(response,
+			     "out_fulfilled_msat",
+			     channel_stats.out_msatoshi_fulfilled);
 
 	json_add_htlcs(ld, response, channel);
 	json_object_end(response);
@@ -2434,10 +2420,9 @@ static struct command_result *json_getinfo(struct command *cmd,
 			     cmd->ld->gossip_blockheight);
 	}
 	json_add_string(response, "network", chainparams->network_name);
-	json_add_amount_msat_compat(response,
-			wallet_total_forward_fees(cmd->ld->wallet),
-			"msatoshi_fees_collected",
-			"fees_collected_msat");
+	json_add_amount_msat(response,
+			     "fees_collected_msat",
+			     wallet_total_forward_fees(cmd->ld->wallet));
 	json_add_string(response, "lightning-dir", cmd->ld->config_netdir);
 
 	if (!cmd->ld->topology->bitcoind->synced)

@@ -324,43 +324,19 @@ void json_add_address_internal(struct json_stream *response,
 			       const char *fieldname,
 			       const struct wireaddr_internal *addr);
 
-/* Adds both a 'raw' number field and an 'amount_msat' field */
-void json_add_amount_msat_compat(struct json_stream *result,
-				 struct amount_msat msat,
-				 const char *rawfieldname,
-				 const char *msatfieldname)
-	NO_NULL_ARGS;
-
-/* Adds both a 'raw' number field and an 'amount_msat' field */
-void json_add_amount_sat_compat(struct json_stream *result,
-				struct amount_sat sat,
-				const char *rawfieldname,
-				const char *msatfieldname)
-	NO_NULL_ARGS;
-
 /* Adds an 'msat' field */
 void json_add_amount_msat_only(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 	NO_NULL_ARGS;
 
-/* Adds an 'msat' field */
-void json_add_amount_sat_only(struct json_stream *result,
-			 const char *msatfieldname,
-			 struct amount_sat sat)
-	NO_NULL_ARGS;
+/* Compat shim */
+#define json_add_amount_msat json_add_amount_msat_only
 
 /* Adds an 'msat' field */
 void json_add_amount_sat_msat(struct json_stream *result,
 			      const char *msatfieldname,
 			      struct amount_sat sat)
-	NO_NULL_ARGS;
-
-/* Adds an 'msat' field, and an older deprecated field. */
-void json_add_amount_sats_deprecated(struct json_stream *result,
-				     const char *fieldname,
-				     const char *msatfieldname,
-				     struct amount_sat sat)
 	NO_NULL_ARGS;
 
 /* This is used to create requests, *never* for output (output is always
