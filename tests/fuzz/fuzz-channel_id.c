@@ -5,10 +5,12 @@
 #include <tests/fuzz/libfuzz.h>
 
 #include <common/channel_id.h>
+#include <common/setup.h>
 #include <wire/wire.h>
 
 void init(int *argc, char ***argv)
 {
+	common_setup("fuzzer");
 }
 
 void run(const uint8_t *data, size_t size)
