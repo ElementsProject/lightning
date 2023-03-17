@@ -467,6 +467,13 @@ else
 	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
+check-fuzz: $(ALL_FUZZ_TARGETS)
+ifneq ($(FUZZING),0)
+	@tests/fuzz/check-fuzz.sh
+else
+	@echo "fuzzing is not enabled: first run './configure --enable-fuzzing'"
+endif
+
 # Keep includes in alpha order.
 check-src-include-order/%: %
 	@if [ "$$(grep '^#include' < $<)" != "$$(grep '^#include' < $< | $(SORT))" ]; then echo "$<:1: includes out of order"; grep '^#include' < $<; echo VERSUS; grep '^#include' < $< | $(SORT); exit 1; fi
