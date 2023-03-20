@@ -2,6 +2,10 @@
 #ifndef LIGHTNING_LIGHTNINGD_CLOSED_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CLOSED_CHANNEL_H
 #include "config.h"
+#include <bitcoin/tx.h>
+#include <common/channel_id.h>
+#include <common/htlc.h>
+#include <lightningd/channel_state.h>
 
 struct closed_channel {
 	/* This is often deleted on older nodes! */
