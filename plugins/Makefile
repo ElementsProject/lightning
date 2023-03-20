@@ -210,7 +210,7 @@ plugins/fetchinvoice: $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_CO
 plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # This covers all the low-level list RPCs which return simple arrays
-SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome
+SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome
 SQL_LISTRPCS_SCHEMAS := $(foreach l,$(SQL_LISTRPCS),doc/schemas/$l.schema.json)
 # We squeeze:
 #  descriptions (we don't need)
