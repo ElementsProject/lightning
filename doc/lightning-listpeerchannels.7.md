@@ -31,6 +31,11 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **features** (array of strings):
   - BOLT #9 features which apply to this channel (one of "option\_static\_remotekey", "option\_anchor\_outputs", "option\_zeroconf")
 - **scratch\_txid** (txid, optional): The txid we would use if we went onchain now
+- **channel\_type** (object, optional): channel\_type as negotiated with peer *(added v23.05)*:
+  - **bits** (array of u32s): Each bit set in this channel\_type:
+    - Bit number
+  - **names** (array of strings): Feature name for each bit set in this channel\_type:
+    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **feerate** (object, optional): Feerates for the current tx:
   - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
   - **perkb** (u32): Feerate per 1000 virtual bytes
@@ -189,4 +194,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:f9919b6967137945cb49392d64a42bd159123b9d3bb83833c5df3bc777065d2e)
+[comment]: # ( SHA256STAMP:1e589a9e6eace9134d04693dd00caa03da98dd40c2e65d3c675c9bee06daff7f)
