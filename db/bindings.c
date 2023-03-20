@@ -159,8 +159,8 @@ void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *pk)
 	db_bind_blob(stmt, pos, der, PUBKEY_CMPR_LEN);
 }
 
-void db_bind_scid(struct db_stmt *stmt, int col,
-		  const struct short_channel_id *id)
+void db_bind_short_channel_id(struct db_stmt *stmt, int col,
+			      const struct short_channel_id *id)
 {
 	db_bind_u64(stmt, col, id->u64);
 }
@@ -361,8 +361,8 @@ void db_col_pubkey(struct db_stmt *stmt,
 	assert(ok);
 }
 
-void db_col_scid(struct db_stmt *stmt, const char *colname,
-		 struct short_channel_id *dest)
+void db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
+				 struct short_channel_id *dest)
 {
 	dest->u64 = db_col_u64(stmt, colname);
 }
