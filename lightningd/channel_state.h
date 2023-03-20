@@ -43,6 +43,7 @@ enum channel_state {
 };
 #define CHANNEL_STATE_MAX DUALOPEND_AWAITING_LOCKIN
 
+/* These are in the database, so don't renumber them! */
 enum state_change {
 	/* Anything other than the reasons below. Should not happen. */
 	REASON_UNKNOWN,
