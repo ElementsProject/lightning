@@ -166,3 +166,17 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 
 	return NULL;
 }
+
+/* Return an array of feature strings indicating channel type. */
+const char **channel_type_name(const tal_t *ctx, const struct channel_type *t)
+{
+	const char **names = tal_arr(ctx, const char *, 0);
+
+	for (size_t i = 0; i < tal_bytelen(t->features) * CHAR_BIT; i++) {
+		if (!feature_is_set(t->features, i))
+			continue;
+		tal_arr_expand(&names,
+			       feature_name(names, i) + strlen("option_"));
+	}
+	return names;
+}
