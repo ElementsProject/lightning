@@ -98,7 +98,6 @@ struct peer {
 
 	struct timers timers;
 	struct oneshot *commit_timer;
-	u64 commit_timer_attempts;
 	u32 commit_msec;
 
 	/* The feerate we want. */
@@ -1234,20 +1233,11 @@ static void send_commit(struct peer *peer)
 	if (peer->revocations_received != peer->next_index[REMOTE] - 1) {
 		assert(peer->revocations_received
 		       == peer->next_index[REMOTE] - 2);
-		peer->commit_timer_attempts++;
-		/* Only report this in extreme cases */
-		if (peer->commit_timer_attempts % 100 == 0)
-			status_debug("Can't send commit:"
-				     " waiting for revoke_and_ack with %"
-				     PRIu64" attempts",
-				     peer->commit_timer_attempts);
-		/* Mark this as done and try again. */
+		status_debug("Can't send commit: waiting for revoke_and_ack");
+		/* Mark this as done: handle_peer_revoke_and_ack will
+		 * restart. */
 		peer->commit_timer = NULL;
-		start_commit_timer(peer);
 		return;
-	} else {
-		/* We can advance; wipe attempts */
-		peer->commit_timer_attempts = 0;
 	}
 
 	/* BOLT #2:
@@ -3989,7 +3979,6 @@ int main(int argc, char *argv[])
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
 	peer->last_empty_commitment = 0;
-	peer->commit_timer_attempts = 0;
 #if EXPERIMENTAL_FEATURES
 	peer->stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
