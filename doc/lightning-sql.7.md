@@ -136,6 +136,40 @@ The following tables are currently supported:
   - `htlc_maximum_msat` (type `msat`, sqltype `INTEGER`)
   - `features` (type `hex`, sqltype `BLOB`)
 
+- `closedchannels` (see lightning-listclosedchannels(7))
+  - `peer_id` (type `pubkey`, sqltype `BLOB`)
+  - `channel_id` (type `hash`, sqltype `BLOB`)
+  - `short_channel_id` (type `short_channel_id`, sqltype `TEXT`)
+  - `alias_local` (type `short_channel_id`, sqltype `TEXT`, from JSON object `alias`)
+  - `alias_remote` (type `short_channel_id`, sqltype `TEXT`, from JSON object `alias`)
+  - `opener` (type `string`, sqltype `TEXT`)
+  - `closer` (type `string`, sqltype `TEXT`)
+  - `private` (type `boolean`, sqltype `INTEGER`)
+  - related table `closedchannels_channel_type_bits`, from JSON object `channel_type`
+    - `row` (reference to `closedchannels_channel_type.rowid`, sqltype `INTEGER`)
+    - `arrindex` (index within array, sqltype `INTEGER`)
+    - `bits` (type `u32`, sqltype `INTEGER`)
+  - related table `closedchannels_channel_type_names`, from JSON object `channel_type`
+    - `row` (reference to `closedchannels_channel_type.rowid`, sqltype `INTEGER`)
+    - `arrindex` (index within array, sqltype `INTEGER`)
+    - `names` (type `string`, sqltype `TEXT`)
+  - `total_local_commitments` (type `u64`, sqltype `INTEGER`)
+  - `total_remote_commitments` (type `u64`, sqltype `INTEGER`)
+  - `total_htlcs_sent` (type `u64`, sqltype `INTEGER`)
+  - `funding_txid` (type `txid`, sqltype `BLOB`)
+  - `funding_outnum` (type `u32`, sqltype `INTEGER`)
+  - `leased` (type `boolean`, sqltype `INTEGER`)
+  - `funding_fee_paid_msat` (type `msat`, sqltype `INTEGER`)
+  - `funding_fee_rcvd_msat` (type `msat`, sqltype `INTEGER`)
+  - `funding_pushed_msat` (type `msat`, sqltype `INTEGER`)
+  - `total_msat` (type `msat`, sqltype `INTEGER`)
+  - `final_to_us_msat` (type `msat`, sqltype `INTEGER`)
+  - `min_to_us_msat` (type `msat`, sqltype `INTEGER`)
+  - `max_to_us_msat` (type `msat`, sqltype `INTEGER`)
+  - `last_commitment_txid` (type `hash`, sqltype `BLOB`)
+  - `last_commitment_fee_msat` (type `msat`, sqltype `INTEGER`)
+  - `close_cause` (type `string`, sqltype `TEXT`)
+
 - `forwards` indexed by `in_channel and in_htlc_id` (see lightning-listforwards(7))
   - `in_channel` (type `short_channel_id`, sqltype `TEXT`)
   - `in_htlc_id` (type `u64`, sqltype `INTEGER`)
@@ -480,4 +514,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:ccc382f01d39253aff5a6c7ccd74400feb2f900f78f492a4c55b0a80e04fe813)
+[comment]: # ( SHA256STAMP:3eb4e024a1e1a4b40460b48b835354514456558797b8f8ce3c76dcbb9ca79dab)
