@@ -87,13 +87,7 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 
 	dtl->label = db_col_json_escape(dtl, stmt, "label");
 
-	if (!db_col_is_null(stmt, "msatoshi")) {
-		dtl->msat = tal(dtl, struct amount_msat);
-		db_col_amount_msat(stmt, "msatoshi", dtl->msat);
-	} else {
-		dtl->msat = NULL;
-	}
-
+	dtl->msat = db_col_optional(dtl, stmt, "msatoshi", amount_msat);
 	dtl->expiry_time = db_col_u64(stmt, "expiry_time");
 
 	if (dtl->state == PAID) {
@@ -115,12 +109,7 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->description = NULL;
 
 	dtl->features = db_col_arr(dtl, stmt, "features", u8);
-	if (!db_col_is_null(stmt, "local_offer_id")) {
-		dtl->local_offer_id = tal(dtl, struct sha256);
-		db_col_sha256(stmt, "local_offer_id",
-			      dtl->local_offer_id);
-	} else
-		dtl->local_offer_id = NULL;
+	dtl->local_offer_id = db_col_optional(dtl, stmt, "local_offer_id", sha256);
 
 	return dtl;
 }
