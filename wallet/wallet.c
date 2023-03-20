@@ -2284,13 +2284,12 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 
-	/* Set the channel to closed and disassociate with peer */
+	/* Set the channel to closed */
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels "
-					"SET state=?, peer_id=? "
+					"SET state=? "
 					"WHERE channels.id=?"));
 	db_bind_u64(stmt, 0, CLOSED);
-	db_bind_null(stmt, 1);
-	db_bind_u64(stmt, 2, wallet_id);
+	db_bind_u64(stmt, 1, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 }
 
