@@ -2292,7 +2292,7 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
+void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid)
 {
 	struct db_stmt *stmt;
 
@@ -2301,8 +2301,11 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	db_bind_u64(stmt, 0, peer_dbid);
 	db_query_prepared(stmt);
 
-	if (db_step(stmt))
-		fatal("We have channels using peer %"PRIu64, peer_dbid);
+	if (db_step(stmt)) {
+		db_col_ignore(stmt, "*");
+		tal_free(stmt);
+		return;
+	}
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(w->db, SQL("DELETE FROM peers WHERE id=?"));
