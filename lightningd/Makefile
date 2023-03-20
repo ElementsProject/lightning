@@ -48,6 +48,7 @@ include wallet/Makefile
 
 LIGHTNINGD_HDRS :=				\
 	$(LIGHTNINGD_SRC:.c=.h)			\
+	lightningd/closed_channel.h		\
 	lightningd/channel_state.h		\
 	lightningd/channel_state_names_gen.h	\
 	$(WALLET_HDRS)

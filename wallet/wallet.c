@@ -14,6 +14,7 @@
 #include <db/utils.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
@@ -1557,6 +1558,100 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	}
 
 	return chan;
+}
+
+static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
+							 struct wallet *w,
+							 struct db_stmt *stmt)
+{
+	struct closed_channel *cc = tal(ctx, struct closed_channel);
+
+	/* Can be missing in older dbs! */
+	cc->peer_id = db_col_optional(cc, stmt, "p.node_id", node_id);
+	db_col_channel_id(stmt, "full_channel_id", &cc->cid);
+	cc->scid = db_col_optional(cc, stmt, "scid", short_channel_id);
+	cc->alias[LOCAL] = db_col_optional(cc, stmt, "alias_local",
+					   short_channel_id);
+	cc->alias[REMOTE] = db_col_optional(cc, stmt, "alias_remote",
+					    short_channel_id);
+	cc->opener = db_col_int(stmt, "funder");
+	cc->closer = db_col_int(stmt, "closer");
+	cc->channel_flags = db_col_int(stmt, "channel_flags");
+	cc->next_index[LOCAL] = db_col_u64(stmt, "next_index_local");
+	cc->next_index[REMOTE] = db_col_u64(stmt, "next_index_remote");
+	cc->next_htlc_id = db_col_u64(stmt, "next_htlc_id");
+	db_col_sha256d(stmt, "funding_tx_id", &cc->funding.txid.shad);
+	cc->funding.n = db_col_int(stmt, "funding_tx_outnum");
+	db_col_amount_sat(stmt, "funding_satoshi", &cc->funding_sats);
+	db_col_amount_msat(stmt, "push_msatoshi", &cc->push);
+	db_col_amount_msat(stmt, "msatoshi_local", &cc->our_msat);
+	db_col_amount_msat(stmt, "msatoshi_to_us_min", &cc->msat_to_us_min);
+	db_col_amount_msat(stmt, "msatoshi_to_us_max", &cc->msat_to_us_max);
+	/* last_tx is null for stub channels used for recovering funds through
+	 * Static channel backups. */
+	if (!db_col_is_null(stmt, "last_tx"))
+		cc->last_tx = db_col_psbt_to_tx(cc, stmt, "last_tx");
+	else
+		cc->last_tx = NULL;
+
+	if (db_col_int(stmt, "option_anchor_outputs")) {
+		cc->type = channel_type_anchor_outputs(cc);
+		db_col_ignore(stmt, "local_static_remotekey_start");
+	} else if (db_col_u64(stmt, "local_static_remotekey_start") != 0x7FFFFFFFFFFFFFFFULL)
+		cc->type = channel_type_static_remotekey(cc);
+	else
+		cc->type = channel_type_none(cc);
+	cc->state_change_cause
+		= state_change_in_db(db_col_int(stmt, "state_change_reason"));
+	cc->leased = !db_col_is_null(stmt, "lease_commit_sig");
+
+	return cc;
+}
+
+struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
+						    struct wallet *w)
+{
+	struct db_stmt *stmt;
+	struct closed_channel **chans = tal_arr(ctx, struct closed_channel *, 0);
+
+	/* We load all channels */
+	stmt = db_prepare_v2(w->db, SQL("SELECT "
+					" p.node_id"
+					", full_channel_id"
+					", scid"
+					", alias_local"
+					", alias_remote"
+					", funder"
+					", closer"
+					", channel_flags"
+					", next_index_local"
+					", next_index_remote"
+					", next_htlc_id"
+					", funding_tx_id"
+					", funding_tx_outnum"
+					", funding_satoshi"
+					", push_msatoshi"
+					", msatoshi_local"
+					", msatoshi_to_us_min"
+					", msatoshi_to_us_max"
+					", last_tx"
+					", option_anchor_outputs"
+					", local_static_remotekey_start"
+					", state_change_reason"
+					", lease_commit_sig"
+					" FROM channels"
+					" LEFT JOIN peers p ON p.id = peer_id"
+                                        " WHERE state = ?;"));
+	db_bind_int(stmt, 0, CLOSED);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct closed_channel *cc = wallet_stmt2closed_channel(chans,
+								       w, stmt);
+		tal_arr_expand(&chans, cc);
+	}
+	tal_free(stmt);
+	return chans;
 }
 
 static void set_max_channel_dbid(struct wallet *w)

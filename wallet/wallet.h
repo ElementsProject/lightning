@@ -648,6 +648,16 @@ void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid);
 bool wallet_init_channels(struct wallet *w);
 
 /**
+ * wallet_load_closed_channels -- Loads dead channels.
+ * @ctx: context to allocate returned array from
+ * @w: wallet to load from
+ *
+ * These will be all state CLOSED.
+ */
+struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
+						    struct wallet *w);
+
+/**
  * wallet_channel_stats_incr_* - Increase channel statistics.
  *
  * @w: wallet containing the channel
