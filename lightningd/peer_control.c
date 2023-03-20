@@ -130,7 +130,7 @@ static void delete_peer(struct peer *peer)
 	/* If it only ever existed because of uncommitted channel, it won't
 	 * be in the database */
 	if (peer->dbid != 0)
-		wallet_peer_delete(peer->ld->wallet, peer->dbid);
+		wallet_delete_peer_if_unused(peer->ld->wallet, peer->dbid);
 	tal_free(peer);
 }
 
@@ -142,7 +142,7 @@ void maybe_delete_peer(struct peer *peer)
 	if (peer->uncommitted_channel) {
 		/* This isn't sufficient to keep it in db! */
 		if (peer->dbid != 0) {
-			wallet_peer_delete(peer->ld->wallet, peer->dbid);
+			wallet_delete_peer_if_unused(peer->ld->wallet, peer->dbid);
 			peer_dbid_map_del(peer->ld->peers_by_dbid, peer);
 			peer->dbid = 0;
 		}

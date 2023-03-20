@@ -632,9 +632,9 @@ struct state_change_entry *wallet_state_change_get(struct wallet *w,
 						   u64 channel_id);
 
 /**
- * wallet_peer_delete -- After no more channels in peer, forget about it
+ * wallet_delete_peer_if_unused -- After no more channels in peer, forget about it
  */
-void wallet_peer_delete(struct wallet *w, u64 peer_dbid);
+void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid);
 
 /**
  * wallet_init_channels -- Loads active channels into peers
