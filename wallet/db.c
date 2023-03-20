@@ -1519,7 +1519,7 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 		stmt = db_prepare_v2(db, SQL("UPDATE channels"
 					     " SET scid = ?"
 					     " WHERE short_channel_id = ?"));
-		db_bind_scid(stmt, 0, &scid);
+		db_bind_short_channel_id(stmt, 0, &scid);
 		db_bind_text(stmt, 1, scids[i]);
 		db_exec_prepared_v2(stmt);
 
@@ -1575,7 +1575,7 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 		update_stmt = db_prepare_v2(db, SQL("UPDATE payments SET"
 						    " failscid = ?"
 						    " WHERE id = ?"));
-		db_bind_scid(update_stmt, 0, &scid);
+		db_bind_short_channel_id(update_stmt, 0, &scid);
 		db_bind_u64(update_stmt, 1, db_col_u64(stmt, "id"));
 		db_exec_prepared_v2(update_stmt);
 		tal_free(update_stmt);
