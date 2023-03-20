@@ -78,6 +78,7 @@ Core Lightning Documentation
    lightning-invoicerequest <lightning-invoicerequest.7.md>
    lightning-keysend <lightning-keysend.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
+   lightning-listclosedchannels <lightning-listclosedchannels.7.md>
    lightning-listconfigs <lightning-listconfigs.7.md>
    lightning-listdatastore <lightning-listdatastore.7.md>
    lightning-listforwards <lightning-listforwards.7.md>

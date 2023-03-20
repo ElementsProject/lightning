@@ -8,6 +8,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/closing_control.c		\
 	lightningd/coin_mvts.c			\
 	lightningd/dual_open_control.c		\
+	lightningd/closed_channel.c		\
 	lightningd/connect_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/feerate.c			\
@@ -48,7 +49,6 @@ include wallet/Makefile
 
 LIGHTNINGD_HDRS :=				\
 	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/closed_channel.h		\
 	lightningd/channel_state.h		\
 	lightningd/channel_state_names_gen.h	\
 	$(WALLET_HDRS)
