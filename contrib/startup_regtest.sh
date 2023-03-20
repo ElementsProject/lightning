@@ -144,6 +144,8 @@ start_ln() {
 		# Modern bitcoind needs createwallet
 		echo "Making \"default\" bitcoind wallet."
 		bitcoin-cli -regtest createwallet default >/dev/null 2>&1
+        # But it might already exist, load it
+        bitcoin-cli -regtest loadwallet default
 		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
 	else
 		bitcoin-cli -regtest loadwallet default
