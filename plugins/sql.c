@@ -1114,6 +1114,32 @@ static struct command_result *json_listsqlschemas(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
+/* Adds a sub_object to this sql statement (and sub-sub etc) */
+static void add_sub_object(char **update_stmt, char **create_stmt,
+			   const char **sep, struct table_desc *sub)
+{
+	/* sub-arrays are a completely separate table. */
+	if (!sub->is_subobject)
+		return;
+
+	/* sub-objects are folded into this table. */
+	for (size_t j = 0; j < tal_count(sub->columns); j++) {
+		const struct column *subcol = &sub->columns[j];
+
+		if (subcol->sub) {
+			add_sub_object(update_stmt, create_stmt, sep,
+				       subcol->sub);
+			continue;
+		}
+		tal_append_fmt(update_stmt, "%s?", *sep);
+		tal_append_fmt(create_stmt, "%s%s %s",
+			       *sep,
+			       subcol->dbname,
+			       fieldtypemap[subcol->ftype].sqltype);
+		*sep = ",";
+	}
+}
+
 /* Creates sql statements, initializes table */
 static void finish_td(struct plugin *plugin, struct table_desc *td)
 {
@@ -1146,19 +1172,8 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		const struct column *col = &td->columns[i];
 
 		if (col->sub) {
-			/* sub-arrays are a completely separate table. */
-			if (!col->sub->is_subobject)
-				continue;
-			/* sub-objects are folded into this table. */
-			for (size_t j = 0; j < tal_count(col->sub->columns); j++) {
-				const struct column *subcol = &col->sub->columns[j];
-				tal_append_fmt(&td->update_stmt, "%s?", sep);
-				tal_append_fmt(&create_stmt, "%s%s %s",
-					       sep,
-					       subcol->dbname,
-					       fieldtypemap[subcol->ftype].sqltype);
-				sep = ",";
-			}
+			add_sub_object(&td->update_stmt, &create_stmt,
+				       &sep, col->sub);
 			continue;
 		}
 		tal_append_fmt(&td->update_stmt, "%s?", sep);
