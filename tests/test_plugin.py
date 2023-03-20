@@ -3308,9 +3308,6 @@ def test_sql(node_factory, bitcoind):
     # Test that we correctly clean up subtables!
     assert len(l2.rpc.sql("SELECT * from peerchannels_features")['rows']) == len(l2.rpc.sql("SELECT * from peerchannels_features")['rows'])
 
-    # This should create a forward through l2
-    l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
-
     expected_schemas = {
         'channels': {
             'indices': [['short_channel_id']],
@@ -3346,6 +3343,69 @@ def test_sql(node_factory, bitcoind):
                          'type': 'msat'},
                         {'name': 'features',
                          'type': 'hex'}]},
+        'closedchannels': {
+            'columns': [{'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'channel_id',
+                         'type': 'hash'},
+                        {'name': 'short_channel_id',
+                         'type': 'short_channel_id'},
+                        {'name': 'alias_local',
+                         'type': 'short_channel_id'},
+                        {'name': 'alias_remote',
+                         'type': 'short_channel_id'},
+                        {'name': 'opener',
+                         'type': 'string'},
+                        {'name': 'closer',
+                         'type': 'string'},
+                        {'name': 'private',
+                         'type': 'boolean'},
+                        {'name': 'total_local_commitments',
+                         'type': 'u64'},
+                        {'name': 'total_remote_commitments',
+                         'type': 'u64'},
+                        {'name': 'total_htlcs_sent',
+                         'type': 'u64'},
+                        {'name': 'funding_txid',
+                         'type': 'txid'},
+                        {'name': 'funding_outnum',
+                         'type': 'u32'},
+                        {'name': 'leased',
+                         'type': 'boolean'},
+                        {'name': 'funding_fee_paid_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_fee_rcvd_msat',
+                         'type': 'msat'},
+                        {'name': 'funding_pushed_msat',
+                         'type': 'msat'},
+                        {'name': 'total_msat',
+                         'type': 'msat'},
+                        {'name': 'final_to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'min_to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'max_to_us_msat',
+                         'type': 'msat'},
+                        {'name': 'last_commitment_txid',
+                         'type': 'txid'},
+                        {'name': 'last_commitment_fee_msat',
+                         'type': 'msat'},
+                        {'name': 'close_cause',
+                         'type': 'string'}]},
+        'closedchannels_channel_type_bits': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'bits',
+                         'type': 'u64'}]},
+        'closedchannels_channel_type_names': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'names',
+                         'type': 'string'}]},
         'nodes': {
             'indices': [['nodeid']],
             'columns': [{'name': 'nodeid',
@@ -3841,6 +3901,20 @@ def test_sql(node_factory, bitcoind):
     assert (sorted([s['tablename'] for s in l1.rpc.listsqlschemas()['schemas']])
             == sorted(expected_schemas.keys()))
     assert len(l1.rpc.listsqlschemas()['schemas']) == len(expected_schemas)
+
+    # We need one closed channel (but open a new one)
+    l2.rpc.close(l1.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    scid, _ = l1.fundchannel(l2)
+    # Completely forget old channel
+    bitcoind.generate_block(99)
+    wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 2)
+
+    # Make sure l3 sees new channel
+    wait_for(lambda: len(l3.rpc.listchannels(scid)['channels']) == 2)
+
+    # This should create a forward through l2
+    l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
     # Very rough checks of other list commands (make sure l2 has one of each)
     l2.rpc.offer(1, 'desc')
