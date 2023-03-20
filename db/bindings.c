@@ -367,6 +367,17 @@ void db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
 	dest->u64 = db_col_u64(stmt, colname);
 }
 
+void *db_col_optional_(tal_t *dst,
+		       struct db_stmt *stmt, const char *colname,
+		       void (*colfn)(struct db_stmt *, const char *, void *))
+{
+	if (db_col_is_null(stmt, colname))
+		return tal_free(dst);
+
+	colfn(stmt, colname, dst);
+	return dst;
+}
+
 struct short_channel_id *
 db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *colname)
 {
