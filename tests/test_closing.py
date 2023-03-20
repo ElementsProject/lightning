@@ -215,7 +215,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
         for b in balance:
             p = node_factory.get_node(feerates=feerate)
             p.feerate = feerate
-            p.balance = balance
+            p.balance = b
             l1.rpc.connect(p.info['id'], 'localhost', p.port)
             peers.append(p)
 
