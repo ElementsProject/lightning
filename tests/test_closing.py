@@ -95,14 +95,50 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
         'ONCHAIN:All outputs resolved: waiting 90 more blocks before forgetting channel'
     ])
 
+    # Capture both side's image of channel before it's dead.
+    l1channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    l2channel = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+
     # Make sure both have forgotten about it
     bitcoind.generate_block(90)
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 0)
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 0)
+    wait_for(lambda: len(l1.rpc.listpeerchannels()['channels']) == 0)
+    wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
     # The entry in the channels table should still be there
     assert l1.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
     assert l2.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+    assert l1.db_query("SELECT count(*) as p FROM peers;")[0]['p'] == 1
+    assert l2.db_query("SELECT count(*) as p FROM peers;")[0]['p'] == 1
+
+    # Test listclosedchannels is correct.
+    l1closedchannel = only_one(l1.rpc.listclosedchannels()['closedchannels'])
+    l2closedchannel = only_one(l2.rpc.listclosedchannels(l1.info['id'])['closedchannels'])
+
+    # These fields do not appear in listpeerchannels!
+    l1_only_closed = {'total_local_commitments': 2,
+                      'total_remote_commitments': 2,
+                      'total_htlcs_sent': 1,
+                      'leased': False,
+                      'close_cause': 'user'}
+    l2_only_closed = {'total_local_commitments': 2,
+                      'total_remote_commitments': 2,
+                      'total_htlcs_sent': 0,
+                      'leased': False,
+                      'close_cause': 'remote'}
+
+    # These fields have different names
+    renamed = {'last_commitment_txid': 'scratch_txid',
+               'last_commitment_fee_msat': 'last_tx_fee_msat',
+               'final_to_us_msat': 'to_us_msat'}
+
+    for chan, closedchan, onlyclosed in (l1channel, l1closedchannel, l1_only_closed), (l2channel, l2closedchannel, l2_only_closed):
+        for k, v in closedchan.items():
+            if k in renamed:
+                assert chan[renamed[k]] == v
+            elif k in onlyclosed:
+                assert closedchan[k] == onlyclosed[k]
+            else:
+                assert chan[k] == v
 
     assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
