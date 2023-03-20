@@ -63,6 +63,33 @@ void db_fatal(const char *fmt, ...)
 }
 #endif /* DB_FATAL */
 
+/* These go in db, so values cannot change (we can't put this into
+ * lightningd/channel_state.h since it confuses cdump!) */
+static enum state_change state_change_in_db(enum state_change s)
+{
+	switch (s) {
+	case REASON_UNKNOWN:
+		BUILD_ASSERT(REASON_UNKNOWN == 0);
+		return s;
+	case REASON_LOCAL:
+		BUILD_ASSERT(REASON_LOCAL == 1);
+		return s;
+	case REASON_USER:
+		BUILD_ASSERT(REASON_USER == 2);
+		return s;
+	case REASON_REMOTE:
+		BUILD_ASSERT(REASON_REMOTE == 3);
+		return s;
+	case REASON_PROTOCOL:
+		BUILD_ASSERT(REASON_PROTOCOL == 4);
+		return s;
+	case REASON_ONCHAIN:
+		BUILD_ASSERT(REASON_ONCHAIN == 5);
+		return s;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
@@ -1512,7 +1539,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_u64(stmt, "remote_static_remotekey_start"),
 			   type,
 			   db_col_int(stmt, "closer"),
-			   db_col_int(stmt, "state_change_reason"),
+			   state_change_in_db(db_col_int(stmt, "state_change_reason")),
 			   shutdown_wrong_funding,
 			   take(height_states),
 			   db_col_int(stmt, "lease_expiry"),
@@ -1951,7 +1978,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_int(stmt, 32, channel_has(chan, OPT_ANCHOR_OUTPUTS));
 	db_bind_talarr(stmt, 33, chan->shutdown_scriptpubkey[LOCAL]);
 	db_bind_int(stmt, 34, chan->closer);
-	db_bind_int(stmt, 35, chan->state_change_cause);
+	db_bind_int(stmt, 35, state_change_in_db(chan->state_change_cause));
 	if (chan->shutdown_wrong_funding) {
 		db_bind_txid(stmt, 36, &chan->shutdown_wrong_funding->txid);
 		db_bind_int(stmt, 37, chan->shutdown_wrong_funding->n);
@@ -2096,7 +2123,7 @@ void wallet_state_change_add(struct wallet *w,
 	db_bind_timeabs(stmt, 1, *timestamp);
 	db_bind_int(stmt, 2, old_state);
 	db_bind_int(stmt, 3, new_state);
-	db_bind_int(stmt, 4, cause);
+	db_bind_int(stmt, 4, state_change_in_db(cause));
 	db_bind_text(stmt, 5, message);
 
 	db_exec_prepared_v2(take(stmt));
@@ -2127,7 +2154,7 @@ struct state_change_entry *wallet_state_change_get(struct wallet *w,
 		tmp.timestamp = db_col_timeabs(stmt, "timestamp");
 		tmp.old_state = db_col_int(stmt, "old_state");
 		tmp.new_state = db_col_int(stmt, "new_state");
-		tmp.cause = db_col_int(stmt, "cause");
+		tmp.cause = state_change_in_db(db_col_int(stmt, "cause"));
 		tmp.message = db_col_strdup(res, stmt, "message");
 		tal_arr_expand(&res, tmp);
 	}
