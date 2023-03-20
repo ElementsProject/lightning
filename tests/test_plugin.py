@@ -3700,6 +3700,20 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'message',
                          'type': 'string'}]},
+        'peerchannels_channel_type_bits': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'bits',
+                         'type': 'u64'}]},
+        'peerchannels_channel_type_names': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'names',
+                         'type': 'string'}]},
         'transactions': {
             'indices': [['hash']],
             'columns': [{'name': 'hash',

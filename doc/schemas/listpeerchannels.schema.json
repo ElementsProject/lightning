@@ -48,6 +48,41 @@
             "type": "txid",
             "description": "The txid we would use if we went onchain now"
           },
+          "channel_type": {
+            "type": "object",
+            "description": "channel_type as negotiated with peer",
+            "added": "v23.05",
+            "additionalProperties": false,
+            "required": [
+              "bits",
+              "names"
+            ],
+            "properties": {
+              "bits": {
+                "type": "array",
+                "description": "Each bit set in this channel_type",
+                "items": {
+                  "type": "u32",
+                  "description": "Bit number"
+                }
+              },
+              "names": {
+                "type": "array",
+                "description": "Feature name for each bit set in this channel_type",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "static_remotekey/even",
+                    "anchor_outputs/even",
+                    "anchors_zero_fee_htlc_tx/even",
+                    "scid_alias/even",
+                    "zeroconf/even"
+                  ],
+                  "description": "Name of feature bit"
+                }
+              }
+            }
+          },
           "feerate": {
             "type": "object",
             "description": "Feerates for the current tx",
@@ -569,6 +604,7 @@
                 "peer_id": {},
                 "peer_connected": {},
                 "scratch_txid": {},
+                "channel_type": {},
                 "feerate": {},
                 "owner": {},
                 "short_channel_id": {},
@@ -658,6 +694,7 @@
                 "peer_connected": {},
                 "alias": {},
                 "scratch_txid": {},
+                "channel_type": {},
                 "feerate": {},
                 "owner": {},
                 "short_channel_id": {},
@@ -746,6 +783,7 @@
                 "peer_connected": {},
                 "state": {},
                 "scratch_txid": {},
+                "channel_type": {},
                 "feerate": {},
                 "owner": {},
                 "short_channel_id": {},
@@ -835,6 +873,7 @@
                 "peer_id": {},
                 "peer_connected": {},
                 "scratch_txid": {},
+                "channel_type": {},
                 "feerate": {},
                 "owner": {},
                 "alias": {},
