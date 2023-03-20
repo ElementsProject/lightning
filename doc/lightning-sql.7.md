@@ -208,6 +208,14 @@ The following tables are currently supported:
   - `peer_connected` (type `boolean`, sqltype `INTEGER`)
   - `state` (type `string`, sqltype `TEXT`)
   - `scratch_txid` (type `txid`, sqltype `BLOB`)
+  - related table `peerchannels_channel_type_bits`, from JSON object `channel_type`
+    - `row` (reference to `peerchannels_channel_type.rowid`, sqltype `INTEGER`)
+    - `arrindex` (index within array, sqltype `INTEGER`)
+    - `bits` (type `u32`, sqltype `INTEGER`)
+  - related table `peerchannels_channel_type_names`, from JSON object `channel_type`
+    - `row` (reference to `peerchannels_channel_type.rowid`, sqltype `INTEGER`)
+    - `arrindex` (index within array, sqltype `INTEGER`)
+    - `names` (type `string`, sqltype `TEXT`)
   - `feerate_perkw` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `feerate_perkb` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `owner` (type `string`, sqltype `TEXT`)
@@ -472,4 +480,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:d25af4b0655ebd31db68932c5ea6b532bd134477e42df5d0c7428e4a03fd0335)
+[comment]: # ( SHA256STAMP:ccc382f01d39253aff5a6c7ccd74400feb2f900f78f492a4c55b0a80e04fe813)
