@@ -11,6 +11,6 @@
  * v3: edd3d288fc88a5470adc2f99abcbfe4d4af29fae0c7a80b4226f28810a815524
  * v3 without v1: 3f813898f7de490e9126ab817e1c9a29af79c0413d5e37068acedce3ea7b5429
  */
-#define HSM_MIN_VERSION 2
+#define HSM_MIN_VERSION 3
 #define HSM_MAX_VERSION 3
 #endif /* LIGHTNING_COMMON_HSM_VERSION_H */
