@@ -27,7 +27,14 @@ coverage (not required though).
 ./configure --enable-developer --enable-experimental-features --enable-address-sanitizer --enable-ub-sanitizer --enable-fuzzing --disable-valgrind CC=clang && make
 ```
 
-The targets will be built in `tests/fuzz/` as `fuzz-` binaries.
+The targets will be built in `tests/fuzz/` as `fuzz-` binaries, with their best
+known seed corpora stored in `tests/fuzz/corpora/`.
+
+You can run the fuzz targets on their seed corpora to check for regressions:
+
+```
+make check-fuzz
+```
 
 
 ## Run one or more target(s)
