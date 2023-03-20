@@ -96,6 +96,8 @@ static struct migration dbmigrations[] = {
      NULL},
     {SQL("CREATE TABLE channels ("
 	 "  id BIGSERIAL," /* chan->id */
+	 /* FIXME: We deliberately never delete a peer with channels, so this constraint is
+	  * unnecessary! */
 	 "  peer_id BIGINT REFERENCES peers(id) ON DELETE CASCADE,"
 	 "  short_channel_id TEXT,"
 	 "  channel_config_local BIGINT,"
