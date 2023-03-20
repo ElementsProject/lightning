@@ -105,6 +105,20 @@ void *db_col_arr_(const tal_t *ctx, struct db_stmt *stmt, const char *colname,
 		     size_t bytes, const char *label, const char *caller);
 
 
+/* Assumes void db_col_@type(stmt, colname, addr), and struct @type! */
+#define db_col_optional(ctx, stmt, colname, type)			\
+	((struct type *)db_col_optional_(tal(ctx, struct type),		\
+					 (stmt), (colname),		\
+					 typesafe_cb_cast(void (*)(struct db_stmt *, const char *, void *), \
+							  void (*)(struct db_stmt *, const char *, struct type *), \
+							  db_col_##type)))
+
+void *WARN_UNUSED_RESULT db_col_optional_(tal_t *dst,
+					  struct db_stmt *stmt,
+					  const char *colname,
+					  void (*colfn)(struct db_stmt *,
+							const char *, void *));
+
 /* Some useful default variants */
 int db_col_int_or_default(struct db_stmt *stmt, const char *colname, int def);
 void db_col_amount_msat_or_default(struct db_stmt *stmt, const char *colname,
