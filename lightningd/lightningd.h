@@ -210,6 +210,8 @@ struct lightningd {
 	/* Sets of HTLCs we are holding onto for MPP. */
 	struct htlc_set_map *htlc_sets;
 
+	/* Derive all our keys from here (see bip32_pubkey) */
+	struct ext_key *bip32_base;
 	struct wallet *wallet;
 
 	/* Outstanding waitsendpay commands. */

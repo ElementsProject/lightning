@@ -465,7 +465,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 		    &index_val,
 		    &is_p2sh)) {
 		if (bip32_key_from_parent(
-			    ld->wallet->bip32_base,
+			    ld->bip32_base,
 			    index_val,
 			    BIP32_FLAG_KEY_PUBLIC,
 			    &ext_key_val) != WALLY_OK) {
@@ -838,7 +838,7 @@ static struct command_result *json_close(struct command *cmd,
 					struct ext_key *final_ext_key = NULL;
 					if (final_index) {
 						if (bip32_key_from_parent(
-							    channel->peer->ld->wallet->bip32_base,
+							    channel->peer->ld->bip32_base,
 							    *final_index,
 							    BIP32_FLAG_KEY_PUBLIC,
 							    &ext_key_val) != WALLY_OK) {

@@ -980,10 +980,10 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	w->ld = ld;
 	ld->wallet = w;
 
-	w->bip32_base = tal(w, struct ext_key);
+	ld->bip32_base = tal(ld, struct ext_key);
 	CHECK(bip32_key_from_seed(badseed, sizeof(badseed),
 				  BIP32_VER_TEST_PRIVATE, 0,
-				  w->bip32_base) == WALLY_OK);
+				  ld->bip32_base) == WALLY_OK);
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	w->db->data_version = 0;

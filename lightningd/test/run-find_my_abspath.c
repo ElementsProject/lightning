@@ -233,8 +233,7 @@ void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED,
 void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
 /* Generated stub for wallet_new */
-struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers UNNEEDED,
-			  struct ext_key *bip32_base UNNEEDED)
+struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }
 /* Generated stub for wallet_sanity_check */
 bool wallet_sanity_check(struct wallet *w UNNEEDED)
