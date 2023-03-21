@@ -137,6 +137,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
 	case WIRE_HSMD_INIT_REPLY_V2:
+	case WIRE_HSMD_INIT_REPLY_V4:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
@@ -1662,6 +1663,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
 	case WIRE_HSMD_INIT_REPLY_V2:
+	case WIRE_HSMD_INIT_REPLY_V4:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
@@ -1815,8 +1817,11 @@ u8 *hsmd_init(struct secret hsm_secret,
 
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
+	 *
+	 * And version is 4: we offer limited compatibility (or at least,
+	 * incompatibility detection) with alternate implementations.
 	 */
-	return take(towire_hsmd_init_reply_v2(
-	    NULL, &node_id, &secretstuff.bip32,
-	    &bolt12));
+	return take(towire_hsmd_init_reply_v4(
+			    NULL, 4, NULL, &node_id, &secretstuff.bip32,
+			    &bolt12));
 }

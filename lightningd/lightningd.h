@@ -319,6 +319,8 @@ struct lightningd {
 	char *wallet_dsn;
 
 	bool encrypted_hsm;
+	/* What (additional) messages the HSM accepts */
+	u32 *hsm_capabilities;
 
 	mode_t initial_umask;
 
