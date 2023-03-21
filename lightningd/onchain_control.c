@@ -662,12 +662,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	if (!bip32_pubkey(ld->bip32_base, &final_key,
-			  channel->final_key_idx)) {
-		log_broken(channel->log, "Could not derive onchain key %"PRIu64,
-			   channel->final_key_idx);
-		return KEEP_WATCHING;
-	}
+	bip32_pubkey(ld, &final_key, channel->final_key_idx);
+
 	struct ext_key final_wallet_ext_key;
 	if (bip32_key_from_parent(
 		    ld->bip32_base,

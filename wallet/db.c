@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
 #include <wallet/db.h>
 #include <wire/wire_sync.h>
@@ -1147,8 +1148,7 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 		} else {
 			db_col_ignore(stmt, "peer_id");
 			db_col_ignore(stmt, "commitment_point");
-			/* Build from bip32_base */
-			bip32_pubkey(mc->bip32_base, &key, keyindex);
+			bip32_pubkey(ld, &key, keyindex);
 			if (type == p2sh_wpkh) {
 				u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(stmt, &key);
 				scriptPubkey = scriptpubkey_p2sh(tmpctx, redeemscript);

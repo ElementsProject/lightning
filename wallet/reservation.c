@@ -10,6 +10,7 @@
 #include <common/key_derive.h>
 #include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/txfilter.h>
@@ -246,7 +247,6 @@ static bool inputs_sufficient(struct amount_sat input,
 static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 					   struct wallet *wallet,
 					   struct utxo **utxos,
-					   const struct ext_key *bip32_base,
 					   u32 nlocktime,
 					   u32 nsequence)
 {
@@ -261,7 +261,7 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 		struct bitcoin_tx *tx;
 
 		if (utxos[i]->is_p2sh) {
-			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
+			bip32_pubkey(wallet->ld, &key, utxos[i]->keyindex);
 			scriptSig = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
 			redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
 			scriptPubkey = scriptpubkey_p2sh(tmpctx, redeemscript);
@@ -357,7 +357,6 @@ static struct command_result *finish_psbt(struct command *cmd,
 	}
 
 	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,
-				cmd->ld->bip32_base,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
 	/* Should we add a change output for the excess? */
@@ -381,10 +380,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 					    "Failed to generate change address."
 					    " Keys exhausted.");
 
-		if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
-			return command_fail(cmd, LIGHTNINGD,
-					    "Failed to generate change address."
-					    " Keys generation failure");
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 
