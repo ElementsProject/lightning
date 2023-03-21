@@ -77,11 +77,23 @@ static unsigned int hsm_msg(struct subd *hsmd,
 	return 0;
 }
 
+/* Is this capability supported by the HSM? (So far, always a message
+ * number) */
+bool hsm_capable(struct lightningd *ld, u32 msgtype)
+{
+	for (size_t i = 0; i < tal_count(ld->hsm_capabilities); i++) {
+		if (ld->hsm_capabilities[i] == msgtype)
+			return true;
+	}
+	return false;
+}
+
 struct ext_key *hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
 	int fds[2];
 	struct ext_key *bip32_base;
+	u32 hsm_version;
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
@@ -118,12 +130,37 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsmd_init_reply_v2(msg,
-					 &ld->id, bip32_base,
-					 &ld->bolt12_base)) {
+	if (fromwire_hsmd_init_reply_v4(ld, msg,
+					&hsm_version,
+					&ld->hsm_capabilities,
+					&ld->id, bip32_base,
+					&ld->bolt12_base)) {
+		/* nothing to do. */
+	} else if (fromwire_hsmd_init_reply_v2(msg,
+					       &ld->id, bip32_base,
+					       &ld->bolt12_base)) {
+		/* implicit version */
+		hsm_version = 3;
+		ld->hsm_capabilities = NULL;
+	} else {
 		if (ld->config.keypass)
 			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
 		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
+	}
+
+	if (hsm_version < HSM_MIN_VERSION)
+		errx(EXITCODE_HSM_GENERIC_ERROR,
+		     "HSM version %u below minimum %u",
+		     hsm_version, HSM_MIN_VERSION);
+	if (hsm_version > HSM_MAX_VERSION)
+		errx(EXITCODE_HSM_GENERIC_ERROR,
+		     "HSM version %u above maximum %u",
+		     hsm_version, HSM_MAX_VERSION);
+
+	/* Debugging help */
+	for (size_t i = 0; i < tal_count(ld->hsm_capabilities); i++) {
+		log_debug(ld->hsm->log, "capability +%s",
+			  hsmd_wire_name(ld->hsm_capabilities[i]));
 	}
 
 	/* This is equivalent to makesecret("bolt12-invoice-base") */

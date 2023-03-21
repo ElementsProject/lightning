@@ -1951,6 +1951,7 @@ int main(int argc, const char *argv[])
 
 	ld = tal(tmpctx, struct lightningd);
 	ld->config = test_config;
+	ld->hsm_capabilities = NULL;
 
 	/* Only elements in ld we should access */
 	ld->peers = tal(ld, struct peer_node_id_map);
