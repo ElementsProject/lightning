@@ -1397,7 +1397,7 @@ def test_gossipwith(node_factory):
         num_msgs += 1
 
     # one channel announcement, two channel_updates, two node announcements.
-    assert num_msgs == 5
+    assert num_msgs == 7
 
 
 def test_gossip_notices_close(node_factory, bitcoind):
