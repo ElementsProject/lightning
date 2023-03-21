@@ -27,7 +27,6 @@ struct wallet {
 	struct lightningd *ld;
 	struct db *db;
 	struct log *log;
-	struct ext_key *bip32_base;
 	struct invoices *invoices;
 	struct list_head unstored_payments;
 	u64 max_channel_dbid;
@@ -421,8 +420,7 @@ struct wallet_transaction {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(struct lightningd *ld, struct timers *timers,
-			  struct ext_key *bip32_base);
+struct wallet *wallet_new(struct lightningd *ld, struct timers *timers);
 
 /**
  * wallet_confirm_tx - Confirm a tx which contains a UTXO.

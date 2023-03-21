@@ -610,7 +610,9 @@ static void shutdown_global_subdaemons(struct lightningd *ld)
  * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
  * keep the maximum-ever-used key index in the db, and add them all to the
  * filter here. */
-static void init_txfilter(struct wallet *w, struct txfilter *filter)
+static void init_txfilter(struct wallet *w,
+			  const struct ext_key *bip32_base,
+			  struct txfilter *filter)
 {
 	/*~ This is defined in libwally, so we didn't have to reimplement */
 	struct ext_key ext;
@@ -621,7 +623,7 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
 	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
-		if (bip32_key_from_parent(w->bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		if (bip32_key_from_parent(bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}
 		txfilter_add_derkey(filter, ext.pub_key);
@@ -900,7 +902,6 @@ int main(int argc, char *argv[])
 	struct timers *timers;
 	const char *stop_response;
 	struct htlc_in_map *unconnected_htlcs_in;
-	struct ext_key *bip32_base;
 	int sigchld_rfd;
 	struct io_conn *sigchld_conn = NULL;
 	int exit_code = 0;
@@ -1040,12 +1041,12 @@ int main(int argc, char *argv[])
 	 * standard of key storage; ours is in software for now, so the name
 	 * doesn't really make sense, but we can't call it the Badly-named
 	 * Daemon Software Module. */
-	bip32_base = hsm_init(ld);
+	ld->bip32_base = hsm_init(ld);
 
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
-	ld->wallet = wallet_new(ld, ld->timers, bip32_base);
+	ld->wallet = wallet_new(ld, ld->timers);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
@@ -1085,7 +1086,7 @@ int main(int argc, char *argv[])
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
 	/*~ Initialize the transaction filter with our pubkeys. */
-	init_txfilter(ld->wallet, ld->owned_txfilter);
+	init_txfilter(ld->wallet, ld->bip32_base, ld->owned_txfilter);
 
 	/*~ Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an uninitialized wallet and that we should start off of bitcoind's

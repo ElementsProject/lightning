@@ -89,16 +89,14 @@ static void outpointfilters_init(struct wallet *w)
 	tal_free(stmt);
 }
 
-struct wallet *wallet_new(struct lightningd *ld, struct timers *timers,
-			  struct ext_key *bip32_base STEALS)
+struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 {
 	struct wallet *wallet = tal(ld, struct wallet);
 	wallet->ld = ld;
 	wallet->log = new_log(wallet, ld->log_book, NULL, "wallet");
-	wallet->bip32_base = tal_steal(wallet, bip32_base);
 	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
-	wallet->db = db_setup(wallet, ld, wallet->bip32_base);
+	wallet->db = db_setup(wallet, ld, ld->bip32_base);
 
 	db_begin_transaction(wallet->db);
 	wallet->invoices = invoices_new(wallet, wallet->db, timers);
@@ -666,7 +664,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	for (i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
 		u8 *s;
 
-		if (bip32_key_from_parent(w->bip32_base, i,
+		if (bip32_key_from_parent(w->ld->bip32_base, i,
 					  BIP32_FLAG_KEY_PUBLIC, &ext)
 		    != WALLY_OK) {
 			abort();

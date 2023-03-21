@@ -357,7 +357,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 	}
 
 	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,
-				cmd->ld->wallet->bip32_base,
+				cmd->ld->bip32_base,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
 	/* Should we add a change output for the excess? */
@@ -381,7 +381,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 					    "Failed to generate change address."
 					    " Keys exhausted.");
 
-		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
+		if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
 					    " Keys generation failure");
