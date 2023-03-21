@@ -129,6 +129,15 @@ void queue_peer_from_store(struct peer *peer,
 	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
 }
 
+static void queue_priv_update(struct peer *peer,
+			      const struct broadcastable *bcast)
+{
+	struct gossip_store *gs = peer->daemon->rstate->gs;
+	queue_peer_msg(peer,
+		       take(gossip_store_get_private_update(NULL, gs,
+							    bcast->index)));
+}
+
 /*~ We don't actually keep node_announcements in memory; we keep them in
  * a file called `gossip_store`.  If we need some node details, we reload
  * and reparse.  It's slow, but generally rare. */
@@ -422,15 +431,26 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 		return;
 
 	for (chan = first_chan(me, &i); chan; chan = next_chan(me, &i)) {
-		int dir;
+		int dir = half_chan_idx(me, chan);
 
-		if (!is_chan_public(chan))
-			continue;
+		if (!is_chan_public(chan)) {
+			/* Don't leak private channels, unless it's with you! */
+			if (!node_id_eq(&chan->nodes[!dir]->id, &peer->id))
+				continue;
+			/* There's no announce for this, of course! */
+			/* Private channel updates are wrapped in the store. */
+			else {
+				if (!is_halfchan_defined(&chan->half[dir]))
+					continue;
+				queue_priv_update(peer, &chan->half[dir].bcast);
+				continue;
+			}
+		} else {
+			/* Send announce */
+			queue_peer_from_store(peer, &chan->bcast);
+		}
 
-		/* Send announce */
-		queue_peer_from_store(peer, &chan->bcast);
 		/* Send update if we have one */
-		dir = half_chan_idx(me, chan);
 		if (is_halfchan_defined(&chan->half[dir]))
 			queue_peer_from_store(peer, &chan->half[dir].bcast);
 	}
