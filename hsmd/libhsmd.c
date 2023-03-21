@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
@@ -122,6 +123,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_DERIVE_SECRET:
+	case WIRE_HSMD_CHECK_PUBKEY:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -154,6 +156,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
+	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 		break;
 	}
 	return false;
@@ -531,6 +534,33 @@ static u8 *handle_sign_to_us_tx(struct hsmd_client *c, const u8 *msg_in,
 	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, sighash_type, &sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
+/* This will check lightningd's key derivation: hopefully any errors in
+ * this process are independent of errors in lightningd! */
+static u8 *handle_check_pubkey(struct hsmd_client *c, const u8 *msg_in)
+{
+	u32 index;
+	struct pubkey their_pubkey, our_pubkey;
+	struct privkey our_privkey;
+
+	if (!fromwire_hsmd_check_pubkey(msg_in, &index, &their_pubkey))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* We abort if lightningd asks for a stupid index. */
+	bitcoin_key(&our_privkey, &our_pubkey, index);
+	if (!pubkey_eq(&our_pubkey, &their_pubkey)) {
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "BIP32 derivation index %u differed:"
+				   " they got %s, we got %s",
+				   index,
+				   type_to_string(tmpctx, struct pubkey,
+						  &their_pubkey),
+				   type_to_string(tmpctx, struct pubkey,
+						  &our_pubkey));
+	}
+
+	return towire_hsmd_check_pubkey_reply(NULL, true);
 }
 
 /*~ lightningd asks us to sign a message.  I tweeted the spec
@@ -1650,6 +1680,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_delayed_payment_to_us(client, msg);
 	case WIRE_HSMD_DERIVE_SECRET:
 		return handle_derive_secret(client, msg);
+	case WIRE_HSMD_CHECK_PUBKEY:
+		return handle_check_pubkey(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
@@ -1679,6 +1711,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
+	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
@@ -1692,6 +1725,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;
+	static const u32 capabilities[] = { WIRE_HSMD_CHECK_PUBKEY };
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
@@ -1822,6 +1856,10 @@ u8 *hsmd_init(struct secret hsm_secret,
 	 * incompatibility detection) with alternate implementations.
 	 */
 	return take(towire_hsmd_init_reply_v4(
-			    NULL, 4, NULL, &node_id, &secretstuff.bip32,
+			    NULL, 4,
+			    /* Capabilities arg needs to be a tal array */
+			    tal_dup_arr(tmpctx, u32, capabilities,
+					ARRAY_SIZE(capabilities), 0),
+			    &node_id, &secretstuff.bip32,
 			    &bolt12));
 }
