@@ -681,18 +681,27 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 	if (peer->gs.timestamp_max < peer->gs.timestamp_min)
 		peer->gs.timestamp_max = UINT32_MAX;
 
-	/* Optimization: they don't want anything.  LND and us (at least),
-	 * both set first_timestamp to 0xFFFFFFFF to indicate that. */
-	if (peer->gs.timestamp_min == UINT32_MAX)
+	/* BOLT-gossip-filter-simplify #7:
+	 * The receiver:
+	 *...
+	 *   - if `first_timestamp` is 0:
+	 *     - SHOULD send all known gossip messages.
+	 *   - otherwise, if `first_timestamp` is 0xFFFFFFFF:
+	 *     - SHOULD NOT send any gossip messages (except its own).
+	 *   - otherwise:
+	 *     - SHOULD send gossip messages it receives from now own.
+	 */
+	/* For us, this means we only sweep the gossip store for messages
+	 * if the first_timestamp is 0 */
+	if (first_timestamp == 0)
+		peer->gs.off = 1;
+	else if (first_timestamp == 0xFFFFFFFF)
 		peer->gs.off = peer->daemon->gossip_store_end;
 	else {
-		/* Second optimation: it's common to ask for "recent" gossip,
-		 * so we don't have to start at beginning of store. */
+		/* We are actually a bit nicer than the spec, and we include
+		 * "recent" gossip here. */
 		update_recent_timestamp(peer->daemon);
-		if (peer->gs.timestamp_min >= peer->daemon->gossip_recent_time)
-			peer->gs.off = peer->daemon->gossip_store_recent_off;
-		else
-			peer->gs.off = 1;
+		peer->gs.off = peer->daemon->gossip_store_recent_off;
 	}
 
 	/* BOLT #7:
