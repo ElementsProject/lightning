@@ -59,6 +59,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>

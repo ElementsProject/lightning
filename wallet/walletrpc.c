@@ -18,6 +18,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
@@ -127,8 +128,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	}
 
-	if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
-		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
+	bip32_pubkey(cmd->ld, &pubkey, keyidx);
 
 	b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
 	if (*addrtype & ADDR_BECH32)
@@ -189,8 +189,7 @@ static struct command_result *json_listaddrs(struct command *cmd,
 			break;
 		}
 
-		if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
-			abort();
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 
 		// p2sh
 		u8 *redeemscript_p2sh;
@@ -251,7 +250,7 @@ static void json_add_utxo(struct json_stream *response,
 
 	if (utxo->is_p2sh) {
 		struct pubkey key;
-		bip32_pubkey(wallet->ld->bip32_base, &key, utxo->keyindex);
+		bip32_pubkey(wallet->ld, &key, utxo->keyindex);
 
 		json_add_hex_talarr(response, "redeemscript",
 				    bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key));
@@ -649,8 +648,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 				u8 *redeemscript;
 				int wally_err;
 
-				bip32_pubkey(cmd->ld->bip32_base, &key,
-					     utxo->keyindex);
+				bip32_pubkey(cmd->ld, &key, utxo->keyindex);
 				redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
 				scriptPubKey = scriptpubkey_p2sh(tmpctx, redeemscript);
 

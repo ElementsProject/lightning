@@ -177,6 +177,38 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	return bip32_base;
 }
 
+/*~ There was a nasty LND bug report where the user issued an address which it
+ * couldn't spend, presumably due to a bitflip.  We check every address using our
+ * hsm, to be sure it's valid.  Expensive, but not as expensive as losing BTC! */
+void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
+{
+	const uint32_t flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		fatal("Can't derive keu %u (too large!)", index);
+
+	if (bip32_key_from_parent(ld->bip32_base, index, flags, &ext) != WALLY_OK)
+		fatal("Can't derive key %u", index);
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		fatal("Can't parse derived key %u", index);
+
+	/* Don't assume hsmd supports it! */
+	if (hsm_capable(ld, WIRE_HSMD_CHECK_PUBKEY)) {
+		bool ok;
+		u8 *msg = towire_hsmd_check_pubkey(NULL, index, pubkey);
+		wire_sync_write(ld->hsm_fd, take(msg));
+		msg = wire_sync_read(tmpctx, ld->hsm_fd);
+		if (!fromwire_hsmd_check_pubkey_reply(msg, &ok))
+			fatal("Invalid check_pubkey_reply from hsm");
+		if (!ok)
+			fatal("HSM said key derivation of %u != %s",
+			      index, type_to_string(tmpctx, struct pubkey, pubkey));
+	}
+}
+
 static struct command_result *json_makesecret(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
