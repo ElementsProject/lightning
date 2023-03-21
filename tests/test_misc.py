@@ -3096,3 +3096,9 @@ def test_checkmessage_pubkey_not_found(node_factory):
     check_result = l1.rpc.checkmessage(msg, zbase, pubkey=pubkey)
     assert check_result["pubkey"] == pubkey
     assert check_result["verified"] is True
+
+
+def test_hsm_capabilities(node_factory):
+    l1 = node_factory.get_node()
+    # This appears before the start message, so it'll already be present.
+    assert l1.daemon.is_in_log(r"hsmd: capability \+WIRE_HSMD_CHECK_PUBKEY")
