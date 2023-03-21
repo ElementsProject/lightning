@@ -323,3 +323,12 @@ msgdata,hsmd_derive_secret,info,u8,len
 # Reply with the derived secret
 msgtype,hsmd_derive_secret_reply,127
 msgdata,hsmd_derive_secret_reply,secret,secret,
+
+# Sanity check this pubkey derivation is correct (unhardened only)
+msgtype,hsmd_check_pubkey,28
+msgdata,hsmd_check_pubkey,index,u32,
+msgdata,hsmd_check_pubkey,pubkey,pubkey,
+
+# Reply
+msgtype,hsmd_check_pubkey_reply,128
+msgdata,hsmd_check_pubkey_reply,ok,bool,
