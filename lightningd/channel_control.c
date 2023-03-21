@@ -711,7 +711,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	struct ext_key final_ext_key;
 	if (bip32_key_from_parent(
-		    ld->wallet->bip32_base,
+		    ld->bip32_base,
 		    channel->final_key_idx,
 		    BIP32_FLAG_KEY_PUBLIC,
 		    &final_ext_key) != WALLY_OK) {

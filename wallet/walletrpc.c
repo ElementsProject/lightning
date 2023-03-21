@@ -127,7 +127,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	}
 
-	if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
+	if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
 		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 
 	b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
@@ -189,7 +189,7 @@ static struct command_result *json_listaddrs(struct command *cmd,
 			break;
 		}
 
-		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
+		if (!bip32_pubkey(cmd->ld->bip32_base, &pubkey, keyidx))
 			abort();
 
 		// p2sh
@@ -251,7 +251,7 @@ static void json_add_utxo(struct json_stream *response,
 
 	if (utxo->is_p2sh) {
 		struct pubkey key;
-		bip32_pubkey(wallet->bip32_base, &key, utxo->keyindex);
+		bip32_pubkey(wallet->ld->bip32_base, &key, utxo->keyindex);
 
 		json_add_hex_talarr(response, "redeemscript",
 				    bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key));
@@ -649,7 +649,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 				u8 *redeemscript;
 				int wally_err;
 
-				bip32_pubkey(cmd->ld->wallet->bip32_base, &key,
+				bip32_pubkey(cmd->ld->bip32_base, &key,
 					     utxo->keyindex);
 				redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
 				scriptPubKey = scriptpubkey_p2sh(tmpctx, redeemscript);
@@ -691,7 +691,7 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 			continue;
 
 		if (bip32_key_from_parent(
-			    w->bip32_base, index, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+			    w->ld->bip32_base, index, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}
 
