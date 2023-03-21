@@ -301,6 +301,7 @@ static struct command_result *listforwards_done(struct command *cmd,
 
 	json_for_each_arr(i, t, fwds) {
 		const jsmntok_t *status = json_get_member(buf, t, "status");
+		const char *timefield = "resolved_time";
 		jsmntok_t time;
 		enum subsystem subsys;
 		u64 restime;
@@ -310,6 +311,8 @@ static struct command_result *listforwards_done(struct command *cmd,
 		} else if (json_tok_streq(buf, status, "failed")
 			   || json_tok_streq(buf, status, "local_failed")) {
 			subsys = FAILEDFORWARDS;
+			/* There's no resolved_time for these, so use received */
+			timefield = "received_time";
 		} else {
 			cinfo->num_uncleaned++;
 			continue;
@@ -324,12 +327,13 @@ static struct command_result *listforwards_done(struct command *cmd,
 		/* Check if we have a resolved_time, before making a
 		 * decision on it. This is possible in older nodes
 		 * that predate our annotations for forwards.*/
-		if (json_get_member(buf, t, "resolved_time") == NULL) {
+		if (json_get_member(buf, t, timefield) == NULL) {
 			cinfo->num_uncleaned++;
 			continue;
 		}
 
-		time = *json_get_member(buf, t, "resolved_time");
+
+		time = *json_get_member(buf, t, timefield);
 		/* This is a float, so truncate at '.' */
 		for (int off = time.start; off < time.end; off++) {
 			if (buf[off] == '.')
