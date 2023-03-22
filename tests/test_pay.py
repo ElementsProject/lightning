@@ -4096,6 +4096,29 @@ def test_delpay_payment_split(node_factory, bitcoind):
     assert len(l1.rpc.listpays()['pays']) == 0
 
 
+@pytest.mark.developer("needs dev-no-reconnect, dev-routes to force failover")
+def test_delpay_mixed_status(node_factory, bitcoind):
+    """
+    One failure, one success; we only want to delete the failed one!
+    """
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
+                                         wait_for_announce=True)
+    # Expensive route!
+    l4 = node_factory.get_node(options={'fee-per-satoshi': 1000,
+                                        'fee-base': 2000})
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    # Don't give a hint, so l1 chooses cheapest.
+    inv = l3.dev_invoice(10**5, 'lbl', 'desc', dev_routes=[])
+    l3.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.pay(inv['bolt11'])
+
+    assert len(l1.rpc.listsendpays()['payments']) == 2
+    delpay_result = l1.rpc.delpay(inv['payment_hash'], 'failed')['payments']
+    assert len(delpay_result) == 1
+    assert len(l1.rpc.listsendpays()['payments']) == 1
+
+
 def test_listpay_result_with_paymod(node_factory, bitcoind):
     """
     The object of this test is to verify the correct behavior

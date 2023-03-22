@@ -3294,24 +3294,30 @@ u64 wallet_payment_get_groupid(struct wallet *wallet,
 
 void wallet_payment_delete(struct wallet *wallet,
 			   const struct sha256 *payment_hash,
-			   const u64 *groupid,
-			   const u64 *partid)
+			   const u64 *groupid, const u64 *partid,
+			   const enum wallet_payment_status *status)
 {
 	struct db_stmt *stmt;
+
+	assert(status);
 	if (groupid) {
 		assert(partid);
 		stmt = db_prepare_v2(wallet->db,
 				     SQL("DELETE FROM payments"
 					 " WHERE payment_hash = ?"
 					 "   AND groupid = ?"
-					 "   AND partid = ?"));
+					 "   AND partid = ?"
+					 "   AND status = ?"));
 		db_bind_u64(stmt, 1, *groupid);
 		db_bind_u64(stmt, 2, *partid);
+		db_bind_u64(stmt, 3, *status);
 	} else {
 		assert(!partid);
 		stmt = db_prepare_v2(wallet->db,
 				     SQL("DELETE FROM payments"
-					 " WHERE payment_hash = ?"));
+					 " WHERE payment_hash = ?"
+					 "     AND status = ?"));
+		db_bind_u64(stmt, 1, *status);
 	}
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_exec_prepared_v2(take(stmt));
