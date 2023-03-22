@@ -1106,8 +1106,8 @@ void wallet_payment_store(struct wallet *wallet,
  */
 void wallet_payment_delete(struct wallet *wallet,
 			   const struct sha256 *payment_hash,
-			   const u64 *groupid,
-			   const u64 *partid);
+			   const u64 *groupid, const u64 *partid,
+			   const enum wallet_payment_status *status);
 
 /**
  * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC
