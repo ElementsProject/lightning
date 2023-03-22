@@ -1654,6 +1654,7 @@ static struct command_result *json_delpay(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
+	const enum wallet_payment_status *found_status = NULL;
 	struct json_stream *response;
 	const struct wallet_payment **payments;
 	enum wallet_payment_status *status;
@@ -1686,21 +1687,26 @@ static struct command_result *json_delpay(struct command *cmd,
 		if (partid && payments[i]->partid != *partid)
 			continue;
 
-		found = true;
-		if (payments[i]->status != *status) {
-			return command_fail(cmd, PAY_STATUS_UNEXPECTED, "Payment with hash %s has %s status but it should be %s",
-					type_to_string(tmpctx, struct sha256, payment_hash),
-					payment_status_to_string(payments[i]->status),
-					payment_status_to_string(*status));
+		if (payments[i]->status == *status) {
+			found = true;
+			break;
 		}
+
+		found_status = &payments[i]->status;
 	}
 
 	if (!found) {
+		if (found_status)
+			return command_fail(cmd, PAY_NO_SUCH_PAYMENT, "Payment with hash %s has %s status but it different from the one provided %s",
+				type_to_string(tmpctx, struct sha256, payment_hash),
+				payment_status_to_string(*found_status),
+				payment_status_to_string(*status));
+
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
 				    "No payment for that payment_hash with that partid and groupid");
 	}
 
-	wallet_payment_delete(cmd->ld->wallet, payment_hash, groupid, partid);
+	wallet_payment_delete(cmd->ld->wallet, payment_hash, groupid, partid, status);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "payments");
@@ -1708,6 +1714,8 @@ static struct command_result *json_delpay(struct command *cmd,
 		if (groupid && payments[i]->groupid != *groupid)
 			continue;
 		if (partid && payments[i]->partid != *partid)
+			continue;
+		if (payments[i]->status != *status)
 			continue;
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
