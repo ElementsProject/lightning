@@ -61,7 +61,7 @@ bool cupdate_different(struct gossip_store *gs UNNEEDED,
 { fprintf(stderr, "cupdate_different called!\n"); abort(); }
 /* Generated stub for gossip_store_add */
 u64 gossip_store_add(struct gossip_store *gs UNNEEDED, const u8 *gossip_msg UNNEEDED,
-		     u32 timestamp UNNEEDED, bool push UNNEEDED, bool zombie UNNEEDED, bool spam UNNEEDED,
+		     u32 timestamp UNNEEDED, bool zombie UNNEEDED, bool spam UNNEEDED,
 		     const u8 *addendum UNNEEDED)
 { fprintf(stderr, "gossip_store_add called!\n"); abort(); }
 /* Generated stub for gossip_store_add_private_update */

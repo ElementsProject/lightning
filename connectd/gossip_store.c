@@ -121,7 +121,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		struct gossip_hdr hdr;
 		u16 msglen, flags;
 		u32 checksum, timestamp;
-		bool push, ratelimited;
+		bool ratelimited;
 		int type, r;
 
 		r = pread(*gossip_store_fd, &hdr, sizeof(hdr), *off);
@@ -130,7 +130,6 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 		msglen = be16_to_cpu(hdr.len);
 		flags = be16_to_cpu(hdr.flags);
-		push = (flags & GOSSIP_STORE_PUSH_BIT);
 		ratelimited = (flags & GOSSIP_STORE_RATELIMIT_BIT);
 
 		/* Skip any deleted entries. */
@@ -141,8 +140,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 		/* Skip any timestamp filtered */
 		timestamp = be32_to_cpu(hdr.timestamp);
-		if (!push &&
-		    !timestamp_filter(timestamp_min, timestamp_max,
+		if (!timestamp_filter(timestamp_min, timestamp_max,
 				      timestamp)) {
 			*off += r + msglen;
 			continue;

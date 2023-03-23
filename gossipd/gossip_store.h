@@ -46,7 +46,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update);
  *            (for appending amounts to channel_announcements for internal use).
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool push, bool zombie, bool spam,
+		     u32 timestamp, bool zombie, bool spam,
 		     const u8 *addendum);
 
 

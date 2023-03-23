@@ -458,7 +458,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 				       struct node *node)
 {
 	const u8 *announce;
-	bool is_local = node_id_eq(&node->id, &rstate->local_id);
 	announce = gossip_store_get(tmpctx, rstate->gs, node->bcast.index);
 
 	u32 initial_bcast_index = node->bcast.index;
@@ -468,7 +467,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 	node->bcast.index = gossip_store_add(rstate->gs,
 					     announce,
 					     node->bcast.timestamp,
-					     is_local,
 					     false,
 					     false,
 					     NULL);
@@ -482,7 +480,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 		node->rgraph.index = gossip_store_add(rstate->gs,
 						      announce,
 						      node->rgraph.timestamp,
-						      is_local,
 						      false,
 						      true,
 						      NULL);
@@ -852,7 +849,6 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		chan->bcast.index = gossip_store_add(rstate->gs,
 						     channel_announce,
 						     chan->bcast.timestamp,
-						     is_local,
 						     false,
 						     false,
 						     addendum);
@@ -1538,7 +1534,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		chan->bcast.index =
 			gossip_store_add(rstate->gs, zombie_announcement,
 					 chan->bcast.timestamp,
-					 local_direction(rstate, chan, NULL),
 					 false, false, zombie_addendum);
 		/* Deletion of the old addendum is optional. */
 		/* This opposing channel_update has been stashed away.  Now that
@@ -1562,13 +1557,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		chan->half[!direction].bcast.index =
 			gossip_store_add(rstate->gs, zombie_update[0],
 					 chan->half[!direction].bcast.timestamp,
-					 local_direction(rstate, chan, NULL),
 					 false, false, NULL);
 		if (zombie_update[1])
 			chan->half[!direction].rgraph.index =
 				gossip_store_add(rstate->gs, zombie_update[1],
 						 chan->half[!direction].rgraph.timestamp,
-						 local_direction(rstate, chan, NULL),
 						 false, true, NULL);
 		else
 			chan->half[!direction].rgraph.index = chan->half[!direction].bcast.index;
@@ -1587,7 +1580,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else {
 		hc->rgraph.index
 			= gossip_store_add(rstate->gs, update, timestamp,
-					   local_direction(rstate, chan, NULL),
 					   zombie, spam, NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
@@ -1910,8 +1902,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	} else {
 		node->rgraph.index
 			= gossip_store_add(rstate->gs, msg, timestamp,
-					   node_id_eq(&node_id,
-						      &rstate->local_id),
 					   false, spam, NULL);
 		if (node->bcast.timestamp > rstate->last_timestamp
 		    && node->bcast.timestamp < time_now().ts.tv_sec)
@@ -2144,7 +2134,7 @@ bool routing_add_private_channel(struct routing_state *rstate,
 							      capacity,
 							      chan_ann);
 		index = gossip_store_add(rstate->gs, msg, 0, false, false,
-					 false, NULL);
+					 NULL);
 	}
 	chan->bcast.index = index;
 	return true;
@@ -2289,7 +2279,7 @@ void routing_channel_spent(struct routing_state *rstate,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
-	index = gossip_store_add(rstate->gs, msg, 0, false, false, false, NULL);
+	index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
 
 	/* Remember locally so we can kill it in 12 blocks */
 	status_debug("channel %s closing soon due"
