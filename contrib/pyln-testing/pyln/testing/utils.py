@@ -18,7 +18,6 @@ import logging
 import lzma
 import math
 import os
-import psutil  # type: ignore
 import random
 import re
 import shutil
@@ -1330,57 +1329,11 @@ def flock(directory: Path):
     fname.unlink()
 
 
-class Throttler(object):
-    """Throttles the creation of system-processes to avoid overload.
-
-    There is no reason to overload the system with too many processes
-    being spawned or run at the same time. It causes timeouts by
-    aggressively preempting processes and swapping if the memory limit is
-    reached. In order to reduce this loss of performance we provide a
-    `wait()` method which will serialize the creation of processes, but
-    also delay if the system load is too high.
-
-    Notice that technically we are throttling too late, i.e., we react
-    to an overload, but chances are pretty good that some other
-    already running process is about to terminate, and so the overload
-    is short-lived. We throttle when the process object is first
-    created, not when restarted, in order to avoid delaying running
-    tests, which could cause more timeouts.
-
-    """
-    def __init__(self, directory: str, target: float = 90):
-        """If specified we try to stick to a load of target (in percent).
-        """
-        self.target = target
-        self.current_load = self.target  # Start slow
-        psutil.cpu_percent()  # Prime the internal load metric
-        self.directory = directory
-
-    def wait(self):
-        start_time = time.time()
-        with flock(self.directory):
-            # We just got the lock, assume someone else just released it
-            self.current_load = 100
-            while self.load() >= self.target:
-                time.sleep(1)
-
-            self.current_load = 100  # Back off slightly to avoid triggering right away
-        print("Throttler delayed startup for {} seconds".format(time.time() - start_time))
-
-    def load(self):
-        """An exponential moving average of the load
-        """
-        decay = 0.5
-        load = psutil.cpu_percent()
-        self.current_load = decay * load + (1 - decay) * self.current_load
-        return self.current_load
-
-
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
     def __init__(self, request, testname, bitcoind, executor, directory,
-                 db_provider, node_cls, throttler, jsonschemas):
+                 db_provider, node_cls, jsonschemas):
         if request.node.get_closest_marker("slow_test") and SLOW_MACHINE:
             self.valgrind = False
         else:
@@ -1395,7 +1348,6 @@ class NodeFactory(object):
         self.lock = threading.Lock()
         self.db_provider = db_provider
         self.node_cls = node_cls
-        self.throttler = throttler
         self.jsonschemas = jsonschemas
 
     def split_options(self, opts):
@@ -1463,7 +1415,6 @@ class NodeFactory(object):
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
                  expect_fail=False, cleandir=True, **kwargs):
-        self.throttler.wait()
         node_id = self.get_node_id() if not node_id else node_id
         port = reserve_unused_port()
 

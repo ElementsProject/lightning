@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG, Throttler
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG
 from pyln.client import Millisatoshi
 from typing import Dict
 
@@ -204,11 +204,6 @@ def teardown_checks(request):
         # Format a nice list of everything that went wrong and raise an exception
         request.node.has_errors = True
         raise ValueError(str(errors))
-
-
-@pytest.fixture
-def throttler(test_base_dir):
-    yield Throttler(test_base_dir)
 
 
 def _extra_validator(is_request: bool):
@@ -451,7 +446,7 @@ def jsonschemas():
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, throttler, jsonschemas):
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, jsonschemas):
     nf = NodeFactory(
         request,
         test_name,
@@ -460,7 +455,6 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         directory=directory,
         db_provider=db_provider,
         node_cls=node_cls,
-        throttler=throttler,
         jsonschemas=jsonschemas,
     )
 
