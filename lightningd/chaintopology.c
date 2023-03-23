@@ -167,6 +167,11 @@ static void rebroadcast_txs(struct chain_topology *topo)
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
+		/* Don't send ones which aren't ready yet.  Note that if the
+		 * minimum block is N, we broadcast it when we have block N-1! */
+		if (get_block_height(topo) + 1 < otx->minblock)
+			continue;
+
 		/* Don't free from txmap inside loop! */
 		if (otx->refresh
 		    && !otx->refresh(otx->channel, &otx->tx, otx->refresh_arg)) {
@@ -230,7 +235,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 
 void broadcast_tx_(struct chain_topology *topo,
 		   struct channel *channel, const struct bitcoin_tx *tx,
-		   const char *cmd_id, bool allowhighfees,
+		   const char *cmd_id, bool allowhighfees, u32 minblock,
 		   void (*finished)(struct channel *channel,
 				    bool success,
 				    const char *err),
@@ -245,6 +250,7 @@ void broadcast_tx_(struct chain_topology *topo,
 	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
 	otx->tx = clone_bitcoin_tx(otx, tx);
+	otx->minblock = minblock;
 	otx->finished = finished;
 	otx->refresh = refresh;
 	otx->refresh_arg = refresh_arg;
@@ -254,8 +260,22 @@ void broadcast_tx_(struct chain_topology *topo,
 		otx->cmd_id = tal_strdup(otx, cmd_id);
 	else
 		otx->cmd_id = NULL;
-	tal_add_destructor2(channel, clear_otx_channel, otx);
 
+	/* Note that if the minimum block is N, we broadcast it when
+	 * we have block N-1! */
+	if (get_block_height(topo) + 1 < otx->minblock) {
+		log_debug(topo->log, "Deferring broadcast of txid %s until block %u",
+			  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid),
+			  otx->minblock - 1);
+
+		/* For continual rebroadcasting, until channel freed. */
+		tal_steal(otx->channel, otx);
+		outgoing_tx_map_add(topo->outgoing_txs, otx);
+		tal_add_destructor2(otx, destroy_outgoing_tx, topo);
+		return;
+	}
+
+	tal_add_destructor2(channel, clear_otx_channel, otx);
 	log_debug(topo->log, "Broadcasting txid %s%s%s",
 		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid),
 		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
@@ -372,7 +392,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 		/* Initial smoothed feerate is the polled feerate */
 		if (!old_feerates[i]) {
-            notify_feerate_changed = true;
+			notify_feerate_changed = true;
 			old_feerates[i] = feerate;
 			init_feerate_history(topo, i, feerate);
 

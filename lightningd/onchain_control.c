@@ -345,7 +345,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel,
 	 * set allowhighfees, as the transaction may be RBFed into
 	 * high feerates as protection against the MAD-HTLC attack.  */
 	broadcast_tx(channel->peer->ld->topology, channel,
-		     tx, NULL, is_rbf,
+		     tx, NULL, is_rbf, 0,
 		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL,
 		     NULL, NULL);
 }

@@ -284,7 +284,7 @@ static void sign_and_send_last(struct lightningd *ld,
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, NULL,
+	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, 0, NULL,
 		     NULL, NULL);
 
 	remove_sig(last_tx);
