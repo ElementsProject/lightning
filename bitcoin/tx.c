@@ -980,3 +980,14 @@ struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 
 	return excess;
 }
+
+u32 tx_feerate(const struct bitcoin_tx *tx)
+{
+	struct amount_sat fee = bitcoin_tx_compute_fee(tx);
+
+	/* Fee should not overflow! */
+	if (!amount_sat_mul(&fee, fee, 1000))
+		abort();
+
+	return amount_sat_div(fee, bitcoin_tx_weight(tx)).satoshis; /* Raw: txfee */
+}

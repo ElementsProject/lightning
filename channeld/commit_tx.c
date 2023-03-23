@@ -156,8 +156,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
 				      option_anchor_outputs);
 
-	SUPERVERBOSE("# base commitment transaction fee = %"PRIu64"\n",
-		     base_fee.satoshis /* Raw: spec uses raw numbers */);
+	SUPERVERBOSE("# base commitment transaction fee = %"PRIu64" for %zu untrimmed\n",
+		     base_fee.satoshis /* Raw: spec uses raw numbers */, untrimmed);
 
 	/* BOLT #3:
 	 * If `option_anchors` applies to the commitment
