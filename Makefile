@@ -604,7 +604,7 @@ CHECK_GEN_ALL = \
 
 check-gen-updated:  $(CHECK_GEN_ALL)
 	@echo "Checking for generated files being changed by make"
-	git diff --exit-code HEAD $?
+	git diff --exit-code HEAD
 
 coverage/coverage.info: check pytest
 	mkdir coverage || true
