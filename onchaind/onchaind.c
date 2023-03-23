@@ -71,8 +71,8 @@ static u32 reasonable_depth;
 /* The messages to send at that depth. */
 static u8 **missing_htlc_msgs;
 
-/* The messages which were sent to us before init_reply was processed. */
-static u8 **queued_msgs;
+/* The messages which were sent to us while waiting for a specific msg. */
+static const u8 **queued_msgs;
 
 /* Our recorded channel balance at 'chain time' */
 static struct amount_msat our_msat;
@@ -149,6 +149,20 @@ static const char *output_type_name(enum output_type output_type)
 		if (enum_output_type_names[i].v == output_type)
 			return enum_output_type_names[i].name;
 	return "unknown";
+}
+
+static const u8 *queue_until_msg(const tal_t *ctx, enum onchaind_wire mtype)
+{
+	const u8 *msg;
+
+	while ((msg = wire_sync_read(ctx, REQ_FD)) != NULL) {
+		if (fromwire_peektype(msg) == mtype)
+			return msg;
+		/* Process later */
+		tal_arr_expand(&queued_msgs, tal_steal(queued_msgs, msg));
+	}
+	status_failed(STATUS_FAIL_HSM_IO, "Waiting for %s: connection lost",
+		      onchaind_wire_name(mtype));
 }
 
 /* helper to compare output script with our tal'd script */
@@ -2133,7 +2147,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 	billboard_update(outs);
 
 	while (num_not_irrevocably_resolved(outs) != 0) {
-		u8 *msg;
+		const u8 *msg;
 		enum onchaind_wire mtype;
 
 		if (tal_count(queued_msgs)) {
@@ -2214,7 +2228,7 @@ static int cmp_htlc_with_tells_cltv(const struct htlc_with_tells *a,
 static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 {
 	struct htlcs_info *htlcs_info = tal(ctx, struct htlcs_info);
-	u8 *msg;
+	const u8 *msg;
 	struct htlc_with_tells *htlcs;
 
 	/* commit_num is 0 for mutual close, but we don't care about HTLCs
@@ -2226,20 +2240,13 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 
 	peer_billboard(true, what);
 
-	/* Read in htlcs */
-	for (;;) {
-		msg = wire_sync_read(queued_msgs, REQ_FD);
-		if (fromwire_onchaind_htlcs(tmpctx, msg,
-					    &htlcs_info->htlcs,
-					    &htlcs_info->tell_if_missing,
-					    &htlcs_info->tell_immediately)) {
-			tal_free(msg);
-			break;
-		}
-
-		/* Process later */
-		tal_arr_expand(&queued_msgs, msg);
-	}
+	/* Read in htlcs (ignoring everything else for now) */
+	msg = queue_until_msg(tmpctx, WIRE_ONCHAIND_HTLCS);
+	if (!fromwire_onchaind_htlcs(htlcs_info, msg,
+				     &htlcs_info->htlcs,
+				     &htlcs_info->tell_if_missing,
+				     &htlcs_info->tell_immediately))
+		master_badmsg(WIRE_ONCHAIND_HTLCS, msg);
 
 	/* One convenient structure, so we sort them together! */
 	htlcs = tal_arr(tmpctx, struct htlc_with_tells, tal_count(htlcs_info->htlcs));
@@ -3914,7 +3921,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(REQ_FD);
 
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
-	queued_msgs = tal_arr(ctx, u8 *, 0);
+	queued_msgs = tal_arr(ctx, const u8 *, 0);
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchaind_init(tmpctx, msg,
