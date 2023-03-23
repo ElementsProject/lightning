@@ -21,6 +21,7 @@ struct outgoing_tx {
 	struct channel *channel;
 	const struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;
+	u32 minblock;
 	const char *cmd_id;
 	void (*finished)(struct channel *channel, bool success, const char *err);
 	bool (*refresh)(struct channel *, const struct bitcoin_tx **, void *arg);
@@ -180,15 +181,16 @@ u32 penalty_feerate(struct chain_topology *topo);
  * @tx: the transaction
  * @cmd_id: the JSON command id which triggered this (or NULL).
  * @allowhighfees: set to true to override the high-fee checks in the backend.
+ * @minblock: minimum block we can send it at (or 0).
  * @finished: if non-NULL, call that and don't rebroadcast.
  * @refresh: if non-NULL, callback before re-broadcasting (can replace tx):
  *           if returns false, delete.
  * @refresh_arg: argument for @refresh
  */
 #define broadcast_tx(topo, channel, tx, cmd_id, allowhighfees,		\
-		     finished, refresh, refresh_arg)			\
+		     minblock, finished, refresh, refresh_arg)		\
 	broadcast_tx_((topo), (channel), (tx), (cmd_id), (allowhighfees), \
-		      (finished),					\
+		      (minblock), (finished),				\
 		      typesafe_cb_preargs(bool, void *,			\
 					  (refresh), (refresh_arg),	\
 					  struct channel *,		\
@@ -198,7 +200,7 @@ u32 penalty_feerate(struct chain_topology *topo);
 void broadcast_tx_(struct chain_topology *topo,
 		   struct channel *channel,
 		   const struct bitcoin_tx *tx TAKES,
-		   const char *cmd_id, bool allowhighfees,
+		   const char *cmd_id, bool allowhighfees, u32 minblock,
 		   void (*finished)(struct channel *,
 				    bool success,
 				    const char *err),
