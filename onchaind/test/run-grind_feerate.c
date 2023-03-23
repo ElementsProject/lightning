@@ -227,6 +227,9 @@ enum mvt_tag *new_tag_arr(const tal_t *ctx UNNEEDED, enum mvt_tag tag UNNEEDED)
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
+/* Generated stub for onchaind_wire_name */
+const char *onchaind_wire_name(int e UNNEEDED)
+{ fprintf(stderr, "onchaind_wire_name called!\n"); abort(); }
 /* Generated stub for peer_billboard */
 void peer_billboard(bool perm UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "peer_billboard called!\n"); abort(); }
