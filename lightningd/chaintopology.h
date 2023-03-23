@@ -19,7 +19,7 @@ struct txwatch;
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
 	struct channel *channel;
-	const char *hextx;
+	const struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;
 	const char *cmd_id;
 	void (*finished)(struct channel *channel, bool success, const char *err);
@@ -181,7 +181,8 @@ u32 penalty_feerate(struct chain_topology *topo);
  * @finished: if non-NULL, call that and don't rebroadcast.
  */
 void broadcast_tx(struct chain_topology *topo,
-		  struct channel *channel, const struct bitcoin_tx *tx,
+		  struct channel *channel,
+		  const struct bitcoin_tx *tx TAKES,
 		  const char *cmd_id, bool allowhighfees,
 		  void (*finished)(struct channel *,
 				   bool success,

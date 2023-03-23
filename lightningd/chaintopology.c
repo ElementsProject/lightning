@@ -167,7 +167,7 @@ static void rebroadcast_txs(struct chain_topology *topo)
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
-		tal_arr_expand(&txs->txs, tal_strdup(txs, otx->hextx));
+		tal_arr_expand(&txs->txs, fmt_bitcoin_tx(txs->txs, otx->tx));
 		tal_arr_expand(&txs->cmd_id,
 			       otx->cmd_id ? tal_strdup(txs, otx->cmd_id) : NULL);
 	}
@@ -229,17 +229,15 @@ void broadcast_tx(struct chain_topology *topo,
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
-	const u8 *rawtx = linearize_tx(otx, tx);
 
 	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
-	otx->hextx = tal_hex(otx, rawtx);
+	otx->tx = clone_bitcoin_tx(otx, tx);
 	otx->finished = finished;
 	if (cmd_id)
 		otx->cmd_id = tal_strdup(otx, cmd_id);
 	else
 		otx->cmd_id = NULL;
-	tal_free(rawtx);
 	tal_add_destructor2(channel, clear_otx_channel, otx);
 
 	log_debug(topo->log, "Broadcasting txid %s%s%s",
@@ -247,7 +245,8 @@ void broadcast_tx(struct chain_topology *topo,
 		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
 
 	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx(topo->bitcoind, otx->cmd_id, otx->hextx,
+	bitcoind_sendrawtx(topo->bitcoind, otx->cmd_id,
+			   fmt_bitcoin_tx(tmpctx, otx->tx),
 			   allowhighfees,
 			   broadcast_done, otx);
 }
