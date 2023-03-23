@@ -3147,9 +3147,9 @@ def test_partial_payment(node_factory, bitcoind, executor):
     l2.rpc.dev_reenable_commit(l1.info['id'])
     l3.rpc.dev_reenable_commit(l1.info['id'])
 
-    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=1)
+    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=1, timeout=TIMEOUT)
     assert res['partid'] == 1
-    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=2)
+    res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=2, timeout=TIMEOUT)
     assert res['partid'] == 2
 
     for i in range(2):
