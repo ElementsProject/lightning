@@ -493,7 +493,8 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
-	static struct amount_sat amount, fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	struct amount_sat amount;
 	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, 0);
 	size_t weight;
 
@@ -541,7 +542,8 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
-	static struct amount_sat amt, fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
+	struct amount_sat amt;
 	struct amount_asset asset;
 	size_t weight;
 
@@ -990,7 +992,7 @@ new_tracked_output(struct tracked_output ***outs,
 		   enum output_type output_type,
 		   const struct htlc_stub *htlc,
 		   const u8 *wscript,
-		   const struct bitcoin_signature *remote_htlc_sig TAKES)
+		   const struct bitcoin_signature *remote_htlc_sig)
 {
 	struct tracked_output *out = tal(*outs, struct tracked_output);
 
