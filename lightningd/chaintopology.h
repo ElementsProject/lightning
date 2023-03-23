@@ -23,6 +23,8 @@ struct outgoing_tx {
 	struct bitcoin_txid txid;
 	const char *cmd_id;
 	void (*finished)(struct channel *channel, bool success, const char *err);
+	bool (*refresh)(struct channel *, const struct bitcoin_tx **, void *arg);
+	void *refresh_arg;
 };
 
 struct block {
@@ -179,14 +181,29 @@ u32 penalty_feerate(struct chain_topology *topo);
  * @cmd_id: the JSON command id which triggered this (or NULL).
  * @allowhighfees: set to true to override the high-fee checks in the backend.
  * @finished: if non-NULL, call that and don't rebroadcast.
+ * @refresh: if non-NULL, callback before re-broadcasting (can replace tx):
+ *           if returns false, delete.
+ * @refresh_arg: argument for @refresh
  */
-void broadcast_tx(struct chain_topology *topo,
-		  struct channel *channel,
-		  const struct bitcoin_tx *tx TAKES,
-		  const char *cmd_id, bool allowhighfees,
-		  void (*finished)(struct channel *,
-				   bool success,
-				   const char *err));
+#define broadcast_tx(topo, channel, tx, cmd_id, allowhighfees,		\
+		     finished, refresh, refresh_arg)			\
+	broadcast_tx_((topo), (channel), (tx), (cmd_id), (allowhighfees), \
+		      (finished),					\
+		      typesafe_cb_preargs(bool, void *,			\
+					  (refresh), (refresh_arg),	\
+					  struct channel *,		\
+					  const struct bitcoin_tx **),	\
+		      (refresh_arg))
+
+void broadcast_tx_(struct chain_topology *topo,
+		   struct channel *channel,
+		   const struct bitcoin_tx *tx TAKES,
+		   const char *cmd_id, bool allowhighfees,
+		   void (*finished)(struct channel *,
+				    bool success,
+				    const char *err),
+		   bool (*refresh)(struct channel *, const struct bitcoin_tx **, void *),
+		   void *refresh_arg TAKES);
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,

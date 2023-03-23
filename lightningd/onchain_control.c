@@ -346,7 +346,8 @@ static void handle_onchain_broadcast_tx(struct channel *channel,
 	 * high feerates as protection against the MAD-HTLC attack.  */
 	broadcast_tx(channel->peer->ld->topology, channel,
 		     tx, NULL, is_rbf,
-		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
+		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL,
+		     NULL, NULL);
 }
 
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
