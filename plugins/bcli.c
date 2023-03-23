@@ -472,6 +472,8 @@ enum feerate_levels {
 #define FEERATE_LEVEL_MAX (FEERATE_SLOW)
 
 struct estimatefees_stash {
+	/* This is max(mempoolminfee,minrelaytxfee) */
+	u64 perkb_floor;
 	u32 cursor;
 	/* FIXME: We use u64 but lightningd will store them as u32. */
 	u64 perkb[FEERATE_LEVEL_MAX+1];
@@ -675,6 +677,24 @@ static const struct estimatefee_params estimatefee_params[] = {
 	[FEERATE_SLOW] = { 100, "ECONOMICAL" },
 };
 
+/* Add a feerate, but don't publish one that bitcoind won't accept. */
+static void json_add_feerate(struct json_stream *result, const char *fieldname,
+			     struct command *cmd,
+			     const struct estimatefees_stash *stash,
+			     uint64_t value)
+{
+	/* 0 is special, it means "unknown" */
+	if (value && value < stash->perkb_floor) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Feerate %s raised from %"PRIu64
+			   " perkb to floor of %"PRIu64,
+			   fieldname, value, stash->perkb_floor);
+		json_add_u64(result, fieldname, stash->perkb_floor);
+	} else {
+		json_add_u64(result, fieldname, value);
+	}
+}
+
 static struct command_result *estimatefees_next(struct command *cmd,
 						struct estimatefees_stash *stash)
 {
@@ -693,27 +713,62 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	}
 
 	response = jsonrpc_stream_success(cmd);
-	json_add_u64(response, "opening", stash->perkb[FEERATE_NORMAL]);
-	json_add_u64(response, "mutual_close", stash->perkb[FEERATE_SLOW]);
-	json_add_u64(response, "unilateral_close",
-		     stash->perkb[FEERATE_URGENT] * bitcoind->commit_fee_percent / 100);
-	json_add_u64(response, "delayed_to_us", stash->perkb[FEERATE_NORMAL]);
-	json_add_u64(response, "htlc_resolution", stash->perkb[FEERATE_URGENT]);
-	json_add_u64(response, "penalty", stash->perkb[FEERATE_NORMAL]);
+	json_add_feerate(response, "opening", cmd, stash,
+			 stash->perkb[FEERATE_NORMAL]);
+	json_add_feerate(response, "mutual_close", cmd, stash,
+			 stash->perkb[FEERATE_SLOW]);
+	json_add_feerate(response, "unilateral_close", cmd, stash,
+			 stash->perkb[FEERATE_URGENT] * bitcoind->commit_fee_percent / 100);
+	json_add_feerate(response, "delayed_to_us", cmd, stash,
+			 stash->perkb[FEERATE_NORMAL]);
+	json_add_feerate(response, "htlc_resolution", cmd, stash,
+			 stash->perkb[FEERATE_URGENT]);
+	json_add_feerate(response, "penalty", cmd, stash,
+			 stash->perkb[FEERATE_NORMAL]);
 	/* We divide the slow feerate for the minimum acceptable, lightningd
 	 * will use floor if it's hit, though. */
-	json_add_u64(response, "min_acceptable",
-		     stash->perkb[FEERATE_SLOW] / 2);
+	json_add_feerate(response, "min_acceptable", cmd, stash,
+			 stash->perkb[FEERATE_SLOW] / 2);
 	/* BOLT #2:
 	 *
 	 * Given the variance in fees, and the fact that the transaction may be
 	 * spent in the future, it's a good idea for the fee payer to keep a good
 	 * margin (say 5x the expected fee requirement)
 	 */
-	json_add_u64(response, "max_acceptable",
-		     stash->perkb[FEERATE_HIGHEST]
-		     * bitcoind->max_fee_multiplier);
+	json_add_feerate(response, "max_acceptable", cmd, stash,
+			 stash->perkb[FEERATE_HIGHEST]
+			 * bitcoind->max_fee_multiplier);
 	return command_finished(cmd, response);
+}
+
+static struct command_result *getminfees_done(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens;
+	const char *err;
+	u64 mempoolfee, relayfee;
+	struct estimatefees_stash *stash = bcli->stash;
+
+	if (*bcli->exitstatus != 0)
+		return estimatefees_null_response(bcli);
+
+	tokens = json_parse_simple(bcli->output,
+				   bcli->output, bcli->output_bytes);
+	if (!tokens)
+		return command_err_bcli_badjson(bcli,
+						"cannot parse getmempoolinfo");
+
+	/* Look at minrelaytxfee they configured, and current min fee to get
+	 * into mempool. */
+	err = json_scan(tmpctx, bcli->output, tokens,
+			"{mempoolminfee:%,minrelaytxfee:%}",
+			JSON_SCAN(json_to_bitcoin_amount, &mempoolfee),
+			JSON_SCAN(json_to_bitcoin_amount, &relayfee));
+	if (err)
+		return command_err_bcli_badjson(bcli, err);
+
+	stash->perkb_floor = max_u64(mempoolfee, relayfee);
+	stash->cursor = 0;
+	return estimatefees_next(bcli->cmd, stash);
 }
 
 /* Get the current feerates. We use an urgent feerate for unilateral_close and max,
@@ -729,8 +784,11 @@ static struct command_result *estimatefees(struct command *cmd,
 	if (!param(cmd, buf, toks, NULL))
 		return command_param_failed();
 
-	stash->cursor = 0;
-	return estimatefees_next(cmd, stash);
+	start_bitcoin_cli(NULL, cmd, getminfees_done, true,
+			  BITCOIND_LOW_PRIO, stash,
+			  "getmempoolinfo",
+			  NULL);
+	return command_still_pending(cmd);
 }
 
 static struct command_result *estimatefees_done(struct bitcoin_cli *bcli)
