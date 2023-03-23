@@ -155,6 +155,7 @@ static void rebroadcast_txs(struct chain_topology *topo)
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 	struct outgoing_tx_map_iter it;
+	tal_t *cleanup_ctx = tal(NULL, char);
 
 	txs = tal(topo, struct txs_to_broadcast);
 	txs->cmd_id = tal_arr(txs, const char *, 0);
@@ -167,10 +168,18 @@ static void rebroadcast_txs(struct chain_topology *topo)
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
+		/* Don't free from txmap inside loop! */
+		if (otx->refresh
+		    && !otx->refresh(otx->channel, &otx->tx, otx->refresh_arg)) {
+			tal_steal(cleanup_ctx, otx);
+			continue;
+		}
+
 		tal_arr_expand(&txs->txs, fmt_bitcoin_tx(txs->txs, otx->tx));
 		tal_arr_expand(&txs->cmd_id,
 			       otx->cmd_id ? tal_strdup(txs, otx->cmd_id) : NULL);
 	}
+	tal_free(cleanup_ctx);
 
 	/* Let this do the dirty work. */
 	txs->cursor = (size_t)-1;
@@ -220,12 +229,16 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 }
 
-void broadcast_tx(struct chain_topology *topo,
-		  struct channel *channel, const struct bitcoin_tx *tx,
-		  const char *cmd_id, bool allowhighfees,
-		  void (*finished)(struct channel *channel,
-				   bool success,
-				   const char *err))
+void broadcast_tx_(struct chain_topology *topo,
+		   struct channel *channel, const struct bitcoin_tx *tx,
+		   const char *cmd_id, bool allowhighfees,
+		   void (*finished)(struct channel *channel,
+				    bool success,
+				    const char *err),
+		   bool (*refresh)(struct channel *channel,
+				   const struct bitcoin_tx **tx,
+				   void *arg),
+		   void *refresh_arg)
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
@@ -234,6 +247,10 @@ void broadcast_tx(struct chain_topology *topo,
 	bitcoin_txid(tx, &otx->txid);
 	otx->tx = clone_bitcoin_tx(otx, tx);
 	otx->finished = finished;
+	otx->refresh = refresh;
+	otx->refresh_arg = refresh_arg;
+	if (taken(otx->refresh_arg))
+		tal_steal(otx, otx->refresh_arg);
 	if (cmd_id)
 		otx->cmd_id = tal_strdup(otx, cmd_id);
 	else

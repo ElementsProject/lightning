@@ -68,14 +68,17 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for broadcast_tx */
-void broadcast_tx(struct chain_topology *topo UNNEEDED,
-		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
-		  const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
-		  void (*finished)(struct channel * UNNEEDED,
-				   bool success UNNEEDED,
-				   const char *err))
-{ fprintf(stderr, "broadcast_tx called!\n"); abort(); }
+/* Generated stub for broadcast_tx_ */
+void broadcast_tx_(struct chain_topology *topo UNNEEDED,
+		   struct channel *channel UNNEEDED,
+		   const struct bitcoin_tx *tx TAKES UNNEEDED,
+		   const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
+		   void (*finished)(struct channel * UNNEEDED,
+				    bool success UNNEEDED,
+				    const char *err) UNNEEDED,
+		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
+		   void *refresh_arg TAKES UNNEEDED)
+{ fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 struct channel *channel UNNEEDED,
