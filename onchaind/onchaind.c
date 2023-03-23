@@ -2059,33 +2059,65 @@ static void memleak_remove_globals(struct htable *memtable, const tal_t *topctx)
 	memleak_scan_obj(memtable, queued_msgs);
 }
 
-static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
+static void handle_dev_memleak(struct tracked_output ***outs, const u8 *msg)
 {
 	struct htable *memtable;
 	bool found_leak;
 
 	if (!fromwire_onchaind_dev_memleak(msg))
-		return false;
+		master_badmsg(WIRE_ONCHAIND_DEV_MEMLEAK, msg);
 
 	memtable = memleak_start(tmpctx);
 	memleak_ptr(memtable, msg);
 
 	/* Top-level context is parent of outs */
-	memleak_remove_globals(memtable, tal_parent(outs));
-	memleak_scan_obj(memtable, outs);
+	memleak_remove_globals(memtable, tal_parent(*outs));
+	memleak_scan_obj(memtable, *outs);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	wire_sync_write(REQ_FD,
 			take(towire_onchaind_dev_memleak_reply(NULL,
 							      found_leak)));
-	return true;
 }
 #else
-static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
+static void handle_dev_memleak(struct tracked_output ***outs, const u8 *msg)
 {
-	return false;
+	master_badmsg(WIRE_ONCHAIND_DEV_MEMLEAK, msg);
 }
 #endif /* !DEVELOPER */
+
+static void handle_onchaind_depth(struct tracked_output ***outs, const u8 *msg)
+{
+	struct bitcoin_txid txid;
+	u32 depth;
+
+	if (!fromwire_onchaind_depth(msg, &txid, &depth))
+		master_badmsg(WIRE_ONCHAIND_DEPTH, msg);
+
+	tx_new_depth(*outs, &txid, depth);
+}
+
+static void handle_onchaind_spent(struct tracked_output ***outs, const u8 *msg)
+{
+	struct tx_parts *tx_parts;
+	u32 input_num, tx_blockheight;
+
+	if (!fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
+				     &tx_blockheight))
+		master_badmsg(WIRE_ONCHAIND_SPENT, msg);
+
+	output_spent(outs, tx_parts, input_num, tx_blockheight);
+}
+
+static void handle_onchaind_known_preimage(struct tracked_output ***outs,
+					   const u8 *msg)
+{
+	struct preimage preimage;
+
+	if (!fromwire_onchaind_known_preimage(msg, &preimage))
+		master_badmsg(WIRE_ONCHAIND_KNOWN_PREIMAGE, msg);
+	handle_preimage(*outs, &preimage);
+}
 
 /* BOLT #5:
  *
@@ -2102,10 +2134,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 	while (num_not_irrevocably_resolved(outs) != 0) {
 		u8 *msg;
-		struct bitcoin_txid txid;
-		u32 input_num, depth, tx_blockheight;
-		struct preimage preimage;
-		struct tx_parts *tx_parts;
+		enum onchaind_wire mtype;
 
 		if (tal_count(queued_msgs)) {
 			msg = tal_steal(outs, queued_msgs[0]);
@@ -2113,19 +2142,45 @@ static void wait_for_resolved(struct tracked_output **outs)
 		} else
 			msg = wire_sync_read(outs, REQ_FD);
 
-		status_debug("Got new message %s",
-			     onchaind_wire_name(fromwire_peektype(msg)));
+		mtype = fromwire_peektype(msg);
+		status_debug("Got new message %s", onchaind_wire_name(mtype));
 
-		if (fromwire_onchaind_depth(msg, &txid, &depth))
-			tx_new_depth(outs, &txid, depth);
-		else if (fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
-						&tx_blockheight)) {
-			output_spent(&outs, tx_parts, input_num, tx_blockheight);
-		} else if (fromwire_onchaind_known_preimage(msg, &preimage))
-			handle_preimage(outs, &preimage);
-		else if (!handle_dev_memleak(outs, msg))
-			master_badmsg(-1, msg);
+		switch (mtype) {
+		case WIRE_ONCHAIND_DEPTH:
+			handle_onchaind_depth(&outs, msg);
+			goto handled;
+		case WIRE_ONCHAIND_SPENT:
+			handle_onchaind_spent(&outs, msg);
+			goto handled;
+		case WIRE_ONCHAIND_KNOWN_PREIMAGE:
+			handle_onchaind_known_preimage(&outs, msg);
+			goto handled;
+		case WIRE_ONCHAIND_DEV_MEMLEAK:
+			handle_dev_memleak(&outs, msg);
+			goto handled;
 
+		/* Unexpected messages */
+		case WIRE_ONCHAIND_INIT:
+		case WIRE_ONCHAIND_HTLCS:
+
+		/* We send these, not receive! */
+		case WIRE_ONCHAIND_INIT_REPLY:
+		case WIRE_ONCHAIND_BROADCAST_TX:
+		case WIRE_ONCHAIND_UNWATCH_TX:
+		case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
+		case WIRE_ONCHAIND_MISSING_HTLC_OUTPUT:
+		case WIRE_ONCHAIND_HTLC_TIMEOUT:
+		case WIRE_ONCHAIND_ALL_IRREVOCABLY_RESOLVED:
+		case WIRE_ONCHAIND_ADD_UTXO:
+		case WIRE_ONCHAIND_DEV_MEMLEAK_REPLY:
+		case WIRE_ONCHAIND_ANNOTATE_TXOUT:
+		case WIRE_ONCHAIND_ANNOTATE_TXIN:
+		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
+			break;
+		}
+		master_badmsg(-1, msg);
+
+	handled:
 		billboard_update(outs);
 		tal_free(msg);
 		clean_tmpctx();

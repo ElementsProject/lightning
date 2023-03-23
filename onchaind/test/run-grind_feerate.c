@@ -62,6 +62,9 @@ bool fromwire_onchaind_known_preimage(const void *p UNNEEDED, struct preimage *p
 /* Generated stub for fromwire_onchaind_spent */
 bool fromwire_onchaind_spent(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct tx_parts **tx UNNEEDED, u32 *input_num UNNEEDED, u32 *blockheight UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_spent called!\n"); abort(); }
+/* Generated stub for fromwire_peektype */
+int fromwire_peektype(const u8 *cursor UNNEEDED)
+{ fprintf(stderr, "fromwire_peektype called!\n"); abort(); }
 /* Generated stub for fromwire_secp256k1_ecdsa_signature */
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 					secp256k1_ecdsa_signature *signature UNNEEDED)
