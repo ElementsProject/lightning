@@ -202,8 +202,8 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	/* No longer needs to be disconnected if channel dies. */
 	tal_del_destructor2(otx->channel, clear_otx_channel, otx);
 
-	if (otx->failed_or_success) {
-		otx->failed_or_success(otx->channel, success, msg);
+	if (otx->finished) {
+		otx->finished(otx->channel, success, msg);
 		tal_free(otx);
 	} else if (we_broadcast(bitcoind->ld->topology, &otx->txid)) {
 		log_debug(
@@ -223,9 +223,9 @@ static void broadcast_done(struct bitcoind *bitcoind,
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
 		  const char *cmd_id, bool allowhighfees,
-		  void (*failed)(struct channel *channel,
-				 bool success,
-				 const char *err))
+		  void (*finished)(struct channel *channel,
+				   bool success,
+				   const char *err))
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
@@ -234,7 +234,7 @@ void broadcast_tx(struct chain_topology *topo,
 	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
-	otx->failed_or_success = failed;
+	otx->finished = finished;
 	if (cmd_id)
 		otx->cmd_id = tal_strdup(otx, cmd_id);
 	else
