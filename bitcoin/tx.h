@@ -270,6 +270,12 @@ static inline size_t elements_tx_overhead(const struct chainparams *chainparams,
  */
 struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
 
+/**
+ * Calculate the feerate for this transaction (in perkw)
+*/
+u32 tx_feerate(const struct bitcoin_tx *tx);
+
+
 /*
  * Calculate the fees for this transaction, given a pre-computed input balance.
  *

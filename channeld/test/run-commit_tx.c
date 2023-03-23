@@ -380,7 +380,8 @@ static void report(struct bitcoin_tx *tx,
 		   const struct pubkey *remote_revocation_key,
 		   u32 feerate_per_kw,
 		   bool option_anchor_outputs,
-		   const struct htlc **htlc_map)
+		   const struct htlc **htlc_map,
+		   size_t total_htlcs)
 {
 	char *txhex;
 	struct bitcoin_signature localsig, remotesig;
@@ -409,6 +410,13 @@ static void report(struct bitcoin_tx *tx,
 	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 	txhex = tal_hex(tmpctx, linearize_tx(tx, tx));
 	printf("output commit_tx: %s\n", txhex);
+
+	/* Now signatures are attached, this should be correct.  But note
+	 * that spec uses worst-case weight, so we will be slightly higher. */
+	assert(tx_feerate(tx) >= feerate_per_kw);
+	/* Of course, trimmed htlcs magnify this! */
+	if (tx->wtx->num_outputs == total_htlcs + 2)
+		assert(tx_feerate(tx) <= feerate_per_kw * 1.01);
 
 	report_htlcs(tx, htlc_map, to_self_delay,
 		     local_htlcsecretkey, localkey, local_htlckey,
@@ -837,7 +845,8 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
-	       htlc_map);
+	       htlc_map,
+	       0);
 
 	/* BOLT #3:
 	 *
@@ -903,7 +912,8 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
-	       htlc_map);
+	       htlc_map,
+	       tal_count(htlcs));
 
 	do {
 		struct bitcoin_tx *newtx;
@@ -1000,7 +1010,8 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw-1,
 		       option_anchor_outputs,
-		       htlc_map);
+		       htlc_map,
+		       tal_count(htlcs));
 
 		printf("\n"
 		       "name: commitment tx with %s untrimmed (minimum feerate)\n"
@@ -1049,7 +1060,8 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       option_anchor_outputs,
-		       htlc_map);
+		       htlc_map,
+		       tal_count(htlcs));
 
 		assert(newtx->wtx->num_outputs != tx->wtx->num_outputs);
 
@@ -1124,7 +1136,8 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       option_anchor_outputs,
-		       htlc_map);
+		       htlc_map,
+		       tal_count(htlcs));
 		break;
 	}
 
@@ -1195,7 +1208,8 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
-	       htlc_map);
+	       htlc_map,
+	       tal_count(htlcs));
 	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */
