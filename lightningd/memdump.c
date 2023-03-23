@@ -152,6 +152,7 @@ static void finish_report(const struct leak_detect *leaks)
 	/* First delete known false positives. */
 	memleak_scan_htable(memtable, &ld->topology->txwatches->raw);
 	memleak_scan_htable(memtable, &ld->topology->txowatches->raw);
+	memleak_scan_htable(memtable, &ld->topology->outgoing_txs->raw);
 	memleak_scan_htable(memtable, &ld->htlcs_in->raw);
 	memleak_scan_htable(memtable, &ld->htlcs_out->raw);
 	memleak_scan_htable(memtable, &ld->htlc_sets->raw);

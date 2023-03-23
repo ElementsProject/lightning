@@ -8,7 +8,6 @@
 #include <common/htlc_tx.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
@@ -224,7 +223,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	} else {
 		/* For continual rebroadcasting, until channel freed. */
 		tal_steal(otx->channel, otx);
-		outgoing_tx_map_add(bitcoind->ld->topology->outgoing_txs, notleak(otx));
+		outgoing_tx_map_add(bitcoind->ld->topology->outgoing_txs, otx);
 		tal_add_destructor2(otx, destroy_outgoing_tx, bitcoind->ld->topology);
 	}
 }
@@ -324,9 +323,9 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid, NULL))
 			continue;
 
-		notleak(watch_txid(topo, topo, NULL,
-				   &unconfirmed[i]->outpoint.txid,
-				   closeinfo_txid_confirmed));
+		watch_txid(topo, topo, NULL,
+			   &unconfirmed[i]->outpoint.txid,
+			   closeinfo_txid_confirmed);
 	}
 }
 
