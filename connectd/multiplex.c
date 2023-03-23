@@ -517,7 +517,6 @@ again:
 				peer->gs.timestamp_min,
 				peer->gs.timestamp_max,
 				false,
-				false,
 				&peer->gs.off,
 				&peer->daemon->gossip_store_end);
 	/* Don't send back gossip they sent to us! */

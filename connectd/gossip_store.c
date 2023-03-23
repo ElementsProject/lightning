@@ -111,7 +111,6 @@ static bool public_msg_type(enum peer_wire type)
 u8 *gossip_store_next(const tal_t *ctx,
 		      int *gossip_store_fd,
 		      u32 timestamp_min, u32 timestamp_max,
-		      bool push_only,
 		      bool with_spam,
 		      size_t *off, size_t *end)
 {
@@ -173,8 +172,6 @@ u8 *gossip_store_next(const tal_t *ctx,
 			msg = tal_free(msg);
 		/* Ignore gossipd internal messages. */
 		} else if (!public_msg_type(type)) {
-			msg = tal_free(msg);
-		} else if (!push && push_only) {
 			msg = tal_free(msg);
 		} else if (!with_spam && ratelimited) {
 			msg = tal_free(msg);
