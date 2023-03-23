@@ -695,33 +695,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	/* We check them separately but there is a high chance that if estimation
 	 * failed for one, it failed for all.. */
 	for (size_t i = 0; i < 3; i++) {
-		if (!feerates[i]) {
-			/* We have at least one data point: the last tx's feerate. */
-			struct amount_sat fee = channel->funding_sats;
-			for (size_t j = 0;
-			     j < channel->last_tx->wtx->num_outputs; j++) {
-				struct amount_asset asset =
-					bitcoin_tx_output_get_amount(channel->last_tx, j);
-				struct amount_sat amt;
-				assert(amount_asset_is_main(&asset));
-				amt = amount_asset_to_sat(&asset);
-				if (!amount_sat_sub(&fee, fee, amt)) {
-					log_broken(channel->log, "Could not get fee"
-						   " funding %s tx %s",
-						   type_to_string(tmpctx,
-								  struct amount_sat,
-								  &channel->funding_sats),
-						   type_to_string(tmpctx,
-								  struct bitcoin_tx,
-								  channel->last_tx));
-					return KEEP_WATCHING;
-				}
-			}
-
-			feerates[i] = fee.satoshis / bitcoin_tx_weight(tx); /* Raw: reverse feerate extraction */
-			if (feerates[i] < feerate_floor())
-				feerates[i] = feerate_floor();
-		}
+		if (!feerates[i])
+			feerates[i] = tx_feerate(channel->last_tx);
 	}
 	/* This is 10x highest bitcoind estimate (depending on dev-max-fee-multiplier),
 	 * so cap at 2x */
