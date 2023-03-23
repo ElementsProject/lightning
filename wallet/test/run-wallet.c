@@ -72,9 +72,9 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
 		  const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
-		  void (*failed)(struct channel * UNNEEDED,
-				 bool success UNNEEDED,
-				 const char *err))
+		  void (*finished)(struct channel * UNNEEDED,
+				   bool success UNNEEDED,
+				   const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,

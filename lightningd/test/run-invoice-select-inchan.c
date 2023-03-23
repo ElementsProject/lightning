@@ -55,9 +55,9 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
 		  const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
-		  void (*failed)(struct channel * UNNEEDED,
-				 bool success UNNEEDED,
-				 const char *err))
+		  void (*finished)(struct channel * UNNEEDED,
+				   bool success UNNEEDED,
+				   const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
 /* Generated stub for channel_change_state_reason_str */
 const char *channel_change_state_reason_str(enum state_change reason UNNEEDED)

@@ -69,6 +69,10 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 			      varint_t input_count, varint_t output_count,
 			      u32 nlocktime);
 
+/* Make a (deep) copy */
+struct bitcoin_tx *clone_bitcoin_tx(const tal_t *ctx,
+				    const struct bitcoin_tx *tx TAKES);
+
 /* This takes a raw bitcoin tx in hex. */
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 				       size_t hexlen);
@@ -285,6 +289,7 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_outpoint(u8 **pptr, const struct bitcoin_outpoint *outp);
 void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
 			       struct bitcoin_outpoint *outp);
+char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 
 /* Various weights of transaction parts. */
 size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);
