@@ -22,7 +22,7 @@ struct outgoing_tx {
 	const char *hextx;
 	struct bitcoin_txid txid;
 	const char *cmd_id;
-	void (*failed_or_success)(struct channel *channel, bool success, const char *err);
+	void (*finished)(struct channel *channel, bool success, const char *err);
 };
 
 struct block {
@@ -178,14 +178,14 @@ u32 penalty_feerate(struct chain_topology *topo);
  * @tx: the transaction
  * @cmd_id: the JSON command id which triggered this (or NULL).
  * @allowhighfees: set to true to override the high-fee checks in the backend.
- * @failed: if non-NULL, call that and don't rebroadcast.
+ * @finished: if non-NULL, call that and don't rebroadcast.
  */
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
 		  const char *cmd_id, bool allowhighfees,
-		  void (*failed)(struct channel *,
-				 bool success,
-				 const char *err));
+		  void (*finished)(struct channel *,
+				   bool success,
+				   const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,
