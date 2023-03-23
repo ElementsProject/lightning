@@ -597,7 +597,7 @@ struct bitcoin_tx *clone_bitcoin_tx(const tal_t *ctx,
 	struct bitcoin_tx *newtx;
 
 	if (taken(tx))
-		return cast_const(struct bitcoin_tx *, tx);
+		return cast_const(struct bitcoin_tx *, tal_steal(ctx, tx));
 
 	newtx = tal(ctx, struct bitcoin_tx);
 
