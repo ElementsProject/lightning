@@ -71,10 +71,10 @@ void run(const uint8_t *data, size_t size)
 	/* We assert it's valid, so we can't throw garbage at the funding script.. */
 	pk1 = tal(tmpctx, struct pubkey);
 	pk2 = tal(tmpctx, struct pubkey);
-	pubkey_from_hexstr("034fede2c619f647fe7c01d40ae22e4c285291ca2ffb47937bbfb7d6e8285a081f",
-			   PUBKEY_CMPR_LEN, pk1);
-	pubkey_from_hexstr("028dfe31019dd61fa04c76ad065410e5d063ac2949c04c14b214c1b363e517452f",
-			   PUBKEY_CMPR_LEN, pk2);
+	assert(pubkey_from_hexstr("034fede2c619f647fe7c01d40ae22e4c285291ca2ffb47937bbfb7d6e8285a081f",
+				  2 * PUBKEY_CMPR_LEN, pk1));
+	assert(pubkey_from_hexstr("028dfe31019dd61fa04c76ad065410e5d063ac2949c04c14b214c1b363e517452f",
+				  2 * PUBKEY_CMPR_LEN, pk2));
 	funding_script = bitcoin_redeem_2of2(tmpctx, pk1, pk2);
 
 	create_close_tx(tmpctx, chainparams, NULL, NULL, our_script,
