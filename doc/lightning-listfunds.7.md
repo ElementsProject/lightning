@@ -47,7 +47,7 @@ On success, an object is returned, containing:
   - **funding\_output** (u32): the 0-based index of the output in the funding transaction
   - **connected** (boolean): whether the channel peer is connected
   - **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
-  - **channel\_id** (hash): The full channel\_id (funding txid Xored with output number) *(added v23.02)*
+  - **channel\_id** (hash): The full channel\_id (funding txid Xored with output number) *(added v23.05)*
 
   If **state** is "CHANNELD\_NORMAL":
 
@@ -74,4 +74,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ae6228c9cc323e0b6486eb4d2695105b087e98770763c6f9e5af3b888fa9520f)
+[comment]: # ( SHA256STAMP:02deef0c91e587aafe3a4b75fa45075c7246566b4baf1e73e00564d36d5a38f4)
