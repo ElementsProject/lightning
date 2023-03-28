@@ -212,7 +212,7 @@ impl From<responses::ListpeersPeers> for pb::ListpeersPeers {
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             connected: c.connected, // Rule #2 for type boolean
-            num_channels: c.num_channels, // Rule #2 for type u32
+            num_channels: c.num_channels, // Rule #2 for type u32?
             log: c.log.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             channels: c.channels.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             netaddr: c.netaddr.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -259,7 +259,7 @@ impl From<responses::ListfundsChannels> for pb::ListfundsChannels {
             funding_output: c.funding_output, // Rule #2 for type u32
             connected: c.connected, // Rule #2 for type boolean
             state: c.state as i32,
-            channel_id: c.channel_id.to_vec(), // Rule #2 for type hash
+            channel_id: c.channel_id.map(|v| v.to_vec()), // Rule #2 for type hash?
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
@@ -2550,7 +2550,7 @@ impl From<pb::ListpeersPeers> for responses::ListpeersPeers {
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             connected: c.connected, // Rule #1 for type boolean
-            num_channels: c.num_channels, // Rule #1 for type u32
+            num_channels: c.num_channels, // Rule #1 for type u32?
             log: Some(c.log.into_iter().map(|s| s.into()).collect()), // Rule #4
             channels: Some(c.channels.into_iter().map(|s| s.into()).collect()), // Rule #4
             netaddr: Some(c.netaddr.into_iter().map(|s| s.into()).collect()), // Rule #4
@@ -2597,7 +2597,7 @@ impl From<pb::ListfundsChannels> for responses::ListfundsChannels {
             funding_output: c.funding_output, // Rule #1 for type u32
             connected: c.connected, // Rule #1 for type boolean
             state: c.state.try_into().unwrap(),
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
         }
     }

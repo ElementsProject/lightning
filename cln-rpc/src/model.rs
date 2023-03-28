@@ -1728,7 +1728,8 @@ pub mod responses {
 	pub struct ListpeersPeers {
 	    pub id: PublicKey,
 	    pub connected: bool,
-	    pub num_channels: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub num_channels: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub log: Option<Vec<ListpeersPeersLog>>,
 	    #[deprecated]
@@ -1809,7 +1810,8 @@ pub mod responses {
 	    pub connected: bool,
 	    // Path `ListFunds.channels[].state`
 	    pub state: ChannelState,
-	    pub channel_id: Sha256,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	}
