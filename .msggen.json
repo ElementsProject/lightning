@@ -1158,5 +1158,1635 @@
             "Withdraw.tx": 1,
             "Withdraw.txid": 2
         }
+    },
+    "model-field-versions": {
+        "AddGossip": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "AddGossip.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "AutoCleanInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "AutoCleanInvoice.cycle_seconds": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "AutoCleanInvoice.enabled": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "AutoCleanInvoice.expired_by": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckMessage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CheckMessage.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckMessage.pubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckMessage.verified": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CheckMessage.zbase": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Close.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.fee_negotiation_step": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.feerange[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.force_lease_closed": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.type": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.unilateraltimeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Close.wrong_funding": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Connect.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect.direction": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect.features": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect.host": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Connect.port": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CreateInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.invreq_payer_note": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.local_offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CreateOnion.assocdata": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion.hops[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion.onion": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion.onion_size": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion.session_key": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateOnion.shared_secrets[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Datastore": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Datastore.generation": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Datastore.hex": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Datastore.key": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Datastore.mode": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Datastore.string": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelDatastore": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelDatastore.generation": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelDatastore.hex": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelDatastore.key": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelDatastore.string": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelExpiredInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelExpiredInvoice.maxexpirytime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.desconly": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.invreq_payer_note": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.local_offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Disconnect": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Disconnect.force": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Disconnect.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Feerates.onchain_fee_estimates": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.perkb": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.perkw": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.style": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.warning_missing_feerates": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FundChannel.amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.announce": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.compact_lease": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.mindepth": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.push_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.request_amt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FundPsbt.change_outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.estimated_final_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.excess_as_change": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.excess_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.locktime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.min_witness_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.reservations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.satoshi": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.startweight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "GetRoute.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.cltv": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.exclude[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.fromid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.fuzzpercent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.maxhops": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.riskfactor": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "GetRoute.route[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Getinfo.address[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.alias": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.binding[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.color": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.fees_collected_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.lightning-dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.network": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.num_active_channels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.num_inactive_channels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.num_peers": {
+            "added": "v0.12.0",
+            "deprecated": false
+        },
+        "Getinfo.num_pending_channels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.our_features": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.version": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.warning_bitcoind_sync": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Getinfo.warning_lightningd_sync": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Invoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.cltv": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.deschashonly": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.expiry": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.exposeprivatechannels": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.fallbacks[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.payment_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.warning_capacity": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.warning_deadends": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.warning_mpp": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.warning_offline": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.warning_private_unused": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "KeySend.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.exemptfee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.extratlvs": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.maxdelay": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.maxfeepercent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.retry_for": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.routehints": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "KeySend.warning_partial_completion": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListChannels": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListChannels.channels[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListChannels.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListChannels.short_channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListChannels.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListDatastore": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListDatastore.datastore[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListDatastore.key": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListForwards.forwards[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.out_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListFunds": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListFunds.channels[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListFunds.outputs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListFunds.spent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListInvoices.invoices[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListNodes.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListNodes.nodes[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPays": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListPays.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPays.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPays.pays[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPays.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeers": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListPeers.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeers.level": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeers.peers[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListSendPays.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays.payments[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListTransactions": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListTransactions.transactions[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "NewAddr": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "NewAddr.addresstype": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "NewAddr.bech32": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "NewAddr.p2sh-segwit": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v23.02"
+        },
+        "Pay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Pay.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.exclude": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.exemptfee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.localinvreqid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.maxdelay": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.maxfee": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.maxfeepercent": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.parts": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.retry_for": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.riskfactor": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.warning_partial_completion": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Ping": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Ping.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Ping.len": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Ping.pongbytes": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Ping.totlen": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendCustomMsg": {
+            "added": "v0.10.1",
+            "deprecated": null
+        },
+        "SendCustomMsg.msg": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendCustomMsg.node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendCustomMsg.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendOnion.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.first_hop": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.localinvreqid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.onion": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.shared_secrets[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendOnion.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPay.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.completed_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.localinvreqid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.payment_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.route[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPsbt.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPsbt.reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPsbt.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPsbt.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SetChannel.channels[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.enforcedelay": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.feebase": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.feeppm": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.htlcmax": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.htlcmin": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignInvoice": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "SignInvoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignInvoice.invstring": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignMessage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SignMessage.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignMessage.recid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignMessage.signature": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignMessage.zbase": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignPsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SignPsbt.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignPsbt.signed_psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignPsbt.signonly[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Stop": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "TxDiscard": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "TxDiscard.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxDiscard.unsigned_tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "TxPrepare.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.outputs[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.unsigned_tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxPrepare.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxSend": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "TxSend.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxSend.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "TxSend.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "UtxoPsbt.change_outnum": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.estimated_final_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.excess_as_change": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.excess_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.locktime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.min_witness_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.reservations[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.reserve": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.reservedok": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.satoshi": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.startweight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "UtxoPsbt.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "WaitAnyInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.lastpay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.timeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "WaitInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.amount_received_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.expires_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.paid_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.pay_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "WaitSendPay.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.completed_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.timeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Withdraw.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.feerate": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.minconf": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.satoshi": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Withdraw.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        }
     }
 }
