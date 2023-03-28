@@ -131,7 +131,7 @@ message ListpeersResponse {
 message ListpeersPeers {
 	bytes id = 1;
 	bool connected = 2;
-	uint32 num_channels = 8;
+	optional uint32 num_channels = 8;
 	repeated ListpeersPeersLog log = 3;
 	repeated ListpeersPeersChannels channels = 4;
 	repeated string netaddr = 5;
@@ -303,7 +303,7 @@ message ListfundsChannels {
 	uint32 funding_output = 5;
 	bool connected = 6;
 	ChannelState state = 7;
-	bytes channel_id = 9;
+	optional bytes channel_id = 9;
 	optional string short_channel_id = 8;
 }
 

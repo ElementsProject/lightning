@@ -64,17 +64,23 @@ class VersionAnnotationPatch(Patch):
         # if f.added is None and 'added' not in m:
         #     m['added'] = 'pre-v0.10.1'
 
-        assert m.get('added', None) is not None or f.added is not None, f"Field {f.path} does not have an `added` annotation"
+        added = m.get('added', None)
+        deprecated = m.get('deprecated', None)
+
+        assert added or not f.added, f"Field {f.path} does not have an `added` annotation"
 
         # We do not allow the added and deprecated flags to be
         # modified after the fact.
-        assert f.added is None or f.added == m['added']
-        assert f.deprecated is None or f.deprecated == m.get('deprecated', None)
+        if f.added and added and f.added != m['added']:
+            raise ValueError(f"Field {f.path} changed `added` annotation: {f.added} != {m['added']}")
+
+        if f.deprecated and deprecated and f.deprecated != deprecated:
+            raise ValueError(f"Field {f.path} changed `deprecated` annotation: {f.deprecated} != {m['deprecated']}")
 
         if f.added is None:
-            f.added = m['added']
+            f.added = added
         if f.deprecated is None:
-            f.deprecated = m.get('deprecated', None)
+            f.deprecated = deprecated
 
         # Backfill the metadata using the annotation
         self.meta['model-field-versions'][f.path] = {
