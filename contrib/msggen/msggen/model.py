@@ -27,11 +27,17 @@ class FieldName:
 
 
 class Field:
-    def __init__(self, path, description):
+    def __init__(
+            self,
+            path,
+            description,
+            added=None,
+            deprecated=None
+    ):
         self.path = path
         self.description = description
-        self.deprecated = None
-        self.added = None
+        self.added = added
+        self.deprecated = deprecated
         self.required = False
 
     @property
@@ -93,8 +99,22 @@ class Method:
 
 
 class CompositeField(Field):
-    def __init__(self, typename, fields, path, description):
-        Field.__init__(self, path, description)
+    def __init__(
+            self,
+            typename,
+            fields,
+            path,
+            description,
+            added,
+            deprecated
+    ):
+        Field.__init__(
+            self,
+            path,
+            description,
+            added=added,
+            deprecated=deprecated
+        )
         self.typename = typename
         self.fields = fields
 
@@ -131,6 +151,8 @@ class CompositeField(Field):
             field = None
             desc = ftype["description"] if "description" in ftype else ""
             fpath = f"{path}.{fname}"
+            added = ftype.get('added', None)
+            deprecated = ftype.get('deprecated', None)
 
             if fpath in overrides:
                 field = copy(overrides[fpath])
@@ -160,7 +182,7 @@ class CompositeField(Field):
                 field = ArrayField.from_js(fpath, ftype)
 
             elif ftype["type"] in PrimitiveField.types:
-                field = PrimitiveField(ftype["type"], fpath, desc)
+                field = PrimitiveField(ftype["type"], fpath, desc, added=added, deprecated=deprecated)
 
             else:
                 logger.warning(
@@ -174,7 +196,7 @@ class CompositeField(Field):
                 logger.debug(field)
 
         return CompositeField(
-            typename, fields, path, js["description"] if "description" in js else ""
+            typename, fields, path, js["description"] if "description" in js else "", added=js.get('added', None), deprecated=js.get('deprecated', None)
         )
 
     def __str__(self):
@@ -196,8 +218,8 @@ class EnumVariant(Field):
 
 
 class EnumField(Field):
-    def __init__(self, typename, values, path, description):
-        Field.__init__(self, path, description)
+    def __init__(self, typename, values, path, description, added, deprecated):
+        Field.__init__(self, path, description, added=added, deprecated=deprecated)
         self.typename = typename
         self.values = values
         self.variants = [EnumVariant(v) for v in self.values]
@@ -211,6 +233,8 @@ class EnumField(Field):
             values=filter(lambda i: i is not None, js["enum"]),
             path=path,
             description=js["description"] if "description" in js else "",
+            added=js.get('added', None),
+            deprecated=js.get('deprecated', None),
         )
 
     def __str__(self):
@@ -225,8 +249,8 @@ class UnionField(Field):
     and a `oneof` in protobuf.
 
     """
-    def __init__(self, path, description, variants):
-        Field.__init__(self, path, description)
+    def __init__(self, path, description, variants, added, deprecated):
+        Field.__init__(self, path, description, added=added, deprecated=deprecated)
         self.variants = variants
         self.typename = path2type(path)
 
@@ -282,8 +306,8 @@ class PrimitiveField(Field):
         "hash",
     ]
 
-    def __init__(self, typename, path, description):
-        Field.__init__(self, path, description)
+    def __init__(self, typename, path, description, added, deprecated):
+        Field.__init__(self, path, description, added=added, deprecated=deprecated)
         self.typename = typename
 
     def __str__(self):
@@ -291,8 +315,8 @@ class PrimitiveField(Field):
 
 
 class ArrayField(Field):
-    def __init__(self, itemtype, dims, path, description):
-        Field.__init__(self, path, description)
+    def __init__(self, itemtype, dims, path, description, added, deprecated):
+        Field.__init__(self, path, description, added=added, deprecated=deprecated)
         self.itemtype = itemtype
         self.dims = dims
         self.path = path
@@ -322,11 +346,13 @@ class ArrayField(Field):
                 child_js["type"],
                 path,
                 child_js.get("description", ""),
+                added=child_js.get("added", None),
+                deprecated=child_js.get("deprecated", None),
             )
 
         logger.debug(f"Array path={path} dims={dims}, type={itemtype}")
         return ArrayField(
-            itemtype, dims=dims, path=path, description=js.get("description", "")
+            itemtype, dims=dims, path=path, description=js.get("description", ""), added=js.get('added', None), deprecated=js.get('deprecated', None)
         )
 
 
@@ -340,14 +366,16 @@ class Command:
         return f"Command[name={self.name}, fields=[{fieldnames}]]"
 
 
-InvoiceLabelField = PrimitiveField("string", None, None)
-DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
-InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None)
-PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
+InvoiceLabelField = PrimitiveField("string", None, None, added=None, deprecated=None)
+DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None, added=None, deprecated=None)
+PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 RoutehintListField = PrimitiveField(
     "RoutehintList",
     None,
-    None
+    None,
+    added=None,
+    deprecated=None
 )
 
 # TlvStreams are special, they don't have preset dict-keys, rather
@@ -356,7 +384,9 @@ RoutehintListField = PrimitiveField(
 TlvStreamField = PrimitiveField(
     "TlvStream",
     None,
-    None
+    None,
+    added=None,
+    deprecated=None
 )
 
 # Override fields with manually managed types, fieldpath -> field mapping

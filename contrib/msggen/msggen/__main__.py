@@ -8,6 +8,9 @@ from msggen.gen.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service
 import logging
+from msggen.patch import VersionAnnotationPatch, OptionalPatch
+from msggen.checks import VersioningCheck
+
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -51,7 +54,6 @@ def load_msggen_meta():
     meta = json.load(open('.msggen.json', 'r'))
     return meta
 
-from msggen.patch import VersionAnnotationPatch
 
 def write_msggen_meta(meta):
     pid = os.getpid()
@@ -69,6 +71,7 @@ def run(rootdir: Path):
 
     p = VersionAnnotationPatch(meta=meta)
     p.apply(service)
+    OptionalPatch().apply(service)
 
     generator_chain = GeneratorChain()
 
