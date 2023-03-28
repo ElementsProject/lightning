@@ -82,3 +82,48 @@ class VersionAnnotationPatch(Patch):
             'deprecated': f.deprecated,
         }
 
+
+class OptionalPatch(Patch):
+    """Annotates fields with `.optional`
+
+    Optional fields are either non-required fields, or fields that
+    were not required in prior versions. This latter case covers the
+    deprecation and addition for schema evolution
+    """
+
+    versions = [
+        'pre-v0.10.1',  # Dummy versions collecting all fields that predate the versioning.
+        'v0.10.1',
+        'v0.10.2',
+        'v0.11.0',
+        'v0.12.0',
+        'v0.12.1',
+        'v22.11',
+        'v23.02',
+        'v23.05',
+    ]
+    # Oldest supported versions. Bump this if you no longer want to
+    # support older versions, and you want to make required fields
+    # more stringent.
+    supported = 'v0.12.0'
+
+    def visit(self, f: model.Field) -> None:
+        if f.added not in self.versions:
+            raise ValueError(f"Version {f.added} in unknown, please add it to {__file__}")
+        if f.deprecated and f.deprecated not in self.versions:
+            raise ValueError(f"Version {f.deprecated} in unknown, please add it to {__file__}")
+
+        idx = (
+            self.versions.index(self.supported),
+            len(self.versions) - 1,
+        )
+        # Default to false, and then overwrite it if required.
+        f.optional = False
+        if not f.required:
+            f.optional = True
+
+        if self.versions.index(f.added) > idx[0]:
+            f.optional = True
+
+        if f.deprecated and self.versions.index(f.deprecated) < idx[1]:
+            f.optional = True
