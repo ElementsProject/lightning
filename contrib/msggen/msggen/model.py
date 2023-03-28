@@ -30,7 +30,8 @@ class Field:
     def __init__(self, path, description):
         self.path = path
         self.description = description
-        self.deprecated = False
+        self.deprecated = None
+        self.added = None
         self.required = False
 
     @property

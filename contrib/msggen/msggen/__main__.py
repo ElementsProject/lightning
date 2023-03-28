@@ -7,6 +7,15 @@ from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
 
 
 def add_handler_gen_grpc(generator_chain: GeneratorChain, meta):
@@ -42,6 +51,7 @@ def load_msggen_meta():
     meta = json.load(open('.msggen.json', 'r'))
     return meta
 
+from msggen.patch import VersionAnnotationPatch
 
 def write_msggen_meta(meta):
     pid = os.getpid()
@@ -52,8 +62,14 @@ def write_msggen_meta(meta):
 
 def run(rootdir: Path):
     schemadir = rootdir / "doc" / "schemas"
-    service = load_jsonrpc_service(schema_dir=schemadir)
     meta = load_msggen_meta()
+    service = load_jsonrpc_service(
+        schema_dir=schemadir,
+    )
+
+    p = VersionAnnotationPatch(meta=meta)
+    p.apply(service)
+
     generator_chain = GeneratorChain()
 
     add_handler_gen_grpc(generator_chain, meta)
