@@ -16,6 +16,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
 #include <wallet/db.h>
+#include <wallet/psbt_fixup.h>
 #include <wire/wire_sync.h>
 
 struct migration {
@@ -53,6 +54,9 @@ static void fillin_missing_lease_satoshi(struct lightningd *ld,
 
 static void fillin_missing_lease_satoshi(struct lightningd *ld,
 					 struct db *db);
+
+static void migrate_invalid_last_tx_psbts(struct lightningd *ld,
+					  struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -938,6 +942,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD require_confirm_inputs_remote INTEGER DEFAULT 0;"), NULL},
     {SQL("ALTER TABLE channels ADD require_confirm_inputs_local INTEGER DEFAULT 0;"), NULL},
     {NULL, fillin_missing_lease_satoshi},
+    {NULL, migrate_invalid_last_tx_psbts},
 };
 
 /**
@@ -1559,5 +1564,78 @@ static void fillin_missing_lease_satoshi(struct lightningd *ld,
 				     " SET lease_satoshi = 0"
 				     " WHERE lease_satoshi IS NULL;"));
 	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
+static void complain_unfixed(struct lightningd *ld,
+			     enum channel_state state,
+			     u64 id,
+			     const u8 *bytes,
+			     const char *why)
+{
+	/* This is OK on closed channels */
+	if (state != CLOSED) {
+		log_broken(ld->log,
+			   "%s channel id %"PRIu64" PSBT hex '%s'",
+			   why, id, tal_hex(tmpctx, bytes));
+	} else {
+		log_debug(ld->log,
+			  "%s on closed channel id %"PRIu64" PSBT hex '%s'",
+			  why, id, tal_hex(tmpctx, bytes));
+	}
+}
+
+static void migrate_invalid_last_tx_psbts(struct lightningd *ld,
+					  struct db *db)
+{
+	struct db_stmt *stmt;
+
+	/* We try all of them, but note that last_tx used to be a tx,
+	 * and migrate_last_tx_to_psbt didn't convert channels which had
+	 * already been closed, so we expect some failures. */
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  id"
+				     ", state"
+				     ", last_tx"
+				     " FROM channels"));
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		const u8 *bytes, *fixed;
+		enum channel_state state;
+		u64 id;
+		struct wally_psbt *psbt;
+
+		state = db_col_int(stmt, "state");
+		id = db_col_u64(stmt, "id");
+
+		/* Parses fine? */
+		if (db_col_psbt(tmpctx, stmt, "last_tx"))
+			continue;
+
+		/* Can we fix it? */
+		bytes = db_col_arr(tmpctx, stmt, "last_tx", u8);
+		fixed = psbt_fixup(tmpctx, bytes);
+		if (!fixed) {
+			complain_unfixed(ld, state, id, bytes, "Could not fix");
+			continue;
+		}
+		psbt = psbt_from_bytes(tmpctx, fixed, tal_bytelen(fixed));
+		if (!psbt) {
+			complain_unfixed(ld, state, id, fixed, "Fix made invalid psbt");
+			continue;
+		}
+
+		log_broken(ld->log, "Forced database repair of psbt %s -> %s",
+			   tal_hex(tmpctx, bytes), tal_hex(tmpctx, fixed));
+		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
+						    " SET last_tx = ?"
+						    " WHERE id = ?;"));
+		db_bind_psbt(update_stmt, 0, psbt);
+		db_bind_u64(update_stmt, 1, id);
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
 	tal_free(stmt);
 }
