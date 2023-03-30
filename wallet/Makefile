@@ -3,6 +3,7 @@
 WALLET_LIB_SRC :=		\
 	wallet/db.c		\
 	wallet/invoices.c	\
+	wallet/psbt_fixup.c	\
 	wallet/txfilter.c	\
 	wallet/wallet.c		\
 	wallet/walletrpc.c

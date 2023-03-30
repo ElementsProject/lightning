@@ -51,6 +51,9 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 static void fillin_missing_lease_satoshi(struct lightningd *ld,
 					 struct db *db);
 
+static void fillin_missing_lease_satoshi(struct lightningd *ld,
+					 struct db *db);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
