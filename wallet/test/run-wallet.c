@@ -721,6 +721,9 @@ struct route_step *process_onionpacket(
 	bool has_realm
 	)
 { fprintf(stderr, "process_onionpacket called!\n"); abort(); }
+/* Generated stub for psbt_fixup */
+const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
+{ fprintf(stderr, "psbt_fixup called!\n"); abort(); }
 /* Generated stub for report_subd_memleak */
 void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "report_subd_memleak called!\n"); abort(); }

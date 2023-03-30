@@ -14,8 +14,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld UNNEEDED,
 				    bool privacy_leak_ok UNNEEDED)
 { fprintf(stderr, "any_channel_by_scid called!\n"); abort(); }
 /* Generated stub for bip32_pubkey */
-void bip32_pubkey(struct lightningd *ld UNNEEDED,
-		  struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
+void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
