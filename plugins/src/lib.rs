@@ -5,7 +5,7 @@ use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
-use messages::Configuration;
+use messages::{Configuration, NotificationTopic};
 use options::ConfigOption;
 use std::collections::HashMap;
 use std::future::Future;
@@ -46,6 +46,7 @@ where
     options: Vec<ConfigOption>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
+    notifications: Vec<NotificationTopic>,
     dynamic: bool,
     // Do we want the plugin framework to automatically register a logging handler?
     logging: bool,
@@ -67,6 +68,7 @@ where
     rpcmethods: HashMap<String, AsyncCallback<S>>,
     hooks: HashMap<String, AsyncCallback<S>>,
     subscriptions: HashMap<String, AsyncNotificationCallback<S>>,
+    notifications: Vec<NotificationTopic>,
 }
 
 /// The [PluginDriver] is used to run the IO loop, reading messages
@@ -117,6 +119,7 @@ where
             subscriptions: HashMap::new(),
             options: vec![],
             rpcmethods: HashMap::new(),
+            notifications: vec![],
             dynamic: false,
             logging: true,
         }
@@ -124,6 +127,11 @@ where
 
     pub fn option(mut self, opt: options::ConfigOption) -> Builder<S, I, O> {
         self.options.push(opt);
+        self
+    }
+
+    pub fn notification(mut self, notif: messages::NotificationTopic) -> Builder<S, I, O> {
+        self.notifications.push(notif);
         self
     }
 
@@ -290,6 +298,7 @@ where
             input,
             output,
             rpcmethods,
+            notifications: self.notifications,
             subscriptions,
             options: self.options,
             configuration,
@@ -334,6 +343,7 @@ where
             subscriptions: self.subscriptions.keys().map(|s| s.clone()).collect(),
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
+            notifications: self.notifications.clone(),
             dynamic: self.dynamic,
             nonnumericids: true,
         }
@@ -663,6 +673,22 @@ impl<S> Plugin<S>
 where
     S: Send + Clone,
 {
+    pub async fn send_custom_notification(
+        &self,
+        method: String,
+        v: serde_json::Value,
+    ) -> Result<(), Error> {
+        self.sender
+            .send(json!({
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": {method: v},
+            }))
+            .await
+            .context("sending custom notification")?;
+        Ok(())
+    }
+
     /// Wait for plugin shutdown
     pub async fn join(&self) -> Result<(), Error> {
         self.wait_handle
