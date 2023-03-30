@@ -1198,9 +1198,13 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	/* last_tx is null for stub channels used for recovering funds through
 	 * Static channel backups. */
-	if (!db_col_is_null(stmt, "last_tx"))
+	if (!db_col_is_null(stmt, "last_tx")) {
 		last_tx = db_col_psbt_to_tx(tmpctx, stmt, "last_tx");
-	else
+		if (!last_tx)
+			db_fatal("Failed to decode inflight psbt %s",
+				 tal_hex(tmpctx, db_col_arr(tmpctx, stmt,
+							    "last_tx", u8)));
+	} else
 		last_tx = NULL;
 
 	inflight = new_inflight(chan, &funding,
@@ -1485,9 +1489,14 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	/* last_tx is null for stub channels used for recovering funds through
 	 * Static channel backups. */
-	if (!db_col_is_null(stmt, "last_tx"))
+	if (!db_col_is_null(stmt, "last_tx")) {
 		last_tx = db_col_psbt_to_tx(tmpctx, stmt, "last_tx");
-	else
+		if (!last_tx)
+			db_fatal("Failed to decode channel %s psbt %s",
+				 type_to_string(tmpctx, struct channel_id, &cid),
+				 tal_hex(tmpctx, db_col_arr(tmpctx, stmt,
+							    "last_tx", u8)));
+	} else
 		last_tx = NULL;
 
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
