@@ -249,6 +249,8 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
 
     # Test the first time, all entries are with option_static_remotekey
     l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
+                               # Our db had the old non-DER sig in psbt!
+                               allow_broken_log=True,
                                options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -284,6 +286,8 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     l1.stop()
 
     l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
+                               # Our db had the old non-DER sig in psbt!
+                               allow_broken_log=True,
                                options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -363,6 +367,8 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     l1 = node_factory.get_node(
         dbfile='no-local-basepoints.sqlite3.xz',
         start=False,
+        # Our db had the old non-DER sig in psbt!
+        allow_broken_log=True,
         options={'database-upgrade': True}
     )
 
