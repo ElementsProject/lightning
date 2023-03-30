@@ -150,11 +150,31 @@ pub(crate) struct RpcMethod {
     pub(crate) usage: String,
 }
 
+#[derive(Serialize, Default, Debug, Clone)]
+pub struct NotificationTopic {
+    pub method: String,
+}
+
+impl NotificationTopic {
+    pub fn method(&self) -> &str {
+        &self.method
+    }
+}
+
+impl NotificationTopic {
+    pub fn new(method: &str) -> Self {
+        Self {
+            method: method.to_string(),
+        }
+    }
+}
+
 #[derive(Serialize, Default, Debug)]
 pub(crate) struct GetManifestResponse {
     pub(crate) options: Vec<ConfigOption>,
     pub(crate) rpcmethods: Vec<RpcMethod>,
     pub(crate) subscriptions: Vec<String>,
+    pub(crate) notifications: Vec<NotificationTopic>,
     pub(crate) hooks: Vec<String>,
     pub(crate) dynamic: bool,
     pub(crate) nonnumericids: bool,
