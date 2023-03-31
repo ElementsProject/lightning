@@ -986,6 +986,73 @@ static struct command_result *json_commando_rune(struct command *cmd,
 	return send_outreq(plugin, req);
 }
 
+static struct command_result *json_add_runestr(struct json_stream *js,
+						 const char *rune_str,
+						 size_t rune_strlen,
+						 bool stored)
+{
+	json_object_start(js, NULL);
+	json_add_stringn(js, "rune", rune_str, rune_strlen);
+	if (!stored) {
+		json_add_bool(js, "stored", false);
+	}
+	json_object_end(js);
+	return NULL;
+}
+
+static struct command_result *listdatastore_done(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      struct rune *rune)
+{
+	struct json_stream *js;
+	const jsmntok_t *t, *d = json_get_member(buf, result, "datastore");
+	size_t i;
+	const char *runestr;
+	bool printed = false;
+
+	if (rune != NULL) {
+		runestr = rune_to_string(tmpctx, rune);
+	} else {
+		runestr = NULL;
+	}
+
+	js = jsonrpc_stream_success(cmd);
+
+	json_array_start(js, "runes");
+	json_for_each_arr(i, t, d) {
+		const jsmntok_t *s = json_get_member(buf, t, "string");
+		if (runestr != NULL && !json_tok_streq(buf, s, runestr))
+			continue;
+		json_add_runestr(js, buf + s->start, s->end - s->start, true);
+		printed = true;
+	}
+	if (rune && !printed) {
+		json_add_runestr(js, runestr, strlen(runestr), false);
+	}
+	json_array_end(js);
+	return command_finished(cmd, js);
+}
+
+static struct command_result *json_commando_listrunes(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *params)
+{
+	struct rune *rune;
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("rune", param_rune, &rune), NULL))
+		return command_param_failed();
+
+	req = jsonrpc_request_start(plugin, cmd, "listdatastore", listdatastore_done, forward_error, rune);
+	json_array_start(req->js, "key");
+	json_add_string(req->js, NULL, "commando");
+	json_add_string(req->js, NULL, "runes");
+	json_array_end(req->js);
+	return send_outreq(plugin, req);
+}
+
 #if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
@@ -1062,6 +1129,13 @@ static const struct plugin_command commands[] = { {
 	"Takes an optional {rune} with optional {restrictions} and returns {rune}",
 	json_commando_rune,
 	},
+	{
+	"commando-listrunes",
+	"utility",
+	"List runes we have created earlier",
+	"Takes an optional {rune} and returns list of {rune}",
+	json_commando_listrunes,
+	}
 };
 
 int main(int argc, char *argv[])
