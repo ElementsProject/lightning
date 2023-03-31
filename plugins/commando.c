@@ -76,6 +76,24 @@ static bool usage_eq_id(const struct usage *u, u64 id)
 HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
 static struct usage_table *usage_table;
 
+static bool is_rune_blacklisted(const struct rune *rune)
+{
+	u64 uid;
+
+	/* Every rune *we produce* has a unique_id which is a number, but
+	 * it's legal to have a rune without one. */
+	if (rune->unique_id == NULL) {
+		return false;
+	}
+	uid = atol(rune->unique_id);
+	for (size_t i = 0; i < tal_count(blacklist); i++) {
+		if (blacklist[i].start <= uid && blacklist[i].end >= uid) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /* Every minute we forget entries. */
 static void flush_usage_table(void *unused)
 {
@@ -362,6 +380,9 @@ static const char *check_rune(const tal_t *ctx,
 				 runetok->end - runetok->start);
 	if (!rune)
 		return "Invalid rune";
+
+	if (is_rune_blacklisted(rune))
+		return "Blacklisted rune";
 
 	cinfo.peer = peer;
 	cinfo.buf = buf;
