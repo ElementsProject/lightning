@@ -925,6 +925,19 @@ static struct command_result *reply_with_rune(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+static struct command_result *save_rune(struct command *cmd,
+					      const char *buf UNUSED,
+					      const jsmntok_t *result UNUSED,
+					      struct rune *rune)
+{
+	const char *path = tal_fmt(cmd, "commando/runes/%s", rune->unique_id);
+	return jsonrpc_set_datastore_string(plugin, cmd, path,
+					    rune_to_base64(tmpctx, rune),
+					    "must-create", reply_with_rune,
+					    forward_error, rune);
+}
+
+
 static struct command_result *json_commando_rune(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *params)
@@ -953,7 +966,7 @@ static struct command_result *json_commando_rune(struct command *cmd,
 
 	/* Now update datastore, before returning rune */
 	req = jsonrpc_request_start(plugin, cmd, "datastore",
-				    reply_with_rune, forward_error, rune);
+				    save_rune, forward_error, rune);
 	json_array_start(req->js, "key");
 	json_add_string(req->js, NULL, "commando");
 	json_add_string(req->js, NULL, "rune_counter");
