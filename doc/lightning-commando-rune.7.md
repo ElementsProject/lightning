@@ -14,8 +14,8 @@ The **commando-rune** RPC command creates a base64 string called a
 contains a unique id (a number starting at 0), and can have
 restrictions inside it.  Nobody can remove restrictions from a rune: if
 you try, the rune will be rejected.  There is no limit on how many
-runes you can issue: the node doesn't store them, but simply decodes
-and checks them as they are received.
+runes you can issue; the node simply decodes
+and checks them as they are received (we do store them for lightning-commando-listrunes(7) however).
 
 If *rune* is supplied, the restrictions are simple appended to that
 *rune* (it doesn't need to be a rune belonging to this node).  If no
