@@ -42,11 +42,16 @@ struct commando {
 	const char *json_id;
 };
 
+struct blacklist {
+	u64 start, end;
+};
+
 static struct plugin *plugin;
 static struct commando **outgoing_commands;
 static struct commando **incoming_commands;
 static u64 *rune_counter;
 static struct rune *master_rune;
+static struct blacklist *blacklist;
 
 struct usage {
 	/* If you really issue more than 2^32 runes, they'll share ratelimit buckets */
@@ -1034,6 +1039,94 @@ static struct command_result *listdatastore_done(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+static void blacklist_merge(struct blacklist *blacklist,
+			    const struct blacklist *entry)
+{
+	if (entry->start < blacklist->start) {
+		blacklist->start = entry->start;
+	}
+	if (entry->end > blacklist->end) {
+		blacklist->end = entry->end;
+	}
+}
+
+static bool blacklist_before(const struct blacklist *first,
+			     const struct blacklist *second)
+{
+	// Is it before with a gap
+	return (first->end + 1) < second->start;
+}
+
+static struct command_result *list_blacklist(struct command *cmd)
+{
+	struct json_stream *js = jsonrpc_stream_success(cmd);
+	json_array_start(js, "blacklist");
+	for (size_t i = 0; i < tal_count(blacklist); i++) {
+		json_object_start(js, NULL);
+		json_add_u64(js, "start", blacklist[i].start);
+		json_add_u64(js, "end", blacklist[i].end);
+		json_object_end(js);
+	}
+	json_array_end(js);
+	return command_finished(cmd, js);
+}
+
+static struct command_result *json_commando_blacklist(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *params)
+{
+	u64 *start, *end;
+	struct blacklist *entry, *newblacklist;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
+		return command_param_failed();
+
+	if (end && !start) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end without start");
+	}
+	if (!start) {
+		return list_blacklist(cmd);
+	}
+	if (!end) {
+		end = start;
+	}
+	entry = tal(cmd, struct blacklist);
+	entry->start = *start;
+	entry->end = *end;
+
+	newblacklist = tal_arr(cmd->plugin, struct blacklist, 0);
+
+	for (size_t i = 0; i < tal_count(blacklist); i++) {
+		/* if new entry if already merged just copy the old list */
+		if (entry == NULL) {
+			tal_arr_expand(&newblacklist, blacklist[i]);
+			continue;
+		}
+		/* old list has not reached the entry yet, so we are just copying it */
+		if (blacklist_before(&blacklist[i], entry)) {
+			tal_arr_expand(&newblacklist, blacklist[i]);
+			continue;
+		}
+		/* old list has passed the entry, time to put the entry in */
+		if (blacklist_before(entry, &blacklist[i])) {
+			tal_arr_expand(&newblacklist, *entry);
+			tal_arr_expand(&newblacklist, blacklist[i]);
+			// mark entry as copied
+			entry = NULL;
+			continue;
+		}
+		/* old list overlaps combined into the entry we are adding */
+		blacklist_merge(entry, &blacklist[i]);
+	}
+	if (entry != NULL) {
+		tal_arr_expand(&newblacklist, *entry);
+	}
+	tal_free(blacklist);
+	blacklist = newblacklist;
+	return list_blacklist(cmd);
+}
+
 static struct command_result *json_commando_listrunes(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *params)
@@ -1061,6 +1154,7 @@ static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 	memleak_scan_obj(memtable, incoming_commands);
 	memleak_scan_obj(memtable, master_rune);
 	memleak_scan_htable(memtable, &usage_table->raw);
+	memleak_scan_obj(memtable, blacklist);
 	if (rune_counter)
 		memleak_scan_obj(memtable, rune_counter);
 }
@@ -1135,7 +1229,14 @@ static const struct plugin_command commands[] = { {
 	"List runes we have created earlier",
 	"Takes an optional {rune} and returns list of {rune}",
 	json_commando_listrunes,
-	}
+	},
+	{
+	"commando-blacklist",
+	"utility",
+	"Blacklist a rune or range of runes by unique id",
+	"Takes an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}",
+	json_commando_blacklist,
+	},
 };
 
 int main(int argc, char *argv[])
