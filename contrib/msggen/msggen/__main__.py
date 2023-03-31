@@ -73,6 +73,9 @@ def run(rootdir: Path):
     p.apply(service)
     OptionalPatch().apply(service)
 
+    # Run the checks here, we should eventually split that out to a
+    # separate subcommand
+    VersioningCheck().check(service)
     generator_chain = GeneratorChain()
 
     add_handler_gen_grpc(generator_chain, meta)
