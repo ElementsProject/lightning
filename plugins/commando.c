@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_escape/json_escape.h>
@@ -963,6 +964,30 @@ static struct command_result *save_rune(struct command *cmd,
 					    forward_error, rune);
 }
 
+static void towire_blacklist(u8 **pptr, const struct blacklist *b)
+{
+	for (size_t i = 0; i < tal_count(b); i++) {
+		towire_u64(pptr, b[i].start);
+		towire_u64(pptr, b[i].end);
+	}
+}
+
+static struct blacklist *fromwire_blacklist(const tal_t *ctx,
+					    const u8 **cursor,
+					    size_t *max)
+{
+	struct blacklist *blist = tal_arr(ctx, struct blacklist, 0);
+	while (*max > 0) {
+		struct blacklist b;
+		b.start = fromwire_u64(cursor, max);
+		b.end = fromwire_u64(cursor, max);
+		tal_arr_expand(&blist, b);
+	}
+	if (!*cursor) {
+		return tal_free(blist);
+	}
+	return blist;
+}
 
 static struct command_result *json_commando_rune(struct command *cmd,
 						 const char *buffer,
@@ -1092,11 +1117,20 @@ static struct command_result *list_blacklist(struct command *cmd)
 	return command_finished(cmd, js);
 }
 
+static struct command_result *blacklist_save_done(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      void *unused)
+{
+	return list_blacklist(cmd);
+}
+
 static struct command_result *json_commando_blacklist(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *params)
 {
 	u64 *start, *end;
+	u8 *bwire;
 	struct blacklist *entry, *newblacklist;
 
 	if (!param(cmd, buffer, params,
@@ -1145,7 +1179,9 @@ static struct command_result *json_commando_blacklist(struct command *cmd,
 	}
 	tal_free(blacklist);
 	blacklist = newblacklist;
-	return list_blacklist(cmd);
+	bwire = tal_arr(tmpctx, u8, 0);
+	towire_blacklist(&bwire, blacklist);
+	return jsonrpc_set_datastore_binary(cmd->plugin, cmd, "commando/blacklist", bwire, "create-or-replace", blacklist_save_done, NULL, NULL);
 }
 
 static struct command_result *json_commando_listrunes(struct command *cmd,
@@ -1186,7 +1222,19 @@ static const char *init(struct plugin *p,
 {
 	struct secret rune_secret;
 	const char *err;
+	u8 *bwire;
 
+	if (rpc_scan_datastore_hex(tmpctx, p, "commando/blacklist",
+				   JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+						 &bwire)) == NULL) {
+		size_t max = tal_bytelen(bwire);
+		blacklist = fromwire_blacklist(p, cast_const2(const u8 **,
+							      &bwire),
+					       &max);
+		if (blacklist == NULL) {
+			plugin_err(p, "Invalid commando/blacklist");
+		}
+	}
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
 	usage_table = tal(p, struct usage_table);
