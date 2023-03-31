@@ -2945,6 +2945,43 @@ def test_commando_rune(node_factory):
                              'params': params})
 
 
+def test_commando_listrunes(node_factory):
+    l1 = node_factory.get_node()
+    rune = l1.rpc.commando_rune()
+    assert rune == {
+        'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+        'unique_id': '0',
+        'warning_unrestricted_rune': 'WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don\'t trust. Consider using the restrictions parameter to only allow access to specific rpc methods.'
+    }
+    listrunes = l1.rpc.commando_listrunes()
+    assert len(l1.rpc.commando_listrunes()) == 1
+    rune = l1.rpc.commando_rune()
+    listrunes = l1.rpc.commando_listrunes()
+    assert len(listrunes['runes']) == 2
+    assert listrunes == {
+        'runes': [
+            {
+                'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+                'unique_id': '0',
+                'restrictions': [],
+                'restrictions_as_english': ''
+            },
+            {
+                'rune': 'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==',
+                'unique_id': '1',
+                'restrictions': [],
+                'restrictions_as_english': ''
+            }
+        ]
+    }
+    our_unstored_rune = l1.rpc.commando_listrunes(rune='M8f4jNx9gSP2QoiRbr10ybwzFxUgd-rS4CR4yofMSuA9Mg==')['runes'][0]
+    assert our_unstored_rune['stored'] is False
+
+    not_our_rune = l1.rpc.commando_listrunes(rune='Am3W_wI0PRn4qVNEsJ2iInHyFPQK8wfdqEXztm8-icQ9MA==')['runes'][0]
+    assert not_our_rune['stored'] is False
+    assert not_our_rune['our_rune'] is False
+
+
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
     nodes = node_factory.get_nodes(5)
