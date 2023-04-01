@@ -808,7 +808,9 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	be16 = cpu_to_be16(tal_bytelen(features));
 	memcpy(localmods->local + off, &be16, sizeof(be16));
 	off += sizeof(be16);
-	memcpy(localmods->local + off, features, tal_bytelen(features));
+	/* Damn you, C committee! */
+	if (features)
+		memcpy(localmods->local + off, features, tal_bytelen(features));
 	off += tal_bytelen(features);
 
 	/* Skip chain_hash */

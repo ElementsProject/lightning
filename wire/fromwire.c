@@ -32,9 +32,11 @@ const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n)
 			SUPERVERBOSE("less than encoding length");
 		return fromwire_fail(cursor, max);
 	}
-	*cursor += n;
+	/* ubsan: runtime error: applying zero offset to null pointer */
+	if (*cursor)
+		*cursor += n;
 	*max -= n;
-	if (copy)
+	if (copy && n)
 		memcpy(copy, p, n);
 	return memcheck(p, n);
 }
