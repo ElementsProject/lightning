@@ -26,13 +26,16 @@
  *
  *	membuf_init(&charbuf, malloc(10), 10, membuf_realloc);
  *
- *	for (int i = 1; i < argc; i++)
- *		strcpy(membuf_add(&charbuf, strlen(argv[i])), argv[i]);
+ *	for (int i = 1; i < argc; i++) {
+ *		size_t len = strlen(argv[i]);
+ *		memcpy(membuf_add(&charbuf, len), argv[i], len);
+ *	}
  *
  *	// This is dumb, we could do all at once, but shows technique.
  *	while (membuf_num_elems(&charbuf) > 0)
  *		printf("%c", *(char *)membuf_consume(&charbuf, 1));
  *	printf("\n");
+ *	free(membuf_cleanup(&charbuf));
  *	return 0;
  * }
  */

@@ -25,7 +25,7 @@ struct info_tcon {
 int main(void)
 {
 	struct info_tcon info;
-	struct outer ovar;
+	struct outer ovar = { 0, { 0 } };
 #ifdef FAIL
 #if !HAVE_TYPEOF
 #error We cannot detect type problems without HAVE_TYPEOF

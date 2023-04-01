@@ -159,8 +159,7 @@
 						size_t seed,		\
 						struct name##_iter *iter) \
 	{								\
-		/* Note &iter->i == NULL iff iter is NULL */		\
-		return htable_pick(&ht->raw, seed, &iter->i);			\
+		return htable_pick(&ht->raw, seed, iter ? &iter->i : NULL); \
 	}								\
 	static inline UNNEEDED type *name##_first(const struct name *ht, \
 					 struct name##_iter *iter)	\

@@ -120,7 +120,10 @@ int ilog64_nz(uint64_t _v) CONST_FUNCTION;
 #endif
 
 #ifdef builtin_ilog32_nz
-#define ilog32(_v) (builtin_ilog32_nz(_v)&-!!(_v))
+/* This used to be builtin_ilog32_nz(_v)&-!!(_v), which means it zeroes out
+ * the undefined builtin_ilog32_nz(0) return.  But clang UndefinedBehaviorSantizer
+ * complains, so do the branch: */
+#define ilog32(_v) ((_v) ? builtin_ilog32_nz(_v) : 0)
 #define ilog32_nz(_v) builtin_ilog32_nz(_v)
 #else
 #define ilog32_nz(_v) ilog32(_v)
@@ -128,7 +131,7 @@ int ilog64_nz(uint64_t _v) CONST_FUNCTION;
 #endif /* builtin_ilog32_nz */
 
 #ifdef builtin_ilog64_nz
-#define ilog64(_v) (builtin_ilog64_nz(_v)&-!!(_v))
+#define ilog32(_v) ((_v) ? builtin_ilog32_nz(_v) : 0)
 #define ilog64_nz(_v) builtin_ilog64_nz(_v)
 #else
 #define ilog64_nz(_v) ilog64(_v)

@@ -13,8 +13,8 @@ static void *my_realloc(void *old, size_t size)
 	void *new = realloc(old, size);
 	if (new == old) {
 		void *p = malloc(size);
-		memcpy(p, old, size);
-		free(old);
+		memcpy(p, new, size);
+		free(new);
 		new = p;
 	}
 	return new;

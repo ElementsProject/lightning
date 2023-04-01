@@ -10,7 +10,7 @@ int main(void)
 	plan_tests(68 + 6 * (31 + 63));
 
 	for (i = 0; i < 32; i++)
-		ok1(bitops_ffs32(1 << i) == i+1);
+		ok1(bitops_ffs32(1U << i) == i+1);
 	ok1(bitops_ffs32(0) == 0);
 	for (i = 0; i < 64; i++)
 		ok1(bitops_ffs64((uint64_t)1 << i) == i+1);
@@ -25,19 +25,19 @@ int main(void)
 	ok1(bitops_ffs64(0) == 0);
 
 	for (i = 0; i < 32; i++)
-		ok1(bitops_clz32(1 << i) == 31 - i);
+		ok1(bitops_clz32(1U << i) == 31 - i);
 	for (i = 0; i < 64; i++)
 		ok1(bitops_clz64((uint64_t)1 << i) == 63 - i);
 
 	/* Lower bits don't effect results */
 	for (i = 0; i < 32; i++)
-		ok1(bitops_clz32((1 << i) + (1 << i)-1) == 31 - i);
+		ok1(bitops_clz32((1U << i) + (1U << i)-1) == 31 - i);
 	for (i = 0; i < 64; i++)
 		ok1(bitops_clz64(((uint64_t)1 << i) + ((uint64_t)1 << i)-1)
 		    == 63 - i);
 
 	for (i = 0; i < 32; i++)
-		ok1(bitops_ctz32(1 << i) == i);
+		ok1(bitops_ctz32(1U << i) == i);
 	for (i = 0; i < 64; i++)
 		ok1(bitops_ctz64((uint64_t)1 << i) == i);
 

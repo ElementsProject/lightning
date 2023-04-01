@@ -104,7 +104,7 @@ void *memcchr(void const *data, int c, size_t data_len);
 PURE_FUNCTION
 static inline bool memeq(const void *a, size_t al, const void *b, size_t bl)
 {
-	return al == bl && !memcmp(a, b, bl);
+	return al == bl && (al == 0 || !memcmp(a, b, bl));
 }
 
 /**

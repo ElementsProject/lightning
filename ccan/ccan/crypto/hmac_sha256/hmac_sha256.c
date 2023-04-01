@@ -35,7 +35,8 @@ void hmac_sha256_init(struct hmac_sha256_ctx *ctx,
 	 *  (e.g., if K is of length 20 bytes and B=64, then K will be
 	 *   appended with 44 zero bytes 0x00)
 	 */
-	memcpy(k_ipad, k, ksize);
+	if (ksize != 0)
+		memcpy(k_ipad, k, ksize);
 	memset((char *)k_ipad + ksize, 0, HMAC_SHA256_BLOCKSIZE - ksize);
 
 	/*
