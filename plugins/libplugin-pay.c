@@ -729,13 +729,14 @@ static u64 capacity_bias(const struct gossmap *map,
 			 struct amount_msat amount)
 {
 	struct amount_sat capacity;
-	u64 capmsat, amtmsat = amount.millisatoshis; /* Raw: lengthy math */
+	u64 amtmsat = amount.millisatoshis; /* Raw: lengthy math */
+	double capmsat;
 
 	/* Can fail in theory if gossmap changed underneath. */
 	if (!gossmap_chan_get_capacity(map, c, &capacity))
 		return 0;
 
-	capmsat = capacity.satoshis * 1000; /* Raw: lengthy math */
+	capmsat = (double)capacity.satoshis * 1000; /* Raw: lengthy math */
 	return -log((capmsat + 1 - amtmsat) / (capmsat + 1));
 }
 
