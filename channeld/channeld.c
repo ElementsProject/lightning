@@ -2368,7 +2368,8 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 	 * is to sort them all into ascending ID order here (we could do
 	 * this when we save them in channel_sending_commit, but older versions
 	 * won't have them sorted in the db, so doing it here is better). */
-	asort(last, tal_count(last), cmp_changed_htlc_id, NULL);
+	if (last)
+		asort(last, tal_count(last), cmp_changed_htlc_id, NULL);
 
 	/* BOLT #2:
 	 *
