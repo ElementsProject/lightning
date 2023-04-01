@@ -884,5 +884,7 @@ bool scripteq(const u8 *s1, const u8 *s2)
 
 	if (tal_count(s1) != tal_count(s2))
 		return false;
+	if (tal_count(s1) == 0)
+		return true;
 	return memcmp(s1, s2, tal_count(s1)) == 0;
 }
