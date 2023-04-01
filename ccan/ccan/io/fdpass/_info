@@ -32,12 +32,20 @@
  *					read_more, buf);
  *	}
  *
+ *	// Clean up allocation so -fsanitize=address doesn't see leak!
+ *	static void free_buf(struct io_conn *c, struct buf *buf)
+ *	{
+ *		free(buf);
+ *	}
+ *
  *	// Child has received fd, start reading loop.
  *	static struct io_plan *got_infd(struct io_conn *conn, int *infd)
  *	{
  *		struct buf *buf = calloc(1, sizeof(*buf));
+ *		struct io_conn *new_conn;
  *
- *		io_new_conn(NULL, *infd, read_more, buf);
+ *		new_conn = io_new_conn(NULL, *infd, read_more, buf);
+ *		io_set_finish(new_conn, free_buf, buf);
  *		return io_close(conn);
  *	}
  *	// Child is receiving the fd to read into. 

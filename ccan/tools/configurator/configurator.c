@@ -197,7 +197,7 @@ static const struct test base_tests[] = {
 	  "return __builtin_clzll(1) == (sizeof(long long)*8 - 1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_CTZ", "__builtin_ctz support",
 	  "INSIDE_MAIN", NULL, NULL,
-	  "return __builtin_ctz(1 << (sizeof(int)*8 - 1)) == (sizeof(int)*8 - 1) ? 0 : 1;" },
+	  "return __builtin_ctz(1U << (sizeof(int)*8 - 1)) == (sizeof(int)*8 - 1) ? 0 : 1;" },
 	{ "HAVE_BUILTIN_CTZL", "__builtin_ctzl support",
 	  "INSIDE_MAIN", NULL, NULL,
 	  "return __builtin_ctzl(1UL << (sizeof(long)*8 - 1)) == (sizeof(long)*8 - 1) ? 0 : 1;" },

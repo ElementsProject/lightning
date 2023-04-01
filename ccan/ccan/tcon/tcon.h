@@ -147,7 +147,8 @@
  * It evaluates to @x so you can chain it.
  */
 #define tcon_check_ptr(x, canary, expr)				\
-	(sizeof((expr) ? (expr) : &(x)->_tcon[0].canary) ? (x) : (x))
+	(sizeof(&(x)->_tcon[0].canary == (expr)) ? (x) : (x))
+
 
 /**
  * tcon_type - the type within a container (or void *)
