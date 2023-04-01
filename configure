@@ -147,12 +147,29 @@ set_defaults()
     STATIC=${STATIC:-0}
     ASAN=${ASAN:-0}
     UBSAN=${UBSAN:-0}
+    FUZZING=${FUZZING:-0}
+    CSANFLAGS=""
+    if [ "$ASAN" != 0 ]; then
+	CSANFLAGS="$CSANFLAGS -fsanitize=address"
+	if [ "$DEVELOPER" != 0 ]; then
+	    CSANFLAGS="$CSANFLAGS -fno-sanitize-recover=address"
+	fi
+    fi
+    if [ "$UBSAN" != 0 ]; then
+	CSANFLAGS="$CSANFLAGS -fsanitize=undefined"
+	if [ "$DEVELOPER" != 0 ]; then
+	    CSANFLAGS="$CSANFLAGS -fno-sanitize-recover=undefined"
+	fi
+    fi
+    if [ "$FUZZING" != 0 ]; then
+	CSANFLAGS="$CSANFLAGS -fsanitize=fuzzer-no-link"
+    fi
+    echo CSANFLAGS = $CSANFLAGS
     PYTEST=${PYTEST-$(default_pytest)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEVELOPER")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
-    FUZZING=${FUZZING:-0}
     RUST=${RUST:-$(default_rust_setting)}
 }
 
@@ -309,7 +326,7 @@ fi
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
@@ -455,6 +472,7 @@ add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+add_var CSANFLAGS "$CSANFLAGS"
 add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
 add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
