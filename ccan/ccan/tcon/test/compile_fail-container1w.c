@@ -21,7 +21,7 @@ int main(void)
 {
 	TCON_WRAP(struct info_base,
 		  TCON_CONTAINER(concan, struct outer, inner)) info;
-	struct outer ovar;
+	struct outer ovar = { 0, { 0 } };
 #ifdef FAIL
 #if !HAVE_TYPEOF
 #error We cannot detect type problems without HAVE_TYPEOF

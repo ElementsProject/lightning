@@ -59,8 +59,8 @@ static void *reallocfn(void *ptr, size_t size)
 static void freefn(void *ptr)
 {
 	free_count++;
-	free(ptr);
 	*find_ptr(ptr) = NULL;
+	free(ptr);
 }
 
 int main(int argc, char *argv[])

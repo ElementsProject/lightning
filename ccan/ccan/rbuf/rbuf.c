@@ -74,9 +74,11 @@ char *rbuf_read_str(struct rbuf *rbuf, char term)
 	ssize_t r = 0;
 	size_t prev = 0;
 
-	while (!(p = memchr(membuf_elems(&rbuf->m) + prev,
-			    term,
-			    membuf_num_elems(&rbuf->m) - prev))) {
+	/* memchr(NULL, ..., 0) is illegal.  FML. */
+	while (membuf_num_elems(&rbuf->m) == prev
+	       || !(p = memchr(membuf_elems(&rbuf->m) + prev,
+			       term,
+			       membuf_num_elems(&rbuf->m) - prev))) {
 		prev += r;
 		r = get_more(rbuf);
 		if (r < 0)

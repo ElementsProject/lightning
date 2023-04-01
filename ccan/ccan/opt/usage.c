@@ -72,7 +72,8 @@ static size_t consume_words(const char *words, size_t maxlen, size_t *prefix,
 		}
 	}
 
-	*start = (words[oldlen - 1] == '\n');
+	if (oldlen != 0)
+		*start = (words[oldlen - 1] == '\n');
 	return oldlen;
 }
 
