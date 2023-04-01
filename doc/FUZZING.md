@@ -24,7 +24,7 @@ a few sanitizers for bug detections as well as experimental features for an exte
 coverage (not required though).
 
 ```
-DEVELOPER=1 EXPERIMENTAL_FEATURES=1 ASAN=1 UBSAN=1 VALGRIND=0 FUZZING=1 CC=clang ./configure && make
+./configure --enable-developer --enable-experimental-features --enable-address-sanitizer --enable-ub-sanitizer --enable-fuzzing --disable-valgrind CC=clang && make
 ```
 
 The targets will be built in `tests/fuzz/` as `fuzz-` binaries.
