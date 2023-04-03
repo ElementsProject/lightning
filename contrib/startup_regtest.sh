@@ -115,7 +115,7 @@ start_nodes() {
 
 		# Start the lightning nodes
 		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
-			$EATMYDATA "$LIGHTNINGD" "--network=$network" "--lightning-dir=/tmp/l$i-$network" "--bitcoin-datadir=$PATH_TO_BITCOIN" &
+			$EATMYDATA "$LIGHTNINGD" "--network=$network" "--lightning-dir=/tmp/l$i-$network" "--bitcoin-datadir=$PATH_TO_BITCOIN" "--database-upgrade=true" &
 		# shellcheck disable=SC2139 disable=SC2086
 		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-$network"
 		# shellcheck disable=SC2139 disable=SC2086
