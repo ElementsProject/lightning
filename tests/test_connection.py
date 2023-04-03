@@ -4379,7 +4379,6 @@ def test_peer_disconnected_reflected_in_channel_state(node_factory):
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['peer_connected'] is False)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev-no-reconnect")
 def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},

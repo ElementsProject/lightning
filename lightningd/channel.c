@@ -963,6 +963,10 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 
 static void channel_err(struct channel *channel, const char *why)
 {
+	/* Nothing to do if channel isn't actually owned! */
+	if (!channel->owner)
+		return;
+
 	log_info(channel->log, "Peer transient failure in %s: %s",
 		 channel_state_name(channel), why);
 
