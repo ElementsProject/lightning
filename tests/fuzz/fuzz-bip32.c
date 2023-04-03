@@ -1,7 +1,7 @@
 #include "config.h"
-#include <tests/fuzz/libfuzz.h>
 
 #include <common/bip32.h>
+#include <tests/fuzz/libfuzz.h>
 #include <wally_bip32.h>
 
 void init(int *argc, char ***argv)

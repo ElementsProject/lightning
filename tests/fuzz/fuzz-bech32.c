@@ -1,10 +1,10 @@
 #include "config.h"
 #include <assert.h>
+
+#include <common/bech32.h>
 #include <stdint.h>
 #include <string.h>
 #include <tests/fuzz/libfuzz.h>
-
-#include <common/bech32.h>
 
 void init(int *argc, char ***argv)
 {
