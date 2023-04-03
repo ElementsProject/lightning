@@ -4377,3 +4377,34 @@ def test_peer_disconnected_reflected_in_channel_state(node_factory):
 
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['peer_connected'] is False)
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs dev-no-reconnect")
+def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
+    l1id = l1.info['id']
+    l2id = l2.info['id']
+    # We wait until conenction is established and channel is NORMAL
+    l2.daemon.wait_for_logs([f"{l1id}-connectd: Handed peer, entering loop",
+                             f"{l1id}-chan#1: State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL"])
+    # We now stop l1
+    l1.stop()
+    # We wait for l2 to disconnect, ofc we also see an expected "Peer transient failure" here.
+    l2.daemon.wait_for_logs([f"{l1id}-channeld-chan#1: Peer connection lost",
+                             f"{l1id}-lightningd: peer_disconnect_done",
+                             f"{l1id}-chan#1: Peer transient failure in CHANNELD_NORMAL: channeld: Owning subdaemon channeld died"])
+
+    # When we restart l1 we should not see another Peer transient failure message.
+    offset1 = l1.daemon.logsearch_start
+    l1.start()
+
+    # We wait until l2 is fine again with l1
+    l2.daemon.wait_for_log(f"{l1id}-connectd: Handed peer, entering loop")
+
+    time.sleep(5)
+
+    # We should not see a "Peer transient failure" after restart of l1
+    assert not l1.daemon.is_in_log(f"{l2id}-chan#1: Peer transient failure in CHANNELD_NORMAL: Disconnected", start=offset1)
