@@ -2746,11 +2746,13 @@ static size_t calc_weight(enum tx_role role, struct wally_psbt *psbt)
 static struct amount_sat check_balances(struct peer *peer,
 					enum tx_role our_role,
 					struct wally_psbt *psbt,
-					int chan_output_index)
+					int chan_output_index,
+					int chan_input_index)
 {
 	struct amount_sat funding_amount, total_in, change_out,
 			  opener_in, opener_out,
 			  accepter_in, accepter_out,
+			  initiator_contrib, accepter_contrib,
 			  initiator_fee, accepter_fee,
 			  min_initiator_fee, min_accepter_fee,
 			  max_initiator_fee, max_accepter_fee;
@@ -2758,12 +2760,26 @@ static struct amount_sat check_balances(struct peer *peer,
 	u8 *msg;
 
 	total_in = AMOUNT_SAT(0);
-	opener_in = AMOUNT_SAT(0);
-	accepter_in = AMOUNT_SAT(0);
+	/* DTODO: This method assumes any msats are rounded off and given to miners.
+	 * This could lead to fee calculations being off by 1 sat and allowing a tx
+	 * through that actually has too low a fee rate.
+	 * When relative splice amounts are implemented this should be redone. */
+	if (!amount_msat_to_sat(&opener_in,
+				peer->channel->view->owed[opener ? LOCAL : REMOTE]))
+		peer_failed_warn(peer->pps, &peer->channel_id, "Unable to"
+				 " calculate initial opener balance");
+	if (!amount_msat_to_sat(&accepter_in,
+				peer->channel->view->owed[opener ? REMOTE : LOCAL]))
+		peer_failed_warn(peer->pps, &peer->channel_id, "Unable to"
+				 " calculate initial accepter balance");
 
 	for (int i = 0; i < psbt->num_inputs; i++) {
 		struct amount_sat amount = psbt_input_get_amount(psbt, i);
 		bool res;
+
+		if (i == chan_input_index)
+			continue;
+
 		if (amount_sat_zero(amount))
 			peer_failed_warn(peer->pps, &peer->channel_id,
 					 "Input %d of splice does not have an"
@@ -2821,13 +2837,13 @@ static struct amount_sat check_balances(struct peer *peer,
 	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt));
 
-	/* Calculate initiator fee contribution */
-	if (!amount_sat_sub(&initiator_fee, opener_in, opener_out))
+	/* Calculate intiator contribution */
+	if (!amount_sat_sub(&initiator_contrib, opener_in, opener_out))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate initiator contirubtion");
 	/* An extra check for cleaner log messages */
-	if (amount_sat_less(initiator_fee, peer->splice.opener_funding)) {
-		msg = towire_channeld_splice_funding_error(NULL, initiator_fee,
+	if (amount_sat_less(initiator_contrib, peer->splice.opener_funding)) {
+		msg = towire_channeld_splice_funding_error(NULL, initiator_contrib,
 							   peer->splice.opener_funding,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2839,18 +2855,18 @@ static struct amount_sat check_balances(struct peer *peer,
 				 fmt_amount_sat(tmpctx, opener_out),
 				 fmt_amount_sat(tmpctx, peer->splice.opener_funding));
 	}
-	if (!amount_sat_sub(&initiator_fee, initiator_fee,
+	if (!amount_sat_sub(&initiator_fee, initiator_contrib,
 			    peer->splice.opener_funding))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate initiator fee.");
 
-	/* Calculate accepter fee contribution */
-	if (!amount_sat_sub(&accepter_fee, accepter_in, accepter_out))
+	/* Calculate accepter contribution */
+	if (!amount_sat_sub(&accepter_contrib, accepter_in, accepter_out))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate accepter contirubtion");
 	/* An extra check for cleaner log messages */
-	if (amount_sat_less(accepter_fee, peer->splice.accepter_funding)) {
-		msg = towire_channeld_splice_funding_error(NULL, accepter_fee,
+	if (amount_sat_less(accepter_contrib, peer->splice.accepter_funding)) {
+		msg = towire_channeld_splice_funding_error(NULL, accepter_contrib,
 							   peer->splice.accepter_funding,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2862,7 +2878,7 @@ static struct amount_sat check_balances(struct peer *peer,
 				 fmt_amount_sat(tmpctx, accepter_out),
 				 fmt_amount_sat(tmpctx, peer->splice.accepter_funding));
 	}
-	if (!amount_sat_sub(&accepter_fee, accepter_fee,
+	if (!amount_sat_sub(&accepter_fee, accepter_contrib,
 			    peer->splice.accepter_funding))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate accepter fee.");
@@ -2953,6 +2969,23 @@ static struct amount_sat check_balances(struct peer *peer,
 	 * */
 
 	return funding_amount;
+}
+
+static int find_channel_funding_input(struct wally_psbt *psbt,
+				      struct bitcoin_outpoint *funding)
+{
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &psbt->inputs[i];
+
+		if (0 != memcmp(in->txhash, &funding->txid,
+			       sizeof(in->txhash)))
+			continue;
+
+		if (funding->n == in->index)
+			return i;
+	}
+
+	return -1;
 }
 
 /* ACCEPTER side of the splice. Here we handle all the accepter's steps for the
@@ -3058,19 +3091,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 					 &peer->channel->funding_pubkey[LOCAL],
 					 &peer->channel->funding_pubkey[REMOTE]);
 
-	for (int i = 0; i < ictx->current_psbt->num_inputs; i++) {
-		struct wally_psbt_input *in = &ictx->current_psbt->inputs[i];
-
-		if (0 != memcmp(in->txhash,
-			       &peer->channel->funding.txid,
-			       sizeof(in->txhash)))
-			continue;
-
-		if (peer->channel->funding.n == in->index) {
-			splice_funding_index = i;
-			break;
-		}
-	}
+	splice_funding_index = find_channel_funding_input(ictx->current_psbt,
+							  &peer->channel->funding);
 
 	if (splice_funding_index == -1)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -3080,7 +3102,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 						&chan_output_index);
 
 	both_amount = check_balances(peer, TX_ACCEPTER, ictx->current_psbt,
-				     chan_output_index);
+				     chan_output_index, splice_funding_index);
 	new_chan_outpoint->amount = both_amount.satoshis; /* Raw: type conv */
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
@@ -3499,7 +3521,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	u8 *outmsg;
 	struct interactivetx_context *ictx;
 	char *error;
-	int chan_output_index;
+	int chan_output_index, splice_funding_index;
 	struct wally_psbt_output *new_chan_outpoint;
 	struct inflight new_inflight;
 	struct bitcoin_txid current_psbt_txid;
@@ -3529,8 +3551,15 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_chan_outpoint = find_channel_output(peer, ictx->current_psbt,
 						&chan_output_index);
 
+	splice_funding_index = find_channel_funding_input(ictx->current_psbt,
+							  &peer->channel->funding);
+
+	if (splice_funding_index == -1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to find splice funding tx");
+
 	both_amount = check_balances(peer, TX_INITIATOR, ictx->current_psbt,
-				     chan_output_index);
+				     chan_output_index, splice_funding_index);
 	new_chan_outpoint->amount = both_amount.satoshis; /* Raw: type conv */
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
