@@ -1,13 +1,13 @@
 #include "config.h"
 #include <assert.h>
-#include <tests/fuzz/libfuzz.h>
 
-#include <bitcoin/pubkey.h>
 #include <bitcoin/chainparams.h>
+#include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <common/close_tx.h>
 #include <common/setup.h>
 #include <common/utils.h>
+#include <tests/fuzz/libfuzz.h>
 #include <wire/wire.h>
 
 void init(int *argc, char ***argv)
