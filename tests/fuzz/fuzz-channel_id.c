@@ -2,10 +2,10 @@
 #include <assert.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
-#include <tests/fuzz/libfuzz.h>
 
 #include <common/channel_id.h>
 #include <common/setup.h>
+#include <tests/fuzz/libfuzz.h>
 #include <wire/wire.h>
 
 void init(int *argc, char ***argv)
