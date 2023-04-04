@@ -96,7 +96,7 @@ def init(options, configuration, plugin):
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address):
+def on_connect(plugin, id, address, **kwargs):
     plugin.log("Received connect event for peer {}".format(id))
 
 
