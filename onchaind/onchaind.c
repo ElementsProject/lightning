@@ -727,42 +727,17 @@ static void proposal_meets_depth(struct tracked_output *out)
 	/* Otherwise we will get a callback when it's in a block. */
 }
 
-static void propose_resolution(struct tracked_output *out,
-			       const struct bitcoin_tx *tx STEALS,
-			       unsigned int depth_required,
-			       enum tx_type tx_type)
+static struct proposed_resolution *new_proposed_resolution(struct tracked_output *out,
+							   unsigned int block_required,
+							   enum tx_type tx_type)
 {
-	status_debug("Propose handling %s/%s by %s (%s) after %u blocks",
-		     tx_type_name(out->tx_type),
-		     output_type_name(out->output_type),
-		     tx_type_name(tx_type),
-		     tx ? type_to_string(tmpctx, struct bitcoin_tx, tx):"IGNORING",
-		     depth_required);
+	struct proposed_resolution *proposal = tal(out, struct proposed_resolution);
+	proposal->via_lightningd = true;
+	proposal->tx = NULL;
+	proposal->tx_type = tx_type;
+	proposal->depth_required = block_required - out->tx_blockheight;
 
-	out->proposal = tal(out, struct proposed_resolution);
-	out->proposal->tx = tal_steal(out->proposal, tx);
-	out->proposal->via_lightningd = false;
-	out->proposal->welements = NULL;
-	out->proposal->depth_required = depth_required;
-	out->proposal->tx_type = tx_type;
-
-	if (depth_required == 0)
-		proposal_meets_depth(out);
-}
-
-static void propose_resolution_at_block(struct tracked_output *out,
-					const struct bitcoin_tx *tx STEALS,
-					unsigned int block_required,
-					enum tx_type tx_type)
-{
-	u32 depth;
-
-	/* Expiry could be in the past! */
-	if (block_required < out->tx_blockheight)
-		depth = 0;
-	else /* Note that out->tx_blockheight is already at depth 1 */
-		depth = block_required - out->tx_blockheight + 1;
-	propose_resolution(out, tx, depth, tx_type);
+	return proposal;
 }
 
 /* Modern style: we don't create tx outselves, but tell lightningd. */
@@ -780,12 +755,7 @@ static void propose_resolution_to_master(struct tracked_output *out,
 		     output_type_name(out->output_type),
 		     block_required - 1, block_required - 1 - out->tx_blockheight);
 
-	out->proposal = tal(out, struct proposed_resolution);
-	out->proposal->via_lightningd = true;
-	out->proposal->tx = NULL;
-	out->proposal->welements = NULL;
-	out->proposal->tx_type = tx_type;
-	out->proposal->depth_required = block_required - out->tx_blockheight;
+	out->proposal = new_proposed_resolution(out, block_required, tx_type);
 
 	wire_sync_write(REQ_FD, send_message);
 
@@ -804,6 +774,31 @@ static void propose_immediate_resolution(struct tracked_output *out,
 	 * having to check for < 0 in various places we print messages */
 	propose_resolution_to_master(out, send_message, out->tx_blockheight+1,
 				     tx_type);
+}
+
+/* If UTXO reaches this block, ignore it (it's not for us, it's ok!) */
+static void propose_ignore(struct tracked_output *out,
+			   unsigned int block_required,
+			   enum tx_type tx_type)
+{
+	status_debug("Propose ignoring %s/%s as %s"
+		     " after block %u (%i more blocks)",
+		     tx_type_name(out->tx_type),
+		     output_type_name(out->output_type),
+		     tx_type_name(tx_type),
+		     block_required,
+		     block_required - out->tx_blockheight);
+
+	/* If it's already passed, don't underflow. */
+	if (block_required < out->tx_blockheight)
+		block_required = out->tx_blockheight;
+
+	out->proposal = new_proposed_resolution(out, block_required, tx_type);
+	out->proposal->welements = NULL;
+
+	/* Can we immediately ignore? */
+	if (out->proposal->depth_required == 0)
+		ignore_output(out);
 }
 
 static bool is_valid_sig(const u8 *e)
@@ -1580,10 +1575,19 @@ static void tx_new_depth(struct tracked_output **outs,
 		/* Otherwise, is this something we have a pending
 		 * resolution for? */
 		if (outs[i]->proposal
-		    && !outs[i]->proposal->via_lightningd
 		    && bitcoin_txid_eq(&outs[i]->outpoint.txid, txid)
 		    && depth >= outs[i]->proposal->depth_required) {
-			proposal_meets_depth(outs[i]);
+			if (outs[i]->proposal->via_lightningd) {
+				if (!outs[i]->proposal->welements) {
+					ignore_output(outs[i]);
+
+					if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
+						record_external_deposit(outs[i], outs[i]->tx_blockheight,
+									HTLC_TIMEOUT);
+				}
+			} else {
+				proposal_meets_depth(outs[i]);
+			}
 		}
 	}
 }
@@ -2172,8 +2176,8 @@ static size_t resolve_their_htlc(struct tracked_output *out,
 	}
 
 	/* If we hit timeout depth, resolve by ignoring. */
-	propose_resolution_at_block(out, NULL, htlcs[which_htlc].cltv_expiry,
-				    THEIR_HTLC_TIMEOUT_TO_THEM);
+	propose_ignore(out, htlcs[which_htlc].cltv_expiry,
+		       THEIR_HTLC_TIMEOUT_TO_THEM);
 	return which_htlc;
 }
 
