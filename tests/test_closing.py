@@ -2826,7 +2826,7 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('Their unilateral tx, new commit point')
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
+    l2.daemon.wait_for_log(r'Propose ignoring OUR_UNILATERAL/THEIR_HTLC as THEIR_HTLC_TIMEOUT_TO_THEM after block [0-9]* \(5 more blocks\)')
 
     _, txid, blocks = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
                                               'THEIR_UNILATERAL/OUR_HTLC')
@@ -3107,7 +3107,7 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('Their unilateral tx, old commit point')
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
+    l2.daemon.wait_for_log(r'Propose ignoring OUR_UNILATERAL/THEIR_HTLC as THEIR_HTLC_TIMEOUT_TO_THEM after block [0-9]* \(5 more blocks\)')
     _, _, blocks = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
                                            'THEIR_UNILATERAL/OUR_HTLC')
     assert blocks == 5
@@ -3166,7 +3166,7 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     assert blocks1 == 5
     assert blocks2 == 4
 
-    l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
+    l1.daemon.wait_for_log(r'Propose ignoring THEIR_UNILATERAL/THEIR_HTLC as THEIR_HTLC_TIMEOUT_TO_THEM after block [0-9]* \(5 more blocks\)')
     # l1 then gets preimage, uses it instead of ignoring
     _, txid1, blocks = l1.wait_for_onchaind_tx('THEIR_HTLC_FULFILL_TO_US',
                                                'THEIR_UNILATERAL/THEIR_HTLC')
