@@ -63,7 +63,7 @@ if __name__ == "__main__":
             os.makedirs(seed_dir, exist_ok=True)
             command = [
                 target,
-                f"-runs={runs}" if args.merge_dir is None else "-merge=1",
+                f"-runs={runs}",
                 seed_dir,
             ]
             if args.merge_dir is not None:
@@ -71,7 +71,15 @@ if __name__ == "__main__":
                                             os.path.basename(target))
                 if not os.path.exists(input_target):
                     continue
-                command.append(input_target)
+                command = [
+                    target,
+                    "-merge=1",
+                    "-shuffle=0",
+                    "-prefer_small=1",
+                    "-use_value_profile=1",  # Also used by OSS-Fuzz: https://github.com/google/oss-fuzz/issues/1406#issuecomment-387790487
+                    seed_dir,
+                    input_target,
+                ]
             jobs.append(pool.submit(job, command))
 
         for completed in as_completed(jobs):
