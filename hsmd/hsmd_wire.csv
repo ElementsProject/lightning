@@ -196,7 +196,6 @@ msgtype,hsmd_validate_revocation_reply,136
 
 # Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
 # of keys is derived differently...
-# FIXME: Have master tell hsmd the keyindex, so it can validate output!
 msgtype,hsmd_sign_delayed_payment_to_us,12
 msgdata,hsmd_sign_delayed_payment_to_us,commit_num,u64,
 msgdata,hsmd_sign_delayed_payment_to_us,tx,bitcoin_tx,
@@ -332,3 +331,42 @@ msgdata,hsmd_check_pubkey,pubkey,pubkey,
 # Reply
 msgtype,hsmd_check_pubkey_reply,128
 msgdata,hsmd_check_pubkey_reply,ok,bool,
+
+# These are where lightningd asks for signatures on onchaind's behalf.
+msgtype,hsmd_sign_any_delayed_payment_to_us,142
+msgdata,hsmd_sign_any_delayed_payment_to_us,commit_num,u64,
+msgdata,hsmd_sign_any_delayed_payment_to_us,tx,bitcoin_tx,
+msgdata,hsmd_sign_any_delayed_payment_to_us,wscript_len,u16,
+msgdata,hsmd_sign_any_delayed_payment_to_us,wscript,u8,wscript_len
+msgdata,hsmd_sign_any_delayed_payment_to_us,input,u32,
+msgdata,hsmd_sign_any_delayed_payment_to_us,peerid,node_id,
+msgdata,hsmd_sign_any_delayed_payment_to_us,channel_dbid,u64,
+
+msgtype,hsmd_sign_any_remote_htlc_to_us,143
+msgdata,hsmd_sign_any_remote_htlc_to_us,remote_per_commitment_point,pubkey,
+msgdata,hsmd_sign_any_remote_htlc_to_us,tx,bitcoin_tx,
+msgdata,hsmd_sign_any_remote_htlc_to_us,wscript_len,u16,
+msgdata,hsmd_sign_any_remote_htlc_to_us,wscript,u8,wscript_len
+msgdata,hsmd_sign_any_remote_htlc_to_us,option_anchor_outputs,bool,
+msgdata,hsmd_sign_any_remote_htlc_to_us,input,u32,
+msgdata,hsmd_sign_any_remote_htlc_to_us,peerid,node_id,
+msgdata,hsmd_sign_any_remote_htlc_to_us,channel_dbid,u64,
+
+msgtype,hsmd_sign_any_penalty_to_us,144
+msgdata,hsmd_sign_any_penalty_to_us,revocation_secret,secret,
+msgdata,hsmd_sign_any_penalty_to_us,tx,bitcoin_tx,
+msgdata,hsmd_sign_any_penalty_to_us,wscript_len,u16,
+msgdata,hsmd_sign_any_penalty_to_us,wscript,u8,wscript_len
+msgdata,hsmd_sign_any_penalty_to_us,input,u32,
+msgdata,hsmd_sign_any_penalty_to_us,peerid,node_id,
+msgdata,hsmd_sign_any_penalty_to_us,channel_dbid,u64,
+
+msgtype,hsmd_sign_any_local_htlc_tx,146
+msgdata,hsmd_sign_any_local_htlc_tx,commit_num,u64,
+msgdata,hsmd_sign_any_local_htlc_tx,tx,bitcoin_tx,
+msgdata,hsmd_sign_any_local_htlc_tx,wscript_len,u16,
+msgdata,hsmd_sign_any_local_htlc_tx,wscript,u8,wscript_len
+msgdata,hsmd_sign_any_local_htlc_tx,option_anchor_outputs,bool,
+msgdata,hsmd_sign_any_local_htlc_tx,input,u32,
+msgdata,hsmd_sign_any_local_htlc_tx,peerid,node_id,
+msgdata,hsmd_sign_any_local_htlc_tx,channel_dbid,u64,

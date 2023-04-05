@@ -12,6 +12,7 @@
  * v3 without v1: 3f813898f7de490e9126ab817e1c9a29af79c0413d5e37068acedce3ea7b5429
  * v4: 41a730986c51b930e2d8d12b3169d24966c2004e08d424bdda310edbbde5ba70
  * v4 with check_pubkey: 48b3992745aa3c6ab6ce5cdaee9082cb7d70017f523d322015e9710bf49fd193
+ * v4 with sign_any_penalty_to_us: ead7963185194a515d1f14d2c44401392575299d68ce9a13d8a12baff3cf4f35
  */
 #define HSM_MIN_VERSION 3
 #define HSM_MAX_VERSION 4

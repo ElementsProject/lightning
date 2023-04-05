@@ -124,6 +124,10 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CHECK_PUBKEY:
+	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
+	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
+	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
+	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -516,6 +520,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
  * sends funds to our internal wallet. */
 /* FIXME: Derive output address for this client, and check it here! */
 static u8 *handle_sign_to_us_tx(struct hsmd_client *c, const u8 *msg_in,
+				u32 input_num,
 				struct bitcoin_tx *tx,
 				const struct privkey *privkey,
 				const u8 *wscript,
@@ -523,6 +528,11 @@ static u8 *handle_sign_to_us_tx(struct hsmd_client *c, const u8 *msg_in,
 {
 	struct bitcoin_signature sig;
 	struct pubkey pubkey;
+
+	if (input_num >= tx->wtx->num_inputs)
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad input %u of %zu",
+						   input_num, tx->wtx->num_inputs);
 
 	if (!pubkey_from_privkey(privkey, &pubkey))
 		return hsmd_status_bad_request(c, msg_in,
@@ -1146,29 +1156,37 @@ static u8 *handle_sign_mutual_close_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
-/*~ This is used when a commitment transaction is onchain, and has an HTLC
- * output paying to them, which has timed out; this signs that transaction,
- * which lightningd will broadcast to collect the funds. */
-static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
+/*~ Originally, onchaind would ask for hsmd to sign txs directly, and then
+ * tell lightningd to broadcast it.  With "bring-your-own-fees" HTLCs, this
+ * changed, since we need to find a UTXO to attach to the transaction,
+ * so now lightningd takes care of it all.
+ *
+ * The interfaces are very similar, so we have core functions that both
+ * variants call after unwrapping the message. */
+static u8 *do_sign_local_htlc_tx(struct hsmd_client *c,
+				 const u8 *msg_in,
+				 u32 input_num,
+				 const struct node_id *peerid,
+				 u64 channel_dbid,
+				 u64 commit_num,
+				 struct bitcoin_tx *tx,
+				 const u8 *wscript,
+				 bool option_anchor_outputs)
 {
-	u64 commit_num;
 	struct secret channel_seed, htlc_basepoint_secret;
 	struct sha256 shaseed;
 	struct pubkey per_commitment_point, htlc_basepoint;
-	struct bitcoin_tx *tx;
-	u8 *wscript;
 	struct bitcoin_signature sig;
 	struct privkey htlc_privkey;
 	struct pubkey htlc_pubkey;
-	bool option_anchor_outputs;
 
-	if (!fromwire_hsmd_sign_local_htlc_tx(tmpctx, msg_in,
-					     &commit_num, &tx, &wscript,
-					     &option_anchor_outputs))
-		return hsmd_status_malformed_request(c, msg_in);
+	if (input_num >= tx->wtx->num_inputs)
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad input %u of %zu",
+						   input_num, tx->wtx->num_inputs);
 
 	tx->chainparams = c->chainparams;
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	get_channel_seed(peerid, channel_dbid, &channel_seed);
 
 	if (!derive_shaseed(&channel_seed, &shaseed))
 		return hsmd_status_bad_request_fmt(c, msg_in,
@@ -1207,13 +1225,53 @@ static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	 * * if `option_anchors` applies to this commitment transaction,
 	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5]
 	 */
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
+	sign_tx_input(tx, input_num, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      option_anchor_outputs
 		      ? (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)
 		      : SIGHASH_ALL,
 		      &sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
+/*~ Called from onchaind (deprecated) */
+static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	u64 commit_num;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	bool option_anchor_outputs;
+
+	if (!fromwire_hsmd_sign_local_htlc_tx(tmpctx, msg_in,
+					     &commit_num, &tx, &wscript,
+					     &option_anchor_outputs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_local_htlc_tx(c, msg_in, 0, &c->id, c->dbid,
+				     commit_num, tx, wscript,
+				     option_anchor_outputs);
+}
+
+/*~ This is the same function, but lightningd calling it */
+static u8 *handle_sign_any_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	u64 commit_num;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	bool option_anchor_outputs;
+	struct node_id peer_id;
+	u32 input_num;
+	u64 dbid;
+
+	if (!fromwire_hsmd_sign_any_local_htlc_tx(tmpctx, msg_in,
+						  &commit_num, &tx, &wscript,
+						  &option_anchor_outputs,
+						  &input_num, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_local_htlc_tx(c, msg_in, input_num, &peer_id, dbid,
+				     commit_num, tx, wscript,
+				     option_anchor_outputs);
 }
 
 /*~ This is used by channeld to create signatures for the remote peer's
@@ -1328,26 +1386,27 @@ static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg
 /*~ This is used when the remote peer's commitment transaction is revoked;
  * we can use the revocation secret to spend the outputs.  For simplicity,
  * we do them one at a time, though. */
-static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
+static u8 *do_sign_penalty_to_us(struct hsmd_client *c,
+				 const u8 *msg_in,
+				 u32 input_num,
+				 const struct node_id *peerid,
+				 u64 channel_dbid,
+				 const struct secret *revocation_secret,
+				 struct bitcoin_tx *tx,
+				 const u8 *wscript)
 {
-	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
+	struct secret channel_seed, revocation_basepoint_secret;
 	struct pubkey revocation_basepoint;
-	struct bitcoin_tx *tx;
 	struct pubkey point;
 	struct privkey privkey;
-	u8 *wscript;
 
-	if (!fromwire_hsmd_sign_penalty_to_us(tmpctx, msg_in,
-					     &revocation_secret,
-					     &tx, &wscript))
-		return hsmd_status_malformed_request(c, msg_in);
 	tx->chainparams = c->chainparams;
 
-	if (!pubkey_from_secret(&revocation_secret, &point))
+	if (!pubkey_from_secret(revocation_secret, &point))
 		return hsmd_status_bad_request_fmt(c, msg_in,
 						   "Failed deriving pubkey");
 
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	get_channel_seed(peerid, channel_dbid, &channel_seed);
 	if (!derive_revocation_basepoint(&channel_seed,
 					 &revocation_basepoint,
 					 &revocation_basepoint_secret))
@@ -1355,15 +1414,51 @@ static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
 		    c, msg_in, "Failed deriving revocation basepoint");
 
 	if (!derive_revocation_privkey(&revocation_basepoint_secret,
-				       &revocation_secret,
+				       revocation_secret,
 				       &revocation_basepoint,
 				       &point,
 				       &privkey))
 		return hsmd_status_bad_request_fmt(
 		    c, msg_in, "Failed deriving revocation privkey");
 
-	return handle_sign_to_us_tx(c, msg_in, tx, &privkey, wscript,
+	return handle_sign_to_us_tx(c, msg_in, input_num, tx, &privkey, wscript,
 				    SIGHASH_ALL);
+}
+
+/*~ Called from onchaind (deprecated) */
+static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret revocation_secret;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+
+	if (!fromwire_hsmd_sign_penalty_to_us(tmpctx, msg_in,
+					     &revocation_secret,
+					     &tx, &wscript))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_penalty_to_us(c, msg_in, 0, &c->id, c->dbid,
+				     &revocation_secret, tx, wscript);
+}
+
+/*~ Called from lightningd */
+static u8 *handle_sign_any_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret revocation_secret;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	struct node_id peer_id;
+	u64 dbid;
+	u32 input_num;
+
+	if (!fromwire_hsmd_sign_any_penalty_to_us(tmpctx, msg_in,
+						  &revocation_secret,
+						  &tx, &wscript,
+						  &input_num, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_penalty_to_us(c, msg_in, input_num, &peer_id, dbid,
+				     &revocation_secret, tx, wscript);
 }
 
 /*~ This is another lightningd-only interface; signing a commit transaction.
@@ -1492,24 +1587,22 @@ static u8 *handle_validate_revocation(struct hsmd_client *c, const u8 *msg_in)
 /*~ This is used when a commitment transaction is onchain, and has an HTLC
  * output paying to us (because we have the preimage); this signs that
  * transaction, which lightningd will broadcast to collect the funds. */
-static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
-					 const u8 *msg_in)
+static u8 *do_sign_remote_htlc_to_us(struct hsmd_client *c,
+				     const u8 *msg_in,
+				     u32 input_num,
+				     const struct node_id *peerid,
+				     u64 channel_dbid,
+				     const struct pubkey *remote_per_commitment_point,
+				     struct bitcoin_tx *tx,
+				     const u8 *wscript,
+				     bool option_anchor_outputs)
 {
 	struct secret channel_seed, htlc_basepoint_secret;
 	struct pubkey htlc_basepoint;
-	struct bitcoin_tx *tx;
-	struct pubkey remote_per_commitment_point;
 	struct privkey privkey;
-	u8 *wscript;
-	bool option_anchor_outputs;
-
-	if (!fromwire_hsmd_sign_remote_htlc_to_us(
-		tmpctx, msg_in, &remote_per_commitment_point, &tx, &wscript,
-		&option_anchor_outputs))
-		return hsmd_status_malformed_request(c, msg_in);
 
 	tx->chainparams = c->chainparams;
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	get_channel_seed(peerid, channel_dbid, &channel_seed);
 
 	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
 				   &htlc_basepoint_secret))
@@ -1518,7 +1611,7 @@ static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
 
 	if (!derive_simple_privkey(&htlc_basepoint_secret,
 				   &htlc_basepoint,
-				   &remote_per_commitment_point,
+				   remote_per_commitment_point,
 				   &privkey))
 		return hsmd_status_bad_request(c, msg_in,
 					       "Failed deriving htlc privkey");
@@ -1530,34 +1623,75 @@ static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
 	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5]
 	 */
 	return handle_sign_to_us_tx(
-	    c, msg_in, tx, &privkey, wscript,
+	    c, msg_in, input_num, tx, &privkey, wscript,
 	    option_anchor_outputs ? (SIGHASH_SINGLE | SIGHASH_ANYONECANPAY)
 				  : SIGHASH_ALL);
+}
+
+/*~ When called by onchaind */
+static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
+					 const u8 *msg_in)
+{
+	struct pubkey remote_per_commitment_point;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	bool option_anchor_outputs;
+
+	if (!fromwire_hsmd_sign_remote_htlc_to_us(
+		tmpctx, msg_in, &remote_per_commitment_point, &tx, &wscript,
+		&option_anchor_outputs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_remote_htlc_to_us(c, msg_in, 0, &c->id, c->dbid,
+					 &remote_per_commitment_point,
+					 tx, wscript,
+					 option_anchor_outputs);
+}
+
+/*~ When called by lightningd */
+static u8 *handle_sign_any_remote_htlc_to_us(struct hsmd_client *c,
+					     const u8 *msg_in)
+{
+	struct pubkey remote_per_commitment_point;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	bool option_anchor_outputs;
+	struct node_id peer_id;
+	u64 dbid;
+	u32 input_num;
+
+	if (!fromwire_hsmd_sign_any_remote_htlc_to_us(
+		tmpctx, msg_in, &remote_per_commitment_point, &tx, &wscript,
+		&option_anchor_outputs, &input_num, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_remote_htlc_to_us(c, msg_in, input_num, &peer_id, dbid,
+					 &remote_per_commitment_point,
+					 tx, wscript,
+					 option_anchor_outputs);
 }
 
 /*~ When we send a commitment transaction onchain (unilateral close), there's
  * a delay before we can spend it.  onchaind does an explicit transaction to
  * transfer it to the wallet so that doesn't need to remember how to spend
  * this complex transaction. */
-static u8 *handle_sign_delayed_payment_to_us(struct hsmd_client *c,
-					     const u8 *msg_in)
+static u8 *do_sign_delayed_payment_to_us(struct hsmd_client *c,
+					 const u8 *msg_in,
+					 u32 input_num,
+					 const struct node_id *peerid,
+					 u64 channel_dbid,
+					 u64 commit_num,
+					 struct bitcoin_tx *tx,
+					 const u8 *wscript)
 {
-	u64 commit_num;
 	struct secret channel_seed, basepoint_secret;
 	struct pubkey basepoint;
-	struct bitcoin_tx *tx;
 	struct sha256 shaseed;
 	struct pubkey per_commitment_point;
 	struct privkey privkey;
-	u8 *wscript;
 
-	/*~ We don't derive the wscript ourselves, but perhaps we should? */
-	if (!fromwire_hsmd_sign_delayed_payment_to_us(tmpctx, msg_in,
-						     &commit_num,
-						     &tx, &wscript))
-		return hsmd_status_malformed_request(c, msg_in);
 	tx->chainparams = c->chainparams;
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	get_channel_seed(peerid, channel_dbid, &channel_seed);
 
 	/*~ ccan/crypto/shachain how we efficiently derive 2^48 ordered
 	 * preimages from a single seed; the twist is that as the preimages
@@ -1587,8 +1721,48 @@ static u8 *handle_sign_delayed_payment_to_us(struct hsmd_client *c,
 		return hsmd_status_bad_request(c, msg_in,
 					       "failed deriving privkey");
 
-	return handle_sign_to_us_tx(c, msg_in, tx, &privkey, wscript,
+	return handle_sign_to_us_tx(c, msg_in, input_num, tx, &privkey, wscript,
 				    SIGHASH_ALL);
+}
+
+/*~ When called by onchaind */
+static u8 *handle_sign_delayed_payment_to_us(struct hsmd_client *c,
+					     const u8 *msg_in)
+{
+	u64 commit_num;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+
+	/*~ We don't derive the wscript ourselves, but perhaps we should? */
+	if (!fromwire_hsmd_sign_delayed_payment_to_us(tmpctx, msg_in,
+						     &commit_num,
+						     &tx, &wscript))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_delayed_payment_to_us(c, msg_in, 0, &c->id, c->dbid,
+					     commit_num, tx, wscript);
+}
+
+/*~ When called by lightningd */
+static u8 *handle_sign_any_delayed_payment_to_us(struct hsmd_client *c,
+						 const u8 *msg_in)
+{
+	u64 commit_num;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	struct node_id peer_id;
+	u64 dbid;
+	u32 input_num;
+
+	/*~ We don't derive the wscript ourselves, but perhaps we should? */
+	if (!fromwire_hsmd_sign_any_delayed_payment_to_us(tmpctx, msg_in,
+							  &commit_num,
+							  &tx, &wscript,
+							  &input_num, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_delayed_payment_to_us(c, msg_in, input_num, &peer_id, dbid,
+					     commit_num, tx, wscript);
 }
 
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
@@ -1682,6 +1856,14 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_derive_secret(client, msg);
 	case WIRE_HSMD_CHECK_PUBKEY:
 		return handle_check_pubkey(client, msg);
+	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
+		return handle_sign_any_delayed_payment_to_us(client, msg);
+	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
+		return handle_sign_any_remote_htlc_to_us(client, msg);
+	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
+		return handle_sign_any_local_htlc_tx(client, msg);
+	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
+		return handle_sign_any_penalty_to_us(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
@@ -1725,7 +1907,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;
-	static const u32 capabilities[] = { WIRE_HSMD_CHECK_PUBKEY };
+	static const u32 capabilities[] = { WIRE_HSMD_CHECK_PUBKEY, WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US };
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
