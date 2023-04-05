@@ -242,6 +242,9 @@ struct channel {
 	/* the one that initiated a bilateral close, NUM_SIDES if unknown. */
 	enum side closer;
 
+	/* Block height we saw closing tx at */
+	u32 *close_blockheight;
+
 	/* Last known state_change cause */
 	enum state_change state_change_cause;
 
