@@ -1240,7 +1240,7 @@ static void propose_resolution_at_block(struct tracked_output *out,
 }
 
 /* Modern style: we don't create tx outselves, but tell lightningd. */
-static void UNNEEDED propose_resolution_to_master(struct tracked_output *out,
+static void propose_resolution_to_master(struct tracked_output *out,
 					 const u8 *send_message TAKES,
 					 unsigned int block_required,
 					 enum tx_type tx_type)
@@ -1704,12 +1704,11 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 			    u32 tx_blockheight)
 {
 	struct tracked_output *out;
-	struct bitcoin_tx *tx;
 	struct amount_sat amt;
 	struct amount_asset asset;
 	struct bitcoin_outpoint outpoint;
-	enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
-	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[LOCAL],
+	u8 *msg;
+	u8 *wscript = bitcoin_wscript_htlc_tx(tmpctx, to_self_delay[LOCAL],
 					      &keyset->self_revocation_key,
 					      &keyset->self_delayed_payment_key);
 
@@ -1736,21 +1735,14 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
  				 DELAYED_OUTPUT_TO_US,
  				 NULL, NULL, NULL);
 
-	/* BOLT #3:
-	 *
-	 * ## HTLC-Timeout and HTLC-Success Transactions
-	 *
-	 * These HTLC transactions are almost identical, except the
-	 * HTLC-timeout transaction is timelocked.
-	 *
-	 * ... to collect the output, the local node uses an input with
-	 * nSequence `to_self_delay` and a witness stack `<local_delayedsig>
-	 * 0`
-	 */
-	tx = tx_to_us(*outs, delayed_payment_to_us, out, to_self_delay[LOCAL],
-		      0, NULL, 0, wscript, &tx_type, htlc_feerate);
-
-	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type);
+	msg = towire_onchaind_spend_to_us(NULL,
+					  &outpoint, amt,
+					  rel_blockheight(out, to_self_delay[LOCAL]),
+					  commit_num,
+					  wscript);
+	propose_resolution_to_master(out, take(msg),
+				     rel_blockheight(out, to_self_delay[LOCAL]),
+				     OUR_DELAYED_RETURN_TO_WALLET);
 }
 
 /* BOLT #5:
