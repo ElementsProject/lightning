@@ -607,105 +607,6 @@ static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 	return fee;
 }
 
-static u8 *remote_htlc_to_us(const tal_t *ctx,
-			     struct bitcoin_tx *tx,
-			     const u8 *wscript)
-{
-	return towire_hsmd_sign_remote_htlc_to_us(ctx,
-						 remote_per_commitment_point,
-						 tx, wscript,
-						 option_anchor_outputs);
-}
-
-/*
- * This covers:
- * 1. to-us output spend (`<local_delayedsig> 0`)
- * 2. the their-commitment, our HTLC timeout case (`<remotehtlcsig> 0`),
- * 3. the their-commitment, our HTLC redeem case (`<remotehtlcsig> <payment_preimage>`)
- * 4. the their-revoked-commitment, to-local (`<revocation_sig> 1`)
- * 5. the their-revoked-commitment, htlc (`<revocation_sig> <revocationkey>`)
- *
- * Overrides *tx_type if it all turns to dust.
- */
-static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
-				   u8 *(*hsm_sign_msg)(const tal_t *ctx,
-						       struct bitcoin_tx *tx,
-						       const u8 *wscript),
-				   struct tracked_output *out,
-				   u32 to_self_delay,
-				   u32 locktime,
-				   const void *elem, size_t elemsize,
-				   const u8 *wscript,
-				   enum tx_type *tx_type,
-				   u32 feerate)
-{
-	struct bitcoin_tx *tx;
-	struct amount_sat fee, min_out, amt;
-	struct bitcoin_signature sig;
-	size_t weight;
-	u8 *msg;
-	u8 **witness;
-
-	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
-	bitcoin_tx_add_input(tx, &out->outpoint, to_self_delay,
-			     NULL, out->sat, NULL, wscript);
-
-	bitcoin_tx_add_output(
-	    tx, scriptpubkey_p2wpkh(tmpctx, &our_wallet_pubkey), NULL, out->sat);
-	psbt_add_keypath_to_last_output(tx, our_wallet_index, &our_wallet_ext_key);
-
-	/* Worst-case sig is 73 bytes */
-	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
-	weight += elements_tx_overhead(chainparams, 1, 1);
-	fee = amount_tx_fee(feerate, weight);
-
-	/* Result is trivial?  Spend with small feerate, but don't wait
-	 * around for it as it might not confirm. */
-	if (!amount_sat_add(&min_out, dust_limit, fee))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Cannot add dust_limit %s and fee %s",
-			      type_to_string(tmpctx, struct amount_sat, &dust_limit),
-			      type_to_string(tmpctx, struct amount_sat, &fee));
-
-	if (amount_sat_less(out->sat, min_out)) {
-		/* FIXME: We should use SIGHASH_NONE so others can take it */
-		fee = amount_tx_fee(feerate_floor(), weight);
-		status_unusual("TX %s amount %s too small to"
-			       " pay reasonable fee, using minimal fee"
-			       " and ignoring",
-			       tx_type_name(*tx_type),
-			       type_to_string(tmpctx, struct amount_sat, &out->sat));
-		*tx_type = IGNORING_TINY_PAYMENT;
-	}
-
-	/* This can only happen if feerate_floor() is still too high; shouldn't
-	 * happen! */
-	if (!amount_sat_sub(&amt, out->sat, fee)) {
-		amt = dust_limit;
-		status_broken("TX %s can't afford minimal feerate"
-			      "; setting output to %s",
-			      tx_type_name(*tx_type),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &amt));
-	}
-	bitcoin_tx_output_set_amount(tx, 0, amt);
-	bitcoin_tx_finalize(tx);
-
-	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
-		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig)) {
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading sign_tx_reply: %s",
-			      tal_hex(tmpctx, msg));
-	}
-
-	witness = bitcoin_witness_sig_and_element(tx, &sig, elem,
-						  elemsize, wscript);
-	bitcoin_tx_input_set_witness(tx, 0, take(witness));
-	return tx;
-}
-
 static void hsm_get_per_commitment_point(struct pubkey *per_commitment_point)
 {
 	u8 *msg = towire_hsmd_get_per_commitment_point(NULL, commit_num);
@@ -1944,6 +1845,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
 		case WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT:
 		case WIRE_ONCHAIND_SPEND_FULFILL:
+		case WIRE_ONCHAIND_SPEND_HTLC_EXPIRED:
 			break;
 		}
 		master_badmsg(-1, msg);
@@ -2201,9 +2103,10 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 					   const struct htlc_stub *htlcs,
 					   u8 **htlc_scripts)
 {
-	struct bitcoin_tx *tx;
-	enum tx_type tx_type = OUR_HTLC_TIMEOUT_TO_US;
+	const u8 *msg;
 	u32 cltv_expiry = matches_cltv(matches, htlcs);
+	/* They're all equivalent: might as well use first one. */
+	const struct htlc_stub *htlc = &htlcs[matches[0]];
 
 	/* BOLT #5:
 	 *
@@ -2215,14 +2118,17 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 	 *     - MUST *resolve* the output, by spending it to a convenient
 	 *       address.
 	 */
-	tx = tx_to_us(out, remote_htlc_to_us, out,
-		      option_anchor_outputs ? 1 : 0,
-		      cltv_expiry, NULL, 0,
-		      htlc_scripts[matches[0]], &tx_type, htlc_feerate);
+	msg = towire_onchaind_spend_htlc_expired(NULL,
+						 &out->outpoint, out->sat,
+						 htlc->id,
+						 cltv_expiry,
+						 remote_per_commitment_point,
+						 htlc_scripts[matches[0]]);
+	propose_resolution_to_master(out, take(msg),
+				     /* nLocktime: we have to be *after* that block! */
+				     cltv_expiry + 1,
+				     OUR_HTLC_TIMEOUT_TO_US);
 
-	propose_resolution_at_block(out, tx, cltv_expiry, tx_type);
-
-	/* They're all equivalent: might as well use first one. */
 	return matches[0];
 }
 

@@ -1621,13 +1621,12 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     l4.daemon.wait_for_log(' to ONCHAIN')
 
     # Wait for timeout.
-    l2.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* after 6 blocks')
-    bitcoind.generate_block(6)
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
+                                                   'THEIR_UNILATERAL/OUR_HTLC')
+    assert blocks == 5
+    bitcoind.generate_block(5)
 
-    l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                   'THEIR_UNILATERAL/OUR_HTLC')
-
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=txid)
     l2.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
     l4.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
 
