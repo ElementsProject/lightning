@@ -681,6 +681,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_CHECK_PUBKEY:
+	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
+	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
+	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
+	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
