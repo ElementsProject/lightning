@@ -357,8 +357,12 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     # L1 will timeout HTLC immediately
-    l1.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 0 blocks',
-                             'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks'])
+    needle = l1.daemon.logsearch_start
+    l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 0 blocks')
+    l1.daemon.logsearch_start = needle
+    ((_, _, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
 
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(1)
@@ -369,12 +373,11 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     bitcoind.generate_block(4)
 
     # It should now claim both the to-local and htlc-timeout-tx outputs.
-    l1.daemon.wait_for_logs(['Broadcasting OUR_DELAYED_RETURN_TO_WALLET',
-                             'sendrawtx exit 0.*{}'.format(rawtx),
+    l1.daemon.wait_for_logs(['sendrawtx exit 0.*{}'.format(rawtx),
                              'sendrawtx exit 0'])
 
     # Now, 100 blocks it should be done.
-    bitcoind.generate_block(100)
+    bitcoind.generate_block(100, wait_for_mempool=txid)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
