@@ -41,7 +41,7 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for db_get_intvar */
-s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNNEEDED)
+s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defval UNNEEDED)
 { fprintf(stderr, "db_get_intvar called!\n"); abort(); }
 /* Generated stub for db_in_transaction */
 bool db_in_transaction(struct db *db UNNEEDED)

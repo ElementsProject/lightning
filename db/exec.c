@@ -58,7 +58,7 @@ u32 db_data_version_get(struct db *db)
 	return version;
 }
 
-void db_set_intvar(struct db *db, char *varname, s64 val)
+void db_set_intvar(struct db *db, const char *varname, s64 val)
 {
 	size_t changes;
 	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET intval=? WHERE name=?;"));
@@ -77,7 +77,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 	}
 }
 
-s64 db_get_intvar(struct db *db, char *varname, s64 defval)
+s64 db_get_intvar(struct db *db, const char *varname, s64 defval)
 {
 	s64 res = defval;
 	struct db_stmt *stmt = db_prepare_v2(

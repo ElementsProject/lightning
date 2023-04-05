@@ -13,7 +13,7 @@ struct db;
  * Utility function to store generic integer values in the
  * database.
  */
-void db_set_intvar(struct db *db, char *varname, s64 val);
+void db_set_intvar(struct db *db, const char *varname, s64 val);
 
 /**
  * db_get_intvar - Retrieve an integer variable from the database
@@ -21,7 +21,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val);
  * Either returns the value in the database, or @defval if
  * the query failed or no such variable exists.
  */
-s64 db_get_intvar(struct db *db, char *varname, s64 defval);
+s64 db_get_intvar(struct db *db, const char *varname, s64 defval);
 
 /* Get the current data version (entries). */
 u32 db_data_version_get(struct db *db);
