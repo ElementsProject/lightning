@@ -3782,8 +3782,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
 
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
-                                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                              'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
     assert blocks == 0
 
     bitcoind.generate_block(100, wait_for_mempool=txid)
@@ -3809,8 +3809,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
 
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
-                                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                              'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
     assert blocks == 0
 
     bitcoind.generate_block(100, wait_for_mempool=txid)
@@ -3837,8 +3837,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l2.start()
 
     # They should both handle it fine.
-    ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
     l2.daemon.wait_for_logs(['Ignoring output .*: THEIR_UNILATERAL/OUTPUT_TO_US',
                              'Ignoring output .*: THEIR_UNILATERAL/DELAYED_OUTPUT_TO_THEM'])
@@ -3864,8 +3864,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l2.start()
 
     # They should both handle it fine.
-    ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
     l2.daemon.wait_for_logs(['Ignoring output .*: THEIR_UNILATERAL/OUTPUT_TO_US',
                              'Ignoring output .*: THEIR_UNILATERAL/DELAYED_OUTPUT_TO_THEM'])

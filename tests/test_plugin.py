@@ -1332,8 +1332,8 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
     l5.daemon.wait_for_log(' to ONCHAIN')
 
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
-                                                   'THEIR_UNILATERAL/OUR_HTLC')
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
+                                              'THEIR_UNILATERAL/OUR_HTLC')
     assert blocks == 5
     bitcoind.generate_block(5)
 
