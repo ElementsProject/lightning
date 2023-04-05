@@ -1621,8 +1621,8 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     l4.daemon.wait_for_log(' to ONCHAIN')
 
     # Wait for timeout.
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
-                                                   'THEIR_UNILATERAL/OUR_HTLC')
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
+                                              'THEIR_UNILATERAL/OUR_HTLC')
     assert blocks == 5
     bitcoind.generate_block(5)
 

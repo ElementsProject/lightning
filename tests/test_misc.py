@@ -297,8 +297,8 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     # Could happen in either order!
     l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent')
 
-    ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
-                                                   'THEIR_UNILATERAL/OUR_HTLC')
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
+                                              'THEIR_UNILATERAL/OUR_HTLC')
     assert blocks == 5
     bitcoind.generate_block(5)
     bitcoind.generate_block(1, wait_for_mempool=txid)
@@ -359,18 +359,18 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
 
     # L1 will timeout HTLC immediately
     ((_, _, blocks1), (_, txid, blocks2)) = \
-        l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
-                                'OUR_HTLC_TIMEOUT_TX',
-                                'OUR_UNILATERAL/OUR_HTLC')
+        l1.wait_for_onchaind_txs(('OUR_DELAYED_RETURN_TO_WALLET',
+                                  'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US'),
+                                 ('OUR_HTLC_TIMEOUT_TX',
+                                  'OUR_UNILATERAL/OUR_HTLC'))
     assert blocks1 == 4
     # We hit deadline (we give 1 block grace), then mined another.
     assert blocks2 == -2
 
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
-    ((rawtx, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                       'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
+    rawtx, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                  'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
     bitcoind.generate_block(4)
 
@@ -429,12 +429,12 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
 
     # L2 will collect HTLC (iff no shadow route)
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
-                                                   'OUR_UNILATERAL/THEIR_HTLC')
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                              'OUR_UNILATERAL/THEIR_HTLC')
     assert blocks == 0
     bitcoind.generate_block(1, wait_for_mempool=txid)
-    ((rawtx, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                       'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    rawtx, txid, blocks = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                  'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
     bitcoind.generate_block(4)
     l2.daemon.wait_for_log('sendrawtx exit 0.*{}'.format(rawtx))
