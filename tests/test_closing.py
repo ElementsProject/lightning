@@ -1304,7 +1304,9 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
                                    'OUR_UNILATERAL/THEIR_HTLC')
 
     bitcoind.generate_block(1)
-    l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
 
     # l3 comes back up, sees cheat, penalizes l2 (revokes the htlc they've offered;
     # notes that they've successfully claimed to_local and the fulfilled htlc)
@@ -1497,20 +1499,17 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
                                    'OUR_UNILATERAL/THEIR_HTLC')
 
     bitcoind.generate_block(1, wait_for_mempool=1)
-    l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
 
-    # after 5 blocks, l2 reclaims both their DELAYED_OUTPUT_TO_US and their delayed output
-    bitcoind.generate_block(5, wait_for_mempool=0)
-    sync_blockheight(bitcoind, [l2])
-    l2.daemon.wait_for_logs(['Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US',
-                             'Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US'])
-
+    # At depth 5, l2 reclaims both their DELAYED_OUTPUT_TO_US and their delayed output
+    bitcoind.generate_block(4)
     bitcoind.generate_block(10, wait_for_mempool=2)
     l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
                                    'OUR_UNILATERAL/OUR_HTLC')
 
     bitcoind.generate_block(1, wait_for_mempool=1)
-    l2.daemon.wait_for_log('Propose handling OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
 
     # l3 comes back up, sees cheat, penalizes l2 (revokes the htlc they've offered;
     # notes that they've successfully claimed to_local and the fulfilled htlc)
@@ -2114,6 +2113,10 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
                                    'OUR_UNILATERAL/OUR_HTLC')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    ((rawtx, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                       'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
 
     # We use 3 blocks for "reasonable depth"
     bitcoind.generate_block(3)
@@ -2122,13 +2125,11 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE: timed out'):
         payfuture.result(TIMEOUT)
 
-    # 2 later, l1 spends HTLC (5 blocks total).
-    bitcoind.generate_block(2)
-    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                   'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
+    # 1 later, l1 spends HTLC (depth = 5 blocks).
+    bitcoind.generate_block(1)
 
     # 89 later, l2 is done.
-    bitcoind.generate_block(89)
+    bitcoind.generate_block(89, wait_for_mempool=txid)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # Now, 100 blocks and l1 should be done.
@@ -2240,18 +2241,20 @@ def test_onchain_middleman_simple(node_factory, bitcoind):
     t.join(timeout=1)
     assert not t.is_alive()
 
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
+
     # Three more, l2 can spend to-us.
     bitcoind.generate_block(3)
     l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
                                    'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # One more block, HTLC tx is now spendable.
-    l1.bitcoin.generate_block(1)
-    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    bitcoind.generate_block(1, wait_for_mempool=1)
 
     # 100 blocks after last spend, l2 should be done.
-    l1.bitcoin.generate_block(100)
+    l1.bitcoin.generate_block(100, wait_for_mempool=txid)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     # Verify accounting for l1 & l2
@@ -3089,16 +3092,15 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
 
     # OK, l1 sees l2 fulfill htlc.
     l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
-    l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
-    bitcoind.generate_block(5)
-
-    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
+    bitcoind.generate_block(4)
 
     t.cancel()
 
     # Now, 100 blocks it should be done.
-    bitcoind.generate_block(95)
+    bitcoind.generate_block(95, wait_for_mempool=txid)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
     assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
     bitcoind.generate_block(5)
