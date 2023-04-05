@@ -3,6 +3,7 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/htlc_tx.h>
 #include <common/key_derive.h>
 #include <common/psbt_keypath.h>
 #include <common/type_to_string.h>
@@ -550,6 +551,12 @@ struct onchain_signing_info {
 		struct {
 			struct secret remote_per_commitment_secret;
 		} spend_penalty;
+		/* WIRE_ONCHAIND_SPEND_HTLC_SUCCESS */
+		struct {
+			u64 commit_num;
+			struct bitcoin_signature remote_htlc_sig;
+			struct preimage preimage;
+		} htlc_success;
 	} u;
 };
 
@@ -595,6 +602,22 @@ static u8 *sign_penalty(const tal_t *ctx,
 						  info->channel->dbid);
 }
 
+static u8 *sign_htlc_success(const tal_t *ctx,
+			     const struct bitcoin_tx *tx,
+			     const struct onchain_signing_info *info)
+{
+	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+
+	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
+	return towire_hsmd_sign_any_local_htlc_tx(ctx,
+						  info->u.htlc_success.commit_num,
+						  tx, info->wscript,
+						  anchor_outputs,
+						  0,
+						  &info->channel->peer->id,
+						  info->channel->dbid);
+}
+
 /* Matches bitcoin_witness_sig_and_element! */
 static const struct onchain_witness_element **
 onchain_witness_sig_and_element(const tal_t *ctx, u8 **witness)
@@ -607,6 +630,24 @@ onchain_witness_sig_and_element(const tal_t *ctx, u8 **witness)
 		welements[i] = tal(welements, struct onchain_witness_element);
 		/* See bitcoin_witness_sig_and_element */
 		welements[i]->is_signature = (i == 0);
+		welements[i]->witness = tal_dup_talarr(welements[i], u8,
+						       witness[i]);
+	}
+	return cast_const2(const struct onchain_witness_element **, welements);
+}
+
+/* Matches bitcoin_witness_htlc_success_tx & bitcoin_witness_htlc_timeout_tx! */
+static const struct onchain_witness_element **
+onchain_witness_htlc_tx(const tal_t *ctx, u8 **witness)
+{
+	struct onchain_witness_element **welements;
+	welements = tal_arr(ctx, struct onchain_witness_element *,
+			    tal_count(witness));
+
+	for (size_t i = 0; i < tal_count(welements); i++) {
+		welements[i] = tal(welements, struct onchain_witness_element);
+		/* See bitcoin_witness_htlc_success_tx / bitcoin_witness_htlc_timeout_tx */
+		welements[i]->is_signature = (i == 1 || i == 2);
 		welements[i]->witness = tal_dup_talarr(welements[i], u8,
 						       witness[i]);
 	}
@@ -715,6 +756,29 @@ static bool consider_onchain_rebroadcast(struct channel *channel,
 {
 	/* FIXME: Implement rbf! */
 	return true;
+}
+
+static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
+						 const struct bitcoin_tx **tx,
+						 struct onchain_signing_info *info)
+{
+	/* FIXME: Implement rbf! */
+	return true;
+}
+
+/* We want to mine a success tx before they can timeout */
+static u32 htlc_incoming_deadline(const struct channel *channel, u64 htlc_id)
+{
+	struct htlc_in *hin;
+
+	hin = find_htlc_in(channel->peer->ld->htlcs_in, channel, htlc_id);
+	if (!hin) {
+		log_broken(channel->log, "No htlc IN %"PRIu64", using infinite deadline",
+			   htlc_id);
+		return infinite_block_deadline(channel->peer->ld->topology);
+	}
+
+	return hin->cltv_expiry - 1;
 }
 
 /* Create the onchain tx and tell onchaind about it */
@@ -849,6 +913,80 @@ static void handle_onchaind_spend_penalty(struct channel *channel,
 			  __func__);
 }
 
+static void handle_onchaind_spend_htlc_success(struct channel *channel,
+					       const u8 *msg)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct onchain_signing_info *info;
+	struct bitcoin_outpoint out;
+	struct amount_sat out_sats, fee;
+	u64 htlc_id;
+	u8 *htlc_wscript;
+	struct bitcoin_tx *tx;
+	u8 **witness;
+	struct bitcoin_signature sig;
+	const struct onchain_witness_element **welements;
+	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+
+	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
+	info->minblock = 0;
+
+	if (!fromwire_onchaind_spend_htlc_success(info, msg,
+						  &out, &out_sats, &fee,
+						  &htlc_id,
+						  &info->u.htlc_success.commit_num,
+						  &info->u.htlc_success.remote_htlc_sig,
+						  &info->u.htlc_success.preimage,
+						  &info->wscript,
+						  &htlc_wscript)) {
+		channel_internal_error(channel, "Invalid onchaind_spend_htlc_success %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* BOLT #3:
+	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
+	 */
+	tx = htlc_tx(NULL, chainparams, &out, info->wscript, out_sats, htlc_wscript, fee,
+		     0, anchor_outputs);
+	tal_free(htlc_wscript);
+	if (!tx) {
+		/* Can only happen if fee > out_sats */
+		channel_internal_error(channel, "Invalid onchaind_spend_htlc_success %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* FIXME: tell onchaind if HTLC is too small for current
+	 * feerate! */
+	info->deadline_block = htlc_incoming_deadline(channel, htlc_id);
+
+	/* Now sign, and set witness */
+	msg = sign_htlc_success(NULL, tx, info);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Writing sign request to hsm");
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
+		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
+
+	witness = bitcoin_witness_htlc_success_tx(NULL, &sig,
+						  &info->u.htlc_success.remote_htlc_sig,
+						  &info->u.htlc_success.preimage,
+						  info->wscript);
+	welements = onchain_witness_htlc_tx(tmpctx, witness);
+	bitcoin_tx_input_set_witness(tx, 0, take(witness));
+
+	log_debug(channel->log, "Broadcast for onchaind tx %s",
+		  type_to_string(tmpctx, struct bitcoin_tx, tx));
+	broadcast_tx(channel->peer->ld->topology,
+		     channel, take(tx), NULL, false,
+		     info->minblock, NULL,
+		     consider_onchain_htlc_tx_rebroadcast, take(info));
+
+	msg = towire_onchaind_spend_created(NULL, true, welements);
+	subd_send_msg(channel->owner, take(msg));
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchaind_wire t = fromwire_peektype(msg);
@@ -904,6 +1042,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_SPEND_PENALTY:
 		handle_onchaind_spend_penalty(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
+		handle_onchaind_spend_htlc_success(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

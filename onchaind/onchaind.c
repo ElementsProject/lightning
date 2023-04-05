@@ -550,14 +550,30 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 			    &keyset->other_htlc_key, remotesig);
 }
 
-static void set_htlc_success_fee(struct bitcoin_tx *tx,
-				 const struct bitcoin_signature *remotesig,
-				 const u8 *wscript)
+static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 {
 	static struct amount_sat fee = AMOUNT_SAT_INIT(UINT64_MAX);
-	struct amount_sat amt;
-	struct amount_asset asset;
 	size_t weight;
+	struct amount_msat htlc_amount;
+	struct bitcoin_tx *tx;
+
+	/* We only grind once, since they're all equiv. */
+	if (!amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX)))
+		return fee;
+
+	if (!amount_sat_to_msat(&htlc_amount, out->sat))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow in get_htlc_success_fee %s",
+			      type_to_string(tmpctx,
+					     struct amount_sat,
+					     &out->sat));
+	tx = htlc_success_tx(tmpctx, chainparams,
+			     &out->outpoint,
+			     out->wscript,
+			     htlc_amount,
+			     to_self_delay[LOCAL],
+			     0,
+			     keyset, option_anchor_outputs);
 
 	/* BOLT #3:
 	 *
@@ -574,45 +590,21 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		weight = 703;
 
 	weight += elements_tx_overhead(chainparams, 1, 1);
-	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
-		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, weight))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "htlc_success_fee can't be found "
-				      "for tx %s (weight %zu, feerate %u-%u), signature %s, wscript %s",
-				      type_to_string(tmpctx, struct bitcoin_tx,
-						     tx),
-				      weight,
-				      min_possible_feerate, max_possible_feerate,
-				      type_to_string(tmpctx,
-						     struct bitcoin_signature,
-						     remotesig),
-				      tal_hex(tmpctx, wscript));
-		return;
+	if (!grind_htlc_tx_fee(&fee, tx, out->remote_htlc_sig,
+			       out->wscript, weight)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "htlc_success_fee can't be found "
+			      "for tx %s (weight %zu, feerate %u-%u), signature %s, wscript %s",
+			      type_to_string(tmpctx, struct bitcoin_tx, tx),
+			      weight,
+			      min_possible_feerate, max_possible_feerate,
+			      type_to_string(tmpctx,
+					     struct bitcoin_signature,
+					     out->remote_htlc_sig),
+			      tal_hex(tmpctx, out->wscript));
 	}
 
-	asset = bitcoin_tx_output_get_amount(tx, 0);
-	assert(amount_asset_is_main(&asset));
-	amt = amount_asset_to_sat(&asset);
-
-	if (!amount_sat_sub(&amt, amt, fee))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Cannot deduct htlc-success fee %s from tx %s",
-			      type_to_string(tmpctx, struct amount_sat, &fee),
-			      type_to_string(tmpctx, struct bitcoin_tx, tx));
-	bitcoin_tx_output_set_amount(tx, 0, amt);
-	bitcoin_tx_finalize(tx);
-
-	if (check_tx_sig(tx, 0, NULL, wscript,
-			 &keyset->other_htlc_key, remotesig))
-		return;
-
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "htlc_success_fee %s failed sigcheck "
-		      " for tx %s, signature %s, wscript %s",
-		      type_to_string(tmpctx, struct amount_sat, &fee),
-		      type_to_string(tmpctx, struct bitcoin_tx, tx),
-		      type_to_string(tmpctx, struct bitcoin_signature, remotesig),
-		      tal_hex(tmpctx, wscript));
+	return fee;
 }
 
 static u8 *remote_htlc_to_us(const tal_t *ctx,
@@ -1745,14 +1737,12 @@ static void handle_preimage(struct tracked_output **outs,
 	size_t i;
 	struct sha256 sha;
 	struct ripemd160 ripemd;
-	u8 **witness;
 
 	sha256(&sha, preimage, sizeof(*preimage));
 	ripemd160(&ripemd, &sha, sizeof(sha));
 
 	for (i = 0; i < tal_count(outs); i++) {
 		struct bitcoin_tx *tx;
-		struct bitcoin_signature sig;
 
 		if (outs[i]->output_type != THEIR_HTLC)
 			continue;
@@ -1788,29 +1778,29 @@ static void handle_preimage(struct tracked_output **outs,
 		 *      HTLC-success transaction.
 		 */
 		if (outs[i]->remote_htlc_sig) {
-			struct amount_msat htlc_amount;
-			if (!amount_sat_to_msat(&htlc_amount, outs[i]->sat))
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Overflow in output %zu %s",
-					      i,
-					      type_to_string(tmpctx,
-							     struct amount_sat,
-							     &outs[i]->sat));
-			tx = htlc_success_tx(outs[i], chainparams,
-					     &outs[i]->outpoint,
-					     outs[i]->wscript,
-					     htlc_amount,
-					     to_self_delay[LOCAL],
-					     0,
-					     keyset, option_anchor_outputs);
-			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
-					     outs[i]->wscript);
-			hsm_sign_local_htlc_tx(tx, outs[i]->wscript, &sig);
-			witness = bitcoin_witness_htlc_success_tx(
-			    tx, &sig, outs[i]->remote_htlc_sig, preimage,
-			    outs[i]->wscript);
-			bitcoin_tx_input_set_witness(tx, 0, take(witness));
-			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
+			struct amount_sat fee;
+			const u8 *msg;
+			const u8 *htlc_wscript;
+
+			/* FIXME: lightningd could derive this itself? */
+			htlc_wscript = bitcoin_wscript_htlc_tx(tmpctx,
+							       to_self_delay[LOCAL],
+							       &keyset->self_revocation_key,
+							       &keyset->self_delayed_payment_key);
+
+			fee = get_htlc_success_fee(outs[i]);
+			msg = towire_onchaind_spend_htlc_success(NULL,
+								 &outs[i]->outpoint,
+								 outs[i]->sat,
+								 fee,
+								 outs[i]->htlc.id,
+								 commit_num,
+								 outs[i]->remote_htlc_sig,
+								 preimage,
+								 outs[i]->wscript,
+								 htlc_wscript);
+			propose_immediate_resolution(outs[i], take(msg),
+						     OUR_HTLC_SUCCESS_TX);
 		} else {
 			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
 
@@ -1969,6 +1959,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
 		case WIRE_ONCHAIND_SPEND_TO_US:
 		case WIRE_ONCHAIND_SPEND_PENALTY:
+		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
 			break;
 		}
 		master_badmsg(-1, msg);

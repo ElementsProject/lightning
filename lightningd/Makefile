@@ -99,6 +99,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/hsm_encryption.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
+	common/htlc_tx.o			\
 	common/htlc_wire.o			\
 	common/invoice_path_id.o		\
 	common/key_derive.o			\
