@@ -1500,11 +1500,14 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # l2 moves on for closed l3
     bitcoind.generate_block(1, wait_for_mempool=1)
     l2.daemon.wait_for_log('to ONCHAIN')
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 16 blocks')
 
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
-                                                   'OUR_UNILATERAL/THEIR_HTLC')
+    ((_, txid, blocks), (_, txid2, blocks2)) = \
+        l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                'OUR_UNILATERAL/THEIR_HTLC',
+                                'OUR_HTLC_TIMEOUT_TX',
+                                'OUR_UNILATERAL/OUR_HTLC')
     assert blocks == 0
+    assert blocks2 == 15
 
     bitcoind.generate_block(1, wait_for_mempool=txid)
     ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
@@ -1514,10 +1517,8 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # At depth 5, l2 reclaims both their DELAYED_OUTPUT_TO_US and their delayed output
     bitcoind.generate_block(4)
     bitcoind.generate_block(10, wait_for_mempool=2)
-    l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    bitcoind.generate_block(1, wait_for_mempool=txid2)
 
     # l3 comes back up, sees cheat, penalizes l2 (revokes the htlc they've offered;
     # notes that they've successfully claimed to_local and the fulfilled htlc)
@@ -2122,23 +2123,18 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
 
-    # Wait for timeout.
-    needle = l1.daemon.logsearch_start
-    l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 6 blocks')
-
     # Could happen any order.
-    l1.daemon.logsearch_start = needle
-    ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    assert blocks == 4
+    ((_, txid1, blocks1), (_, txid2, blocks2)) = \
+        l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
+                                'OUR_HTLC_TIMEOUT_TX',
+                                'OUR_UNILATERAL/OUR_HTLC')
+    assert blocks1 == 4
+    assert blocks2 == 5
 
     bitcoind.generate_block(4)
-
-    bitcoind.generate_block(1, wait_for_mempool=txid)
-    l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
-
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    bitcoind.generate_block(1, wait_for_mempool=txid1)
+    bitcoind.generate_block(1, wait_for_mempool=txid2)
     # After the first block it saw htlc_timeout_tx and planned this:
     ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                    'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
@@ -3161,13 +3157,13 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     # Could happen any order
-    needle = l2.daemon.logsearch_start
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) after 6 blocks')
-
-    l2.daemon.logsearch_start = needle
-    ((_, txid2, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                    'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    assert blocks == 4
+    ((_, _, blocks1), (_, txid2, blocks2)) = \
+        l2.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX',
+                                'OUR_UNILATERAL/OUR_HTLC',
+                                'OUR_DELAYED_RETURN_TO_WALLET',
+                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    assert blocks1 == 5
+    assert blocks2 == 4
 
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
     # l1 then gets preimage, uses it instead of ignoring

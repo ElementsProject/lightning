@@ -706,24 +706,6 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	return tx;
 }
 
-static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
-				   const u8 *wscript,
-				   struct bitcoin_signature *sig)
-{
-	u8 *msg = towire_hsmd_sign_local_htlc_tx(NULL, commit_num,
-						tx, wscript,
-						option_anchor_outputs);
-
-	if (!wire_sync_write(HSM_FD, take(msg)))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing sign_local_htlc_tx to hsm");
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, sig))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading sign_local_htlc_tx: %s",
-			      tal_hex(tmpctx, msg));
-}
-
 static void hsm_get_per_commitment_point(struct pubkey *per_commitment_point)
 {
 	u8 *msg = towire_hsmd_get_per_commitment_point(NULL, commit_num);
@@ -1960,6 +1942,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_SPEND_TO_US:
 		case WIRE_ONCHAIND_SPEND_PENALTY:
 		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
+		case WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT:
 		case WIRE_ONCHAIND_SPEND_FULFILL:
 			break;
 		}
@@ -2099,10 +2082,10 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					 u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx = NULL;
-	struct bitcoin_signature localsig;
 	size_t i;
+	struct amount_sat fee;
 	struct amount_msat htlc_amount;
-	u8 **witness;
+	const u8 *msg, *htlc_wscript;
 
 	if (!amount_sat_to_msat(&htlc_amount, out->sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2175,18 +2158,27 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 			      ? "option_anchor_outputs" : "");
 	}
 
-	hsm_sign_local_htlc_tx(tx, htlc_scripts[matches[i]], &localsig);
+	/* FIXME: lightningd could derive this itself? */
+	htlc_wscript = bitcoin_wscript_htlc_tx(tmpctx,
+					       to_self_delay[LOCAL],
+					       &keyset->self_revocation_key,
+					       &keyset->self_delayed_payment_key);
+	fee = bitcoin_tx_compute_fee(tx);
+	msg = towire_onchaind_spend_htlc_timeout(NULL,
+						 &out->outpoint,
+						 out->sat,
+						 fee,
+						 htlcs[matches[i]].id,
+						 htlcs[matches[i]].cltv_expiry,
+						 commit_num,
+						 out->remote_htlc_sig,
+						 htlc_scripts[matches[i]],
+						 htlc_wscript);
 
-	witness = bitcoin_witness_htlc_timeout_tx(tx, &localsig,
-						  out->remote_htlc_sig,
-						  htlc_scripts[matches[i]]);
-
-	bitcoin_tx_input_set_witness(tx, 0, take(witness));
-
-	/* Steals tx onto out */
-	propose_resolution_at_block(out, tx, htlcs[matches[i]].cltv_expiry,
-				    OUR_HTLC_TIMEOUT_TX);
-
+	propose_resolution_to_master(out, take(msg),
+				     /* nLocktime: we have to be *after* that block! */
+				     htlcs[matches[i]].cltv_expiry + 1,
+				     OUR_HTLC_TIMEOUT_TX);
 	return matches[i];
 }
 
