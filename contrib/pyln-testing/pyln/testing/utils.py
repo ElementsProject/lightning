@@ -1205,16 +1205,16 @@ class LightningNode(object):
         self.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
         assert(self.rpc.feerates('perkw')['perkw']['opening'] == rate)
 
-    def wait_for_onchaind_tx(self, *args):
+    def wait_for_onchaind_txs(self, *args):
         """Wait for onchaind to ask lightningd to create one or more txs.  Each arg is a pair of typename, resolvename.  Returns tuples of the rawtx, txid and number of blocks delay for each pair.
         """
         # Could happen in any order.
         needle = self.daemon.logsearch_start
         ret = ()
-        for i in range(0, len(args), 2):
+        for (name, resolve) in args:
             self.daemon.logsearch_start = needle
             r = self.daemon.wait_for_log('Telling lightningd about {} to resolve {}'
-                                         .format(args[i], args[i + 1]))
+                                         .format(name, resolve))
             blocks = int(re.search(r'\(([-0-9]*) more blocks\)', r).group(1))
 
             # The next 'Broadcast for onchaind' will be the tx.
@@ -1224,6 +1224,9 @@ class LightningNode(object):
             txid = self.bitcoin.rpc.decoderawtransaction(rawtx, True)['txid']
             ret = ret + ((rawtx, txid, blocks),)
         return ret
+
+    def wait_for_onchaind_tx(self, name, resolve):
+        return self.wait_for_onchaind_txs((name, resolve))[0]
 
     def wait_for_onchaind_broadcast(self, name, resolve=None):
         """Wait for onchaind to drop tx name to resolve (if any)"""
