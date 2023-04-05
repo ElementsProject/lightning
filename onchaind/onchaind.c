@@ -93,12 +93,9 @@ static u32 min_relay_feerate;
 
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
-	/* flag indicating we are a modern resolution, sent to lightningd. */
-	bool via_lightningd;
-	/* Obsolete: if we created tx ourselves: */
-	const struct bitcoin_tx *tx;
 	/* Once we had lightningd create tx, here's what it told us
 	 * witnesses were (we ignore sigs!). */
+	/* NULL if answer is to simply ignore it. */
 	const struct onchain_witness_element **welements;
 	/* Non-zero if this is CSV-delayed. */
 	u32 depth_required;
@@ -346,38 +343,6 @@ static void record_to_them_htlc_fulfilled(struct tracked_output *out,
 						     &out->payment_hash)));
 }
 
-static void record_ignored_wallet_deposit(struct tracked_output *out)
-{
-	struct bitcoin_outpoint outpoint;
-
-	/* FIXME: Would be clearer to omit the txid field, BUT the
-	 * tests seem to assume it's there, and things break */
-	if (!out->proposal->tx)
-		memset(&outpoint.txid, 0, sizeof(outpoint.txid));
-	else
-		bitcoin_txid(out->proposal->tx, &outpoint.txid);
-	/* Every spend tx we construct has a single output. */
-	outpoint.n = 0;
-
-	enum mvt_tag tag = TO_WALLET;
-	if (out->tx_type == OUR_HTLC_TIMEOUT_TX
-	    || out->tx_type == OUR_HTLC_SUCCESS_TX)
-		tag = HTLC_TX;
-	else if (out->tx_type == THEIR_REVOKED_UNILATERAL)
-		tag = PENALTY;
-	else if (out->tx_type == OUR_UNILATERAL
-		|| out->tx_type == THEIR_UNILATERAL) {
-		if (out->output_type == OUR_HTLC)
-			tag = HTLC_TIMEOUT;
-	}
-	if (out->output_type == DELAYED_OUTPUT_TO_US)
-		tag = CHANNEL_TO_US;
-
-	/* Record the in/out through the channel */
-	record_channel_deposit(out, out->tx_blockheight, tag);
-	record_channel_withdrawal(&outpoint.txid, out, 0, IGNORED);
-}
-
 static void record_anchor(struct tracked_output *out)
 {
 	enum mvt_tag *tags = new_tag_arr(NULL, ANCHOR);
@@ -391,7 +356,6 @@ static void record_anchor(struct tracked_output *out)
 
 static void record_coin_movements(struct tracked_output *out,
 				  u32 blockheight,
-				  const struct bitcoin_tx *tx,
 				  const struct bitcoin_txid *txid)
 {
 	/* For 'timeout' htlcs, we re-record them as a deposit
@@ -692,48 +656,11 @@ static void handle_spend_created(struct tracked_output *out, const u8 *msg)
 		ignore_output(out);
 }
 
-/* For old-style outputs where we've made our own txs. */
-static void proposal_meets_depth(struct tracked_output *out)
-{
-	assert(out->proposal);
-	/* If we simply wanted to ignore it after some depth */
-	if (!out->proposal->tx) {
-		ignore_output(out);
-
-		if (out->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
-			record_external_deposit(out, out->tx_blockheight,
-						HTLC_TIMEOUT);
-
-		return;
-	}
-
-	status_debug("Broadcasting %s (%s) to resolve %s/%s",
-		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(tmpctx, struct bitcoin_tx, out->proposal->tx),
-		     tx_type_name(out->tx_type),
-		     output_type_name(out->output_type));
-
-	wire_sync_write(
-	    REQ_FD,
-	    take(towire_onchaind_broadcast_tx(
-		 NULL, out->proposal->tx, false)));
-
-	/* Don't wait for this if we're ignoring the tiny payment. */
-	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {
-		ignore_output(out);
-		record_ignored_wallet_deposit(out);
-	}
-
-	/* Otherwise we will get a callback when it's in a block. */
-}
-
 static struct proposed_resolution *new_proposed_resolution(struct tracked_output *out,
 							   unsigned int block_required,
 							   enum tx_type tx_type)
 {
 	struct proposed_resolution *proposal = tal(out, struct proposed_resolution);
-	proposal->via_lightningd = true;
-	proposal->tx = NULL;
 	proposal->tx_type = tx_type;
 	proposal->depth_required = block_required - out->tx_blockheight;
 
@@ -801,68 +728,6 @@ static void propose_ignore(struct tracked_output *out,
 		ignore_output(out);
 }
 
-static bool is_valid_sig(const u8 *e)
-{
-	struct bitcoin_signature sig;
-	return signature_from_der(e, tal_count(e), &sig);
-}
-
-/* We ignore things which look like signatures. */
-static bool input_similar(const struct wally_tx_input *i1,
-			  const struct wally_tx_input *i2)
-{
-	u8 *s1, *s2;
-
-	if (!memeq(i1->txhash, WALLY_TXHASH_LEN, i2->txhash, WALLY_TXHASH_LEN))
-		return false;
-
-	if (i1->index != i2->index)
-		return false;
-
-	if (!scripteq(i1->script, i2->script))
-		return false;
-
-	if (i1->sequence != i2->sequence)
-		return false;
-
-	if (i1->witness->num_items != i2->witness->num_items)
-		return false;
-
-	for (size_t i = 0; i < i1->witness->num_items; i++) {
-		/* Need to wrap these in `tal_arr`s since the primitives
-		 * except to be able to call tal_bytelen on them */
-		s1 = tal_dup_arr(tmpctx, u8, i1->witness->items[i].witness,
-				 i1->witness->items[i].witness_len, 0);
-		s2 = tal_dup_arr(tmpctx, u8, i2->witness->items[i].witness,
-				 i2->witness->items[i].witness_len, 0);
-
-		if (scripteq(s1, s2))
-			continue;
-
-		if (is_valid_sig(s1) && is_valid_sig(s2))
-			continue;
-		return false;
-	}
-
-	return true;
-}
-
-static bool resolved_by_our_tx(const struct bitcoin_tx *tx,
-			       const struct tx_parts *tx_parts)
-{
-	/* Our proposal can change as feerates change.  Input
-	 * comparison (ignoring signatures) works pretty well. */
-	if (tal_count(tx_parts->inputs) != tx->wtx->num_inputs)
-		return false;
-
-	for (size_t i = 0; i < tal_count(tx_parts->inputs); i++) {
-		if (!input_similar(tx_parts->inputs[i],
-				   &tx->wtx->inputs[i]))
-			return false;
-	}
-	return true;
-}
-
 /* Do any of these tx_parts spend this outpoint?  If so, return it */
 static const struct wally_tx_input *
 which_input_spends(const struct tx_parts *tx_parts,
@@ -905,23 +770,17 @@ static bool onchain_witness_element_matches(const struct onchain_witness_element
 static bool resolved_by_proposal(struct tracked_output *out,
 				 const struct tx_parts *tx_parts)
 {
-	/* Old case: we made the tx ourselves, so we compare that. */
-	if (out->proposal->tx) {
-		if (!resolved_by_our_tx(out->proposal->tx, tx_parts))
-			return false;
-	} else {
-		const struct wally_tx_input *input;
+	const struct wally_tx_input *input;
 
-		/* If there's no TX associated, it's not us. */
-		if (!out->proposal->welements)
-			return false;
-		input = which_input_spends(tx_parts, &out->outpoint);
-		if (!input)
-			return false;
-		if (!onchain_witness_element_matches(out->proposal->welements,
-						     input))
-			return false;
-	}
+	/* If there's no TX associated, it's not us. */
+	if (!out->proposal->welements)
+		return false;
+
+	input = which_input_spends(tx_parts, &out->outpoint);
+	if (!input)
+		return false;
+	if (!onchain_witness_element_matches(out->proposal->welements, input))
+		return false;
 
 	out->resolved = tal(out, struct resolution);
 	out->resolved->txid = tx_parts->txid;
@@ -1369,7 +1228,6 @@ static void output_spent(struct tracked_output ***outs,
 						tx_blockheight);
 
 			record_coin_movements(out, tx_blockheight,
-					      out->proposal->tx,
 					      &tx_parts->txid);
 			return;
 		}
@@ -1560,10 +1418,6 @@ static void tx_new_depth(struct tracked_output **outs,
 	}
 
 	for (i = 0; i < tal_count(outs); i++) {
-		/* Update output depth. */
-		if (bitcoin_txid_eq(&outs[i]->outpoint.txid, txid))
-			outs[i]->depth = depth;
-
 		/* Is this tx resolving an output? */
 		if (outs[i]->resolved) {
 			if (bitcoin_txid_eq(&outs[i]->resolved->txid, txid)) {
@@ -1572,22 +1426,21 @@ static void tx_new_depth(struct tracked_output **outs,
 			continue;
 		}
 
-		/* Otherwise, is this something we have a pending
-		 * resolution for? */
-		if (outs[i]->proposal
-		    && bitcoin_txid_eq(&outs[i]->outpoint.txid, txid)
-		    && depth >= outs[i]->proposal->depth_required) {
-			if (outs[i]->proposal->via_lightningd) {
-				if (!outs[i]->proposal->welements) {
-					ignore_output(outs[i]);
+		/* Does it match this output? */
+		if (!bitcoin_txid_eq(&outs[i]->outpoint.txid, txid))
+			continue;
 
-					if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
-						record_external_deposit(outs[i], outs[i]->tx_blockheight,
-									HTLC_TIMEOUT);
-				}
-			} else {
-				proposal_meets_depth(outs[i]);
-			}
+		outs[i]->depth = depth;
+
+		/* Are we supposed to ignore it now? */
+		if (outs[i]->proposal
+		    && depth >= outs[i]->proposal->depth_required
+		    && !outs[i]->proposal->welements) {
+			ignore_output(outs[i]);
+
+			if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
+				record_external_deposit(outs[i], outs[i]->tx_blockheight,
+							HTLC_TIMEOUT);
 		}
 	}
 }
@@ -1833,7 +1686,6 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		/* We send these, not receive! */
 		case WIRE_ONCHAIND_INIT_REPLY:
-		case WIRE_ONCHAIND_BROADCAST_TX:
 		case WIRE_ONCHAIND_UNWATCH_TX:
 		case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
 		case WIRE_ONCHAIND_MISSING_HTLC_OUTPUT:
