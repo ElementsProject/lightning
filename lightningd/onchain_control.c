@@ -1285,7 +1285,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
 	int hsmfd;
-	u32 feerates[4];
 	enum state_change reason;
 
 	/* use REASON_ONCHAIN or closer's reason, if known */
@@ -1363,21 +1362,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				64,
 				&our_last_txid);
 
-	/* We try to get the feerate for each transaction type, 0 if estimation
-	 * failed. */
-	feerates[0] = delayed_to_us_feerate(ld->topology);
-	feerates[1] = htlc_resolution_feerate(ld->topology);
-	feerates[2] = penalty_feerate(ld->topology);
-	/* We check them separately but there is a high chance that if estimation
-	 * failed for one, it failed for all.. */
-	for (size_t i = 0; i < 3; i++) {
-		if (!feerates[i])
-			feerates[i] = tx_feerate(channel->last_tx);
-	}
-	/* This is 10x highest bitcoind estimate (depending on dev-max-fee-multiplier),
-	 * so cap at 2x */
-	feerates[3] = feerate_max(ld, NULL) / 5;
-
 	log_debug(channel->log, "channel->static_remotekey_start[LOCAL] %"PRIu64,
 		  channel->static_remotekey_start[LOCAL]);
 
@@ -1396,8 +1380,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				    * we specify theirs. */
 				  channel->channel_info.their_config.to_self_delay,
 				  channel->our_config.to_self_delay,
-				  /* delayed_to_us, htlc, penalty, and penalty_max. */
-				  feerates[0], feerates[1], feerates[2], feerates[3],
 				  channel->our_config.dust_limit,
 				  &our_last_txid,
 				  channel->shutdown_scriptpubkey[LOCAL],

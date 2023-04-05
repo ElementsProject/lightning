@@ -38,15 +38,6 @@ static const struct pubkey *remote_per_commitment_point;
 /* The commitment number we're dealing with (if not mutual close) */
 static u64 commit_num;
 
-/* The feerate for the transaction spending our delayed output. */
-static u32 delayed_to_us_feerate;
-
-/* The feerate for transactions spending HTLC outputs. */
-static u32 htlc_feerate;
-
-/* The feerate for transactions spending from revoked transactions. */
-static u32 penalty_feerate, max_penalty_feerate;
-
 /* Min and max feerates we ever used */
 static u32 min_possible_feerate, max_possible_feerate;
 
@@ -3457,10 +3448,6 @@ int main(int argc, char *argv[])
 				   &remote_per_commit_point,
 				   &to_self_delay[LOCAL],
 				   &to_self_delay[REMOTE],
-				   &delayed_to_us_feerate,
-				   &htlc_feerate,
-				   &penalty_feerate,
-				   &max_penalty_feerate,
 				   &dust_limit,
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
@@ -3488,9 +3475,6 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_ONCHAIND_INIT, msg);
 	}
 
-	status_debug("delayed_to_us_feerate = %u, htlc_feerate = %u, "
-		     "penalty_feerate = %u", delayed_to_us_feerate,
-		     htlc_feerate, penalty_feerate);
 	/* We need to keep tx around, but there's only one: not really a leak */
 	tal_steal(ctx, notleak(tx));
 
