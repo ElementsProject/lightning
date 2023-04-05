@@ -282,80 +282,6 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	tal_free(mvt);
 }
 
-/** handle_onchain_broadcast_rbf_tx_cb
- *
- * @brief suppresses the rebroadcast of a
- * transaction.
- *
- * @desc when using the `bitcoin_tx` function,
- * if a callback is not given, the transaction
- * will be rebroadcast automatically by
- * chaintopology.
- * However, in the case of an RBF transaction
- * from `onchaind`, `onchaind` will periodically
- * create a new, higher-fee replacement, thus
- * `onchaind` will trigger rebroadcast (with a
- * higher fee) by itself, which the `lightningd`
- * chaintopology should not repeat.
- * This callback exists to suppress the
- * rebroadcast behavior of chaintopology.
- *
- * @param channel - the channel for which the
- * transaction was broadcast.
- * @param success - whether the tx was broadcast.
- * @param err - the error received from the
- * underlying sendrawtx.
- */
-static void handle_onchain_broadcast_rbf_tx_cb(struct channel *channel,
-					       bool success,
-					       const char *err)
-{
-	/* Victory is boring.  */
-	if (success)
-		return;
-
-	/* Failure is unusual but not broken: it is possible that just
-	 * as we were about to broadcast, a new block came in which
-	 * contains a previous version of the transaction, thus
-	 * causing the higher-fee replacement to fail broadcast.
-	 *
-	 * ...or it could be a bug in onchaind which prevents it from
-	 * successfully RBFing out the transaction, in which case we
-	 * should log it for devs to check.
-	 */
-	log_unusual(channel->log,
-		    "Broadcast of RBF tx failed, "
-		    "did a new block just come in? "
-		    "error: %s",
-		    err);
-}
-
-static void handle_onchain_broadcast_tx(struct channel *channel,
-					const u8 *msg)
-{
-	struct bitcoin_tx *tx;
-	struct wallet *w = channel->peer->ld->wallet;
-	bool is_rbf;
-
-	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &is_rbf)) {
-		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
-		return;
-	}
-
-	tx->chainparams = chainparams;
-
-	wallet_transaction_add(w, tx->wtx, 0, 0);
-
-	/* We don't really care if it fails, we'll respond via watch. */
-	/* If the onchaind signals this as RBF-able, then we also
-	 * set allowhighfees, as the transaction may be RBFed into
-	 * high feerates as protection against the MAD-HTLC attack.  */
-	broadcast_tx(channel->peer->ld->topology, channel,
-		     tx, NULL, is_rbf, 0,
-		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL,
-		     NULL, NULL);
-}
-
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_txid txid;
@@ -1252,10 +1178,6 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	switch (t) {
 	case WIRE_ONCHAIND_INIT_REPLY:
 		handle_onchain_init_reply(sd->channel, msg);
-		break;
-
-	case WIRE_ONCHAIND_BROADCAST_TX:
-		handle_onchain_broadcast_tx(sd->channel, msg);
 		break;
 
 	case WIRE_ONCHAIND_UNWATCH_TX:
