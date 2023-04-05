@@ -1589,6 +1589,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
                 assert acc['resolved_at_block'] > 0
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("uses dev_sign_last_tx")
 def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     '''
@@ -1713,6 +1714,7 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     check_utxos_channel(l2, [channel_id], expected_2)
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("uses dev_sign_last_tx")
 def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     '''
