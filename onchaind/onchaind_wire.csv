@@ -139,3 +139,24 @@ msgdata,onchaind_annotate_txin,type,enum wallet_tx_type,
 
 msgtype,onchaind_notify_coin_mvt,5037
 msgdata,onchaind_notify_coin_mvt,mvt,chain_coin_mvt,
+
+# We tell lightningd to create, sign and broadcast this tx: 
+msgtype,onchaind_spend_to_us,5040
+msgdata,onchaind_spend_to_us,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_to_us,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_to_us,minblock,u32,
+msgdata,onchaind_spend_to_us,commit_num,u64,
+msgdata,onchaind_spend_to_us,wscript_len,u32,
+msgdata,onchaind_spend_to_us,wscript,u8,wscript_len
+
+subtype,onchain_witness_element
+subtypedata,onchain_witness_element,is_signature,bool,
+subtypedata,onchain_witness_element,len,u32,
+subtypedata,onchain_witness_element,witness,u8,len
+
+# lightningd replies; if it considers it uneconomic, it tells onchaind
+# so it doesn't wait forever!
+msgtype,onchaind_spend_created,5140
+msgdata,onchaind_spend_created,expect_to_succeed,bool,
+msgdata,onchaind_spend_created,num_witnesses,u32,
+msgdata,onchaind_spend_created,witness,onchain_witness_element,num_witnesses
