@@ -183,6 +183,20 @@ msgdata,onchaind_spend_fulfill,preimage,preimage,
 msgdata,onchaind_spend_fulfill,wscript_len,u32,
 msgdata,onchaind_spend_fulfill,wscript,u8,wscript_len
 
+# We tell lightningd to create, sign and broadcast this htlc_timeout tx: 
+msgtype,onchaind_spend_htlc_timeout,5044
+msgdata,onchaind_spend_htlc_timeout,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_htlc_timeout,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_htlc_timeout,fee,amount_sat,
+msgdata,onchaind_spend_htlc_timeout,htlc_id,u64,
+msgdata,onchaind_spend_htlc_timeout,cltv_expiry,u32,
+msgdata,onchaind_spend_htlc_timeout,commit_num,u64,
+msgdata,onchaind_spend_htlc_timeout,remote_htlc_sig,bitcoin_signature,
+msgdata,onchaind_spend_htlc_timeout,wscript_len,u32,
+msgdata,onchaind_spend_htlc_timeout,wscript,u8,wscript_len
+msgdata,onchaind_spend_htlc_timeout,htlc_wscript_len,u32,
+msgdata,onchaind_spend_htlc_timeout,htlc_wscript,u8,htlc_wscript_len
+
 subtype,onchain_witness_element
 subtypedata,onchain_witness_element,is_signature,bool,
 subtypedata,onchain_witness_element,len,u32,

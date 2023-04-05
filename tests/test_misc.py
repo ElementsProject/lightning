@@ -357,15 +357,16 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     # L1 will timeout HTLC immediately
-    needle = l1.daemon.logsearch_start
-    l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 0 blocks')
-    l1.daemon.logsearch_start = needle
-    ((_, _, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    assert blocks == 4
+    ((_, _, blocks1), (_, txid, blocks2)) = \
+        l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
+                                'OUR_HTLC_TIMEOUT_TX',
+                                'OUR_UNILATERAL/OUR_HTLC')
+    assert blocks1 == 4
+    # We hit deadline (we give 1 block grace), then mined another.
+    assert blocks2 == -2
 
-    l1.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=txid)
 
     ((rawtx, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                        'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
