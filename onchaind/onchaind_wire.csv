@@ -173,6 +173,16 @@ msgdata,onchaind_spend_htlc_success,wscript,u8,wscript_len
 msgdata,onchaind_spend_htlc_success,htlc_wscript_len,u32,
 msgdata,onchaind_spend_htlc_success,htlc_wscript,u8,htlc_wscript_len
 
+# We tell lightningd to create, sign and broadcast this HTLC redepmtion: 
+msgtype,onchaind_spend_fulfill,5043
+msgdata,onchaind_spend_fulfill,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_fulfill,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_fulfill,htlc_id,u64,
+msgdata,onchaind_spend_fulfill,remote_per_commitment_point,pubkey,
+msgdata,onchaind_spend_fulfill,preimage,preimage,
+msgdata,onchaind_spend_fulfill,wscript_len,u32,
+msgdata,onchaind_spend_fulfill,wscript,u8,wscript_len
+
 subtype,onchain_witness_element
 subtypedata,onchain_witness_element,is_signature,bool,
 subtypedata,onchain_witness_element,len,u32,

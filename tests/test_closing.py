@@ -2382,15 +2382,16 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     l2.daemon.wait_for_log('THEIR_UNILATERAL/THEIR_HTLC')
 
     # l2 should fulfill HTLC onchain, immediately
-    l2.wait_for_onchaind_broadcast('THEIR_HTLC_FULFILL_TO_US',
-                                   'THEIR_UNILATERAL/THEIR_HTLC')
+    ((_, txid2, blocks),) = l2.wait_for_onchaind_tx('THEIR_HTLC_FULFILL_TO_US',
+                                                    'THEIR_UNILATERAL/THEIR_HTLC')
+    assert blocks == 0
 
     ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                    'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
 
     # Payment should succeed.
-    l1.bitcoin.generate_block(1)
+    l1.bitcoin.generate_block(1, wait_for_mempool=txid2)
     l1.daemon.wait_for_log('OUR_UNILATERAL/OUR_HTLC gave us preimage')
     err = q.get(timeout=10)
     if err:
@@ -3164,17 +3165,17 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) after 6 blocks')
 
     l2.daemon.logsearch_start = needle
-    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    ((_, txid2, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                    'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
 
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
     # l1 then gets preimage, uses it instead of ignoring
-    l1.wait_for_onchaind_broadcast('THEIR_HTLC_FULFILL_TO_US',
-                                   'THEIR_UNILATERAL/THEIR_HTLC')
-
+    ((_, txid1, blocks),) = l1.wait_for_onchaind_tx('THEIR_HTLC_FULFILL_TO_US',
+                                                    'THEIR_UNILATERAL/THEIR_HTLC')
+    assert blocks == 0
     # l2 sees l1 fulfill tx.
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=txid1)
 
     l2.daemon.wait_for_log('OUR_UNILATERAL/OUR_HTLC gave us preimage')
     t.cancel()
@@ -3183,7 +3184,7 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     bitcoind.generate_block(3)
 
     # Now, 100 blocks they should be done.
-    bitcoind.generate_block(95, txid)
+    bitcoind.generate_block(95, txid2)
     sync_blockheight(bitcoind, [l1, l2])
     assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
     assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
