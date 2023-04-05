@@ -64,8 +64,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET intval=? WHERE name=?;"));
 	db_bind_int(stmt, 0, val);
 	db_bind_text(stmt, 1, varname);
-	if (!db_exec_prepared_v2(stmt))
-		db_fatal("Error executing update: %s", stmt->error);
+	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
 	tal_free(stmt);
 
@@ -73,8 +72,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, intval) VALUES (?, ?);"));
 		db_bind_text(stmt, 0, varname);
 		db_bind_int(stmt, 1, val);
-		if (!db_exec_prepared_v2(stmt))
-			db_fatal("Error executing insert: %s", stmt->error);
+		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
 }
