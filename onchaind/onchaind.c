@@ -2,6 +2,7 @@
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/asort/asort.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/htlc_tx.h>
@@ -91,8 +92,13 @@ static u32 min_relay_feerate;
 
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
-	/* This can be NULL if our proposal is to simply ignore it after depth */
+	/* flag indicating we are a modern resolution, sent to lightningd. */
+	bool via_lightningd;
+	/* Obsolete: if we created tx ourselves: */
 	const struct bitcoin_tx *tx;
+	/* Once we had lightningd create tx, here's what it told us
+	 * witnesses were (we ignore sigs!). */
+	const struct onchain_witness_element **welements;
 	/* Non-zero if this is CSV-delayed. */
 	u32 depth_required;
 	enum tx_type tx_type;
@@ -343,8 +349,13 @@ static void record_ignored_wallet_deposit(struct tracked_output *out)
 {
 	struct bitcoin_outpoint outpoint;
 
+	/* FIXME: Would be clearer to omit the txid field, BUT the
+	 * tests seem to assume it's there, and things break */
+	if (!out->proposal->tx)
+		memset(&outpoint.txid, 0, sizeof(outpoint.txid));
+	else
+		bitcoin_txid(out->proposal->tx, &outpoint.txid);
 	/* Every spend tx we construct has a single output. */
-	bitcoin_txid(out->proposal->tx, &outpoint.txid);
 	outpoint.n = 0;
 
 	enum mvt_tag tag = TO_WALLET;
@@ -1134,6 +1145,24 @@ static void proposal_should_rbf(struct tracked_output *out)
 	}
 }
 
+static void handle_spend_created(struct tracked_output *out, const u8 *msg)
+{
+	struct onchain_witness_element **witness;
+	bool worthwhile;
+
+	if (!fromwire_onchaind_spend_created(tmpctx, msg, &worthwhile, &witness))
+		master_badmsg(WIRE_ONCHAIND_SPEND_CREATED, msg);
+
+	out->proposal->welements
+		= cast_const2(const struct onchain_witness_element **,
+			      tal_steal(out->proposal, witness));
+
+	/* Did it decide it's not worth it?  Don't wait for it. */
+	if (!worthwhile)
+		ignore_output(out);
+}
+
+/* For old-style outputs where we've made our own txs. */
 static void proposal_meets_depth(struct tracked_output *out)
 {
 	assert(out->proposal);
@@ -1173,7 +1202,7 @@ static void proposal_meets_depth(struct tracked_output *out)
 }
 
 static void propose_resolution(struct tracked_output *out,
-			       const struct bitcoin_tx *tx,
+			       const struct bitcoin_tx *tx STEALS,
 			       unsigned int depth_required,
 			       enum tx_type tx_type)
 {
@@ -1186,6 +1215,8 @@ static void propose_resolution(struct tracked_output *out,
 
 	out->proposal = tal(out, struct proposed_resolution);
 	out->proposal->tx = tal_steal(out->proposal, tx);
+	out->proposal->via_lightningd = false;
+	out->proposal->welements = NULL;
 	out->proposal->depth_required = depth_required;
 	out->proposal->tx_type = tx_type;
 
@@ -1194,7 +1225,7 @@ static void propose_resolution(struct tracked_output *out,
 }
 
 static void propose_resolution_at_block(struct tracked_output *out,
-					const struct bitcoin_tx *tx,
+					const struct bitcoin_tx *tx STEALS,
 					unsigned int block_required,
 					enum tx_type tx_type)
 {
@@ -1206,6 +1237,36 @@ static void propose_resolution_at_block(struct tracked_output *out,
 	else /* Note that out->tx_blockheight is already at depth 1 */
 		depth = block_required - out->tx_blockheight + 1;
 	propose_resolution(out, tx, depth, tx_type);
+}
+
+/* Modern style: we don't create tx outselves, but tell lightningd. */
+static void UNNEEDED propose_resolution_to_master(struct tracked_output *out,
+					 const u8 *send_message TAKES,
+					 unsigned int block_required,
+					 enum tx_type tx_type)
+{
+	/* i.e. we want this in @block_required, so it will be broadcast by
+	 * lightningd after it sees @block_required - 1. */
+	status_debug("Telling lightningd about %s to resolve %s/%s"
+		     " after block %u (%i more blocks)",
+		     tx_type_name(tx_type),
+		     tx_type_name(out->tx_type),
+		     output_type_name(out->output_type),
+		     block_required - 1, block_required - 1 - out->tx_blockheight);
+
+	out->proposal = tal(out, struct proposed_resolution);
+	out->proposal->via_lightningd = true;
+	out->proposal->tx = NULL;
+	out->proposal->welements = NULL;
+	out->proposal->tx_type = tx_type;
+	out->proposal->depth_required = block_required - out->tx_blockheight;
+
+	wire_sync_write(REQ_FD, send_message);
+
+	/* Get reply now: if we're replaying, tx could be included before we
+	 * tell lightningd about it, so we need to recognize it! */
+	handle_spend_created(out,
+			     queue_until_msg(tmpctx, WIRE_ONCHAIND_SPEND_CREATED));
 }
 
 static bool is_valid_sig(const u8 *e)
@@ -1254,22 +1315,79 @@ static bool input_similar(const struct wally_tx_input *i1,
 	return true;
 }
 
-/* This simple case: true if this was resolved by our proposal. */
-static bool resolved_by_proposal(struct tracked_output *out,
-				 const struct tx_parts *tx_parts)
+static bool resolved_by_our_tx(const struct bitcoin_tx *tx,
+			       const struct tx_parts *tx_parts)
 {
-	/* If there's no TX associated, it's not us. */
-	if (!out->proposal->tx)
-		return false;
-
 	/* Our proposal can change as feerates change.  Input
 	 * comparison (ignoring signatures) works pretty well. */
-	if (tal_count(tx_parts->inputs) != out->proposal->tx->wtx->num_inputs)
+	if (tal_count(tx_parts->inputs) != tx->wtx->num_inputs)
 		return false;
 
 	for (size_t i = 0; i < tal_count(tx_parts->inputs); i++) {
 		if (!input_similar(tx_parts->inputs[i],
-				   &out->proposal->tx->wtx->inputs[i]))
+				   &tx->wtx->inputs[i]))
+			return false;
+	}
+	return true;
+}
+
+/* Do any of these tx_parts spend this outpoint?  If so, return it */
+static const struct wally_tx_input *
+which_input_spends(const struct tx_parts *tx_parts,
+		   const struct bitcoin_outpoint *outpoint)
+{
+	for (size_t i = 0; i < tal_count(tx_parts->inputs); i++) {
+		struct bitcoin_outpoint o;
+		if (!tx_parts->inputs[i])
+			continue;
+		wally_tx_input_get_outpoint(tx_parts->inputs[i], &o);
+		if (!bitcoin_outpoint_eq(&o, outpoint))
+			continue;
+		return tx_parts->inputs[i];
+	}
+	return NULL;
+}
+
+/* Does this tx input's witness match the witness we expected? */
+static bool onchain_witness_element_matches(const struct onchain_witness_element **welements,
+					    const struct wally_tx_input *input)
+{
+	const struct wally_tx_witness_stack *stack = input->witness;
+	if (stack->num_items != tal_count(welements))
+		return false;
+	for (size_t i = 0; i < stack->num_items; i++) {
+		/* Don't compare signatures: they can change with
+		 * other details */
+		if (welements[i]->is_signature)
+			continue;
+		if (!memeq(stack->items[i].witness,
+			   stack->items[i].witness_len,
+			   welements[i]->witness,
+			   tal_bytelen(welements[i]->witness)))
+			return false;
+	}
+	return true;
+}
+
+/* This simple case: true if this was resolved by our proposal. */
+static bool resolved_by_proposal(struct tracked_output *out,
+				 const struct tx_parts *tx_parts)
+{
+	/* Old case: we made the tx ourselves, so we compare that. */
+	if (out->proposal->tx) {
+		if (!resolved_by_our_tx(out->proposal->tx, tx_parts))
+			return false;
+	} else {
+		const struct wally_tx_input *input;
+
+		/* If there's no TX associated, it's not us. */
+		if (!out->proposal->welements)
+			return false;
+		input = which_input_spends(tx_parts, &out->outpoint);
+		if (!input)
+			return false;
+		if (!onchain_witness_element_matches(out->proposal->welements,
+						     input))
 			return false;
 	}
 
@@ -1399,9 +1517,17 @@ static size_t num_not_irrevocably_resolved(struct tracked_output **outs)
 	return num;
 }
 
+/* If a tx spends @out, and is CSV delayed by @delay, what's the first
+ * block it can get into? */
+static u32 rel_blockheight(const struct tracked_output *out, u32 delay)
+{
+	return out->tx_blockheight + delay;
+}
+
+/* What is the first block that the proposal can get into? */
 static u32 prop_blockheight(const struct tracked_output *out)
 {
-	return out->tx_blockheight + out->proposal->depth_required;
+	return rel_blockheight(out, out->proposal->depth_required);
 }
 
 static void billboard_update(struct tracked_output **outs)
@@ -1925,6 +2051,7 @@ static void tx_new_depth(struct tracked_output **outs,
 		/* Otherwise, is this something we have a pending
 		 * resolution for? */
 		if (outs[i]->proposal
+		    && !outs[i]->proposal->via_lightningd
 		    && bitcoin_txid_eq(&outs[i]->outpoint.txid, txid)
 		    && depth >= outs[i]->proposal->depth_required) {
 			proposal_meets_depth(outs[i]);
