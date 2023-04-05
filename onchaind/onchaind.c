@@ -614,14 +614,6 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		      tal_hex(tmpctx, wscript));
 }
 
-static u8 *delayed_payment_to_us(const tal_t *ctx,
-				 struct bitcoin_tx *tx,
-				 const u8 *wscript)
-{
-	return towire_hsmd_sign_delayed_payment_to_us(ctx, commit_num,
-						     tx, wscript);
-}
-
 static u8 *remote_htlc_to_us(const tal_t *ctx,
 			     struct bitcoin_tx *tx,
 			     const u8 *wscript)
@@ -2739,9 +2731,8 @@ static void our_unilateral_to_us(struct tracked_output ***outs,
 				 const u8 *local_scriptpubkey,
 				 const u8 *local_wscript)
 {
-	struct bitcoin_tx *to_us;
 	struct tracked_output *out;
-	enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
+	const u8 *msg;
 
 	/* BOLT #5:
 	 *
@@ -2760,26 +2751,21 @@ static void our_unilateral_to_us(struct tracked_output ***outs,
 				 amt,
 				 DELAYED_OUTPUT_TO_US,
 				 NULL, NULL, NULL);
-	/* BOLT #3:
-	 *
-	 * The output is spent by an input with
-	 * `nSequence` field set to `to_self_delay` (which can
-	 * only be valid after that duration has passed) and
-	 * witness:
-	 *
-	 *	<local_delayedsig> <>
-	 */
-	to_us = tx_to_us(out, delayed_payment_to_us, out,
-			 sequence, 0, NULL, 0,
-			 local_wscript, &tx_type,
-			 delayed_to_us_feerate);
+
+	msg = towire_onchaind_spend_to_us(NULL,
+					  outpoint, amt,
+					  rel_blockheight(out, to_self_delay[LOCAL]),
+					  commit_num,
+					  local_wscript);
 
 	/* BOLT #5:
 	 *
 	 * Note: if the output is spent (as recommended), the
 	 * output is *resolved* by the spending transaction
 	 */
-	propose_resolution(out, to_us, sequence, tx_type);
+	propose_resolution_to_master(out, take(msg),
+				     rel_blockheight(out, to_self_delay[LOCAL]),
+				     OUR_DELAYED_RETURN_TO_WALLET);
 }
 
 static void handle_our_unilateral(const struct tx_parts *tx,
