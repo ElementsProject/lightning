@@ -3782,9 +3782,11 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
 
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    bitcoind.generate_block(100)
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    assert blocks == 0
+
+    bitcoind.generate_block(100, wait_for_mempool=txid)
     # This works even if they disconnect and listpeerchannels() is empty:
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
@@ -3807,9 +3809,11 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
 
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    bitcoind.generate_block(100)
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    assert blocks == 0
+
+    bitcoind.generate_block(100, wait_for_mempool=txid)
     # This works even if they disconnect and listpeers() is empty:
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 

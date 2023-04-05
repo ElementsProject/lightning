@@ -546,6 +546,10 @@ struct onchain_signing_info {
 		struct {
 			u64 commit_num;
 		} htlc_timedout;
+		/* WIRE_ONCHAIND_SPEND_PENALTY */
+		struct {
+			struct secret remote_per_commitment_secret;
+		} spend_penalty;
 	} u;
 };
 
@@ -576,6 +580,19 @@ static u8 *sign_tx_to_us(const tal_t *ctx,
 							  0,
 							  &info->channel->peer->id,
 							  info->channel->dbid);
+}
+
+static u8 *sign_penalty(const tal_t *ctx,
+			const struct bitcoin_tx *tx,
+			const struct onchain_signing_info *info)
+{
+	assert(info->msgtype == WIRE_ONCHAIND_SPEND_PENALTY);
+	return towire_hsmd_sign_any_penalty_to_us(ctx,
+						  &info->u.spend_penalty.remote_per_commitment_secret,
+						  tx, info->wscript,
+						  0,
+						  &info->channel->peer->id,
+						  info->channel->dbid);
 }
 
 /* Matches bitcoin_witness_sig_and_element! */
@@ -791,6 +808,47 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 			  __func__);
 }
 
+static void handle_onchaind_spend_penalty(struct channel *channel,
+					  const u8 *msg)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct onchain_signing_info *info;
+	struct bitcoin_outpoint out;
+	struct amount_sat out_sats;
+	u32 initial_feerate;
+	u8 *stack_elem;
+
+	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_PENALTY);
+	/* We can always spend penalty txs immediately */
+	info->minblock = 0;
+	if (!fromwire_onchaind_spend_penalty(info, msg,
+					     &out, &out_sats,
+					     &info->u.spend_penalty.remote_per_commitment_secret,
+					     &stack_elem,
+					     &info->wscript)) {
+		channel_internal_error(channel, "Invalid onchaind_spend_penalty %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+	/* info->stack_elem is const void * */
+	info->stack_elem = stack_elem;
+
+	/* FIXME: Be more sophisticated! */
+	initial_feerate = penalty_feerate(ld->topology);
+	if (!initial_feerate)
+		initial_feerate = tx_feerate(channel->last_tx);
+
+	/* FIXME: deadline for HTLCs is actually a bit longer, but for
+	 * their output it's channel->our_config.to_self_delay after
+	 * the commitment tx is mined. */
+	info->deadline_block = *channel->close_blockheight
+		+ channel->our_config.to_self_delay;
+	create_onchain_tx(channel, &out, out_sats,
+			  0, 0,
+			  initial_feerate, sign_penalty, info,
+			  __func__);
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchaind_wire t = fromwire_peektype(msg);
@@ -842,6 +900,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_SPEND_TO_US:
 		handle_onchaind_spend_to_us(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_SPEND_PENALTY:
+		handle_onchaind_spend_penalty(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

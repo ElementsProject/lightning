@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
@@ -624,14 +625,6 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 						 option_anchor_outputs);
 }
 
-static u8 *penalty_to_us(const tal_t *ctx,
-			 struct bitcoin_tx *tx,
-			 const u8 *wscript)
-{
-	return towire_hsmd_sign_penalty_to_us(ctx, remote_per_commitment_secret,
-					     tx, wscript);
-}
-
 /*
  * This covers:
  * 1. to-us output spend (`<local_delayedsig> 0`)
@@ -925,6 +918,17 @@ static void propose_resolution_to_master(struct tracked_output *out,
 	 * tell lightningd about it, so we need to recognize it! */
 	handle_spend_created(out,
 			     queue_until_msg(tmpctx, WIRE_ONCHAIND_SPEND_CREATED));
+}
+
+/* Create and broadcast this tx now */
+static void propose_immediate_resolution(struct tracked_output *out,
+					 const u8 *send_message TAKES,
+					 enum tx_type tx_type)
+{
+	/* We add 1 to blockheight (meaning you can broadcast it now) to avoid
+	 * having to check for < 0 in various places we print messages */
+	propose_resolution_to_master(out, send_message, out->tx_blockheight+1,
+				     tx_type);
 }
 
 static bool is_valid_sig(const u8 *e)
@@ -1417,11 +1421,10 @@ static void steal_htlc_tx(struct tracked_output *out,
 			  enum tx_type htlc_tx_type,
 			  const struct bitcoin_outpoint *htlc_outpoint)
 {
-	struct bitcoin_tx *tx;
-	enum tx_type tx_type = OUR_PENALTY_TX;
 	struct tracked_output *htlc_out;
 	struct amount_asset asset;
 	struct amount_sat htlc_out_amt;
+	const u8 *msg;
 
 	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[REMOTE],
 					      &keyset->self_revocation_key,
@@ -1437,22 +1440,23 @@ static void steal_htlc_tx(struct tracked_output *out,
 				      htlc_out_amt,
 				      DELAYED_CHEAT_OUTPUT_TO_THEM,
 				      &out->htlc, wscript, NULL);
+
+	/* mark commitment tx htlc output as 'resolved by them' */
+	resolved_by_other(out, &htlc_tx->txid, htlc_tx_type);
+
 	/* BOLT #3:
 	 *
 	 * To spend this via penalty, the remote node uses a witness stack
 	 * `<revocationsig> 1`
 	 */
-	tx = tx_to_us(htlc_out, penalty_to_us, htlc_out,
-		      BITCOIN_TX_RBF_SEQUENCE, 0,
-		      &ONE, sizeof(ONE),
-		      htlc_out->wscript,
-		      &tx_type, penalty_feerate);
+	msg = towire_onchaind_spend_penalty(NULL,
+					    htlc_outpoint, htlc_out_amt,
+					    remote_per_commitment_secret,
+					    tal_dup(tmpctx, u8, &ONE),
+					    htlc_out->wscript);
 
-	/* mark commitment tx htlc output as 'resolved by them' */
-	resolved_by_other(out, &htlc_tx->txid, htlc_tx_type);
-
-	/* annnd done! */
-	propose_resolution(htlc_out, tx, 0, tx_type);
+	/* Spend this immediately. */
+	propose_immediate_resolution(htlc_out, take(msg), OUR_PENALTY_TX);
 }
 
 static void onchain_annotate_txout(const struct bitcoin_outpoint *outpoint,
@@ -1964,6 +1968,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_ANNOTATE_TXIN:
 		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
 		case WIRE_ONCHAIND_SPEND_TO_US:
+		case WIRE_ONCHAIND_SPEND_PENALTY:
 			break;
 		}
 		master_badmsg(-1, msg);
@@ -2753,9 +2758,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
  * delay */
 static void steal_to_them_output(struct tracked_output *out, u32 csv)
 {
-	u8 *wscript;
-	struct bitcoin_tx *tx;
-	enum tx_type tx_type = OUR_PENALTY_TX;
+	const u8 *wscript, *msg;
 
 	/* BOLT #3:
 	 *
@@ -2768,16 +2771,19 @@ static void steal_to_them_output(struct tracked_output *out, u32 csv)
 					   &keyset->self_revocation_key,
 					   &keyset->self_delayed_payment_key);
 
-	tx = tx_to_us(tmpctx, penalty_to_us, out, BITCOIN_TX_RBF_SEQUENCE, 0,
-		      &ONE, sizeof(ONE), wscript, &tx_type, penalty_feerate);
+	msg = towire_onchaind_spend_penalty(NULL,
+					    &out->outpoint, out->sat,
+					    remote_per_commitment_secret,
+					    tal_dup(tmpctx, u8, &ONE),
+					    wscript);
 
-	propose_resolution(out, tx, 0, tx_type);
+	/* Spend this immediately. */
+	propose_immediate_resolution(out, take(msg), OUR_PENALTY_TX);
 }
 
 static void steal_htlc(struct tracked_output *out)
 {
-	struct bitcoin_tx *tx;
-	enum tx_type tx_type = OUR_PENALTY_TX;
+	const u8 *msg;
 	u8 der[PUBKEY_CMPR_LEN];
 
 	/* BOLT #3:
@@ -2788,11 +2794,15 @@ static void steal_htlc(struct tracked_output *out)
 	 *     <revocation_sig> <revocationpubkey>
 	 */
 	pubkey_to_der(der, &keyset->self_revocation_key);
-	tx = tx_to_us(out, penalty_to_us, out, BITCOIN_TX_RBF_SEQUENCE, 0,
-		      der, sizeof(der), out->wscript, &tx_type,
-		      penalty_feerate);
 
-	propose_resolution(out, tx, 0, tx_type);
+	msg = towire_onchaind_spend_penalty(NULL,
+					    &out->outpoint, out->sat,
+					    remote_per_commitment_secret,
+					    tal_dup_arr(tmpctx, u8, der, ARRAY_SIZE(der), 0),
+					    out->wscript);
+
+	/* Spend this immediately. */
+	propose_immediate_resolution(out, take(msg), OUR_PENALTY_TX);
 }
 
 /* Tell wallet that we have discovered a UTXO from a to-remote output,
