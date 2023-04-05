@@ -115,4 +115,14 @@ u8 *htlc_offered_wscript(const tal_t *ctx,
 			 const struct keyset *keyset,
 			 bool option_anchor_outputs);
 
+/* Low-level HTLC tx creator */
+struct bitcoin_tx *htlc_tx(const tal_t *ctx,
+			   const struct chainparams *chainparams,
+			   const struct bitcoin_outpoint *commit,
+			   const u8 *commit_wscript,
+			   struct amount_sat amount,
+			   const u8 *htlc_tx_wscript,
+			   struct amount_sat htlc_fee,
+			   u32 locktime,
+			   bool option_anchor_outputs);
 #endif /* LIGHTNING_COMMON_HTLC_TX_H */
