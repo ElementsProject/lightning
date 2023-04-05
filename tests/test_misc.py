@@ -427,9 +427,10 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
 
     # L2 will collect HTLC (iff no shadow route)
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    ((_, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                                   'OUR_UNILATERAL/THEIR_HTLC')
+    assert blocks == 0
+    bitcoind.generate_block(1, wait_for_mempool=txid)
     ((rawtx, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                        'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
