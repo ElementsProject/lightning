@@ -557,6 +557,11 @@ struct onchain_signing_info {
 			struct bitcoin_signature remote_htlc_sig;
 			struct preimage preimage;
 		} htlc_success;
+		/* WIRE_ONCHAIND_SPEND_FULFILL */
+		struct {
+			struct pubkey remote_per_commitment_point;
+			struct preimage preimage;
+		} fulfill;
 	} u;
 };
 
@@ -616,6 +621,22 @@ static u8 *sign_htlc_success(const tal_t *ctx,
 						  0,
 						  &info->channel->peer->id,
 						  info->channel->dbid);
+}
+
+static u8 *sign_fulfill(const tal_t *ctx,
+			const struct bitcoin_tx *tx,
+			const struct onchain_signing_info *info)
+{
+	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+
+	assert(info->msgtype == WIRE_ONCHAIND_SPEND_FULFILL);
+	return towire_hsmd_sign_any_remote_htlc_to_us(ctx,
+						      &info->u.fulfill.remote_per_commitment_point,
+						      tx, info->wscript,
+						      anchor_outputs,
+						      0,
+						      &info->channel->peer->id,
+						      info->channel->dbid);
 }
 
 /* Matches bitcoin_witness_sig_and_element! */
@@ -913,6 +934,51 @@ static void handle_onchaind_spend_penalty(struct channel *channel,
 			  __func__);
 }
 
+static void handle_onchaind_spend_fulfill(struct channel *channel,
+					  const u8 *msg)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct onchain_signing_info *info;
+	struct bitcoin_outpoint out;
+	struct amount_sat out_sats;
+	struct preimage preimage;
+	u32 initial_feerate;
+	u64 htlc_id;
+	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+
+	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_FULFILL);
+	info->minblock = 0;
+
+	if (!fromwire_onchaind_spend_fulfill(info, msg,
+					     &out, &out_sats,
+					     &htlc_id,
+					     &info->u.fulfill.remote_per_commitment_point,
+					     &preimage,
+					     &info->wscript)) {
+		channel_internal_error(channel, "Invalid onchaind_spend_fulfill %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+	info->stack_elem = tal_dup(info, struct preimage, &preimage);
+
+	/* FIXME: Be more sophisticated! */
+	initial_feerate = htlc_resolution_feerate(ld->topology);
+	if (!initial_feerate)
+		initial_feerate = tx_feerate(channel->last_tx);
+
+	info->deadline_block = htlc_incoming_deadline(channel, htlc_id);
+	/* BOLT #3:
+	 *
+	 * Note that if `option_anchors` applies, the nSequence field of
+	 * the spending input must be `1`.
+	 */
+	create_onchain_tx(channel, &out, out_sats,
+			  anchor_outputs ? 1 : 0,
+			  0,
+			  initial_feerate, sign_fulfill, info,
+			  __func__);
+}
+
 static void handle_onchaind_spend_htlc_success(struct channel *channel,
 					       const u8 *msg)
 {
@@ -1046,6 +1112,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
 		handle_onchaind_spend_htlc_success(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_SPEND_FULFILL:
+		handle_onchaind_spend_fulfill(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

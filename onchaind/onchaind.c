@@ -1742,7 +1742,7 @@ static void handle_preimage(struct tracked_output **outs,
 	ripemd160(&ripemd, &sha, sizeof(sha));
 
 	for (i = 0; i < tal_count(outs); i++) {
-		struct bitcoin_tx *tx;
+		const u8 *msg;
 
 		if (outs[i]->output_type != THEIR_HTLC)
 			continue;
@@ -1779,7 +1779,6 @@ static void handle_preimage(struct tracked_output **outs,
 		 */
 		if (outs[i]->remote_htlc_sig) {
 			struct amount_sat fee;
-			const u8 *msg;
 			const u8 *htlc_wscript;
 
 			/* FIXME: lightningd could derive this itself? */
@@ -1802,8 +1801,6 @@ static void handle_preimage(struct tracked_output **outs,
 			propose_immediate_resolution(outs[i], take(msg),
 						     OUR_HTLC_SUCCESS_TX);
 		} else {
-			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
-
 			/* BOLT #5:
 			 *
 			 * ## HTLC Output Handling: Remote Commitment, Remote
@@ -1817,13 +1814,16 @@ static void handle_preimage(struct tracked_output **outs,
 			 *    - MUST *resolve* the output by spending it to a
 			 *      convenient address.
 			 */
-			tx = tx_to_us(outs[i], remote_htlc_to_us, outs[i],
-				      option_anchor_outputs ? 1 : 0,
-				      0, preimage, sizeof(*preimage),
-				      outs[i]->wscript, &tx_type,
-				      htlc_feerate);
-			propose_resolution(outs[i], tx, 0, tx_type);
+			msg = towire_onchaind_spend_fulfill(NULL,
+							    &outs[i]->outpoint,
+							    outs[i]->sat,
+							    outs[i]->htlc.id,
+							    remote_per_commitment_point,
+							    preimage,
+							    outs[i]->wscript);
 
+			propose_immediate_resolution(outs[i], take(msg),
+						     THEIR_HTLC_FULFILL_TO_US);
 		}
 	}
 }
@@ -1960,6 +1960,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_SPEND_TO_US:
 		case WIRE_ONCHAIND_SPEND_PENALTY:
 		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
+		case WIRE_ONCHAIND_SPEND_FULFILL:
 			break;
 		}
 		master_badmsg(-1, msg);
