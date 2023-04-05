@@ -159,6 +159,20 @@ msgdata,onchaind_spend_penalty,stack_elem,u8,stack_elem_len
 msgdata,onchaind_spend_penalty,wscript_len,u32,
 msgdata,onchaind_spend_penalty,wscript,u8,wscript_len
 
+# We tell lightningd to create, sign and broadcast this htlc_success tx: 
+msgtype,onchaind_spend_htlc_success,5042
+msgdata,onchaind_spend_htlc_success,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_htlc_success,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_htlc_success,fee,amount_sat,
+msgdata,onchaind_spend_htlc_success,htlc_id,u64,
+msgdata,onchaind_spend_htlc_success,commit_num,u64,
+msgdata,onchaind_spend_htlc_success,remote_htlc_sig,bitcoin_signature,
+msgdata,onchaind_spend_htlc_success,preimage,preimage,
+msgdata,onchaind_spend_htlc_success,wscript_len,u32,
+msgdata,onchaind_spend_htlc_success,wscript,u8,wscript_len
+msgdata,onchaind_spend_htlc_success,htlc_wscript_len,u32,
+msgdata,onchaind_spend_htlc_success,htlc_wscript,u8,htlc_wscript_len
+
 subtype,onchain_witness_element
 subtypedata,onchain_witness_element,is_signature,bool,
 subtypedata,onchain_witness_element,len,u32,
