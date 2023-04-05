@@ -171,7 +171,7 @@ bool db_step(struct db_stmt *stmt)
 	return ret;
 }
 
-bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
+void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	bool ret = stmt->db->config->exec_fn(stmt);
 
@@ -191,8 +191,6 @@ bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 
 	if (taken(stmt))
 	    tal_free(stmt);
-
-	return ret;
 }
 
 size_t db_count_changes(struct db_stmt *stmt)

@@ -127,15 +127,9 @@ static bool test_primitives(void)
 
 	db_begin_transaction(db);
 	stmt = db_prepare_v2(db, SQL("SELECT name FROM sqlite_master WHERE type='table';"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
-
-	stmt = db_prepare_v2(db, SQL("not a valid SQL statement"));
-	CHECK_MSG(!db_exec_prepared_v2(stmt), "db_exec_prepared must fail");
-	CHECK_MSG(db_err, "Failing SQL command");
-	tal_free(stmt);
-	db_err = tal_free(db_err);
 
 	/* We didn't migrate the DB, so don't have the vars table. Pretend we
 	 * didn't change anything so we don't bump the data_version. */
@@ -184,12 +178,12 @@ static bool test_manip_columns(void)
 				     "  id BIGSERIAL"
 				     ", field1 INTEGER"
 				     ", PRIMARY KEY (id))"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO tablea (id, field1) VALUES (0, 1);"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 
@@ -197,22 +191,22 @@ static bool test_manip_columns(void)
 				     "   id REFERENCES tablea(id) ON DELETE CASCADE"
 				     ",  field1 INTEGER"
 				     ",  field2 INTEGER);"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO tableb (id, field1, field2) VALUES (0, 1, 2);"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 
 	/* Needs vars table, since this changes db. */
 	stmt = db_prepare_v2(db, SQL("CREATE TABLE vars (name VARCHAR(32), intval);"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 	stmt = db_prepare_v2(db, SQL("INSERT INTO vars VALUES ('data_version', 0);"));
-	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	db_exec_prepared_v2(stmt);
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
 

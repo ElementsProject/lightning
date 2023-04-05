@@ -34,7 +34,7 @@ bool db_step(struct db_stmt *stmt);
  *
  * @stmt: The prepared statement to execute
  */
-bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
+void db_exec_prepared_v2(struct db_stmt *stmt TAKES);
 
 /**
  * db_query_prepared -- Execute a prepared query
