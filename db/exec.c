@@ -25,7 +25,7 @@ int db_get_version(struct db *db)
 	 * table that doesn't exist yet, so we need to terminate and restart
 	 * the DB transaction.
 	 */
-	if (!db_query_prepared(stmt)) {
+	if (!db_query_prepared_canfail(stmt)) {
 		db_commit_transaction(stmt->db);
 		db_begin_transaction(stmt->db);
 		tal_free(stmt);
@@ -45,7 +45,7 @@ u32 db_data_version_get(struct db *db)
 	u32 version;
 	stmt = db_prepare_v2(db, SQL("SELECT intval FROM vars WHERE name = 'data_version'"));
 	/* postgres will act upset if the table doesn't exist yet. */
-	if (!db_query_prepared(stmt)) {
+	if (!db_query_prepared_canfail(stmt)) {
 		tal_free(stmt);
 		return 0;
 	}
@@ -85,7 +85,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("SELECT intval FROM vars WHERE name= ? LIMIT 1"));
 	db_bind_text(stmt, 0, varname);
-	if (db_query_prepared(stmt) && db_step(stmt))
+	if (db_query_prepared_canfail(stmt) && db_step(stmt))
 		res = db_col_int(stmt, "intval");
 
 	tal_free(stmt);
