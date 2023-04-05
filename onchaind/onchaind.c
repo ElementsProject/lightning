@@ -2178,6 +2178,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		/* Unexpected messages */
 		case WIRE_ONCHAIND_INIT:
 		case WIRE_ONCHAIND_HTLCS:
+		case WIRE_ONCHAIND_SPEND_CREATED:
 
 		/* We send these, not receive! */
 		case WIRE_ONCHAIND_INIT_REPLY:
@@ -2192,6 +2193,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_ANNOTATE_TXOUT:
 		case WIRE_ONCHAIND_ANNOTATE_TXIN:
 		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
+		case WIRE_ONCHAIND_SPEND_TO_US:
 			break;
 		}
 		master_badmsg(-1, msg);
