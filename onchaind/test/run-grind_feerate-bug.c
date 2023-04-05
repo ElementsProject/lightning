@@ -243,9 +243,6 @@ void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 /* Generated stub for towire_hsmd_get_per_commitment_point */
 u8 *towire_hsmd_get_per_commitment_point(const tal_t *ctx UNNEEDED, u64 n UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_per_commitment_point called!\n"); abort(); }
-/* Generated stub for towire_hsmd_sign_delayed_payment_to_us */
-u8 *towire_hsmd_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_sign_delayed_payment_to_us called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_penalty_to_us */
 u8 *towire_hsmd_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_penalty_to_us called!\n"); abort(); }
@@ -285,6 +282,9 @@ u8 *towire_onchaind_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct 
 /* Generated stub for towire_onchaind_notify_coin_mvt */
 u8 *towire_onchaind_notify_coin_mvt(const tal_t *ctx UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "towire_onchaind_notify_coin_mvt called!\n"); abort(); }
+/* Generated stub for towire_onchaind_spend_penalty */
+u8 *towire_onchaind_spend_penalty(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, const struct secret *remote_per_commitment_secret UNNEEDED, const u8 *stack_elem UNNEEDED, const u8 *wscript UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_spend_penalty called!\n"); abort(); }
 /* Generated stub for towire_onchaind_spend_to_us */
 u8 *towire_onchaind_spend_to_us(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, u32 minblock UNNEEDED, u64 commit_num UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_onchaind_spend_to_us called!\n"); abort(); }
