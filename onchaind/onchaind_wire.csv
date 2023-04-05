@@ -149,6 +149,16 @@ msgdata,onchaind_spend_to_us,commit_num,u64,
 msgdata,onchaind_spend_to_us,wscript_len,u32,
 msgdata,onchaind_spend_to_us,wscript,u8,wscript_len
 
+# We tell lightningd to create, sign and broadcast this penalty tx: 
+msgtype,onchaind_spend_penalty,5041
+msgdata,onchaind_spend_penalty,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_penalty,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_penalty,remote_per_commitment_secret,secret,
+msgdata,onchaind_spend_penalty,stack_elem_len,u16,
+msgdata,onchaind_spend_penalty,stack_elem,u8,stack_elem_len
+msgdata,onchaind_spend_penalty,wscript_len,u32,
+msgdata,onchaind_spend_penalty,wscript,u8,wscript_len
+
 subtype,onchain_witness_element
 subtypedata,onchain_witness_element,is_signature,bool,
 subtypedata,onchain_witness_element,len,u32,

@@ -582,22 +582,22 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
 
     # l2 should spend all of the outputs (except to-us).
     # Could happen in any order, depending on commitment tx.
-    needle = l2.daemon.logsearch_start
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    l2.daemon.logsearch_start = needle
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
+    ((_, txid1, blocks1), (_, txid2, blocks2)) = \
+        l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM',
+                                'OUR_PENALTY_TX',
+                                'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
+    assert blocks1 == 0
+    assert blocks2 == 0
 
     # FIXME: test HTLC tx race!
 
-    bitcoind.generate_block(100)
+    bitcoind.generate_block(100, wait_for_mempool=[txid1, txid2])
 
     sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
     # Do one last pass over the logs to extract the reactions l2 sent
-    l2.daemon.logsearch_start = needle
     needles = [
         # The first needle will match, but since we don't have a direct output
         # for l2 it won't result in an output, hence the comment:
@@ -708,11 +708,13 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # l2 should spend all of the outputs (except to-us).
     # Could happen in any order, depending on commitment tx.
     needle = l2.daemon.logsearch_start
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    l2.daemon.logsearch_start = needle
-    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'THEIR_REVOKED_UNILATERAL/OUR_HTLC')
+    ((_, txid1, blocks1), (_, txid2, blocks2)) = \
+        l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM',
+                                'OUR_PENALTY_TX',
+                                'THEIR_REVOKED_UNILATERAL/OUR_HTLC')
+    assert blocks1 == 0
+    assert blocks2 == 0
 
     l2.daemon.logsearch_start = needle
     l2.daemon.wait_for_log('Ignoring output.*: THEIR_REVOKED_UNILATERAL/OUTPUT_TO_US')
@@ -720,7 +722,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # FIXME: test HTLC tx race!
 
     # 100 blocks later, all resolved.
-    bitcoind.generate_block(100)
+    bitcoind.generate_block(100, wait_for_mempool=[txid1, txid2])
 
     sync_blockheight(bitcoind, [l1, l2])
     peer = only_one(l2.rpc.listpeers()["peers"])
@@ -1316,15 +1318,19 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     # notes that they've successfully claimed to_local and the fulfilled htlc)
     l3.start()
     sync_blockheight(bitcoind, [l3])
-    l3.daemon.wait_for_logs(['Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX',
-                             'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM '
-                             'by OUR_PENALTY_TX',
-                             'Resolved THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_HTLC_FULFILL_TO_THEM',
-                             'Propose handling OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM'
-                             ' by OUR_PENALTY_TX'])
-    l3.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
-                                   'OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    bitcoind.generate_block(1)
+
+    txids = []
+    for (_, txid, blocks) in l3.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                                     'THEIR_REVOKED_UNILATERAL/OUR_HTLC',
+                                                     'OUR_PENALTY_TX',
+                                                     'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM',
+                                                     'OUR_PENALTY_TX',
+                                                     'OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM'):
+        assert blocks == 0
+        txids.append(txid)
+
+    # First one is already spent by their fulfill attempt
+    bitcoind.generate_block(1, wait_for_mempool=txids[1:])
     l3.daemon.wait_for_log('Resolved OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM '
                            'by our proposal OUR_PENALTY_TX')
     l2.daemon.wait_for_log('Unknown spend of OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
@@ -1518,31 +1524,34 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # notes that they've successfully claimed to_local and the fulfilled htlc)
     l3.start()
     sync_blockheight(bitcoind, [l3])
-    l3.daemon.wait_for_logs(['Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX',
-                             'Propose handling THEIR_REVOKED_UNILATERAL/THEIR_HTLC by OUR_PENALTY_TX',
-                             'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM '
-                             'by OUR_PENALTY_TX',
+
+    txids = []
+    for (_, txid, blocks) in l3.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                                     'THEIR_REVOKED_UNILATERAL/OUR_HTLC',
+                                                     'OUR_PENALTY_TX',
+                                                     'THEIR_REVOKED_UNILATERAL/THEIR_HTLC',
+                                                     'OUR_PENALTY_TX',
+                                                     'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM',
+                                                     'OUR_PENALTY_TX',
+                                                     'OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM',
+                                                     'OUR_PENALTY_TX',
+                                                     'THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM'):
+        assert blocks == 0
+        txids.append(txid)
+
+    # Unfortunately, only the last one succeeds, since they already took the rest!
+    bitcoind.generate_block(1, wait_for_mempool=txids[-1])
+    # And they resolve (intermingled with the above in some cases)
+    l3.daemon.logsearch_start = 0
+    l3.daemon.wait_for_logs(['Resolved THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM '
+                             'by our proposal OUR_PENALTY_TX',
                              'Resolved THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_HTLC_FULFILL_TO_THEM',
-                             'Propose handling OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM'
-                             ' by OUR_PENALTY_TX',
                              'Resolved OUR_HTLC_FULFILL_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM '
                              'by THEIR_DELAYED_CHEAT',
                              'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM '
                              'by THEIR_DELAYED_CHEAT',
-                             'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM',
-                             'Propose handling THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM by OUR_PENALTY_TX'])
+                             'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM'])
 
-    # Make sure we've broadcast the tx we expect (other channels shutting down can create
-    # unrelated txs!)
-
-    # In theory this could have occurred before all the previous loglines appeared.
-    l3.daemon.logsearch_start = 0
-    line = l3.daemon.wait_for_log(r'Broadcasting OUR_PENALTY_TX \([0-9a-f]*\) to resolve THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM')
-    tx = re.search(r'\(([0-9a-f]*)\)', line).group(1)
-    txid = bitcoind.rpc.decoderawtransaction(tx)['txid']
-    bitcoind.generate_block(1, wait_for_mempool=[txid])
-    l3.daemon.wait_for_log('Resolved THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM '
-                           'by our proposal OUR_PENALTY_TX')
     l2.daemon.wait_for_log('Unknown spend of OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
 
     # 100 blocks later, l3+l2 are both done
