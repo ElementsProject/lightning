@@ -281,9 +281,6 @@ u8 *towire_onchaind_annotate_txin(const tal_t *ctx UNNEEDED, const struct bitcoi
 /* Generated stub for towire_onchaind_annotate_txout */
 u8 *towire_onchaind_annotate_txout(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, enum wallet_tx_type type UNNEEDED)
 { fprintf(stderr, "towire_onchaind_annotate_txout called!\n"); abort(); }
-/* Generated stub for towire_onchaind_broadcast_tx */
-u8 *towire_onchaind_broadcast_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, bool is_rbf UNNEEDED)
-{ fprintf(stderr, "towire_onchaind_broadcast_tx called!\n"); abort(); }
 /* Generated stub for towire_onchaind_dev_memleak_reply */
 u8 *towire_onchaind_dev_memleak_reply(const tal_t *ctx UNNEEDED, bool leak UNNEEDED)
 { fprintf(stderr, "towire_onchaind_dev_memleak_reply called!\n"); abort(); }
