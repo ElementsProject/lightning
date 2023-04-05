@@ -248,6 +248,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	/* closer not yet known */
 	channel->closer = NUM_SIDES;
+	channel->close_blockheight = NULL;
 
 	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
 	 * | 222/223 | `option_dual_fund`
@@ -523,6 +524,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	list_head_init(&channel->inflights);
 
 	channel->closer = closer;
+	channel->close_blockheight = NULL;
 	channel->state_change_cause = reason;
 
 	/* Make sure we see any spends using this key */
