@@ -59,6 +59,9 @@ bool fromwire_onchaind_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, s
 /* Generated stub for fromwire_onchaind_known_preimage */
 bool fromwire_onchaind_known_preimage(const void *p UNNEEDED, struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_known_preimage called!\n"); abort(); }
+/* Generated stub for fromwire_onchaind_spend_created */
+bool fromwire_onchaind_spend_created(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, bool *expect_to_succeed UNNEEDED, struct onchain_witness_element ***witness UNNEEDED)
+{ fprintf(stderr, "fromwire_onchaind_spend_created called!\n"); abort(); }
 /* Generated stub for fromwire_onchaind_spent */
 bool fromwire_onchaind_spent(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct tx_parts **tx UNNEEDED, u32 *input_num UNNEEDED, u32 *blockheight UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_spent called!\n"); abort(); }
