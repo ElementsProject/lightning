@@ -197,6 +197,17 @@ msgdata,onchaind_spend_htlc_timeout,wscript,u8,wscript_len
 msgdata,onchaind_spend_htlc_timeout,htlc_wscript_len,u32,
 msgdata,onchaind_spend_htlc_timeout,htlc_wscript,u8,htlc_wscript_len
 
+# We tell lightningd to create, sign and broadcast this tx to collect our
+# expired htlc in their unilateral close: 
+msgtype,onchaind_spend_htlc_expired,5045
+msgdata,onchaind_spend_htlc_expired,outpoint,bitcoin_outpoint,
+msgdata,onchaind_spend_htlc_expired,outpoint_amount,amount_sat,
+msgdata,onchaind_spend_htlc_expired,htlc_id,u64,
+msgdata,onchaind_spend_htlc_expired,cltv_expiry,u32,
+msgdata,onchaind_spend_htlc_expired,remote_per_commitment_point,pubkey,
+msgdata,onchaind_spend_htlc_expired,wscript_len,u32,
+msgdata,onchaind_spend_htlc_expired,wscript,u8,wscript_len
+
 subtype,onchain_witness_element
 subtypedata,onchain_witness_element,is_signature,bool,
 subtypedata,onchain_witness_element,len,u32,

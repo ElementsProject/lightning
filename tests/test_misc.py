@@ -293,14 +293,15 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     l1.start()
 
     assert l1.daemon.is_in_log(r'Loaded 1 HTLC signatures from DB')
-    l1.daemon.wait_for_logs([
-        r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent',
-        r'Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US'
-    ])
+
+    # Could happen in either order!
+    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent')
+
+    ((_, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TO_US',
+                                                   'THEIR_UNILATERAL/OUR_HTLC')
+    assert blocks == 5
     bitcoind.generate_block(5)
-    l1.daemon.wait_for_log("Broadcasting OUR_HTLC_TIMEOUT_TO_US")
-    time.sleep(3)
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=txid)
     l1.daemon.wait_for_logs([
         r'Owning output . (\d+)sat .SEGWIT. txid',
     ])

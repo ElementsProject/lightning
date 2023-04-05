@@ -567,6 +567,10 @@ struct onchain_signing_info {
 			struct pubkey remote_per_commitment_point;
 			struct preimage preimage;
 		} fulfill;
+		/* WIRE_ONCHAIND_SPEND_HTLC_EXPIRED */
+		struct {
+			struct pubkey remote_per_commitment_point;
+		} htlc_expired;
 	} u;
 };
 
@@ -653,6 +657,22 @@ static u8 *sign_fulfill(const tal_t *ctx,
 	assert(info->msgtype == WIRE_ONCHAIND_SPEND_FULFILL);
 	return towire_hsmd_sign_any_remote_htlc_to_us(ctx,
 						      &info->u.fulfill.remote_per_commitment_point,
+						      tx, info->wscript,
+						      anchor_outputs,
+						      0,
+						      &info->channel->peer->id,
+						      info->channel->dbid);
+}
+
+static u8 *sign_htlc_expired(const tal_t *ctx,
+			     const struct bitcoin_tx *tx,
+			     const struct onchain_signing_info *info)
+{
+	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+
+	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_EXPIRED);
+	return towire_hsmd_sign_any_remote_htlc_to_us(ctx,
+						      &info->u.htlc_expired.remote_per_commitment_point,
 						      tx, info->wscript,
 						      anchor_outputs,
 						      0,
@@ -1172,6 +1192,59 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	subd_send_msg(channel->owner, take(msg));
 }
 
+static void handle_onchaind_spend_htlc_expired(struct channel *channel,
+					       const u8 *msg)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct onchain_signing_info *info;
+	struct bitcoin_outpoint out;
+	struct amount_sat out_sats;
+	u64 htlc_id;
+	u32 cltv_expiry, initial_feerate;
+	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+
+	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_EXPIRED);
+
+	/* BOLT #5:
+	 *
+	 * ## HTLC Output Handling: Remote Commitment, Local Offers
+	 * ...
+	 *
+	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
+	 *     been *resolved*:
+	 *     - MUST *resolve* the output, by spending it to a convenient
+	 *       address.
+	 */
+	info->stack_elem = NULL;
+
+	if (!fromwire_onchaind_spend_htlc_expired(info, msg,
+						  &out, &out_sats,
+						  &htlc_id,
+						  &cltv_expiry,
+						  &info->u.htlc_expired.remote_per_commitment_point,
+						  &info->wscript)) {
+		channel_internal_error(channel, "Invalid onchaind_spend_htlc_expired %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* nLocktime: we have to be *after* that block! */
+	info->minblock = cltv_expiry + 1;
+
+	/* FIXME: Be more sophisticated! */
+	initial_feerate = htlc_resolution_feerate(ld->topology);
+	if (!initial_feerate)
+		initial_feerate = tx_feerate(channel->last_tx);
+
+	/* We have to spend it before we can close incoming */
+	info->deadline_block = htlc_outgoing_incoming_deadline(channel, htlc_id);
+	create_onchain_tx(channel, &out, out_sats,
+			  anchor_outputs ? 1 : 0,
+			  cltv_expiry,
+			  initial_feerate, sign_htlc_expired, info,
+			  __func__);
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchaind_wire t = fromwire_peektype(msg);
@@ -1239,6 +1312,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_SPEND_FULFILL:
 		handle_onchaind_spend_fulfill(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_SPEND_HTLC_EXPIRED:
+		handle_onchaind_spend_htlc_expired(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

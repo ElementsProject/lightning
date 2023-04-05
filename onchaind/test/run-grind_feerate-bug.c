@@ -211,9 +211,6 @@ void towire_ext_key(u8 **pptr UNNEEDED, const struct ext_key *bip32 UNNEEDED)
 /* Generated stub for towire_hsmd_get_per_commitment_point */
 u8 *towire_hsmd_get_per_commitment_point(const tal_t *ctx UNNEEDED, u64 n UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_per_commitment_point called!\n"); abort(); }
-/* Generated stub for towire_hsmd_sign_remote_htlc_to_us */
-u8 *towire_hsmd_sign_remote_htlc_to_us(const tal_t *ctx UNNEEDED, const struct pubkey *remote_per_commitment_point UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, bool option_anchor_outputs UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_sign_remote_htlc_to_us called!\n"); abort(); }
 /* Generated stub for towire_htlc_stub */
 void towire_htlc_stub(u8 **pptr UNNEEDED, const struct htlc_stub *htlc_stub UNNEEDED)
 { fprintf(stderr, "towire_htlc_stub called!\n"); abort(); }
