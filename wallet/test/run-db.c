@@ -222,7 +222,7 @@ static bool test_manip_columns(void)
 	CHECK(db->config->delete_columns(db, "tableb", &field1, 1));
 
 	stmt = db_prepare_v2(db, SQL("SELECT id, field1a FROM tablea;"));
-	CHECK_MSG(db_query_prepared(stmt), "db_query_prepared must succeed");
+	CHECK_MSG(db_query_prepared_canfail(stmt), "db_query_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	CHECK(db_step(stmt));
 	CHECK(db_col_u64(stmt, "id") == 0);
@@ -231,7 +231,7 @@ static bool test_manip_columns(void)
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(db, SQL("SELECT id, field2 FROM tableb;"));
-	CHECK_MSG(db_query_prepared(stmt), "db_query_prepared must succeed");
+	CHECK_MSG(db_query_prepared_canfail(stmt), "db_query_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	CHECK(db_step(stmt));
 	CHECK(db_col_u64(stmt, "id") == 0);
@@ -245,7 +245,7 @@ static bool test_manip_columns(void)
 	db_begin_transaction(db);
 	/* This will actually fail */
 	stmt = db_prepare_v2(db, SQL("SELECT field1 FROM tablea;"));
-	CHECK_MSG(!db_query_prepared(stmt), "db_query_prepared must fail");
+	CHECK_MSG(!db_query_prepared_canfail(stmt), "db_query_prepared must fail");
 	db->dirty = false;
 	db->changes = tal_arr(db, const char *, 0);
 	db_commit_transaction(db);
@@ -253,7 +253,7 @@ static bool test_manip_columns(void)
 	db_begin_transaction(db);
 	/* This will actually fail */
 	stmt = db_prepare_v2(db, SQL("SELECT field1 FROM tableb;"));
-	CHECK_MSG(!db_query_prepared(stmt), "db_query_prepared must fail");
+	CHECK_MSG(!db_query_prepared_canfail(stmt), "db_query_prepared must fail");
 	db->dirty = false;
 	db->changes = tal_arr(db, const char *, 0);
 	db_commit_transaction(db);
