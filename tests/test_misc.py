@@ -363,12 +363,14 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log('Propose handling OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    ((rawtx, txid, blocks),) = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                       'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
     bitcoind.generate_block(4)
+
     # It should now claim both the to-local and htlc-timeout-tx outputs.
     l1.daemon.wait_for_logs(['Broadcasting OUR_DELAYED_RETURN_TO_WALLET',
-                             'Broadcasting OUR_DELAYED_RETURN_TO_WALLET',
-                             'sendrawtx exit 0',
+                             'sendrawtx exit 0.*{}'.format(rawtx),
                              'sendrawtx exit 0'])
 
     # Now, 100 blocks it should be done.
@@ -424,14 +426,15 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     # L2 will collect HTLC (iff no shadow route)
     l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
     l2.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.generate_block(1)
-    l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    ((rawtx, txid, blocks),) = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                                       'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
     bitcoind.generate_block(4)
-    l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.daemon.wait_for_log('sendrawtx exit 0.*{}'.format(rawtx))
 
     # Now, 100 blocks it should be both done.
-    bitcoind.generate_block(100)
+    bitcoind.generate_block(100, wait_for_mempool=txid)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 

@@ -317,6 +317,9 @@ u8 *towire_onchaind_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct 
 /* Generated stub for towire_onchaind_notify_coin_mvt */
 u8 *towire_onchaind_notify_coin_mvt(const tal_t *ctx UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "towire_onchaind_notify_coin_mvt called!\n"); abort(); }
+/* Generated stub for towire_onchaind_spend_to_us */
+u8 *towire_onchaind_spend_to_us(const tal_t *ctx UNNEEDED, const struct bitcoin_outpoint *outpoint UNNEEDED, struct amount_sat outpoint_amount UNNEEDED, u32 minblock UNNEEDED, u64 commit_num UNNEEDED, const u8 *wscript UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_spend_to_us called!\n"); abort(); }
 /* Generated stub for towire_onchaind_unwatch_tx */
 u8 *towire_onchaind_unwatch_tx(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "towire_onchaind_unwatch_tx called!\n"); abort(); }
