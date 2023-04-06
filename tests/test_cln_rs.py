@@ -249,7 +249,6 @@ def test_grpc_wrong_auth(node_factory):
     stub.Getinfo(nodepb.GetinfoRequest())
 
 
-@pytest.mark.xfail(strict=True)
 def test_grpc_keysend_routehint(bitcoind, node_factory):
     """The routehints are a bit special, test that conversions work.
 
