@@ -322,8 +322,23 @@ class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
     def __init__(self, name: str):
         reck_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
-        if name[-3:] == '.py' or name[-3:] == '.js':
-            name = name[:-3]
+
+        def match_name(name) -> str:
+            for tier in range(0, 10):
+                # Look for each installers preferred entrypoint format first
+                for n, inst in INSTALLERS.items():
+                    fmt = inst.entries[tier]
+                    if '{name}' in fmt:
+                        pre = fmt.split('{name}')[0]
+                        post = fmt.split('{name}')[-1]
+                        if name.startswith(pre) and name.endswith(post):
+                            return name.lstrip(pre).rstrip(post)
+                    else:
+                        if fmt == name:
+                            return name
+            return name
+
+        name = match_name(name)
         if name in reck_contents:
             self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
         else:
