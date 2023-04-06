@@ -4,7 +4,7 @@ from pathlib import Path
 from pyln.testing import node_pb2 as nodepb
 from pyln.testing import node_pb2_grpc as nodegrpc
 from pyln.testing import primitives_pb2 as primitivespb
-from pyln.testing.utils import env, TEST_NETWORK, wait_for
+from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight
 import grpc
 import pytest
 import subprocess
@@ -247,3 +247,69 @@ def test_grpc_wrong_auth(node_factory):
     # Now load the correct ones and we should be good to go
     stub = connect(l2)
     stub.Getinfo(nodepb.GetinfoRequest())
+
+
+@pytest.mark.xfail(strict=True)
+def test_grpc_keysend_routehint(bitcoind, node_factory):
+    """The routehints are a bit special, test that conversions work.
+
+    3 node line graph, with l1 as the keysend sender and l3 the
+    recipient.
+
+    """
+    grpc_port = reserve()
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        opts=[
+            {"grpc-port": str(grpc_port)}, {}, {}
+        ],
+        announce_channels=True,  # Do not enforce scid-alias
+    )
+    bitcoind.generate_block(3)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    def connect(node):
+        p = Path(node.daemon.lightning_dir) / TEST_NETWORK
+        cert, key, ca = [f.open('rb').read() for f in [
+            p / 'client.pem',
+            p / 'client-key.pem',
+            p / "ca.pem"]]
+
+        creds = grpc.ssl_channel_credentials(
+            root_certificates=ca,
+            private_key=key,
+            certificate_chain=cert,
+        )
+
+        channel = grpc.secure_channel(
+            f"localhost:{grpc_port}",
+            creds,
+            options=(('grpc.ssl_target_name_override', 'cln'),)
+        )
+        return nodegrpc.NodeStub(channel)
+
+    stub = connect(l1)
+    chan = l2.rpc.listpeerchannels(l3.info['id'])
+
+    routehint = primitivespb.RoutehintList(hints=[
+        primitivespb.Routehint(hops=[
+            primitivespb.RouteHop(
+                id=bytes.fromhex(l2.info['id']),
+                short_channel_id=chan['channels'][0]['short_channel_id'],
+                # Fees are defaults from CLN
+                feebase=primitivespb.Amount(msat=1),
+                feeprop=10,
+                expirydelta=18,
+            )
+        ])
+    ])
+
+    # And now we send a keysend with that routehint list
+    call = nodepb.KeysendRequest(
+        destination=bytes.fromhex(l3.info['id']),
+        amount_msat=primitivespb.Amount(msat=42),
+        routehints=routehint,
+    )
+
+    res = stub.KeySend(call)
+    print(res)
