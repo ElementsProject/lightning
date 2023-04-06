@@ -652,14 +652,60 @@ pub struct Routehop {
     pub expirydelta: u16,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Routehint {
     pub hops: Vec<Routehop>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct RoutehintList {
     pub hints: Vec<Routehint>,
+}
+
+use serde::ser::SerializeSeq;
+
+impl Serialize for Routehint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.hops.len()))?;
+        for e in self.hops.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl Serialize for RoutehintList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.hints.len()))?;
+        for e in self.hints.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for RoutehintList {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+    }
+}
+
+impl<'de> Deserialize<'de> for Routehint {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+    }
 }
 
 /// An error returned by the lightningd RPC consisting of a code and a
