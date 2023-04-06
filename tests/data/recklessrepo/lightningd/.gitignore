@@ -1,0 +1,8 @@
+*.pyc
+*.tmp
+.mypy_cache
+TAGS
+tags
+.pytest_cache
+__pycache__
+
