@@ -200,6 +200,8 @@ Command line options will always override the values in the configuration file.
 To use a configuration file, create a file named `config` within your top-level lightning directory or network subdirectory
 (eg. `~/.lightning/config` or `~/.lightning/bitcoin/config`).  See `man -l doc/lightningd-config.5`.
 
+A sample configuration file is available at `contrib/config-example`.
+
 ## Further information
 
 ### Pruning

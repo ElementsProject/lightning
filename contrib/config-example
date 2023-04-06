@@ -1,0 +1,105 @@
+###
+##        Core Lightning Configurations
+###
+##  Edit this file to your desired configurations
+##   Uncomment any settings you wish to configure
+###
+##  Copy this file to the root directory  `~.lightning`
+##  Or a network directory such as `~.lightning/bitcoin`
+##       Edit this files name to `config`
+###
+##    To view all documentation & options run:
+##          `man lightningd config`
+###
+
+
+##
+#               General Settings
+##
+
+## Give your node a name
+#alias=<NAME>
+
+## Pick your favorite color as a hex code
+#rgb=FFA500
+
+## Set the network for Core Lightning to sync to, Bitcoin Mainnet for most users
+## Not required if the config file is in a network directory
+#network=bitcoin
+
+## Run `lightningd` as a background daemon instead of in the terminal
+## Requires `log-file` path
+#daemon
+
+## Log output to specified file instead of the terminal
+## Required for `daemon`
+#log-file=/path/to/your/.lightning/log
+
+## Set to debug for more verbose log output
+#log-level=info
+
+## Password encrypt your `hsm_secret`
+## You must supply the password on startup if you choose to do this
+#encrypted-hsm
+
+
+##
+# 			       Networking Settings
+##
+
+## INBOUND connections - default PORT 9735
+## 0.0.0.0 for clearnet | localhost+torhiddenservice for tor
+#addr=<IP ADDRESS>:9735
+
+## Peers can find your node here
+#announce-addr=<IP/TOR ADDRESS>:9735
+
+## Bind Core Lightning RPC server to localhost PORT 9734
+#bind-addr=127.0.0.1:9734
+
+## Configure proxy/tor for OUTBOUND connections.
+#proxy=127.0.0.1:9050
+
+## Force all outbound connections through the proxy/tor
+#always-use-proxy=false
+
+
+##
+#   			      Channel Settings
+# !! Please read the manual before editing these !!
+# !!  and for a full list of available options   !!
+##
+
+## Removes capacity limit for channel creation
+#large-channels
+
+## Base fee to charge for every payment which passes through in MILLISATOSHI (1/1000 of a satoshi)
+#fee-base=1000
+
+## In millionths (10 is 0.001%, 100 is 0.01%, 1000 is 0.1% etc.)
+#fee-per-satoshi=10
+
+## Minimum value, in SATOSHI, to accept for channel open requests
+#min-capacity-sat=10000
+
+## Sets the minimum HTLC value for new channels
+#htlc-minimum-msat=0
+
+## Blockchain confirmations required for channel to be considered valid
+#funding-confirms=3
+
+## Max number of HTLC channels can handle in each direction
+#max-concurrent-htlcs=30
+
+##
+#                   Plugins
+#  Plugins allow you to extend Core Lightnings functionality
+#   For a community curated list of available plugins visit:
+#         "https://github.com/lightningd/plugins"
+##
+
+## Load your plugins from a directory
+#plugin-dir=/path/to/your/.lightning/plugins
+
+## Load plugins individually
+#plugin=path/to/plugin
