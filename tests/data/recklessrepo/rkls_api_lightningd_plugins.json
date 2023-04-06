@@ -1,0 +1,20 @@
+[
+  {
+    "name": "testplugpass",
+    "path": "testplugpass",
+    "url": "https://api.github.com/repos/lightningd/plugins/contents/webhook?ref=master",
+    "html_url": "https://github.com/lightningd/plugins/tree/master/testplugpass",
+    "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugpass",
+    "download_url": null,
+    "type": "dir"
+  },
+  {
+    "name": "testplugfail",
+    "path": "testplugfail",
+    "url": "https://api.github.com/repos/lightningd/plugins/contents/testplugfail?ref=master",
+    "html_url": "https://github.com/lightningd/plugins/tree/master/testplugfail",
+    "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugfail",
+    "download_url": null,
+    "type": "dir"
+  }
+]
