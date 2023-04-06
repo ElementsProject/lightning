@@ -25,15 +25,15 @@ logging.basicConfig(
 repos = ['https://github.com/lightningd/plugins']
 
 
-def py_entry_guesses(name):
+def py_entry_guesses(name) -> list:
     return [name, f'{name}.py', '__init__.py']
 
 
-def unsupported_entry(name):
+def unsupported_entry(name) -> list:
     return [f'{name}.go', f'{name}.sh']
 
 
-def entry_guesses(name: str):
+def entry_guesses(name: str) -> list:
     guesses = []
     global INSTALLERS
     for iname, inst in INSTALLERS.items():
@@ -47,7 +47,11 @@ class Installer:
     The identification of a plugin language, compiler or interpreter
     availability, and the install procedures.
     '''
-    def __init__(self, name, mimetype, exe=None, compiler=None, manager=None, entry=None):
+    def __init__(self, name: str, mimetype: str,
+                 exe: Union[str, None] = None,
+                 compiler: Union[str, None] = None,
+                 manager: Union[str, None] = None,
+                 entry: Union[str, None] = None):
         self.name = name
         self.mimetype = mimetype
         self.entries = []
@@ -68,7 +72,7 @@ class Installer:
         return (f'<Installer {self.name}: mimetype: {self.mimetype}, '
                 f'exe: {self.exe}, manager: {self.manager}>')
 
-    def executable(self):
+    def executable(self) -> bool:
         '''Validate the necessary bins are available to execute the plugin.'''
         if self.exe:
             if shutil.which(self.exe):
@@ -79,8 +83,9 @@ class Installer:
                     return False
                 return True
             return False
+        return True
 
-    def installable(self):
+    def installable(self) -> bool:
         '''Validate the necessary compiler and package manager executables are
         available to install.  If these are defined, they are considered
         mandatory even though the user may have the requisite packages already
@@ -120,7 +125,7 @@ class InstInfo:
         return (f'InstInfo({self.name}, {self.repo}, {self.git_url}, '
                 f'{self.entry}, {self.deps})')
 
-    def get_inst_details(self):
+    def get_inst_details(self) -> bool:
         """
         Populate installation details from a github repo url.
         Return True if all data is found.
@@ -383,7 +388,7 @@ def help_alias(targets: list):
         sys.exit(1)
 
 
-def _search_repo(name: str, url: str) -> InstInfo:
+def _search_repo(name: str, url: str) -> Union[InstInfo, None]:
     """look in given repo and, if found, populate InstInfo"""
     # Remove api subdomain, subdirectories, etc.
     repo = url.split('/')
@@ -393,9 +398,9 @@ def _search_repo(name: str, url: str) -> InstInfo:
     parsed_url = urlparse(url)
     if 'github.com' not in parsed_url.netloc:
         # FIXME: Handle non-github repos.
-        return False
+        return None
     if len(parsed_url.path.split('/')) < 2:
-        return False
+        return None
     start = 1
     # Maybe we were passed an api.github.com/repo/<user> url
     if 'api' in parsed_url.netloc:
@@ -409,14 +414,14 @@ def _search_repo(name: str, url: str) -> InstInfo:
     r = urlopen(plugins_cont, timeout=5)
     if r.status != 200:
         print(f"Plugin repository {api_url} unavailable")
-        return False
+        return None
     # Repo is for this plugin
     if repo_name == name:
         MyPlugin = InstInfo(name,
                             f'https://github.com/{repo_user}/{repo_name}',
                             api_url)
         if not MyPlugin.get_inst_details():
-            return False
+            return None
         return MyPlugin
     # Repo contains multiple plugins?
     for x in json.loads(r.read().decode()):
@@ -439,9 +444,9 @@ def _search_repo(name: str, url: str) -> InstInfo:
             if not MyPlugin.get_inst_details():
                 logging.debug((f'Found plugin in {url}, but missing install '
                               'details'))
-                return False
+                return None
             return MyPlugin
-    return False
+    return None
 
 
 def _install_plugin(src: InstInfo) -> bool:
