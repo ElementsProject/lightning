@@ -358,7 +358,7 @@ def _install_plugin(src: InstInfo) -> bool:
     if src.commit:
         logging.debug(f"Checking out commit {src.commit}")
         checkout = Popen(['git', 'checkout', src.commit],
-                         cwd=plugin_path, stdout=PIPE, stderr=PIPE)
+                         cwd=str(plugin_path), stdout=PIPE, stderr=PIPE)
         checkout.wait()
         if checkout.returncode != 0:
             print(f'failed to checkout referenced commit {src.commit}')
@@ -378,9 +378,9 @@ def _install_plugin(src: InstInfo) -> bool:
         procedure = install_methods[src.deps]
         # Verbose output requested.
         if logging.root.level < logging.WARNING:
-            pip = Popen(procedure, cwd=plugin_path)
+            pip = Popen(procedure, cwd=str(plugin_path))
         else:
-            pip = Popen(procedure, cwd=plugin_path, stdout=PIPE, stderr=PIPE)
+            pip = Popen(procedure, cwd=str(plugin_path), stdout=PIPE, stderr=PIPE)
         pip.wait()
         if pip.returncode == 0:
             print('dependencies installed successfully')
@@ -388,7 +388,7 @@ def _install_plugin(src: InstInfo) -> bool:
             print('error encountered installing dependencies')
             logging.debug(pip.stdout.read())
             return False
-    test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=plugin_path,
+    test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=str(plugin_path),
                  stdout=PIPE, stderr=PIPE, universal_newlines=True)
     test_log = []
     with test.stderr:
@@ -404,7 +404,7 @@ def _install_plugin(src: InstInfo) -> bool:
         return False
 
     # Find this cute little plugin a forever home
-    shutil.copytree(plugin_path, inst_path)
+    shutil.copytree(str(plugin_path), inst_path)
     print(f'plugin installed: {inst_path}')
     remove_dir(clone_path)
     return True
