@@ -3237,3 +3237,23 @@ def test_create_gossip_mesh(node_factory, bitcoind):
     print("nodeids", nodeids)
     print("scids", scids)
     assert False, "Test failed on purpose, grab the gossip store from /tmp/ltests-..."
+
+
+@pytest.mark.xfail(strict=True)
+def test_fast_shutdown(node_factory):
+    l1 = node_factory.get_node(start=False)
+
+    l1.daemon.start(wait_for_initialized=False)
+
+    start_time = time.time()
+    # Keep trying until this succeeds (socket may not exist yet!)
+    while True:
+        if time.time() > start_time + TIMEOUT:
+            raise ValueError("Timeout while waiting for stop to work!")
+        try:
+            l1.rpc.stop()
+        except FileNotFoundError:
+            continue
+        except ConnectionRefusedError:
+            continue
+        break
