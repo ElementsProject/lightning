@@ -974,7 +974,7 @@ int main(int argc, char *argv[])
 	 * valgrind will warn us if we make decisions based on uninitialized
 	 * variables. */
 	ld = new_lightningd(NULL);
-	ld->state = LD_STATE_RUNNING;
+	ld->state = LD_STATE_INITIALIZING;
 
 	/*~ We store an copy of our arguments before parsing mangles them, so
 	 * we can re-exec if versions of subdaemons change.  Note the use of
@@ -1174,6 +1174,7 @@ int main(int argc, char *argv[])
 		 type_to_string(tmpctx, struct node_id, &ld->id),
 		 json_escape(tmpctx, (const char *)ld->alias)->s,
 		 tal_hex(tmpctx, ld->rgb), version());
+	ld->state = LD_STATE_RUNNING;
 
 	/*~ If `closefrom_may_be_slow`, we limit ourselves to 4096 file
 	 * descriptors; tell the user about it as that limits the number
@@ -1224,14 +1225,16 @@ int main(int argc, char *argv[])
 	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
 
 	/*~ The root of every backtrace (almost).  This is our main event
-	 *  loop. */
-	void *io_loop_ret = io_loop_with_timers(ld);
-	/*~ io_loop_with_timers will only exit if we call io_break.
-	 *  At this point in code, we should use io_break(ld) to
-	 *  shut down.
-	 */
-	assert(io_loop_ret == ld);
-	log_debug(ld->log, "io_loop_with_timers: %s", __func__);
+	 *  loop.  We don't even call it if they've already called `stop` */
+	if (!ld->stop_conn) {
+		void *io_loop_ret = io_loop_with_timers(ld);
+		/*~ io_loop_with_timers will only exit if we call io_break.
+		 *  At this point in code, we should use io_break(ld) to
+		 *  shut down.
+		 */
+		assert(io_loop_ret == ld);
+		log_debug(ld->log, "io_loop_with_timers: %s", __func__);
+	}
 
 stop:
 	/* Stop *new* JSON RPC requests. */

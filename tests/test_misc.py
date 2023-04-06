@@ -3239,7 +3239,6 @@ def test_create_gossip_mesh(node_factory, bitcoind):
     assert False, "Test failed on purpose, grab the gossip store from /tmp/ltests-..."
 
 
-@pytest.mark.xfail(strict=True)
 def test_fast_shutdown(node_factory):
     l1 = node_factory.get_node(start=False)
 
