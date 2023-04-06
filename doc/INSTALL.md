@@ -266,7 +266,7 @@ If you need Python 3.x for mako (or get a mako build error):
     $ brew install pyenv
     $ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
     $ source ~/.bash_profile
-    $ pyenv install 3.7.8
+    $ pyenv install 3.8.10
     $ pip3 install --upgrade pip
     $ pip3 install poetry
 
