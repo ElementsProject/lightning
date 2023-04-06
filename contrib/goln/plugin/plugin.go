@@ -16,8 +16,9 @@ import (
 type Builder struct {
 	mu sync.Mutex
 
-	in  *os.File
-	out *os.File
+	in   *os.File
+	out  *os.File
+	stop chan struct{}
 
 	server              *rpc.Server
 	allowDeprecatedApis bool
@@ -32,6 +33,7 @@ func NewBuilder(ctx context.Context, in *os.File, out *os.File) *Builder {
 	builder := new(Builder)
 	builder.in = in
 	builder.out = out
+	builder.stop = make(chan struct{}, 1)
 	builder.server = rpc.NewServer(ctx)
 	builder.waitInit = make(chan initData, 1)
 	builder.options = make(map[string]*Option)
@@ -70,6 +72,9 @@ func (builder *Builder) Dynamic() *Builder {
 func (builder *Builder) startServer() {
 	lis := internal.NewReadWriteListener(builder.in, builder.out)
 	builder.server.Accept(lis)
+	// server.Accept is blocking. Once this returns we can send the
+	// quit signal.
+	builder.stop <- struct{}{}
 }
 
 func (builder *Builder) Configure() Plugin {
@@ -108,6 +113,7 @@ func (builder *Builder) Configure() Plugin {
 		in:                  builder.in,
 		out:                 builder.out,
 		server:              builder.server,
+		stop:                builder.stop,
 		AllowDeprecatedApis: builder.allowDeprecatedApis,
 		Config:              *initData.request.Configuration,
 		Options:             options,
@@ -175,6 +181,7 @@ type Plugin struct {
 	in     *os.File
 	out    *os.File
 	server *rpc.Server
+	stop   chan struct{}
 
 	AllowDeprecatedApis bool
 	Config              Config
@@ -201,4 +208,8 @@ func (plugin *Plugin) answerInit(disableMsg string) error {
 	plugin.initConn = nil
 	plugin.initId = nil
 	return nil
+}
+
+func (plugin *Plugin) Join() {
+	<-plugin.stop
 }

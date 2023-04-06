@@ -26,19 +26,21 @@ func init() {
 }
 
 func main() {
-	quit := make(chan struct{})
 	log.Println("Starting plugin.")
 	builder := plugin.NewBuilder(context.Background(), os.Stdin, os.Stdout).
 		AddOption(plugin.IntOption("my-option", 42, "This is an option (default: 42).")).
 		AddOption(plugin.StringOption("my-deprecated-option", "default-value", "This option is deprecated.").Deprecated()).
-		AddRpcMethod(plugin.NewRpcMethod("test-rpc-method", "amt scid", "description", "long description", myCallback))
+		AddRpcMethod(plugin.NewRpcMethod("test-rpc-method", "amt scid", "description", "long description", myCallback)).
+		Dynamic()
 	plugin := builder.Configure()
 	err := plugin.Start()
 	if err != nil {
 		panic(fmt.Sprintf("Got error: %s", err))
 	}
 	log.Println("Plugin initialized.")
-	<-quit
+
+	// Blocks until the listener exits.
+	plugin.Join()
 }
 
 func myCallback(ctx context.Context, req *json.RawMessage) (interface{}, *jsonrpc2.Error) {
