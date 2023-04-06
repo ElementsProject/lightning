@@ -90,6 +90,7 @@ struct config {
 typedef STRMAP(const char *) alt_subdaemon_map;
 
 enum lightningd_state {
+	LD_STATE_INITIALIZING,
 	LD_STATE_RUNNING,
 	LD_STATE_SHUTDOWN,
 };
