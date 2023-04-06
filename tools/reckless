@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 import sys
 import json
 import os
@@ -470,24 +470,28 @@ def _install_plugin(src: InstInfo) -> bool:
             print(f'failed to checkout referenced commit {src.commit}')
             return False
 
-    # Install dependencies via requirements.txt or pyproject.toml
-    mypip = 'pip3' if shutil.which('pip3') else 'pip'
-    if not shutil.which(mypip):
-        raise Exception(f'{mypip} not found in PATH')
-    install_methods = {
-        'requirements.txt': [mypip, 'install', '-r', 'requirements.txt'],
-        'pyproject.toml': [mypip, 'install', '-e', '.']
-    }
+    # Find a suitable installer
+    for name, inst_method in INSTALLERS.items():
+        if not (inst_method.installable() and inst_method.executable()):
+            continue
+        if inst_method.dependency_file is not None:
+            if inst_method.dependency_file not in os.listdir(plugin_path):
+                continue
+        logging.debug(f"using installer {name}")
+        INSTALLER = inst_method
+        break
+    # try it out
+    if INSTALLER and INSTALLER.dependency_call:
+        for call in INSTALLER.dependency_call:
+            logging.debug(f"Install: invoking '{call}'")
+            if logging.root.level < logging.WARNING:
+                pip = Popen(call, cwd=plugin_path, text=True)
+            else:
+                pip = Popen(call, cwd=plugin_path, stdout=PIPE, stderr=PIPE,
+                            text=True)
+            pip.wait()
+            # FIXME: handle output of multiple calls
 
-    if src.deps is not None:
-        logging.debug(f'installing dependencies using {src.deps}')
-        procedure = install_methods[src.deps]
-        # Verbose output requested.
-        if logging.root.level < logging.WARNING:
-            pip = Popen(procedure, cwd=str(plugin_path))
-        else:
-            pip = Popen(procedure, cwd=str(plugin_path), stdout=PIPE, stderr=PIPE)
-        pip.wait()
         if pip.returncode == 0:
             print('dependencies installed successfully')
         else:
@@ -501,14 +505,19 @@ def _install_plugin(src: InstInfo) -> bool:
     with test.stderr:
         for line in test.stderr:
             test_log.append(line.strip('\n'))
-    test.wait()
+    try:
+        test.wait(timeout=3)
+    except TimeoutExpired:
+        # Plugin assumed to be okay if still running (despite no lightningd.)
+        test.terminate()
     # FIXME: add noexec test/warning. Maybe try chmod entrypoint.
-    if test.returncode != 0:
-        logging.debug("plugin testing error:")
-        for line in test_log:
-            logging.debug(f'  {line}')
-        print('plugin testing failed')
-        return False
+    else:
+        if test.returncode != 0:
+            logging.debug("plugin testing error:")
+            for line in test_log:
+                logging.debug(f'  {line}')
+            print('plugin testing failed')
+            return False
 
     # Find this cute little plugin a forever home
     shutil.copytree(str(plugin_path), inst_path)
