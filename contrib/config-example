@@ -1,0 +1,38 @@
+###
+## Core Lightning Configuration
+###
+## Configuration manual:
+## man lightningd config 
+###
+
+# Node Name / Color
+alias=<NODE-ALIAS>
+rgb=FFA500
+
+# Run lightningd as a daemon. (Recommended)
+daemon
+
+# Channel Options (Set to defaults, please read the manual)
+fee-base=1000
+fee-per-satoshi=10
+min-capacity-sat=10000
+htlc-minimum-msat=0
+funding-confirms=1
+
+# Bitcoin Settings
+network=bitcoin
+bitcoin-cli=/path/to/your/bitcoin-cli
+bitcoin-datadir=/path/to/your/.bitcoin
+bitcoin-rpcconnect=127.0.0.1 # Bitcoin RPC server running on localhost, change to your bitcoind IPADDRESS
+bitcoin-rpcport=8332 # Bitcoin RPC server default port 8332, change to your bitcoind PORT
+bitcoin-rpcuser=<BITCOIND-RPCAUTH-USER>
+bitcoin-rpcpassword=<BITCOIND-RPCAUTH-PASSWORD>
+
+# Lightning Network Settings
+addr=0.0.0.0:9735 # Accept incoming connections on default PORT
+announce-addr=<YOUR PUBLIC IP>:9735 # Peers can find your node here
+bind-addr=127.0.0.1:9734 # Bind Core Lightning RPC server to localhost
+
+# Log Settings
+log-level=info # Set to debug for more verbose output
+log-file=/path/to/your/.lightning/log # Set to wherever you want log output
