@@ -664,7 +664,8 @@ if __name__ == '__main__':
                         type=str,
                         default=None)
     parser.add_argument('-r', '--regtest', action='store_true')
-    # parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--network', help="specify a network to use (default: bitcoin)",
+                        type=str)
     parser.add_argument('-v', '--verbose', action="store_const",
                         dest="loglevel", const=logging.DEBUG, default=logging.WARNING)
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
@@ -716,6 +717,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     NETWORK = 'regtest' if args.regtest else 'bitcoin'
+    SUPPORTED_NETWORKS = ['bitcoin', 'regtest', 'liquid', 'liquid-regtest',
+                          'litecoin', 'signet', 'testnet']
+    if args.network:
+        if args.network in SUPPORTED_NETWORKS:
+            NETWORK = args.network
+        else:
+            print(f"Error: {args.network} network not supported")
     LIGHTNING_DIR = Path(args.lightning)
     LIGHTNING_CLI_CALL = ['lightning-cli']
     if NETWORK != 'bitcoin':
