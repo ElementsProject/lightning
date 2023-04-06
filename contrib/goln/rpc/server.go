@@ -14,7 +14,6 @@ import (
 type Handler = func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request)
 
 type Server struct {
-	sync.Mutex
 	ctx     context.Context
 	methods sync.Map
 	run     int32
@@ -25,8 +24,6 @@ func NewServer(ctx context.Context) *Server {
 }
 
 func (server *Server) Stop() {
-	server.Lock()
-	defer server.Unlock()
 	atomic.StoreInt32(&server.run, 0)
 }
 
