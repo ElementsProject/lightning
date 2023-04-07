@@ -28,11 +28,6 @@ struct command_result *param_feerate_style(struct command *cmd,
 					   const jsmntok_t *tok,
 					   enum feerate_style **style);
 
-/* Set feerate_per_kw to this estimate & return NULL, or fail cmd */
-struct command_result *param_feerate_estimate(struct command *cmd,
-					      u32 **feerate_per_kw,
-					      enum feerate feerate);
-
 /* Extract a feerate with optional style suffix. */
 struct command_result *param_feerate_val(struct command *cmd,
 					 const char *name, const char *buffer,

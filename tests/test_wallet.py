@@ -1658,12 +1658,12 @@ def test_upgradewallet(node_factory, bitcoind):
 
     # Doing it with 'reserved ok' should have 1
     # We use a big feerate so we can get over the RBF hump
-    upgrade = l1.rpc.upgradewallet(feerate="max_acceptable", reservedok=True)
+    upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 1
     assert bitcoind.rpc.getmempoolinfo()['size'] == 1
 
     # Mine it, nothing to upgrade
     l1.bitcoin.generate_block(1)
     sync_blockheight(l1.bitcoin, [l1])
-    upgrade = l1.rpc.upgradewallet(feerate="max_acceptable", reservedok=True)
+    upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 0

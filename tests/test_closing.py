@@ -2688,7 +2688,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     # Make l1's fees really high (and wait for it to exceed 50000)
     l1.set_feerates((1000000, 1000000, 1000000, 1000000))
-    l1.daemon.wait_for_log('Feerate estimate for unilateral_close set to [56789][0-9]{4}')
+    l1.daemon.wait_for_log('feerate estimate for 6 blocks smoothed to [56789][0-9]{4}')
 
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
