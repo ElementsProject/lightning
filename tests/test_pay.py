@@ -4652,6 +4652,57 @@ def test_fetchinvoice(node_factory, bitcoind):
     with pytest.raises(RpcError, match='Offer no longer available'):
         l1.rpc.call('fetchinvoice', {'offer': offer2})
 
+    # Now, test amount in different currency!
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    l3.rpc.plugin_start(plugin)
+
+    offerusd = l3.rpc.call('offer', {'amount': '10.05USD',
+                                     'description': 'USD test'})['bolt12']
+
+    inv = l1.rpc.call('fetchinvoice', {'offer': offerusd})
+    assert inv['changes']['amount_msat'] == Millisatoshi(int(10.05 * 5000))
+
+    # Check we can request invoice without a channel.
+    offer3 = l2.rpc.call('offer', {'amount': '1msat',
+                                   'description': 'offer3'})
+    l4 = node_factory.get_node(options={'experimental-offers': None})
+    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # ... even if we can't find ourselves.
+    l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12']})
+    # ... even if we know it from gossmap
+    wait_for(lambda: l4.rpc.listnodes(l3.info['id'])['nodes'] != [])
+    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+    # If we remove plugin, it can no longer give us an invoice.
+    l3.rpc.plugin_stop(plugin)
+
+    with pytest.raises(RpcError, match="Internal error"):
+        l1.rpc.call('fetchinvoice', {'offer': offerusd})
+    l3.daemon.wait_for_log("Unknown command 'currencyconvert'")
+    # But we can still pay the (already-converted) invoice.
+    l1.rpc.pay(inv['invoice'])
+
+    # Identical creation gives it again, just with created false.
+    offer1 = l3.rpc.call('offer', {'amount': '2msat',
+                                   'description': 'simple test'})
+    assert offer1['created'] is False
+    l3.rpc.call('disableoffer', {'offer_id': offer1['offer_id']})
+    with pytest.raises(RpcError, match="1000.*Already exists, but isn't active"):
+        l3.rpc.call('offer', {'amount': '2msat',
+                              'description': 'simple test'})
+
+    # Test timeout.
+    l3.stop()
+    with pytest.raises(RpcError, match='Timeout waiting for response'):
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
+
+
+def test_fetchinvoice_recurrence(node_factory, bitcoind):
+    """Test for our recurrence extension"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'experimental-offers': None})
+
     # Recurring offer.
     offer3 = l2.rpc.call('offer', {'amount': '1msat',
                                    'description': 'recurring test',
@@ -4702,51 +4753,6 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
-
-    # Check we can request invoice without a channel.
-    l4 = node_factory.get_node(options={'experimental-offers': None})
-    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    # ... even if we can't find ourselves.
-    l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
-                                 'recurrence_counter': 0,
-                                 'recurrence_label': 'test nochannel'})
-    # ... even if we know it from gossmap
-    wait_for(lambda: l4.rpc.listnodes(l3.info['id'])['nodes'] != [])
-    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
-
-    # Now, test amount in different currency!
-    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
-    l3.rpc.plugin_start(plugin)
-
-    offerusd = l3.rpc.call('offer', {'amount': '10.05USD',
-                                     'description': 'USD test'})['bolt12']
-
-    inv = l1.rpc.call('fetchinvoice', {'offer': offerusd})
-    assert inv['changes']['amount_msat'] == Millisatoshi(int(10.05 * 5000))
-
-    # If we remove plugin, it can no longer give us an invoice.
-    l3.rpc.plugin_stop(plugin)
-
-    with pytest.raises(RpcError, match="Internal error"):
-        l1.rpc.call('fetchinvoice', {'offer': offerusd})
-    l3.daemon.wait_for_log("Unknown command 'currencyconvert'")
-    # But we can still pay the (already-converted) invoice.
-    l1.rpc.pay(inv['invoice'])
-
-    # Identical creation gives it again, just with created false.
-    offer1 = l3.rpc.call('offer', {'amount': '2msat',
-                                   'description': 'simple test'})
-    assert offer1['created'] is False
-    l3.rpc.call('disableoffer', {'offer_id': offer1['offer_id']})
-    with pytest.raises(RpcError, match="1000.*Already exists, but isn't active"):
-        l3.rpc.call('offer', {'amount': '2msat',
-                              'description': 'simple test'})
-
-    # Test timeout.
-    l3.stop()
-    with pytest.raises(RpcError, match='Timeout waiting for response'):
-        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
 
     # Now try an offer with a more complex paywindow (only 10 seconds before)
     offer = l2.rpc.call('offer', {'amount': '1msat',
