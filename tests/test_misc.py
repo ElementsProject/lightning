@@ -1532,13 +1532,14 @@ def test_feerates(node_factory):
             feerate = l1.rpc.parsefeerate(t)
 
     # Query feerates (shouldn't give any!)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 3)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 4)
     feerates = l1.rpc.feerates('perkw')
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 2**32 - 1
     assert feerates['perkw']['min_acceptable'] == 253
     assert feerates['perkw']['min_acceptable'] == 253
+    assert feerates['perkw']['floor'] == 253
     assert feerates['perkw']['estimates'] == []
     for t in types:
         assert t not in feerates['perkw']
@@ -1548,6 +1549,8 @@ def test_feerates(node_factory):
     assert 'perkw' not in feerates
     assert feerates['perkb']['max_acceptable'] == (2**32 - 1)
     assert feerates['perkb']['min_acceptable'] == 253 * 4
+    # Note: This is floored at the FEERATE_FLOOR constant (253)
+    assert feerates['perkb']['floor'] == 1012
     assert feerates['perkb']['estimates'] == []
     for t in types:
         assert t not in feerates['perkb']
@@ -1955,6 +1958,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "penalty": 30000,
             "min_acceptable": 7500,
             "max_acceptable": 600000,
+            "floor": 1012,
             "estimates": [{"blockcount": 2,
                            "feerate": 60000,
                            "smoothed_feerate": 60000},
@@ -1993,6 +1997,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             # This has increased (rounded up)
             "min_acceptable": 20004,
             "max_acceptable": 600000,
+            "floor": 20004,
             "estimates": [{"blockcount": 2,
                            "feerate": 60000,
                            "smoothed_feerate": 60000},
@@ -2034,6 +2039,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             # This has increased (rounded up)
             "min_acceptable": 30004,
             "max_acceptable": 600000,
+            "floor": 30004,
             "estimates": [{"blockcount": 2,
                            "feerate": 60000,
                            "smoothed_feerate": 60000},
@@ -2987,7 +2993,8 @@ def test_force_feerates(node_factory):
         "penalty": 1111,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
-        "estimates": estimates}
+        "estimates": estimates,
+        "floor": 253}
 
     l1.stop()
     l1.daemon.opts['force-feerates'] = '1111/2222'
@@ -3001,7 +3008,8 @@ def test_force_feerates(node_factory):
         "penalty": 2222,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
-        "estimates": estimates}
+        "estimates": estimates,
+        "floor": 253}
 
     l1.stop()
     l1.daemon.opts['force-feerates'] = '1111/2222/3333/4444/5555/6666'
@@ -3015,7 +3023,8 @@ def test_force_feerates(node_factory):
         "penalty": 6666,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
-        "estimates": estimates}
+        "estimates": estimates,
+        "floor": 253}
 
 
 def test_datastore_escapeing(node_factory):

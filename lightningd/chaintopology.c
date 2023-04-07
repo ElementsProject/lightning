@@ -667,6 +667,9 @@ static struct command_result *json_feerates(struct command *cmd,
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
 		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
+	json_add_u64(response, "floor",
+		     feerate_to_style(get_feerate_floor(cmd->ld->topology),
+				      *style));
 
 	json_array_start(response, "estimates");
 	assert(tal_count(topo->smoothed_feerates) == tal_count(topo->feerates[0]));

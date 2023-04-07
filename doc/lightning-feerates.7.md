@@ -50,6 +50,7 @@ On success, an object is returned, containing:
 - **perkb** (object, optional): If *style* parameter was perkb:
   - **min\_acceptable** (u32): The smallest feerate that we allow peers to specify: half the 100-block estimate
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **floor** (u32): The smallest feerate that our backend tells us it will accept (i.e. minrelayfee or mempoolminfee) *(added v23.05)*
   - **estimates** (array of objects): Feerate estimates from plugin which we are using (usuallly bcli) *(added v23.05)*:
     - **blockcount** (u32): The number of blocks the feerate is expected to get a transaction in *(added v23.05)*
     - **feerate** (u32): The feerate for this estimate, in given *style* *(added v23.05)*
@@ -63,6 +64,7 @@ On success, an object is returned, containing:
 - **perkw** (object, optional): If *style* parameter was perkw:
   - **min\_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **floor** (u32): The smallest feerate that our backend tells us it will accept (i.e. minrelayfee or mempoolminfee) *(added v23.05)*
   - **estimates** (array of objects): Feerate estimates from plugin which we are using (usuallly bcli) *(added v23.05)*:
     - **blockcount** (u32): The number of blocks the feerate is expected to get a transaction in *(added v23.05)*
     - **feerate** (u32): The feerate for this estimate, in given *style* *(added v23.05)*
@@ -136,4 +138,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c21d903c29fd6195d5890962eaa3265a26a57885b95714696916bd32168b66bc)
+[comment]: # ( SHA256STAMP:4921275aec48da8b9ddcba5d4237efa72f06b6e005008f2c3aa7029d3bd187fd)
