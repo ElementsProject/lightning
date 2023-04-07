@@ -2651,15 +2651,24 @@ def test_restorefrompeer(node_factory, bitcoind):
 
 def test_commitfee_option(node_factory):
     """Sanity check for the --commit-fee startup option."""
-    l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200"}, {}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200",
+                                              "start": False},
+                                             {"start": False}])
 
+    # set_feerates multiplies this by 4 to get perkb; but we divide.
     mock_wu = 5000
     for l in [l1, l2]:
-        l.set_feerates((0, mock_wu, 0, 0), True)
-    l1_commit_fees = l1.rpc.call("estimatefees")["unilateral_close"]
-    l2_commit_fees = l2.rpc.call("estimatefees")["unilateral_close"]
+        l.set_feerates((0, mock_wu, 0, 0), False)
+        l.start()
 
-    assert l1_commit_fees == 2 * l2_commit_fees == 2 * 4 * mock_wu  # WU->VB
+    # plugin gives same results:
+    assert l1.rpc.call("estimatefees") == l2.rpc.call("estimatefees")
+
+    # But feerates differ.
+    l1_commit_fees = l1.rpc.feerates("perkw")['perkw']['unilateral_close']
+    l2_commit_fees = l2.rpc.feerates("perkw")['perkw']['unilateral_close']
+
+    assert l1_commit_fees == 2 * l2_commit_fees == 2 * mock_wu
 
 
 def test_listtransactions(node_factory):

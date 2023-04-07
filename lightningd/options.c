@@ -799,6 +799,15 @@ static void dev_register_opts(struct lightningd *ld)
 			 opt_show_uintval,
 			 &dev_onion_reply_length,
 			 "Send onion errors of custom length");
+	opt_register_arg("--dev-max-fee-multiplier",
+			 opt_set_uintval,
+			 opt_show_uintval,
+			 &ld->config.max_fee_multiplier,
+			 "Allow the fee proposed by the remote end to"
+			 " be up to multiplier times higher than our "
+			 "own. Small values will cause channels to be"
+			 " closed more often due to fee fluctuations,"
+			 " large values may result in large fees.");
 }
 #endif /* DEVELOPER */
 
@@ -860,6 +869,9 @@ static const struct config testnet_config = {
 	.allowdustreserve = false,
 
 	.require_confirmed_inputs = false,
+
+	.max_fee_multiplier = 10,
+	.commit_fee_percent = 100,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -931,6 +943,9 @@ static const struct config mainnet_config = {
 	.allowdustreserve = false,
 
 	.require_confirmed_inputs = false,
+
+	.max_fee_multiplier = 10,
+	.commit_fee_percent = 100,
 };
 
 static void check_config(struct lightningd *ld)
@@ -1290,6 +1305,9 @@ static void register_opts(struct lightningd *ld)
 			 opt_force_feerates, NULL, ld,
 			 "Set testnet/regtest feerates in sats perkw, opening/mutual_close/unlateral_close/delayed_to_us/htlc_resolution/penalty: if fewer specified, last number applies to remainder");
 
+	opt_register_arg("--commit-fee",
+			 opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
+			 "Percentage of fee to request for their commitment");
 	opt_register_arg("--subdaemon", opt_subdaemon, NULL,
 			 ld, "Arg specified as SUBDAEMON:PATH. "
 			 "Specifies an alternate subdaemon binary. "

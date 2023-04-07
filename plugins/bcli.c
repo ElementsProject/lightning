@@ -60,13 +60,6 @@ struct bitcoind {
 	/* Passthrough parameters for bitcoin-cli */
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 
-	/* The factor to time the urgent feerate by to get the maximum
-	 * acceptable feerate. */
-	u32 max_fee_multiplier;
-
-	/* Percent of CONSERVATIVE/2 feerate we'll use for commitment txs. */
-	u64 commit_fee_percent;
-
 	/* Whether we fake fees (regtest) */
 	bool fake_fees;
 
@@ -718,7 +711,7 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	json_add_feerate(response, "mutual_close", cmd, stash,
 			 stash->perkb[FEERATE_SLOW]);
 	json_add_feerate(response, "unilateral_close", cmd, stash,
-			 stash->perkb[FEERATE_URGENT] * bitcoind->commit_fee_percent / 100);
+			 stash->perkb[FEERATE_URGENT]);
 	json_add_feerate(response, "delayed_to_us", cmd, stash,
 			 stash->perkb[FEERATE_NORMAL]);
 	json_add_feerate(response, "htlc_resolution", cmd, stash,
@@ -736,8 +729,7 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	 * margin (say 5x the expected fee requirement)
 	 */
 	json_add_feerate(response, "max_acceptable", cmd, stash,
-			 stash->perkb[FEERATE_HIGHEST]
-			 * bitcoind->max_fee_multiplier);
+			 stash->perkb[FEERATE_HIGHEST] * 10);
 	return command_finished(cmd, response);
 }
 
@@ -1063,8 +1055,6 @@ static struct bitcoind *new_bitcoind(const tal_t *ctx)
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
-	bitcoind->max_fee_multiplier = 10;
-	bitcoind->commit_fee_percent = 100;
 #if DEVELOPER
 	bitcoind->no_fake_fees = false;
 #endif
@@ -1111,19 +1101,7 @@ int main(int argc, char *argv[])
 				  "how long to keep retrying to contact bitcoind"
 				  " before fatally exiting",
 				  u64_option, &bitcoind->retry_timeout),
-		    plugin_option("commit-fee",
-				  "string",
-				  "Percentage of fee to request for their commitment",
-				  u64_option, &bitcoind->commit_fee_percent),
 #if DEVELOPER
-		    plugin_option("dev-max-fee-multiplier",
-				  "string",
-				  "Allow the fee proposed by the remote end to"
-				  " be up to multiplier times higher than our "
-				  "own. Small values will cause channels to be"
-				  " closed more often due to fee fluctuations,"
-				  " large values may result in large fees.",
-				  u32_option, &bitcoind->max_fee_multiplier),
 		    plugin_option("dev-no-fake-fees",
 				  "bool",
 				  "Suppress fee faking for regtest",

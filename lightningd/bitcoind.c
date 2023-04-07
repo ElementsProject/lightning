@@ -215,10 +215,17 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 			else
 				feerates[f] = 0;
 #endif
-		} else
+		} else {
+			if (f == FEERATE_UNILATERAL_CLOSE) {
+				feerates[f] = feerates[f] * call->bitcoind->ld->config.commit_fee_percent / 100;
+			} else if (f == FEERATE_MAX) {
+				/* Plugins always use 10 as multiplier. */
+				feerates[f] = feerates[f] * call->bitcoind->ld->config.max_fee_multiplier / 10;
+			}
 			/* Rate in satoshi per kw. */
 			feerates[f] = feerate_from_style(feerates[f],
 							 FEERATE_PER_KBYTE);
+		}
 	}
 
 	call->cb(call->bitcoind, feerates, call->arg);
