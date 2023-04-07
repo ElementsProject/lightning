@@ -19,7 +19,7 @@
       "properties": {
         "min_acceptable": {
           "type": "u32",
-          "description": "The smallest feerate that you can use, usually the minimum relayed feerate of the backend"
+          "description": "The smallest feerate that we allow peers to specify: half the 100-block estimate"
         },
         "max_acceptable": {
           "type": "u32",
