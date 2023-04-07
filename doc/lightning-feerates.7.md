@@ -48,7 +48,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **perkb** (object, optional): If *style* parameter was perkb:
-  - **min\_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+  - **min\_acceptable** (u32): The smallest feerate that we allow peers to specify: half the 100-block estimate
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
@@ -121,4 +121,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a34af89895413ee57defa1df715d9e50d34a49196972a81b31a4666b4fc05a10)
+[comment]: # ( SHA256STAMP:773e4e66cb3654b7c3aafe54c33d433c52ff89f7a5a8be0a71a93da21a6b7eaa)
