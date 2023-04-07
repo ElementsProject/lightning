@@ -13,7 +13,7 @@
 
 /* BOLT #11:
  * * `c` (24): `data_length` variable.
- *    `min_final_cltv_expiry` to use for the last HTLC in the route.
+ *    `min_final_cltv_expiry_delta` to use for the last HTLC in the route.
  *    Default is 18 if not specified.
  */
 #define DEFAULT_FINAL_CLTV_DELTA 18
