@@ -191,6 +191,13 @@ static void rebroadcast_txs(struct chain_topology *topo)
 	}
 	tal_free(cleanup_ctx);
 
+	/* Free explicitly in case we were called because a block came in.
+	 * Then set a new timer 30-60 seconds away */
+	tal_free(topo->rebroadcast_timer);
+	topo->rebroadcast_timer = new_reltimer(topo->ld->timers, topo,
+					       time_from_sec(30 + pseudorand(30)),
+					       rebroadcast_txs, topo);
+
 	/* Let this do the dirty work. */
 	txs->cursor = (size_t)-1;
 	broadcast_remainder(topo->bitcoind, true, "", txs);
@@ -1162,6 +1169,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;
+	topo->rebroadcast_timer = NULL;
 	topo->stopping = false;
 	list_head_init(topo->sync_waiters);
 
