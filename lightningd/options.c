@@ -1064,9 +1064,6 @@ static char *opt_set_onion_messages(struct lightningd *ld)
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
 						    OPTIONAL_FEATURE(OPT_ONION_MESSAGES))));
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_ROUTE_BLINDING))));
 	return NULL;
 }
 

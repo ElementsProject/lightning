@@ -9,7 +9,7 @@
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
-/* BOLT-route-blinding #4:
+/* BOLT #4:
  * - If `encrypted_recipient_data` is present:
  *...
  *     - If it is not the final node:
@@ -31,7 +31,7 @@ static bool check_nonfinal_tlv(const struct tlv_payload *tlv,
 	return true;
 }
 
-/* BOLT-route-blinding #4:
+/* BOLT #4:
  * - If `encrypted_recipient_data` is present:
  *...
  *   - If it is the final node:
@@ -74,7 +74,7 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	if (!check_nonfinal_tlv(tlv, failtlvtype))
 		return false;
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * - If it is not the final node:
 	 *...
 	 *   - MUST return an error if `encrypted_recipient_data` does not
@@ -97,7 +97,7 @@ static bool handle_blinded_forward(struct onion_payload *p,
 
 	p->total_msat = NULL;
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * - If it is not the final node:
 	 *...
 	 *   - MUST return an error if `encrypted_recipient_data` does not
@@ -125,7 +125,7 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 	if (!check_final_tlv(tlv, failtlvtype))
 		return false;
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 *   - MUST return an error if `amt_to_forward`, `outgoing_cltv_value`
 	 *     or `total_amount_msat` are not present.
 	 *   - MUST return an error if `amt_to_forward` is below what it expects
@@ -157,7 +157,7 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 		*p->total_msat = amount_msat(*tlv->total_amount_msat);
 	} else {
 		/* BOLT #4:
-		 * - if it is the final node:
+		 * - If it is the final node:
 		 *   - MUST treat `total_msat` as if it were equal to
 		 *     `amt_to_forward` if it is not present. */
 		p->total_msat = tal_dup(p, struct amount_msat,
@@ -205,7 +205,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		return tal_free(p);
 	}
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 *
 	 * The reader:
 	 *
@@ -220,7 +220,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			goto field_bad;
 		}
 
-		/* BOLT-route-blinding #4:
+		/* BOLT #4:
 		 *
 		 *   - If `blinding_point` is set in the incoming `update_add_htlc`:
 		 *     - MUST return an error if `current_blinding_point` is present.
@@ -244,7 +244,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 					      p->tlv->blinding_point);
 		}
 
-		/* BOLT-route-blinding #4:
+		/* BOLT #4:
 		 * The reader:
 		 *...
 		 *    - MUST return an error if `encrypted_recipient_data` does
@@ -260,7 +260,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		}
 
 		if (enc->payment_constraints) {
-			/* BOLT-route-blinding #4:
+			/* BOLT #4:
 			 * - MUST return an error if:
 			 *   - the expiry is greater than
 			 *    `encrypted_recipient_data.payment_constraints.max_cltv_expiry`.
@@ -270,7 +270,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				goto field_bad;
 			}
 
-			/* BOLT-route-blinding #4:
+			/* BOLT #4:
 			 * - MUST return an error if:
 			 *...
 			 *   - the amount is below
@@ -282,8 +282,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				goto field_bad;
 			}
 
-			/* BOLT-route-blinding #4:
-			 * - If `allowed_features` is present:
+			/* BOLT #4:
  			 *   - MUST return an error if:
 			 *...
 			 *     - the payment uses a feature not included in
@@ -292,8 +291,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			/* We don't have any features yet... */
 		}
 
-		/* BOLT-route-blinding #4:
-		 * - If `allowed_features` is present:
+		/* BOLT #4:
+		 * - If `allowed_features` is missing:
+		 *   - MUST process the message as if it were present and contained an
+		 *     empty array.
 		 *   - MUST return an error if:
 		 *     - `encrypted_recipient_data.allowed_features.features`
 		 *        contains an unknown feature bit (even if it is odd).
@@ -328,7 +329,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		return p;
 	}
 
-	/* BOLT-route-blinding-fix #4:
+	/* BOLT #4:
 	 *   - Otherwise (it is not part of a blinded route):
 	 *      - MUST return an error if `blinding_point` is set in the
 	 *        incoming `update_add_htlc` or `current_blinding_point`
@@ -341,7 +342,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The reader:
+	 * - Otherwise (it is not part of a blinded route):
+	 *...
 	 *   - MUST return an error if `amt_to_forward` or
 	 *     `outgoing_cltv_value` are not present.
 	 */
@@ -359,10 +361,9 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The writer:
-	 *...
-	 *  - For every non-final node:
-	 *    - MUST include `short_channel_id`
+	 *    - if it is not the final node:
+	 *      - MUST return an error if:
+	 *        - `short_channel_id` is not present,
 	 */
 	if (!p->final) {
 		if (!p->tlv->short_channel_id) {
@@ -375,7 +376,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	} else {
 		p->forward_channel = NULL;
 		/* BOLT #4:
-		 * - if it is the final node:
+		 * - If it is the final node:
 		 *   - MUST treat `total_msat` as if it were equal to
 		 *     `amt_to_forward` if it is not present. */
 		p->total_msat = tal_dup(p, struct amount_msat,

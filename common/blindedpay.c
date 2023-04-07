@@ -18,7 +18,7 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 		bool first = (i == 0);
 		bool final = (i == tal_count(onions) - 1);
 
-		/* BOLT-route-blinding #4:
+		/* BOLT-blinded-payments #4:
 		 * - For every node inside a blinded route:
 		 *   - MUST include the `encrypted_recipient_data` provided by the
 		 *     recipient
