@@ -86,11 +86,11 @@ def test_bitcoin_failure(node_factory, bitcoind):
     l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
 
     # This should cause both estimatefee and getblockhash fail
-    l1.daemon.wait_for_logs(['Unable to estimate .* fee',
+    l1.daemon.wait_for_logs(['Unable to estimate any fees',
                              'getblockhash .* exited with status 1'])
 
     # And they should retry!
-    l1.daemon.wait_for_logs(['Unable to estimate .* fee',
+    l1.daemon.wait_for_logs(['Unable to estimate any fees',
                              'getblockhash .* exited with status 1'])
 
     # Restore, then it should recover and get blockheight.
@@ -1931,7 +1931,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
 
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
-                             r'Unable to estimate opening fees',
+                             r'Unable to estimate any fees',
                              r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout={} seconds'.format(timeout)])
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
@@ -1990,8 +1990,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "mutual_close": 20004,
             "unilateral_close": 44000,
             "penalty": 30000,
-            # FIXME: this should increase:
-            "min_acceptable": 10000,
+            # This has increased (rounded up)
+            "min_acceptable": 20004,
             "max_acceptable": 600000,
             "estimates": [{"blockcount": 2,
                            "feerate": 60000,
@@ -2031,8 +2031,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "unilateral_close": 44000,
             # This has increased (rounded up!)
             "penalty": 30004,
-            # FIXME: this should increase to 30004!
-            "min_acceptable": 15000,
+            # This has increased (rounded up)
+            "min_acceptable": 30004,
             "max_acceptable": 600000,
             "estimates": [{"blockcount": 2,
                            "feerate": 60000,

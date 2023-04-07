@@ -309,6 +309,11 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 								"feerates"),
 						&floor);
 	} else {
+		if (!deprecated_apis)
+			bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+					     "estimatefees",
+					     "missing fee_floor field");
+
 		feerates = parse_deprecated_feerates(call, call->bitcoind,
 						     buf, resulttok);
 		floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
