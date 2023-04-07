@@ -206,10 +206,6 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	if (!passwd)
 		errx(exit_code, "%s", err);
 
-	if (sodium_init() == -1)
-		errx(ERROR_LIBSODIUM,
-		    "Could not initialize libsodium. Not enough entropy ?");
-
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
 
@@ -275,10 +271,6 @@ static int encrypt_hsm(const char *hsm_secret_path)
 
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
-
-	if (sodium_init() == -1)
-		errx(ERROR_LIBSODIUM,
-		    "Could not initialize libsodium. Not enough entropy ?");
 
 	/* Derive the encryption key from the password provided, and try to encrypt
 	 * the seed. */
@@ -629,6 +621,10 @@ int main(int argc, char *argv[])
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage(argv[0]);
+
+	if (sodium_init() == -1)
+		errx(ERROR_LIBSODIUM,
+		    "Could not initialize libsodium. Not enough entropy ?");
 
 	if (streq(method, "decrypt")) {
 		if (argc < 3)
