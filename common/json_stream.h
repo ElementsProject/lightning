@@ -97,9 +97,6 @@ const char *json_stream_detach_filter(const tal_t *ctx, struct json_stream *js);
  */
 void json_stream_close(struct json_stream *js, struct command *writer);
 
-/* For low-level JSON stream access: */
-void json_stream_log_suppress(struct json_stream *js, const char *cmd_name);
-
 /* '"fieldname" : [ ' or '[ ' if fieldname is NULL */
 void json_array_start(struct json_stream *js, const char *fieldname);
 /* '"fieldname" : { ' or '{ ' if fieldname is NULL */

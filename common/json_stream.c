@@ -95,13 +95,6 @@ static bool json_stream_still_writing(const struct json_stream *js)
 	return js->writer != NULL;
 }
 
-void json_stream_log_suppress(struct json_stream *js, const char *cmd_name)
-{
-	/* Really shouldn't be used for anything else */
-	assert(streq(cmd_name, "getlog"));
-	js->log = NULL;
-}
-
 void json_stream_append(struct json_stream *js,
 			const char *str, size_t len)
 {
