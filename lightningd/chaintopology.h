@@ -88,15 +88,31 @@ static inline bool outgoing_tx_eq(const struct outgoing_tx *b, const struct bitc
 HTABLE_DEFINE_TYPE(struct outgoing_tx, keyof_outgoing_tx_map,
 		   outgoing_tx_hash_sha, outgoing_tx_eq, outgoing_tx_map);
 
+/* Our plugins give us a series of blockcount, feerate pairs. */
+struct feerate_est {
+	u32 blockcount;
+	u32 rate;
+};
+
 struct chain_topology {
 	struct lightningd *ld;
 	struct block *root;
 	struct block *tip;
 	struct bitcoin_blkid prev_tip;
 	struct block_map *block_map;
-	u32 feerate[NUM_FEERATES];
+
+	/* Set during startup */
 	bool feerate_uninitialized;
-	u32 feehistory[NUM_FEERATES][FEE_HISTORY_NUM];
+
+	/* This is the lowest feerate that bitcoind is saying will broadcast. */
+	u32 feerate_floor;
+
+	/* We keep last three feerates we got: this is useful for min/max. */
+	struct feerate_est *feerates[FEE_HISTORY_NUM];
+
+	/* We keep a smoothed feerate: this is useful when we're going to
+	 * suggest feerates / check feerates from our peers. */
+	struct feerate_est *smoothed_feerates;
 
 	/* Where to log things. */
 	struct log *log;
@@ -160,6 +176,10 @@ u32 get_block_height(const struct chain_topology *topo);
  * than our current scan position this is preferable since it is far less
  * likely to lag behind the rest of the network.*/
 u32 get_network_blockheight(const struct chain_topology *topo);
+
+/* Get feerate estimate for getting a tx in this many blocks */
+u32 feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
+u32 smoothed_feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
 
 /* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);

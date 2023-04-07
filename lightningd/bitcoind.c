@@ -156,20 +156,69 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *	"max_acceptable": <sat per kVB>,
  * }
  */
-
 struct estimatefee_call {
 	struct bitcoind *bitcoind;
-	void (*cb)(struct bitcoind *bitcoind, const u32 satoshi_per_kw[],
-		   void *);
-	void *arg;
+	void (*cb)(struct lightningd *ld, u32 feerate_floor,
+		   const struct feerate_est *rates);
 };
+
+/* Note: returns estimates in perkb, caller converts! */
+static struct feerate_est *parse_deprecated_feerates(const tal_t *ctx,
+						     struct bitcoind *bitcoind,
+						     const char *buf,
+						     const jsmntok_t *toks)
+{
+	struct feerate_est *rates = tal_arr(ctx, struct feerate_est, 0);
+	struct oldstyle {
+		const char *name;
+		size_t blockcount;
+		size_t multiplier;
+	} oldstyles[] = { { "max_acceptable", 2, 10 },
+			  { "unilateral_close", 6, 1 },
+			  { "opening", 12, 1 },
+			  { "mutual_close", 100, 1 } };
+
+	for (size_t i = 0; i < ARRAY_SIZE(oldstyles); i++) {
+		const jsmntok_t *feeratetok;
+		struct feerate_est rate;
+
+		feeratetok = json_get_member(buf, toks, oldstyles[i].name);
+		if (!feeratetok) {
+ 			bitcoin_plugin_error(bitcoind, buf, toks,
+ 					     "estimatefees",
+					     "missing '%s' field",
+					     oldstyles[i].name);
+		}
+		if (!json_to_u32(buf, feeratetok, &rate.rate)) {
+			if (chainparams->testnet)
+				log_debug(bitcoind->log,
+					  "Unable to estimate %s fees",
+					  oldstyles[i].name);
+			else
+				log_unusual(bitcoind->log,
+					    "Unable to estimate %s fees",
+					    oldstyles[i].name);
+			continue;
+		}
+
+		if (rate.rate == 0)
+			continue;
+
+		/* Cancel out the 10x multiplier on max_acceptable */
+		rate.rate /= oldstyles[i].multiplier;
+		rate.blockcount = oldstyles[i].blockcount;
+		tal_arr_expand(&rates, rate);
+	}
+	return rates;
+}
 
 static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct estimatefee_call *call)
 {
-	const jsmntok_t *resulttok, *feeratetok;
-	u32 *feerates = tal_arr(call, u32, NUM_FEERATES);
+	const jsmntok_t *resulttok;
+	struct feerate_est *feerates;
+	u32 floor;
 
 	resulttok = json_get_member(buf, toks, "result");
 	if (!resulttok)
@@ -177,73 +226,40 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				     "estimatefees",
 				     "bad 'result' field");
 
-	for (int f = 0; f < NUM_FEERATES; f++) {
-		feeratetok = json_get_member(buf, resulttok, feerate_name(f));
-		if (!feeratetok)
-			bitcoin_plugin_error(call->bitcoind, buf, toks,
-					     "estimatefees",
-					     "missing '%s' field", feerate_name(f));
-		/* We still use the bcli plugin for min and max, even with
-		 * force_feerates */
-		if (f < tal_count(call->bitcoind->ld->force_feerates)) {
-			feerates[f] = call->bitcoind->ld->force_feerates[f];
-			continue;
-		}
+	feerates = parse_deprecated_feerates(call, call->bitcoind,
+					     buf, resulttok);
+	/* FIXME: get from plugin! */
+	floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
 
-		/* FIXME: We could trawl recent blocks for median fee... */
-		if (!json_to_u32(buf, feeratetok, &feerates[f])) {
-			if (chainparams->testnet)
-				log_debug(call->bitcoind->log,
-					  "Unable to estimate %s fees",
-					  feerate_name(f));
-			else
-				log_unusual(call->bitcoind->log,
-					    "Unable to estimate %s fees",
-					    feerate_name(f));
+	/* Convert to perkw */
+	floor = feerate_from_style(floor, FEERATE_PER_KBYTE);
+	if (floor < FEERATE_FLOOR)
+		floor = FEERATE_FLOOR;
 
-#if DEVELOPER
-			/* This is needed to test for failed feerate estimates
-			* in DEVELOPER mode */
-			feerates[f] = 0;
-#else
-			/* If we are in testnet mode we want to allow payments
-			* with the minimal fee even if the estimate didn't
-			* work out. This is less disruptive than erring out
-			* all the time. */
-			if (chainparams->testnet)
-				feerates[f] = FEERATE_FLOOR;
-			else
-				feerates[f] = 0;
-#endif
-		} else {
-			if (f == FEERATE_UNILATERAL_CLOSE) {
-				feerates[f] = feerates[f] * call->bitcoind->ld->config.commit_fee_percent / 100;
-			} else if (f == FEERATE_MAX) {
-				/* Plugins always use 10 as multiplier. */
-				feerates[f] = feerates[f] * call->bitcoind->ld->config.max_fee_multiplier / 10;
-			}
-			/* Rate in satoshi per kw. */
-			feerates[f] = feerate_from_style(feerates[f],
-							 FEERATE_PER_KBYTE);
-		}
+	/* FIXME: We could let this go below the dynamic floor, but we'd
+	 * need to know if the floor is because of their node's policy
+	 * (minrelaytxfee) or mempool conditions (mempoolminfee). */
+	for (size_t i = 0; i < tal_count(feerates); i++) {
+		feerates[i].rate = feerate_from_style(feerates[i].rate,
+						      FEERATE_PER_KBYTE);
+		if (feerates[i].rate < floor)
+			feerates[i].rate = floor;
 	}
 
-	call->cb(call->bitcoind, feerates, call->arg);
+	call->cb(call->bitcoind->ld, floor, feerates);
 	tal_free(call);
 }
 
-void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
-			     size_t num_estimates,
-			     void (*cb)(struct bitcoind *bitcoind,
-					const u32 satoshi_per_kw[], void *),
-			     void *arg)
+void bitcoind_estimate_fees(struct bitcoind *bitcoind,
+			    void (*cb)(struct lightningd *ld,
+				       u32 feerate_floor,
+				       const struct feerate_est *feerates))
 {
 	struct jsonrpc_request *req;
 	struct estimatefee_call *call = tal(bitcoind, struct estimatefee_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
-	call->arg = arg;
 
 	req = jsonrpc_request_start(bitcoind, "estimatefees", NULL, true,
 				    bitcoind->log,
