@@ -9,6 +9,7 @@
 struct bitcoin_blkid;
 struct bitcoin_tx_output;
 struct block;
+struct feerate_est;
 struct lightningd;
 struct ripemd160;
 struct bitcoin_tx;
@@ -57,19 +58,10 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct log *log);
 
-void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
-			     size_t num_estimates,
-			     void (*cb)(struct bitcoind *bitcoind,
-					const u32 satoshi_per_kw[], void *),
-			     void *arg);
-
-#define bitcoind_estimate_fees(bitcoind_, num, cb, arg) \
-	bitcoind_estimate_fees_((bitcoind_), (num), \
-				typesafe_cb_preargs(void, void *,	\
-						    (cb), (arg),	\
-						    struct bitcoind *,	\
-						    const u32 *),	\
-				(arg))
+void bitcoind_estimate_fees(struct bitcoind *bitcoind,
+			    void (*cb)(struct lightningd *ld,
+				       u32 feerate_floor,
+				       const struct feerate_est *feerates));
 
 void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 const char *id_prefix TAKES,

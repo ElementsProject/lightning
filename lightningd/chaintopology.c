@@ -352,97 +352,186 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 /* Mutual recursion via timer. */
 static void next_updatefee_timer(struct chain_topology *topo);
 
-static void init_feerate_history(struct chain_topology *topo,
-				 enum feerate feerate, u32 val)
+static u32 interp_feerate(const struct feerate_est *rates, u32 blockcount)
 {
-	for (size_t i = 0; i < FEE_HISTORY_NUM; i++)
-		topo->feehistory[feerate][i] = val;
+	const struct feerate_est *before = NULL, *after = NULL;
+
+	/* Find before and after. */
+	for (size_t i = 0; i < tal_count(rates); i++) {
+		if (rates[i].blockcount <= blockcount) {
+			before = &rates[i];
+		} else if (rates[i].blockcount > blockcount && !after) {
+			after = &rates[i];
+		}
+	}
+	/* No estimates at all? */
+	if (!before && !after)
+		return 0;
+	/* We don't extrapolate. */
+	if (!before && after)
+		return after->rate;
+	if (before && !after)
+		return before->rate;
+
+	/* Interpolate, eg. blockcount 10, rate 15000, blockcount 20, rate 5000.
+	 * At 15, rate should be 10000.
+	 * 15000 + (15 - 10) / (20 - 10) * (15000 - 5000)
+	 * 15000 + 5 / 10 * 10000
+	 * => 10000
+	 */
+	/* Don't go backwards though! */
+	if (before->rate < after->rate)
+		return before->rate;
+
+	return before->rate
+		- ((u64)(blockcount - before->blockcount)
+		   * (before->rate - after->rate)
+		   / (after->blockcount - before->blockcount));
+
 }
 
-static void add_feerate_history(struct chain_topology *topo,
-				enum feerate feerate, u32 val)
+u32 feerate_for_deadline(const struct chain_topology *topo, u32 blockcount)
 {
-	memmove(&topo->feehistory[feerate][1], &topo->feehistory[feerate][0],
-		(FEE_HISTORY_NUM - 1) * sizeof(u32));
-	topo->feehistory[feerate][0] = val;
+	u32 rate = interp_feerate(topo->feerates[0], blockcount);
+
+	/* 0 is a special value, meaning "don't know" */
+	if (rate && rate < topo->feerate_floor)
+		rate = topo->feerate_floor;
+	return rate;
 }
 
-/* We sanitize feerates if necessary to put them in descending order. */
-static void update_feerates(struct bitcoind *bitcoind,
-			    const u32 *satoshi_per_kw,
-			    struct chain_topology *topo)
+u32 smoothed_feerate_for_deadline(const struct chain_topology *topo,
+				  u32 blockcount)
 {
-	u32 old_feerates[NUM_FEERATES];
+	/* Note: we cap it at feerate_floor when we smooth */
+	return interp_feerate(topo->smoothed_feerates, blockcount);
+}
+
+/* Mixes in fresh feerate rate into old smoothed values, modifies rate */
+static void smooth_one_feerate(const struct chain_topology *topo,
+			       struct feerate_est *rate)
+{
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
 	 * 2 minutes. The following will do that in a polling interval
 	 * independent manner. */
 	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
-	bool notify_feerate_changed = false;
+	u32 old_feerate, feerate_smooth;
 
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		u32 feerate = satoshi_per_kw[i];
+	/* We don't call this unless we had a previous feerate */
+	old_feerate = smoothed_feerate_for_deadline(topo, rate->blockcount);
+	assert(old_feerate);
 
-		/* Takes into account override_fee_rate */
-		old_feerates[i] = try_get_feerate(topo, i);
+	feerate_smooth = rate->rate * alpha + old_feerate * (1 - alpha);
 
-		/* If estimatefee failed, don't do anything. */
-		if (!feerate)
-			continue;
-
-		/* Initial smoothed feerate is the polled feerate */
-		if (!old_feerates[i]) {
-			notify_feerate_changed = true;
-			old_feerates[i] = feerate;
-			init_feerate_history(topo, i, feerate);
-
-			log_debug(topo->log,
-					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
-					  feerate_name(i), feerate);
-		} else {
-			add_feerate_history(topo, i, feerate);
-		}
-
-		/* Smooth the feerate to avoid spikes. */
-		u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
-		/* But to avoid updating forever, only apply smoothing when its
-		 * effect is more then 10 percent */
-		if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
-			feerate = feerate_smooth;
-			log_debug(topo->log,
-					  "... polled feerate estimate for %s (%u) smoothed to %u (alpha=%.2f)",
-					  feerate_name(i), satoshi_per_kw[i],
-					  feerate, alpha);
-		}
-
-		if (feerate < get_feerate_floor(topo)) {
-			feerate = get_feerate_floor(topo);
-			log_debug(topo->log,
-					  "... feerate estimate for %s hit floor %u",
-					  feerate_name(i), feerate);
-		}
-
-		if (feerate != topo->feerate[i]) {
-			log_debug(topo->log, "Feerate estimate for %s set to %u (was %u)",
-				  feerate_name(i),
-				  feerate, topo->feerate[i]);
-		}
-		topo->feerate[i] = feerate;
-
-        /* After adjustment, If any entry doesn't match prior reported, report all */
-        if (feerate != old_feerates[i])
-            notify_feerate_changed = true;
+	/* But to avoid updating forever, only apply smoothing when its
+	 * effect is more then 10 percent */
+	if (abs((int)rate->rate - (int)feerate_smooth) > (0.1 * rate->rate)) {
+		rate->rate = feerate_smooth;
+		log_debug(topo->log,
+			  "... polled feerate estimate for %u blocks smoothed to %u (alpha=%.2f)",
+			  rate->blockcount, rate->rate, alpha);
 	}
 
+	if (rate->rate < get_feerate_floor(topo)) {
+		rate->rate = get_feerate_floor(topo);
+		log_debug(topo->log,
+			  "... feerate estimate for %u blocks hit floor %u",
+			  rate->blockcount, rate->rate);
+	}
+
+	if (rate->rate != feerate_smooth)
+		log_debug(topo->log,
+			  "Feerate estimate for %u blocks set to %u (was %u)",
+			  rate->blockcount, rate->rate, feerate_smooth);
+}
+
+static bool feerates_differ(const struct feerate_est *a,
+			    const struct feerate_est *b)
+{
+	if (tal_count(a) != tal_count(b))
+		return true;
+	for (size_t i = 0; i < tal_count(a); i++) {
+		if (a[i].blockcount != b[i].blockcount)
+			return true;
+		if (a[i].rate != b[i].rate)
+			return true;
+	}
+	return false;
+}
+
+/* In case the plugin does weird stuff! */
+static bool different_blockcounts(struct chain_topology *topo,
+				  const struct feerate_est *old,
+				  const struct feerate_est *new)
+{
+	if (tal_count(old) != tal_count(new)) {
+		log_unusual(topo->log, "Presented with %zu feerates this time (was %zu!)",
+			    tal_count(new), tal_count(old));
+		return true;
+	}
+	for (size_t i = 0; i < tal_count(old); i++) {
+		if (old[i].blockcount != new[i].blockcount) {
+			log_unusual(topo->log, "Presented with feerates"
+				    " for blockcount %u, previously %u",
+				    new[i].blockcount, old[i].blockcount);
+			return true;
+		}
+	}
+	return false;
+}
+
+static void update_feerates(struct lightningd *ld,
+			    u32 feerate_floor,
+			    const struct feerate_est *rates TAKES)
+{
+	struct feerate_est *new_smoothed;
+	bool changed;
+	struct chain_topology *topo = ld->topology;
+
+	topo->feerate_floor = feerate_floor;
+
+	/* Don't bother updating if we got no feerates; we'd rather have
+	 * historical ones, if any. */
+	if (tal_count(rates) == 0)
+		goto rearm;
+
+	/* If the feerate blockcounts differ, don't average, just override */
+	if (topo->feerates[0] && different_blockcounts(topo, topo->feerates[0], rates)) {
+		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++)
+			topo->feerates[i] = tal_free(topo->feerates[i]);
+		topo->smoothed_feerates = tal_free(topo->smoothed_feerates);
+	}
+
+	/* Move down historical rates, insert these */
+	tal_free(topo->feerates[FEE_HISTORY_NUM-1]);
+	memmove(topo->feerates + 1, topo->feerates,
+		sizeof(topo->feerates[0]) * (FEE_HISTORY_NUM-1));
+	topo->feerates[0] = tal_dup_talarr(topo, struct feerate_est, rates);
+	changed = feerates_differ(topo->feerates[0], topo->feerates[1]);
+
+	/* Use this as basis of new smoothed ones. */
+	new_smoothed = tal_dup_talarr(topo, struct feerate_est, topo->feerates[0]);
+
+	/* If there were old smoothed feerates, incorporate those */
+	if (tal_count(topo->smoothed_feerates) != 0) {
+		for (size_t i = 0; i < tal_count(new_smoothed); i++)
+			smooth_one_feerate(topo, &new_smoothed[i]);
+	}
+	changed |= feerates_differ(topo->smoothed_feerates, new_smoothed);
+	tal_free(topo->smoothed_feerates);
+	topo->smoothed_feerates = new_smoothed;
+
+	if (changed)
+		notify_feerate_change(topo->ld);
+
+rearm:
 	if (topo->feerate_uninitialized) {
 		/* This doesn't mean we *have* a fee estimate, but it does
 		 * mean we tried. */
 		topo->feerate_uninitialized = false;
 		maybe_completed_init(topo);
 	}
-
-	if (notify_feerate_changed)
-		notify_feerate_change(bitcoind->ld);
 
 	next_updatefee_timer(topo);
 }
@@ -453,8 +542,7 @@ static void start_fee_estimate(struct chain_topology *topo)
 	if (topo->stopping)
 		return;
 	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, NUM_FEERATES, update_feerates,
-			       topo);
+	bitcoind_estimate_fees(topo->bitcoind, update_feerates);
 }
 
 u32 opening_feerate(struct chain_topology *topo)
@@ -910,10 +998,58 @@ u32 get_network_blockheight(const struct chain_topology *topo)
 		return topo->headercount;
 }
 
+struct rate_conversion {
+	u32 blockcount;
+};
+
+static struct rate_conversion conversions[] = {
+	[FEERATE_OPENING] = { 12 },
+	[FEERATE_MUTUAL_CLOSE] = { 100 },
+	[FEERATE_UNILATERAL_CLOSE] = { 6 },
+	[FEERATE_DELAYED_TO_US] = { 12 },
+	[FEERATE_HTLC_RESOLUTION] = { 6 },
+	[FEERATE_PENALTY] = { 12 },
+};
 
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
-	return topo->feerate[feerate];
+	u32 val;
+
+	/* Max and min look over history as well. */
+	if (feerate == FEERATE_MAX) {
+		u32 max = 0;
+		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
+			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
+				if (topo->feerates[i][j].rate > max)
+					max = topo->feerates[i][j].rate;
+			}
+		}
+		return max * topo->ld->config.max_fee_multiplier;
+	}
+
+	if (feerate == FEERATE_MIN) {
+		u32 min = 0xFFFFFFFF;
+		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
+			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
+				if (topo->feerates[i][j].rate < min)
+					min = topo->feerates[i][j].rate;
+			}
+		}
+		if (min == 0xFFFFFFFF)
+			return 0;
+		/* FIXME: This is what bcli used to do: halve the slow feerate! */
+		min /= 2;
+		return min;
+	}
+
+	if (topo->ld->force_feerates)
+		val = topo->ld->force_feerates[feerate];
+	else
+		val = smoothed_feerate_for_deadline(topo, conversions[feerate].blockcount);
+	if (feerate == FEERATE_UNILATERAL_CLOSE)
+		val = val * topo->ld->config.commit_fee_percent / 100;
+
+	return val;
 }
 
 u32 feerate_min(struct lightningd *ld, bool *unknown)
@@ -931,14 +1067,6 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 		if (!min) {
 			if (unknown)
 				*unknown = true;
-		} else {
-			const u32 *hist = ld->topology->feehistory[FEERATE_MIN];
-
-			/* If one of last three was an outlier, use that. */
-			for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
-				if (hist[i] < min)
-					min = hist[i];
-			}
 		}
 	}
 
@@ -950,7 +1078,6 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
 	u32 feerate;
-	const u32 *feehistory = ld->topology->feehistory[FEERATE_MAX];
 
 	if (unknown)
 		*unknown = false;
@@ -964,12 +1091,6 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		if (unknown)
 			*unknown = true;
 		return UINT_MAX;
-	}
-
-	/* If one of last three was an outlier, use that. */
-	for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
-		if (feehistory[i] > feerate)
-			feerate = feehistory[i];
 	}
 	return feerate;
 }
@@ -1001,10 +1122,11 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->txowatches = tal(topo, struct txowatch_hash);
 	txowatch_hash_init(topo->txowatches);
 	topo->log = log;
-	memset(topo->feerate, 0, sizeof(topo->feerate));
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->poll_seconds = 30;
 	topo->feerate_uninitialized = true;
+	memset(topo->feerates, 0, sizeof(topo->feerates));
+	topo->smoothed_feerates = NULL;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;
@@ -1110,7 +1232,6 @@ void setup_topology(struct chain_topology *topo,
 		    u32 min_blockheight, u32 max_blockheight)
 {
 	void *ret;
-	memset(&topo->feerate, 0, sizeof(topo->feerate));
 
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
