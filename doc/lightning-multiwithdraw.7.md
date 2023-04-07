@@ -21,15 +21,8 @@ a whole number ending in *sat*,
 a whole number ending in *000msat*,
 or a number with 1 to 8 decimal places ending in *btc*.
 
-*feerate* is an optional feerate to use. It can be one of the strings
-*urgent* (aim for next block), *normal* (next 4 blocks or so) or *slow*
-(next 100 blocks or so) to use lightningd's internal estimates: *normal*
-is the default.
-
-Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
-the number is interpreted as satoshi-per-kilosipa (weight), and *perkb*
-means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
-the suffix is equivalent to *perkb*.
+*feerate* is an optional feerate: see NOTES in lightning-feerates(7)
+for possible values.  The default is *normal*.
 
 *minconf* specifies the minimum number of confirmations that used
 outputs should have. Default is 1.

@@ -120,6 +120,25 @@ static struct command_result *param_feerate_unchecked(struct command *cmd,
 	} else if (json_tok_streq(buffer, tok, "urgent")) {
 		**feerate = feerate_for_deadline(cmd->ld->topology, 6);
 		return NULL;
+	} else if (json_tok_streq(buffer, tok, "minimum")) {
+		**feerate = get_feerate_floor(cmd->ld->topology);
+		return NULL;
+	}
+
+	/* Can specify number of blocks as a target */
+	if (json_tok_endswith(buffer, tok, "blocks")) {
+		jsmntok_t base = *tok;
+		base.end -= strlen("blocks");
+		u32 numblocks;
+
+		if (!json_to_number(buffer, &base, &numblocks)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "'%s' should be an integer not '%.*s'",
+					    name, base.end - base.start,
+					    buffer + base.start);
+		}
+		**feerate = feerate_for_deadline(cmd->ld->topology, numblocks);
+		return NULL;
 	}
 
 	/* It's a number... */

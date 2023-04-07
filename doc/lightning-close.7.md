@@ -66,16 +66,7 @@ unless this flag is passed in. Defaults to false.
 *feerange* is an optional array [ *min*, *max* ], indicating the
 minimum and maximum feerates to offer: the peer will obey these if it
 supports the quick-close protocol.  *slow* and *unilateral\_close* are
-the defaults.
-
-Rates are one of the strings *urgent* (aim for next block), *normal*
-(next 4 blocks or so) or *slow* (next 100 blocks or so) to use
-lightningd's internal estimates, or one of the names from
-lightning-feerates(7).  Otherwise, they can be numbers with
-an optional suffix: *perkw* means the number is interpreted as
-satoshi-per-kilosipa (weight), and *perkb* means it is interpreted
-bitcoind-style as satoshi-per-kilobyte. Omitting the suffix is
-equivalent to *perkb*.
+the defaults.  See NOTES in lightning-feerates(7) for possible values.
 
 Note that the maximum fee will be capped at the final commitment
 transaction fee (unless the experimental anchor-outputs option is

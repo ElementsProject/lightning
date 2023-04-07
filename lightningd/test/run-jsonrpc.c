@@ -40,6 +40,9 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
+/* Generated stub for get_feerate_floor */
+u32 get_feerate_floor(const struct chain_topology *topo UNNEEDED)
+{ fprintf(stderr, "get_feerate_floor called!\n"); abort(); }
 /* Generated stub for htlc_resolution_feerate */
 u32 htlc_resolution_feerate(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "htlc_resolution_feerate called!\n"); abort(); }
