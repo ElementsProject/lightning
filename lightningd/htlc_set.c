@@ -175,10 +175,6 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	/* BOLT #4:
-	 * - if the total `amount_msat` of this HTLC set equals `total_msat`:
-	 *   - SHOULD fulfill all HTLCs in the HTLC set
-	 */
 	if (!amount_msat_add(&set->so_far, set->so_far, hin->msat)) {
 		log_unusual(ld->log, "Failing HTLC set %s:"
 			    " overflow adding %s+%s",
@@ -202,7 +198,12 @@ void htlc_set_add(struct lightningd *ld,
 		  payment_secret ? "" : "no "
 		);
 
-	if (amount_msat_eq(set->so_far, total_msat)) {
+	/* BOLT #4:
+	 * - if the total `amount_msat` of this HTLC set is equal to or greater than
+	 *   `total_msat`:
+	 *   - SHOULD fulfill all HTLCs in the HTLC set
+	 */
+	if (amount_msat_greater_eq(set->so_far, total_msat)) {
 		/* Disable timer now, in case invoice_hook is slow! */
 		tal_free(set->timeout);
 		invoice_try_pay(ld, set, details);
