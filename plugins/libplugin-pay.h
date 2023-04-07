@@ -16,7 +16,7 @@ struct legacy_payload {
 /* struct holding the information necessary to call createonion */
 struct createonion_hop {
 	struct node_id pubkey;
-	struct tlv_tlv_payload *tlv_payload;
+	struct tlv_payload *tlv_payload;
 };
 
 struct createonion_request {

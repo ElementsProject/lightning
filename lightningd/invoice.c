@@ -172,7 +172,7 @@ static void invoice_payment_add_tlvs(struct json_stream *stream,
 				     struct htlc_set *hset)
 {
 	struct htlc_in *hin;
-	const struct tlv_tlv_payload *tlvs;
+	const struct tlv_payload *tlvs;
 	assert(tal_count(hset->htlcs) > 0);
 
 	/* Pick the first HTLC as representative for the entire set. */

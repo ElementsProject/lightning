@@ -11,20 +11,18 @@
 
 /* BOLT #4:
  *
- * ### `tlv_payload` format
+ * ### `payload` format
  *
- * This is a more flexible format, which avoids the redundant
- * `short_channel_id` field for the final node.  It is formatted
- * according to the Type-Length-Value format defined in [BOLT
- * #1](01-messaging.md#type-length-value-format).
+ * This is formatted according to the Type-Length-Value format defined
+ * in [BOLT #1](01-messaging.md#type-length-value-format).
  */
 static u8 *make_tlv_hop(const tal_t *ctx,
-			const struct tlv_tlv_payload *tlv)
+			const struct tlv_payload *tlv)
 {
 	/* We can't have over 64k anyway */
 	u8 *tlvs = tal_arr(ctx, u8, 3);
 
-	towire_tlv_tlv_payload(&tlvs, tlv);
+	towire_tlv_payload(&tlvs, tlv);
 
 	switch (bigsize_put(tlvs, tal_bytelen(tlvs) - 3)) {
 	case 1:
@@ -43,12 +41,11 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       struct amount_msat forward,
 		       u32 outgoing_cltv)
 {
-	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
+	struct tlv_payload *tlv = tlv_payload_new(tmpctx);
 
 	/* BOLT #4:
 	 *
 	 * The writer:
-	 *...
 	 *  - For every node:
 	 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
 	 *  - For every non-final node:
@@ -68,8 +65,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    const struct secret *payment_secret,
 		    const u8 *payment_metadata)
 {
-	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-	struct tlv_tlv_payload_payment_data tlv_pdata;
+	struct tlv_payload *tlv = tlv_payload_new(tmpctx);
+	struct tlv_payload_payment_data tlv_pdata;
 
 	/* These go together! */
 	if (!payment_secret)
@@ -78,7 +75,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 	/* BOLT #4:
 	 *
 	 * The writer:
-	 *...
 	 *  - For every node:
 	 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
 	 *...
@@ -108,7 +104,7 @@ u8 *onion_blinded_hop(const tal_t *ctx,
 		      const u8 *enctlv,
 		      const struct pubkey *blinding)
 {
-	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
+	struct tlv_payload *tlv = tlv_payload_new(tmpctx);
 
 	if (amt_to_forward) {
 		tlv->amt_to_forward

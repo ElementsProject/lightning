@@ -3,11 +3,8 @@
 #include "config.h"
 #include <common/utils.h>
 
-/* BOLT #4:
- *
- * - a 1300-byte `hop_payloads` consisting of multiple, variable length,
- *   `hop_payload` payloads or up to 20 fixed sized legacy `hop_data` payloads.
- */
+/* FIXME: This is a legacy concept, which should be eliminated now we have
+ * only onion tlv payloads. */
 #define ROUTING_MAX_HOPS 20
 
 /* BOLT #7:
