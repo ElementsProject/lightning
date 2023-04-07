@@ -271,20 +271,10 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 
 /* BOLT #4:
  *
- * * `amt_to_forward`: The amount, in millisatoshis, to forward to the next
- *   receiving peer specified within the routing information.
- *
- *   For non-final nodes, this value amount MUST include the origin node's computed _fee_ for the
- *   receiving peer. When processing an incoming Sphinx packet and the HTLC
- *   message that it is encapsulated within, if the following inequality
- *   doesn't hold, then the HTLC should be rejected as it would indicate that
- *   a prior hop has deviated from the specified parameters:
- *
- *     incoming_htlc_amt - fee >= amt_to_forward
- *
- *   Where `fee` is calculated according to the receiving peer's
- *   advertised fee schema (as described in [BOLT
- *   #7](07-routing-gossip.md#htlc-fees)).
+ *   - if it is not the final node:
+ *     - MUST return an error if:
+ * ...
+ *        - incoming `amount_msat` - `fee` < `amt_to_forward` (where `fee` is the advertised fee as described in [BOLT #7](07-routing-gossip.md#htlc-fees))
  */
 static bool check_fwd_amount(struct htlc_in *hin,
 			     struct amount_msat amt_to_forward,
@@ -317,22 +307,10 @@ static bool check_fwd_amount(struct htlc_in *hin,
 
 /* BOLT #4:
  *
- *  * `outgoing_cltv_value`: The CLTV value that the _outgoing_ HTLC carrying
- *     the packet should have.
- *
- *        cltv_expiry - cltv_expiry_delta >= outgoing_cltv_value
- *
- *     Inclusion of this field allows a hop to both authenticate the
- *     information specified by the origin node, and the parameters of the
- *     HTLC forwarded, and ensure the origin node is using the current
- *     `cltv_expiry_delta` value.  If there is no next hop,
- *     `cltv_expiry_delta` is 0.  If the values don't correspond, then the
- *     HTLC should be failed and rejected, as this indicates that either a
- *     forwarding node has tampered with the intended HTLC values or that the
- *     origin node has an obsolete `cltv_expiry_delta` value.  The hop MUST be
- *     consistent in responding to an unexpected `outgoing_cltv_value`,
- *     whether it is the final node or not, to avoid leaking its position in
- *     the route.
+ *   - if it is not the final node:
+ *     - MUST return an error if:
+ * ...
+ *        - `cltv_expiry` - `cltv_expiry_delta` < `outgoing_cltv_value`
  */
 static bool check_cltv(struct htlc_in *hin,
 		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
@@ -399,9 +377,11 @@ static void handle_localpay(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
 	/* BOLT #4:
-	 *
-	 * For the final node, this value MUST be exactly equal to the
-	 * incoming htlc amount, otherwise the HTLC should be rejected.
+	 *   - if it is the final node:
+	 *     - MUST treat `total_msat` as if it were equal to `amt_to_forward` if it
+	 *       is not present.
+	 *     - MUST return an error if:
+	 *        - incoming `amount_msat` != `amt_to_forward`.
 	 */
 	if (!amount_msat_eq(amt_to_forward, hin->msat)) {
 		log_debug(hin->key.channel->log,
@@ -412,7 +392,6 @@ static void handle_localpay(struct htlc_in *hin,
 			  type_to_string(tmpctx, struct amount_msat,
 					 &amt_to_forward));
 		/* BOLT #4:
-		 *
 		 * 1. type: 19 (`final_incorrect_htlc_amount`)
 		 * 2. data:
 		 *    * [`u64`:`incoming_htlc_amt`]
@@ -424,14 +403,22 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	/* BOLT #4:
-	 *
-	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
-	 * 2. data:
-	 *    * [`u32`:`cltv_expiry`]
-	 *
-	 * The CLTV expiry in the HTLC doesn't match the value in the onion.
+	 *   - if it is the final node:
+	 *     - MUST treat `total_msat` as if it were equal to `amt_to_forward` if it
+	 *       is not present.
+	 *     - MUST return an error if:
+	 *...
+	 *        - incoming `cltv_expiry` != `cltv_expiry_delta`.
 	 */
 	if (!check_cltv(hin, hin->cltv_expiry, outgoing_cltv_value, 0)) {
+		/* BOLT #4:
+		 *
+		 * 1. type: 18 (`final_incorrect_cltv_expiry`)
+		 * 2. data:
+		 *    * [`u32`:`cltv_expiry`]
+		 *
+		 * The CLTV expiry in the HTLC doesn't match the value in the onion.
+		 */
 		failmsg = towire_final_incorrect_cltv_expiry(NULL,
 							     hin->cltv_expiry);
 		goto fail;
@@ -470,7 +457,7 @@ static void handle_localpay(struct htlc_in *hin,
 		 * the payload, the erring node may include that `type` and its byte `offset` in
 		 * the decrypted byte stream.
 		 */
-		failmsg = towire_invalid_onion_payload(NULL, TLV_TLV_PAYLOAD_PAYMENT_METADATA,
+		failmsg = towire_invalid_onion_payload(NULL, TLV_PAYLOAD_PAYMENT_METADATA,
 						       /* FIXME: offset? */ 0);
 		goto fail;
 	}

@@ -297,7 +297,7 @@ static const struct plugin_command commands[] = {
 };
 
 static struct command_result *
-htlc_accepted_continue(struct command *cmd, struct tlv_tlv_payload *payload)
+htlc_accepted_continue(struct command *cmd, struct tlv_payload *payload)
 {
 	struct json_stream *response;
 	response = jsonrpc_stream_success(cmd);
@@ -317,7 +317,7 @@ struct keysend_in {
 	struct sha256 payment_hash;
 	struct preimage payment_preimage;
 	char *label;
-	struct tlv_tlv_payload *payload;
+	struct tlv_payload *payload;
 	struct tlv_field *preimage_field, *desc_field;
 };
 
@@ -373,7 +373,7 @@ htlc_accepted_invoice_created(struct command *cmd, const char *buf,
 
 	/* Now we can fill in the payment secret, from invoice. */
 	ki->payload->payment_data = tal(ki->payload,
-					struct tlv_tlv_payload_payment_data);
+					struct tlv_payload_payment_data);
 	json_to_secret(buf, json_get_member(buf, result, "payment_secret"),
 		       &ki->payload->payment_data->payment_secret);
 
@@ -428,7 +428,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	const u8 *rawpayload;
 	struct sha256 payment_hash;
 	size_t max;
-	struct tlv_tlv_payload *payload;
+	struct tlv_payload *payload;
 	struct tlv_field *preimage_field = NULL, *desc_field = NULL;
 	bigsize_t s;
 	struct keysend_in *ki;
@@ -456,8 +456,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	/* Note: This is a magic pointer value, not an actual array */
 	allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
 
-	payload = tlv_tlv_payload_new(cmd);
-	if (!fromwire_tlv(&rawpayload, &max, tlvs_tlv_tlv_payload, TLVS_ARRAY_SIZE_tlv_tlv_payload,
+	payload = tlv_payload_new(cmd);
+	if (!fromwire_tlv(&rawpayload, &max, tlvs_tlv_payload, TLVS_ARRAY_SIZE_tlv_payload,
 			  payload, &payload->fields, allowed, &err_off, &err_type)) {
 		plugin_log(
 		    cmd->plugin, LOG_UNUSUAL, "Malformed TLV payload type %"PRIu64" at off %zu %.*s",

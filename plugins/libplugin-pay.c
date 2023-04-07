@@ -1626,7 +1626,7 @@ static void tlvstream_set_tlv_payload_data(struct tlv_field **stream,
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_secret(&ser, payment_secret);
 	towire_tu64(&ser, total_msat);
-	tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA, ser, tal_bytelen(ser));
+	tlvstream_set_raw(stream, TLV_PAYLOAD_PAYMENT_DATA, ser, tal_bytelen(ser));
 	tal_free(ser);
 }
 
@@ -1649,16 +1649,16 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	 * basically the channel going to the next node. */
 	dst->pubkey = node->node_id;
 
-	dst->tlv_payload = tlv_tlv_payload_new(cr->hops);
+	dst->tlv_payload = tlv_payload_new(cr->hops);
 	fields = &dst->tlv_payload->fields;
-	tlvstream_set_tu64(fields, TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
+	tlvstream_set_tu64(fields, TLV_PAYLOAD_AMT_TO_FORWARD,
 			   msat);
-	tlvstream_set_tu32(fields, TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
+	tlvstream_set_tu32(fields, TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
 			   cltv);
 
 	if (!final)
 		tlvstream_set_short_channel_id(fields,
-					       TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
+					       TLV_PAYLOAD_SHORT_CHANNEL_ID,
 					       &next->scid);
 
 	if (payment_secret != NULL) {
@@ -1669,7 +1669,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	}
 	if (payment_metadata != NULL) {
 		assert(final);
-		tlvstream_set_raw(fields, TLV_TLV_PAYLOAD_PAYMENT_METADATA,
+		tlvstream_set_raw(fields, TLV_PAYLOAD_PAYMENT_METADATA,
 				  payment_metadata, tal_bytelen(payment_metadata));
 	}
 }
@@ -1681,7 +1681,7 @@ static void payment_add_blindedpath(const tal_t *ctx,
 				    u32 final_cltv)
 {
 	/* It's a bit of a weird API for us, so we convert it back to
-	 * the struct tlv_tlv_payload */
+	 * the struct tlv_payload */
 	u8 **tlvs = blinded_onion_hops(tmpctx, final_amt, final_cltv,
 				       final_amt, bpath);
 
@@ -1698,7 +1698,7 @@ static void payment_add_blindedpath(const tal_t *ctx,
 
 		/* Length is prepended, discard that first! */
 		fromwire_bigsize(&cursor, &max);
-		hops[i].tlv_payload = fromwire_tlv_tlv_payload(ctx, &cursor, &max);
+		hops[i].tlv_payload = fromwire_tlv_payload(ctx, &cursor, &max);
 	}
 }
 

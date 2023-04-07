@@ -1184,14 +1184,6 @@ send_payment(struct lightningd *ld,
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
 
-	/* BOLT #4:
-	 * - Unless `node_announcement`, `init` message or the
-	 *   [BOLT #11](11-payment-encoding.md#tagged-fields) offers feature
-	 *   `var_onion_optin`:
-	 *    - MUST use the legacy payload format instead.
-	 */
-	/* FIXME: This requirement is now obsolete, and we should remove it! */
-
 	onion = onion_final_hop(cmd,
 				route[i].amount,
 				base_expiry + route[i].delay,
