@@ -1147,11 +1147,11 @@ int main(int argc, const char *argv[])
 	/* BOLT #3:
 	 *
 	 *     name: commitment tx with 3 htlc outputs, 2 offered having the same amount and preimage
-	 *     to_local_msat: 6988000000
+	 *     to_local_msat: 6987999999
 	 *     to_remote_msat: 3000000000
 	 *     local_feerate_per_kw: 253
 	 */
-	to_local.millisatoshis = 6988000000;
+	to_local.millisatoshis = 6987999999;
 	to_remote.millisatoshis = 3000000000;
 	feerate_per_kw = 253;
 	printf("\n"
