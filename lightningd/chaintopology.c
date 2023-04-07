@@ -415,8 +415,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 					  feerate, alpha);
 		}
 
-		if (feerate < feerate_floor()) {
-			feerate = feerate_floor();
+		if (feerate < get_feerate_floor(topo)) {
+			feerate = get_feerate_floor(topo);
 			log_debug(topo->log,
 					  "... feerate estimate for %s hit floor %u",
 					  feerate_name(i), feerate);
@@ -485,6 +485,12 @@ u32 htlc_resolution_feerate(struct chain_topology *topo)
 u32 penalty_feerate(struct chain_topology *topo)
 {
 	return try_get_feerate(topo, FEERATE_PENALTY);
+}
+
+u32 get_feerate_floor(const struct chain_topology *topo)
+{
+	/* FIXME: Make this dynamic! */
+	return FEERATE_FLOOR;
 }
 
 static struct command_result *json_feerates(struct command *cmd,
@@ -936,8 +942,8 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 		}
 	}
 
-	if (min < feerate_floor())
-		return feerate_floor();
+	if (min < get_feerate_floor(ld->topology))
+		return get_feerate_floor(ld->topology);
 	return min;
 }
 

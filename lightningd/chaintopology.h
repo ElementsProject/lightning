@@ -143,6 +143,9 @@ struct txlocator {
 	u32 index;
 };
 
+/* Get the minimum feerate that bitcoind will accept */
+u32 get_feerate_floor(const struct chain_topology *topo);
+
 /* This is the number of blocks which would have to be mined to invalidate
  * the tx */
 size_t get_tx_depth(const struct chain_topology *topo,

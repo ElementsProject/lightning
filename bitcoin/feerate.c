@@ -1,8 +1,12 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/feerate.h>
 
 u32 feerate_from_style(u32 feerate, enum feerate_style style)
 {
+	/* Make sure it's called somewhere! */
+	assert(feerate_floor_check() == FEERATE_FLOOR);
+
 	switch (style) {
 	case FEERATE_PER_KSIPA:
 		return feerate;

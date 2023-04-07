@@ -409,8 +409,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	feerate = mutual_close_feerate(ld->topology);
 	if (!feerate) {
 		feerate = final_commit_feerate / 2;
-		if (feerate < feerate_floor())
-			feerate = feerate_floor();
+		if (feerate < get_feerate_floor(ld->topology))
+			feerate = get_feerate_floor(ld->topology);
 	}
 
 	/* We use a feerate if anchor_outputs, otherwise max fee is set by
