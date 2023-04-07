@@ -3214,6 +3214,39 @@ def test_hsm_capabilities(node_factory):
     assert l1.daemon.is_in_log(r"hsmd: capability \+WIRE_HSMD_CHECK_PUBKEY")
 
 
+def test_feerate_arg(node_factory):
+    """Make sure our variants of feerate argument work!"""
+    l1 = node_factory.get_node()
+
+    # These are the get_node() defaults
+    by_blocks = {2: 15000,
+                 6: 11000,
+                 12: 7500,
+                 100: 3750}
+
+    # Literal values:
+    fees = {"9999perkw": 9999,
+            "10000perkb": 10000 // 4,
+            10000: 10000 // 4}
+
+    fees["urgent"] = by_blocks[6]
+    fees["normal"] = by_blocks[12]
+    fees["slow"] = by_blocks[100] // 2
+
+    fees["opening"] = by_blocks[12]
+    fees["mutual_close"] = by_blocks[100]
+    fees["penalty"] = by_blocks[12]
+    fees["unilateral_close"] = by_blocks[6]
+    fees["delayed_to_us"] = by_blocks[12]
+    fees["htlc_resolution"] = by_blocks[6]
+    fees["min_acceptable"] = by_blocks[100] // 2
+    fees["max_acceptable"] = by_blocks[2] * 10
+
+    for fee, expect in fees.items():
+        # Put arg in assertion, so it gets printed on failure!
+        assert (l1.rpc.parsefeerate(fee), fee) == ({'perkw': expect}, fee)
+
+
 @pytest.mark.skip(reason="Fails by intention for creating test gossip stores")
 def test_create_gossip_mesh(node_factory, bitcoind):
     """
