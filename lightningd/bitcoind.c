@@ -12,6 +12,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/json_parse.h>
 #include <common/memleak.h>
 #include <db/exec.h>
@@ -144,7 +145,7 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *   - `min` is the minimum acceptable feerate
  *   - `max` is the maximum acceptable feerate
  *
- * Plugin response:
+ * Plugin response (deprecated):
  * {
  *	"opening": <sat per kVB>,
  *	"mutual_close": <sat per kVB>,
@@ -155,6 +156,19 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *	"min_acceptable": <sat per kVB>,
  *	"max_acceptable": <sat per kVB>,
  * }
+ *
+ * Plugin response (modern):
+ * {
+ *	"feerate_floor": <sat per kVB>,
+ *	"feerates": {
+ *		{ "blocks": 2, "feerate": <sat per kVB> },
+ *		{ "blocks": 6, "feerate": <sat per kVB> },
+ *		{ "blocks": 12, "feerate": <sat per kVB> }
+ *		{ "blocks": 100, "feerate": <sat per kVB> }
+ *	}
+ * }
+ *
+ * If rates are missing, we linearly interpolate (we don't extrapolate tho!).
  */
 struct estimatefee_call {
 	struct bitcoind *bitcoind;
@@ -163,6 +177,66 @@ struct estimatefee_call {
 };
 
 /* Note: returns estimates in perkb, caller converts! */
+static struct feerate_est *parse_feerate_ranges(const tal_t *ctx,
+						struct bitcoind *bitcoind,
+						const char *buf,
+						const jsmntok_t *floortok,
+						const jsmntok_t *feerates,
+						u32 *floor)
+{
+	size_t i;
+	const jsmntok_t *t;
+	struct feerate_est *rates = tal_arr(ctx, struct feerate_est, 0);
+
+	if (!json_to_u32(buf, floortok, floor))
+		bitcoin_plugin_error(bitcoind, buf, floortok,
+				     "estimatefees.feerate_floor", "Not a u32?");
+
+	json_for_each_arr(i, t, feerates) {
+		struct feerate_est rate;
+		const char *err;
+
+		err = json_scan(tmpctx, buf, t, "{blocks:%,feerate:%}",
+				JSON_SCAN(json_to_u32, &rate.blockcount),
+				JSON_SCAN(json_to_u32, &rate.rate));
+		if (err)
+			bitcoin_plugin_error(bitcoind, buf, t,
+					     "estimatefees.feerates", err);
+
+		/* Block count must be in order.  If rates go up somehow, we
+		 * reduce to prev. */
+		if (tal_count(rates) != 0) {
+			const struct feerate_est *prev = &rates[tal_count(rates)-1];
+			if (rate.blockcount <= prev->blockcount)
+				bitcoin_plugin_error(bitcoind, buf, feerates,
+						     "estimatefees.feerates",
+						     "Blocks must be ascending"
+						     " order: %u <= %u!",
+						     rate.blockcount,
+						     prev->blockcount);
+			if (rate.rate > prev->rate) {
+				log_unusual(bitcoind->log,
+					    "Feerate for %u blocks (%u) is > rate"
+					    " for %u blocks (%u)!",
+					    rate.blockcount, rate.rate,
+					    prev->blockcount, prev->rate);
+				rate.rate = prev->rate;
+			}
+		}
+
+		tal_arr_expand(&rates, rate);
+	}
+
+	if (tal_count(rates) == 0) {
+		if (chainparams->testnet)
+			log_debug(bitcoind->log, "Unable to estimate any fees");
+		else
+			log_unusual(bitcoind->log, "Unable to estimate any fees");
+	}
+
+	return rates;
+}
+
 static struct feerate_est *parse_deprecated_feerates(const tal_t *ctx,
 						     struct bitcoind *bitcoind,
 						     const char *buf,
@@ -216,7 +290,7 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct estimatefee_call *call)
 {
-	const jsmntok_t *resulttok;
+	const jsmntok_t *resulttok, *floortok;
 	struct feerate_est *feerates;
 	u32 floor;
 
@@ -226,10 +300,19 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				     "estimatefees",
 				     "bad 'result' field");
 
-	feerates = parse_deprecated_feerates(call, call->bitcoind,
-					     buf, resulttok);
-	/* FIXME: get from plugin! */
-	floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
+	/* Modern style has floor. */
+	floortok = json_get_member(buf, resulttok, "feerate_floor");
+	if (floortok) {
+		feerates = parse_feerate_ranges(call, call->bitcoind,
+						buf, floortok,
+						json_get_member(buf, resulttok,
+								"feerates"),
+						&floor);
+	} else {
+		feerates = parse_deprecated_feerates(call, call->bitcoind,
+						     buf, resulttok);
+		floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
+	}
 
 	/* Convert to perkw */
 	floor = feerate_from_style(floor, FEERATE_PER_KBYTE);

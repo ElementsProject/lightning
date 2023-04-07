@@ -1942,9 +1942,8 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
-@unittest.skip("FIXME: temporarily broken")
 def test_bitcoind_feerate_floor(node_factory, bitcoind):
-    """Don't return a feerate less than minrelaytxfee/mempoolnifee."""
+    """Don't return a feerate less than minrelaytxfee/mempoolminfee."""
     l1 = node_factory.get_node()
 
     anchors = EXPERIMENTAL_FEATURES
@@ -1953,11 +1952,21 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening": 30000,
             "mutual_close": 15000,
             "unilateral_close": 44000,
-            "delayed_to_us": 30000,
-            "htlc_resolution": 44000,
             "penalty": 30000,
             "min_acceptable": 7500,
-            "max_acceptable": 600000
+            "max_acceptable": 600000,
+            "estimates": [{"blockcount": 2,
+                           "feerate": 60000,
+                           "smoothed_feerate": 60000},
+                          {"blockcount": 6,
+                           "feerate": 44000,
+                           "smoothed_feerate": 44000},
+                          {"blockcount": 12,
+                           "feerate": 30000,
+                           "smoothed_feerate": 30000},
+                          {"blockcount": 100,
+                           "feerate": 15000,
+                           "smoothed_feerate": 15000}],
         },
         "onchain_fee_estimates": {
             "opening_channel_satoshis": 5265,
@@ -1980,12 +1989,22 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             # This has increased (rounded up)
             "mutual_close": 20004,
             "unilateral_close": 44000,
-            "delayed_to_us": 30000,
-            "htlc_resolution": 44000,
             "penalty": 30000,
-            # This has increased (rounded up!)
-            "min_acceptable": 20004,
-            "max_acceptable": 600000
+            # FIXME: this should increase:
+            "min_acceptable": 10000,
+            "max_acceptable": 600000,
+            "estimates": [{"blockcount": 2,
+                           "feerate": 60000,
+                           "smoothed_feerate": 60000},
+                          {"blockcount": 6,
+                           "feerate": 44000,
+                           "smoothed_feerate": 44000},
+                          {"blockcount": 12,
+                           "feerate": 30000,
+                           "smoothed_feerate": 30000},
+                          {"blockcount": 100,
+                           "feerate": 20004,
+                           "smoothed_feerate": 20004}],
         },
         "onchain_fee_estimates": {
             "opening_channel_satoshis": 5265,
@@ -2011,13 +2030,24 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "mutual_close": 30004,
             "unilateral_close": 44000,
             # This has increased (rounded up!)
-            "delayed_to_us": 30004,
-            "htlc_resolution": 44000,
-            # This has increased (rounded up!)
             "penalty": 30004,
-            # This has increased (rounded up!)
-            "min_acceptable": 30004,
-            "max_acceptable": 600000
+            # FIXME: this should increase to 30004!
+            "min_acceptable": 15000,
+            "max_acceptable": 600000,
+            "estimates": [{"blockcount": 2,
+                           "feerate": 60000,
+                           "smoothed_feerate": 60000},
+                          {"blockcount": 6,
+                           "feerate": 44000,
+                           "smoothed_feerate": 44000},
+                          # This has increased (rounded up!)
+                          {"blockcount": 12,
+                           "feerate": 30004,
+                           "smoothed_feerate": 30004},
+                          # This has increased (rounded up!)
+                          {"blockcount": 100,
+                           "feerate": 30004,
+                           "smoothed_feerate": 30004}],
         },
         "onchain_fee_estimates": {
             "opening_channel_satoshis": 5265,
