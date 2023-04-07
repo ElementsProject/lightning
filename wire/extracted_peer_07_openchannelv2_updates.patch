@@ -27,7 +27,7 @@
  msgdata,open_channel2,funding_feerate_perkw,u32,
  msgdata,open_channel2,commitment_feerate_perkw,u32,
  msgdata,open_channel2,funding_satoshis,u64,
-@@ -161,19 +162,20 @@
+@@ -161,6 +162,7 @@
  msgdata,open_channel2,delayed_payment_basepoint,point,
  msgdata,open_channel2,htlc_basepoint,point,
  msgdata,open_channel2,first_per_commitment_point,point,
@@ -35,12 +35,7 @@
  msgdata,open_channel2,channel_flags,byte,
  msgdata,open_channel2,tlvs,opening_tlvs,
  tlvtype,opening_tlvs,upfront_shutdown_script,0
- tlvdata,opening_tlvs,upfront_shutdown_script,shutdown_scriptpubkey,byte,...
- tlvtype,opening_tlvs,channel_type,1
- tlvdata,opening_tlvs,channel_type,type,byte,...
- tlvtype,opening_tlvs,request_funds,3
- tlvdata,opening_tlvs,request_funds,requested_sats,u64,
- tlvdata,opening_tlvs,request_funds,blockheight,u32,
+@@ -173,7 +175,7 @@
  tlvtype,opening_tlvs,require_confirmed_inputs,2
  tlvdata,opening_tlvs,require_confirmed_inputs,empty,byte,0
  msgtype,accept_channel2,65
