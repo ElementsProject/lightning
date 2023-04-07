@@ -67,7 +67,7 @@ class VersionAnnotationPatch(Patch):
         added = m.get('added', None)
         deprecated = m.get('deprecated', None)
 
-        assert added or not f.added, f"Field {f.path} does not have an `added` annotation"
+        assert added or f.added, f"Field {f.path} does not have an `added` annotation"
 
         # We do not allow the added and deprecated flags to be
         # modified after the fact.
