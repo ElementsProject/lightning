@@ -311,6 +311,11 @@ static bool check_fwd_amount(struct htlc_in *hin,
  *     - MUST return an error if:
  * ...
  *        - `cltv_expiry` - `cltv_expiry_delta` < `outgoing_cltv_value`
+ *   - if it is the final node:
+ *...
+ *     - MUST return an error if:
+ *...
+ *       - incoming `cltv_expiry` < `outgoing_cltv_value`.
  */
 static bool check_cltv(struct htlc_in *hin,
 		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
@@ -381,9 +386,9 @@ static void handle_localpay(struct htlc_in *hin,
 	 *     - MUST treat `total_msat` as if it were equal to `amt_to_forward` if it
 	 *       is not present.
 	 *     - MUST return an error if:
-	 *        - incoming `amount_msat` != `amt_to_forward`.
+	 *        - incoming `amount_msat` < `amt_to_forward`.
 	 */
-	if (!amount_msat_eq(amt_to_forward, hin->msat)) {
+	if (amount_msat_less(hin->msat, amt_to_forward)) {
 		log_debug(hin->key.channel->log,
 			  "HTLC %"PRIu64" final incorrect amount:"
 			  " %s in, %s expected",
@@ -408,7 +413,7 @@ static void handle_localpay(struct htlc_in *hin,
 	 *       is not present.
 	 *     - MUST return an error if:
 	 *...
-	 *        - incoming `cltv_expiry` != `cltv_expiry_delta`.
+	 *        - incoming `cltv_expiry` < `outgoing_cltv_value`.
 	 */
 	if (!check_cltv(hin, hin->cltv_expiry, outgoing_cltv_value, 0)) {
 		/* BOLT #4:
@@ -426,10 +431,7 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 *   - if the `cltv_expiry` value is unreasonably near the present:
-	 *     - MUST fail the HTLC.
-	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
-	 */
+	 *   incoming `cltv_expiry` < `current_block_height` + `min_final_cltv_expiry_delta`.	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
 	    > hin->cltv_expiry) {
 		log_debug(hin->key.channel->log,

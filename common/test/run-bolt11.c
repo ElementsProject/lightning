@@ -527,9 +527,9 @@ int main(int argc, char *argv[])
 	 * * `x`: expiry time
 	 *   * `qy`: `data_length` (`q` = 0, `y` = 2; 0 * 32 + 4 == 4)
 	 *   * `jw5q`: 604800 seconds (`j` = 18, `w` = 14, `5` = 20, `q` = 0; 18 * 32^3 + 14 * 32^2 + 20 * 32 + 0 == 604800)
-	 * * `c`: `min_final_cltv_expiry`
+	 * * `c`: `min_final_cltv_expiry_delta`
 	 *   * `qp`: `data_length` (`q` = 0, `p` = 1; 0 * 32 + 1 == 1)
-	 *   * `2`: min_final_cltv_expiry = 10
+	 *   * `2`: min_final_cltv_expiry_delta = 10
 	 * * `r`: tagged field: route information
 	 *   * `zj`: `data_length` (`z` = 2, `j` = 18; 2 * 32 + 18 == 82)
 	 *   * `q0gxwkzc8w6323m55m4jyxcjwmy7stt9hwkwe2qxmy8zpsgg7jcuwz87fcqqeuqqqyqqqqlgqqqqn3qq9q`:

@@ -284,7 +284,7 @@ static const char *decode_x(struct bolt11 *b11,
 
 /* BOLT #11:
  *
- * `c` (24): `data_length` variable.  `min_final_cltv_expiry` to use for the
+ * `c` (24): `data_length` variable. `min_final_cltv_expiry_delta` to use for the
  * last HTLC in the route. Default is 18 if not specified.
  */
 static const char *decode_c(struct bolt11 *b11,
@@ -594,7 +594,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
 	b11->expiry = DEFAULT_X;
 	b11->features = tal_arr(b11, u8, 0);
 	/* BOLT #11:
-	 *   - if the `c` field (`min_final_cltv_expiry`) is not provided:
+	 *   - if the `c` field (`min_final_cltv_expiry_delta`) is not provided:
 	 *     - MUST use an expiry delta of at least 18 when making the payment
 	 */
 	b11->min_final_cltv_expiry = 18;
@@ -1009,7 +1009,7 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
  *
  * - if `x` is included:
  *   - SHOULD use the minimum `data_length` possible.
- * - MUST include one `c` field (`min_final_cltv_expiry`).
+ * - MUST include one `c` field (`min_final_cltv_expiry_delta`).
  *...
  *   - SHOULD use the minimum `data_length` possible.
  */
@@ -1278,7 +1278,7 @@ char *bolt11_encode_(const tal_t *ctx,
 		encode_x(&data, b11->expiry);
 
 	/* BOLT #11:
-	 *   - MUST include one `c` field (`min_final_cltv_expiry`).
+	 *   - MUST include one `c` field (`min_final_cltv_expiry_delta`).
 	 */
 	encode_c(&data, b11->min_final_cltv_expiry);
 
