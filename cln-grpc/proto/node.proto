@@ -1130,6 +1130,7 @@ message FeeratesResponse {
 message FeeratesPerkb {
 	uint32 min_acceptable = 1;
 	uint32 max_acceptable = 2;
+	repeated FeeratesPerkbEstimates estimates = 9;
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
@@ -1138,15 +1139,28 @@ message FeeratesPerkb {
 	optional uint32 penalty = 8;
 }
 
+message FeeratesPerkbEstimates {
+	optional uint32 blockcount = 1;
+	optional uint32 feerate = 2;
+	optional uint32 smoothed_feerate = 3;
+}
+
 message FeeratesPerkw {
 	uint32 min_acceptable = 1;
 	uint32 max_acceptable = 2;
+	repeated FeeratesPerkwEstimates estimates = 9;
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
 	optional uint32 delayed_to_us = 6;
 	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;
+}
+
+message FeeratesPerkwEstimates {
+	optional uint32 blockcount = 1;
+	optional uint32 feerate = 2;
+	optional uint32 smoothed_feerate = 3;
 }
 
 message FeeratesOnchain_fee_estimates {
