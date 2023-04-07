@@ -694,10 +694,11 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 
 	/* BOLT #4:
 	 * The _erring node_:
-	 * - SHOULD set `pad` such that the `failure_len` plus `pad_len`
-	 *  is equal to  256.
-	 *   - Note: this value is 118 bytes longer than the longest
-	 *    currently-defined message.
+	 * - MUST set `pad` such that the `failure_len` plus `pad_len`
+	 *  is at least 256.
+	 *   - SHOULD set `pad` such that the `failure_len` plus `pad_len` is equal
+	 *     to 256. Deviating from this may cause older nodes to be unable to parse
+	 *     the return message.
 	 */
 	const u16 onion_reply_size = IFDEV(dev_onion_reply_length, 256);
 

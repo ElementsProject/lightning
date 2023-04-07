@@ -1029,7 +1029,7 @@ send_payment_core(struct lightningd *ld,
 
 	/* BOLT #4:
 	 *
-	 * - MUST NOT send another HTLC if the total `amount_msat` of the HTLC
+	 * - MUST NOT send another HTLC if the total `amt_to_forward` of the HTLC
 	 *   set is already greater or equal to `total_msat`.
 	 */
 	/* We don't do this for single 0-value payments (sendonion does this) */
