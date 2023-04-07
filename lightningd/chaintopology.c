@@ -5,6 +5,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/htlc_tx.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -545,34 +546,66 @@ static void start_fee_estimate(struct chain_topology *topo)
 	bitcoind_estimate_fees(topo->bitcoind, update_feerates);
 }
 
+struct rate_conversion {
+	u32 blockcount;
+};
+
+static struct rate_conversion conversions[] = {
+	[FEERATE_OPENING] = { 12 },
+	[FEERATE_MUTUAL_CLOSE] = { 100 },
+	[FEERATE_UNILATERAL_CLOSE] = { 6 },
+	[FEERATE_DELAYED_TO_US] = { 12 },
+	[FEERATE_HTLC_RESOLUTION] = { 6 },
+	[FEERATE_PENALTY] = { 12 },
+};
+
 u32 opening_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_OPENING);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_OPENING];
+	return feerate_for_deadline(topo,
+				    conversions[FEERATE_OPENING].blockcount);
 }
 
 u32 mutual_close_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_MUTUAL_CLOSE);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_MUTUAL_CLOSE];
+	return smoothed_feerate_for_deadline(topo,
+					     conversions[FEERATE_MUTUAL_CLOSE].blockcount);
 }
 
 u32 unilateral_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_UNILATERAL_CLOSE);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_UNILATERAL_CLOSE];
+	return smoothed_feerate_for_deadline(topo,
+					     conversions[FEERATE_UNILATERAL_CLOSE].blockcount)
+		* topo->ld->config.commit_fee_percent / 100;
 }
 
 u32 delayed_to_us_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_DELAYED_TO_US);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_DELAYED_TO_US];
+	return smoothed_feerate_for_deadline(topo,
+					     conversions[FEERATE_DELAYED_TO_US].blockcount);
 }
 
 u32 htlc_resolution_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_HTLC_RESOLUTION);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_HTLC_RESOLUTION];
+	return smoothed_feerate_for_deadline(topo,
+					     conversions[FEERATE_HTLC_RESOLUTION].blockcount);
 }
 
 u32 penalty_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_PENALTY);
+	if (topo->ld->force_feerates)
+		return topo->ld->force_feerates[FEERATE_PENALTY];
+	return smoothed_feerate_for_deadline(topo,
+					     conversions[FEERATE_PENALTY].blockcount);
 }
 
 u32 get_feerate_floor(const struct chain_topology *topo)
@@ -588,39 +621,68 @@ static struct command_result *json_feerates(struct command *cmd,
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_stream *response;
-	u32 feerates[NUM_FEERATES];
 	bool missing;
 	enum feerate_style *style;
+	u32 rate;
 
 	if (!param(cmd, buffer, params,
 		   p_req("style", param_feerate_style, &style),
 		   NULL))
 		return command_param_failed();
 
-	missing = false;
-	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
-		feerates[i] = try_get_feerate(topo, i);
-		if (!feerates[i])
-			missing = true;
-	}
+	missing = (tal_count(topo->feerates[0]) == 0);
 
 	response = json_stream_success(cmd);
-
 	if (missing)
 		json_add_string(response, "warning_missing_feerates",
 				"Some fee estimates unavailable: bitcoind startup?");
 
 	json_object_start(response, feerate_style_name(*style));
-	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
-		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
-			continue;
-		json_add_num(response, feerate_name(i),
-			     feerate_to_style(feerates[i], *style));
+	rate = opening_feerate(topo);
+	if (rate)
+		json_add_num(response, "opening", feerate_to_style(rate, *style));
+	rate = mutual_close_feerate(topo);
+	if (rate)
+		json_add_num(response, "mutual_close",
+			     feerate_to_style(rate, *style));
+	rate = unilateral_feerate(topo);
+	if (rate)
+		json_add_num(response, "unilateral_close",
+			     feerate_to_style(rate, *style));
+	rate = penalty_feerate(topo);
+	if (rate)
+		json_add_num(response, "penalty",
+			     feerate_to_style(rate, *style));
+	if (deprecated_apis) {
+		rate = delayed_to_us_feerate(topo);
+		if (rate)
+			json_add_num(response, "delayed_to_us",
+				     feerate_to_style(rate, *style));
+		rate = htlc_resolution_feerate(topo);
+		if (rate)
+			json_add_num(response, "htlc_resolution",
+				     feerate_to_style(rate, *style));
 	}
+
 	json_add_u64(response, "min_acceptable",
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
 		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
+
+	json_array_start(response, "estimates");
+	assert(tal_count(topo->smoothed_feerates) == tal_count(topo->feerates[0]));
+	for (size_t i = 0; i < tal_count(topo->feerates[0]); i++) {
+		json_object_start(response, NULL);
+		json_add_num(response, "blockcount",
+			     topo->feerates[0][i].blockcount);
+		json_add_u64(response, "feerate",
+			     feerate_to_style(topo->feerates[0][i].rate, *style));
+		json_add_u64(response, "smoothed_feerate",
+			     feerate_to_style(topo->smoothed_feerates[i].rate,
+					      *style));
+		json_object_end(response);
+	}
+	json_array_end(response);
 	json_object_end(response);
 
 	if (!missing) {
@@ -998,62 +1060,9 @@ u32 get_network_blockheight(const struct chain_topology *topo)
 		return topo->headercount;
 }
 
-struct rate_conversion {
-	u32 blockcount;
-};
-
-static struct rate_conversion conversions[] = {
-	[FEERATE_OPENING] = { 12 },
-	[FEERATE_MUTUAL_CLOSE] = { 100 },
-	[FEERATE_UNILATERAL_CLOSE] = { 6 },
-	[FEERATE_DELAYED_TO_US] = { 12 },
-	[FEERATE_HTLC_RESOLUTION] = { 6 },
-	[FEERATE_PENALTY] = { 12 },
-};
-
-u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
-{
-	u32 val;
-
-	/* Max and min look over history as well. */
-	if (feerate == FEERATE_MAX) {
-		u32 max = 0;
-		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
-			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
-				if (topo->feerates[i][j].rate > max)
-					max = topo->feerates[i][j].rate;
-			}
-		}
-		return max * topo->ld->config.max_fee_multiplier;
-	}
-
-	if (feerate == FEERATE_MIN) {
-		u32 min = 0xFFFFFFFF;
-		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
-			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
-				if (topo->feerates[i][j].rate < min)
-					min = topo->feerates[i][j].rate;
-			}
-		}
-		if (min == 0xFFFFFFFF)
-			return 0;
-		/* FIXME: This is what bcli used to do: halve the slow feerate! */
-		min /= 2;
-		return min;
-	}
-
-	if (topo->ld->force_feerates)
-		val = topo->ld->force_feerates[feerate];
-	else
-		val = smoothed_feerate_for_deadline(topo, conversions[feerate].blockcount);
-	if (feerate == FEERATE_UNILATERAL_CLOSE)
-		val = val * topo->ld->config.commit_fee_percent / 100;
-
-	return val;
-}
-
 u32 feerate_min(struct lightningd *ld, bool *unknown)
 {
+	const struct chain_topology *topo = ld->topology;
 	u32 min;
 
 	if (unknown)
@@ -1063,21 +1072,32 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	if (ld->config.ignore_fee_limits)
 		min = 1;
 	else {
-		min = try_get_feerate(ld->topology, FEERATE_MIN);
-		if (!min) {
+		min = 0xFFFFFFFF;
+		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
+			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
+				if (topo->feerates[i][j].rate < min)
+					min = topo->feerates[i][j].rate;
+			}
+		}
+		if (min == 0xFFFFFFFF) {
 			if (unknown)
 				*unknown = true;
+			min = 0;
 		}
+
+		/* FIXME: This is what bcli used to do: halve the slow feerate! */
+		min /= 2;
 	}
 
-	if (min < get_feerate_floor(ld->topology))
-		return get_feerate_floor(ld->topology);
+	if (min < get_feerate_floor(topo))
+		return get_feerate_floor(topo);
 	return min;
 }
 
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
-	u32 feerate;
+	const struct chain_topology *topo = ld->topology;
+	u32 max = 0;
 
 	if (unknown)
 		*unknown = false;
@@ -1085,14 +1105,18 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 	if (ld->config.ignore_fee_limits)
 		return UINT_MAX;
 
-	/* If we don't know feerate, don't limit other side. */
-	feerate = try_get_feerate(ld->topology, FEERATE_MAX);
-	if (!feerate) {
+	for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
+		for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
+			if (topo->feerates[i][j].rate > max)
+				max = topo->feerates[i][j].rate;
+		}
+	}
+	if (!max) {
 		if (unknown)
 			*unknown = true;
 		return UINT_MAX;
 	}
-	return feerate;
+	return max * topo->ld->config.max_fee_multiplier;
 }
 
 /* On shutdown, channels get deleted last.  That frees from our list, so

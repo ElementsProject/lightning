@@ -50,25 +50,33 @@ On success, an object is returned, containing:
 - **perkb** (object, optional): If *style* parameter was perkb:
   - **min\_acceptable** (u32): The smallest feerate that we allow peers to specify: half the 100-block estimate
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **estimates** (array of objects): Feerate estimates from plugin which we are using (usuallly bcli) *(added v23.05)*:
+    - **blockcount** (u32): The number of blocks the feerate is expected to get a transaction in *(added v23.05)*
+    - **feerate** (u32): The feerate for this estimate, in given *style* *(added v23.05)*
+    - **smoothed\_feerate** (u32): The feerate, smoothed over time (useful for coordinating with other nodes) *(added v23.05)*
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
   - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
-  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
-  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
-  - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
+  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated, removal in v24.02**
+  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated, removal in v24.02**
+  - **penalty** (u32, optional): Feerate to use when creating penalty tx for watchtowers
 - **perkw** (object, optional): If *style* parameter was perkw:
   - **min\_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **estimates** (array of objects): Feerate estimates from plugin which we are using (usuallly bcli) *(added v23.05)*:
+    - **blockcount** (u32): The number of blocks the feerate is expected to get a transaction in *(added v23.05)*
+    - **feerate** (u32): The feerate for this estimate, in given *style* *(added v23.05)*
+    - **smoothed\_feerate** (u32): The feerate, smoothed over time (useful for coordinating with other nodes) *(added v23.05)*
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
   - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
-  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
-  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
-  - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
+  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated, removal in v24.02**
+  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated, removal in v24.02**
+  - **penalty** (u32, optional): Feerate to use when creating penalty tx for watchtowers
 - **onchain\_fee\_estimates** (object, optional):
   - **opening\_channel\_satoshis** (u64): Estimated cost of typical channel open
   - **mutual\_close\_satoshis** (u64): Estimated cost of typical channel close
-  - **unilateral\_close\_satoshis** (u64): Estimated cost of typical unilateral close (without HTLCs)
+  - **unilateral\_close\_satoshis** (u64): Estimated cost of typical (non-anchor) unilateral close (without HTLCs)
   - **htlc\_timeout\_satoshis** (u64): Estimated cost of typical HTLC timeout transaction
   - **htlc\_success\_satoshis** (u64): Estimated cost of typical HTLC fulfillment transaction
 
@@ -121,4 +129,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:773e4e66cb3654b7c3aafe54c33d433c52ff89f7a5a8be0a71a93da21a6b7eaa)
+[comment]: # ( SHA256STAMP:c21d903c29fd6195d5890962eaa3265a26a57885b95714696916bd32168b66bc)

@@ -916,17 +916,42 @@ impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<responses::FeeratesPerkbEstimates> for pb::FeeratesPerkbEstimates {
+    fn from(c: responses::FeeratesPerkbEstimates) -> Self {
+        Self {
+            blockcount: c.blockcount, // Rule #2 for type u32?
+            feerate: c.feerate, // Rule #2 for type u32?
+            smoothed_feerate: c.smoothed_feerate, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<responses::FeeratesPerkb> for pb::FeeratesPerkb {
     fn from(c: responses::FeeratesPerkb) -> Self {
         Self {
             min_acceptable: c.min_acceptable, // Rule #2 for type u32
             max_acceptable: c.max_acceptable, // Rule #2 for type u32
+            estimates: c.estimates.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             opening: c.opening, // Rule #2 for type u32?
             mutual_close: c.mutual_close, // Rule #2 for type u32?
             unilateral_close: c.unilateral_close, // Rule #2 for type u32?
+            #[allow(deprecated)]
             delayed_to_us: c.delayed_to_us, // Rule #2 for type u32?
+            #[allow(deprecated)]
             htlc_resolution: c.htlc_resolution, // Rule #2 for type u32?
             penalty: c.penalty, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::FeeratesPerkwEstimates> for pb::FeeratesPerkwEstimates {
+    fn from(c: responses::FeeratesPerkwEstimates) -> Self {
+        Self {
+            blockcount: c.blockcount, // Rule #2 for type u32?
+            feerate: c.feerate, // Rule #2 for type u32?
+            smoothed_feerate: c.smoothed_feerate, // Rule #2 for type u32?
         }
     }
 }
@@ -937,10 +962,13 @@ impl From<responses::FeeratesPerkw> for pb::FeeratesPerkw {
         Self {
             min_acceptable: c.min_acceptable, // Rule #2 for type u32
             max_acceptable: c.max_acceptable, // Rule #2 for type u32
+            estimates: c.estimates.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             opening: c.opening, // Rule #2 for type u32?
             mutual_close: c.mutual_close, // Rule #2 for type u32?
             unilateral_close: c.unilateral_close, // Rule #2 for type u32?
+            #[allow(deprecated)]
             delayed_to_us: c.delayed_to_us, // Rule #2 for type u32?
+            #[allow(deprecated)]
             htlc_resolution: c.htlc_resolution, // Rule #2 for type u32?
             penalty: c.penalty, // Rule #2 for type u32?
         }
@@ -3253,11 +3281,23 @@ impl From<pb::DisconnectResponse> for responses::DisconnectResponse {
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<pb::FeeratesPerkbEstimates> for responses::FeeratesPerkbEstimates {
+    fn from(c: pb::FeeratesPerkbEstimates) -> Self {
+        Self {
+            blockcount: c.blockcount, // Rule #1 for type u32?
+            feerate: c.feerate, // Rule #1 for type u32?
+            smoothed_feerate: c.smoothed_feerate, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<pb::FeeratesPerkb> for responses::FeeratesPerkb {
     fn from(c: pb::FeeratesPerkb) -> Self {
         Self {
             min_acceptable: c.min_acceptable, // Rule #1 for type u32
             max_acceptable: c.max_acceptable, // Rule #1 for type u32
+            estimates: Some(c.estimates.into_iter().map(|s| s.into()).collect()), // Rule #4
             opening: c.opening, // Rule #1 for type u32?
             mutual_close: c.mutual_close, // Rule #1 for type u32?
             unilateral_close: c.unilateral_close, // Rule #1 for type u32?
@@ -3269,11 +3309,23 @@ impl From<pb::FeeratesPerkb> for responses::FeeratesPerkb {
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<pb::FeeratesPerkwEstimates> for responses::FeeratesPerkwEstimates {
+    fn from(c: pb::FeeratesPerkwEstimates) -> Self {
+        Self {
+            blockcount: c.blockcount, // Rule #1 for type u32?
+            feerate: c.feerate, // Rule #1 for type u32?
+            smoothed_feerate: c.smoothed_feerate, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<pb::FeeratesPerkw> for responses::FeeratesPerkw {
     fn from(c: pb::FeeratesPerkw) -> Self {
         Self {
             min_acceptable: c.min_acceptable, // Rule #1 for type u32
             max_acceptable: c.max_acceptable, // Rule #1 for type u32
+            estimates: Some(c.estimates.into_iter().map(|s| s.into()).collect()), // Rule #4
             opening: c.opening, // Rule #1 for type u32?
             mutual_close: c.mutual_close, // Rule #1 for type u32?
             unilateral_close: c.unilateral_close, // Rule #1 for type u32?

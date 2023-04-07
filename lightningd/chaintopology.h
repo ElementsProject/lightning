@@ -181,14 +181,12 @@ u32 get_network_blockheight(const struct chain_topology *topo);
 u32 feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
 u32 smoothed_feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
 
-/* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
-u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
-
 /* Get range of feerates to insist other side abide by for normal channels.
  * If we have to guess, sets *unknown to true, otherwise false. */
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
+/* These return 0 if unknown */
 u32 opening_feerate(struct chain_topology *topo);
 u32 mutual_close_feerate(struct chain_topology *topo);
 u32 unilateral_feerate(struct chain_topology *topo);

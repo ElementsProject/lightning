@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/feerate.h>
@@ -45,36 +46,100 @@ struct command_result *param_feerate_style(struct command *cmd,
 			    json_tok_full_len(tok), json_tok_full(buffer, tok));
 }
 
+/* This can set **feerate to 0, if it's unknown. */
+static struct command_result *param_feerate_unchecked(struct command *cmd,
+						      const char *name,
+						      const char *buffer,
+						      const jsmntok_t *tok,
+						      u32 **feerate)
+{
+	*feerate = tal(cmd, u32);
+
+	if (json_tok_streq(buffer, tok, "opening")) {
+		**feerate = opening_feerate(cmd->ld->topology);
+		return NULL;
+	}
+	if (json_tok_streq(buffer, tok, "mutual_close")) {
+		**feerate = mutual_close_feerate(cmd->ld->topology);
+		return NULL;
+	}
+	if (json_tok_streq(buffer, tok, "penalty")) {
+		**feerate = penalty_feerate(cmd->ld->topology);
+		return NULL;
+	}
+	if (json_tok_streq(buffer, tok, "unilateral_close")) {
+		**feerate = unilateral_feerate(cmd->ld->topology);
+		return NULL;
+	}
+
+	/* Other names are deprecated */
+	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		bool unknown;
+
+		if (!json_tok_streq(buffer, tok, feerate_name(i)))
+			continue;
+		if (!deprecated_apis)
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "removed feerate by names");
+		switch (i) {
+		case FEERATE_OPENING:
+		case FEERATE_MUTUAL_CLOSE:
+		case FEERATE_PENALTY:
+		case FEERATE_UNILATERAL_CLOSE:
+			/* Handled above */
+			abort();
+		case FEERATE_DELAYED_TO_US:
+			**feerate = delayed_to_us_feerate(cmd->ld->topology);
+			return NULL;
+		case FEERATE_HTLC_RESOLUTION:
+			**feerate = htlc_resolution_feerate(cmd->ld->topology);
+			return NULL;
+		case FEERATE_MAX:
+			**feerate = feerate_max(cmd->ld, &unknown);
+			if (unknown)
+				**feerate = 0;
+			return NULL;
+		case FEERATE_MIN:
+			**feerate = feerate_min(cmd->ld, &unknown);
+			if (unknown)
+				**feerate = 0;
+			return NULL;
+		}
+		abort();
+	}
+
+	/* We used SLOW, NORMAL, and URGENT as feerate targets previously,
+	 * and many commands rely on this syntax now.
+	 * It's also really more natural for an user interface. */
+	if (json_tok_streq(buffer, tok, "slow")) {
+		**feerate = feerate_for_deadline(cmd->ld->topology, 100);
+		return NULL;
+	} else if (json_tok_streq(buffer, tok, "normal")) {
+		**feerate = feerate_for_deadline(cmd->ld->topology, 12);
+		return NULL;
+	} else if (json_tok_streq(buffer, tok, "urgent")) {
+		**feerate = feerate_for_deadline(cmd->ld->topology, 6);
+		return NULL;
+	}
+
+	/* It's a number... */
+	tal_free(*feerate);
+	return param_feerate_val(cmd, name, buffer, tok, feerate);
+}
+
 struct command_result *param_feerate(struct command *cmd, const char *name,
 				     const char *buffer, const jsmntok_t *tok,
 				     u32 **feerate)
 {
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		if (json_tok_streq(buffer, tok, feerate_name(i)))
-			return param_feerate_estimate(cmd, feerate, i);
-	}
-	/* We used SLOW, NORMAL, and URGENT as feerate targets previously,
-	 * and many commands rely on this syntax now.
-	 * It's also really more natural for an user interface. */
-	if (json_tok_streq(buffer, tok, "slow"))
-		return param_feerate_estimate(cmd, feerate, FEERATE_MIN);
-	else if (json_tok_streq(buffer, tok, "normal"))
-		return param_feerate_estimate(cmd, feerate, FEERATE_OPENING);
-	else if (json_tok_streq(buffer, tok, "urgent"))
-		return param_feerate_estimate(cmd, feerate, FEERATE_UNILATERAL_CLOSE);
+	struct command_result *ret;
 
-	/* It's a number... */
-	return param_feerate_val(cmd, name, buffer, tok, feerate);
-}
+	ret = param_feerate_unchecked(cmd, name, buffer, tok, feerate);
+	if (ret)
+		return ret;
 
-struct command_result *param_feerate_estimate(struct command *cmd,
-					      u32 **feerate_per_kw,
-					      enum feerate feerate)
-{
-	*feerate_per_kw = tal(cmd, u32);
-	**feerate_per_kw = try_get_feerate(cmd->ld->topology, feerate);
-	if (!**feerate_per_kw)
-		return command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+	if (**feerate == 0)
+		return command_fail(cmd, BCLI_NO_FEE_ESTIMATES,
+				    "Cannot estimate fees (yet)");
 
 	return NULL;
 }

@@ -14,7 +14,8 @@
       "additionalProperties": false,
       "required": [
         "min_acceptable",
-        "max_acceptable"
+        "max_acceptable",
+        "estimates"
       ],
       "properties": {
         "min_acceptable": {
@@ -25,6 +26,37 @@
           "type": "u32",
           "description": "The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)."
         },
+        "estimates": {
+          "type": "array",
+          "added": "v23.05",
+          "description": "Feerate estimates from plugin which we are using (usuallly bcli)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "blockcount",
+              "feerate",
+              "smoothed_feerate"
+            ],
+            "properties": {
+              "blockcount": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The number of blocks the feerate is expected to get a transaction in"
+              },
+              "feerate": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The feerate for this estimate, in given *style*"
+              },
+              "smoothed_feerate": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The feerate, smoothed over time (useful for coordinating with other nodes)"
+              }
+            }
+          }
+        },
         "opening": {
           "type": "u32",
           "description": "Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)"
@@ -39,15 +71,17 @@
         },
         "delayed_to_us": {
           "type": "u32",
+          "deprecated": "v23.05",
           "description": "Feerate for returning unilateral close funds to our wallet"
         },
         "htlc_resolution": {
           "type": "u32",
+          "deprecated": "v23.05",
           "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
         },
         "penalty": {
           "type": "u32",
-          "description": "Feerate to start at when penalizing a cheat attempt"
+          "description": "Feerate to use when creating penalty tx for watchtowers"
         }
       }
     },
@@ -57,7 +91,8 @@
       "additionalProperties": false,
       "required": [
         "min_acceptable",
-        "max_acceptable"
+        "max_acceptable",
+        "estimates"
       ],
       "properties": {
         "min_acceptable": {
@@ -68,6 +103,37 @@
           "type": "u32",
           "description": "The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)."
         },
+        "estimates": {
+          "type": "array",
+          "added": "v23.05",
+          "description": "Feerate estimates from plugin which we are using (usuallly bcli)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "blockcount",
+              "feerate",
+              "smoothed_feerate"
+            ],
+            "properties": {
+              "blockcount": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The number of blocks the feerate is expected to get a transaction in"
+              },
+              "feerate": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The feerate for this estimate, in given *style*"
+              },
+              "smoothed_feerate": {
+                "type": "u32",
+                "added": "v23.05",
+                "description": "The feerate, smoothed over time (useful for coordinating with other nodes)"
+              }
+            }
+          }
+        },
         "opening": {
           "type": "u32",
           "description": "Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)"
@@ -82,15 +148,17 @@
         },
         "delayed_to_us": {
           "type": "u32",
+          "deprecated": "v23.05",
           "description": "Feerate for returning unilateral close funds to our wallet"
         },
         "htlc_resolution": {
           "type": "u32",
+          "deprecated": "v23.05",
           "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
         },
         "penalty": {
           "type": "u32",
-          "description": "Feerate to start at when penalizing a cheat attempt"
+          "description": "Feerate to use when creating penalty tx for watchtowers"
         }
       }
     },
@@ -115,7 +183,7 @@
         },
         "unilateral_close_satoshis": {
           "type": "u64",
-          "description": "Estimated cost of typical unilateral close (without HTLCs)"
+          "description": "Estimated cost of typical (non-anchor) unilateral close (without HTLCs)"
         },
         "htlc_timeout_satoshis": {
           "type": "u64",

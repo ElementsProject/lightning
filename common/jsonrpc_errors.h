@@ -71,6 +71,7 @@ enum jsonrpc_errcode {
 
 	/* bitcoin-cli plugin errors */
 	BCLI_ERROR = 500,
+	BCLI_NO_FEE_ESTIMATES = 501,
 
 	/* Errors from `invoice` or `delinvoice` commands */
 	INVOICE_LABEL_ALREADY_EXISTS = 900,

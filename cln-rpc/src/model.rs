@@ -3218,17 +3218,31 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FeeratesPerkbEstimates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockcount: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub smoothed_feerate: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkb {
 	    pub min_acceptable: u32,
 	    pub max_acceptable: u32,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub estimates: Option<Vec<FeeratesPerkbEstimates>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub opening: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub mutual_close: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_close: Option<u32>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub delayed_to_us: Option<u32>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_resolution: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3236,17 +3250,31 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FeeratesPerkwEstimates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub blockcount: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub smoothed_feerate: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkw {
 	    pub min_acceptable: u32,
 	    pub max_acceptable: u32,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub estimates: Option<Vec<FeeratesPerkwEstimates>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub opening: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub mutual_close: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_close: Option<u32>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub delayed_to_us: Option<u32>,
+	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_resolution: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
