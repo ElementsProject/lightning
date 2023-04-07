@@ -96,7 +96,9 @@ penalty_tx_create(const tal_t *ctx,
 
 	if (amount_sat_less(to_them_sats, min_out)) {
 		/* FIXME: We should use SIGHASH_NONE so others can take it */
-		fee = amount_tx_fee(feerate_floor(), weight);
+		/* We use the minimum possible fee here; if it doesn't
+		 * propagate, who cares? */
+		fee = amount_tx_fee(FEERATE_FLOOR, weight);
 	}
 
 	/* This can only happen if feerate_floor() is still too high; shouldn't

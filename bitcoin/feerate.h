@@ -39,7 +39,7 @@ enum feerate_style {
 	FEERATE_PER_KBYTE
 };
 
-static inline u32 feerate_floor(void)
+static inline u32 feerate_floor_check(void)
 {
 	/* Assert that bitcoind will see this as above minRelayTxFee */
 	BUILD_ASSERT(FEERATE_BITCOIND_SEES(FEERATE_FLOOR, MINIMUM_TX_WEIGHT)

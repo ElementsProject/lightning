@@ -703,12 +703,13 @@ static struct bitcoin_tx *onchaind_tx(const tal_t *ctx,
 
 	if (amount_sat_less(out_sats, min_out)) {
 		/* FIXME: We should use SIGHASH_NONE so others can take it? */
-		fee = amount_tx_fee(feerate_floor(), weight);
+		/* Use lowest possible theoretical fee: who cares if it doesn't propagate */
+		fee = amount_tx_fee(FEERATE_FLOOR, weight);
 		*worthwhile = false;
 	} else
 		*worthwhile = true;
 
-	/* This can only happen if feerate_floor() is still too high; shouldn't
+	/* This can only happen if FEERATE_FLOOR is still too high; shouldn't
 	 * happen! */
 	if (!amount_sat_sub(&amt, out_sats, fee)) {
 		amt = channel->our_config.dust_limit;
