@@ -35,16 +35,9 @@ decimal places ending in *btc*. The value cannot be less than the dust
 limit, currently set to 546, nor more than 16777215 satoshi (unless large
 channels were negotiated with the peer).
 
-*feerate* is an optional feerate used for the opening transaction and as
-initial feerate for commitment and HTLC transactions. It can be one of
-the strings *urgent* (aim for next block), *normal* (next 4 blocks or
-so) or *slow* (next 100 blocks or so) to use lightningd's internal
-estimates: *normal* is the default.
-
-Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
-the number is interpreted as satoshi-per-kilosipa (weight), and *perkb*
-means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
-the suffix is equivalent to *perkb*.
+*feerate* is an optional feerate used for the opening transaction and
+as initial feerate for commitment and HTLC transactions (see NOTES in
+lightning-feerates(7)).  The default is *normal*.
 
 *announce* is an optional flag that triggers whether to announce this
 channel or not. Defaults to `true`. An unannounced channel is considered

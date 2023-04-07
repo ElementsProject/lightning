@@ -295,7 +295,7 @@ def _extra_validator(is_request: bool):
             return True
         if not checker.is_type(instance, "string"):
             return False
-        if instance in ("urgent", "normal", "slow"):
+        if instance in ("urgent", "normal", "slow", "minimum"):
             return True
         if instance in ("opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution", "penalty", "min_acceptable", "max_acceptable"):
             return True
