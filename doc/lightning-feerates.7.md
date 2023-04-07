@@ -96,13 +96,20 @@ if feerate estimates for that kind of transaction are unavailable.
 NOTES
 -----
 
-Many other commands have a *feerate* parameter, which can be the strings
-*urgent*, *normal*, or *slow*.
-These are mapped to the **feerates** outputs as:
+Many other commands have a *feerate* parameter.  This can be:
 
-* *urgent* - equal to *unilateral\_close*
-* *normal* - equal to *opening*
-* *slow* - equal to *min\_acceptable*.
+* One of the strings to use lightningd's internal estimates:
+  * *urgent* (aim for next block), 
+  * *normal* (next 6 blocks or so)
+  * *slow* (next 100 blocks or so)
+  * *minimum* for the lowest value bitcoind will currently accept (added in v23.05)
+
+* A number, with an optional suffix:
+  * *blocks* means aim for confirmation in that many blocks (added in v23.05)
+  * *perkw* means the number is interpreted as satoshi-per-kilosipa (weight)
+  * *perkb* means it is interpreted bitcoind-style as satoshi-per-kilobyte. 
+  
+Omitting the suffix is equivalent to *perkb*.
 
 TRIVIA
 ------

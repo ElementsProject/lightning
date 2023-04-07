@@ -3280,9 +3280,24 @@ def test_feerate_arg(node_factory):
     fees["penalty"] = by_blocks[12]
     fees["unilateral_close"] = by_blocks[6]
 
+    fees["2blocks"] = by_blocks[2]
+    fees["6blocks"] = by_blocks[6]
+    fees["12blocks"] = by_blocks[12]
+    fees["100blocks"] = by_blocks[100]
+
+    # Simple interpolation
+    fees["9blocks"] = (by_blocks[6] + by_blocks[12]) // 2
+
     for fee, expect in fees.items():
         # Put arg in assertion, so it gets printed on failure!
         assert (l1.rpc.parsefeerate(fee), fee) == ({'perkw': expect}, fee)
+
+    # More thorough interpolation
+    for block in range(12, 100):
+        # y = y1 + (x-x1)(y2-y1)/(x2-x1)
+        fee = by_blocks[12] + (block - 12) * (by_blocks[100] - by_blocks[12]) // (100 - 12)
+        # Rounding error is a thing!
+        assert abs(l1.rpc.parsefeerate(f"{block}blocks")['perkw'] - fee) <= 1
 
 
 @pytest.mark.skip(reason="Fails by intention for creating test gossip stores")
