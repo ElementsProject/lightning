@@ -311,7 +311,7 @@ static bool check_fwd_amount(struct htlc_in *hin,
  *     - MUST return an error if:
  * ...
  *        - `cltv_expiry` - `cltv_expiry_delta` < `outgoing_cltv_value`
- *   - if it is the final node:
+ *   - If it is the final node:
  *...
  *     - MUST return an error if:
  *...
@@ -382,7 +382,7 @@ static void handle_localpay(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
 	/* BOLT #4:
-	 *   - if it is the final node:
+	 *   - If it is the final node:
 	 *     - MUST treat `total_msat` as if it were equal to `amt_to_forward` if it
 	 *       is not present.
 	 *     - MUST return an error if:
@@ -408,7 +408,7 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	/* BOLT #4:
-	 *   - if it is the final node:
+	 *   - If it is the final node:
 	 *     - MUST treat `total_msat` as if it were equal to `amt_to_forward` if it
 	 *       is not present.
 	 *     - MUST return an error if:
