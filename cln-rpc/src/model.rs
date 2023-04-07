@@ -3231,6 +3231,8 @@ pub mod responses {
 	pub struct FeeratesPerkb {
 	    pub min_acceptable: u32,
 	    pub max_acceptable: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub floor: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub estimates: Option<Vec<FeeratesPerkbEstimates>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3263,6 +3265,8 @@ pub mod responses {
 	pub struct FeeratesPerkw {
 	    pub min_acceptable: u32,
 	    pub max_acceptable: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub floor: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub estimates: Option<Vec<FeeratesPerkwEstimates>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
