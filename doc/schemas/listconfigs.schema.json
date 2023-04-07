@@ -319,6 +319,11 @@
     "require-confirmed-inputs": {
       "type": "boolean",
       "description": "Request peers to only send confirmed inputs (dual-fund only)"
+    },
+    "commit-fee": {
+      "type": "u64",
+      "added": "v23.05",
+      "description": "The percentage of the 6-block fee estimate to use for commitment transactions"
     }
   }
 }

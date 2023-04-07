@@ -106,6 +106,7 @@ On success, an object is returned, containing:
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 - **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement *(added v22.11.1)*
 - **require-confirmed-inputs** (boolean, optional): Request peers to only send confirmed inputs (dual-fund only)
+- **commit-fee** (u64, optional): The percentage of the 6-block fee estimate to use for commitment transactions *(added v23.05)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -224,4 +225,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1088401b9aeae1e079dab550d3b035ef82195f0466ad471bc7373386182f37dc)
+[comment]: # ( SHA256STAMP:b24158a61bb79aaf3f0f6d1c20a4b10d474613b371e80aede4aeb59ab471a989)

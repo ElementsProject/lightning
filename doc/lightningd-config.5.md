@@ -401,7 +401,7 @@ create a channel, and if an HTLC asks for longer, we'll refuse it.
   Confirmations required for the funding transaction when the other side
 opens a channel before the channel is usable.
 
-* **commit-fee**=*PERCENT* [plugin `bcli`]
+* **commit-fee**=*PERCENT*
 
   The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
 transactions: default is 100.
