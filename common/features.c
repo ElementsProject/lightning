@@ -174,7 +174,7 @@ static const struct dependency feature_deps[] = {
 	 * `option_anchors_zero_fee_htlc_tx` | ...      | ...      | `option_static_remotekey`
 	 */
 	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX, OPT_STATIC_REMOTEKEY },
-	/* BOLT-route-blinding #9:
+	/* BOLT #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 * ...
 	 * `option_route_blinding` | ...      | ...      | `var_onion_optin`

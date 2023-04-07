@@ -27,7 +27,7 @@ static bool blind_node(const struct privkey *blinding,
 	SUPERVERBOSE("\t\"blinded_node_id\": \"%s\",\n",
 		     type_to_string(tmpctx, struct pubkey, node_alias));
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 *  - `E(i+1) = SHA256(E(i) || ss(i)) * E(i)`
 	 *     (NB: `N(i)` MUST NOT learn `e(i)`)
 	 */
@@ -36,7 +36,7 @@ static bool blind_node(const struct privkey *blinding,
 	SUPERVERBOSE("\t\"E\": \"%s\",\n",
 		     type_to_string(tmpctx, struct pubkey, &blinding_pubkey));
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 *  - `e(i+1) = SHA256(E(i) || ss(i)) * e(i)`
 	 *     (blinding ephemeral private key, only known by `N(r)`)
 	 */
@@ -63,7 +63,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	/* All-zero npub */
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 *     - `ss(i) = SHA256(e(i) * N(i)) = SHA256(k(i) * E(i))`
 	 *        (ECDH shared secret known only by `N(r)` and `N(i)`)
 	 */
@@ -80,7 +80,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 
 	ret = tal_dup_talarr(ctx, u8, raw_encmsg);
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * - `rho(i) = HMAC256("rho", ss(i))`
 	 *    (key used to encrypt the payload for `N(i)` by `N(r)`)
 	 */
@@ -88,10 +88,10 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	SUPERVERBOSE("\t\"rho\": \"%s\",\n",
 		     type_to_string(tmpctx, struct secret, &rho));
 
-	/* BOLT-route-blinding #4:
-	 * - MUST encrypt each `encrypted_data_tlv(i)` with ChaCha20-Poly1305
-         *   using the corresponding `rho(i)` key and an all-zero nonce to
-         *   produce `encrypted_recipient_data(i)`
+	/* BOLT #4:
+	 * - MUST encrypt each `encrypted_data_tlv(i)` with ChaCha20-Poly1305 using
+	 *   the corresponding `rho(i)` key and an all-zero nonce to produce
+	 *   `encrypted_recipient_data(i)`
 	 */
 	/* Encrypt in place */
 	towire_pad(&ret, crypto_aead_chacha20poly1305_ietf_ABYTES);
@@ -132,7 +132,7 @@ bool unblind_onion(const struct pubkey *blinding,
 {
 	struct secret hmac;
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * A reader:
 	 *...
 	 * - MUST compute:
@@ -145,7 +145,7 @@ bool unblind_onion(const struct pubkey *blinding,
 	/* We instead tweak the *ephemeral* key from the onion and use
 	 * our normal privkey: since hsmd knows only how to ECDH with
 	 * our real key.  IOW: */
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * - MUST use `b(i)` instead of its private key `k(i)` to decrypt the onion. Note
 	 *   that the node may instead tweak the onion ephemeral key with
 	 *   `HMAC256("blinded_node_id", ss(i))` which achieves the same result.
@@ -165,7 +165,7 @@ static u8 *decrypt_encmsg_raw(const tal_t *ctx,
 	/* All-zero npub */
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * A reader:
 	 *...
 	 *- MUST decrypt the `encrypted_data` field using `rho(i)` and use
@@ -222,7 +222,7 @@ bool blindedpath_get_alias(const struct secret *ss,
 {
 	struct secret node_id_blinding;
 
-	/* BOLT-route-blinding #4:
+	/* BOLT #4:
 	 * - `B(i) = HMAC256("blinded_node_id", ss(i)) * N(i)`
 	 *   (blinded `node_id` for `N(i)`, private key known only by `N(i)`)
 	 */
@@ -242,13 +242,13 @@ void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
 			       const struct secret *ss,
 			       struct pubkey *next_blinding)
 {
-	/* BOLT-route
-	 *   - `E(1) = SHA256(E(0) || ss(0)) * E(0)`
+	/* BOLT #4:
+	 *   - `E(i+1) = SHA256(E(i) || ss(i)) * E(i)`
 	 * ...
 	 * - If `encrypted_data` contains a `next_blinding_override`:
-	 *   - MUST use it as the next blinding point instead of `E(1)`
+	 *   - MUST use it as the next blinding point instead of `E(i+1)`
 	 *   - Otherwise:
-	 *     - MUST use `E(1)` as the next blinding point
+	 *     - MUST use `E(i+1)` as the next blinding point
 	 */
 	if (enc->next_blinding_override)
 		*next_blinding = *enc->next_blinding_override;

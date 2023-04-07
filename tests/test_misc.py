@@ -2081,6 +2081,7 @@ def test_list_features_only(node_factory):
                 ]
     if EXPERIMENTAL_FEATURES:
         expected += ['option_anchor_outputs/odd']
+        expected += ['option_route_blinding/odd']
         expected += ['option_shutdown_anysegwit/odd']
         expected += ['option_quiesce/odd']
         expected += ['option_onion_messages/odd']
@@ -2089,6 +2090,7 @@ def test_list_features_only(node_factory):
         expected += ['option_zeroconf/odd']
         expected += ['supports_open_accept_channel_type']
     else:
+        expected += ['option_route_blinding/odd']
         expected += ['option_shutdown_anysegwit/odd']
         expected += ['option_channel_type/odd']
         expected += ['option_scid_alias/odd']

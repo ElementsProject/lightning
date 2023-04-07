@@ -45,8 +45,9 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The writer:
-	 *  - For every node:
+	 * The writer of `tlv_payload`:
+	 *...
+	 * - For every node outside of a blinded route:
 	 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
 	 *  - For every non-final node:
 	 *    - MUST include `short_channel_id`
@@ -74,8 +75,9 @@ u8 *onion_final_hop(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The writer:
-	 *  - For every node:
+	 * The writer of `tlv_payload`:
+	 *...
+	 *  - For every node outside of a blinded route:
 	 *    - MUST include `amt_to_forward` and `outgoing_cltv_value`.
 	 *...
 	 *  - For the final node:
