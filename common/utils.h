@@ -80,10 +80,21 @@ void clear_softref_(const tal_t *outer, size_t outersize, void **ptr);
  * Remove an element from an array
  *
  * This will shift the elements past the removed element, changing
- * their position in memory, so only use this for arrays of pointers.
+ * their position in memory, so only use this for simple arrays.
  */
 #define tal_arr_remove(p, n) tal_arr_remove_((p), sizeof(**p), (n))
 void tal_arr_remove_(void *p, size_t elemsize, size_t n);
+
+/**
+ * Insert an element in an array
+ */
+#define tal_arr_insert(p, n, v) \
+	do {								\
+		size_t n_ = tal_count(*(p));				\
+		tal_resize((p), n_+1);					\
+		memmove(*(p) + n + 1, *(p) + n, (n_ - n) * sizeof(**(p))); \
+		(*(p))[n] = (v);					\
+	} while(0)
 
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);
