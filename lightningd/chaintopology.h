@@ -22,6 +22,7 @@ struct outgoing_tx {
 	const struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;
 	u32 minblock;
+	bool allowhighfees;
 	const char *cmd_id;
 	void (*finished)(struct channel *channel, bool success, const char *err);
 	bool (*refresh)(struct channel *, const struct bitcoin_tx **, void *arg);
