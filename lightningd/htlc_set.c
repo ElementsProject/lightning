@@ -137,9 +137,9 @@ void htlc_set_add(struct lightningd *ld,
 	else {
 		/* BOLT #4:
 		 *
-		 * if it supports `basic_mpp`:
+		 * otherwise, if it supports `basic_mpp`:
 		 * ...
-		 *  - otherwise, if the total `amount_msat` of this HTLC set is
+		 *  - otherwise, if the total `amt_to_forward` of this HTLC set is
 		 *    less than `total_msat`:
 		 * ...
 		 *     - MUST require `payment_secret` for all HTLCs in the set.
@@ -199,7 +199,7 @@ void htlc_set_add(struct lightningd *ld,
 		);
 
 	/* BOLT #4:
-	 * - if the total `amount_msat` of this HTLC set is equal to or greater than
+	 * - if the total `amt_to_forward` of this HTLC set is equal to or greater than
 	 *   `total_msat`:
 	 *   - SHOULD fulfill all HTLCs in the HTLC set
 	 */
@@ -211,7 +211,7 @@ void htlc_set_add(struct lightningd *ld,
 	}
 
 	/* BOLT #4:
-	 * - otherwise, if the total `amount_msat` of this HTLC set is less than
+	 * - otherwise, if the total `amt_to_forward` of this HTLC set is less than
 	 *  `total_msat`:
 	 *   - MUST NOT fulfill any HTLCs in the HTLC set
 	 *...
