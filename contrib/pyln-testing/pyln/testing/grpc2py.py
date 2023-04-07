@@ -741,6 +741,7 @@ def feerates_perkb2py(m):
     return remove_default({
         "min_acceptable": m.min_acceptable,  # PrimitiveField in generate_composite
         "max_acceptable": m.max_acceptable,  # PrimitiveField in generate_composite
+        "floor": m.floor,  # PrimitiveField in generate_composite
         "estimates": [feerates_perkb_estimates2py(i) for i in m.estimates],  # ArrayField[composite] in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
@@ -763,6 +764,7 @@ def feerates_perkw2py(m):
     return remove_default({
         "min_acceptable": m.min_acceptable,  # PrimitiveField in generate_composite
         "max_acceptable": m.max_acceptable,  # PrimitiveField in generate_composite
+        "floor": m.floor,  # PrimitiveField in generate_composite
         "estimates": [feerates_perkw_estimates2py(i) for i in m.estimates],  # ArrayField[composite] in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite

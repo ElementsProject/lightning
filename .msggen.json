@@ -358,6 +358,7 @@
         "FeeratesPerkb": {
             "Feerates.perkb.delayed_to_us": 6,
             "Feerates.perkb.estimates[]": 9,
+            "Feerates.perkb.floor": 10,
             "Feerates.perkb.htlc_resolution": 7,
             "Feerates.perkb.max_acceptable": 2,
             "Feerates.perkb.min_acceptable": 1,
@@ -374,6 +375,7 @@
         "FeeratesPerkw": {
             "Feerates.perkw.delayed_to_us": 6,
             "Feerates.perkw.estimates[]": 9,
+            "Feerates.perkw.floor": 10,
             "Feerates.perkw.htlc_resolution": 7,
             "Feerates.perkw.max_acceptable": 2,
             "Feerates.perkw.min_acceptable": 1,
@@ -1572,6 +1574,10 @@
             "added": "v23.05",
             "deprecated": false
         },
+        "Feerates.perkb.floor": {
+            "added": "v23.05",
+            "deprecated": false
+        },
         "Feerates.perkb.htlc_resolution": {
             "added": "pre-v0.10.1",
             "deprecated": "v23.05"
@@ -1621,6 +1627,10 @@
             "deprecated": false
         },
         "Feerates.perkw.estimates[].smoothed_feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Feerates.perkw.floor": {
             "added": "v23.05",
             "deprecated": false
         },

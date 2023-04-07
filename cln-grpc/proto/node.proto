@@ -1130,6 +1130,7 @@ message FeeratesResponse {
 message FeeratesPerkb {
 	uint32 min_acceptable = 1;
 	uint32 max_acceptable = 2;
+	optional uint32 floor = 10;
 	repeated FeeratesPerkbEstimates estimates = 9;
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
@@ -1148,6 +1149,7 @@ message FeeratesPerkbEstimates {
 message FeeratesPerkw {
 	uint32 min_acceptable = 1;
 	uint32 max_acceptable = 2;
+	optional uint32 floor = 10;
 	repeated FeeratesPerkwEstimates estimates = 9;
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
