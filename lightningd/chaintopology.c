@@ -610,8 +610,7 @@ u32 penalty_feerate(struct chain_topology *topo)
 
 u32 get_feerate_floor(const struct chain_topology *topo)
 {
-	/* FIXME: Make this dynamic! */
-	return FEERATE_FLOOR;
+	return topo->feerate_floor;
 }
 
 static struct command_result *json_feerates(struct command *cmd,
