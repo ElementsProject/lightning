@@ -651,7 +651,7 @@ struct route_step *process_onionpacket(
 						cursor - paddedheader, 0);
 	fromwire_hmac(&cursor, &max, &step->next->hmac);
 
-	/* BOLT-remove-legacy-onion #4:
+	/* BOLT #4:
 	 * Since no `payload` TLV value can ever be shorter than 2 bytes, `length` values of 0 and 1 are
 	 * reserved.  (`0` indicated a legacy format no longer supported, and `1` is reserved for future
 	 * use). */

@@ -33,7 +33,7 @@ struct onion_payload {
 	struct secret blinding_ss;
 
 	/* The raw TLVs contained in the payload. */
-	struct tlv_tlv_payload *tlv;
+	struct tlv_payload *tlv;
 };
 
 u8 *onion_nonfinal_hop(const tal_t *ctx,
