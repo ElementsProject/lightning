@@ -1,28 +1,35 @@
 ###
-## Core Lightning Configuration
+##        Core Lightning Configurations
 ###
-## Configuration manual:
-## man lightningd config 
+##  Edit this file to your desired configurations
+##        Edit this files name to `config`
+###
+##    To view all documentation & options run:
+##          `man lightningd config`
 ###
 
 # Node Name / Color
-alias=<NODE-ALIAS>
-rgb=FFA500
+alias=<NODE-ALIAS> # Call your node whatever you like!
+rgb=FFA500  # Pick your favorite color as a hex code!
 
-# Run lightningd as a daemon. (Recommended)
+# Run lightningd as a daemon (Recommended)
 daemon
 
-# Channel Options (Set to defaults, please read the manual)
-fee-base=1000
-fee-per-satoshi=10
-min-capacity-sat=10000
-htlc-minimum-msat=0
-funding-confirms=1
+# Set the network for Core Lightning to sync to, Bitcoin Mainnet for most users
+# Omit this field if the config file is in a network directory such as `.lightning/bitcoin`
+network=bitcoin
+
+# Channel Options (Set to defaults)
+# !! Please read the manual before editing these and for a full list of available options !!
+fee-base=1000 # Base fee to charge for every payment which passes through in MILLISATOSHI (1/1000 of a satoshi)
+fee-per-satoshi=10 # In millionths (10 is 0.001%, 100 is 0.01%, 1000 is 0.1% etc.)
+min-capacity-sat=10000 # Minimum value, in SATOSHI, to accept for channel open requests
+htlc-minimum-msat=0 # Sets the minimum HTLC value for new channels
+funding-confirms=1 # Blockchain confirmations required for channel to be considered valid
 
 # Bitcoin Settings
-network=bitcoin
-bitcoin-cli=/path/to/your/bitcoin-cli
-bitcoin-datadir=/path/to/your/.bitcoin
+bitcoin-cli=/path/to/your/bitcoin-cli # If unsure run: `whereis bitcoin-cli`
+bitcoin-datadir=/path/to/your/.bitcoin # Bitcoin directory, defaults to `~/.bitcoin`
 bitcoin-rpcconnect=127.0.0.1 # Bitcoin RPC server running on localhost, change to your bitcoind IPADDRESS
 bitcoin-rpcport=8332 # Bitcoin RPC server default port 8332, change to your bitcoind PORT
 bitcoin-rpcuser=<BITCOIND-RPCAUTH-USER>
@@ -30,8 +37,8 @@ bitcoin-rpcpassword=<BITCOIND-RPCAUTH-PASSWORD>
 
 # Lightning Network Settings
 addr=0.0.0.0:9735 # Accept incoming connections on default PORT
-announce-addr=<YOUR PUBLIC IP>:9735 # Peers can find your node here
-bind-addr=127.0.0.1:9734 # Bind Core Lightning RPC server to localhost
+announce-addr=<YOUR-PUBLIC-IP>:9735 # Peers can find your node here
+bind-addr=127.0.0.1:9734 # Bind Core Lightning RPC server to localhost PORT 9734
 
 # Log Settings
 log-level=info # Set to debug for more verbose output
