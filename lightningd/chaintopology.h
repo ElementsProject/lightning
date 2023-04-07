@@ -133,7 +133,7 @@ struct chain_topology {
 	struct bitcoind *bitcoind;
 
 	/* Timers we're running. */
-	struct oneshot *extend_timer, *updatefee_timer;
+	struct oneshot *extend_timer, *updatefee_timer, *rebroadcast_timer;
 
 	/* Bitcoin transactions we're broadcasting */
 	struct outgoing_tx_map *outgoing_txs;
