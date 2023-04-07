@@ -456,20 +456,24 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 	return command_finished(bcli->cmd, response);
 }
 
-enum feerate_levels {
-	FEERATE_HIGHEST,
-	FEERATE_URGENT,
-	FEERATE_NORMAL,
-	FEERATE_SLOW,
+struct estimatefee_params {
+	u32 blocks;
+	const char *style;
 };
-#define FEERATE_LEVEL_MAX (FEERATE_SLOW)
+
+static const struct estimatefee_params estimatefee_params[] = {
+	{ 2, "CONSERVATIVE" },
+	{ 6, "ECONOMICAL" },
+	{ 12, "ECONOMICAL" },
+	{ 100, "ECONOMICAL" },
+};
 
 struct estimatefees_stash {
 	/* This is max(mempoolminfee,minrelaytxfee) */
 	u64 perkb_floor;
 	u32 cursor;
 	/* FIXME: We use u64 but lightningd will store them as u32. */
-	u64 perkb[FEERATE_LEVEL_MAX+1];
+	u64 perkb[ARRAY_SIZE(estimatefee_params)];
 };
 
 static struct command_result *
@@ -477,14 +481,21 @@ estimatefees_null_response(struct bitcoin_cli *bcli)
 {
 	struct json_stream *response = jsonrpc_stream_success(bcli->cmd);
 
-	json_add_null(response, "opening");
-	json_add_null(response, "mutual_close");
-	json_add_null(response, "unilateral_close");
-	json_add_null(response, "delayed_to_us");
-	json_add_null(response, "htlc_resolution");
-	json_add_null(response, "penalty");
-	json_add_null(response, "min_acceptable");
-	json_add_null(response, "max_acceptable");
+	/* We give a floor, which is the standard minimum */
+	json_array_start(response, "feerates");
+	json_array_end(response);
+	json_add_u32(response, "feerate_floor", 1000);
+
+	if (deprecated_apis) {
+		json_add_null(response, "opening");
+		json_add_null(response, "mutual_close");
+		json_add_null(response, "unilateral_close");
+		json_add_null(response, "delayed_to_us");
+		json_add_null(response, "htlc_resolution");
+		json_add_null(response, "penalty");
+		json_add_null(response, "min_acceptable");
+		json_add_null(response, "max_acceptable");
+	}
 
 	return command_finished(bcli->cmd, response);
 }
@@ -658,18 +669,6 @@ static struct command_result *getchaininfo(struct command *cmd,
 /* Mutual recursion. */
 static struct command_result *estimatefees_done(struct bitcoin_cli *bcli);
 
-struct estimatefee_params {
-	u32 blocks;
-	const char *style;
-};
-
-static const struct estimatefee_params estimatefee_params[] = {
-	[FEERATE_HIGHEST] = { 2, "CONSERVATIVE" },
-	[FEERATE_URGENT] = { 6, "ECONOMICAL" },
-	[FEERATE_NORMAL] = { 12, "ECONOMICAL" },
-	[FEERATE_SLOW] = { 100, "ECONOMICAL" },
-};
-
 /* Add a feerate, but don't publish one that bitcoind won't accept. */
 static void json_add_feerate(struct json_stream *result, const char *fieldname,
 			     struct command *cmd,
@@ -686,6 +685,16 @@ static void json_add_feerate(struct json_stream *result, const char *fieldname,
 	} else {
 		json_add_u64(result, fieldname, value);
 	}
+}
+
+static u32 feerate_for_block(const struct estimatefees_stash *stash, u32 blocks)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(stash->perkb); i++) {
+		if (estimatefee_params[i].blocks != blocks)
+			continue;
+		return stash->perkb[i];
+	}
+	abort();
 }
 
 static struct command_result *estimatefees_next(struct command *cmd,
@@ -706,30 +715,45 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	}
 
 	response = jsonrpc_stream_success(cmd);
-	json_add_feerate(response, "opening", cmd, stash,
-			 stash->perkb[FEERATE_NORMAL]);
-	json_add_feerate(response, "mutual_close", cmd, stash,
-			 stash->perkb[FEERATE_SLOW]);
-	json_add_feerate(response, "unilateral_close", cmd, stash,
-			 stash->perkb[FEERATE_URGENT]);
-	json_add_feerate(response, "delayed_to_us", cmd, stash,
-			 stash->perkb[FEERATE_NORMAL]);
-	json_add_feerate(response, "htlc_resolution", cmd, stash,
-			 stash->perkb[FEERATE_URGENT]);
-	json_add_feerate(response, "penalty", cmd, stash,
-			 stash->perkb[FEERATE_NORMAL]);
-	/* We divide the slow feerate for the minimum acceptable, lightningd
-	 * will use floor if it's hit, though. */
-	json_add_feerate(response, "min_acceptable", cmd, stash,
-			 stash->perkb[FEERATE_SLOW] / 2);
-	/* BOLT #2:
-	 *
-	 * Given the variance in fees, and the fact that the transaction may be
-	 * spent in the future, it's a good idea for the fee payer to keep a good
-	 * margin (say 5x the expected fee requirement)
-	 */
-	json_add_feerate(response, "max_acceptable", cmd, stash,
-			 stash->perkb[FEERATE_HIGHEST] * 10);
+	if (deprecated_apis) {
+		json_add_feerate(response, "opening", cmd, stash,
+				 feerate_for_block(stash, 12));
+		json_add_feerate(response, "mutual_close", cmd, stash,
+				 feerate_for_block(stash, 100));
+		json_add_feerate(response, "unilateral_close", cmd, stash,
+				 feerate_for_block(stash, 6));
+		json_add_feerate(response, "delayed_to_us", cmd, stash,
+				 feerate_for_block(stash, 12));
+		json_add_feerate(response, "htlc_resolution", cmd, stash,
+				 feerate_for_block(stash, 6));
+		json_add_feerate(response, "penalty", cmd, stash,
+				 feerate_for_block(stash, 12));
+		/* We divide the slow feerate for the minimum acceptable, lightningd
+		 * will use floor if it's hit, though. */
+		json_add_feerate(response, "min_acceptable", cmd, stash,
+				 feerate_for_block(stash, 100) / 2);
+		/* BOLT #2:
+		 *
+		 * Given the variance in fees, and the fact that the transaction may be
+		 * spent in the future, it's a good idea for the fee payer to keep a good
+		 * margin (say 5x the expected fee requirement)
+		 */
+		json_add_feerate(response, "max_acceptable", cmd, stash,
+				 feerate_for_block(stash, 2) * 10);
+	}
+
+	/* Modern style: present an ordered array of block deadlines, and a floor. */
+	json_array_start(response, "feerates");
+	for (size_t i = 0; i < ARRAY_SIZE(stash->perkb); i++) {
+		if (!stash->perkb[i])
+			continue;
+		json_object_start(response, NULL);
+		json_add_u32(response, "blocks", estimatefee_params[i].blocks);
+		json_add_feerate(response, "feerate", cmd, stash, stash->perkb[i]);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_add_u64(response, "feerate_floor", stash->perkb_floor);
 	return command_finished(cmd, response);
 }
 
