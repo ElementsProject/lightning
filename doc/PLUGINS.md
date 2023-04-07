@@ -1729,17 +1729,26 @@ The plugin must respond to `getchaininfo` with the following fields:
 
 Polled by `lightningd` to get the current feerate, all values must be passed in sat/kVB.
 
-If fee estimation fails, the plugin must set all the fields to `null`.
+The plugin must return `feerate_floor` (e.g. 1000 if mempool is
+empty), and an array of 0 or more `feerates`.  Each element of
+`feerates` is an object with `blocks` and `feerate`, in
+ascending-blocks order, for example:
 
-The plugin, if fee estimation succeeds, must respond with the following fields:
-    - `opening` (number), used for funding and also misc transactions
-    - `mutual_close` (number), used for the mutual close transaction
-    - `unilateral_close` (number), used for unilateral close (/commitment) transactions
-    - `delayed_to_us` (number), used for resolving our output from our unilateral close
-    - `htlc_resolution` (number), used for resolving HTLCs after an unilateral close
-    - `penalty` (number), used for resolving revoked transactions
-    - `min_acceptable` (number), used as the minimum acceptable feerate
-    - `max_acceptable` (number), used as the maximum acceptable feerate
+```
+{
+	"feerate_floor": <sat per kVB>,
+	"feerates": {
+		{ "blocks": 2, "feerate": <sat per kVB> },
+		{ "blocks": 6, "feerate": <sat per kVB> },
+		{ "blocks": 12, "feerate": <sat per kVB> }
+		{ "blocks": 100, "feerate": <sat per kVB> }
+	}
+}
+```
+
+lightningd will currently linearly interpolate to estimate between
+given blocks (it will not extrapolate, but use the min/max blocks
+values).
 
 
 ### `getrawblockbyheight`
