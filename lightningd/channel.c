@@ -619,7 +619,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 	     p;
 	     p = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&p->channels, chan, list) {
-			/* BOLT-channel-type #2:
+			/* BOLT #2:
 			 * - MUST always recognize the `alias` as a
 			 *   `short_channel_id` for incoming HTLCs to this
 			 *   channel.
@@ -627,7 +627,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			if (chan->alias[LOCAL] &&
 			    short_channel_id_eq(scid, chan->alias[LOCAL]))
 				return chan;
-			/* BOLT-channel-type #2:
+			/* BOLT #2:
 			 * - if `channel_type` has `option_scid_alias` set:
 			 *   - MUST NOT allow incoming HTLCs to this channel
 			 *     using the real `short_channel_id`
