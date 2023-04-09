@@ -8,11 +8,13 @@
  * it.
  */
 #include "config.h"
+#include <arpa/inet.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/closefrom/closefrom.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/io/backend.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -1902,6 +1904,141 @@ static void dev_suppress_gossip(struct daemon *daemon, const u8 *msg)
 {
 	daemon->dev_suppress_gossip = true;
 }
+
+static const char *addr2name(const tal_t *ctx,
+			     const struct sockaddr_storage *sa,
+			     socklen_t addrlen)
+{
+	const struct sockaddr_in *in = (struct sockaddr_in *)sa;
+	const struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)sa;
+	const struct sockaddr_un *un = (struct sockaddr_un *)sa;
+	char addr[1000];
+
+	switch (sa->ss_family) {
+	case AF_UNIX:
+		if (addrlen == sizeof(un->sun_family))
+			return tal_fmt(ctx, "unix socket <unnamed>");
+		else
+			return tal_fmt(ctx, "unix socket %s", un->sun_path);
+	case AF_INET:
+		if (!inet_ntop(sa->ss_family, &in->sin_addr, addr, sizeof(addr)))
+			return tal_fmt(ctx, "IPv4 socket <badaddr>");
+		else
+			return tal_fmt(ctx, "IPv4 socket %s:%u",
+				       addr, ntohs(in->sin_port));
+	case AF_INET6:
+		if (!inet_ntop(sa->ss_family, &in6->sin6_addr, addr, sizeof(addr)))
+			return tal_fmt(ctx, "IPv6 socket <badaddr>");
+		else
+			return tal_fmt(ctx, "IPv6 socket %s:%u",
+				       addr, ntohs(in6->sin6_port));
+	default:
+		return tal_fmt(ctx, "unknown family %u (**BROKEN**)",
+			       (unsigned)sa->ss_family);
+	}
+}
+
+static void describe_fd(int fd)
+{
+	struct sockaddr_storage sa;
+	socklen_t addrlen = sizeof(sa);
+
+	if (getsockname(fd, (void *)&sa, &addrlen) != 0) {
+		status_broken("dev_report_fds: %i cannot get sockname (%s)",
+			      fd, strerror(errno));
+		return;
+	}
+	status_info("dev_report_fds: %i name %s", fd, addr2name(tmpctx, &sa, addrlen));
+
+	if (getpeername(fd, (void *)&sa, &addrlen) != 0)
+		return;
+	status_info("dev_report_fds: %i peer %s", fd, addr2name(tmpctx, &sa, addrlen));
+}
+
+static const char *io_plan_status_str(enum io_plan_status status)
+{
+	switch (status) {
+	case IO_UNSET: return "IO_UNSET";
+	case IO_POLLING_NOTSTARTED: return "IO_POLLING_NOTSTARTED";
+	case IO_POLLING_STARTED: return "IO_POLLING_STARTED";
+	case IO_WAITING: return "IO_WAITING";
+	case IO_ALWAYS: return "IO_ALWAYS";
+	}
+	return "INVALID-STATUS";
+}
+
+/* Stupid and slow, but machines are fast! */
+static const tal_t *find_tal_ptr(const tal_t *root, const tal_t *p)
+{
+	if (root == p)
+		return root;
+
+	for (tal_t *t = tal_first(root); t; t = tal_next(t)) {
+		const tal_t *ret = find_tal_ptr(t, p);
+		if (ret)
+			return ret;
+	}
+	return NULL;
+}
+
+/* Looks up ptr in hash tree, to try to find name */
+static const char *try_tal_name(const tal_t *ctx, const void *p)
+{
+	const tal_t *t = find_tal_ptr(NULL, p);
+	if (t)
+		return tal_name(t);
+	return tal_fmt(ctx, "%p", p);
+}
+
+static void dev_report_fds(struct daemon *daemon, const u8 *msg)
+{
+	for (int fd = 3; fd < 4096; fd++) {
+		bool listener;
+		const struct io_conn *c;
+		const struct io_listener *l;
+		if (!isatty(fd) && errno == EBADF)
+			continue;
+		if (fd == HSM_FD) {
+			status_info("dev_report_fds: %i -> hsm fd", fd);
+			continue;
+		}
+		if (fd == GOSSIPCTL_FD) {
+			status_info("dev_report_fds: %i -> gossipd fd", fd);
+			continue;
+		}
+#if DEVELOPER
+		if (fd == daemon->dev_disconnect_fd) {
+			status_info("dev_report_fds: %i -> dev_disconnect_fd", fd);
+			continue;
+		}
+#endif
+		if (fd == daemon->gossip_store_fd) {
+			status_info("dev_report_fds: %i -> gossip_store", fd);
+			continue;
+		}
+		c = io_have_fd(fd, &listener);
+		if (!c) {
+			status_broken("dev_report_fds: %i open but unowned?", fd);
+			continue;
+		} else if (listener) {
+			l = (void *)c;
+			status_info("dev_report_fds: %i -> listener (%s)", fd,
+				    backtrace_symname(tmpctx, l->init));
+		} else {
+			status_info("dev_report_fds: %i -> IN=%s:%s+%s(%s), OUT=%s:%s+%s(%s)",
+				    fd,
+				    io_plan_status_str(c->plan[IO_IN].status),
+				    backtrace_symname(tmpctx, c->plan[IO_IN].io),
+				    backtrace_symname(tmpctx, c->plan[IO_IN].next),
+				    try_tal_name(tmpctx, c->plan[IO_IN].next_arg),
+				    io_plan_status_str(c->plan[IO_OUT].status),
+				    backtrace_symname(tmpctx, c->plan[IO_OUT].io),
+				    backtrace_symname(tmpctx, c->plan[IO_OUT].next),
+				    try_tal_name(tmpctx, c->plan[IO_OUT].next_arg));
+		}
+		describe_fd(fd);
+	}
+}
 #endif /* DEVELOPER */
 
 static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
@@ -1971,6 +2108,11 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
 #if DEVELOPER
 		dev_suppress_gossip(daemon, msg);
+		goto out;
+#endif
+	case WIRE_CONNECTD_DEV_REPORT_FDS:
+#if DEVELOPER
+		dev_report_fds(daemon, msg);
 		goto out;
 #endif
 	/* We send these, we don't receive them */

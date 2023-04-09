@@ -105,6 +105,9 @@ msgtype,connectd_dev_memleak,2033
 msgtype,connectd_dev_memleak_reply,2133
 msgdata,connectd_dev_memleak_reply,leak,bool,
 
+# master -> connectd: dump status of your fds.
+msgtype,connectd_dev_report_fds,2034
+
 # Ping/pong test.  Waits for a reply if it expects one.
 msgtype,connectd_ping,2030
 msgdata,connectd_ping,id,node_id,
