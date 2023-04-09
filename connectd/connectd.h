@@ -201,6 +201,8 @@ struct daemon {
 	bool dev_no_ping_timer;
 	/* Hack to no longer send gossip */
 	bool dev_suppress_gossip;
+	/* dev_disconnect file */
+	int dev_disconnect_fd;
 #endif
 };
 
