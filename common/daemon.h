@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_DAEMON_H
 #define LIGHTNING_COMMON_DAEMON_H
 #include "config.h"
+#include <ccan/tal/tal.h>
 #include <poll.h>
 
 /* Common setup for all daemons */
@@ -13,6 +14,9 @@ int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 /* Print a backtrace to stderr, and via backtrace_print */
 void send_backtrace(const char *why);
+
+/* Try to extract a name for this function/var/etc */
+const char *backtrace_symname(const tal_t *ctx, const void *addr);
 
 /* Shutdown for a valgrind-clean exit (frees everything) */
 void daemon_shutdown(void);
