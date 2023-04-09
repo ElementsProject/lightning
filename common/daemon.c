@@ -38,6 +38,35 @@ void send_backtrace(const char *why)
 		backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
 }
 
+static void extract_symname(void *data, uintptr_t pc,
+			    const char *symname,
+			    uintptr_t symval,
+			    uintptr_t symsize)
+{
+	const char **ret = data;
+
+	/* ret is context to alloc off, and value to set */
+	if (symname)
+		*ret = tal_strdup(*ret, symname);
+	else
+		*ret = NULL;
+}
+
+const char *backtrace_symname(const tal_t *ctx, const void *addr)
+{
+	const char *ret = ctx;
+	if (!backtrace_state)
+		return tal_fmt(ctx, "%p (backtrace disabled)", addr);
+
+	if (!backtrace_syminfo(backtrace_state, (uintptr_t)addr,
+			       extract_symname, NULL, &ret))
+		ret = NULL;
+
+	if (ret)
+		return ret;
+	return tal_fmt(ctx, "%p", addr);
+}
+
 static void crashdump(int sig)
 {
 	char why[100];
@@ -70,6 +99,11 @@ static void crashlog_activate(void)
 #else
 void send_backtrace(const char *why)
 {
+}
+
+const char *backtrace_symname(const tal_t *ctx, const void *addr)
+{
+	return "unknown (backtrace unsupported)";
 }
 #endif
 
