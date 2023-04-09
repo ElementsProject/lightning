@@ -27,6 +27,9 @@ struct early_peer {
 	/* Buffer for reading/writing message. */
 	u8 *msg;
 
+	/* Are we connected via a websocket? */
+	enum is_websocket is_websocket;
+
 	bool incoming;
 };
 
@@ -137,6 +140,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			      remote_addr,
 			      &peer->cs,
 			      take(features),
+			      peer->is_websocket,
 			      peer->incoming);
 }
 
@@ -192,6 +196,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      const struct node_id *id,
 				      const struct wireaddr_internal *addr,
 				      struct oneshot *timeout,
+				      enum is_websocket is_websocket,
 				      bool incoming)
 {
 	/* If conn is closed, forget peer */
@@ -204,6 +209,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->addr = *addr;
 	peer->cs = *cs;
 	peer->incoming = incoming;
+	peer->is_websocket = is_websocket;
 
 	/* Attach timer to early peer, so it gets freed with it. */
 	notleak(tal_steal(peer, timeout));
