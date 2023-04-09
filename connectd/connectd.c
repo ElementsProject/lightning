@@ -1561,8 +1561,10 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 	if (do_listen) {
 		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
 			if (listen(daemon->listen_fds[i]->fd, 64) != 0) {
-				if (daemon->listen_fds[i]->mayfail)
+				if (daemon->listen_fds[i]->mayfail) {
+					close(daemon->listen_fds[i]->fd);
 					continue;
+				}
 				errmsg = tal_fmt(tmpctx,
 						 "Failed to listen on socket %s: %s",
 						 type_to_string(tmpctx,
