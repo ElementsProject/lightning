@@ -1228,6 +1228,30 @@ class LightningNode(object):
     def wait_for_onchaind_tx(self, name, resolve):
         return self.wait_for_onchaind_txs((name, resolve))[0]
 
+    def mine_txid_or_rbf(self, txid, numblocks=1):
+        """Wait for a txid to be broadcast, or an rbf.  Return the one actually mined"""
+        # Hack so we can mutate the txid: pass it in a list
+        def rbf_or_txid_broadcast(txids):
+            # RBF onchain txid d4b597505b543a4b8b42ab4d481fd7a533febb7e7df150ca70689e6d046612f7 (fee 6564sat) with txid 979878b8f855d3895d1cd29bd75a60b21492c4842e38099186a8e649bee02c7c (fee 8205sat)
+            line = self.daemon.is_in_log("RBF onchain txid {}".format(txids[-1]))
+            if line is not None:
+                newtxid = re.search(r'with txid ([0-9a-fA-F]*)', line).group(1)
+                txids.append(newtxid)
+            mempool = self.bitcoin.rpc.getrawmempool()
+            return any([t in mempool for t in txids])
+
+        txids = [txid]
+        wait_for(lambda: rbf_or_txid_broadcast(txids))
+        blocks = self.bitcoin.generate_block(numblocks)
+
+        # It might have snuck an RBF in at the last minute!
+        rbf_or_txid_broadcast(txids)
+
+        for tx in self.bitcoin.rpc.getblock(blocks[0])['tx']:
+            if tx in txids:
+                return tx
+        raise ValueError("None of the rbf txs were mined?")
+
     def wait_for_onchaind_broadcast(self, name, resolve=None):
         """Wait for onchaind to drop tx name to resolve (if any)"""
         if resolve:

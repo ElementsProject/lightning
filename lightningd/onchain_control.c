@@ -831,7 +831,39 @@ static bool consider_onchain_rebroadcast(struct channel *channel,
 					 const struct bitcoin_tx **tx,
 					 struct onchain_signing_info *info)
 {
-	/* FIXME: Implement rbf! */
+	struct bitcoin_tx *newtx;
+	struct amount_sat newfee;
+	struct bitcoin_txid oldtxid, newtxid;
+	u8 **witness;
+
+	newtx = onchaind_tx_unsigned(tmpctx, channel, info, &newfee, NULL);
+	if (!newtx)
+		return true;
+
+	/* FIXME: Don't RBF if fee is not sufficiently increased? */
+
+	/* OK!  RBF time! */
+	witness = sign_and_get_witness(NULL, channel, newtx, info);
+	bitcoin_tx_input_set_witness(newtx, 0, take(witness));
+
+	bitcoin_txid(newtx, &newtxid);
+	bitcoin_txid(*tx, &oldtxid);
+	log_info(channel->log,
+		 "RBF onchain txid %s (fee %s) with txid %s (fee %s)",
+		 type_to_string(tmpctx, struct bitcoin_txid, &oldtxid),
+		 fmt_amount_sat(tmpctx, info->fee),
+		 type_to_string(tmpctx, struct bitcoin_txid, &newtxid),
+		 fmt_amount_sat(tmpctx, newfee));
+	log_debug(channel->log,
+		  "RBF %s->%s",
+		  type_to_string(tmpctx, struct bitcoin_tx, *tx),
+		  type_to_string(tmpctx, struct bitcoin_tx, newtx));
+
+	/* FIXME: This is ugly, but we want the same parent as old tx. */
+	tal_steal(tal_parent(*tx), newtx);
+	tal_free(*tx);
+	*tx = newtx;
+	info->fee = newfee;
 	return true;
 }
 
@@ -915,8 +947,10 @@ static void create_onchain_tx(struct channel *channel,
 		  type_to_string(tmpctx, struct bitcoin_tx, tx),
 		  worthwhile ? "" : "(NOT WORTHWHILE, LOWBALL FEE!)");
 
+	/* We allow "excessive" fees, as we may be fighting with censors and
+	 * we'd rather spend fees than have our adversary win. */
 	broadcast_tx(ld->topology,
-		     channel, take(tx), NULL, false, info->minblock,
+		     channel, take(tx), NULL, true, info->minblock,
 		     NULL, consider_onchain_rebroadcast, take(info));
 
 	subd_send_msg(channel->owner,

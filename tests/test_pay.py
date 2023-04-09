@@ -1626,7 +1626,8 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert blocks == 5
     bitcoind.generate_block(5)
 
-    bitcoind.generate_block(1, wait_for_mempool=txid)
+    # Could be RBF!
+    l2.mine_txid_or_rbf(txid)
     l2.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
     l4.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
 
