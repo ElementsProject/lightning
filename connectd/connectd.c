@@ -31,7 +31,6 @@
 #include <connectd/connectd.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
-#include <connectd/handshake.h>
 #include <connectd/multiplex.h>
 #include <connectd/netaddress.h>
 #include <connectd/onion_message.h>
@@ -232,6 +231,7 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     const struct crypto_state *cs,
 			     const u8 *their_features,
+			     enum is_websocket is_websocket,
 			     struct io_conn *conn STEALS,
 			     int *fd_for_subd)
 {
@@ -248,6 +248,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->draining = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
+	peer->is_websocket = is_websocket;
 
 #if DEVELOPER
 	peer->dev_writes_enabled = NULL;
@@ -273,6 +274,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
+			       enum is_websocket is_websocket,
 			       bool incoming)
 {
 	u8 *msg;
@@ -333,7 +335,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			      conn, find_connecting(daemon, id)->conn);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
-	peer = new_peer(daemon, id, cs, their_features, conn, &subd_fd);
+	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn, &subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
 		return io_close(conn);
@@ -371,13 +373,14 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    const struct wireaddr_internal *addr,
 					    struct crypto_state *cs,
 					    struct oneshot *timeout,
+					    enum is_websocket is_websocket,
 					    struct daemon *daemon)
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
-				     cs, &id, addr, timeout, true);
+				     cs, &id, addr, timeout, is_websocket, true);
 }
 
 /*~ If the timer goes off, we simply free everything, which hangs up. */
@@ -429,6 +432,7 @@ static bool get_remote_address(struct io_conn *conn,
 struct conn_in {
 	struct wireaddr_internal addr;
 	struct daemon *daemon;
+	enum is_websocket is_websocket;
 };
 
 /*~ Once we've got a connection in, we set it up here (whether it's via the
@@ -451,6 +455,7 @@ static struct io_plan *conn_in(struct io_conn *conn,
 	 * leaked */
 	return responder_handshake(notleak(conn), &daemon->mykey,
 				   &conn_in_arg->addr, timeout,
+				   conn_in_arg->is_websocket,
 				   handshake_in_success, daemon);
 }
 
@@ -465,6 +470,7 @@ static struct io_plan *connection_in(struct io_conn *conn,
 		return io_close(conn);
 
 	conn_in_arg.daemon = daemon;
+	conn_in_arg.is_websocket = false;
 	return conn_in(conn, &conn_in_arg);
 }
 
@@ -545,6 +551,7 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 
 	/* New connection actually talks to proxy process. */
 	conn_in_arg.daemon = daemon;
+	conn_in_arg.is_websocket = true;
 	io_new_conn(tal_parent(conn), childmsg[0], conn_in, &conn_in_arg);
 
 	/* Abandon original (doesn't close since child has dup'd fd) */
@@ -568,6 +575,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct wireaddr_internal *addr,
 					     struct crypto_state *cs,
 					     struct oneshot *timeout,
+					     enum is_websocket is_websocket,
 					     struct connecting *connect)
 {
 	struct node_id id;
@@ -577,7 +585,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon,
 				     connect->daemon->our_features,
-				     cs, &id, addr, timeout, false);
+				     cs, &id, addr, timeout, is_websocket, false);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
@@ -602,7 +610,7 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 	connect->connstate = "Cryptographic handshake";
 	return initiator_handshake(conn, &connect->daemon->mykey, &outkey,
 				   &connect->addrs[connect->addrnum],
-				   timeout, handshake_out_success, connect);
+				   timeout, NORMAL_SOCKET, handshake_out_success, connect);
 }
 
 /*~ When we've exhausted all addresses without success, we come here.
@@ -930,15 +938,6 @@ next:
 	connect->addrnum++;
 	try_connect_one_addr(connect);
 }
-
-/*~ Sometimes it's nice to have an explicit enum instead of a bool to make
- * arguments clearer: it kind of hacks around C's lack of naming formal
- * arguments in callers (e.g. in Python we'd simply call func(websocket=False)).
- */
-enum is_websocket {
-	NORMAL_SOCKET,
-	WEBSOCKET,
-};
 
 /*~ connectd is responsible for incoming connections, but it's the process of
  * setting up the listening ports which gives us information we need for startup

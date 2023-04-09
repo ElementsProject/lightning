@@ -176,12 +176,16 @@ struct handshake {
 	/* Timeout timer if we take too long. */
 	struct oneshot *timeout;
 
+	/* Are we connected via a websocket? */
+	enum is_websocket is_websocket;
+
 	/* Function to call once handshake complete. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *wireaddr,
 			      struct crypto_state *cs,
 			      struct oneshot *timeout,
+			      enum is_websocket is_websocket,
 			      void *cbarg);
 	void *cbarg;
 };
@@ -353,11 +357,13 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 			      const struct wireaddr_internal *addr,
 			      struct crypto_state *cs,
 			      struct oneshot *timeout,
+			      enum is_websocket is_websocket,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
 	struct wireaddr_internal addr;
 	struct oneshot *timeout;
+	enum is_websocket is_websocket;
 
 	/* BOLT #8:
 	 *
@@ -384,9 +390,10 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	their_id = h->their_id;
 	addr = h->addr;
 	timeout = h->timeout;
+	is_websocket = h->is_websocket;
 
 	tal_free(h);
-	return cb(conn, &their_id, &addr, &cs, timeout, cbarg);
+	return cb(conn, &their_id, &addr, &cs, timeout, is_websocket, cbarg);
 }
 
 static struct handshake *new_handshake(const tal_t *ctx,
@@ -964,11 +971,13 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct wireaddr_internal *addr,
 				     struct oneshot *timeout,
+				     enum is_websocket is_websocket,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
 							   struct crypto_state *,
 							   struct oneshot *,
+							   enum is_websocket,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -980,6 +989,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 	h->cbarg = cbarg;
 	h->cb = cb;
 	h->timeout = timeout;
+	h->is_websocket = is_websocket;
 
 	return act_one_responder(conn, h);
 }
@@ -989,11 +999,13 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *their_id,
 				     const struct wireaddr_internal *addr,
 				     struct oneshot *timeout,
+				     enum is_websocket is_websocket,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
 							   struct crypto_state *,
 							   struct oneshot *timeout,
+							   enum is_websocket is_websocket,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -1005,6 +1017,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 	h->addr = *addr;
 	h->cbarg = cbarg;
 	h->cb = cb;
+	h->is_websocket = is_websocket;
 	h->timeout = timeout;
 
 	return act_one_initiator(conn, h);

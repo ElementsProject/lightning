@@ -320,6 +320,11 @@ static void set_urgent_flag(struct peer *peer, bool urgent)
 	if (urgent == peer->urgent)
 		return;
 
+	/* FIXME: We can't do this on websockets, but we could signal our
+	 * websocket proxy via some magic message to do so! */
+	if (peer->is_websocket != NORMAL_SOCKET)
+		return;
+
 #ifdef TCP_CORK
 	opt = TCP_CORK;
 	optname = "TCP_CORK";

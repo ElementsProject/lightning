@@ -168,6 +168,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct wireaddr_internal *addr,
 					 struct crypto_state *cs,
 					 struct oneshot *timer,
+					 enum is_websocket is_websocket,
 					 char **args)
 {
 	int peer_fd = io_conn_fd(conn);
@@ -375,7 +376,7 @@ int main(int argc, char *argv[])
 	if (connect(conn->fd, ai->ai_addr, ai->ai_addrlen) != 0)
 		err(1, "Connecting to %s", at+1);
 
-	initiator_handshake(conn, &us, &them, &addr, NULL,
+	initiator_handshake(conn, &us, &them, &addr, NULL, NORMAL_SOCKET,
 			    handshake_success, argv+2);
 	exit(0);
 }
