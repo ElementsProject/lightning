@@ -1578,12 +1578,14 @@ class NodeFactory(object):
         err_msgs = []
         for i in range(len(self.nodes)):
             leaks = None
-            # leak detection upsets VALGRIND by reading uninitialized mem.
+            # leak detection upsets VALGRIND by reading uninitialized mem,
+            # and valgrind adds extra fds.
             # If it's dead, we'll catch it below.
             if not self.valgrind and DEVELOPER:
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']
+                    self.nodes[i].rpc.dev_report_fds()
                 except Exception:
                     pass
 
