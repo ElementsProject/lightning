@@ -560,6 +560,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DISCARD_PEER:
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
+	case WIRE_CONNECTD_DEV_REPORT_FDS:
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
 	case WIRE_CONNECTD_PING:
@@ -843,4 +844,26 @@ static const struct json_command dev_suppress_gossip = {
 	"Stop this node from sending any more gossip."
 };
 AUTODATA(json_command, &dev_suppress_gossip);
+
+static struct command_result *json_dev_report_fds(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
+{
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_dev_report_fds(NULL)));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command dev_report_fds = {
+	"dev-report-fds",
+	"developer",
+	json_dev_report_fds,
+	"Ask connectd to report status of all its open files."
+};
+AUTODATA(json_command, &dev_report_fds);
 #endif /* DEVELOPER */
