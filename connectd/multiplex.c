@@ -315,7 +315,6 @@ static void set_urgent_flag(struct peer *peer, bool urgent)
 	int val;
 	int opt;
 	const char *optname;
-	static bool complained = false;
 
 	if (urgent == peer->urgent)
 		return;
@@ -337,14 +336,12 @@ static void set_urgent_flag(struct peer *peer, bool urgent)
 
 	val = urgent;
 	if (setsockopt(io_conn_fd(peer->to_peer),
-		       IPPROTO_TCP, opt, &val, sizeof(val)) != 0) {
-		/* This actually happens in testing, where we blackhole the fd */
-		if (!complained) {
-			status_unusual("setsockopt %s=1: %s",
-				       optname,
-				       strerror(errno));
-			complained = true;
-		}
+		       IPPROTO_TCP, opt, &val, sizeof(val)) != 0
+	    /* This actually happens in testing, where we blackhole the fd */
+	    && IFDEV(peer->daemon->dev_disconnect_fd == -1, true)) {
+		status_broken("setsockopt %s=1 fd=%u: %s",
+			      optname, io_conn_fd(peer->to_peer),
+			      strerror(errno));
 	}
 	peer->urgent = urgent;
 }

@@ -1523,8 +1523,12 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	tal_free(announceable);
 
 #if DEVELOPER
-	if (dev_disconnect)
+	if (dev_disconnect) {
+		daemon->dev_disconnect_fd = 5;
 		dev_disconnect_init(5);
+	} else {
+		daemon->dev_disconnect_fd = -1;
+	}
 #endif
 }
 
