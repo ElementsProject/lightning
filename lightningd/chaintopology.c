@@ -428,6 +428,29 @@ u32 smoothed_feerate_for_deadline(const struct chain_topology *topo,
 	return interp_feerate(topo->smoothed_feerates, blockcount);
 }
 
+/* feerate_for_deadline, but really lowball for distant targets */
+u32 feerate_for_target(const struct chain_topology *topo, u64 deadline)
+{
+	u64 blocks, blockheight;
+
+	blockheight = get_block_height(topo);
+
+	/* Past deadline?  Want it now. */
+	if (blockheight > deadline)
+		return feerate_for_deadline(topo, 1);
+
+	blocks = deadline - blockheight;
+
+	/* Over 200 blocks, we *always* use min fee! */
+	if (blocks > 200)
+		return FEERATE_FLOOR;
+	/* Over 100 blocks, use min fee bitcoind will accept */
+	if (blocks > 100)
+		return get_feerate_floor(topo);
+
+	return feerate_for_deadline(topo, blocks);
+}
+
 /* Mixes in fresh feerate rate into old smoothed values, modifies rate */
 static void smooth_one_feerate(const struct chain_topology *topo,
 			       struct feerate_est *rate)

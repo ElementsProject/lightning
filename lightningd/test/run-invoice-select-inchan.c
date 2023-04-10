@@ -158,6 +158,11 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for commit_tx_boost */
+bool commit_tx_boost(struct channel *channel UNNEEDED,
+		     const struct bitcoin_tx **tx UNNEEDED,
+		     struct anchor_details *adet UNNEEDED)
+{ fprintf(stderr, "commit_tx_boost called!\n"); abort(); }
 /* Generated stub for connect_any_cmd_id */
 const char *connect_any_cmd_id(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
@@ -172,6 +177,11 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
+/* Generated stub for create_anchor_details */
+struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
+					     struct channel *channel UNNEEDED,
+					     const struct bitcoin_tx *tx UNNEEDED)
+{ fprintf(stderr, "create_anchor_details called!\n"); abort(); }
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
