@@ -795,7 +795,7 @@ class LightningNode(object):
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
         if valgrind:
-            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc'
+            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-*'
             if not valgrind_plugins:
                 trace_skip_pattern += ',*plugins*'
             self.daemon.cmd_prefix = [
