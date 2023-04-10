@@ -10,6 +10,7 @@
 #include <ccan/time/time.h>
 
 struct channel_id;
+struct channel_type;
 struct db_stmt;
 struct node_id;
 struct onionreply;
@@ -33,6 +34,7 @@ void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s);
 void db_bind_secret_arr(struct db_stmt *stmt, int col, const struct secret *s);
 void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t);
 void db_bind_channel_id(struct db_stmt *stmt, int pos, const struct channel_id *id);
+void db_bind_channel_type(struct db_stmt *stmt, int pos, const struct channel_type *type);
 void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *ni);
 void db_bind_node_id_arr(struct db_stmt *stmt, int col,
 			 const struct node_id *ids);
@@ -78,6 +80,8 @@ struct secret *db_col_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
 				 const char *colname);
 void db_col_txid(struct db_stmt *stmt, const char *colname, struct bitcoin_txid *t);
 void db_col_channel_id(struct db_stmt *stmt, const char *colname, struct channel_id *dest);
+struct channel_type *db_col_channel_type(const tal_t *ctx, struct db_stmt *stmt,
+					 const char *colname);
 void db_col_node_id(struct db_stmt *stmt, const char *colname, struct node_id *ni);
 struct node_id *db_col_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
 				   const char *colname);

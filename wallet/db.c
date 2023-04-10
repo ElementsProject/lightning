@@ -17,6 +17,7 @@
 #include <lightningd/plugin_hook.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 struct migration {
@@ -57,6 +58,9 @@ static void fillin_missing_lease_satoshi(struct lightningd *ld,
 
 static void migrate_invalid_last_tx_psbts(struct lightningd *ld,
 					  struct db *db);
+
+static void migrate_fill_in_channel_type(struct lightningd *ld,
+					 struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -943,6 +947,8 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD require_confirm_inputs_local INTEGER DEFAULT 0;"), NULL},
     {NULL, fillin_missing_lease_satoshi},
     {NULL, migrate_invalid_last_tx_psbts},
+    {SQL("ALTER TABLE channels ADD channel_type BLOB DEFAULT NULL;"), NULL},
+    {NULL, migrate_fill_in_channel_type},
 };
 
 /**
@@ -1564,6 +1570,49 @@ static void fillin_missing_lease_satoshi(struct lightningd *ld,
 				     " SET lease_satoshi = 0"
 				     " WHERE lease_satoshi IS NULL;"));
 	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
+static void migrate_fill_in_channel_type(struct lightningd *ld,
+					 struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT id, local_static_remotekey_start, option_anchor_outputs, channel_flags, alias_remote, minimum_depth FROM channels"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		struct channel_type *type;
+		u64 id = db_col_u64(stmt, "id");
+		int channel_flags = db_col_int(stmt, "channel_flags");
+
+		if (db_col_int(stmt, "option_anchor_outputs")) {
+			db_col_ignore(stmt, "local_static_remotekey_start");
+			type = channel_type_anchor_outputs(tmpctx);
+		} else if (db_col_u64(stmt, "local_static_remotekey_start") != 0x7FFFFFFFFFFFFFFFULL)
+			type = channel_type_static_remotekey(tmpctx);
+		else
+			type = channel_type_none(tmpctx);
+
+		/* We didn't keep type in db, so assume all private
+		 * channels which support aliases don't want us to fwd
+		 * unless using alias, which is how we behaved
+		 * before. */
+		if (!db_col_is_null(stmt, "alias_remote")
+		    && !(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+			channel_type_set_scid_alias(type);
+
+		if (db_col_int(stmt, "minimum_depth") == 0)
+			channel_type_set_zeroconf(type);
+
+		update_stmt = db_prepare_v2(db, SQL("UPDATE channels SET"
+						    " channel_type = ?"
+						    " WHERE id = ?"));
+		db_bind_channel_type(update_stmt, 0, type);
+		db_bind_u64(update_stmt, 1, id);
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
 	tal_free(stmt);
 }
 

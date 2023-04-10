@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/htlc_state.h>
 #include <common/node_id.h>
 #include <common/onionreply.h>
@@ -129,6 +130,11 @@ void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t)
 void db_bind_channel_id(struct db_stmt *stmt, int pos, const struct channel_id *id)
 {
 	db_bind_blob(stmt, pos, id->id, sizeof(id->id));
+}
+
+void db_bind_channel_type(struct db_stmt *stmt, int pos, const struct channel_type *type)
+{
+	db_bind_talarr(stmt, pos, type->features);
 }
 
 void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *id)
@@ -445,6 +451,12 @@ struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, con
 	if (!psbt)
 		return NULL;
 	return bitcoin_tx_with_psbt(ctx, psbt);
+}
+
+struct channel_type *db_col_channel_type(const tal_t *ctx, struct db_stmt *stmt,
+					 const char *colname)
+{
+	return channel_type_from(ctx, take(db_col_arr(NULL, stmt, colname, u8)));
 }
 
 void *db_col_arr_(const tal_t *ctx, struct db_stmt *stmt, const char *colname,
