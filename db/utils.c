@@ -21,9 +21,13 @@ size_t db_query_colnum(const struct db_stmt *stmt,
 	assert(stmt->query->colnames != NULL);
 
 	col = hash_djb2(colname) % stmt->query->num_colnames;
-	/* Will crash on NULL, which is the Right Thing */
-	while (!streq(stmt->query->colnames[col].sqlname,
-		      colname)) {
+	for (;;) {
+		const char *n = stmt->query->colnames[col].sqlname;
+		if (!n)
+			db_fatal("Unknown column name %s in query %s",
+				 colname, stmt->query->query);
+		if (streq(n, colname))
+			break;
 		col = (col + 1) % stmt->query->num_colnames;
 	}
 
