@@ -249,10 +249,6 @@ def test_grpc_wrong_auth(node_factory):
     stub.Getinfo(nodepb.GetinfoRequest())
 
 
-@pytest.mark.xfail(
-    reason="Times out because we can't call the RPC method while currently holding on to HTLCs",
-    strict=True,
-)
 def test_cln_plugin_reentrant(node_factory, executor):
     """Ensure that we continue processing events while already handling.
 

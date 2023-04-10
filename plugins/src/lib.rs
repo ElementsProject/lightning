@@ -322,7 +322,7 @@ where
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
             dynamic: self.dynamic,
-	    nonnumericids: true,
+            nonnumericids: true,
         }
     }
 
@@ -458,8 +458,8 @@ where
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(async move {
             if let Err(e) = driver.run(receiver, input, output).await {
-		log::warn!("Plugin loop returned error {:?}", e);
-	    }
+                log::warn!("Plugin loop returned error {:?}", e);
+            }
 
             // Now that we have left the reader loop its time to
             // notify any waiting tasks. This most likely will cause
@@ -507,7 +507,7 @@ where
 
 impl<S> PluginDriver<S>
 where
-    S: Send + Clone,
+    S: Send + Clone + Sync,
 {
     /// Run the plugin until we get a shutdown command.
     async fn run<I, O>(
@@ -526,17 +526,17 @@ where
             // the user-code, which may require some cleanups or
             // similar.
             tokio::select! {
-                e = self.dispatch_one(&mut input, &self.plugin) => {
-                    if let Err(e) = e {
-			return Err(e)
-                    }
-		},
-		v = receiver.recv() => {
-                    output.lock().await.send(
-			v.context("internal communication error")?
-                    ).await?;
-		},
-            }
+                    e = self.dispatch_one(&mut input, &self.plugin) => {
+                        if let Err(e) = e {
+                return Err(e)
+                        }
+            },
+            v = receiver.recv() => {
+                        output.lock().await.send(
+                v.context("internal communication error")?
+                        ).await?;
+            },
+                }
         }
     }
 
@@ -554,121 +554,80 @@ where
             Some(Ok(msg)) => {
                 trace!("Received a message: {:?}", msg);
                 match msg {
-                    messages::JsonRpc::Request(id, p) => {
-                        PluginDriver::<S>::dispatch_request(id, p, plugin).await
+                    messages::JsonRpc::Request(_id, _p) => {
+                        todo!("This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively.");
                     }
-                    messages::JsonRpc::Notification(n) => {
-                        self.dispatch_notification(n, plugin).await
+                    messages::JsonRpc::Notification(_n) => {
+                        todo!("As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used.")
                     }
-                    messages::JsonRpc::CustomRequest(id, p) => {
-                        match self.dispatch_custom_request(id.clone(), p, plugin).await {
-                            Ok(v) => plugin
-                                .sender
-                                .send(json!({
-                                "jsonrpc": "2.0",
-                                "id": id,
-                                "result": v
-                                }))
-                                .await
-                                .context("returning custom result"),
-                            Err(e) => plugin
-                                .sender
-                                .send(json!({
-                                "jsonrpc": "2.0",
-                                "id": id,
-                                "error": e.to_string(),
-                                }))
-                                .await
-                                .context("returning custom error"),
-                        }
+                    messages::JsonRpc::CustomRequest(id, request) => {
+                        trace!("Dispatching custom method {:?}", request);
+                        let method = request
+                            .get("method")
+                            .context("Missing 'method' in request")?
+                            .as_str()
+                            .context("'method' is not a string")?;
+                        let callback = self.rpcmethods.get(method).with_context(|| {
+                            anyhow!("No handler for method '{}' registered", method)
+                        })?;
+                        let params = request
+                            .get("params")
+                            .context("Missing 'params' field in request")?
+                            .clone();
+
+                        let plugin = plugin.clone();
+                        let call = callback(plugin.clone(), params);
+
+                        tokio::spawn(async move {
+                            match call.await {
+                                Ok(v) => plugin
+                                    .sender
+                                    .send(json!({
+                                    "jsonrpc": "2.0",
+                                    "id": id,
+                                    "result": v
+                                    }))
+                                    .await
+                                    .context("returning custom response"),
+                                Err(e) => plugin
+                                    .sender
+                                    .send(json!({
+                                    "jsonrpc": "2.0",
+                                    "id": id,
+                                    "error": e.to_string(),
+                                    }))
+                                    .await
+                                    .context("returning custom error"),
+                            }
+                        });
+                        Ok(())
                     }
-                    messages::JsonRpc::CustomNotification(n) => {
-                        self.dispatch_custom_notification(n, plugin).await
+                    messages::JsonRpc::CustomNotification(request) => {
+                        trace!("Dispatching custom notification {:?}", request);
+                        let method = request
+                            .get("method")
+                            .context("Missing 'method' in request")?
+                            .as_str()
+                            .context("'method' is not a string")?;
+                        let callback = self.subscriptions.get(method).with_context(|| {
+                            anyhow!("No handler for notification '{}' registered", method)
+                        })?;
+                        let params = request
+                            .get("params")
+                            .context("Missing 'params' field in request")?
+                            .clone();
+
+                        let plugin = plugin.clone();
+                        let call = callback(plugin.clone(), params);
+
+                        tokio::spawn(async move { call.await.unwrap() });
+                        Ok(())
                     }
                 }
             }
             Some(Err(e)) => Err(anyhow!("Error reading command: {}", e)),
             None => Err(anyhow!("Error reading from master")),
         }
-    }
-
-    async fn dispatch_request(
-        _id: serde_json::Value,
-        _request: messages::Request,
-        _plugin: &Plugin<S>,
-    ) -> Result<(), Error> {
-        todo!("This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively.")
-    }
-
-    async fn dispatch_notification(
-        &self,
-        _notification: messages::Notification,
-        _plugin: &Plugin<S>,
-    ) -> Result<(), Error>
-    where
-        S: Send + Clone,
-    {
-        todo!("As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used.")
-    }
-
-    async fn dispatch_custom_request(
-        &self,
-        _id: serde_json::Value,
-        request: serde_json::Value,
-        plugin: &Plugin<S>,
-    ) -> Result<serde_json::Value, Error> {
-        let method = request
-            .get("method")
-            .context("Missing 'method' in request")?
-            .as_str()
-            .context("'method' is not a string")?;
-
-        let params = request
-            .get("params")
-            .context("Missing 'params' field in request")?;
-        let callback = self
-            .rpcmethods
-            .get(method)
-            .with_context(|| anyhow!("No handler for method '{}' registered", method))?;
-
-        trace!(
-            "Dispatching custom request: method={}, params={}",
-            method,
-            params
-        );
-        callback(plugin.clone(), params.clone()).await
-    }
-
-    async fn dispatch_custom_notification(
-        &self,
-        notification: serde_json::Value,
-        plugin: &Plugin<S>,
-    ) -> Result<(), Error>
-    where
-        S: Send + Clone,
-    {
-        trace!("Dispatching custom notification {:?}", notification);
-        let method = notification
-            .get("method")
-            .context("Missing 'method' in notification")?
-            .as_str()
-            .context("'method' is not a string")?;
-        let params = notification
-            .get("params")
-            .context("Missing 'params' field in notification")?;
-        let callback = self
-            .subscriptions
-            .get(method)
-            .with_context(|| anyhow!("No handler for method '{}' registered", method))?;
-        trace!(
-            "Dispatching custom request: method={}, params={}",
-            method,
-            params
-        );
-        if let Err(e) = callback(plugin.clone(), params.clone()).await {
-            log::error!("Error in notification handler '{}': {}", method, e);
-        }
-        Ok(())
     }
 }
 
@@ -715,7 +674,7 @@ mod test {
 
     #[tokio::test]
     async fn init() {
-	let state = ();
+        let state = ();
         let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
         let _ = builder.start(state);
     }

@@ -28,7 +28,7 @@ impl Value {
             _ => None,
         }
     }
-    
+
     /// Returns true if the `Value` is an integer between `i64::MIN` and
     /// `i64::MAX`.
     ///
@@ -36,8 +36,6 @@ impl Value {
     /// return the integer value.
     pub fn is_i64(&self) -> bool {
         self.as_i64().is_some()
-            
-        
     }
 
     /// If the `Value` is an integer, represent it as i64. Returns
