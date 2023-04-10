@@ -104,6 +104,9 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  const u8 *wscript,
 			  struct amount_sat amount);
 
+/* Remove one output. */
+void bitcoin_tx_remove_output(struct bitcoin_tx *tx, size_t outnum);
+
 /* Set the locktime for a transaction */
 void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime);
 

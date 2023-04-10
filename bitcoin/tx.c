@@ -95,6 +95,15 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	return i;
 }
 
+void bitcoin_tx_remove_output(struct bitcoin_tx *tx, size_t outnum)
+{
+	int ret;
+	ret = wally_tx_remove_output(tx->wtx, outnum);
+	assert(ret == WALLY_OK);
+	ret = wally_psbt_remove_output(tx->psbt, outnum);
+	assert(ret == WALLY_OK);
+}
+
 bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum)
 {
 	assert(outnum < tx->num_outputs);
