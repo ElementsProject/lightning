@@ -720,6 +720,16 @@ frames once the connection is upgraded.
 data for our peers, and give them our (encrypted!) backup data to
 store as well, based on a protocol similar to [bolt][bolt] #881.
 
+* **experimental-anchors**
+
+  Specifying this option turns on the `option_anchors_zero_fee_htlc_tx`
+feature, meaning we can open anchor-based channels.  This will become
+the default for new channels in future, after more testing.  Anchor-based
+channels use larger commitment transactions, with the trade-off that they
+don't have to use a worst-case fee, but can bump the commitment transaction
+if it's needed.
+
+
 BUGS
 ----
 
