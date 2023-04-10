@@ -351,22 +351,9 @@ static struct command_result *finish_psbt(struct command *cmd,
 	size_t change_outnum COMPILER_WANTS_INIT("gcc 9.4.0 -Og");
 	u32 current_height = get_block_height(cmd->ld->topology);
 
-	/* Setting the locktime to the next block to be mined has multiple
-	 * benefits:
-	 * - anti fee-snipping (even if not yet likely)
-	 * - less distinguishable transactions (with this we create
-	 *   general-purpose transactions which looks like bitcoind:
-	 *   native segwit, nlocktime set to tip, and sequence set to
-	 *   0xFFFFFFFD by default. Other wallets are likely to implement
-	 *   this too).
-	 */
 	if (!locktime) {
 		locktime = tal(cmd, u32);
-		*locktime = current_height;
-
-		/* Eventually fuzz it too. */
-		if (*locktime > 100 && pseudorand(10) == 0)
-			*locktime -= pseudorand(100);
+		*locktime = default_locktime(cmd->ld->topology);
 	}
 
 	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,

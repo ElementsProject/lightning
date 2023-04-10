@@ -196,6 +196,9 @@ u32 delayed_to_us_feerate(struct chain_topology *topo);
 u32 htlc_resolution_feerate(struct chain_topology *topo);
 u32 penalty_feerate(struct chain_topology *topo);
 
+/* Usually we set nLocktime to tip (or recent) like bitcoind does */
+u32 default_locktime(const struct chain_topology *topo);
+
 /**
  * broadcast_tx - Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * @topo: topology
