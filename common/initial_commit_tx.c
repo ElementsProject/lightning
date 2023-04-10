@@ -247,7 +247,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 		amount = amount_msat_to_sat_round_down(other_pay);
 		if (option_anchor_outputs) {
-			redeem = anchor_to_remote_redeem(tmpctx,
+			redeem = bitcoin_wscript_to_remote_anchored(tmpctx,
 						&keyset->other_payment_key,
 						(!side) == lessor ? csv_lock : 1);
 			scriptpubkey = scriptpubkey_p2wsh(tmpctx, redeem);

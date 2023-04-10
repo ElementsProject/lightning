@@ -50,9 +50,9 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 void fromwire_sha256_double(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			    struct sha256_double *sha256d UNNEEDED)
 { fprintf(stderr, "fromwire_sha256_double called!\n"); abort(); }
-/* Generated stub for is_anchor_witness_script */
-bool is_anchor_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
-{ fprintf(stderr, "is_anchor_witness_script called!\n"); abort(); }
+/* Generated stub for is_to_remote_anchored_witness_script */
+bool is_to_remote_anchored_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
+{ fprintf(stderr, "is_to_remote_anchored_witness_script called!\n"); abort(); }
 /* Generated stub for pubkey_to_der */
 void pubkey_to_der(u8 der[PUBKEY_CMPR_LEN] UNNEEDED, const struct pubkey *key UNNEEDED)
 { fprintf(stderr, "pubkey_to_der called!\n"); abort(); }
