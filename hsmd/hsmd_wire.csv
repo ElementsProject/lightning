@@ -380,3 +380,13 @@ msgdata,hsmd_sign_any_local_htlc_tx,option_anchor_outputs,bool,
 msgdata,hsmd_sign_any_local_htlc_tx,input,u32,
 msgdata,hsmd_sign_any_local_htlc_tx,peerid,node_id,
 msgdata,hsmd_sign_any_local_htlc_tx,channel_dbid,u64,
+
+msgtype,hsmd_sign_htlc_tx_mingle,149
+msgdata,hsmd_sign_htlc_tx_mingle,peerid,node_id,
+msgdata,hsmd_sign_htlc_tx_mingle,channel_dbid,u64,
+msgdata,hsmd_sign_htlc_tx_mingle,num_inputs,u16,
+msgdata,hsmd_sign_htlc_tx_mingle,inputs,utxo,num_inputs
+msgdata,hsmd_sign_htlc_tx_mingle,psbt,wally_psbt,
+
+msgtype,hsmd_sign_htlc_tx_mingle_reply,150
+msgdata,hsmd_sign_htlc_tx_mingle_reply,psbt,wally_psbt,
