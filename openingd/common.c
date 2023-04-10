@@ -21,6 +21,7 @@ bool check_config_bounds(const tal_t *ctx,
 			 const struct channel_config *remoteconf,
 			 const struct channel_config *localconf,
 			 bool option_anchor_outputs,
+			 bool option_anchors_zero_fee_htlc_tx,
 			 char **err_reason)
 {
 	struct amount_sat capacity;
@@ -96,7 +97,9 @@ bool check_config_bounds(const tal_t *ctx,
 
 	/* They have to pay for fees, too.  Assuming HTLC is dust, though,
 	 * we don't account for an HTLC output. */
-	fee = commit_tx_base_fee(feerate_per_kw, 0, option_anchor_outputs);
+	fee = commit_tx_base_fee(feerate_per_kw, 0,
+				 option_anchor_outputs,
+				 option_anchors_zero_fee_htlc_tx);
 	if (!amount_sat_sub(&capacity, capacity, fee)) {
 		*err_reason = tal_fmt(ctx, "channel_reserve_satoshis %s"
 				      " and %s plus fee %s too large for "

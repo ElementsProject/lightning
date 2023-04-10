@@ -362,6 +362,7 @@ int main(int argc, const char *argv[])
 	const struct htlc **htlc_map, **htlcs;
 	const u8 *funding_wscript, *funding_wscript_alt;
 	bool option_anchor_outputs = false;
+	bool option_anchors_zero_fee_htlc_tx = false;
 	u32 blockheight = 0;
 	size_t i;
 
@@ -534,7 +535,7 @@ int main(int argc, const char *argv[])
 			   to_local,
 			   to_remote,
 			   NULL, &htlc_map, NULL, 0x2bb038521914 ^ 42,
-			   option_anchor_outputs, LOCAL);
+			   option_anchor_outputs, option_anchors_zero_fee_htlc_tx, LOCAL);
 
 	txs = channel_txs(tmpctx,
 			  &htlc_map, NULL, &funding_wscript_alt,
@@ -662,7 +663,7 @@ int main(int argc, const char *argv[])
 		    &keyset, feerate_per_kw[LOCAL], local_config->dust_limit,
 		    to_local, to_remote, htlcs, &htlc_map, NULL,
 		    0x2bb038521914 ^ 42,
-		    option_anchor_outputs, LOCAL);
+		    option_anchor_outputs, option_anchors_zero_fee_htlc_tx, LOCAL);
 
 		txs = channel_txs(tmpctx, &htlc_map, NULL, &funding_wscript,
 				  lchannel, &local_per_commitment_point, 42,

@@ -1230,7 +1230,8 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
 	info->minblock = 0;
@@ -1252,7 +1253,7 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	tx = htlc_tx(NULL, chainparams, &out, info->wscript, out_sats, htlc_wscript, fee,
-		     0, anchor_outputs);
+		     0, option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 	tal_free(htlc_wscript);
 	if (!tx) {
 		/* Can only happen if fee > out_sats */
@@ -1306,7 +1307,8 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT);
 
@@ -1327,7 +1329,7 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	tx = htlc_tx(NULL, chainparams, &out, info->wscript, out_sats, htlc_wscript, fee,
-		     cltv_expiry, anchor_outputs);
+		     cltv_expiry, option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 	tal_free(htlc_wscript);
 	if (!tx) {
 		/* Can only happen if fee > out_sats */
@@ -1377,7 +1379,8 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 	struct amount_sat out_sats;
 	u64 htlc_id;
 	u32 cltv_expiry;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_EXPIRED);
 
@@ -1410,7 +1413,7 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 	/* We have to spend it before we can close incoming */
 	info->deadline_block = htlc_outgoing_incoming_deadline(channel, htlc_id);
 	create_onchain_tx(channel, &out, out_sats,
-			  anchor_outputs ? 1 : 0,
+			  (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) ? 1 : 0,
 			  cltv_expiry,
 			  sign_htlc_expired, info,
 			  __func__);
@@ -1649,6 +1652,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->static_remotekey_start[LOCAL],
 				  channel->static_remotekey_start[REMOTE],
 				   channel_has(channel, OPT_ANCHOR_OUTPUTS),
+				   channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 

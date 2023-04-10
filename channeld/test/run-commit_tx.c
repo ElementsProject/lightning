@@ -245,7 +245,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct pubkey *remote_htlckey,
 			 const struct pubkey *remote_revocation_key,
 			 u32 feerate_per_kw,
-			 bool option_anchor_outputs)
+			 bool option_anchor_outputs,
+			 bool option_anchors_zero_fee_htlc_tx)
 {
 	size_t i, n;
 	struct bitcoin_outpoint outpoint;
@@ -291,14 +292,17 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								remote_htlckey,
 								&htlc->rhash,
 								remote_revocation_key,
-								option_anchor_outputs);
+								option_anchor_outputs,
+								option_anchors_zero_fee_htlc_tx);
 			htlc_tx[i] = htlc_timeout_tx(htlc_tx, tx->chainparams,
 						     &outpoint, wscript[i],
 						     htlc->amount,
 						     htlc->expiry.locktime,
 						     to_self_delay,
 						     feerate_per_kw,
-						     &keyset, option_anchor_outputs);
+						     &keyset,
+						     option_anchor_outputs,
+						     option_anchors_zero_fee_htlc_tx);
 		} else {
 			wscript[i] = bitcoin_wscript_htlc_receive(tmpctx,
 								  &htlc->expiry,
@@ -306,14 +310,16 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								  remote_htlckey,
 								  &htlc->rhash,
 								  remote_revocation_key,
-								  option_anchor_outputs);
+								  option_anchor_outputs,
+								  option_anchors_zero_fee_htlc_tx);
 			htlc_tx[i] = htlc_success_tx(htlc_tx, tx->chainparams,
 						     &outpoint, wscript[i],
 						     htlc->amount,
 						     to_self_delay,
 						     feerate_per_kw,
 						     &keyset,
-						     option_anchor_outputs);
+						     option_anchor_outputs,
+						     option_anchors_zero_fee_htlc_tx);
 		}
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -344,7 +350,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    remote_revocation_key,
 						    &localhtlcsig,
 						    &remotehtlcsig[i],
-						    option_anchor_outputs);
+						    option_anchor_outputs,
+						    option_anchors_zero_fee_htlc_tx);
 		} else {
 			htlc_success_tx_add_witness(htlc_tx[i],
 						    &htlc->expiry,
@@ -354,7 +361,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    &remotehtlcsig[i],
 						    htlc->r,
 						    remote_revocation_key,
-						    option_anchor_outputs);
+						    option_anchor_outputs,
+						    option_anchors_zero_fee_htlc_tx);
 		}
 		printf("htlc_%s_tx (htlc #%"PRIu64"): %s\n",
 		       htlc_owner(htlc) == LOCAL ? "timeout" : "success",
@@ -380,6 +388,7 @@ static void report(struct bitcoin_tx *tx,
 		   const struct pubkey *remote_revocation_key,
 		   u32 feerate_per_kw,
 		   bool option_anchor_outputs,
+		   bool option_anchors_zero_fee_htlc_tx,
 		   const struct htlc **htlc_map,
 		   size_t total_htlcs)
 {
@@ -425,7 +434,8 @@ static void report(struct bitcoin_tx *tx,
 		     remotekey, remote_htlckey,
 		     remote_revocation_key,
 		     feerate_per_kw,
-		     option_anchor_outputs);
+		     option_anchor_outputs,
+		     option_anchors_zero_fee_htlc_tx);
 }
 
 #ifdef DEBUG
@@ -530,6 +540,7 @@ int main(int argc, const char *argv[])
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
 	bool option_anchor_outputs = false;
+	bool option_anchors_zero_fee_htlc_tx = false;
 	bool option_static_remotekey = false;
 
 	/* Allow us to check static-remotekey BOLT 3 vectors, too */
@@ -814,6 +825,7 @@ int main(int argc, const char *argv[])
 		       to_remote,
 		       NULL, &htlc_map, NULL, commitment_number ^ cn_obscurer,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
@@ -830,6 +842,7 @@ int main(int argc, const char *argv[])
 			to_remote,
 			NULL, &htlc_map2, NULL, commitment_number ^ cn_obscurer,
 			option_anchor_outputs,
+			option_anchors_zero_fee_htlc_tx,
 			REMOTE);
 	tx_must_be_eq(tx, tx2);
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -845,6 +858,7 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
+	       option_anchors_zero_fee_htlc_tx,
 	       htlc_map,
 	       0);
 
@@ -880,6 +894,7 @@ int main(int argc, const char *argv[])
 		       to_remote,
 		       htlcs, &htlc_map, NULL, commitment_number ^ cn_obscurer,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
@@ -897,6 +912,7 @@ int main(int argc, const char *argv[])
 			inv_htlcs, &htlc_map2, NULL,
 			commitment_number ^ cn_obscurer,
 			option_anchor_outputs,
+			option_anchors_zero_fee_htlc_tx,
 			REMOTE);
 	tx_must_be_eq(tx, tx2);
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -912,6 +928,7 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
+	       option_anchors_zero_fee_htlc_tx,
 	       htlc_map,
 	       tal_count(htlcs));
 
@@ -935,6 +952,7 @@ int main(int argc, const char *argv[])
 				  htlcs, &htlc_map, NULL,
 				  commitment_number ^ cn_obscurer,
 				  option_anchor_outputs,
+				  option_anchors_zero_fee_htlc_tx,
 				  LOCAL);
 		/* This is what it would look like for peer generating it! */
 		tx2 = commit_tx(tmpctx,
@@ -952,6 +970,7 @@ int main(int argc, const char *argv[])
 				inv_htlcs, &htlc_map2, NULL,
 				commitment_number ^ cn_obscurer,
 				option_anchor_outputs,
+				option_anchors_zero_fee_htlc_tx,
 				REMOTE);
 		tx_must_be_eq(newtx, tx2);
 #ifdef DEBUG
@@ -995,6 +1014,7 @@ int main(int argc, const char *argv[])
 			       htlcs, &htlc_map, NULL,
 			       commitment_number ^ cn_obscurer,
 			       option_anchor_outputs,
+			       option_anchors_zero_fee_htlc_tx,
 			       LOCAL);
 		report(tx, wscript,
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -1010,6 +1030,7 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw-1,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       htlc_map,
 		       tal_count(htlcs));
 
@@ -1045,6 +1066,7 @@ int main(int argc, const char *argv[])
 				  htlcs, &htlc_map, NULL,
 				  commitment_number ^ cn_obscurer,
 				  option_anchor_outputs,
+				  option_anchors_zero_fee_htlc_tx,
 				  LOCAL);
 		report(newtx, wscript,
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -1060,6 +1082,7 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       htlc_map,
 		       tal_count(htlcs));
 
@@ -1074,7 +1097,8 @@ int main(int argc, const char *argv[])
 	for (;;) {
 		struct amount_sat base_fee
 			= commit_tx_base_fee(feerate_per_kw, 0,
-					     option_anchor_outputs);
+					     option_anchor_outputs,
+					     option_anchors_zero_fee_htlc_tx);
 
 		/* BOLT #3:
 		 * If `option_anchors` applies to the commitment
@@ -1082,7 +1106,7 @@ int main(int argc, const char *argv[])
 		 * of 330 sats from the funder (either `to_local` or
 		 * `to_remote`).
 		 */
-		if (option_anchor_outputs
+		if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 		    && !amount_sat_add(&base_fee, base_fee, AMOUNT_SAT(660)))
 			abort();
 
@@ -1121,6 +1145,7 @@ int main(int argc, const char *argv[])
 			       htlcs, &htlc_map, NULL,
 			       commitment_number ^ cn_obscurer,
 			       option_anchor_outputs,
+			       option_anchors_zero_fee_htlc_tx,
 			       LOCAL);
 		report(tx, wscript,
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -1136,6 +1161,7 @@ int main(int argc, const char *argv[])
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       htlc_map,
 		       tal_count(htlcs));
 		break;
@@ -1176,6 +1202,7 @@ int main(int argc, const char *argv[])
 		       to_remote,
 		       htlcs, &htlc_map, NULL, commitment_number ^ cn_obscurer,
 		       option_anchor_outputs,
+		       option_anchors_zero_fee_htlc_tx,
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
@@ -1193,6 +1220,7 @@ int main(int argc, const char *argv[])
 			inv_htlcs, &htlc_map2, NULL,
 			commitment_number ^ cn_obscurer,
 			option_anchor_outputs,
+			option_anchors_zero_fee_htlc_tx,
 			REMOTE);
 	tx_must_be_eq(tx, tx2);
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
@@ -1208,6 +1236,7 @@ int main(int argc, const char *argv[])
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       option_anchor_outputs,
+	       option_anchors_zero_fee_htlc_tx,
 	       htlc_map,
 	       tal_count(htlcs));
 	common_shutdown();

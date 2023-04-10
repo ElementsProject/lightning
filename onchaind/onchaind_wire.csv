@@ -48,6 +48,7 @@ msgdata,onchaind_init,remote_funding_pubkey,pubkey,
 msgdata,onchaind_init,local_static_remotekey_start,u64,
 msgdata,onchaind_init,remote_static_remotekey_start,u64,
 msgdata,onchaind_init,option_anchor_outputs,bool,
+msgdata,onchaind_init,option_anchors_zero_fee_htlc_tx,bool,
 # We need this for BIP125 rule 4
 msgdata,onchaind_init,min_relay_feerate,u32,
 

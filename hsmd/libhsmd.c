@@ -492,7 +492,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			psbt_input_add_pubkey(psbt, j, &pubkey);
 
 			/* It's actually a P2WSH in this case. */
-			if (utxo->close_info && utxo->close_info->option_anchor_outputs) {
+			if (utxo->close_info && utxo->close_info->option_anchors) {
 				const u8 *wscript
 					= bitcoin_wscript_to_remote_anchored(tmpctx,
 									     &pubkey,

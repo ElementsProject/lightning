@@ -2503,8 +2503,12 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 anchors_negotiated(state->our_features,
-						    state->their_features),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHOR_OUTPUTS),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
@@ -3301,8 +3305,12 @@ static void opener_start(struct state *state, u8 *msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 anchors_negotiated(state->our_features,
-						    state->their_features),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHOR_OUTPUTS),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
@@ -3611,8 +3619,12 @@ static void rbf_local_start(struct state *state, u8 *msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 anchors_negotiated(state->our_features,
-						    state->their_features),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHOR_OUTPUTS),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		open_abort(state, "%s", err_reason);
 		return;
@@ -3749,8 +3761,12 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 				 state->min_effective_htlc_capacity,
 				 &tx_state->remoteconf,
 				 &tx_state->localconf,
-				 anchors_negotiated(state->our_features,
-						    state->their_features),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHOR_OUTPUTS),
+				 feature_negotiated(state->our_features,
+						    state->their_features,
+						    OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		goto free_rbf_ctx;

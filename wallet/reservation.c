@@ -305,7 +305,7 @@ struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 		 * set to `1` and witness:
 		 */
 		if (utxos[i]->close_info
-		    && utxos[i]->close_info->option_anchor_outputs)
+		    && utxos[i]->close_info->option_anchors)
 			this_nsequence = utxos[i]->close_info->csv;
 		else
 			this_nsequence = nsequence;

@@ -17,6 +17,7 @@ bool check_config_bounds(const tal_t *ctx,
 			 const struct channel_config *remoteconf,
 			 const struct channel_config *localconf,
 			 bool option_anchor_outputs,
+			 bool option_anchors_zero_fee_htlc_tx,
 			 char **err_reason);
 
 bool anchors_negotiated(struct feature_set *our_features,
