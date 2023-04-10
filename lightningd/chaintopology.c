@@ -179,7 +179,7 @@ static void rebroadcast_txs(struct chain_topology *topo)
 
 		/* Don't free from txmap inside loop! */
 		if (otx->refresh
-		    && !otx->refresh(otx->channel, &otx->tx, otx->refresh_arg)) {
+		    && !otx->refresh(otx->channel, &otx->tx, otx->cbarg)) {
 			tal_steal(cleanup_ctx, otx);
 			continue;
 		}
@@ -229,33 +229,40 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	tal_del_destructor2(otx->channel, clear_otx_channel, otx);
 
 	if (otx->finished) {
-		otx->finished(otx->channel, success, msg);
-		tal_free(otx);
-	} else if (we_broadcast(bitcoind->ld->topology, &otx->txid)) {
+		if (otx->finished(otx->channel, otx->tx, success, msg, otx->cbarg)) {
+			tal_free(otx);
+			return;
+		}
+	}
+
+	if (we_broadcast(bitcoind->ld->topology, &otx->txid)) {
 		log_debug(
 		    bitcoind->ld->topology->log,
 		    "Not adding %s to list of outgoing transactions, already "
 		    "present",
 		    type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 		tal_free(otx);
-	} else {
-		/* For continual rebroadcasting, until channel freed. */
-		tal_steal(otx->channel, otx);
-		outgoing_tx_map_add(bitcoind->ld->topology->outgoing_txs, otx);
-		tal_add_destructor2(otx, destroy_outgoing_tx, bitcoind->ld->topology);
+		return;
 	}
+
+	/* For continual rebroadcasting, until channel freed. */
+	tal_steal(otx->channel, otx);
+	outgoing_tx_map_add(bitcoind->ld->topology->outgoing_txs, otx);
+	tal_add_destructor2(otx, destroy_outgoing_tx, bitcoind->ld->topology);
 }
 
 void broadcast_tx_(struct chain_topology *topo,
 		   struct channel *channel, const struct bitcoin_tx *tx,
 		   const char *cmd_id, bool allowhighfees, u32 minblock,
-		   void (*finished)(struct channel *channel,
+		   bool (*finished)(struct channel *channel,
+				    const struct bitcoin_tx *tx,
 				    bool success,
-				    const char *err),
+				    const char *err,
+				    void *cbarg),
 		   bool (*refresh)(struct channel *channel,
 				   const struct bitcoin_tx **tx,
-				   void *arg),
-		   void *refresh_arg)
+				   void *cbarg),
+		   void *cbarg)
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
@@ -267,9 +274,9 @@ void broadcast_tx_(struct chain_topology *topo,
 	otx->allowhighfees = allowhighfees;
 	otx->finished = finished;
 	otx->refresh = refresh;
-	otx->refresh_arg = refresh_arg;
-	if (taken(otx->refresh_arg))
-		tal_steal(otx, otx->refresh_arg);
+	otx->cbarg = cbarg;
+	if (taken(otx->cbarg))
+		tal_steal(otx, otx->cbarg);
 	if (cmd_id)
 		otx->cmd_id = tal_strdup(otx, cmd_id);
 	else
