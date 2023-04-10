@@ -1480,12 +1480,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		lease_chan_max_ppt = 0;
 	}
 
-	if (db_col_int(stmt, "option_anchor_outputs"))
-		type = channel_type_anchor_outputs(NULL);
-	else if (db_col_u64(stmt, "local_static_remotekey_start") != 0x7FFFFFFFFFFFFFFFULL)
-		type = channel_type_static_remotekey(NULL);
-	else
-		type = channel_type_none(NULL);
+	type = db_col_channel_type(NULL, stmt, "channel_type");
 
 	/* last_tx is null for stub channels used for recovering funds through
 	 * Static channel backups. */
@@ -1529,7 +1524,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
 						 db_col_u64(stmt, "id"),
-						 db_col_int(stmt, "option_anchor_outputs")),
+						 channel_type_has(type, OPT_ANCHOR_OUTPUTS)
+						 || channel_type_has(type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)),
 			   &channel_info,
 			   take(fee_states),
 			   remote_shutdown_scriptpubkey,
@@ -1601,13 +1597,7 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	else
 		cc->last_tx = NULL;
 
-	if (db_col_int(stmt, "option_anchor_outputs")) {
-		cc->type = channel_type_anchor_outputs(cc);
-		db_col_ignore(stmt, "local_static_remotekey_start");
-	} else if (db_col_u64(stmt, "local_static_remotekey_start") != 0x7FFFFFFFFFFFFFFFULL)
-		cc->type = channel_type_static_remotekey(cc);
-	else
-		cc->type = channel_type_none(cc);
+	cc->type = db_col_channel_type(cc, stmt, "channel_type");
 	cc->state_change_cause
 		= state_change_in_db(db_col_int(stmt, "state_change_reason"));
 	cc->leased = !db_col_is_null(stmt, "lease_commit_sig");
@@ -1642,8 +1632,7 @@ struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
 					", msatoshi_to_us_min"
 					", msatoshi_to_us_max"
 					", last_tx"
-					", option_anchor_outputs"
-					", local_static_remotekey_start"
+					", channel_type"
 					", state_change_reason"
 					", lease_commit_sig"
 					" FROM channels"
@@ -1732,7 +1721,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", remote_upfront_shutdown_script"
 					", local_static_remotekey_start"
 					", remote_static_remotekey_start"
-					", option_anchor_outputs"
+					", channel_type"
 					", shutdown_scriptpubkey_local"
 					", closer"
 					", state_change_reason"
@@ -2021,7 +2010,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_upfront_shutdown_script=?," // 29
 					"  local_static_remotekey_start=?," // 30
 					"  remote_static_remotekey_start=?," // 31
-					"  option_anchor_outputs=?," // 32
+					"  channel_type=?," // 32
 					"  shutdown_scriptpubkey_local=?," // 33
 					"  closer=?," // 34
 					"  state_change_reason=?," // 35
@@ -2079,7 +2068,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_talarr(stmt, 29, chan->remote_upfront_shutdown_script);
 	db_bind_u64(stmt, 30, chan->static_remotekey_start[LOCAL]);
 	db_bind_u64(stmt, 31, chan->static_remotekey_start[REMOTE]);
-	db_bind_int(stmt, 32, channel_has(chan, OPT_ANCHOR_OUTPUTS));
+	db_bind_channel_type(stmt, 32, chan->type);
 	db_bind_talarr(stmt, 33, chan->shutdown_scriptpubkey[LOCAL]);
 	db_bind_int(stmt, 34, chan->closer);
 	db_bind_int(stmt, 35, state_change_in_db(chan->state_change_cause));
