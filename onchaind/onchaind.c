@@ -2116,7 +2116,7 @@ static u8 *scriptpubkey_to_remote(const tal_t *ctx,
 	 */
 	if (option_anchor_outputs) {
 		return scriptpubkey_p2wsh(ctx,
-					  anchor_to_remote_redeem(tmpctx,
+					  bitcoin_wscript_to_remote_anchored(tmpctx,
 								  remotekey,
 								  csv_lock));
 	} else {

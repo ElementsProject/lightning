@@ -64,9 +64,9 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 			     const u8 *wprog, size_t wprog_size);
 
 /* To-remotekey with csv max(lease_expiry - blockheight, 1) delay. */
-u8 *anchor_to_remote_redeem(const tal_t *ctx,
-			    const struct pubkey *remote_key,
-			    u32 csv_lock);
+u8 *bitcoin_wscript_to_remote_anchored(const tal_t *ctx,
+				       const struct pubkey *remote_key,
+				       u32 csv_lock);
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
@@ -156,8 +156,8 @@ bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 /* Is this one of the four above script types? */
 bool is_known_scripttype(const u8 *script);
 
-/* Is this an anchor witness script? */
-bool is_anchor_witness_script(const u8 *script, size_t script_len);
+/* Is this a to-remote witness script (used for option_anchor_outputs)? */
+bool is_to_remote_anchored_witness_script(const u8 *script, size_t script_len);
 
 /* Are these two scripts equal? */
 bool scripteq(const u8 *s1, const u8 *s2);
