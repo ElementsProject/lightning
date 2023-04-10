@@ -1748,4 +1748,12 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 					   struct amount_msat *msat,
 					   struct sha256 *payment_hash,
 					   enum htlc_state *hstate);
+
+/* Make a PSBT from these utxos, or enhance @base if non-NULL. */
+struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
+				    struct wallet *wallet,
+				    struct utxo **utxos,
+				    u32 nlocktime,
+				    u32 nsequence,
+				    struct wally_psbt *base);
 #endif /* LIGHTNING_WALLET_WALLET_H */
