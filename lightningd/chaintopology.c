@@ -1134,6 +1134,28 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 	return max * topo->ld->config.max_fee_multiplier;
 }
 
+u32 default_locktime(const struct chain_topology *topo)
+{
+	u32 locktime, current_height = get_block_height(topo);
+
+	/* Setting the locktime to the next block to be mined has multiple
+	 * benefits:
+	 * - anti fee-snipping (even if not yet likely)
+	 * - less distinguishable transactions (with this we create
+	 *   general-purpose transactions which looks like bitcoind:
+	 *   native segwit, nlocktime set to tip, and sequence set to
+	 *   0xFFFFFFFD by default. Other wallets are likely to implement
+	 *   this too).
+	 */
+	locktime = current_height;
+
+	/* Eventually fuzz it too. */
+	if (locktime > 100 && pseudorand(10) == 0)
+		locktime -= pseudorand(100);
+
+	return locktime;
+}
+
 /* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
 static void destroy_chain_topology(struct chain_topology *topo)
