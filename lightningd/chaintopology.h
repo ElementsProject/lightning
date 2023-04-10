@@ -194,7 +194,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown);
 /* These return 0 if unknown */
 u32 opening_feerate(struct chain_topology *topo);
 u32 mutual_close_feerate(struct chain_topology *topo);
-u32 unilateral_feerate(struct chain_topology *topo);
+u32 unilateral_feerate(struct chain_topology *topo, bool option_anchors);
 /* For onchain resolution. */
 u32 delayed_to_us_feerate(struct chain_topology *topo);
 u32 htlc_resolution_feerate(struct chain_topology *topo);

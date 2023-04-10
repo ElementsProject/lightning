@@ -746,6 +746,7 @@ def feerates_perkb2py(m):
         "opening": m.opening,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
+        "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "delayed_to_us": m.delayed_to_us,  # PrimitiveField in generate_composite
         "htlc_resolution": m.htlc_resolution,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite

@@ -75,6 +75,11 @@
           "type": "u32",
           "description": "Feerate for commitment_transaction in a live channel which we originally funded"
         },
+        "unilateral_anchor_close": {
+          "type": "u32",
+          "added": "v23.05",
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was negotiated)"
+        },
         "delayed_to_us": {
           "type": "u32",
           "deprecated": "v23.05",

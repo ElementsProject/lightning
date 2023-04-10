@@ -3241,6 +3241,8 @@ pub mod responses {
 	    pub mutual_close: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_close: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub unilateral_anchor_close: Option<u32>,
 	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub delayed_to_us: Option<u32>,

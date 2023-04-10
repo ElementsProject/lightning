@@ -58,6 +58,7 @@ On success, an object is returned, containing:
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
   - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
+  - **unilateral\_anchor\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded (if anchor\_outputs was negotiated) *(added v23.05)*
   - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated, removal in v24.02**
   - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated, removal in v24.02**
   - **penalty** (u32, optional): Feerate to use when creating penalty tx for watchtowers
@@ -138,4 +139,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4921275aec48da8b9ddcba5d4237efa72f06b6e005008f2c3aa7029d3bd187fd)
+[comment]: # ( SHA256STAMP:03c21ea2ad3e9a68a28697b48242bee3b01751c880f57c076dcefefaa448deff)

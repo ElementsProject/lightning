@@ -1135,6 +1135,7 @@ message FeeratesPerkb {
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
+	optional uint32 unilateral_anchor_close = 11;
 	optional uint32 delayed_to_us = 6;
 	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;

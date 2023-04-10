@@ -418,7 +418,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	if (option_anchor_outputs) {
 		max_feerate = tal(tmpctx, u32);
 		/* Aim for reasonable max, but use final if we don't know. */
-		*max_feerate = unilateral_feerate(ld->topology);
+		*max_feerate = unilateral_feerate(ld->topology, false);
 		if (!*max_feerate)
 			*max_feerate = final_commit_feerate;
 		/* No other limit on fees */

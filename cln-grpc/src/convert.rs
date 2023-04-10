@@ -937,6 +937,7 @@ impl From<responses::FeeratesPerkb> for pb::FeeratesPerkb {
             opening: c.opening, // Rule #2 for type u32?
             mutual_close: c.mutual_close, // Rule #2 for type u32?
             unilateral_close: c.unilateral_close, // Rule #2 for type u32?
+            unilateral_anchor_close: c.unilateral_anchor_close, // Rule #2 for type u32?
             #[allow(deprecated)]
             delayed_to_us: c.delayed_to_us, // Rule #2 for type u32?
             #[allow(deprecated)]
@@ -3304,6 +3305,7 @@ impl From<pb::FeeratesPerkb> for responses::FeeratesPerkb {
             opening: c.opening, // Rule #1 for type u32?
             mutual_close: c.mutual_close, // Rule #1 for type u32?
             unilateral_close: c.unilateral_close, // Rule #1 for type u32?
+            unilateral_anchor_close: c.unilateral_anchor_close, // Rule #1 for type u32?
             delayed_to_us: c.delayed_to_us, // Rule #1 for type u32?
             htlc_resolution: c.htlc_resolution, // Rule #1 for type u32?
             penalty: c.penalty, // Rule #1 for type u32?

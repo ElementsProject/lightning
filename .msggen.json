@@ -365,6 +365,7 @@
             "Feerates.perkb.mutual_close": 4,
             "Feerates.perkb.opening": 3,
             "Feerates.perkb.penalty": 8,
+            "Feerates.perkb.unilateral_anchor_close": 11,
             "Feerates.perkb.unilateral_close": 5
         },
         "FeeratesPerkbEstimates": {
@@ -1600,6 +1601,10 @@
         },
         "Feerates.perkb.penalty": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.perkb.unilateral_anchor_close": {
+            "added": "v23.05",
             "deprecated": false
         },
         "Feerates.perkb.unilateral_close": {
