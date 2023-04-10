@@ -905,7 +905,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			channel_type_accept(state,
 					    open_tlvs->channel_type,
 					    state->our_features,
-					    state->their_features);
+					    state->their_features,
+					    state->minimum_depth == 0);
 		if (!state->channel_type) {
 			negotiation_failed(state,
 					   "Did not support channel_type %s",
