@@ -22,6 +22,11 @@ bool hsm_capable(struct lightningd *ld, u32 msgtype);
 
 struct ext_key *hsm_init(struct lightningd *ld);
 
+/* Send request to hsmd, get response. */
+const u8 *hsm_sync_req(const tal_t *ctx,
+		       struct lightningd *ld,
+		       const u8 *msg TAKES);
+
 /* Get (and check!) a bip32 derived pubkey */
 void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index);
 
