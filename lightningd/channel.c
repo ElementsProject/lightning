@@ -627,11 +627,8 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			 *   - MUST NOT allow incoming HTLCs to this channel
 			 *     using the real `short_channel_id`
 			 */
-			/* FIXME: We don't keep type is db, so assume all
-			 * private channels which support aliases want this! */
 			if (!privacy_leak_ok
-			    && chan->alias[REMOTE]
-			    && !(chan->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+			    && channel_type_has(chan->type, OPT_SCID_ALIAS))
 				continue;
 			if (chan->scid
 			    && short_channel_id_eq(scid, chan->scid))
