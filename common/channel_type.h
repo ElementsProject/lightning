@@ -10,6 +10,10 @@ struct channel_type *channel_type_none(const tal_t *ctx);
 struct channel_type *channel_type_static_remotekey(const tal_t *ctx);
 struct channel_type *channel_type_anchor_outputs(const tal_t *ctx);
 
+/* channel_type variants */
+void channel_type_set_zeroconf(struct channel_type *channel_type);
+void channel_type_set_scid_alias(struct channel_type *channel_type);
+
 /* Duplicate a channel_type */
 struct channel_type *channel_type_dup(const tal_t *ctx,
 				      const struct channel_type *t);

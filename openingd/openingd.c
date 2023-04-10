@@ -102,6 +102,9 @@ struct state {
 	struct amount_sat *reserve;
 
 	bool allowdustreserve;
+
+	/* Are we allowed to set option_scid_alias is channel_type? */
+	bool can_set_scid_alias_channel_type;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -331,6 +334,14 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	state->channel_type = default_channel_type(state,
 						   state->our_features,
 						   state->their_features);
+
+	/* Spec says we should use the option_scid_alias variation if we
+	 * want them to *only* use the scid_alias.  But we didn't accept this
+	 * in CLN prior to v23.05, so we don't send that in deprecated mode! */
+	if (state->can_set_scid_alias_channel_type) {
+		if (!(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+			channel_type_set_scid_alias(state->channel_type);
+	}
 
 	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
 	open_tlvs->upfront_shutdown_script
@@ -902,6 +913,16 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 							   open_tlvs->channel_type));
 			return NULL;
 		}
+
+		/* If we're not using scid_alias in channel type, intuit it here.
+		 * We have to do this, because we used not to accept that bit, so older
+		 * clients won't send it! */
+		if (!state->can_set_scid_alias_channel_type
+		    && !(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		    && feature_negotiated(state->our_features, state->their_features,
+					  OPT_SCID_ALIAS)) {
+			channel_type_set_scid_alias(state->channel_type);
+		}
 	} else
 		state->channel_type
 			= default_channel_type(state,
@@ -1453,7 +1474,8 @@ int main(int argc, char *argv[])
 				    &state->minimum_depth,
 				    &state->min_feerate, &state->max_feerate,
 				    &force_tmp_channel_id,
-				    &state->allowdustreserve))
+				    &state->allowdustreserve,
+				    &state->can_set_scid_alias_channel_type))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER
