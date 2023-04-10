@@ -43,6 +43,18 @@ struct channel_type *channel_type_anchor_outputs(const tal_t *ctx)
 	return type;
 }
 
+void channel_type_set_zeroconf(struct channel_type *type)
+{
+	set_feature_bit(&type->features,
+			COMPULSORY_FEATURE(OPT_ZEROCONF));
+}
+
+void channel_type_set_scid_alias(struct channel_type *type)
+{
+	set_feature_bit(&type->features,
+			COMPULSORY_FEATURE(OPT_SCID_ALIAS));
+}
+
 struct channel_type *default_channel_type(const tal_t *ctx,
 					  const struct feature_set *our_features,
 					  const u8 *their_features)
@@ -119,6 +131,7 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 	static const size_t feats[] = {
 		OPT_ANCHOR_OUTPUTS,
 		OPT_STATIC_REMOTEKEY,
+		OPT_SCID_ALIAS,
 		OPT_ZEROCONF,
 	};
 
@@ -128,6 +141,7 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 	 *   - `option_zeroconf` (bit 50)
 	 */
 	static const size_t variants[] = {
+		OPT_SCID_ALIAS,
 		OPT_ZEROCONF,
 	};
 

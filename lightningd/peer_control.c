@@ -866,6 +866,8 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_string(response, NULL, "option_anchor_outputs");
 	if (channel_has(channel, OPT_ZEROCONF))
 		json_add_string(response, NULL, "option_zeroconf");
+	if (channel_has(channel, OPT_SCID_ALIAS))
+		json_add_string(response, NULL, "option_scid_alias");
 	json_array_end(response);
 
 	if (!amount_sat_sub(&peer_funded_sats, channel->funding_sats,

@@ -964,7 +964,8 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				   feerate_min(peer->ld, NULL),
 				   feerate_max(peer->ld, NULL),
 				   IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
-				   peer->ld->config.allowdustreserve);
+				   peer->ld->config.allowdustreserve,
+				   !deprecated_apis);
 	subd_send_msg(uc->open_daemon, take(msg));
 	return true;
 }

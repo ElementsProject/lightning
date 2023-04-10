@@ -334,6 +334,7 @@
                     "enum": [
                       "option_static_remotekey",
                       "option_anchor_outputs",
+                      "option_scid_alias",
                       "option_zeroconf"
                     ],
                     "description": "BOLT #9 features which apply to this channel"
