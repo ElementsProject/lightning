@@ -685,6 +685,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
+	case WIRE_HSMD_SIGN_ANCHORSPEND:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
@@ -718,6 +719,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 		return bad_req_fmt(conn, c, c->msg_in,
 				   "Received an incoming message of type %s, "
 				   "which is not a request",
