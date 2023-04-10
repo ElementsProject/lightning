@@ -2284,7 +2284,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			channel_type_accept(state,
 					    open_tlv->channel_type,
 					    state->our_features,
-					    state->their_features);
+					    state->their_features,
+					    state->minimum_depth == 0);
 		if (!state->channel_type) {
 			negotiation_failed(state,
 					   "Did not support channel_type %s",
