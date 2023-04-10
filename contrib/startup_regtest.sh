@@ -122,7 +122,7 @@ start_nodes() {
 	done
 
 	if [ -z "$EATMYDATA" ]; then
-	    echo "WARNING: eatmydata not found: instal it for faster testing"
+	    echo "WARNING: eatmydata not found: install it for faster testing"
 	fi
 	# Give a hint.
 	echo "Commands: "
