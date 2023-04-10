@@ -174,10 +174,8 @@ static void finish_report(const struct leak_detect *leaks)
 
 		json_add_backtrace(response, backtrace);
 		json_array_start(response, "parents");
-		for (p = tal_parent(i); p; p = tal_parent(p)) {
+		for (p = tal_parent(i); p; p = tal_parent(p))
 			json_add_string(response, NULL, tal_name(p));
-			p = tal_parent(p);
-		}
 		json_array_end(response);
 		json_object_end(response);
 	}
