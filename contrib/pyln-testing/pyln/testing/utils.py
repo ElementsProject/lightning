@@ -459,7 +459,7 @@ class BitcoinD(TailableProc):
     # int > 0 := wait for at least N transactions
     # 'tx_id' := wait for one transaction id given as a string
     # ['tx_id1', 'tx_id2'] := wait until all of the specified transaction IDs
-    def generate_block(self, numblocks=1, wait_for_mempool=0, to_addr=None):
+    def generate_block(self, numblocks=1, wait_for_mempool=0, to_addr=None, needfeerate=None):
         if wait_for_mempool:
             if isinstance(wait_for_mempool, str):
                 wait_for_mempool = [wait_for_mempool]
@@ -468,7 +468,7 @@ class BitcoinD(TailableProc):
             else:
                 wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
 
-        mempool = self.rpc.getrawmempool()
+        mempool = self.rpc.getrawmempool(True)
         logging.debug("Generating {numblocks}, confirming {lenmempool} transactions: {mempool}".format(
             numblocks=numblocks,
             mempool=mempool,
@@ -478,6 +478,21 @@ class BitcoinD(TailableProc):
         # As of 0.16, generate() is removed; use generatetoaddress.
         if to_addr is None:
             to_addr = self.rpc.getnewaddress()
+
+        # We assume all-or-nothing.
+        if needfeerate is not None:
+            assert numblocks == 1
+            # If any tx including ancestors is above the given feerate, mine all.
+            for txid, details in mempool.items():
+                feerate = float(details['fees']['ancestor']) * 100_000_000 / (float(details['ancestorsize']) * 4 / 1000)
+                if feerate >= needfeerate:
+                    return self.rpc.generatetoaddress(numblocks, to_addr)
+                else:
+                    print(f"Feerate {feerate} for {txid} below {needfeerate}")
+
+            # Otherwise, mine none.
+            return self.rpc.generateblock(to_addr, [])
+
         return self.rpc.generatetoaddress(numblocks, to_addr)
 
     def simple_reorg(self, height, shift=0):
