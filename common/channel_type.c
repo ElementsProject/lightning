@@ -55,6 +55,17 @@ void channel_type_set_scid_alias(struct channel_type *type)
 			COMPULSORY_FEATURE(OPT_SCID_ALIAS));
 }
 
+struct channel_type *channel_type_anchor_zero_fee_htlc(const tal_t *ctx)
+{
+	struct channel_type *type = channel_type_none(ctx);
+
+	set_feature_bit(&type->features,
+			COMPULSORY_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX));
+	set_feature_bit(&type->features,
+			COMPULSORY_FEATURE(OPT_STATIC_REMOTEKEY));
+	return type;
+}
+
 struct channel_type *default_channel_type(const tal_t *ctx,
 					  const struct feature_set *our_features,
 					  const u8 *their_features)
@@ -64,12 +75,15 @@ struct channel_type *default_channel_type(const tal_t *ctx,
 	 *   - if `channel_type` was present in both `open_channel` and `accept_channel`:
 	 *     - This is the `channel_type` (they must be equal, required above)
 	 *   - otherwise:
+	 *     - if `option_anchors_zero_fee_htlc_tx` was negotiated:
+	 *       - the `channel_type` is `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12)
+	 *   - otherwise, if `option_anchor_outputs` was negotiated:
+	 *     - the `channel_type` is `option_anchor_outputs` and
+	 *       `option_static_remotekey` (bits 20 and 12)
 	 */
-	/* BOLT #2:
-	 * - otherwise, if `option_anchor_outputs` was negotiated:
-	 *   - the `channel_type` is `option_anchor_outputs` and
-	 *     `option_static_remotekey` (bits 20 and 12)
-	 */
+	if (feature_negotiated(our_features, their_features,
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+		return channel_type_anchor_zero_fee_htlc(ctx);
 	if (feature_negotiated(our_features, their_features,
 			       OPT_ANCHOR_OUTPUTS))
 		return channel_type_anchor_outputs(ctx);
@@ -131,6 +145,7 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 
 	static const size_t feats[] = {
 		OPT_ANCHOR_OUTPUTS,
+		OPT_ANCHORS_ZERO_FEE_HTLC_TX,
 		OPT_STATIC_REMOTEKEY,
 		OPT_SCID_ALIAS,
 		OPT_ZEROCONF,
@@ -179,6 +194,8 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 	if (channel_type_eq(&proposed, channel_type_none(tmpctx)) ||
 	    channel_type_eq(&proposed,
 			    channel_type_static_remotekey(tmpctx)) ||
+	    channel_type_eq(&proposed,
+			    channel_type_anchor_zero_fee_htlc(tmpctx)) ||
 	    channel_type_eq(&proposed, channel_type_anchor_outputs(tmpctx))) {
 		/* At this point we know it matches, and maybe has
 		 * a couple of extra options. So let's just reply
