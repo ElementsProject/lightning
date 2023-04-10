@@ -874,7 +874,29 @@ u8 *bitcoin_wscript_anchor(const tal_t *ctx,
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_ENDIF);
 
+	assert(is_anchor_witness_script(script, tal_bytelen(script)));
 	return script;
+}
+
+bool is_anchor_witness_script(const u8 *script, size_t script_len)
+{
+	if (script_len != 34 + 1 + 1 + 1 + 1 + 1 + 1)
+		return false;
+	if (script[0] != OP_PUSHBYTES(33))
+		return false;
+	if (script[34] != OP_CHECKSIG)
+		return false;
+	if (script[35] != OP_IFDUP)
+		return false;
+	if (script[36] != OP_NOTIF)
+		return false;
+	if (script[37] != 0x50 + 16)
+		return false;
+	if (script[38] != OP_CHECKSEQUENCEVERIFY)
+		return false;
+	if (script[39] != OP_ENDIF)
+		return false;
+	return true;
 }
 
 bool scripteq(const u8 *s1, const u8 *s2)

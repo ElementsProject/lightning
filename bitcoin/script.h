@@ -159,6 +159,9 @@ bool is_known_scripttype(const u8 *script);
 /* Is this a to-remote witness script (used for option_anchor_outputs)? */
 bool is_to_remote_anchored_witness_script(const u8 *script, size_t script_len);
 
+/* Is this an anchor witness script? */
+bool is_anchor_witness_script(const u8 *script, size_t script_len);
+
 /* Are these two scripts equal? */
 bool scripteq(const u8 *s1, const u8 *s2);
 
