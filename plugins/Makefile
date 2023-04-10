@@ -1,5 +1,5 @@
 PLUGIN_PAY_SRC := plugins/pay.c
-PLUGIN_PAY_HEADER := 
+PLUGIN_PAY_HEADER :=
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c
@@ -40,7 +40,7 @@ PLUGIN_FETCHINVOICE_OBJS := $(PLUGIN_FETCHINVOICE_SRC:.c=.o)
 PLUGIN_FETCHINVOICE_HEADER :=
 
 PLUGIN_SQL_SRC := plugins/sql.c
-PLUGIN_SQL_HEADER := 
+PLUGIN_SQL_HEADER :=
 PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:.c=.o)
 
 PLUGIN_SPENDER_SRC :=				\
@@ -188,7 +188,7 @@ plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_O
 
 plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
-plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) 
+plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
@@ -232,6 +232,7 @@ plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 
 CLN_PLUGIN_EXAMPLES := \
 	target/${RUST_PROFILE}/examples/cln-plugin-startup \
+	target/${RUST_PROFILE}/examples/cln-plugin-reentrant \
 	target/${RUST_PROFILE}/examples/cln-rpc-getinfo
 
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
