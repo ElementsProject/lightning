@@ -785,15 +785,12 @@ static u8 **sign_and_get_witness(const tal_t *ctx,
 				 struct bitcoin_tx *tx,
 				 const struct onchain_signing_info *info)
 {
-	u8 *msg;
+	const u8 *msg;
 	struct bitcoin_signature sig;
 	struct lightningd *ld = channel->peer->ld;
 
-	msg = info->sign(NULL, tx, info);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Writing sign request to hsm");
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
+	msg = hsm_sync_req(tmpctx, ld, take(info->sign(NULL, tx, info)));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
 		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 
 	return bitcoin_witness_sig_and_element(ctx, &sig, info->stack_elem,
@@ -1127,11 +1124,8 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	info->deadline_block = htlc_incoming_deadline(channel, htlc_id);
 
 	/* Now sign, and set witness */
-	msg = sign_htlc_success(NULL, tx, info);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Writing sign request to hsm");
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
+	msg = hsm_sync_req(tmpctx, ld, take(sign_htlc_success(NULL, tx, info)));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
 		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 
 	witness = bitcoin_witness_htlc_success_tx(NULL, &sig,
@@ -1204,11 +1198,8 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	info->minblock = cltv_expiry + 1;
 
 	/* Now sign, and set witness */
-	msg = sign_htlc_timeout(NULL, tx, info);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Writing sign request to hsm");
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
+	msg = hsm_sync_req(tmpctx, ld, take(sign_htlc_timeout(NULL, tx, info)));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
 		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 
 	witness = bitcoin_witness_htlc_timeout_tx(NULL, &sig,
