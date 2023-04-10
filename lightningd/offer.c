@@ -10,11 +10,11 @@
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <secp256k1_schnorrsig.h>
 #include <sodium/randombytes.h>
-#include <wire/wire_sync.h>
 
 static void json_populate_offer(struct json_stream *response,
 				const struct sha256 *offer_id,
@@ -54,15 +54,12 @@ static void hsm_sign_b12(struct lightningd *ld,
 			 const struct pubkey *key,
 			 struct bip340sig *sig)
 {
-	u8 *msg;
+	const u8 *msg;
 	struct sha256 sighash;
 
 	msg = towire_hsmd_sign_bolt12(NULL, messagename, fieldname, merkle,
 				      publictweak);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
         if (!fromwire_hsmd_sign_bolt12_reply(msg, sig))
 		fatal("HSM gave bad sign_offer_reply %s",
 		      tal_hex(msg, msg));

@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/plugin_hook.h>
@@ -476,12 +477,10 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 			 secp256k1_ecdsa_recoverable_signature *rsig,
 			 struct lightningd *ld)
 {
-	u8 *msg = towire_hsmd_sign_invoice(NULL, u5bytes, hrpu8);
+	const u8 *msg;
 
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld,
+			   take(towire_hsmd_sign_invoice(NULL, u5bytes, hrpu8)));
         if (!fromwire_hsmd_sign_invoice_reply(msg, rsig))
 		fatal("HSM gave bad sign_invoice_reply %s",
 		      tal_hex(msg, msg));
@@ -493,17 +492,14 @@ static void hsm_sign_b12_invoice(struct lightningd *ld,
 				 struct tlv_invoice *invoice)
 {
 	struct sha256 merkle;
-	u8 *msg;
+	const u8 *msg;
 
 	assert(!invoice->signature);
 
  	merkle_tlv(invoice->fields, &merkle);
 	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle, NULL);
 
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	invoice->signature = tal(invoice, struct bip340sig);
         if (!fromwire_hsmd_sign_bolt12_reply(msg, invoice->signature))
 		fatal("HSM gave bad sign_invoice_reply %s",
@@ -1815,6 +1811,7 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 	const char *invstring;
 	struct json_stream *response;
 	bool approved;
+	const u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		   /* FIXME: parameter should be invstring now */
@@ -1827,12 +1824,8 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 	    strncmp(invstring, "LIGHTNING:", 10) == 0)
 		invstring += 10;
 
-	u8 *msg = towire_hsmd_preapprove_invoice(NULL, invstring);
-
-	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, cmd->ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, cmd->ld,
+			   take(towire_hsmd_preapprove_invoice(NULL, invstring)));
         if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_invoice_reply %s", tal_hex(msg, msg));
@@ -1860,9 +1853,9 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 	struct node_id *destination;
 	struct sha256 *payment_hash;
 	struct amount_msat *amount;
-
 	struct json_stream *response;
 	bool approved;
+	const u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		   p_req("destination", param_node_id, &destination),
@@ -1871,12 +1864,9 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	u8 *msg = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
+	msg = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
 
-	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, cmd->ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, cmd->ld, take(msg));
         if (!fromwire_hsmd_preapprove_keysend_reply(msg, &approved))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_keysend_reply %s", tal_hex(msg, msg));

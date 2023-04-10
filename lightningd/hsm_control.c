@@ -27,13 +27,10 @@ static int hsm_get_fd(struct lightningd *ld,
 		      int capabilities)
 {
 	int hsm_fd;
-	u8 *msg;
+	const u8 *msg;
 
 	msg = towire_hsmd_client_hsmfd(NULL, id, dbid, capabilities);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
@@ -198,15 +195,26 @@ void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
 	/* Don't assume hsmd supports it! */
 	if (hsm_capable(ld, WIRE_HSMD_CHECK_PUBKEY)) {
 		bool ok;
-		u8 *msg = towire_hsmd_check_pubkey(NULL, index, pubkey);
-		wire_sync_write(ld->hsm_fd, take(msg));
-		msg = wire_sync_read(tmpctx, ld->hsm_fd);
+		const u8 *msg = towire_hsmd_check_pubkey(NULL, index, pubkey);
+		msg = hsm_sync_req(tmpctx, ld, take(msg));
 		if (!fromwire_hsmd_check_pubkey_reply(msg, &ok))
 			fatal("Invalid check_pubkey_reply from hsm");
 		if (!ok)
 			fatal("HSM said key derivation of %u != %s",
 			      index, type_to_string(tmpctx, struct pubkey, pubkey));
 	}
+}
+
+const u8 *hsm_sync_req(const tal_t *ctx, struct lightningd *ld, const u8 *msg)
+{
+	int type = fromwire_peektype(msg);
+	if (!wire_sync_write(ld->hsm_fd, msg))
+		fatal("Writing %s hsm", hsmd_wire_name(type));
+	msg = wire_sync_read(ctx, ld->hsm_fd);
+	if (!msg)
+		fatal("EOF reading from HSM after %s",
+		      hsmd_wire_name(type));
+	return msg;
 }
 
 static struct command_result *json_makesecret(struct command *cmd,

@@ -12,13 +12,13 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel_state_names_gen.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wallet/txfilter.h>
 #include <wire/peer_wire.h>
-#include <wire/wire_sync.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
@@ -103,14 +103,11 @@ void get_channel_basepoints(struct lightningd *ld,
 			    struct basepoints *local_basepoints,
 			    struct pubkey *local_funding_pubkey)
 {
-	u8 *msg;
+	const u8 *msg;
 
 	assert(dbid != 0);
 	msg = towire_hsmd_get_channel_basepoints(NULL, peer_id, dbid);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_get_channel_basepoints_reply(msg, local_basepoints,
 						       local_funding_pubkey))
 		fatal("HSM gave bad hsm_get_channel_basepoints_reply %s",
@@ -199,7 +196,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 {
 	struct lightningd *ld = peer->ld;
 	struct channel *channel = tal(ld, struct channel);
-	u8 *msg;
+	const u8 *msg;
 
 	channel->peer = peer;
 	/* Not saved to the database yet! */
@@ -266,9 +263,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	shachain_init(&channel->their_shachain.chain);
 
 	msg = towire_hsmd_new_channel(NULL, &peer->id, channel->unsaved_dbid);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_new_channel_reply(msg))
 		fatal("HSM gave bad hsm_new_channel_reply %s",
 		      tal_hex(msg, msg));
