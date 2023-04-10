@@ -611,8 +611,8 @@ bool psbt_finalize(struct wally_psbt *psbt)
 		const struct wally_map_item *iws;
 
 		iws = wally_map_get_integer(&input->psbt_fields, /* PSBT_IN_WITNESS_SCRIPT */ 0x05);
-		if (!iws || !is_anchor_witness_script(iws->value,
-					      iws->value_len))
+		if (!iws || !is_to_remote_anchored_witness_script(iws->value,
+								  iws->value_len))
 			continue;
 
 		if (input->signatures.num_items != 1)

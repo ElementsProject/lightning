@@ -304,7 +304,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
 		if (option_anchor_outputs) {
-			redeem = anchor_to_remote_redeem(tmpctx,
+			redeem = bitcoin_wscript_to_remote_anchored(tmpctx,
 							 &keyset->other_payment_key,
 							 (!side) == lessor ?
 							       csv_lock : 1);

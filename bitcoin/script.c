@@ -329,9 +329,9 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
  * <remote_pubkey> OP_CHECKSIGVERIFY MAX(1, lease_end - blockheight) OP_CHECKSEQUENCEVERIFY
  */
 
-u8 *anchor_to_remote_redeem(const tal_t *ctx,
-			    const struct pubkey *remote_key,
-			    u32 csv_lock)
+u8 *bitcoin_wscript_to_remote_anchored(const tal_t *ctx,
+				       const struct pubkey *remote_key,
+				       u32 csv_lock)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_push_key(&script, remote_key);
@@ -339,11 +339,11 @@ u8 *anchor_to_remote_redeem(const tal_t *ctx,
 	add_number(&script, csv_lock);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 
-	assert(is_anchor_witness_script(script, tal_bytelen(script)));
+	assert(is_to_remote_anchored_witness_script(script, tal_bytelen(script)));
 	return script;
 }
 
-bool is_anchor_witness_script(const u8 *script, size_t script_len)
+bool is_to_remote_anchored_witness_script(const u8 *script, size_t script_len)
 {
 	size_t len = 34 + 1 + 1 + 1;
 	/* With option_will_fund, the pushbytes can be up to 2 bytes more
