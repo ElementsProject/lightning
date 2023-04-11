@@ -4,6 +4,7 @@
 #include <ccan/err/err.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/rune/rune.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -42,6 +43,7 @@ static void show_usage(const char *progname)
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
+	printf("	- makerune <path/to/hsm_secret>\n");
 	exit(0);
 }
 
@@ -611,6 +613,33 @@ static int check_hsm(const char *hsm_secret_path)
 	return 0;
 }
 
+static int make_rune(const char *hsm_secret_path)
+{
+	struct secret hsm_secret, derived_secret, rune_secret;
+	struct rune *master_rune, *rune;
+
+	/* Get hsm_secret */
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	/* HSM derives a root secret for `makesecret` */
+	hkdf_sha256(&derived_secret, sizeof(struct secret), NULL, 0,
+		    &hsm_secret, sizeof(hsm_secret),
+		    "derived secrets", strlen("derived secrets"));
+
+	/* Commando derives secret using makesecret "commando" */
+	hkdf_sha256(&rune_secret, sizeof(struct secret), NULL, 0,
+		    &derived_secret, sizeof(derived_secret),
+		    "commando", strlen("commando"));
+
+	master_rune = rune_new(tmpctx,
+			       rune_secret.data,
+			       ARRAY_SIZE(rune_secret.data),
+			       NULL);
+	rune = rune_derive_start(tmpctx, master_rune, "0");
+	printf("%s\n", rune_to_base64(tmpctx, rune));
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -701,6 +730,12 @@ int main(int argc, char *argv[])
 		if (argc < 3)
 			show_usage(argv[0]);
 		return check_hsm(argv[2]);
+	}
+
+	if (streq(method, "makerune")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		return make_rune(argv[2]);
 	}
 
 	show_usage(argv[0]);
