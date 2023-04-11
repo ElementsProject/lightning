@@ -1667,3 +1667,34 @@ def test_upgradewallet(node_factory, bitcoind):
     sync_blockheight(l1.bitcoin, [l1])
     upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 0
+
+
+def test_hsmtool_makerune(node_factory):
+    """Test we can make a valid rune before the node really exists"""
+    l1 = node_factory.get_node(start=False)
+
+    # get_node() creates a secret, but in usual case we generate one.
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Select your language:")
+    write_all(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
+              "cake have wedding\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"New hsm_secret file created")
+
+    cmd_line = ["tools/hsmtool", "makerune", hsm_path]
+    out = subprocess.check_output(cmd_line).decode("utf8").split("\n")[0]
+
+    l1.start()
+
+    # We have to generate a rune now, for commando to even start processing!
+    rune = l1.rpc.commando_rune()['rune']
+    assert rune == out
