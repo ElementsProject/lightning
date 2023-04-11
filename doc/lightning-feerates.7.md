@@ -104,8 +104,8 @@ NOTES
 Many other commands have a *feerate* parameter.  This can be:
 
 * One of the strings to use lightningd's internal estimates:
-  * *urgent* (aim for next block), 
-  * *normal* (next 6 blocks or so)
+  * *urgent* (next 6 blocks or so)
+  * *normal* (next 12 blocks or so)
   * *slow* (next 100 blocks or so)
   * *minimum* for the lowest value bitcoind will currently accept (added in v23.05)
 
