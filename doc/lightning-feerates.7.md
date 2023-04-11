@@ -17,8 +17,11 @@ CLN will also smoothen feerate estimations from the backend.
 
 *style* is either of the two strings:
 
-* *perkw* - provide feerate in units of satoshis per 1000 weight.
-* *perkb* - provide feerate in units of satoshis per 1000 virtual bytes.
+* *perkw* - provide feerate in units of satoshis per 1000 weight (e.g. the minimum fee is usually `253perkw`)
+* *perkb* - provide feerate in units of satoshis per 1000 virtual bytes (eg. the minimum fee is usually `1000perkb`)
+
+Explorers often present fees in "sat/vB": 4 sat/vB is `4000perkb` or
+`1000perkw`.
 
 Bitcoin transactions have non-witness and witness bytes:
 
