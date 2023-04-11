@@ -100,5 +100,5 @@ $(CODE_DIRS:%=%/csv.py):
 
 $(CODE_DIRS:%=%/text.py):
 	@echo 'desc = "'`head -n1 $< | cut -c3-`'"' > $@.tmp
-	@(echo -n 'text = """'; sed 's,\\,\\\\,g' < $<; echo '"""') >> $@.tmp
+	@(printf '%s' 'text = """'; sed 's,\\,\\\\,g' < $<; echo '"""') >> $@.tmp
 	@if cmp $@ $@.tmp >/dev/null 2>&1; then rm $@.tmp; echo '$@ unchanged'; else mv $@.tmp $@; fi
