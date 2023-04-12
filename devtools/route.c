@@ -5,6 +5,7 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/route.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
 #include <devtools/clean_topo.h>
 #include <inttypes.h>
@@ -69,6 +70,8 @@ int main(int argc, char *argv[])
 	struct node_id dstid;
 	bool clean_topology = false;
 	size_t num_channel_updates_rejected;
+
+	common_setup(argv[0]);
 
 	opt_register_noarg("--clean-topology", opt_set_bool, &clean_topology,
 			   "Clean up topology before run");

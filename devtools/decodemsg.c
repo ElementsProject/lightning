@@ -2,6 +2,7 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
+#include <common/setup.h>
 #include <unistd.h>
 #include <wire/onion_printgen.h>
 #include <wire/peer_printgen.h>
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
 	bool (*printwire)(const u8 *msg) = printpeer_wire_message;
 	bool ok = true;
 
+	common_setup(argv[0]);
 	setup_locale();
 
 	opt_register_noarg("--onion", opt_set_onionprint, &printwire,
