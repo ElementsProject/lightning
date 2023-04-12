@@ -2928,6 +2928,7 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 		d->routehints = NULL;
 		d->base = 0;
 		d->offset = 0;
+		d->destination_reachable = false;
 		return d;
 	}
 	return d;
