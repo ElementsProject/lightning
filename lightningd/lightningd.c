@@ -827,7 +827,7 @@ static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
 	int wstatus;
 
 	/* Reap the plugins, since we otherwise ignore them. */
-	while ((childpid = waitpid(-1, &wstatus, WNOHANG)) != 0) {
+	while ((childpid = waitpid(-1, &wstatus, WNOHANG)) > 0) {
 		maybe_subd_child(ld, childpid, wstatus);
 	}
 
