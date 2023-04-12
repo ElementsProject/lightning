@@ -490,7 +490,8 @@ void *db_col_arr_(const tal_t *ctx, struct db_stmt *stmt, const char *colname,
 			 caller, colname, col, sourcelen, label, bytes);
 
 	p = tal_arr_label(ctx, char, sourcelen, label);
-	memcpy(p, db_column_blob(stmt, col), sourcelen);
+	if (sourcelen != 0)
+		memcpy(p, db_column_blob(stmt, col), sourcelen);
 	return p;
 }
 
