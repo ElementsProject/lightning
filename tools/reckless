@@ -43,7 +43,7 @@ class InstInfo:
         self.commit = None
 
     def __repr__(self):
-        return (f'InstInfo({self.name}, {self.repo}, {self.git_url}'
+        return (f'InstInfo({self.name}, {self.repo}, {self.git_url}, '
                 f'{self.entry}, {self.deps})')
 
     def get_inst_details(self):
@@ -53,7 +53,8 @@ class InstInfo:
         """
         if "api.github.com" in self.git_url:
             # This lets us redirect to handle blackbox testing
-            redir_addr = API_GITHUB_COM + self.git_url.split("api.github.com")[-1]
+            redir_addr = (API_GITHUB_COM +
+                          self.git_url.split("api.github.com")[-1])
             r = urlopen(redir_addr, timeout=5)
         else:
             r = urlopen(self.git_url, timeout=5)
@@ -104,6 +105,7 @@ def create_dir(r: int, directory: PosixPath) -> bool:
         print(f'created directory {directory}')
         assert directory.exists()
         return True
+    return False
 
 
 def remove_dir(target: str) -> bool:
@@ -148,7 +150,8 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            logging.debug(f'could not create the parent directory {parent_path}')
+            logging.debug('could not create the parent directory ' +
+                          parent_path)
             raise FileNotFoundError('invalid parent directory')
 
     def editConfigFile(self, addline: str, removeline: str):
@@ -287,7 +290,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
     plugins_cont = api_url
     r = urlopen(plugins_cont, timeout=5)
     if r.status != 200:
-        print("Plugin repository unavailable")
+        print(f"Plugin repository {api_url} unavailable")
         return False
     # Repo is for this plugin
     if repo_name == name:
@@ -316,7 +319,8 @@ def _search_repo(name: str, url: str) -> InstInfo:
                     MyPlugin.repo = MyPlugin.repo.split('/tree/')[0]
                     logging.debug(f'repo using commit: {MyPlugin.commit}')
             if not MyPlugin.get_inst_details():
-                logging.debug(f"Found plugin in {url}, but missing install details")
+                logging.debug((f'Found plugin in {url}, but missing install '
+                              'details'))
                 return False
             return MyPlugin
     return False
@@ -399,7 +403,7 @@ def _install_plugin(src: InstInfo) -> bool:
             logging.debug(pip.stdout.read())
             return False
     test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=str(plugin_path),
-                 stdout=PIPE, stderr=PIPE, universal_newlines=True)
+                 stdout=PIPE, stderr=PIPE, text=True)
     test_log = []
     with test.stderr:
         for line in test.stderr:
@@ -526,7 +530,8 @@ def enable(plugin_name: str):
             print(f'reckless: {inst.name} failed to start!')
             raise err
     except RPCError:
-        logging.debug('lightningd rpc unavailable. Skipping dynamic activation.')
+        logging.debug(('lightningd rpc unavailable. '
+                       'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
     print(f'{plugin_name} enabled')
 
@@ -550,7 +555,8 @@ def disable(plugin_name: str):
             print('lightning-cli plugin stop failed')
             raise err
     except RPCError:
-        logging.debug('lightningd rpc unavailable. Skipping dynamic deactivation.')
+        logging.debug(('lightningd rpc unavailable. '
+                       'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
     print(f'{plugin_name} disabled')
 
@@ -674,10 +680,12 @@ if __name__ == '__main__':
                         type=str,
                         default=None)
     parser.add_argument('-r', '--regtest', action='store_true')
-    parser.add_argument('--network', help="specify a network to use (default: bitcoin)",
+    parser.add_argument('--network',
+                        help="specify a network to use (default: bitcoin)",
                         type=str)
     parser.add_argument('-v', '--verbose', action="store_const",
-                        dest="loglevel", const=logging.DEBUG, default=logging.WARNING)
+                        dest="loglevel", const=logging.DEBUG,
+                        default=logging.WARNING)
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
                                  required=True)
 
@@ -737,7 +745,7 @@ if __name__ == '__main__':
     LIGHTNING_DIR = Path(args.lightning)
     # This env variable is set under CI testing
     LIGHTNING_CLI_CALL = [os.environ.get('LIGHTNING_CLI')]
-    if LIGHTNING_CLI_CALL is None:
+    if LIGHTNING_CLI_CALL == [None]:
         LIGHTNING_CLI_CALL = ['lightning-cli']
     if NETWORK != 'bitcoin':
         LIGHTNING_CLI_CALL.append(f'--network={NETWORK}')
