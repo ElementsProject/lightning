@@ -1435,6 +1435,10 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
     l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l2_db_path, l2_db_path_bak)
+    # make snapshot of l2 moves accounting too!
+    l2_moves_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'moves.json')
+    l2_moves_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'moves.json.bak')
+    copyfile(l2_moves_path, l2_moves_path_bak)
     l2.start()
     sync_blockheight(bitcoind, [l2])
 
@@ -1450,6 +1454,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     l2.stop()
     l3.stop()
     copyfile(l2_db_path_bak, l2_db_path)
+    copyfile(l2_moves_path_bak, l2_moves_path)
 
     # start l2, now back a bit. force close channel with l3 while l3 is still offline
     l2.start()
