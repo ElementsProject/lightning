@@ -1611,7 +1611,8 @@ def test_feerates(node_factory):
 
     # Set ECONOMICAL/100 feerate for min and mutual_close
     l1.set_feerates((15000, 11000, 6250, 5000), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) >= len(types) + 2)
+    # Make sure it's digested the bcli plugin results.
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']['estimates']) == 4)
     feerates = l1.rpc.feerates('perkw')
     assert feerates['perkw']['unilateral_close'] == 11000
     assert feerates['perkw']['mutual_close'] == 5000
