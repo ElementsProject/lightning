@@ -243,4 +243,9 @@ ifneq ($(RUST),0)
 DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
 endif
 
+clean: plugins-clean
+plugins-clean:
+	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
+	$(RM) plugins/sql-schema_gen.h
+
 include plugins/test/Makefile
