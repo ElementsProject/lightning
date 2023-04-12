@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from subprocess import Popen, PIPE, TimeoutExpired
+from subprocess import Popen, PIPE, TimeoutExpired, run
 import sys
 import json
 import os
@@ -145,8 +145,8 @@ class InstInfo:
             tree = json.loads(r.read().decode())
         for g in entry_guesses(self.name):
             for f in tree:
-                if f['path'] == g:
-                    self.entry = g
+                if f['path'].lower() == g.lower():
+                    self.entry = f['path']
                     break
             if self.entry is not None:
                 break
@@ -327,6 +327,9 @@ class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
     def __init__(self, name: str):
         reck_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
+        reck_contents_lower = {}
+        for f in reck_contents:
+            reck_contents_lower.update({f.lower(): f})
 
         def match_name(name) -> str:
             for tier in range(0, 10):
@@ -344,16 +347,17 @@ class InferInstall():
             return name
 
         name = match_name(name)
-        if name in reck_contents:
-            self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
+        if name.lower() in reck_contents_lower.keys():
+            actual_name = reck_contents_lower[name.lower()]
+            self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
         else:
             raise Exception(f"Could not find a reckless directory for {name}")
-        plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
-        for guess in entry_guesses(name):
+        plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
+        for guess in entry_guesses(actual_name):
             for content in plug_dir.iterdir():
                 if content.name == guess:
                     self.entry = str(content)
-                    self.name = guess
+                    self.name = actual_name
                     return
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
@@ -416,8 +420,8 @@ def _search_repo(name: str, url: str) -> Union[InstInfo, None]:
         print(f"Plugin repository {api_url} unavailable")
         return None
     # Repo is for this plugin
-    if repo_name == name:
-        MyPlugin = InstInfo(name,
+    if repo_name.lower() == name.lower():
+        MyPlugin = InstInfo(repo_name,
                             f'https://github.com/{repo_user}/{repo_name}',
                             api_url)
         if not MyPlugin.get_inst_details():
@@ -425,17 +429,17 @@ def _search_repo(name: str, url: str) -> Union[InstInfo, None]:
         return MyPlugin
     # Repo contains multiple plugins?
     for x in json.loads(r.read().decode()):
-        if x["name"] == name:
+        if x["name"].lower() == name.lower():
             # Look for the rest of the install details
             # These are in lightningd/plugins directly
             if 'lightningd/plugins/' in x['html_url']:
-                MyPlugin = InstInfo(name,
+                MyPlugin = InstInfo(x['name'],
                                     'https://github.com/lightningd/plugins',
                                     x['git_url'])
                 MyPlugin.subdir = x['name']
             # submodules from another github repo
             else:
-                MyPlugin = InstInfo(name, x['html_url'], x['git_url'])
+                MyPlugin = InstInfo(x['name'], x['html_url'], x['git_url'])
                 # Submodule URLs are appended with /tree/<commit hash>
                 if MyPlugin.repo.split('/')[-2] == 'tree':
                     MyPlugin.commit = MyPlugin.repo.split('/')[-1]
@@ -519,25 +523,24 @@ def _install_plugin(src: InstInfo) -> bool:
             if pip.stdout:
                 logging.debug(pip.stdout.read())
             return False
-    test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=str(plugin_path),
-                 stdout=PIPE, stderr=PIPE, text=True)
     test_log = []
-    with test.stderr:
+    try:
+        test = run([Path(plugin_path).joinpath(src.entry)],
+                   cwd=str(plugin_path), stdout=PIPE, stderr=PIPE,
+                   text=True, timeout=3)
         for line in test.stderr:
             test_log.append(line.strip('\n'))
-    try:
-        test.wait(timeout=3)
+        returncode = test.returncode
     except TimeoutExpired:
-        # Plugin assumed to be okay if still running (despite no lightningd.)
-        test.terminate()
-    # FIXME: add noexec test/warning. Maybe try chmod entrypoint.
-    else:
-        if test.returncode != 0:
-            logging.debug("plugin testing error:")
-            for line in test_log:
-                logging.debug(f'  {line}')
-            print('plugin testing failed')
-            return False
+        # If the plugin is still running, it's assumed to be okay.
+        returncode = 0
+        pass
+    if returncode != 0:
+        logging.debug("plugin testing error:")
+        for line in test_log:
+            logging.debug(f'  {line}')
+        print('plugin testing failed')
+        return False
 
     # Find this cute little plugin a forever home
     shutil.copytree(str(plugin_path), inst_path)
@@ -551,13 +554,22 @@ def install(plugin_name: str):
     assert isinstance(plugin_name, str)
     src = search(plugin_name)
     if src:
-        logging.debug(f'Retrieving {plugin_name} from {src.repo}')
+        logging.debug(f'Retrieving {src.name} from {src.repo}')
         if not _install_plugin(src):
             print('installation aborted')
             sys.exit(1)
-        inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name / src.entry
-        RECKLESS_CONFIG.enable_plugin(inst_path)
-        enable(plugin_name)
+
+        # Match case of the containing directory
+        for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
+            if dirname.lower() == src.name.lower():
+                inst_path = Path(RECKLESS_CONFIG.reckless_dir)
+                inst_path = inst_path / dirname / src.entry
+                RECKLESS_CONFIG.enable_plugin(inst_path)
+                enable(src.name)
+                return
+        print(('dynamic activation failed: '
+               f'{src.name} not found in reckless directory'))
+        sys.exit(1)
 
 
 def uninstall(plugin_name: str):
@@ -565,10 +577,13 @@ def uninstall(plugin_name: str):
     assert isinstance(plugin_name, str)
     logging.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
-    plugin_dir = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
-    logging.debug(f'looking for {plugin_dir}')
-    if remove_dir(plugin_dir):
-        print(f"{plugin_name} uninstalled successfully.")
+    inst = InferInstall(plugin_name)
+    if not Path(inst.entry).exists():
+        print(f'cannot find installed plugin at expected path {inst.entry}')
+        sys.exit(1)
+    logging.debug(f'looking for {str(Path(inst.entry).parent)}')
+    if remove_dir(str(Path(inst.entry).parent)):
+        print(f"{inst.name} uninstalled successfully.")
 
 
 def search(plugin_name: str) -> InstInfo:
@@ -655,7 +670,7 @@ def enable(plugin_name: str):
         logging.debug(('lightningd rpc unavailable. '
                        'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
-    print(f'{plugin_name} enabled')
+    print(f'{inst.name} enabled')
 
 
 def disable(plugin_name: str):
@@ -680,7 +695,7 @@ def disable(plugin_name: str):
         logging.debug(('lightningd rpc unavailable. '
                        'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
-    print(f'{plugin_name} disabled')
+    print(f'{inst.name} disabled')
 
 
 def load_config(reckless_dir: Union[str, None] = None,

@@ -162,7 +162,8 @@ def test_install(node_factory):
 def test_disable_enable(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)
-    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"],
+    # Test case-insensitive search as well
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testPlugPass"],
                  dir=n.lightning_dir)
     assert r.returncode == 0
     assert 'dependencies installed successfully' in r.stdout
@@ -172,7 +173,7 @@ def test_disable_enable(node_factory):
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
-    r = reckless([f"--network={NETWORK}", "-v", "disable", "testplugpass"],
+    r = reckless([f"--network={NETWORK}", "-v", "disable", "testPlugPass"],
                  dir=n.lightning_dir)
     assert r.returncode == 0
     n.start()
@@ -180,7 +181,7 @@ def test_disable_enable(node_factory):
     r = reckless([f"--network={NETWORK}", "-v", "enable", "testplugpass.py"],
                  dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'testplugpass.py enabled' in r.stdout
+    assert 'testplugpass enabled' in r.stdout
     test_plugin = {'name': str(plugin_path / 'testplugpass.py'),
                    'active': True, 'dynamic': True}
     time.sleep(1)
