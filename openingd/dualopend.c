@@ -593,35 +593,6 @@ static bool is_openers(const struct wally_map *unknowns)
 	return serial_id % 2 == TX_INITIATOR;
 }
 
-static size_t psbt_input_weight(struct wally_psbt *psbt,
-				size_t in)
-{
-	size_t weight;
-	const struct wally_map_item *redeem_script;
-
-	redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
-
-	/* txid + txout + sequence */
-	weight = (32 + 4 + 4) * 4;
-	if (redeem_script) {
-		weight +=
-			(redeem_script->value_len +
-				(varint_t) varint_size(redeem_script->value_len)) * 4;
-	} else {
-		/* zero scriptSig length */
-		weight += (varint_t) varint_size(0) * 4;
-	}
-
-	return weight;
-}
-
-static size_t psbt_output_weight(struct wally_psbt *psbt,
-				 size_t outnum)
-{
-	return (8 + psbt->outputs[outnum].script_len +
-		varint_size(psbt->outputs[outnum].script_len)) * 4;
-}
-
 static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u32 *funding_txout)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
