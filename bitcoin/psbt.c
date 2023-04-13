@@ -329,6 +329,14 @@ void psbt_input_set_utxo(struct wally_psbt *psbt, size_t in,
 	assert(wally_err == WALLY_OK);
 }
 
+void psbt_input_set_outpoint(struct wally_psbt *psbt, size_t in,
+			     struct bitcoin_outpoint outpoint)
+{
+	psbt->inputs[in].index = outpoint.n;
+	memcpy(psbt->inputs[in].txhash, &outpoint.txid,
+	       sizeof(struct bitcoin_txid));
+}
+
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript)
 {
 	int wally_err;
@@ -718,6 +726,12 @@ const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 		abort();
 	}
 	return bytes;
+}
+
+bool validate_psbt(const struct wally_psbt *psbt)
+{
+	size_t len;
+	return wally_psbt_get_length(psbt, 0, &len) == WALLY_OK;
 }
 
 struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,

@@ -99,7 +99,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define COMPULSORY_FEATURE(x)	((x) & 0xFFFFFFFE)
 #define OPTIONAL_FEATURE(x)	((x) | 1)
 
-/* BOLT #9:
+/* BOLT-a526652801a541ed33b34d000a3b686a857c811f #9:
  *
  * | Bits  | Name                              |...
  * | 0/1   | `option_data_loss_protect`        |... IN ...

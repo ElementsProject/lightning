@@ -387,6 +387,9 @@ bool channel_state_normalish(const struct channel *channel);
 /* Is the channel in AWAITING_*? */
 bool channel_state_awaitish(const struct channel *channel);
 
+/* Is the channel in one of the CLOSING or CLOSED like states? */
+bool channel_state_closish(enum channel_state channel_state);
+
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
 /* Channel has failed, but can try again. */

@@ -211,6 +211,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->close_commands);
 	list_head_init(&ld->ping_commands);
 	list_head_init(&ld->disconnect_commands);
+	list_head_init(&ld->splice_commands);
 	list_head_init(&ld->waitblockheight_commands);
 
 	/*~ Tal also explicitly supports arrays: it stores the number of
@@ -863,6 +864,7 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS),
 		OPTIONAL_FEATURE(OPT_QUIESCE),
 		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
+		OPTIONAL_FEATURE(OPT_SPLICE),
 #endif
 	};
 

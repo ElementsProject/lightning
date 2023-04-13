@@ -13,6 +13,7 @@ CHANNELD_HEADERS :=			\
 CHANNELD_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c			\
+	channeld/splice.c			\
 	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
@@ -53,6 +54,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/gossip_store.o			\
 	common/hmac.o				\
+	common/interactivetx.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
 	common/htlc_tx.o			\
@@ -73,6 +75,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/psbt_keypath.o		\
 	common/psbt_open.o			\
+	common/psbt_internal.o			\
 	common/private_channel_announcement.o	\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\

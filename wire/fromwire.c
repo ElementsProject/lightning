@@ -3,6 +3,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <channeld/inflight.h>
 #include <common/utils.h>
 #include <wire/wire.h>
 
@@ -259,4 +260,9 @@ void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed)
 {
 	fromwire(cursor, max, seed, sizeof(*seed));
+}
+
+void fromwire_inflight(const u8 **cursor, size_t *max, struct inflight *inflight)
+{
+	fromwire(cursor, max, inflight, sizeof(*inflight));
 }

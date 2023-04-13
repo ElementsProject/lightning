@@ -1996,6 +1996,8 @@ static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 
 	channel->next_index[LOCAL]++;
 
+	/* DTODO: Add inflight_commit_sigs to the DB */
+
 	/* Update channel->last_sig and channel->last_tx before saving to db */
 	channel_set_last_tx(channel, tx, commit_sig);
 
@@ -2009,7 +2011,7 @@ static bool peer_save_commitsig_sent(struct channel *channel, u64 commitnum)
 	if (commitnum != channel->next_index[REMOTE]) {
 		channel_internal_error(channel,
 			   "channel_sent_commitsig: expected commitnum %"PRIu64
-			   " got %"PRIu64,
+			   " got %"PRIu64" (while sending commitsig)",
 			   channel->next_index[REMOTE], commitnum);
 		return false;
 	}
@@ -2239,6 +2241,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx;
+	struct commitsig **inflight_commit_sigs;
+	struct channel_inflight *inflight;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 
@@ -2252,7 +2256,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 					    &fulfilled,
 					    &failed,
 					    &changed,
-					    &tx)
+					    &tx,
+					    &inflight_commit_sigs)
 	    || !fee_states_valid(fee_states, channel->opener)
 	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel,
@@ -2283,11 +2288,25 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64
-		  ": feerate %u, blockheight: %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
+		  ": feerate %u, blockheight: %u, %zu added, %zu fulfilled, "
+		  "%zu failed, %zu changed. %zu splice commitments.",
 		  commitnum, get_feerate(fee_states, channel->opener, LOCAL),
 		  get_blockheight(blockheight_states, channel->opener, LOCAL),
 		  tal_count(added), tal_count(fulfilled),
-		  tal_count(failed), tal_count(changed));
+		  tal_count(failed), tal_count(changed),
+		  tal_count(inflight_commit_sigs));
+
+	i = 0;
+	list_for_each(&channel->inflights, inflight, list) {
+		i++;
+	}
+	if (i != tal_count(inflight_commit_sigs)) {
+		channel_internal_error(channel, "Got commitsig with incorrect "
+				       "number of splice commitments. "
+				       "lightningd expects %zu but got %zu.",
+				       i, tal_count(inflight_commit_sigs));
+		return;
+	}
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++) {
@@ -2334,8 +2353,24 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	tal_free(channel->last_htlc_sigs);
 	channel->last_htlc_sigs = tal_steal(channel, htlc_sigs);
+	/* Delete all HTLCs and add last_htlc_sigs back in */
 	wallet_htlc_sigs_save(ld->wallet, channel->dbid,
 			      channel->last_htlc_sigs);
+	/* Now append htlc sigs for inflights */
+	i = 0;
+	list_for_each(&channel->inflights, inflight, list) {
+		struct commitsig *commit = inflight_commit_sigs[i];
+
+		inflight->last_tx = tal_steal(inflight, commit->tx);
+		inflight->last_tx->chainparams = chainparams;
+		inflight->last_sig = commit->commit_signature;
+		wallet_inflight_save(ld->wallet, inflight);
+
+		wallet_htlc_sigs_add(ld->wallet, channel->dbid,
+				     inflight->funding->outpoint,
+				     commit->htlc_signatures);
+		i++;
+	}
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channeld_got_commitsig_reply(msg);

@@ -2157,6 +2157,7 @@ def test_list_features_only(node_factory):
         expected += ['option_channel_type/odd']
         expected += ['option_scid_alias/odd']
         expected += ['option_zeroconf/odd']
+        expected += ['option_splice/odd']
         expected += ['supports_open_accept_channel_type']
     else:
         expected += ['option_route_blinding/odd']

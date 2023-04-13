@@ -34,6 +34,9 @@ struct channel {
 	/* satoshis in from commitment tx */
 	struct amount_sat funding_sats;
 
+	/* Our portion of funding_sats at start */
+	struct amount_msat starting_local_msats;
+
 	/* confirmations needed for locking funding */
 	u32 minimum_depth;
 
@@ -134,6 +137,18 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      enum side side,
 				      struct wally_tx_output *direct_outputs[NUM_SIDES],
 				      char** err_reason);
+
+/* channel_update_funding: Changes the funding for the channel and updates the
+ * balance by the difference between `old_local_funding_msatoshi` and
+ * `new_local_funding_msatoshi`.
+ *
+ * Returns NULL on success or an error on failure.
+ */
+char *channel_update_funding(struct channel *channel,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
+			    struct amount_msat old_local_funding_msats,
+			    struct amount_sat new_local_funding_sats);
 
 /**
  * channel_feerate: Get fee rate for this side of channel.

@@ -35,6 +35,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->cid = *cid;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
+	channel->starting_local_msats = local_msatoshi;
 	channel->minimum_depth = minimum_depth;
 	channel->lease_expiry = lease_expiry;
 	if (!amount_sat_sub_msat(&remote_msatoshi,
@@ -144,6 +145,108 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	}
 
 	return init_tx;
+}
+
+char *channel_update_funding(struct channel *channel,
+			     const struct bitcoin_outpoint *funding,
+			     struct amount_sat funding_sats,
+			     struct amount_msat old_local_funding_msats,
+			     struct amount_sat new_local_funding_sats)
+{
+	struct amount_msat new_local_funding_msats;
+	struct amount_msat old_remote_funding_msats, new_remote_funding_msats;
+	struct amount_msat local_change, remote_change;
+	bool local_negative, remote_negative;
+	bool res;
+
+	if (!amount_sat_to_msat(&new_local_funding_msats,
+				new_local_funding_sats))
+		return tal_fmt(tmpctx, "Unable to convert new local funding "
+			       "sats to msats");
+
+	if (!amount_sat_sub_msat(&old_remote_funding_msats, channel->funding_sats,
+				 channel->starting_local_msats))
+		return tal_fmt(tmpctx, "Unable to calculate starting_remote_msats");
+
+	if (!amount_sat_sub_msat(&new_remote_funding_msats, funding_sats,
+				 new_local_funding_msats))
+		return tal_fmt(tmpctx, "Unable to calculate new_remote_msats");
+
+	channel->funding = *funding;
+	channel->funding_sats = funding_sats;
+	channel->starting_local_msats = new_local_funding_msats;
+
+	local_negative = amount_msat_greater(old_local_funding_msats,
+					     new_local_funding_msats);
+
+	if (local_negative)
+		res = amount_msat_sub(&local_change, old_local_funding_msats,
+				      new_local_funding_msats);
+	else
+		res = amount_msat_sub(&local_change, new_local_funding_msats,
+				      old_local_funding_msats);
+	if (!res)
+		return tal_fmt(tmpctx, "Unable to calculate local funding change");
+
+	if (local_negative) {
+		if (!amount_msat_sub(&channel->view[LOCAL].owed[LOCAL],
+				     channel->view[LOCAL].owed[LOCAL],
+				     local_change))
+			return tal_fmt(tmpctx, "Unable to change local funding");
+		if (!amount_msat_sub(&channel->view[REMOTE].owed[LOCAL],
+				     channel->view[REMOTE].owed[LOCAL],
+				     local_change))
+			return tal_fmt(tmpctx, "Unable to change [remote view] "
+				       "local funding");
+	}
+	else {
+		if (!amount_msat_add(&channel->view[LOCAL].owed[LOCAL],
+				     channel->view[LOCAL].owed[LOCAL],
+				     local_change))
+			return tal_fmt(tmpctx, "Unable to change local funding");
+		if (!amount_msat_add(&channel->view[REMOTE].owed[LOCAL],
+				     channel->view[REMOTE].owed[LOCAL],
+				     local_change))
+			return tal_fmt(tmpctx, "Unable to change [remote view] "
+				       "local funding");
+	}
+
+	remote_negative = amount_msat_greater(old_remote_funding_msats,
+					      new_remote_funding_msats);
+
+	if (remote_negative)
+		res = amount_msat_sub(&remote_change, old_remote_funding_msats,
+				      new_remote_funding_msats);
+	else
+		res = amount_msat_sub(&remote_change, new_remote_funding_msats,
+				      old_remote_funding_msats);
+	if (!res)
+		return tal_fmt(tmpctx, "Unable to calculate remote funding change");
+
+	if (remote_negative) {
+		if (!amount_msat_sub(&channel->view[LOCAL].owed[REMOTE],
+				     channel->view[LOCAL].owed[REMOTE],
+				     remote_change))
+			return tal_fmt(tmpctx, "Unable to change remote funding");
+		if (!amount_msat_sub(&channel->view[REMOTE].owed[REMOTE],
+				     channel->view[REMOTE].owed[REMOTE],
+				     remote_change))
+			return tal_fmt(tmpctx, "Unable to change [remote view] "
+				       "remote funding");
+	}
+	else {
+		if (!amount_msat_add(&channel->view[LOCAL].owed[REMOTE],
+				     channel->view[LOCAL].owed[REMOTE],
+				     remote_change))
+			return tal_fmt(tmpctx, "Unable to change remote funding");
+		if (!amount_msat_add(&channel->view[REMOTE].owed[REMOTE],
+				     channel->view[REMOTE].owed[REMOTE],
+				     remote_change))
+			return tal_fmt(tmpctx, "Unable to change [remote view] "
+				       "remote funding");
+	}
+
+	return NULL;
 }
 
 u32 channel_feerate(const struct channel *channel, enum side side)

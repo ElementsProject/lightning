@@ -11,6 +11,7 @@
 struct ripemd160;
 struct sha256;
 struct siphash_seed;
+struct inflight;
 
 /* Makes generate-wire.py work */
 typedef char wirestring;
@@ -44,6 +45,8 @@ void towire_utf8_array(u8 **pptr, const char *arr, size_t num);
 void towire_wirestring(u8 **pptr, const char *str);
 void towire_siphash_seed(u8 **cursor, const struct siphash_seed *seed);
 
+void towire_inflight(u8 **cursor, const struct inflight *inflight);
+
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
 u8 fromwire_u8(const u8 **cursor, size_t *max);
 u16 fromwire_u16(const u8 **cursor, size_t *max);
@@ -70,6 +73,8 @@ u8 *fromwire_tal_arrn(const tal_t *ctx,
 char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max);
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed);
+
+void fromwire_inflight(const u8 **cursor, size_t *max, struct inflight *inflight);
 
 #if !EXPERIMENTAL_FEATURES
 /* Stubs, as this subtype is only defined when EXPERIMENTAL_FEATURES */

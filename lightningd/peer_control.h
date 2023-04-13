@@ -111,7 +111,14 @@ void resend_closing_transactions(struct lightningd *ld);
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
+void update_channel_from_inflight(struct lightningd *ld,
+				  struct channel *channel,
+				  const struct channel_inflight *inflight);
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
+void channel_watch_inflight(struct lightningd *ld,
+			    struct channel *channel,
+			    struct channel_inflight *inflight);
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 

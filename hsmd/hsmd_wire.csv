@@ -249,7 +249,7 @@ msgdata,hsmd_sign_mutual_close_tx,tx,bitcoin_tx,
 msgdata,hsmd_sign_mutual_close_tx,remote_funding_key,pubkey,
 
 # channeld asks HSM to sign splice tx.
-msgtype,hsmd_sign_splice_tx,28
+msgtype,hsmd_sign_splice_tx,29
 msgdata,hsmd_sign_splice_tx,tx,bitcoin_tx,
 msgdata,hsmd_sign_splice_tx,remote_funding_key,pubkey,
 msgdata,hsmd_sign_splice_tx,input_index,u32,

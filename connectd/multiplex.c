@@ -389,9 +389,10 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_YOUR_PEER_STORAGE:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
-#endif
+	case WIRE_SPLICE:
+	case WIRE_SPLICE_ACK:
+	case WIRE_SPLICE_LOCKED:
 		return false;
 
 	/* These are time-sensitive, and so send without delay. */

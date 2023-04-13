@@ -91,9 +91,10 @@ static bool is_msg_gossip_broadcast(const u8 *cursor)
 	case WIRE_YOUR_PEER_STORAGE:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
-#endif
+	case WIRE_SPLICE:
+	case WIRE_SPLICE_ACK:
+	case WIRE_SPLICE_LOCKED:
 		break;
 	}
 	return false;

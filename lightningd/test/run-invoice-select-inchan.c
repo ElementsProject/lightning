@@ -678,6 +678,12 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				 uint64_t **num UNNEEDED)
 { fprintf(stderr, "param_u64 called!\n"); abort(); }
+/* Generated stub for channel_state_normalish */
+bool channel_state_normalish(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_state_normalish called!\n"); abort(); }
+/* Generated stub for channel_state_awaitish */
+bool channel_state_awaitish(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_state_awaitish called!\n"); abort(); }
 /* Generated stub for peer_any_active_channel */
 struct channel *peer_any_active_channel(struct peer *peer UNNEEDED, bool *others UNNEEDED)
 { fprintf(stderr, "peer_any_active_channel called!\n"); abort(); }

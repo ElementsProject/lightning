@@ -1207,6 +1207,32 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_abort", payload)
 
+    def splice_init(self, chan_id, amount, initialpsbt=None, feerate_per_kw=None):
+        """ Initiate a splice """
+        payload = {
+            "channel_id": chan_id,
+            "amount": amount,
+            "initialpsbt": initialpsbt,
+            "feerate_per_kw": feerate_per_kw,
+        }
+        return self.call("splice_init", payload)
+
+    def splice_update(self, chan_id, psbt):
+        """ Update a splice """
+        payload = {
+            "channel_id": chan_id,
+            "psbt": psbt
+        }
+        return self.call("splice_update", payload)
+
+    def splice_signed(self, chan_id, psbt):
+        """ Initiate a splice """
+        payload = {
+            "channel_id": chan_id,
+            "psbt": psbt
+        }
+        return self.call("splice_signed", payload)
+
     def paystatus(self, bolt11=None):
         """Detail status of attempts to pay {bolt11} or any."""
         payload = {

@@ -4,6 +4,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <channeld/inflight.h>
 #include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)
@@ -144,4 +145,9 @@ void towire_wirestring(u8 **pptr, const char *str)
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 {
 	towire(pptr, seed, sizeof(*seed));
+}
+
+void towire_inflight(u8 **pptr, const struct inflight *inflight)
+{
+	towire(pptr, inflight, sizeof(*inflight));
 }
