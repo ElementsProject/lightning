@@ -572,6 +572,9 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
  */
 u64 wallet_get_channel_dbid(struct wallet *wallet);
 
+void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
+				      struct bitcoin_outpoint confirmed_outpoint);
+
 /**
  * wallet_channel_save -- Upsert the channel into the database
  *
@@ -599,6 +602,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight);
  */
 void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight);
+
+void wallet_promote_splice_candidate(struct wallet *w,
+				     struct channel *chan);
 
 /**
  * Remove all the inflights from a channel. Also cleans up
@@ -1211,10 +1217,19 @@ wallet_payments_by_invoice_request(const tal_t *ctx,
 				   const struct sha256 *local_invreq_id);
 
 /**
- * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel
+ * wallet_htlc_sigs_save - Delete all HTLC sigs (including inflights) for the
+ * channel and store `htlc_sigs` as the new values.
  */
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 			   const struct bitcoin_signature *htlc_sigs);
+
+/**
+ * wallet_htlc_sigs_add - Appends `htlc_sigs` for the given inflight splice.
+ * `inflight_id` is the funding txid for the given splice.
+ */
+void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
+			  struct bitcoin_outpoint inflight_outpoint,
+			  const struct bitcoin_signature *htlc_sigs);
 
 /**
  * wallet_sanity_check - Check that the wallet is setup for this node_id and chain

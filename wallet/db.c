@@ -949,6 +949,9 @@ static struct migration dbmigrations[] = {
     {NULL, migrate_invalid_last_tx_psbts},
     {SQL("ALTER TABLE channels ADD channel_type BLOB DEFAULT NULL;"), NULL},
     {NULL, migrate_fill_in_channel_type},
+    /* Splicing requires us to store HTLC sigs for inflight splices and allows us to discard old sigs after splice confirmation. */
+    {SQL("ALTER TABLE htlc_sigs ADD inflight_tx_id BLOB"), NULL},
+    {SQL("ALTER TABLE htlc_sigs ADD inflight_tx_outnum INTEGER"), NULL},
 };
 
 /**
