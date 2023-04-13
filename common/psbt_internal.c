@@ -161,3 +161,32 @@ psbt_to_witnesses(const tal_t *ctx,
 
 	return witnesses;
 }
+
+size_t psbt_input_weight(struct wally_psbt *psbt,
+				size_t in)
+{
+	size_t weight;
+	const struct wally_map_item *redeem_script;
+
+	redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
+
+	/* txid + txout + sequence */
+	weight = (32 + 4 + 4) * 4;
+	if (redeem_script) {
+		weight +=
+			(redeem_script->value_len +
+				(varint_t) varint_size(redeem_script->value_len)) * 4;
+	} else {
+		/* zero scriptSig length */
+		weight += (varint_t) varint_size(0) * 4;
+	}
+
+	return weight;
+}
+
+size_t psbt_output_weight(struct wally_psbt *psbt,
+				 size_t outnum)
+{
+	return (8 + psbt->outputs[outnum].script_len +
+		varint_size(psbt->outputs[outnum].script_len)) * 4;
+}
