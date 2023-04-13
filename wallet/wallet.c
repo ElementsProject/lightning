@@ -982,7 +982,8 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
 	struct bitcoin_signature *htlc_sigs = tal_arr(ctx, struct bitcoin_signature, 0);
 
 	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT signature FROM htlc_sigs WHERE channelid = ?"));
+	    w->db, SQL("SELECT signature FROM htlc_sigs WHERE channelid = ?"
+	    	       " AND inflight_tx_id is NULL"));
 	db_bind_u64(stmt, channelid);
 	db_query_prepared(stmt);
 
@@ -1160,7 +1161,10 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	db_bind_amount_sat(stmt, &inflight->funding->our_funds);
 	db_bind_psbt(stmt, inflight->funding_psbt);
 	db_bind_int(stmt, inflight->remote_tx_sigs ? 1 : 0);
-	db_bind_psbt(stmt, inflight->last_tx->psbt);
+	if (inflight->last_tx)
+		db_bind_psbt(stmt, inflight->last_tx->psbt);
+	else
+		db_bind_null(stmt);
 	db_bind_signature(stmt, &inflight->last_sig.s);
 
 	if (inflight->lease_expiry != 0) {
@@ -1192,18 +1196,24 @@ void wallet_inflight_save(struct wallet *w,
 	struct db_stmt *stmt;
 	/* The *only* thing you can update on an
 	 * inflight is the funding PSBT (to add sigs)
-	 * ((and maybe later the last_tx/last_sig if this is for
-	 * a splice */
+	 * and the last_tx/last_sig if this is for a splice */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?" // 0
 				 ", funding_tx_remote_sigs_received=?" // 1
+				 ", last_tx=?" // 2
+				 ", last_sig=?" // 3
 				 " WHERE"
-				 "  channel_id=?" // 2
-				 " AND funding_tx_id=?" // 3
-				 " AND funding_tx_outnum=?")); // 4
+				 "  channel_id=?" // 4
+				 " AND funding_tx_id=?" // 5
+				 " AND funding_tx_outnum=?")); // 6
 	db_bind_psbt(stmt, inflight->funding_psbt);
 	db_bind_int(stmt, inflight->remote_tx_sigs);
+	if (inflight->last_tx)
+		db_bind_psbt(stmt, inflight->last_tx->psbt);
+	else
+		db_bind_null(stmt);
+	db_bind_signature(stmt, &inflight->last_sig.s);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
@@ -2049,6 +2059,35 @@ void wallet_announcement_save(struct wallet *w, u64 id,
 	db_bind_signature(stmt, remote_ann_node_sig);
 	db_bind_signature(stmt, remote_ann_bitcoin_sig);
 	db_bind_u64(stmt, id);
+	db_exec_prepared_v2(take(stmt));
+}
+
+
+void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
+				      struct bitcoin_outpoint confirmed_outpoint)
+{
+	struct db_stmt *stmt;
+
+	/* A NULL inflight_tx_id means these htlc_sigs apply to the currently
+	 * active channel */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM htlc_sigs"
+					" WHERE channelid=?"
+					" AND (inflight_tx_id is NULL"
+					     " OR ("
+						 " inflight_tx_id!=?"
+						 " AND "
+						 " inflight_tx_outnum!=?"
+						 ")"
+					     ")"));
+	db_bind_u64(stmt, 0, chan->dbid);
+	db_bind_txid(stmt, 1, &confirmed_outpoint.txid);
+	db_bind_int(stmt, 2, confirmed_outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE htlc_sigs"
+					" SET inflight_tx_id=NULL"
+					" WHERE channelid=?"));
+	db_bind_u64(stmt, 0, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -3795,6 +3834,26 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 					 "signature) VALUES (?, ?)"));
 		db_bind_u64(stmt, channel_id);
 		db_bind_signature(stmt, &htlc_sigs[i].s);
+		db_exec_prepared_v2(take(stmt));
+	}
+}
+
+void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
+			  struct bitcoin_outpoint inflight_outpoint,
+			  const struct bitcoin_signature *htlc_sigs)
+{
+	struct db_stmt *stmt;
+
+	/* Now insert the new ones */
+	for (size_t i=0; i<tal_count(htlc_sigs); i++) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("INSERT INTO htlc_sigs (channelid,"
+					 " inflight_tx_id, inflight_tx_outnum,"
+					 " signature) VALUES (?, ?, ?)"));
+		db_bind_u64(stmt, 0, channel_id);
+		db_bind_txid(stmt, 1, &inflight_outpoint.txid);
+		db_bind_int(stmt, 2, inflight_outpoint.n);
+		db_bind_signature(stmt, 3, &htlc_sigs[i].s);
 		db_exec_prepared_v2(take(stmt));
 	}
 }
