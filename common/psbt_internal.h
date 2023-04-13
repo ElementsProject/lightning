@@ -33,4 +33,12 @@ psbt_to_witnesses(const tal_t *ctx,
 		  const struct wally_psbt *psbt,
 		  enum tx_role side_to_stack);
 
+/* psbt_input_weight - Calculate the tx weight for input index `in` */
+size_t psbt_input_weight(struct wally_psbt *psbt,
+                                size_t in);
+
+/* psbt_output_weight - Calculate the tx weight for output index `outnum` */
+size_t psbt_output_weight(struct wally_psbt *psbt,
+                          size_t outnum);
+
 #endif /* LIGHTNING_COMMON_PSBT_INTERNAL_H */
