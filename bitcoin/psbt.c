@@ -642,7 +642,7 @@ bool psbt_finalize(struct wally_psbt *psbt)
 		wally_psbt_input_set_final_witness(input, stack);
 	}
 
-	ok = (wally_psbt_finalize(psbt) == WALLY_OK);
+	ok = (wally_psbt_finalize(psbt, 0 /* flags */) == WALLY_OK);
 	tal_wally_end(psbt);
 
 	return ok && psbt_is_finalized(psbt);
