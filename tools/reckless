@@ -777,11 +777,13 @@ def add_source(src: str):
     if Path(maybe_path).exists():
         # FIXME: This should handle either a directory or a git repo
         if os.path.isdir(maybe_path):
-            print(f'Plugin source directory found: {maybe_path}')
+            print(f'local sources not yet supported: {src}')
     elif 'github.com' in src:
         my_file = Config(path=str(get_sources_file()),
                          default_text='https://github.com/lightningd/plugins')
         my_file.editConfigFile(src, None)
+    else:
+        print(f'failed to add source {src}')
 
 
 def remove_source(src: str):
