@@ -1716,7 +1716,8 @@ data. Each plugin must follow the below specification for `lightningd` to operat
 ### `getchaininfo`
 
 Called at startup, it's used to check the network `lightningd` is operating on and to
-get the sync status of the backend.
+get the sync status of the backend. Optionally, the plugins can use `last_height` to
+make sure that the Bitcoin backend is not behind core lightning.
 
 The plugin must respond to `getchaininfo` with the following fields:
     - `chain` (string), the network name as introduced in bip70

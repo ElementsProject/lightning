@@ -1759,7 +1759,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
     assert 'feerate_floor' in estimates
     assert [f['blocks'] for f in estimates['feerates']] == [2, 6, 12, 100]
 
-    resp = l1.rpc.call("getchaininfo")
+    resp = l1.rpc.call("getchaininfo", {"last_height": 0})
     assert resp["chain"] == chainparams['name']
     for field in ["headercount", "blockcount", "ibd"]:
         assert field in resp
