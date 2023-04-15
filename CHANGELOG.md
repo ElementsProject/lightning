@@ -4,6 +4,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.05rc1] - 2023-04-15
+
+### Added
+
+ - Protocol: blinded payments are now supported by default (not just with `--experimental-onion-messages`) ([#6138])
+ - Protocol: we now always double-check bitcoin addresses are correct (no memory errors!) before issuing them. ([#5708])
+ - JSON-RPC: PSBTv2 support for `fundchannel_complete`, `openchannel_update`, `reserveinputs`, `sendpsbt`, `signpsbt`, `withdraw` and `unreserveinputs` parameter `psbt`, `openchannel_init` and `openchannel_bump` parameter `initialpsbt`, `openchannel_signed` parameter `signed_psbt` and `utxopsbt` parameter `utxopsbt` ([#5898])
+ - Plugins: `commando-blacklist` new command to disable select runes. ([#6124])
+ - Plugins: `commando-listrunes` new command to show issued runes. ([#6124])
+ - JSON-RPC: `listclosedchannels` new command to show old, dead channels we previously had with peers. ([#5967])
+ - JSON-RPC: `close`, `fundchannel`, `fundpsbt`, `multifundchannel`, `multiwithdraw`, `txprepare`, `upgradewallet`, `withdraw` now allow "minimum" and NN"blocks" as `feerate` (`feerange` for `close`). ([#6120])
+ - JSON-RPC: `feerates` added `floor` field for current minimum feerate bitcoind will accept ([#6120])
+ - JSON-RPC: `feerates` `estimates` array shows fee estimates by blockcount from underlying plugin (usually *bcli*). ([#6120])
+ - Plugins: `estimatefees` can return explicit `fee_floor` and `feerates` by block number. ([#6120])
+ - JSON-RPC: `listfunds` now has a `channel_id` field. ([#6029])
+ - JSON-RPC: `listpeerchannels` now has `channel_type` field. ([#5967])
+ - JSON-RPC: `sql` now includes `listclosedchannels`. ([#5967])
+ - `pyln-client`: Improvements on the gossmap implementation ([#6012])
+ - `hsmtool`: `makerune` new command to make a master rune for a node. ([#6097])
+ - JSON-RPC: `setpsbtversion`: new command to aid debugging and compatibility ([#5898])
+
+
+### Changed
+
+ - `reckless`: Added support for node.js plugin installation ([#6158])
+ - `reckless`: Added support for networks beyond bitcoin and regtest ([#6110])
+ - JSON-RPC: elements network PSET now only supports PSETv2. ([#5898])
+ - JSON-RPC: `close`, `fundchannel`, `fundpsbt`, `multifundchannel`, `multiwithdraw`, `txprepare`, `upgradewallet`, `withdraw` `feerate` (`feerange` for `close`) value *slow* is now 100 block-estimate, not half of 100-block estimate. ([#6120])
+ - Protocol: spending unilateral close transactions now use dynamic fees based on deadlines (and RBF), instead of fixed fees. ([#6120])
+ - Protocol: Allow slight overpaying, even with MPP, as spec now recommends. ([#6138])
+ - `msggen`: The generated interfaces `cln-rpc` anc `cln-grpc` can now work with a range of versions rather than having to match the CLN version ([#6142])
+ - `grpc`: The mTLS private keys are no longer group-readable ([#6075])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `close`, `fundchannel`, `fundpsbt`, `multifundchannel`, `multiwithdraw`, `txprepare`, `upgradewallet`, `withdraw` `feerate` (`feerange` for `close`) expressed as, "delayed_to_us", "htlc_resolution", "max_acceptable" or "min_acceptable".  Use explicit block counts or *slow*/*normal*/*urgent*/*minimum*. ([#6120])
+ - Plugins: `estimatefees` returning feerates by name (e.g. "opening"); use `fee_floor` and `feerates`. ([#6120])
+ - Protocol: Not setting `option_scid_alias` in `option_channel` `channel_type` for unannounced channels. ([#6136])
+ 
+
+### Removed
+
+ - JSON-RPC: the "msat" suffix on millisatoshi fields, as deprecated in v0.12.0. ([#5986])
+ - JSON-RPC: all the non-msat-named millisatoshi fields deprecated in v0.12.0. ([#5986])
+ - JSON-RPC: `listpeers`.`local_msat` and `listpeers`.`remote_msat` (deprecated v0.12.0) ([#5986])
+ - JSON-RPC: `checkmessage` now always returns an error when the pubkey is not specified and it is unknown in the network graph (deprecated v0.12.0) ([#5986])
+ - JSON-RPC: require the `"jsonrpc": "2.0"` property (requests without this deprecated in v0.10.2). ([#5986])
+
+
+### Fixed
+
+ - Plugins: `bcli` now tells us the minimal possible feerate, such as with mempool congestion, rather than assuming 1 sat/vbyte. ([#6120])
+ - `lightningd`: don't log gratuitous "Peer transient failure" message on first connection after restart. ([#6140])
+ - `channeld`: no longer spin and spam logs when waiting for revoke_and_ack. ([#6107])
+ - Plugin: `autoclean` now also cleans forwards with status `local_failed` ([#6109])
+ - Protocol: we will upfront reject channel_open which asks for a zeroconf channel unless we are going to do a zerconf channel. ([#6136])
+ - Protocol: We now correctly accept the `option_scid_alias` bit in `open_channel` `channel_type`. ([#6136])
+ - JSON-RPC: `feerates` document correctly that urgent means 6 blocks (not 2), and give better feerate examples. ([#6170])
+ - `wallet`: we no longer make txs below minrelaytxfee or mempoolminfee. ([#6073])
+ - `delpay`: be more pedantic about delete logic by allowing delete payments by status directly on the database. ([#6115])
+ - Plugins: `bookkeeper` onchain fees calculation was incorrect with PostgresQL. ([#6128])
+ - `clnrs`: Fixed an issue converting routehints in keysend ([#6154])
+
+
+### EXPERIMENTAL
+
+ - fetchinvoice: fix: do not ignore the `quantity` field ([#6090])
+
+
+[#6120]: https://github.com/ElementsProject/lightning/pull/6120
+[#6138]: https://github.com/ElementsProject/lightning/pull/6138
+[#5967]: https://github.com/ElementsProject/lightning/pull/5967
+[#5898]: https://github.com/ElementsProject/lightning/pull/5898
+[#5986]: https://github.com/ElementsProject/lightning/pull/5986
+[#6136]: https://github.com/ElementsProject/lightning/pull/6136
+[#6128]: https://github.com/ElementsProject/lightning/pull/6128
+[#6154]: https://github.com/ElementsProject/lightning/pull/6154
+[#6029]: https://github.com/ElementsProject/lightning/pull/6029
+[#6075]: https://github.com/ElementsProject/lightning/pull/6075
+[#5708]: https://github.com/ElementsProject/lightning/pull/5708
+[#6124]: https://github.com/ElementsProject/lightning/pull/6124
+[#6012]: https://github.com/ElementsProject/lightning/pull/6012
+[#6090]: https://github.com/ElementsProject/lightning/pull/6090
+[#6142]: https://github.com/ElementsProject/lightning/pull/6142
+[#6140]: https://github.com/ElementsProject/lightning/pull/6140
+[#6097]: https://github.com/ElementsProject/lightning/pull/6097
+[#6170]: https://github.com/ElementsProject/lightning/pull/6170
+[#6107]: https://github.com/ElementsProject/lightning/pull/6107
+[#6110]: https://github.com/ElementsProject/lightning/pull/6110
+[#6073]: https://github.com/ElementsProject/lightning/pull/6073
+[#6115]: https://github.com/ElementsProject/lightning/pull/6115
+[#6109]: https://github.com/ElementsProject/lightning/pull/6109
+[#6158]: https://github.com/ElementsProject/lightning/pull/6158
+
+
 ## [23.02.2] - 2023-03-14: "CBDC Backing Layer III"
 
 
