@@ -656,7 +656,15 @@ static struct command_result *getchaininfo(struct command *cmd,
                                            const char *buf UNUSED,
                                            const jsmntok_t *toks UNUSED)
 {
-	if (!param(cmd, buf, toks, NULL))
+	/* FIXME(vincenzopalazzo): Inside the JSON request,
+         * we have the current height known from Core Lightning. Therefore,
+         * we can attempt to prevent a crash if the 'getchaininfo' function returns
+         * a lower height than the one we already know, by waiting for a short period.
+         * However, I currently don't have a better idea on how to handle this situation. */
+	u32 *height UNUSED;
+	if (!param(cmd, buf, toks,
+		   p_req("last_height", param_number, &height),
+		   NULL))
 		return command_param_failed();
 
 	start_bitcoin_cli(NULL, cmd, process_getblockchaininfo, false,

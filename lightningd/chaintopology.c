@@ -1287,7 +1287,7 @@ static void retry_check_chain(struct chain_topology *topo)
 	topo->bitcoind->checkchain_timer = NULL;
 	if (topo->stopping)
 		return;
-	bitcoind_getchaininfo(topo->bitcoind, false, check_chain, topo);
+	bitcoind_getchaininfo(topo->bitcoind, false, topo->max_blockheight, check_chain, topo);
 }
 
 void setup_topology(struct chain_topology *topo,
@@ -1306,7 +1306,7 @@ void setup_topology(struct chain_topology *topo,
 
 	/* Sanity checks, then topology initialization. */
 	topo->bitcoind->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo->bitcoind, true, check_chain, topo);
+	bitcoind_getchaininfo(topo->bitcoind, true, topo->max_blockheight, check_chain, topo);
 
 	tal_add_destructor(topo, destroy_chain_topology);
 

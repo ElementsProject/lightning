@@ -578,6 +578,7 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 
 void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 			    const bool first_call,
+			    const u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       const char *chain,
 				       u32 headercount,
@@ -598,6 +599,7 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	req = jsonrpc_request_start(bitcoind, "getchaininfo", NULL, true,
 				    bitcoind->log,
 				    NULL, getchaininfo_callback, call);
+	json_add_u32(req->stream, "last_height", height);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
 }
