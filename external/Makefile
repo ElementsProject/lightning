@@ -125,6 +125,7 @@ clean: external-clean
 external-clean:
 	$(RM) $(EXTERNAL_LIBS) $(TARGET_DIR)/*.la $(TARGET_DIR)/*.o
 	$(RM) $(TARGET_DIR)/jsmn-build/jsmn.o
+	$(RM) -r $(TARGET_DIR)/lowdown-build/*
 	if [ -f ${TARGET_DIR}/libsodium-build/Makefile ]; then make -C ${TARGET_DIR}/libsodium-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
