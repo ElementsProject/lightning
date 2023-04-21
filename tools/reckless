@@ -35,8 +35,7 @@ def unsupported_entry(name) -> list:
 
 def entry_guesses(name: str) -> list:
     guesses = []
-    global INSTALLERS
-    for iname, inst in INSTALLERS.items():
+    for inst in INSTALLERS:
         for entry in inst.entries:
             guesses.append(entry.format(name=name))
     return guesses
@@ -62,11 +61,6 @@ class Installer:
         self.manager = manager    # dependency manager (if required)
         self.dependency_file = None
         self.dependency_call = None
-        if self.executable():
-            global INSTALLERS
-            if not INSTALLERS:
-                INSTALLERS = {}
-            INSTALLERS[self.name] = self
 
     def __repr__(self):
         return (f'<Installer {self.name}: mimetype: {self.mimetype}, '
@@ -157,7 +151,7 @@ class InstInfo:
                         # FIXME: This should be easier to implement
                         print(f'entrypoint {g} is not yet supported')
                         return False
-        for name, inst in INSTALLERS.items():
+        for inst in INSTALLERS:
             # FIXME: Allow multiple depencencies
             for f in tree:
                 if f['path'] == inst.dependency_file:
@@ -334,7 +328,7 @@ class InferInstall():
         def match_name(name) -> str:
             for tier in range(0, 10):
                 # Look for each installers preferred entrypoint format first
-                for n, inst in INSTALLERS.items():
+                for inst in INSTALLERS:
                     fmt = inst.entries[tier]
                     if '{name}' in fmt:
                         pre = fmt.split('{name}')[0]
@@ -362,27 +356,25 @@ class InferInstall():
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
 
-INSTALLERS = {}
-Installer('python3pip', 'text/x-python', exe='python3',
-          manager='pip', entry='{name}.py')
-INSTALLERS['python3pip'].add_entrypoint('{name}')
-INSTALLERS['python3pip'].add_entrypoint('__init__.py')
-INSTALLERS['python3pip'].add_dependency_file('requirements.txt')
-INSTALLERS['python3pip'].add_dependency_call(['pip', 'install', '-r',
-                                              'requirements.txt'])
+python3pip = Installer('python3pip', 'text/x-python', exe='python3',
+                       manager='pip', entry='{name}.py')
+python3pip.add_entrypoint('{name}')
+python3pip.add_entrypoint('__init__.py')
+python3pip.add_dependency_file('requirements.txt')
+python3pip.add_dependency_call(['pip', 'install', '-r', 'requirements.txt'])
 
-INSTALLERS['python3pip3'] = INSTALLERS['python3pip'].copy()
-INSTALLERS['python3pip3'].manager = 'pip3'
-INSTALLERS['python3pip3'].dependency_call = [['pip3', 'install', '-r',
-                                              'requirements.txt']]
+python3pip3 = python3pip.copy()
+python3pip3.manager = 'pip3'
+python3pip3.dependency_call = [['pip3', 'install', '-r', 'requirements.txt']]
 
 # Nodejs plugin installer
-Installer('nodejs', 'application/javascript', exe='node', manager='npm',
-          entry='{name}.js')
-INSTALLERS['nodejs'].add_entrypoint('{name}')
-INSTALLERS['nodejs'].add_dependency_call(['npm', 'install', '--omit=dev'])
-INSTALLERS['nodejs'].add_dependency_file('package.json')
+nodejs = Installer('nodejs', 'application/javascript', exe='node',
+                   manager='npm', entry='{name}.js')
+nodejs.add_entrypoint('{name}')
+nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
+nodejs.add_dependency_file('package.json')
 
+INSTALLERS = {python3pip, python3pip3, nodejs}
 
 def help_alias(targets: list):
     if len(targets) == 0:
@@ -495,13 +487,13 @@ def _install_plugin(src: InstInfo) -> bool:
             return False
 
     # Find a suitable installer
-    for name, inst_method in INSTALLERS.items():
+    for inst_method in INSTALLERS:
         if not (inst_method.installable() and inst_method.executable()):
             continue
         if inst_method.dependency_file is not None:
             if inst_method.dependency_file not in os.listdir(plugin_path):
                 continue
-        logging.debug(f"using installer {name}")
+        logging.debug(f"using installer {inst_method.name}")
         INSTALLER = inst_method
         break
     # try it out
