@@ -101,7 +101,7 @@ def get_reckless_node(node_factory):
 
 def check_stderr(stderr):
     def output_okay(out):
-        for warning in ['[notice]', 'npm WARN', 'npm notice']:
+        for warning in ['[notice]', 'WARNING:', 'npm WARN', 'npm notice']:
             if out.startswith(warning):
                 return True
         return False
