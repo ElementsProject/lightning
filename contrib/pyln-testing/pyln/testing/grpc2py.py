@@ -279,6 +279,53 @@ def listchannels2py(m):
     })
 
 
+def listclosedchannels_closedchannels_alias2py(m):
+    return remove_default({
+        "local": m.local,  # PrimitiveField in generate_composite
+        "remote": m.remote,  # PrimitiveField in generate_composite
+    })
+
+
+def listclosedchannels_closedchannels_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
+def listclosedchannels_closedchannels2py(m):
+    return remove_default({
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "opener": str(m.opener),  # EnumField in generate_composite
+        "closer": str(m.closer),  # EnumField in generate_composite
+        "private": m.private,  # PrimitiveField in generate_composite
+        "total_local_commitments": m.total_local_commitments,  # PrimitiveField in generate_composite
+        "total_remote_commitments": m.total_remote_commitments,  # PrimitiveField in generate_composite
+        "total_htlcs_sent": m.total_htlcs_sent,  # PrimitiveField in generate_composite
+        "funding_txid": hexlify(m.funding_txid),  # PrimitiveField in generate_composite
+        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
+        "leased": m.leased,  # PrimitiveField in generate_composite
+        "funding_fee_paid_msat": amount2msat(m.funding_fee_paid_msat),  # PrimitiveField in generate_composite
+        "funding_fee_rcvd_msat": amount2msat(m.funding_fee_rcvd_msat),  # PrimitiveField in generate_composite
+        "funding_pushed_msat": amount2msat(m.funding_pushed_msat),  # PrimitiveField in generate_composite
+        "total_msat": amount2msat(m.total_msat),  # PrimitiveField in generate_composite
+        "final_to_us_msat": amount2msat(m.final_to_us_msat),  # PrimitiveField in generate_composite
+        "min_to_us_msat": amount2msat(m.min_to_us_msat),  # PrimitiveField in generate_composite
+        "max_to_us_msat": amount2msat(m.max_to_us_msat),  # PrimitiveField in generate_composite
+        "last_commitment_txid": hexlify(m.last_commitment_txid),  # PrimitiveField in generate_composite
+        "last_commitment_fee_msat": amount2msat(m.last_commitment_fee_msat),  # PrimitiveField in generate_composite
+        "close_cause": str(m.close_cause),  # EnumField in generate_composite
+    })
+
+
+def listclosedchannels2py(m):
+    return remove_default({
+        "closedchannels": [listclosedchannels_closedchannels2py(i) for i in m.closedchannels],  # ArrayField[composite] in generate_composite
+    })
+
+
 def addgossip2py(m):
     return remove_default({
     })

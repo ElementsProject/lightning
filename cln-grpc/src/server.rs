@@ -186,6 +186,38 @@ async fn list_channels(
 
 }
 
+async fn list_closed_channels(
+    &self,
+    request: tonic::Request<pb::ListclosedchannelsRequest>,
+) -> Result<tonic::Response<pb::ListclosedchannelsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListclosedchannelsRequest = req.into();
+    debug!("Client asked for list_closed_channels");
+    trace!("list_closed_channels request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListClosedChannels(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListClosedChannels: {:?}", e)))?;
+    match result {
+        Response::ListClosedChannels(r) => {
+           trace!("list_closed_channels response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListClosedChannels",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn add_gossip(
     &self,
     request: tonic::Request<pb::AddgossipRequest>,

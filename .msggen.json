@@ -58,6 +58,14 @@
         "KeysendStatus": {
             "complete": 0
         },
+        "ListclosedchannelsClosedchannelsClose_cause": {
+            "local": 1,
+            "onchain": 5,
+            "protocol": 4,
+            "remote": 3,
+            "unknown": 0,
+            "user": 2
+        },
         "ListforwardsForwardsStatus": {
             "failed": 3,
             "local_failed": 2,
@@ -577,6 +585,46 @@
         },
         "ListchannelsResponse": {
             "ListChannels.channels[]": 1
+        },
+        "ListclosedchannelsClosedchannels": {
+            "ListClosedChannels.closedchannels[].alias": 4,
+            "ListClosedChannels.closedchannels[].channel_id": 2,
+            "ListClosedChannels.closedchannels[].channel_type": 8,
+            "ListClosedChannels.closedchannels[].close_cause": 24,
+            "ListClosedChannels.closedchannels[].closer": 6,
+            "ListClosedChannels.closedchannels[].final_to_us_msat": 19,
+            "ListClosedChannels.closedchannels[].funding_fee_paid_msat": 15,
+            "ListClosedChannels.closedchannels[].funding_fee_rcvd_msat": 16,
+            "ListClosedChannels.closedchannels[].funding_outnum": 13,
+            "ListClosedChannels.closedchannels[].funding_pushed_msat": 17,
+            "ListClosedChannels.closedchannels[].funding_txid": 12,
+            "ListClosedChannels.closedchannels[].last_commitment_fee_msat": 23,
+            "ListClosedChannels.closedchannels[].last_commitment_txid": 22,
+            "ListClosedChannels.closedchannels[].leased": 14,
+            "ListClosedChannels.closedchannels[].max_to_us_msat": 21,
+            "ListClosedChannels.closedchannels[].min_to_us_msat": 20,
+            "ListClosedChannels.closedchannels[].opener": 5,
+            "ListClosedChannels.closedchannels[].peer_id": 1,
+            "ListClosedChannels.closedchannels[].private": 7,
+            "ListClosedChannels.closedchannels[].short_channel_id": 3,
+            "ListClosedChannels.closedchannels[].total_htlcs_sent": 11,
+            "ListClosedChannels.closedchannels[].total_local_commitments": 9,
+            "ListClosedChannels.closedchannels[].total_msat": 18,
+            "ListClosedChannels.closedchannels[].total_remote_commitments": 10
+        },
+        "ListclosedchannelsClosedchannelsAlias": {
+            "ListClosedChannels.closedchannels[].alias.local": 1,
+            "ListClosedChannels.closedchannels[].alias.remote": 2
+        },
+        "ListclosedchannelsClosedchannelsChannel_type": {
+            "ListClosedChannels.closedchannels[].channel_type.bits[]": 1,
+            "ListClosedChannels.closedchannels[].channel_type.names[]": 2
+        },
+        "ListclosedchannelsRequest": {
+            "ListClosedChannels.id": 1
+        },
+        "ListclosedchannelsResponse": {
+            "ListClosedChannels.closedchannels[]": 1
         },
         "ListdatastoreDatastore": {
             "ListDatastore.datastore[].generation": 2,
@@ -2224,6 +2272,130 @@
         },
         "ListChannels.source": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListClosedChannels": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "ListClosedChannels.closedchannels[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].alias": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].alias.local": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].alias.remote": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].channel_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].channel_type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].channel_type.bits[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].channel_type.names[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].close_cause": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].closer": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].final_to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].funding_fee_paid_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].funding_fee_rcvd_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].funding_outnum": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].funding_pushed_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].funding_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].last_commitment_fee_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].last_commitment_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].leased": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].max_to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].min_to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].opener": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].peer_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].private": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].short_channel_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].total_htlcs_sent": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].total_local_commitments": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].total_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.closedchannels[].total_remote_commitments": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListClosedChannels.id": {
+            "added": "v23.05",
             "deprecated": false
         },
         "ListDatastore": {

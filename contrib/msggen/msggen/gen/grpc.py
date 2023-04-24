@@ -44,6 +44,8 @@ overrides = {
     'ListPeers.peers[].channels[].features[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
+    'ListClosedChannels.closedchannels[].opener': "ChannelSide",
+    'ListClosedChannels.closedchannels[].closer': "ChannelSide",
 }
 
 

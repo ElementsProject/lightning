@@ -13,6 +13,7 @@ service Node {
 	rpc ListFunds(ListfundsRequest) returns (ListfundsResponse) {}
 	rpc SendPay(SendpayRequest) returns (SendpayResponse) {}
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
+	rpc ListClosedChannels(ListclosedchannelsRequest) returns (ListclosedchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
 	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
@@ -376,6 +377,60 @@ message ListchannelsChannels {
 	Amount htlc_minimum_msat = 13;
 	optional Amount htlc_maximum_msat = 14;
 	bytes features = 15;
+}
+
+message ListclosedchannelsRequest {
+	optional bytes id = 1;
+}
+
+message ListclosedchannelsResponse {
+	repeated ListclosedchannelsClosedchannels closedchannels = 1;
+}
+
+message ListclosedchannelsClosedchannels {
+	// ListClosedChannels.closedchannels[].close_cause
+	enum ListclosedchannelsClosedchannelsClose_cause {
+		UNKNOWN = 0;
+		LOCAL = 1;
+		USER = 2;
+		REMOTE = 3;
+		PROTOCOL = 4;
+		ONCHAIN = 5;
+	}
+	optional bytes peer_id = 1;
+	optional bytes channel_id = 2;
+	optional string short_channel_id = 3;
+	optional ListclosedchannelsClosedchannelsAlias alias = 4;
+	optional ChannelSide opener = 5;
+	optional ChannelSide closer = 6;
+	optional bool private = 7;
+	optional ListclosedchannelsClosedchannelsChannel_type channel_type = 8;
+	optional uint64 total_local_commitments = 9;
+	optional uint64 total_remote_commitments = 10;
+	optional uint64 total_htlcs_sent = 11;
+	optional bytes funding_txid = 12;
+	optional uint32 funding_outnum = 13;
+	optional bool leased = 14;
+	optional Amount funding_fee_paid_msat = 15;
+	optional Amount funding_fee_rcvd_msat = 16;
+	optional Amount funding_pushed_msat = 17;
+	optional Amount total_msat = 18;
+	optional Amount final_to_us_msat = 19;
+	optional Amount min_to_us_msat = 20;
+	optional Amount max_to_us_msat = 21;
+	optional bytes last_commitment_txid = 22;
+	optional Amount last_commitment_fee_msat = 23;
+	optional ListclosedchannelsClosedchannelsClose_cause close_cause = 24;
+}
+
+message ListclosedchannelsClosedchannelsAlias {
+	optional string local = 1;
+	optional string remote = 2;
+}
+
+message ListclosedchannelsClosedchannelsChannel_type {
+	repeated uint32 bits = 1;
+	repeated ListclosedchannelsClosedchannelsChannel_typeNames names = 2;
 }
 
 message AddgossipRequest {
