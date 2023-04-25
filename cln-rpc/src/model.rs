@@ -1956,12 +1956,6 @@ pub mod responses {
 	    pub remote: Option<ShortChannelId>,
 	}
 
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListclosedchannelsClosedchannelsChannel_type {
-	    pub bits: Vec<u32>,
-	    pub names: Vec<ChannelType>,
-	}
-
 	/// What caused the channel to close
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	pub enum ListclosedchannelsClosedchannelsClose_cause {
@@ -2010,7 +2004,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub private: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_type: Option<ListclosedchannelsClosedchannelsChannel_type>,
+	    pub channel_type: Option<ChannelTypes>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub total_local_commitments: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

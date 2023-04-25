@@ -46,7 +46,9 @@ overrides = {
     'ListTransactions.transactions[].type[]': None,
     'ListClosedChannels.closedchannels[].opener': "ChannelSide",
     'ListClosedChannels.closedchannels[].closer': "ChannelSide",
-    'ListClosedChannels.closedchannels[].channel_type.names[]': "ChannelType",
+    'ListClosedChannels.closedchannels[].channel_type': "ChannelTypes",
+    'ListClosedChannels.closedchannels[].channel_type.bits[]': None,
+    'ListClosedChannels.closedchannels[].channel_type.names[]': None,
 }
 
 
@@ -336,6 +338,7 @@ class GrpcConverterGenerator(IGenerator):
                     'feerate': f'Some(c.{name}.into())',
                     'outpoint?': f'c.{name}.map(|o|o.into())',
                     'TlvStream?': f'c.{name}.map(|s| s.into())',
+                    'ChannelTypes?': f'c.{name}.map(|s| s.into())',
                     'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
 
 
@@ -501,6 +504,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'hash?': f'c.{name}.map(|v| Sha256::from_slice(&v).unwrap())',
                     'txid': f'hex::encode(&c.{name})',
                     'TlvStream?': f'c.{name}.map(|s| s.into())',
+                    'ChannelTypes?': f'c.{name}.map(|s| s.into())',
                 }.get(
                     typ,
                     f'c.{name}'  # default to just assignment

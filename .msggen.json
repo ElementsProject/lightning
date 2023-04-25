@@ -616,10 +616,6 @@
             "ListClosedChannels.closedchannels[].alias.local": 1,
             "ListClosedChannels.closedchannels[].alias.remote": 2
         },
-        "ListclosedchannelsClosedchannelsChannel_type": {
-            "ListClosedChannels.closedchannels[].channel_type.bits[]": 1,
-            "ListClosedChannels.closedchannels[].channel_type.names[]": 2
-        },
         "ListclosedchannelsRequest": {
             "ListClosedChannels.id": 1
         },

@@ -404,7 +404,7 @@ message ListclosedchannelsClosedchannels {
 	optional ChannelSide opener = 5;
 	optional ChannelSide closer = 6;
 	optional bool private = 7;
-	optional ListclosedchannelsClosedchannelsChannel_type channel_type = 8;
+	optional ChannelTypes channel_type = 8;
 	optional uint64 total_local_commitments = 9;
 	optional uint64 total_remote_commitments = 10;
 	optional uint64 total_htlcs_sent = 11;
@@ -426,11 +426,6 @@ message ListclosedchannelsClosedchannels {
 message ListclosedchannelsClosedchannelsAlias {
 	optional string local = 1;
 	optional string remote = 2;
-}
-
-message ListclosedchannelsClosedchannelsChannel_type {
-	repeated uint32 bits = 1;
-	repeated ChannelType names = 2;
 }
 
 message AddgossipRequest {

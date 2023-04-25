@@ -342,16 +342,6 @@ impl From<responses::ListclosedchannelsClosedchannelsAlias> for pb::Listclosedch
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<responses::ListclosedchannelsClosedchannelsChannel_type> for pb::ListclosedchannelsClosedchannelsChannelType {
-    fn from(c: responses::ListclosedchannelsClosedchannelsChannel_type) -> Self {
-        Self {
-            bits: c.bits.into_iter().map(|i| i.into()).collect(), // MANUAL
-            names: c.names.into_iter().map(|i| i as i32).collect(), // MANUAL
-        }
-    }
-}
-
-#[allow(unused_variables,deprecated)]
 impl From<responses::ListclosedchannelsClosedchannels> for pb::ListclosedchannelsClosedchannels {
     fn from(c: responses::ListclosedchannelsClosedchannels) -> Self {
         Self {
@@ -362,7 +352,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             opener: c.opener.map(|v| v as i32),
             closer: c.closer.map(|v| v as i32),
             private: c.private, // Rule #2 for type boolean?
-            channel_type: c.channel_type.map(|v| v.into()),
+            channel_type: c.channel_type.map(|v| v.try_into().unwrap()), // Rule #2 for type ChannelTypes?
             total_local_commitments: c.total_local_commitments, // Rule #2 for type u64?
             total_remote_commitments: c.total_remote_commitments, // Rule #2 for type u64?
             total_htlcs_sent: c.total_htlcs_sent, // Rule #2 for type u64?
@@ -2790,16 +2780,6 @@ impl From<pb::ListclosedchannelsClosedchannelsAlias> for responses::Listclosedch
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::ListclosedchannelsClosedchannelsChannelType> for responses::ListclosedchannelsClosedchannelsChannel_type {
-    fn from(c: pb::ListclosedchannelsClosedchannelsChannelType) -> Self {
-        Self {
-            bits: c.bits.into_iter().map(|s| s).collect(), // MANUAL
-            names: c.names.into_iter().map(|s| s.try_into().unwrap()).collect(), // MANUAL
-        }
-    }
-}
-
-#[allow(unused_variables,deprecated)]
 impl From<pb::ListclosedchannelsClosedchannels> for responses::ListclosedchannelsClosedchannels {
     fn from(c: pb::ListclosedchannelsClosedchannels) -> Self {
         Self {
@@ -2810,7 +2790,7 @@ impl From<pb::ListclosedchannelsClosedchannels> for responses::Listclosedchannel
             opener: c.opener.map(|v| v.try_into().unwrap()),
             closer: c.closer.map(|v| v.try_into().unwrap()),
             private: c.private, // Rule #1 for type boolean?
-            channel_type: c.channel_type.map(|v| v.into()),
+            channel_type: c.channel_type.map(|v| v.try_into().unwrap()), // Rule #1 for type ChannelTypes?
             total_local_commitments: c.total_local_commitments, // Rule #1 for type u64?
             total_remote_commitments: c.total_remote_commitments, // Rule #1 for type u64?
             total_htlcs_sent: c.total_htlcs_sent, // Rule #1 for type u64?

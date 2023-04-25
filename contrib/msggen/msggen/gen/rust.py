@@ -30,7 +30,9 @@ overrides = {
     'Invoice.exposeprivatechannels': None,
     'ListClosedChannels.closedchannels[].opener': "ChannelSide",
     'ListClosedChannels.closedchannels[].closer': "ChannelSide",
-    'ListClosedChannels.closedchannels[].channel_type.names[]': "ChannelType",
+    'ListClosedChannels.closedchannels[].channel_type': "ChannelType",
+    'ListClosedChannels.closedchannels[].channel_type.bits[]': None,
+    'ListClosedChannels.closedchannels[].channel_type.names[]': None,
 }
 
 # A map of schema type to rust primitive types.
@@ -53,7 +55,6 @@ typemap = {
     'outputdesc': 'OutputDesc',
     'hash': 'Sha256',
     'secret': 'Secret',
-    'names': 'ChannelType',
 }
 
 header = f"""#![allow(non_camel_case_types)]

@@ -44,6 +44,7 @@ class Grpc2PyGenerator(IGenerator):
             'short_channel_id': "m.{name}",
             'msat': "amount2msat(m.{name})",
             'number': "m.{name}",
+            'ChannelTypes': "m.{name}",
         }
 
     def generate_responses(self, service):

@@ -286,13 +286,6 @@ def listclosedchannels_closedchannels_alias2py(m):
     })
 
 
-def listclosedchannels_closedchannels_channel_type2py(m):
-    return remove_default({
-        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
-        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
-    })
-
-
 def listclosedchannels_closedchannels2py(m):
     return remove_default({
         "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
@@ -301,6 +294,7 @@ def listclosedchannels_closedchannels2py(m):
         "opener": str(m.opener),  # EnumField in generate_composite
         "closer": str(m.closer),  # EnumField in generate_composite
         "private": m.private,  # PrimitiveField in generate_composite
+        "channel_type": m.channel_type,  # PrimitiveField in generate_composite
         "total_local_commitments": m.total_local_commitments,  # PrimitiveField in generate_composite
         "total_remote_commitments": m.total_remote_commitments,  # PrimitiveField in generate_composite
         "total_htlcs_sent": m.total_htlcs_sent,  # PrimitiveField in generate_composite

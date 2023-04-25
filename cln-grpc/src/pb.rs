@@ -216,6 +216,30 @@ impl From<cln_rpc::primitives::TlvEntry> for TlvEntry {
     }
 }
 
+impl From<ChannelTypes> for cln_rpc::primitives::ChannelTypes {
+    fn from(s: ChannelTypes) -> Self {
+        Self {
+            bits: s.bits.into_iter().map(|e| e.try_into().unwrap()).collect(),
+            names: s.names.into_iter().map(|e| e.try_into().unwrap()).collect(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::ChannelTypes> for ChannelTypes {
+    fn from(s: cln_rpc::primitives::ChannelTypes) -> Self {
+        Self {
+            bits: s.bits.into_iter().map(|e| e.try_into().unwrap()).collect(),
+            names: s.names.into_iter().map(|e| match e {
+                cln_rpc::primitives::ChannelType::STATIC_REMOTEKEY_EVEN => 0,
+                cln_rpc::primitives::ChannelType::ANCHOR_OUTPUTS_EVEN => 1,
+                cln_rpc::primitives::ChannelType::ANCHORS_ZERO_FEE_HTLC_TX_EVEN => 2,
+                cln_rpc::primitives::ChannelType::SCID_ALIAS_EVEN => 3,
+                cln_rpc::primitives::ChannelType::ZEROCONF_EVEN => 4,
+            }).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

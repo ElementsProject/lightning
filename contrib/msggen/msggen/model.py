@@ -389,6 +389,15 @@ TlvStreamField = PrimitiveField(
     deprecated=None
 )
 
+# ChannelTypesField are special
+ChannelTypesField = PrimitiveField(
+    "ChannelTypes",
+    None,
+    None,
+    added=None,
+    deprecated=None
+)
+
 # Override fields with manually managed types, fieldpath -> field mapping
 overrides = {
     'Invoice.label': InvoiceLabelField,
@@ -401,6 +410,7 @@ overrides = {
     'Pay.exclude': PayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
+    'ListClosedChannels.closedchannels[].channel_type': ChannelTypesField,
 }
 
 

@@ -90,3 +90,8 @@ enum ChannelType {
 	SCID_ALIAS_EVEN = 3;
 	ZEROCONF_EVEN = 4;
 }
+
+message ChannelTypes {
+	repeated uint32 bits = 1;
+	repeated ChannelType names = 2;
+}

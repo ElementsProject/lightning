@@ -803,3 +803,45 @@ impl TryFrom<i32> for ChannelType {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct ChannelTypes {
+    pub bits: Vec<u32>,
+    pub names: Vec<ChannelType>,
+}
+
+impl<'de> Deserialize<'de> for ChannelTypes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let map: std::collections::HashMap<u32, ChannelType> = Deserialize::deserialize(deserializer)?;
+
+        let bits = map
+            .iter()
+            .map(|(k, _)| *k)
+            .collect();
+
+        let names = map
+            .iter()
+            .map(|(_, v)| *v)
+            .collect();
+
+        Ok(ChannelTypes { bits: bits, names: names })
+    }
+}
+
+impl Serialize for ChannelTypes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(Some(self.bits.len()))?;
+        for i in 0..self.bits.len() {
+            map.serialize_entry(&self.bits[i], &self.names[i])?;
+        }
+        map.end()
+    }
+}
