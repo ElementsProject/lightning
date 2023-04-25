@@ -449,7 +449,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 if typ in ["ListtransactionsTransactionsType"]:
                     continue
                 if name == 'state_changes':
-                    self.write(f" state_changes: None,")
+                    self.write(f"state_changes: None,\n", numindent=3)
                     continue
                 if not f.optional:
                     self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)

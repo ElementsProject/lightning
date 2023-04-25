@@ -53,6 +53,7 @@ typemap = {
     'outputdesc': 'OutputDesc',
     'hash': 'Sha256',
     'secret': 'Secret',
+    'names': 'ChannelType',
 }
 
 header = f"""#![allow(non_camel_case_types)]

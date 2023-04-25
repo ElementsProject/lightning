@@ -2638,7 +2638,8 @@ impl From<pb::ListpeersPeersChannels> for responses::ListpeersPeersChannels {
             our_to_self_delay: c.our_to_self_delay, // Rule #1 for type u32?
             max_accepted_htlcs: c.max_accepted_htlcs, // Rule #1 for type u32?
             alias: c.alias.map(|v| v.into()),
-state_changes: None,            status: Some(c.status.into_iter().map(|s| s.into()).collect()), // Rule #4
+            state_changes: None,
+            status: Some(c.status.into_iter().map(|s| s.into()).collect()), // Rule #4
             in_payments_offered: c.in_payments_offered, // Rule #1 for type u64?
             in_offered_msat: c.in_offered_msat.map(|a| a.into()), // Rule #1 for type msat?
             in_payments_fulfilled: c.in_payments_fulfilled, // Rule #1 for type u64?

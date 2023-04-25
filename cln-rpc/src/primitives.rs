@@ -777,10 +777,15 @@ impl Serialize for TlvStream {
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
 pub enum ChannelType {
+    #[serde(rename = "static_remotekey/even")]
     STATIC_REMOTEKEY_EVEN = 0,
+    #[serde(rename = "anchor_outputs/even")]
     ANCHOR_OUTPUTS_EVEN = 1,
+    #[serde(rename = "anchors_zero_fee_htlc_tx/even")]
     ANCHORS_ZERO_FEE_HTLC_TX_EVEN = 2,
+    #[serde(rename = "scid_alias/even")]
     SCID_ALIAS_EVEN = 3,
+    #[serde(rename = "zeroconf/even")]
     ZEROCONF_EVEN = 4,
 }
 
