@@ -1956,78 +1956,10 @@ pub mod responses {
 	    pub remote: Option<ShortChannelId>,
 	}
 
-	/// Who initiated the channel
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListclosedchannelsClosedchannelsOpener {
-	    #[serde(rename = "local")]
-	    LOCAL,
-	    #[serde(rename = "remote")]
-	    REMOTE,
-	}
-
-	impl TryFrom<i32> for ListclosedchannelsClosedchannelsOpener {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListclosedchannelsClosedchannelsOpener, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListclosedchannelsClosedchannelsOpener::LOCAL),
-	    1 => Ok(ListclosedchannelsClosedchannelsOpener::REMOTE),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListclosedchannelsClosedchannelsOpener", o)),
-	        }
-	    }
-	}
-	/// Who initiated the channel close (only present if closing)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListclosedchannelsClosedchannelsCloser {
-	    #[serde(rename = "local")]
-	    LOCAL,
-	    #[serde(rename = "remote")]
-	    REMOTE,
-	}
-
-	impl TryFrom<i32> for ListclosedchannelsClosedchannelsCloser {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListclosedchannelsClosedchannelsCloser, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListclosedchannelsClosedchannelsCloser::LOCAL),
-	    1 => Ok(ListclosedchannelsClosedchannelsCloser::REMOTE),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListclosedchannelsClosedchannelsCloser", o)),
-	        }
-	    }
-	}
-	/// Name of feature bit
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListclosedchannelsClosedchannelsChannel_typeNames {
-	    #[serde(rename = "static_remotekey/even")]
-	    STATIC_REMOTEKEY_EVEN,
-	    #[serde(rename = "anchor_outputs/even")]
-	    ANCHOR_OUTPUTS_EVEN,
-	    #[serde(rename = "anchors_zero_fee_htlc_tx/even")]
-	    ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
-	    #[serde(rename = "scid_alias/even")]
-	    SCID_ALIAS_EVEN,
-	    #[serde(rename = "zeroconf/even")]
-	    ZEROCONF_EVEN,
-	}
-
-	impl TryFrom<i32> for ListclosedchannelsClosedchannelsChannel_typeNames {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListclosedchannelsClosedchannelsChannel_typeNames, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::STATIC_REMOTEKEY_EVEN),
-	    1 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ANCHOR_OUTPUTS_EVEN),
-	    2 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
-	    3 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::SCID_ALIAS_EVEN),
-	    4 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ZEROCONF_EVEN),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListclosedchannelsClosedchannelsChannel_typeNames", o)),
-	        }
-	    }
-	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListclosedchannelsClosedchannelsChannel_type {
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub bits: Option<Vec<u32>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub names: Option<Vec<ListclosedchannelsClosedchannelsChannel_typeNames>>,
+	    pub bits: Vec<u32>,
+	    pub names: Vec<ChannelType>,
 	}
 
 	/// What caused the channel to close
@@ -2072,9 +2004,9 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub alias: Option<ListclosedchannelsClosedchannelsAlias>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub opener: Option<ListclosedchannelsClosedchannelsOpener>,
+	    pub opener: Option<ChannelSide>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub closer: Option<ListclosedchannelsClosedchannelsCloser>,
+	    pub closer: Option<ChannelSide>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub private: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

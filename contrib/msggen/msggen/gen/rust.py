@@ -28,6 +28,9 @@ overrides = {
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
     'Invoice.exposeprivatechannels': None,
+    'ListClosedChannels.closedchannels[].opener': "ChannelSide",
+    'ListClosedChannels.closedchannels[].closer': "ChannelSide",
+    'ListClosedChannels.closedchannels[].channel_type.names[]': "ChannelType",
 }
 
 # A map of schema type to rust primitive types.

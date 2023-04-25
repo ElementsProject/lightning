@@ -46,6 +46,7 @@ overrides = {
     'ListTransactions.transactions[].type[]': None,
     'ListClosedChannels.closedchannels[].opener': "ChannelSide",
     'ListClosedChannels.closedchannels[].closer': "ChannelSide",
+    'ListClosedChannels.closedchannels[].channel_type.names[]': "ChannelType",
 }
 
 
@@ -189,7 +190,9 @@ class GrpcGenerator(IGenerator):
 
         # Declare enums inline so they are scoped correctly in C++
         for _, f in enumerate(message.fields):
-            if isinstance(f, EnumField) and f.path not in overrides.keys():
+            if f.path in overrides.keys():
+                continue
+            if isinstance(f, EnumField):
                 self.generate_enum(f, indent=1)
 
         for i, f in self.enumerate_fields(message.typename, message.fields):
@@ -287,13 +290,14 @@ class GrpcConverterGenerator(IGenerator):
                 # array. The current item is called `i`
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
-                    'secret': f'i.to_vec()',
+                    'secret': f'i.to_vec()'
                 }.get(typ, f'i.into()')
 
                 if not f.optional:
                     self.write(f"{name}: c.{name}.into_iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ}\n", numindent=3)
                 else:
                     self.write(f"{name}: c.{name}.map(|arr| arr.into_iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3\n", numindent=3)
+                    
             elif isinstance(f, EnumField):
                 if not f.optional:
                     self.write(f"{name}: c.{name} as i32,\n", numindent=3)
@@ -447,7 +451,6 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 if name == 'state_changes':
                     self.write(f" state_changes: None,")
                     continue
-
                 if not f.optional:
                     self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
                 else:

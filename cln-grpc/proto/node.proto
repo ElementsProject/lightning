@@ -430,7 +430,7 @@ message ListclosedchannelsClosedchannelsAlias {
 
 message ListclosedchannelsClosedchannelsChannel_type {
 	repeated uint32 bits = 1;
-	repeated ListclosedchannelsClosedchannelsChannel_typeNames names = 2;
+	repeated ChannelType names = 2;
 }
 
 message AddgossipRequest {
