@@ -338,7 +338,7 @@ class GrpcConverterGenerator(IGenerator):
                     'feerate': f'Some(c.{name}.into())',
                     'outpoint?': f'c.{name}.map(|o|o.into())',
                     'TlvStream?': f'c.{name}.map(|s| s.into())',
-                    'ChannelTypes?': f'c.{name}.map(|s| s.into())',
+                    'ChannelTypes?': f'c.{name}.map(|v| v.try_into().unwrap())',
                     'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
 
 
@@ -504,7 +504,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'hash?': f'c.{name}.map(|v| Sha256::from_slice(&v).unwrap())',
                     'txid': f'hex::encode(&c.{name})',
                     'TlvStream?': f'c.{name}.map(|s| s.into())',
-                    'ChannelTypes?': f'c.{name}.map(|s| s.into())',
+                    'ChannelTypes?': f'c.{name}.map(|v| v.try_into().unwrap())',
                 }.get(
                     typ,
                     f'c.{name}'  # default to just assignment
