@@ -773,3 +773,28 @@ impl Serialize for TlvStream {
         map.end()
     }
 }
+
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[allow(non_camel_case_types)]
+pub enum ChannelType {
+    STATIC_REMOTEKEY_EVEN = 0,
+    ANCHOR_OUTPUTS_EVEN = 1,
+    ANCHORS_ZERO_FEE_HTLC_TX_EVEN = 2,
+    SCID_ALIAS_EVEN = 3,
+    ZEROCONF_EVEN = 4,
+}
+
+impl TryFrom<i32> for ChannelType {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(ChannelType::STATIC_REMOTEKEY_EVEN),
+            1 => Ok(ChannelType::ANCHOR_OUTPUTS_EVEN),
+            2 => Ok(ChannelType::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
+            3 => Ok(ChannelType::SCID_ALIAS_EVEN),
+            4 => Ok(ChannelType::ZEROCONF_EVEN),
+            _ => Err(anyhow!("Invalid channel type {}", value)),
+        }
+    }
+}

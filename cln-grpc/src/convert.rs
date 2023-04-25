@@ -345,8 +345,8 @@ impl From<responses::ListclosedchannelsClosedchannelsAlias> for pb::Listclosedch
 impl From<responses::ListclosedchannelsClosedchannelsChannel_type> for pb::ListclosedchannelsClosedchannelsChannelType {
     fn from(c: responses::ListclosedchannelsClosedchannelsChannel_type) -> Self {
         Self {
-            bits: c.bits.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            names: c.names.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            bits: c.bits.into_iter().map(|i| i.into()).collect(), // MANUAL
+            names: c.names.into_iter().map(|i| i as i32).collect(), // MANUAL
         }
     }
 }
@@ -2792,8 +2792,8 @@ impl From<pb::ListclosedchannelsClosedchannelsAlias> for responses::Listclosedch
 impl From<pb::ListclosedchannelsClosedchannelsChannelType> for responses::ListclosedchannelsClosedchannelsChannel_type {
     fn from(c: pb::ListclosedchannelsClosedchannelsChannelType) -> Self {
         Self {
-            bits: Some(c.bits.into_iter().map(|s| s).collect()), // Rule #4
-            names: Some(c.names.into_iter().map(|s| s.into()).collect()), // Rule #4
+            bits: c.bits.into_iter().map(|s| s).collect(), // MANUAL
+            names: c.names.into_iter().map(|s| s.try_into().unwrap()).collect(), // MANUAL
         }
     }
 }
