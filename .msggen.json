@@ -103,6 +103,23 @@
             "failed": 2,
             "pending": 0
         },
+        "ListpeerchannelsChannelsHtlcsDirection": {
+            "in": 0,
+            "out": 1
+        },
+        "ListpeerchannelsChannelsState": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
         "ListpeersPeersChannelsHtlcsDirection": {
             "in": 0,
             "out": 1
@@ -709,6 +726,104 @@
         },
         "ListpaysResponse": {
             "ListPays.pays[]": 1
+        },
+        "ListpeerchannelsChannels": {
+            "ListPeerChannels.channels[].alias": 41,
+            "ListPeerChannels.channels[].channel_id": 9,
+            "ListPeerChannels.channels[].channel_type": 5,
+            "ListPeerChannels.channels[].close_to": 17,
+            "ListPeerChannels.channels[].close_to_addr": 53,
+            "ListPeerChannels.channels[].closer": 20,
+            "ListPeerChannels.channels[].dust_limit_msat": 29,
+            "ListPeerChannels.channels[].features[]": 21,
+            "ListPeerChannels.channels[].fee_base_msat": 27,
+            "ListPeerChannels.channels[].fee_proportional_millionths": 28,
+            "ListPeerChannels.channels[].feerate": 6,
+            "ListPeerChannels.channels[].funding": 22,
+            "ListPeerChannels.channels[].funding_outnum": 11,
+            "ListPeerChannels.channels[].funding_txid": 10,
+            "ListPeerChannels.channels[].htlcs[]": 52,
+            "ListPeerChannels.channels[].in_fulfilled_msat": 47,
+            "ListPeerChannels.channels[].in_offered_msat": 45,
+            "ListPeerChannels.channels[].in_payments_fulfilled": 46,
+            "ListPeerChannels.channels[].in_payments_offered": 44,
+            "ListPeerChannels.channels[].inflight[]": 16,
+            "ListPeerChannels.channels[].initial_feerate": 12,
+            "ListPeerChannels.channels[].last_feerate": 13,
+            "ListPeerChannels.channels[].max_accepted_htlcs": 40,
+            "ListPeerChannels.channels[].max_to_us_msat": 25,
+            "ListPeerChannels.channels[].max_total_htlc_in_msat": 30,
+            "ListPeerChannels.channels[].maximum_htlc_out_msat": 37,
+            "ListPeerChannels.channels[].min_to_us_msat": 24,
+            "ListPeerChannels.channels[].minimum_htlc_in_msat": 35,
+            "ListPeerChannels.channels[].minimum_htlc_out_msat": 36,
+            "ListPeerChannels.channels[].next_fee_step": 15,
+            "ListPeerChannels.channels[].next_feerate": 14,
+            "ListPeerChannels.channels[].opener": 19,
+            "ListPeerChannels.channels[].our_reserve_msat": 32,
+            "ListPeerChannels.channels[].our_to_self_delay": 39,
+            "ListPeerChannels.channels[].out_fulfilled_msat": 51,
+            "ListPeerChannels.channels[].out_offered_msat": 49,
+            "ListPeerChannels.channels[].out_payments_fulfilled": 50,
+            "ListPeerChannels.channels[].out_payments_offered": 48,
+            "ListPeerChannels.channels[].owner": 7,
+            "ListPeerChannels.channels[].peer_connected": 2,
+            "ListPeerChannels.channels[].peer_id": 1,
+            "ListPeerChannels.channels[].private": 18,
+            "ListPeerChannels.channels[].receivable_msat": 34,
+            "ListPeerChannels.channels[].scratch_txid": 4,
+            "ListPeerChannels.channels[].short_channel_id": 8,
+            "ListPeerChannels.channels[].spendable_msat": 33,
+            "ListPeerChannels.channels[].state": 3,
+            "ListPeerChannels.channels[].state_changes[]": 42,
+            "ListPeerChannels.channels[].status[]": 43,
+            "ListPeerChannels.channels[].their_reserve_msat": 31,
+            "ListPeerChannels.channels[].their_to_self_delay": 38,
+            "ListPeerChannels.channels[].to_us_msat": 23,
+            "ListPeerChannels.channels[].total_msat": 26
+        },
+        "ListpeerchannelsChannelsAlias": {
+            "ListPeerChannels.channels[].alias.local": 1,
+            "ListPeerChannels.channels[].alias.remote": 2
+        },
+        "ListpeerchannelsChannelsChannel_type": {
+            "ListPeerChannels.channels[].channel_type.bits[]": 1,
+            "ListPeerChannels.channels[].channel_type.names[]": 2
+        },
+        "ListpeerchannelsChannelsFeerate": {
+            "ListPeerChannels.channels[].feerate.perkb": 2,
+            "ListPeerChannels.channels[].feerate.perkw": 1
+        },
+        "ListpeerchannelsChannelsFunding": {
+            "ListPeerChannels.channels[].funding.fee_paid_msat": 4,
+            "ListPeerChannels.channels[].funding.fee_rcvd_msat": 5,
+            "ListPeerChannels.channels[].funding.local_funds_msat": 2,
+            "ListPeerChannels.channels[].funding.pushed_msat": 1,
+            "ListPeerChannels.channels[].funding.remote_funds_msat": 3
+        },
+        "ListpeerchannelsChannelsHtlcs": {
+            "ListPeerChannels.channels[].htlcs[].amount_msat": 3,
+            "ListPeerChannels.channels[].htlcs[].direction": 1,
+            "ListPeerChannels.channels[].htlcs[].expiry": 4,
+            "ListPeerChannels.channels[].htlcs[].id": 2,
+            "ListPeerChannels.channels[].htlcs[].local_trimmed": 6,
+            "ListPeerChannels.channels[].htlcs[].payment_hash": 5,
+            "ListPeerChannels.channels[].htlcs[].state": 8,
+            "ListPeerChannels.channels[].htlcs[].status": 7
+        },
+        "ListpeerchannelsChannelsInflight": {
+            "ListPeerChannels.channels[].inflight[].feerate": 3,
+            "ListPeerChannels.channels[].inflight[].funding_outnum": 2,
+            "ListPeerChannels.channels[].inflight[].funding_txid": 1,
+            "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
+            "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
+            "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
+        },
+        "ListpeerchannelsRequest": {
+            "ListPeerChannels.id": 1
+        },
+        "ListpeerchannelsResponse": {
+            "ListPeerChannels.channels[]": 1
         },
         "ListpeersPeers": {
             "ListPeers.peers[].channels[]": 4,
@@ -2596,6 +2711,350 @@
         },
         "ListPays.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeerChannels": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].alias": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].alias.local": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].alias.remote": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].channel_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].channel_type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].channel_type.bits[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].channel_type.names[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].close_to": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].close_to_addr": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].closer": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].dust_limit_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].features[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].fee_base_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].fee_proportional_millionths": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].feerate.perkb": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].feerate.perkw": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding.fee_paid_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding.fee_rcvd_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding.local_funds_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding.pushed_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding.remote_funds_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding_outnum": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].funding_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].direction": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].local_trimmed": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].payment_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].state": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].htlcs[].status": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].in_fulfilled_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].in_offered_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].in_payments_fulfilled": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].in_payments_offered": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].funding_outnum": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].funding_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].our_funding_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].scratch_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].inflight[].total_funding_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].initial_feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].last_feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].max_accepted_htlcs": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].max_to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].max_total_htlc_in_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].maximum_htlc_out_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].min_to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].minimum_htlc_in_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].minimum_htlc_out_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].next_fee_step": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].next_feerate": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].opener": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].our_reserve_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].our_to_self_delay": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].out_fulfilled_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].out_offered_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].out_payments_fulfilled": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].out_payments_offered": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].owner": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].peer_connected": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].peer_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].private": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].receivable_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].scratch_txid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].short_channel_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].spendable_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[].cause": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[].message": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[].new_state": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[].old_state": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].state_changes[].timestamp": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].status[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].their_reserve_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].their_to_self_delay": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].to_us_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].total_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "ListPeerChannels.id": {
+            "added": "v23.05",
             "deprecated": false
         },
         "ListPeers": {
