@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [23.05rc1] - 2023-04-15
+## [23.05rc2] - 2023-04-26
 
 ### Added
 
@@ -68,6 +68,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - `delpay`: be more pedantic about delete logic by allowing delete payments by status directly on the database. ([#6115])
  - Plugins: `bookkeeper` onchain fees calculation was incorrect with PostgresQL. ([#6128])
  - `clnrs`: Fixed an issue converting routehints in keysend ([#6154])
+ - Build: Compilation with upcoming gcc 13 ([#6184])
 
 
 ### EXPERIMENTAL
