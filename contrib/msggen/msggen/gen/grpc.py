@@ -42,6 +42,12 @@ overrides = {
     'ListPeers.peers[].channels[].opener': "ChannelSide",
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
+    'ListPeerChannels.channels[].state_changes[]': None,
+    'ListPeerChannels.channels[].htlcs[].state': None,
+    'ListPeerChannels.channels[].opener': "ChannelSide",
+    'ListPeerChannels.channels[].closer': "ChannelSide",
+    'ListPeerChannels.channels[].features[]': "string",
+    'ListPeerChannels.channels[].channel_type.names[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
 }
@@ -453,6 +459,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
             elif isinstance(f, EnumField):
                 if f.path == 'ListPeers.peers[].channels[].htlcs[].state':
+                    continue
+                if f.path == 'ListPeerChannels.channels[].htlcs[].state':
                     continue
                 if not f.optional:
                     self.write(f"{name}: c.{name}.try_into().unwrap(),\n", numindent=3)

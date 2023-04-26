@@ -29,6 +29,7 @@ def load_jsonrpc_service(schema_dir: str):
     method_names = [
         "Getinfo",
         "ListPeers",
+        "ListPeerChannels",
         "ListFunds",
         "SendPay",
         "ListChannels",

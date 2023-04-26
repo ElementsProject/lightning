@@ -1,12 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+  "added": "v23.05",
   "additionalProperties": false,
   "required": [
     "channels"
   ],
   "properties": {
     "channels": {
+      "added": "v23.05",
       "type": "array",
       "items": {
         "type": "object",
@@ -21,14 +23,17 @@
         "properties": {
           "peer_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "Node Public key"
           },
           "peer_connected": {
             "type": "boolean",
+            "added": "v23.05",
             "description": "A boolean flag that is set to true if the peer is online"
           },
           "state": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "OPENINGD",
               "CHANNELD_AWAITING_LOCKIN",
@@ -46,6 +51,7 @@
           },
           "scratch_txid": {
             "type": "txid",
+            "added": "v23.05",
             "description": "The txid we would use if we went onchain now"
           },
           "channel_type": {
@@ -60,6 +66,7 @@
             "properties": {
               "bits": {
                 "type": "array",
+                "added": "v23.05",
                 "description": "Each bit set in this channel_type",
                 "items": {
                   "type": "u32",
@@ -68,9 +75,11 @@
               },
               "names": {
                 "type": "array",
+                "added": "v23.05",
                 "description": "Feature name for each bit set in this channel_type",
                 "items": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "static_remotekey_even",
                     "anchor_outputs_even",
@@ -85,6 +94,7 @@
           },
           "feerate": {
             "type": "object",
+            "added": "v23.05",
             "description": "Feerates for the current tx",
             "additionalProperties": false,
             "required": [
@@ -94,55 +104,68 @@
             "properties": {
               "perkw": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "Feerate per 1000 weight (i.e kSipa)"
               },
               "perkb": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "Feerate per 1000 virtual bytes"
               }
             }
           },
           "owner": {
             "type": "string",
+            "added": "v23.05",
             "description": "The current subdaemon controlling this connection"
           },
           "short_channel_id": {
             "type": "short_channel_id",
+            "added": "v23.05",
             "description": "The short_channel_id (once locked in)"
           },
           "channel_id": {
             "type": "hash",
+            "added": "v23.05",
             "description": "The full channel_id (funding txid Xored with output number)"
           },
           "funding_txid": {
             "type": "txid",
+            "added": "v23.05",
             "description": "ID of the funding transaction"
           },
           "funding_outnum": {
             "type": "u32",
+            "added": "v23.05",
             "description": "The 0-based output number of the funding transaction which opens the channel"
           },
           "initial_feerate": {
             "type": "string",
+            "added": "v23.05",
             "description": "For inflight opens, the first feerate used to initiate the channel open"
           },
           "last_feerate": {
             "type": "string",
+	    "added": "v23.05",
             "description": "For inflight opens, the most recent feerate used on the channel open"
           },
           "next_feerate": {
             "type": "string",
+            "added": "v23.05",
             "description": "For inflight opens, the next feerate we'll use for the channel open"
           },
           "next_fee_step": {
             "type": "u32",
+            "added": "v23.05",
             "description": "For inflight opens, the next feerate step we'll use for the channel open"
           },
           "inflight": {
             "type": "array",
+            "added": "v23.05",
             "description": "Current candidate funding transactions (only for dual-funding)",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "additionalProperties": false,
               "required": [
                 "funding_txid",
@@ -155,26 +178,32 @@
               "properties": {
                 "funding_txid": {
                   "type": "txid",
+                  "added": "v23.05",
                   "description": "ID of the funding transaction"
                 },
                 "funding_outnum": {
                   "type": "u32",
+                  "added": "v23.05",
                   "description": "The 0-based output number of the funding transaction which opens the channel"
                 },
                 "feerate": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The feerate for this funding transaction in per-1000-weight, with \"kpw\" appended"
                 },
                 "total_funding_msat": {
                   "type": "msat",
+                  "added": "v23.05",
                   "description": "total amount in the channel"
                 },
                 "our_funding_msat": {
                   "type": "msat",
+                  "added": "v23.05",
                   "description": "amount we have in the channel"
                 },
                 "scratch_txid": {
                   "type": "txid",
+                  "added": "v23.05",
                   "description": "The commitment transaction txid we would use if we went onchain now"
                 }
               }
@@ -182,14 +211,17 @@
           },
           "close_to": {
             "type": "hex",
+            "added": "v23.05",
             "description": "scriptPubkey which we have to close to if we mutual close"
           },
           "private": {
             "type": "boolean",
+            "added": "v23.05",
             "description": "if False, we will not announce this channel"
           },
           "opener": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "local",
               "remote"
@@ -198,6 +230,7 @@
           },
           "closer": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "local",
               "remote"
@@ -206,8 +239,10 @@
           },
           "features": {
             "type": "array",
+            "added": "v23.05",
             "items": {
               "type": "string",
+              "added": "v23.05",
               "enum": [
                 "option_static_remotekey",
                 "option_anchor_outputs",
@@ -219,6 +254,7 @@
           },
           "funding": {
             "type": "object",
+            "added": "v23.05",
             "additionalProperties": false,
             "required": [
               "local_funds_msat",
@@ -227,117 +263,145 @@
             "properties": {
               "pushed_msat": {
                 "type": "msat",
+                "added": "v23.05",
                 "description": "Amount pushed from opener to peer"
               },
               "local_funds_msat": {
                 "type": "msat",
+                "added": "v23.05",
                 "description": "Amount of channel we funded"
               },
               "remote_funds_msat": {
                 "type": "msat",
+                "added": "v23.05",
                 "description": "Amount of channel they funded"
               },
               "fee_paid_msat": {
                 "type": "msat",
+                "added": "v23.05",
                 "description": "Amount we paid peer at open"
               },
               "fee_rcvd_msat": {
                 "type": "msat",
+                "added": "v23.05",
                 "description": "Amount we were paid by peer at open"
               }
             }
           },
           "to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "How much of channel is owed to us"
           },
           "min_to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain."
           },
           "max_to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get."
           },
           "total_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "total amount in the channel"
           },
           "fee_base_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "amount we charge to use the channel"
           },
           "fee_proportional_millionths": {
             "type": "u32",
+            "added": "v23.05",
             "description": "amount we charge to use the channel in parts-per-million"
           },
           "dust_limit_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Minimum amount for an output on the channel transactions"
           },
           "max_total_htlc_in_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Max amount accept in a single payment"
           },
           "their_reserve_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Minimum we insist they keep in channel (default is 1% of the total channel capacity).  If they have less than this in the channel, they cannot send to us on that channel"
           },
           "our_reserve_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Minimum they insist we keep in channel. If you have less than this in the channel, you cannot send out via this channel."
           },
           "spendable_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "An estimate of the total we could send through channel (can be wrong because adding HTLCs requires an increase in fees paid to onchain miners, and onchain fees change dynamically according to onchain activity)"
           },
           "receivable_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "An estimate of the total peer could send through channel"
           },
           "minimum_htlc_in_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "The minimum amount HTLC we accept"
           },
           "minimum_htlc_out_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "The minimum amount HTLC we will send"
           },
           "maximum_htlc_out_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "The maximum amount HTLC we will send"
           },
           "their_to_self_delay": {
             "type": "u32",
+            "added": "v23.05",
             "description": "The number of blocks before they can take their funds if they unilateral close"
           },
           "our_to_self_delay": {
             "type": "u32",
+            "added": "v23.05",
             "description": "The number of blocks before we can take our funds if we unilateral close"
           },
           "max_accepted_htlcs": {
             "type": "u32",
+            "added": "v23.05",
             "description": "Maximum number of incoming HTLC we will accept at once"
           },
           "alias": {
             "type": "object",
+            "added": "v23.05",
             "required": [],
             "properties": {
               "local": {
                 "type": "short_channel_id",
+                "added": "v23.05",
                 "description": "An alias assigned by this node to this channel, used for outgoing payments"
               },
               "remote": {
                 "type": "short_channel_id",
+                "added": "v23.05",
                 "description": "An alias assigned by the remote node to this channel, usable in routehints and invoices"
               }
             }
           },
           "state_changes": {
             "type": "array",
+            "added": "v23.05",
             "description": "Prior state changes",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "additionalProperties": false,
               "required": [
                 "timestamp",
@@ -349,10 +413,12 @@
               "properties": {
                 "timestamp": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ"
                 },
                 "old_state": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "OPENINGD",
                     "CHANNELD_AWAITING_LOCKIN",
@@ -370,6 +436,7 @@
                 },
                 "new_state": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "OPENINGD",
                     "CHANNELD_AWAITING_LOCKIN",
@@ -387,6 +454,7 @@
                 },
                 "cause": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "unknown",
                     "local",
@@ -399,6 +467,7 @@
                 },
                 "message": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "Human-readable explanation"
                 }
               }
@@ -406,48 +475,60 @@
           },
           "status": {
             "type": "array",
+            "added": "v23.05",
             "items": {
               "type": "string",
+              "added": "v23.05",
               "description": "Billboard log of significant changes"
             }
           },
           "in_payments_offered": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of incoming payment attempts"
           },
           "in_offered_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Total amount of incoming payment attempts"
           },
           "in_payments_fulfilled": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of successful incoming payment attempts"
           },
           "in_fulfilled_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Total amount of successful incoming payment attempts"
           },
           "out_payments_offered": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of outgoing payment attempts"
           },
           "out_offered_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Total amount of outgoing payment attempts"
           },
           "out_payments_fulfilled": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of successful outgoing payment attempts"
           },
           "out_fulfilled_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Total amount of successful outgoing payment attempts"
           },
           "htlcs": {
             "type": "array",
+            "added": "v23.05",
             "description": "current HTLCs in this channel",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "additionalProperties": true,
               "required": [
                 "direction",
@@ -460,6 +541,7 @@
               "properties": {
                 "direction": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "in",
                     "out"
@@ -468,22 +550,27 @@
                 },
                 "id": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "Unique ID for this htlc on this channel in this direction"
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v23.05",
                   "description": "Amount send/received for this HTLC"
                 },
                 "expiry": {
                   "type": "u32",
+                  "added": "v23.05",
                   "description": "Block this HTLC expires at (after which an `in` direction HTLC will be returned to the peer, an `out` returned to us).  If this expiry is too close, lightningd(8) will automatically unilaterally close the channel in order to enforce the timeout onchain."
                 },
                 "payment_hash": {
                   "type": "hash",
+                  "added": "v23.05",
                   "description": "the hash of the payment_preimage which will prove payment"
                 },
                 "local_trimmed": {
                   "type": "boolean",
+                  "added": "v23.05",
                   "enum": [
                     true
                   ],
@@ -491,6 +578,7 @@
                 },
                 "status": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "set if this HTLC is currently waiting on a hook (and shows what plugin)"
                 }
               },
@@ -524,6 +612,7 @@
                       "peer_connected": {},
                       "state": {
                         "type": "string",
+                        "added": "v23.05",
                         "enum": [
                           "SENT_ADD_HTLC",
                           "SENT_ADD_COMMIT",
@@ -569,6 +658,7 @@
                       "peer_connected": {},
                       "state": {
                         "type": "string",
+                        "added": "v23.05",
                         "enum": [
                           "RCVD_ADD_HTLC",
                           "RCVD_ADD_COMMIT",
@@ -673,6 +763,7 @@
                 "direction": {},
                 "close_to_addr": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The bitcoin address we will close to (present if close_to_addr is a standardized address)"
                 }
               }
@@ -762,6 +853,7 @@
                 "direction": {},
                 "last_tx_fee_msat": {
                   "type": "msat",
+                  "added": "v23.05",
                   "description": "fee attached to this the current tx"
                 }
               }
@@ -851,6 +943,7 @@
                 "last_tx_fee_msat": {},
                 "direction": {
                   "type": "u32",
+                  "added": "v23.05",
                   "description": "0 if we're the lesser node_id, 1 if we're the greater (as used in BOLT #7 channel_update)"
                 }
               }
@@ -940,14 +1033,17 @@
                 "last_tx_fee_msat": {},
                 "initial_feerate": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The feerate for the initial funding transaction in per-1000-weight, with \"kpw\" appended"
                 },
                 "last_feerate": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The feerate for the latest funding transaction in per-1000-weight, with \"kpw\" appended"
                 },
                 "next_feerate": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The minimum feerate for the next funding transaction in per-1000-weight, with \"kpw\" appended"
                 }
               }
