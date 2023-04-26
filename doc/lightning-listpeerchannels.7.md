@@ -35,7 +35,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **bits** (array of u32s): Each bit set in this channel\_type:
     - Bit number
   - **names** (array of strings): Feature name for each bit set in this channel\_type:
-    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
+    - Name of feature bit (one of "static\_remotekey\_even", "anchor\_outputs\_even", "anchors\_zero\_fee\_htlc\_tx\_even", "scid\_alias\_even", "zeroconf\_even")
 - **feerate** (object, optional): Feerates for the current tx:
   - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
   - **perkb** (u32): Feerate per 1000 virtual bytes
@@ -194,4 +194,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:98524b075be2355d84732638277bf125549bc7ca21822ed35e1ffd1dff53d7f7)
+[comment]: # ( SHA256STAMP:269c1f688cb6b3d42da9899386eabc48691a78987cfb455fafc4c2656df2b7df)
