@@ -84,6 +84,7 @@ start_nodes() {
 
 	for i in $(seq $node_count); do
 		socket=$(( 7070 + i * 101))
+		grpcPort=$(( 17171 + i * 101))
 		mkdir -p "/tmp/l$i-$network"
 		# Node config
 		cat <<- EOF > "/tmp/l$i-$network/config"
@@ -114,7 +115,7 @@ start_nodes() {
 
 		# Start the lightning nodes
 		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
-			$EATMYDATA "$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" &
+			$EATMYDATA "$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" "--grpc-port=$grpcPort" &
 		# shellcheck disable=SC2139 disable=SC2086
 		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-$network"
 		# shellcheck disable=SC2139 disable=SC2086

@@ -214,7 +214,7 @@ class EnumVariant(Field):
         return self.variant
 
     def normalized(self):
-        return self.variant.replace(' ', '_').replace('-', '_').upper()
+        return self.variant.replace(' ', '_').replace('-', '_').replace('/', '_').upper()
 
 
 class EnumField(Field):

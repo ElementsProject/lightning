@@ -50,6 +50,9 @@ overrides = {
     'ListPeerChannels.channels[].channel_type.names[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
+    'ListClosedChannels.closedchannels[].opener': "ChannelSide",
+    'ListClosedChannels.closedchannels[].closer': "ChannelSide",
+    'ListClosedChannels.closedchannels[].channel_type.names[]': "string",
 }
 
 
@@ -193,7 +196,9 @@ class GrpcGenerator(IGenerator):
 
         # Declare enums inline so they are scoped correctly in C++
         for _, f in enumerate(message.fields):
-            if isinstance(f, EnumField) and f.path not in overrides.keys():
+            if f.path in overrides.keys():
+                continue
+            if isinstance(f, EnumField):
                 self.generate_enum(f, indent=1)
 
         for i, f in self.enumerate_fields(message.typename, message.fields):
@@ -451,7 +456,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 if name == 'state_changes':
                     self.write(f" state_changes: None,")
                     continue
-
+                    
                 if not f.optional:
                     self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
                 else:
