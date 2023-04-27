@@ -663,7 +663,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 	u8 *msg;
 	char *error;
 	struct inflight *inflight;
-	struct amount_msat local_funding_msat;
+	struct amount_msat local_funding_msat, starting_local_funding_msat;
 
 	/* If both sides haven't `splice_locked` we're not ready */
 	if (!peer->splice_state.locked_ready[LOCAL]
@@ -676,6 +676,8 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 "Duplicate splice_locked events detected");
 
 	peer->splice_state.await_commitment_succcess = true;
+	
+	starting_local_funding_msat = peer->channel->starting_local_msats;
 
 	/* This splice_locked event is used, so reset the flags to false */
 	peer->splice_state.locked_ready[LOCAL] = false;
@@ -728,7 +730,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 		     type_to_string(tmpctx, struct channel, peer->channel));
 
 	msg = towire_channeld_got_splice_locked(NULL, inflight->amnt,
-						peer->channel->starting_local_msats,
+						starting_local_funding_msat,
 						local_funding_msat,
 						&inflight->outpoint.txid);
 	wire_sync_write(MASTER_FD, take(msg));
@@ -2849,7 +2851,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		wire_sync_write(MASTER_FD, take(msg));
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Initiator funding is less than commited "
-				 "amount. Accepter adding %s and taking %s out "
+				 "amount. Initiator adding %s and taking %s out "
 				 " and they committed to %s.",
 				 fmt_amount_sat(tmpctx, opener_in),
 				 fmt_amount_sat(tmpctx, opener_out),
