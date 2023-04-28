@@ -678,13 +678,16 @@
             "Decode.string": 2
         },
         "DecodeResponse": {
+            "Decode.amount_msat": 78,
             "Decode.created_at": 60,
+            "Decode.currency": 77,
             "Decode.currency_minor_unit": 8,
             "Decode.description": 76,
             "Decode.description_hash": 64,
             "Decode.expiry": 61,
             "Decode.extra[]": 69,
             "Decode.fallbacks[]": 59,
+            "Decode.features": 80,
             "Decode.hex": 75,
             "Decode.invoice_amount_msat": 44,
             "Decode.invoice_created_at": 41,
@@ -725,6 +728,7 @@
             "Decode.payment_secret": 66,
             "Decode.restrictions[]": 73,
             "Decode.routes": 68,
+            "Decode.signature": 79,
             "Decode.string": 72,
             "Decode.type": 1,
             "Decode.unique_id": 70,
@@ -2885,7 +2889,15 @@
             "added": "v23.05",
             "deprecated": null
         },
+        "Decode.amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
         "Decode.created_at": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.currency": {
             "added": "v23.05",
             "deprecated": false
         },
@@ -2938,6 +2950,10 @@
             "deprecated": false
         },
         "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.features": {
             "added": "v23.05",
             "deprecated": false
         },
@@ -3218,6 +3234,10 @@
             "deprecated": false
         },
         "Decode.routes": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.signature": {
             "added": "v23.05",
             "deprecated": false
         },

@@ -27,6 +27,38 @@ On success, an object is returned, containing:
 - **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice\_request", "bolt11 invoice", "rune") *(added v23.05)*
 - **valid** (boolean): if this is false, you *MUST* not use the result except for diagnostics! *(added v23.05)*
 
+If **type** is "bolt11 invoice", and **valid** is *true*:
+
+  - **currency** (string): the BIP173 name for the currency *(added v23.05)*
+  - **created\_at** (u64): the UNIX-style timestamp of the invoice *(added v23.05)*
+  - **expiry** (u64): the number of seconds this is valid after `created_at` *(added v23.05)*
+  - **payee** (pubkey): the public key of the recipient *(added v23.05)*
+  - **payment\_hash** (hash): the hash of the *payment\_preimage* *(added v23.05)*
+  - **signature** (signature): signature of the *payee* on this invoice *(added v23.05)*
+  - **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node *(added v23.05)*
+  - **amount\_msat** (msat, optional): Amount the invoice asked for *(added v23.05)*
+  - **description** (string, optional): the description of the purpose of the purchase *(added v23.05)*
+  - **description\_hash** (hash, optional): the hash of the description, in place of *description* *(added v23.05)*
+  - **payment\_secret** (secret, optional): the secret to hand to the payee node *(added v23.05)*
+  - **features** (hex, optional): the features bitmap for this invoice *(added v23.05)*
+  - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment *(added v23.05)*
+  - **fallbacks** (array of objects, optional): onchain addresses *(added v23.05)*:
+    - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH") *(added v23.05)*
+    - **hex** (hex): Raw encoded address *(added v23.05)*
+    - **addr** (string, optional): the address in appropriate format for *type* *(added v23.05)*
+    - the following warnings are possible:
+      - **warning\_invoice\_fallbacks\_version\_invalid**: `version` is > 16 *(added v23.05)*
+  - **routes** (array of arrays, optional): Route hints to the *payee* *(added v23.05)*:
+    - hops in the route:
+      - **pubkey** (pubkey): the public key of the node *(added v23.05)*
+      - **short\_channel\_id** (short\_channel\_id): a channel to the next peer *(added v23.05)*
+      - **fee\_base\_msat** (msat): the base fee for payments *(added v23.05)*
+      - **fee\_proportional\_millionths** (u32): the parts-per-million fee for payments *(added v23.05)*
+      - **cltv\_expiry\_delta** (u32): the CLTV delta across this hop *(added v23.05)*
+  - **extra** (array of objects, optional): Any extra fields we didn't know how to parse *(added v23.05)*:
+    - **tag** (string): The bech32 letter which identifies this field (always 1 characters) *(added v23.05)*
+    - **data** (string): The bech32 data for this field *(added v23.05)*
+
 If **type** is "bolt12 offer", and **valid** is *true*:
 
   - **offer\_id** (hex): the id we use to identify this offer (always 64 characters) *(added v23.05)*
@@ -66,15 +98,6 @@ If **type** is "bolt12 offer", and **valid** is *true*:
     - **value** (hex): The value *(added v23.05)*
   - the following warnings are possible:
     - **warning\_unknown\_offer\_currency**: The currency code is unknown (so no `currency_minor_unit`) *(added v23.05)*
-
-If **type** is "bolt12 offer", and **valid** is *false*:
-
-  - the following warnings are possible:
-    - **warning\_missing\_offer\_node\_id**: `offer_node_id` is not present *(added v23.05)*
-    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
-    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
-    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
 
 If **type** is "bolt12 invoice\_request", and **valid** is *true*:
 
@@ -125,19 +148,6 @@ If **type** is "bolt12 invoice\_request", and **valid** is *true*:
     - **value** (hex): The value *(added v23.05)*
   - the following warnings are possible:
     - **warning\_unknown\_offer\_currency**: The currency code is unknown (so no `currency_minor_unit`) *(added v23.05)*
-
-If **type** is "bolt12 invoice\_request", and **valid** is *false*:
-
-  - the following warnings are possible:
-    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
-    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
-    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_invreq\_metadata**: `invreq_metadata` is not present *(added v23.05)*
-    - **warning\_missing\_invreq\_payer\_id**: `invreq_payer_id` is not present *(added v23.05)*
-    - **warning\_invalid\_invreq\_payer\_note**: `invreq_payer_note` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_invoice\_request\_signature**: `signature` is not present *(added v23.05)*
-    - **warning\_invalid\_invoice\_request\_signature**: Incorrect `signature` *(added v23.05)*
 
 If **type** is "bolt12 invoice", and **valid** is *true*:
 
@@ -211,38 +221,6 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - the following warnings are possible:
     - **warning\_unknown\_offer\_currency**: The currency code is unknown (so no `currency_minor_unit`) *(added v23.05)*
 
-If **type** is "bolt11 invoice", and **valid** is *true*:
-
-  - **currency** (string): the BIP173 name for the currency *(added v23.05)*
-  - **created\_at** (u64): the UNIX-style timestamp of the invoice *(added v23.05)*
-  - **expiry** (u64): the number of seconds this is valid after `created_at` *(added v23.05)*
-  - **payee** (pubkey): the public key of the recipient *(added v23.05)*
-  - **payment\_hash** (hash): the hash of the *payment\_preimage* *(added v23.05)*
-  - **signature** (signature): signature of the *payee* on this invoice *(added v23.05)*
-  - **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node *(added v23.05)*
-  - **amount\_msat** (msat, optional): Amount the invoice asked for *(added v23.05)*
-  - **description** (string, optional): the description of the purpose of the purchase *(added v23.05)*
-  - **description\_hash** (hash, optional): the hash of the description, in place of *description* *(added v23.05)*
-  - **payment\_secret** (secret, optional): the secret to hand to the payee node *(added v23.05)*
-  - **features** (hex, optional): the features bitmap for this invoice *(added v23.05)*
-  - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment *(added v23.05)*
-  - **fallbacks** (array of objects, optional): onchain addresses *(added v23.05)*:
-    - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH") *(added v23.05)*
-    - **hex** (hex): Raw encoded address *(added v23.05)*
-    - **addr** (string, optional): the address in appropriate format for *type* *(added v23.05)*
-    - the following warnings are possible:
-      - **warning\_invoice\_fallbacks\_version\_invalid**: `version` is > 16 *(added v23.05)*
-  - **routes** (array of arrays, optional): Route hints to the *payee* *(added v23.05)*:
-    - hops in the route:
-      - **pubkey** (pubkey): the public key of the node *(added v23.05)*
-      - **short\_channel\_id** (short\_channel\_id): a channel to the next peer *(added v23.05)*
-      - **fee\_base\_msat** (msat): the base fee for payments *(added v23.05)*
-      - **fee\_proportional\_millionths** (u32): the parts-per-million fee for payments *(added v23.05)*
-      - **cltv\_expiry\_delta** (u32): the CLTV delta across this hop *(added v23.05)*
-  - **extra** (array of objects, optional): Any extra fields we didn't know how to parse *(added v23.05)*:
-    - **tag** (string): The bech32 letter which identifies this field (always 1 characters) *(added v23.05)*
-    - **data** (string): The bech32 data for this field *(added v23.05)*
-
 If **type** is "rune", and **valid** is *true*:
 
   - **valid** (boolean) (always *true*) *(added v23.05)*
@@ -281,6 +259,28 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
     - **warning\_missing\_invoice\_signature**: `signature` is not present *(added v23.05)*
     - **warning\_invalid\_invoice\_signature**: Incorrect `signature` *(added v23.05)*
 
+If **type** is "bolt12 offer", and **valid** is *false*:
+
+  - the following warnings are possible:
+    - **warning\_missing\_offer\_node\_id**: `offer_node_id` is not present *(added v23.05)*
+    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
+    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
+    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
+
+If **type** is "bolt12 invoice\_request", and **valid** is *false*:
+
+  - the following warnings are possible:
+    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
+    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
+    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_invreq\_metadata**: `invreq_metadata` is not present *(added v23.05)*
+    - **warning\_missing\_invreq\_payer\_id**: `invreq_payer_id` is not present *(added v23.05)*
+    - **warning\_invalid\_invreq\_payer\_note**: `invreq_payer_note` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_invoice\_request\_signature**: `signature` is not present *(added v23.05)*
+    - **warning\_invalid\_invoice\_request\_signature**: Incorrect `signature` *(added v23.05)*
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -303,4 +303,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:39da43957723db6caebbe20abffec1a5d970516370de67eceac1d1ab7092d169)
+[comment]: # ( SHA256STAMP:205773c1135d77b213cae12a2b8046d0b1af9da5efb44e4faab0052386ec01e4)
