@@ -1238,6 +1238,9 @@ impl From<responses::DecodeUnknown_invoice_tlvs> for pb::DecodeUnknownInvoiceTlv
 impl From<responses::DecodeFallbacks> for pb::DecodeFallbacks {
     fn from(c: responses::DecodeFallbacks) -> Self {
         Self {
+            item_type: c.item_type.map(|v| v as i32),
+            addr: c.addr, // Rule #2 for type string?
+            hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             warning_invoice_fallbacks_version_invalid: c.warning_invoice_fallbacks_version_invalid, // Rule #2 for type string?
         }
     }
@@ -1317,6 +1320,23 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             invoice_node_id: c.invoice_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             invoice_recurrence_basetime: c.invoice_recurrence_basetime, // Rule #2 for type u64?
             unknown_invoice_tlvs: c.unknown_invoice_tlvs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            created_at: c.created_at, // Rule #2 for type u64?
+            expiry: c.expiry, // Rule #2 for type u64?
+            payee: c.payee.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            description_hash: c.description_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32?
+            payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type secret?
+            payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            fallbacks: c.fallbacks.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            routes: c.routes.map(|rl| rl.into()), // Rule #2 for type Routes?
+            extra: c.extra.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            unique_id: c.unique_id, // Rule #2 for type string?
+            version: c.version, // Rule #2 for type u32?
+            string: c.string, // Rule #2 for type string?
+            restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #2 for type string?
+            hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             warning_missing_invoice_paths: c.warning_missing_invoice_paths, // Rule #2 for type string?
             warning_missing_invoice_blindedpay: c.warning_missing_invoice_blindedpay, // Rule #2 for type string?
             warning_missing_invoice_created_at: c.warning_missing_invoice_created_at, // Rule #2 for type string?
@@ -1326,23 +1346,6 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             warning_missing_invoice_node_id: c.warning_missing_invoice_node_id, // Rule #2 for type string?
             warning_missing_invoice_signature: c.warning_missing_invoice_signature, // Rule #2 for type string?
             warning_invalid_invoice_signature: c.warning_invalid_invoice_signature, // Rule #2 for type string?
-            fallbacks: c.fallbacks.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            created_at: c.created_at, // Rule #2 for type u64?
-            expiry: c.expiry, // Rule #2 for type u64?
-            payee: c.payee.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
-            description_hash: c.description_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
-            min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32?
-            payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type secret?
-            payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            routes: c.routes.map(|rl| rl.into()), // Rule #2 for type Routes?
-            extra: c.extra.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            unique_id: c.unique_id, // Rule #2 for type string?
-            version: c.version, // Rule #2 for type u32?
-            string: c.string, // Rule #2 for type string?
-            restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #2 for type string?
-            hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }
     }
 }
@@ -4166,6 +4169,9 @@ impl From<pb::DecodeUnknownInvoiceTlvs> for responses::DecodeUnknown_invoice_tlv
 impl From<pb::DecodeFallbacks> for responses::DecodeFallbacks {
     fn from(c: pb::DecodeFallbacks) -> Self {
         Self {
+            item_type: c.item_type.map(|v| v.try_into().unwrap()),
+            addr: c.addr, // Rule #1 for type string?
+            hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
             warning_invoice_fallbacks_version_invalid: c.warning_invoice_fallbacks_version_invalid, // Rule #1 for type string?
         }
     }
@@ -4245,6 +4251,23 @@ impl From<pb::DecodeResponse> for responses::DecodeResponse {
             invoice_node_id: c.invoice_node_id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             invoice_recurrence_basetime: c.invoice_recurrence_basetime, // Rule #1 for type u64?
             unknown_invoice_tlvs: Some(c.unknown_invoice_tlvs.into_iter().map(|s| s.into()).collect()), // Rule #4
+            created_at: c.created_at, // Rule #1 for type u64?
+            expiry: c.expiry, // Rule #1 for type u64?
+            payee: c.payee.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            description_hash: c.description_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #1 for type u32?
+            payment_secret: c.payment_secret.map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
+            payment_metadata: c.payment_metadata.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
+            routes: c.routes.map(|rl| rl.into()), // Rule #1 for type Routes?
+            extra: Some(c.extra.into_iter().map(|s| s.into()).collect()), // Rule #4
+            unique_id: c.unique_id, // Rule #1 for type string?
+            version: c.version, // Rule #1 for type u32?
+            string: c.string, // Rule #1 for type string?
+            restrictions: Some(c.restrictions.into_iter().map(|s| s.into()).collect()), // Rule #4
+            warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #1 for type string?
+            hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
             warning_missing_invoice_paths: c.warning_missing_invoice_paths, // Rule #1 for type string?
             warning_missing_invoice_blindedpay: c.warning_missing_invoice_blindedpay, // Rule #1 for type string?
             warning_missing_invoice_created_at: c.warning_missing_invoice_created_at, // Rule #1 for type string?
@@ -4254,23 +4277,6 @@ impl From<pb::DecodeResponse> for responses::DecodeResponse {
             warning_missing_invoice_node_id: c.warning_missing_invoice_node_id, // Rule #1 for type string?
             warning_missing_invoice_signature: c.warning_missing_invoice_signature, // Rule #1 for type string?
             warning_invalid_invoice_signature: c.warning_invalid_invoice_signature, // Rule #1 for type string?
-            fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
-            created_at: c.created_at, // Rule #1 for type u64?
-            expiry: c.expiry, // Rule #1 for type u64?
-            payee: c.payee.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
-            description_hash: c.description_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
-            min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #1 for type u32?
-            payment_secret: c.payment_secret.map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
-            payment_metadata: c.payment_metadata.map(|v| hex::encode(v)), // Rule #1 for type hex?
-            routes: c.routes.map(|rl| rl.into()), // Rule #1 for type Routes?
-            extra: Some(c.extra.into_iter().map(|s| s.into()).collect()), // Rule #4
-            unique_id: c.unique_id, // Rule #1 for type string?
-            version: c.version, // Rule #1 for type u32?
-            string: c.string, // Rule #1 for type string?
-            restrictions: Some(c.restrictions.into_iter().map(|s| s.into()).collect()), // Rule #4
-            warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #1 for type string?
-            hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
         }
     }
 }

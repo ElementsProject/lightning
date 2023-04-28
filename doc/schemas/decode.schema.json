@@ -1277,6 +1277,356 @@
             "type": "string",
             "added": "v23.05",
             "enum": [
+              "bolt11 invoice"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "added": "v23.05",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "currency",
+          "created_at",
+          "expiry",
+          "payee",
+          "min_final_cltv_expiry",
+          "payment_hash",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "currency": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "the BIP173 name for the currency"
+          },
+          "created_at": {
+            "type": "u64",
+            "added": "v23.05",
+            "description": "the UNIX-style timestamp of the invoice"
+          },
+          "expiry": {
+            "type": "u64",
+            "added": "v23.05",
+            "description": "the number of seconds this is valid after `created_at`"
+          },
+          "payee": {
+            "type": "pubkey",
+            "added": "v23.05",
+            "description": "the public key of the recipient"
+          },
+          "amount_msat": {
+            "type": "msat",
+            "added": "v23.05",
+            "description": "Amount the invoice asked for"
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "v23.05",
+            "description": "the hash of the *payment_preimage*"
+          },
+          "signature": {
+            "type": "signature",
+            "added": "v23.05",
+            "description": "signature of the *payee* on this invoice"
+          },
+          "description": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "the description of the purpose of the purchase"
+          },
+          "description_hash": {
+            "type": "hash",
+            "added": "v23.05",
+            "description": "the hash of the description, in place of *description*"
+          },
+          "min_final_cltv_expiry": {
+            "type": "u32",
+            "added": "v23.05",
+            "description": "the minimum CLTV delay for the final node"
+          },
+          "payment_secret": {
+            "type": "secret",
+            "added": "v23.05",
+            "description": "the secret to hand to the payee node"
+          },
+          "features": {
+            "type": "hex",
+            "added": "v23.05",
+            "description": "the features bitmap for this invoice"
+          },
+          "payment_metadata": {
+            "type": "hex",
+            "added": "v23.05",
+            "description": "the payment_metadata to put in the payment"
+          },
+          "fallbacks": {
+            "type": "array",
+            "added": "v23.05",
+            "description": "onchain addresses",
+            "items": {
+              "type": "object",
+              "added": "v23.05",
+              "required": [
+                "type",
+                "hex"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "the address type (if known)",
+                  "enum": [
+                    "P2PKH",
+                    "P2SH",
+                    "P2WPKH",
+                    "P2WSH"
+                  ]
+                },
+                "addr": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "the address in appropriate format for *type*"
+                },
+                "hex": {
+                  "type": "hex",
+                  "added": "v23.05",
+                  "description": "Raw encoded address"
+                },
+                "warning_invoice_fallbacks_version_invalid": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "`version` is > 16"
+                }
+              }
+            }
+          },
+          "routes": {
+            "type": "array",
+            "added": "v23.05",
+            "description": "Route hints to the *payee*",
+            "items": {
+              "type": "array",
+              "added": "v23.05",
+              "description": "hops in the route",
+              "items": {
+                "type": "object",
+                "added": "v23.05",
+                "required": [
+                  "pubkey",
+                  "short_channel_id",
+                  "fee_base_msat",
+                  "fee_proportional_millionths",
+                  "cltv_expiry_delta"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "pubkey": {
+                    "type": "pubkey",
+                    "added": "v23.05",
+                    "description": "the public key of the node"
+                  },
+                  "short_channel_id": {
+                    "type": "short_channel_id",
+                    "added": "v23.05",
+                    "description": "a channel to the next peer"
+                  },
+                  "fee_base_msat": {
+                    "type": "msat",
+                    "added": "v23.05",
+                    "description": "the base fee for payments"
+                  },
+                  "fee_proportional_millionths": {
+                    "type": "u32",
+                    "added": "v23.05",
+                    "description": "the parts-per-million fee for payments"
+                  },
+                  "cltv_expiry_delta": {
+                    "type": "u32",
+                    "added": "v23.05",
+                    "description": "the CLTV delta across this hop"
+                  }
+                }
+              }
+            }
+          },
+          "extra": {
+            "type": "array",
+            "added": "v23.05",
+            "description": "Any extra fields we didn't know how to parse",
+            "items": {
+              "type": "object",
+              "added": "v23.05",
+              "required": [
+                "tag",
+                "data"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tag": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "The bech32 letter which identifies this field",
+                  "maxLength": 1,
+                  "minLength": 1
+                },
+                "data": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "The bech32 data for this field"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "added": "v23.05",
+            "enum": [
+              "rune"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "added": "v23.05",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "string",
+          "restrictions",
+          "valid"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "unique_id": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "unique id (always a numeric id on runes we create)"
+          },
+          "version": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "rune version, not currently set on runes we create"
+          },
+          "valid": {
+            "type": "boolean",
+            "added": "v23.05",
+            "enum": [
+              true
+            ]
+          },
+          "string": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "the string encoding of the rune"
+          },
+          "restrictions": {
+            "type": "array",
+            "added": "v23.05",
+            "description": "restrictions built into the rune: all must pass",
+            "items": {
+              "type": "object",
+              "added": "v23.05",
+              "required": [
+                "alternatives",
+                "summary"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "alternatives": {
+                  "type": "array",
+                  "added": "v23.05",
+                  "description": "each way restriction can be met: any can pass",
+                  "items": {
+                    "type": "string",
+                    "added": "v23.05",
+                    "description": "the alternative of form fieldname condition fieldname"
+                  }
+                },
+                "summary": {
+                  "type": "string",
+                  "added": "v23.05",
+                  "description": "human-readable summary of this restriction"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "added": "v23.05",
+            "enum": [
+              "rune"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "added": "v23.05",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "valid"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {
+            "type": "boolean",
+            "added": "v23.05",
+            "enum": [
+              false
+            ]
+          },
+          "warning_rune_invalid_utf8": {
+            "type": "string",
+            "added": "v23.05",
+            "description": "the rune contains invalid UTF-8 strings"
+          },
+          "hex": {
+            "type": "hex",
+            "added": "v23.05",
+            "description": "the raw rune in hex"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "added": "v23.05",
+            "enum": [
               "bolt12 invoice"
             ]
           },
@@ -1410,358 +1760,9 @@
                 "version": {},
                 "hex": {},
                 "address": {},
-                "warning_invoice_fallbacks_version_invalid": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "`version` is > 16"
-                }
+                "warning_invoice_fallbacks_version_invalid": {}
               }
             }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "added": "v23.05",
-            "enum": [
-              "bolt11 invoice"
-            ]
-          },
-          "valid": {
-            "type": "boolean",
-            "added": "v23.05",
-            "enum": [
-              true
-            ]
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "currency",
-          "created_at",
-          "expiry",
-          "payee",
-          "min_final_cltv_expiry",
-          "payment_hash",
-          "signature"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "type": {},
-          "valid": {},
-          "currency": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "the BIP173 name for the currency"
-          },
-          "created_at": {
-            "type": "u64",
-            "added": "v23.05",
-            "description": "the UNIX-style timestamp of the invoice"
-          },
-          "expiry": {
-            "type": "u64",
-            "added": "v23.05",
-            "description": "the number of seconds this is valid after `created_at`"
-          },
-          "payee": {
-            "type": "pubkey",
-            "added": "v23.05",
-            "description": "the public key of the recipient"
-          },
-          "amount_msat": {
-            "type": "msat",
-            "added": "v23.05",
-            "description": "Amount the invoice asked for"
-          },
-          "payment_hash": {
-            "type": "hash",
-            "added": "v23.05",
-            "description": "the hash of the *payment_preimage*"
-          },
-          "signature": {
-            "type": "signature",
-            "added": "v23.05",
-            "description": "signature of the *payee* on this invoice"
-          },
-          "description": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "the description of the purpose of the purchase"
-          },
-          "description_hash": {
-            "type": "hash",
-            "added": "v23.05",
-            "description": "the hash of the description, in place of *description*"
-          },
-          "min_final_cltv_expiry": {
-            "type": "u32",
-            "added": "v23.05",
-            "description": "the minimum CLTV delay for the final node"
-          },
-          "payment_secret": {
-            "type": "secret",
-            "added": "v23.05",
-            "description": "the secret to hand to the payee node"
-          },
-          "features": {
-            "type": "hex",
-            "added": "v23.05",
-            "description": "the features bitmap for this invoice"
-          },
-          "payment_metadata": {
-            "type": "hex",
-            "added": "v23.05",
-            "description": "the payment_metadata to put in the payment"
-          },
-          "fallbacks": {
-            "type": "array",
-            "added": "v23.05",
-            "description": "onchain addresses",
-            "items": {
-              "type": "object",
-              "added": "v23.05",
-              "required": [
-                "type",
-                "hex"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "the address type (if known)",
-                  "enum": [
-                    "P2PKH",
-                    "P2SH",
-                    "P2WPKH",
-                    "P2WSH"
-                  ]
-                },
-                "addr": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "the address in appropriate format for *type*"
-                },
-                "hex": {
-                  "type": "hex",
-                  "added": "v23.05",
-                  "description": "Raw encoded address"
-                }
-              }
-            }
-          },
-          "routes": {
-            "type": "array",
-            "added": "v23.05",
-            "description": "Route hints to the *payee*",
-            "items": {
-              "type": "array",
-              "added": "v23.05",
-              "description": "hops in the route",
-              "items": {
-                "type": "object",
-                "added": "v23.05",
-                "required": [
-                  "pubkey",
-                  "short_channel_id",
-                  "fee_base_msat",
-                  "fee_proportional_millionths",
-                  "cltv_expiry_delta"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "pubkey": {
-                    "type": "pubkey",
-                    "added": "v23.05",
-                    "description": "the public key of the node"
-                  },
-                  "short_channel_id": {
-                    "type": "short_channel_id",
-                    "added": "v23.05",
-                    "description": "a channel to the next peer"
-                  },
-                  "fee_base_msat": {
-                    "type": "msat",
-                    "added": "v23.05",
-                    "description": "the base fee for payments"
-                  },
-                  "fee_proportional_millionths": {
-                    "type": "u32",
-                    "added": "v23.05",
-                    "description": "the parts-per-million fee for payments"
-                  },
-                  "cltv_expiry_delta": {
-                    "type": "u32",
-                    "added": "v23.05",
-                    "description": "the CLTV delta across this hop"
-                  }
-                }
-              }
-            }
-          },
-          "extra": {
-            "type": "array",
-            "added": "v23.05",
-            "description": "Any extra fields we didn't know how to parse",
-            "items": {
-              "type": "object",
-              "added": "v23.05",
-              "required": [
-                "tag",
-                "data"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "tag": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "The bech32 letter which identifies this field",
-                  "maxLength": 1,
-                  "minLength": 1
-                },
-                "data": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "The bech32 data for this field"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "added": "v23.05",
-            "enum": [
-              "rune"
-            ]
-          },
-          "valid": {
-            "type": "boolean",
-            "added": "v23.05",
-            "enum": [
-              true
-            ]
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "string",
-          "restrictions",
-          "valid"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "unique_id": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "unique id (always a numeric id on runes we create)"
-          },
-          "version": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "rune version, not currently set on runes we create"
-          },
-          "valid": {
-            "type": "boolean",
-            "added": "v23.05",
-            "enum": [
-              true
-            ]
-          },
-          "type": {},
-          "string": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "the string encoding of the rune"
-          },
-          "restrictions": {
-            "type": "array",
-            "added": "v23.05",
-            "description": "restrictions built into the rune: all must pass",
-            "items": {
-              "type": "object",
-              "added": "v23.05",
-              "required": [
-                "alternatives",
-                "summary"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "alternatives": {
-                  "type": "array",
-                  "added": "v23.05",
-                  "description": "each way restriction can be met: any can pass",
-                  "items": {
-                    "type": "string",
-                    "added": "v23.05",
-                    "description": "the alternative of form fieldname condition fieldname"
-                  }
-                },
-                "summary": {
-                  "type": "string",
-                  "added": "v23.05",
-                  "description": "human-readable summary of this restriction"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "added": "v23.05",
-            "enum": [
-              "rune"
-            ]
-          },
-          "valid": {
-            "type": "boolean",
-            "added": "v23.05",
-            "enum": [
-              false
-            ]
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "valid"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "valid": {
-            "type": "boolean",
-            "added": "v23.05",
-            "enum": [
-              false
-            ]
-          },
-          "type": {},
-          "warning_rune_invalid_utf8": {
-            "type": "string",
-            "added": "v23.05",
-            "description": "the rune contains invalid UTF-8 strings"
-          },
-          "hex": {
-            "type": "hex",
-            "added": "v23.05",
-            "description": "the raw rune in hex"
           }
         }
       }

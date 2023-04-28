@@ -1348,6 +1348,23 @@ message DecodeResponse {
 	optional bytes invoice_node_id = 47;
 	optional uint64 invoice_recurrence_basetime = 48;
 	repeated DecodeUnknown_invoice_tlvs unknown_invoice_tlvs = 49;
+	optional uint64 created_at = 60;
+	optional uint64 expiry = 61;
+	optional bytes payee = 62;
+	optional bytes payment_hash = 63;
+	optional bytes description_hash = 64;
+	optional uint32 min_final_cltv_expiry = 65;
+	optional bytes payment_secret = 66;
+	optional bytes payment_metadata = 67;
+	repeated DecodeFallbacks fallbacks = 59;
+	optional Routes routes = 68;
+	repeated DecodeExtra extra = 69;
+	optional string unique_id = 70;
+	optional uint32 version = 71;
+	optional string string = 72;
+	repeated DecodeRestrictions restrictions = 73;
+	optional string warning_rune_invalid_utf8 = 74;
+	optional bytes hex = 75;
 	optional string warning_missing_invoice_paths = 50;
 	optional string warning_missing_invoice_blindedpay = 51;
 	optional string warning_missing_invoice_created_at = 52;
@@ -1357,23 +1374,6 @@ message DecodeResponse {
 	optional string warning_missing_invoice_node_id = 56;
 	optional string warning_missing_invoice_signature = 57;
 	optional string warning_invalid_invoice_signature = 58;
-	repeated DecodeFallbacks fallbacks = 59;
-	optional uint64 created_at = 60;
-	optional uint64 expiry = 61;
-	optional bytes payee = 62;
-	optional bytes payment_hash = 63;
-	optional bytes description_hash = 64;
-	optional uint32 min_final_cltv_expiry = 65;
-	optional bytes payment_secret = 66;
-	optional bytes payment_metadata = 67;
-	optional Routes routes = 68;
-	repeated DecodeExtra extra = 69;
-	optional string unique_id = 70;
-	optional uint32 version = 71;
-	optional string string = 72;
-	repeated DecodeRestrictions restrictions = 73;
-	optional string warning_rune_invalid_utf8 = 74;
-	optional bytes hex = 75;
 }
 
 message DecodeOffer_paths {
@@ -1447,7 +1447,17 @@ message DecodeUnknown_invoice_tlvs {
 }
 
 message DecodeFallbacks {
-	optional string warning_invoice_fallbacks_version_invalid = 1;
+	// Decode.fallbacks[].type
+	enum DecodeFallbacksType {
+		P2PKH = 0;
+		P2SH = 1;
+		P2WPKH = 2;
+		P2WSH = 3;
+	}
+	optional DecodeFallbacksType item_type = 1;
+	optional string addr = 2;
+	optional bytes hex = 3;
+	optional string warning_invoice_fallbacks_version_invalid = 4;
 }
 
 message DecodeExtra {

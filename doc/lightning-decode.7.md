@@ -211,28 +211,6 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - the following warnings are possible:
     - **warning\_unknown\_offer\_currency**: The currency code is unknown (so no `currency_minor_unit`) *(added v23.05)*
 
-If **type** is "bolt12 invoice", and **valid** is *false*:
-
-  - **fallbacks** (array of objects, optional) *(added v23.05)*:
-    - the following warnings are possible:
-      - **warning\_invoice\_fallbacks\_version\_invalid**: `version` is > 16 *(added v23.05)*
-  - the following warnings are possible:
-    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
-    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
-    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_invreq\_metadata**: `invreq_metadata` is not present *(added v23.05)*
-    - **warning\_invalid\_invreq\_payer\_note**: `invreq_payer_note` is not valid UTF8 *(added v23.05)*
-    - **warning\_missing\_invoice\_paths**: `invoice_paths` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_blindedpay**: `invoice_blindedpay` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_created\_at**: `invoice_created_at` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_payment\_hash**: `invoice_payment_hash` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_amount**: `invoice_amount` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_recurrence\_basetime**: `invoice_recurrence_basetime` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_node\_id**: `invoice_node_id` is not present *(added v23.05)*
-    - **warning\_missing\_invoice\_signature**: `signature` is not present *(added v23.05)*
-    - **warning\_invalid\_invoice\_signature**: Incorrect `signature` *(added v23.05)*
-
 If **type** is "bolt11 invoice", and **valid** is *true*:
 
   - **currency** (string): the BIP173 name for the currency *(added v23.05)*
@@ -252,6 +230,8 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
     - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH") *(added v23.05)*
     - **hex** (hex): Raw encoded address *(added v23.05)*
     - **addr** (string, optional): the address in appropriate format for *type* *(added v23.05)*
+    - the following warnings are possible:
+      - **warning\_invoice\_fallbacks\_version\_invalid**: `version` is > 16 *(added v23.05)*
   - **routes** (array of arrays, optional): Route hints to the *payee* *(added v23.05)*:
     - hops in the route:
       - **pubkey** (pubkey): the public key of the node *(added v23.05)*
@@ -281,6 +261,26 @@ If **type** is "rune", and **valid** is *false*:
   - the following warnings are possible:
     - **warning\_rune\_invalid\_utf8**: the rune contains invalid UTF-8 strings *(added v23.05)*
 
+If **type** is "bolt12 invoice", and **valid** is *false*:
+
+  - **fallbacks** (array of objects, optional) *(added v23.05)*:
+  - the following warnings are possible:
+    - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_offer\_description**: `offer_description` is not present *(added v23.05)*
+    - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8 *(added v23.05)*
+    - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_invreq\_metadata**: `invreq_metadata` is not present *(added v23.05)*
+    - **warning\_invalid\_invreq\_payer\_note**: `invreq_payer_note` is not valid UTF8 *(added v23.05)*
+    - **warning\_missing\_invoice\_paths**: `invoice_paths` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_blindedpay**: `invoice_blindedpay` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_created\_at**: `invoice_created_at` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_payment\_hash**: `invoice_payment_hash` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_amount**: `invoice_amount` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_recurrence\_basetime**: `invoice_recurrence_basetime` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_node\_id**: `invoice_node_id` is not present *(added v23.05)*
+    - **warning\_missing\_invoice\_signature**: `signature` is not present *(added v23.05)*
+    - **warning\_invalid\_invoice\_signature**: Incorrect `signature` *(added v23.05)*
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -303,4 +303,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:10addfc92e76f8153b27d28e339b10c8bd7528dafd6ae1b3333cca9226817173)
+[comment]: # ( SHA256STAMP:39da43957723db6caebbe20abffec1a5d970516370de67eceac1d1ab7092d169)

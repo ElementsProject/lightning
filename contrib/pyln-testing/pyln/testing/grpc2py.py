@@ -988,6 +988,9 @@ def decode_unknown_invoice_tlvs2py(m):
 
 def decode_fallbacks2py(m):
     return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "addr": m.addr,  # PrimitiveField in generate_composite
+        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
         "warning_invoice_fallbacks_version_invalid": m.warning_invoice_fallbacks_version_invalid,  # PrimitiveField in generate_composite
     })
 
@@ -1057,6 +1060,22 @@ def decode2py(m):
         "invoice_node_id": hexlify(m.invoice_node_id),  # PrimitiveField in generate_composite
         "invoice_recurrence_basetime": m.invoice_recurrence_basetime,  # PrimitiveField in generate_composite
         "unknown_invoice_tlvs": [decode_unknown_invoice_tlvs2py(i) for i in m.unknown_invoice_tlvs],  # ArrayField[composite] in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "expiry": m.expiry,  # PrimitiveField in generate_composite
+        "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "description_hash": hexlify(m.description_hash),  # PrimitiveField in generate_composite
+        "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
+        "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
+        "fallbacks": [decode_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
+        "extra": [decode_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+        "version": m.version,  # PrimitiveField in generate_composite
+        "string": m.string,  # PrimitiveField in generate_composite
+        "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
+        "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
+        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
         "warning_missing_invoice_paths": m.warning_missing_invoice_paths,  # PrimitiveField in generate_composite
         "warning_missing_invoice_blindedpay": m.warning_missing_invoice_blindedpay,  # PrimitiveField in generate_composite
         "warning_missing_invoice_created_at": m.warning_missing_invoice_created_at,  # PrimitiveField in generate_composite
@@ -1066,22 +1085,6 @@ def decode2py(m):
         "warning_missing_invoice_node_id": m.warning_missing_invoice_node_id,  # PrimitiveField in generate_composite
         "warning_missing_invoice_signature": m.warning_missing_invoice_signature,  # PrimitiveField in generate_composite
         "warning_invalid_invoice_signature": m.warning_invalid_invoice_signature,  # PrimitiveField in generate_composite
-        "fallbacks": [decode_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
-        "created_at": m.created_at,  # PrimitiveField in generate_composite
-        "expiry": m.expiry,  # PrimitiveField in generate_composite
-        "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
-        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
-        "description_hash": hexlify(m.description_hash),  # PrimitiveField in generate_composite
-        "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
-        "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
-        "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
-        "extra": [decode_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
-        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
-        "version": m.version,  # PrimitiveField in generate_composite
-        "string": m.string,  # PrimitiveField in generate_composite
-        "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
-        "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
-        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
     })
 
 

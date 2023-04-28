@@ -33,6 +33,12 @@
             "must-create": 0,
             "must-replace": 1
         },
+        "DecodeFallbacksType": {
+            "P2PKH": 0,
+            "P2SH": 1,
+            "P2WPKH": 2,
+            "P2WSH": 3
+        },
         "DecodePayFallbacksType": {
             "P2PKH": 0,
             "P2SH": 1,
@@ -587,7 +593,10 @@
             "Decode.extra[].tag": 1
         },
         "DecodeFallbacks": {
-            "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": 1
+            "Decode.fallbacks[].addr": 2,
+            "Decode.fallbacks[].hex": 3,
+            "Decode.fallbacks[].type": 1,
+            "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": 4
         },
         "DecodeInvoice_fallbacks": {
             "Decode.invoice_fallbacks[].address": 3,
@@ -2913,6 +2922,18 @@
             "deprecated": false
         },
         "Decode.fallbacks[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].addr": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].hex": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].type": {
             "added": "v23.05",
             "deprecated": false
         },
