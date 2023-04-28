@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io"
 	"sync"
 
 	"github.com/elementsproject/lightning/contrib/goln/rpc"
@@ -16,8 +16,8 @@ import (
 type Builder struct {
 	mu sync.Mutex
 
-	in   *os.File
-	out  *os.File
+	in   io.ReadCloser
+	out  io.WriteCloser
 	stop chan struct{}
 
 	server              *rpc.Server
@@ -29,7 +29,7 @@ type Builder struct {
 	dynamic    bool
 }
 
-func NewBuilder(ctx context.Context, in *os.File, out *os.File) *Builder {
+func NewBuilder(ctx context.Context, in io.ReadCloser, out io.WriteCloser) *Builder {
 	builder := new(Builder)
 	builder.in = in
 	builder.out = out
@@ -178,8 +178,8 @@ type Plugin struct {
 	initConn *jsonrpc2.Conn
 	initId   *jsonrpc2.ID
 
-	in     *os.File
-	out    *os.File
+	in     io.ReadCloser
+	out    io.WriteCloser
 	server *rpc.Server
 	stop   chan struct{}
 
