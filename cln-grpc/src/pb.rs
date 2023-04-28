@@ -216,6 +216,62 @@ impl From<cln_rpc::primitives::TlvEntry> for TlvEntry {
     }
 }
 
+impl From<Hop> for cln_rpc::primitives::Hop {
+    fn from(c: Hop) -> Self {
+        Self {
+            pubkey: cln_rpc::primitives::PublicKey::from_slice(&c.pubkey).unwrap(),
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(),
+            fee_base_msat: c.fee_base_msat.unwrap().into(),
+            fee_proportional_millionths: c.fee_proportional_millionths,
+            cltv_expiry_delta: c.cltv_expiry_delta as u16,
+        }
+    }
+}
+
+impl From<Route> for cln_rpc::primitives::Route {
+    fn from(c: Route) -> Self {
+        Self {
+            hops: c.hops.into_iter().map(|h| h.into()).collect(),
+        }
+    }
+}
+
+impl From<Routes> for cln_rpc::primitives::Routes {
+    fn from(c: Routes) -> Self {
+        Self {
+            routes: c.routes.into_iter().map(|h| h.into()).collect(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::Hop> for Hop {
+    fn from(c: cln_rpc::primitives::Hop) -> Self {
+        Self {
+            pubkey: c.pubkey.serialize().to_vec(),
+            short_channel_id: c.short_channel_id.to_string(),
+            fee_base_msat: Some(c.fee_base_msat.into()),
+            fee_proportional_millionths: c.fee_proportional_millionths,
+            cltv_expiry_delta: c.cltv_expiry_delta as u32,
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::Route> for Route {
+    fn from(c: cln_rpc::primitives::Route) -> Self {
+        Self {
+            hops: c.hops.into_iter().map(|h| h.into()).collect(),
+        }
+    }
+}
+
+impl From<cln_rpc::primitives::Routes> for Routes {
+    fn from(c: cln_rpc::primitives::Routes) -> Self {
+        Self {
+            routes: c.routes.into_iter().map(|e| e.into()).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

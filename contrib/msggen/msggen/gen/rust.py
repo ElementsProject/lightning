@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 keywords = ["in", "type"]
 
 # Manual overrides for some of the auto-generated types for paths
-# Manual overrides for some of the auto-generated types for paths
 overrides = {
     'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
     'ListPeers.peers[].channels[].state_changes[].new_state': "ChannelState",
@@ -52,6 +51,7 @@ typemap = {
     'pubkey': 'PublicKey',
     'short_channel_id': 'ShortChannelId',
     'signature': 'String',
+    'bip340sig': 'String',
     'string': 'String',
     'txid': 'String',
     'float': 'f32',
@@ -164,9 +164,9 @@ def gen_primitive(p):
         defi += "    #[deprecated]\n"
     defi += rename_if_necessary(org, p.name.name)
     if not p.optional:
-        defi += f"    pub {p.name}: {typename},\n"
+        defi += f"    pub {p.name.normalized()}: {typename},\n"
     else:
-        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {p.name}: Option<{typename}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {p.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
 
@@ -228,9 +228,9 @@ def gen_composite(c) -> Tuple[str, str]:
     if c.deprecated:
         defi += "    #[deprecated]\n"
     if not c.optional:
-        defi += f"    pub {c.name}: {c.typename},\n"
+        defi += f"    pub {c.name.normalized()}: {c.typename},\n"
     else:
-        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.name}: Option<{c.typename}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.name.normalized()}: Option<{c.typename}>,\n"
 
     return defi, r
 

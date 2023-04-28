@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "added": "v23.05",
+  "additionalProperties": false,
+  "required": [
+    "string"
+  ],
+  "properties": {
+    "string": {
+      "type": "string",
+      "added": "v23.05"
+    }
+  }
+}

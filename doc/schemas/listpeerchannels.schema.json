@@ -8,10 +8,11 @@
   ],
   "properties": {
     "channels": {
-      "added": "v23.05",
       "type": "array",
+      "added": "v23.05",
       "items": {
         "type": "object",
+        "added": "v23.05",
         "additionalProperties": true,
         "required": [
           "state",
@@ -70,6 +71,7 @@
                 "description": "Each bit set in this channel_type",
                 "items": {
                   "type": "u32",
+                  "added": "v23.05",
                   "description": "Bit number"
                 }
               },
@@ -146,7 +148,7 @@
           },
           "last_feerate": {
             "type": "string",
-	    "added": "v23.05",
+	        "added": "v23.05",
             "description": "For inflight opens, the most recent feerate used on the channel open"
           },
           "next_feerate": {

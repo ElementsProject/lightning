@@ -288,6 +288,7 @@ class PrimitiveField(Field):
         "string",
         "pubkey",
         "signature",
+        "bip340sig",
         "msat",
         "msat_or_any",
         "msat_or_all",
@@ -401,6 +402,34 @@ overrides = {
     'Pay.exclude': PayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
+    'Decode.version': PrimitiveField(
+        "u32",
+        None,
+        None,
+        added="v23.05",
+        deprecated=None
+    ),
+    'Decode.invoice_fallbacks[].version': PrimitiveField(
+        "u32",
+        None,
+        None,
+        added="v23.05",
+        deprecated=None
+    ),
+    'Decode.routes': PrimitiveField(
+        "Routes",
+        None,
+        None,
+        added="v23.05",
+        deprecated=None
+    ),
+    'DecodePay.routes': PrimitiveField(
+        "Routes",
+        None,
+        None,
+        added="v23.05",
+        deprecated=None
+    ),
 }
 
 

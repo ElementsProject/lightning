@@ -9,8 +9,10 @@
   "properties": {
     "closedchannels": {
       "type": "array",
+      "added": "v23.05",
       "items": {
         "type": "object",
+        "added": "v23.05",
         "additionalProperties": true,
         "required": [
           "channel_id",
@@ -31,32 +33,39 @@
         "properties": {
           "peer_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "Peer public key (can be missing with pre-v23.05 closes!)"
           },
           "channel_id": {
             "type": "hash",
+            "added": "v23.05",
             "description": "The full channel_id (funding txid Xored with output number)"
           },
           "short_channel_id": {
             "type": "short_channel_id",
+            "added": "v23.05",
             "description": "The short_channel_id"
           },
           "alias": {
             "type": "object",
+            "added": "v23.05",
             "required": [],
             "properties": {
               "local": {
                 "type": "short_channel_id",
+                "added": "v23.05",
                 "description": "An alias assigned by this node to this channel, used for outgoing payments"
               },
               "remote": {
                 "type": "short_channel_id",
+                "added": "v23.05",
                 "description": "An alias assigned by the remote node to this channel, usable in routehints and invoices"
               }
             }
           },
           "opener": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "local",
               "remote"
@@ -65,6 +74,7 @@
           },
           "closer": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "local",
               "remote"
@@ -73,10 +83,12 @@
           },
           "private": {
             "type": "boolean",
+            "added": "v23.05",
             "description": "if False, we will not announce this channel"
           },
           "channel_type": {
             "type": "object",
+            "added": "v23.05",
             "description": "channel_type as negotiated with peer",
             "additionalProperties": false,
             "required": [
@@ -86,17 +98,21 @@
             "properties": {
               "bits": {
                 "type": "array",
+                "added": "v23.05",
                 "description": "Each bit set in this channel_type",
                 "items": {
                   "type": "u32",
+                  "added": "v23.05",
                   "description": "Bit number"
                 }
               },
               "names": {
                 "type": "array",
+                "added": "v23.05",
                 "description": "Feature name for each bit set in this channel_type",
                 "items": {
                   "type": "string",
+                  "added": "v23.05",
                   "enum": [
                     "static_remotekey_even",
                     "anchor_outputs_even",
@@ -111,66 +127,82 @@
           },
           "total_local_commitments": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of commitment transaction we made"
           },
           "total_remote_commitments": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of commitment transaction they made"
           },
           "total_htlcs_sent": {
             "type": "u64",
+            "added": "v23.05",
             "description": "Number of HTLCs we ever sent"
           },
           "funding_txid": {
             "type": "txid",
+            "added": "v23.05",
             "description": "ID of the funding transaction"
           },
           "funding_outnum": {
             "type": "u32",
+            "added": "v23.05",
             "description": "The 0-based output number of the funding transaction which opens the channel"
           },
           "leased": {
             "type": "boolean",
+            "added": "v23.05",
             "description": "Whether this channel was leased from `opener`"
           },
           "funding_fee_paid_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "How much we paid to lease the channel (iff `leased` is true and `opener` is local)"
           },
           "funding_fee_rcvd_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "How much they paid to lease the channel (iff `leased` is true and `opener` is remote)"
           },
           "funding_pushed_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "How much `opener` pushed immediate (if non-zero)"
           },
           "total_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "total amount in the channel"
           },
           "final_to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Our balance in final commitment transaction"
           },
           "min_to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain."
           },
           "max_to_us_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get."
           },
           "last_commitment_txid": {
             "type": "hash",
+            "added": "v23.05",
             "description": "The final commitment tx's txid (or mutual close, if we accepted it).  Not present for some very old, small channels pre-0.7.0."
           },
           "last_commitment_fee_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "The fee on `last_commitment_txid`"
           },
           "close_cause": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "unknown",
               "local",

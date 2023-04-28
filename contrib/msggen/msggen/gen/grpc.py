@@ -17,6 +17,7 @@ typemap = {
     'pubkey': 'bytes',
     'short_channel_id': 'string',
     'signature': 'bytes',
+    'bip340sig': 'bytes',
     'string': 'string',
     'txid': 'bytes',
     'u8': 'uint32',  # Yep, this is the smallest integer type in grpc...
@@ -53,6 +54,14 @@ overrides = {
     'ListClosedChannels.closedchannels[].opener': "ChannelSide",
     'ListClosedChannels.closedchannels[].closer': "ChannelSide",
     'ListClosedChannels.closedchannels[].channel_type.names[]': "string",
+}
+
+# Manual overrides for some of the auto-generated types for paths
+name_overrides = {
+    'Decode.offer_paths[].path[]': "DecodeOfferPathsPath",
+    'Decode.offer_recurrence.paywindow': "DecodeOfferRecurrencePaywindow",
+    'Decode.invoice_paths[].path[]':  "DecodeInvoicePathsPath",
+    'Decode.invoice_paths[].payinfo':  "DecodeInvoicePathsPayinfo",
 }
 
 
@@ -276,6 +285,7 @@ class GrpcConverterGenerator(IGenerator):
                 self.generate_composite(prefix, f)
 
         pbname = self.to_camel_case(field.typename)
+        pbname = name_overrides.get(field.path, pbname)
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables,deprecated)]
@@ -296,7 +306,11 @@ class GrpcConverterGenerator(IGenerator):
                 # array. The current item is called `i`
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
+                    'signature': f'hex::decode(i).unwrap()',
+                    'bip340sig': f'hex::decode(i).unwrap()',
+                    'pubkey': f'i.serialize().to_vec()',
                     'secret': f'i.to_vec()',
+                    'hash': f'i.to_vec()',
                 }.get(typ, f'i.into()')
 
                 if not f.optional:
@@ -325,6 +339,10 @@ class GrpcConverterGenerator(IGenerator):
                     'pubkey?': f'c.{name}.map(|v| v.serialize().to_vec())',
                     'hex': f'hex::decode(&c.{name}).unwrap()',
                     'hex?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
+                    'bip340sig': f'hex::decode(&c.{name}).unwrap()',
+                    'bip340sig?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
+                    'signature': f'hex::decode(&c.{name}).unwrap()',
+                    'signature?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
                     'txid': f'hex::decode(&c.{name}).unwrap()',
                     'txid?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
                     'short_channel_id': f'c.{name}.to_string()',
@@ -342,6 +360,7 @@ class GrpcConverterGenerator(IGenerator):
                     'outpoint?': f'c.{name}.map(|o|o.into())',
                     'TlvStream?': f'c.{name}.map(|s| s.into())',
                     'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
+                    'Routes?': f'c.{name}.map(|rl| rl.into())',
 
 
                 }.get(
@@ -432,6 +451,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 self.generate_composite(prefix, f)
 
         pbname = self.to_camel_case(field.typename)
+        pbname = name_overrides.get(field.path, pbname)
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables,deprecated)]
@@ -446,15 +466,19 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 typ = f.itemtype.typename
                 mapping = {
                     'hex': f'hex::encode(s)',
-                    'u32': f's',
-                    'secret': f's.try_into().unwrap()'
+                    'signature': f'hex::encode(s)',
+                    'bip340sig': f'hex::encode(s)',
+                    'hash': f'Sha256::from_slice(&s).unwrap()',
+                    'pubkey': f's.try_into().unwrap()',
+                    'secret': f's.try_into().unwrap()',
+                    'u32': f's'
                 }.get(typ, f's.into()')
 
                 # TODO fix properly
                 if typ in ["ListtransactionsTransactionsType"]:
                     continue
                 if name == 'state_changes':
-                    self.write(f" state_changes: None,")
+                    self.write(f"state_changes: None,\n", numindent=3)
                     continue
                     
                 if not f.optional:
@@ -488,6 +512,10 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'u16?': f'c.{name}.map(|v| v as u16)',
                     'hex': f'hex::encode(&c.{name})',
                     'hex?': f'c.{name}.map(|v| hex::encode(v))',
+                    'signature': f'hex::encode(&c.{name})',
+                    'signature?': f'c.{name}.map(|v| hex::encode(v))',
+                    'bip340sig': f'hex::encode(&c.{name})',
+                    'bip340sig?': f'c.{name}.map(|v| hex::encode(v))',
                     'txid?': f'c.{name}.map(|v| hex::encode(v))',
                     'pubkey': f'PublicKey::from_slice(&c.{name}).unwrap()',
                     'pubkey?': f'c.{name}.map(|v| PublicKey::from_slice(&v).unwrap())',
@@ -501,6 +529,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'feerate?': f'c.{name}.map(|a| a.into())',
                     'outpoint?': f'c.{name}.map(|a| a.into())',
                     'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
+                    'Routes?': f'c.{name}.map(|rl| rl.into())',
                     'short_channel_id': f'cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()',
                     'short_channel_id?': f'c.{name}.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
                     'secret': f'c.{name}.try_into().unwrap()',

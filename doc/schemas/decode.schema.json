@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+  "added": "v23.05",
   "required": [
     "type",
     "valid"
@@ -8,6 +9,7 @@
   "properties": {
     "type": {
       "type": "string",
+      "added": "v23.05",
       "enum": [
         "bolt12 offer",
         "bolt12 invoice",
@@ -19,6 +21,7 @@
     },
     "valid": {
       "type": "boolean",
+      "added": "v23.05",
       "description": "if this is false, you *MUST* not use the result except for diagnostics!"
     }
   },
@@ -28,12 +31,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 offer"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -52,69 +57,85 @@
           "valid": {},
           "offer_id": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the id we use to identify this offer",
             "maxLength": 64,
             "minLength": 64
           },
           "offer_chains": {
             "type": "array",
+            "added": "v23.05",
             "description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
             "items": {
               "type": "hash",
+              "added": "v23.05",
               "description": "the genesis blockhash"
             }
           },
           "offer_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "any metadata the creater of the offer includes"
           },
           "offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "ISO 4217 code of the currency (missing implies Bitcoin)",
             "maxLength": 3,
             "minLength": 3
           },
           "warning_unknown_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "The currency code is unknown (so no `currency_minor_unit`)"
           },
           "currency_minor_unit": {
             "type": "u32",
+            "added": "v23.05",
             "description": "the number of decimal places to apply to amount (if currency known)"
           },
           "offer_amount": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the amount in the `offer_currency` adjusted by `currency_minor_unit`, if any"
           },
           "offer_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount in bitcoin (if specified, and no `offer_currency`)"
           },
           "offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the purpose of the offer"
           },
           "offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the creator of the offer"
           },
           "offer_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the offer"
           },
           "offer_absolute_expiry": {
             "type": "u64",
+            "added": "v23.05",
             "description": "UNIX timestamp of when this offer expires"
           },
           "offer_quantity_max": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the maximum quantity (or, if 0, means any quantity)"
           },
           "offer_paths": {
             "type": "array",
+            "added": "v23.05",
             "description": "Paths to the destination",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "first_node_id",
                 "blinding",
@@ -124,17 +145,21 @@
               "properties": {
                 "first_node_id": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "the (presumably well-known) public key of the start of the path"
                 },
                 "blinding": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "blinding factor for this path"
                 },
                 "path": {
                   "type": "array",
+                  "added": "v23.05",
                   "description": "an individual path",
                   "items": {
                     "type": "object",
+                    "added": "v23.05",
                     "required": [
                       "blinded_node_id",
                       "encrypted_recipient_data"
@@ -143,10 +168,12 @@
                     "properties": {
                       "blinded_node_id": {
                         "type": "pubkey",
+                        "added": "v23.05",
                         "description": "node_id of the hop"
                       },
                       "encrypted_recipient_data": {
                         "type": "hex",
+                        "added": "v23.05",
                         "description": "encrypted TLV entry for this hop"
                       }
                     }
@@ -157,10 +184,12 @@
           },
           "offer_node_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "public key of the offering node"
           },
           "offer_recurrence": {
             "type": "object",
+            "added": "v23.05",
             "description": "how often to this offer should be used",
             "required": [
               "period",
@@ -170,30 +199,37 @@
             "properties": {
               "time_unit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "the BOLT12 time unit"
               },
               "time_unit_name": {
                 "type": "string",
+                "added": "v23.05",
                 "description": "the name of `time_unit` (if valid)"
               },
               "period": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "how many `time_unit` per payment period"
               },
               "basetime": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "period starts at this UNIX timestamp"
               },
               "start_any_period": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "you can start at any period (only if `basetime` present)"
               },
               "limit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "maximum period number for recurrence"
               },
               "paywindow": {
                 "type": "object",
+                "added": "v23.05",
                 "description": "when within a period will payment be accepted (default is prior and during the period)",
                 "required": [
                   "seconds_before",
@@ -203,14 +239,17 @@
                 "properties": {
                   "seconds_before": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds prior to period start"
                   },
                   "seconds_after": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds after to period start"
                   },
                   "proportional_amount": {
                     "type": "boolean",
+                    "added": "v23.05",
                     "enum": [
                       true
                     ],
@@ -222,9 +261,11 @@
           },
           "unknown_offer_tlvs": {
             "type": "array",
+            "added": "v23.05",
             "description": "Any extra fields we didn't know how to parse",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "type",
                 "length",
@@ -234,14 +275,17 @@
               "properties": {
                 "type": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The type"
                 },
                 "length": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The length"
                 },
                 "value": {
                   "type": "hex",
+                  "added": "v23.05",
                   "description": "The value"
                 }
               }
@@ -255,12 +299,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 offer"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               false
             ]
@@ -293,22 +339,27 @@
           "recurrence": {},
           "warning_missing_offer_node_id": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_node_id` is not present"
           },
           "warning_invalid_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not valid UTF8"
           },
           "warning_missing_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not present"
           },
           "warning_invalid_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_currency_code` is not valid UTF8"
           },
           "warning_invalid_offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_issuer` is not valid UTF8"
           }
         }
@@ -319,12 +370,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 invoice_request"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -345,15 +398,18 @@
           "valid": {},
           "offer_id": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the id we use to identify this offer",
             "maxLength": 64,
             "minLength": 64
           },
           "offer_chains": {
             "type": "array",
+            "added": "v23.05",
             "description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
             "items": {
               "type": "hex",
+              "added": "v23.05",
               "description": "the genesis blockhash",
               "maxLength": 64,
               "minLength": 64
@@ -361,55 +417,68 @@
           },
           "offer_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "any metadata the creator of the offer includes"
           },
           "offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "ISO 4217 code of the currency (missing implies Bitcoin)",
             "maxLength": 3,
             "minLength": 3
           },
           "warning_unknown_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "The currency code is unknown (so no `currency_minor_unit`)"
           },
           "currency_minor_unit": {
             "type": "u32",
+            "added": "v23.05",
             "description": "the number of decimal places to apply to amount (if currency known)"
           },
           "offer_amount": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the amount in the `offer_currency` adjusted by `currency_minor_unit`, if any"
           },
           "offer_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount in bitcoin (if specified, and no `offer_currency`)"
           },
           "offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the purpose of the offer"
           },
           "offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the creator of the offer"
           },
           "offer_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the offer"
           },
           "offer_absolute_expiry": {
             "type": "u64",
+            "added": "v23.05",
             "description": "UNIX timestamp of when this offer expires"
           },
           "offer_quantity_max": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the maximum quantity (or, if 0, means any quantity)"
           },
           "offer_paths": {
             "type": "array",
+            "added": "v23.05",
             "description": "Paths to the destination",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "first_node_id",
                 "blinding",
@@ -419,17 +488,21 @@
               "properties": {
                 "first_node_id": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "the (presumably well-known) public key of the start of the path"
                 },
                 "blinding": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "blinding factor for this path"
                 },
                 "path": {
                   "type": "array",
+                  "added": "v23.05",
                   "description": "an individual path",
                   "items": {
                     "type": "object",
+                    "added": "v23.05",
                     "required": [
                       "blinded_node_id",
                       "encrypted_recipient_data"
@@ -438,10 +511,12 @@
                     "properties": {
                       "blinded_node_id": {
                         "type": "pubkey",
+                        "added": "v23.05",
                         "description": "node_id of the hop"
                       },
                       "encrypted_recipient_data": {
                         "type": "hex",
+                        "added": "v23.05",
                         "description": "encrypted TLV entry for this hop"
                       }
                     }
@@ -452,10 +527,12 @@
           },
           "offer_node_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "public key of the offering node"
           },
           "offer_recurrence": {
             "type": "object",
+            "added": "v23.05",
             "description": "how often to this offer should be used",
             "required": [
               "period",
@@ -465,30 +542,37 @@
             "properties": {
               "time_unit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "the BOLT12 time unit"
               },
               "time_unit_name": {
                 "type": "string",
+                "added": "v23.05",
                 "description": "the name of `time_unit` (if valid)"
               },
               "period": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "how many `time_unit` per payment period"
               },
               "basetime": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "period starts at this UNIX timestamp"
               },
               "start_any_period": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "you can start at any period (only if `basetime` present)"
               },
               "limit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "maximum period number for recurrence"
               },
               "paywindow": {
                 "type": "object",
+                "added": "v23.05",
                 "description": "when within a period will payment be accepted (default is prior and during the period)",
                 "required": [
                   "seconds_before",
@@ -498,14 +582,17 @@
                 "properties": {
                   "seconds_before": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds prior to period start"
                   },
                   "seconds_after": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds after to period start"
                   },
                   "proportional_amount": {
                     "type": "boolean",
+                    "added": "v23.05",
                     "enum": [
                       true
                     ],
@@ -517,51 +604,63 @@
           },
           "invreq_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the payer-provided blob to derive invreq_payer_id"
           },
           "invreq_payer_id": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the payer-provided key"
           },
           "invreq_chain": {
             "type": "hex",
+            "added": "v23.05",
             "description": "which blockchain this offer is for (missing implies bitcoin mainnet only)",
             "maxLength": 64,
             "minLength": 64
           },
           "invreq_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount the invoice should be for"
           },
           "invreq_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the invoice_request"
           },
           "invreq_quantity": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the number of items to invoice for"
           },
           "invreq_payer_note": {
             "type": "string",
+            "added": "v23.05",
             "description": "a note attached by the payer"
           },
           "invreq_recurrence_counter": {
             "type": "u32",
+            "added": "v23.05",
             "description": "which number request this is for the same invoice"
           },
           "invreq_recurrence_start": {
             "type": "u32",
+            "added": "v23.05",
             "description": "when we're requesting to start an invoice at a non-zero period"
           },
           "signature": {
             "type": "bip340sig",
+            "added": "v23.05",
             "description": "BIP-340 signature of the `invreq_payer_id` on this invoice_request"
           },
           "unknown_invoice_request_tlvs": {
             "type": "array",
+            "added": "v23.05",
             "description": "Any extra fields we didn't know how to parse",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "type",
                 "length",
@@ -571,14 +670,17 @@
               "properties": {
                 "type": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The type"
                 },
                 "length": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The length"
                 },
                 "value": {
                   "type": "hex",
+                  "added": "v23.05",
                   "description": "The value"
                 }
               }
@@ -592,12 +694,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 invoice_request"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               false
             ]
@@ -637,38 +741,47 @@
           "invreq_recurrence_start": {},
           "warning_invalid_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not valid UTF8"
           },
           "warning_missing_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not present"
           },
           "warning_invalid_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_currency_code` is not valid UTF8"
           },
           "warning_invalid_offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_issuer` is not valid UTF8"
           },
           "warning_missing_invreq_metadata": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invreq_metadata` is not present"
           },
           "warning_missing_invreq_payer_id": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invreq_payer_id` is not present"
           },
           "warning_invalid_invreq_payer_note": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invreq_payer_note` is not valid UTF8"
           },
           "warning_missing_invoice_request_signature": {
             "type": "string",
+            "added": "v23.05",
             "description": "`signature` is not present"
           },
           "warning_invalid_invoice_request_signature": {
             "type": "string",
+            "added": "v23.05",
             "description": "Incorrect `signature`"
           }
         }
@@ -679,12 +792,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 invoice"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -709,15 +824,18 @@
           "valid": {},
           "offer_id": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the id we use to identify this offer",
             "maxLength": 64,
             "minLength": 64
           },
           "offer_chains": {
             "type": "array",
+            "added": "v23.05",
             "description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
             "items": {
               "type": "hex",
+              "added": "v23.05",
               "description": "the genesis blockhash",
               "maxLength": 64,
               "minLength": 64
@@ -725,55 +843,68 @@
           },
           "offer_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "any metadata the creator of the offer includes"
           },
           "offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "ISO 4217 code of the currency (missing implies Bitcoin)",
             "maxLength": 3,
             "minLength": 3
           },
           "warning_unknown_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "The currency code is unknown (so no `currency_minor_unit`)"
           },
           "currency_minor_unit": {
             "type": "u32",
+            "added": "v23.05",
             "description": "the number of decimal places to apply to amount (if currency known)"
           },
           "offer_amount": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the amount in the `offer_currency` adjusted by `currency_minor_unit`, if any"
           },
           "offer_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount in bitcoin (if specified, and no `offer_currency`)"
           },
           "offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the purpose of the offer"
           },
           "offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the creator of the offer"
           },
           "offer_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the offer"
           },
           "offer_absolute_expiry": {
             "type": "u64",
+            "added": "v23.05",
             "description": "UNIX timestamp of when this offer expires"
           },
           "offer_quantity_max": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the maximum quantity (or, if 0, means any quantity)"
           },
           "offer_paths": {
             "type": "array",
+            "added": "v23.05",
             "description": "Paths to the destination",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "first_node_id",
                 "blinding",
@@ -783,17 +914,21 @@
               "properties": {
                 "first_node_id": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "the (presumably well-known) public key of the start of the path"
                 },
                 "blinding": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "blinding factor for this path"
                 },
                 "path": {
                   "type": "array",
+                  "added": "v23.05",
                   "description": "an individual path",
                   "items": {
                     "type": "object",
+                    "added": "v23.05",
                     "required": [
                       "blinded_node_id",
                       "encrypted_recipient_data"
@@ -802,10 +937,12 @@
                     "properties": {
                       "blinded_node_id": {
                         "type": "pubkey",
+                        "added": "v23.05",
                         "description": "node_id of the hop"
                       },
                       "encrypted_recipient_data": {
                         "type": "hex",
+                        "added": "v23.05",
                         "description": "encrypted TLV entry for this hop"
                       }
                     }
@@ -816,10 +953,12 @@
           },
           "offer_node_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "public key of the offering node"
           },
           "offer_recurrence": {
             "type": "object",
+            "added": "v23.05",
             "description": "how often to this offer should be used",
             "required": [
               "period",
@@ -829,30 +968,37 @@
             "properties": {
               "time_unit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "the BOLT12 time unit"
               },
               "time_unit_name": {
                 "type": "string",
+                "added": "v23.05",
                 "description": "the name of `time_unit` (if valid)"
               },
               "period": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "how many `time_unit` per payment period"
               },
               "basetime": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "period starts at this UNIX timestamp"
               },
               "start_any_period": {
                 "type": "u64",
+                "added": "v23.05",
                 "description": "you can start at any period (only if `basetime` present)"
               },
               "limit": {
                 "type": "u32",
+                "added": "v23.05",
                 "description": "maximum period number for recurrence"
               },
               "paywindow": {
                 "type": "object",
+                "added": "v23.05",
                 "description": "when within a period will payment be accepted (default is prior and during the period)",
                 "required": [
                   "seconds_before",
@@ -862,14 +1008,17 @@
                 "properties": {
                   "seconds_before": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds prior to period start"
                   },
                   "seconds_after": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "seconds after to period start"
                   },
                   "proportional_amount": {
                     "type": "boolean",
+                    "added": "v23.05",
                     "enum": [
                       true
                     ],
@@ -881,47 +1030,58 @@
           },
           "invreq_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the payer-provided blob to derive invreq_payer_id"
           },
           "invreq_payer_id": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the payer-provided key"
           },
           "invreq_chain": {
             "type": "hex",
+            "added": "v23.05",
             "description": "which blockchain this offer is for (missing implies bitcoin mainnet only)",
             "maxLength": 64,
             "minLength": 64
           },
           "invreq_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount the invoice should be for"
           },
           "invreq_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the invoice_request"
           },
           "invreq_quantity": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the number of items to invoice for"
           },
           "invreq_payer_note": {
             "type": "string",
+            "added": "v23.05",
             "description": "a note attached by the payer"
           },
           "invreq_recurrence_counter": {
             "type": "u32",
+            "added": "v23.05",
             "description": "which number request this is for the same invoice"
           },
           "invreq_recurrence_start": {
             "type": "u32",
+            "added": "v23.05",
             "description": "when we're requesting to start an invoice at a non-zero period"
           },
           "invoice_paths": {
             "type": "array",
+            "added": "v23.05",
             "description": "Paths to pay the destination",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "first_node_id",
                 "blinding",
@@ -932,14 +1092,17 @@
               "properties": {
                 "first_node_id": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "the (presumably well-known) public key of the start of the path"
                 },
                 "blinding": {
                   "type": "pubkey",
+                  "added": "v23.05",
                   "description": "blinding factor for this path"
                 },
                 "payinfo": {
                   "type": "object",
+                  "added": "v23.05",
                   "required": [
                     "fee_base_msat",
                     "fee_proportional_millionths",
@@ -950,27 +1113,33 @@
                   "properties": {
                     "fee_base_msat": {
                       "type": "msat",
+                      "added": "v23.05",
                       "description": "basefee for path"
                     },
                     "fee_proportional_millionths": {
                       "type": "u32",
+                      "added": "v23.05",
                       "description": "proportional fee for path"
                     },
                     "cltv_expiry_delta": {
                       "type": "u32",
+                      "added": "v23.05",
                       "description": "CLTV delta for path"
                     },
                     "features": {
                       "type": "hex",
+                      "added": "v23.05",
                       "description": "features allowed for path"
                     }
                   }
                 },
                 "path": {
                   "type": "array",
+                  "added": "v23.05",
                   "description": "an individual path",
                   "items": {
                     "type": "object",
+                    "added": "v23.05",
                     "required": [
                       "blinded_node_id",
                       "encrypted_recipient_data"
@@ -979,10 +1148,12 @@
                     "properties": {
                       "blinded_node_id": {
                         "type": "pubkey",
+                        "added": "v23.05",
                         "description": "node_id of the hop"
                       },
                       "encrypted_recipient_data": {
                         "type": "hex",
+                        "added": "v23.05",
                         "description": "encrypted TLV entry for this hop"
                       }
                     }
@@ -993,27 +1164,33 @@
           },
           "invoice_created_at": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the UNIX timestamp of invoice creation"
           },
           "invoice_relative_expiry": {
             "type": "u32",
+            "added": "v23.05",
             "description": "the number of seconds after *invoice_created_at* when this expires"
           },
           "invoice_payment_hash": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the hash of the *payment_preimage*",
             "maxLength": 64,
             "minLength": 64
           },
           "invoice_amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "the amount required to fulfill invoice"
           },
           "invoice_fallbacks": {
             "type": "array",
+            "added": "v23.05",
             "description": "onchain addresses",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "version",
                 "hex"
@@ -1022,14 +1199,17 @@
               "properties": {
                 "version": {
                   "type": "u8",
+                  "added": "v23.05",
                   "description": "Segwit address version"
                 },
                 "hex": {
                   "type": "hex",
+                  "added": "v23.05",
                   "description": "Raw encoded segwit address"
                 },
                 "address": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "bech32 segwit address"
                 }
               }
@@ -1037,25 +1217,31 @@
           },
           "invoice_features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the feature bits of the invoice"
           },
           "invoice_node_id": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "the id to pay (usually the same as offer_node_id)"
           },
           "invoice_recurrence_basetime": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the UNIX timestamp to base the invoice periods on"
           },
           "signature": {
             "type": "bip340sig",
+            "added": "v23.05",
             "description": "BIP-340 signature of the `offer_node_id` on this invoice"
           },
           "unknown_invoice_tlvs": {
             "type": "array",
+            "added": "v23.05",
             "description": "Any extra fields we didn't know how to parse",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "type",
                 "length",
@@ -1065,14 +1251,17 @@
               "properties": {
                 "type": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The type"
                 },
                 "length": {
                   "type": "u64",
+                  "added": "v23.05",
                   "description": "The length"
                 },
                 "value": {
                   "type": "hex",
+                  "added": "v23.05",
                   "description": "The value"
                 }
               }
@@ -1086,12 +1275,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt12 invoice"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               false
             ]
@@ -1132,68 +1323,85 @@
           "invreq_recurrence_start": {},
           "warning_invalid_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not valid UTF8"
           },
           "warning_missing_offer_description": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_description` is not present"
           },
           "warning_invalid_offer_currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_currency_code` is not valid UTF8"
           },
           "warning_invalid_offer_issuer": {
             "type": "string",
+            "added": "v23.05",
             "description": "`offer_issuer` is not valid UTF8"
           },
           "warning_missing_invreq_metadata": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invreq_metadata` is not present"
           },
           "warning_invalid_invreq_payer_note": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invreq_payer_note` is not valid UTF8"
           },
           "warning_missing_invoice_paths": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_paths` is not present"
           },
           "warning_missing_invoice_blindedpay": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_blindedpay` is not present"
           },
           "warning_missing_invoice_created_at": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_created_at` is not present"
           },
           "warning_missing_invoice_payment_hash": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_payment_hash` is not present"
           },
           "warning_missing_invoice_amount": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_amount` is not present"
           },
           "warning_missing_invoice_recurrence_basetime": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_recurrence_basetime` is not present"
           },
           "warning_missing_invoice_node_id": {
             "type": "string",
+            "added": "v23.05",
             "description": "`invoice_node_id` is not present"
           },
           "warning_missing_invoice_signature": {
             "type": "string",
+            "added": "v23.05",
             "description": "`signature` is not present"
           },
           "warning_invalid_invoice_signature": {
             "type": "string",
+            "added": "v23.05",
             "description": "Incorrect `signature`"
           },
           "fallbacks": {
             "type": "array",
+            "added": "v23.05",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "version",
                 "hex"
@@ -1204,6 +1412,7 @@
                 "address": {},
                 "warning_invoice_fallbacks_version_invalid": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "`version` is > 16"
                 }
               }
@@ -1217,12 +1426,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "bolt11 invoice"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -1245,61 +1456,76 @@
           "valid": {},
           "currency": {
             "type": "string",
+            "added": "v23.05",
             "description": "the BIP173 name for the currency"
           },
           "created_at": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the UNIX-style timestamp of the invoice"
           },
           "expiry": {
             "type": "u64",
+            "added": "v23.05",
             "description": "the number of seconds this is valid after `created_at`"
           },
           "payee": {
             "type": "pubkey",
+            "added": "v23.05",
             "description": "the public key of the recipient"
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v23.05",
             "description": "Amount the invoice asked for"
           },
           "payment_hash": {
             "type": "hash",
+            "added": "v23.05",
             "description": "the hash of the *payment_preimage*"
           },
           "signature": {
             "type": "signature",
+            "added": "v23.05",
             "description": "signature of the *payee* on this invoice"
           },
           "description": {
             "type": "string",
+            "added": "v23.05",
             "description": "the description of the purpose of the purchase"
           },
           "description_hash": {
             "type": "hash",
+            "added": "v23.05",
             "description": "the hash of the description, in place of *description*"
           },
           "min_final_cltv_expiry": {
             "type": "u32",
+            "added": "v23.05",
             "description": "the minimum CLTV delay for the final node"
           },
           "payment_secret": {
             "type": "secret",
+            "added": "v23.05",
             "description": "the secret to hand to the payee node"
           },
           "features": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the features bitmap for this invoice"
           },
           "payment_metadata": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the payment_metadata to put in the payment"
           },
           "fallbacks": {
             "type": "array",
+            "added": "v23.05",
             "description": "onchain addresses",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "type",
                 "hex"
@@ -1308,6 +1534,7 @@
               "properties": {
                 "type": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "the address type (if known)",
                   "enum": [
                     "P2PKH",
@@ -1318,10 +1545,12 @@
                 },
                 "addr": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "the address in appropriate format for *type*"
                 },
                 "hex": {
                   "type": "hex",
+                  "added": "v23.05",
                   "description": "Raw encoded address"
                 }
               }
@@ -1329,12 +1558,15 @@
           },
           "routes": {
             "type": "array",
+            "added": "v23.05",
             "description": "Route hints to the *payee*",
             "items": {
               "type": "array",
+              "added": "v23.05",
               "description": "hops in the route",
               "items": {
                 "type": "object",
+                "added": "v23.05",
                 "required": [
                   "pubkey",
                   "short_channel_id",
@@ -1346,22 +1578,27 @@
                 "properties": {
                   "pubkey": {
                     "type": "pubkey",
+                    "added": "v23.05",
                     "description": "the public key of the node"
                   },
                   "short_channel_id": {
                     "type": "short_channel_id",
+                    "added": "v23.05",
                     "description": "a channel to the next peer"
                   },
                   "fee_base_msat": {
                     "type": "msat",
+                    "added": "v23.05",
                     "description": "the base fee for payments"
                   },
                   "fee_proportional_millionths": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "the parts-per-million fee for payments"
                   },
                   "cltv_expiry_delta": {
                     "type": "u32",
+                    "added": "v23.05",
                     "description": "the CLTV delta across this hop"
                   }
                 }
@@ -1370,9 +1607,11 @@
           },
           "extra": {
             "type": "array",
+            "added": "v23.05",
             "description": "Any extra fields we didn't know how to parse",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "tag",
                 "data"
@@ -1381,12 +1620,14 @@
               "properties": {
                 "tag": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The bech32 letter which identifies this field",
                   "maxLength": 1,
                   "minLength": 1
                 },
                 "data": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "The bech32 data for this field"
                 }
               }
@@ -1400,12 +1641,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "rune"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -1422,14 +1665,17 @@
         "properties": {
           "unique_id": {
             "type": "string",
+            "added": "v23.05",
             "description": "unique id (always a numeric id on runes we create)"
           },
           "version": {
             "type": "string",
+            "added": "v23.05",
             "description": "rune version, not currently set on runes we create"
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               true
             ]
@@ -1437,13 +1683,16 @@
           "type": {},
           "string": {
             "type": "string",
+            "added": "v23.05",
             "description": "the string encoding of the rune"
           },
           "restrictions": {
             "type": "array",
+            "added": "v23.05",
             "description": "restrictions built into the rune: all must pass",
             "items": {
               "type": "object",
+              "added": "v23.05",
               "required": [
                 "alternatives",
                 "summary"
@@ -1452,14 +1701,17 @@
               "properties": {
                 "alternatives": {
                   "type": "array",
+                  "added": "v23.05",
                   "description": "each way restriction can be met: any can pass",
                   "items": {
                     "type": "string",
+                    "added": "v23.05",
                     "description": "the alternative of form fieldname condition fieldname"
                   }
                 },
                 "summary": {
                   "type": "string",
+                  "added": "v23.05",
                   "description": "human-readable summary of this restriction"
                 }
               }
@@ -1473,12 +1725,14 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "enum": [
               "rune"
             ]
           },
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               false
             ]
@@ -1493,6 +1747,7 @@
         "properties": {
           "valid": {
             "type": "boolean",
+            "added": "v23.05",
             "enum": [
               false
             ]
@@ -1500,10 +1755,12 @@
           "type": {},
           "warning_rune_invalid_utf8": {
             "type": "string",
+            "added": "v23.05",
             "description": "the rune contains invalid UTF-8 strings"
           },
           "hex": {
             "type": "hex",
+            "added": "v23.05",
             "description": "the raw rune in hex"
           }
         }

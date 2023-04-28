@@ -773,3 +773,66 @@ impl Serialize for TlvStream {
         map.end()
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Hop {
+    pub pubkey: PublicKey,
+    pub short_channel_id: ShortChannelId,
+    pub fee_base_msat: Amount,
+    pub fee_proportional_millionths: u32,
+    pub cltv_expiry_delta: u16,
+}
+
+#[derive(Clone, Debug)]
+pub struct Route {
+    pub hops: Vec<Hop>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Routes {
+    pub routes: Vec<Route>,
+}
+
+impl Serialize for Route {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.hops.len()))?;
+        for e in self.hops.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl Serialize for Routes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.routes.len()))?;
+        for e in self.routes.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Routes {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+    }
+}
+
+impl<'de> Deserialize<'de> for Route {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+    }
+}

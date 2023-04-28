@@ -16,8 +16,10 @@ def decamelcase(c):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', c).lower()
 
 
-override = {
+overrides = {
     'ListPeers.peers[].channels[].state_changes[]': None,
+    'Decode.routes': None,
+    'DecodePay.routes': None,
 }
 
 
@@ -33,6 +35,7 @@ class Grpc2PyGenerator(IGenerator):
             'pubkey': "hexlify(m.{name})",
             'secret': "hexlify(m.{name})",
             'signature': "hexlify(m.{name})",
+            'bip340sig': "hexlify(m.{name})",
             'txid': "hexlify(m.{name})",
             'hash': "hexlify(m.{name})",
             'string': "m.{name}",
@@ -92,7 +95,7 @@ class Grpc2PyGenerator(IGenerator):
             self.converters[field.path] = "str(m.{{name}})"
 
     def generate_composite(self, prefix, field: CompositeField):
-        if override.get(field.path, "") is None:
+        if overrides.get(field.path, "") is None:
             return
         name = field.name.normalized()
         if prefix:
@@ -101,6 +104,9 @@ class Grpc2PyGenerator(IGenerator):
             prefix = f"{str(name).lower()}"
 
         for f in field.fields:
+            if overrides.get(field.name.normalized() + "." + f.name.normalized(), "") is None:
+                continue
+
             if isinstance(f, CompositeField):
                 self.generate_composite(prefix, f)
 
@@ -118,6 +124,9 @@ class Grpc2PyGenerator(IGenerator):
         """)
 
         for f in field.fields:
+            if overrides.get(field.name.normalized() + "." + f.name.normalized(), "") is None:
+                continue
+
             name = f.normalized()
             if isinstance(f, PrimitiveField):
                 typ = f.typename
@@ -131,7 +140,7 @@ class Grpc2PyGenerator(IGenerator):
                 self.write(f'        "{name}": [{rhs} for i in {rhs}], # ArrayField[primitive] in generate_composite\n', cleanup=False)
 
             elif isinstance(f, ArrayField):
-                if override.get(f.path, "") is None:
+                if overrides.get(f.path, "") is None:
                     continue
                 rhs = self.converters[f.path]
 

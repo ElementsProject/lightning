@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
+  "added": "v23.05",
   "required": [
     "currency",
     "created_at",
@@ -14,61 +15,76 @@
   "properties": {
     "currency": {
       "type": "string",
+      "added": "v23.05",
       "description": "the BIP173 name for the currency"
     },
     "created_at": {
       "type": "u64",
+      "added": "v23.05",
       "description": "the UNIX-style timestamp of the invoice"
     },
     "expiry": {
       "type": "u64",
+      "added": "v23.05",
       "description": "the number of seconds this is valid after *timestamp*"
     },
     "payee": {
       "type": "pubkey",
+      "added": "v23.05",
       "description": "the public key of the recipient"
     },
     "amount_msat": {
       "type": "msat",
+      "added": "v23.05",
       "description": "Amount the invoice asked for"
     },
     "payment_hash": {
       "type": "hash",
+      "added": "v23.05",
       "description": "the hash of the *payment_preimage*"
     },
     "signature": {
       "type": "signature",
+      "added": "v23.05",
       "description": "signature of the *payee* on this invoice"
     },
     "description": {
       "type": "string",
+      "added": "v23.05",
       "description": "the description of the purpose of the purchase"
     },
     "description_hash": {
       "type": "hash",
+      "added": "v23.05",
       "description": "the hash of the description, in place of *description*"
     },
     "min_final_cltv_expiry": {
       "type": "u32",
+      "added": "v23.05",
       "description": "the minimum CLTV delay for the final node"
     },
     "payment_secret": {
       "type": "hash",
+      "added": "v23.05",
       "description": "the secret to hand to the payee node"
     },
     "features": {
       "type": "hex",
+      "added": "v23.05",
       "description": "the features bitmap for this invoice"
     },
     "payment_metadata": {
       "type": "hex",
+      "added": "v23.05",
       "description": "the payment_metadata to put in the payment"
     },
     "fallbacks": {
       "type": "array",
+      "added": "v23.05",
       "description": "onchain addresses",
       "items": {
         "type": "object",
+        "added": "v23.05",
         "required": [
           "type",
           "hex"
@@ -77,6 +93,7 @@
         "properties": {
           "type": {
             "type": "string",
+            "added": "v23.05",
             "description": "the address type (if known)",
             "enum": [
               "P2PKH",
@@ -87,10 +104,12 @@
           },
           "addr": {
             "type": "string",
+            "added": "v23.05",
             "description": "the address in appropriate format for *type*"
           },
           "hex": {
             "type": "hex",
+            "added": "v23.05",
             "description": "Raw encoded address"
           }
         }
@@ -98,12 +117,15 @@
     },
     "routes": {
       "type": "array",
+      "added": "v23.05",
       "description": "Route hints to the *payee*",
       "items": {
         "type": "array",
+        "added": "v23.05",
         "description": "hops in the route",
         "items": {
           "type": "object",
+          "added": "v23.05",
           "required": [
             "pubkey",
             "short_channel_id",
@@ -115,22 +137,27 @@
           "properties": {
             "pubkey": {
               "type": "pubkey",
+              "added": "v23.05",
               "description": "the public key of the node"
             },
             "short_channel_id": {
               "type": "short_channel_id",
+              "added": "v23.05",
               "description": "a channel to the next peer"
             },
             "fee_base_msat": {
               "type": "msat",
+              "added": "v23.05",
               "description": "the base fee for payments"
             },
             "fee_proportional_millionths": {
               "type": "u32",
+              "added": "v23.05",
               "description": "the parts-per-million fee for payments"
             },
             "cltv_expiry_delta": {
               "type": "u32",
+              "added": "v23.05",
               "description": "the CLTV delta across this hop"
             }
           }
@@ -139,9 +166,11 @@
     },
     "extra": {
       "type": "array",
+      "added": "v23.05",
       "description": "Any extra fields we didn't know how to parse",
       "items": {
         "type": "object",
+        "added": "v23.05",
         "required": [
           "tag",
           "data"
@@ -150,12 +179,14 @@
         "properties": {
           "tag": {
             "type": "string",
+            "added": "v23.05",
             "description": "The bech32 letter which identifies this field",
             "maxLength": 1,
             "minLength": 1
           },
           "data": {
             "type": "string",
+            "added": "v23.05",
             "description": "The bech32 data for this field"
           }
         }

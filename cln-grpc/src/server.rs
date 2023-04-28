@@ -1274,6 +1274,70 @@ async fn tx_send(
 
 }
 
+async fn decode(
+    &self,
+    request: tonic::Request<pb::DecodeRequest>,
+) -> Result<tonic::Response<pb::DecodeResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DecodeRequest = req.into();
+    debug!("Client asked for decode");
+    trace!("decode request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Decode(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Decode: {:?}", e)))?;
+    match result {
+        Response::Decode(r) => {
+           trace!("decode response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Decode",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn decode_pay(
+    &self,
+    request: tonic::Request<pb::DecodepayRequest>,
+) -> Result<tonic::Response<pb::DecodepayResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DecodepayRequest = req.into();
+    debug!("Client asked for decode_pay");
+    trace!("decode_pay request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DecodePay(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DecodePay: {:?}", e)))?;
+    match result {
+        Response::DecodePay(r) => {
+           trace!("decode_pay response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DecodePay",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,

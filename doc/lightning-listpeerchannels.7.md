@@ -194,7 +194,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-<<<<<<< HEAD
-=======
->>>>>>> 9d1d65a1b (msggen: Regenerate for ListPeerChannels)
-[comment]: # ( SHA256STAMP:c8cc5cce6119eeec5551d513f7cf60fdd21842f0f446263a37cce3fa3d0c1e33)
+[comment]: # ( SHA256STAMP:9091f1cfe95d114e42c4ca4ac39b5f4d3d5e1c9129eef9be03797e3a8f957e38)

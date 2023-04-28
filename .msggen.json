@@ -16,6 +16,11 @@
             "in": 0,
             "out": 1
         },
+        "CreateInvoiceStatus": {
+            "expired": 1,
+            "paid": 0,
+            "unpaid": 2
+        },
         "CreateinvoiceStatus": {
             "expired": 1,
             "paid": 0,
@@ -28,6 +33,30 @@
             "must-create": 0,
             "must-replace": 1
         },
+        "DecodePayFallbacksType": {
+            "P2PKH": 0,
+            "P2SH": 1,
+            "P2WPKH": 2,
+            "P2WSH": 3
+        },
+        "DecodeType": {
+            "bolt11 invoice": 3,
+            "bolt12 invoice": 1,
+            "bolt12 invoice_request": 2,
+            "bolt12 offer": 0,
+            "rune": 4
+        },
+        "DecodepayFallbacksType": {
+            "P2PKH": 0,
+            "P2SH": 1,
+            "P2WPKH": 2,
+            "P2WSH": 3
+        },
+        "DelInvoiceStatus": {
+            "expired": 1,
+            "paid": 0,
+            "unpaid": 2
+        },
         "DelinvoiceStatus": {
             "expired": 1,
             "paid": 0,
@@ -36,6 +65,9 @@
         "FeeratesStyle": {
             "perkb": 0,
             "perkw": 1
+        },
+        "GetRouteRouteStyle": {
+            "tlv": 0
         },
         "GetinfoAddressType": {
             "dns": 0,
@@ -55,8 +87,143 @@
         "GetrouteRouteStyle": {
             "tlv": 0
         },
+        "KeySendStatus": {
+            "complete": 0
+        },
         "KeysendStatus": {
             "complete": 0
+        },
+        "ListClosedChannelsClosedchannelsClose_cause": {
+            "local": 1,
+            "onchain": 5,
+            "protocol": 4,
+            "remote": 3,
+            "unknown": 0,
+            "user": 2
+        },
+        "ListForwardsForwardsStatus": {
+            "failed": 3,
+            "local_failed": 2,
+            "offered": 0,
+            "settled": 1
+        },
+        "ListForwardsForwardsStyle": {
+            "legacy": 0,
+            "tlv": 1
+        },
+        "ListForwardsStatus": {
+            "failed": 3,
+            "local_failed": 2,
+            "offered": 0,
+            "settled": 1
+        },
+        "ListFundsOutputsStatus": {
+            "confirmed": 1,
+            "immature": 3,
+            "spent": 2,
+            "unconfirmed": 0
+        },
+        "ListInvoicesInvoicesStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
+        },
+        "ListNodesNodesAddressesType": {
+            "dns": 0,
+            "ipv4": 1,
+            "ipv6": 2,
+            "torv2": 3,
+            "torv3": 4,
+            "websocket": 5
+        },
+        "ListPaysPaysStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
+        },
+        "ListPaysStatus": {
+            "complete": 1,
+            "failed": 2,
+            "pending": 0
+        },
+        "ListPeerChannelsChannelsHtlcsDirection": {
+            "in": 0,
+            "out": 1
+        },
+        "ListPeerChannelsChannelsState": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
+        "ListPeersPeersChannelsHtlcsDirection": {
+            "in": 0,
+            "out": 1
+        },
+        "ListPeersPeersChannelsState": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
+        "ListPeersPeersLogType": {
+            "BROKEN": 1,
+            "DEBUG": 4,
+            "INFO": 3,
+            "IO_IN": 5,
+            "IO_OUT": 6,
+            "SKIPPED": 0,
+            "UNUSUAL": 2
+        },
+        "ListSendPaysPaymentsStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
+        },
+        "ListSendPaysStatus": {
+            "complete": 1,
+            "failed": 2,
+            "pending": 0
+        },
+        "ListTransactionsTransactionsInputsType": {
+            "channel_funding": 3,
+            "channel_htlc_success": 7,
+            "channel_htlc_timeout": 8,
+            "channel_mutual_close": 4,
+            "channel_penalty": 9,
+            "channel_sweep": 6,
+            "channel_unilateral_cheat": 10,
+            "channel_unilateral_close": 5,
+            "deposit": 1,
+            "theirs": 0,
+            "withdraw": 2
+        },
+        "ListTransactionsTransactionsOutputsType": {
+            "channel_funding": 3,
+            "channel_htlc_success": 7,
+            "channel_htlc_timeout": 8,
+            "channel_mutual_close": 4,
+            "channel_penalty": 9,
+            "channel_sweep": 6,
+            "channel_unilateral_cheat": 10,
+            "channel_unilateral_close": 5,
+            "deposit": 1,
+            "theirs": 0,
+            "withdraw": 2
         },
         "ListclosedchannelsClosedchannelsClose_cause": {
             "local": 1,
@@ -202,6 +369,10 @@
             "theirs": 0,
             "withdraw": 2
         },
+        "NewAddrAddresstype": {
+            "all": 1,
+            "bech32": 0
+        },
         "NewaddrAddresstype": {
             "all": 2,
             "bech32": 0,
@@ -212,6 +383,14 @@
             "failed": 2,
             "pending": 1
         },
+        "SendOnionStatus": {
+            "complete": 1,
+            "pending": 0
+        },
+        "SendPayStatus": {
+            "complete": 1,
+            "pending": 0
+        },
         "SendonionStatus": {
             "complete": 1,
             "pending": 0
@@ -219,6 +398,17 @@
         "SendpayStatus": {
             "complete": 1,
             "pending": 0
+        },
+        "WaitAnyInvoiceStatus": {
+            "expired": 1,
+            "paid": 0
+        },
+        "WaitInvoiceStatus": {
+            "expired": 1,
+            "paid": 0
+        },
+        "WaitSendPayStatus": {
+            "complete": 0
         },
         "WaitanyinvoiceStatus": {
             "expired": 1,
@@ -233,8 +423,20 @@
         }
     },
     "grpc-field-map": {
+        "AddGossipRequest": {
+            "AddGossip.message": 1
+        },
         "AddgossipRequest": {
             "AddGossip.message": 1
+        },
+        "AutoCleanInvoiceRequest": {
+            "AutoCleanInvoice.cycle_seconds": 2,
+            "AutoCleanInvoice.expired_by": 1
+        },
+        "AutoCleanInvoiceResponse": {
+            "AutoCleanInvoice.cycle_seconds": 3,
+            "AutoCleanInvoice.enabled": 1,
+            "AutoCleanInvoice.expired_by": 2
         },
         "AutocleaninvoiceRequest": {
             "AutoCleanInvoice.cycle_seconds": 2,
@@ -244,6 +446,15 @@
             "AutoCleanInvoice.cycle_seconds": 3,
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
+        },
+        "CheckMessageRequest": {
+            "CheckMessage.message": 1,
+            "CheckMessage.pubkey": 3,
+            "CheckMessage.zbase": 2
+        },
+        "CheckMessageResponse": {
+            "CheckMessage.pubkey": 2,
+            "CheckMessage.verified": 1
         },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
@@ -284,6 +495,41 @@
             "Connect.direction": 3,
             "Connect.features": 2,
             "Connect.id": 1
+        },
+        "CreateInvoiceRequest": {
+            "CreateInvoice.invstring": 1,
+            "CreateInvoice.label": 2,
+            "CreateInvoice.preimage": 3
+        },
+        "CreateInvoiceResponse": {
+            "CreateInvoice.amount_msat": 5,
+            "CreateInvoice.amount_received_msat": 10,
+            "CreateInvoice.bolt11": 2,
+            "CreateInvoice.bolt12": 3,
+            "CreateInvoice.description": 7,
+            "CreateInvoice.expires_at": 8,
+            "CreateInvoice.invreq_payer_note": 14,
+            "CreateInvoice.label": 1,
+            "CreateInvoice.local_offer_id": 13,
+            "CreateInvoice.paid_at": 11,
+            "CreateInvoice.pay_index": 9,
+            "CreateInvoice.payment_hash": 4,
+            "CreateInvoice.payment_preimage": 12,
+            "CreateInvoice.status": 6
+        },
+        "CreateOnionHops": {
+            "CreateOnion.hops[].payload": 2,
+            "CreateOnion.hops[].pubkey": 1
+        },
+        "CreateOnionRequest": {
+            "CreateOnion.assocdata": 2,
+            "CreateOnion.hops[]": 1,
+            "CreateOnion.onion_size": 4,
+            "CreateOnion.session_key": 3
+        },
+        "CreateOnionResponse": {
+            "CreateOnion.onion": 1,
+            "CreateOnion.shared_secrets[]": 2
         },
         "CreateinvoiceRequest": {
             "CreateInvoice.invstring": 1,
@@ -335,6 +581,249 @@
             "Datastore.key": 5,
             "Datastore.key[]": 1,
             "Datastore.string": 4
+        },
+        "DecodeExtra": {
+            "Decode.extra[].data": 2,
+            "Decode.extra[].tag": 1
+        },
+        "DecodeFallbacks": {
+            "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": 1
+        },
+        "DecodeInvoice_fallbacks": {
+            "Decode.invoice_fallbacks[].address": 3,
+            "Decode.invoice_fallbacks[].hex": 2,
+            "Decode.invoice_fallbacks[].version": 1
+        },
+        "DecodeInvoice_paths": {
+            "Decode.invoice_paths[].blinding": 2,
+            "Decode.invoice_paths[].first_node_id": 1,
+            "Decode.invoice_paths[].path[]": 4,
+            "Decode.invoice_paths[].payinfo": 3
+        },
+        "DecodeInvoice_pathsPath": {
+            "Decode.invoice_paths[].path[].blinded_node_id": 1,
+            "Decode.invoice_paths[].path[].encrypted_recipient_data": 2
+        },
+        "DecodeInvoice_pathsPayinfo": {
+            "Decode.invoice_paths[].payinfo.cltv_expiry_delta": 3,
+            "Decode.invoice_paths[].payinfo.features": 4,
+            "Decode.invoice_paths[].payinfo.fee_base_msat": 1,
+            "Decode.invoice_paths[].payinfo.fee_proportional_millionths": 2
+        },
+        "DecodeOffer_paths": {
+            "Decode.offer_paths[].blinding": 2,
+            "Decode.offer_paths[].first_node_id": 1,
+            "Decode.offer_paths[].path[]": 3
+        },
+        "DecodeOffer_pathsPath": {
+            "Decode.offer_paths[].path[].blinded_node_id": 1,
+            "Decode.offer_paths[].path[].encrypted_recipient_data": 2
+        },
+        "DecodeOffer_recurrence": {
+            "Decode.offer_recurrence.basetime": 4,
+            "Decode.offer_recurrence.limit": 6,
+            "Decode.offer_recurrence.paywindow": 7,
+            "Decode.offer_recurrence.period": 3,
+            "Decode.offer_recurrence.start_any_period": 5,
+            "Decode.offer_recurrence.time_unit": 1,
+            "Decode.offer_recurrence.time_unit_name": 2
+        },
+        "DecodeOffer_recurrencePaywindow": {
+            "Decode.offer_recurrence.paywindow.proportional_amount": 3,
+            "Decode.offer_recurrence.paywindow.seconds_after": 2,
+            "Decode.offer_recurrence.paywindow.seconds_before": 1
+        },
+        "DecodePayExtra": {
+            "DecodePay.extra[].data": 2,
+            "DecodePay.extra[].tag": 1
+        },
+        "DecodePayFallbacks": {
+            "DecodePay.fallbacks[].addr": 2,
+            "DecodePay.fallbacks[].hex": 3,
+            "DecodePay.fallbacks[].type": 1
+        },
+        "DecodePayRequest": {
+            "DecodePay.bolt11": 1,
+            "DecodePay.description": 2
+        },
+        "DecodePayResponse": {
+            "DecodePay.amount_msat": 5,
+            "DecodePay.created_at": 2,
+            "DecodePay.currency": 1,
+            "DecodePay.description": 8,
+            "DecodePay.description_hash": 9,
+            "DecodePay.expiry": 3,
+            "DecodePay.extra[]": 16,
+            "DecodePay.fallbacks[]": 14,
+            "DecodePay.features": 12,
+            "DecodePay.min_final_cltv_expiry": 10,
+            "DecodePay.payee": 4,
+            "DecodePay.payment_hash": 6,
+            "DecodePay.payment_metadata": 13,
+            "DecodePay.payment_secret": 11,
+            "DecodePay.routes": 15,
+            "DecodePay.signature": 7
+        },
+        "DecodeRequest": {
+            "Decode.data": 1,
+            "Decode.string": 2
+        },
+        "DecodeResponse": {
+            "Decode.created_at": 60,
+            "Decode.currency_minor_unit": 8,
+            "Decode.description_hash": 64,
+            "Decode.expiry": 61,
+            "Decode.extra[]": 69,
+            "Decode.fallbacks[]": 59,
+            "Decode.hex": 75,
+            "Decode.invoice_amount_msat": 44,
+            "Decode.invoice_created_at": 41,
+            "Decode.invoice_fallbacks[]": 45,
+            "Decode.invoice_features": 46,
+            "Decode.invoice_node_id": 47,
+            "Decode.invoice_paths[]": 40,
+            "Decode.invoice_payment_hash": 43,
+            "Decode.invoice_recurrence_basetime": 48,
+            "Decode.invoice_relative_expiry": 42,
+            "Decode.invreq_amount_msat": 28,
+            "Decode.invreq_chain": 27,
+            "Decode.invreq_features": 29,
+            "Decode.invreq_metadata": 25,
+            "Decode.invreq_payer_id": 26,
+            "Decode.invreq_payer_note": 31,
+            "Decode.invreq_quantity": 30,
+            "Decode.invreq_recurrence_counter": 32,
+            "Decode.invreq_recurrence_start": 33,
+            "Decode.min_final_cltv_expiry": 65,
+            "Decode.offer_absolute_expiry": 14,
+            "Decode.offer_amount": 9,
+            "Decode.offer_amount_msat": 10,
+            "Decode.offer_chains[]": 4,
+            "Decode.offer_currency": 6,
+            "Decode.offer_description": 11,
+            "Decode.offer_features": 13,
+            "Decode.offer_id": 3,
+            "Decode.offer_issuer": 12,
+            "Decode.offer_metadata": 5,
+            "Decode.offer_node_id": 17,
+            "Decode.offer_paths[]": 16,
+            "Decode.offer_quantity_max": 15,
+            "Decode.offer_recurrence": 18,
+            "Decode.payee": 62,
+            "Decode.payment_hash": 63,
+            "Decode.payment_metadata": 67,
+            "Decode.payment_secret": 66,
+            "Decode.restrictions[]": 73,
+            "Decode.routes": 68,
+            "Decode.string": 72,
+            "Decode.type": 1,
+            "Decode.unique_id": 70,
+            "Decode.unknown_invoice_request_tlvs[]": 34,
+            "Decode.unknown_invoice_tlvs[]": 49,
+            "Decode.unknown_offer_tlvs[]": 19,
+            "Decode.valid": 2,
+            "Decode.version": 71,
+            "Decode.warning_invalid_invoice_request_signature": 39,
+            "Decode.warning_invalid_invoice_signature": 58,
+            "Decode.warning_invalid_invreq_payer_note": 37,
+            "Decode.warning_invalid_offer_currency": 23,
+            "Decode.warning_invalid_offer_description": 21,
+            "Decode.warning_invalid_offer_issuer": 24,
+            "Decode.warning_missing_invoice_amount": 54,
+            "Decode.warning_missing_invoice_blindedpay": 51,
+            "Decode.warning_missing_invoice_created_at": 52,
+            "Decode.warning_missing_invoice_node_id": 56,
+            "Decode.warning_missing_invoice_paths": 50,
+            "Decode.warning_missing_invoice_payment_hash": 53,
+            "Decode.warning_missing_invoice_recurrence_basetime": 55,
+            "Decode.warning_missing_invoice_request_signature": 38,
+            "Decode.warning_missing_invoice_signature": 57,
+            "Decode.warning_missing_invreq_metadata": 35,
+            "Decode.warning_missing_invreq_payer_id": 36,
+            "Decode.warning_missing_offer_description": 22,
+            "Decode.warning_missing_offer_node_id": 20,
+            "Decode.warning_rune_invalid_utf8": 74,
+            "Decode.warning_unknown_offer_currency": 7
+        },
+        "DecodeRestrictions": {
+            "Decode.restrictions[].alternatives[]": 1,
+            "Decode.restrictions[].summary": 2
+        },
+        "DecodeUnknown_invoice_request_tlvs": {
+            "Decode.unknown_invoice_request_tlvs[].length": 2,
+            "Decode.unknown_invoice_request_tlvs[].type": 1,
+            "Decode.unknown_invoice_request_tlvs[].value": 3
+        },
+        "DecodeUnknown_invoice_tlvs": {
+            "Decode.unknown_invoice_tlvs[].length": 2,
+            "Decode.unknown_invoice_tlvs[].type": 1,
+            "Decode.unknown_invoice_tlvs[].value": 3
+        },
+        "DecodeUnknown_offer_tlvs": {
+            "Decode.unknown_offer_tlvs[].length": 2,
+            "Decode.unknown_offer_tlvs[].type": 1,
+            "Decode.unknown_offer_tlvs[].value": 3
+        },
+        "DecodepayExtra": {
+            "DecodePay.extra[].data": 2,
+            "DecodePay.extra[].tag": 1
+        },
+        "DecodepayFallbacks": {
+            "DecodePay.fallbacks[].addr": 2,
+            "DecodePay.fallbacks[].hex": 3,
+            "DecodePay.fallbacks[].type": 1
+        },
+        "DecodepayRequest": {
+            "DecodePay.bolt11": 1,
+            "DecodePay.description": 2
+        },
+        "DecodepayResponse": {
+            "DecodePay.amount_msat": 5,
+            "DecodePay.created_at": 2,
+            "DecodePay.currency": 1,
+            "DecodePay.description": 8,
+            "DecodePay.description_hash": 9,
+            "DecodePay.expiry": 3,
+            "DecodePay.extra[]": 16,
+            "DecodePay.fallbacks[]": 14,
+            "DecodePay.features": 12,
+            "DecodePay.min_final_cltv_expiry": 10,
+            "DecodePay.payee": 4,
+            "DecodePay.payment_hash": 6,
+            "DecodePay.payment_metadata": 13,
+            "DecodePay.payment_secret": 11,
+            "DecodePay.routes": 15,
+            "DecodePay.signature": 7
+        },
+        "DelDatastoreRequest": {
+            "DelDatastore.generation": 2,
+            "DelDatastore.key": 1
+        },
+        "DelDatastoreResponse": {
+            "DelDatastore.generation": 2,
+            "DelDatastore.hex": 3,
+            "DelDatastore.key": 1,
+            "DelDatastore.string": 4
+        },
+        "DelExpiredInvoiceRequest": {
+            "DelExpiredInvoice.maxexpirytime": 1
+        },
+        "DelInvoiceRequest": {
+            "DelInvoice.desconly": 3,
+            "DelInvoice.label": 1,
+            "DelInvoice.status": 2
+        },
+        "DelInvoiceResponse": {
+            "DelInvoice.amount_msat": 4,
+            "DelInvoice.bolt11": 2,
+            "DelInvoice.bolt12": 3,
+            "DelInvoice.description": 5,
+            "DelInvoice.expires_at": 8,
+            "DelInvoice.invreq_payer_note": 10,
+            "DelInvoice.label": 1,
+            "DelInvoice.local_offer_id": 9,
+            "DelInvoice.payment_hash": 6,
+            "DelInvoice.status": 7
         },
         "DeldatastoreRequest": {
             "DelDatastore.generation": 2,
@@ -423,6 +912,53 @@
             "Feerates.perkw": 3,
             "Feerates.warning_missing_feerates": 1
         },
+        "FundChannelRequest": {
+            "FundChannel.amount": 2,
+            "FundChannel.announce": 4,
+            "FundChannel.close_to": 7,
+            "FundChannel.compact_lease": 9,
+            "FundChannel.feerate": 3,
+            "FundChannel.id": 1,
+            "FundChannel.minconf": 5,
+            "FundChannel.mindepth": 11,
+            "FundChannel.push_msat": 6,
+            "FundChannel.request_amt": 8,
+            "FundChannel.reserve": 12,
+            "FundChannel.utxos[]": 10
+        },
+        "FundChannelResponse": {
+            "FundChannel.channel_id": 4,
+            "FundChannel.close_to": 5,
+            "FundChannel.mindepth": 6,
+            "FundChannel.outnum": 3,
+            "FundChannel.tx": 1,
+            "FundChannel.txid": 2
+        },
+        "FundPsbtRequest": {
+            "FundPsbt.excess_as_change": 8,
+            "FundPsbt.feerate": 2,
+            "FundPsbt.locktime": 6,
+            "FundPsbt.min_witness_weight": 7,
+            "FundPsbt.minconf": 4,
+            "FundPsbt.reserve": 5,
+            "FundPsbt.satoshi": 1,
+            "FundPsbt.startweight": 3
+        },
+        "FundPsbtReservations": {
+            "FundPsbt.reservations[].reserved": 4,
+            "FundPsbt.reservations[].reserved_to_block": 5,
+            "FundPsbt.reservations[].txid": 1,
+            "FundPsbt.reservations[].vout": 2,
+            "FundPsbt.reservations[].was_reserved": 3
+        },
+        "FundPsbtResponse": {
+            "FundPsbt.change_outnum": 5,
+            "FundPsbt.estimated_final_weight": 3,
+            "FundPsbt.excess_msat": 4,
+            "FundPsbt.feerate_per_kw": 2,
+            "FundPsbt.psbt": 1,
+            "FundPsbt.reservations[]": 6
+        },
         "FundchannelRequest": {
             "FundChannel.amount": 1,
             "FundChannel.announce": 3,
@@ -470,6 +1006,27 @@
             "FundPsbt.feerate_per_kw": 2,
             "FundPsbt.psbt": 1,
             "FundPsbt.reservations[]": 6
+        },
+        "GetRouteRequest": {
+            "GetRoute.amount_msat": 2,
+            "GetRoute.cltv": 4,
+            "GetRoute.exclude[]": 7,
+            "GetRoute.fromid": 5,
+            "GetRoute.fuzzpercent": 6,
+            "GetRoute.id": 1,
+            "GetRoute.maxhops": 8,
+            "GetRoute.riskfactor": 3
+        },
+        "GetRouteResponse": {
+            "GetRoute.route[]": 1
+        },
+        "GetRouteRoute": {
+            "GetRoute.route[].amount_msat": 4,
+            "GetRoute.route[].channel": 2,
+            "GetRoute.route[].delay": 5,
+            "GetRoute.route[].direction": 3,
+            "GetRoute.route[].id": 1,
+            "GetRoute.route[].style": 6
         },
         "GetinfoAddress": {
             "Getinfo.address[].address": 3,
@@ -554,6 +1111,28 @@
             "Invoice.warning_offline": 6,
             "Invoice.warning_private_unused": 8
         },
+        "KeySendRequest": {
+            "KeySend.amount_msat": 2,
+            "KeySend.destination": 1,
+            "KeySend.exemptfee": 7,
+            "KeySend.extratlvs": 9,
+            "KeySend.label": 3,
+            "KeySend.maxdelay": 6,
+            "KeySend.maxfeepercent": 4,
+            "KeySend.retry_for": 5,
+            "KeySend.routehints": 8
+        },
+        "KeySendResponse": {
+            "KeySend.amount_msat": 6,
+            "KeySend.amount_sent_msat": 7,
+            "KeySend.created_at": 4,
+            "KeySend.destination": 2,
+            "KeySend.parts": 5,
+            "KeySend.payment_hash": 3,
+            "KeySend.payment_preimage": 1,
+            "KeySend.status": 9,
+            "KeySend.warning_partial_completion": 8
+        },
         "KeysendRequest": {
             "KeySend.amount_msat": 10,
             "KeySend.destination": 1,
@@ -576,6 +1155,460 @@
             "KeySend.payment_preimage": 1,
             "KeySend.status": 9,
             "KeySend.warning_partial_completion": 8
+        },
+        "ListChannelsChannels": {
+            "ListChannels.channels[].active": 9,
+            "ListChannels.channels[].amount_msat": 6,
+            "ListChannels.channels[].base_fee_millisatoshi": 11,
+            "ListChannels.channels[].channel_flags": 8,
+            "ListChannels.channels[].delay": 13,
+            "ListChannels.channels[].destination": 2,
+            "ListChannels.channels[].direction": 4,
+            "ListChannels.channels[].features": 16,
+            "ListChannels.channels[].fee_per_millionth": 12,
+            "ListChannels.channels[].htlc_maximum_msat": 15,
+            "ListChannels.channels[].htlc_minimum_msat": 14,
+            "ListChannels.channels[].last_update": 10,
+            "ListChannels.channels[].message_flags": 7,
+            "ListChannels.channels[].public": 5,
+            "ListChannels.channels[].short_channel_id": 3,
+            "ListChannels.channels[].source": 1
+        },
+        "ListChannelsRequest": {
+            "ListChannels.destination": 3,
+            "ListChannels.short_channel_id": 1,
+            "ListChannels.source": 2
+        },
+        "ListChannelsResponse": {
+            "ListChannels.channels[]": 1
+        },
+        "ListClosedChannelsClosedchannels": {
+            "ListClosedChannels.closedchannels[].alias": 4,
+            "ListClosedChannels.closedchannels[].channel_id": 2,
+            "ListClosedChannels.closedchannels[].channel_type": 8,
+            "ListClosedChannels.closedchannels[].close_cause": 24,
+            "ListClosedChannels.closedchannels[].closer": 6,
+            "ListClosedChannels.closedchannels[].final_to_us_msat": 19,
+            "ListClosedChannels.closedchannels[].funding_fee_paid_msat": 15,
+            "ListClosedChannels.closedchannels[].funding_fee_rcvd_msat": 16,
+            "ListClosedChannels.closedchannels[].funding_outnum": 13,
+            "ListClosedChannels.closedchannels[].funding_pushed_msat": 17,
+            "ListClosedChannels.closedchannels[].funding_txid": 12,
+            "ListClosedChannels.closedchannels[].last_commitment_fee_msat": 23,
+            "ListClosedChannels.closedchannels[].last_commitment_txid": 22,
+            "ListClosedChannels.closedchannels[].leased": 14,
+            "ListClosedChannels.closedchannels[].max_to_us_msat": 21,
+            "ListClosedChannels.closedchannels[].min_to_us_msat": 20,
+            "ListClosedChannels.closedchannels[].opener": 5,
+            "ListClosedChannels.closedchannels[].peer_id": 1,
+            "ListClosedChannels.closedchannels[].private": 7,
+            "ListClosedChannels.closedchannels[].short_channel_id": 3,
+            "ListClosedChannels.closedchannels[].total_htlcs_sent": 11,
+            "ListClosedChannels.closedchannels[].total_local_commitments": 9,
+            "ListClosedChannels.closedchannels[].total_msat": 18,
+            "ListClosedChannels.closedchannels[].total_remote_commitments": 10
+        },
+        "ListClosedChannelsClosedchannelsAlias": {
+            "ListClosedChannels.closedchannels[].alias.local": 1,
+            "ListClosedChannels.closedchannels[].alias.remote": 2
+        },
+        "ListClosedChannelsClosedchannelsChannel_type": {
+            "ListClosedChannels.closedchannels[].channel_type.bits[]": 1,
+            "ListClosedChannels.closedchannels[].channel_type.names[]": 2
+        },
+        "ListClosedChannelsRequest": {
+            "ListClosedChannels.id": 1
+        },
+        "ListClosedChannelsResponse": {
+            "ListClosedChannels.closedchannels[]": 1
+        },
+        "ListDatastoreDatastore": {
+            "ListDatastore.datastore[].generation": 2,
+            "ListDatastore.datastore[].hex": 3,
+            "ListDatastore.datastore[].key[]": 1,
+            "ListDatastore.datastore[].string": 4
+        },
+        "ListDatastoreRequest": {
+            "ListDatastore.key": 1
+        },
+        "ListDatastoreResponse": {
+            "ListDatastore.datastore[]": 1
+        },
+        "ListForwardsForwards": {
+            "ListForwards.forwards[].fee_msat": 9,
+            "ListForwards.forwards[].in_channel": 1,
+            "ListForwards.forwards[].in_htlc_id": 2,
+            "ListForwards.forwards[].in_msat": 3,
+            "ListForwards.forwards[].out_channel": 6,
+            "ListForwards.forwards[].out_htlc_id": 7,
+            "ListForwards.forwards[].out_msat": 10,
+            "ListForwards.forwards[].received_time": 5,
+            "ListForwards.forwards[].status": 4,
+            "ListForwards.forwards[].style": 8
+        },
+        "ListForwardsRequest": {
+            "ListForwards.in_channel": 2,
+            "ListForwards.out_channel": 3,
+            "ListForwards.status": 1
+        },
+        "ListForwardsResponse": {
+            "ListForwards.forwards[]": 1
+        },
+        "ListFundsChannels": {
+            "ListFunds.channels[].amount_msat": 3,
+            "ListFunds.channels[].channel_id": 8,
+            "ListFunds.channels[].connected": 6,
+            "ListFunds.channels[].funding_output": 5,
+            "ListFunds.channels[].funding_txid": 4,
+            "ListFunds.channels[].our_amount_msat": 2,
+            "ListFunds.channels[].peer_id": 1,
+            "ListFunds.channels[].short_channel_id": 9,
+            "ListFunds.channels[].state": 7
+        },
+        "ListFundsOutputs": {
+            "ListFunds.outputs[].address": 5,
+            "ListFunds.outputs[].amount_msat": 3,
+            "ListFunds.outputs[].blockheight": 9,
+            "ListFunds.outputs[].output": 2,
+            "ListFunds.outputs[].redeemscript": 6,
+            "ListFunds.outputs[].reserved": 8,
+            "ListFunds.outputs[].scriptpubkey": 4,
+            "ListFunds.outputs[].status": 7,
+            "ListFunds.outputs[].txid": 1
+        },
+        "ListFundsRequest": {
+            "ListFunds.spent": 1
+        },
+        "ListFundsResponse": {
+            "ListFunds.channels[]": 2,
+            "ListFunds.outputs[]": 1
+        },
+        "ListInvoicesInvoices": {
+            "ListInvoices.invoices[].amount_msat": 6,
+            "ListInvoices.invoices[].amount_received_msat": 12,
+            "ListInvoices.invoices[].bolt11": 7,
+            "ListInvoices.invoices[].bolt12": 8,
+            "ListInvoices.invoices[].description": 2,
+            "ListInvoices.invoices[].expires_at": 5,
+            "ListInvoices.invoices[].invreq_payer_note": 10,
+            "ListInvoices.invoices[].label": 1,
+            "ListInvoices.invoices[].local_offer_id": 9,
+            "ListInvoices.invoices[].paid_at": 13,
+            "ListInvoices.invoices[].pay_index": 11,
+            "ListInvoices.invoices[].payment_hash": 3,
+            "ListInvoices.invoices[].payment_preimage": 14,
+            "ListInvoices.invoices[].status": 4
+        },
+        "ListInvoicesRequest": {
+            "ListInvoices.invstring": 2,
+            "ListInvoices.label": 1,
+            "ListInvoices.offer_id": 4,
+            "ListInvoices.payment_hash": 3
+        },
+        "ListInvoicesResponse": {
+            "ListInvoices.invoices[]": 1
+        },
+        "ListNodesNodes": {
+            "ListNodes.nodes[].addresses[]": 6,
+            "ListNodes.nodes[].alias": 3,
+            "ListNodes.nodes[].color": 4,
+            "ListNodes.nodes[].features": 5,
+            "ListNodes.nodes[].last_timestamp": 2,
+            "ListNodes.nodes[].nodeid": 1
+        },
+        "ListNodesNodesAddresses": {
+            "ListNodes.nodes[].addresses[].address": 3,
+            "ListNodes.nodes[].addresses[].port": 2,
+            "ListNodes.nodes[].addresses[].type": 1
+        },
+        "ListNodesRequest": {
+            "ListNodes.id": 1
+        },
+        "ListNodesResponse": {
+            "ListNodes.nodes[]": 1
+        },
+        "ListPaysPays": {
+            "ListPays.pays[].bolt11": 7,
+            "ListPays.pays[].bolt12": 9,
+            "ListPays.pays[].completed_at": 5,
+            "ListPays.pays[].created_at": 4,
+            "ListPays.pays[].description": 8,
+            "ListPays.pays[].destination": 3,
+            "ListPays.pays[].erroronion": 12,
+            "ListPays.pays[].label": 6,
+            "ListPays.pays[].number_of_parts": 11,
+            "ListPays.pays[].payment_hash": 1,
+            "ListPays.pays[].preimage": 10,
+            "ListPays.pays[].status": 2
+        },
+        "ListPaysRequest": {
+            "ListPays.bolt11": 1,
+            "ListPays.payment_hash": 2,
+            "ListPays.status": 3
+        },
+        "ListPaysResponse": {
+            "ListPays.pays[]": 1
+        },
+        "ListPeerChannelsChannels": {
+            "ListPeerChannels.channels[].alias": 41,
+            "ListPeerChannels.channels[].channel_id": 9,
+            "ListPeerChannels.channels[].channel_type": 5,
+            "ListPeerChannels.channels[].close_to": 17,
+            "ListPeerChannels.channels[].close_to_addr": 53,
+            "ListPeerChannels.channels[].closer": 20,
+            "ListPeerChannels.channels[].dust_limit_msat": 29,
+            "ListPeerChannels.channels[].features[]": 21,
+            "ListPeerChannels.channels[].fee_base_msat": 27,
+            "ListPeerChannels.channels[].fee_proportional_millionths": 28,
+            "ListPeerChannels.channels[].feerate": 6,
+            "ListPeerChannels.channels[].funding": 22,
+            "ListPeerChannels.channels[].funding_outnum": 11,
+            "ListPeerChannels.channels[].funding_txid": 10,
+            "ListPeerChannels.channels[].htlcs[]": 52,
+            "ListPeerChannels.channels[].in_fulfilled_msat": 47,
+            "ListPeerChannels.channels[].in_offered_msat": 45,
+            "ListPeerChannels.channels[].in_payments_fulfilled": 46,
+            "ListPeerChannels.channels[].in_payments_offered": 44,
+            "ListPeerChannels.channels[].inflight[]": 16,
+            "ListPeerChannels.channels[].initial_feerate": 12,
+            "ListPeerChannels.channels[].last_feerate": 13,
+            "ListPeerChannels.channels[].max_accepted_htlcs": 40,
+            "ListPeerChannels.channels[].max_to_us_msat": 25,
+            "ListPeerChannels.channels[].max_total_htlc_in_msat": 30,
+            "ListPeerChannels.channels[].maximum_htlc_out_msat": 37,
+            "ListPeerChannels.channels[].min_to_us_msat": 24,
+            "ListPeerChannels.channels[].minimum_htlc_in_msat": 35,
+            "ListPeerChannels.channels[].minimum_htlc_out_msat": 36,
+            "ListPeerChannels.channels[].next_fee_step": 15,
+            "ListPeerChannels.channels[].next_feerate": 14,
+            "ListPeerChannels.channels[].opener": 19,
+            "ListPeerChannels.channels[].our_reserve_msat": 32,
+            "ListPeerChannels.channels[].our_to_self_delay": 39,
+            "ListPeerChannels.channels[].out_fulfilled_msat": 51,
+            "ListPeerChannels.channels[].out_offered_msat": 49,
+            "ListPeerChannels.channels[].out_payments_fulfilled": 50,
+            "ListPeerChannels.channels[].out_payments_offered": 48,
+            "ListPeerChannels.channels[].owner": 7,
+            "ListPeerChannels.channels[].peer_connected": 2,
+            "ListPeerChannels.channels[].peer_id": 1,
+            "ListPeerChannels.channels[].private": 18,
+            "ListPeerChannels.channels[].receivable_msat": 34,
+            "ListPeerChannels.channels[].scratch_txid": 4,
+            "ListPeerChannels.channels[].short_channel_id": 8,
+            "ListPeerChannels.channels[].spendable_msat": 33,
+            "ListPeerChannels.channels[].state": 3,
+            "ListPeerChannels.channels[].state_changes[]": 42,
+            "ListPeerChannels.channels[].status[]": 43,
+            "ListPeerChannels.channels[].their_reserve_msat": 31,
+            "ListPeerChannels.channels[].their_to_self_delay": 38,
+            "ListPeerChannels.channels[].to_us_msat": 23,
+            "ListPeerChannels.channels[].total_msat": 26
+        },
+        "ListPeerChannelsChannelsAlias": {
+            "ListPeerChannels.channels[].alias.local": 1,
+            "ListPeerChannels.channels[].alias.remote": 2
+        },
+        "ListPeerChannelsChannelsChannel_type": {
+            "ListPeerChannels.channels[].channel_type.bits[]": 1,
+            "ListPeerChannels.channels[].channel_type.names[]": 2
+        },
+        "ListPeerChannelsChannelsFeerate": {
+            "ListPeerChannels.channels[].feerate.perkb": 2,
+            "ListPeerChannels.channels[].feerate.perkw": 1
+        },
+        "ListPeerChannelsChannelsFunding": {
+            "ListPeerChannels.channels[].funding.fee_paid_msat": 4,
+            "ListPeerChannels.channels[].funding.fee_rcvd_msat": 5,
+            "ListPeerChannels.channels[].funding.local_funds_msat": 2,
+            "ListPeerChannels.channels[].funding.pushed_msat": 1,
+            "ListPeerChannels.channels[].funding.remote_funds_msat": 3
+        },
+        "ListPeerChannelsChannelsHtlcs": {
+            "ListPeerChannels.channels[].htlcs[].amount_msat": 3,
+            "ListPeerChannels.channels[].htlcs[].direction": 1,
+            "ListPeerChannels.channels[].htlcs[].expiry": 4,
+            "ListPeerChannels.channels[].htlcs[].id": 2,
+            "ListPeerChannels.channels[].htlcs[].local_trimmed": 6,
+            "ListPeerChannels.channels[].htlcs[].payment_hash": 5,
+            "ListPeerChannels.channels[].htlcs[].state": 8,
+            "ListPeerChannels.channels[].htlcs[].status": 7
+        },
+        "ListPeerChannelsChannelsInflight": {
+            "ListPeerChannels.channels[].inflight[].feerate": 3,
+            "ListPeerChannels.channels[].inflight[].funding_outnum": 2,
+            "ListPeerChannels.channels[].inflight[].funding_txid": 1,
+            "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
+            "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
+            "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
+        },
+        "ListPeerChannelsRequest": {
+            "ListPeerChannels.id": 1
+        },
+        "ListPeerChannelsResponse": {
+            "ListPeerChannels.channels[]": 1
+        },
+        "ListPeersPeers": {
+            "ListPeers.peers[].channels[]": 5,
+            "ListPeers.peers[].connected": 2,
+            "ListPeers.peers[].features": 8,
+            "ListPeers.peers[].id": 1,
+            "ListPeers.peers[].log[]": 4,
+            "ListPeers.peers[].netaddr[]": 6,
+            "ListPeers.peers[].num_channels": 3,
+            "ListPeers.peers[].remote_addr": 7
+        },
+        "ListPeersPeersChannels": {
+            "ListPeers.peers[].channels[].alias": 38,
+            "ListPeers.peers[].channels[].channel_id": 6,
+            "ListPeers.peers[].channels[].close_to": 14,
+            "ListPeers.peers[].channels[].close_to_addr": 50,
+            "ListPeers.peers[].channels[].closer": 17,
+            "ListPeers.peers[].channels[].dust_limit_msat": 26,
+            "ListPeers.peers[].channels[].features[]": 18,
+            "ListPeers.peers[].channels[].fee_base_msat": 24,
+            "ListPeers.peers[].channels[].fee_proportional_millionths": 25,
+            "ListPeers.peers[].channels[].feerate": 3,
+            "ListPeers.peers[].channels[].funding": 19,
+            "ListPeers.peers[].channels[].funding_outnum": 8,
+            "ListPeers.peers[].channels[].funding_txid": 7,
+            "ListPeers.peers[].channels[].htlcs[]": 49,
+            "ListPeers.peers[].channels[].in_fulfilled_msat": 44,
+            "ListPeers.peers[].channels[].in_offered_msat": 42,
+            "ListPeers.peers[].channels[].in_payments_fulfilled": 43,
+            "ListPeers.peers[].channels[].in_payments_offered": 41,
+            "ListPeers.peers[].channels[].inflight[]": 13,
+            "ListPeers.peers[].channels[].initial_feerate": 9,
+            "ListPeers.peers[].channels[].last_feerate": 10,
+            "ListPeers.peers[].channels[].max_accepted_htlcs": 37,
+            "ListPeers.peers[].channels[].max_to_us_msat": 22,
+            "ListPeers.peers[].channels[].max_total_htlc_in_msat": 27,
+            "ListPeers.peers[].channels[].maximum_htlc_out_msat": 34,
+            "ListPeers.peers[].channels[].min_to_us_msat": 21,
+            "ListPeers.peers[].channels[].minimum_htlc_in_msat": 32,
+            "ListPeers.peers[].channels[].minimum_htlc_out_msat": 33,
+            "ListPeers.peers[].channels[].next_fee_step": 12,
+            "ListPeers.peers[].channels[].next_feerate": 11,
+            "ListPeers.peers[].channels[].opener": 16,
+            "ListPeers.peers[].channels[].our_reserve_msat": 29,
+            "ListPeers.peers[].channels[].our_to_self_delay": 36,
+            "ListPeers.peers[].channels[].out_fulfilled_msat": 48,
+            "ListPeers.peers[].channels[].out_offered_msat": 46,
+            "ListPeers.peers[].channels[].out_payments_fulfilled": 47,
+            "ListPeers.peers[].channels[].out_payments_offered": 45,
+            "ListPeers.peers[].channels[].owner": 4,
+            "ListPeers.peers[].channels[].private": 15,
+            "ListPeers.peers[].channels[].receivable_msat": 31,
+            "ListPeers.peers[].channels[].scratch_txid": 2,
+            "ListPeers.peers[].channels[].short_channel_id": 5,
+            "ListPeers.peers[].channels[].spendable_msat": 30,
+            "ListPeers.peers[].channels[].state": 1,
+            "ListPeers.peers[].channels[].state_changes[]": 39,
+            "ListPeers.peers[].channels[].status[]": 40,
+            "ListPeers.peers[].channels[].their_reserve_msat": 28,
+            "ListPeers.peers[].channels[].their_to_self_delay": 35,
+            "ListPeers.peers[].channels[].to_us_msat": 20,
+            "ListPeers.peers[].channels[].total_msat": 23
+        },
+        "ListPeersPeersChannelsAlias": {
+            "ListPeers.peers[].channels[].alias.local": 1,
+            "ListPeers.peers[].channels[].alias.remote": 2
+        },
+        "ListPeersPeersChannelsFeerate": {
+            "ListPeers.peers[].channels[].feerate.perkb": 2,
+            "ListPeers.peers[].channels[].feerate.perkw": 1
+        },
+        "ListPeersPeersChannelsFunding": {
+            "ListPeers.peers[].channels[].funding.fee_paid_msat": 4,
+            "ListPeers.peers[].channels[].funding.fee_rcvd_msat": 5,
+            "ListPeers.peers[].channels[].funding.local_funds_msat": 2,
+            "ListPeers.peers[].channels[].funding.pushed_msat": 1,
+            "ListPeers.peers[].channels[].funding.remote_funds_msat": 3
+        },
+        "ListPeersPeersChannelsHtlcs": {
+            "ListPeers.peers[].channels[].htlcs[].amount_msat": 3,
+            "ListPeers.peers[].channels[].htlcs[].direction": 1,
+            "ListPeers.peers[].channels[].htlcs[].expiry": 4,
+            "ListPeers.peers[].channels[].htlcs[].id": 2,
+            "ListPeers.peers[].channels[].htlcs[].local_trimmed": 6,
+            "ListPeers.peers[].channels[].htlcs[].payment_hash": 5,
+            "ListPeers.peers[].channels[].htlcs[].state": 8,
+            "ListPeers.peers[].channels[].htlcs[].status": 7
+        },
+        "ListPeersPeersChannelsInflight": {
+            "ListPeers.peers[].channels[].inflight[].feerate": 3,
+            "ListPeers.peers[].channels[].inflight[].funding_outnum": 2,
+            "ListPeers.peers[].channels[].inflight[].funding_txid": 1,
+            "ListPeers.peers[].channels[].inflight[].our_funding_msat": 5,
+            "ListPeers.peers[].channels[].inflight[].scratch_txid": 6,
+            "ListPeers.peers[].channels[].inflight[].total_funding_msat": 4
+        },
+        "ListPeersPeersLog": {
+            "ListPeers.peers[].log[].data": 7,
+            "ListPeers.peers[].log[].log": 5,
+            "ListPeers.peers[].log[].node_id": 6,
+            "ListPeers.peers[].log[].num_skipped": 2,
+            "ListPeers.peers[].log[].source": 4,
+            "ListPeers.peers[].log[].time": 3,
+            "ListPeers.peers[].log[].type": 1
+        },
+        "ListPeersRequest": {
+            "ListPeers.id": 1,
+            "ListPeers.level": 2
+        },
+        "ListPeersResponse": {
+            "ListPeers.peers[]": 1
+        },
+        "ListSendPaysPayments": {
+            "ListSendPays.payments[].amount_msat": 6,
+            "ListSendPays.payments[].amount_sent_msat": 9,
+            "ListSendPays.payments[].bolt11": 11,
+            "ListSendPays.payments[].bolt12": 13,
+            "ListSendPays.payments[].created_at": 8,
+            "ListSendPays.payments[].description": 12,
+            "ListSendPays.payments[].destination": 7,
+            "ListSendPays.payments[].erroronion": 15,
+            "ListSendPays.payments[].groupid": 2,
+            "ListSendPays.payments[].id": 1,
+            "ListSendPays.payments[].label": 10,
+            "ListSendPays.payments[].partid": 3,
+            "ListSendPays.payments[].payment_hash": 4,
+            "ListSendPays.payments[].payment_preimage": 14,
+            "ListSendPays.payments[].status": 5
+        },
+        "ListSendPaysRequest": {
+            "ListSendPays.bolt11": 1,
+            "ListSendPays.payment_hash": 2,
+            "ListSendPays.status": 3
+        },
+        "ListSendPaysResponse": {
+            "ListSendPays.payments[]": 1
+        },
+        "ListTransactionsResponse": {
+            "ListTransactions.transactions[]": 1
+        },
+        "ListTransactionsTransactions": {
+            "ListTransactions.transactions[].blockheight": 3,
+            "ListTransactions.transactions[].hash": 1,
+            "ListTransactions.transactions[].inputs[]": 7,
+            "ListTransactions.transactions[].locktime": 5,
+            "ListTransactions.transactions[].outputs[]": 8,
+            "ListTransactions.transactions[].rawtx": 2,
+            "ListTransactions.transactions[].txindex": 4,
+            "ListTransactions.transactions[].version": 6
+        },
+        "ListTransactionsTransactionsInputs": {
+            "ListTransactions.transactions[].inputs[].channel": 5,
+            "ListTransactions.transactions[].inputs[].index": 2,
+            "ListTransactions.transactions[].inputs[].sequence": 3,
+            "ListTransactions.transactions[].inputs[].txid": 1,
+            "ListTransactions.transactions[].inputs[].type": 4
+        },
+        "ListTransactionsTransactionsOutputs": {
+            "ListTransactions.transactions[].outputs[].amount_msat": 2,
+            "ListTransactions.transactions[].outputs[].channel": 5,
+            "ListTransactions.transactions[].outputs[].index": 1,
+            "ListTransactions.transactions[].outputs[].scriptPubKey": 3,
+            "ListTransactions.transactions[].outputs[].type": 4
         },
         "ListchannelsChannels": {
             "ListChannels.channels[].active": 8,
@@ -1041,6 +2074,13 @@
             "ListTransactions.transactions[].outputs[].scriptPubKey": 3,
             "ListTransactions.transactions[].outputs[].type": 4
         },
+        "NewAddrRequest": {
+            "NewAddr.addresstype": 1
+        },
+        "NewAddrResponse": {
+            "NewAddr.bech32": 1,
+            "NewAddr.p2sh-segwit": 2
+        },
         "NewaddrRequest": {
             "NewAddr.addresstype": 1
         },
@@ -1082,6 +2122,88 @@
         },
         "PingResponse": {
             "Ping.totlen": 1
+        },
+        "SendCustomMsgRequest": {
+            "SendCustomMsg.msg": 2,
+            "SendCustomMsg.node_id": 1
+        },
+        "SendCustomMsgResponse": {
+            "SendCustomMsg.status": 1
+        },
+        "SendOnionFirst_hop": {
+            "SendOnion.first_hop.amount_msat": 2,
+            "SendOnion.first_hop.delay": 3,
+            "SendOnion.first_hop.id": 1
+        },
+        "SendOnionRequest": {
+            "SendOnion.amount_msat": 8,
+            "SendOnion.bolt11": 7,
+            "SendOnion.destination": 9,
+            "SendOnion.first_hop": 2,
+            "SendOnion.groupid": 11,
+            "SendOnion.label": 4,
+            "SendOnion.localinvreqid": 10,
+            "SendOnion.onion": 1,
+            "SendOnion.partid": 6,
+            "SendOnion.payment_hash": 3,
+            "SendOnion.shared_secrets[]": 5
+        },
+        "SendOnionResponse": {
+            "SendOnion.amount_msat": 4,
+            "SendOnion.amount_sent_msat": 7,
+            "SendOnion.bolt11": 9,
+            "SendOnion.bolt12": 10,
+            "SendOnion.created_at": 6,
+            "SendOnion.destination": 5,
+            "SendOnion.id": 1,
+            "SendOnion.label": 8,
+            "SendOnion.message": 13,
+            "SendOnion.partid": 11,
+            "SendOnion.payment_hash": 2,
+            "SendOnion.payment_preimage": 12,
+            "SendOnion.status": 3
+        },
+        "SendPayRequest": {
+            "SendPay.amount_msat": 4,
+            "SendPay.bolt11": 5,
+            "SendPay.groupid": 9,
+            "SendPay.label": 3,
+            "SendPay.localinvreqid": 8,
+            "SendPay.partid": 7,
+            "SendPay.payment_hash": 2,
+            "SendPay.payment_secret": 6,
+            "SendPay.route[]": 1
+        },
+        "SendPayResponse": {
+            "SendPay.amount_msat": 5,
+            "SendPay.amount_sent_msat": 9,
+            "SendPay.bolt11": 12,
+            "SendPay.bolt12": 13,
+            "SendPay.completed_at": 8,
+            "SendPay.created_at": 7,
+            "SendPay.destination": 6,
+            "SendPay.groupid": 2,
+            "SendPay.id": 1,
+            "SendPay.label": 10,
+            "SendPay.message": 15,
+            "SendPay.partid": 11,
+            "SendPay.payment_hash": 3,
+            "SendPay.payment_preimage": 14,
+            "SendPay.status": 4
+        },
+        "SendPayRoute": {
+            "SendPay.route[].amount_msat": 1,
+            "SendPay.route[].channel": 4,
+            "SendPay.route[].delay": 3,
+            "SendPay.route[].id": 2
+        },
+        "SendPsbtRequest": {
+            "SendPsbt.psbt": 1,
+            "SendPsbt.reserve": 2
+        },
+        "SendPsbtResponse": {
+            "SendPsbt.tx": 1,
+            "SendPsbt.txid": 2
         },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
@@ -1170,6 +2292,28 @@
             "SendPsbt.tx": 1,
             "SendPsbt.txid": 2
         },
+        "SetChannelChannels": {
+            "SetChannel.channels[].channel_id": 2,
+            "SetChannel.channels[].fee_base_msat": 4,
+            "SetChannel.channels[].fee_proportional_millionths": 5,
+            "SetChannel.channels[].maximum_htlc_out_msat": 8,
+            "SetChannel.channels[].minimum_htlc_out_msat": 6,
+            "SetChannel.channels[].peer_id": 1,
+            "SetChannel.channels[].short_channel_id": 3,
+            "SetChannel.channels[].warning_htlcmax_too_high": 9,
+            "SetChannel.channels[].warning_htlcmin_too_low": 7
+        },
+        "SetChannelRequest": {
+            "SetChannel.enforcedelay": 6,
+            "SetChannel.feebase": 2,
+            "SetChannel.feeppm": 3,
+            "SetChannel.htlcmax": 5,
+            "SetChannel.htlcmin": 4,
+            "SetChannel.id": 1
+        },
+        "SetChannelResponse": {
+            "SetChannel.channels[]": 1
+        },
         "SetchannelChannels": {
             "SetChannel.channels[].channel_id": 2,
             "SetChannel.channels[].fee_base_msat": 4,
@@ -1192,6 +2336,27 @@
         "SetchannelResponse": {
             "SetChannel.channels[]": 1
         },
+        "SignInvoiceRequest": {
+            "SignInvoice.invstring": 1
+        },
+        "SignInvoiceResponse": {
+            "SignInvoice.bolt11": 1
+        },
+        "SignMessageRequest": {
+            "SignMessage.message": 1
+        },
+        "SignMessageResponse": {
+            "SignMessage.recid": 2,
+            "SignMessage.signature": 1,
+            "SignMessage.zbase": 3
+        },
+        "SignPsbtRequest": {
+            "SignPsbt.psbt": 1,
+            "SignPsbt.signonly[]": 2
+        },
+        "SignPsbtResponse": {
+            "SignPsbt.signed_psbt": 1
+        },
         "SigninvoiceRequest": {
             "SignInvoice.invstring": 1
         },
@@ -1212,6 +2377,32 @@
         },
         "SignpsbtResponse": {
             "SignPsbt.signed_psbt": 1
+        },
+        "TxDiscardRequest": {
+            "TxDiscard.txid": 1
+        },
+        "TxDiscardResponse": {
+            "TxDiscard.txid": 2,
+            "TxDiscard.unsigned_tx": 1
+        },
+        "TxPrepareRequest": {
+            "TxPrepare.feerate": 2,
+            "TxPrepare.minconf": 3,
+            "TxPrepare.outputs[]": 1,
+            "TxPrepare.utxos[]": 4
+        },
+        "TxPrepareResponse": {
+            "TxPrepare.psbt": 1,
+            "TxPrepare.txid": 3,
+            "TxPrepare.unsigned_tx": 2
+        },
+        "TxSendRequest": {
+            "TxSend.txid": 1
+        },
+        "TxSendResponse": {
+            "TxSend.psbt": 1,
+            "TxSend.tx": 2,
+            "TxSend.txid": 3
         },
         "TxdiscardRequest": {
             "TxDiscard.txid": 1
@@ -1240,6 +2431,32 @@
             "TxSend.tx": 2,
             "TxSend.txid": 3
         },
+        "UtxoPsbtRequest": {
+            "UtxoPsbt.excess_as_change": 9,
+            "UtxoPsbt.feerate": 2,
+            "UtxoPsbt.locktime": 7,
+            "UtxoPsbt.min_witness_weight": 8,
+            "UtxoPsbt.reserve": 5,
+            "UtxoPsbt.reservedok": 6,
+            "UtxoPsbt.satoshi": 1,
+            "UtxoPsbt.startweight": 3,
+            "UtxoPsbt.utxos[]": 4
+        },
+        "UtxoPsbtReservations": {
+            "UtxoPsbt.reservations[].reserved": 4,
+            "UtxoPsbt.reservations[].reserved_to_block": 5,
+            "UtxoPsbt.reservations[].txid": 1,
+            "UtxoPsbt.reservations[].vout": 2,
+            "UtxoPsbt.reservations[].was_reserved": 3
+        },
+        "UtxoPsbtResponse": {
+            "UtxoPsbt.change_outnum": 5,
+            "UtxoPsbt.estimated_final_weight": 3,
+            "UtxoPsbt.excess_msat": 4,
+            "UtxoPsbt.feerate_per_kw": 2,
+            "UtxoPsbt.psbt": 1,
+            "UtxoPsbt.reservations[]": 6
+        },
         "UtxopsbtRequest": {
             "UtxoPsbt.excess_as_change": 9,
             "UtxoPsbt.feerate": 2,
@@ -1265,6 +2482,63 @@
             "UtxoPsbt.feerate_per_kw": 2,
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
+        },
+        "WaitAnyInvoiceRequest": {
+            "WaitAnyInvoice.lastpay_index": 1,
+            "WaitAnyInvoice.timeout": 2
+        },
+        "WaitAnyInvoiceResponse": {
+            "WaitAnyInvoice.amount_msat": 6,
+            "WaitAnyInvoice.amount_received_msat": 10,
+            "WaitAnyInvoice.bolt11": 7,
+            "WaitAnyInvoice.bolt12": 8,
+            "WaitAnyInvoice.description": 2,
+            "WaitAnyInvoice.expires_at": 5,
+            "WaitAnyInvoice.label": 1,
+            "WaitAnyInvoice.paid_at": 11,
+            "WaitAnyInvoice.pay_index": 9,
+            "WaitAnyInvoice.payment_hash": 3,
+            "WaitAnyInvoice.payment_preimage": 12,
+            "WaitAnyInvoice.status": 4
+        },
+        "WaitInvoiceRequest": {
+            "WaitInvoice.label": 1
+        },
+        "WaitInvoiceResponse": {
+            "WaitInvoice.amount_msat": 6,
+            "WaitInvoice.amount_received_msat": 10,
+            "WaitInvoice.bolt11": 7,
+            "WaitInvoice.bolt12": 8,
+            "WaitInvoice.description": 2,
+            "WaitInvoice.expires_at": 5,
+            "WaitInvoice.label": 1,
+            "WaitInvoice.paid_at": 11,
+            "WaitInvoice.pay_index": 9,
+            "WaitInvoice.payment_hash": 3,
+            "WaitInvoice.payment_preimage": 12,
+            "WaitInvoice.status": 4
+        },
+        "WaitSendPayRequest": {
+            "WaitSendPay.groupid": 4,
+            "WaitSendPay.partid": 3,
+            "WaitSendPay.payment_hash": 1,
+            "WaitSendPay.timeout": 2
+        },
+        "WaitSendPayResponse": {
+            "WaitSendPay.amount_msat": 5,
+            "WaitSendPay.amount_sent_msat": 9,
+            "WaitSendPay.bolt11": 12,
+            "WaitSendPay.bolt12": 13,
+            "WaitSendPay.completed_at": 8,
+            "WaitSendPay.created_at": 7,
+            "WaitSendPay.destination": 6,
+            "WaitSendPay.groupid": 2,
+            "WaitSendPay.id": 1,
+            "WaitSendPay.label": 10,
+            "WaitSendPay.partid": 11,
+            "WaitSendPay.payment_hash": 3,
+            "WaitSendPay.payment_preimage": 14,
+            "WaitSendPay.status": 4
         },
         "WaitanyinvoiceRequest": {
             "WaitAnyInvoice.lastpay_index": 1,
@@ -1595,6 +2869,574 @@
         },
         "Datastore.string": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.created_at": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.currency_minor_unit": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.description_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.extra[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.extra[].data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.extra[].tag": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.fallbacks[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.fallbacks[].warning_invoice_fallbacks_version_invalid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.hex": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_created_at": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_fallbacks[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_fallbacks[].address": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_fallbacks[].hex": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_fallbacks[].version": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_features": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].blinding": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].first_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].path[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].path[].blinded_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].path[].encrypted_recipient_data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].payinfo": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].payinfo.cltv_expiry_delta": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].payinfo.features": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].payinfo.fee_base_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_paths[].payinfo.fee_proportional_millionths": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_payment_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_recurrence_basetime": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invoice_relative_expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_chain": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_features": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_metadata": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_payer_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_payer_note": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_quantity": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_recurrence_counter": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.invreq_recurrence_start": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.min_final_cltv_expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_absolute_expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_amount": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_chains[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_currency": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_description": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_features": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_issuer": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_metadata": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].blinding": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].first_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].path[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].path[].blinded_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_paths[].path[].encrypted_recipient_data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_quantity_max": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.basetime": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.limit": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.paywindow": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.paywindow.proportional_amount": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.paywindow.seconds_after": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.paywindow.seconds_before": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.period": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.start_any_period": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.time_unit": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.offer_recurrence.time_unit_name": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.payee": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.payment_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.payment_metadata": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.payment_secret": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.restrictions[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.restrictions[].alternatives[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.restrictions[].summary": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.routes": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.string": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unique_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_request_tlvs[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_request_tlvs[].length": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_request_tlvs[].type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_request_tlvs[].value": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_tlvs[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_tlvs[].length": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_tlvs[].type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_invoice_tlvs[].value": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_offer_tlvs[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_offer_tlvs[].length": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_offer_tlvs[].type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.unknown_offer_tlvs[].value": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.valid": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.version": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_invoice_request_signature": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_invoice_signature": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_invreq_payer_note": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_offer_currency": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_offer_description": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_invalid_offer_issuer": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_amount": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_blindedpay": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_created_at": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_paths": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_payment_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_recurrence_basetime": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_request_signature": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invoice_signature": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invreq_metadata": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_invreq_payer_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_offer_description": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_missing_offer_node_id": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_rune_invalid_utf8": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.warning_unknown_offer_currency": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "DecodePay.amount_msat": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.bolt11": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.created_at": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.currency": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.description": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.description_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.extra[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.extra[].data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.extra[].tag": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.fallbacks[]": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.fallbacks[].addr": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.fallbacks[].hex": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.fallbacks[].type": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.features": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.min_final_cltv_expiry": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.payee": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.payment_hash": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.payment_metadata": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.payment_secret": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.routes": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "DecodePay.signature": {
+            "added": "v23.05",
             "deprecated": false
         },
         "DelDatastore": {
