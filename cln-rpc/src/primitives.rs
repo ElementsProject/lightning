@@ -692,19 +692,21 @@ impl Serialize for RoutehintList {
 
 impl<'de> Deserialize<'de> for RoutehintList {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let hints: Vec<Routehint> = Deserialize::deserialize(_deserializer)?;
+        Ok(RoutehintList { hints })
     }
 }
 
 impl<'de> Deserialize<'de> for Routehint {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let hops: Vec<Routehop> = Deserialize::deserialize(_deserializer)?;
+        Ok(Routehint { hops })
     }
 }
 
@@ -819,20 +821,20 @@ impl Serialize for Routes {
     }
 }
 
-impl<'de> Deserialize<'de> for Routes {
+impl<'de> Deserialize<'de> for Route {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+        where D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let hops: Vec<Hop> = Deserialize::deserialize(_deserializer)?;
+        Ok(Route { hops })
     }
 }
 
-impl<'de> Deserialize<'de> for Route {
+impl<'de> Deserialize<'de> for Routes {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+        where D: Deserializer<'de>,
     {
-        todo!("Required once we roundtrip, but not necessary for cln-rpc itself")
+        let routes: Vec<Route> = Deserialize::deserialize(_deserializer)?;
+        Ok(Routes { routes })
     }
 }
