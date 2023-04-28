@@ -1317,6 +1317,7 @@ message DecodeResponse {
 	optional bytes offer_node_id = 17;
 	optional DecodeOffer_recurrence offer_recurrence = 18;
 	repeated DecodeUnknown_offer_tlvs unknown_offer_tlvs = 19;
+	optional string description = 76;
 	optional string warning_missing_offer_node_id = 20;
 	optional string warning_invalid_offer_description = 21;
 	optional string warning_missing_offer_description = 22;

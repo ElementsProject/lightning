@@ -1286,6 +1286,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             offer_node_id: c.offer_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             offer_recurrence: c.offer_recurrence.map(|v| v.into()),
             unknown_offer_tlvs: c.unknown_offer_tlvs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            description: c.description, // Rule #2 for type string?
             warning_missing_offer_node_id: c.warning_missing_offer_node_id, // Rule #2 for type string?
             warning_invalid_offer_description: c.warning_invalid_offer_description, // Rule #2 for type string?
             warning_missing_offer_description: c.warning_missing_offer_description, // Rule #2 for type string?
@@ -4213,6 +4214,7 @@ impl From<pb::DecodeResponse> for responses::DecodeResponse {
             offer_node_id: c.offer_node_id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             offer_recurrence: c.offer_recurrence.map(|v| v.into()),
             unknown_offer_tlvs: Some(c.unknown_offer_tlvs.into_iter().map(|s| s.into()).collect()), // Rule #4
+            description: c.description, // Rule #1 for type string?
             warning_missing_offer_node_id: c.warning_missing_offer_node_id, // Rule #1 for type string?
             warning_invalid_offer_description: c.warning_invalid_offer_description, // Rule #1 for type string?
             warning_missing_offer_description: c.warning_missing_offer_description, // Rule #1 for type string?

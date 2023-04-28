@@ -671,6 +671,7 @@
         "DecodeResponse": {
             "Decode.created_at": 60,
             "Decode.currency_minor_unit": 8,
+            "Decode.description": 76,
             "Decode.description_hash": 64,
             "Decode.expiry": 61,
             "Decode.extra[]": 69,
@@ -2884,6 +2885,10 @@
             "deprecated": false
         },
         "Decode.data": {
+            "added": "v23.05",
+            "deprecated": false
+        },
+        "Decode.description": {
             "added": "v23.05",
             "deprecated": false
         },

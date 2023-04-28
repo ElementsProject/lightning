@@ -416,6 +416,13 @@ overrides = {
         added="v23.05",
         deprecated=None
     ),
+    'Decode.description': PrimitiveField(
+        "string",
+        None,
+        None,
+        added="v23.05",
+        deprecated=None
+    ),
     'Decode.routes': PrimitiveField(
         "Routes",
         None,

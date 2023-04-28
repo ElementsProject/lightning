@@ -3879,6 +3879,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub unknown_offer_tlvs: Option<Vec<DecodeUnknown_offer_tlvs>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_offer_node_id: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_invalid_offer_description: Option<String>,
