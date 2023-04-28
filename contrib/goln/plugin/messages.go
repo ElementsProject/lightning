@@ -5,11 +5,11 @@ type GetManifestRequest struct {
 }
 
 type GetManifestResponse struct {
-	Options       []Option      `json:"options"`
-	RpcMethods    []RpcMethod   `json:"rpcmethods"`
-	Dynamic       bool          `json:"dynamic"`
-	Subscriptions []string      `json:"subscriptions,omitempty"`
-	Hooks         []interface{} `json:"hooks,omitempty"`
+	Options       []Option    `json:"options"`
+	RpcMethods    []RpcMethod `json:"rpcmethods"`
+	Dynamic       bool        `json:"dynamic"`
+	Subscriptions []string    `json:"subscriptions,omitempty"`
+	Hooks         []Hook      `json:"hooks,omitempty"`
 	// FeatureBits   *FeatureBits  `json:"featurebits,omitempty"`
 }
 

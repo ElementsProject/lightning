@@ -31,6 +31,7 @@ func main() {
 		AddOption(plugin.IntOption("my-option", 42, "This is an option (default: 42).")).
 		AddOption(plugin.StringOption("my-deprecated-option", "default-value", "This option is deprecated.").Deprecated()).
 		AddRpcMethod(plugin.NewRpcMethod("test-rpc-method", "amt scid", "description", "long description", myCallback)).
+		AddHook(plugin.NewHook(plugin.RPC_COMMAND_HOOK, hookCallback)).
 		Dynamic()
 	plugin := builder.Configure()
 	err := plugin.Start()
@@ -55,4 +56,13 @@ type CallbackResponse struct {
 	Got      string `json:"request"`
 	Number   int32  `json:"number"`
 	AndABool bool   `json:"boolean"`
+}
+
+type HookResponse struct {
+	Result string `json:"result"`
+}
+
+func hookCallback(ctx context.Context, req *json.RawMessage) (interface{}, *jsonrpc2.Error) {
+	log.Printf("Rpc method %v got called", req)
+	return HookResponse{Result: "continue"}, nil
 }

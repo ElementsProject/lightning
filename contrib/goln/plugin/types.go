@@ -203,3 +203,46 @@ type initData struct {
 	id      *jsonrpc2.ID
 	request InitRequest
 }
+
+type HookType string
+
+const (
+	PEER_CONNECTED_HOOK        HookType = "peer_connected"
+	COMMITMENT_REVOCATION_HOOK HookType = "commitment_revocation"
+	DB_WRITE_HOOK              HookType = "db_write"
+	INVOICE_PAYMENT_HOOK       HookType = "invoice_payment"
+	OPEN_CHANNEL_HOOK          HookType = "openchannel"
+	OPEN_CHANNEL_V2_HOOK       HookType = "openchannel2"
+	OPEN_CHANNEL_V2_CHANGED    HookType = "openchannel2_changed"
+	OPEN_CHANNEL_V2_SIGN       HookType = "openchannel2_sign"
+	RBF_CHANNEL_HOOK           HookType = "rbf_channel"
+	HTLC_ACCEPTED_HOOK         HookType = "htlc_accepted"
+	RPC_COMMAND_HOOK           HookType = "rpc_command"
+	CUSTOM_MSG_HOOK            HookType = "custommsg"
+)
+
+type Hook struct {
+	typ      HookType
+	callback Callback
+	before   []string
+}
+
+func NewHook(typ HookType, callback Callback) *Hook {
+	return &Hook{typ: typ, callback: callback, before: []string{}}
+}
+
+func (h *Hook) Before(plugin string) *Hook {
+	h.before = append(h.before, plugin)
+	return h
+}
+
+func (h *Hook) MarshalJSON() ([]byte, error) {
+	j := struct {
+		Name   string   `json:"name"`
+		Before []string `json:"before,omitempty"`
+	}{
+		Name:   string(h.typ),
+		Before: h.before,
+	}
+	return json.Marshal(j)
+}

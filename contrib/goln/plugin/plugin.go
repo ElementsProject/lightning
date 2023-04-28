@@ -26,6 +26,7 @@ type Builder struct {
 
 	options    map[string]*Option
 	rpcMethods map[string]*RpcMethod
+	hooks      map[string]*Hook
 	dynamic    bool
 }
 
@@ -38,6 +39,7 @@ func NewBuilder(ctx context.Context, in io.ReadCloser, out io.WriteCloser) *Buil
 	builder.waitInit = make(chan initData, 1)
 	builder.options = make(map[string]*Option)
 	builder.rpcMethods = make(map[string]*RpcMethod)
+	builder.hooks = make(map[string]*Hook)
 
 	// Register plugin startup rpc methods `getmanifest` and `init`.
 	builder.server.RegisterHandler("getmanifest", builder.handleManifest)
@@ -55,6 +57,19 @@ func (builder *Builder) AddRpcMethod(m *RpcMethod) *Builder {
 	builder.rpcMethods[m.name] = m
 	builder.server.RegisterHandler(m.name, func(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
 		res, err := m.callback(ctx, req.Params)
+		if err != nil {
+			_ = conn.ReplyWithError(ctx, req.ID, err)
+			return
+		}
+		_ = conn.Reply(ctx, req.ID, res)
+	})
+	return builder
+}
+
+func (builder *Builder) AddHook(h *Hook) *Builder {
+	builder.hooks[string(h.typ)] = h
+	builder.server.RegisterHandler(string(h.typ), func(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+		res, err := h.callback(ctx, req.Params)
 		if err != nil {
 			_ = conn.ReplyWithError(ctx, req.ID, err)
 			return
@@ -144,6 +159,9 @@ func (builder *Builder) handleManifest(ctx context.Context, conn *jsonrpc2.Conn,
 		if r.AllowDeprecatedApis || !v.deprecated {
 			result.RpcMethods = append(result.RpcMethods, *v)
 		}
+	}
+	for _, v := range builder.hooks {
+		result.Hooks = append(result.Hooks, *v)
 	}
 	for _, v := range builder.options {
 		if r.AllowDeprecatedApis || !v.deprecated {
