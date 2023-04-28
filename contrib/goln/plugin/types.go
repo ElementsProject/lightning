@@ -246,3 +246,17 @@ func (h *Hook) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(j)
 }
+
+type FeatureBitsType string
+
+const (
+	NODE_FEATURE_BITS    FeatureBitsType = "node"
+	CHANNEL_FEATURE_BITS FeatureBitsType = "channel"
+	INIT_FEATURE_BITS    FeatureBitsType = "init"
+	INVOICE_FEATUREB_ITS FeatureBitsType = "invoice"
+)
+
+type FeatureBits struct {
+	typ  FeatureBitsType
+	bits string
+}

@@ -24,10 +24,11 @@ type Builder struct {
 	allowDeprecatedApis bool
 	waitInit            chan initData
 
-	options    map[string]*Option
-	rpcMethods map[string]*RpcMethod
-	hooks      map[string]*Hook
-	dynamic    bool
+	options     map[string]*Option
+	rpcMethods  map[string]*RpcMethod
+	hooks       map[string]*Hook
+	featureBits []*FeatureBits
+	dynamic     bool
 }
 
 func NewBuilder(ctx context.Context, in io.ReadCloser, out io.WriteCloser) *Builder {
@@ -40,6 +41,7 @@ func NewBuilder(ctx context.Context, in io.ReadCloser, out io.WriteCloser) *Buil
 	builder.options = make(map[string]*Option)
 	builder.rpcMethods = make(map[string]*RpcMethod)
 	builder.hooks = make(map[string]*Hook)
+	builder.featureBits = []*FeatureBits{}
 
 	// Register plugin startup rpc methods `getmanifest` and `init`.
 	builder.server.RegisterHandler("getmanifest", builder.handleManifest)
@@ -76,6 +78,11 @@ func (builder *Builder) AddHook(h *Hook) *Builder {
 		}
 		_ = conn.Reply(ctx, req.ID, res)
 	})
+	return builder
+}
+
+func (builder *Builder) SetCustomFeatureBits(typ FeatureBitsType, bits string) *Builder {
+	builder.featureBits = append(builder.featureBits, &FeatureBits{typ: typ, bits: bits})
 	return builder
 }
 
@@ -168,6 +175,11 @@ func (builder *Builder) handleManifest(ctx context.Context, conn *jsonrpc2.Conn,
 			result.Options = append(result.Options, *v)
 		}
 	}
+	result.FeatureBits = make(map[string]string)
+	for _, v := range builder.featureBits {
+		result.FeatureBits[string(v.typ)] = v.bits
+	}
+
 	builder.mu.Unlock()
 
 	_ = conn.Reply(ctx, req.ID, result)
