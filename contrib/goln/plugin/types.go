@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/elementsproject/lightning/contrib/goln/rpc"
 	"github.com/sourcegraph/jsonrpc2"
 )
 
@@ -143,7 +142,6 @@ type RpcMethod struct {
 	description string
 	long        string
 	deprecated  bool
-	handler     rpc.Handler
 	callback    Callback
 }
 
