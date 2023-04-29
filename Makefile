@@ -811,8 +811,7 @@ install: install-program install-data
 # phase. If you get a missing file/executable while testing on CI it
 # is likely missing from this variable.
 TESTBINS = \
-	target/${RUST_PROFILE}/examples/cln-rpc-getinfo \
-	target/${RUST_PROFILE}/examples/cln-plugin-startup \
+	$(CLN_PLUGIN_EXAMPLES) \
 	tests/plugins/test_libplugin \
 	tests/plugins/test_selfdisable_after_getmanifest \
 	tools/hsmtool

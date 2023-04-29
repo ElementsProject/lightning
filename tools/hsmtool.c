@@ -4,6 +4,8 @@
 #include <ccan/err/err.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/rune/rune.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -41,6 +43,7 @@ static void show_usage(const char *progname)
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
+	printf("	- makerune <path/to/hsm_secret>\n");
 	exit(0);
 }
 
@@ -67,17 +70,25 @@ static bool ensure_hsm_secret_exists(int fd, const char *path)
 	return true;
 }
 
-static void get_hsm_secret(struct secret *hsm_secret,
-                           const char *hsm_secret_path)
+static void grab_hsm_file(const char *hsm_secret_path,
+			  void *dst, size_t dstlen)
 {
-	int fd;
+	u8 *contents = grab_file(tmpctx, hsm_secret_path);
+	if (!contents)
+		errx(EXITCODE_ERROR_HSM_FILE, "Reading hsm_secret");
 
-	fd = open(hsm_secret_path, O_RDONLY);
-	if (fd < 0)
-		errx(EXITCODE_ERROR_HSM_FILE, "Could not open hsm_secret");
-	if (!read_all(fd, hsm_secret, sizeof(*hsm_secret)))
-		errx(EXITCODE_ERROR_HSM_FILE, "Could not read hsm_secret");
-	close(fd);
+	/* grab_file always appends a NUL char for convenience */
+	if (tal_bytelen(contents) != dstlen + 1)
+		errx(EXITCODE_ERROR_HSM_FILE,
+		     "hsm_secret invalid length %zu (expected %zu)",
+		     tal_bytelen(contents)-1, dstlen);
+	memcpy(dst, contents, dstlen);
+}
+
+static void get_unencrypted_hsm_secret(struct secret *hsm_secret,
+				       const char *hsm_secret_path)
+{
+	grab_hsm_file(hsm_secret_path, hsm_secret, sizeof(*hsm_secret));
 }
 
 /* Derive the encryption key from the password provided, and try to decrypt
@@ -86,26 +97,19 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
                                      const char *hsm_secret_path,
                                      const char *passwd)
 {
-	int fd;
 	struct secret key;
 	struct encrypted_hsm_secret encrypted_secret;
 	char *err;
-	int exit_code = 0;
+	int exit_code;
 
-	fd = open(hsm_secret_path, O_RDONLY);
-	if (fd < 0)
-		errx(EXITCODE_ERROR_HSM_FILE, "Could not open hsm_secret");
-
-	if (!read_all(fd, encrypted_secret.data, ENCRYPTED_HSM_SECRET_LEN))
-		errx(EXITCODE_ERROR_HSM_FILE, "Could not read encrypted hsm_secret");
+	grab_hsm_file(hsm_secret_path,
+		      &encrypted_secret, sizeof(encrypted_secret));
 
 	exit_code = hsm_secret_encryption_key_with_exitcode(passwd, &key, &err);
 	if (exit_code > 0)
 		errx(exit_code, "%s", err);
 	if (!decrypt_hsm_secret(&key, &encrypted_secret, hsm_secret))
 		errx(ERROR_LIBSODIUM, "Could not retrieve the seed. Wrong password ?");
-
-	close(fd);
 }
 
 /* Taken from hsmd. */
@@ -167,6 +171,27 @@ static bool hsm_secret_is_encrypted(const char *hsm_secret_path)
 	abort();
 }
 
+/* If encrypted, ask for a passphrase */
+static void get_hsm_secret(struct secret *hsm_secret,
+			   const char *hsm_secret_path)
+{
+	/* This checks the file existence, too. */
+	if (hsm_secret_is_encrypted(hsm_secret_path)) {
+		int exit_code;
+		char *err, *passwd;
+
+		printf("Enter hsm_secret password:\n");
+		fflush(stdout);
+		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
+		if (!passwd)
+			errx(exit_code, "%s", err);
+		get_encrypted_hsm_secret(hsm_secret, hsm_secret_path, passwd);
+		free(passwd);
+	} else {
+		get_unencrypted_hsm_secret(hsm_secret, hsm_secret_path);
+	}
+}
+
 static int decrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
@@ -182,10 +207,6 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
 	if (!passwd)
 		errx(exit_code, "%s", err);
-
-	if (sodium_init() == -1)
-		errx(ERROR_LIBSODIUM,
-		    "Could not initialize libsodium. Not enough entropy ?");
 
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
@@ -248,14 +269,10 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(exit_code, "%s", err);
 	if (!streq(passwd, passwd_confirmation))
 		errx(ERROR_USAGE, "Passwords confirmation mismatch.");
-	get_hsm_secret(&hsm_secret, hsm_secret_path);
+	get_unencrypted_hsm_secret(&hsm_secret, hsm_secret_path);
 
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
-
-	if (sodium_init() == -1)
-		errx(ERROR_LIBSODIUM,
-		    "Could not initialize libsodium. Not enough entropy ?");
 
 	/* Derive the encryption key from the password provided, and try to encrypt
 	 * the seed. */
@@ -304,24 +321,11 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct sha256 shaseed;
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
-	char *passwd, *err;
-	int exit_code = 0;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 	                                         | SECP256K1_CONTEXT_SIGN);
 
-	/* This checks the file existence, too. */
-	if (hsm_secret_is_encrypted(hsm_secret_path)) {
-		printf("Enter hsm_secret password:\n");
-		fflush(stdout);
-		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
-		if (!passwd)
-			errx(exit_code, "%s", err);
-		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
-		free(passwd);
-	} else
-		get_hsm_secret(&hsm_secret, hsm_secret_path);
-
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
 
 	derive_shaseed(&channel_seed, &shaseed);
@@ -361,14 +365,13 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
                            u64 tries, char *hsm_secret_path)
 {
 	struct secret hsm_secret, channel_seed, basepoint_secret;
-	char *passwd, *err;
 	struct pubkey basepoint;
 	struct ripemd160 pubkeyhash;
 	/* We only support P2WPKH, hence 20. */
 	u8 goal_pubkeyhash[20];
 	/* See common/bech32.h for buffer size. */
 	char hrp[strlen(address) - 6];
-	int witver, exit_code = 0;
+	int witver;
 	size_t witlen;
 
 	/* Get the hrp to accept addresses from any network. */
@@ -380,17 +383,7 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 	                                         | SECP256K1_CONTEXT_SIGN);
 
-	/* This checks the file existence, too. */
-	if (hsm_secret_is_encrypted(hsm_secret_path)) {
-		printf("Enter hsm_secret password:\n");
-		fflush(stdout);
-		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
-		if (!passwd)
-			errx(exit_code, "%s", err);
-		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
-		free(passwd);
-	} else
-		get_hsm_secret(&hsm_secret, hsm_secret_path);
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
 	for (u64 dbid = 1; dbid < tries ; dbid++) {
 		get_channel_seed(&channel_seed, node_id, dbid, &hsm_secret);
@@ -538,7 +531,6 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 				  const bool is_testnet)
 {
 	struct secret hsm_secret;
-	char *passwd, *err;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
 	u32 version = is_testnet ?
@@ -546,19 +538,8 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 	struct ext_key master_extkey;
 	char *enc_xpub, *descriptor;
 	struct descriptor_checksum checksum;
-	int exit_code = 0;
 
-	/* This checks the file existence, too. */
-	if (hsm_secret_is_encrypted(hsm_secret_path)) {
-		printf("Enter hsm_secret password:\n");
-		fflush(stdout);
-		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
-		if (!passwd)
-			errx(exit_code, "%s", err);
-		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
-		free(passwd);
-	} else
-		get_hsm_secret(&hsm_secret, hsm_secret_path);
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
 	/* We use m/0/0/k as the derivation tree for onchain funds. */
 
@@ -605,25 +586,7 @@ static int check_hsm(const char *hsm_secret_path)
 	int exit_code;
 	char *passphrase, *err;
 
-	/* This checks the file existence, too. */
-	if (hsm_secret_is_encrypted(hsm_secret_path)) {
-		char *passwd;
-
-		printf("Enter hsm_secret password:\n");
-		fflush(stdout);
-		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
-		if (!passwd)
-			errx(exit_code, "%s", err);
-
-		if (sodium_init() == -1)
-			errx(ERROR_LIBSODIUM,
-			     "Could not initialize libsodium. Not enough entropy ?");
-
-		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
-		/* Once the encryption key derived, we don't need it anymore. */
-		free(passwd);
-	} else
-		get_hsm_secret(&hsm_secret, hsm_secret_path);
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
 	printf("Warning: remember that different passphrases yield different "
 	       "bitcoin wallets.\n");
@@ -650,6 +613,33 @@ static int check_hsm(const char *hsm_secret_path)
 	return 0;
 }
 
+static int make_rune(const char *hsm_secret_path)
+{
+	struct secret hsm_secret, derived_secret, rune_secret;
+	struct rune *master_rune, *rune;
+
+	/* Get hsm_secret */
+	get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	/* HSM derives a root secret for `makesecret` */
+	hkdf_sha256(&derived_secret, sizeof(struct secret), NULL, 0,
+		    &hsm_secret, sizeof(hsm_secret),
+		    "derived secrets", strlen("derived secrets"));
+
+	/* Commando derives secret using makesecret "commando" */
+	hkdf_sha256(&rune_secret, sizeof(struct secret), NULL, 0,
+		    &derived_secret, sizeof(derived_secret),
+		    "commando", strlen("commando"));
+
+	master_rune = rune_new(tmpctx,
+			       rune_secret.data,
+			       ARRAY_SIZE(rune_secret.data),
+			       NULL);
+	rune = rune_derive_start(tmpctx, master_rune, "0");
+	printf("%s\n", rune_to_base64(tmpctx, rune));
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -660,6 +650,10 @@ int main(int argc, char *argv[])
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage(argv[0]);
+
+	if (sodium_init() == -1)
+		errx(ERROR_LIBSODIUM,
+		    "Could not initialize libsodium. Not enough entropy ?");
 
 	if (streq(method, "decrypt")) {
 		if (argc < 3)
@@ -736,6 +730,12 @@ int main(int argc, char *argv[])
 		if (argc < 3)
 			show_usage(argv[0]);
 		return check_hsm(argv[2]);
+	}
+
+	if (streq(method, "makerune")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		return make_rune(argv[2]);
 	}
 
 	show_usage(argv[0]);

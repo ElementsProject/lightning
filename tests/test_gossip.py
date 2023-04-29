@@ -1397,7 +1397,7 @@ def test_gossipwith(node_factory):
         num_msgs += 1
 
     # one channel announcement, two channel_updates, two node announcements.
-    assert num_msgs == 5
+    assert num_msgs == 7
 
 
 def test_gossip_notices_close(node_factory, bitcoind):
@@ -1869,11 +1869,9 @@ def test_gossip_ratelimit(node_factory, bitcoind):
     We get BROKEN logs because gossipd talks about non-existent channels to
     lightningd ("**BROKEN** lightningd: Local update for bad scid 103x1x1").
     """
-    l3, = node_factory.get_nodes(
-        1,
-        opts=[{'dev-gossip-time': 1568096251,
-               'allow_broken_log': True}]
-    )
+    l3 = node_factory.get_node(node_id=3,
+                               allow_broken_log=True,
+                               options={'dev-gossip-time': 1568096251})
 
     # Bump to block 102, so the following tx ends up in 103x1:
     bitcoind.generate_block(1)

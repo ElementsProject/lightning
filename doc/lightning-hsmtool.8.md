@@ -68,6 +68,11 @@ We need the path to the hsm\_secret containing the wallet seed, and an optional
 To generate descriptors using testnet master keys, you may specify *testnet* as
 the last parameter. By default, mainnet-encoded keys are generated.
 
+**makerune** *hsm\_secret*
+  Make a master rune for this node (with `uniqueid` 0)
+This produces the same results as lightning-commando-rune(7) on a fresh node.
+You will still need to create a rune once the node starts, if you want commando to work (as it is only activated once it has generated one).
+
 BUGS
 ----
 

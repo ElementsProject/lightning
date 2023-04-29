@@ -109,6 +109,7 @@ static const char *get_http_hdr(const tal_t *ctx, const u8 *buf, size_t buflen,
 		    && buf[strlen(hdrname)] == ':')
 			break;
 		buf = end + 2;
+		buflen -= hdrlen + 2;
 	}
 
 	buf += strlen(hdrname) + 1;

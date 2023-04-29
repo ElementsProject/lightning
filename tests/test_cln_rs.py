@@ -249,6 +249,42 @@ def test_grpc_wrong_auth(node_factory):
     stub.Getinfo(nodepb.GetinfoRequest())
 
 
+def test_cln_plugin_reentrant(node_factory, executor):
+    """Ensure that we continue processing events while already handling.
+
+    We should be continuing to handle incoming events even though a
+    prior event has not completed. This is important for things like
+    the `htlc_accepted` hook which needs to hold on to multiple
+    incoming HTLCs.
+
+    Scenario: l1 uses an `htlc_accepted` to hold on to incoming HTLCs,
+    and we release them using an RPC method.
+
+    """
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-reentrant"
+    l1 = node_factory.get_node(options={"plugin": str(bin_path)})
+    l2 = node_factory.get_node()
+    l2.connect(l1)
+    l2.fundchannel(l1)
+
+    # Now create two invoices, and pay them both. Neither should
+    # succeed, but we should queue them on the plugin.
+    i1 = l1.rpc.invoice(label='lbl1', msatoshi='42sat', description='desc')['bolt11']
+    i2 = l1.rpc.invoice(label='lbl2', msatoshi='31337sat', description='desc')['bolt11']
+
+    f1 = executor.submit(l2.rpc.pay, i1)
+    f2 = executor.submit(l2.rpc.pay, i2)
+
+    import time
+    time.sleep(3)
+
+    print("Releasing HTLCs after holding them")
+    l1.rpc.call('release')
+
+    assert f1.result()
+    assert f2.result()
+
+
 def test_grpc_keysend_routehint(bitcoind, node_factory):
     """The routehints are a bit special, test that conversions work.
 

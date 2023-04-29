@@ -41,20 +41,20 @@ pub(crate) enum Request {
 #[serde(tag = "method", content = "params")]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Notification {
-//     ChannelOpened,
-//     ChannelOpenFailed,
-//     ChannelStateChanged,
-//     Connect,
-//     Disconnect,
-//     InvoicePayment,
-//     InvoiceCreation,
-//     Warning,
-//     ForwardEvent,
-//     SendpaySuccess,
-//     SendpayFailure,
-//     CoinMovement,
-//     OpenchannelPeerSigs,
-//     Shutdown,
+    //     ChannelOpened,
+    //     ChannelOpenFailed,
+    //     ChannelStateChanged,
+    //     Connect,
+    //     Disconnect,
+    //     InvoicePayment,
+    //     InvoiceCreation,
+    //     Warning,
+    //     ForwardEvent,
+    //     SendpaySuccess,
+    //     SendpayFailure,
+    //     CoinMovement,
+    //     OpenchannelPeerSigs,
+    //     Shutdown,
 }
 
 #[derive(Deserialize, Debug)]

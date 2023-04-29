@@ -261,7 +261,7 @@ void fail_destination_tok(struct multifundchannel_destination *dest,
 			  const char *buf,
 			  const jsmntok_t *error);
 void fail_destination_msg(struct multifundchannel_destination *dest,
-			  int error_code,
+			  enum jsonrpc_errcode error_code,
 			  const char *err_str TAKES);
 
 /* dest_count - Returns count of destinations using given protocol version */

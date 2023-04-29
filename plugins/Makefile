@@ -1,5 +1,5 @@
 PLUGIN_PAY_SRC := plugins/pay.c
-PLUGIN_PAY_HEADER := 
+PLUGIN_PAY_HEADER :=
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c
@@ -40,7 +40,7 @@ PLUGIN_FETCHINVOICE_OBJS := $(PLUGIN_FETCHINVOICE_SRC:.c=.o)
 PLUGIN_FETCHINVOICE_HEADER :=
 
 PLUGIN_SQL_SRC := plugins/sql.c
-PLUGIN_SQL_HEADER := 
+PLUGIN_SQL_HEADER :=
 PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:.c=.o)
 
 PLUGIN_SPENDER_SRC :=				\
@@ -188,7 +188,7 @@ plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_O
 
 plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
-plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) 
+plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
@@ -220,7 +220,7 @@ SQL_LISTRPCS_SCHEMAS := $(foreach l,$(SQL_LISTRPCS),doc/schemas/$l.schema.json)
 # make invalid JSON. Grr!
 # But these simple removals drop us from 100k to 29k.
 plugins/sql-schema_gen.h: plugins/Makefile $(SQL_LISTRPCS_SCHEMAS)
-	@$(call VERBOSE,GEN $@, (SEP=""; echo -n '"{'; for f in $(SQL_LISTRPCS); do echo -n "$$SEP\\\"$$f\\\":"; sed -e s/\"description\":\ *\".\*\"/\"\":\"\"/ -e s/\".*\":\ *{}/\"\":{}/ -e s/\"/\\\\\"/g < doc/schemas/$$f.schema.json | tr -d ' \n'; SEP=","; done; echo '}"') > $@)
+	@$(call VERBOSE,GEN $@, (SEP=""; echo '"{'; for f in $(SQL_LISTRPCS); do echo "$$SEP\\\"$$f\\\":"; sed -e s/\"description\":\ *\".\*\"/\"\":\"\"/ -e s/\".*\":\ *{}/\"\":{}/ -e s/\"/\\\\\"/g < doc/schemas/$$f.schema.json; SEP=","; done; echo '}"') | tr -d ' \n' > $@)
 
 plugins/sql.o: plugins/sql-schema_gen.h
 plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossip_store.o gossipd/gossip_store_wiregen.o
@@ -232,6 +232,7 @@ plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 
 CLN_PLUGIN_EXAMPLES := \
 	target/${RUST_PROFILE}/examples/cln-plugin-startup \
+	target/${RUST_PROFILE}/examples/cln-plugin-reentrant \
 	target/${RUST_PROFILE}/examples/cln-rpc-getinfo
 
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
@@ -242,5 +243,10 @@ target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC}
 ifneq ($(RUST),0)
 DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
 endif
+
+clean: plugins-clean
+plugins-clean:
+	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
+	$(RM) plugins/sql-schema_gen.h
 
 include plugins/test/Makefile

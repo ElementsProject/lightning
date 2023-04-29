@@ -129,6 +129,15 @@ void queue_peer_from_store(struct peer *peer,
 	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
 }
 
+static void queue_priv_update(struct peer *peer,
+			      const struct broadcastable *bcast)
+{
+	struct gossip_store *gs = peer->daemon->rstate->gs;
+	queue_peer_msg(peer,
+		       take(gossip_store_get_private_update(NULL, gs,
+							    bcast->index)));
+}
+
 /*~ We don't actually keep node_announcements in memory; we keep them in
  * a file called `gossip_store`.  If we need some node details, we reload
  * and reparse.  It's slow, but generally rare. */
@@ -402,6 +411,51 @@ update_node_annoucement:
 	maybe_send_own_node_announce(daemon, false);
 }
 
+/* BOLT #7:
+ *   - if the `gossip_queries` feature is negotiated:
+ *     - MUST NOT relay any gossip messages it did not generate itself,
+ *       unless explicitly requested.
+ */
+/* i.e. the strong implication is that we spam our own gossip aggressively!
+ * "Look at me!"  "Look at me!!!!".
+ */
+static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
+{
+	struct node *me;
+	struct chan_map_iter i;
+	struct chan *chan;
+
+	/* Find ourselves; if no channels, nothing to send */
+	me = get_node(daemon->rstate, &daemon->id);
+	if (!me)
+		return;
+
+	for (chan = first_chan(me, &i); chan; chan = next_chan(me, &i)) {
+		int dir = half_chan_idx(me, chan);
+
+		if (!is_chan_public(chan)) {
+			/* Don't leak private channels, unless it's with you! */
+			if (!node_id_eq(&chan->nodes[!dir]->id, &peer->id))
+				continue;
+			/* There's no announce for this, of course! */
+			/* Private channel updates are wrapped in the store. */
+			else {
+				if (!is_halfchan_defined(&chan->half[dir]))
+					continue;
+				queue_priv_update(peer, &chan->half[dir].bcast);
+				continue;
+			}
+		} else {
+			/* Send announce */
+			queue_peer_from_store(peer, &chan->bcast);
+		}
+
+		/* Send update if we have one */
+		if (is_halfchan_defined(&chan->half[dir]))
+			queue_peer_from_store(peer, &chan->half[dir].bcast);
+	}
+}
+
 /*~ This is where connectd tells us about a new peer we might want to
  *  gossip with. */
 static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
@@ -440,6 +494,9 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 	node = get_node(daemon->rstate, &peer->id);
 	if (node)
 		peer_enable_channels(daemon, node);
+
+	/* Send everything we know about our own channels */
+	dump_our_gossip(daemon, peer);
 
 	/* This sends the initial timestamp filter. */
 	seeker_setup_peer_gossip(daemon->seeker, peer);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired, run
 import sys
 import json
 import os
@@ -12,6 +12,7 @@ from typing import Union
 from urllib.parse import urlparse
 from urllib.request import urlopen
 import logging
+import copy
 
 
 logging.basicConfig(
@@ -24,12 +25,84 @@ logging.basicConfig(
 repos = ['https://github.com/lightningd/plugins']
 
 
-def py_entry_guesses(name):
+def py_entry_guesses(name) -> list:
     return [name, f'{name}.py', '__init__.py']
 
 
-def unsupported_entry(name):
+def unsupported_entry(name) -> list:
     return [f'{name}.go', f'{name}.sh']
+
+
+def entry_guesses(name: str) -> list:
+    guesses = []
+    for inst in INSTALLERS:
+        for entry in inst.entries:
+            guesses.append(entry.format(name=name))
+    return guesses
+
+
+class Installer:
+    '''
+    The identification of a plugin language, compiler or interpreter
+    availability, and the install procedures.
+    '''
+    def __init__(self, name: str, mimetype: str,
+                 exe: Union[str, None] = None,
+                 compiler: Union[str, None] = None,
+                 manager: Union[str, None] = None,
+                 entry: Union[str, None] = None):
+        self.name = name
+        self.mimetype = mimetype
+        self.entries = []
+        if entry:
+            self.entries.append(entry)
+        self.exe = exe            # interpreter (if required)
+        self.compiler = compiler  # compiler bin (if required)
+        self.manager = manager    # dependency manager (if required)
+        self.dependency_file = None
+        self.dependency_call = None
+
+    def __repr__(self):
+        return (f'<Installer {self.name}: mimetype: {self.mimetype}, '
+                f'exe: {self.exe}, manager: {self.manager}>')
+
+    def executable(self) -> bool:
+        '''Validate the necessary bins are available to execute the plugin.'''
+        if self.exe:
+            if shutil.which(self.exe):
+                # This should arguably not be checked here.
+                if self.manager:
+                    if shutil.which(self.manager):
+                        return True
+                    return False
+                return True
+            return False
+        return True
+
+    def installable(self) -> bool:
+        '''Validate the necessary compiler and package manager executables are
+        available to install.  If these are defined, they are considered
+        mandatory even though the user may have the requisite packages already
+        installed.'''
+        if self.compiler and not shutil.which(self.compiler):
+            return False
+        if self.manager and not shutil.which(self.manager):
+            return False
+        return True
+
+    def add_entrypoint(self, entry: str):
+        self.entries.append(entry)
+
+    def add_dependency_file(self, dep: str):
+        self.dependency_file = dep
+
+    def add_dependency_call(self, call: list):
+        if self.dependency_call is None:
+            self.dependency_call = []
+        self.dependency_call.append(call)
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 class InstInfo:
@@ -43,17 +116,18 @@ class InstInfo:
         self.commit = None
 
     def __repr__(self):
-        return (f'InstInfo({self.name}, {self.repo}, {self.git_url}'
+        return (f'InstInfo({self.name}, {self.repo}, {self.git_url}, '
                 f'{self.entry}, {self.deps})')
 
-    def get_inst_details(self):
+    def get_inst_details(self) -> bool:
         """
         Populate installation details from a github repo url.
         Return True if all data is found.
         """
         if "api.github.com" in self.git_url:
             # This lets us redirect to handle blackbox testing
-            redir_addr = API_GITHUB_COM + self.git_url.split("api.github.com")[-1]
+            redir_addr = (API_GITHUB_COM +
+                          self.git_url.split("api.github.com")[-1])
             r = urlopen(redir_addr, timeout=5)
         else:
             r = urlopen(self.git_url, timeout=5)
@@ -63,11 +137,10 @@ class InstInfo:
             tree = json.loads(r.read().decode())['tree']
         else:
             tree = json.loads(r.read().decode())
-        entry_guesses = py_entry_guesses(self.name)
-        for g in entry_guesses:
+        for g in entry_guesses(self.name):
             for f in tree:
-                if f['path'] == g:
-                    self.entry = g
+                if f['path'].lower() == g.lower():
+                    self.entry = f['path']
                     break
             if self.entry is not None:
                 break
@@ -78,14 +151,11 @@ class InstInfo:
                         # FIXME: This should be easier to implement
                         print(f'entrypoint {g} is not yet supported')
                         return False
-        dependency_info = ['requirements.txt', 'pyproject.toml']
-        for d in dependency_info:
+        for inst in INSTALLERS:
+            # FIXME: Allow multiple depencencies
             for f in tree:
-                if f['path'] == d:
-                    self.deps = d
-                    break
-            if self.deps is not None:
-                break
+                if f['path'] == inst.dependency_file:
+                    return True
         if not self.entry:
             return False
         if not self.deps:
@@ -104,6 +174,7 @@ def create_dir(r: int, directory: PosixPath) -> bool:
         print(f'created directory {directory}')
         assert directory.exists()
         return True
+    return False
 
 
 def remove_dir(target: str) -> bool:
@@ -148,16 +219,21 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            logging.debug(f'could not create the parent directory {parent_path}')
+            logging.debug('could not create the parent directory ' +
+                          parent_path)
             raise FileNotFoundError('invalid parent directory')
 
-    def editConfigFile(self, addline: str, removeline: str):
+    def editConfigFile(self, addline: Union[str, None],
+                       removeline: Union[str, None]):
+        """Idempotent function to add and/or remove a single line each."""
         remove_these_lines = []
         with open(self.conf_fp, 'r') as reckless_conf:
             original = reckless_conf.readlines()
             empty_lines = []
+            write_required = False
             for n, l in enumerate(original):
-                if l.strip() == removeline:
+                if removeline and l.strip() == removeline.strip():
+                    write_required = True
                     remove_these_lines.append(n)
                     continue
                 if l.strip() == '':
@@ -166,6 +242,13 @@ class Config():
                         # The white space is getting excessive.
                         remove_these_lines.append(n)
                         continue
+            if not addline:
+                return
+            # No write necessary if addline is already in config.
+            if not write_required:
+                for line in original:
+                    if line.strip() == addline.strip():
+                        return
             with open(self.conf_fp, 'w') as conf_write:
                 # no need to write if passed 'None'
                 line_exists = not bool(addline)
@@ -238,21 +321,60 @@ class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
     def __init__(self, name: str):
         reck_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
-        if name[-3:] == '.py':
-            name = name[:-3]
-        if name in reck_contents:
-            self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
+        reck_contents_lower = {}
+        for f in reck_contents:
+            reck_contents_lower.update({f.lower(): f})
+
+        def match_name(name) -> str:
+            for tier in range(0, 10):
+                # Look for each installers preferred entrypoint format first
+                for inst in INSTALLERS:
+                    fmt = inst.entries[tier]
+                    if '{name}' in fmt:
+                        pre = fmt.split('{name}')[0]
+                        post = fmt.split('{name}')[-1]
+                        if name.startswith(pre) and name.endswith(post):
+                            return name.lstrip(pre).rstrip(post)
+                    else:
+                        if fmt == name:
+                            return name
+            return name
+
+        name = match_name(name)
+        if name.lower() in reck_contents_lower.keys():
+            actual_name = reck_contents_lower[name.lower()]
+            self.dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
         else:
             raise Exception(f"Could not find a reckless directory for {name}")
-        plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(name)
-        for guess in py_entry_guesses(name):
+        plug_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(actual_name)
+        for guess in entry_guesses(actual_name):
             for content in plug_dir.iterdir():
                 if content.name == guess:
                     self.entry = str(content)
-                    self.name = guess
+                    self.name = actual_name
                     return
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
+
+python3pip = Installer('python3pip', 'text/x-python', exe='python3',
+                       manager='pip', entry='{name}.py')
+python3pip.add_entrypoint('{name}')
+python3pip.add_entrypoint('__init__.py')
+python3pip.add_dependency_file('requirements.txt')
+python3pip.add_dependency_call(['pip', 'install', '-r', 'requirements.txt'])
+
+python3pip3 = python3pip.copy()
+python3pip3.manager = 'pip3'
+python3pip3.dependency_call = [['pip3', 'install', '-r', 'requirements.txt']]
+
+# Nodejs plugin installer
+nodejs = Installer('nodejs', 'application/javascript', exe='node',
+                   manager='npm', entry='{name}.js')
+nodejs.add_entrypoint('{name}')
+nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
+nodejs.add_dependency_file('package.json')
+
+INSTALLERS = {python3pip, python3pip3, nodejs}
 
 def help_alias(targets: list):
     if len(targets) == 0:
@@ -262,7 +384,7 @@ def help_alias(targets: list):
         sys.exit(1)
 
 
-def _search_repo(name: str, url: str) -> InstInfo:
+def _search_repo(name: str, url: str) -> Union[InstInfo, None]:
     """look in given repo and, if found, populate InstInfo"""
     # Remove api subdomain, subdirectories, etc.
     repo = url.split('/')
@@ -272,9 +394,9 @@ def _search_repo(name: str, url: str) -> InstInfo:
     parsed_url = urlparse(url)
     if 'github.com' not in parsed_url.netloc:
         # FIXME: Handle non-github repos.
-        return False
+        return None
     if len(parsed_url.path.split('/')) < 2:
-        return False
+        return None
     start = 1
     # Maybe we were passed an api.github.com/repo/<user> url
     if 'api' in parsed_url.netloc:
@@ -287,39 +409,40 @@ def _search_repo(name: str, url: str) -> InstInfo:
     plugins_cont = api_url
     r = urlopen(plugins_cont, timeout=5)
     if r.status != 200:
-        print("Plugin repository unavailable")
-        return False
+        print(f"Plugin repository {api_url} unavailable")
+        return None
     # Repo is for this plugin
-    if repo_name == name:
-        MyPlugin = InstInfo(name,
+    if repo_name.lower() == name.lower():
+        MyPlugin = InstInfo(repo_name,
                             f'https://github.com/{repo_user}/{repo_name}',
                             api_url)
         if not MyPlugin.get_inst_details():
-            return False
+            return None
         return MyPlugin
     # Repo contains multiple plugins?
     for x in json.loads(r.read().decode()):
-        if x["name"] == name:
+        if x["name"].lower() == name.lower():
             # Look for the rest of the install details
             # These are in lightningd/plugins directly
             if 'lightningd/plugins/' in x['html_url']:
-                MyPlugin = InstInfo(name,
+                MyPlugin = InstInfo(x['name'],
                                     'https://github.com/lightningd/plugins',
                                     x['git_url'])
                 MyPlugin.subdir = x['name']
             # submodules from another github repo
             else:
-                MyPlugin = InstInfo(name, x['html_url'], x['git_url'])
+                MyPlugin = InstInfo(x['name'], x['html_url'], x['git_url'])
                 # Submodule URLs are appended with /tree/<commit hash>
                 if MyPlugin.repo.split('/')[-2] == 'tree':
                     MyPlugin.commit = MyPlugin.repo.split('/')[-1]
                     MyPlugin.repo = MyPlugin.repo.split('/tree/')[0]
                     logging.debug(f'repo using commit: {MyPlugin.commit}')
             if not MyPlugin.get_inst_details():
-                logging.debug(f"Found plugin in {url}, but missing install details")
-                return False
+                logging.debug((f'Found plugin in {url}, but missing install '
+                              'details'))
+                return None
             return MyPlugin
-    return False
+    return None
 
 
 def _install_plugin(src: InstInfo) -> bool:
@@ -329,11 +452,6 @@ def _install_plugin(src: InstInfo) -> bool:
         print('error: reckless install directory unavailable')
         sys.exit(2)
 
-    # FIXME: This request seems rather pointless
-    req = urlopen(src.repo, timeout=10)
-    if not req.status == 200:
-        print('plugin source repository unavailable')
-        sys.exit(1)
     # Use a unique directory for each cloned repo.
     clone_path = 'reckless-{}'.format(str(hash(os.times()))[-9:])
     clone_path = Path(tempfile.gettempdir()) / clone_path
@@ -347,17 +465,11 @@ def _install_plugin(src: InstInfo) -> bool:
             url = f"{GITHUB_COM}" + src.repo.split("github.com")[-1]
         else:
             url = src.repo
-        # Ugly, but interactively handling stderr gets hairy.
-        if logging.root.level < logging.WARNING:
-            git = Popen(['git', 'clone', url, str(clone_path)],
-                        stdout=PIPE, stderr=PIPE)
-        else:
-            git = Popen(['git', 'clone', url, str(clone_path)],
-                        stdout=PIPE, stderr=PIPE)
+        git = Popen(['git', 'clone', url, str(clone_path)],
+                    stdout=PIPE, stderr=PIPE)
         git.wait()
         if git.returncode != 0:
-            if git.stderr:
-                print(git.stderr.read().decode())
+            logging.debug(git.stderr.read().decode())
             if Path(clone_path).exists():
                 remove_dir(clone_path)
             print('Error: Failed to clone repo')
@@ -374,39 +486,48 @@ def _install_plugin(src: InstInfo) -> bool:
             print(f'failed to checkout referenced commit {src.commit}')
             return False
 
-    # Install dependencies via requirements.txt or pyproject.toml
-    mypip = 'pip3' if shutil.which('pip3') else 'pip'
-    if not shutil.which(mypip):
-        raise Exception(f'{mypip} not found in PATH')
-    install_methods = {
-        'requirements.txt': [mypip, 'install', '-r', 'requirements.txt'],
-        'pyproject.toml': [mypip, 'install', '-e', '.']
-    }
+    # Find a suitable installer
+    for inst_method in INSTALLERS:
+        if not (inst_method.installable() and inst_method.executable()):
+            continue
+        if inst_method.dependency_file is not None:
+            if inst_method.dependency_file not in os.listdir(plugin_path):
+                continue
+        logging.debug(f"using installer {inst_method.name}")
+        INSTALLER = inst_method
+        break
+    # try it out
+    if INSTALLER and INSTALLER.dependency_call:
+        for call in INSTALLER.dependency_call:
+            logging.debug(f"Install: invoking '{call}'")
+            if logging.root.level < logging.WARNING:
+                pip = Popen(call, cwd=plugin_path, text=True)
+            else:
+                pip = Popen(call, cwd=plugin_path, stdout=PIPE, stderr=PIPE,
+                            text=True)
+            pip.wait()
+            # FIXME: handle output of multiple calls
 
-    if src.deps is not None:
-        logging.debug(f'installing dependencies using {src.deps}')
-        procedure = install_methods[src.deps]
-        # Verbose output requested.
-        if logging.root.level < logging.WARNING:
-            pip = Popen(procedure, cwd=str(plugin_path))
-        else:
-            pip = Popen(procedure, cwd=str(plugin_path), stdout=PIPE, stderr=PIPE)
-        pip.wait()
         if pip.returncode == 0:
             print('dependencies installed successfully')
         else:
             print('error encountered installing dependencies')
-            logging.debug(pip.stdout.read())
+            if pip.stdout:
+                logging.debug(pip.stdout.read())
             return False
-    test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=str(plugin_path),
-                 stdout=PIPE, stderr=PIPE, universal_newlines=True)
     test_log = []
-    with test.stderr:
+    try:
+        test = run([Path(plugin_path).joinpath(src.entry)],
+                   cwd=str(plugin_path), stdout=PIPE, stderr=PIPE,
+                   text=True, timeout=3)
         for line in test.stderr:
             test_log.append(line.strip('\n'))
-    test.wait()
-    # FIXME: add noexec test/warning. Maybe try chmod entrypoint.
-    if test.returncode != 0:
+        returncode = test.returncode
+    except TimeoutExpired:
+        # If the plugin is still running, it's assumed to be okay.
+        returncode = 0
+        pass
+    if returncode != 0:
         logging.debug("plugin testing error:")
         for line in test_log:
             logging.debug(f'  {line}')
@@ -425,13 +546,22 @@ def install(plugin_name: str):
     assert isinstance(plugin_name, str)
     src = search(plugin_name)
     if src:
-        logging.debug(f'Retrieving {plugin_name} from {src.repo}')
+        logging.debug(f'Retrieving {src.name} from {src.repo}')
         if not _install_plugin(src):
             print('installation aborted')
             sys.exit(1)
-        inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name / src.entry
-        RECKLESS_CONFIG.enable_plugin(inst_path)
-        enable(plugin_name)
+
+        # Match case of the containing directory
+        for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
+            if dirname.lower() == src.name.lower():
+                inst_path = Path(RECKLESS_CONFIG.reckless_dir)
+                inst_path = inst_path / dirname / src.entry
+                RECKLESS_CONFIG.enable_plugin(inst_path)
+                enable(src.name)
+                return
+        print(('dynamic activation failed: '
+               f'{src.name} not found in reckless directory'))
+        sys.exit(1)
 
 
 def uninstall(plugin_name: str):
@@ -439,10 +569,13 @@ def uninstall(plugin_name: str):
     assert isinstance(plugin_name, str)
     logging.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
-    plugin_dir = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
-    logging.debug(f'looking for {plugin_dir}')
-    if remove_dir(plugin_dir):
-        print(f"{plugin_name} uninstalled successfully.")
+    inst = InferInstall(plugin_name)
+    if not Path(inst.entry).exists():
+        print(f'cannot find installed plugin at expected path {inst.entry}')
+        sys.exit(1)
+    logging.debug(f'looking for {str(Path(inst.entry).parent)}')
+    if remove_dir(str(Path(inst.entry).parent)):
+        print(f"{inst.name} uninstalled successfully.")
 
 
 def search(plugin_name: str) -> InstInfo:
@@ -526,9 +659,10 @@ def enable(plugin_name: str):
             print(f'reckless: {inst.name} failed to start!')
             raise err
     except RPCError:
-        logging.debug('lightningd rpc unavailable. Skipping dynamic activation.')
+        logging.debug(('lightningd rpc unavailable. '
+                       'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
-    print(f'{plugin_name} enabled')
+    print(f'{inst.name} enabled')
 
 
 def disable(plugin_name: str):
@@ -550,9 +684,10 @@ def disable(plugin_name: str):
             print('lightning-cli plugin stop failed')
             raise err
     except RPCError:
-        logging.debug('lightningd rpc unavailable. Skipping dynamic deactivation.')
+        logging.debug(('lightningd rpc unavailable. '
+                       'Skipping dynamic deactivation.'))
     RECKLESS_CONFIG.disable_plugin(path)
-    print(f'{plugin_name} disabled')
+    print(f'{inst.name} disabled')
 
 
 def load_config(reckless_dir: Union[str, None] = None,
@@ -634,11 +769,13 @@ def add_source(src: str):
     if Path(maybe_path).exists():
         # FIXME: This should handle either a directory or a git repo
         if os.path.isdir(maybe_path):
-            print(f'Plugin source directory found: {maybe_path}')
+            print(f'local sources not yet supported: {src}')
     elif 'github.com' in src:
         my_file = Config(path=str(get_sources_file()),
                          default_text='https://github.com/lightningd/plugins')
         my_file.editConfigFile(src, None)
+    else:
+        print(f'failed to add source {src}')
 
 
 def remove_source(src: str):
@@ -674,10 +811,12 @@ if __name__ == '__main__':
                         type=str,
                         default=None)
     parser.add_argument('-r', '--regtest', action='store_true')
-    parser.add_argument('--network', help="specify a network to use (default: bitcoin)",
+    parser.add_argument('--network',
+                        help="specify a network to use (default: bitcoin)",
                         type=str)
     parser.add_argument('-v', '--verbose', action="store_const",
-                        dest="loglevel", const=logging.DEBUG, default=logging.WARNING)
+                        dest="loglevel", const=logging.DEBUG,
+                        default=logging.WARNING)
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
                                  required=True)
 
@@ -737,7 +876,7 @@ if __name__ == '__main__':
     LIGHTNING_DIR = Path(args.lightning)
     # This env variable is set under CI testing
     LIGHTNING_CLI_CALL = [os.environ.get('LIGHTNING_CLI')]
-    if LIGHTNING_CLI_CALL is None:
+    if LIGHTNING_CLI_CALL == [None]:
         LIGHTNING_CLI_CALL = ['lightning-cli']
     if NETWORK != 'bitcoin':
         LIGHTNING_CLI_CALL.append(f'--network={NETWORK}')
