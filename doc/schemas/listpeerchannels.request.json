@@ -3,6 +3,7 @@
   "type": "object",
   "required": [],
   "additionalProperties": false,
+  "added": "v23.02",
   "properties": {
     "id": {
       "type": "pubkey",
