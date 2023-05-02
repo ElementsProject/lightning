@@ -3270,26 +3270,26 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	pub enum ListpeerchannelsChannelsChannel_typeNames {
 	    #[serde(rename = "static_remotekey/even")]
-	    STATIC_REMOTEKEY/EVEN,
+	    STATIC_REMOTEKEY_EVEN,
 	    #[serde(rename = "anchor_outputs/even")]
-	    ANCHOR_OUTPUTS/EVEN,
+	    ANCHOR_OUTPUTS_EVEN,
 	    #[serde(rename = "anchors_zero_fee_htlc_tx/even")]
-	    ANCHORS_ZERO_FEE_HTLC_TX/EVEN,
+	    ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
 	    #[serde(rename = "scid_alias/even")]
-	    SCID_ALIAS/EVEN,
+	    SCID_ALIAS_EVEN,
 	    #[serde(rename = "zeroconf/even")]
-	    ZEROCONF/EVEN,
+	    ZEROCONF_EVEN,
 	}
 
 	impl TryFrom<i32> for ListpeerchannelsChannelsChannel_typeNames {
 	    type Error = anyhow::Error;
 	    fn try_from(c: i32) -> Result<ListpeerchannelsChannelsChannel_typeNames, anyhow::Error> {
 	        match c {
-	    0 => Ok(ListpeerchannelsChannelsChannel_typeNames::STATIC_REMOTEKEY/EVEN),
-	    1 => Ok(ListpeerchannelsChannelsChannel_typeNames::ANCHOR_OUTPUTS/EVEN),
-	    2 => Ok(ListpeerchannelsChannelsChannel_typeNames::ANCHORS_ZERO_FEE_HTLC_TX/EVEN),
-	    3 => Ok(ListpeerchannelsChannelsChannel_typeNames::SCID_ALIAS/EVEN),
-	    4 => Ok(ListpeerchannelsChannelsChannel_typeNames::ZEROCONF/EVEN),
+	    0 => Ok(ListpeerchannelsChannelsChannel_typeNames::STATIC_REMOTEKEY_EVEN),
+	    1 => Ok(ListpeerchannelsChannelsChannel_typeNames::ANCHOR_OUTPUTS_EVEN),
+	    2 => Ok(ListpeerchannelsChannelsChannel_typeNames::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
+	    3 => Ok(ListpeerchannelsChannelsChannel_typeNames::SCID_ALIAS_EVEN),
+	    4 => Ok(ListpeerchannelsChannelsChannel_typeNames::ZEROCONF_EVEN),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeerchannelsChannelsChannel_typeNames", o)),
 	        }
 	    }
