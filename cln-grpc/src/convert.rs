@@ -1037,6 +1037,56 @@ impl From<responses::ListpeerchannelsResponse> for pb::ListpeerchannelsResponse 
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<responses::ListclosedchannelsClosedchannelsAlias> for pb::ListclosedchannelsClosedchannelsAlias {
+    fn from(c: responses::ListclosedchannelsClosedchannelsAlias) -> Self {
+        Self {
+            local: c.local.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            remote: c.remote.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::ListclosedchannelsClosedchannels> for pb::ListclosedchannelsClosedchannels {
+    fn from(c: responses::ListclosedchannelsClosedchannels) -> Self {
+        Self {
+            peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            channel_id: c.channel_id.to_vec(), // Rule #2 for type hash
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            alias: c.alias.map(|v| v.into()),
+            opener: c.opener as i32,
+            closer: c.closer.map(|v| v as i32),
+            private: c.private, // Rule #2 for type boolean
+            total_local_commitments: c.total_local_commitments, // Rule #2 for type u64
+            total_remote_commitments: c.total_remote_commitments, // Rule #2 for type u64
+            total_htlcs_sent: c.total_htlcs_sent, // Rule #2 for type u64
+            funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32
+            leased: c.leased, // Rule #2 for type boolean
+            funding_fee_paid_msat: c.funding_fee_paid_msat.map(|f| f.into()), // Rule #2 for type msat?
+            funding_fee_rcvd_msat: c.funding_fee_rcvd_msat.map(|f| f.into()), // Rule #2 for type msat?
+            funding_pushed_msat: c.funding_pushed_msat.map(|f| f.into()), // Rule #2 for type msat?
+            total_msat: Some(c.total_msat.into()), // Rule #2 for type msat
+            final_to_us_msat: Some(c.final_to_us_msat.into()), // Rule #2 for type msat
+            min_to_us_msat: Some(c.min_to_us_msat.into()), // Rule #2 for type msat
+            max_to_us_msat: Some(c.max_to_us_msat.into()), // Rule #2 for type msat
+            last_commitment_txid: c.last_commitment_txid.map(|v| v.to_vec()), // Rule #2 for type hash?
+            last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
+            close_cause: c.close_cause as i32,
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::ListclosedchannelsResponse> for pb::ListclosedchannelsResponse {
+    fn from(c: responses::ListclosedchannelsResponse) -> Self {
+        Self {
+            closedchannels: c.closedchannels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListclosedchannelsClosedchannels
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<responses::DisconnectResponse> for pb::DisconnectResponse {
     fn from(c: responses::DisconnectResponse) -> Self {
         Self {
@@ -1774,6 +1824,15 @@ impl From<requests::ListpeerchannelsRequest> for pb::ListpeerchannelsRequest {
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<requests::ListclosedchannelsRequest> for pb::ListclosedchannelsRequest {
+    fn from(c: requests::ListclosedchannelsRequest) -> Self {
+        Self {
+            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<requests::DisconnectRequest> for pb::DisconnectRequest {
     fn from(c: requests::DisconnectRequest) -> Self {
         Self {
@@ -2383,6 +2442,15 @@ impl From<pb::TxsendRequest> for requests::TxsendRequest {
 #[allow(unused_variables,deprecated)]
 impl From<pb::ListpeerchannelsRequest> for requests::ListpeerchannelsRequest {
     fn from(c: pb::ListpeerchannelsRequest) -> Self {
+        Self {
+            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<pb::ListclosedchannelsRequest> for requests::ListclosedchannelsRequest {
+    fn from(c: pb::ListclosedchannelsRequest) -> Self {
         Self {
             id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
         }

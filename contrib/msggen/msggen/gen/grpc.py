@@ -50,6 +50,10 @@ overrides = {
     'ListPeerChannels.channels[].channel_type': None,
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
+
+    'ListClosedChannels.closedchannels[].closer': "ChannelSide",
+    'ListClosedChannels.closedchannels[].opener': "ChannelSide",
+    'ListClosedChannels.closedchannels[].channel_type': None,
 }
 
 

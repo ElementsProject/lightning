@@ -62,7 +62,7 @@ class VersionAnnotationPatch(Patch):
         # the default value only on the first run. Code left commented
         # to show how it was done
         # if f.added is None and 'added' not in m:
-        #     m['added'] = 'pre-v0.10.1'
+        #    m['added'] = 'pre-v0.10.1'
 
         added = m.get('added', None)
         deprecated = m.get('deprecated', None)
