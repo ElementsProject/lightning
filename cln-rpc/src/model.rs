@@ -54,6 +54,7 @@ pub enum Request {
 	TxPrepare(requests::TxprepareRequest),
 	TxSend(requests::TxsendRequest),
 	ListPeerChannels(requests::ListpeerchannelsRequest),
+	ListClosedChannels(requests::ListclosedchannelsRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FundChannel(requests::FundchannelRequest),
@@ -110,6 +111,7 @@ pub enum Response {
 	TxPrepare(responses::TxprepareResponse),
 	TxSend(responses::TxsendResponse),
 	ListPeerChannels(responses::ListpeerchannelsResponse),
+	ListClosedChannels(responses::ListclosedchannelsResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FundChannel(responses::FundchannelResponse),
@@ -1018,6 +1020,22 @@ pub mod requests {
 
 	impl IntoRequest for ListpeerchannelsRequest {
 	    type Response = super::responses::ListpeerchannelsResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListclosedchannelsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub id: Option<PublicKey>,
+	}
+
+	impl From<ListclosedchannelsRequest> for Request {
+	    fn from(r: ListclosedchannelsRequest) -> Self {
+	        Request::ListClosedChannels(r)
+	    }
+	}
+
+	impl IntoRequest for ListclosedchannelsRequest {
+	    type Response = super::responses::ListclosedchannelsResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3752,6 +3770,135 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListPeerChannels(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListclosedchannelsClosedchannelsAlias {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub local: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub remote: Option<ShortChannelId>,
+	}
+
+	/// Name of feature bit
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	pub enum ListclosedchannelsClosedchannelsChannel_typeNames {
+	    #[serde(rename = "static_remotekey/even")]
+	    STATIC_REMOTEKEY_EVEN,
+	    #[serde(rename = "anchor_outputs/even")]
+	    ANCHOR_OUTPUTS_EVEN,
+	    #[serde(rename = "anchors_zero_fee_htlc_tx/even")]
+	    ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
+	    #[serde(rename = "scid_alias/even")]
+	    SCID_ALIAS_EVEN,
+	    #[serde(rename = "zeroconf/even")]
+	    ZEROCONF_EVEN,
+	}
+
+	impl TryFrom<i32> for ListclosedchannelsClosedchannelsChannel_typeNames {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListclosedchannelsClosedchannelsChannel_typeNames, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::STATIC_REMOTEKEY_EVEN),
+	    1 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ANCHOR_OUTPUTS_EVEN),
+	    2 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ANCHORS_ZERO_FEE_HTLC_TX_EVEN),
+	    3 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::SCID_ALIAS_EVEN),
+	    4 => Ok(ListclosedchannelsClosedchannelsChannel_typeNames::ZEROCONF_EVEN),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListclosedchannelsClosedchannelsChannel_typeNames", o)),
+	        }
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListclosedchannelsClosedchannelsChannel_type {
+	    pub bits: Vec<u32>,
+	    pub names: Vec<ListclosedchannelsClosedchannelsChannel_typeNames>,
+	}
+
+	/// What caused the channel to close
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	pub enum ListclosedchannelsClosedchannelsClose_cause {
+	    #[serde(rename = "unknown")]
+	    UNKNOWN,
+	    #[serde(rename = "local")]
+	    LOCAL,
+	    #[serde(rename = "user")]
+	    USER,
+	    #[serde(rename = "remote")]
+	    REMOTE,
+	    #[serde(rename = "protocol")]
+	    PROTOCOL,
+	    #[serde(rename = "onchain")]
+	    ONCHAIN,
+	}
+
+	impl TryFrom<i32> for ListclosedchannelsClosedchannelsClose_cause {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListclosedchannelsClosedchannelsClose_cause, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListclosedchannelsClosedchannelsClose_cause::UNKNOWN),
+	    1 => Ok(ListclosedchannelsClosedchannelsClose_cause::LOCAL),
+	    2 => Ok(ListclosedchannelsClosedchannelsClose_cause::USER),
+	    3 => Ok(ListclosedchannelsClosedchannelsClose_cause::REMOTE),
+	    4 => Ok(ListclosedchannelsClosedchannelsClose_cause::PROTOCOL),
+	    5 => Ok(ListclosedchannelsClosedchannelsClose_cause::ONCHAIN),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListclosedchannelsClosedchannelsClose_cause", o)),
+	        }
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListclosedchannelsClosedchannels {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_id: Option<PublicKey>,
+	    pub channel_id: Sha256,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<ListclosedchannelsClosedchannelsAlias>,
+	    // Path `ListClosedChannels.closedchannels[].opener`
+	    pub opener: ChannelSide,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub closer: Option<ChannelSide>,
+	    pub private: bool,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_type: Option<ListclosedchannelsClosedchannelsChannel_type>,
+	    pub total_local_commitments: u64,
+	    pub total_remote_commitments: u64,
+	    pub total_htlcs_sent: u64,
+	    pub funding_txid: String,
+	    pub funding_outnum: u32,
+	    pub leased: bool,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_fee_paid_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_fee_rcvd_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_pushed_msat: Option<Amount>,
+	    pub total_msat: Amount,
+	    pub final_to_us_msat: Amount,
+	    pub min_to_us_msat: Amount,
+	    pub max_to_us_msat: Amount,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_commitment_txid: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_commitment_fee_msat: Option<Amount>,
+	    // Path `ListClosedChannels.closedchannels[].close_cause`
+	    pub close_cause: ListclosedchannelsClosedchannelsClose_cause,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListclosedchannelsResponse {
+	    pub closedchannels: Vec<ListclosedchannelsClosedchannels>,
+	}
+
+	impl TryFrom<Response> for ListclosedchannelsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListClosedChannels(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

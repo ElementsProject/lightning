@@ -65,6 +65,7 @@ def load_jsonrpc_service(schema_dir: str):
         "TxPrepare",
         "TxSend",
         "ListPeerChannels",
+        "ListClosedChannels",
         # "decodepay",
         # "decode",
         # "delpay",
