@@ -47,7 +47,7 @@ On success, an object containing **closedchannels** is returned.  It is an array
   - **bits** (array of u32s): Each bit set in this channel\_type:
     - Bit number
   - **names** (array of strings): Feature name for each bit set in this channel\_type:
-    - Name of feature bit (one of "static\_remotekey\_even", "anchor\_outputs\_even", "anchors\_zero\_fee\_htlc\_tx\_even", "scid\_alias\_even", "zeroconf\_even")
+    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **funding\_fee\_paid\_msat** (msat, optional): How much we paid to lease the channel (iff `leased` is true and `opener` is local)
 - **funding\_fee\_rcvd\_msat** (msat, optional): How much they paid to lease the channel (iff `leased` is true and `opener` is remote)
 - **funding\_pushed\_msat** (msat, optional): How much `opener` pushed immediate (if non-zero)
@@ -76,4 +76,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning> Lightning
 
-[comment]: # ( SHA256STAMP:032c5117029880fff83f50e1bf4f6536dcdb2438a6ed96dd64fde0d919630a2d)
+[comment]: # ( SHA256STAMP:8f76492ee2f5b2e21cefc2c7e6905bd5084d5f7a9bd658f44f3dcb25ea5a5701)

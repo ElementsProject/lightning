@@ -97,11 +97,11 @@
                 "items": {
                   "type": "string",
                   "enum": [
-                    "static_remotekey_even",
-                    "anchor_outputs_even",
-                    "anchors_zero_fee_htlc_tx_even",
-                    "scid_alias_even",
-                    "zeroconf_even"
+                    "static_remotekey/even",
+                    "anchor_outputs/even",
+                    "anchors_zero_fee_htlc_tx/even",
+                    "scid_alias/even",
+                    "zeroconf/even"
                   ],
                   "description": "Name of feature bit"
                 }
