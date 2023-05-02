@@ -69,11 +69,9 @@ class Grpc2PyGenerator(IGenerator):
         def hexlify(b):
             return b if b is None else b.hex()
 
+
         def amount2msat(a):
             return a.msat
-
-        def amount_or_all2msat(a):
-            breakpoint()
 
 
         def remove_default(d):

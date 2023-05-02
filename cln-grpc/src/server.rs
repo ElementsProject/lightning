@@ -1210,6 +1210,38 @@ async fn tx_send(
 
 }
 
+async fn list_peer_channels(
+    &self,
+    request: tonic::Request<pb::ListpeerchannelsRequest>,
+) -> Result<tonic::Response<pb::ListpeerchannelsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListpeerchannelsRequest = req.into();
+    debug!("Client asked for list_peer_channels");
+    trace!("list_peer_channels request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListPeerChannels(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListPeerChannels: {:?}", e)))?;
+    match result {
+        Response::ListPeerChannels(r) => {
+           trace!("list_peer_channels response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListPeerChannels",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,
