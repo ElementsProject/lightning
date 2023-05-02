@@ -18,33 +18,33 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **currency** (string): the BIP173 name for the currency *(added v23.05)*
-- **created\_at** (u64): the UNIX-style timestamp of the invoice *(added v23.05)*
-- **expiry** (u64): the number of seconds this is valid after *timestamp* *(added v23.05)*
-- **payee** (pubkey): the public key of the recipient *(added v23.05)*
-- **payment\_hash** (hash): the hash of the *payment\_preimage* *(added v23.05)*
-- **signature** (signature): signature of the *payee* on this invoice *(added v23.05)*
-- **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node *(added v23.05)*
-- **amount\_msat** (msat, optional): Amount the invoice asked for *(added v23.05)*
-- **description** (string, optional): the description of the purpose of the purchase *(added v23.05)*
-- **description\_hash** (hash, optional): the hash of the description, in place of *description* *(added v23.05)*
-- **payment\_secret** (hash, optional): the secret to hand to the payee node *(added v23.05)*
-- **features** (hex, optional): the features bitmap for this invoice *(added v23.05)*
-- **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment *(added v23.05)*
-- **fallbacks** (array of objects, optional): onchain addresses *(added v23.05)*:
-  - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH") *(added v23.05)*
-  - **hex** (hex): Raw encoded address *(added v23.05)*
-  - **addr** (string, optional): the address in appropriate format for *type* *(added v23.05)*
-- **routes** (array of arrays, optional): Route hints to the *payee* *(added v23.05)*:
+- **currency** (string): the BIP173 name for the currency
+- **created\_at** (u64): the UNIX-style timestamp of the invoice
+- **expiry** (u64): the number of seconds this is valid after *timestamp*
+- **payee** (pubkey): the public key of the recipient
+- **payment\_hash** (hash): the hash of the *payment\_preimage*
+- **signature** (signature): signature of the *payee* on this invoice
+- **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node
+- **amount\_msat** (msat, optional): Amount the invoice asked for
+- **description** (string, optional): the description of the purpose of the purchase
+- **description\_hash** (hash, optional): the hash of the description, in place of *description*
+- **payment\_secret** (hash, optional): the secret to hand to the payee node
+- **features** (hex, optional): the features bitmap for this invoice
+- **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
+- **fallbacks** (array of objects, optional): onchain addresses:
+  - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
+  - **hex** (hex): Raw encoded address
+  - **addr** (string, optional): the address in appropriate format for *type*
+- **routes** (array of arrays, optional): Route hints to the *payee*:
   - hops in the route:
-    - **pubkey** (pubkey): the public key of the node *(added v23.05)*
-    - **short\_channel\_id** (short\_channel\_id): a channel to the next peer *(added v23.05)*
-    - **fee\_base\_msat** (msat): the base fee for payments *(added v23.05)*
-    - **fee\_proportional\_millionths** (u32): the parts-per-million fee for payments *(added v23.05)*
-    - **cltv\_expiry\_delta** (u32): the CLTV delta across this hop *(added v23.05)*
-- **extra** (array of objects, optional): Any extra fields we didn't know how to parse *(added v23.05)*:
-  - **tag** (string): The bech32 letter which identifies this field (always 1 characters) *(added v23.05)*
-  - **data** (string): The bech32 data for this field *(added v23.05)*
+    - **pubkey** (pubkey): the public key of the node
+    - **short\_channel\_id** (short\_channel\_id): a channel to the next peer
+    - **fee\_base\_msat** (msat): the base fee for payments
+    - **fee\_proportional\_millionths** (u32): the parts-per-million fee for payments
+    - **cltv\_expiry\_delta** (u32): the CLTV delta across this hop
+- **extra** (array of objects, optional): Any extra fields we didn't know how to parse:
+  - **tag** (string): The bech32 letter which identifies this field (always 1 characters)
+  - **data** (string): The bech32 data for this field
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b521d45403a0e065cba5c6596425de8a02097371eaca7cebe4e0046debaed1ac)
+[comment]: # ( SHA256STAMP:733bccdc375e8950a7c7088b0a03155ab968c5e7573afe8de512ad262c19ae62)
