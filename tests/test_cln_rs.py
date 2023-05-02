@@ -348,3 +348,44 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
 
     res = stub.KeySend(call)
     print(res)
+
+
+def test_grpc_listpeerchannels(bitcoind, node_factory):
+    """ Check that conversions of this rather complex type work.
+    """
+    grpc_port = reserve()
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[
+            {"grpc-port": str(grpc_port)}, {}
+        ],
+        announce_channels=True,  # Do not enforce scid-alias
+    )
+
+    def connect(node):
+        p = Path(node.daemon.lightning_dir) / TEST_NETWORK
+        cert, key, ca = [f.open('rb').read() for f in [
+            p / 'client.pem',
+            p / 'client-key.pem',
+            p / "ca.pem"]]
+
+        creds = grpc.ssl_channel_credentials(
+            root_certificates=ca,
+            private_key=key,
+            certificate_chain=cert,
+        )
+
+        channel = grpc.secure_channel(
+            f"localhost:{grpc_port}",
+            creds,
+            options=(('grpc.ssl_target_name_override', 'cln'),)
+        )
+        return nodegrpc.NodeStub(channel)
+    stub = connect(l1)
+    res = stub.ListPeerChannels(nodepb.ListpeerchannelsRequest(id=None))
+
+    # Way too many fields to check, so just do a couple
+    assert len(res.channels) == 1
+    c = res.channels[0]
+    assert c.peer_id.hex() == l2.info['id']
+    assert c.state == 2  # CHANNELD_NORMAL
