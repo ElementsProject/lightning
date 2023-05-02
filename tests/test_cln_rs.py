@@ -389,3 +389,13 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
     c = res.channels[0]
     assert c.peer_id.hex() == l2.info['id']
     assert c.state == 2  # CHANNELD_NORMAL
+
+    # And since we're at it let's close the channel as well so we can
+    # see it in listclosedchanenls
+
+    res = stub.Close(nodepb.CloseRequest(id=l2.info['id']))
+
+    bitcoind.generate_block(100, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'onchaind complete, forgetting peer')
+
+    stub.ListClosedChannels(nodepb.ListclosedchannelsRequest())
