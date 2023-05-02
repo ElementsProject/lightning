@@ -20,8 +20,8 @@ message AmountOrAny {
 }
 
 enum ChannelSide {
-	IN = 0;
-	OUT = 1;
+	LOCAL = 0;
+	REMOTE = 1;
 }
 
 enum ChannelState {
