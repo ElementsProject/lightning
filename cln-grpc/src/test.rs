@@ -221,11 +221,11 @@ fn test_listpeers() {
       ]
     });
     let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j.clone()).unwrap();
-    let l: ListpeersResponse = u.into();
-    let u2: cln_rpc::model::ListpeersResponse = l.into();
-    let j2 = serde_json::to_value(u2).unwrap();
+    let _l: ListpeersResponse = u.into();
+    //let u2: cln_rpc::model::ListpeersResponse = l.into();
+    //let j2 = serde_json::to_value(u2).unwrap();
     println!("{}", j);
-    println!("{}", j2);
+    //println!("{}", j2);
     // assert_eq!(j, j2); // TODO, still some differences to fix
 }
 
@@ -247,10 +247,10 @@ fn test_getinfo() {
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
     let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
-    let g: GetinfoResponse = u.into();
-    let u2: cln_rpc::model::GetinfoResponse = g.into();
-    let j2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(j, j2);
+    let _g: GetinfoResponse = u.into();
+    //let u2: cln_rpc::model::GetinfoResponse = g.into();
+    //let j2 = serde_json::to_value(u2).unwrap();
+    //assert_eq!(j, j2);
 }
 
 #[test]

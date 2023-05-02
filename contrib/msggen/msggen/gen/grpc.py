@@ -412,7 +412,9 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
     """
     def generate(self, service: Service):
         self.generate_requests(service)
-        self.generate_responses(service)
+
+        # TODO Temporarily disabled since the use of overrides is lossy
+        # self.generate_responses(service)
 
     def generate_composite(self, prefix, field: CompositeField) -> None:
         # First pass: generate any sub-fields before we generate the
@@ -437,6 +439,9 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
         for f in field.fields:
             name = f.normalized()
+            if overrides.get(f.path, "") is None:
+                continue
+
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 mapping = {
