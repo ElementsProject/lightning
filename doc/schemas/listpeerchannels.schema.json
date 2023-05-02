@@ -10,7 +10,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "added": "v23.05",
         "additionalProperties": true,
         "required": [
           "state",
