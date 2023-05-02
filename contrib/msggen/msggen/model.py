@@ -19,7 +19,7 @@ class FieldName:
             "type": "item_type"
         }.get(self.name, self.name)
 
-        name = name.replace(' ', '_').replace('-', '_').replace('[]', '')
+        name = name.replace(' ', '_').replace('-', '_').replace('[]', '').replace("/", "_")
         return name
 
     def __str__(self):
@@ -214,7 +214,7 @@ class EnumVariant(Field):
         return self.variant
 
     def normalized(self):
-        return self.variant.replace(' ', '_').replace('-', '_').upper()
+        return self.variant.replace(' ', '_').replace('-', '_').replace("/", "_").upper()
 
 
 class EnumField(Field):
