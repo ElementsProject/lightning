@@ -8,7 +8,7 @@ from msggen.gen.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service
 import logging
-from msggen.patch import VersionAnnotationPatch, OptionalPatch
+from msggen.patch import VersionAnnotationPatch, OptionalPatch, OverridePatch
 from msggen.checks import VersioningCheck
 
 
@@ -72,6 +72,10 @@ def run(rootdir: Path):
     p = VersionAnnotationPatch(meta=meta)
     p.apply(service)
     OptionalPatch().apply(service)
+
+    # Mark some fields we can't map as omitted, and for complex types
+    # we manually mapped, use those types instead.
+    OverridePatch().apply(service)
 
     # Run the checks here, we should eventually split that out to a
     # separate subcommand

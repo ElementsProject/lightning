@@ -40,6 +40,14 @@ class Field:
         self.deprecated = deprecated
         self.required = False
 
+        # Are we going to omit this field when generating bindings?
+        # This usually means that the field either doesn't make sense
+        # to convert or that msggen cannot handle converting this
+        # field and its children yet.
+        self.omitted = False
+
+        self.type_override: Optional[str] = None
+
     @property
     def name(self):
         return FieldName(self.path.split(".")[-1])
@@ -52,6 +60,37 @@ class Field:
 
     def normalized(self):
         return self.name.normalized()
+
+    def capitalized(self):
+        return self.name.capitalized()
+
+    def omit(self):
+        """Returns true if we should not consider this field in our model.
+
+        This can be either because the field is redundant, or because
+        msggen cannot currently handle it. The field (and it's type if
+        it's composite) will not be materialized in the generated
+        bindings and converters.
+
+        It is mainly switched on and off in the OverridePatch which is
+        the central location where we manage overrides and omissions.
+
+        """
+        return self.omitted
+
+    def override(self, default: Optional[str] = None) -> Optional[str]:
+        """Provide a type that should be used instead of the inferred one.
+
+        This is useful if for shared types that we don't want to
+        generate multiple times, and for enums that can result in
+        naming clashes in the grpc model (enum variantss must be
+        uniquely name in the top-level scope...).
+
+        It is mainly switched on and off in the OverridePatch which is
+        the central location where we manage overrides and omissions.
+
+        """
+        return self.type_override if self.type_override else default
 
 
 class Service:
