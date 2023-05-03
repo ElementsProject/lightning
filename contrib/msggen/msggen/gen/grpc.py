@@ -268,8 +268,10 @@ class GrpcConverterGenerator(IGenerator):
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
                     'secret': f'i.to_vec()',
+                    'hash': f'i.to_vec()',
                 }.get(typ, f'i.into()')
 
+                self.write(f"// Field: {f.path}\n", numindent=3)
                 if not f.optional:
                     self.write(f"{name}: c.{name}.into_iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ}\n", numindent=3)
                 else:
@@ -423,7 +425,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 mapping = {
                     'hex': f'hex::encode(s)',
                     'u32': f's',
-                    'secret': f's.try_into().unwrap()'
+                    'secret': f's.try_into().unwrap()',
+                    'hash': f'Sha256::from_slice(&s).unwrap()',
                 }.get(typ, f's.into()')
 
                 # TODO fix properly

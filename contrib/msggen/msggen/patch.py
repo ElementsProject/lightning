@@ -154,9 +154,7 @@ class OverridePatch(Patch):
         'ListClosedChannels.closedchannels[].channel_type',
         'ListPeerChannels.channels[].channel_type',
         'ListPeerChannels.channels[].features[]',
-        'ListPeerChannels.channels[].htlcs[].state',
         'ListPeerChannels.channels[].state_changes[]',
-        'ListPeers.peers[].channels[].htlcs[].state',
         'ListPeers.peers[].channels[].state_changes[]',
         'ListTransactions.transactions[].type[]',
     ]
@@ -176,6 +174,8 @@ class OverridePatch(Patch):
         'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
         'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
         'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
+        'ListPeers.peers[].channels[].htlcs[].state': "HtlcState",
+        'ListPeerChannels.channels[].htlcs[].state': "HtlcState",
     }
 
     def visit(self, f: model.Field) -> None:
