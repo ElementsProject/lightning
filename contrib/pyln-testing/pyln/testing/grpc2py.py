@@ -894,6 +894,251 @@ def listclosedchannels2py(m):
     })
 
 
+def decodepay_fallbacks2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "addr": m.addr,  # PrimitiveField in generate_composite
+        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
+    })
+
+
+def decodepay_routes2py(m):
+    return remove_default({
+        "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+    })
+
+
+def decodepay_extra2py(m):
+    return remove_default({
+        "tag": m.tag,  # PrimitiveField in generate_composite
+        "data": m.data,  # PrimitiveField in generate_composite
+    })
+
+
+def decodepay2py(m):
+    return remove_default({
+        "currency": m.currency,  # PrimitiveField in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "expiry": m.expiry,  # PrimitiveField in generate_composite
+        "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "description_hash": hexlify(m.description_hash),  # PrimitiveField in generate_composite
+        "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
+        "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "features": hexlify(m.features),  # PrimitiveField in generate_composite
+        "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
+        "fallbacks": [decodepay_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
+        "routes": [decodepay_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
+        "extra": [decodepay_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
+    })
+
+
+def decode_offer_paths_path2py(m):
+    return remove_default({
+        "blinded_node_id": hexlify(m.blinded_node_id),  # PrimitiveField in generate_composite
+        "encrypted_recipient_data": hexlify(m.encrypted_recipient_data),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_offer_paths2py(m):
+    return remove_default({
+        "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
+        "path": [decode_offer_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
+    })
+
+
+def decode_offer_recurrence_paywindow2py(m):
+    return remove_default({
+        "seconds_before": m.seconds_before,  # PrimitiveField in generate_composite
+        "seconds_after": m.seconds_after,  # PrimitiveField in generate_composite
+        "proportional_amount": m.proportional_amount,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_offer_recurrence2py(m):
+    return remove_default({
+        "time_unit": m.time_unit,  # PrimitiveField in generate_composite
+        "time_unit_name": m.time_unit_name,  # PrimitiveField in generate_composite
+        "period": m.period,  # PrimitiveField in generate_composite
+        "basetime": m.basetime,  # PrimitiveField in generate_composite
+        "start_any_period": m.start_any_period,  # PrimitiveField in generate_composite
+        "limit": m.limit,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_unknown_offer_tlvs2py(m):
+    return remove_default({
+        "item_type": m.type,  # PrimitiveField in generate_composite
+        "length": m.length,  # PrimitiveField in generate_composite
+        "value": hexlify(m.value),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_unknown_invoice_request_tlvs2py(m):
+    return remove_default({
+        "item_type": m.type,  # PrimitiveField in generate_composite
+        "length": m.length,  # PrimitiveField in generate_composite
+        "value": hexlify(m.value),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_invoice_paths_payinfo2py(m):
+    return remove_default({
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+        "features": hexlify(m.features),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_invoice_paths_path2py(m):
+    return remove_default({
+        "blinded_node_id": hexlify(m.blinded_node_id),  # PrimitiveField in generate_composite
+        "encrypted_recipient_data": hexlify(m.encrypted_recipient_data),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_invoice_paths2py(m):
+    return remove_default({
+        "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
+        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
+        "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
+    })
+
+
+def decode_invoice_fallbacks2py(m):
+    return remove_default({
+        "version": m.version,  # PrimitiveField in generate_composite
+        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
+        "address": m.address,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_unknown_invoice_tlvs2py(m):
+    return remove_default({
+        "item_type": m.type,  # PrimitiveField in generate_composite
+        "length": m.length,  # PrimitiveField in generate_composite
+        "value": hexlify(m.value),  # PrimitiveField in generate_composite
+    })
+
+
+def decode_fallbacks2py(m):
+    return remove_default({
+        "warning_invoice_fallbacks_version_invalid": m.warning_invoice_fallbacks_version_invalid,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_routes2py(m):
+    return remove_default({
+        "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_extra2py(m):
+    return remove_default({
+        "tag": m.tag,  # PrimitiveField in generate_composite
+        "data": m.data,  # PrimitiveField in generate_composite
+    })
+
+
+def decode_restrictions2py(m):
+    return remove_default({
+        "alternatives": [m.alternatives for i in m.alternatives], # ArrayField[primitive] in generate_composite
+        "summary": m.summary,  # PrimitiveField in generate_composite
+    })
+
+
+def decode2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "valid": m.valid,  # PrimitiveField in generate_composite
+        "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
+        "offer_chains": [hexlify(m.offer_chains) for i in hexlify(m.offer_chains)], # ArrayField[primitive] in generate_composite
+        "offer_metadata": hexlify(m.offer_metadata),  # PrimitiveField in generate_composite
+        "offer_currency": m.offer_currency,  # PrimitiveField in generate_composite
+        "warning_unknown_offer_currency": m.warning_unknown_offer_currency,  # PrimitiveField in generate_composite
+        "currency_minor_unit": m.currency_minor_unit,  # PrimitiveField in generate_composite
+        "offer_amount": m.offer_amount,  # PrimitiveField in generate_composite
+        "offer_amount_msat": amount2msat(m.offer_amount_msat),  # PrimitiveField in generate_composite
+        "offer_description": m.offer_description,  # PrimitiveField in generate_composite
+        "offer_issuer": m.offer_issuer,  # PrimitiveField in generate_composite
+        "offer_features": hexlify(m.offer_features),  # PrimitiveField in generate_composite
+        "offer_absolute_expiry": m.offer_absolute_expiry,  # PrimitiveField in generate_composite
+        "offer_quantity_max": m.offer_quantity_max,  # PrimitiveField in generate_composite
+        "offer_paths": [decode_offer_paths2py(i) for i in m.offer_paths],  # ArrayField[composite] in generate_composite
+        "offer_node_id": hexlify(m.offer_node_id),  # PrimitiveField in generate_composite
+        "unknown_offer_tlvs": [decode_unknown_offer_tlvs2py(i) for i in m.unknown_offer_tlvs],  # ArrayField[composite] in generate_composite
+        "warning_missing_offer_node_id": m.warning_missing_offer_node_id,  # PrimitiveField in generate_composite
+        "warning_invalid_offer_description": m.warning_invalid_offer_description,  # PrimitiveField in generate_composite
+        "warning_missing_offer_description": m.warning_missing_offer_description,  # PrimitiveField in generate_composite
+        "warning_invalid_offer_currency": m.warning_invalid_offer_currency,  # PrimitiveField in generate_composite
+        "warning_invalid_offer_issuer": m.warning_invalid_offer_issuer,  # PrimitiveField in generate_composite
+        "invreq_metadata": hexlify(m.invreq_metadata),  # PrimitiveField in generate_composite
+        "invreq_payer_id": hexlify(m.invreq_payer_id),  # PrimitiveField in generate_composite
+        "invreq_chain": hexlify(m.invreq_chain),  # PrimitiveField in generate_composite
+        "invreq_amount_msat": amount2msat(m.invreq_amount_msat),  # PrimitiveField in generate_composite
+        "invreq_features": hexlify(m.invreq_features),  # PrimitiveField in generate_composite
+        "invreq_quantity": m.invreq_quantity,  # PrimitiveField in generate_composite
+        "invreq_payer_note": m.invreq_payer_note,  # PrimitiveField in generate_composite
+        "invreq_recurrence_counter": m.invreq_recurrence_counter,  # PrimitiveField in generate_composite
+        "invreq_recurrence_start": m.invreq_recurrence_start,  # PrimitiveField in generate_composite
+        "unknown_invoice_request_tlvs": [decode_unknown_invoice_request_tlvs2py(i) for i in m.unknown_invoice_request_tlvs],  # ArrayField[composite] in generate_composite
+        "warning_missing_invreq_metadata": m.warning_missing_invreq_metadata,  # PrimitiveField in generate_composite
+        "warning_missing_invreq_payer_id": m.warning_missing_invreq_payer_id,  # PrimitiveField in generate_composite
+        "warning_invalid_invreq_payer_note": m.warning_invalid_invreq_payer_note,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_request_signature": m.warning_missing_invoice_request_signature,  # PrimitiveField in generate_composite
+        "warning_invalid_invoice_request_signature": m.warning_invalid_invoice_request_signature,  # PrimitiveField in generate_composite
+        "invoice_paths": [decode_invoice_paths2py(i) for i in m.invoice_paths],  # ArrayField[composite] in generate_composite
+        "invoice_created_at": m.invoice_created_at,  # PrimitiveField in generate_composite
+        "invoice_relative_expiry": m.invoice_relative_expiry,  # PrimitiveField in generate_composite
+        "invoice_payment_hash": hexlify(m.invoice_payment_hash),  # PrimitiveField in generate_composite
+        "invoice_amount_msat": amount2msat(m.invoice_amount_msat),  # PrimitiveField in generate_composite
+        "invoice_fallbacks": [decode_invoice_fallbacks2py(i) for i in m.invoice_fallbacks],  # ArrayField[composite] in generate_composite
+        "invoice_features": hexlify(m.invoice_features),  # PrimitiveField in generate_composite
+        "invoice_node_id": hexlify(m.invoice_node_id),  # PrimitiveField in generate_composite
+        "invoice_recurrence_basetime": m.invoice_recurrence_basetime,  # PrimitiveField in generate_composite
+        "unknown_invoice_tlvs": [decode_unknown_invoice_tlvs2py(i) for i in m.unknown_invoice_tlvs],  # ArrayField[composite] in generate_composite
+        "warning_missing_invoice_paths": m.warning_missing_invoice_paths,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_blindedpay": m.warning_missing_invoice_blindedpay,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_created_at": m.warning_missing_invoice_created_at,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_payment_hash": m.warning_missing_invoice_payment_hash,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_amount": m.warning_missing_invoice_amount,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_recurrence_basetime": m.warning_missing_invoice_recurrence_basetime,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_node_id": m.warning_missing_invoice_node_id,  # PrimitiveField in generate_composite
+        "warning_missing_invoice_signature": m.warning_missing_invoice_signature,  # PrimitiveField in generate_composite
+        "warning_invalid_invoice_signature": m.warning_invalid_invoice_signature,  # PrimitiveField in generate_composite
+        "fallbacks": [decode_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
+        "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "expiry": m.expiry,  # PrimitiveField in generate_composite
+        "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "description_hash": hexlify(m.description_hash),  # PrimitiveField in generate_composite
+        "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
+        "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
+        "routes": [decode_routes2py(i) for i in m.routes],  # ArrayField[composite] in generate_composite
+        "extra": [decode_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
+        "unique_id": m.unique_id,  # PrimitiveField in generate_composite
+        "version": m.version,  # PrimitiveField in generate_composite
+        "string": m.string,  # PrimitiveField in generate_composite
+        "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
+        "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
+        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
+    })
+
+
 def disconnect2py(m):
     return remove_default({
     })

@@ -47,6 +47,8 @@ service Node {
 	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
 	rpc ListPeerChannels(ListpeerchannelsRequest) returns (ListpeerchannelsResponse) {}
 	rpc ListClosedChannels(ListclosedchannelsRequest) returns (ListclosedchannelsResponse) {}
+	rpc DecodePay(DecodepayRequest) returns (DecodepayResponse) {}
+	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
@@ -267,6 +269,7 @@ message ListpeersPeersChannelsHtlcs {
 	bytes payment_hash = 5;
 	optional bool local_trimmed = 6;
 	optional string status = 7;
+	HtlcState state = 8;
 }
 
 message ListfundsRequest {
@@ -590,7 +593,6 @@ message InvoiceRequest {
 	optional uint64 expiry = 7;
 	repeated string fallbacks = 4;
 	optional bytes preimage = 5;
-	optional bool exposeprivatechannels = 8;
 	optional uint32 cltv = 6;
 	optional bool deschashonly = 9;
 }
@@ -1220,6 +1222,7 @@ message ListpeerchannelsChannelsHtlcs {
 	optional bytes payment_hash = 5;
 	optional bool local_trimmed = 6;
 	optional string status = 7;
+	optional HtlcState state = 8;
 }
 
 message ListclosedchannelsRequest {
@@ -1268,6 +1271,167 @@ message ListclosedchannelsClosedchannels {
 message ListclosedchannelsClosedchannelsAlias {
 	optional string local = 1;
 	optional string remote = 2;
+}
+
+message DecodepayRequest {
+	string bolt11 = 1;
+	optional string description = 2;
+}
+
+message DecodepayResponse {
+	string currency = 1;
+	uint64 created_at = 2;
+	uint64 expiry = 3;
+	bytes payee = 4;
+	optional Amount amount_msat = 5;
+	bytes payment_hash = 6;
+	bytes signature = 7;
+	optional string description = 8;
+	optional bytes description_hash = 9;
+	uint32 min_final_cltv_expiry = 10;
+	optional bytes payment_secret = 11;
+	optional bytes features = 12;
+	optional bytes payment_metadata = 13;
+	repeated DecodepayFallbacks fallbacks = 14;
+	repeated DecodepayExtra extra = 16;
+}
+
+message DecodepayFallbacks {
+	// DecodePay.fallbacks[].type
+	enum DecodepayFallbacksType {
+		P2PKH = 0;
+		P2SH = 1;
+		P2WPKH = 2;
+		P2WSH = 3;
+	}
+	DecodepayFallbacksType item_type = 1;
+	optional string addr = 2;
+	bytes hex = 3;
+}
+
+message DecodepayExtra {
+	string tag = 1;
+	string data = 2;
+}
+
+message DecodeRequest {
+	string string = 1;
+}
+
+message DecodeResponse {
+	// Decode.type
+	enum DecodeType {
+		BOLT12_OFFER = 0;
+		BOLT12_INVOICE = 1;
+		BOLT12_INVOICE_REQUEST = 2;
+		BOLT11_INVOICE = 3;
+		RUNE = 4;
+	}
+	DecodeType item_type = 1;
+	bool valid = 2;
+	optional bytes offer_id = 3;
+	repeated bytes offer_chains = 4;
+	optional bytes offer_metadata = 5;
+	optional string offer_currency = 6;
+	optional string warning_unknown_offer_currency = 7;
+	optional uint32 currency_minor_unit = 8;
+	optional uint64 offer_amount = 9;
+	optional Amount offer_amount_msat = 10;
+	optional string offer_description = 11;
+	optional string offer_issuer = 12;
+	optional bytes offer_features = 13;
+	optional uint64 offer_absolute_expiry = 14;
+	optional uint64 offer_quantity_max = 15;
+	repeated DecodeOffer_paths offer_paths = 16;
+	optional bytes offer_node_id = 17;
+	optional string warning_missing_offer_node_id = 20;
+	optional string warning_invalid_offer_description = 21;
+	optional string warning_missing_offer_description = 22;
+	optional string warning_invalid_offer_currency = 23;
+	optional string warning_invalid_offer_issuer = 24;
+	optional bytes invreq_metadata = 25;
+	optional bytes invreq_payer_id = 26;
+	optional bytes invreq_chain = 27;
+	optional Amount invreq_amount_msat = 28;
+	optional bytes invreq_features = 29;
+	optional uint64 invreq_quantity = 30;
+	optional string invreq_payer_note = 31;
+	optional uint32 invreq_recurrence_counter = 32;
+	optional uint32 invreq_recurrence_start = 33;
+	optional string warning_missing_invreq_metadata = 35;
+	optional string warning_missing_invreq_payer_id = 36;
+	optional string warning_invalid_invreq_payer_note = 37;
+	optional string warning_missing_invoice_request_signature = 38;
+	optional string warning_invalid_invoice_request_signature = 39;
+	optional uint64 invoice_created_at = 41;
+	optional uint32 invoice_relative_expiry = 42;
+	optional bytes invoice_payment_hash = 43;
+	optional Amount invoice_amount_msat = 44;
+	repeated DecodeInvoice_fallbacks invoice_fallbacks = 45;
+	optional bytes invoice_features = 46;
+	optional bytes invoice_node_id = 47;
+	optional uint64 invoice_recurrence_basetime = 48;
+	optional string warning_missing_invoice_paths = 50;
+	optional string warning_missing_invoice_blindedpay = 51;
+	optional string warning_missing_invoice_created_at = 52;
+	optional string warning_missing_invoice_payment_hash = 53;
+	optional string warning_missing_invoice_amount = 54;
+	optional string warning_missing_invoice_recurrence_basetime = 55;
+	optional string warning_missing_invoice_node_id = 56;
+	optional string warning_missing_invoice_signature = 57;
+	optional string warning_invalid_invoice_signature = 58;
+	repeated DecodeFallbacks fallbacks = 59;
+	optional uint64 created_at = 60;
+	optional uint64 expiry = 61;
+	optional bytes payee = 62;
+	optional bytes payment_hash = 63;
+	optional bytes description_hash = 64;
+	optional uint32 min_final_cltv_expiry = 65;
+	optional bytes payment_secret = 66;
+	optional bytes payment_metadata = 67;
+	repeated DecodeExtra extra = 69;
+	optional string unique_id = 70;
+	optional string version = 71;
+	optional string string = 72;
+	repeated DecodeRestrictions restrictions = 73;
+	optional string warning_rune_invalid_utf8 = 74;
+	optional bytes hex = 75;
+}
+
+message DecodeOffer_paths {
+	bytes first_node_id = 1;
+	bytes blinding = 2;
+}
+
+message DecodeOffer_recurrencePaywindow {
+	uint32 seconds_before = 1;
+	uint32 seconds_after = 2;
+	optional bool proportional_amount = 3;
+}
+
+message DecodeInvoice_pathsPath {
+	bytes blinded_node_id = 1;
+	bytes encrypted_recipient_data = 2;
+}
+
+message DecodeInvoice_fallbacks {
+	uint32 version = 1;
+	bytes hex = 2;
+	optional string address = 3;
+}
+
+message DecodeFallbacks {
+	optional string warning_invoice_fallbacks_version_invalid = 1;
+}
+
+message DecodeExtra {
+	string tag = 1;
+	string data = 2;
+}
+
+message DecodeRestrictions {
+	repeated string alternatives = 1;
+	string summary = 2;
 }
 
 message DisconnectRequest {
