@@ -133,3 +133,53 @@ class OptionalPatch(Patch):
 
         if f.deprecated and self.versions.index(f.deprecated) < idx[1]:
             f.optional = True
+
+
+class OverridePatch(Patch):
+    """Allows omitting some fields and overriding the type of fields based on configuration.
+
+    """
+    omit = [
+        'Decode.invoice_paths[]',
+        'Decode.invoice_paths[].payinfo',
+        'Decode.offer_paths[].path[]',
+        'Decode.offer_recurrence',
+        'Decode.routes[][]',
+        'Decode.unknown_invoice_request_tlvs[]',
+        'Decode.unknown_invoice_tlvs[]',
+        'Decode.unknown_offer_tlvs[]',
+        'DecodePay.routes[][]',
+        'DecodeRoutes.routes',
+        'Invoice.exposeprivatechannels',
+        'ListClosedChannels.closedchannels[].channel_type',
+        'ListPeerChannels.channels[].channel_type',
+        'ListPeerChannels.channels[].features[]',
+        'ListPeerChannels.channels[].htlcs[].state',
+        'ListPeerChannels.channels[].state_changes[]',
+        'ListPeers.peers[].channels[].htlcs[].state',
+        'ListPeers.peers[].channels[].state_changes[]',
+        'ListTransactions.transactions[].type[]',
+    ]
+
+    # Handcoded types to use instead of generating the types from the
+    # schema. Useful for repeated types, and types that have
+    # redundancies.
+    overrides = {
+        'ListClosedChannels.closedchannels[].closer': "ChannelSide",
+        'ListClosedChannels.closedchannels[].opener': "ChannelSide",
+        'ListFunds.channels[].state': 'ChannelState',
+        'ListPeerChannels.channels[].closer': "ChannelSide",
+        'ListPeerChannels.channels[].opener': "ChannelSide",
+        'ListPeers.peers[].channels[].closer': "ChannelSide",
+        'ListPeers.peers[].channels[].features[]': "string",
+        'ListPeers.peers[].channels[].opener': "ChannelSide",
+        'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
+        'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
+        'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
+    }
+
+    def visit(self, f: model.Field) -> None:
+        """For now just skips the fields we can't convert.
+        """
+        f.omitted = f.path in self.omit
+        f.type_override = self.overrides.get(f.path, None)
