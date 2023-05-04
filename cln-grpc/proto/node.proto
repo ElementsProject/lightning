@@ -166,21 +166,7 @@ message ListpeersPeersLog {
 }
 
 message ListpeersPeersChannels {
-	// ListPeers.peers[].channels[].state
-	enum ListpeersPeersChannelsState {
-		OPENINGD = 0;
-		CHANNELD_AWAITING_LOCKIN = 1;
-		CHANNELD_NORMAL = 2;
-		CHANNELD_SHUTTING_DOWN = 3;
-		CLOSINGD_SIGEXCHANGE = 4;
-		CLOSINGD_COMPLETE = 5;
-		AWAITING_UNILATERAL = 6;
-		FUNDING_SPEND_SEEN = 7;
-		ONCHAIN = 8;
-		DUALOPEND_OPEN_INIT = 9;
-		DUALOPEND_AWAITING_LOCKIN = 10;
-	}
-	ListpeersPeersChannelsState state = 1;
+	ChannelState state = 1;
 	optional bytes scratch_txid = 2;
 	optional ListpeersPeersChannelsFeerate feerate = 3;
 	optional string owner = 4;
@@ -1086,23 +1072,9 @@ message ListpeerchannelsResponse {
 }
 
 message ListpeerchannelsChannels {
-	// ListPeerChannels.channels[].state
-	enum ListpeerchannelsChannelsState {
-		OPENINGD = 0;
-		CHANNELD_AWAITING_LOCKIN = 1;
-		CHANNELD_NORMAL = 2;
-		CHANNELD_SHUTTING_DOWN = 3;
-		CLOSINGD_SIGEXCHANGE = 4;
-		CLOSINGD_COMPLETE = 5;
-		AWAITING_UNILATERAL = 6;
-		FUNDING_SPEND_SEEN = 7;
-		ONCHAIN = 8;
-		DUALOPEND_OPEN_INIT = 9;
-		DUALOPEND_AWAITING_LOCKIN = 10;
-	}
 	optional bytes peer_id = 1;
 	optional bool peer_connected = 2;
-	optional ListpeerchannelsChannelsState state = 3;
+	optional ChannelState state = 3;
 	optional bytes scratch_txid = 4;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
