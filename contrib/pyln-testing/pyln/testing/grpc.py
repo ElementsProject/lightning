@@ -2,6 +2,7 @@
 """
 
 import logging
+import warnings
 from binascii import unhexlify
 from typing import List, Optional, Tuple
 
@@ -10,6 +11,7 @@ from pyln.testing import grpc2py
 from pyln.testing import node_pb2 as pb
 from pyln.testing import node_pb2_grpc as pbgrpc
 from pyln.testing import primitives_pb2 as primpb
+from pyln.client import LightningRpc
 
 DUMMY_CA_PEM = b"""-----BEGIN CERTIFICATE-----
 MIIBcTCCARigAwIBAgIJAJhah1bqO05cMAoGCCqGSM49BAMCMBYxFDASBgNVBAMM
@@ -73,6 +75,7 @@ class LightningGrpc(object):
         self,
         host: str,
         port: int,
+        fallbackrpc: LightningRpc,
         root_certificates: bytes = DUMMY_CA_PEM,
         private_key: bytes = DUMMY_CLIENT_KEY_PEM,
         certificate_chain: bytes = DUMMY_CLIENT_PEM,
@@ -91,6 +94,8 @@ class LightningGrpc(object):
         )
         self.stub = pbgrpc.NodeStub(self.channel)
         self.check_request_schemas = False
+        self.fallbackrpc = fallbackrpc
+        self.fallbackrpc.check_request_schemas = False
 
     def getinfo(self):
         return grpc2py.getinfo2py(self.stub.Getinfo(pb.GetinfoRequest()))
@@ -193,7 +198,6 @@ class LightningGrpc(object):
         retry_for: Optional[int] = None,
         maxdelay: Optional[int] = None,
         exemptfee: Optional[int] = None,
-        localofferid: Optional[str] = None,
         # TODO map the following arguments
         # exclude: Optional[List[str]] = None,
         # maxfee=None,
@@ -209,7 +213,6 @@ class LightningGrpc(object):
             retry_for=retry_for,
             maxdelay=maxdelay,
             exemptfee=exemptfee,
-            localofferid=localofferid,
             # Needs conversion
             # exclude=exclude,
             # maxfee=maxfee
@@ -330,3 +333,15 @@ class LightningGrpc(object):
         )
         res = self.stub.DecodePay(payload)
         return grpc2py.decodepay2py(res)
+
+    def dev_pay(
+            self,
+            *args,
+            **kwargs
+    ):
+        warnings.warn("Call to `dev_pay` does not use the grpc interface, falling back to JSON-RPC")
+        return self.fallbackrpc.dev_pay(*args, **kwargs)
+
+    def call(self, *args, **kwargs):
+        warnings.warn("Call to `call` does not use the grpc interface, falling back to JSON-RPC")
+        return self.fallbackrpc.call(*args, **kwargs)
