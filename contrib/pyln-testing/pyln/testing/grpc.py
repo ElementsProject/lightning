@@ -90,6 +90,7 @@ class LightningGrpc(object):
             options=(("grpc.ssl_target_name_override", "cln"),),
         )
         self.stub = pbgrpc.NodeStub(self.channel)
+        self.check_request_schemas = False
 
     def getinfo(self):
         return grpc2py.getinfo2py(self.stub.Getinfo(pb.GetinfoRequest()))
@@ -159,6 +160,7 @@ class LightningGrpc(object):
         close_to: Optional[str] = None,
         # request_amt=None,
         compact_lease: Optional[str] = None,
+        mindepth: Optional[int] = None,
     ):
         payload = pb.FundchannelRequest(
             id=unhexlify(node_id),
@@ -167,6 +169,7 @@ class LightningGrpc(object):
             announce=announce,
             utxos=None,
             minconf=minconf,
+            mindepth=mindepth,
             close_to=close_to,
             compact_lease=compact_lease,
         )
@@ -222,7 +225,7 @@ class LightningGrpc(object):
             expiry: Optional[int] = None,
             fallbacks: Optional[List[str]] = None,
             preimage: Optional[str] = None,
-            exposeprivatechannels: Optional[bool] = None,
+            #exposeprivatechannels: Optional[bool] = None,
             cltv: Optional[int] = None,
             deschashonly: Optional[bool] = None,
             # msatoshi=None
@@ -234,7 +237,7 @@ class LightningGrpc(object):
             expiry=expiry,
             fallbacks=fallbacks,
             preimage=unhexlify(preimage) if preimage else None,
-            exposeprivatechannels=exposeprivatechannels,
+            #exposeprivatechannels=exposeprivatechannels,
             cltv=cltv,
             deschashonly=deschashonly,
         )
@@ -286,3 +289,44 @@ class LightningGrpc(object):
             offer_id=offer_id,
         )
         return grpc2py.listinvoices2py(self.stub.ListInvoices(payload))
+
+    def listpeerchannels(
+            self,
+            id: Optional[str] = None
+    ):
+        payload = pb.ListpeerchannelsRequest(
+            id=unhexlify(id) if id else None
+        )
+        res = self.stub.ListPeerChannels(payload)
+        print(res)
+        return grpc2py.listpeerchannels2py(res)
+
+    def withdraw(
+            self,
+            destination,
+            satoshi=None,
+            feerate=None,
+            minconf=None,
+            utxos=None,
+    ):
+        assert utxos == None and "utxos param is currently unmapped"
+        payload = pb.WithdrawRequest(
+            destination=destination,
+            satoshi=int2amount_or_all(satoshi),
+            feerate=feerate,
+            minconf=minconf,
+        )
+        res = self.stub.Withdraw(payload)
+        return grpc2py.withdraw2py(res)
+
+    def decodepay(
+            self,
+            bolt11: str,
+            description: Optional[str] = None
+    ):
+        payload = pb.DecodepayRequest(
+            bolt11=bolt11,
+            description=description,
+        )
+        res = self.stub.DecodePay(payload)
+        return grpc2py.decodepay2py(res)
