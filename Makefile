@@ -53,6 +53,10 @@ ifeq ($(COVERAGE),1)
 COVFLAGS = --coverage
 endif
 
+ifeq ($(CLANG_COVERAGE),1)
+COVFLAGS+=-fprofile-instr-generate -fcoverage-mapping
+endif
+
 ifeq ($(PIE),1)
 PIE_CFLAGS=-fPIE -fPIC
 PIE_LDFLAGS=-pie

@@ -144,6 +144,7 @@ set_defaults()
     DEVELOPER=${DEVELOPER:-0}
     COMPAT=${COMPAT:-1}
     STATIC=${STATIC:-0}
+    CLANG_COVERAGE=${CLANG_COVERAGE:-0}
     ASAN=${ASAN:-0}
     UBSAN=${UBSAN:-0}
     FUZZING=${FUZZING:-0}
@@ -203,6 +204,8 @@ usage()
     echo "    Run tests with Valgrind"
     usage_with_default "--enable/disable-static" "$STATIC" "enable" "disable"
     echo "    Static link sqlite3 and zlib libraries"
+    usage_with_default "--enable/disable-coverage" "$CLANG_COVERAGE" "enable" "disable"
+    echo "    Compile with Clang coverage instrumentation"
     usage_with_default "--enable/disable-address-sanitizer" "$ASAN" "enable" "disable"
     echo "    Compile with address-sanitizer"
     usage_with_default "--enable/disable-ub-sanitizer" "$UBSAN" "enable" "disable"
@@ -263,6 +266,8 @@ for opt in "$@"; do
 	--disable-valgrind) VALGRIND=0;;
 	--enable-static) STATIC=1;;
 	--disable-static) STATIC=0;;
+	--enable-coverage) CLANG_COVERAGE=1;;
+	--disable-coverage) CLANG_COVERAGE=0;;
 	--enable-address-sanitizer) ASAN=1;;
 	--disable-address-sanitizer) ASAN=0;;
 	--enable-ub-sanitizer) UBSAN=1;;
@@ -292,6 +297,17 @@ if [ "$ASAN" = "1" ]; then
 	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
 	exit 1
     fi
+fi
+
+if [ "$CLANG_COVERAGE" = "1" ]; then
+	case "$CC" in
+		(*"clang"*)
+			;;
+		(*)
+			echo "Clang coverage requires building with CC=clang."
+			exit 1
+			;;
+	esac
 fi
 
 if [ "$FUZZING" = "1" ]; then
@@ -480,6 +496,7 @@ add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER.$$
 add_var COMPAT "$COMPAT" $CONFIG_HEADER.$$
 add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
+add_var CLANG_COVERAGE "$CLANG_COVERAGE"
 add_var ASAN "$ASAN"
 add_var UBSAN "$UBSAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
