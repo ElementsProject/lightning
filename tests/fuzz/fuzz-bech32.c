@@ -15,7 +15,7 @@ void run(const uint8_t *data, size_t size)
 	const char hrp_inv[5] = "lnbc\0", hrp_addr[3] = "bc\0";
 	char *bech32_str, *hrp_out, *addr;
 	uint8_t *data_out;
-	size_t data_out_len;
+	size_t data_out_len, bech32_str_cap;
 	int wit_version;
 	bech32_encoding benc;
 
@@ -23,14 +23,15 @@ void run(const uint8_t *data, size_t size)
 		return;
 
 	/* Buffer size is defined in each function's doc comment. */
-	bech32_str = malloc(size + strlen(hrp_inv) + 8);
 	benc = data[0] ? BECH32_ENCODING_BECH32 : BECH32_ENCODING_BECH32M;
-	/* FIXME: needs a dictionary / a startup seed corpus to pass this more
-	 * frequently. */
-	if (bech32_encode(bech32_str, hrp_inv, data+1, size-1, size-1, benc) == 1) {
+	bech32_str_cap = (size - 1) + strlen(hrp_inv) + 8;
+	bech32_str = malloc(bech32_str_cap);
+	if (bech32_encode(bech32_str, hrp_inv, data + 1, size - 1,
+			  bech32_str_cap, benc) == 1) {
 		hrp_out = malloc(strlen(bech32_str) - 6);
 		data_out = malloc(strlen(bech32_str) - 8);
-		assert(bech32_decode(hrp_out, data_out, &data_out_len, bech32_str, size) == benc);
+		assert(bech32_decode(hrp_out, data_out, &data_out_len,
+				     bech32_str, bech32_str_cap) == benc);
 		free(hrp_out);
 		free(data_out);
 	}
