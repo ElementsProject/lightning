@@ -16,7 +16,7 @@ typemap = {
     'number': 'double',
     'pubkey': 'bytes',
     'short_channel_id': 'string',
-    'signature': 'bytes',
+    'signature': 'string',
     'string': 'string',
     'txid': 'bytes',
     'u8': 'uint32',  # Yep, this is the smallest integer type in grpc...
