@@ -257,6 +257,10 @@ def fundamental_types() -> List[FieldType]:
     # * `u16`: a 2 byte unsigned integer
     # * `u32`: a 4 byte unsigned integer
     # * `u64`: an 8 byte unsigned integer
+    # * `s8`: an 8-bit signed integer
+    # * `s16`: a 2 byte signed integer
+    # * `s32`: a 4 byte signed integer
+    # * `s64`: an 8 byte signed integer
     #
     # Inside TLV records which contain a single value, leading zeros in
     # integers can be omitted:
@@ -284,6 +288,10 @@ def fundamental_types() -> List[FieldType]:
             IntegerType('u16', 2, '>H'),
             IntegerType('u32', 4, '>I'),
             IntegerType('u64', 8, '>Q'),
+            IntegerType('s8', 1, 'b'),
+            IntegerType('s16', 2, '>h'),
+            IntegerType('s32', 4, '>i'),
+            IntegerType('s64', 8, '>q'),
             TruncatedIntType('tu16', 2),
             TruncatedIntType('tu32', 4),
             TruncatedIntType('tu64', 8),

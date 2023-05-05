@@ -39,6 +39,26 @@ void towire_u64(u8 **pptr, u64 v)
 	towire(pptr, &l, sizeof(l));
 }
 
+void towire_s8(u8 **pptr, s8 v)
+{
+	towire_u8(pptr, (u8)v);
+}
+
+void towire_s32(u8 **pptr, s32 v)
+{
+	towire_u32(pptr, (u32)v);
+}
+
+void towire_s16(u8 **pptr, s16 v)
+{
+	towire_u16(pptr, (u16)v);
+}
+
+void towire_s64(u8 **pptr, s64 v)
+{
+	towire_u64(pptr, (u64)v);
+}
+
 static void towire_tlv_uint(u8 **pptr, u64 v)
 {
 	u8 bytes[8];

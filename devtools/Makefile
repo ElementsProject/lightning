@@ -8,7 +8,7 @@ DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(DEVTOOLS_TOOL_SRC)
-ALL_C_HEADERS += 
+ALL_C_HEADERS +=
 ALL_PROGRAMS += $(DEVTOOLS)
 
 DEVTOOLS_COMMON_OBJS :=				\
