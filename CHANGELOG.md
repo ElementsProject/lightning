@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [23.05rc2] - 2023-04-26
+## [23.05rc3] - 2023-05-05
 
 ### Added
 
@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
  - `pyln-client`: Improvements on the gossmap implementation ([#6012])
  - `hsmtool`: `makerune` new command to make a master rune for a node. ([#6097])
  - JSON-RPC: `setpsbtversion`: new command to aid debugging and compatibility ([#5898])
+ - `grpc`: Added mapping for `listpeerchannels`, `listclosedchannels`, `decode` and `decodepay` RPC methods ([#6229])
 
 
 ### Changed
@@ -36,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
  - Protocol: Allow slight overpaying, even with MPP, as spec now recommends. ([#6138])
  - `msggen`: The generated interfaces `cln-rpc` anc `cln-grpc` can now work with a range of versions rather than having to match the CLN version ([#6142])
  - `grpc`: The mTLS private keys are no longer group-readable ([#6075])
+
 
 ### Deprecated
 
@@ -100,6 +102,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6115]: https://github.com/ElementsProject/lightning/pull/6115
 [#6109]: https://github.com/ElementsProject/lightning/pull/6109
 [#6158]: https://github.com/ElementsProject/lightning/pull/6158
+[#6184]: https://github.com/ElementsProject/lightning/pull/6184
+[#6229]: https://github.com/ElementsProject/lightning/pull/6229
 
 
 ## [23.02.2] - 2023-03-14: "CBDC Backing Layer III"
@@ -2383,6 +2387,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[23.05]: https://github.com/ElementsProject/lightning/releases/tag/v23.05
 [23.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02.1
 [23.02]: https://github.com/ElementsProject/lightning/releases/tag/v23.02
 [0.12.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0
