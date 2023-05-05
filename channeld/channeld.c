@@ -3066,13 +3066,13 @@ static void update_view_from_inflights(struct peer *peer)
 			peer->channel->view[LOCAL].lowest_splice_amnt[LOCAL] = splice_amnt;
 
 		if (splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE])
-			peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = splice_amnt;
+			peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL] = splice_amnt;
 
 		if (remote_splice_amnt < peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE])
 			peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 
 		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
-			peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL] = remote_splice_amnt;
+			peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 	}
 }
 

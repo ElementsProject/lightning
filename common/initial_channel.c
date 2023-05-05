@@ -167,14 +167,14 @@ char *channel_update_funding(struct channel *channel,
 			       " balance negative.");
 
 	channel->view[LOCAL].owed[LOCAL].millisatoshis += splice_amnt * 1000;
-	channel->view[REMOTE].owed[REMOTE].millisatoshis += splice_amnt * 1000;
+	channel->view[REMOTE].owed[LOCAL].millisatoshis += splice_amnt * 1000;
 
 	if (remote_splice_amnt > channel->view[LOCAL].owed[REMOTE].millisatoshis)
 		return tal_fmt(tmpctx, "Channel funding update would make"
 			       " remote balance negative.");
 
 	channel->view[LOCAL].owed[REMOTE].millisatoshis += remote_splice_amnt * 1000;
-	channel->view[REMOTE].owed[LOCAL].millisatoshis += remote_splice_amnt * 1000;
+	channel->view[REMOTE].owed[REMOTE].millisatoshis += remote_splice_amnt * 1000;
 
 	return NULL;
 }

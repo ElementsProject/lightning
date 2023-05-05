@@ -16,8 +16,19 @@ struct fulfilled_htlc;
 
 /* View from each side */
 struct channel_view {
-	/* How much is owed to each side (includes pending changes) */
+	/* How much is owed to each side (includes pending changes).
+	 * The index of `owed` array is always relative to the machine
+	 * this code is running on, so REMOTE is always the other machine
+	 * and LOCAL is always this machine (regardless of view).
+	 *
+	 * For example:
+	 * view[REMOTE].owed[REMOTE] == view[LOCAL].owed[REMOTE]
+	 * view[REMOTE].owed[LOCAL] == view[LOCAL].owed[LOCAL]
+	 */
 	struct amount_msat owed[NUM_SIDES];
+	/* Lowest splice relative change amount of all candidate splices.
+	 * This will be 0 or negative -- never positive. */
+	s64 lowest_splice_amnt[NUM_SIDES];
 };
 
 struct channel {
