@@ -88,6 +88,30 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	return true;
 }
 
+bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
+{
+	char *end;
+	long long l;
+
+	l = strtoll(buffer + tok->start, &end, 0);
+	if (end != buffer + tok->end)
+		return false;
+
+	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
+	*num = l;
+
+	/* Check for overflow/underflow */
+	if ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
+		return false;
+
+	/* Check if the number did not fit in `s64` (in case `long long`
+	is a bigger type). */
+	if (*num != l)
+		return false;
+
+	return true;
+}
+
 bool json_str_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 {
 	jsmntok_t temp;

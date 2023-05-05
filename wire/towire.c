@@ -40,6 +40,12 @@ void towire_u64(u8 **pptr, u64 v)
 	towire(pptr, &l, sizeof(l));
 }
 
+void towire_s64(u8 **pptr, s64 v)
+{
+	be64 l = cpu_to_be64(v);
+	towire(pptr, &l, sizeof(l));
+}
+
 static void towire_tlv_uint(u8 **pptr, u64 v)
 {
 	u8 bytes[8];

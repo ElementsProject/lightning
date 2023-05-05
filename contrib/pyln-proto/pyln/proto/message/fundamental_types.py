@@ -284,6 +284,7 @@ def fundamental_types() -> List[FieldType]:
             IntegerType('u16', 2, '>H'),
             IntegerType('u32', 4, '>I'),
             IntegerType('u64', 8, '>Q'),
+            IntegerType('s64', 8, '>q'),
             TruncatedIntType('tu16', 2),
             TruncatedIntType('tu32', 4),
             TruncatedIntType('tu64', 8),

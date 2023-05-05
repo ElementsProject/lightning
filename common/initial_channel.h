@@ -34,9 +34,6 @@ struct channel {
 	/* satoshis in from commitment tx */
 	struct amount_sat funding_sats;
 
-	/* Our portion of funding_sats at start */
-	struct amount_msat starting_local_msats;
-
 	/* confirmations needed for locking funding */
 	u32 minimum_depth;
 
@@ -147,8 +144,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 char *channel_update_funding(struct channel *channel,
 			    const struct bitcoin_outpoint *funding,
 			    struct amount_sat funding_sats,
-			    struct amount_msat old_local_funding_msats,
-			    struct amount_sat new_local_funding_sats);
+			    s64 splice_amnt);
 
 /**
  * channel_feerate: Get fee rate for this side of channel.

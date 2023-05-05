@@ -133,7 +133,8 @@ new_inflight(struct channel *channel,
 	     const u32 lease_chan_max_msat, const u16 lease_chan_max_ppt,
 	     const u32 lease_blockheight_start,
 	     const struct amount_msat lease_fee,
-	     const struct amount_sat lease_amt)
+	     const struct amount_sat lease_amt,
+	     s64 splice_amnt)
 {
 	struct wally_psbt *last_tx_psbt_clone;
 	struct channel_inflight *inflight
@@ -145,6 +146,7 @@ new_inflight(struct channel *channel,
 	funding->total_funds = total_funds;
 	funding->feerate = funding_feerate;
 	funding->our_funds = our_funds;
+	funding->splice_amnt = splice_amnt;
 
 	inflight->funding = funding;
 	inflight->channel = channel;

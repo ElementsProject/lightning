@@ -25,6 +25,9 @@ struct funding_info {
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;
+
+	/* Relative splicing balance change */
+	s64 splice_amnt;
 };
 
 struct channel_inflight {
@@ -363,7 +366,8 @@ new_inflight(struct channel *channel,
 	     const u16 lease_chan_max_ppt,
 	     const u32 lease_blockheight_start,
 	     const struct amount_msat lease_fee,
-	     const struct amount_sat lease_amt);
+	     const struct amount_sat lease_amt,
+	     s64 splice_amnt);
 
 /* Given a txid, find an inflight channel stub. Returns NULL if none found */
 struct channel_inflight *channel_inflight_find(struct channel *channel,

@@ -8,7 +8,7 @@
 struct inflight {
 	struct bitcoin_outpoint outpoint;
 	struct amount_sat amnt;
-	struct amount_sat local_funding;
+	s64 splice_amnt;
 };
 
 #endif /* LIGHTNING_CHANNELD_INFLIGHT_H */

@@ -25,6 +25,7 @@ int db_col_int(struct db_stmt *stmt, const char *colname);
 void db_bind_null(struct db_stmt *stmt, int pos);
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
+void db_bind_s64(struct db_stmt *stmt, int pos, s64 val);
 void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len);
 void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
 void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p);
@@ -64,6 +65,7 @@ void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr);
 size_t db_query_colnum(const struct db_stmt *stmt, const char *colname);
 
 u64 db_col_u64(struct db_stmt *stmt, const char *colname);
+u64 db_col_s64(struct db_stmt *stmt, const char *colname);
 size_t db_col_bytes(struct db_stmt *stmt, const char *colname);
 const void* db_col_blob(struct db_stmt *stmt, const char *colname);
 char *db_col_strdup(const tal_t *ctx,

@@ -89,6 +89,15 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	return be64_to_cpu(ret);
 }
 
+s64 fromwire_s64(const u8 **cursor, size_t *max)
+{
+	be64 ret;
+
+	if (!fromwire(cursor, max, &ret, sizeof(ret)))
+		return 0;
+	return be64_to_cpu(ret);
+}
+
 static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
 {
 	u8 bytes[8];

@@ -74,6 +74,12 @@ void db_bind_u64(struct db_stmt *stmt, int pos, u64 val)
 	stmt->bindings[pos].v.u64 = val;
 }
 
+void db_bind_s64(struct db_stmt *stmt, int pos, s64 val)
+{
+	u64 uval = val;
+	db_bind_u64(stmt, pos, uval);
+}
+
 void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len)
 {
 	assert(pos < tal_count(stmt->bindings));
@@ -268,6 +274,11 @@ u64 db_col_u64(struct db_stmt *stmt, const char *colname)
 		return 0;
 
 	return stmt->db->config->column_u64_fn(stmt, col);
+}
+
+u64 db_col_s64(struct db_stmt *stmt, const char *colname)
+{
+	return db_col_u64(stmt, colname);
 }
 
 int db_col_int_or_default(struct db_stmt *stmt, const char *colname, int def)

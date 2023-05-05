@@ -37,6 +37,14 @@ struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat)
 	return sat;
 }
 
+struct amount_msat amount_msat_to_sat_remainder(struct amount_msat msat)
+{
+	struct amount_msat res;
+
+	res.millisatoshis = msat.millisatoshis % MSAT_PER_SAT;
+	return res;
+}
+
 /* Different formatting by amounts: btc, sat and msat */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
 				struct amount_msat msat,

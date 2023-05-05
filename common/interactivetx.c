@@ -304,12 +304,42 @@ tx_complete:
 	return NULL;
 }
 
-bool interactivetx_has_changes(struct interactivetx_context *ictx,
-			       struct wally_psbt *next_psbt)
+static struct psbt_changeset *get_changes(const tal_t *ctx,
+					  struct interactivetx_context *ictx,
+					  struct wally_psbt *next_psbt)
 {
+	u64 serial_id;
 	struct psbt_changeset *set = psbt_get_changeset(tmpctx,
 							ictx->current_psbt,
 							next_psbt);
+
+	/* Remove duplicate serial_ids from the change set. */
+	for (int i = 0; i < tal_count(set->added_ins); i++) {
+		struct bitcoin_outpoint point;
+		wally_psbt_input_get_outpoint(&set->added_ins[i].input, &point);
+		if (psbt_get_serial_id(&set->added_ins[i].input.unknowns,
+				       &serial_id)) {
+			if (psbt_find_serial_input(ictx->current_psbt,
+						   serial_id) != -1)
+				tal_arr_remove(&set->added_ins, i--);
+			else  if (psbt_has_input(ictx->current_psbt, &point))
+				tal_arr_remove(&set->added_ins, i--);
+		}
+	}
+	for (int i = 0; i < tal_count(set->added_outs); i++)
+		if (psbt_get_serial_id(&set->added_outs[i].output.unknowns,
+				       &serial_id))
+			if (psbt_find_serial_output(ictx->current_psbt,
+						    serial_id) != -1)
+				tal_arr_remove(&set->added_outs, i--);
+
+	return set;
+}
+
+bool interactivetx_has_changes(struct interactivetx_context *ictx,
+			       struct wally_psbt *next_psbt)
+{
+	struct psbt_changeset *set = get_changes(tmpctx, ictx, next_psbt);
 
 	if (!set)
 		return false;
@@ -341,9 +371,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 	if (!next_psbt)
 		next_psbt = ictx->current_psbt;
 
-	ictx->change_set = psbt_get_changeset(ictx,
-					      ictx->current_psbt,
-					      next_psbt);
+	ictx->change_set = get_changes(ctx, ictx, next_psbt);
 
 	/* If current_psbt and next_psbt are the same, dont double free it!
 	 * Otherwise we advance `current_psbt` to `next_psbt` and begin
@@ -431,7 +459,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			 *   the transaction
 			 */
 			if (psbt_find_serial_input(ictx->current_psbt, serial_id) != -1)
-				return tal_fmt(ctx, "Duplicate serial_id rcvd."
+				return tal_fmt(ctx, "Duplicate serial_id rcvd"
 					       " %"PRIu64, serial_id);
 
 			/* Convert tx_bytes to a tx! */

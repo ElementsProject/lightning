@@ -818,6 +818,9 @@ static void json_add_channel(struct lightningd *ld,
 			json_add_amount_sat_msat(response,
 						 "our_funding_msat",
 						 inflight->funding->our_funds);
+			json_add_s64(response,
+				     "splice_amount",
+				     inflight->funding->splice_amnt);
 			/* Add the expected commitment tx id also */
 			bitcoin_txid(inflight->last_tx, &txid);
 			json_add_txid(response, "scratch_txid", &txid);
@@ -1745,7 +1748,9 @@ void update_channel_from_inflight(struct lightningd *ld,
 
 	channel->funding = inflight->funding->outpoint;
 	channel->funding_sats = inflight->funding->total_funds;
+	
 	channel->our_funds = inflight->funding->our_funds;
+	channel->our_funds.satoshis += inflight->funding->splice_amnt;
 
 	/* Lease infos ! */
 	channel->lease_expiry = inflight->lease_expiry;

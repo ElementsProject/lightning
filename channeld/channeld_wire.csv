@@ -129,8 +129,7 @@ msgdata,channeld_got_channel_ready,alias,?short_channel_id,
 # When we receive funding_locked.
 msgtype,channeld_got_splice_locked,1119
 msgdata,channeld_got_splice_locked,funding_sats,amount_sat,
-msgdata,channeld_got_splice_locked,old_local_funding_msats,amount_msat,
-msgdata,channeld_got_splice_locked,new_local_funding_sats,amount_msat,
+msgdata,channeld_got_splice_locked,splice_amnt,s64,
 msgdata,channeld_got_splice_locked,locked_txid,bitcoin_txid,
 
 #include <common/penalty_base.h>
@@ -205,7 +204,7 @@ msgtype,channeld_got_revoke_reply,1122
 # master->channeld: hello, I'd like to start a channel splice open
 msgtype,channeld_splice_init,7204
 msgdata,channeld_splice_init,psbt,wally_psbt,
-msgdata,channeld_splice_init,funding_amount,amount_sat,
+msgdata,channeld_splice_init,relative_amount,s64,
 msgdata,channeld_splice_init,feerate_per_kw,u32,
 msgdata,channeld_splice_init,force_feerate,bool,
 
@@ -242,7 +241,7 @@ msgdata,channeld_splice_confirmed_signed,output_index,u32,
 
 # channeld->master: A feerate error has occured
 msgtype,channeld_splice_feerate_error,7215
-msgdata,channeld_splice_feerate_error,fee,amount_sat,
+msgdata,channeld_splice_feerate_error,fee,amount_msat,
 msgdata,channeld_splice_feerate_error,too_high,bool,
 
 # channeld->master: Add an inflight to the DB
@@ -251,7 +250,7 @@ msgdata,channeld_add_inflight,tx_id,bitcoin_txid,
 msgdata,channeld_add_inflight,tx_outnum,u32,
 msgdata,channeld_add_inflight,feerate,u32,
 msgdata,channeld_add_inflight,satoshis,amount_sat,
-msgdata,channeld_add_inflight,our_funding_satoshis,amount_sat,
+msgdata,channeld_add_inflight,splice_amount,s64,
 msgdata,channeld_add_inflight,psbt,wally_psbt,
 
 # master->channeld: Inflight saved successfully
@@ -263,8 +262,8 @@ msgdata,channeld_update_inflight,psbt,wally_psbt,
 
 # channeld->master: A funding error has occured
 msgtype,channeld_splice_funding_error,7220
-msgdata,channeld_splice_funding_error,funding,amount_sat,
-msgdata,channeld_splice_funding_error,req_funding,amount_sat,
+msgdata,channeld_splice_funding_error,funding,amount_msat,
+msgdata,channeld_splice_funding_error,req_funding,amount_msat,
 msgdata,channeld_splice_funding_error,opener_error,bool,
 
 # channeld->master: A splice state error has occured

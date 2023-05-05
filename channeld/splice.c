@@ -21,8 +21,8 @@ void init_splice(struct splice *splice)
 
 void reset_splice(struct splice *splice)
 {
-	splice->opener_funding = AMOUNT_SAT(0);
-	splice->accepter_funding = AMOUNT_SAT(0);
+	splice->opener_relative = 0;
+	splice->accepter_relative = 0;
 	splice->feerate_per_kw = 0;
 	splice->force_feerate = false;
 	splice->force_sign_first = false;

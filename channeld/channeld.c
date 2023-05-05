@@ -663,7 +663,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 	u8 *msg;
 	char *error;
 	struct inflight *inflight;
-	struct amount_msat local_funding_msat, starting_local_funding_msat;
 
 	/* If both sides haven't `splice_locked` we're not ready */
 	if (!peer->splice_state.locked_ready[LOCAL]
@@ -676,8 +675,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 "Duplicate splice_locked events detected");
 
 	peer->splice_state.await_commitment_succcess = true;
-	
-	starting_local_funding_msat = peer->channel->starting_local_msats;
 
 	/* This splice_locked event is used, so reset the flags to false */
 	peer->splice_state.locked_ready[LOCAL] = false;
@@ -710,17 +707,12 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 type_to_string(tmpctx, struct bitcoin_txid,
 		     		    &peer->splice_state.locked_txid));
 
-	if (!amount_sat_to_msat(&local_funding_msat, inflight->local_funding))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Uabled to convert local funding to msats.");
-
 	status_debug("mutual splice_locked, updating change from: %s",
 		     type_to_string(tmpctx, struct channel, peer->channel));
 
 	error = channel_update_funding(peer->channel, &inflight->outpoint,
 				       inflight->amnt,
-				       peer->channel->starting_local_msats,
-				       inflight->local_funding);
+				       inflight->splice_amnt);
 	if (error)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice lock unable to update funding. %s",
@@ -730,8 +722,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 		     type_to_string(tmpctx, struct channel, peer->channel));
 
 	msg = towire_channeld_got_splice_locked(NULL, inflight->amnt,
-						starting_local_funding_msat,
-						local_funding_msat,
+						inflight->splice_amnt,
 						&inflight->outpoint.txid);
 	wire_sync_write(MASTER_FD, take(msg));
 
@@ -839,8 +830,8 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 	 *     - MUST ignore `announcement_signatures` messages where
 	 *       `short_channel_id` matches the pre-splice short channel id. */
 	if (peer->splice_state.await_commitment_succcess
-	    && short_channel_id_eq(&remote_scid,
-			   	   &peer->splice_state.last_short_channel_id))
+	    && !short_channel_id_eq(&remote_scid,
+			   	    &peer->short_channel_ids[LOCAL]))
 		status_info("Ignoring stale announcement_signatures: expected"
 			    " %s, got %s",
 			    type_to_string(tmpctx, struct short_channel_id,
@@ -2751,29 +2742,20 @@ static struct amount_sat check_balances(struct peer *peer,
 					int chan_output_index,
 					int chan_input_index)
 {
-	struct amount_sat funding_amount, total_in, change_out,
-			  opener_in, opener_out,
-			  accepter_in, accepter_out,
-			  initiator_contrib, accepter_contrib,
-			  initiator_fee, accepter_fee,
+	struct amount_sat total_in, change_out,
 			  min_initiator_fee, min_accepter_fee,
-			  max_initiator_fee, max_accepter_fee;
+			  max_initiator_fee, max_accepter_fee,
+			  funding_amount_res;
+	struct amount_msat funding_amount,
+			   initiator_fee, accepter_fee,
+			   opener_in, opener_out,
+			   accepter_in, accepter_out;
 	bool opener = our_role == TX_INITIATOR;
 	u8 *msg;
 
 	total_in = AMOUNT_SAT(0);
-	/* DTODO: This method assumes any msats are rounded off and given to miners.
-	 * This could lead to fee calculations being off by 1 sat and allowing a tx
-	 * through that actually has too low a fee rate.
-	 * When relative splice amounts are implemented this should be redone. */
-	if (!amount_msat_to_sat(&opener_in,
-				peer->channel->view->owed[opener ? LOCAL : REMOTE]))
-		peer_failed_warn(peer->pps, &peer->channel_id, "Unable to"
-				 " calculate initial opener balance");
-	if (!amount_msat_to_sat(&accepter_in,
-				peer->channel->view->owed[opener ? REMOTE : LOCAL]))
-		peer_failed_warn(peer->pps, &peer->channel_id, "Unable to"
-				 " calculate initial accepter balance");
+	opener_in = peer->channel->view->owed[opener ? LOCAL : REMOTE];
+	accepter_in = peer->channel->view->owed[opener ? REMOTE : LOCAL];
 
 	for (int i = 0; i < psbt->num_inputs; i++) {
 		struct amount_sat amount = psbt_input_get_amount(psbt, i);
@@ -2792,15 +2774,18 @@ static struct amount_sat check_balances(struct peer *peer,
 					 " amounts");
 		/* amount_sat_add would have failed above so no need to check */
 		if (is_initiators(&psbt->inputs[i].unknowns))
-			res = amount_sat_add(&opener_in, opener_in, amount);
+			res = amount_msat_add_sat(&opener_in, opener_in, amount);
 		else
-			res = amount_sat_add(&accepter_in, accepter_in, amount);
+			res = amount_msat_add_sat(&accepter_in, accepter_in, amount);
 		assert(res);
 	}
 
 	change_out = AMOUNT_SAT(0);
-	opener_out = AMOUNT_SAT(0);
-	accepter_out = AMOUNT_SAT(0);
+
+	/* The outgoing channel funds start as current funds, will be modified
+	 * by the splice amount later on */
+	opener_out = peer->channel->view->owed[opener ? LOCAL : REMOTE];
+	accepter_out = peer->channel->view->owed[opener ? REMOTE : LOCAL];
 
 	for (int i = 0; i < psbt->num_outputs; i++) {
 		struct amount_sat amount = psbt_output_get_amount(psbt, i);
@@ -2813,18 +2798,107 @@ static struct amount_sat check_balances(struct peer *peer,
 					 "Unable to amount_sat_add output amounts");
 		/* amount_sat_add would have already failed above */
 		if (is_initiators(&psbt->outputs[i].unknowns))
-			res = amount_sat_add(&opener_out, opener_out, amount);
+			res = amount_msat_add_sat(&opener_out, opener_out, amount);
 		else
-			res = amount_sat_add(&accepter_out, accepter_out, amount);
+			res = amount_msat_add_sat(&accepter_out, accepter_out, amount);
 		assert(res);
 	}
 
 	/* Calculate total channel output amount */
-	if (!amount_sat_add(&funding_amount,
-			    peer->splice.opener_funding,
-			    peer->splice.accepter_funding))
+	if (!amount_msat_add(&funding_amount,
+			     peer->channel->view->owed[LOCAL],
+			     peer->channel->view->owed[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to calculate channel amount");
+				 "Unable to calculate starting channel amount");
+
+	/* Tasks:
+	 *   Add up total funding_amount
+	 *   Check opener_in - opener_out > opener_relative
+	 *    - refactor as opener_in > opener_relative + opener_out
+	 *      - remainder is the fee contribution
+	 *   Check accepter_in - accepter_out > accepter_relative
+	 *    - refactor as opener_in > opener_relative + opener_out
+	 *      - remainder is the fee contribution
+	 *
+	 *   Check if fee rate is too low anywhere
+	 *   Check if fee rate is too high locally
+	 *
+	 *   While we're, here, adjust the output counts by splice amount.
+	 */
+
+	if(peer->splice.opener_relative > 0) {
+		if (!amount_msat_add_sat(&funding_amount, funding_amount,
+					amount_sat((u64)peer->splice.opener_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add opener funding");
+		if (!amount_msat_add_sat(&opener_out, opener_out,
+					amount_sat((u64)peer->splice.opener_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add opener funding to out amnt.");
+	} else {
+		if (!amount_msat_sub_sat(&funding_amount, funding_amount,
+					amount_sat((u64)-peer->splice.opener_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to sub opener funding");
+		if (!amount_msat_sub_sat(&opener_out, opener_out,
+					amount_sat((u64)peer->splice.opener_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to sub opener funding from out amnt.");
+	}
+
+	if(peer->splice.accepter_relative > 0) {
+		if (!amount_msat_add_sat(&funding_amount, funding_amount,
+					amount_sat((u64)peer->splice.accepter_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add accepter funding");
+		if (!amount_msat_add_sat(&accepter_out, accepter_out,
+					amount_sat((u64)peer->splice.accepter_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add accepter funding to out amnt.");
+	} else {
+		if (!amount_msat_sub_sat(&funding_amount, funding_amount,
+					amount_sat((u64)-peer->splice.accepter_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to subtract accepter funding");
+		if (!amount_msat_sub_sat(&accepter_out, accepter_out,
+					amount_sat((u64)-peer->splice.accepter_relative)))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to sub accepter funding from out amnt.");	
+	}
+
+	if (amount_msat_less(opener_in, opener_out)) {
+		msg = towire_channeld_splice_funding_error(NULL, opener_in,
+							   opener_out,
+							   true);
+		wire_sync_write(MASTER_FD, take(msg));
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Initiator funding is less than commited"
+				 " amount. Initiator contributing %s but they"
+				 " committed to %s.",
+				 fmt_amount_msat(tmpctx, opener_out),
+				 fmt_amount_msat(tmpctx, opener_in));
+	}
+
+	if (!amount_msat_sub(&initiator_fee, opener_in, opener_out))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "amount_sat_less / amount_sat_sub mismtach");
+
+	if (amount_msat_less(accepter_in, accepter_out)) {
+		msg = towire_channeld_splice_funding_error(NULL, opener_in,
+							   opener_out,
+							   true);
+		wire_sync_write(MASTER_FD, take(msg));
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Accepter funding is less than commited"
+				 " amount. Accepter contributing %s but they"
+				 " committed to %s.",
+				 fmt_amount_msat(tmpctx, opener_out),
+				 fmt_amount_msat(tmpctx, opener_in));
+	}
+
+	if (!amount_msat_sub(&accepter_fee, accepter_in, accepter_out))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "amount_sat_less / amount_sat_sub mismtach");
 
 	min_initiator_fee = amount_tx_fee(peer->splice.feerate_per_kw,
 					  calc_weight(TX_INITIATOR, psbt));
@@ -2839,54 +2913,8 @@ static struct amount_sat check_balances(struct peer *peer,
 	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt));
 
-	/* Calculate intiator contribution */
-	if (!amount_sat_sub(&initiator_contrib, opener_in, opener_out))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to calculate initiator contirubtion");
-	/* An extra check for cleaner log messages */
-	if (amount_sat_less(initiator_contrib, peer->splice.opener_funding)) {
-		msg = towire_channeld_splice_funding_error(NULL, initiator_contrib,
-							   peer->splice.opener_funding,
-							   true);
-		wire_sync_write(MASTER_FD, take(msg));
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Initiator funding is less than commited "
-				 "amount. Initiator adding %s and taking %s out "
-				 " and they committed to %s.",
-				 fmt_amount_sat(tmpctx, opener_in),
-				 fmt_amount_sat(tmpctx, opener_out),
-				 fmt_amount_sat(tmpctx, peer->splice.opener_funding));
-	}
-	if (!amount_sat_sub(&initiator_fee, initiator_contrib,
-			    peer->splice.opener_funding))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to calculate initiator fee.");
-
-	/* Calculate accepter contribution */
-	if (!amount_sat_sub(&accepter_contrib, accepter_in, accepter_out))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to calculate accepter contirubtion");
-	/* An extra check for cleaner log messages */
-	if (amount_sat_less(accepter_contrib, peer->splice.accepter_funding)) {
-		msg = towire_channeld_splice_funding_error(NULL, accepter_contrib,
-							   peer->splice.accepter_funding,
-							   false);
-		wire_sync_write(MASTER_FD, take(msg));
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Accepter funding is less than commited "
-				 "amount. Accepter adding %s and taking %s out "
-				 " and they committed to %s.",
-				 fmt_amount_sat(tmpctx, accepter_in),
-				 fmt_amount_sat(tmpctx, accepter_out),
-				 fmt_amount_sat(tmpctx, peer->splice.accepter_funding));
-	}
-	if (!amount_sat_sub(&accepter_fee, accepter_contrib,
-			    peer->splice.accepter_funding))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to calculate accepter fee.");
-
 	/* Check initiator fee */
-	if (amount_sat_less(initiator_fee, min_initiator_fee)) {
+	if (amount_msat_less_sat(initiator_fee, min_initiator_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2894,13 +2922,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Our" : "Your",
-				 type_to_string(tmpctx, struct amount_sat,
+				 type_to_string(tmpctx, struct amount_msat,
 				 		&initiator_fee),
 				 type_to_string(tmpctx, struct amount_sat,
 				 		&min_initiator_fee));
 	}
 	if (!peer->splice.force_feerate && opener
-		&& amount_sat_greater(initiator_fee, max_initiator_fee)) {
+		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2908,13 +2936,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
-				 type_to_string(tmpctx, struct amount_sat,
+				 type_to_string(tmpctx, struct amount_msat,
 				 		&initiator_fee),
 				 type_to_string(tmpctx, struct amount_sat,
 				 		&max_initiator_fee));
 	}
 	/* Check accepter fee */
-	if (amount_sat_less(accepter_fee, min_accepter_fee)) {
+	if (amount_msat_less_sat(accepter_fee, min_accepter_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2922,13 +2950,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Your" : "Our",
-				 type_to_string(tmpctx, struct amount_sat,
+				 type_to_string(tmpctx, struct amount_msat,
 				 		&accepter_fee),
 				 type_to_string(tmpctx, struct amount_sat,
 				 		&min_accepter_fee));
 	}
 	if (!peer->splice.force_feerate && !opener
-		&& amount_sat_greater(accepter_fee, max_accepter_fee)) {
+		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -2936,7 +2964,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
-				 type_to_string(tmpctx, struct amount_sat,
+				 type_to_string(tmpctx, struct amount_msat,
 				 		&accepter_fee),
 				 type_to_string(tmpctx, struct amount_sat,
 				 		&max_accepter_fee));
@@ -2970,7 +2998,12 @@ static struct amount_sat check_balances(struct peer *peer,
 	 * New reserve req = 1010 * 0.01 = 10 (round down from 10.1)
 	 * */
 
-	return funding_amount;
+	if (!amount_msat_to_sat(&funding_amount_res, funding_amount))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "splice error: msat of boths sides should always"
+			      " add up to a full sat.");
+
+	return funding_amount_res;
 }
 
 static int find_channel_funding_input(struct wally_psbt *psbt,
@@ -3029,12 +3062,14 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_splice(inmsg,
 			     &channel_id,
 			     &genesis_blockhash,
-			     &peer->splice.opener_funding,
+			     &peer->splice.opener_relative,
 			     &funding_feerate_perkw,
 			     &locktime,
 			     &splice_remote_pubkey))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad wire_splice %s", tal_hex(tmpctx, inmsg));
+
+	peer->splice_state.await_commitment_succcess = false;
 
 	if (!is_stfu_active(peer))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3053,13 +3088,17 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice doesnt support changing pubkeys");
 
+	if (funding_feerate_perkw < peer->feerate_min)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Splice feerate_perkw is too low");
+
 	/* TODO: Add plugin hook for user to adjust accepter amount */
-	peer->splice.accepter_funding = amount_msat_to_sat_round_down(peer->channel->view->owed[LOCAL]);
+	peer->splice.accepter_relative = 0;
 
 	msg = towire_splice_ack(tmpctx,
 				&peer->channel_id,
 				&chainparams->genesis_blockhash,
-				peer->splice.accepter_funding,
+				peer->splice.accepter_relative,
 				&peer->channel->funding_pubkey[LOCAL]);
 
 	peer->splice.mode = true;
@@ -3122,7 +3161,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 					   outpoint.n,
 					   funding_feerate_perkw,
 					   both_amount,
-					   peer->splice.accepter_funding,
+					   peer->splice.accepter_relative,
 					   ictx->current_psbt);
 
 	master_wait_sync_reply(tmpctx, peer, take(msg),
@@ -3132,7 +3171,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	new_inflight.outpoint = outpoint;
 	new_inflight.amnt = both_amount;
-	new_inflight.local_funding = peer->splice.accepter_funding;
+	new_inflight.splice_amnt = peer->splice.accepter_relative;
 
 	if (peer->splice_state.inflights)
 		tal_arr_expand(&peer->splice_state.inflights, new_inflight);
@@ -3406,7 +3445,7 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_splice_ack(inmsg,
 				 &channel_id,
 				 &genesis_blockhash,
-				 &peer->splice.accepter_funding,
+				 &peer->splice.accepter_relative,
 				 &splice_remote_pubkey))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad wire_splice_ack %s", tal_hex(tmpctx, inmsg));
@@ -3576,7 +3615,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 					      chan_output_index,
 					      peer->splice.feerate_per_kw,
 					      amount_sat(new_chan_outpoint->amount),
-					      peer->splice.opener_funding,
+					      peer->splice.opener_relative,
 					      ictx->current_psbt);
 
 	master_wait_sync_reply(tmpctx, peer, take(outmsg),
@@ -3586,7 +3625,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 		  NULL);
 	new_inflight.outpoint.n = chan_output_index;
 	new_inflight.amnt = amount_sat(new_chan_outpoint->amount);
-	new_inflight.local_funding = peer->splice.opener_funding;
+	new_inflight.splice_amnt = peer->splice.opener_relative;
 
 	if (peer->splice_state.inflights)
 		tal_arr_expand(&peer->splice_state.inflights, new_inflight);
@@ -3928,10 +3967,11 @@ static void handle_splice_stfu_success(struct peer *peer)
 	u8 *msg = towire_splice(tmpctx,
 				&peer->channel_id,
 				&chainparams->genesis_blockhash,
-				peer->splice.opener_funding,
+				peer->splice.opener_relative,
 				peer->splice.feerate_per_kw,
 				peer->splice.current_psbt->fallback_locktime,
 				&peer->channel->funding_pubkey[LOCAL]);
+	peer->splice_state.await_commitment_succcess = false;
 	peer_write(peer->pps, take(msg));
 }
 
@@ -3945,7 +3985,7 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 	peer->splice.current_psbt = tal_free(peer->splice.current_psbt);
 
 	if (!fromwire_channeld_splice_init(peer, inmsg, &peer->splice.current_psbt,
-					   &peer->splice.opener_funding,
+					   &peer->splice.opener_relative,
 					   &peer->splice.feerate_per_kw,
 					   &peer->splice.force_feerate))
 		master_badmsg(WIRE_CHANNELD_SPLICE_INIT, inmsg);
@@ -3968,6 +4008,17 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 		msg = towire_channeld_splice_state_error(NULL, "Can't begin a"
 							 " splice while already"
 							 " doing a splice.");
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	if (peer->splice.feerate_per_kw < peer->feerate_min) {
+		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
+							 "Feerate %u is too"
+							 " low. Lower than"
+							 " channel feerate_min"
+							 " %u",
+							 peer->splice.feerate_per_kw,
+							 peer->feerate_min));
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}

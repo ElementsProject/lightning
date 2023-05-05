@@ -51,6 +51,17 @@ bool printwire_u64(const char *fieldname, const u8 **cursor, size_t *plen)
 	return true;
 }
 
+bool printwire_s64(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	s64 v = fromwire_s64(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED s64 %s**\n", fieldname);
+		return false;
+	}
+	printf("%"PRIu64"\n", v);
+	return true;
+}
+
 bool printwire_tu16(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	u16 v = fromwire_tu16(cursor, plen);

@@ -72,6 +72,9 @@ void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 /* Generated stub for towire_u64 */
 void towire_u64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
 { fprintf(stderr, "towire_u64 called!\n"); abort(); }
+/* Generated stub for towire_s64 */
+void towire_s64(u8 **pptr UNNEEDED, s64 v UNNEEDED)
+{ fprintf(stderr, "towire_s64 called!\n"); abort(); }
 /* Generated stub for towire_u8 */
 void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
 { fprintf(stderr, "towire_u8 called!\n"); abort(); }

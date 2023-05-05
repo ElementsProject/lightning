@@ -35,10 +35,10 @@ void init_splice_state(struct splice_state *splice_state);
 /* An active splice negotiation. Born when splice beings and dies when a splice
  * negotation has finished */
 struct splice {
-	/* The opener side's share of post splice channel balance */
-	struct amount_sat opener_funding;
-	/* The accepter side's share of post splice channel balance */
-	struct amount_sat accepter_funding;
+	/* The opener side's relative balance change */
+	s64 opener_relative;
+	/* The accepter side's relative balance change */
+	s64 accepter_relative;
 	/* The feerate for the splice (on set for the initiator) */
 	u32 feerate_per_kw;
 	/* If the feerate is higher than max, don't abort the splice */

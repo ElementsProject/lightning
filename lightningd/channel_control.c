@@ -159,7 +159,7 @@ static void handle_splice_funding_error(struct lightningd *ld,
 					 const u8 *msg)
 {
 	struct splice_command *cc;
-	struct amount_sat funding, req_funding;
+	struct amount_msat funding, req_funding;
 	bool opener_error;
 
 	if (!fromwire_channeld_splice_funding_error(msg, &funding,
@@ -179,8 +179,8 @@ static void handle_splice_funding_error(struct lightningd *ld,
 				tal_fmt(tmpctx,
 					"%s provided %s but committed to %s.",
 					opener_error ? "You" : "Peer",
-					fmt_amount_sat(tmpctx, funding),
-					fmt_amount_sat(tmpctx, req_funding)));
+					fmt_amount_msat(tmpctx, funding),
+					fmt_amount_msat(tmpctx, req_funding)));
 
 		was_pending(command_success(cc->cmd, response));
 
@@ -192,8 +192,8 @@ static void handle_splice_funding_error(struct lightningd *ld,
 				 "Splice funding too low. %s provided but %s"
 				 " commited to %s",
 				 opener_error ? "peer" : "you",
-				 fmt_amount_sat(tmpctx, funding),
-				 fmt_amount_sat(tmpctx, req_funding));
+				 fmt_amount_msat(tmpctx, funding),
+				 fmt_amount_msat(tmpctx, req_funding));
 }
 
 static void handle_splice_state_error(struct lightningd *ld,
@@ -231,7 +231,7 @@ static void handle_splice_feerate_error(struct lightningd *ld,
 					 const u8 *msg)
 {
 	struct splice_command *cc;
-	struct amount_sat fee;
+	struct amount_msat fee;
 	bool too_high;
 
 	if (!fromwire_channeld_splice_feerate_error(msg, &fee, &too_high)) {
@@ -250,12 +250,12 @@ static void handle_splice_feerate_error(struct lightningd *ld,
 			json_add_string(response, "error",
 					tal_fmt(tmpctx, "Feerate too high. Do you "
 						"really want to spend %s on fees?",
-						fmt_amount_sat(tmpctx, fee)));
+						fmt_amount_msat(tmpctx, fee)));
 		else
 			json_add_string(response, "error",
 					tal_fmt(tmpctx, "Feerate too low. Your "
 						"funding only provided %s in fees",
-						fmt_amount_sat(tmpctx, fee)));
+						fmt_amount_msat(tmpctx, fee)));
 
 		was_pending(command_success(cc->cmd, response));
 
@@ -266,7 +266,7 @@ static void handle_splice_feerate_error(struct lightningd *ld,
 		log_peer_unusual(ld->log, &channel->peer->id, "Peer gave us a"
 				 " splice pkg with too low of feerate (fee was"
 				 " %s), we rejected it.",
-				 fmt_amount_sat(tmpctx, fee));
+				 fmt_amount_msat(tmpctx, fee));
 }
 
 /* When channeld finishes processing the `splice_init` command, this is called */
@@ -545,7 +545,7 @@ static void handle_add_inflight(struct lightningd *ld,
 	struct bitcoin_outpoint outpoint;
 	u32 feerate;
 	struct amount_sat satoshis;
-	struct amount_sat our_funding_satoshis;
+	s64 splice_amnt;
 	struct wally_psbt *psbt;
 	struct channel_inflight *inflight;
 	struct bitcoin_signature last_sig;
@@ -556,7 +556,7 @@ static void handle_add_inflight(struct lightningd *ld,
 					    &outpoint.n,
 					    &feerate,
 					    &satoshis,
-					    &our_funding_satoshis,
+					    &splice_amnt,
 					    &psbt)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
@@ -570,7 +570,7 @@ static void handle_add_inflight(struct lightningd *ld,
 				&outpoint,
 				feerate,
 				satoshis,
-				our_funding_satoshis,
+				channel->our_funds,
 				psbt,
 				NULL,
 				last_sig,
@@ -580,7 +580,8 @@ static void handle_add_inflight(struct lightningd *ld,
 				channel->lease_chan_max_ppt,
 				0,
 				AMOUNT_MSAT(0),
-				AMOUNT_SAT(0));
+				AMOUNT_SAT(0),
+				splice_amnt);
 
 	log_debug(channel->log, "lightningd adding inflight with txid %s",
 		  type_to_string(tmpctx, struct bitcoin_txid,
@@ -757,15 +758,12 @@ bool channel_on_channel_ready(struct channel *channel,
 static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 {
 	struct amount_sat funding_sats;
-	struct amount_msat old_local_funding_msats, new_local_funding_msats;
-	struct amount_msat local_change;
+	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
-	bool local_negative;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
-						 &old_local_funding_msats,
-						 &new_local_funding_msats,
+						 &splice_amnt,
 						 &locked_txid)) {
 		channel_internal_error(channel,
 				       "bad channel_got_funding_locked %s",
@@ -773,51 +771,9 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	local_negative = amount_msat_greater(old_local_funding_msats,
-					     new_local_funding_msats);
-
-	if (local_negative) {
-		if (!amount_msat_sub(&local_change, old_local_funding_msats,
-				      new_local_funding_msats))
-			channel_internal_error(channel, "Unable to calculate"
-					       " local splice funding change");
-		if (!amount_msat_sub(&channel->our_msat,
-				     channel->our_msat,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "our_msat");
-		if (!amount_msat_sub(&channel->msat_to_us_min,
-				     channel->msat_to_us_min,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "msat_to_us_min");
-		if (!amount_msat_sub(&channel->msat_to_us_max,
-				     channel->msat_to_us_max,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "msat_to_us_max");
-	}
-	else {
-		if (!amount_msat_sub(&local_change, new_local_funding_msats,
-				      old_local_funding_msats))
-			channel_internal_error(channel, "Unable to calculate"
-					       " local splice funding change");
-		if (!amount_msat_add(&channel->our_msat,
-				     channel->our_msat,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "our_msat");
-		if (!amount_msat_add(&channel->msat_to_us_min,
-				     channel->msat_to_us_min,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "msat_to_us_min");
-		if (!amount_msat_add(&channel->msat_to_us_max,
-				     channel->msat_to_us_max,
-				     local_change))
-			channel_internal_error(channel, "Unable to update "
-					       "msat_to_us_max");
-	}
+	channel->our_msat.millisatoshis += splice_amnt * 1000;
+	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000;
+	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000;
 
 	inflight = channel_inflight_find(channel, &locked_txid);
 	if(!inflight)
@@ -1379,7 +1335,7 @@ bool peer_start_channeld(struct channel *channel,
 		struct inflight infcopy;
 		infcopy.outpoint = inflight->funding->outpoint;
 		infcopy.amnt = inflight->funding->total_funds;
-		infcopy.local_funding = inflight->funding->our_funds;
+		infcopy.splice_amnt = inflight->funding->splice_amnt;
 		tal_arr_expand(&inflights, infcopy);
 	}
 
@@ -1863,14 +1819,14 @@ static struct command_result *json_splice_init(struct command *cmd,
 	struct command_result *error;
 	struct splice_command *cc;
 	struct wally_psbt *initialpsbt;
-	struct amount_sat *amount;
+	s64 *relative_amount;
 	u32 *feerate_per_kw;
 	bool *force_feerate;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		  p_req("channel_id", param_channel_id, &cid),
-		  p_req("amount", param_sat, &amount),
+		  p_req("relative_amount", param_s64, &relative_amount),
 		  p_opt("initialpsbt", param_psbt, &initialpsbt),
 		  p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
 		  p_opt_def("force_feerate", param_bool, &force_feerate, false),
@@ -1908,7 +1864,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 	cc->cmd = tal_steal(cc, cmd);
 	cc->channel = channel;
 
-	msg = towire_channeld_splice_init(NULL, initialpsbt, *amount,
+	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
 					  *feerate_per_kw, *force_feerate);
 
 	subd_send_msg(channel->owner, take(msg));
@@ -2012,7 +1968,7 @@ static const struct json_command splice_init_command = {
 	"splice_init",
 	"channels",
 	json_splice_init,
-	"Init a channel splice to {channel_id} for {amount} satoshis with {initialpsbt}. "
+	"Init a channel splice to {channel_id} for {relative_amount} satoshis with {initialpsbt}. "
 	"Returns updated {psbt} with (partial) contributions from peer"
 };
 AUTODATA(json_command, &splice_init_command);
