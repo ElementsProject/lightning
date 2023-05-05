@@ -83,7 +83,7 @@ typedef enum {
  *  In: hrp :     Pointer to the null-terminated human readable part.
  *      data :    Pointer to an array of 5-bit values.
  *      data_len: Length of the data array.
- *      max_input_len: Maximum valid length of input (90 for segwit usage).
+ *      max_output_len: Maximum valid length of output (90 for segwit usage).
  *      enc:      Which encoding to use (BECH32_ENCODING_BECH32{,M}).
  *  Returns 1 if successful.
  */
@@ -92,7 +92,7 @@ int bech32_encode(
     const char *hrp,
     const uint8_t *data,
     size_t data_len,
-    size_t max_input_len,
+    size_t max_output_len,
     bech32_encoding enc
 );
 
