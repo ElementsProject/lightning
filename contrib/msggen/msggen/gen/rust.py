@@ -25,7 +25,7 @@ typemap = {
     'number': 'f64',
     'pubkey': 'PublicKey',
     'short_channel_id': 'ShortChannelId',
-    'signature': 'Vec<u8>',
+    'signature': 'String',
     'string': 'String',
     'txid': 'String',
     'float': 'f32',

@@ -1285,7 +1285,7 @@ message DecodepayResponse {
 	bytes payee = 4;
 	optional Amount amount_msat = 5;
 	bytes payment_hash = 6;
-	bytes signature = 7;
+	string signature = 7;
 	optional string description = 8;
 	optional bytes description_hash = 9;
 	uint32 min_final_cltv_expiry = 10;
