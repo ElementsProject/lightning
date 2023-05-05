@@ -51,6 +51,50 @@ bool printwire_u64(const char *fieldname, const u8 **cursor, size_t *plen)
 	return true;
 }
 
+bool printwire_s8(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	s8 v = fromwire_s8(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED s64 %s**\n", fieldname);
+		return false;
+	}
+	printf("%d\n", v);
+	return true;
+}
+
+bool printwire_s16(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	s16 v = fromwire_s16(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED s64 %s**\n", fieldname);
+		return false;
+	}
+	printf("%d\n", v);
+	return true;
+}
+
+bool printwire_s32(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	s32 v = fromwire_s32(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED s64 %s**\n", fieldname);
+		return false;
+	}
+	printf("%d\n", v);
+	return true;
+}
+
+bool printwire_s64(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	s64 v = fromwire_s64(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED s64 %s**\n", fieldname);
+		return false;
+	}
+	printf("%ld\n", v);
+	return true;
+}
+
 bool printwire_tu16(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	u16 v = fromwire_tu16(cursor, plen);

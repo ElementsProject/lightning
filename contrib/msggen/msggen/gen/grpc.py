@@ -22,6 +22,10 @@ typemap = {
     'u8': 'uint32',  # Yep, this is the smallest integer type in grpc...
     'u32': 'uint32',
     'u64': 'uint64',
+    's8': 'int32',
+    's16': 'int32',
+    's32': 'int32',
+    's64': 'int64',
     'u16': 'uint32',  # Yeah, I know...
     'f32': 'float',
     'integer': 'sint64',

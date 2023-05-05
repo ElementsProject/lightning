@@ -28,7 +28,9 @@ ALL_C_SOURCES += $(TOOL_GEN_SRC) $(TOOL_TEST_SRC)
 ALL_C_HEADERS += $(TOOL_GEN_HEADER)
 
 TOOL_TEST_COMMON_OBJS :=		\
-	common/utils.o
+	common/utils.o			\
+	wire/fromwire.o			\
+	wire/towire.o
 
 TOOLS_WIRE_DEPS := $(BOLT_DEPS) tools/test/test_cases $(wildcard tools/gen/*_template)
 

@@ -35,6 +35,9 @@ char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num);
 
+/* Extract signed 64 bit integer from this (may be a string, or a number literal) */
+bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num);
+
 /* Extract number from string. The number must be the entirety of the
  * string between the '"' */
 bool json_str_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num);

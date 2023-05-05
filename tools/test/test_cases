@@ -30,6 +30,11 @@ msgdata,test_msg,test_varsize_struct_varlen,test_features,len_varsize_struct
 msgdata,test_msg,test_assignable,u16,
 # enum
 msgdata,test_msg,test_enum,enum test_enum,
+# test signed int fields
+msgdata,test_msg,test_s8,s8,
+msgdata,test_msg,test_s16,s16,
+msgdata,test_msg,test_s32,s32,
+msgdata,test_msg,test_s64,s64,
 # test struct
 msgdata,test_msg,test_struct,test_short_id,
 # test var-size struct
