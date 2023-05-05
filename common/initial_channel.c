@@ -65,6 +65,11 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		= channel->view[LOCAL].owed[REMOTE]
 		= remote_msatoshi;
 
+	channel->view[LOCAL].lowest_splice_amnt[LOCAL] = 0;
+	channel->view[LOCAL].lowest_splice_amnt[REMOTE] = 0;
+	channel->view[REMOTE].lowest_splice_amnt[LOCAL] = 0;
+	channel->view[REMOTE].lowest_splice_amnt[REMOTE] = 0;
+
 	channel->basepoints[LOCAL] = *local_basepoints;
 	channel->basepoints[REMOTE] = *remote_basepoints;
 

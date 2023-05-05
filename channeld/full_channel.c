@@ -302,7 +302,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	return channel_splice_txs(ctx, &channel->funding, channel->funding_sats,
 				  htlcmap, direct_outputs, funding_wscript,
 				  channel, per_commitment_point,
-				  commitment_number, side);
+				  commitment_number, side, 0, 0);
 }
 
 struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
@@ -314,11 +314,14 @@ struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
 				       const struct channel *channel,
 				       const struct pubkey *per_commitment_point,
 				       u64 commitment_number,
-				       enum side side)
+				       enum side side,
+				       s64 splice_amnt,
+				       s64 remote_splice_amnt)
 {
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	struct keyset keyset;
+	struct amount_msat self_pay, other_pay;
 
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
@@ -336,6 +339,12 @@ struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
 					      &channel->funding_pubkey[side],
 					      &channel->funding_pubkey[!side]);
 
+	self_pay = channel->view[side].owed[side];
+	other_pay = channel->view[side].owed[!side];
+
+	self_pay.millisatoshis += splice_amnt * 1000;
+	other_pay.millisatoshis += remote_splice_amnt * 1000;
+
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
 	    ctx, funding,
@@ -347,8 +356,8 @@ struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
 	    channel->lease_expiry,
 	    channel_blockheight(channel, side),
 	    &keyset, channel_feerate(channel, side),
-	    channel->config[side].dust_limit, channel->view[side].owed[side],
-	    channel->view[side].owed[!side], committed, htlcmap, direct_outputs,
+	    channel->config[side].dust_limit, self_pay,
+	    other_pay, committed, htlcmap, direct_outputs,
 	    commitment_number ^ channel->commitment_number_obscurer,
 	    channel_has(channel, OPT_ANCHOR_OUTPUTS),
 	    side);
@@ -377,8 +386,18 @@ static bool get_room_above_reserve(const struct channel *channel,
 	/* Reserve is set by the *other* side */
 	struct amount_sat reserve = channel->config[!side].channel_reserve;
 	struct balance balance;
+	struct amount_msat owed = view->owed[side];
 
-	to_balance(&balance, view->owed[side]);
+	/* `lowest_splice_amnt` will always be negative or 0 */
+	if (-view->lowest_splice_amnt[side] > owed.millisatoshis) {
+		status_debug("Relative splice balance invalid");
+		return false;
+	}
+
+	/* `lowest_splice_amnt` is a relative amount */
+	owed.millisatoshis -= -view->lowest_splice_amnt[side];
+
+	to_balance(&balance, owed);
 
 	for (size_t i = 0; i < tal_count(removing); i++)
 		balance_remove_htlc(&balance, removing[i], side);

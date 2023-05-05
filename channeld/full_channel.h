@@ -88,7 +88,9 @@ struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
 				       const struct channel *channel,
 				       const struct pubkey *per_commitment_point,
 				       u64 commitment_number,
-				       enum side side);
+				       enum side side,
+				       s64 splice_amnt,
+				       s64 remote_splice_amnt);
 
 /**
  * actual_feerate: what is the actual feerate for the local side.
