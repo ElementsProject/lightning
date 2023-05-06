@@ -16,7 +16,7 @@ void run(const uint8_t *data, size_t size)
 	char *bech32_str, *hrp_out, *addr;
 	uint8_t *data_out;
 	size_t data_out_len, bech32_str_cap;
-	int wit_version;
+	int decode_wit_version;
 	bech32_encoding benc, benc_decoded;
 
 	if (size < 1)
@@ -52,20 +52,14 @@ void run(const uint8_t *data, size_t size)
 	bech32_convert_bits(data_out, &data_out_len, 8, data, size, 5, 0);
 
 	addr = malloc(73 + strlen(hrp_addr));
-	wit_version = 0;
-	if (segwit_addr_encode(addr, hrp_addr, wit_version, data, size) == 1) {
-		assert(segwit_addr_decode(&wit_version, data_out, &data_out_len,
-					  hrp_addr, addr) == 1);
-		assert(wit_version == 0);
-		assert(data_out_len == size);
-		assert(memcmp(data_out, data, data_out_len) == 0);
-	}
+	for (int wit_version = 0; wit_version < 2; ++wit_version) {
+		if (segwit_addr_encode(addr, hrp_addr, wit_version, data,
+				       size) == 0)
+			continue;
 
-	wit_version = 1;
-	if (segwit_addr_encode(addr, hrp_addr, wit_version, data, size) == 1) {
-		assert(segwit_addr_decode(&wit_version, data_out, &data_out_len,
-					  hrp_addr, addr) == 1);
-		assert(wit_version == 1);
+		assert(segwit_addr_decode(&decode_wit_version, data_out,
+					  &data_out_len, hrp_addr, addr) == 1);
+		assert(decode_wit_version == wit_version);
 		assert(data_out_len == size);
 		assert(memcmp(data_out, data, data_out_len) == 0);
 	}
