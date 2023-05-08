@@ -861,7 +861,7 @@ class LightningNode(object):
                 lambda v: v[0] == 'grpc-port',
                 self.daemon.opts.items()
             ).__next__()[1])
-        except Exception as e:
+        except Exception:
             raise ValueError("grpc-port is not specified, can't connect over grpc")
 
         import grpc
