@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [23.05rc3] - 2023-05-05
+## [23.05rc4] - 2023-05-09
 
 ### Added
 
@@ -50,7 +50,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Removed
 
- - JSON-RPC: the "msat" suffix on millisatoshi fields, as deprecated in v0.12.0. ([#5986])
+ - JSON-RPC: the "msat" suffix on millisatoshi fields, as deprecated in v0.12.0. ([#5986], [#6245])
  - JSON-RPC: all the non-msat-named millisatoshi fields deprecated in v0.12.0. ([#5986])
  - JSON-RPC: `listpeers`.`local_msat` and `listpeers`.`remote_msat` (deprecated v0.12.0) ([#5986])
  - JSON-RPC: `checkmessage` now always returns an error when the pubkey is not specified and it is unknown in the network graph (deprecated v0.12.0) ([#5986])
@@ -83,6 +83,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5967]: https://github.com/ElementsProject/lightning/pull/5967
 [#5898]: https://github.com/ElementsProject/lightning/pull/5898
 [#5986]: https://github.com/ElementsProject/lightning/pull/5986
+[#6245]: https://github.com/ElementsProject/lightning/pull/6245
 [#6136]: https://github.com/ElementsProject/lightning/pull/6136
 [#6128]: https://github.com/ElementsProject/lightning/pull/6128
 [#6154]: https://github.com/ElementsProject/lightning/pull/6154
