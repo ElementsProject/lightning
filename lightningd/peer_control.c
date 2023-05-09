@@ -486,18 +486,6 @@ static void json_add_htlcs(struct lightningd *ld,
 	json_array_end(response);
 }
 
-/* We do this replication manually because it's an array. */
-static void json_add_sat_only(struct json_stream *result,
-			      const char *fieldname,
-			      struct amount_sat sat)
-{
-	struct amount_msat msat;
-
-	if (amount_sat_to_msat(&msat, sat))
-		json_add_string(result, fieldname,
-				type_to_string(tmpctx, struct amount_msat, &msat));
-}
-
 /* Fee a commitment transaction would currently cost */
 static struct amount_sat commit_txfee(const struct channel *channel,
 				      struct amount_msat amount,
@@ -900,7 +888,7 @@ static void json_add_channel(struct lightningd *ld,
 					   "Overflow adding our_funds to push");
 				total = channel->our_funds;
 			}
-			json_add_sat_only(response, "local_funds_msat", total);
+			json_add_amount_sat_msat(response, "local_funds_msat", total);
 
 			if (!amount_sat_sub(&total, peer_funded_sats, funds)) {
 				log_broken(channel->log,
@@ -908,7 +896,7 @@ static void json_add_channel(struct lightningd *ld,
 					   " peer's funds");
 				total = peer_funded_sats;
 			}
-			json_add_sat_only(response, "remote_funds_msat", total);
+			json_add_amount_sat_msat(response, "remote_funds_msat", total);
 
 			json_add_amount_msat(response, "fee_paid_msat",
 					     channel->push);
@@ -918,7 +906,7 @@ static void json_add_channel(struct lightningd *ld,
 					   "Overflow adding peer funds to push");
 				total = peer_funded_sats;
 			}
-			json_add_sat_only(response, "remote_funds_msat", total);
+			json_add_amount_sat_msat(response, "remote_funds_msat", total);
 
 			if (!amount_sat_sub(&total, channel->our_funds, funds)) {
 				log_broken(channel->log,
@@ -926,15 +914,15 @@ static void json_add_channel(struct lightningd *ld,
 					   " our_funds");
 				total = channel->our_funds;
 			}
-			json_add_sat_only(response, "local_funds_msat", total);
+			json_add_amount_sat_msat(response, "local_funds_msat", total);
 			json_add_amount_msat(response, "fee_rcvd_msat",
 					     channel->push);
 		}
 
 	} else {
-		json_add_sat_only(response, "local_funds_msat",
+		json_add_amount_sat_msat(response, "local_funds_msat",
 				  channel->our_funds);
-		json_add_sat_only(response, "remote_funds_msat",
+		json_add_amount_sat_msat(response, "remote_funds_msat",
 				  peer_funded_sats);
 		json_add_amount_msat(response, "pushed_msat",
 				     channel->push);
