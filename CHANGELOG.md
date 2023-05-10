@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [23.05rc4] - 2023-05-09
+## [23.05] - 2023-05-10: "Austin Texas Agreement(ATXA)"
+
+This release named by @instagibbs
+
+NOTE 1: This release contains breaking changes of the Great Msat migration started in v0.12.0, so "msat" fields are no longer strings with "msat" appended, but simply integers.
 
 ### Added
 
