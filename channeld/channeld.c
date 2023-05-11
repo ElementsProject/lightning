@@ -1894,7 +1894,7 @@ static void send_revocation(struct peer *peer,
 
 /* Calling `handle_peer_commit_sig` with a `commit_index` of 0 and
  * `changed_htlcs` of NULL will process the message, then read & process coming
- * consecutive commitment messages equal to the number of inflight splices. 
+ * consecutive commitment messages equal to the number of inflight splices.
  *
  * Returns the last commitsig received. When splicing this is the
  * newest splice commit sig. */
@@ -2986,7 +2986,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		if (!amount_msat_sub_sat(&out[TX_ACCEPTER], out[TX_ACCEPTER],
 					amount_sat((u64)-peer->splice->accepter_relative)))
 			peer_failed_warn(peer->pps, &peer->channel_id,
-					 "Unable to sub accepter funding from out amnt.");	
+					 "Unable to sub accepter funding from out amnt.");
 	}
 
 	if (amount_msat_less(in[TX_INITIATOR], out[TX_INITIATOR])) {
@@ -3801,7 +3801,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 
 	new_inflight->last_tx = tal_steal(peer, their_commit->tx);
 	new_inflight->last_sig = their_commit->commit_signature;
-	
+
 	outmsg = towire_channeld_update_inflight(NULL, ictx->current_psbt,
 						 their_commit->tx,
 						 &their_commit->commit_signature);

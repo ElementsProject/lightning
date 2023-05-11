@@ -1391,15 +1391,19 @@ bool peer_start_channeld(struct channel *channel,
 		curr_blockheight = last_height;
 	}
 
-	inflights = tal_arr(tmpctx, struct inflight*, 0);
+	inflights = tal_arr(tmpctx, struct inflight *, 0);
 	list_for_each(&channel->inflights, inflight, list) {
 		struct inflight *infcopy = tal(inflights, struct inflight);
+
 		infcopy->outpoint = inflight->funding->outpoint;
 		infcopy->amnt = inflight->funding->total_funds;
 		infcopy->splice_amnt = inflight->funding->splice_amnt;
-		infcopy->last_tx = inflight->last_tx;
+		infcopy->last_tx = tal_dup(infcopy, struct bitcoin_tx, inflight->last_tx);
 		infcopy->last_sig = inflight->last_sig;
 		infcopy->i_am_initiator = inflight->i_am_initiator;
+		tal_wally_start();
+		wally_psbt_clone_alloc(inflight->funding_psbt, 0, &infcopy->psbt);
+		tal_wally_end_onto(infcopy, infcopy->psbt, struct wally_psbt);
 		tal_arr_expand(&inflights, infcopy);
 	}
 
