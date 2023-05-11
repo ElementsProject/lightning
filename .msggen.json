@@ -805,6 +805,7 @@
             "ListPeers.peers[].channels[].inflight[].funding_txid": 1,
             "ListPeers.peers[].channels[].inflight[].our_funding_msat": 5,
             "ListPeers.peers[].channels[].inflight[].scratch_txid": 6,
+            "ListPeers.peers[].channels[].inflight[].splice_amount": 7,
             "ListPeers.peers[].channels[].inflight[].total_funding_msat": 4
         },
         "ListpeersPeersLog": {
@@ -2780,6 +2781,10 @@
         },
         "ListPeers.peers[].channels[].inflight[].scratch_txid": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeers.peers[].channels[].inflight[].splice_amount": {
+            "added": "v23.05",
             "deprecated": false
         },
         "ListPeers.peers[].channels[].inflight[].total_funding_msat": {

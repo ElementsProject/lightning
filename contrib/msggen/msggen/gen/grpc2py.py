@@ -40,7 +40,7 @@ class Grpc2PyGenerator(IGenerator):
             'u16': "m.{name}",
             'u32': "m.{name}",
             'u64': "m.{name}",
-            's64': "m.{name}",
+            'integer': "m.{name}",
             'boolean': "m.{name}",
             'short_channel_id': "m.{name}",
             'msat': "amount2msat(m.{name})",

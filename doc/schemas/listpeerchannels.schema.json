@@ -150,6 +150,7 @@
                 "feerate",
                 "total_funding_msat",
                 "our_funding_msat",
+		"splice_amount",
                 "scratch_txid"
               ],
               "properties": {
@@ -168,6 +169,10 @@
                 "total_funding_msat": {
                   "type": "msat",
                   "description": "total amount in the channel"
+                },
+                "splice_amount": {
+                  "type": "integer",
+                  "description": "The amouont of sats we're splicing in or out"
                 },
                 "our_funding_msat": {
                   "type": "msat",

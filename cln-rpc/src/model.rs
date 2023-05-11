@@ -1553,6 +1553,8 @@ pub mod responses {
 	    pub feerate: String,
 	    pub total_funding_msat: Amount,
 	    pub our_funding_msat: Amount,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice_amount: Option<i64>,
 	    pub scratch_txid: String,
 	}
 

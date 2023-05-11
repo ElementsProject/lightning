@@ -236,6 +236,7 @@ message ListpeersPeersChannelsInflight {
 	string feerate = 3;
 	Amount total_funding_msat = 4;
 	Amount our_funding_msat = 5;
+	optional sint64 splice_amount = 7;
 	bytes scratch_txid = 6;
 }
 

@@ -268,6 +268,7 @@ The following tables are currently supported:
     - `funding_outnum` (type `u32`, sqltype `INTEGER`)
     - `feerate` (type `string`, sqltype `TEXT`)
     - `total_funding_msat` (type `msat`, sqltype `INTEGER`)
+    - `splice_amount` (type `integer`, sqltype `INTEGER`)
     - `our_funding_msat` (type `msat`, sqltype `INTEGER`)
     - `scratch_txid` (type `txid`, sqltype `BLOB`)
   - `close_to` (type `hex`, sqltype `BLOB`)
@@ -514,4 +515,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:3eb4e024a1e1a4b40460b48b835354514456558797b8f8ce3c76dcbb9ca79dab)
+[comment]: # ( SHA256STAMP:9d73854671c715117777702f7f13912ac31ca2ddcde46ffa80f79def1de7475d)

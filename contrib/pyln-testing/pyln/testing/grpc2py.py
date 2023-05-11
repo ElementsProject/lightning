@@ -93,6 +93,7 @@ def listpeers_peers_channels_inflight2py(m):
         "feerate": m.feerate,  # PrimitiveField in generate_composite
         "total_funding_msat": amount2msat(m.total_funding_msat),  # PrimitiveField in generate_composite
         "our_funding_msat": amount2msat(m.our_funding_msat),  # PrimitiveField in generate_composite
+        "splice_amount": m.splice_amount,  # PrimitiveField in generate_composite
         "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
     })
 
