@@ -2069,7 +2069,7 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 	for (i = 0; i < tal_count(peer->splice_state.inflights); i++) {
 		s64 funding_diff = (s64)peer->splice_state.inflights[i].amnt.satoshis
 					- peer->channel->funding_sats.satoshis;
-		s64 splice_amnt = peer->splice_state.inflights[i].splice_amnt;
+		s64 sub_splice_amnt = peer->splice_state.inflights[i].splice_amnt;
 
 		splice_msg = peer_read(tmpctx, peer->pps);
 		/* Check type for cleaner failure message */
@@ -2081,8 +2081,8 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 					peer_wire_name(type));
 
 		result = handle_peer_commit_sig(peer, splice_msg, i + 1,
-						changed_htlcs, splice_amnt,
-						funding_diff - splice_amnt);
+						changed_htlcs, sub_splice_amnt,
+						funding_diff - sub_splice_amnt);
 		tal_arr_expand(&commitsigs, result);
 	}
 
