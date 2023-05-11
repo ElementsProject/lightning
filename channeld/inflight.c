@@ -4,15 +4,18 @@
 #include <channeld/inflight.h>
 #include <wire/wire.h>
 
-void fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max, struct inflight *inflight)
+struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
+	struct inflight *inflight = tal(ctx, struct inflight);
 	fromwire_bitcoin_outpoint(cursor, max, &inflight->outpoint);
 	inflight->amnt = fromwire_amount_sat(cursor, max);
-	inflight->psbt = fromwire_wally_psbt(ctx, cursor, max);
+	inflight->psbt = fromwire_wally_psbt(inflight, cursor, max);
 	inflight->splice_amnt = fromwire_s64(cursor, max);
-	inflight->last_tx = fromwire_bitcoin_tx(ctx, cursor, max);
+	inflight->last_tx = fromwire_bitcoin_tx(inflight, cursor, max);
 	fromwire_bitcoin_signature(cursor, max, &inflight->last_sig);
 	inflight->i_am_initiator = fromwire_bool(cursor, max);
+
+	return inflight;
 }
 
 void towire_inflight(u8 **pptr, const struct inflight *inflight)

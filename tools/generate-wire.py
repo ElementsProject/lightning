@@ -246,6 +246,7 @@ class Type(FieldSet):
         'wally_psbt',
         'wally_tx',
         'scb_chan',
+        'inflight',
     ]
 
     # Some BOLT types are re-typed based on their field name

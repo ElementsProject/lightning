@@ -10,7 +10,7 @@
 /* The channel's general splice state for tracking splice candidates */
 struct splice_state {
 	/* The active inflights */
-	struct inflight *inflights;
+	struct inflight **inflights;
 	/* The pending short channel id for a splice. Set when mutual lock. */
 	struct short_channel_id short_channel_id;
 	/* Set to old short channel id when mutual lock occurs.  */

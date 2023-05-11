@@ -16,7 +16,7 @@ struct inflight {
 	bool i_am_initiator;
 };
 
-void fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max, struct inflight *inflight);
+struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max);
 void towire_inflight(u8 **pptr, const struct inflight *inflight);
 
 #endif /* LIGHTNING_CHANNELD_INFLIGHT_H */

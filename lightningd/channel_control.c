@@ -1446,7 +1446,7 @@ bool peer_start_channeld(struct channel *channel,
 				       pbases,
 				       reestablish_only,
 				       channel->channel_update,
-				       inflights);
+				       cast_const2(const struct inflight **, &inflights));
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
