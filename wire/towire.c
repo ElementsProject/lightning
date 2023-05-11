@@ -152,8 +152,3 @@ void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
 {
 	towire(pptr, seed, sizeof(*seed));
 }
-
-void towire_inflight(u8 **pptr, const struct inflight *inflight)
-{
-	towire(pptr, inflight, sizeof(*inflight));
-}

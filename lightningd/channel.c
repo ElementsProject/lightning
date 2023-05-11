@@ -134,7 +134,8 @@ new_inflight(struct channel *channel,
 	     const u32 lease_blockheight_start,
 	     const struct amount_msat lease_fee,
 	     const struct amount_sat lease_amt,
-	     s64 splice_amnt)
+	     s64 splice_amnt,
+	     bool i_am_initiator)
 {
 	struct wally_psbt *last_tx_psbt_clone;
 	struct channel_inflight *inflight
@@ -173,6 +174,8 @@ new_inflight(struct channel *channel,
 	inflight->lease_chan_max_ppt = lease_chan_max_ppt;
 	inflight->lease_fee = lease_fee;
 	inflight->lease_amt = lease_amt;
+
+	inflight->i_am_initiator = i_am_initiator;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);

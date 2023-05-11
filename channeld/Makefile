@@ -14,6 +14,7 @@ CHANNELD_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c			\
 	channeld/splice.c			\
+	channeld/inflight.c			\
 	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
@@ -26,8 +27,13 @@ ALL_C_HEADERS += $(CHANNELD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_channeld
 
 # Here's what lightningd depends on
-LIGHTNINGD_CONTROL_HEADERS += channeld/channeld_wiregen.h
-LIGHTNINGD_CONTROL_OBJS += channeld/channeld_wiregen.o
+LIGHTNINGD_CONTROL_HEADERS += \
+	channeld/channeld_wiregen.h \
+	channeld/inflight.h
+LIGHTNINGD_CONTROL_OBJS +=  \
+	channeld/channeld_wiregen.o \
+	channeld/inflight.o
+
 
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\

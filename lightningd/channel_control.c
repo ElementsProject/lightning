@@ -509,15 +509,29 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 {
 	struct splice_command *cc;
 	struct bitcoin_tx *tx;
+	struct bitcoin_txid txid;
+	struct channel_inflight *inflight;
 	u32 output_index;
 
 	if (!fromwire_channeld_splice_confirmed_signed(tmpctx, msg, &tx, &output_index)) {
 
 		channel_internal_error(channel,
-				       "bad splice_confirmed_init %s",
+				       "bad splice_confirmed_signed %s",
 				       tal_hex(channel, msg));
 		return;
 	}
+
+	bitcoin_txid(tx, &txid);
+	inflight = channel_inflight_find(channel, &txid);
+	if (!inflight)
+		channel_internal_error(channel, "Unable to load inflight for"
+				       " splice_confirmed_signed txid %s",
+				       type_to_string(tmpctx,
+				       		      struct bitcoin_txid,
+				       		      &txid));
+
+	inflight->remote_tx_sigs = true;
+	wallet_inflight_save(ld->wallet, inflight);
 
 	if (channel->state != CHANNELD_NORMAL) {
 		log_debug(channel->log,
@@ -549,6 +563,7 @@ static void handle_add_inflight(struct lightningd *ld,
 	struct wally_psbt *psbt;
 	struct channel_inflight *inflight;
 	struct bitcoin_signature last_sig;
+	bool i_am_initiator;
 
 	if (!fromwire_channeld_add_inflight(tmpctx,
 					    msg,
@@ -557,7 +572,8 @@ static void handle_add_inflight(struct lightningd *ld,
 					    &feerate,
 					    &satoshis,
 					    &splice_amnt,
-					    &psbt)) {
+					    &psbt,
+					    &i_am_initiator)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -581,7 +597,8 @@ static void handle_add_inflight(struct lightningd *ld,
 				0,
 				AMOUNT_MSAT(0),
 				AMOUNT_SAT(0),
-				splice_amnt);
+				splice_amnt,
+				i_am_initiator);
 
 	log_debug(channel->log, "lightningd adding inflight with txid %s",
 		  type_to_string(tmpctx, struct bitcoin_txid,
@@ -600,8 +617,11 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct channel_inflight *inflight;
 	struct wally_psbt *psbt;
 	struct bitcoin_txid txid;
+	struct bitcoin_tx *last_tx;
+	struct bitcoin_signature *last_sig;
 
-	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt)) {
+	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
+					       &last_sig)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -610,12 +630,26 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	psbt_txid(tmpctx, psbt, &txid, NULL);
 	inflight = channel_inflight_find(channel, &txid);
-	if(!inflight)
+	if (!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " update_inflight txid %s",
 				       type_to_string(tmpctx,
-				       		      struct bitcoin_txid,
-				       		      &txid));
+						      struct bitcoin_txid,
+						      &txid));
+
+	if (!!last_tx != !!last_sig)
+		channel_internal_error(channel, "Must set last_tx and last_sig"
+				       " together at the same time for"
+				       " update_inflight txid %s",
+				       type_to_string(tmpctx,
+						      struct bitcoin_txid,
+						      &txid));
+
+	if (last_tx)
+		inflight->last_tx = tal_steal(inflight, last_tx);
+
+	if (last_sig)
+		inflight->last_sig = *last_sig;
 
 	tal_wally_start();
 	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
@@ -1336,6 +1370,9 @@ bool peer_start_channeld(struct channel *channel,
 		infcopy.outpoint = inflight->funding->outpoint;
 		infcopy.amnt = inflight->funding->total_funds;
 		infcopy.splice_amnt = inflight->funding->splice_amnt;
+		infcopy.last_tx = inflight->last_tx;
+		infcopy.last_sig = inflight->last_sig;
+		infcopy.i_am_initiator = inflight->i_am_initiator;
 		tal_arr_expand(&inflights, infcopy);
 	}
 
