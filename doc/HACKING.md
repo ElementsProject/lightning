@@ -290,6 +290,35 @@ It can be used to analyze the lightningd source code by running
 binaries) is stored in .nccout files. You can browse it, for instance, with
 a command like `nccnav lightningd/lightningd.nccout`.
 
+Code Coverage
+-------------
+Code coverage can be measured using Clang's source-based instrumentation.
+
+First, build with the instrumentation enabled:
+```shell
+make clean
+./configure --enable-coverage CC=clang
+make -j$(nproc)
+```
+
+Then run the test for which you want to measure coverage. By default, the raw
+coverage profile will be written to `./default.profraw`. You can change the
+output file by setting `LLVM_PROFILE_FILE`:
+```shell
+LLVM_PROFILE_FILE="full_channel.profraw" ./channeld/test/run-full_channel
+```
+
+Finally, generate an HTML report from the profile. We have a script to make this
+easier:
+```shell
+./contrib/clang-coverage-report.sh channeld/test/run-full_channel \
+    full_channel.profraw full_channel.html
+firefox full_channel.html
+```
+
+For more advanced report generation options, see the [Clang coverage
+documentation](https://clang.llvm.org/docs/SourceBasedCodeCoverage.html).
+
 Subtleties
 ----------
 
