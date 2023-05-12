@@ -1262,7 +1262,7 @@ bool peer_start_channeld(struct channel *channel,
 	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
 	struct penalty_base *pbases;
 	struct channel_inflight *inflight;
-	struct inflight *inflights;
+	struct inflight **inflights;
 	struct bitcoin_txid txid;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
@@ -1364,15 +1364,19 @@ bool peer_start_channeld(struct channel *channel,
 		return false;
 	}
 
-	inflights = tal_arr(tmpctx, struct inflight, 0);
+	inflights = tal_arr(tmpctx, struct inflight *, 0);
 	list_for_each(&channel->inflights, inflight, list) {
-		struct inflight infcopy;
-		infcopy.outpoint = inflight->funding->outpoint;
-		infcopy.amnt = inflight->funding->total_funds;
-		infcopy.splice_amnt = inflight->funding->splice_amnt;
-		infcopy.last_tx = inflight->last_tx;
-		infcopy.last_sig = inflight->last_sig;
-		infcopy.i_am_initiator = inflight->i_am_initiator;
+		struct inflight *infcopy = tal(inflights, struct inflight);
+
+		infcopy->outpoint = inflight->funding->outpoint;
+		infcopy->amnt = inflight->funding->total_funds;
+		infcopy->splice_amnt = inflight->funding->splice_amnt;
+		infcopy->last_tx = tal_dup(infcopy, struct bitcoin_tx, inflight->last_tx);
+		infcopy->last_sig = inflight->last_sig;
+		infcopy->i_am_initiator = inflight->i_am_initiator;
+		tal_wally_start();
+		wally_psbt_clone_alloc(inflight->funding_psbt, 0, &infcopy->psbt);
+		tal_wally_end_onto(infcopy, infcopy->psbt, struct wally_psbt);
 		tal_arr_expand(&inflights, infcopy);
 	}
 
@@ -1446,7 +1450,7 @@ bool peer_start_channeld(struct channel *channel,
 				       pbases,
 				       reestablish_only,
 				       channel->channel_update,
-				       cast_const2(const struct inflight **, &inflights));
+				       cast_const2(const struct inflight **, inflights));
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

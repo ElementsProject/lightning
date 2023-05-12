@@ -3324,16 +3324,17 @@ static void resume_splice_negotiation(struct peer *peer,
 	send_channel_update(peer, 0);
 }
 
-static struct inflight *append_inflight(struct peer *peer)
+static struct inflight *init_inflights(const tal_t *ctx, struct peer *peer)
 {
+	struct inflight *inf;
+
 	if (!peer->splice_state.inflights)
-		peer->splice_state.inflights = tal_arr(peer, struct inflight *, 0);
+		peer->splice_state.inflights = tal_arr(ctx, struct inflight *, 0);
 
-	size_t len = tal_count(peer->splice_state.inflights);
+	inf = tal(peer->splice_state.inflights, struct inflight);
 
-	tal_resize(&peer->splice_state.inflights, len + 1);
-
-	return peer->splice_state.inflights[len];
+	tal_arr_expand(&peer->splice_state.inflights, inf);
+	return inf;
 }
 
 /* ACCEPTER side of the splice. Here we handle all the accepter's steps for the
@@ -3464,7 +3465,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
 
-	new_inflight = append_inflight(peer);
+	new_inflight = init_inflights(peer, peer);
 
 	psbt_txid(tmpctx, ictx->current_psbt, &new_inflight->outpoint.txid, NULL);
 	new_inflight->outpoint = outpoint;
@@ -3719,7 +3720,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	master_wait_sync_reply(tmpctx, peer, take(outmsg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
 
-	new_inflight = append_inflight(peer);
+	new_inflight = init_inflights(peer, peer);
 
 	psbt_txid(tmpctx, ictx->current_psbt, &new_inflight->outpoint.txid, NULL);
 	new_inflight->outpoint.n = chan_output_index;
