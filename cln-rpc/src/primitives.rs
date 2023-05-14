@@ -40,6 +40,15 @@ pub enum HtlcState {
     SENT_REMOVE_REVOCATION = 8,
     SENT_REMOVE_ACK_COMMIT = 9,
     RCVD_REMOVE_ACK_REVOCATION = 10,
+    RCVD_ADD_HTLC = 11,
+    RCVD_ADD_COMMIT = 12,
+    SENT_ADD_REVOCATION = 13,
+    SENT_ADD_ACK_COMMIT = 14,
+    SENT_REMOVE_HTLC = 15,
+    SENT_REMOVE_COMMIT = 16,
+    RCVD_REMOVE_REVOCATION = 17,
+    RCVD_REMOVE_ACK_COMMIT = 18,
+    SENT_REMOVE_ACK_REVOCATION = 19,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -319,6 +328,16 @@ impl From<i32> for HtlcState {
             8 => HtlcState::SENT_REMOVE_REVOCATION,
             9 => HtlcState::SENT_REMOVE_ACK_COMMIT,
             10 => HtlcState::RCVD_REMOVE_ACK_REVOCATION,
+            11 => HtlcState::RCVD_ADD_HTLC,
+            12 => HtlcState::RCVD_ADD_COMMIT,
+            13 => HtlcState::SENT_ADD_REVOCATION,
+            14 => HtlcState::SENT_ADD_ACK_COMMIT,
+            15 => HtlcState::SENT_REMOVE_HTLC,
+            16 => HtlcState::SENT_REMOVE_COMMIT,
+            17 => HtlcState::RCVD_REMOVE_REVOCATION,
+            18 => HtlcState::RCVD_REMOVE_ACK_COMMIT,
+            19 => HtlcState::SENT_REMOVE_ACK_REVOCATION,
+
             n => panic!("Unmapped HtlcState variant: {}", n),
         }
     }
