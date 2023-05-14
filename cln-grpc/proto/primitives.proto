@@ -50,6 +50,15 @@ enum HtlcState {
       SentRemoveRevocation = 8;
       SentRemoveAckCommit = 9;
       RcvdRemoveAckRevocation = 10;
+      RCVD_ADD_HTLC = 11,
+      RCVD_ADD_COMMIT = 12,
+      SENT_ADD_REVOCATION = 13,
+      SENT_ADD_ACK_COMMIT = 14,
+      SENT_REMOVE_HTLC = 15,
+      SENT_REMOVE_COMMIT = 16,
+      RCVD_REMOVE_REVOCATION = 17,
+      RCVD_REMOVE_ACK_COMMIT = 18,
+      SENT_REMOVE_ACK_REVOCATION = 19,
 }
 
 message ChannelStateChangeCause {}
