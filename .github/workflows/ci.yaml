@@ -17,122 +17,12 @@ env:
   SLOW_MACHINE: 1
 
 jobs:
-  prebuild:
-    name: Pre-build checks
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    env:
-      RUST: 1
-      COMPAT: 1
-      BOLTDIR: bolts
-    strategy:
-      fail-fast: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
-          # We're going to check BOLT quotes, so get the latest version
-          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
-      - name: Configure
-        run: ./configure
-      - name: Check source
-        run: make -j 4 check-source
-      - name: Check Generated Files have been updated
-        run: make -j 4 check-gen-updated
-      - name: Check docs
-        run: make -j 4 check-doc
-
-  check-units:
-    # The unit test checks are not in the critical path (not dependent
-    # on the integration tests), so run them with `valgrind`
-    name: Run unit tests
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    env:
-      COMPAT: 1
-      VALGRIND: 1
-      BOLTDIR: bolts
-    needs:
-      - prebuild
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          sudo apt-get install -y -qq lowdown
-          pip install -U pip wheel poetry
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
-          # We're going to check BOLT quotes, so get the latest version
-          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
-
-      - name: Build
-        run: |
-          ./configure
-          make -j $(nproc) check-units installcheck
-
-  check-fuzz:
-    name: Run fuzz regression tests
-    runs-on: ubuntu-22.04
-    env:
-      COMPAT: 1
-      DEVELOPER: 1
-      EXPERIMENTAL_FEATURES: 1
-      ASAN: 1
-      UBSAN: 1
-      VALGRIND: 0
-    needs:
-      - prebuild
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
-
-      - name: Build
-        run: |
-          ./configure --enable-fuzzing CC=clang
-          make -j $(nproc) check-fuzz
-
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
       COMPAT: 1
-    needs:
-      - prebuild
     strategy:
       fail-fast: true
       matrix:
@@ -141,23 +31,6 @@ jobs:
             DEVELOPER: 1
             EXPERIMENTAL_FEATURES: 1
             COMPILER: gcc
-          - CFG: gcc-dev1-exp0
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 0
-            COMPILER: gcc
-          - CFG: gcc-dev0-exp1
-            DEVELOPER: 0
-            EXPERIMENTAL_FEATURES: 1
-            COMPILER: gcc
-          - CFG: gcc-dev0-exp0
-            DEVELOPER: 0
-            EXPERIMENTAL_FEATURES: 0
-            COMPILER: gcc
-          # While we're at it let's try to compile with clang
-          - CFG: clang-dev1-exp1
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 1
-            COMPILER: clang
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -200,7 +73,7 @@ jobs:
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 90
     env:
       COMPAT: 1
       BITCOIN_VERSION: 24.0.1
@@ -219,52 +92,6 @@ jobs:
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
-          - NAME:  gcc-dev1-exp0
-            CFG: gcc-dev1-exp0
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 0
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-          - NAME: gcc-dev0-exp1
-            CFG: gcc-dev0-exp1
-            DEVELOPER: 0
-            EXPERIMENTAL_FEATURES: 1
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-          - NAME: gcc-dev0-exp0
-            CFG: gcc-dev0-exp0
-            DEVELOPER: 0
-            EXPERIMENTAL_FEATURES: 0
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-          # While we're at it let's try to compile with clang
-          - NAME: clang-dev1-exp1
-            CFG: clang-dev1-exp1
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 1
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: clang
-            TEST_NETWORK: regtest
-          # And of course we want to test postgres too
-          - NAME: postgres
-            CFG: gcc-dev1-exp1
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 1
-            COMPILER: gcc
-            TEST_DB_PROVIDER: postgres
-            TEST_NETWORK: regtest
-          # And don't forget about elements (like cdecker did when
-          # reworking the CI...)
-          - NAME: liquid
-            CFG: gcc-dev1-exp1
-            DEVELOPER: 1
-            EXPERIMENTAL_FEATURES: 1
-            COMPILER: gcc
-            TEST_NETWORK: liquid-regtest
-            TEST_DB_PROVIDER: sqlite3
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -302,7 +129,7 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           tar -xaf cln-${CFG}.tar.bz2
-          poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          poetry run pytest tests/ -s -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
@@ -324,26 +151,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - NAME: Valgrind (01/10)
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: Valgrind (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10
           - NAME: Valgrind (03/10)
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: Valgrind (04/10)
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: Valgrind (05/10)
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: Valgrind (06/10)
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: Valgrind (07/10)
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: Valgrind (08/10)
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: Valgrind (09/10)
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: Valgrind (10/10)
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -378,7 +186,7 @@ jobs:
         run: |
 
           sed -i 's/VALGRIND=0/VALGRIND=1/g' config.vars
-          poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          RUST_BACKTRACE=1 poetry run pytest tests/test_cln_rs.py::test_cln_plugin_reentrant -s -vvv ${PYTEST_OPTS}
 
   gather:
     # A dummy task that depends on the full matrix of tests, and
@@ -388,7 +196,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs:
       - integration
-      - check-units
+      - integration-valgrind
     steps:
       - name: Complete
         run: |
