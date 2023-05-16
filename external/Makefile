@@ -71,7 +71,7 @@ $(TARGET_DIR)/libsodium.a: $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium
 $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
 	cd external/libsodium && ./autogen.sh
 	mkdir -p ${TARGET_DIR}/libsodium-build
-	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" CFLAGS="$(FUZZFLAGS)" LDFLAGS="$(FUZZFLAGS)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
@@ -83,7 +83,7 @@ $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core
 	cd external/libwally-core && ./tools/autogen.sh
 	mkdir -p ${TARGET_DIR}/libwally-core-build
 	cd ${TARGET_DIR}/libwally-core-build \
-	&& PYTHON_VERSION=3 CFLAGS=-std=c99 ${TOP}/libwally-core/configure CC="$(CC)" \
+	&& PYTHON_VERSION=3 CFLAGS="-std=c99 $(FUZZFLAGS)" LDFLAGS="$(FUZZFLAGS)" ${TOP}/libwally-core/configure CC="$(CC)" \
 		--enable-static=yes \
 		$(CROSSCOMPILE_OPTS) \
 		--enable-module-recovery \
@@ -115,7 +115,7 @@ $(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
 	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
 $(TARGET_DIR)/lowdown-build/bin/lowdown: external/lowdown/lowdown.h
-	cd external/lowdown && CC="$(CC)" ./configure PREFIX=`pwd`/$(TOP)/$(TARGET_DIR)/lowdown-build/
+	cd external/lowdown && CC="$(CC)" CFLAGS="$(FUZZFLAGS)" ./configure LDFLAGS="$(FUZZFLAGS)" PREFIX=`pwd`/$(TOP)/$(TARGET_DIR)/lowdown-build/
 	$(MAKE) -C external/lowdown install
 
 distclean: external-distclean
