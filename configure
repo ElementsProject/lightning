@@ -148,6 +148,7 @@ set_defaults()
     ASAN=${ASAN:-0}
     UBSAN=${UBSAN:-0}
     FUZZING=${FUZZING:-0}
+    FUZZFLAGS=""
     CSANFLAGS=""
     if [ "$ASAN" != 0 ]; then
 	CSANFLAGS="$CSANFLAGS -fsanitize=address"
@@ -162,7 +163,8 @@ set_defaults()
 	fi
     fi
     if [ "$FUZZING" != 0 ]; then
-	CSANFLAGS="$CSANFLAGS -fsanitize=fuzzer-no-link"
+	FUZZFLAGS="-fsanitize=fuzzer-no-link"
+	CSANFLAGS="$CSANFLAGS $FUZZFLAGS"
     fi
     echo CSANFLAGS = $CSANFLAGS
     PYTEST=${PYTEST-$(default_pytest)}
@@ -473,6 +475,7 @@ add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
 add_var CSANFLAGS "$CSANFLAGS"
+add_var FUZZFLAGS "$FUZZFLAGS"
 add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
 add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
