@@ -42,14 +42,14 @@ void run(const uint8_t *data, size_t size)
 	}
 	tal_free(xkey_chunks);
 
-	ver_chunks = get_chunks(NULL, data, size, 4);
+	ver_chunks = get_chunks(NULL, data, size, 8);
 	for (size_t i = 0; i < tal_count(ver_chunks); i++) {
 		wire_max = tal_bytelen(ver_chunks[i]);
 		wire_ptr = ver_chunks[i];
 
 		fromwire_bip32_key_version(&wire_ptr, &wire_max, &version);
 		if (wire_ptr) {
-			wire_buff = tal_arr(NULL, uint8_t, 4);
+			wire_buff = tal_arr(NULL, uint8_t, 8);
 			towire_bip32_key_version(&wire_buff, &version);
 			tal_free(wire_buff);
 		}
