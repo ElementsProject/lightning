@@ -15,6 +15,7 @@ void run(const uint8_t *data, size_t size)
 	u8 *wire_buff;
 	const uint8_t **xkey_chunks, **ver_chunks, *wire_ptr;
 	size_t wire_max;
+	u8 fingerprint[BIP32_KEY_FINGERPRINT_LEN];
 
 	if (size < BIP32_SERIALIZED_LEN)
 		return;
@@ -26,6 +27,14 @@ void run(const uint8_t *data, size_t size)
 
 		fromwire_ext_key(&wire_ptr, &wire_max, &xkey);
 		if (wire_ptr) {
+			// Check key validity by attempting to get the
+			// fingerprint, which will fail if the key is invalid.
+			if (bip32_key_get_fingerprint(&xkey, fingerprint,
+						      sizeof(fingerprint)))
+				continue;
+
+			// Since the key is valid, we should be able to
+			// serialize it again successfully.
 			wire_buff = tal_arr(NULL, uint8_t, BIP32_SERIALIZED_LEN);
 			towire_ext_key(&wire_buff, &xkey);
 			tal_free(wire_buff);
