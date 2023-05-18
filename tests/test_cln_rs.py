@@ -4,7 +4,7 @@ from pathlib import Path
 from pyln.testing import node_pb2 as nodepb
 from pyln.testing import node_pb2_grpc as nodegrpc
 from pyln.testing import primitives_pb2 as primitivespb
-from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight
+from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT
 import grpc
 import pytest
 import subprocess
@@ -275,14 +275,13 @@ def test_cln_plugin_reentrant(node_factory, executor):
     f1 = executor.submit(l2.rpc.pay, i1)
     f2 = executor.submit(l2.rpc.pay, i2)
 
-    import time
-    time.sleep(3)
+    l1.daemon.wait_for_logs(["plugin-cln-plugin-reentrant: Holding on to incoming HTLC Object"] * 2)
 
     print("Releasing HTLCs after holding them")
     l1.rpc.call('release')
 
-    assert f1.result()
-    assert f2.result()
+    assert f1.result(timeout=TIMEOUT)
+    assert f2.result(timeout=TIMEOUT)
 
 
 def test_grpc_keysend_routehint(bitcoind, node_factory):
