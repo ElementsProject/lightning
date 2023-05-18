@@ -206,6 +206,7 @@ jobs:
       BITCOIN_VERSION: 24.0.1
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
+      PYTEST_OPTS: --timeout=1200
     needs:
       - compile
     strategy:
@@ -317,7 +318,7 @@ jobs:
       CFG: gcc-dev1-exp1
       DEVELOPER: 1
       EXPERIMENTAL_FEATURES: 1
-      PYTEST_OPTS: --test-group-random-seed=42
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
     needs:
       - compile
     strategy:
