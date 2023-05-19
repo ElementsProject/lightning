@@ -203,7 +203,7 @@ jobs:
     timeout-minutes: 120
     env:
       COMPAT: 1
-      BITCOIN_VERSION: 24.0.1
+      BITCOIN_VERSION: 24.1
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
       PYTEST_OPTS: --timeout=1200
@@ -311,7 +311,7 @@ jobs:
     timeout-minutes: 120
     env:
       COMPAT: 1
-      BITCOIN_VERSION: 24.0.1
+      BITCOIN_VERSION: 24.1
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
       VALGRIND: 1
