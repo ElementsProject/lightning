@@ -82,6 +82,18 @@ common/test/run-bolt12_merkle:				\
 	wire/peer_wiregen.o				\
 	wire/towire.o
 
+common/test/run-bolt12-format-string-test:		\
+	common/amount.o					\
+	common/bigsize.o				\
+	common/base32.o					\
+	common/bech32.o					\
+	common/bech32_util.o				\
+	common/bolt12.o					\
+	common/node_id.o				\
+	wire/bolt12$(EXP)_wiregen.o			\
+	wire/tlvstream.o				\
+	wire/towire.o
+
 common/test/run-bolt12_merkle-json:			\
 	common/base32.o					\
 	common/wireaddr.o

@@ -203,6 +203,7 @@ int main(int argc, char *argv[])
 		actual = (string_to_data(tmpctx, str, strlen(str),
 					 "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);
+		printf("%s %s\n", str, valid ? "OK": "INVALID");
 	}
 out:
 	common_shutdown();
