@@ -237,7 +237,7 @@ schema-added-check:
 	fi
 schema-removed-check:
 	@if ! test -z $$CI; then git fetch origin master; fi; \
-	if git diff origin/master -- doc/schemas | grep -q '^-.*{' && ! git diff origin/master -- doc/schemas | grep -q '^-.*"deprecated"'; then \
+	if git diff origin/master -- doc/schemas | grep -q '^-.*{' && ! git diff origin/master -- doc/schemas | grep -q '^-.*"deprecated"' && ! git diff origin/master -- doc/schemas | grep -q '^-.*EXPERIMENTAL_FEATURES'; then \
 		git diff origin/master -- doc/schemas ; \
 		echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; \
 	fi

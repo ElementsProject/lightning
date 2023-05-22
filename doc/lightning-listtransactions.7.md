@@ -37,14 +37,10 @@ On success, an object containing **transactions** is returned.  It is an array o
   - **txid** (txid): the transaction id spent
   - **index** (u32): the output spent
   - **sequence** (u32): the nSequence value
-  - **type** (string, optional): the purpose of this input (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
-  - **channel** (short\_channel\_id, optional): the channel this input is associated with (*EXPERIMENTAL\_FEATURES* only)
 - **outputs** (array of objects): Each output, in order:
   - **index** (u32): the 0-based output number
   - **amount\_msat** (msat): the amount of the output
   - **scriptPubKey** (hex): the scriptPubKey
-  - **type** (string, optional): the purpose of this output (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
-  - **channel** (short\_channel\_id, optional): the channel this output is associated with (*EXPERIMENTAL\_FEATURES* only)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -103,4 +99,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:525f24511eb9687dc16d5b2156d4d8df28b371e287512a749d2d9dfd5701e093)
+[comment]: # ( SHA256STAMP:6431aec91a48a5f9d4632baa6f3aae23dee8607a200b3c359d679028e521b588)

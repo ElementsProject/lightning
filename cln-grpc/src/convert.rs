@@ -627,8 +627,6 @@ impl From<responses::ListtransactionsTransactionsInputs> for pb::Listtransaction
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
             index: c.index, // Rule #2 for type u32
             sequence: c.sequence, // Rule #2 for type u32
-            item_type: c.item_type.map(|v| v as i32),
-            channel: c.channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }
@@ -640,8 +638,6 @@ impl From<responses::ListtransactionsTransactionsOutputs> for pb::Listtransactio
             index: c.index, // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             script_pub_key: hex::decode(&c.script_pub_key).unwrap(), // Rule #2 for type hex
-            item_type: c.item_type.map(|v| v as i32),
-            channel: c.channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }

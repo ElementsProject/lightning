@@ -69,27 +69,6 @@
                 "sequence": {
                   "type": "u32",
                   "description": "the nSequence value"
-                },
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "theirs",
-                    "deposit",
-                    "withdraw",
-                    "channel_funding",
-                    "channel_mutual_close",
-                    "channel_unilateral_close",
-                    "channel_sweep",
-                    "channel_htlc_success",
-                    "channel_htlc_timeout",
-                    "channel_penalty",
-                    "channel_unilateral_cheat"
-                  ],
-                  "description": "the purpose of this input (*EXPERIMENTAL_FEATURES* only)"
-                },
-                "channel": {
-                  "type": "short_channel_id",
-                  "description": "the channel this input is associated with (*EXPERIMENTAL_FEATURES* only)"
                 }
               }
             }
@@ -117,27 +96,6 @@
                 "scriptPubKey": {
                   "type": "hex",
                   "description": "the scriptPubKey"
-                },
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "theirs",
-                    "deposit",
-                    "withdraw",
-                    "channel_funding",
-                    "channel_mutual_close",
-                    "channel_unilateral_close",
-                    "channel_sweep",
-                    "channel_htlc_success",
-                    "channel_htlc_timeout",
-                    "channel_penalty",
-                    "channel_unilateral_cheat"
-                  ],
-                  "description": "the purpose of this output (*EXPERIMENTAL_FEATURES* only)"
-                },
-                "channel": {
-                  "type": "short_channel_id",
-                  "description": "the channel this output is associated with (*EXPERIMENTAL_FEATURES* only)"
                 }
               }
             }
