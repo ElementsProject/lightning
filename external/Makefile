@@ -94,6 +94,7 @@ $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core
 		--prefix=/ \
 		--libdir=/ \
 		--enable-debug \
+	&& cp src/secp256k1/src/libsecp256k1-config.h ../../libwally-core/src/secp256k1/src/libsecp256k1-config.h \
 	&& $(MAKE)
 
 # If we tell Make that the above builds both, it runs it twice in
