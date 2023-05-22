@@ -291,14 +291,6 @@ config.vars:
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
-# '_exp' inserted before _wiregen.[ch] to demark experimental
-# spec-derived headers, which are *not* committed into git.
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-EXP := _exp
-else
-EXP :=
-endif
-
 # tools/update-mocks.sh does nasty recursive make, must not do this!
 ifeq ($(SUPPRESS_GENERATION),1)
 SHA256STAMP_CHANGED = false
