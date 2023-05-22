@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected, EXPERIMENTAL_FEATURES
+    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected
 )
 
 from pathlib import Path
@@ -2133,7 +2133,7 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
     _verify_utxos(l1, utxo_lookups)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "anchors not available")
+@unittest.skip("anchors not available")
 @pytest.mark.developer("dev-force-features, dev-queryrates required")
 @pytest.mark.openchannel('v2')
 def test_no_anchor_liquidity_ads(node_factory, bitcoind):

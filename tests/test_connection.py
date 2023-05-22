@@ -9,7 +9,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
-    EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid,
+    mine_funding_to_announce, first_scid,
     anchor_expected, CHANNEL_SIZE
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
@@ -3384,7 +3384,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.set_feerates((100000, 100000, 100000, 100000))
 
     # It will raise as far as it can (48000) (30000 for option_anchor_outputs)
-    maxfeerate = 30000 if EXPERIMENTAL_FEATURES else 48000
+    maxfeerate = 30000 if anchor_expected(l1, l2) else 48000
     l1.daemon.wait_for_log('Setting REMOTE feerate to {}'.format(maxfeerate))
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
@@ -3576,7 +3576,7 @@ def test_channel_features(node_factory, bitcoind):
     # We should see features in unconfirmed channels.
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1, l2):
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.
@@ -3589,7 +3589,7 @@ def test_channel_features(node_factory, bitcoind):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1, l2):
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.
