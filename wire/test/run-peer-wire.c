@@ -222,7 +222,7 @@ struct msg_update_add_htlc {
 	u32 expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
-	struct tlv_update_add_tlvs *tlvs;
+	struct tlv_update_add_htlc_tlvs *tlvs;
 };
 struct msg_update_fee {
 	struct channel_id channel_id;

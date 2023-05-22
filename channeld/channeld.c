@@ -689,20 +689,20 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	enum channel_add_err add_err;
 	struct htlc *htlc;
-	struct tlv_update_add_tlvs *tlvs;
+	struct tlv_update_add_htlc_tlvs *tlvs;
 
 	if (!fromwire_update_add_htlc(msg, msg, &channel_id, &id, &amount,
 				      &payment_hash, &cltv_expiry,
 				      onion_routing_packet, &tlvs)
 	    /* This is an *even* field: don't send if we didn't understand */
-	    || (tlvs->blinding && !feature_offered(peer->our_features->bits[INIT_FEATURE],
-						   OPT_ROUTE_BLINDING))) {
+	    || (tlvs->blinding_point && !feature_offered(peer->our_features->bits[INIT_FEATURE],
+							 OPT_ROUTE_BLINDING))) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, tlvs->blinding, &htlc, NULL,
+				   onion_routing_packet, tlvs->blinding_point, &htlc, NULL,
 				   /* We don't immediately fail incoming htlcs,
 				    * instead we wait and fail them after
 				    * they've been committed */
@@ -2416,11 +2416,11 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 					 last[i].id);
 
 		if (h->state == SENT_ADD_COMMIT) {
-			struct tlv_update_add_tlvs *tlvs;
+			struct tlv_update_add_htlc_tlvs *tlvs;
 			if (h->blinding) {
-				tlvs = tlv_update_add_tlvs_new(tmpctx);
-				tlvs->blinding = tal_dup(tlvs, struct pubkey,
-							 h->blinding);
+				tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
+				tlvs->blinding_point = tal_dup(tlvs, struct pubkey,
+							       h->blinding);
 			} else
 				tlvs = NULL;
 			msg = towire_update_add_htlc(NULL, &peer->channel_id,
@@ -3294,7 +3294,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	const char *failstr;
 	struct amount_sat htlc_fee;
 	struct pubkey *blinding;
-	struct tlv_update_add_tlvs *tlvs;
+	struct tlv_update_add_htlc_tlvs *tlvs;
 
 	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -3306,8 +3306,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 
 	if (blinding) {
-		tlvs = tlv_update_add_tlvs_new(tmpctx);
-		tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
+		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
+		tlvs->blinding_point = tal_dup(tlvs, struct pubkey, blinding);
 	} else
 		tlvs = NULL;
 
