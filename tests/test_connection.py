@@ -3713,13 +3713,14 @@ def test_openchannel_init_alternate(node_factory, executor):
             print("nothing to do")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey(node_factory, executor):
     """l1 doesn't have option_static_remotekey, l2 offers it."""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-force-features': ["-13", "-21"]},
-                                              {'may_reconnect': True}])
+                                               'dev-force-features': ["-13"],
+                                               'experimental-upgrade-protocol': None},
+                                              {'may_reconnect': True,
+                                               'experimental-upgrade-protocol': None}])
 
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3743,17 +3744,18 @@ def test_upgrade_statickey(node_factory, executor):
     l2.daemon.wait_for_log(r"They sent desired_channel_type \[12\]")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
                                                'dev-no-reconnect': None,
-                                               'dev-force-features': ["-13", "-21"],
+                                               'dev-force-features': ["-13"],
+                                               'experimental-upgrade-protocol': None,
                                                # We try to cheat!
                                                'allow_broken_log': True},
                                               {'may_reconnect': True,
-                                               'dev-no-reconnect': None}])
+                                               'dev-no-reconnect': None,
+                                               'experimental-upgrade-protocol': None}])
 
     # TEST 1: Cheat from pre-upgrade.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
@@ -3877,7 +3879,6 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features, dev-disconnect required")
 def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     """We reconnect at all points during retransmit, and we won't upgrade."""
@@ -3889,11 +3890,13 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
                                                'dev-no-reconnect': None,
                                                'disconnect': l1_disconnects,
-                                               'dev-force-features': ["-13", "-21"],
+                                               'experimental-upgrade-protocol': None,
+                                               'dev-force-features': ["-13"],
                                                # Don't have feerate changes!
                                                'feerates': (7500, 7500, 7500, 7500)},
                                               {'may_reconnect': True,
                                                'dev-no-reconnect': None,
+                                               'experimental-upgrade-protocol': None,
                                                'disconnect': l2_disconnects,
                                                'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
                                                'hold-time': 10000,

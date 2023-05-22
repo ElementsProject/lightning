@@ -981,9 +981,7 @@ static char *list_features_and_exit(struct lightningd *ld)
 	const char **features = list_supported_features(tmpctx, ld->our_features);
 	for (size_t i = 0; i < tal_count(features); i++)
 		printf("%s\n", features[i]);
-#if EXPERIMENTAL_FEATURES
 	printf("supports_open_accept_channel_type\n");
-#endif
 	exit(0);
 }
 
@@ -1332,6 +1330,9 @@ static void register_opts(struct lightningd *ld)
 			 ld,
 			 "experimental: alternate port for peers to connect"
 			 " using WebSockets (RFC6455)");
+	opt_register_noarg("--experimental-upgrade-protocol",
+			   opt_set_bool, &ld->experimental_upgrade_protocol,
+			   "experimental: allow channel types to be upgraded on reconnect");
 	opt_register_arg("--database-upgrade",
 			 opt_set_db_upgrade, NULL,
 			 ld,

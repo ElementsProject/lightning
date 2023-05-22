@@ -235,6 +235,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->try_reexec = false;
 	ld->db_upgrade_ok = NULL;
 
+	/* --experimental-upgrade-protocol */
+	ld->experimental_upgrade_protocol = false;
+
 	/*~ This is from ccan/timer: it is efficient for the case where timers
 	 * are deleted before expiry (as is common with timeouts) using an
 	 * ingenious bucket system which more precisely sorts timers as they

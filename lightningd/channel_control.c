@@ -480,7 +480,6 @@ static void forget_channel(struct channel *channel, const char *why)
 		forget(channel);
 }
 
-#if EXPERIMENTAL_FEATURES
 static void handle_channel_upgrade(struct channel *channel,
 				   const u8 *msg)
 {
@@ -519,7 +518,6 @@ static void handle_channel_upgrade(struct channel *channel,
 
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
@@ -569,13 +567,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
 		handle_local_private_channel(sd->channel, msg);
 		break;
-#if EXPERIMENTAL_FEATURES
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
 		break;
-#else
-	case WIRE_CHANNELD_UPGRADED:
-#endif
 	/* And we never get these from channeld. */
 	case WIRE_CHANNELD_INIT:
 	case WIRE_CHANNELD_FUNDING_DEPTH:
@@ -790,7 +784,8 @@ bool peer_start_channeld(struct channel *channel,
 					     NULL),
 				       pbases,
 				       reestablish_only,
-				       channel->channel_update);
+				       channel->channel_update,
+				       ld->experimental_upgrade_protocol);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

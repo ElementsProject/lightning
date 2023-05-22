@@ -194,6 +194,9 @@ struct peer {
 
 	/* Most recent channel_update message. */
 	u8 *channel_update;
+
+	/* --experimental-upgrade-protocol */
+	bool experimental_upgrade;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -315,7 +318,6 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	return false;
 }
 
-#if EXPERIMENTAL_FEATURES
 /* Compare, with false if either is NULL */
 static bool match_type(const u8 *t1, const u8 *t2)
 {
@@ -345,7 +347,6 @@ static void set_channel_type(struct channel *channel, const u8 *type)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_upgraded(NULL, channel->type)));
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 /* Tell gossipd to create channel_update (then it goes into
  * gossip_store, then streams out to peers, or sends it directly if
@@ -2121,29 +2122,17 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 	u64 next_revocation_number;
 	struct secret your_last_per_commitment_secret;
 	struct pubkey my_current_per_commitment_point;
-#if EXPERIMENTAL_FEATURES
 	struct tlv_channel_reestablish_tlvs *tlvs;
-#endif
 
-
-	if (!fromwire_channel_reestablish
-#if EXPERIMENTAL_FEATURES
-	    (tmpctx, msg, &channel_id,
-	     &next_commitment_number,
-	     &next_revocation_number,
-	     &your_last_per_commitment_secret,
-	     &my_current_per_commitment_point,
-	     &tlvs)
-#else
-	    (msg, &channel_id,
-	     &next_commitment_number,
-	     &next_revocation_number,
-	     &your_last_per_commitment_secret,
-	     &my_current_per_commitment_point)
-#endif
-		)
+	if (!fromwire_channel_reestablish(tmpctx, msg, &channel_id,
+					  &next_commitment_number,
+					  &next_revocation_number,
+					  &your_last_per_commitment_secret,
+					  &my_current_per_commitment_point,
+					  &tlvs)) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad channel_reestablish %s", tal_hex(peer, msg));
+	}
 
 	/* Is it the same as the peer channel ID?  */
 	if (channel_id_eq(&channel_id, &peer->channel_id)) {
@@ -2653,7 +2642,6 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
-#if EXPERIMENTAL_FEATURES
 /* Unwrap a channel_type into a raw byte array for the wire: can be NULL */
 static u8 *to_bytearr(const tal_t *ctx,
 		      const struct channel_type *channel_type TAKES)
@@ -2673,23 +2661,6 @@ static u8 *to_bytearr(const tal_t *ctx,
 	return ret;
 }
 
-/* This is the no-tlvs version, where we can't handle old tlvs */
-static bool fromwire_channel_reestablish_notlvs(const void *p, struct channel_id *channel_id, u64 *next_commitment_number, u64 *next_revocation_number, struct secret *your_last_per_commitment_secret, struct pubkey *my_current_per_commitment_point)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNEL_REESTABLISH)
-		return false;
- 	fromwire_channel_id(&cursor, &plen, channel_id);
- 	*next_commitment_number = fromwire_u64(&cursor, &plen);
- 	*next_revocation_number = fromwire_u64(&cursor, &plen);
- 	fromwire_secret(&cursor, &plen, your_last_per_commitment_secret);
- 	fromwire_pubkey(&cursor, &plen, my_current_per_commitment_point);
-	return cursor != NULL;
-}
-#endif
-
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret,
 			   bool reestablish_only)
@@ -2706,9 +2677,7 @@ static void peer_reconnect(struct peer *peer,
 	struct secret last_local_per_commitment_secret;
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
-#if EXPERIMENTAL_FEATURES
 	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
-#endif
 
 	dataloss_protect = feature_negotiated(peer->our_features,
 					      peer->their_features,
@@ -2723,53 +2692,45 @@ static void peer_reconnect(struct peer *peer,
 	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
 
-#if EXPERIMENTAL_FEATURES
-	/* Subtle: we free tmpctx below as we loop, so tal off peer */
-	send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+	if (peer->experimental_upgrade) {
+		/* Subtle: we free tmpctx below as we loop, so tal off peer */
+		send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 
-	/* FIXME: v0.10.1 would send a different tlv set, due to older spec.
-	 * That did *not* offer OPT_QUIESCE, so in that case don't send tlvs. */
-	if (!feature_negotiated(peer->our_features,
-				peer->their_features,
-				OPT_QUIESCE))
-		goto skip_tlvs;
-
-	/* BOLT-upgrade_protocol #2:
-	 * A node sending `channel_reestablish`, if it supports upgrading channels:
-	 *   - MUST set `next_to_send` the commitment number of the next
-	 *     `commitment_signed` it expects to send.
-	 */
-	send_tlvs->next_to_send = tal_dup(send_tlvs, u64, &peer->next_index[REMOTE]);
-
-	/* BOLT-upgrade_protocol #2:
-	 * - if it initiated the channel:
-	 *   - MUST set `desired_type` to the channel_type it wants for the
-	 *     channel.
-	 */
-	if (peer->channel->opener == LOCAL)
-		send_tlvs->desired_channel_type =
-			to_bytearr(send_tlvs,
-				   take(channel_desired_type(NULL,
-							     peer->channel)));
-	else {
 		/* BOLT-upgrade_protocol #2:
-		 * - otherwise:
-		 *  - MUST set `current_type` to the current channel_type of the
-		 *    channel.
-		 *  - MUST set `upgradable` to the channel types it could change
-		 *    to.
-		 *  - MAY not set `upgradable` if it would be empty.
+		 * A node sending `channel_reestablish`, if it supports upgrading channels:
+		 *   - MUST set `next_to_send` the commitment number of the next
+		 *     `commitment_signed` it expects to send.
 		 */
-		send_tlvs->current_channel_type
-			= to_bytearr(send_tlvs, peer->channel->type);
-		send_tlvs->upgradable_channel_type
-			= to_bytearr(send_tlvs,
-				     take(channel_upgradable_type(NULL,
-								  peer->channel)));
-	}
+		send_tlvs->next_to_send = tal_dup(send_tlvs, u64, &peer->next_index[REMOTE]);
 
-skip_tlvs:
-#endif
+		/* BOLT-upgrade_protocol #2:
+		 * - if it initiated the channel:
+		 *   - MUST set `desired_type` to the channel_type it wants for the
+		 *     channel.
+		 */
+		if (peer->channel->opener == LOCAL) {
+			send_tlvs->desired_channel_type =
+				to_bytearr(send_tlvs,
+					   take(channel_desired_type(NULL,
+								     peer->channel)));
+		} else {
+			/* BOLT-upgrade_protocol #2:
+			 * - otherwise:
+			 *  - MUST set `current_type` to the current channel_type of the
+			 *    channel.
+			 *  - MUST set `upgradable` to the channel types it could change
+			 *    to.
+			 *  - MAY not set `upgradable` if it would be empty.
+			 */
+			send_tlvs->current_channel_type
+				= to_bytearr(send_tlvs, peer->channel->type);
+			send_tlvs->upgradable_channel_type
+				= to_bytearr(send_tlvs,
+					     take(channel_upgradable_type(NULL,
+									  peer->channel)));
+		}
+	} else
+		send_tlvs = NULL;
 
 	/* BOLT #2:
 	 *
@@ -2808,22 +2769,15 @@ skip_tlvs:
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 /* Can send any (valid) point here */
-			 &peer->remote_per_commit
-#if EXPERIMENTAL_FEATURES
-			 , send_tlvs
-#endif
-				);
+			 &peer->remote_per_commit, send_tlvs);
 	} else {
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
-			 &my_current_per_commitment_point
-#if EXPERIMENTAL_FEATURES
-			 , send_tlvs
-#endif
-				);
+			 &my_current_per_commitment_point,
+			 send_tlvs);
 	}
 
 	peer_write(peer->pps, take(msg));
@@ -2847,53 +2801,22 @@ skip_tlvs:
 	} while (handle_peer_error(peer->pps, &peer->channel_id, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
-#if EXPERIMENTAL_FEATURES
 	/* Initialize here in case we don't read it below! */
 	recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
 
-	/* FIXME: v0.10.1 would send a different tlv set, due to older spec.
-	 * That did *not* offer OPT_QUIESCE, so in that case ignore tlvs. */
-	if (!feature_negotiated(peer->our_features,
-				peer->their_features,
-				OPT_QUIESCE)) {
-		if (!fromwire_channel_reestablish_notlvs(msg,
-					&channel_id,
-					&next_commitment_number,
-					&next_revocation_number,
-					&last_local_per_commitment_secret,
-					&remote_current_per_commitment_point))
-			peer_failed_warn(peer->pps,
-					 &peer->channel_id,
-					 "bad reestablish msg: %s %s",
-					 peer_wire_name(fromwire_peektype(msg)),
-					 tal_hex(msg, msg));
-	} else if (!fromwire_channel_reestablish(tmpctx, msg,
-						 &channel_id,
-						 &next_commitment_number,
-						 &next_revocation_number,
-						 &last_local_per_commitment_secret,
-						 &remote_current_per_commitment_point,
-						 &recv_tlvs)) {
-			peer_failed_warn(peer->pps,
-					 &peer->channel_id,
-					 "bad reestablish msg: %s %s",
-					 peer_wire_name(fromwire_peektype(msg)),
-					 tal_hex(msg, msg));
-	}
-#else /* !EXPERIMENTAL_FEATURES */
-	if (!fromwire_channel_reestablish(msg,
-					&channel_id,
-					&next_commitment_number,
-					&next_revocation_number,
-					&last_local_per_commitment_secret,
-					  &remote_current_per_commitment_point)) {
+	if (!fromwire_channel_reestablish(tmpctx, msg,
+					  &channel_id,
+					  &next_commitment_number,
+					  &next_revocation_number,
+					  &last_local_per_commitment_secret,
+					  &remote_current_per_commitment_point,
+					  &recv_tlvs)) {
 		peer_failed_warn(peer->pps,
 				 &peer->channel_id,
 				 "bad reestablish msg: %s %s",
 				 peer_wire_name(fromwire_peektype(msg)),
 				 tal_hex(msg, msg));
 	}
-#endif
 
 	if (!channel_id_eq(&channel_id, &peer->channel_id)) {
 		peer_failed_err(peer->pps,
@@ -3071,7 +2994,10 @@ skip_tlvs:
 	/* (If we had sent `closing_signed`, we'd be in closingd). */
 	maybe_send_shutdown(peer);
 
-#if EXPERIMENTAL_FEATURES
+	/* If we didn't send (i.e. don't support!) ignore theirs */
+	if (!send_tlvs)
+		recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+
 	if (recv_tlvs->desired_channel_type)
 		status_debug("They sent desired_channel_type [%s]",
 			     fmt_featurebits(tmpctx,
@@ -3150,8 +3076,6 @@ skip_tlvs:
 			set_channel_type(peer->channel, type);
 	}
 	tal_free(send_tlvs);
-
-#endif /* EXPERIMENTAL_FEATURES */
 
 	/* Now stop, we've been polite long enough. */
 	if (reestablish_only) {
@@ -3822,7 +3746,8 @@ static void init_channel(struct peer *peer)
 				    &dev_disable_commit,
 				    &pbases,
 				    &reestablish_only,
-				    &peer->channel_update)) {
+				    &peer->channel_update,
+				    &peer->experimental_upgrade)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 

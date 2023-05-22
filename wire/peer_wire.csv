@@ -266,6 +266,15 @@ msgdata,channel_reestablish,next_commitment_number,u64,
 msgdata,channel_reestablish,next_revocation_number,u64,
 msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
 msgdata,channel_reestablish,my_current_per_commitment_point,point,
+msgdata,channel_reestablish,tlvs,channel_reestablish_tlvs,
+tlvtype,channel_reestablish_tlvs,next_to_send,1
+tlvdata,channel_reestablish_tlvs,next_to_send,commitment_number,tu64,
+tlvtype,channel_reestablish_tlvs,desired_channel_type,3
+tlvdata,channel_reestablish_tlvs,desired_channel_type,type,byte,...
+tlvtype,channel_reestablish_tlvs,current_channel_type,5
+tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
+tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
+tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
 msgtype,peer_storage,7
 msgdata,peer_storage,len,u16,
 msgdata,peer_storage,blob,byte,len

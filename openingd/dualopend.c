@@ -3947,9 +3947,7 @@ static void do_reconnect_dance(struct state *state)
 		last_remote_per_commit_secret;
 	struct pubkey remote_current_per_commit_point;
 	struct tx_state *tx_state = state->tx_state;
-#if EXPERIMENTAL_FEATURES
 	struct tlv_channel_reestablish_tlvs *tlvs;
-#endif
 
 	/* BOLT #2:
 	 *     - if `next_revocation_number` equals 0:
@@ -3963,11 +3961,7 @@ static void do_reconnect_dance(struct state *state)
 	msg = towire_channel_reestablish
 		(NULL, &state->channel_id, 1, 0,
 		 &last_remote_per_commit_secret,
-		 &state->first_per_commitment_point[LOCAL]
-#if EXPERIMENTAL_FEATURES
-		 , NULL
-#endif
-			);
+		 &state->first_per_commitment_point[LOCAL], NULL);
 	peer_write(state->pps, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
@@ -3982,22 +3976,12 @@ static void do_reconnect_dance(struct state *state)
 				   &state->channel_id,
 				   msg));
 
-	if (!fromwire_channel_reestablish
-#if EXPERIMENTAL_FEATURES
-			(tmpctx, msg, &cid,
-			 &next_commitment_number,
-			 &next_revocation_number,
-			 &last_local_per_commit_secret,
-			 &remote_current_per_commit_point,
-			 &tlvs)
-#else
-			(msg, &cid,
-			 &next_commitment_number,
-			 &next_revocation_number,
-			 &last_local_per_commit_secret,
-			 &remote_current_per_commit_point)
-#endif
-				)
+	if (!fromwire_channel_reestablish(tmpctx, msg, &cid,
+					  &next_commitment_number,
+					  &next_revocation_number,
+					  &last_local_per_commit_secret,
+					  &remote_current_per_commit_point,
+					  &tlvs))
 		open_err_fatal(state, "Bad reestablish msg: %s %s",
 			       peer_wire_name(fromwire_peektype(msg)),
 			       tal_hex(msg, msg));
