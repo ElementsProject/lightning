@@ -14,7 +14,6 @@ jobs:
     env:
       DEVELOPER: 1
       VALGRIND: 0
-      EXPERIMENTAL_FEATURES: 0
       COMPAT: 1
     steps:
     - uses: actions/checkout@v2
@@ -22,7 +21,7 @@ jobs:
       id: test
       uses: vmactions/freebsd-vm@v0.1.5
       with:
-        envs: 'DEVELOPER VALGRIND EXPERIMENTAL_FEATURES COMPAT'
+        envs: 'DEVELOPER VALGRIND COMPAT'
         usesh: true
         prepare: |
           pkg install -y \

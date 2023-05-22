@@ -714,10 +714,8 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_PING:
 		case WIRE_PONG:
 		case WIRE_STFU:
-#if EXPERIMENTAL_FEATURES
 		case WIRE_SPLICE:
 		case WIRE_SPLICE_ACK:
-#endif
 			return tal_fmt(ctx, "Unexpected wire message %s",
 				       tal_hex(ctx, msg));
 		}

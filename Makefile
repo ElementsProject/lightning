@@ -719,11 +719,11 @@ pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
 # These must both be enabled for update-mocks
-ifeq ($(DEVELOPER)$(EXPERIMENTAL_FEATURES),11)
+ifeq ($(DEVELOPER),1)
 update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 else
 update-mocks:
-	@echo Need DEVELOPER=1 and EXPERIMENTAL_FEATURES=1 to regenerate mocks >&2; exit 1
+	@echo Need DEVELOPER=1 to regenerate mocks >&2; exit 1
 endif
 
 $(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) libccan.a ccan/ccan/cdump/tools/cdump-enumstr config.vars
