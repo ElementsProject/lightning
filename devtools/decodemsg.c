@@ -3,13 +3,8 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <unistd.h>
-#if EXPERIMENTAL_FEATURES
-  #include <wire/onion_exp_printgen.h>
-  #include <wire/peer_exp_printgen.h>
-#else
-  #include <wire/onion_printgen.h>
-  #include <wire/peer_printgen.h>
-#endif
+#include <wire/onion_printgen.h>
+#include <wire/peer_printgen.h>
 
 static char *opt_set_tlvname(const char *arg,
 			     bool (**printwire)(const char *fieldname,

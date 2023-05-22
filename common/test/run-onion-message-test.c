@@ -16,13 +16,8 @@ static void maybe_print(const char *fmt, ...);
 #include "../onion_message_parse.c"
 #include "../sphinx.c"
 #include "../type_to_string.c"
-#if EXPERIMENTAL_FEATURES
-  #include "../../wire/onion_exp_wiregen.c"
-  #include "../../wire/peer_exp_wiregen.c"
-#else
-  #include "../../wire/onion_wiregen.c"
-  #include "../../wire/peer_wiregen.c"
-#endif
+#include "../../wire/onion_wiregen.c"
+#include "../../wire/peer_wiregen.c"
 #include <common/ecdh.h>
 #include <common/setup.h>
 #include <stdio.h>
