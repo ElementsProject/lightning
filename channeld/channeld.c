@@ -139,7 +139,6 @@ struct peer {
 	/* If master told us to send wrong_funding */
 	struct bitcoin_outpoint *shutdown_wrong_funding;
 
-#if EXPERIMENTAL_FEATURES
 	/* Do we want quiescence? */
 	bool stfu;
 	/* Which side is considered the initiator? */
@@ -148,7 +147,6 @@ struct peer {
 	bool stfu_sent[NUM_SIDES];
 	/* Updates master asked, which we've deferred while quiescing */
 	struct msg_queue *update_queue;
-#endif
 
 #if DEVELOPER
 	/* If set, don't fire commit counter when this hits 0 */
@@ -227,7 +225,6 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	return msg;
 }
 
-#if EXPERIMENTAL_FEATURES
 static void maybe_send_stfu(struct peer *peer)
 {
 	if (!peer->stfu)
@@ -251,6 +248,12 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 {
 	struct channel_id channel_id;
 	u8 remote_initiated;
+
+	if (!feature_negotiated(peer->our_features,
+				peer->their_features,
+				OPT_QUIESCE))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "stfu not supported");
 
 	if (!fromwire_stfu(stfu, &channel_id, &remote_initiated))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -312,6 +315,7 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	return false;
 }
 
+#if EXPERIMENTAL_FEATURES
 /* Compare, with false if either is NULL */
 static bool match_type(const u8 *t1, const u8 *t2)
 {
@@ -341,16 +345,7 @@ static void set_channel_type(struct channel *channel, const u8 *type)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_upgraded(NULL, channel->type)));
 }
-#else /* !EXPERIMENTAL_FEATURES */
-static bool handle_master_request_later(struct peer *peer, const u8 *msg)
-{
-	return false;
-}
-
-static void maybe_send_stfu(struct peer *peer)
-{
-}
-#endif
+#endif /* EXPERIMENTAL_FEATURES */
 
 /* Tell gossipd to create channel_update (then it goes into
  * gossip_store, then streams out to peers, or sends it directly if
@@ -1144,11 +1139,10 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 	if (peer->channel->opener != LOCAL)
 		return false;
 
-#if EXPERIMENTAL_FEATURES
 	/* No fee update while quiescing! */
 	if (peer->stfu)
 		return false;
-#endif
+
 	current = channel_feerate(peer->channel, REMOTE);
 
 	/* max is *approximate*: only take it into account if we're
@@ -1184,11 +1178,10 @@ static bool want_blockheight_update(const struct peer *peer, u32 *height)
 	if (peer->channel->lease_expiry == 0)
 		return false;
 
-#if EXPERIMENTAL_FEATURES
 	/* No fee update while quiescing! */
 	if (peer->stfu)
 		return false;
-#endif
+
 	/* What's the current blockheight */
 	last = get_blockheight(peer->channel->blockheight_states,
 			       peer->channel->opener, LOCAL);
@@ -2245,12 +2238,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
-
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 		handle_stfu(peer, msg);
 		return;
-#endif
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
@@ -3636,7 +3626,6 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 							       found_leak)));
 }
 
-#if EXPERIMENTAL_FEATURES
 static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 {
 	if (!fromwire_channeld_dev_quiesce(msg))
@@ -3650,7 +3639,6 @@ static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 	peer->stfu_initiator = LOCAL;
 	maybe_send_stfu(peer);
 }
-#endif /* EXPERIMENTAL_FEATURES */
 #endif /* DEVELOPER */
 
 static void req_in(struct peer *peer, const u8 *msg)
@@ -3708,10 +3696,8 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_dev_memleak(peer, msg);
 		return;
 	case WIRE_CHANNELD_DEV_QUIESCE:
-#if EXPERIMENTAL_FEATURES
 		handle_dev_quiesce(peer, msg);
 		return;
-#endif /* EXPERIMENTAL_FEATURES */
 #else
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
@@ -3980,11 +3966,9 @@ int main(int argc, char *argv[])
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
 	peer->last_empty_commitment = 0;
-#if EXPERIMENTAL_FEATURES
 	peer->stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
 	peer->update_queue = msg_queue_new(peer, false);
-#endif
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */

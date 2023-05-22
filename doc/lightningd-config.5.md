@@ -720,6 +720,11 @@ frames once the connection is upgraded.
 data for our peers, and give them our (encrypted!) backup data to
 store as well, based on a protocol similar to [bolt][bolt] #881.
 
+* **experimental-quiesce**
+
+  Specifying this option advertizes `option_quiesce`.  Not very useful
+by itself, except for testing.
+
 BUGS
 ----
 

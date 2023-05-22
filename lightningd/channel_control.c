@@ -1164,7 +1164,6 @@ static const struct json_command dev_feerate_command = {
 };
 AUTODATA(json_command, &dev_feerate_command);
 
-#if EXPERIMENTAL_FEATURES
 static void quiesce_reply(struct subd *channeld UNUSED,
 			  const u8 *reply,
 			  const int *fds UNUSED,
@@ -1196,6 +1195,7 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 	if (!peer)
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
+	/* FIXME: If this becomes a real API, check for OPT_QUIESCE! */
 	channel = peer_any_active_channel(peer, &more_than_one);
 	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
@@ -1216,5 +1216,4 @@ static const struct json_command dev_quiesce_command = {
 	"Initiate quiscence protocol with peer"
 };
 AUTODATA(json_command, &dev_quiesce_command);
-#endif /* EXPERIMENTAL_FEATURES */
 #endif /* DEVELOPER */
