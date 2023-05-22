@@ -82,6 +82,7 @@ msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,reestablish_only,bool,
 msgdata,channeld_init,channel_update_len,u16,
 msgdata,channeld_init,channel_update,u8,channel_update_len
+msgdata,channeld_init,experimental_upgrade,bool,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 # alias != NULL if zeroconf and short_channel_id == NULL
