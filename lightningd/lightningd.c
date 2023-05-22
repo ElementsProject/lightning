@@ -862,10 +862,6 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_ZEROCONF),
 		OPTIONAL_FEATURE(OPT_CHANNEL_TYPE),
 		OPTIONAL_FEATURE(OPT_ROUTE_BLINDING),
-#if EXPERIMENTAL_FEATURES
-		OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS),
-		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
-#endif
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {

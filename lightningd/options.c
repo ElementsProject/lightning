@@ -864,7 +864,7 @@ static const struct config testnet_config = {
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
 
-	.exp_offers = IFEXPERIMENTAL(true, false),
+	.exp_offers = false,
 
 	.allowdustreserve = false,
 
@@ -938,7 +938,7 @@ static const struct config mainnet_config = {
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
 
-	.exp_offers = IFEXPERIMENTAL(true, false),
+	.exp_offers = false,
 
 	.allowdustreserve = false,
 
