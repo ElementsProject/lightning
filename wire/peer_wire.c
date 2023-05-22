@@ -49,9 +49,7 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_YOUR_PEER_STORAGE:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
-#endif
 		return false;
 	}
 	return true;
@@ -105,9 +103,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_YOUR_PEER_STORAGE:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
-#endif
 		break;
 	}
 	return false;
@@ -363,14 +359,12 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 		/* BOLT-quiescent #2:
 		 * 1. type: 2 (`stfu`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
-#endif
 		return fromwire_channel_id(&cursor, &max, channel_id);
 	}
 	return false;

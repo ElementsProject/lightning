@@ -1101,6 +1101,14 @@ static char *opt_set_peer_storage(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_quiesce(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_QUIESCE))));
+	return NULL;
+}
+
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
@@ -1182,6 +1190,10 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-peer-storage",
 				 opt_set_peer_storage, ld,
 				 "EXPERIMENTAL: enable peer backup storage and restore");
+	opt_register_early_noarg("--experimental-quiesce",
+				 opt_set_quiesce, ld,
+				 "experimental: Advertise ability to quiesce"
+				 " channels.");
 	opt_register_early_arg("--announce-addr-dns",
 			       opt_set_bool_arg, opt_show_bool,
 			       &ld->announce_dns,
@@ -1675,6 +1687,11 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_PROVIDE_PEER_BACKUP_STORAGE));
+		} else if (opt->cb == (void *)opt_set_quiesce) {
+			json_add_bool(response, name0,
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_QUIESCE));
 		} else if (opt->cb == (void *)plugin_opt_flag_set) {
 			/* Noop, they will get added below along with the
 			 * OPT_HASARG options. */

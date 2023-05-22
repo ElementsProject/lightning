@@ -628,9 +628,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_YOUR_PEER_STORAGE:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
-#endif
 		break;
 	}
 
