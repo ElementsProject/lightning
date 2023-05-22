@@ -9,10 +9,9 @@ from pyln.testing.utils import (
     wait_for, TailableProc, env, mine_funding_to_announce
 )
 from utils import (
-    account_balance, scriptpubkey_addr, check_coin_moves
+    account_balance, scriptpubkey_addr, check_coin_moves, anchor_expected
 )
 from ephemeral_port_reserve import reserve
-from utils import EXPERIMENTAL_FEATURES
 
 import json
 import os
@@ -1651,7 +1650,7 @@ def test_feerates(node_factory):
         assert feerate['perkw']
         assert 'perkb' not in feerate
 
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1):
         # option_anchor_outputs
         assert htlc_timeout_cost == htlc_feerate * 666 // 1000
         assert htlc_success_cost == htlc_feerate * 706 // 1000
@@ -1950,7 +1949,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
     """Don't return a feerate less than minrelaytxfee/mempoolminfee."""
     l1 = node_factory.get_node()
 
-    anchors = EXPERIMENTAL_FEATURES
+    anchors = anchor_expected(l1)
     assert l1.rpc.feerates('perkb') == {
         "perkb": {
             "opening": 30000,
@@ -2148,23 +2147,12 @@ def test_list_features_only(node_factory):
                 'option_static_remotekey/odd',
                 'option_payment_secret/even',
                 'option_basic_mpp/odd',
-                ]
-    if EXPERIMENTAL_FEATURES:
-        expected += ['option_anchor_outputs/odd']
-        expected += ['option_route_blinding/odd']
-        expected += ['option_shutdown_anysegwit/odd']
-        expected += ['option_quiesce/odd']
-        expected += ['option_onion_messages/odd']
-        expected += ['option_channel_type/odd']
-        expected += ['option_scid_alias/odd']
-        expected += ['option_zeroconf/odd']
-        expected += ['supports_open_accept_channel_type']
-    else:
-        expected += ['option_route_blinding/odd']
-        expected += ['option_shutdown_anysegwit/odd']
-        expected += ['option_channel_type/odd']
-        expected += ['option_scid_alias/odd']
-        expected += ['option_zeroconf/odd']
+                'option_route_blinding/odd',
+                'option_shutdown_anysegwit/odd',
+                'option_channel_type/odd',
+                'option_scid_alias/odd',
+                'option_zeroconf/odd',
+                'supports_open_accept_channel_type']
     assert features == expected
 
 
