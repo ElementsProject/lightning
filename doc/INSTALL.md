@@ -20,7 +20,6 @@ Library Requirements
 
 You will need several development libraries:
 * libsqlite3: for database support.
-* libgmp: for secp256k1
 * zlib: for compression routines.
 
 For actually doing development and running the tests, you will also need:
@@ -38,7 +37,7 @@ Get dependencies:
 
     sudo apt-get update
     sudo apt-get install -y \
-      autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
+      autoconf automake build-essential git libtool libsqlite3-dev \
       python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
     pip3 install --upgrade pip
     pip3 install --user poetry
@@ -119,7 +118,6 @@ $ sudo dnf update -y && \
                 clang \
                 gettext \
                 git \
-                gmp-devel \
                 libsq3-devel \
                 python3-devel \
                 python3-pip \
@@ -204,7 +202,7 @@ OS version: OpenBSD 6.7
 
 Install dependencies:
 ```
-pkg_add git python gmake py3-pip libtool gmp
+pkg_add git python gmake py3-pip libtool
 pkg_add automake # (select highest version, automake1.16.2 at time of writing)
 pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 ```
@@ -236,7 +234,7 @@ To Build on NixOS
 Use nix-shell launch a shell with a full clightning dev environment:
 
 ```
-$ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
+$ nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
 autogen automake libsodium 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind --run make
 ```
@@ -246,7 +244,7 @@ To Build on macOS
 
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext libsodium protobuf
+    $ brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf
     $ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
     $ export PATH="/usr/local/opt:$PATH"
 
@@ -407,7 +405,7 @@ Config the arm elf interpreter prefix:
 
     export QEMU_LD_PREFIX=/path/to/raspberry/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/arm-linux-gnueabihf/sysroot/
 
-Obtain and install cross-compiled versions of sqlite3, gmp and zlib:
+Obtain and install cross-compiled versions of sqlite3 and zlib:
 
 Download and build zlib:
 
@@ -424,15 +422,6 @@ Download and build sqlite3:
     unzip sqlite-src-3260000.zip
     cd sqlite-src-3260000
     ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=$target_host --prefix=$QEMU_LD_PREFIX
-    make
-    make install
-
-Download and build gmp:
-
-    wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
-    tar xvf gmp-6.1.2.tar.xz
-    cd gmp-6.1.2
-    ./configure --disable-assembly --host=$target_host --prefix=$QEMU_LD_PREFIX
     make
     make install
 
@@ -456,7 +445,7 @@ Get dependencies:
 ```
 apk update
 apk add --virtual .build-deps ca-certificates alpine-sdk autoconf automake git libtool \
-  gmp-dev sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
+  sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
 ```
 Clone lightning:
 ```
@@ -477,7 +466,7 @@ apk del .build-deps
 ```
 Install runtime dependencies:
 ```
-apk add gmp libgcc libsodium sqlite-libs zlib
+apk add libgcc libsodium sqlite-libs zlib
 ```
 
 Additional steps

@@ -24,7 +24,6 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      git \
      libc6-dev-arm64-cross \
      libc6-dev-armhf-cross \
-     libgmp-dev \
      libpq-dev \
      libprotobuf-c-dev \
      libsqlite3-dev \

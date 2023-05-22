@@ -22,7 +22,6 @@ RUN apt-get -qq update && \
 	libtool \
 	libprotobuf-c-dev \
 	libsqlite3-dev \
-	libgmp-dev \
 	git \
 	python3 \
 	valgrind \
