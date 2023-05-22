@@ -583,6 +583,19 @@ def main(options, args=None, output=sys.stdout, lines=None):
                                        optional=optional)
                 comment_set = []
             elif token_type == 'tlvtype':
+                # Hack: modern spec assumes tlvs, so if there's a type to
+                # attach this to, do it now, by assuming it's the same name
+                # with _tlvs appended.
+                if tokens[1].endswith("_tlvs"):
+                    container_name = tokens[1][:-5]
+                    msg = master.find_message(container_name)
+
+                    if msg is not None:
+                        if tokens[1] not in master.types:
+                            # Adding: msgdata,update_add_htlc,tlvs,update_add_htlc_tlvs,
+                            type_obj, _, _ = master.add_type(tokens[1], "tlvs", container_name)
+                            msg.add_data_field(container_name, type_obj)
+
                 tlv = master.add_tlv(tokens[1])
                 tlv.add_message(tokens[2:], comments=list(comment_set))
 
