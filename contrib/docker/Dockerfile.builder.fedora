@@ -9,7 +9,6 @@ RUN dnf update -y && \
 		'Development Tools' && \
 	dnf install -y \
 		clang \
-		gmp-devel \
 		libsq3-devel \
 		python3-devel \
 		python3-mako \

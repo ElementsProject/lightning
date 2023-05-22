@@ -78,16 +78,6 @@ then
     rm sqlite-src-3260000.zip
     rm -rf sqlite-src-3260000
 
-    wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
-    tar xf gmp-6.1.2.tar.xz
-    cd gmp-6.1.2 || exit 1
-    ./configure --disable-assembly --prefix="$QEMU_LD_PREFIX" --host="$TARGET_HOST"
-    make
-    sudo make install
-    cd ..
-    rm gmp-6.1.2.tar.xz
-    rm -rf gmp-6.1.2
-
     ./configure CC="$TARGET_HOST-gcc" --enable-static
 
     make -j32 CC="$TARGET_HOST-gcc" > /dev/null

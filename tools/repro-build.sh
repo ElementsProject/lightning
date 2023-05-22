@@ -70,7 +70,7 @@ case "$PLATFORM" in
 	    exit 1
 	fi
 	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
+	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
 	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 a909ad8b2e97f45960a05458140cff737df30bf7c616778a5a0ca74b9d012d93  /var/cache/apt/archives/autoconf_2.69-11_all.deb
@@ -84,8 +84,6 @@ e426c70a940a7d0c5c95823a5fd01f26bd8bcb08d109df2f8c96c439da8dc440  /var/cache/apt
 69ea1317b37cbd467eb7d216f5d23aa8831d926908e9e12477aa28bdc1d5e62b  /var/cache/apt/archives/libc-dev-bin_2.27-3ubuntu1_amd64.deb
 357185ad09d689b61efda9576888feea2a0f178ae1422cddc6cd0d48f7c22d50  /var/cache/apt/archives/libcilkrts5_7.3.0-16ubuntu3_amd64.deb
 becbeba33d3824aa3c0d1b1e62653fcee776eb7cad631df0748fa77032e293c6  /var/cache/apt/archives/libgcc-7-dev_7.3.0-16ubuntu3_amd64.deb
-77066044de14fbcc4f2326348e24dda33e1106295e9c44748bb457ecd132b823  /var/cache/apt/archives/libgmp-dev_2%3a6.1.2+dfsg-2_amd64.deb
-612ab92cdf2aef4591c3a36e1656e3af9a3fe056989e2ac22e5482017208f736  /var/cache/apt/archives/libgmpxx4ldbl_2%3a6.1.2+dfsg-2_amd64.deb
 445b4569e2d3b72403ce3f79a58021f7d2832ee1e5e1a8e9fea7ab9aadaa0f1c  /var/cache/apt/archives/libitm1_8-20180414-1ubuntu2_amd64.deb
 4aa713aae73c15f3cc968b45cac3b0ae4e5d8c0b39ec35a6a535672fd833eb75  /var/cache/apt/archives/liblsan0_8-20180414-1ubuntu2_amd64.deb
 1bded2761c1213cc3b6bab27f515abff895af51d4b2272d6bddeadbf067a30dc  /var/cache/apt/archives/libmpx2_8-20180414-1ubuntu2_amd64.deb
@@ -108,7 +106,7 @@ EOF
 	    exit 1
 	fi
 	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
+	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
 	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 f554697f01a6267127ef20e6eae4e8ed983507c816475ac72dbb8be26d94c796  /var/cache/apt/archives/autoconf_2.69-11.1_all.deb
@@ -122,7 +120,6 @@ adb78f38fb00c76af4384be7a4c5f41da242e05bea6b0483e03b7e0c86738477  /var/cache/apt
 255ebc78828b1531f83038805dd918a8a60c017f939b07dd614b9fb7f7400df3  /var/cache/apt/archives/libcc1-0_10-20200411-0ubuntu1_amd64.deb
 f0a41d8e8cf379dbbdfc43169f34851ed452b3581e72c6654f2e290caf4e1b20  /var/cache/apt/archives/libcrypt-dev_1%3a4.4.10-10ubuntu4_amd64.deb
 d1db4de59b4184e502407a2abfde23ed1a966e590f17b4d206bdb4fbb7df0040  /var/cache/apt/archives/libgcc-9-dev_9.3.0-10ubuntu2_amd64.deb
-8dd29cf74e89d8555c6057345d40b1e501407ff6ac3a13de35ef8fa5ae6cb300  /var/cache/apt/archives/libgmp-dev_2%3a6.2.0+dfsg-4_amd64.deb
 b1d9556fea9ed94dea7eeebeccc59bf9598a658e77e6dba5b9197d0f1a22059b  /var/cache/apt/archives/libpq-dev_12.2-4_amd64.deb
 af86d031c99bc7db0c8e6a93547a885f48d1f88b683989ac479a9c1b2b9e1781  /var/cache/apt/archives/libpq5_12.2-4_amd64.deb
 2bc3d45c379470ffbe6da5c30edd573c7579331299ad67a04af68f11b1858970  /var/cache/apt/archives/libsodium-dev_1.0.18-1_amd64.deb
@@ -141,7 +138,7 @@ EOF
 	    exit 1
 	fi
 	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
+	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
 	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 96b528889794c4134015a63c75050f93d8aecdf5e3f2a20993c1433f4c61b80e  /var/cache/apt/archives/autoconf_2.71-2_all.deb
@@ -152,7 +149,6 @@ cc37cab5c60bcfe4bbf289a8002f369949a41ed46e8b51a0503a001099370c56  /var/cache/apt
 2f52cdc0aca888bb3995d871a65282107dc7c2a0a4d78f60680f709bdc0875aa  /var/cache/apt/archives/libcc1-0_12-20220319-1ubuntu1_amd64.deb
 a79be2f6e45823dcc09e04d5e98c88ec88d07d5b8895d05b875a8ade8b345efa  /var/cache/apt/archives/libcrypt-dev_1%3a4.4.27-1_amd64.deb
 adae5a301c7899c1bce8ae26b5423716a47e516df25c09d6d536607bc34853bc  /var/cache/apt/archives/libgcc-11-dev_11.2.0-19ubuntu1_amd64.deb
-e4ce547c5c5e4efd98854d06559349b3a03272eb343f1bd8e4ccac7b783229a3  /var/cache/apt/archives/libgmp-dev_2%3a6.2.1+dfsg-3ubuntu1_amd64.deb
 d8b8653388e676a3ae2fcf565c2b1a42a01a1104062317f641e8d24f0eaff9c3  /var/cache/apt/archives/libpq-dev_14.2-1ubuntu1_amd64.deb
 542dcee1409c74d03ecdd4ca4a0cfd467e5d2804d9985b58e39d3c5889a409e3  /var/cache/apt/archives/libpq5_14.2-1ubuntu1_amd64.deb
 885ee09c37d0e37ef6042e8cb4a22ccbab92101f21ab0c8f51ae961e4484407c  /var/cache/apt/archives/libsodium23_1.0.18-1build2_amd64.deb
