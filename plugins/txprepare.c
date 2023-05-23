@@ -168,9 +168,8 @@ static struct command_result *signpsbt_done(struct command *cmd,
 				    "Signed tx changed txid? Had '%s' now '%s'",
 				    tal_hex(tmpctx,
 					    linearize_wtx(tmpctx, utx->tx)),
-				    tal_hex(tmpctx,
-					    linearize_wtx(tmpctx,
-							  utx->psbt->tx)));
+				    type_to_string(tmpctx, struct wally_psbt,
+                           utx->psbt));
 	}
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpsbt",
