@@ -2602,7 +2602,7 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		struct bitcoin_outpoint outpoint;
 
 		assert(pv->next_index > 0);
-		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[pv->next_index - 1],
+		wally_psbt_input_get_outpoint(&pv->psbt->inputs[pv->next_index - 1],
 					    &outpoint);
 
 		err = tal_fmt(pv, "Requested only confirmed"
@@ -2629,8 +2629,8 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		if (serial % 2 != pv->role_to_validate)
 			continue;
 
-		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[i],
-					    &outpoint);
+		wally_psbt_input_get_outpoint(&pv->psbt->inputs[i],
+					      &outpoint);
 		pv->next_index = i + 1;
 
 		/* Confirm input is in a block */
