@@ -194,7 +194,7 @@ def test_v2_fail_second(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     # Should have one channel between them.
-    only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
 
     amount = 2**24 - 1
     l1.fundwallet(amount + 10000000)
@@ -209,16 +209,20 @@ def test_v2_fail_second(node_factory, bitcoind):
     psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
 
+    # They will both see a pair of channels
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
+    assert len(l2.rpc.listpeerchannels(l1.info['id'])['channels']) == 2
+
     # We can abort a channel
     l1.rpc.openchannel_abort(start['channel_id'])
 
-    peer_info = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])
     # We should have deleted the 'in-progress' channel info
-    only_one(peer_info['channels'])
+    only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
 
     # FIXME: check that tx-abort was sent
     # Should be able to reattempt without reconnecting
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
