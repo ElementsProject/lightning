@@ -842,21 +842,11 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 115')
 
     # We need to give l1-l2 time to update their blockheights
-    bitcoind.generate_block(1000)
-    sync_blockheight(bitcoind, [l1, l2])
-    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
-
-    bitcoind.generate_block(1000)
-    sync_blockheight(bitcoind, [l1, l2])
-    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
-
-    bitcoind.generate_block(1000)
-    sync_blockheight(bitcoind, [l1, l2])
-    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
-
-    bitcoind.generate_block(1000)
-    sync_blockheight(bitcoind, [l1, l2])
-    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+    for i in range(0, 4000, 1000):
+        for _ in range(0, 1000, 200):
+            bitcoind.generate_block(200)
+        sync_blockheight(bitcoind, [l1, l2])
+        l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
 
     bitcoind.generate_block(32)
     sync_blockheight(bitcoind, [l1, l2])
