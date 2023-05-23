@@ -359,7 +359,7 @@ static void open_abort(struct state *state,
 	 * status. */
 	peer_billboard(true, errmsg);
 	msg = towire_tx_abort(NULL, &state->channel_id,
-			      (u8 *)tal_dup_arr(errmsg, char, errmsg,
+			      (u8 *)tal_dup_arr(tmpctx, char, errmsg,
 					  strlen(errmsg), 0));
 	peer_write(state->pps, take(msg));
 
