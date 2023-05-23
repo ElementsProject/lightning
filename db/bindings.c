@@ -437,12 +437,15 @@ struct bitcoin_tx *db_col_tx(const tal_t *ctx, struct db_stmt *stmt, const char 
 
 struct wally_psbt *db_col_psbt(const tal_t *ctx, struct db_stmt *stmt, const char *colname)
 {
+	struct wally_psbt *psbt;
 	size_t col = db_query_colnum(stmt, colname);
 	const u8 *src = db_column_blob(stmt, col);
 	size_t len = db_column_bytes(stmt, col);
 
 	db_column_null_warn(stmt, colname, col);
-	return psbt_from_bytes(ctx, src, len);
+	psbt = psbt_from_bytes(ctx, src, len);
+	psbt_set_version(psbt, 2);
+	return psbt;
 }
 
 struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, const char *colname)
