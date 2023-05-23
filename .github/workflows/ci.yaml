@@ -234,6 +234,14 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: liquid-regtest
             TEST_DB_PROVIDER: sqlite3
+          # And dual funding!
+          - NAME: dual-fund
+            CFG: gcc-dev1
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+            TEST_NETWORK: regtest
+            DEVELOPER: 1
+            EXPERIMENTAL_DUAL_FUND: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -261,6 +269,7 @@ jobs:
           VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
