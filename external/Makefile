@@ -13,9 +13,9 @@ endif
 TOP := ../..
 ifdef BUILD
 CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
-TARGET_DIR := external/$(MAKE_HOST)
+TARGET_DIR := external/build-$(MAKE_HOST)
 else
-TARGET_DIR := external/$(shell ${CC} -dumpmachine)
+TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)
 endif
 
 LIBSODIUM_HEADERS := external/libsodium/src/libsodium/include/sodium.h
@@ -123,14 +123,8 @@ distclean: external-distclean
 clean: external-clean
 
 external-clean:
-	$(RM) $(EXTERNAL_LIBS) $(TARGET_DIR)/*.la $(TARGET_DIR)/*.o
-	$(RM) $(TARGET_DIR)/jsmn-build/jsmn.o
-	$(RM) -r $(TARGET_DIR)/lowdown-build/*
-	if [ -f ${TARGET_DIR}/libsodium-build/Makefile ]; then make -C ${TARGET_DIR}/libsodium-build clean; fi
-	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
-	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
-	if [ -f ${TARGET_DIR}/libbacktrace-build/Makefile ]; then make -C ${TARGET_DIR}/libbacktrace-build clean; fi
-	if [ -f external/lowdown/Makefile.configure ]; then $(MAKE) -C external/lowdown clean; fi
+	$(RM) $(EXTERNAL_LIBS)
+	$(RM) -rf $(TARGET_DIR)
 
 external-distclean:
 	make -C external/libsodium distclean || true
