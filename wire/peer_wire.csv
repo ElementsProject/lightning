@@ -203,6 +203,9 @@ subtypedata,lease_rates,lease_fee_basis,u16,
 subtypedata,lease_rates,channel_fee_max_proportional_thousandths,u16,
 subtypedata,lease_rates,lease_fee_base_sat,u32,
 subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
+msgtype,stfu,2
+msgdata,stfu,channel_id,channel_id,
+msgdata,stfu,initiator,u8,
 msgtype,shutdown,38
 msgdata,shutdown,channel_id,channel_id,
 msgdata,shutdown,len,u16,
@@ -226,9 +229,8 @@ msgdata,update_add_htlc,amount_msat,u64,
 msgdata,update_add_htlc,payment_hash,sha256,
 msgdata,update_add_htlc,cltv_expiry,u32,
 msgdata,update_add_htlc,onion_routing_packet,byte,1366
-msgdata,update_add_htlc,tlvs,update_add_tlvs,
-tlvtype,update_add_tlvs,blinding,0
-tlvdata,update_add_tlvs,blinding,blinding,point,
+tlvtype,update_add_htlc_tlvs,blinding_point,0
+tlvdata,update_add_htlc_tlvs,blinding_point,blinding,point,
 msgtype,update_fulfill_htlc,130
 msgdata,update_fulfill_htlc,channel_id,channel_id,
 msgdata,update_fulfill_htlc,id,u64,
@@ -264,6 +266,15 @@ msgdata,channel_reestablish,next_commitment_number,u64,
 msgdata,channel_reestablish,next_revocation_number,u64,
 msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
 msgdata,channel_reestablish,my_current_per_commitment_point,point,
+msgdata,channel_reestablish,tlvs,channel_reestablish_tlvs,
+tlvtype,channel_reestablish_tlvs,next_to_send,1
+tlvdata,channel_reestablish_tlvs,next_to_send,commitment_number,tu64,
+tlvtype,channel_reestablish_tlvs,desired_channel_type,3
+tlvdata,channel_reestablish_tlvs,desired_channel_type,type,byte,...
+tlvtype,channel_reestablish_tlvs,current_channel_type,5
+tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
+tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
+tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
 msgtype,peer_storage,7
 msgdata,peer_storage,len,u16,
 msgdata,peer_storage,blob,byte,len

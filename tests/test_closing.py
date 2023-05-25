@@ -5,7 +5,7 @@ from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
-    scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
+    scriptpubkey_addr, calc_lease_fee,
     check_utxos_channel, anchor_expected, check_coin_moves,
     check_balance_snaps, mine_funding_to_announce, check_inspect_channel,
     first_scid
@@ -418,7 +418,6 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
     assert opts['expected_close_fee'] == fee_mempool
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 30%"""
@@ -434,7 +433,6 @@ def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 100%"""
@@ -455,7 +453,6 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 1sat"""
@@ -471,7 +468,6 @@ def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 700sat"""
@@ -3301,7 +3297,7 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
             l1.rpc.fundchannel(l2.info['id'], 10**6)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs anchor_outputs")
+@unittest.skip("Needs anchor_outputs")
 @pytest.mark.developer("needs to set dev-disconnect")
 def test_closing_higherfee(node_factory, bitcoind, executor):
     """With anchor outputs we can ask for a *higher* fee than the last commit tx"""

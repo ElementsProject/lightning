@@ -9,7 +9,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
-    EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid,
+    mine_funding_to_announce, first_scid,
     anchor_expected, CHANNEL_SIZE
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
@@ -3384,7 +3384,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.set_feerates((100000, 100000, 100000, 100000))
 
     # It will raise as far as it can (48000) (30000 for option_anchor_outputs)
-    maxfeerate = 30000 if EXPERIMENTAL_FEATURES else 48000
+    maxfeerate = 30000 if anchor_expected(l1, l2) else 48000
     l1.daemon.wait_for_log('Setting REMOTE feerate to {}'.format(maxfeerate))
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
@@ -3576,7 +3576,7 @@ def test_channel_features(node_factory, bitcoind):
     # We should see features in unconfirmed channels.
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1, l2):
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.
@@ -3589,7 +3589,7 @@ def test_channel_features(node_factory, bitcoind):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1, l2):
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.
@@ -3713,13 +3713,14 @@ def test_openchannel_init_alternate(node_factory, executor):
             print("nothing to do")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey(node_factory, executor):
     """l1 doesn't have option_static_remotekey, l2 offers it."""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-force-features': ["-13", "-21"]},
-                                              {'may_reconnect': True}])
+                                               'dev-force-features': ["-13"],
+                                               'experimental-upgrade-protocol': None},
+                                              {'may_reconnect': True,
+                                               'experimental-upgrade-protocol': None}])
 
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3743,17 +3744,18 @@ def test_upgrade_statickey(node_factory, executor):
     l2.daemon.wait_for_log(r"They sent desired_channel_type \[12\]")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
                                                'dev-no-reconnect': None,
-                                               'dev-force-features': ["-13", "-21"],
+                                               'dev-force-features': ["-13"],
+                                               'experimental-upgrade-protocol': None,
                                                # We try to cheat!
                                                'allow_broken_log': True},
                                               {'may_reconnect': True,
-                                               'dev-no-reconnect': None}])
+                                               'dev-no-reconnect': None,
+                                               'experimental-upgrade-protocol': None}])
 
     # TEST 1: Cheat from pre-upgrade.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
@@ -3877,7 +3879,6 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
 @pytest.mark.developer("dev-force-features, dev-disconnect required")
 def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     """We reconnect at all points during retransmit, and we won't upgrade."""
@@ -3889,11 +3890,13 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
                                                'dev-no-reconnect': None,
                                                'disconnect': l1_disconnects,
-                                               'dev-force-features': ["-13", "-21"],
+                                               'experimental-upgrade-protocol': None,
+                                               'dev-force-features': ["-13"],
                                                # Don't have feerate changes!
                                                'feerates': (7500, 7500, 7500, 7500)},
                                               {'may_reconnect': True,
                                                'dev-no-reconnect': None,
+                                               'experimental-upgrade-protocol': None,
                                                'disconnect': l2_disconnects,
                                                'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
                                                'hold-time': 10000,
@@ -3943,10 +3946,9 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     assert 'option_static_remotekey' in only_one(l2.rpc.listpeerchannels()['channels'])['features']
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
 @pytest.mark.developer("quiescence triggering is dev only")
 def test_quiescence(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-quiesce': None})
 
     # Works fine.
     l1.pay(l2, 1000)

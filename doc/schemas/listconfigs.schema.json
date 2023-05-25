@@ -142,6 +142,16 @@
       "added": "v23.02",
       "description": "`experimental-peer-storage` field from config or cmdline, or default"
     },
+    "experimental-quiesce": {
+      "type": "boolean",
+      "added": "v23.08",
+      "description": "`experimental-quiesce` field from config or cmdline, or default"
+    },
+    "experimental-upgrade-protocol": {
+      "type": "boolean",
+      "added": "v23.08",
+      "description": "`experimental-upgrade-protocol` field from config or cmdline, or default"
+    },
     "database-upgrade": {
       "type": "boolean",
       "description": "`database-upgrade` field from config or cmdline"

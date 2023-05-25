@@ -7,7 +7,7 @@ from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce, first_scid
+    VALGRIND, mine_funding_to_announce, first_scid, anchor_expected
 )
 import copy
 import os
@@ -726,7 +726,7 @@ def test_sendpay_cant_afford(node_factory):
     # assert False
 
     # This is the fee, which needs to be taken into account for l1.
-    if EXPERIMENTAL_FEATURES:
+    if anchor_expected(l1, l2):
         # option_anchor_outputs
         available = 10**9 - 44700000
     else:
@@ -4367,7 +4367,6 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     l1.rpc.pay(inv)
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "this is always on with EXPERIMENTAL_FEATURES")
 def test_offer_needs_option(node_factory):
     """Make sure we don't make offers without offer command"""
     l1 = node_factory.get_node()
@@ -4797,13 +4796,8 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
-    if EXPERIMENTAL_FEATURES:
-        # We have to force option_onion_messages off!
-        opts1 = {'dev-force-features': '-39'}
-    else:
-        opts1 = {}
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[opts1,
+                                     opts=[{},
                                            {'experimental-offers': None,
                                             'dev-allow-localhost': None}])
 

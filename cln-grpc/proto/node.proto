@@ -758,47 +758,15 @@ message ListtransactionsTransactions {
 }
 
 message ListtransactionsTransactionsInputs {
-	// ListTransactions.transactions[].inputs[].type
-	enum ListtransactionsTransactionsInputsType {
-		THEIRS = 0;
-		DEPOSIT = 1;
-		WITHDRAW = 2;
-		CHANNEL_FUNDING = 3;
-		CHANNEL_MUTUAL_CLOSE = 4;
-		CHANNEL_UNILATERAL_CLOSE = 5;
-		CHANNEL_SWEEP = 6;
-		CHANNEL_HTLC_SUCCESS = 7;
-		CHANNEL_HTLC_TIMEOUT = 8;
-		CHANNEL_PENALTY = 9;
-		CHANNEL_UNILATERAL_CHEAT = 10;
-	}
 	bytes txid = 1;
 	uint32 index = 2;
 	uint32 sequence = 3;
-	optional ListtransactionsTransactionsInputsType item_type = 4;
-	optional string channel = 5;
 }
 
 message ListtransactionsTransactionsOutputs {
-	// ListTransactions.transactions[].outputs[].type
-	enum ListtransactionsTransactionsOutputsType {
-		THEIRS = 0;
-		DEPOSIT = 1;
-		WITHDRAW = 2;
-		CHANNEL_FUNDING = 3;
-		CHANNEL_MUTUAL_CLOSE = 4;
-		CHANNEL_UNILATERAL_CLOSE = 5;
-		CHANNEL_SWEEP = 6;
-		CHANNEL_HTLC_SUCCESS = 7;
-		CHANNEL_HTLC_TIMEOUT = 8;
-		CHANNEL_PENALTY = 9;
-		CHANNEL_UNILATERAL_CHEAT = 10;
-	}
 	uint32 index = 1;
 	Amount amount_msat = 6;
 	bytes scriptPubKey = 3;
-	optional ListtransactionsTransactionsOutputsType item_type = 4;
-	optional string channel = 5;
 }
 
 message PayRequest {

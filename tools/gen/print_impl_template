@@ -38,11 +38,6 @@ bool print${options.enum_name}_message(const u8 *msg)
 ## definition for printing field sets
 <%def name="print_fieldset(fields)">
 % for f in fields:
-    % if f.is_extension():
-	if (*plen == 0)
-		return true;
-	printf("(${','.join(f.extension_names)}):");
-    % endif
     % if f.len_field_of:
 	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(cursor, plen);${truncate_check()} <% continue %> \
     % endif	

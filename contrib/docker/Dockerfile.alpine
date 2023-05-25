@@ -12,7 +12,6 @@ RUN apk update && \
       cargo \
       gettext \
       git \
-      gmp-dev \
       libsodium \
       libtool \
       net-tools \

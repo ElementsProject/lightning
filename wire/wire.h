@@ -70,13 +70,4 @@ u8 *fromwire_tal_arrn(const tal_t *ctx,
 char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max);
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 			   struct siphash_seed *seed);
-
-#if !EXPERIMENTAL_FEATURES
-/* Stubs, as this subtype is only defined when EXPERIMENTAL_FEATURES */
-struct onionmsg_path;
-
-void towire_onionmsg_path(u8 **p, const struct onionmsg_path *onionmsg_path);
-struct onionmsg_path *
-fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen);
-#endif /* EXPERIMENTAL_FEATURES */
 #endif /* LIGHTNING_WIRE_WIRE_H */

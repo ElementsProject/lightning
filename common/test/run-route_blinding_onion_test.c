@@ -14,11 +14,7 @@
 #include "../onion_encode.c"
 #include "../sphinx.c"
 #include "../type_to_string.c"
-#if EXPERIMENTAL_FEATURES
-  #include "../../wire/onion_exp_wiregen.c"
-#else
-  #include "../../wire/onion_wiregen.c"
-#endif
+#include "../../wire/onion_wiregen.c"
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/bolt12.h>

@@ -10,7 +10,6 @@ jobs:
     env:
       DEVELOPER: 1
       VALGRIND: 0
-      EXPERIMENTAL_FEATURES: 1
       COMPAT: 0
     strategy:
       fail-fast: true
@@ -23,7 +22,7 @@ jobs:
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
 
           export BITCOIN_VERSION=24.1
-          brew install wget autoconf automake libtool python@3.10 gmp gnu-sed gettext libsodium
+          brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium
 
           (
             cd /tmp/
@@ -42,7 +41,6 @@ jobs:
         env:
           VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
-          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
           COMPILER: ${{ matrix.COMPILER }}
           COMPAT: ${{ matrix.COMPAT }}
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}

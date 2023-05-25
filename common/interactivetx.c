@@ -196,9 +196,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_PING:
 		case WIRE_PONG:
 		case WIRE_SHUTDOWN:
-#if EXPERIMENTAL_FEATURES
 		case WIRE_STFU:
-#endif
 		*error = tal_fmt(ctx,
 				 "Received invalid message from peer: %d", t);
 		return NULL;
@@ -715,11 +713,9 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		case WIRE_PING:
 		case WIRE_PONG:
-#if EXPERIMENTAL_FEATURES
+		case WIRE_STFU:
 		case WIRE_SPLICE:
 		case WIRE_SPLICE_ACK:
-		case WIRE_STFU:
-#endif
 			return tal_fmt(ctx, "Unexpected wire message %s",
 				       tal_hex(ctx, msg));
 		}

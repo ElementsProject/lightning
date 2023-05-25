@@ -2601,119 +2601,19 @@ pub mod responses {
 	    }
 	}
 
-	/// the purpose of this input (*EXPERIMENTAL_FEATURES* only)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListtransactionsTransactionsInputsType {
-	    #[serde(rename = "theirs")]
-	    THEIRS,
-	    #[serde(rename = "deposit")]
-	    DEPOSIT,
-	    #[serde(rename = "withdraw")]
-	    WITHDRAW,
-	    #[serde(rename = "channel_funding")]
-	    CHANNEL_FUNDING,
-	    #[serde(rename = "channel_mutual_close")]
-	    CHANNEL_MUTUAL_CLOSE,
-	    #[serde(rename = "channel_unilateral_close")]
-	    CHANNEL_UNILATERAL_CLOSE,
-	    #[serde(rename = "channel_sweep")]
-	    CHANNEL_SWEEP,
-	    #[serde(rename = "channel_htlc_success")]
-	    CHANNEL_HTLC_SUCCESS,
-	    #[serde(rename = "channel_htlc_timeout")]
-	    CHANNEL_HTLC_TIMEOUT,
-	    #[serde(rename = "channel_penalty")]
-	    CHANNEL_PENALTY,
-	    #[serde(rename = "channel_unilateral_cheat")]
-	    CHANNEL_UNILATERAL_CHEAT,
-	}
-
-	impl TryFrom<i32> for ListtransactionsTransactionsInputsType {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListtransactionsTransactionsInputsType, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListtransactionsTransactionsInputsType::THEIRS),
-	    1 => Ok(ListtransactionsTransactionsInputsType::DEPOSIT),
-	    2 => Ok(ListtransactionsTransactionsInputsType::WITHDRAW),
-	    3 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_FUNDING),
-	    4 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_MUTUAL_CLOSE),
-	    5 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_UNILATERAL_CLOSE),
-	    6 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_SWEEP),
-	    7 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_HTLC_SUCCESS),
-	    8 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_HTLC_TIMEOUT),
-	    9 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_PENALTY),
-	    10 => Ok(ListtransactionsTransactionsInputsType::CHANNEL_UNILATERAL_CHEAT),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListtransactionsTransactionsInputsType", o)),
-	        }
-	    }
-	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsTransactionsInputs {
 	    pub txid: String,
 	    pub index: u32,
 	    pub sequence: u32,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub item_type: Option<ListtransactionsTransactionsInputsType>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel: Option<ShortChannelId>,
 	}
 
-	/// the purpose of this output (*EXPERIMENTAL_FEATURES* only)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListtransactionsTransactionsOutputsType {
-	    #[serde(rename = "theirs")]
-	    THEIRS,
-	    #[serde(rename = "deposit")]
-	    DEPOSIT,
-	    #[serde(rename = "withdraw")]
-	    WITHDRAW,
-	    #[serde(rename = "channel_funding")]
-	    CHANNEL_FUNDING,
-	    #[serde(rename = "channel_mutual_close")]
-	    CHANNEL_MUTUAL_CLOSE,
-	    #[serde(rename = "channel_unilateral_close")]
-	    CHANNEL_UNILATERAL_CLOSE,
-	    #[serde(rename = "channel_sweep")]
-	    CHANNEL_SWEEP,
-	    #[serde(rename = "channel_htlc_success")]
-	    CHANNEL_HTLC_SUCCESS,
-	    #[serde(rename = "channel_htlc_timeout")]
-	    CHANNEL_HTLC_TIMEOUT,
-	    #[serde(rename = "channel_penalty")]
-	    CHANNEL_PENALTY,
-	    #[serde(rename = "channel_unilateral_cheat")]
-	    CHANNEL_UNILATERAL_CHEAT,
-	}
-
-	impl TryFrom<i32> for ListtransactionsTransactionsOutputsType {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListtransactionsTransactionsOutputsType, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListtransactionsTransactionsOutputsType::THEIRS),
-	    1 => Ok(ListtransactionsTransactionsOutputsType::DEPOSIT),
-	    2 => Ok(ListtransactionsTransactionsOutputsType::WITHDRAW),
-	    3 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_FUNDING),
-	    4 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_MUTUAL_CLOSE),
-	    5 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_UNILATERAL_CLOSE),
-	    6 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_SWEEP),
-	    7 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_HTLC_SUCCESS),
-	    8 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_HTLC_TIMEOUT),
-	    9 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_PENALTY),
-	    10 => Ok(ListtransactionsTransactionsOutputsType::CHANNEL_UNILATERAL_CHEAT),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListtransactionsTransactionsOutputsType", o)),
-	        }
-	    }
-	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsTransactionsOutputs {
 	    pub index: u32,
 	    pub amount_msat: Amount,
 	    #[serde(rename = "scriptPubKey")]
 	    pub script_pub_key: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub item_type: Option<ListtransactionsTransactionsOutputsType>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel: Option<ShortChannelId>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

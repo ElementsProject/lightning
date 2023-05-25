@@ -1,4 +1,5 @@
 #include "config.h"
+#include "../bech32.c"
 #include "../json_filter.c"
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
@@ -47,15 +48,6 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for segwit_addr_decode */
-int segwit_addr_decode(
-    int* ver UNNEEDED,
-    uint8_t* prog UNNEEDED,
-    size_t* prog_len UNNEEDED,
-    const char* hrp UNNEEDED,
-    const char* addr
-)
-{ fprintf(stderr, "segwit_addr_decode called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
@@ -465,6 +457,43 @@ static void deprecated_rename(void)
 		      NULL));
 }
 
+static void invalid_bech32m(void)
+{
+	int wit_version;
+	uint8_t data_out[500];
+	size_t data_out_len;
+
+	/* Taken from BIP-350 */
+
+	/* Correct */
+	assert(segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "BC1SW50QGDZ25J"));
+	assert(wit_version == 16);
+	assert(data_out_len == 2);
+
+	/* Correct encoding, but expecting the wrong hrp*/
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "tb", "BC1SW50QGDZ25J"));
+
+	/* BIP350-valid, but fake HRP so was put in "invalid" section of BIP */
+	assert(segwit_addr_decode(&wit_version, data_out, &data_out_len, "tc", "tc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq5zuyut"));
+
+	/* Incorrect for various reasons (including wrong checksum between bech32 <->bech32m */
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqh2y7hd"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "tb", "tb1z0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqglt7rf"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "BC1S0XLXVLHEMJA6C4DQV22UAPCTQUPFHLXM9H8Z3K2E72Q4K9HCZ7VQ54WELL"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kemeawh"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "tb", "tb1q0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq24jc47"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1p38j9r5y49hruaue7wxjce0updqjuyyx0kh56v8s25huc6995vvpql3jow4"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "BC130XLXVLHEMJA6C4DQV22UAPCTQUPFHLXM9H8Z3K2E72Q4K9HCZ7VQ7ZWS8R"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1pw5dgrnzv"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7v8n0nx0muaewav253zgeav"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "tb", "tb1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vq47Zagq"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7v07qwwzcrf"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "tb", "tb1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vpggkg4j"));
+	assert(!segwit_addr_decode(&wit_version, data_out, &data_out_len, "bc", "bc1gmk9yu"));
+
+}
+
 static void sendpay_nulltok(void)
 {
 	struct json *j = json_parse(cmd, "[ 'A', '123']");
@@ -641,6 +670,7 @@ int main(int argc, char *argv[])
 	param_tests();
 	usage();
 	deprecated_rename();
+	invalid_bech32m();
 
 	printf("run-params ok\n");
 	common_shutdown();

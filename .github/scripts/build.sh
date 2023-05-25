@@ -7,7 +7,6 @@ export CC=${COMPILER:-gcc}
 export COMPAT=${COMPAT:-1}
 export TEST_CHECK_DBSTMTS=${TEST_CHECK_DBSTMTS:-0}
 export DEVELOPER=${DEVELOPER:-1}
-export EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_OPTS="--maxfail=5 --suppress-no-test-exit-code ${PYTEST_OPTS}"
 export PYTEST_PAR=${PYTEST_PAR:-10}
@@ -79,16 +78,6 @@ then
     cd .. || exit 1
     rm sqlite-src-3260000.zip
     rm -rf sqlite-src-3260000
-
-    wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
-    tar xf gmp-6.1.2.tar.xz
-    cd gmp-6.1.2 || exit 1
-    ./configure --disable-assembly --prefix="$QEMU_LD_PREFIX" --host="$TARGET_HOST"
-    make
-    sudo make install
-    cd ..
-    rm gmp-6.1.2.tar.xz
-    rm -rf gmp-6.1.2
 
     ./configure CC="$TARGET_HOST-gcc" --enable-static
 

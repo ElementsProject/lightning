@@ -101,13 +101,6 @@ RUN apt-get install -y --no-install-recommends unzip tclsh \
 && make \
 && make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
 
-RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
-&& tar xvf gmp-6.1.2.tar.xz \
-&& cd gmp-6.1.2 \
-&& ./configure --disable-assembly --prefix=$QEMU_LD_PREFIX --host=${target_host} \
-&& make \
-&& make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
-
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 WORKDIR /opt/lightningd
 COPY . /tmp/lightning

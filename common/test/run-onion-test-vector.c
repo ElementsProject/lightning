@@ -8,11 +8,7 @@
 #include "../type_to_string.c"
 #include "../../wire/towire.c"
 #include "../../wire/fromwire.c"
-#if EXPERIMENTAL_FEATURES
-#include "../../wire/onion_exp_wiregen.c"
-#else
 #include "../../wire/onion_wiregen.c"
-#endif
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_id.h>

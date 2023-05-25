@@ -235,6 +235,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->try_reexec = false;
 	ld->db_upgrade_ok = NULL;
 
+	/* --experimental-upgrade-protocol */
+	ld->experimental_upgrade_protocol = false;
+
 	/*~ This is from ccan/timer: it is efficient for the case where timers
 	 * are deleted before expiry (as is common with timeouts) using an
 	 * ingenious bucket system which more precisely sorts timers as they
@@ -859,11 +862,6 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_ZEROCONF),
 		OPTIONAL_FEATURE(OPT_CHANNEL_TYPE),
 		OPTIONAL_FEATURE(OPT_ROUTE_BLINDING),
-#if EXPERIMENTAL_FEATURES
-		OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS),
-		OPTIONAL_FEATURE(OPT_QUIESCE),
-		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
-#endif
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {

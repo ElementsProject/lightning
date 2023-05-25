@@ -664,28 +664,18 @@ considered important.
 
 Experimental options are subject to breakage between releases: they
 are made available for advanced users who want to test proposed
-features. When the build is configured _without_ `--enable-experimental-features`,
-below options are available but disabled by default.
-Supported features can be listed with `lightningd --list-features-only`
-
-A build _with_ `--enable-experimental-features` flag hard-codes some of below
-options as enabled, ignoring their command line flag. It may also add support for
-even more features. The safest way to determine the active configuration is by
-checking `listconfigs` or by looking at `our_features` (bits) in `getinfo`.
+features.
 
 * **experimental-onion-messages**
 
   Specifying this enables sending, forwarding and receiving onion messages,
 which are in draft status in the [bolt][bolt] specifications (PR #759).
-A build with `--enable-experimental-features` usually enables this via
-experimental-offers, see below.
+This is automatically enabled by `experimental-offers`.
 
 * **experimental-offers**
 
   Specifying this enables the `offers` and `fetchinvoice` plugins and
-corresponding functionality, which are in draft status ([bolt][bolt] #798) as [bolt12][bolt12].
-A build with `--enable-experimental-features` enables this permanently and usually
-enables experimental-onion-messages as well.
+corresponding functionality, which are in draft status ([bolt][bolt] #798) as [bolt12][bolt12], as well as `experimental-onion-messages`.
 
 * **fetchinvoice-noconnect**
 
@@ -719,6 +709,19 @@ frames once the connection is upgraded.
   Specifying this option means we will store up to 64k of encrypted
 data for our peers, and give them our (encrypted!) backup data to
 store as well, based on a protocol similar to [bolt][bolt] #881.
+
+* **experimental-quiesce**
+
+  Specifying this option advertizes `option_quiesce`.  Not very useful
+by itself, except for testing.
+
+* **experimental-upgrade-protocol**
+
+  Specifying this option means we send (and allow receipt of) a simple
+protocol to update channel types.  At the moment, we only support setting
+`option_static_remotekey` to ancient channels.  The peer must also support
+this option.
+
 
 BUGS
 ----

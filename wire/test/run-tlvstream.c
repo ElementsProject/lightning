@@ -12,11 +12,7 @@ static const char *reason;
 #include <common/node_id.c>
 #include <common/setup.h>
 
-#if EXPERIMENTAL_FEATURES
-#include <wire/peer_exp_wiregen.c>
-#else
 #include <wire/peer_wiregen.c>
-#endif
 #include <wire/fromwire.c>
 #include <wire/towire.c>
 #include <wire/tlvstream.c>

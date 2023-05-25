@@ -3,11 +3,7 @@
 #include "config.h"
 #include <stdbool.h>
 
-#if EXPERIMENTAL_FEATURES
-#include <wire/peer_exp_wiregen.h>
-#else
 #include <wire/peer_wiregen.h>
-#endif
 
 /* BOLT #1:
  *

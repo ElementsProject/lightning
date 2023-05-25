@@ -7,15 +7,15 @@
 #
 # Standard message types:
 #   msgtype,<msgname>,<value>[,<option>]
-#   msgdata,<msgname>,<fieldname>,<typename>,[<count>][,<option>]
+#   msgdata,<msgname>,<fieldname>,<typename>,[<count>]
 #
 # TLV types:
-#   tlvtype,<tlvstreamname>,<tlvname>,<value>[,<option>]
-#   tlvdata,<tlvstreamname>,<tlvname>,<fieldname>,<typename>,[<count>][,<option>]
+#   tlvtype,<tlvstreamname>,<tlvname>,<value>
+#   tlvdata,<tlvstreamname>,<tlvname>,<fieldname>,<typename>,[<count>]
 #
 # Subtypes:
 #   subtype,<subtypename>
-#   subtypedata,<subtypename>,<fieldname>,<typename>,[<count>]
+#   subtypedata,<subtypename>,<fieldname>,<typename>
 #
 # Note: <count> can be a fixed value, a named value read before,
 #       or '...' to read until the end of the current structure.
@@ -41,7 +41,7 @@ def next_line(args, lines):
 
 # Class definitions, to keep things classy
 class Field(object):
-    def __init__(self, name, type_obj, extensions=[],
+    def __init__(self, name, type_obj,
                  field_comments=[], optional=False):
         self.name = name
         self.type_obj = type_obj
@@ -50,7 +50,6 @@ class Field(object):
         self.len_field = None
         self.implicit_len = False
 
-        self.extension_names = extensions
         self.is_optional = optional
         self.field_comments = field_comments
 
@@ -85,9 +84,6 @@ class Field(object):
 
     def is_implicit_len(self):
         return self.implicit_len
-
-    def is_extension(self):
-        return bool(self.extension_names)
 
     def size(self, implicit_expression=None):
         if self.count:
@@ -140,9 +136,9 @@ class FieldSet(object):
         self.len_fields = {}
 
     def add_data_field(self, field_name, type_obj, count=1,
-                       extensions=[], comments=[], optional=False,
+                       comments=[], optional=False,
                        implicit_len_ok=False):
-        field = Field(field_name, type_obj, extensions=extensions,
+        field = Field(field_name, type_obj,
                       field_comments=comments, optional=optional)
         if bool(count):
             try:
@@ -306,9 +302,8 @@ class Type(FieldSet):
         return name, False
 
     def add_data_field(self, field_name, type_obj, count=1,
-                       extensions=[], comments=[], optional=False):
+                       comments=[], optional=False):
         FieldSet.add_data_field(self, field_name, type_obj, count,
-                                extensions=extensions,
                                 comments=comments, optional=optional)
         if type_obj.name not in self.depends_on:
             self.depends_on[type_obj.name] = type_obj
@@ -427,7 +422,6 @@ class Master(object):
     types = {}
     tlvs = {}
     messages = {}
-    extension_msgs = {}
     inclusions = []
     top_comments = []
 
@@ -451,9 +445,6 @@ class Master(object):
         self.messages[tokens[0]] = Message(tokens[0], tokens[1], option=tokens[2:],
                                            comments=comments)
 
-    def add_extension_msg(self, name, msg):
-        self.extension_msgs[name] = msg
-
     def add_type(self, type_name, field_name=None, outer_name=None):
         optional = False
         if type_name.startswith('?'):
@@ -473,8 +464,6 @@ class Master(object):
     def find_message(self, msg_name):
         if msg_name in self.messages:
             return self.messages[msg_name]
-        if msg_name in self.extension_msgs:
-            return self.extension_msgs[msg_name]
         return None
 
     def find_tlv(self, tlv_name):
@@ -538,12 +527,7 @@ class Master(object):
         stuff['structs'] = subtypes + self.tlv_structs()
         stuff['tlvs'] = self.tlvs
 
-        # We leave out extension messages in the printing pages. Any extension
-        # fields will get printed under the 'original' message, if present
-        if options.print_wire:
-            stuff['messages'] = list(self.messages.values())
-        else:
-            stuff['messages'] = list(self.messages.values()) + list(self.extension_msgs.values())
+        stuff['messages'] = list(self.messages.values())
         stuff['subtypes'] = subtypes
 
         for line in template.render(**stuff).splitlines():
@@ -599,6 +583,19 @@ def main(options, args=None, output=sys.stdout, lines=None):
                                        optional=optional)
                 comment_set = []
             elif token_type == 'tlvtype':
+                # Hack: modern spec assumes tlvs, so if there's a type to
+                # attach this to, do it now, by assuming it's the same name
+                # with _tlvs appended.
+                if tokens[1].endswith("_tlvs"):
+                    container_name = tokens[1][:-5]
+                    msg = master.find_message(container_name)
+
+                    if msg is not None:
+                        if tokens[1] not in master.types:
+                            # Adding: msgdata,update_add_htlc,tlvs,update_add_htlc_tlvs,
+                            type_obj, _, _ = master.add_type(tokens[1], "tlvs", container_name)
+                            msg.add_data_field(container_name, type_obj)
+
                 tlv = master.add_tlv(tokens[1])
                 tlv.add_message(tokens[2:], comments=list(comment_set))
 
@@ -641,40 +638,8 @@ def main(options, args=None, output=sys.stdout, lines=None):
                 else:
                     count = tokens[4]
 
-                # if this is an 'extension' field*, we want to add a new 'message' type
-                # in the future, extensions will be handled as TLV's
-                #
-                # *(in the spec they're called 'optional', but that term is overloaded
-                #   in that internal wire messages have 'optional' fields that are treated
-                #   differently. for the sake of clarity here, for bolt-wire messages,
-                #   we'll refer to 'optional' message fields as 'extensions')
-                #
-                if tokens[5:] == []:
-                    msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
-                                       optional=optional)
-                else:  # is one or more extension fields
-                    if optional:
-                        raise ValueError("Extension fields cannot be optional. {}:{}"
-                                         .format(ln, line))
-                    orig_msg = msg
-                    for extension in tokens[5:]:
-                        extension_name = "{}_{}".format(tokens[1], extension)
-                        msg = master.find_message(extension_name)
-                        if not msg:
-                            msg = copy.deepcopy(orig_msg)
-                            msg.enumname = msg.name
-                            msg.name = extension_name
-                            master.add_extension_msg(msg.name, msg)
-                        msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set), optional=optional)
-
-                    # If this is a print_wire page, add the extension fields to the
-                    # original message, so we can print them if present.
-                    if options.print_wire:
-                        orig_msg.add_data_field(tokens[2], type_obj, count=count,
-                                                extensions=tokens[5:],
-                                                comments=list(comment_set),
-                                                optional=optional)
-
+                msg.add_data_field(tokens[2], type_obj, count, comments=list(comment_set),
+                                   optional=optional)
                 comment_set = []
             elif token_type.startswith('#include'):
                 master.add_include(token_type)

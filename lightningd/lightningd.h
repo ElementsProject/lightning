@@ -360,6 +360,9 @@ struct lightningd {
 
 	/* EXPERIMENTAL: websocket port if non-zero */
 	u16 websocket_port;
+
+	/* --experimental-upgrade-protocol */
+	bool experimental_upgrade_protocol;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

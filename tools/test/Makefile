@@ -41,7 +41,7 @@ tools/test/test_gen.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
 tools/test/test_gen.c: $(TOOLS_WIRE_DEPS) tools/test/Makefile
 	$(BOLT_GEN) --page impl tools/test/test_gen.h test_type < tools/test/test_cases > $@
 
-tools/test/print_gen.h: wire/onion$(EXP)_wiregen.h $(TOOLS_WIRE_DEPS)
+tools/test/print_gen.h: wire/onion_wiregen.h $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) -P --page header $@ test_type < tools/test/test_cases > $@
 
 tools/test/print_gen.c: $(TOOLS_WIRE_DEPS)
