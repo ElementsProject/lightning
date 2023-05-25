@@ -61,6 +61,8 @@ service Node {
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
+	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
+	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 }
 
 message GetinfoRequest {
@@ -1669,4 +1671,20 @@ message StopRequest {
 }
 
 message StopResponse {
+}
+
+message PreapprovekeysendRequest {
+	optional bytes destination = 1;
+	optional bytes payment_hash = 2;
+	optional Amount amount_msat = 3;
+}
+
+message PreapprovekeysendResponse {
+}
+
+message PreapproveinvoiceRequest {
+	optional string bolt11 = 1;
+}
+
+message PreapproveinvoiceResponse {
 }

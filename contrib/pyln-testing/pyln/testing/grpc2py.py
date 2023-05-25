@@ -1323,3 +1323,13 @@ def signmessage2py(m):
 def stop2py(m):
     return remove_default({
     })
+
+
+def preapprovekeysend2py(m):
+    return remove_default({
+    })
+
+
+def preapproveinvoice2py(m):
+    return remove_default({
+    })

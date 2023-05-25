@@ -1563,6 +1563,22 @@ impl From<responses::StopResponse> for pb::StopResponse {
 }
 
 #[allow(unused_variables,deprecated)]
+impl From<responses::PreapprovekeysendResponse> for pb::PreapprovekeysendResponse {
+    fn from(c: responses::PreapprovekeysendResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<responses::PreapproveinvoiceResponse> for pb::PreapproveinvoiceResponse {
+    fn from(c: responses::PreapproveinvoiceResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -2220,6 +2236,26 @@ impl From<requests::StopRequest> for pb::StopRequest {
     }
 }
 
+#[allow(unused_variables,deprecated)]
+impl From<requests::PreapprovekeysendRequest> for pb::PreapprovekeysendRequest {
+    fn from(c: requests::PreapprovekeysendRequest) -> Self {
+        Self {
+            destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            payment_hash: c.payment_hash.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<requests::PreapproveinvoiceRequest> for pb::PreapproveinvoiceRequest {
+    fn from(c: requests::PreapproveinvoiceRequest) -> Self {
+        Self {
+            bolt11: c.bolt11, // Rule #2 for type string?
+        }
+    }
+}
+
 
 #[allow(unused_variables,deprecated)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -2859,6 +2895,26 @@ impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
 impl From<pb::StopRequest> for requests::StopRequest {
     fn from(c: pb::StopRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<pb::PreapprovekeysendRequest> for requests::PreapprovekeysendRequest {
+    fn from(c: pb::PreapprovekeysendRequest) -> Self {
+        Self {
+            destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            payment_hash: c.payment_hash.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables,deprecated)]
+impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
+    fn from(c: pb::PreapproveinvoiceRequest) -> Self {
+        Self {
+            bolt11: c.bolt11, // Rule #1 for type string?
         }
     }
 }

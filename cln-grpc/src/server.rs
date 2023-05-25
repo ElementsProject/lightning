@@ -1722,4 +1722,68 @@ async fn stop(
 
 }
 
+async fn pre_approve_keysend(
+    &self,
+    request: tonic::Request<pb::PreapprovekeysendRequest>,
+) -> Result<tonic::Response<pb::PreapprovekeysendResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::PreapprovekeysendRequest = req.into();
+    debug!("Client asked for pre_approve_keysend");
+    trace!("pre_approve_keysend request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::PreApproveKeysend(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method PreApproveKeysend: {:?}", e)))?;
+    match result {
+        Response::PreApproveKeysend(r) => {
+           trace!("pre_approve_keysend response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call PreApproveKeysend",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn pre_approve_invoice(
+    &self,
+    request: tonic::Request<pb::PreapproveinvoiceRequest>,
+) -> Result<tonic::Response<pb::PreapproveinvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::PreapproveinvoiceRequest = req.into();
+    debug!("Client asked for pre_approve_invoice");
+    trace!("pre_approve_invoice request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::PreApproveInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method PreApproveInvoice: {:?}", e)))?;
+    match result {
+        Response::PreApproveInvoice(r) => {
+           trace!("pre_approve_invoice response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call PreApproveInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
 }
