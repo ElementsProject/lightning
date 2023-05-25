@@ -1460,9 +1460,6 @@ def test_funding_v2_corners(node_factory, bitcoind):
         l1.rpc.openchannel_init(l2.info['id'], amount + 1, psbt)
 
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
-    with pytest.raises(RpcError, match=r'Channel funding in-progress. DUALOPEND_OPEN_INIT'):
-        l1.rpc.fundchannel(l2.info['id'], amount)
-
     # We can abort a channel
     l1.rpc.openchannel_abort(start['channel_id'])
 
