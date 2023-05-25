@@ -279,6 +279,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.StopRequest.SerializeToString,
                 response_deserializer=node__pb2.StopResponse.FromString,
                 )
+        self.PreApproveKeysend = channel.unary_unary(
+                '/cln.Node/PreApproveKeysend',
+                request_serializer=node__pb2.PreapprovekeysendRequest.SerializeToString,
+                response_deserializer=node__pb2.PreapprovekeysendResponse.FromString,
+                )
+        self.PreApproveInvoice = channel.unary_unary(
+                '/cln.Node/PreApproveInvoice',
+                request_serializer=node__pb2.PreapproveinvoiceRequest.SerializeToString,
+                response_deserializer=node__pb2.PreapproveinvoiceResponse.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -602,6 +612,18 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PreApproveKeysend(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PreApproveInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -869,6 +891,16 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Stop,
                     request_deserializer=node__pb2.StopRequest.FromString,
                     response_serializer=node__pb2.StopResponse.SerializeToString,
+            ),
+            'PreApproveKeysend': grpc.unary_unary_rpc_method_handler(
+                    servicer.PreApproveKeysend,
+                    request_deserializer=node__pb2.PreapprovekeysendRequest.FromString,
+                    response_serializer=node__pb2.PreapprovekeysendResponse.SerializeToString,
+            ),
+            'PreApproveInvoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.PreApproveInvoice,
+                    request_deserializer=node__pb2.PreapproveinvoiceRequest.FromString,
+                    response_serializer=node__pb2.PreapproveinvoiceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1778,5 +1810,39 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Stop',
             node__pb2.StopRequest.SerializeToString,
             node__pb2.StopResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PreApproveKeysend(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/PreApproveKeysend',
+            node__pb2.PreapprovekeysendRequest.SerializeToString,
+            node__pb2.PreapprovekeysendResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PreApproveInvoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/PreApproveInvoice',
+            node__pb2.PreapproveinvoiceRequest.SerializeToString,
+            node__pb2.PreapproveinvoiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -69,6 +69,8 @@ pub enum Request {
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
 	Stop(requests::StopRequest),
+	PreApproveKeysend(requests::PreapprovekeysendRequest),
+	PreApproveInvoice(requests::PreapproveinvoiceRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -128,6 +130,8 @@ pub enum Response {
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
 	Stop(responses::StopResponse),
+	PreApproveKeysend(responses::PreapprovekeysendResponse),
+	PreApproveInvoice(responses::PreapproveinvoiceResponse),
 }
 
 
@@ -1373,6 +1377,42 @@ pub mod requests {
 
 	impl IntoRequest for StopRequest {
 	    type Response = super::responses::StopResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PreapprovekeysendRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_hash: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	}
+
+	impl From<PreapprovekeysendRequest> for Request {
+	    fn from(r: PreapprovekeysendRequest) -> Self {
+	        Request::PreApproveKeysend(r)
+	    }
+	}
+
+	impl IntoRequest for PreapprovekeysendRequest {
+	    type Response = super::responses::PreapprovekeysendResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PreapproveinvoiceRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<String>,
+	}
+
+	impl From<PreapproveinvoiceRequest> for Request {
+	    fn from(r: PreapproveinvoiceRequest) -> Self {
+	        Request::PreApproveInvoice(r)
+	    }
+	}
+
+	impl IntoRequest for PreapproveinvoiceRequest {
+	    type Response = super::responses::PreapproveinvoiceResponse;
 	}
 
 }
@@ -4231,6 +4271,36 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Stop(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PreapprovekeysendResponse {
+	}
+
+	impl TryFrom<Response> for PreapprovekeysendResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::PreApproveKeysend(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct PreapproveinvoiceResponse {
+	}
+
+	impl TryFrom<Response> for PreapproveinvoiceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::PreApproveInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

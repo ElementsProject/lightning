@@ -108,6 +108,8 @@ def load_jsonrpc_service(schema_dir: str):
         "Stop",
         # "notifications",  # No point in mapping this
         # "help",
+        "PreApproveKeysend",
+        "PreApproveInvoice",
     ]
     methods = [load_jsonrpc_method(name, schema_dir=schema_dir) for name in method_names]
     service = Service(name="Node", methods=methods)
