@@ -1294,6 +1294,14 @@
         "PingResponse": {
             "Ping.totlen": 1
         },
+        "PreapproveinvoiceRequest": {
+            "PreApproveInvoice.bolt11": 1
+        },
+        "PreapprovekeysendRequest": {
+            "PreApproveKeysend.amount_msat": 3,
+            "PreApproveKeysend.destination": 1,
+            "PreApproveKeysend.payment_hash": 2
+        },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
             "SendCustomMsg.node_id": 1
@@ -4710,6 +4718,30 @@
         },
         "Ping.totlen": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "PreApproveInvoice": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "PreApproveInvoice.bolt11": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "PreApproveKeysend": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "PreApproveKeysend.amount_msat": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "PreApproveKeysend.destination": {
+            "added": "v23.02",
+            "deprecated": false
+        },
+        "PreApproveKeysend.payment_hash": {
+            "added": "v23.02",
             "deprecated": false
         },
         "SendCustomMsg": {
