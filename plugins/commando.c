@@ -408,7 +408,8 @@ static const char *check_condition(const tal_t *ctx,
 				size_t off = strlen("pname");
 				/* Remove punctuation! */
 				for (size_t n = off; pmemname[n]; n++) {
-					if (cispunct(pmemname[n]))
+					/* Leave underscores in param names (e.g. amount_msat) */
+					if (cispunct(pmemname[n]) && pmemname[n] != '_')
 						continue;
 					pmemname[off++] = pmemname[n];
 				}
