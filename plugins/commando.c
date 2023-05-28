@@ -428,6 +428,15 @@ static const char *check_condition(const tal_t *ctx,
 	if (!ptok)
 		return rune_alt_single_missing(ctx, alt);
 
+	/* Special case named `*_msat` fields */
+	if (strstarts(alt->fieldname, "pname")
+	    && strends(alt->fieldname, "_msat")) {
+		struct amount_msat amt;
+		parse_amount_msat(&amt, cinfo->buf + ptok->start,
+				  ptok->end - ptok->start);
+		return rune_alt_single_int(ctx, alt, amt.millisatoshis); /* Raw: check rune validity */
+	}
+
 	return rune_alt_single_str(ctx, alt,
 				   cinfo->buf + ptok->start,
 				   ptok->end - ptok->start);
