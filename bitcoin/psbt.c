@@ -17,32 +17,20 @@ static void psbt_destroy(struct wally_psbt *psbt)
 	wally_psbt_free(psbt);
 }
 
-static struct wally_psbt *init_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs)
+struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs, u32 locktime)
 {
-	int wally_err;
+	const u32 init_flags = is_elements(chainparams) ? WALLY_PSBT_INIT_PSET : 0;
 	struct wally_psbt *psbt;
+	int wally_err;
 
 	tal_wally_start();
-	if (is_elements(chainparams))
-		wally_err = wally_psbt_init_alloc(2, num_inputs, num_outputs, 0, WALLY_PSBT_INIT_PSET, &psbt);
-	else
-		wally_err = wally_psbt_init_alloc(2, num_inputs, num_outputs, 0, 0, &psbt);
+	wally_err = wally_psbt_init_alloc(2, num_inputs, num_outputs, 0, init_flags, &psbt);
 	assert(wally_err == WALLY_OK);
+	wally_psbt_set_fallback_locktime(psbt, locktime);
 	/* By default we are modifying them internally; allow it */
 	wally_psbt_set_tx_modifiable_flags(psbt, WALLY_PSBT_TXMOD_INPUTS | WALLY_PSBT_TXMOD_OUTPUTS);
 	tal_add_destructor(psbt, psbt_destroy);
 	tal_wally_end_onto(ctx, psbt, struct wally_psbt);
-
-	return psbt;
-}
-
-/* FIXME extremely thin wrapper; remove? */
-struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs, u32 locktime)
-{
-	struct wally_psbt *psbt;
-
-	psbt = init_psbt(ctx, num_inputs, num_outputs);
-	wally_psbt_set_fallback_locktime(psbt, locktime);
 
 	return psbt;
 }
