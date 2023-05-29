@@ -200,13 +200,9 @@ struct wally_psbt_output *psbt_append_output(struct wally_psbt *psbt,
 					     const u8 *script,
 					     struct amount_sat amount)
 {
-	struct wally_psbt_output *out;
-	struct wally_tx_output *tx_out = wally_tx_output(NULL, script, amount);
-
-	out = psbt_add_output(psbt, tx_out, psbt->num_outputs);
-	wally_tx_output_free(tx_out);
-	return out;
+	return psbt_insert_output(psbt, script, amount, psbt->num_outputs);
 }
+
 struct wally_psbt_output *psbt_insert_output(struct wally_psbt *psbt,
 					     const u8 *script,
 					     struct amount_sat amount,
