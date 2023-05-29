@@ -54,9 +54,8 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 
 	tal_wally_start();
 
-	/* locktime set in create_psbt for now */
+	/* locktime and modifiable flags are set in create_psbt */
 	wally_psbt_set_tx_version(psbt, wtx->version);
-	wally_psbt_set_tx_modifiable_flags(psbt, WALLY_PSBT_TXMOD_INPUTS | WALLY_PSBT_TXMOD_OUTPUTS);
 
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
 		wally_err = wally_psbt_add_tx_input_at(psbt, i, 0, &wtx->inputs[i]);
