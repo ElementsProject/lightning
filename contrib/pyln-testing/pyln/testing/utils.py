@@ -406,7 +406,6 @@ class BitcoinD(TailableProc):
         self.cmd_line = [
             'bitcoind',
             '-datadir={}'.format(bitcoin_dir),
-            '-debuglogfile={}'.format(os.path.join(bitcoin_dir, "log")),  # So it can be put to stdout
             '-printtoconsole',
             '-server',
             '-logtimestamps',
@@ -434,7 +433,7 @@ class BitcoinD(TailableProc):
             drop_unused_port(self.reserved_rpcport)
 
     def start(self):
-        TailableProc.start(self, stdout_redir=False)
+        TailableProc.start(self)
         self.wait_for_log("Done loading", timeout=TIMEOUT)
 
         logging.info("BitcoinD started")
