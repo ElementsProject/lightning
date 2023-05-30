@@ -14,8 +14,9 @@ Here's a checklist for the release process.
 4. Create a milestone for the *next* release on Github, and go though
    open issues and PRs and mark accordingly.
 5. Ask (via email) the most significant contributor who has not
-   already named a release to name the release (use devtools/credit to
-   find this contributor). CC previous namers and team.
+   already named a release to name the release (use 
+   `devtools/credit --verbose v<PREVIOUS-VERSION>` to find this contributor).
+   CC previous namers and team.
 
 ### Preparing for -rc1
 
@@ -40,20 +41,23 @@ Here's a checklist for the release process.
    should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
-3. Update the /topic on #c-lightning on Libera.
-4. Prepare draft release notes (see devtools/credit), and share with team for editing.
-5. Upgrade your personal nodes to the rc1, to help testing.
-6. Test `tools/build-release.sh` to build the non-reproducible images
-   and reproducible zipfile.
-7. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
+5. Announce rc1 release on core-lightning's release-chat channel on Discord.
+6. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days 
+   and contributors data for release note.
+7. Prepare draft release notes including information from above step, and share 
+   with the team for editing.
+8. Upgrade your personal nodes to the rc1, to help testing.
+9. Test `tools/build-release.sh` to build the non-reproducible images & reproducible zipfile.
+10. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
 
 ### Releasing -rc2, etc
 
 1. Change rc1 to rc2 in CHANGELOG.md.
-2. Add a PR with the rc2.
-3. Tag it `git pull && git tag -s v<VERSION>rc2 && git push --tags`
-4. Update the /topic on #c-lightning on Libera.
-5. Upgrade your personal nodes to the rc2.
+2. Update the contrib/pyln package versions: `make update-pyln-versions NEW_VERSION=<VERSION>`
+3. Add a PR with the rc2.
+4. Tag it `git pull && git tag -s v<VERSION>rc2 && git push --tags`
+5. Announce tagged rc release on core-lightning's release-chat channel on Discord.
+6. Upgrade your personal nodes to the rc2.
 
 ### Tagging the Release
 
@@ -94,9 +98,10 @@ Here's a checklist for the release process.
 
 1. Edit the GitHub draft and include the `SHA256SUMS.asc` file.
 2. Publish the release as not a draft.
-3. Update the /topic on #c-lightning on Libera.
+3. Announce the final release on core-lightning's release-chat channel on Discord.
 4. Send a mail to c-lightning and lightning-dev mailing lists, using the
    same wording as the Release Notes in github.
+5. Write release blog post and announce the release on Twitter.
 
 ### Post-release
 
