@@ -411,14 +411,20 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->owner = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
-	channel->scb = tal(channel, struct scb_chan);
-	channel->scb->id = dbid;
-	channel->scb->addr = peer->addr;
-	channel->scb->node_id = peer->id;
-	channel->scb->funding = *funding;
-	channel->scb->cid = *cid;
-	channel->scb->funding_sats = funding_sats;
-	channel->scb->type = channel_type_dup(channel->scb, type);
+
+	/* If it's a unix domain socket connection, we don't save it */
+	if (peer->addr.itype == ADDR_INTERNAL_WIREADDR) {
+		channel->scb = tal(channel, struct scb_chan);
+		channel->scb->id = dbid;
+		channel->scb->unused = 0;
+		channel->scb->addr = peer->addr.u.wireaddr;
+		channel->scb->node_id = peer->id;
+		channel->scb->funding = *funding;
+		channel->scb->cid = *cid;
+		channel->scb->funding_sats = funding_sats;
+		channel->scb->type = channel_type_dup(channel->scb, type);
+	} else
+		channel->scb = NULL;
 
 	if (!log) {
 		channel->log = new_log(channel,
