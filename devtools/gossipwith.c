@@ -347,9 +347,6 @@ int main(int argc, char *argv[])
 		case ADDR_TYPE_TOR_V3:
 			opt_usage_exit_fail("Don't support proxy use");
 			break;
-		case ADDR_TYPE_WEBSOCKET:
-			opt_usage_exit_fail("Don't support websockets");
-			break;
 		case ADDR_TYPE_DNS:
 			opt_usage_exit_fail("Don't support DNS");
 			break;

@@ -397,7 +397,6 @@ static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 	case ADDR_TYPE_DNS:
-	case ADDR_TYPE_WEBSOCKET:
 		break;
 	}
 	return;

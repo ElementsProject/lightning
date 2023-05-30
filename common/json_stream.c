@@ -521,9 +521,6 @@ void json_add_address(struct json_stream *response, const char *fieldname,
 		json_add_string(response, "type", "dns");
 		json_add_string(response, "address", fmt_wireaddr_without_port(tmpctx, addr));
 		json_add_num(response, "port", addr->port);
-	} else if (addr->type == ADDR_TYPE_WEBSOCKET) {
-		json_add_string(response, "type", "websocket");
-		json_add_num(response, "port", addr->port);
 	}
 	json_object_end(response);
 }

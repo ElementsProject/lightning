@@ -103,7 +103,6 @@ message GetinfoAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
-		WEBSOCKET = 5;
 	}
 	GetinfoAddressType item_type = 1;
 	uint32 port = 2;
@@ -829,7 +828,6 @@ message ListnodesNodesAddresses {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
-		WEBSOCKET = 5;
 	}
 	ListnodesNodesAddressesType item_type = 1;
 	uint32 port = 2;

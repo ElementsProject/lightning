@@ -116,10 +116,9 @@
               "ipv4",
               "ipv6",
               "torv2",
-              "torv3",
-              "websocket"
+              "torv3"
             ],
-            "description": "Type of connection"
+            "description": "Type of connection (until 23.08, `websocket` was also allowed)"
           },
           "port": {
             "type": "u16",
