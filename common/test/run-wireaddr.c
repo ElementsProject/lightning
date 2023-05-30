@@ -134,25 +134,29 @@ int main(int argc, char *argv[])
 	/* Simple IPv4 address. */
 	assert(parse_wireaddr_internal(tmpctx, "127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr(tmpctx, "127.0.0.1:9735", 0, NULL, &expect->u.wireaddr) == NULL);
+	expect->u.wireaddr.is_websocket = false;
+	assert(parse_wireaddr(tmpctx, "127.0.0.1:9735", 0, NULL, &expect->u.wireaddr.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* IPv4 address with port. */
 	assert(parse_wireaddr_internal(tmpctx, "127.0.0.1:1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr(tmpctx, "127.0.0.1:1", 0, NULL, &expect->u.wireaddr) == NULL);
+	expect->u.wireaddr.is_websocket = false;
+	assert(parse_wireaddr(tmpctx, "127.0.0.1:1", 0, NULL, &expect->u.wireaddr.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* Simple IPv6 address. */
 	assert(parse_wireaddr_internal(tmpctx, "::1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr(tmpctx, "::1", DEFAULT_PORT, NULL, &expect->u.wireaddr) == NULL);
+	expect->u.wireaddr.is_websocket = false;
+	assert(parse_wireaddr(tmpctx, "::1", DEFAULT_PORT, NULL, &expect->u.wireaddr.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* IPv6 address with port. */
 	assert(parse_wireaddr_internal(tmpctx, "[::1]:1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr(tmpctx, "::1", 1, NULL, &expect->u.wireaddr) == NULL);
+	expect->u.wireaddr.is_websocket = false;
+	assert(parse_wireaddr(tmpctx, "::1", 1, NULL, &expect->u.wireaddr.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* autotor address */

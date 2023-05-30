@@ -53,10 +53,17 @@ On success, an object is returned, containing:
   - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel\_announcement message
   - **invoice** (hex): features in our BOLT11 invoices
 - **binding** (array of objects, optional): The addresses we are listening on:
-  - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
+  - **type** (string): Type of connection (one of "local socket", "websocket", "ipv4", "ipv6", "torv2", "torv3")
   - **address** (string, optional): address in expected format for **type**
   - **port** (u16, optional): port number
-  - **socket** (string, optional): socket filename (only if **type** is "local socket")
+
+  If **type** is "local socket":
+
+    - **socket** (string): socket filename
+
+  If **type** is "websocket":
+
+    - **subtype** (string): type of address
 
 The following warnings may also be returned:
 
@@ -132,4 +139,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:60310adb57a49cb425a4b0d424f176a0ffa4de312ed07855b5e5611a44a64fcf)
+[comment]: # ( SHA256STAMP:0e6f06ba4f0f0264614d93d4eb7abc38eeb13c9619f7bd4e21203cdaba363a02)

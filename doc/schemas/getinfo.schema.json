@@ -176,13 +176,13 @@
         "required": [
           "type"
         ],
-        "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
             "*FIXME*": "The variant in connect.schema.json is more complete",
             "enum": [
               "local socket",
+              "websocket",
               "ipv4",
               "ipv6",
               "torv2",
@@ -197,12 +197,92 @@
           "port": {
             "type": "u16",
             "description": "port number"
-          },
-          "socket": {
-            "type": "string",
-            "description": "socket filename (only if **type** is \"local socket\")"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "local socket"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "socket"
+              ],
+              "properties": {
+                "type": {},
+                "socket": {
+                  "type": "string",
+                  "description": "socket filename"
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "address",
+                "port"
+              ],
+              "properties": {
+                "type": {},
+                "address": {},
+                "port": {},
+                "subtype": {}
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "websocket"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "address",
+                "port",
+                "subtype"
+              ],
+              "properties": {
+                "type": {},
+                "address": {},
+                "port": {},
+                "subtype": {
+                  "type": "string",
+                  "description": "type of address"
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {},
+                "address": {},
+                "port": {},
+                "socket": {}
+              }
+            }
+          }
+        ]
       }
     },
     "warning_bitcoind_sync": {

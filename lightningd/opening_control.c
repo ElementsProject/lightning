@@ -1345,7 +1345,8 @@ static struct channel *stub_chan(struct command *cmd,
 		struct wireaddr_internal wint;
 
 		wint.itype = ADDR_INTERNAL_WIREADDR;
-		wint.u.wireaddr = addr;
+		wint.u.wireaddr.is_websocket = false;
+		wint.u.wireaddr.wireaddr = addr;
 		peer = new_peer(cmd->ld,
 				0,
 				&nodeid,

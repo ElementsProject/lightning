@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 	e_pub = pubkey("036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7");
 
 	dummy.itype = ADDR_INTERNAL_WIREADDR;
-	dummy.u.wireaddr.addrlen = 0;
+	dummy.u.wireaddr.wireaddr.addrlen = 0;
 	initiator_handshake((void *)tmpctx, &ls_pub, &rs_pub, &dummy, NULL, NORMAL_SOCKET, success, NULL);
 	/* Should not exit! */
 	abort();

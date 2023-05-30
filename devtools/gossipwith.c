@@ -342,7 +342,10 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Don't support proxy use");
 
 	case ADDR_INTERNAL_WIREADDR:
-		switch (addr.u.wireaddr.type) {
+		if (addr.u.wireaddr.is_websocket)
+			opt_usage_exit_fail("Don't support websocket use");
+
+		switch (addr.u.wireaddr.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2_REMOVED:
 		case ADDR_TYPE_TOR_V3:
 			opt_usage_exit_fail("Don't support proxy use");
@@ -357,7 +360,7 @@ int main(int argc, char *argv[])
 			af = AF_INET6;
 			break;
 		}
-		ai = wireaddr_to_addrinfo(tmpctx, &addr.u.wireaddr);
+		ai = wireaddr_to_addrinfo(tmpctx, &addr.u.wireaddr.wireaddr);
 	}
 
 	if (af == -1 || ai == NULL)

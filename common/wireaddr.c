@@ -98,10 +98,12 @@ void towire_wireaddr_internal(u8 **pptr, const struct wireaddr_internal *addr)
 		towire_u16(pptr, addr->u.torservice.port);
 		return;
 	case ADDR_INTERNAL_ALLPROTO:
-		towire_u16(pptr, addr->u.port);
+		towire_bool(pptr, addr->u.allproto.is_websocket);
+		towire_u16(pptr, addr->u.allproto.port);
 		return;
 	case ADDR_INTERNAL_WIREADDR:
-		towire_wireaddr(pptr, &addr->u.wireaddr);
+		towire_bool(pptr, addr->u.wireaddr.is_websocket);
+		towire_wireaddr(pptr, &addr->u.wireaddr.wireaddr);
 		return;
 	case ADDR_INTERNAL_FORPROXY:
 		towire_u8_array(pptr, (const u8 *)addr->u.unresolved.name,
@@ -125,7 +127,8 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 			fromwire_fail(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_ALLPROTO:
-		addr->u.port = fromwire_u16(cursor, max);
+		addr->u.allproto.is_websocket = fromwire_bool(cursor, max);
+		addr->u.allproto.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_AUTOTOR:
 		fromwire_wireaddr(cursor, max, &addr->u.torservice.address);
@@ -138,7 +141,8 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 		addr->u.torservice.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_WIREADDR:
-		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr);
+		addr->u.wireaddr.is_websocket = fromwire_bool(cursor, max);
+		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr.wireaddr);
 	case ADDR_INTERNAL_FORPROXY:
 		fromwire_u8_array(cursor, max, (u8 *)addr->u.unresolved.name,
 				  sizeof(addr->u.unresolved.name));
@@ -220,9 +224,13 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 	case ADDR_INTERNAL_SOCKNAME:
 		return tal_fmt(ctx, "%s", a->u.sockname);
 	case ADDR_INTERNAL_ALLPROTO:
-		return tal_fmt(ctx, ":%u", a->u.port);
+		return tal_fmt(ctx, "%s:%u", a->u.allproto.is_websocket ? "(ws)": "",
+			       a->u.allproto.port);
 	case ADDR_INTERNAL_WIREADDR:
-		return fmt_wireaddr(ctx, &a->u.wireaddr);
+		if (a->u.wireaddr.is_websocket)
+			return tal_fmt(ctx, "(ws)%s",
+				       fmt_wireaddr(tmpctx, &a->u.wireaddr.wireaddr));
+		return fmt_wireaddr(ctx, &a->u.wireaddr.wireaddr);
 	case ADDR_INTERNAL_FORPROXY:
 		return tal_fmt(ctx, "%s:%u",
 			       a->u.unresolved.name, a->u.unresolved.port);
@@ -573,7 +581,8 @@ bool wireaddr_internal_eq(const struct wireaddr_internal *a,
 	case ADDR_INTERNAL_SOCKNAME:
 		return streq(a->u.sockname, b->u.sockname);
 	case ADDR_INTERNAL_ALLPROTO:
-		return a->u.port == b->u.port;
+		return a->u.allproto.is_websocket == b->u.allproto.is_websocket
+			&& a->u.allproto.port == b->u.allproto.port;
 	case ADDR_INTERNAL_STATICTOR:
 		if (!memeq(a->u.torservice.blob, sizeof(a->u.torservice.blob),
 			   b->u.torservice.blob, sizeof(b->u.torservice.blob)))
@@ -589,7 +598,8 @@ bool wireaddr_internal_eq(const struct wireaddr_internal *a,
 			return false;
 		return a->u.unresolved.port == b->u.unresolved.port;
 	case ADDR_INTERNAL_WIREADDR:
-		return wireaddr_eq(&a->u.wireaddr, &b->u.wireaddr);
+		return a->u.wireaddr.is_websocket == b->u.wireaddr.is_websocket
+			&& wireaddr_eq(&a->u.wireaddr.wireaddr, &b->u.wireaddr.wireaddr);
 	}
 	abort();
 }
@@ -696,16 +706,18 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 	 * means just IPv6, and IPv4 gets autobound). */
 	if (ip && streq(ip, "")) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
-		addr->u.port = splitport;
+		addr->u.allproto.is_websocket = false;
+		addr->u.allproto.port = splitport;
 		return NULL;
 	}
 
 	needed_dns = false;
 	err = parse_wireaddr(ctx, arg, default_port,
 			     dns_lookup_ok ? NULL : &needed_dns,
-			     &addr->u.wireaddr);
+			     &addr->u.wireaddr.wireaddr);
 	if (!err) {
 		addr->itype = ADDR_INTERNAL_WIREADDR;
+		addr->u.wireaddr.is_websocket = false;
 		return NULL;
 	}
 
@@ -779,7 +791,7 @@ struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
 	case ADDR_INTERNAL_FORPROXY:
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		return wireaddr_to_addrinfo(ctx, &wireaddr->u.wireaddr);
+		return wireaddr_to_addrinfo(ctx, &wireaddr->u.wireaddr.wireaddr);
 	}
 	abort();
 }
@@ -859,7 +871,7 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 		case ADDR_INTERNAL_STATICTOR:
 			continue;
 		case ADDR_INTERNAL_WIREADDR:
-			switch (wireaddr[i].u.wireaddr.type) {
+			switch (wireaddr[i].u.wireaddr.wireaddr.type) {
 			case ADDR_TYPE_IPV4:
 			case ADDR_TYPE_IPV6:
 			case ADDR_TYPE_DNS:

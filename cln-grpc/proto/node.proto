@@ -113,6 +113,7 @@ message GetinfoBinding {
 	// Getinfo.binding[].type
 	enum GetinfoBindingType {
 		LOCAL_SOCKET = 0;
+		WEBSOCKET = 5;
 		IPV4 = 1;
 		IPV6 = 2;
 		TORV2 = 3;
