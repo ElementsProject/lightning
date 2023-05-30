@@ -271,6 +271,9 @@ static char *opt_add_addr_withtype(const char *arg,
 		switch (wi.u.wireaddr.wireaddr.type) {
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
+			if ((ala & ADDR_ANNOUNCE) && wi.u.allproto.is_websocket)
+				return tal_fmt(NULL,
+					       "Cannot announce websocket address, use --bind-addr=%s", arg);
 			/* These can be either bind or announce */
 			break;
 		case ADDR_TYPE_TOR_V2_REMOVED:
@@ -363,6 +366,10 @@ static char *opt_add_addr_withtype(const char *arg,
 			case ADDR_ANNOUNCE:
 				return tal_fmt(NULL, "Cannot use wildcard address '%s'", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
+				if (wi.u.allproto.is_websocket)
+				return tal_fmt(NULL,
+					       "Cannot announce websocket address, use --bind-addr=%s", arg);
+				/* fall thru */
 			case ADDR_LISTEN:
 				break;
 		}

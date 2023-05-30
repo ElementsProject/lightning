@@ -614,7 +614,7 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 	char *ip;
 	char *service_addr;
 	const char *err;
-	bool needed_dns;
+	bool needed_dns, is_websocket;
 
 	/* Addresses starting with '/' are local socket paths */
 	if (arg[0] == '/') {
@@ -697,6 +697,14 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 				      &addr->u.torservice.address);
 	}
 
+	/* Do this before we get to separate_address_and_port! */
+	if (strstarts(arg, "ws:")) {
+		arg += 3;
+		is_websocket = true;
+	} else {
+		is_websocket = false;
+	}
+
 	/* This can fail, but that may be OK! */
 	splitport = default_port;
 	if (!separate_address_and_port(tmpctx, arg, &ip, &splitport))
@@ -706,7 +714,7 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 	 * means just IPv6, and IPv4 gets autobound). */
 	if (ip && streq(ip, "")) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
-		addr->u.allproto.is_websocket = false;
+		addr->u.allproto.is_websocket = is_websocket;
 		addr->u.allproto.port = splitport;
 		return NULL;
 	}
@@ -717,7 +725,7 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 			     &addr->u.wireaddr.wireaddr);
 	if (!err) {
 		addr->itype = ADDR_INTERNAL_WIREADDR;
-		addr->u.wireaddr.is_websocket = false;
+		addr->u.wireaddr.is_websocket = is_websocket;
 		return NULL;
 	}
 
@@ -728,6 +736,9 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 	/* Invalid port, like foo:xxx or foo:0 */
 	if (!ip)
 		return "Malformed port";
+
+	if (is_websocket)
+		return "Could not resolve websocket address";
 
 	/* Keep unresolved. */
 	tal_free(err);

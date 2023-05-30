@@ -232,6 +232,50 @@ int main(int argc, char *argv[])
 	strcpy(expect->u.sockname, "/tmp/foo.sock");
 	assert(wireaddr_internal_eq(&addr, expect));
 
+	/* Websocket (only for IP addresses) */
+	assert(parse_wireaddr_internal(tmpctx, "ws:/tmp/foo.sock", DEFAULT_PORT, false, &addr) != NULL);
+
+	assert(parse_wireaddr_internal(tmpctx, "ws:127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_WIREADDR;
+	expect->u.wireaddr.is_websocket = true;
+ 	assert(parse_wireaddr(tmpctx, "127.0.0.1:9735", 0, NULL, &expect->u.wireaddr.wireaddr) == NULL);
+	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* Websocket: IPv4 address with port. */
+	assert(parse_wireaddr_internal(tmpctx, "ws:127.0.0.1:1", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_WIREADDR;
+	expect->u.wireaddr.is_websocket = true;
+ 	assert(parse_wireaddr(tmpctx, "127.0.0.1:1", 0, NULL, &expect->u.wireaddr.wireaddr) == NULL);
+	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* Websocket: Simple IPv6 address. */
+	assert(parse_wireaddr_internal(tmpctx, "ws:::1", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_WIREADDR;
+	expect->u.wireaddr.is_websocket = true;
+	assert(parse_wireaddr(tmpctx, "::1", DEFAULT_PORT, NULL, &expect->u.wireaddr.wireaddr) == NULL);
+	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* Websocket: IPv6 address with port. */
+	assert(parse_wireaddr_internal(tmpctx, "ws:[::1]:1", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_WIREADDR;
+	expect->u.wireaddr.is_websocket = true;
+	assert(parse_wireaddr(tmpctx, "::1", 1, NULL, &expect->u.wireaddr.wireaddr) == NULL);
+	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* Websocket: IPv4 & v6 address. */
+	assert(parse_wireaddr_internal(tmpctx, "ws:", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_ALLPROTO;
+	expect->u.allproto.is_websocket = true;
+	expect->u.allproto.port = DEFAULT_PORT;
+	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* Websocket: IPv4 & v6 address with port */
+	assert(parse_wireaddr_internal(tmpctx, "ws::1", DEFAULT_PORT, false, &addr) == NULL);
+	expect->itype = ADDR_INTERNAL_ALLPROTO;
+	expect->u.allproto.is_websocket = true;
+	expect->u.allproto.port = 1;
+	assert(wireaddr_internal_eq(&addr, expect));
+
 	/* Unresolved */
 	assert(parse_wireaddr_internal(tmpctx, "ozlabs.org", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_FORPROXY;
