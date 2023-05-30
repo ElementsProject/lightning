@@ -497,7 +497,7 @@ precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
 *autolisten* logic, so you must specifiy exactly what you want!
 
-* **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]|DNS\[:PORT\]*
+* **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]|HOSTNAME\[:PORT\]*
 
   Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address.
@@ -534,12 +534,12 @@ defined by you and possibly different from your local node port assignment.
 
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
-is not specified, a DNS lookup may be done to resolve 'DNS' or 'TORIPADDRESS'.
+is not specified, a DNS lookup may be done to resolve `HOSTNAME` or `TORIPADDRESS'`.
 
-  If a 'DNS' hostname was given that resolves to a local interface, the daemon
-will bind to that interface: if **announce-addr-dns** is true then it will also announce that as type 'DNS' (rather than announcing the IP address).
+  If `HOSTNAME` was given that resolves to a local interface, the daemon
+will bind to that interface.
 
-* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|DNS\[:PORT\]|DNS\[:PORT\]*
+* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]*
 
   Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
@@ -554,10 +554,10 @@ not specified, 9735 is used.
 its use disables autolisten.  If necessary, and 'always-use-proxy'
 is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
-  If a 'DNS' hostname was given and 'always-use-proxy' is not specified,
-a lookup may be done to resolve it and bind to a local interface (if found).
+  If a HOSTNAME was given and `always-use-proxy` is not specified,
+a DNS lookup may be done to resolve it and bind to a local interface (if found).
 
-* **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]|DNS\[:PORT\]*
+* **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]|dns:HOSTNAME\[:PORT\]*
 
   Set an IP (v4 or v6) address or Tor address to announce; a Tor address
 is distinguished by ending in *.onion*. *PORT* defaults to 9735.
@@ -569,12 +569,11 @@ announced addresses are public (e.g. not localhost).
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.
 
-  Since v22.11 'DNS' hostnames can be used for announcement: see **announce-addr-dns**.
+  Since v23.058, the `dns:` prefix can be used to indicate that this hostname and port should be announced as a DNS hostname entry.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
 
 * **announce-addr-dns**=*BOOL*
 
-  Set to *true* (default is *false), this so that names given as arguments to **addr** and **announce-addr** are published in node announcement messages as names, rather than IP addresses.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
-
+  When set to *true* (default is *false*), prefixes all `HOSTNAME` in **announce-addr** with `dns:`.
 
 * **offline**
 

@@ -506,25 +506,49 @@ const char *parse_wireaddr(const tal_t *ctx,
 	char *ip;
 	const char *err_msg;
 	struct wireaddr *addresses;
+	bool is_dns_waddr;
 
 	port = defport;
+
+	if (strstarts(arg, "dns:")) {
+		is_dns_waddr = true;
+		arg += 4;
+	} else
+		is_dns_waddr = false;
 
 	if (!separate_address_and_port(tmpctx, arg, &ip, &port))
 		return tal_strdup(ctx, "Error parsing hostname");
 
-	/* We resolved these even without DNS */
-	if (streq(ip, "localhost"))
-		ip = "127.0.0.1";
-	else if (streq(ip, "ip6-localhost"))
-		ip = "::1";
+	if (!is_dns_waddr) {
+		/* We resolved these even without DNS */
+		if (streq(ip, "localhost"))
+			ip = "127.0.0.1";
+		else if (streq(ip, "ip6-localhost"))
+			ip = "::1";
+	}
 
 	memset(&addr->addr, 0, sizeof(addr->addr));
 
 	if (inet_pton(AF_INET, ip, &v4) == 1) {
+		if (is_dns_waddr)
+			return tal_strdup(ctx, "dns: must be followed by a name");
 		wireaddr_from_ipv4(addr, &v4, port);
 		return NULL;
 	} else if (inet_pton(AF_INET6, ip, &v6) == 1) {
+		if (is_dns_waddr)
+			return tal_strdup(ctx, "dns: must be followed by a name");
 		wireaddr_from_ipv6(addr, &v6, port);
+		return NULL;
+	}
+
+	if (is_dns_waddr) {
+		addr->type = ADDR_TYPE_DNS;
+		if (strlen(ip) > DNS_ADDRLEN)
+			return "DNS address too long";
+
+		addr->addrlen = strlen(ip);
+		memcpy(addr->addr, ip, addr->addrlen);
+		addr->port = port;
 		return NULL;
 	}
 
@@ -577,7 +601,7 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 				    struct wireaddr_internal *addr)
 {
 	u16 splitport;
-	char *ip = NULL;
+	char *ip;
 	char *service_addr;
 	const char *err;
 	bool needed_dns;
@@ -663,13 +687,14 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 				      &addr->u.torservice.address);
 	}
 
+	/* This can fail, but that may be OK! */
 	splitport = default_port;
 	if (!separate_address_and_port(tmpctx, arg, &ip, &splitport))
-		return tal_fmt(ctx, "Error parsing hostname %s  %s", (char *)arg, ip);
+		ip = NULL;
 
 	/* An empty string means IPv4 and IPv6 (which under Linux by default
 	 * means just IPv6, and IPv4 gets autobound). */
-	if (streq(ip, "")) {
+	if (ip && streq(ip, "")) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
 		addr->u.port = splitport;
 		return NULL;
@@ -687,6 +712,10 @@ const char *parse_wireaddr_internal(const tal_t *ctx,
 	/* Did we fail because we needed DNS lookup?  If not, we just failed. */
 	if (!needed_dns)
 		return err;
+
+	/* Invalid port, like foo:xxx or foo:0 */
+	if (!ip)
+		return "Malformed port";
 
 	/* Keep unresolved. */
 	tal_free(err);
