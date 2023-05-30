@@ -14,8 +14,7 @@
     "blockheight",
     "network",
     "fees_collected_msat",
-    "lightning-dir",
-    "address"
+    "lightning-dir"
   ],
   "properties": {
     "id": {
@@ -100,7 +99,7 @@
     },
     "address": {
       "type": "array",
-      "description": "The addresses we announce to the world",
+      "description": "The addresses we announce to the world (omitted when not listening)",
       "items": {
         "type": "object",
         "required": [
