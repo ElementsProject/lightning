@@ -40,18 +40,18 @@ On success, an object is returned, containing:
 - **blockheight** (u32): The highest block height we've learned
 - **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
 - **fees\_collected\_msat** (msat): Total routing fees collected by this node
-- **address** (array of objects): The addresses we announce to the world:
+- **our\_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
+  - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open\_channel or accept in accept\_channel
+  - **node** (hex): features in our node\_announcement message
+  - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel\_announcement message
+  - **invoice** (hex): features in our BOLT11 invoices
+- **address** (array of objects, optional): The addresses we announce to the world (omitted when not listening):
   - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
   - **port** (u16): port number
 
   If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
 
     - **address** (string): address in expected format for **type**
-- **our\_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
-  - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open\_channel or accept in accept\_channel
-  - **node** (hex): features in our node\_announcement message
-  - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel\_announcement message
-  - **invoice** (hex): features in our BOLT11 invoices
 - **binding** (array of objects, optional): The addresses we are listening on:
   - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
   - **address** (string, optional): address in expected format for **type**
@@ -132,4 +132,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ac7ea19a5294ebb8d8e0acaa3e813849ce1b1f7f8ef2f3e52a9ca22e5e5d82fc)
+[comment]: # ( SHA256STAMP:60ceb6f75bd8955ab636170611f9a71fb6df24316d9fa17a68ba015d864b4258)
