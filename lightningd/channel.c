@@ -417,7 +417,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->scb = tal(channel, struct scb_chan);
 		channel->scb->id = dbid;
 		channel->scb->unused = 0;
-		channel->scb->addr = peer->addr.u.wireaddr;
+		channel->scb->addr = peer->addr.u.wireaddr.wireaddr;
 		channel->scb->node_id = peer->id;
 		channel->scb->funding = *funding;
 		channel->scb->cid = *cid;

@@ -231,7 +231,7 @@ static size_t num_announced_types(enum wire_addr_type type, struct lightningd *l
 	for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
 		if (ld->proposed_wireaddr[i].itype != ADDR_INTERNAL_WIREADDR)
 			continue;
-		if (ld->proposed_wireaddr[i].u.wireaddr.type != type)
+		if (ld->proposed_wireaddr[i].u.wireaddr.wireaddr.type != type)
 			continue;
 		if (ld->proposed_listen_announce[i] & ADDR_ANNOUNCE)
 			num++;
@@ -268,7 +268,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	/* Check they didn't specify some weird type! */
 	switch (wi.itype) {
 	case ADDR_INTERNAL_WIREADDR:
-		switch (wi.u.wireaddr.type) {
+		switch (wi.u.wireaddr.wireaddr.type) {
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
 			/* These can be either bind or announce */

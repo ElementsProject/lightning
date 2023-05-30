@@ -1265,7 +1265,7 @@ wallet_commit_channel(struct lightningd *ld,
 		channel->scb = tal(channel, struct scb_chan);
 		channel->scb->id = channel->dbid;
 		channel->scb->unused = 0;
-		channel->scb->addr = channel->peer->addr.u.wireaddr;
+		channel->scb->addr = channel->peer->addr.u.wireaddr.wireaddr;
 		channel->scb->node_id = channel->peer->id;
 		channel->scb->funding = *funding;
 		channel->scb->cid = channel->cid;

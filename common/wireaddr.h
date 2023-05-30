@@ -127,9 +127,15 @@ struct wireaddr_internal {
 	enum wireaddr_internal_type itype;
 	union {
 		/* ADDR_INTERNAL_WIREADDR */
-		struct wireaddr wireaddr;
+		struct waddr {
+			struct wireaddr wireaddr;
+			bool is_websocket;
+		} wireaddr;
 		/* ADDR_INTERNAL_ALLPROTO */
-		u16 port;
+		struct allproto {
+			u16 port;
+			bool is_websocket;
+		} allproto;
 		/* ADDR_INTERNAL_AUTOTOR
 		 * ADDR_INTERNAL_STATICTOR */
 		struct torservice {

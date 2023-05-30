@@ -1476,6 +1476,8 @@ pub mod responses {
 	pub enum GetinfoBindingType {
 	    #[serde(rename = "local socket")]
 	    LOCAL_SOCKET,
+	    #[serde(rename = "websocket")]
+	    WEBSOCKET,
 	    #[serde(rename = "ipv4")]
 	    IPV4,
 	    #[serde(rename = "ipv6")]
@@ -1491,10 +1493,11 @@ pub mod responses {
 	    fn try_from(c: i32) -> Result<GetinfoBindingType, anyhow::Error> {
 	        match c {
 	    0 => Ok(GetinfoBindingType::LOCAL_SOCKET),
-	    1 => Ok(GetinfoBindingType::IPV4),
-	    2 => Ok(GetinfoBindingType::IPV6),
-	    3 => Ok(GetinfoBindingType::TORV2),
-	    4 => Ok(GetinfoBindingType::TORV3),
+	    1 => Ok(GetinfoBindingType::WEBSOCKET),
+	    2 => Ok(GetinfoBindingType::IPV4),
+	    3 => Ok(GetinfoBindingType::IPV6),
+	    4 => Ok(GetinfoBindingType::TORV2),
+	    5 => Ok(GetinfoBindingType::TORV3),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetinfoBindingType", o)),
 	        }
 	    }

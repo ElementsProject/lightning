@@ -410,12 +410,12 @@ static bool get_remote_address(struct io_conn *conn,
 	if (s.ss_family == AF_INET6) {
 		struct sockaddr_in6 *s6 = (void *)&s;
 		addr->itype = ADDR_INTERNAL_WIREADDR;
-		wireaddr_from_ipv6(&addr->u.wireaddr,
+		wireaddr_from_ipv6(&addr->u.wireaddr.wireaddr,
 				   &s6->sin6_addr, ntohs(s6->sin6_port));
 	} else if (s.ss_family == AF_INET) {
 		struct sockaddr_in *s4 = (void *)&s;
 		addr->itype = ADDR_INTERNAL_WIREADDR;
-		wireaddr_from_ipv4(&addr->u.wireaddr,
+		wireaddr_from_ipv4(&addr->u.wireaddr.wireaddr,
 				   &s4->sin_addr, ntohs(s4->sin_port));
 	} else if (s.ss_family == AF_UNIX) {
 		struct sockaddr_un *sun = (void *)&s;
@@ -468,6 +468,7 @@ static struct io_plan *connection_in(struct io_conn *conn,
 {
 	struct conn_in conn_in_arg;
 
+	conn_in_arg.addr.u.wireaddr.is_websocket = false;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
 		return io_close(conn);
 
@@ -487,6 +488,7 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 	int err;
 	struct conn_in conn_in_arg;
 
+	conn_in_arg.addr.u.wireaddr.is_websocket = true;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
 		return io_close(conn);
 
@@ -724,10 +726,10 @@ static struct io_plan *conn_init(struct io_conn *conn,
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		/* DNS should have been resolved before */
-		assert(addr->u.wireaddr.type != ADDR_TYPE_DNS);
+		assert(addr->u.wireaddr.wireaddr.type != ADDR_TYPE_DNS);
 		/* If it was a Tor address, we wouldn't be here. */
-		assert(!is_toraddr((char*)addr->u.wireaddr.addr));
-		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
+		assert(!is_toraddr((char*)addr->u.wireaddr.wireaddr.addr));
+		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr.wireaddr);
 		break;
 	}
 	assert(ai);
@@ -751,8 +753,8 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 		port = addr->u.unresolved.port;
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		host = fmt_wireaddr_without_port(tmpctx, &addr->u.wireaddr);
-		port = addr->u.wireaddr.port;
+		host = fmt_wireaddr_without_port(tmpctx, &addr->u.wireaddr.wireaddr);
+		port = addr->u.wireaddr.wireaddr.port;
 		break;
 	case ADDR_INTERNAL_SOCKNAME:
 	case ADDR_INTERNAL_ALLPROTO:
@@ -818,7 +820,7 @@ static void try_connect_one_addr(struct connecting *connect)
 		use_proxy = true;
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		switch (addr->u.wireaddr.type) {
+		switch (addr->u.wireaddr.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2_REMOVED:
 			af = -1;
 			break;
@@ -848,9 +850,9 @@ static void try_connect_one_addr(struct connecting *connect)
 			hints.ai_family = AF_UNSPEC;
 			hints.ai_protocol = 0;
 			hints.ai_flags = AI_ADDRCONFIG;
-			gai_err = getaddrinfo((char *)addr->u.wireaddr.addr,
+			gai_err = getaddrinfo((char *)addr->u.wireaddr.wireaddr.addr,
 					      tal_fmt(tmpctx, "%d",
-						      addr->u.wireaddr.port),
+						      addr->u.wireaddr.wireaddr.port),
 					      &hints, &ais);
 			if (gai_err != 0) {
 				tal_append_fmt(&connect->errors,
@@ -864,16 +866,17 @@ static void try_connect_one_addr(struct connecting *connect)
 			/* create new addrhints on-the-fly per result ... */
 			for (aii = ais; aii; aii = aii->ai_next) {
 				addrhint.itype = ADDR_INTERNAL_WIREADDR;
+				addrhint.u.wireaddr.is_websocket = false;
 				if (aii->ai_family == AF_INET) {
 					sa4 = (struct sockaddr_in *) aii->ai_addr;
-					wireaddr_from_ipv4(&addrhint.u.wireaddr,
+					wireaddr_from_ipv4(&addrhint.u.wireaddr.wireaddr,
 							   &sa4->sin_addr,
-							   addr->u.wireaddr.port);
+							   addr->u.wireaddr.wireaddr.port);
 				} else if (aii->ai_family == AF_INET6) {
 					sa6 = (struct sockaddr_in6 *) aii->ai_addr;
-					wireaddr_from_ipv6(&addrhint.u.wireaddr,
+					wireaddr_from_ipv6(&addrhint.u.wireaddr.wireaddr,
 							   &sa6->sin6_addr,
-							   addr->u.wireaddr.port);
+							   addr->u.wireaddr.wireaddr.port);
 				} else {
 					/* skip unsupported ai_family */
 					continue;
@@ -1038,15 +1041,15 @@ fail:
 static struct listen_fd *handle_wireaddr_listen(const tal_t *ctx,
 						const struct wireaddr_internal *wi,
 						bool listen_mayfail,
-						enum is_websocket is_websocket,
 						char **errstr)
 {
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
 	const struct wireaddr *wireaddr;
+	bool is_websocket = wi->u.wireaddr.is_websocket;
 
 	assert(wi->itype == ADDR_INTERNAL_WIREADDR);
-	wireaddr = &wi->u.wireaddr;
+	wireaddr = &wi->u.wireaddr.wireaddr;
 
 	/* Note the use of a switch() over enum here, even though it must be
 	 * IPv4 or IPv6 here; that will catch future changes. */
@@ -1098,10 +1101,12 @@ find_local_address(const struct listen_fd **listen_fds)
 	for (size_t i = 0; i < tal_count(listen_fds); i++) {
 		if (listen_fds[i]->wi.itype != ADDR_INTERNAL_WIREADDR)
 			continue;
-		if (listen_fds[i]->wi.u.wireaddr.type != ADDR_TYPE_IPV4
-		    && listen_fds[i]->wi.u.wireaddr.type != ADDR_TYPE_IPV6)
+		if (listen_fds[i]->wi.u.wireaddr.is_websocket)
 			continue;
-		return &listen_fds[i]->wi.u.wireaddr;
+		if (listen_fds[i]->wi.u.wireaddr.wireaddr.type != ADDR_TYPE_IPV4
+		    && listen_fds[i]->wi.u.wireaddr.wireaddr.type != ADDR_TYPE_IPV6)
+			continue;
+		return &listen_fds[i]->wi.u.wireaddr.wireaddr;
 	}
 	return NULL;
 }
@@ -1164,7 +1169,7 @@ setup_listeners(const tal_t *ctx,
 		/* You can only announce wiretypes, not internal formats! */
 		assert(proposed_wireaddr[i].itype
 		       == ADDR_INTERNAL_WIREADDR);
-		add_announceable(announceable, &wa.u.wireaddr);
+		add_announceable(announceable, &wa.u.wireaddr.wireaddr);
 	}
 
 	/* Now look for listening addresses. */
@@ -1204,42 +1209,41 @@ setup_listeners(const tal_t *ctx,
 			bool ipv6_ok;
 
 			wa.itype = ADDR_INTERNAL_WIREADDR;
-			wa.u.wireaddr.port = wa.u.port;
+			wa.u.wireaddr.wireaddr.port = wa.u.allproto.port;
+			wa.u.wireaddr.is_websocket = wa.u.allproto.is_websocket;
 
 			/* First, create wildcard IPv6 address. */
-			wa.u.wireaddr.type = ADDR_TYPE_IPV6;
-			wa.u.wireaddr.addrlen = 16;
-			memset(wa.u.wireaddr.addr, 0,
-			       sizeof(wa.u.wireaddr.addr));
+			wa.u.wireaddr.wireaddr.type = ADDR_TYPE_IPV6;
+			wa.u.wireaddr.wireaddr.addrlen = 16;
+			memset(wa.u.wireaddr.wireaddr.addr, 0,
+			       sizeof(wa.u.wireaddr.wireaddr.addr));
 
 			/* This may fail due to no IPv6 support. */
-			lfd = handle_wireaddr_listen(ctx, &wa, false,
-						     NORMAL_SOCKET, errstr);
+			lfd = handle_wireaddr_listen(ctx, &wa, false, errstr);
 			if (lfd) {
 				tal_arr_expand(&listen_fds,
 					       tal_steal(listen_fds, lfd));
 				if (announce
-				    && public_address(daemon, &wa.u.wireaddr))
+				    && public_address(daemon, &wa.u.wireaddr.wireaddr))
 					add_announceable(announceable,
-							 &wa.u.wireaddr);
+							 &wa.u.wireaddr.wireaddr);
 			}
 			ipv6_ok = (lfd != NULL);
 
 			/* Now, create wildcard IPv4 address. */
-			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
-			wa.u.wireaddr.addrlen = 4;
-			memset(wa.u.wireaddr.addr, 0,
-			       sizeof(wa.u.wireaddr.addr));
+			wa.u.wireaddr.wireaddr.type = ADDR_TYPE_IPV4;
+			wa.u.wireaddr.wireaddr.addrlen = 4;
+			memset(wa.u.wireaddr.wireaddr.addr, 0,
+			       sizeof(wa.u.wireaddr.wireaddr.addr));
 			/* This listen *may* fail, as long as IPv6 succeeds! */
-			lfd = handle_wireaddr_listen(ctx, &wa, ipv6_ok,
-						     NORMAL_SOCKET, errstr);
+			lfd = handle_wireaddr_listen(ctx, &wa, ipv6_ok, errstr);
 			if (lfd) {
 				tal_arr_expand(&listen_fds,
 					       tal_steal(listen_fds, lfd));
 				if (announce
-				    && public_address(daemon, &wa.u.wireaddr))
+				    && public_address(daemon, &wa.u.wireaddr.wireaddr))
 					add_announceable(announceable,
-							&wa.u.wireaddr);
+							&wa.u.wireaddr.wireaddr);
 			} else if (!ipv6_ok) {
 				/* Both failed, return now, errstr set. */
 				return NULL;
@@ -1248,13 +1252,12 @@ setup_listeners(const tal_t *ctx,
 		}
 		/* This is a vanilla wireaddr as per BOLT #7 */
 		case ADDR_INTERNAL_WIREADDR:
-			lfd = handle_wireaddr_listen(ctx, &wa, false,
-						     NORMAL_SOCKET, errstr);
+			lfd = handle_wireaddr_listen(ctx, &wa, false, errstr);
 			if (!lfd)
 				return NULL;
 			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
-			if (announce && public_address(daemon, &wa.u.wireaddr))
-				add_announceable(announceable, &wa.u.wireaddr);
+			if (announce && public_address(daemon, &wa.u.wireaddr.wireaddr))
+				add_announceable(announceable, &wa.u.wireaddr.wireaddr);
 			continue;
 		case ADDR_INTERNAL_FORPROXY:
 			break;
@@ -1288,14 +1291,14 @@ setup_listeners(const tal_t *ctx,
 
 			/* Override with websocket port */
 			addr = listen_fds[i]->wi;
-			addr.u.wireaddr.port = daemon->websocket_port;
+			addr.u.wireaddr.is_websocket = true;
+			addr.u.wireaddr.wireaddr.port = daemon->websocket_port;
 
 			/* We set mayfail on all but the first websocket;
 			 * it's quite common to have multple overlapping
 			 * addresses. */
-			lfd = handle_wireaddr_listen(ctx, &addr,
-						     announced_some,
-						     WEBSOCKET, errstr);
+			lfd = handle_wireaddr_listen(ctx, &addr, announced_some,
+						     errstr);
 			if (!lfd)
 				continue;
 
@@ -1610,10 +1613,11 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 					continue;
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
-				a.u.wireaddr = new_addrs[j];
+				a.u.wireaddr.is_websocket = false;
+				a.u.wireaddr.wireaddr = new_addrs[j];
 				status_peer_debug(id, "Resolved %s to %s", hostnames[i],
 						  type_to_string(tmpctx, struct wireaddr,
-								 &a.u.wireaddr));
+								 &a.u.wireaddr.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
 			/* Other seeds will likely have the same information. */
@@ -1640,7 +1644,8 @@ static void add_gossip_addrs_bytypes(struct wireaddr_internal **addrs,
 		if (((u64)1 << normal_addrs[i].type) & types) {
 			struct wireaddr_internal addr;
 			addr.itype = ADDR_INTERNAL_WIREADDR;
-			addr.u.wireaddr = normal_addrs[i];
+			addr.u.wireaddr.is_websocket = false;
+			addr.u.wireaddr.wireaddr = normal_addrs[i];
 			tal_arr_expand(addrs, addr);
 		}
 	}
@@ -1731,8 +1736,10 @@ static void try_connect_peer(struct daemon *daemon,
 
 	/* Tell it to omit the existing hint (if that's a wireaddr itself) */
 	add_gossip_addrs(&addrs, gossip_addrs,
-			 addrhint && addrhint->itype == ADDR_INTERNAL_WIREADDR
-			 ? &addrhint->u.wireaddr : NULL);
+			 addrhint
+			 && addrhint->itype == ADDR_INTERNAL_WIREADDR
+			 && !addrhint->u.wireaddr.is_websocket
+			 ? &addrhint->u.wireaddr.wireaddr : NULL);
 
 	if (tal_count(addrs) == 0) {
 		/* Don't resolve via DNS seed if we're supposed to use proxy. */

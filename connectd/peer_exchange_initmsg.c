@@ -236,13 +236,15 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 *    incoming connection, if the node is the receiver and the connection was done
 	 *    via IP.
 	 */
-	if (incoming && addr->itype == ADDR_INTERNAL_WIREADDR &&
-			address_routable(&addr->u.wireaddr, true)) {
-		switch (addr->u.wireaddr.type) {
+	if (incoming
+	    && addr->itype == ADDR_INTERNAL_WIREADDR
+	    && !addr->u.wireaddr.is_websocket
+	    && address_routable(&addr->u.wireaddr.wireaddr, true)) {
+		switch (addr->u.wireaddr.wireaddr.type) {
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
 			tlvs->remote_addr = tal_arr(tlvs, u8, 0);
-			towire_wireaddr(&tlvs->remote_addr, &addr->u.wireaddr);
+			towire_wireaddr(&tlvs->remote_addr, &addr->u.wireaddr.wireaddr);
 			break;
 		/* Only report IP addresses back for now */
 		case ADDR_TYPE_TOR_V2_REMOVED:

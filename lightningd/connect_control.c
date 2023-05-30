@@ -680,7 +680,8 @@ int connectd_init(struct lightningd *ld)
 		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
 		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
 		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
-		wireaddrs->u.port = ld->portnum;
+		wireaddrs->u.allproto.is_websocket = false;
+		wireaddrs->u.allproto.port = ld->portnum;
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
 	}
 
