@@ -1518,7 +1518,8 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoResponse {
 	    pub id: PublicKey,
-	    pub alias: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<String>,
 	    pub color: String,
 	    pub num_peers: u32,
 	    pub num_pending_channels: u32,
@@ -1532,7 +1533,8 @@ pub mod responses {
 	    pub blockheight: u32,
 	    pub network: String,
 	    pub fees_collected_msat: Amount,
-	    pub address: Vec<GetinfoAddress>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub address: Option<Vec<GetinfoAddress>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub binding: Option<Vec<GetinfoBinding>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

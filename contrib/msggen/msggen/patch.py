@@ -111,7 +111,7 @@ class OptionalPatch(Patch):
     # Oldest supported versions. Bump this if you no longer want to
     # support older versions, and you want to make required fields
     # more stringent.
-    supported = 'v0.12.0'
+    supported = 'v0.10.1'
 
     def visit(self, f: model.Field) -> None:
         if f.added not in self.versions:
