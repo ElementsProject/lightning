@@ -168,16 +168,19 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	// start with IPv4
-	parse_wireaddr("0.0.0.0", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "0.0.0.0", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(!IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
-	parse_wireaddr("255.255.255.255", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "255.255.255.255", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(!IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
 
-	parse_wireaddr("127.0.0.1", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "127.0.0.1", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
@@ -185,7 +188,8 @@ int main(int argc, char *argv[])
 	assert(address_routable(&wa, true));
 	assert(!address_routable(&wa, false));
 
-	parse_wireaddr("0.1.2.3", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "0.1.2.3", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
@@ -193,7 +197,8 @@ int main(int argc, char *argv[])
 	assert(address_routable(&wa, true));
 	assert(!address_routable(&wa, false));
 
-	parse_wireaddr("10.0.21.42", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "10.0.21.42", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
@@ -202,7 +207,8 @@ int main(int argc, char *argv[])
 	assert(!address_routable(&wa, true));
 	assert(!address_routable(&wa, false));
 
-	parse_wireaddr("192.168.123.4", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "192.168.123.4", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
@@ -211,7 +217,8 @@ int main(int argc, char *argv[])
 	assert(!address_routable(&wa, true));
 	assert(!address_routable(&wa, false));
 
-	parse_wireaddr("1.2.3.4", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "1.2.3.4", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(IsIPv4(&wa));
 	assert(!IsIPv6(&wa));
@@ -220,7 +227,8 @@ int main(int argc, char *argv[])
 	assert(address_routable(&wa, false));
 
 	// now IPv6 stuff
-	parse_wireaddr("2142:DEAD:beef::1", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "2142:DEAD:beef::1", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(IsValid(&wa));
 	assert(!IsIPv4(&wa));
 	assert(IsIPv6(&wa));
@@ -228,12 +236,14 @@ int main(int argc, char *argv[])
 	assert(address_routable(&wa, true));
 	assert(address_routable(&wa, false));
 
-	parse_wireaddr("0::0", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "0::0", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(!IsValid(&wa));
 	assert(!IsIPv4(&wa));
 	assert(IsIPv6(&wa));
 
-	parse_wireaddr("2001:db8::1", &wa, DEFAULT_PORT, NULL, &err);
+	err = parse_wireaddr(tmpctx, "2001:db8::1", DEFAULT_PORT, NULL, &wa);
+	assert(!err);
 	assert(!IsValid(&wa));
 	assert(!IsIPv4(&wa));
 	assert(IsIPv6(&wa));

@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
@@ -267,10 +268,24 @@ static char *opt_add_addr_withtype(const char *arg,
 	    || is_wildcardaddr(address)
 	    || (is_dnsaddr(address) && !ld->announce_dns)
 	    || ala != ADDR_ANNOUNCE) {
-		if (!parse_wireaddr_internal(arg, &wi, ld->portnum,
-					     wildcard_ok, dns_ok, false,
-					     &err_msg)) {
+		err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
+						  dns_ok, &wi);
+		if (err_msg) {
 			return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
+		}
+		/* Check they didn't specify some weird type! */
+		switch (wi.itype) {
+		case ADDR_INTERNAL_SOCKNAME:
+		case ADDR_INTERNAL_WIREADDR:
+		case ADDR_INTERNAL_AUTOTOR:
+		case ADDR_INTERNAL_STATICTOR:
+			break;
+		case ADDR_INTERNAL_ALLPROTO:
+			if (!wildcard_ok)
+				return tal_fmt(NULL, "Cannot use wildcard address '%s'", arg);
+			break;
+		case ADDR_INTERNAL_FORPROXY:
+			return tal_fmt(NULL, "Cannot resolve address '%s' (not using DNS!)", arg);
 		}
 
 		/* Sanity check for exact duplicates. */
@@ -348,14 +363,14 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	struct wireaddr_internal addr;
 
 	/* handle in case you used the addr option with an .onion */
-	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
+	if (parse_wireaddr_internal(tmpctx, arg, 0, false, &addr) == NULL) {
 		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
 		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
-				log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
-							" `--announce-addr` ! You are lucky in this node live some wizards and"
-							" fairies, we have done this for you and announce, Be as hidden as wished",
-							arg);
-				return opt_add_announce_addr(arg, ld);
+			log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
+				    " `--announce-addr` ! You are lucky in this node live some wizards and"
+				    " fairies, we have done this for you and announce, Be as hidden as wished",
+				    arg);
+			return opt_add_announce_addr(arg, ld);
 		}
 	}
 	/* the intended call */
@@ -394,7 +409,7 @@ static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 	struct wireaddr_internal addr;
 
 	/* handle in case you used the bind option with an .onion */
-	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
+	if (parse_wireaddr_internal(tmpctx, arg, 0, false, &addr) == NULL) {
 		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
 		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
 				log_unusual(ld->log, "You used `--bind-addr=%s` option with an .onion address,"
@@ -473,18 +488,17 @@ static char *opt_set_offline(struct lightningd *ld)
 static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 {
 	bool needed_dns = false;
+	const char *err;
+
 	tal_free(ld->proxyaddr);
 
 	/* We use a tal_arr here, so we can marshal it to gossipd */
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
-	if (!parse_wireaddr(arg, ld->proxyaddr, 9050,
-			    ld->always_use_proxy ? &needed_dns : NULL,
-			    NULL)) {
-		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s' %s",
-			       arg, needed_dns ? " (needed dns)" : "");
-	}
-	return NULL;
+	err = parse_wireaddr(tmpctx, arg, 9050,
+			     ld->always_use_proxy ? &needed_dns : NULL,
+			     ld->proxyaddr);
+	return cast_const(char *, err);
 }
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)

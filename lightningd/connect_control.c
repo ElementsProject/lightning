@@ -199,14 +199,27 @@ static struct command_result *json_connect(struct command *cmd,
 	if (id_addr.host) {
 		u16 port = id_addr.port ? *id_addr.port : chainparams_get_ln_port(chainparams);
 		addr = tal(cmd, struct wireaddr_internal);
-		if (!parse_wireaddr_internal(id_addr.host, addr, port, false,
-					     !cmd->ld->always_use_proxy
-					     && !cmd->ld->pure_tor_setup,
-					     true,
-					     &err_msg)) {
+		err_msg = parse_wireaddr_internal(tmpctx, id_addr.host, port,
+						  !cmd->ld->always_use_proxy
+						  && !cmd->ld->pure_tor_setup, addr);
+		if (err_msg) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",
 					    id_addr.host, port, err_msg);
+		}
+		/* Check they didn't specify some weird type! */
+		switch (addr->itype) {
+		case ADDR_INTERNAL_SOCKNAME:
+		case ADDR_INTERNAL_WIREADDR:
+		/* Can happen if we're disable DNS */
+		case ADDR_INTERNAL_FORPROXY:
+			break;
+		case ADDR_INTERNAL_ALLPROTO:
+		case ADDR_INTERNAL_AUTOTOR:
+		case ADDR_INTERNAL_STATICTOR:
+			return command_fail(cmd, LIGHTNINGD,
+					    "Host %s:%u not a simple type",
+					    id_addr.host, port);
 		}
 	} else {
 		addr = NULL;
