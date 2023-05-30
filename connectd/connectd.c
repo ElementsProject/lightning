@@ -884,9 +884,6 @@ static void try_connect_one_addr(struct connecting *connect)
 			}
 			freeaddrinfo(ais);
 			goto next;
-		case ADDR_TYPE_WEBSOCKET:
-			af = -1;
-			break;
 		}
 	}
 
@@ -1064,7 +1061,6 @@ static struct listen_fd *handle_wireaddr_listen(const tal_t *ctx,
 		return make_listen_fd(ctx, wi, AF_INET6, &addr6, sizeof(addr6),
 				      listen_mayfail, is_websocket, errstr);
 	/* Handle specially by callers. */
-	case ADDR_TYPE_WEBSOCKET:
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 	case ADDR_TYPE_DNS:
@@ -1683,7 +1679,6 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 			break;
 		/* We can't use these to connect to! */
 		case ADDR_TYPE_TOR_V2_REMOVED:
-		case ADDR_TYPE_WEBSOCKET:
 			break;
 		}
 		/* Other results returned are possible, but we don't understand

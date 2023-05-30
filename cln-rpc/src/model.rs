@@ -1433,7 +1433,7 @@ pub mod responses {
 	    pub invoice: String,
 	}
 
-	/// Type of connection
+	/// Type of connection (until 23.08, `websocket` was also allowed)
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	pub enum GetinfoAddressType {
 	    #[serde(rename = "dns")]
@@ -1446,8 +1446,6 @@ pub mod responses {
 	    TORV2,
 	    #[serde(rename = "torv3")]
 	    TORV3,
-	    #[serde(rename = "websocket")]
-	    WEBSOCKET,
 	}
 
 	impl TryFrom<i32> for GetinfoAddressType {
@@ -1459,7 +1457,6 @@ pub mod responses {
 	    2 => Ok(GetinfoAddressType::IPV6),
 	    3 => Ok(GetinfoAddressType::TORV2),
 	    4 => Ok(GetinfoAddressType::TORV3),
-	    5 => Ok(GetinfoAddressType::WEBSOCKET),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetinfoAddressType", o)),
 	        }
 	    }
@@ -2733,7 +2730,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Type of connection
+	/// Type of connection (until 23.08, `websocket` was also allowed)
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	pub enum ListnodesNodesAddressesType {
 	    #[serde(rename = "dns")]
@@ -2746,8 +2743,6 @@ pub mod responses {
 	    TORV2,
 	    #[serde(rename = "torv3")]
 	    TORV3,
-	    #[serde(rename = "websocket")]
-	    WEBSOCKET,
 	}
 
 	impl TryFrom<i32> for ListnodesNodesAddressesType {
@@ -2759,7 +2754,6 @@ pub mod responses {
 	    2 => Ok(ListnodesNodesAddressesType::IPV6),
 	    3 => Ok(ListnodesNodesAddressesType::TORV2),
 	    4 => Ok(ListnodesNodesAddressesType::TORV3),
-	    5 => Ok(ListnodesNodesAddressesType::WEBSOCKET),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListnodesNodesAddressesType", o)),
 	        }
 	    }

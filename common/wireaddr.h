@@ -30,10 +30,6 @@ struct sockaddr_un;
  *   * `5`: DNS hostname; data = `[byte:len][len*byte:hostname][u16:port]` (length up to 258)
  */
 
-/* BOLT-websockets #7:
- *    * `6`: WebSocket port; data = `[2:port]` (length 2)
- */
-
 #define	TOR_V2_ADDRLEN 10
 #define	TOR_V3_ADDRLEN 35
 #define	DNS_ADDRLEN 255
@@ -47,7 +43,6 @@ enum wire_addr_type {
 	ADDR_TYPE_TOR_V2_REMOVED = 3,
 	ADDR_TYPE_TOR_V3 = 4,
 	ADDR_TYPE_DNS = 5,
-	ADDR_TYPE_WEBSOCKET = 6
 };
 
 struct wireaddr {
@@ -113,10 +108,8 @@ void wireaddr_from_ipv4(struct wireaddr *addr,
 void wireaddr_from_ipv6(struct wireaddr *addr,
 			const struct in6_addr *ip6,
 			const u16 port);
-void wireaddr_from_websocket(struct wireaddr *addr, const u16 port);
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
 bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
-bool wireaddr_to_websocket(const struct wireaddr *addr, u16 *port);
 
 bool wireaddr_is_wildcard(const struct wireaddr *addr);
 

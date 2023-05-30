@@ -118,7 +118,6 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			case ADDR_TYPE_TOR_V2_REMOVED:
 			case ADDR_TYPE_TOR_V3:
 			case ADDR_TYPE_DNS:
-			case ADDR_TYPE_WEBSOCKET:
 				remote_addr = tal_free(remote_addr);
 				break;
 			}
@@ -249,7 +248,6 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 		case ADDR_TYPE_TOR_V2_REMOVED:
 		case ADDR_TYPE_TOR_V3:
 		case ADDR_TYPE_DNS:
-		case ADDR_TYPE_WEBSOCKET:
 			break;
 		}
 	}

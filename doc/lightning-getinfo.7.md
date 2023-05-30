@@ -41,7 +41,7 @@ On success, an object is returned, containing:
 - **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
 - **fees\_collected\_msat** (msat): Total routing fees collected by this node
 - **address** (array of objects): The addresses we announce to the world:
-  - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
+  - **type** (string): Type of connection (until 23.08, `websocket` was also allowed) (one of "dns", "ipv4", "ipv6", "torv2", "torv3")
   - **port** (u16): port number
 
   If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
@@ -132,4 +132,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ac7ea19a5294ebb8d8e0acaa3e813849ce1b1f7f8ef2f3e52a9ca22e5e5d82fc)
+[comment]: # ( SHA256STAMP:60310adb57a49cb425a4b0d424f176a0ffa4de312ed07855b5e5611a44a64fcf)
