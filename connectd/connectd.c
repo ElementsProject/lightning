@@ -1285,8 +1285,6 @@ setup_listeners(const tal_t *ctx,
 		/* Only consider bindings added before this! */
 		size_t num_nonws_listens = tal_count(listen_fds);
 
-		/* If not overriden below, this is the default. */
-		*errstr = "Cannot listen on websocket: not listening on any IPv4/6 addresses";
 		for (size_t i = 0; i < num_nonws_listens; i++) {
 			/* Ignore UNIX sockets */
 			if (listen_fds[i]->wi.itype != ADDR_INTERNAL_WIREADDR)
@@ -1305,40 +1303,15 @@ setup_listeners(const tal_t *ctx,
 			if (!lfd)
 				continue;
 
-			if (!announced_some) {
-				/* BOLT-websocket #7:
-				 *   - MUST NOT add a `type 6` address unless
-				 *     there is also at least one address of
-				 *     different type.
-				 */
-				if (tal_count(*announceable) != 0) {
-					/* See https://github.com/lightningnetwork/lnd/issues/6432:
-					 * if we add websocket to the node_announcement, it doesn't propagate.
-					 * So we do not do this for now in general! */
-					if (daemon->announce_websocket) {
-						wireaddr_from_websocket(&addr.u.wireaddr,
-									daemon->websocket_port);
-						add_announceable(announceable,
-								 &addr.u.wireaddr);
-					}
-				} else {
-					status_unusual("Bound to websocket %s,"
-						       " but we cannot announce"
-						       " the websocket as we don't"
-						       " announce anything else!",
-					       type_to_string(tmpctx,
-						      struct wireaddr_internal,
-						      &addr));
-				}
-				announced_some = true;
-			}
-
+			announced_some = true;
 			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 		}
 
 		/* If none of those was possible, it's a configuration error? */
-		if (tal_count(listen_fds) == num_nonws_listens)
+		if (tal_count(listen_fds) == num_nonws_listens) {
+			*errstr = "Cannot listen on websocket: not listening on any IPv4/6 addresses";
 			return NULL;
+		}
 	}
 
 	/* FIXME: Websocket over Tor (difficult for autotor, since we need
