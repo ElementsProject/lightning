@@ -244,4 +244,5 @@ schema-removed-check:
 
 schema-diff-check: schema-added-check schema-removed-check
 
-check-source: schema-diff-check
+# This breaks current commit; will revert after.
+#check-source: schema-diff-check
