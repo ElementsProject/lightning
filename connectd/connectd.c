@@ -1654,33 +1654,26 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 	}
 }
 
-static bool wireaddr_int_equals_wireaddr(const struct wireaddr_internal *addr_a,
-					 const struct wireaddr *addr_b)
-{
-	if (!addr_a || !addr_b)
-		return false;
-	return wireaddr_eq(&addr_a->u.wireaddr, addr_b);
-}
-
 /*~ Adds just one address type.
  *
  * Ignores deprecated and the `addrhint`. */
-static void add_gossip_addrs_bytype(struct wireaddr_internal **addrs,
-				    const struct wireaddr *normal_addrs,
-				    const struct wireaddr_internal *addrhint,
-				    const enum wire_addr_type type)
+static void add_gossip_addrs_bytypes(struct wireaddr_internal **addrs,
+				     const struct wireaddr *normal_addrs,
+				     const struct wireaddr *addrhint,
+				     u64 types)
 {
 	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
-		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2_REMOVED)
+		if (addrhint && wireaddr_eq(addrhint, &normal_addrs[i]))
 			continue;
-		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
+		/* I guess this is possible in future! */
+		if (normal_addrs[i].type > 63)
 			continue;
-		if (normal_addrs[i].type != type)
-			continue;
-		struct wireaddr_internal addr;
-		addr.itype = ADDR_INTERNAL_WIREADDR;
-		addr.u.wireaddr = normal_addrs[i];
-		tal_arr_expand(addrs, addr);
+		if (((u64)1 << normal_addrs[i].type) & types) {
+			struct wireaddr_internal addr;
+			addr.itype = ADDR_INTERNAL_WIREADDR;
+			addr.u.wireaddr = normal_addrs[i];
+			tal_arr_expand(addrs, addr);
+		}
 	}
 
 }
@@ -1694,29 +1687,39 @@ static void add_gossip_addrs_bytype(struct wireaddr_internal **addrs,
  * direct (faster) IPv4 and finally (less stable) TOR connections. */
 static void add_gossip_addrs(struct wireaddr_internal **addrs,
 			     const struct wireaddr *normal_addrs,
-			     const struct wireaddr_internal *addrhint)
+			     const struct wireaddr *addrhint)
 {
-	/* Wrap each one in a wireaddr_internal and add to addrs. */
-	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
-		/* This is not supported, ignore. */
-		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2_REMOVED)
-			continue;
-		/* The hint was already added earlier */
-		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
-			continue;
-		/* We add IPv4 and TOR in separate loops to prefer IPv6 */
-		if (normal_addrs[i].type == ADDR_TYPE_IPV4)
-			continue;
-		if (normal_addrs[i].type == ADDR_TYPE_TOR_V3)
-			continue;
-		struct wireaddr_internal addr;
-		addr.itype = ADDR_INTERNAL_WIREADDR;
-		addr.u.wireaddr = normal_addrs[i];
-		tal_arr_expand(addrs, addr);
+	u64 types[] = { 0, 0, 0 };
+
+	/* Note gratuitous use of switch() means we'll know if a new one
+	 * appears! */
+	for (size_t i = ADDR_TYPE_IPV4; i <= ADDR_TYPE_DNS; i++) {
+		switch ((enum wire_addr_type)i) {
+		/* First priority */
+		case ADDR_TYPE_IPV6:
+		case ADDR_TYPE_DNS:
+			types[0] |= ((u64)1 << i);
+			break;
+		/* Second priority */
+		case ADDR_TYPE_IPV4:
+			types[1] |= ((u64)1 << i);
+			break;
+		case ADDR_TYPE_TOR_V3:
+		/* Third priority */
+			types[2] |= ((u64)1 << i);
+			break;
+		/* We can't use these to connect to! */
+		case ADDR_TYPE_TOR_V2_REMOVED:
+		case ADDR_TYPE_WEBSOCKET:
+			break;
+		}
+		/* Other results returned are possible, but we don't understand
+		 * them anyway! */
 	}
-	/* Do the loop for skipped protocols in preferred order. */
-	add_gossip_addrs_bytype(addrs, normal_addrs, addrhint, ADDR_TYPE_IPV4);
-	add_gossip_addrs_bytype(addrs, normal_addrs, addrhint, ADDR_TYPE_TOR_V3);
+
+	/* Add in priority order */
+	for (size_t i = 0; i < ARRAY_SIZE(types); i++)
+		add_gossip_addrs_bytypes(addrs, normal_addrs, addrhint, types[i]);
 }
 
 /*~ Consumes addrhint if not NULL.
@@ -1758,7 +1761,10 @@ static void try_connect_peer(struct daemon *daemon,
 	if (addrhint)
 		tal_arr_expand(&addrs, *addrhint);
 
-	add_gossip_addrs(&addrs, gossip_addrs, addrhint);
+	/* Tell it to omit the existing hint (if that's a wireaddr itself) */
+	add_gossip_addrs(&addrs, gossip_addrs,
+			 addrhint && addrhint->itype == ADDR_INTERNAL_WIREADDR
+			 ? &addrhint->u.wireaddr : NULL);
 
 	if (tal_count(addrs) == 0) {
 		/* Don't resolve via DNS seed if we're supposed to use proxy. */
