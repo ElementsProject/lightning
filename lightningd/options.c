@@ -1081,6 +1081,9 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 	u32 port COMPILER_WANTS_INIT("9.3.0 -O2");
 	char *err;
 
+	if (!deprecated_apis)
+		return "--experimental-websocket-port been deprecated, use --bind=ws:...";
+
 	err = opt_set_u32(arg, &port);
 	if (err)
 		return err;
@@ -1364,9 +1367,7 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_arg("--experimental-websocket-port",
 			 opt_set_websocket_port, NULL,
-			 ld,
-			 "experimental: alternate port for peers to connect"
-			 " using WebSockets (RFC6455)");
+			 ld, opt_hidden);
 	opt_register_noarg("--experimental-upgrade-protocol",
 			   opt_set_bool, &ld->experimental_upgrade_protocol,
 			   "experimental: allow channel types to be upgraded on reconnect");
