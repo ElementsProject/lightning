@@ -571,7 +571,7 @@ its use disables autolisten.
 
   Since v23.058, the `dns:` prefix can be used to indicate that this hostname and port should be announced as a DNS hostname entry.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
 
-* **announce-addr-dns**=*BOOL*
+* **announce-addr-dns**=*BOOL* (deprecated in v23.08)
 
   When set to *true* (default is *false*), prefixes all `HOSTNAME` in **announce-addr** with `dns:`.
 

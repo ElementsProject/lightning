@@ -117,11 +117,10 @@ def test_announce_address(node_factory, bitcoind):
     """Make sure our announcements are well formed."""
 
     # We do not allow announcement of duplicates.
-    opts = {'announce-addr-dns': True,
-            'announce-addr':
+    opts = {'announce-addr':
             ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
              '1.2.3.4:1234',
-             'example.com:1236',
+             'dns:example.com:1236',
              '::'],
             'log-level': 'io',
             'dev-allow-localhost': None}
@@ -202,8 +201,7 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
         - 'dev-allow-localhost' must not be set, so it does not resolve localhost anyway.
     """
     opts1 = {'disable-dns': None,
-             'announce-addr-dns': True,
-             'announce-addr': ['localhost.localdomain:12345'],  # announce dns
+             'announce-addr': ['dns:localhost.localdomain:12345'],  # announce dns
              'bind-addr': ['127.0.0.1:12345', '[::1]:12345']}   # and bind local IPs
     opts3 = {'may_reconnect': True}
     opts4 = {'disable-dns': None}
@@ -252,8 +250,7 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
 def test_only_announce_one_dns(node_factory, bitcoind):
     # and test that we can't announce more than one DNS address
     l1 = node_factory.get_node(expect_fail=True, start=False,
-                               options={'announce-addr-dns': True,
-                                        'announce-addr': ['localhost.localdomain:12345', 'example.com:12345']})
+                               options={'announce-addr': ['dns:localhost.localdomain:12345', 'dns:example.com:12345']})
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     wait_for(lambda: l1.daemon.is_in_stderr("Only one DNS can be announced"))
 
@@ -262,7 +259,7 @@ def test_announce_dns_without_port(node_factory, bitcoind):
     """ Checks that the port of a DNS announcement is set to the corresponding
         network port. In this case regtest 19846
     """
-    opts = {'announce-addr-dns': True, 'announce-addr': ['example.com']}
+    opts = {'announce-addr': ['dns:example.com']}
     l1 = node_factory.get_node(options=opts)
 
     # 'address': [{'type': 'dns', 'address': 'example.com', 'port': 0}]

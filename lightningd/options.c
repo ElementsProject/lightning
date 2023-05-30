@@ -1141,6 +1141,13 @@ static char *opt_disable_ip_discovery(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
+{
+	if (!deprecated_apis)
+		return "--announce-addr-dns has been deprecated, use --bind-addr=dns:...";
+	return opt_set_bool_arg(optarg, &ld->announce_dns);
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -1208,9 +1215,8 @@ static void register_opts(struct lightningd *ld)
 				 "experimental: Advertise ability to quiesce"
 				 " channels.");
 	opt_register_early_arg("--announce-addr-dns",
-			       opt_set_bool_arg, opt_show_bool,
-			       &ld->announce_dns,
-			       "Use DNS entries in --announce-addr and --addr (not widely supported!)");
+			       opt_set_announce_dns, NULL,
+			       ld, opt_hidden);
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
@@ -1789,6 +1795,9 @@ static void add_config(struct lightningd *ld,
 			if (ld->db_upgrade_ok)
 				json_add_bool(response, name0,
 					      *ld->db_upgrade_ok);
+			return;
+		} else if (opt->cb_arg == (void *)opt_set_announce_dns) {
+			json_add_bool(response, name0, ld->announce_dns);
 			return;
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by

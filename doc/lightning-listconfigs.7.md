@@ -106,7 +106,7 @@ On success, an object is returned, containing:
 - **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` fields from config or cmdline, or not present
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
-- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement *(added v22.11.1)*
+- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement **deprecated, removal in v24.05** *(added v22.11.1)*
 - **require-confirmed-inputs** (boolean, optional): Request peers to only send confirmed inputs (dual-fund only)
 - **commit-fee** (u64, optional): The percentage of the 6-block fee estimate to use for commitment transactions *(added v23.05)*
 
@@ -226,4 +226,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4e361c39e45812c4dd1e168c3e4e0960f06511850db7b70475b4b547e92f3bc2)
+[comment]: # ( SHA256STAMP:a0058065f618170918c09d1672d5800beeff01f0fd2d13914a4ec238398f30c3)
