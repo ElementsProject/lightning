@@ -324,6 +324,7 @@
     "announce-addr-dns": {
       "type": "boolean",
       "added": "v22.11.1",
+      "deprecated": "v23.08",
       "description": "Whether we put DNS entries into node_announcement"
     },
     "require-confirmed-inputs": {
