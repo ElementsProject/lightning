@@ -4116,9 +4116,9 @@ def test_websocket(node_factory):
         if int.from_bytes(msg[0:2], 'big') == 19:
             break
 
-    # Check node_announcement has websocket
-    ws_address = {'type': 'websocket', 'port': ws_port}
-    assert ws_address in only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
+    # Check node_announcement does NOT have websocket
+    assert not any([a['type'] == 'websocket'
+                    for a in only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']])
 
 
 @pytest.mark.developer("dev-disconnect required")
