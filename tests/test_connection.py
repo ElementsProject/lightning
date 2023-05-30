@@ -4058,17 +4058,24 @@ def test_old_feerate(node_factory):
 @pytest.mark.developer("needs --dev-allow-localhost")
 def test_websocket(node_factory):
     ws_port = reserve()
-    port1, port2 = reserve(), reserve()
-    # We need a wildcard to show the websocket bug, but we need a real
-    # address to give us something to announce.
+    port = reserve()
     l1, l2 = node_factory.line_graph(2,
-                                     opts=[{'experimental-websocket-port': ws_port,
-                                            'addr': [':' + str(port1),
-                                                     '127.0.0.1: ' + str(port2)],
+                                     opts=[{'addr': ':' + str(port),
+                                            'bind-addr': 'ws:127.0.0.1: ' + str(ws_port),
                                             'dev-allow-localhost': None},
                                            {'dev-allow-localhost': None}],
                                      wait_for_announce=True)
-    assert l1.rpc.listconfigs()['experimental-websocket-port'] == ws_port
+    # Some depend on ipv4 vs ipv6 behaviour...
+    for b in l1.rpc.getinfo()['binding']:
+        if b['type'] == 'ipv4':
+            assert b == {'type': 'ipv4', 'address': '0.0.0.0', 'port': port}
+        elif b['type'] == 'ipv6':
+            assert b == {'type': 'ipv6', 'address': '::', 'port': port}
+        else:
+            assert b == {'type': 'websocket',
+                         'address': '127.0.0.1',
+                         'subtype': 'ipv4',
+                         'port': ws_port}
 
     # Adapter to turn websocket into a stream "connection"
     class BinWebSocket(object):
