@@ -277,9 +277,12 @@ static char *opt_add_addr_withtype(const char *arg,
 			/* Can't happen any more */
 			abort();
 		case ADDR_TYPE_TOR_V3:
-			/* I'm not sure why we allow this abuse, but we fix it up. */
 			switch (ala) {
 			case ADDR_LISTEN:
+				if (!deprecated_apis)
+					return tal_fmt(NULL,
+						       "Don't use --bind-addr=%s, use --announce-addr=%s",
+						       arg, arg);
 				log_unusual(ld->log,
 					    "You used `--bind-addr=%s` option with an .onion address,"
 					    " You are lucky in this node live some wizards and"
@@ -288,6 +291,10 @@ static char *opt_add_addr_withtype(const char *arg,
 				/* And we ignore it */
 				return NULL;
 			case ADDR_LISTEN_AND_ANNOUNCE:
+				if (!deprecated_apis)
+					return tal_fmt(NULL,
+						       "Don't use --addr=%s, use --announce-addr=%s",
+						       arg, arg);
 				log_unusual(ld->log,
 					    "You used `--addr=%s` option with an .onion address,"
 					    " You are lucky in this node live some wizards and"
@@ -324,12 +331,14 @@ static char *opt_add_addr_withtype(const char *arg,
 		}
 		break;
 	case ADDR_INTERNAL_SOCKNAME:
-		/* We turn --addr into --bind-addr */
 		switch (ala) {
 			case ADDR_ANNOUNCE:
 				return tal_fmt(NULL,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
+				if (!deprecated_apis)
+					return tal_fmt(NULL, "Don't use --addr=%s, use --bind-addr=%s",
+						       arg, arg);
 				ala = ADDR_LISTEN;
 				/* Fall thru */
 			case ADDR_LISTEN:

@@ -721,16 +721,6 @@ def test_address(node_factory):
     ret = l2.rpc.connect(l1.info['id'], l1.daemon.opts['bind-addr'])
     assert ret['address'] == {'type': 'local socket', 'socket': l1.daemon.opts['bind-addr']}
 
-    # 'addr' with local socket works too.
-    l1.stop()
-    del l1.daemon.opts['bind-addr']
-    l1.daemon.opts['addr'] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
-    # start expects a port, so we open-code here.
-    l1.daemon.start()
-
-    l2 = node_factory.get_node()
-    l2.rpc.connect(l1.info['id'], l1.daemon.opts['addr'])
-
 
 def test_listconfigs(node_factory, bitcoind, chainparams):
     # Make extremely long entry, check it works
