@@ -40,11 +40,6 @@ static void opt_log_stderr_exitcode(const char *fmt, ...)
 	exit(opt_exitcode);
 }
 
-/* Declare opt_add_addr here, because we we call opt_add_addr
- * and opt_announce_addr vice versa
-*/
-static char *opt_add_addr(const char *arg, struct lightningd *ld);
-
 /* FIXME: Put into ccan/time. */
 #define TIME_FROM_SEC(sec) { { .tv_nsec = 0, .tv_sec = sec } }
 #define TIME_FROM_MSEC(msec) \
@@ -246,135 +241,160 @@ static size_t num_announced_types(enum wire_addr_type type, struct lightningd *l
 
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
-				   enum addr_listen_announce ala,
-				   bool wildcard_ok)
+				   enum addr_listen_announce ala)
 {
 	char const *err_msg;
 	struct wireaddr_internal wi;
-	bool dns_ok;
+	bool dns_lookup_ok;
 	char *address;
 	u16 port;
 
 	assert(arg != NULL);
-	dns_ok = !ld->always_use_proxy && ld->config.use_dns;
+	dns_lookup_ok = !ld->always_use_proxy && ld->config.use_dns;
 
-	/* Will be overridden in next call, if it has a port */
-	port = 0;
-	if (!separate_address_and_port(tmpctx, arg, &address, &port))
-		return tal_fmt(NULL, "Unable to parse address:port '%s'", arg);
+	/* Deprecated announce-addr-dns: autodetect DNS addresses. */
+	if (ld->announce_dns && (ala == ADDR_ANNOUNCE)
+	    && separate_address_and_port(tmpctx, arg, &address, &port)
+	    && is_dnsaddr(address)) {
+		log_unusual(ld->log, "Adding dns prefix to %s!", arg);
+		arg = tal_fmt(tmpctx, "dns:%s", arg);
+	}
 
-	if (is_ipaddr(address)
-	    || is_toraddr(address)
-	    || is_wildcardaddr(address)
-	    || (is_dnsaddr(address) && !ld->announce_dns)
-	    || ala != ADDR_ANNOUNCE) {
-		err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
-						  dns_ok, &wi);
-		if (err_msg) {
-			return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
-		}
-		/* Check they didn't specify some weird type! */
-		switch (wi.itype) {
-		case ADDR_INTERNAL_SOCKNAME:
-		case ADDR_INTERNAL_WIREADDR:
-		case ADDR_INTERNAL_AUTOTOR:
-		case ADDR_INTERNAL_STATICTOR:
+	err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
+					  dns_lookup_ok, &wi);
+	if (err_msg)
+		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
+
+	/* Check they didn't specify some weird type! */
+	switch (wi.itype) {
+	case ADDR_INTERNAL_WIREADDR:
+		switch (wi.u.wireaddr.type) {
+		case ADDR_TYPE_IPV4:
+		case ADDR_TYPE_IPV6:
+			/* These can be either bind or announce */
 			break;
-		case ADDR_INTERNAL_ALLPROTO:
-			if (!wildcard_ok)
+		case ADDR_TYPE_TOR_V2_REMOVED:
+			/* Can't happen any more */
+			abort();
+		case ADDR_TYPE_TOR_V3:
+			/* I'm not sure why we allow this abuse, but we fix it up. */
+			switch (ala) {
+			case ADDR_LISTEN:
+				log_unusual(ld->log,
+					    "You used `--bind-addr=%s` option with an .onion address,"
+					    " You are lucky in this node live some wizards and"
+					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
+					    arg);
+				/* And we ignore it */
+				return NULL;
+			case ADDR_LISTEN_AND_ANNOUNCE:
+				log_unusual(ld->log,
+					    "You used `--addr=%s` option with an .onion address,"
+					    " You are lucky in this node live some wizards and"
+					    " fairies, we have done this for you and don't announce, Be as hidden as wished",
+					    arg);
+				ala = ADDR_LISTEN;
+				break;
+			case ADDR_ANNOUNCE:
+				break;
+			}
+			break;
+		case ADDR_TYPE_DNS:
+			/* Can only announce this */
+			switch (ala) {
+			case ADDR_ANNOUNCE:
+				break;
+			case ADDR_LISTEN:
+				return tal_fmt(NULL,
+					       "Cannot use dns: prefix with --bind-addr, use --bind-addr=%s", arg + strlen("dns:"));
+			case ADDR_LISTEN_AND_ANNOUNCE:
+				return tal_fmt(NULL,
+					       "Cannot use dns: prefix with --addr, use --bind-addr=%s and --addr=%s",
+					       arg + strlen("dns:"),
+					       arg);
+			}
+			/* BOLT-hostnames #7:
+			 * The origin node:
+			 * ...
+			 *   - MUST NOT announce more than one `type 5` DNS hostname.
+			 */
+			if (num_announced_types(ADDR_TYPE_DNS, ld) > 0)
+				return tal_fmt(NULL, "Only one DNS can be announced");
+			break;
+		}
+		break;
+	case ADDR_INTERNAL_SOCKNAME:
+		/* We turn --addr into --bind-addr */
+		switch (ala) {
+			case ADDR_ANNOUNCE:
+				return tal_fmt(NULL,
+					       "Cannot announce sockets, try --bind-addr=%s", arg);
+			case ADDR_LISTEN_AND_ANNOUNCE:
+				ala = ADDR_LISTEN;
+				/* Fall thru */
+			case ADDR_LISTEN:
+				break;
+			}
+		break;
+	case ADDR_INTERNAL_AUTOTOR:
+	case ADDR_INTERNAL_STATICTOR:
+		/* We turn --announce-addr into --addr */
+		switch (ala) {
+			case ADDR_ANNOUNCE:
+				ala = ADDR_LISTEN_AND_ANNOUNCE;
+				break;
+			case ADDR_LISTEN_AND_ANNOUNCE:
+			case ADDR_LISTEN:
+				break;
+		}
+		break;
+	case ADDR_INTERNAL_ALLPROTO:
+		/* You can only bind to wildcard, and optionally announce */
+		switch (ala) {
+			case ADDR_ANNOUNCE:
 				return tal_fmt(NULL, "Cannot use wildcard address '%s'", arg);
-			break;
-		case ADDR_INTERNAL_FORPROXY:
-			return tal_fmt(NULL, "Cannot resolve address '%s' (not using DNS!)", arg);
+			case ADDR_LISTEN_AND_ANNOUNCE:
+			case ADDR_LISTEN:
+				break;
 		}
-
-		/* Sanity check for exact duplicates. */
-		for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
-			/* Only compare announce vs announce and bind vs bind */
-			if ((ld->proposed_listen_announce[i] & ala) == 0)
-				continue;
-
-			if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
-				return tal_fmt(NULL, "Duplicate %s address %s",
-					       ala & ADDR_ANNOUNCE ? "announce" : "listen",
-					       type_to_string(tmpctx, struct wireaddr_internal, &wi));
-		}
-
-		tal_arr_expand(&ld->proposed_listen_announce, ala);
-		tal_arr_expand(&ld->proposed_wireaddr, wi);
+		break;
+	case ADDR_INTERNAL_FORPROXY:
+		/* You can't use these addresses here at all: this means we've
+		 * suppressed DNS and given a string-style name */
+		return tal_fmt(NULL, "Cannot resolve address '%s' (not using DNS!)", arg);
 	}
 
-	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
-	if (is_dnsaddr(address) && ld->announce_dns && (ala & ADDR_ANNOUNCE)) {
-		/* BOLT-hostnames #7:
-		 * The origin node:
-		 * ...
-		 *   - MUST NOT announce more than one `type 5` DNS hostname.
-		 */
-		if (num_announced_types(ADDR_TYPE_DNS, ld) > 0) {
-			return tal_fmt(NULL, "Only one DNS can be announced");
-		}
-		memset(&wi, 0, sizeof(wi));
-		wi.itype = ADDR_INTERNAL_WIREADDR;
-		wi.u.wireaddr.type = ADDR_TYPE_DNS;
-		wi.u.wireaddr.addrlen = strlen(address);
-		strncpy((char * restrict)&wi.u.wireaddr.addr,
-			address, sizeof(wi.u.wireaddr.addr) - 1);
-		if (port == 0)
-			wi.u.wireaddr.port = ld->portnum;
-		else
-			wi.u.wireaddr.port = port;
+	/* Sanity check for exact duplicates. */
+	for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
+		/* Only compare announce vs announce and bind vs bind */
+		if ((ld->proposed_listen_announce[i] & ala) == 0)
+			continue;
 
-		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
-		tal_arr_expand(&ld->proposed_wireaddr, wi);
+		if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
+			return tal_fmt(NULL, "Duplicate %s address %s",
+				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
+				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
 	}
 
+	tal_arr_expand(&ld->proposed_listen_announce, ala);
+	tal_arr_expand(&ld->proposed_wireaddr, wi);
 	return NULL;
 
 }
 
 static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
-	size_t n = tal_count(ld->proposed_wireaddr);
-	char *err;
-
-	/* Check for autotor and reroute the call to --addr  */
-	if (strstarts(arg, "autotor:"))
-		return opt_add_addr(arg, ld);
-
-	/* Check for statictor and reroute the call to --addr  */
-	if (strstarts(arg, "statictor:"))
-		return opt_add_addr(arg, ld);
-
-	err = opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
-	if (err)
-		return err;
-
-	/* Can't announce anything that's not a normal wireaddr. */
-	if (ld->proposed_wireaddr[n].itype != ADDR_INTERNAL_WIREADDR)
-		return tal_fmt(NULL, "address '%s' is not announceable",
-			       arg);
-
-	return NULL;
+	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE);
 }
 
 static char *opt_add_addr(const char *arg, struct lightningd *ld)
 {
-	struct wireaddr_internal addr;
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE);
+}
 
-	/* handle in case you used the addr option with an .onion */
-	if (parse_wireaddr_internal(tmpctx, arg, 0, false, &addr) == NULL) {
-		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
-		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
-			log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
-				    " `--announce-addr` ! You are lucky in this node live some wizards and"
-				    " fairies, we have done this for you and announce, Be as hidden as wished",
-				    arg);
-			return opt_add_announce_addr(arg, ld);
-		}
-	}
-	/* the intended call */
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
+static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
 }
 
 static char *opt_subdaemon(const char *arg, struct lightningd *ld)
@@ -402,25 +422,6 @@ static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 	strmap_add(&ld->alt_subdaemons, subdaemon, sdpath);
 
 	return NULL;
-}
-
-static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
-{
-	struct wireaddr_internal addr;
-
-	/* handle in case you used the bind option with an .onion */
-	if (parse_wireaddr_internal(tmpctx, arg, 0, false, &addr) == NULL) {
-		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
-		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
-				log_unusual(ld->log, "You used `--bind-addr=%s` option with an .onion address,"
-							" You are lucky in this node live some wizards and"
-							" fairies, we have done this for you and don't announce, Be as hidden as wished",
-							arg);
-				return NULL;
-		}
-	}
-	/* the intended call */
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN, true);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
