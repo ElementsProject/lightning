@@ -1309,7 +1309,7 @@ static struct channel *stub_chan(struct command *cmd,
 				 struct node_id nodeid,
 				 struct channel_id cid,
 				 struct bitcoin_outpoint funding,
-				 struct wireaddr_internal addr,
+				 struct wireaddr addr,
 				 struct amount_sat funding_sats,
 				 struct channel_type *type)
 {
@@ -1342,10 +1342,14 @@ static struct channel *stub_chan(struct command *cmd,
 			return NULL;
 		}
 	} else {
+		struct wireaddr_internal wint;
+
+		wint.itype = ADDR_INTERNAL_WIREADDR;
+		wint.u.wireaddr = addr;
 		peer = new_peer(cmd->ld,
 				0,
 				&nodeid,
-				&addr,
+				&wint,
 				false);
 	}
 
