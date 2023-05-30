@@ -2874,7 +2874,7 @@
             "deprecated": null
         },
         "Getinfo.address[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": false
         },
         "Getinfo.address[].address": {

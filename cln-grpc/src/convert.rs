@@ -52,7 +52,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
     fn from(c: responses::GetinfoResponse) -> Self {
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
-            alias: c.alias, // Rule #2 for type string
+            alias: c.alias, // Rule #2 for type string?
             color: hex::decode(&c.color).unwrap(), // Rule #2 for type hex
             num_peers: c.num_peers, // Rule #2 for type u32
             num_pending_channels: c.num_pending_channels, // Rule #2 for type u32
@@ -65,7 +65,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
             network: c.network, // Rule #2 for type string
             fees_collected_msat: Some(c.fees_collected_msat.into()), // Rule #2 for type msat
             // Field: Getinfo.address[]
-            address: c.address.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetinfoAddress
+            address: c.address.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: Getinfo.binding[]
             binding: c.binding.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             warning_bitcoind_sync: c.warning_bitcoind_sync, // Rule #2 for type string?
