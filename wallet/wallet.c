@@ -852,7 +852,7 @@ static bool wallet_shachain_load(struct wallet *wallet, u64 id,
 
 static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 {
-	const char *addrstr;
+	const char *addrstr, *err;
 	struct peer *peer = NULL;
 	struct node_id id;
 	struct wireaddr_internal addr;
@@ -876,12 +876,13 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 
 	/* This can happen for peers last seen on Torv2! */
 	addrstr = db_col_strdup(tmpctx, stmt, "address");
-	if (!parse_wireaddr_internal(addrstr, &addr, chainparams_get_ln_port(chainparams),
-				     false, false, true, NULL)) {
-		log_unusual(w->log, "Unparsable peer address %s: replacing",
-			    addrstr);
-		parse_wireaddr_internal("127.0.0.1:1", &addr, chainparams_get_ln_port(chainparams),
-					false, false, true, NULL);
+	err = parse_wireaddr_internal(tmpctx, addrstr, chainparams_get_ln_port(chainparams), true, &addr);
+	if (err) {
+		log_unusual(w->log, "Unparsable peer address %s (%s): replacing",
+			    addrstr, err);
+		err = parse_wireaddr_internal(tmpctx, "127.0.0.1:1", chainparams_get_ln_port(chainparams),
+					      false, &addr);
+		assert(!err);
 	}
 
 	/* FIXME: save incoming in db! */

@@ -326,8 +326,8 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Invalid id %.*s",
 				    (int)(at - argv[1]), argv[1]);
 
-	if (!parse_wireaddr_internal(at+1, &addr, chainparams_get_ln_port(chainparams), NULL,
-				     true, false, &err_msg))
+	err_msg = parse_wireaddr_internal(tmpctx, at+1, chainparams_get_ln_port(chainparams), true, &addr);
+	if (err_msg)
 		opt_usage_exit_fail("%s '%s'", err_msg, argv[1]);
 
 	switch (addr.itype) {

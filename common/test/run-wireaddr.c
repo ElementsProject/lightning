@@ -128,120 +128,115 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
 
 int main(int argc, char *argv[])
 {
-	const char *err;
 	struct wireaddr_internal addr, *expect = tal(NULL, struct wireaddr_internal);
 
 	common_setup(argv[0]);
 	/* Simple IPv4 address. */
-	assert(parse_wireaddr_internal("127.0.0.1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr("127.0.0.1:9735", &expect->u.wireaddr, 0, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1:9735", 0, NULL, &expect->u.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* IPv4 address with port. */
-	assert(parse_wireaddr_internal("127.0.0.1:1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "127.0.0.1:1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr("127.0.0.1:1", &expect->u.wireaddr, 0, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1:1", 0, NULL, &expect->u.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* Simple IPv6 address. */
-	assert(parse_wireaddr_internal("::1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "::1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr("::1", &expect->u.wireaddr, DEFAULT_PORT, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "::1", DEFAULT_PORT, NULL, &expect->u.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* IPv6 address with port. */
-	assert(parse_wireaddr_internal("[::1]:1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "[::1]:1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_WIREADDR;
-	assert(parse_wireaddr("::1", &expect->u.wireaddr, 1, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "::1", 1, NULL, &expect->u.wireaddr) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* autotor address */
-	assert(parse_wireaddr_internal("autotor:127.0.0.1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_AUTOTOR;
 	expect->u.torservice.port = DEFAULT_PORT;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9051, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9051, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* autotor address with port */
-	assert(parse_wireaddr_internal("autotor:127.0.0.1:9055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1:9055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_AUTOTOR;
 	expect->u.torservice.port = DEFAULT_PORT;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9055, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* autotor address with torport */
-	assert(parse_wireaddr_internal("autotor:127.0.0.1/torport=9055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=9055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_AUTOTOR;
 	expect->u.torservice.port = 9055;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9051, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9051, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* autotor address with port and torport */
-	assert(parse_wireaddr_internal("autotor:127.0.0.1:9055/torport=10055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1:9055/torport=10055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_AUTOTOR;
 	expect->u.torservice.port = 10055;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9055, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* statictor address */
-	assert(parse_wireaddr_internal("statictor:127.0.0.1", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
 	expect->u.torservice.port = DEFAULT_PORT;
 	memset(expect->u.torservice.blob, 0, sizeof(expect->u.torservice.blob));
 	strcpy((char *)expect->u.torservice.blob, STATIC_TOR_MAGIC_STRING);
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9051, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9051, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* statictor address with port */
-	assert(parse_wireaddr_internal("statictor:127.0.0.1:9055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1:9055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
 	expect->u.torservice.port = DEFAULT_PORT;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9055, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* statictor address with torport */
-	assert(parse_wireaddr_internal("statictor:127.0.0.1/torport=9055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=9055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
 	expect->u.torservice.port = 9055;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9051, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9051, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* statictor address with port and torport */
-	assert(parse_wireaddr_internal("statictor:127.0.0.1:9055/torport=10055", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1:9055/torport=10055", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
 	expect->u.torservice.port = 10055;
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9055, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* statictor address with port and torport and torblob */
-	assert(parse_wireaddr_internal("statictor:127.0.0.1:9055/torport=10055/torblob=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1:9055/torport=10055/torblob=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
 	expect->u.torservice.port = 10055;
 	/* This is actually nul terminated */
 	memset(expect->u.torservice.blob, 'x', sizeof(expect->u.torservice.blob)-1);
-	assert(parse_wireaddr("127.0.0.1", &expect->u.torservice.address, 9055, NULL, &err));
+	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* local socket path */
-	assert(parse_wireaddr_internal("/tmp/foo.sock", &addr, DEFAULT_PORT, false, false, false, &err));
+	assert(parse_wireaddr_internal(tmpctx, "/tmp/foo.sock", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_SOCKNAME;
 	strcpy(expect->u.sockname, "/tmp/foo.sock");
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* Unresolved */
-	assert(!parse_wireaddr_internal("ozlabs.org", &addr, DEFAULT_PORT, false, false, false, &err));
-	assert(streq(err, "Needed DNS, but lookups suppressed"));
-	assert(parse_wireaddr_internal("ozlabs.org", &addr, DEFAULT_PORT, false, false, true, &err));
+	assert(parse_wireaddr_internal(tmpctx, "ozlabs.org", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_FORPROXY;
 	strcpy(expect->u.unresolved.name, "ozlabs.org");
 	expect->u.unresolved.port = DEFAULT_PORT;
 	assert(wireaddr_internal_eq(&addr, expect));
 
 	/* Unresolved with port */
-	assert(!parse_wireaddr_internal("ozlabs.org:1234", &addr, DEFAULT_PORT, false, false, false, &err));
-	assert(streq(err, "Needed DNS, but lookups suppressed"));
-	assert(parse_wireaddr_internal("ozlabs.org:1234", &addr, DEFAULT_PORT, false, false, true, &err));
+	assert(parse_wireaddr_internal(tmpctx, "ozlabs.org:1234", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_FORPROXY;
 	strcpy(expect->u.unresolved.name, "ozlabs.org");
 	expect->u.unresolved.port = 1234;
