@@ -15,6 +15,7 @@ rcgen = { version = "0.10", features = ["pem", "x509-parser"] }
 
 [dependencies.cln-grpc]
 path = "../../cln-grpc"
+features = ["server"]
 
 [dependencies.cln-plugin]
 path = "../../plugins"
