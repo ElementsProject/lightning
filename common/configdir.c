@@ -384,7 +384,9 @@ void initial_config_opts(const tal_t *ctx,
 	opt_free_table();
 
 	opt_register_early_arg("--conf=<file>",
-			       opt_restricted_cmdline, NULL,
+			       opt_restricted_cmdline,
+			       /* This doesn't show if NULL! */
+			       opt_show_charp,
 			       config_filename,
 			       "Specify configuration file");
 
