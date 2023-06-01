@@ -14,7 +14,8 @@
 /tmp/opt-example: option requires an argument -- 's'
 */
 static int parse_err(void (*errlog)(const char *fmt, ...),
-		     const char *argv0, const char *arg, unsigned len,
+		     const char *argv0,
+		     const char *arg, unsigned len,
 		     const char *problem)
 {
 	errlog("%s: %.*s: %s", argv0, len, arg, problem);
@@ -28,13 +29,63 @@ static void consume_option(int *argc, char *argv[], unsigned optnum)
 	(*argc)--;
 }
 
+/* This sets the len and o to indicate how far it is into the
+ * opt_table's names field. */
+static struct opt_table *opt_find_long_extra(const char *arg,
+					     const char **optarg,
+					     unsigned int *len,
+					     const char **o)
+{
+	unsigned i;
+
+	*optarg = NULL;
+	for (*o = first_lopt(&i, len);
+	     *o;
+	     *o = next_lopt(*o, &i, len)) {
+		if (strncmp(arg, *o, *len) != 0)
+			continue;
+		if (arg[*len] == '=')
+			*optarg = arg + *len + 1;
+		else if (arg[*len] != '\0')
+			continue;
+		return &opt_table[i];
+
+	}
+	return NULL;
+}
+
+struct opt_table *opt_find_long(const char *arg, const char **optarg)
+{
+	unsigned len;
+	const char *o;
+
+	return opt_find_long_extra(arg, optarg ? optarg : &o, &len, &o);
+}
+
+static struct opt_table *opt_find_short_extra(char arg, const char **o)
+{
+	unsigned i;
+	for (*o = first_sopt(&i); *o; *o = next_sopt(*o, &i)) {
+		if (arg == **o)
+			return &opt_table[i];
+	}
+	return NULL;
+}
+
+struct opt_table *opt_find_short(char arg)
+{
+	const char *o;
+	return opt_find_short_extra(arg, &o);
+}
+
 /* Returns 1 if argument consumed, 0 if all done, -1 on error. */
 int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 	      void (*errlog)(const char *fmt, ...), bool unknown_ok)
 {
-	unsigned i, arg, len;
+	unsigned arg, len;
 	const char *o, *optarg = NULL;
 	char *problem = NULL;
+	struct opt_table *ot;
 
 	if (getenv("POSIXLY_CORRECT")) {
 		/* Don't find options after non-options. */
@@ -58,34 +109,22 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 	/* Long options start with -- */
 	if (argv[arg][1] == '-') {
 		assert(*offset == 0);
-		for (o = first_lopt(&i, &len); o; o = next_lopt(o, &i, &len)) {
-			if (strncmp(argv[arg] + 2, o, len) != 0)
-				continue;
-			if (argv[arg][2 + len] == '=')
-				optarg = argv[arg] + 2 + len + 1;
-			else if (argv[arg][2 + len] != '\0')
-				continue;
-			break;
-		}
-		if (!o) {
+
+		ot = opt_find_long_extra(argv[arg]+2, &optarg, &len, &o);
+		if (!ot) {
 			if (unknown_ok)
 				goto ok;
 			return parse_err(errlog, argv[0],
 					 argv[arg], strlen(argv[arg]),
 					 "unrecognized option");
 		}
+
 		/* For error messages, we include the leading '--' */
 		o -= 2;
 		len += 2;
 	} else {
-		/* offset allows us to handle -abc */
-		for (o = first_sopt(&i); o; o = next_sopt(o, &i)) {
-			if (argv[arg][*offset + 1] != *o)
-				continue;
-			(*offset)++;
-			break;
-		}
-		if (!o) {
+		ot = opt_find_short_extra(argv[arg][*offset + 1], &o);
+		if (!ot) {
 			if (unknown_ok) {
 				(*offset)++;
 				goto ok;
@@ -94,17 +133,19 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 					 argv[arg], strlen(argv[arg]),
 					 "unrecognized option");
 		}
+
+		(*offset)++;
 		/* For error messages, we include the leading '-' */
 		o--;
 		len = 2;
 	}
 
-	if ((opt_table[i].type & ~OPT_EARLY) == OPT_NOARG) {
+	if (ot->type & OPT_NOARG) {
 		if (optarg)
 			return parse_err(errlog, argv[0], o, len,
 					 "doesn't allow an argument");
-		if ((opt_table[i].type & OPT_EARLY) == is_early)
-			problem = opt_table[i].cb(opt_table[i].u.arg);
+		if ((ot->type & OPT_EARLY) == is_early)
+			problem = ot->cb(ot->u.arg);
 	} else {
 		if (!optarg) {
 			/* Swallow any short options as optarg, eg -afile */
@@ -117,9 +158,8 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 		if (!optarg)
 			return parse_err(errlog, argv[0], o, len,
 					 "requires an argument");
-		if ((opt_table[i].type & OPT_EARLY) == is_early)
-			problem = opt_table[i].cb_arg(optarg,
-						      opt_table[i].u.arg);
+		if ((ot->type & OPT_EARLY) == is_early)
+			problem = ot->cb_arg(optarg, ot->u.arg);
 	}
 
 	if (problem) {

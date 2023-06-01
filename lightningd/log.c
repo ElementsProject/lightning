@@ -606,7 +606,7 @@ void json_add_opt_log_levels(struct json_stream *response, struct log *log)
 	}
 }
 
-static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
+static bool show_log_level(char *buf, size_t len, const struct log *log)
 {
 	enum log_level l;
 
@@ -614,8 +614,8 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 		l = *log->lr->default_print_level;
 	else
 		l = DEFAULT_LOGLEVEL;
-	strncpy(buf, log_level_name(l), OPT_SHOW_LEN - 1);
-	buf[OPT_SHOW_LEN - 1] = '\0';
+	strncpy(buf, log_level_name(l), len);
+	return true;
 }
 
 static char *arg_log_prefix(const char *arg, struct log_book *log_book)
@@ -625,10 +625,10 @@ static char *arg_log_prefix(const char *arg, struct log_book *log_book)
 	return NULL;
 }
 
-static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log_book *log_book)
+static bool show_log_prefix(char *buf, size_t len, const struct log_book *log_book)
 {
-	strncpy(buf, log_book->prefix, OPT_SHOW_LEN - 1);
-	buf[OPT_SHOW_LEN - 1] = '\0';
+	strncpy(buf, log_book->prefix, len);
+	return true;
 }
 
 static int signalfds[2];

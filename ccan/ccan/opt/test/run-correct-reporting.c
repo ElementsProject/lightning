@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[])
 {
-	plan_tests(12);
+	plan_tests(14);
 
 	/* --aaa without args. */
 	opt_register_arg("-a|--aaa", test_arg, NULL, "aaa", "");
@@ -41,6 +41,10 @@ int main(int argc, char *argv[])
 	ok1(strstr(err_output, ": --ccc: requires an argument"));
 	free(err_output);
 	err_output = NULL;
+
+	opt_register_noarg("-d", test_noarg, NULL, "");
+	ok1(!parse_args(&argc, &argv, "-dc", NULL));
+	ok1(strstr(err_output, ": -c: requires an argument"));
 
 	/* parse_args allocates argv */
 	free(argv);

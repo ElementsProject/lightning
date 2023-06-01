@@ -118,19 +118,20 @@ char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b)
 	return opt_invalid_argument(arg);
 }
 
-void opt_show_autobool(char buf[OPT_SHOW_LEN], const enum opt_autobool *b)
+bool opt_show_autobool(char *buf, size_t len, const enum opt_autobool *b)
 {
 	switch (*b) {
 	case OPT_AUTOBOOL_TRUE:
-		strncpy(buf, "true", OPT_SHOW_LEN);
-		break;
+		strncpy(buf, "true", len);
+		return true;
 	case OPT_AUTOBOOL_FALSE:
-		strncpy(buf, "false", OPT_SHOW_LEN);
-		break;
+		strncpy(buf, "false", len);
+		return true;
 	case OPT_AUTOBOOL_AUTO:
-	default:
-		strncpy(buf, "auto", OPT_SHOW_LEN);
+		strncpy(buf, "auto", len);
+		return true;
 	}
+	abort();
 }
 
 static char *opt_set_mode(const char *arg, mode_t *m)
@@ -440,23 +441,27 @@ static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
+static bool opt_show_u64(char *buf, size_t len, const u64 *u)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%"PRIu64, *u);
+	snprintf(buf, len, "%"PRIu64, *u);
+	return true;
 }
-static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
+static bool opt_show_u32(char *buf, size_t len, const u32 *u)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%"PRIu32, *u);
-}
-
-static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
-{
-	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
+	snprintf(buf, len, "%"PRIu32, *u);
+	return true;
 }
 
-static void opt_show_mode(char buf[OPT_SHOW_LEN], const mode_t *m)
+static bool opt_show_s32(char *buf, size_t len, const s32 *u)
 {
-	snprintf(buf, OPT_SHOW_LEN, "\"%04o\"", (int) *m);
+	snprintf(buf, len, "%"PRIi32, *u);
+	return true;
+}
+
+static bool opt_show_mode(char *buf, size_t len, const mode_t *m)
+{
+	snprintf(buf, len, "\"%04o\"", (int) *m);
+	return true;
 }
 
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
@@ -1665,7 +1670,7 @@ static void add_config(struct lightningd *ld,
 {
 	char *name0 = tal_strndup(tmpctx, name, len);
 	char *answer = NULL;
-	char buf[OPT_SHOW_LEN + sizeof("...")];
+	char buf[4096 + sizeof("...")];
 
 #if DEVELOPER
 	if (strstarts(name0, "dev-")) {
@@ -1742,11 +1747,12 @@ static void add_config(struct lightningd *ld,
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->show == (void *)opt_show_charp) {
-			/* Don't truncate! */
+			/* Don't truncate or quote! */
 			answer = tal_strdup(tmpctx, *(char **)opt->u.carg);
 		} else if (opt->show) {
-			opt->show(buf, opt->u.carg);
-			strcpy(buf + OPT_SHOW_LEN - 1, "...");
+			strcpy(buf + sizeof(buf) - sizeof("..."), "...");
+			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
+				buf[0] = '\0';
 
 			if (streq(buf, "true") || streq(buf, "false")
 			    || (!streq(buf, "") && strspn(buf, "0123456789.") == strlen(buf))) {

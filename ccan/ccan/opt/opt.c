@@ -34,7 +34,7 @@ static const char *next_name(const char *names, unsigned *len)
 static const char *first_opt(unsigned *i, unsigned *len)
 {
 	for (*i = 0; *i < opt_count; (*i)++) {
-		if (opt_table[*i].type == OPT_SUBTABLE)
+		if (opt_table[*i].type & OPT_SUBTABLE)
 			continue;
 		return first_name(opt_table[*i].names, len);
 	}
@@ -44,7 +44,7 @@ static const char *first_opt(unsigned *i, unsigned *len)
 static const char *next_opt(const char *p, unsigned *i, unsigned *len)
 {
 	for (; *i < opt_count; (*i)++) {
-		if (opt_table[*i].type == OPT_SUBTABLE)
+		if (opt_table[*i].type & OPT_SUBTABLE)
 			continue;
 		if (!p)
 			return first_name(opt_table[*i].names, len);
@@ -114,10 +114,11 @@ static void check_opt(const struct opt_table *entry)
 {
 	const char *p;
 	unsigned len;
+	enum opt_type type = entry->type & (OPT_USER_MIN-1);
 
-	if (entry->type != OPT_HASARG && entry->type != OPT_NOARG
-	    && entry->type != (OPT_EARLY|OPT_HASARG)
-	    && entry->type != (OPT_EARLY|OPT_NOARG))
+	if (type != OPT_HASARG && type != OPT_NOARG
+	    && type != (OPT_EARLY|OPT_HASARG)
+	    && type != (OPT_EARLY|OPT_NOARG))
 		failmsg("Option %s: unknown entry type %u",
 			entry->names, entry->type);
 
@@ -161,7 +162,7 @@ static void add_opt(const struct opt_table *entry)
 void _opt_register(const char *names, enum opt_type type,
 		   char *(*cb)(void *arg),
 		   char *(*cb_arg)(const char *optarg, void *arg),
-		   void (*show)(char buf[OPT_SHOW_LEN], const void *arg),
+		   bool (*show)(char *buf, size_t len, const void *arg),
 		   const void *arg, const char *desc)
 {
 	struct opt_table opt;
@@ -181,7 +182,7 @@ bool opt_unregister(const char *names)
 	int found = -1, i;
 
 	for (i = 0; i < opt_count; i++) {
-		if (opt_table[i].type == OPT_SUBTABLE)
+		if (opt_table[i].type & OPT_SUBTABLE)
 			continue;
 		if (strcmp(opt_table[i].names, names) == 0)
 			found = i;
@@ -203,7 +204,7 @@ void opt_register_table(const struct opt_table entry[], const char *desc)
 		add_opt(&heading);
 	}
 	for (i = 0; entry[i].type != OPT_END; i++) {
-		if (entry[i].type == OPT_SUBTABLE)
+		if (entry[i].type & OPT_SUBTABLE)
 			opt_register_table(subtable_of(&entry[i]),
 					   entry[i].desc);
 		else {

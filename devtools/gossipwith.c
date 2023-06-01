@@ -82,9 +82,10 @@ static char *opt_set_network(const char *arg, void *unused)
 	return NULL;
 }
 
-static void opt_show_network(char buf[OPT_SHOW_LEN], const void *unused)
+static bool opt_show_network(char *buf, size_t len, const void *unused)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
+	snprintf(buf, len, "%s", chainparams->network_name);
+	return true;
 }
 
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -255,9 +256,9 @@ static char *opt_set_secret(const char *arg, struct secret *s)
 	return NULL;
 }
 
-static void opt_show_secret(char buf[OPT_SHOW_LEN], const struct secret *s)
+static bool opt_show_secret(char *buf, size_t len, const struct secret *s)
 {
-	hex_encode(s->data, sizeof(s->data), buf, OPT_SHOW_LEN);
+	return hex_encode(s->data, sizeof(s->data), buf, len);
 }
 
 static char *opt_set_features(const char *arg, u8 **features)

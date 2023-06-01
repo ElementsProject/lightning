@@ -191,9 +191,10 @@ static char *opt_set_specific_network(const char *network)
 	return opt_set_network(network, NULL);
 }
 
-static void opt_show_network(char buf[OPT_SHOW_LEN], const void *unused)
+static bool opt_show_network(char *buf, size_t len, const void *unused)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
+	snprintf(buf, len, "%s", chainparams->network_name);
+	return true;
 }
 
 /* We track where we're getting options from, so we can detect misuse */
