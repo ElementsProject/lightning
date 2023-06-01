@@ -1865,26 +1865,39 @@ static void add_config(struct lightningd *ld,
 	}
 }
 
+static struct command_result *param_opt_config(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       const struct opt_table **config)
+{
+	const char *name0 = json_strdup(tmpctx, buffer, tok);
+	*config = opt_find_long(name0, NULL);
+	if (*config)
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "Unknown config option");
+}
+
 static struct command_result *json_listconfigs(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *obj UNNEEDED,
 					       const jsmntok_t *params)
 {
-	size_t i;
 	struct json_stream *response = NULL;
-	const char *configname;
+	const struct opt_table *config;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("config", param_string, &configname),
+		   p_opt("config", param_opt_config, &config),
 		   NULL))
 		return command_param_failed();
 
-	if (!configname) {
-		response = json_stream_success(cmd);
+	response = json_stream_success(cmd);
+	if (!config)
 		json_add_string(response, "# version", version());
-	}
 
-	for (i = 0; i < opt_count; i++) {
+	for (size_t i = 0; i < opt_count; i++) {
 		unsigned int len;
 		const char *name;
 
@@ -1899,25 +1912,14 @@ static struct command_result *json_listconfigs(struct command *cmd,
 			if (name[0] != '-')
 				continue;
 
-			if (configname
-			    && !memeq(configname, strlen(configname),
-				      name + 1, len - 1))
-				continue;
-
-			if (!response)
-				response = json_stream_success(cmd);
-			add_config(cmd->ld, response, &opt_table[i],
-				   name+1, len-1);
+			if (!config || config == &opt_table[i]) {
+				add_config(cmd->ld, response, &opt_table[i],
+					   name+1, len-1);
+			}
 			/* If we have more than one long name, first
 			 * is preferred */
 			break;
 		}
-	}
-
-	if (configname && !response) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Unknown config option %s",
-				    configname);
 	}
 	return command_success(cmd, response);
 }
