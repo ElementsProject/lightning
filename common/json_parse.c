@@ -193,6 +193,9 @@ static const char *handle_percent(const char *buffer,
 		void **p;
 		p = va_arg(*ap, void **);
 		talfmt = va_arg(*ap, void *(*)(void *, const char *, const jsmntok_t *));
+		/* If we're skipping this, don't call fmt! */
+		if (!tok)
+			return NULL;
 		*p = talfmt(ctx, buffer, tok);
 		if (*p != NULL)
 			return NULL;
@@ -202,6 +205,9 @@ static const char *handle_percent(const char *buffer,
 
 		p = va_arg(*ap, void *);
 		fmt = va_arg(*ap, bool (*)(const char *, const jsmntok_t *, void *));
+		/* If we're skipping this, don't call fmt! */
+		if (!tok)
+			return NULL;
 		if (fmt(buffer, tok, p))
 			return NULL;
 	}
@@ -215,7 +221,8 @@ static const char *handle_percent(const char *buffer,
 /* GUIDE := OBJ | ARRAY | '%'
  * OBJ := '{' FIELDLIST '}'
  * FIELDLIST := FIELD [',' FIELD]*
- * FIELD := LITERAL ':' FIELDVAL
+ * FIELD := MEMBER ':' FIELDVAL
+ * MEMBER := LITERAL | LITERAL '?'
  * FIELDVAL := OBJ | ARRAY | LITERAL | '%'
  * ARRAY := '[' ARRLIST ']'
  * ARRLIST := ARRELEM [',' ARRELEM]*
@@ -262,6 +269,15 @@ static void guide_must_be(const char **guide, char c)
 {
 	char actual = guide_consume_one(guide);
 	assert(actual == c);
+}
+
+static bool guide_maybe_optional(const char **guide)
+{
+	if (**guide == '?') {
+		guide_consume_one(guide);
+		return true;
+	}
+	return false;
 }
 
 /* Recursion: return NULL on success, errmsg on fail */
@@ -325,8 +341,8 @@ static const char *parse_fieldval(const char *buffer,
 
 		/* Literal must match exactly (modulo quotes for strings) */
 		parse_literal(guide, &literal, &len);
-		if (!memeq(buffer + tok->start, tok->end - tok->start,
-			   literal, len)) {
+		if (tok && !memeq(buffer + tok->start, tok->end - tok->start,
+				  literal, len)) {
 			return tal_fmt(tmpctx,
 				       "%.*s does not match expected %.*s",
 				       json_tok_full_len(tok),
@@ -345,14 +361,20 @@ static const char *parse_field(const char *buffer,
 	const jsmntok_t *member;
 	size_t len;
 	const char *memname;
+	bool optional;
 
 	parse_literal(guide, &memname, &len);
+	optional = guide_maybe_optional(guide);
 	guide_must_be(guide, ':');
 
-	member = json_get_membern(buffer, tok, memname, len);
-	if (!member) {
-		return tal_fmt(tmpctx, "object does not have member %.*s",
-			       (int)len, memname);
+	if (tok) {
+		member = json_get_membern(buffer, tok, memname, len);
+		if (!member && !optional) {
+			return tal_fmt(tmpctx, "object does not have member %.*s",
+				       (int)len, memname);
+		}
+	} else {
+		member = NULL;
 	}
 
 	return parse_fieldval(buffer, member, guide, ap);
@@ -385,7 +407,7 @@ static const char *parse_obj(const char *buffer,
 
 	guide_must_be(guide, '{');
 
-	if (tok->type != JSMN_OBJECT) {
+	if (tok && tok->type != JSMN_OBJECT) {
 		return tal_fmt(tmpctx, "token is not an object: %.*s",
 			       json_tok_full_len(tok),
 			       json_tok_full(buffer, tok));
@@ -410,12 +432,16 @@ static const char *parse_arrelem(const char *buffer,
 	parse_number(guide, &idx);
 	guide_must_be(guide, ':');
 
-	member = json_get_arr(tok, idx);
-	if (!member) {
-		return tal_fmt(tmpctx, "token has no index %u: %.*s",
-			       idx,
-			       json_tok_full_len(tok),
-			       json_tok_full(buffer, tok));
+	if (tok) {
+		member = json_get_arr(tok, idx);
+		if (!member) {
+			return tal_fmt(tmpctx, "token has no index %u: %.*s",
+				       idx,
+				       json_tok_full_len(tok),
+				       json_tok_full(buffer, tok));
+		}
+	} else {
+		member = NULL;
 	}
 
 	return parse_fieldval(buffer, member, guide, ap);
@@ -448,7 +474,7 @@ static const char *parse_arr(const char *buffer,
 
 	guide_must_be(guide, '[');
 
-	if (tok->type != JSMN_ARRAY) {
+	if (tok && tok->type != JSMN_ARRAY) {
 		return tal_fmt(tmpctx, "token is not an array: %.*s",
 			       json_tok_full_len(tok),
 			       json_tok_full(buffer, tok));
