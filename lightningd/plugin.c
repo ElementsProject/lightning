@@ -2002,9 +2002,6 @@ void json_add_opt_plugins_array(struct json_stream *response,
 							    opt_name,
 							    opt->type,
 							    opt->values[0]);
-				} else {
-					if (deprecated_apis)
-						json_add_null(response, opt_name);
 				}
 			}
 			json_object_end(response);
