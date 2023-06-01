@@ -768,103 +768,120 @@ static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
 	 * option parsing */
-	opt_register_early_arg("--dev-debugger=<subprocess>",
-			       opt_set_charp, NULL,
-			       &ld->dev_debug_subprocess,
-			       "Invoke gdb at start of <subprocess>");
+	clnopt_witharg("--dev-debugger=<subprocess>", OPT_EARLY|OPT_DEV,
+		       opt_set_charp, NULL,
+		       &ld->dev_debug_subprocess,
+		       "Invoke gdb at start of <subprocess>");
+	clnopt_noarg("--dev-no-plugin-checksum", OPT_EARLY|OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_no_plugin_checksum,
+		     "Don't checksum plugins to detect changes");
+	clnopt_noarg("--dev-builtin-plugins-unimportant", OPT_EARLY|OPT_DEV,
+		     opt_set_bool,
+		     &ld->plugins->dev_builtin_plugins_unimportant,
+		     "Make builtin plugins unimportant so you can plugin stop them.");
+	clnopt_noarg("--dev-no-reconnect", OPT_DEV,
+		     opt_set_invbool,
+		     &ld->reconnect,
+		     "Disable automatic reconnect-attempts by this node, but accept incoming");
+	clnopt_noarg("--dev-fast-reconnect", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_fast_reconnect,
+		     "Make max default reconnect delay 3 (not 300) seconds");
 
-	opt_register_early_noarg("--dev-no-plugin-checksum", opt_set_bool,
-				 &ld->dev_no_plugin_checksum,
-				 "Don't checksum plugins to detect changes");
-
-	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
-			   &ld->reconnect,
-			   "Disable automatic reconnect-attempts by this node, but accept incoming");
-	opt_register_noarg("--dev-fast-reconnect", opt_set_bool,
-			   &ld->dev_fast_reconnect,
-			   "Make max default reconnect delay 3 (not 300) seconds");
-
-	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
-			   &ld->dev_subdaemon_fail, opt_hidden);
-	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
-			 NULL, ld, "File containing disconnection points");
-	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
-			   &ld->dev_allow_localhost,
-			   "Announce and allow announcments for localhost address");
-	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
-			 &ld->topology->poll_seconds,
-			 "Time between polling for new transactions");
-
-	opt_register_noarg("--dev-fast-gossip", opt_set_bool,
-			   &ld->dev_fast_gossip,
-			   "Make gossip broadcast 1 second, etc");
-	opt_register_noarg("--dev-fast-gossip-prune", opt_set_bool,
-			   &ld->dev_fast_gossip_prune,
-			   "Make gossip pruning 30 seconds");
-
-	opt_register_arg("--dev-gossip-time", opt_set_u32, opt_show_u32,
-			 &ld->dev_gossip_time,
-			 "UNIX time to override gossipd to use.");
-	opt_register_arg("--dev-force-privkey", opt_force_privkey, NULL, ld,
-			 "Force HSM to use this as node private key");
-	opt_register_arg("--dev-force-bip32-seed", opt_force_bip32_seed, NULL, ld,
-			 "Force HSM to use this as bip32 seed");
-	opt_register_arg("--dev-force-channel-secrets", opt_force_channel_secrets, NULL, ld,
-			 "Force HSM to use these for all per-channel secrets");
-	opt_register_arg("--dev-max-funding-unconfirmed-blocks",
-			 opt_set_u32, opt_show_u32,
-			 &ld->dev_max_funding_unconfirmed,
-			 "Maximum number of blocks we wait for a channel "
-			 "funding transaction to confirm, if we are the "
-			 "fundee.");
-	opt_register_arg("--dev-force-tmp-channel-id", opt_force_tmp_channel_id, NULL, ld,
-			 "Force the temporary channel id, instead of random");
-	opt_register_noarg("--dev-no-htlc-timeout", opt_set_bool,
-			   &ld->dev_no_htlc_timeout,
-			   "Don't kill channeld if HTLCs not confirmed within 30 seconds");
-	opt_register_noarg("--dev-fail-process-onionpacket", opt_set_bool,
-			   &dev_fail_process_onionpacket,
-			   "Force all processing of onion packets to fail");
-	opt_register_noarg("--dev-no-version-checks", opt_set_bool,
-			   &ld->dev_no_version_checks,
-			   "Skip calling subdaemons with --version on startup");
-	opt_register_early_noarg("--dev-builtin-plugins-unimportant",
-				 opt_set_bool,
-				 &ld->plugins->dev_builtin_plugins_unimportant,
-				 "Make builtin plugins unimportant so you can plugin stop them.");
-	opt_register_arg("--dev-force-features", opt_force_featureset, NULL, ld,
-			 "Force the init/globalinit/node_announce/channel/bolt11/ features, each comma-separated bitnumbers OR a single +/-<bitnumber>");
-	opt_register_arg("--dev-timeout-secs", opt_set_u32, opt_show_u32,
-			 &ld->config.connection_timeout_secs,
-			 "Seconds to timeout if we don't receive INIT from peer");
-	opt_register_noarg("--dev-no-modern-onion", opt_set_bool,
-			   &ld->dev_ignore_modern_onion,
-			   "Ignore modern onion messages");
-	opt_register_arg("--dev-disable-commit-after",
-			 opt_set_intval, opt_show_intval,
-			 &ld->dev_disable_commit,
-			 "Disable commit timer after this many commits");
-	opt_register_noarg("--dev-no-ping-timer", opt_set_bool,
-			   &ld->dev_no_ping_timer,
-			   "Don't hang up if we don't get a ping response");
-	opt_register_arg("--dev-onion-reply-length",
-			 opt_set_uintval,
-			 opt_show_uintval,
-			 &dev_onion_reply_length,
-			 "Send onion errors of custom length");
-	opt_register_arg("--dev-max-fee-multiplier",
-			 opt_set_uintval,
-			 opt_show_uintval,
-			 &ld->config.max_fee_multiplier,
-			 "Allow the fee proposed by the remote end to"
-			 " be up to multiplier times higher than our "
-			 "own. Small values will cause channels to be"
-			 " closed more often due to fee fluctuations,"
-			 " large values may result in large fees.");
-	opt_register_arg("--dev-allowdustreserve", opt_set_bool_arg, opt_show_bool,
-			 &ld->config.allowdustreserve,
-			 "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
-
+	clnopt_noarg("--dev-fail-on-subdaemon-fail", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_subdaemon_fail, opt_hidden);
+	clnopt_witharg("--dev-disconnect=<filename>", OPT_DEV,
+		       opt_subd_dev_disconnect,
+		       NULL, ld, "File containing disconnection points");
+	clnopt_noarg("--dev-allow-localhost", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_allow_localhost,
+		     "Announce and allow announcments for localhost address");
+	clnopt_witharg("--dev-bitcoind-poll", OPT_DEV,
+		       opt_set_u32, opt_show_u32,
+		       &ld->topology->poll_seconds,
+		       "Time between polling for new transactions");
+	clnopt_noarg("--dev-fast-gossip", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_fast_gossip,
+		     "Make gossip broadcast 1 second, etc");
+	clnopt_noarg("--dev-fast-gossip-prune", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_fast_gossip_prune,
+		     "Make gossip pruning 30 seconds");
+	clnopt_witharg("--dev-gossip-time", OPT_DEV,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_gossip_time,
+		       "UNIX time to override gossipd to use.");
+	clnopt_witharg("--dev-force-privkey", OPT_DEV,
+		       opt_force_privkey, NULL, ld,
+		       "Force HSM to use this as node private key");
+	clnopt_witharg("--dev-force-bip32-seed", OPT_DEV,
+		       opt_force_bip32_seed, NULL, ld,
+		       "Force HSM to use this as bip32 seed");
+	clnopt_witharg("--dev-force-channel-secrets", OPT_DEV,
+		       opt_force_channel_secrets, NULL, ld,
+		       "Force HSM to use these for all per-channel secrets");
+	clnopt_witharg("--dev-max-funding-unconfirmed-blocks", OPT_DEV,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_max_funding_unconfirmed,
+		       "Maximum number of blocks we wait for a channel "
+		       "funding transaction to confirm, if we are the "
+		       "fundee.");
+	clnopt_witharg("--dev-force-tmp-channel-id", OPT_DEV,
+		       opt_force_tmp_channel_id, NULL, ld,
+		       "Force the temporary channel id, instead of random");
+	clnopt_noarg("--dev-no-htlc-timeout", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_no_htlc_timeout,
+		     "Don't kill channeld if HTLCs not confirmed within 30 seconds");
+	clnopt_noarg("--dev-fail-process-onionpacket", OPT_DEV,
+		     opt_set_bool,
+		     &dev_fail_process_onionpacket,
+		     "Force all processing of onion packets to fail");
+	clnopt_noarg("--dev-no-version-checks", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_no_version_checks,
+		     "Skip calling subdaemons with --version on startup");
+	clnopt_witharg("--dev-force-features", OPT_DEV,
+		       opt_force_featureset, NULL, ld,
+		       "Force the init/globalinit/node_announce/channel/bolt11/ features, each comma-separated bitnumbers OR a single +/-<bitnumber>");
+	clnopt_witharg("--dev-timeout-secs", OPT_DEV,
+		       opt_set_u32, opt_show_u32,
+		       &ld->config.connection_timeout_secs,
+		       "Seconds to timeout if we don't receive INIT from peer");
+	clnopt_noarg("--dev-no-modern-onion", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_ignore_modern_onion,
+		     "Ignore modern onion messages");
+	clnopt_witharg("--dev-disable-commit-after", OPT_DEV,
+		       opt_set_intval, opt_show_intval,
+		       &ld->dev_disable_commit,
+		       "Disable commit timer after this many commits");
+	clnopt_noarg("--dev-no-ping-timer", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_no_ping_timer,
+		     "Don't hang up if we don't get a ping response");
+	clnopt_witharg("--dev-onion-reply-length", OPT_DEV,
+		       opt_set_uintval,
+		       opt_show_uintval,
+		       &dev_onion_reply_length,
+		       "Send onion errors of custom length");
+	clnopt_witharg("--dev-max-fee-multiplier", OPT_DEV,
+		       opt_set_uintval,
+		       opt_show_uintval,
+		       &ld->config.max_fee_multiplier,
+		       "Allow the fee proposed by the remote end to"
+		       " be up to multiplier times higher than our "
+		       "own. Small values will cause channels to be"
+		       " closed more often due to fee fluctuations,"
+		       " large values may result in large fees.");
+	clnopt_witharg("--dev-allowdustreserve", OPT_DEV,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->config.allowdustreserve,
+		       "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
 }
 #endif /* DEVELOPER */
 
@@ -1701,12 +1718,9 @@ static void add_config(struct lightningd *ld,
 	char *answer = NULL;
 	char buf[4096 + sizeof("...")];
 
-#if DEVELOPER
-	if (strstarts(name0, "dev-")) {
-		/* Ignore dev settings */
+	/* Ignore dev settings. */
+	if (opt->type & OPT_DEV)
 		return;
-	}
-#endif
 
 	if (opt->type & OPT_NOARG) {
 		if (opt->desc == opt_hidden) {
