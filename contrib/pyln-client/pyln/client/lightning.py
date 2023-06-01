@@ -503,7 +503,8 @@ class LightningRpc(UnixDomainSocketRpc):
             """
             if isinstance(obj, dict):
                 for k, v in obj.items():
-                    if k.endswith('msat'):
+                    # Objects ending in msat are not treated specially!
+                    if k.endswith('msat') and not isinstance(v, dict):
                         if isinstance(v, list):
                             obj[k] = [Millisatoshi(e) for e in v]
                         # FIXME: Deprecated "listconfigs" gives two 'null' fields:
