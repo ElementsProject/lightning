@@ -464,6 +464,16 @@ static bool opt_show_mode(char *buf, size_t len, const mode_t *m)
 	return true;
 }
 
+static bool opt_show_rgb(char *buf, size_t len, const struct lightningd *ld)
+{
+	/* Can happen with -h! */
+	if (!ld->rgb)
+		return false;
+	/* This is always set; if not by arg, then by default */
+	hex_encode(ld->rgb, 3, buf, len);
+	return true;
+}
+
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 {
 	assert(arg != NULL);
@@ -478,6 +488,16 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	if (!ld->rgb || tal_count(ld->rgb) != 3)
 		return tal_fmt(NULL, "rgb '%s' is not six hex digits", arg);
 	return NULL;
+}
+
+static bool opt_show_alias(char *buf, size_t len, const struct lightningd *ld)
+{
+	/* Can happen with -h! */
+	if (!ld->alias)
+		return false;
+
+	strncpy(buf, cast_signed(const char *, ld->alias), len);
+	return true;
 }
 
 static char *opt_set_alias(const char *arg, struct lightningd *ld)
@@ -633,12 +653,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 }
 
 #if DEVELOPER
-static char *opt_subprocess_debug(const char *optarg, struct lightningd *ld)
-{
-	ld->dev_debug_subprocess = optarg;
-	return NULL;
-}
-
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -753,8 +767,10 @@ static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
 	 * option parsing */
-	opt_register_early_arg("--dev-debugger=<subprocess>", opt_subprocess_debug, NULL,
-			 ld, "Invoke gdb at start of <subprocess>");
+	opt_register_early_arg("--dev-debugger=<subprocess>",
+			       opt_set_charp, NULL,
+			       &ld->dev_debug_subprocess,
+			       "Invoke gdb at start of <subprocess>");
 
 	opt_register_early_noarg("--dev-no-plugin-checksum", opt_set_bool,
 				 &ld->dev_no_plugin_checksum,
@@ -1065,6 +1081,12 @@ static char *opt_start_daemon(struct lightningd *ld)
 	errx(1, "Died with signal %u", WTERMSIG(exitcode));
 }
 
+static bool opt_show_msat(char *buf, size_t len, const struct amount_msat *msat)
+{
+	opt_show_u64(buf, len, &msat->millisatoshis /* Raw: option output */);
+	return true;
+}
+
 static char *opt_set_msat(const char *arg, struct amount_msat *amt)
 {
 	if (!parse_amount_msat(amt, arg, strlen(arg)))
@@ -1244,9 +1266,9 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
-	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
+	opt_register_arg("--rgb", opt_set_rgb, opt_show_rgb, ld,
 			 "RRGGBB hex color for node");
-	opt_register_arg("--alias", opt_set_alias, NULL, ld,
+	opt_register_arg("--alias", opt_set_alias, opt_show_alias, ld,
 			 "Up to 32-byte alias for node");
 
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
@@ -1288,17 +1310,17 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-	opt_register_arg("--htlc-minimum-msat", opt_set_msat, NULL,
+	opt_register_arg("--htlc-minimum-msat", opt_set_msat, opt_show_msat,
 			 &ld->config.htlc_minimum_msat,
 			 "The default minimal value an HTLC must carry in order to be forwardable for new channels");
-	opt_register_arg("--htlc-maximum-msat", opt_set_msat, NULL,
+	opt_register_arg("--htlc-maximum-msat", opt_set_msat, opt_show_msat,
 			 &ld->config.htlc_maximum_msat,
 			 "The default maximal value an HTLC must carry in order to be forwardable for new channel");
 	opt_register_arg("--max-concurrent-htlcs", opt_set_u32, opt_show_u32,
 			 &ld->config.max_concurrent_htlcs,
 			 "Number of HTLCs one channel can handle concurrently. Should be between 1 and 483");
 	opt_register_arg("--max-dust-htlc-exposure-msat", opt_set_msat,
-			 NULL, &ld->config.max_dust_htlc_exposure_msat,
+			 opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
 			 "Max HTLC amount that can be trimmed");
 	opt_register_arg("--min-capacity-sat", opt_set_u64, opt_show_u64,
 			 &ld->config.min_capacity_sat,
@@ -1747,8 +1769,10 @@ static void add_config(struct lightningd *ld,
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->show == (void *)opt_show_charp) {
-			/* Don't truncate or quote! */
-			answer = tal_strdup(tmpctx, *(char **)opt->u.carg);
+			if (*(char **)opt->u.carg)
+				/* Don't truncate or quote! */
+				answer = tal_strdup(tmpctx,
+						    *(char **)opt->u.carg);
 		} else if (opt->show) {
 			strcpy(buf + sizeof(buf) - sizeof("..."), "...");
 			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
@@ -1763,16 +1787,10 @@ static void add_config(struct lightningd *ld,
 			}
 			answer = buf;
 		} else if (opt->cb_arg == (void *)opt_set_talstr
-			   || opt->cb_arg == (void *)opt_set_charp
-			   || is_restricted_print_if_nonnull(opt->cb_arg)) {
+			   || opt->cb_arg == (void *)opt_set_charp) {
 			const char *arg = *(char **)opt->u.carg;
 			if (arg)
 				answer = tal_fmt(name0, "%s", arg);
-		} else if (opt->cb_arg == (void *)opt_set_rgb) {
-			if (ld->rgb)
-				answer = tal_hexstr(name0, ld->rgb, 3);
-		} else if (opt->cb_arg == (void *)opt_set_alias) {
-			answer = (char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
 			if (ld->logfiles)
 				json_add_opt_log_to_files(response, name0, ld->logfiles);
@@ -1830,14 +1848,6 @@ static void add_config(struct lightningd *ld,
 			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
-		} else if (opt->cb_arg == (void *)opt_set_msat) {
-			/* We allow -msat not _msat here, unlike
-			 * json_add_amount_msat */
-			assert(strends(name0, "-msat"));
-			json_add_string(response, name0,
-					fmt_amount_msat(tmpctx,
-							*(struct amount_msat *)
-							opt->u.carg));
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
 			for (size_t i = 0;
 			     i < tal_count(ld->accept_extra_tlv_types);
