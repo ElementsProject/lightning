@@ -10,6 +10,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
+#include <common/configvar.h>
 #include <common/features.h>
 #include <common/hsm_encryption.h>
 #include <common/json_command.h>
@@ -1202,21 +1203,25 @@ static void register_opts(struct lightningd *ld)
 				 ld, opt_hidden);
 	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
-	opt_register_early_arg("--plugin", opt_add_plugin, NULL, ld,
-			       "Add a plugin to be run (can be used multiple times)");
-	opt_register_early_arg("--plugin-dir", opt_add_plugin_dir,
-			       NULL, ld,
-			       "Add a directory to load plugins from (can be used multiple times)");
+	clnopt_witharg("--plugin", OPT_MULTI|OPT_EARLY,
+		       opt_add_plugin, NULL, ld,
+		       "Add a plugin to be run (can be used multiple times)");
+	clnopt_witharg("--plugin-dir", OPT_MULTI|OPT_EARLY,
+		       opt_add_plugin_dir,
+		       NULL, ld,
+		       "Add a directory to load plugins from (can be used multiple times)");
 	opt_register_early_noarg("--clear-plugins", opt_clear_plugins,
 				 ld,
 				 "Remove all plugins added before this option");
-	opt_register_early_arg("--disable-plugin", opt_disable_plugin,
-			       NULL, ld,
-			       "Disable a particular plugin by filename/name");
+	clnopt_witharg("--disable-plugin", OPT_MULTI|OPT_EARLY,
+		       opt_disable_plugin,
+		       NULL, ld,
+		       "Disable a particular plugin by filename/name");
 
-	opt_register_early_arg("--important-plugin", opt_important_plugin,
-			       NULL, ld,
-			       "Add an important plugin to be run (can be used multiple times). Die if the plugin dies.");
+	clnopt_witharg("--important-plugin", OPT_MULTI|OPT_EARLY,
+		       opt_important_plugin,
+		       NULL, ld,
+		       "Add an important plugin to be run (can be used multiple times). Die if the plugin dies.");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
 	opt_register_early_arg("--always-use-proxy",
@@ -1325,15 +1330,16 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--min-capacity-sat", opt_set_u64, opt_show_u64,
 			 &ld->config.min_capacity_sat,
 			 "Minimum capacity in satoshis for accepting channels");
-	opt_register_arg("--addr", opt_add_addr, NULL,
-			 ld,
-			 "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
-	opt_register_arg("--bind-addr", opt_add_bind_addr, NULL,
-			 ld,
-			 "Set an IP address (v4 or v6) to listen on, but not announce");
-	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
-			 ld,
-			 "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
+
+	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
+		       ld,
+		       "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
+	clnopt_witharg("--bind-addr", OPT_MULTI, opt_add_bind_addr, NULL,
+		       ld,
+		       "Set an IP address (v4 or v6) to listen on, but not announce");
+	clnopt_witharg("--announce-addr", OPT_MULTI, opt_add_announce_addr, NULL,
+		       ld,
+		       "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
 
 	opt_register_noarg("--disable-ip-discovery", opt_disable_ip_discovery, ld, opt_hidden);
 	opt_register_arg("--announce-addr-discovered", opt_set_autobool_arg, opt_show_autobool,
@@ -1382,15 +1388,17 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee",
 			 opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
 			 "Percentage of fee to request for their commitment");
-	opt_register_arg("--subdaemon", opt_subdaemon, NULL,
-			 ld, "Arg specified as SUBDAEMON:PATH. "
-			 "Specifies an alternate subdaemon binary. "
-			 "If the supplied path is relative the subdaemon "
-			 "binary is found in the working directory. "
-			 "This option may be specified multiple times. "
-			 "For example, "
-			 "--subdaemon=hsmd:remote_signer "
-			 "would use a hypothetical remote signing subdaemon.");
+	clnopt_witharg("--subdaemon",
+		       OPT_MULTI,
+		       opt_subdaemon, NULL,
+		       ld, "Arg specified as SUBDAEMON:PATH. "
+		       "Specifies an alternate subdaemon binary. "
+		       "If the supplied path is relative the subdaemon "
+		       "binary is found in the working directory. "
+		       "This option may be specified multiple times. "
+		       "For example, "
+		       "--subdaemon=hsmd:remote_signer "
+		       "would use a hypothetical remote signing subdaemon.");
 
 	opt_register_arg("--experimental-websocket-port",
 			 opt_set_websocket_port, NULL,
