@@ -20,6 +20,9 @@ const char opt_hidden[1];
 #define MIN_DESC_WIDTH 40
 #define MIN_TOTAL_WIDTH 50
 
+/* Maximum length of arg to show in opt_usage */
+#define OPT_SHOW_LEN 80
+
 static unsigned int get_columns(void)
 {
 	int ws_col = 0;
@@ -148,20 +151,20 @@ static char *add_desc(char *base, size_t *len, size_t *max,
 	if (opt->show) {
 		char buf[OPT_SHOW_LEN + sizeof("...")];
 		strcpy(buf + OPT_SHOW_LEN, "...");
-		opt->show(buf, opt->u.arg);
+		if (opt->show(buf, OPT_SHOW_LEN, opt->u.arg)) {
+			/* If it doesn't fit on this line, indent. */
+			if (off + strlen(" (default: ") + strlen(buf) + strlen(")")
+			    > width) {
+				base = add_indent(base, len, max, indent);
+			} else {
+				/* Remove \n. */
+				(*len)--;
+			}
 
-		/* If it doesn't fit on this line, indent. */
-		if (off + strlen(" (default: ") + strlen(buf) + strlen(")")
-		    > width) {
-			base = add_indent(base, len, max, indent);
-		} else {
-			/* Remove \n. */
-			(*len)--;
+			base = add_str(base, len, max, " (default: ");
+			base = add_str(base, len, max, buf);
+			base = add_str(base, len, max, ")\n");
 		}
-
-		base = add_str(base, len, max, " (default: ");
-		base = add_str(base, len, max, buf);
-		base = add_str(base, len, max, ")\n");
 	}
 	return base;
 }
@@ -182,10 +185,10 @@ char *opt_usage(const char *argv0, const char *extra)
 		size_t l;
 		if (opt_table[i].desc == opt_hidden)
 			continue;
-		if (opt_table[i].type == OPT_SUBTABLE)
+		if (opt_table[i].type & OPT_SUBTABLE)
 			continue;
 		l = strlen(opt_table[i].names);
-		if (opt_table[i].type == OPT_HASARG
+		if ((opt_table[i].type & OPT_HASARG)
 		    && !strchr(opt_table[i].names, ' ')
 		    && !strchr(opt_table[i].names, '='))
 			l += strlen(" <arg>");
@@ -221,7 +224,7 @@ char *opt_usage(const char *argv0, const char *extra)
 	for (i = 0; i < opt_count; i++) {
 		if (opt_table[i].desc == opt_hidden)
 			continue;
-		if (opt_table[i].type == OPT_SUBTABLE) {
+		if (opt_table[i].type & OPT_SUBTABLE) {
 			ret = add_str(ret, &len, &max, opt_table[i].desc);
 			ret = add_str(ret, &len, &max, ":\n");
 			continue;

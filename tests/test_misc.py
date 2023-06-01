@@ -733,7 +733,7 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
         assert configs['allow-deprecated-apis'] == deprecated
         assert configs['network'] == chainparams['name']
         assert configs['ignore-fee-limits'] is False
-        assert configs['log-prefix'] == 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
+        assert configs['log-prefix'] == 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
         # These are aliases, but we don't print the (unofficial!) wumbo.
         assert 'wumbo' not in configs

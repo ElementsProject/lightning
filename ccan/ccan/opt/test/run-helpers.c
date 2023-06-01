@@ -476,26 +476,26 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -77;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-77") == 0);
 			i = 0;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 77;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -1234 * k;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-1234k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * M;
-			opt_show_intval_bi(buf, &i);
+			opt_show_intval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -506,27 +506,27 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -77;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 77;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -1 * k;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-1k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * M;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 0;
-			opt_show_longval_bi(buf, &i);
+			opt_show_longval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -537,23 +537,23 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -7777;
-			opt_show_longlongval_bi(buf, &i);
+			opt_show_longlongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 7777;
-			opt_show_longlongval_bi(buf, &i);
+			opt_show_longlongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -10240000 * k;
-			opt_show_longlongval_bi(buf, &i);
+			opt_show_longlongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-10000M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 5 * P;
-			opt_show_longlongval_bi(buf, &i);
+			opt_show_longlongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "5P") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * P;
-			opt_show_longlongval_bi(buf, &i);
+			opt_show_longlongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1E") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -564,19 +564,19 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 77;
-			opt_show_uintval_bi(buf, &i);
+			opt_show_uintval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1234 * k;
-			opt_show_uintval_bi(buf, &i);
+			opt_show_uintval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1234k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_uintval_bi(buf, &i);
+			opt_show_uintval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * M;
-			opt_show_uintval_bi(buf, &i);
+			opt_show_uintval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -587,23 +587,23 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 77;
-			opt_show_ulongval_bi(buf, &i);
+			opt_show_ulongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = k;
-			opt_show_ulongval_bi(buf, &i);
+			opt_show_ulongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_ulongval_bi(buf, &i);
+			opt_show_ulongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * M;
-			opt_show_ulongval_bi(buf, &i);
+			opt_show_ulongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 0;
-			opt_show_ulongval_bi(buf, &i);
+			opt_show_ulongval_bi(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -614,19 +614,19 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 7777;
-			opt_show_ulonglongval_bi(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_bi(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 10240000 * k;
-			opt_show_ulonglongval_bi(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_bi(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "10000M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 5 * P;
-			opt_show_ulonglongval_bi(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_bi(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "5P") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * P;
-			opt_show_ulonglongval_bi(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_bi(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "1E") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -860,26 +860,26 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -77;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-77") == 0);
 			i = 0;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 77;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -1234 * k;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-1234k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1000 * M;
-			opt_show_intval_si(buf, &i);
+			opt_show_intval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -890,27 +890,27 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -77;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 77;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -1 * k;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-1k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1000 * M;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 0;
-			opt_show_longval_si(buf, &i);
+			opt_show_longval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -921,23 +921,23 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = -7777;
-			opt_show_longlongval_si(buf, &i);
+			opt_show_longlongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 7777;
-			opt_show_longlongval_si(buf, &i);
+			opt_show_longlongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = -10240000 * k;
-			opt_show_longlongval_si(buf, &i);
+			opt_show_longlongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "-10240M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 5 * P;
-			opt_show_longlongval_si(buf, &i);
+			opt_show_longlongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "5P") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 2000 * P;
-			opt_show_longlongval_si(buf, &i);
+			opt_show_longlongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "2E") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -948,19 +948,19 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 77;
-			opt_show_uintval_si(buf, &i);
+			opt_show_uintval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1234 * k;
-			opt_show_uintval_si(buf, &i);
+			opt_show_uintval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1234k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_uintval_si(buf, &i);
+			opt_show_uintval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1000 * M;
-			opt_show_uintval_si(buf, &i);
+			opt_show_uintval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1G") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -971,23 +971,23 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 77;
-			opt_show_ulongval_si(buf, &i);
+			opt_show_ulongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "77") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = k;
-			opt_show_ulongval_si(buf, &i);
+			opt_show_ulongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1k") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 500 * M;
-			opt_show_ulongval_si(buf, &i);
+			opt_show_ulongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "500M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1024 * M;
-			opt_show_ulongval_si(buf, &i);
+			opt_show_ulongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "1024M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 0;
-			opt_show_ulongval_si(buf, &i);
+			opt_show_ulongval_si(buf, OPT_SHOW_LEN, &i);
 			ok1(strcmp(buf, "0") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -998,19 +998,19 @@ int main(int argc, char *argv[])
 			char buf[OPT_SHOW_LEN+2] = { 0 };
 			buf[OPT_SHOW_LEN] = '!';
 			i = 7777;
-			opt_show_ulonglongval_si(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_si(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "7777") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 10240000 * k;
-			opt_show_ulonglongval_si(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_si(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "10240M") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 5 * P;
-			opt_show_ulonglongval_si(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_si(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "5P") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 			i = 1000 * P;
-			opt_show_ulonglongval_si(buf, (unsigned long long *)&i);
+			opt_show_ulonglongval_si(buf, OPT_SHOW_LEN, (unsigned long long *)&i);
 			ok1(strcmp(buf, "1E") == 0);
 			ok1(buf[OPT_SHOW_LEN] == '!');
 		}
@@ -1090,12 +1090,12 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		b = true;
-		opt_show_bool(buf, &b);
+		opt_show_bool(buf, OPT_SHOW_LEN, &b);
 		ok1(strcmp(buf, "true") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		b = false;
-		opt_show_bool(buf, &b);
+		opt_show_bool(buf, OPT_SHOW_LEN, &b);
 		ok1(strcmp(buf, "false") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1107,12 +1107,12 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		b = true;
-		opt_show_invbool(buf, &b);
+		opt_show_invbool(buf, OPT_SHOW_LEN, &b);
 		ok1(strcmp(buf, "false") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		b = false;
-		opt_show_invbool(buf, &b);
+		opt_show_invbool(buf, OPT_SHOW_LEN, &b);
 		ok1(strcmp(buf, "true") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1126,14 +1126,14 @@ int main(int argc, char *argv[])
 		/* Short test. */
 		p = str;
 		strcpy(p, "short");
-		opt_show_charp(buf, &p);
+		opt_show_charp(buf, OPT_SHOW_LEN, &p);
 		ok1(strcmp(buf, "\"short\"") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		/* Truncate test. */
 		memset(p, 'x', OPT_SHOW_LEN*2);
 		p[OPT_SHOW_LEN*2-1] = '\0';
-		opt_show_charp(buf, &p);
+		opt_show_charp(buf, OPT_SHOW_LEN, &p);
 		ok1(buf[0] == '"');
 		ok1(buf[OPT_SHOW_LEN-1] == '"');
 		ok1(buf[OPT_SHOW_LEN] == '!');
@@ -1147,12 +1147,12 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		i = -77;
-		opt_show_intval(buf, &i);
+		opt_show_intval(buf, OPT_SHOW_LEN, &i);
 		ok1(strcmp(buf, "-77") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		i = 77;
-		opt_show_intval(buf, &i);
+		opt_show_intval(buf, OPT_SHOW_LEN, &i);
 		ok1(strcmp(buf, "77") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1164,7 +1164,7 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		ui = 4294967295U;
-		opt_show_uintval(buf, &ui);
+		opt_show_uintval(buf, OPT_SHOW_LEN, &ui);
 		ok1(strcmp(buf, "4294967295") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1176,7 +1176,7 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		l = 1234567890L;
-		opt_show_longval(buf, &l);
+		opt_show_longval(buf, OPT_SHOW_LEN, &l);
 		ok1(strcmp(buf, "1234567890") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1188,7 +1188,7 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		ul = 4294967295UL;
-		opt_show_ulongval(buf, &ul);
+		opt_show_ulongval(buf, OPT_SHOW_LEN, &ul);
 		ok1(strcmp(buf, "4294967295") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1200,12 +1200,12 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		f = -77.5;
-		opt_show_floatval(buf, &f);
+		opt_show_floatval(buf, OPT_SHOW_LEN, &f);
 		ok1(strcmp(buf, "-77.500000") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		f = 77.5;
-		opt_show_floatval(buf, &f);
+		opt_show_floatval(buf, OPT_SHOW_LEN, &f);
 		ok1(strcmp(buf, "77.500000") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}
@@ -1217,12 +1217,12 @@ int main(int argc, char *argv[])
 		buf[OPT_SHOW_LEN] = '!';
 
 		d = -77;
-		opt_show_doubleval(buf, &d);
+		opt_show_doubleval(buf, OPT_SHOW_LEN, &d);
 		ok1(strcmp(buf, "-77.000000") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 
 		d = 77;
-		opt_show_doubleval(buf, &d);
+		opt_show_doubleval(buf, OPT_SHOW_LEN, &d);
 		ok1(strcmp(buf, "77.000000") == 0);
 		ok1(buf[OPT_SHOW_LEN] == '!');
 	}

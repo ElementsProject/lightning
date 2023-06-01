@@ -20,6 +20,6 @@ enum opt_autobool {
 	OPT_AUTOBOOL_AUTO = 2,
 };
 char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b);
-void opt_show_autobool(char buf[OPT_SHOW_LEN], const enum opt_autobool *b);
+bool opt_show_autobool(char *buf, size_t len, const enum opt_autobool *b);
 
 #endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */

@@ -138,10 +138,11 @@ char *opt_set_floatval(const char *arg, float *f)
 	return NULL;
 }
 
-void opt_show_floatval(char buf[OPT_SHOW_LEN], const float *f)
+bool opt_show_floatval(char *buf, size_t len, const float *f)
 {
 	double d = *f;
-	opt_show_doubleval(buf, &d);
+	opt_show_doubleval(buf, len, &d);
+	return true;
 }
 
 char *opt_set_doubleval(const char *arg, double *d)
@@ -160,9 +161,10 @@ char *opt_set_doubleval(const char *arg, double *d)
 	return NULL;
 }
 
-void opt_show_doubleval(char buf[OPT_SHOW_LEN], const double *d)
+bool opt_show_doubleval(char *buf, size_t len, const double *d)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%f", *d);
+	snprintf(buf, len, "%f", *d);
+	return true;
 }
 
 char *opt_inc_intval(int *i)
@@ -196,52 +198,60 @@ char *opt_usage_and_exit(const char *extra)
 	exit(0);
 }
 
-void opt_show_bool(char buf[OPT_SHOW_LEN], const bool *b)
+bool opt_show_bool(char *buf, size_t len, const bool *b)
 {
-	strncpy(buf, *b ? "true" : "false", OPT_SHOW_LEN);
+	strncpy(buf, *b ? "true" : "false", len);
+	return true;
 }
 
-void opt_show_invbool(char buf[OPT_SHOW_LEN], const bool *b)
+bool opt_show_invbool(char *buf, size_t len, const bool *b)
 {
-	strncpy(buf, *b ? "false" : "true", OPT_SHOW_LEN);
+	strncpy(buf, *b ? "false" : "true", len);
+	return true;
 }
 
-void opt_show_charp(char buf[OPT_SHOW_LEN], char *const *p)
+bool opt_show_charp(char *buf, size_t len, char *const *p)
 {
-	if (*p){
-		size_t len = strlen(*p);
+	if (*p) {
+		size_t plen = strlen(*p);
+		if (len < 2)
+			return false;
 		buf[0] = '"';
-		if (len > OPT_SHOW_LEN - 2)
-			len = OPT_SHOW_LEN - 2;
-		strncpy(buf+1, *p, len);
-		buf[1+len] = '"';
-		if (len < OPT_SHOW_LEN - 2)
-			buf[2+len] = '\0';
-	}
-	else {
-		strncpy(buf, "(nil)", OPT_SHOW_LEN);
+		if (plen > len - 2)
+			plen = len - 2;
+		strncpy(buf+1, *p, plen);
+		buf[1+plen] = '"';
+		if (plen < len - 2)
+			buf[2+plen] = '\0';
+		return true;
+	} else {
+		return false;
 	}
 }
 
 /* Show an integer value, various forms. */
-void opt_show_intval(char buf[OPT_SHOW_LEN], const int *i)
+bool opt_show_intval(char *buf, size_t len, const int *i)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%i", *i);
+	snprintf(buf, len, "%i", *i);
+	return true;
 }
 
-void opt_show_uintval(char buf[OPT_SHOW_LEN], const unsigned int *ui)
+bool opt_show_uintval(char *buf, size_t len, const unsigned int *ui)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%u", *ui);
+	snprintf(buf, len, "%u", *ui);
+	return true;
 }
 
-void opt_show_longval(char buf[OPT_SHOW_LEN], const long *l)
+bool opt_show_longval(char *buf, size_t len, const long *l)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%li", *l);
+	snprintf(buf, len, "%li", *l);
+	return true;
 }
 
-void opt_show_ulongval(char buf[OPT_SHOW_LEN], const unsigned long *ul)
+bool opt_show_ulongval(char *buf, size_t len, const unsigned long *ul)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%lu", *ul);
+	snprintf(buf, len, "%lu", *ul);
+	return true;
 }
 
 /* a helper function that multiplies out an argument's kMGTPE suffix in the
@@ -447,14 +457,14 @@ char * opt_set_uintval_si(const char *arg, unsigned int *u)
   are separate but essentially identical functions for signed and unsigned
   values, so that unsigned values greater than LLONG_MAX get suffixes.
  */
-static void show_llong_with_suffix(char buf[OPT_SHOW_LEN], long long ll,
-				    const long long base)
+static void show_llong_with_suffix(char *buf, size_t len, long long ll,
+				   const long long base)
 {
 	const char *suffixes = "kMGTPE";
 	int i;
 	if (ll == 0){
 		/*zero is special because everything divides it (you'd get "0E")*/
-		snprintf(buf, OPT_SHOW_LEN, "0");
+		snprintf(buf, len, "0");
 		return;
 	}
 	for (i = 0; i < strlen(suffixes); i++){
@@ -464,19 +474,20 @@ static void show_llong_with_suffix(char buf[OPT_SHOW_LEN], long long ll,
 		ll = tmp;
 	}
 	if (i == 0)
-		snprintf(buf, OPT_SHOW_LEN, "%"PRId64, (int64_t)ll);
+		snprintf(buf, len, "%"PRId64, (int64_t)ll);
 	else
-		snprintf(buf, OPT_SHOW_LEN, "%"PRId64"%c", (int64_t)ll, suffixes[i - 1]);
+		snprintf(buf, len, "%"PRId64"%c", (int64_t)ll, suffixes[i - 1]);
 }
 
-static void show_ullong_with_suffix(char buf[OPT_SHOW_LEN], unsigned long long ull,
+static void show_ullong_with_suffix(char *buf, size_t len,
+				    unsigned long long ull,
 				    const unsigned base)
 {
 	const char *suffixes = "kMGTPE";
 	int i;
 	if (ull == 0){
 		/*zero is special because everything divides it (you'd get "0E")*/
-		snprintf(buf, OPT_SHOW_LEN, "0");
+		snprintf(buf, len, "0");
 		return;
 	}
 	for (i = 0; i < strlen(suffixes); i++){
@@ -486,72 +497,84 @@ static void show_ullong_with_suffix(char buf[OPT_SHOW_LEN], unsigned long long u
 		ull = tmp;
 	}
 	if (i == 0)
-		snprintf(buf, OPT_SHOW_LEN, "%"PRIu64, (uint64_t)ull);
+		snprintf(buf, len, "%"PRIu64, (uint64_t)ull);
 	else
-		snprintf(buf, OPT_SHOW_LEN, "%"PRIu64"%c", (uint64_t)ull, suffixes[i - 1]);
+		snprintf(buf, len, "%"PRIu64"%c", (uint64_t)ull, suffixes[i - 1]);
 }
 
 /* _bi, signed */
-void opt_show_intval_bi(char buf[OPT_SHOW_LEN], const int *x)
+bool opt_show_intval_bi(char *buf, size_t len, const int *x)
 {
-	show_llong_with_suffix(buf, *x, 1024);
+	show_llong_with_suffix(buf, len, *x, 1024);
+	return true;
 }
 
-void opt_show_longval_bi(char buf[OPT_SHOW_LEN], const long *x)
+bool opt_show_longval_bi(char *buf, size_t len, const long *x)
 {
-	show_llong_with_suffix(buf, *x, 1024);
+	show_llong_with_suffix(buf, len, *x, 1024);
+	return true;
 }
 
-void opt_show_longlongval_bi(char buf[OPT_SHOW_LEN], const long long *x)
+bool opt_show_longlongval_bi(char *buf, size_t len, const long long *x)
 {
-	show_llong_with_suffix(buf, *x, 1024);
+	show_llong_with_suffix(buf, len, *x, 1024);
+	return true;
 }
 
 /* _bi, unsigned */
-void opt_show_uintval_bi(char buf[OPT_SHOW_LEN], const unsigned int *x)
+bool opt_show_uintval_bi(char *buf, size_t len, const unsigned int *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1024);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1024);
+	return true;
 }
 
-void opt_show_ulongval_bi(char buf[OPT_SHOW_LEN], const unsigned long *x)
+bool opt_show_ulongval_bi(char *buf, size_t len, const unsigned long *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1024);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1024);
+	return true;
 }
 
-void opt_show_ulonglongval_bi(char buf[OPT_SHOW_LEN], const unsigned long long *x)
+bool opt_show_ulonglongval_bi(char *buf, size_t len, const unsigned long long *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1024);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1024);
+	return true;
 }
 
 /* _si, signed */
-void opt_show_intval_si(char buf[OPT_SHOW_LEN], const int *x)
+bool opt_show_intval_si(char *buf, size_t len, const int *x)
 {
-	show_llong_with_suffix(buf, (long long) *x, 1000);
+	show_llong_with_suffix(buf, len, (long long) *x, 1000);
+	return true;
 }
 
-void opt_show_longval_si(char buf[OPT_SHOW_LEN], const long *x)
+bool opt_show_longval_si(char *buf, size_t len, const long *x)
 {
-	show_llong_with_suffix(buf, (long long) *x, 1000);
+	show_llong_with_suffix(buf, len, (long long) *x, 1000);
+	return true;
 }
 
-void opt_show_longlongval_si(char buf[OPT_SHOW_LEN], const long long *x)
+bool opt_show_longlongval_si(char *buf, size_t len, const long long *x)
 {
-	show_llong_with_suffix(buf, *x, 1000);
+	show_llong_with_suffix(buf, len, *x, 1000);
+	return true;
 }
 
 /* _si, unsigned */
-void opt_show_uintval_si(char buf[OPT_SHOW_LEN], const unsigned int *x)
+bool opt_show_uintval_si(char *buf, size_t len, const unsigned int *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1000);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1000);
+	return true;
 }
 
-void opt_show_ulongval_si(char buf[OPT_SHOW_LEN], const unsigned long *x)
+bool opt_show_ulongval_si(char *buf, size_t len, const unsigned long *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1000);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1000);
+	return true;
 }
 
-void opt_show_ulonglongval_si(char buf[OPT_SHOW_LEN], const unsigned long long *x)
+bool opt_show_ulonglongval_si(char *buf, size_t len, const unsigned long long *x)
 {
-	show_ullong_with_suffix(buf, (unsigned long long) *x, 1000);
+	show_ullong_with_suffix(buf, len, (unsigned long long) *x, 1000);
+	return true;
 }
 

@@ -175,9 +175,9 @@ static char *opt_set_ad(const char *arg, u8 **assocdata)
 	return NULL;
 }
 
-static void opt_show_ad(char buf[OPT_SHOW_LEN], u8 *const *assocdata)
+static bool opt_show_ad(char *buf, size_t len, u8 *const *assocdata)
 {
-	hex_encode(*assocdata, tal_bytelen(*assocdata), buf, OPT_SHOW_LEN);
+	return hex_encode(*assocdata, tal_bytelen(*assocdata), buf, len);
 }
 
 static char *opt_set_node_id(const char *arg, struct node_id *node_id)

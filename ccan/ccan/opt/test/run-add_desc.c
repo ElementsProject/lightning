@@ -4,15 +4,24 @@
 #include <ccan/opt/helpers.c>
 #include <ccan/opt/parse.c>
 
-static void show_10(char buf[OPT_SHOW_LEN], const void *arg UNNEEDED)
+static bool show_10(char *buf, size_t len, const void *arg UNNEEDED)
 {
 	memset(buf, 'X', 10);
 	buf[10] = '\0';
+	return true;
 }
 
-static void show_max(char buf[OPT_SHOW_LEN], const void *arg UNNEEDED)
+static bool show_10_false(char *buf, size_t len, const void *arg UNNEEDED)
+{
+	memset(buf, 'X', 10);
+	buf[10] = '\0';
+	return false;
+}
+
+static bool show_max(char *buf, size_t len, const void *arg UNNEEDED)
 {
 	memset(buf, 'X', OPT_SHOW_LEN);
+	return true;
 }
 
 /* Test add_desc helper. */
@@ -22,7 +31,7 @@ int main(void)
 	char *ret;
 	size_t len, max;
 
-	plan_tests(30);
+	plan_tests(32);
 
 	opt.show = NULL;
 	opt.names = "01234";
@@ -111,6 +120,14 @@ int main(void)
 	ok1(strcmp(ret,
 		   "01234  0123456789 0\n"
 		   "        (default: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...)\n") == 0);
+	free(ret); len = max = 0;
+
+	/* With show function which fails doesn't print. */
+	opt.show = show_10_false;
+	ret = add_desc(NULL, &len, &max, 7, 41, &opt);
+	ok1(len < max);
+	ret[len] = '\0';
+	ok1(strcmp(ret, "01234  0123456789 0\n") == 0);
 	free(ret); len = max = 0;
 
 	/* With added " <arg>".  Fits, just. */

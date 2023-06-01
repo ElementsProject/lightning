@@ -594,12 +594,13 @@ static char *opt_set_level(const char *arg, enum log_level *level)
 	return NULL;
 }
 
-static void opt_show_level(char buf[OPT_SHOW_LEN], const enum log_level *level)
+static bool opt_show_level(char *buf, size_t len, const enum log_level *level)
 {
 	if (*level == LOG_LEVEL_MAX + 1)
-		strncpy(buf, "none", OPT_SHOW_LEN-1);
+		strncpy(buf, "none", len);
 	else
-		strncpy(buf, log_level_name(*level), OPT_SHOW_LEN-1);
+		strncpy(buf, log_level_name(*level), len);
+	return true;
 }
 
 /* The standard opt_log_stderr_exit exits with status 1 */
