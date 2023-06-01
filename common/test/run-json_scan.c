@@ -146,6 +146,24 @@ int main(int argc, char *argv[])
 	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2]}"));
 	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2,2:[0:3,1:4]]}"));
 
+	/* Optional fields which are present are fine. */
+	assert(!json_scan(tmpctx, buf, toks, "{1?:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{1?:one,2?:two}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2?:two,1?:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2?:two,1?:one,3?:{three?:{deeper?:17}}}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2?:two,1?:one,3?:{three?:{deeper?:17}},arr?:[0:{1?:arrone}]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2?:two,1?:one,3?:{three?:{deeper?:17}},arr?:[1:2]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2?:two,1?:one,3?:{three?:{deeper?:17}},arr?:[1:2,2:[0:3,1:4]]}"));
+
+	/* Optional field which are missing are fine too */
+	assert(!json_scan(tmpctx, buf, toks, "{5?:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{1:one,5?:two}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,5?:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,5?:{three:{deeper:17}}}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{five?:{deeper:17}},arr:[0:{1:arrone}]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{notdeeper?:17}},arr:[1:2]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},notarr?:[1:2,2:[0:3,1:4]]}"));
+
 	/* These do not match */
 	err = json_scan(tmpctx, buf, toks, "{2:one}");
 	assert(streq(err, "Parsing '{2:one': \"two\" does not match expected one"));
