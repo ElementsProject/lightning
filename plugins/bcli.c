@@ -1117,7 +1117,7 @@ int main(int argc, char *argv[])
 				  "bitcoind RPC host to connect to",
 				  charp_option, &bitcoind->rpcconnect),
 		    plugin_option("bitcoin-rpcport",
-				  "string",
+				  "int",
 				  "bitcoind RPC host's port",
 				  charp_option, &bitcoind->rpcport),
 		    plugin_option("bitcoin-retry-timeout",
