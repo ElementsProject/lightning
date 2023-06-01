@@ -1,11 +1,11 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
-#include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/link/link.h>
 #include <ccan/tal/str/str.h>
+#include <common/configvar.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/memleak.h>
@@ -742,8 +742,10 @@ void opt_register_logging(struct lightningd *ld)
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			       ld->log_book,
 			       "log prefix");
-	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
-			       "Also log to file (- for stdout)");
+	clnopt_witharg("--log-file=<file>",
+		       OPT_EARLY|OPT_MULTI,
+		       arg_log_to_file, NULL, ld,
+		       "Also log to file (- for stdout)");
 }
 
 void logging_options_parsed(struct log_book *lr)
