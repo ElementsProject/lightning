@@ -239,11 +239,6 @@ bool is_restricted_ignored(const void *fn)
 		|| fn == opt_restricted_forceconf_only;
 }
 
-bool is_restricted_print_if_nonnull(const void *fn)
-{
-	return fn == opt_restricted_cmdline;
-}
-
 void setup_option_allocators(void)
 {
 	/*~ These functions make ccan/opt use tal for allocations */
@@ -324,7 +319,9 @@ void initial_config_opts(const tal_t *ctx,
 
 	/* This is only ever valid on cmdline */
 	opt_register_early_arg("--conf=<file>",
-			       opt_restricted_cmdline, NULL,
+			       opt_restricted_cmdline,
+			       /* This doesn't show if NULL! */
+			       opt_show_charp,
 			       config_filename,
 			       "Specify configuration file");
 
