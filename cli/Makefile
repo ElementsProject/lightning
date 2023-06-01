@@ -8,6 +8,7 @@ ALL_PROGRAMS += cli/lightning-cli
 LIGHTNING_CLI_COMMON_OBJS :=			\
 	bitcoin/chainparams.o			\
 	common/configdir.o			\
+	common/configvar.o			\
 	common/json_parse_simple.o		\
 	common/status_levels.o			\
 	common/utils.o				\
