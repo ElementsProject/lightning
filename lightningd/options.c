@@ -861,6 +861,10 @@ static void dev_register_opts(struct lightningd *ld)
 			 "own. Small values will cause channels to be"
 			 " closed more often due to fee fluctuations,"
 			 " large values may result in large fees.");
+	opt_register_arg("--dev-allowdustreserve", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.allowdustreserve,
+			 "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
+
 }
 #endif /* DEVELOPER */
 
@@ -1354,11 +1358,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
 			 &ld->autolisten,
 			 "If true, listen on default port and announce if it seems to be a public interface");
-
-	opt_register_arg("--dev-allowdustreserve", opt_set_bool_arg, opt_show_bool,
-			 &ld->config.allowdustreserve,
-			 "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
-
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
