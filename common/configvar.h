@@ -50,8 +50,10 @@ struct configvar {
 #define OPT_MULTI (1 << OPT_USER_START)
 /* Set if developer-only */
 #define OPT_DEV (1 << (OPT_USER_START+1))
+/* Doesn't return, so don't show in listconfigs */
+#define OPT_EXITS (1 << (OPT_USER_START+2))
 
-/* Use this instead of opt_register_*_arg if you want OPT_MULTI/OPT_DEV */
+/* Use this instead of opt_register_*_arg if you want OPT_* from above */
 #define clnopt_witharg(names, type, cb, show, arg, desc)		\
 	_opt_register((names),						\
 		      OPT_CB_ARG((cb), (type), (show), (arg)),		\

@@ -1212,9 +1212,10 @@ static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
-	opt_register_early_noarg("--test-daemons-only",
-				 test_subdaemons_and_exit,
-				 ld, opt_hidden);
+	clnopt_noarg("--test-daemons-only", OPT_EARLY|OPT_EXITS,
+		     test_subdaemons_and_exit,
+		     ld,
+		     "Test that subdaemons can be run, then exit immediately");
 	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
 	clnopt_witharg("--plugin", OPT_MULTI|OPT_EARLY,
@@ -1283,8 +1284,8 @@ static void register_opts(struct lightningd *ld)
 			       opt_set_announce_dns, NULL,
 			       ld, opt_hidden);
 
-	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
-				 "Print this message.");
+	clnopt_noarg("--help|-h", OPT_EXITS,
+		     opt_lightningd_usage, ld, "Print this message.");
 	opt_register_arg("--rgb", opt_set_rgb, opt_show_rgb, ld,
 			 "RRGGBB hex color for node");
 	opt_register_arg("--alias", opt_set_alias, opt_show_alias, ld,
@@ -1550,9 +1551,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	setup_option_allocators();
 
 	/*~ List features immediately, before doing anything interesting */
-	opt_register_early_noarg("--list-features-only",
-				 list_features_and_exit,
-				 ld, opt_hidden);
+	clnopt_noarg("--list-features-only", OPT_EARLY|OPT_EXITS,
+		     list_features_and_exit,
+		     ld, "List the features configured, and exit immediately");
 
 	/*~ This does enough parsing to get us the base configuration options */
 	ld->configvars = initial_config_opts(ld, &argc, argv, true,
@@ -1710,17 +1711,19 @@ static void add_config(struct lightningd *ld,
 	if (opt->type & OPT_DEV)
 		return;
 
+	/* Ignore things which just exit */
+	if (opt->type & OPT_EXITS)
+		return;
+
+	/* Ignore hidden options (deprecated) */
+	if (opt->desc == opt_hidden)
+		return;
+
 	if (opt->type & OPT_NOARG) {
-		if (opt->desc == opt_hidden) {
-			/* Ignore hidden options (deprecated) */
-		} else if (opt->cb == (void *)opt_usage_and_exit
-		    || opt->cb == (void *)version_and_exit
-		    || is_restricted_ignored(opt->cb)
-		    || opt->cb == (void *)opt_lightningd_usage
-		    || opt->cb == (void *)test_subdaemons_and_exit
-		    /* FIXME: we can't recover this. */
-		    || opt->cb == (void *)opt_clear_plugins) {
-			/* These are not important */
+		if (opt->cb == (void *)opt_clear_plugins) {
+			/* FIXME: we can't recover this. */
+		} else if (is_restricted_ignored(opt->cb)) {
+			/* --testnet etc, turned into --network=. */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;
 			json_add_bool(response, name0, *b);
@@ -1775,9 +1778,7 @@ static void add_config(struct lightningd *ld,
 			errx(1, "Unknown decode for %s", opt->names);
 		}
 	} else if (opt->type & OPT_HASARG) {
-		if (opt->desc == opt_hidden) {
-			/* Ignore hidden options (deprecated) */
-		} else if (opt->show == (void *)opt_show_charp) {
+		if (opt->show == (void *)opt_show_charp) {
 			if (*(char **)opt->u.carg)
 				/* Don't truncate or quote! */
 				answer = tal_strdup(tmpctx,
