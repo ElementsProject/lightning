@@ -190,25 +190,28 @@ static char *fmt_force_feerates(const tal_t *ctx, const u32 *force_feerates)
 	return ret;
 }
 
+static char *opt_add_accept_htlc_tlv(const char *arg,
+				     u64 **accept_extra_tlv_types)
+{
+	size_t n = tal_count(*accept_extra_tlv_types);
+
+	tal_resize(accept_extra_tlv_types, n+1);
+	return opt_set_u64(arg, &(*accept_extra_tlv_types)[n]);
+}
+
 static char *opt_set_accept_extra_tlv_types(const char *arg,
 					    struct lightningd *ld)
 {
-	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);
-	unsigned long long l;
-	u64 u;
-	for (int i = 0; elements[i] != NULL; i++) {
-		/* This is how the manpage says to do it.  Yech. */
-		errno = 0;
-		l = strtoull(elements[i], &endp, 0);
-		if (*endp || !arg[0])
-			return tal_fmt(NULL, "'%s' is not a number", arg);
-		u = l;
-		if (errno || u != l)
-			return tal_fmt(NULL, "'%s' is out of range", arg);
-		tal_arr_expand(&ld->accept_extra_tlv_types, u);
-	}
+	char *ret, **elements = tal_strsplit(tmpctx, arg, ",", STR_NO_EMPTY);
 
-	tal_free(elements);
+	if (!deprecated_apis)
+		return "Please use --accept-htlc-tlv-type multiple times";
+	for (int i = 0; elements[i] != NULL; i++) {
+		ret = opt_add_accept_htlc_tlv(elements[i],
+					      &ld->accept_extra_tlv_types);
+		if (ret)
+			return ret;
+	}
 	return NULL;
 }
 
@@ -1385,6 +1388,10 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--accept-htlc-tlv-types",
 			 opt_set_accept_extra_tlv_types, NULL, ld,
 			 "Comma separated list of extra HTLC TLV types to accept.");
+	clnopt_witharg("--accept-htlc-tlv-type", OPT_MULTI|OPT_SHOWINT,
+		       opt_add_accept_htlc_tlv, NULL,
+		       &ld->accept_extra_tlv_types,
+		       "HTLC TLV type to accept (can be used multiple times)");
 
 	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 				 "Disable DNS lookups of peers");
@@ -1887,6 +1894,8 @@ static void add_config_deprecated(struct lightningd *ld,
 			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
+		} else if (opt->cb_arg == (void *)opt_add_accept_htlc_tlv) {
+			/* We ignore this: it's printed below: */
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
 			for (size_t i = 0;
 			     i < tal_count(ld->accept_extra_tlv_types);
@@ -1989,6 +1998,7 @@ static const char *get_opt_val(const struct opt_table *ot,
 	    || ot->cb_arg == (void *)opt_subdaemon
 	    || ot->cb_arg == (void *)opt_set_db_upgrade
 	    || ot->cb_arg == (void *)arg_log_to_file
+	    || ot->cb_arg == (void *)opt_add_accept_htlc_tlv
 #if DEVELOPER
 	    || ot->cb_arg == (void *)opt_subd_dev_disconnect
 	    || ot->cb_arg == (void *)opt_force_featureset

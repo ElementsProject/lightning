@@ -114,9 +114,6 @@ bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,
 			  enum mvt_tag *tag);
 
-/* Read a JSON value into an array of u64 */
-bool json_to_uintarr(const char *buffer, const jsmntok_t *tok, u64 **dest);
-
 /* Extract reply path from this JSON */
 struct blinded_path *
 json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
