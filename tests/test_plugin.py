@@ -2441,6 +2441,7 @@ def test_dynamic_args(node_factory):
 
     assert l1.rpc.call("hello") == "Test arg parsing world"
     assert l1.rpc.listconfigs('greeting')['configs']['greeting']['value_str'] == 'Test arg parsing'
+    assert l1.rpc.listconfigs('greeting')['configs']['greeting']['plugin'] == plugin_path
 
     l1.rpc.plugin_stop(plugin_path)
     assert 'greeting' not in l1.rpc.listconfigs()['configs']
@@ -4166,6 +4167,7 @@ def test_plugin_persist_option(node_factory):
     c = l1.rpc.listconfigs('greeting')['configs']['greeting']
     assert c['source'] == "cmdline"
     assert c['value_str'] == "Static option"
+    assert c['plugin'] == plugin_path
     l1.rpc.plugin_stop(plugin_path)
     assert 'greeting' not in l1.rpc.listconfigs()['configs']
 
@@ -4174,6 +4176,7 @@ def test_plugin_persist_option(node_factory):
     c = l1.rpc.listconfigs('greeting')['configs']['greeting']
     assert c['source'] == "cmdline"
     assert c['value_str'] == "Static option"
+    assert c['plugin'] == plugin_path
     assert l1.rpc.call("hello") == "Static option world"
     l1.rpc.plugin_stop(plugin_path)
     assert 'greeting' not in l1.rpc.listconfigs()['configs']
@@ -4183,6 +4186,7 @@ def test_plugin_persist_option(node_factory):
     c = l1.rpc.listconfigs('greeting')['configs']['greeting']
     assert c['source'] == "pluginstart"
     assert c['value_str'] == "Dynamic option"
+    assert c['plugin'] == plugin_path
     assert l1.rpc.call("hello") == "Dynamic option world"
     l1.rpc.plugin_stop(plugin_path)
     assert 'greeting' not in l1.rpc.listconfigs()['configs']
@@ -4192,4 +4196,5 @@ def test_plugin_persist_option(node_factory):
     c = l1.rpc.listconfigs('greeting')['configs']['greeting']
     assert c['source'] == "cmdline"
     assert c['value_str'] == "Static option"
+    assert c['plugin'] == plugin_path
     assert l1.rpc.call("hello") == "Static option world"

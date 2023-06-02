@@ -738,6 +738,7 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
             c = configs[name]
             assert c['source'] == 'cmdline'
             assert c[valfield] == val
+            assert 'plugin' not in c
 
         # These are aliases, but we don't print the (unofficial!) wumbo.
         assert 'wumbo' not in configs

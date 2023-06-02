@@ -358,4 +358,11 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 
 /* Is this option for a plugin? */
 bool is_plugin_opt(const struct opt_table *ot);
+
+/* Add this field if this ot is owned by a plugin */
+void json_add_config_plugin(struct json_stream *stream,
+			    const struct plugins *plugins,
+			    const char *fieldname,
+			    const struct opt_table *ot);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
