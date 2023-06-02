@@ -3546,7 +3546,7 @@ def test_keysend_strip_tlvs(node_factory):
         opts=[
             {
                 # Not needed, just for listconfigs test.
-                'accept-htlc-tlv-types': '133773310,99990',
+                'accept-htlc-tlv-type': [133773310, 99990],
                 "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
             },
             {
@@ -3556,7 +3556,7 @@ def test_keysend_strip_tlvs(node_factory):
     )
 
     # Make sure listconfigs works here
-    assert l1.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310,99990'
+    assert l1.rpc.listconfigs('accept-htlc-tlv-type')['configs']['accept-htlc-tlv-type']['values_int'] == [133773310, 99990]
 
     # l1 is configured to accept, so l2 should still filter them out
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})

@@ -8,6 +8,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/type_to_string.h>
+#include <errno.h>
 #include <plugins/libplugin-pay.h>
 #include <sodium.h>
 
@@ -161,29 +162,65 @@ REGISTER_PAYMENT_MODIFIER(check_preapprovekeysend, void *, NULL,
  * End of check_preapprovekeysend modifier
  *****************************************************************************/
 
+/* Deprecated: comma-separated string containing integers */
+static bool json_accumulate_uintarr(const char *buffer,
+				    const jsmntok_t *tok,
+				    u64 **dest)
+{
+	char *str = json_strdup(NULL, buffer, tok);
+	char *endp, **elements = tal_strsplit(str, str, ",", STR_NO_EMPTY);
+	unsigned long long l;
+	u64 u;
+	for (int i = 0; elements[i] != NULL; i++) {
+		/* This is how the manpage says to do it.  Yech. */
+		errno = 0;
+		l = strtoull(elements[i], &endp, 0);
+		if (*endp || !str[0])
+			return false;
+		u = l;
+		if (errno || u != l)
+			return false;
+		tal_arr_expand(dest, u);
+	}
+	tal_free(str);
+	return NULL;
+}
+
+/* values_int is a JSON array of u64s */
+static bool jsonarr_accumulate_u64(const char *buffer,
+				   const jsmntok_t *tok,
+				   u64 **dest)
+{
+	const jsmntok_t *t;
+	size_t i, n;
+
+	if (tok->type != JSMN_ARRAY)
+		return false;
+	n = tal_count(*dest);
+	tal_resize(dest, n + tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_u64(buffer, t, &(*dest)[n + i]))
+			return false;
+	}
+	return true;
+}
+
 static const char *init(struct plugin *p, const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	const jsmntok_t *maxdelay, *extratlvs, *ctok;
-	const char *cbuf;
-
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)), "{id:%}",
 		 JSON_SCAN(json_to_node_id, &my_id));
 
-	ctok =
-	    jsonrpc_request_sync(tmpctx, p, "listconfigs",
-				 take(json_out_obj(NULL, NULL, NULL)), &cbuf);
-	/* `accept-htlc-tlv-types` may be missing if not set in the
-	 * config */
-	maxdelay = json_get_member(cbuf, ctok, "max-locktime-blocks");
-	extratlvs = json_get_member(cbuf, ctok, "accept-htlc-tlv-types");
 	accepted_extra_tlvs = notleak(tal_arr(NULL, u64, 0));
-
-	assert(maxdelay != NULL);
-	json_to_number(cbuf, maxdelay, &maxdelay_default);
-
-	if (extratlvs != NULL)
-		json_to_uintarr(cbuf, extratlvs, &accepted_extra_tlvs);
+	/* accept-htlc-tlv-types deprecated in v23.08, but still grab it! */
+	rpc_scan(p, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:{"
+		 "max-locktime-blocks:{value_int:%},"
+		 "accept-htlc-tlv-types?:{value_str:%},"
+		 "accept-htlc-tlv-type:{values_int:%}}}",
+		 JSON_SCAN(json_to_u32, &maxdelay_default),
+		 JSON_SCAN(json_accumulate_uintarr, &accepted_extra_tlvs),
+		 JSON_SCAN(jsonarr_accumulate_u64, &accepted_extra_tlvs));
 
 	return NULL;
 }

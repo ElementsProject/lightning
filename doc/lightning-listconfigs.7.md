@@ -323,7 +323,7 @@ On success, an object is returned, containing:
 - **force-feerates** (string, optional): force-feerate configuration setting, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
 - **fetchinvoice-noconnect** (boolean, optional): `fetchinvoice-noconnect` fields from config or cmdline, or default
-- **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` fields from config or cmdline, or not present
+- **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` field from config or cmdline, or not present **deprecated, removal in v24.05**
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 - **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement **deprecated, removal in v24.05** *(added v22.11.1)*
@@ -446,4 +446,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c847cb106f78f616b3adfe506ef499c9228f3966a44e6164b9cf49e1cf67d417)
+[comment]: # ( SHA256STAMP:a3d32b74eb78b014e39ea85c19b3366e0468087ae44da633e9d5a194d2fe11b6)
