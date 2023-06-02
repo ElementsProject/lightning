@@ -683,7 +683,9 @@ int connectd_init(struct lightningd *ld)
 		wireaddrs->u.allproto.is_websocket = false;
 		wireaddrs->u.allproto.port = ld->portnum;
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
-	}
+	} else
+		/* Make it clear that autolisten is not active! */
+		ld->autolisten = false;
 
 	msg = towire_connectd_init(
 	    tmpctx, chainparams,

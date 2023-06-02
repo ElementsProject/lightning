@@ -4,6 +4,1288 @@
   "additionalProperties": false,
   "required": [],
   "properties": {
+    "configs": {
+      "added": "v23.08",
+      "type": "object",
+      "comment": "Plugins can add fields to this, so we can't rule out additional properties :(",
+      "additionalProperties": true,
+      "required": [],
+      "properties": {
+        "conf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from cmdline"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "cmdline"
+              ],
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "clear-plugins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "disable-mpp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "mainnet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "regtest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "signet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "testnet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "important-plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "plugin-dir": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "lightning-dir": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default (can also be changed by `testnet`, `signet`, `regtest` options!)"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "allow-deprecated-apis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "rpc-file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "disable-plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "always-use-proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "daemon": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "wallet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "large-channels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-dual-fund": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-onion-messages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-offers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-shutdown-wrong-funding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-websocket-port": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "experimental-peer-storage": {
+          "added": "v23.02",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "database-upgrade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "rgb": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "hex",
+              "description": "field from config or cmdline, or default",
+              "maxLength": 6,
+              "minLength": 6
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "alias": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "pid-file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "ignore-fee-limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "watchtime-blocks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "max-locktime-blocks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "funding-confirms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "cltv-delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "cltv-final": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "commit-time": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "fee-base": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "rescan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "integer",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "fee-per-satoshi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "max-concurrent-htlcs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "htlc-minimum-msat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_msat",
+            "source"
+          ],
+          "properties": {
+            "value_msat": {
+              "type": "msat",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "htlc-maximum-msat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_msat",
+            "source"
+          ],
+          "properties": {
+            "value_msat": {
+              "type": "msat",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "max-dust-htlc-exposure-msat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_msat",
+            "source"
+          ],
+          "properties": {
+            "value_msat": {
+              "type": "msat",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "min-capacity-sat": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u64",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "addr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "announce-addr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "bind-addr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "offline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "autolisten": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "disable-dns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "announce-addr-discovered": {
+          "added": "v23.02",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false",
+                "auto"
+              ],
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "announce-addr-discovered-port": {
+          "added": "v23.02",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "encrypted-hsm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "rpc-file-mode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "log-level": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "log-prefix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "log-file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "log-timestamps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "force-feerates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "subdaemon": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "values_str",
+            "sources"
+          ],
+          "properties": {
+            "values_str": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "field from config or cmdline"
+              }
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "source of configuration setting"
+              }
+            }
+          }
+        },
+        "fetchinvoice-noconnect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "accept-htlc-tlv-types": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "tor-service-password": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_str",
+            "source"
+          ],
+          "properties": {
+            "value_str": {
+              "type": "string",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "announce-addr-dns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "require-confirmed-inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_bool",
+            "source"
+          ],
+          "properties": {
+            "value_bool": {
+              "type": "boolean",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
+        "commit-fee": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u64",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        }
+      }
+    },
     "# version": {
       "type": "string",
       "description": "Special field indicating the current version"
@@ -111,7 +1393,7 @@
     },
     "wallet": {
       "type": "string",
-      "description": "`wallet` field from config or cmdline, or default"
+      "description": "`wallet` field from config or cmdline default"
     },
     "large-channels": {
       "type": "boolean",

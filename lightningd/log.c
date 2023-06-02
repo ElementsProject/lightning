@@ -628,7 +628,8 @@ static char *arg_log_prefix(const char *arg, struct log_book *log_book)
 static bool show_log_prefix(char *buf, size_t len, const struct log_book *log_book)
 {
 	strncpy(buf, log_book->prefix, len);
-	return true;
+	/* Default is empty, so don't print that! */
+	return !streq(log_book->prefix, "");
 }
 
 static int signalfds[2];

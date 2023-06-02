@@ -35,6 +35,226 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
+- **configs** (object, optional) *(added v23.08)*:
+  - **conf** (object, optional):
+    - **value\_str** (string): field from cmdline
+    - **source** (string): source of configuration setting (always "cmdline")
+  - **clear-plugins** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **disable-mpp** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **mainnet** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **regtest** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **signet** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **testnet** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **important-plugin** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **plugin** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **plugin-dir** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **lightning-dir** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **network** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default (can also be changed by `testnet`, `signet`, `regtest` options!)
+    - **source** (string): source of configuration setting
+  - **allow-deprecated-apis** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **rpc-file** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **disable-plugin** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **always-use-proxy** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **daemon** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **wallet** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **large-channels** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **experimental-dual-fund** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **experimental-onion-messages** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **experimental-offers** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **experimental-shutdown-wrong-funding** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **experimental-websocket-port** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **experimental-peer-storage** (object, optional) *(added v23.02)*:
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **database-upgrade** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **rgb** (object, optional):
+    - **value\_str** (hex): field from config or cmdline, or default (always 6 characters)
+    - **source** (string): source of configuration setting
+  - **alias** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **pid-file** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **ignore-fee-limits** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **watchtime-blocks** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **max-locktime-blocks** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **funding-confirms** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **cltv-delta** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **cltv-final** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **commit-time** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **fee-base** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **rescan** (object, optional):
+    - **value\_int** (integer): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **fee-per-satoshi** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **max-concurrent-htlcs** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **htlc-minimum-msat** (object, optional):
+    - **value\_msat** (msat): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **htlc-maximum-msat** (object, optional):
+    - **value\_msat** (msat): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **max-dust-htlc-exposure-msat** (object, optional):
+    - **value\_msat** (msat): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **min-capacity-sat** (object, optional):
+    - **value\_int** (u64): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **addr** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **announce-addr** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **bind-addr** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **offline** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **autolisten** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **proxy** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **disable-dns** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **announce-addr-discovered** (object, optional) *(added v23.02)*:
+    - **value\_str** (string): field from config or cmdline, or default (one of "true", "false", "auto")
+    - **source** (string): source of configuration setting
+  - **announce-addr-discovered-port** (object, optional) *(added v23.02)*:
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **encrypted-hsm** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **rpc-file-mode** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **log-level** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **log-prefix** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **log-file** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **log-timestamps** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **force-feerates** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **subdaemon** (object, optional):
+    - **values\_str** (array of strings):
+      - field from config or cmdline
+    - **sources** (array of strings):
+      - source of configuration setting
+  - **fetchinvoice-noconnect** (object, optional):
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
+  - **accept-htlc-tlv-types** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **tor-service-password** (object, optional):
+    - **value\_str** (string): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **announce-addr-dns** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **require-confirmed-inputs** (object, optional):
+    - **value\_bool** (boolean): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
+  - **commit-fee** (object, optional):
+    - **value\_int** (u64): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
 - **# version** (string, optional): Special field indicating the current version
 - **plugins** (array of objects, optional):
   - **path** (string): Full path of the plugin
@@ -55,7 +275,7 @@ On success, an object is returned, containing:
 - **bookkeeper-db** (string, optional): `bookkeeper-db` field from config or cmdline, or default
 - **always-use-proxy** (boolean, optional): `always-use-proxy` field from config or cmdline, or default
 - **daemon** (boolean, optional): `daemon` field from config or cmdline, or default
-- **wallet** (string, optional): `wallet` field from config or cmdline, or default
+- **wallet** (string, optional): `wallet` field from config or cmdline default
 - **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default
 - **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default
 - **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default
@@ -226,4 +446,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a0058065f618170918c09d1672d5800beeff01f0fd2d13914a4ec238398f30c3)
+[comment]: # ( SHA256STAMP:c847cb106f78f616b3adfe506ef499c9228f3966a44e6164b9cf49e1cf67d417)
