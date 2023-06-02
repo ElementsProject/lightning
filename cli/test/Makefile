@@ -19,6 +19,7 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/setup.o				\
 	common/utils.o				\
+	common/version.o			\
 	common/type_to_string.o			\
 	common/permute_tx.o
 

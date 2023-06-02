@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
+#include <common/configvar.h>
 #include <common/version.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,13 +14,20 @@ const char *version(void)
 	return VERSION;
 }
 
-char *version_and_exit(const void *unused UNUSED)
+static char *version_and_exit(const void *unused UNUSED)
 {
 	printf("%s\n", VERSION);
 	if (BUILD_FEATURES[0]) {
 		printf("Built with features: %s\n", BUILD_FEATURES);
 	}
 	exit(0);
+}
+
+void opt_register_version(void)
+{
+	clnopt_noarg("--version|-V", OPT_EARLY|OPT_EXITS,
+		     version_and_exit, NULL,
+		     "Print version and exit");
 }
 
 static bool cmp_release_version(const char *version) {
