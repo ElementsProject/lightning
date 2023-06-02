@@ -22,4 +22,6 @@ enum opt_autobool {
 char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b);
 bool opt_show_autobool(char *buf, size_t len, const enum opt_autobool *b);
 
+/* opt_bool is quite loose; you should use this if wanting to add it to JSON */
+bool opt_canon_bool(const char *val);
 #endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */

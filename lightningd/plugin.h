@@ -125,29 +125,18 @@ struct plugins {
 #endif /* DEVELOPER */
 };
 
-/* The value of a plugin option, which can have different types.
- * The presence of the integer and boolean values will depend of
- * the option type, but the string value will always be filled.
- */
-struct plugin_opt_value {
-	char *as_str;
-	s64 as_int;
-	bool as_bool;
-};
-
 /**
  * Simple storage for plugin options inbetween registering them on the
  * command line and passing them off to the plugin
  */
 struct plugin_opt {
+	/* off plugin->plugin_opts */
 	struct list_node list;
+	/* includes -- prefix! */
 	const char *name;
-	const char *type;
 	const char *description;
-	struct plugin_opt_value **values;
-	/* Might be NULL if no default */
-	struct plugin_opt_value *def;
-	bool multi;
+	/* NULL if no default */
+	const char *def;
 	bool deprecated;
 };
 
@@ -367,4 +356,6 @@ struct log *plugin_get_log(struct plugin *plugin);
 void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				     const char *dir);
 
+/* Is this option for a plugin? */
+bool is_plugin_opt(const struct opt_table *ot);
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

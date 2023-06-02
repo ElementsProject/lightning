@@ -68,7 +68,7 @@ def test_option_passthrough(node_factory, directory):
         ], capture_output=True, check=True).stderr.decode('utf-8')
 
         # first come first serve
-        assert("error starting plugin '{}': option name '--greeting' is already taken".format(plugin_path2) in err_out)
+        assert("error starting plugin '{}': option name 'greeting' is already taken".format(plugin_path2) in err_out)
 
 
 def test_option_types(node_factory):
@@ -113,27 +113,39 @@ def test_option_types(node_factory):
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    wait_for(lambda: n.daemon.is_in_stderr('--bool_opt=!: ! does not parse as type bool'))
+    wait_for(lambda: n.daemon.is_in_stderr("--bool_opt=!: Invalid argument '!'"))
 
     # What happens if we give it a bad int-option?
     n = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 'notok',
-        'bool_opt': 1,
+        'bool_opt': True,
     }, may_fail=True, start=False)
 
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr('--int_opt=notok: notok does not parse as type int')
+    assert n.daemon.is_in_stderr("--int_opt=notok: 'notok' is not a number")
+
+    # We no longer allow '1' or '0' as boolean options
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_opt': 'ok',
+        'bool_opt': '1',
+    }, may_fail=True, start=False)
+
+    # the node should fail after start, and we get a stderr msg
+    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert n.daemon.wait() == 1
+    assert n.daemon.is_in_stderr("--bool_opt=1: boolean plugin arguments must be true or false")
 
     # Flag opts shouldn't allow any input
     n = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 11,
-        'bool_opt': 1,
+        'bool_opt': True,
         'flag_opt': True,
     }, may_fail=True, start=False)
 
@@ -4144,3 +4156,42 @@ def test_sql_deprecated(node_factory, bitcoind):
 
     #  ret = l1.rpc.sql("SELECT funding_local_msat, funding_remote_msat FROM peerchannels;")
     #  assert ret == {'rows': []}
+
+
+def test_plugin_persist_option(node_factory):
+    """test that options from config file get remembered across plugin stop/start"""
+    plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
+
+    l1 = node_factory.get_node(options={"plugin": plugin_path,
+                                        "greeting": "Static option"})
+    assert l1.rpc.call("hello") == "Static option world"
+    c = l1.rpc.listconfigs('greeting')['configs']['greeting']
+    assert c['source'] == "cmdline"
+    assert c['value_str'] == "Static option"
+    l1.rpc.plugin_stop(plugin_path)
+    assert 'greeting' not in l1.rpc.listconfigs()['configs']
+
+    # Restart works
+    l1.rpc.plugin_start(plugin_path)
+    c = l1.rpc.listconfigs('greeting')['configs']['greeting']
+    assert c['source'] == "cmdline"
+    assert c['value_str'] == "Static option"
+    assert l1.rpc.call("hello") == "Static option world"
+    l1.rpc.plugin_stop(plugin_path)
+    assert 'greeting' not in l1.rpc.listconfigs()['configs']
+
+    # This overrides!
+    l1.rpc.plugin_start(plugin_path, greeting="Dynamic option")
+    c = l1.rpc.listconfigs('greeting')['configs']['greeting']
+    assert c['source'] == "pluginstart"
+    assert c['value_str'] == "Dynamic option"
+    assert l1.rpc.call("hello") == "Dynamic option world"
+    l1.rpc.plugin_stop(plugin_path)
+    assert 'greeting' not in l1.rpc.listconfigs()['configs']
+
+    # Now restored!
+    l1.rpc.plugin_start(plugin_path)
+    c = l1.rpc.listconfigs('greeting')['configs']['greeting']
+    assert c['source'] == "cmdline"
+    assert c['value_str'] == "Static option"
+    assert l1.rpc.call("hello") == "Static option world"
