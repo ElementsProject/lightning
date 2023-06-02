@@ -557,6 +557,13 @@ static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
 static char *opt_clear_plugins(struct lightningd *ld)
 {
 	clear_plugins(ld->plugins);
+
+	/* Remove from configvars too! */
+	for (size_t i = 0; i < tal_count(ld->configvars); i++) {
+		if (streq(ld->configvars[i]->optvar, "plugin")
+		    || streq(ld->configvars[i]->optvar, "plugin-dir"))
+			ld->configvars[i]->overridden = true;
+	}
 	return NULL;
 }
 
