@@ -1050,7 +1050,9 @@ static const char *init(struct plugin *p,
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{cltv-final:%,experimental-offers:%}",
+		 "{configs:"
+		 "{cltv-final:{value_int:%},"
+		 "experimental-offers:{set:%}}}",
 		 JSON_SCAN(json_to_u16, &cltv_final),
 		 JSON_SCAN(json_to_bool, &offers_enabled));
 

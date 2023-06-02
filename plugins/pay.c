@@ -582,7 +582,9 @@ static const char *init(struct plugin *p,
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{max-locktime-blocks:%,experimental-offers:%}",
+		 "{configs:"
+		 "{max-locktime-blocks:{value_int:%},"
+		 "experimental-offers:{set:%}}}",
 		 JSON_SCAN(json_to_number, &maxdelay_default),
 		 JSON_SCAN(json_to_bool, &exp_offers));
 

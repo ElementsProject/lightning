@@ -1713,7 +1713,7 @@ static void json_add_opt_subdaemons(struct json_stream *response,
 }
 
 /* Canonicalize value they've given */
-static bool canon_bool(const char *val)
+bool opt_canon_bool(const char *val)
 {
 	bool b;
 	opt_set_bool_arg(val, &b);
@@ -1748,6 +1748,10 @@ static void add_config_deprecated(struct lightningd *ld,
 
 	/* Ignore hidden options (deprecated) */
 	if (opt->desc == opt_hidden)
+		return;
+
+	/* We print plugin options under plugins[] or important-plugins[] */
+	if (is_plugin_opt(opt))
 		return;
 
 	if (opt->type & OPT_NOARG) {
@@ -1801,12 +1805,9 @@ static void add_config_deprecated(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_QUIESCE));
-		} else if (opt->cb == (void *)plugin_opt_flag_set) {
-			/* Noop, they will get added below along with the
-			 * OPT_HASARG options. */
 		} else {
 			/* Insert more decodes here! */
-			errx(1, "Unknown decode for %s", opt->names);
+			errx(1, "Unknown nonarg decode for %s", opt->names);
 		}
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->show == (void *)opt_show_charp) {
@@ -1828,7 +1829,7 @@ static void add_config_deprecated(struct lightningd *ld,
 				return;
 			} else if (opt->type & OPT_SHOWBOOL) {
 				/* We allow variants here.  Json-ize */
-				json_add_bool(response, name0, canon_bool(buf));
+				json_add_bool(response, name0, opt_canon_bool(buf));
 				return;
 			}
 			answer = buf;
@@ -1889,9 +1890,7 @@ static void add_config_deprecated(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by
 			 * opt_add_plugin.  */
-		} else if (opt->cb_arg == (void *)opt_add_plugin_dir
-			   || opt->cb_arg == (void *)plugin_opt_set
-			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
+		} else if (opt->cb_arg == (void *)opt_add_plugin_dir) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
 		} else if (opt->cb_arg == (void *)opt_add_accept_htlc_tlv) {
@@ -1913,7 +1912,7 @@ static void add_config_deprecated(struct lightningd *ld,
 #endif
 		} else {
 			/* Insert more decodes here! */
-			errx(1, "Unknown decode for %s", opt->names);
+			errx(1, "Unknown arg decode for %s", opt->names);
 		}
 	}
 
@@ -1974,6 +1973,10 @@ static const char *get_opt_val(const struct opt_table *ot,
 		return *(char **)ot->u.carg;
 	}
 	if (ot->show) {
+		/* Plugins options' show only shows defaults, so show val if
+		 * we have it */
+		if (is_plugin_opt(ot) && cv)
+			return cv->optarg;
 		strcpy(buf + CONFIG_SHOW_BUFSIZE, "...");
 		if (ot->show(buf, CONFIG_SHOW_BUFSIZE, ot->u.carg))
 			return buf;
@@ -2025,7 +2028,7 @@ static void json_add_configval(struct json_stream *result,
 			       const char *str)
 {
 	if (ot->type & OPT_SHOWBOOL) {
-		json_add_bool(result, fieldname, canon_bool(str));
+		json_add_bool(result, fieldname, opt_canon_bool(str));
 	} else if (ot->type & (OPT_SHOWMSATS|OPT_SHOWINT)) {
 		check_literal(ot->names, str);
 		json_add_primitive(result, fieldname, str);
@@ -2068,11 +2071,6 @@ static void json_add_config(struct lightningd *ld,
 	}
 
 	assert(ot->type & OPT_HASARG);
-
-	/* FIXME: handle plugin options: either the default or what they set */
-	if (ot->cb_arg == (void *)plugin_opt_set)
-		return;
-
 	if (ot->type & OPT_MULTI) {
 		json_object_start(response, names[0]);
 		json_array_start(response, configval_fieldname(ot));

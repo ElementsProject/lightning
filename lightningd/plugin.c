@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
 #include <common/configdir.h>
+#include <common/configvar.h>
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
@@ -819,95 +820,77 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 			       plugin_read_json, plugin);
 }
 
-
-/* Returns NULL if invalid value for that type */
-static struct plugin_opt_value *plugin_opt_value(const tal_t *ctx,
-						 const char *type,
-						 const char *arg)
+static char *plugin_opt_check(struct plugin_opt *popt)
 {
-	struct plugin_opt_value *v = tal(ctx, struct plugin_opt_value);
-
-	v->as_str = tal_strdup(v, arg);
-	if (streq(type, "int")) {
-		long long l;
-		char *endp;
-
-		errno = 0;
-		l = strtoll(arg, &endp, 0);
-		if (errno || *endp)
-			return tal_free(v);
-		v->as_int = l;
-
-		/* Check if the number did not fit in `s64` (in case `long long`
-		 * is a bigger type). */
-		if (v->as_int != l)
-			return tal_free(v);
-	} else if (streq(type, "bool")) {
-		/* valid values are 'true', 'True', '1', '0', 'false', 'False', or '' */
-		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
-			v->as_bool = true;
-		} else if (streq(arg, "false") || streq(arg, "False")
-				|| streq(arg, "0")) {
-			v->as_bool = false;
-		} else
-			return tal_free(v);
-	} else if (streq(type, "flag")) {
-		v->as_bool = true;
-	}
-
-	return v;
-}
-
-char *plugin_opt_flag_set(struct plugin_opt *popt)
-{
-	/* A set flag is a true */
-	tal_free(popt->values);
-	popt->values = tal_arr(popt, struct plugin_opt_value *, 1);
-	popt->values[0] = plugin_opt_value(popt->values, popt->type, "true");
-	return NULL;
-}
-
-char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
-{
-	struct plugin_opt_value *v;
-
 	/* Warn them that this is deprecated */
 	if (popt->deprecated && !deprecated_apis)
 		return tal_fmt(tmpctx, "deprecated option (will be removed!)");
-
-	if (!popt->multi) {
-		tal_free(popt->values);
-		popt->values = tal_arr(popt, struct plugin_opt_value *, 0);
-	}
-
-	v = plugin_opt_value(popt->values, popt->type, arg);
-	if (!v)
-		return tal_fmt(tmpctx, "%s does not parse as type %s",
-			       arg, popt->type);
-	tal_arr_expand(&popt->values, v);
-
 	return NULL;
 }
 
-/* Returns true if "name" was already registered and now overwritten. */
-static bool plugin_opt_register(struct plugin_opt *popt)
+/* We merely check they're valid: the values stay in configvars */
+static char *plugin_opt_string_check(const char *arg, struct plugin_opt *popt)
 {
-	bool was_registered = opt_unregister(popt->name);
-	if (streq(popt->type, "flag"))
-		opt_register_noarg(popt->name, plugin_opt_flag_set, popt,
-				   popt->description);
-	else
-		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
-				 popt->description);
-
-	return was_registered;
+	return plugin_opt_check(popt);
 }
 
-static void destroy_plugin_opt(struct plugin_opt *opt)
+static char *plugin_opt_long_check(const char *arg, struct plugin_opt *popt)
 {
-	/* does nothing when "name" registration replaced its double */
+	long v;
+	char *ret = opt_set_longval(arg, &v);
+	if (ret)
+		return ret;
+	return plugin_opt_check(popt);
+}
+
+static char *plugin_opt_bool_check(const char *arg, struct plugin_opt *popt)
+{
+	/* FIXME: For some reason, '1' and '0' were allowed here? */
+	if (streq(arg, "1") || streq(arg, "0")) {
+		if (!deprecated_apis)
+			return "boolean plugin arguments must be true or false";
+	} else {
+		bool v;
+		char *ret = opt_set_bool_arg(arg, &v);
+		if (ret)
+			return ret;
+	}
+	return plugin_opt_check(popt);
+}
+
+static char *plugin_opt_flag_check(struct plugin_opt *popt)
+{
+	return plugin_opt_check(popt);
+}
+
+static bool popt_show_default(char *buf, size_t len,
+			      const struct plugin_opt *popt)
+{
+	if (!popt->def)
+		return false;
+	strncpy(buf, popt->def, len);
+	return true;
+}
+
+static void destroy_plugin_opt(struct plugin_opt *opt,
+			       struct plugin *plugin)
+{
 	opt_unregister(opt->name);
-	list_del(&opt->list);
+	list_del_from(&plugin->plugin_opts, &opt->list);
+	/* If any configvars were added on `plugin start`, remove now */
+	configvar_remove(&plugin->plugins->ld->configvars,
+			 opt->name + 2, /* Skip -- */
+			 CONFIGVAR_PLUGIN_START, NULL);
+}
+
+bool is_plugin_opt(const struct opt_table *ot)
+{
+	if (ot->type & OPT_NOARG)
+		return ot->cb == (void *)plugin_opt_flag_check;
+
+	return ot->cb_arg == (void *)plugin_opt_string_check
+		|| ot->cb_arg == (void *)plugin_opt_long_check
+		|| ot->cb_arg == (void *)plugin_opt_bool_check;
 }
 
 /* Add a single plugin option to the plugin as well as registering it with the
@@ -917,6 +900,9 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 {
 	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deptok, *multitok;
 	struct plugin_opt *popt;
+	bool multi;
+	const char *name;
+
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
 	desctok = json_get_member(buffer, opt, "description");
@@ -930,80 +916,100 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	}
 
 	popt = tal(plugin, struct plugin_opt);
-	popt->values = tal_arr(popt, struct plugin_opt_value *, 0);
+	popt->name = tal_fmt(popt, "--%s",
+			     json_strdup(tmpctx, buffer, nametok));
+	name = popt->name + 2;
+	popt->def = NULL;
 
-	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
-			     buffer + nametok->start);
+	/* Only allow sane option names  */
+	if (strspn(name, "0123456789" "abcdefghijklmnopqrstuvwxyz" "_-")
+	    != strlen(name))
+		return tal_fmt(plugin, "Option \"name\" must be lowercase alphanumeric, plus _ or -'");
 
-	/* an "|" alias could circumvent the unique-option-name check */
-	if (strchr(popt->name, '|'))
-		return tal_fmt(plugin, "Option \"name\" may not contain '|'");
+	/* Don't allow duplicate names! */
+	if (opt_find_long(name, NULL)) {
+		/* Fail hard on startup */
+		if (plugin->plugins->startup)
+			fatal("error starting plugin '%s':"
+			      " option name '%s' is already taken",
+			      plugin->cmd, name);
+		return tal_fmt(plugin, "Option \"%s\" already registered",
+			       name);
+	}
 
 	popt->description = json_strdup(popt, buffer, desctok);
 	if (deptok) {
 		if (!json_to_bool(buffer, deptok, &popt->deprecated))
 			return tal_fmt(plugin,
 				       "%s: invalid \"deprecated\" field %.*s",
-				       popt->name,
+				       name,
 				       deptok->end - deptok->start,
 				       buffer + deptok->start);
 	} else
 		popt->deprecated = false;
 
 	if (multitok) {
-		if (!json_to_bool(buffer, multitok, &popt->multi))
+		if (!json_to_bool(buffer, multitok, &multi))
 			return tal_fmt(plugin,
 				       "%s: invalid \"multi\" field %.*s",
-				       popt->name,
+				       name,
 				       multitok->end - multitok->start,
 				       buffer + multitok->start);
 	} else
-		popt->multi = false;
+		multi = false;
 
-	popt->def = NULL;
-	if (json_tok_streq(buffer, typetok, "string")) {
-		popt->type = "string";
-	} else if (json_tok_streq(buffer, typetok, "int")) {
-		popt->type = "int";
-	} else if (json_tok_streq(buffer, typetok, "bool")
-		   || json_tok_streq(buffer, typetok, "flag")) {
-		popt->type = json_strdup(popt, buffer, typetok);
-		if (popt->multi)
-			return tal_fmt(plugin,
-				       "%s type \"%s\" cannot have multi",
-				       popt->name, popt->type);
-		/* We default flags to false, the default token is ignored */
-		if (json_tok_streq(buffer, typetok, "flag") && defaulttok) {
+	if (json_tok_streq(buffer, typetok, "flag")) {
+		if (defaulttok) {
 			if (!deprecated_apis) {
 				return tal_fmt(plugin, "%s type flag cannot have default",
 					       popt->name);
 			}
 			defaulttok = NULL;
 		}
+		if (multi)
+			return tal_fmt(plugin, "flag type cannot be multi");
+		clnopt_noarg(popt->name,
+			     0,
+			     plugin_opt_flag_check, popt,
+			     popt->description);
 	} else {
-		return tal_fmt(plugin,
-			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
-	}
+		/* These all take an arg. */
+		char *(*cb_arg)(const char *optarg, void *arg);
+		enum opt_type optflags = multi ? OPT_MULTI : 0;
 
-	if (defaulttok && !json_tok_is_null(buffer, defaulttok)) {
-		popt->def = plugin_opt_value(popt, popt->type,
-					     json_strdup(tmpctx, buffer, defaulttok));
-		if (!popt->def)
-			return tal_fmt(tmpctx, "default %.*s is not a valid %s",
-				       json_tok_full_len(defaulttok),
-				       json_tok_full(buffer, defaulttok),
-				       popt->type);
-	}
+		if (json_tok_streq(buffer, typetok, "string")) {
+			cb_arg = (void *)plugin_opt_string_check;
+		} else if (json_tok_streq(buffer, typetok, "int")) {
+			cb_arg = (void *)plugin_opt_long_check;
+			optflags |= OPT_SHOWINT;
+		} else if (json_tok_streq(buffer, typetok, "bool")) {
+			if (multi)
+				return tal_fmt(plugin, "bool type cannot be multi");
+			optflags |= OPT_SHOWBOOL;
+			cb_arg = (void *)plugin_opt_bool_check;
+		} else {
+			return tal_fmt(plugin,
+				       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
+		}
 
+		/* Now we know how to parse defaulttok */
+		if (defaulttok && !json_tok_is_null(buffer, defaulttok)) {
+			const char *problem;
+			popt->def = json_strdup(popt, buffer, defaulttok);
+			/* Parse it exactly like the normal code path. */
+			problem = cb_arg(popt->def, popt);
+			if (problem)
+				return tal_fmt(plugin, "Invalid default '%s': %s",
+					       popt->def, tal_steal(tmpctx, problem));
+		}
+		/* show is only used for defaults: listconfigs uses
+		 * configvar if it's set. */
+		clnopt_witharg(popt->name,
+			       optflags, cb_arg, popt_show_default, popt, popt->description);
+	}
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
-
-	/* Command line options are parsed only during ld's startup and each "name"
-	 * only once. Always registers to satisfy destructor */
-	if (plugin_opt_register(popt) && plugin->plugins->startup)
-		fatal("error starting plugin '%s': option name '%s' is already taken", plugin->cmd, popt->name);
-
-	tal_add_destructor(popt, destroy_plugin_opt);
+	tal_add_destructor2(popt, destroy_plugin_opt, plugin);
 	return NULL;
 }
 
@@ -1014,6 +1020,8 @@ static const char *plugin_opts_add(struct plugin *plugin,
 				   const jsmntok_t *resulttok)
 {
 	const jsmntok_t *options = json_get_member(buffer, resulttok, "options");
+	size_t i;
+	const jsmntok_t *t;
 
 	if (!options) {
 		return tal_fmt(plugin,
@@ -1024,9 +1032,8 @@ static const char *plugin_opts_add(struct plugin *plugin,
 		return tal_fmt(plugin, "\"result.options\" is not an array");
 	}
 
-	for (size_t i = 0; i < options->size; i++) {
-		const char *err;
-		err = plugin_opt_add(plugin, buffer, json_get_arr(options, i));
+	json_for_each_arr(i, t, options) {
+		const char *err = plugin_opt_add(plugin, buffer, t);
 		if (err)
 			return err;
 	}
@@ -1347,21 +1354,22 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	return NULL;
 }
 
-static struct plugin_opt *plugin_opt_find(struct plugin *plugin,
-					  const char *name, size_t namelen)
+static struct plugin_opt *plugin_opt_find(const struct plugin *plugin,
+					  const char *name)
 {
 	struct plugin_opt *opt;
 
 	list_for_each(&plugin->plugin_opts, opt, list) {
-		/* Trim the `--` that we added before */
-		if (memeqstr(name, namelen, opt->name + 2))
+		if (streq(opt->name + 2, name))
 			return opt;
 	}
 	return NULL;
 }
 
-/* start command might have included plugin-specific parameters */
-static const char *plugin_add_params(struct plugin *plugin)
+/* Start command might have included plugin-specific parameters.
+ * We make sure they *are* parameters for this plugin, then add them
+ * to our configvars. */
+static const char *plugin_add_params(const struct plugin *plugin)
 {
 	size_t i;
 	const jsmntok_t *t;
@@ -1370,22 +1378,38 @@ static const char *plugin_add_params(struct plugin *plugin)
 		return NULL;
 
 	json_for_each_obj(i, t, plugin->params) {
-		struct plugin_opt *popt;
-		char *err;
+		struct opt_table *ot;
+		const char *name = json_strdup(tmpctx, plugin->parambuf, t);
+		struct configvar *cv;
+		const char *err;
 
-		popt = plugin_opt_find(plugin,
-				       plugin->parambuf + t->start,
-				       t->end - t->start);
-		if (!popt) {
-			return tal_fmt(plugin, "unknown parameter %.*s",
-				       json_tok_full_len(t),
-				       json_tok_full(plugin->parambuf, t));
+		/* This serves two purposes; make sure we don't set an option
+		 * for a different pligin on the plugin start cmdline, and
+		 * make sure we clean it up, since we only clean our own
+		 * configvars in destroy_plugin_opt */
+		if (!plugin_opt_find(plugin, name))
+			return tal_fmt(plugin, "unknown parameter %s", name);
+
+		ot = opt_find_long(name, NULL);
+		if (ot->type & OPT_HASARG) {
+			name = tal_fmt(NULL, "%s=%.*s",
+				       name,
+				       t[1].end - t[1].start,
+				       plugin->parambuf + t[1].start);
 		}
-		err = plugin_opt_set(json_strdup(tmpctx, plugin->parambuf,
-						 t + 1), popt);
+		cv = configvar_new(plugin->plugins->ld->configvars,
+				   CONFIGVAR_PLUGIN_START,
+				   NULL, 0, take(name));
+		tal_arr_expand(&plugin->plugins->ld->configvars, cv);
+
+		/* If this fails, we free plugin and unregister the configvar */
+		err = configvar_parse(cv, false, true, IFDEV(true, false));
 		if (err)
 			return err;
 	}
+
+	/* We might have overridden previous configvars */
+	configvar_finalize_overrides(plugin->plugins->ld->configvars);
 	return NULL;
 }
 
@@ -1841,59 +1865,86 @@ static void plugin_config_cb(const char *buffer,
 	check_plugins_initted(plugin->plugins);
 }
 
-static void json_add_plugin_opt(struct json_stream *stream,
+static void json_add_plugin_val(struct json_stream *stream,
+				const struct opt_table *ot,
 				const char *name,
-				const char *type,
-				const struct plugin_opt_value *value)
+				const char *val)
 {
-	if (streq(type, "flag")) {
-		/* We don't include 'flag' types if they're not
-		 * flagged on */
-		if (value->as_bool)
-			json_add_bool(stream, name, value->as_bool);
-	} else if (streq(type, "bool")) {
-		json_add_bool(stream, name, value->as_bool);
-	} else if (streq(type, "string")) {
-		json_add_string(stream, name, value->as_str);
-	} else if (streq(type, "int")) {
-		json_add_s64(stream, name, value->as_int);
+	if ((ot->type & OPT_SHOWINT) || (ot->type & OPT_SHOWMSATS)) {
+		json_add_primitive(stream, name, val);
+	} else if (ot->type & OPT_SHOWBOOL) {
+		/* We allow variants here.  Json-ize */
+		json_add_bool(stream, name, opt_canon_bool(val));
+	} else {
+		json_add_string(stream, name, val);
 	}
+}
+
+static void json_add_plugin_options(struct json_stream *stream,
+				    const char *fieldname,
+				    struct plugin *plugin,
+				    bool include_deprecated)
+{
+	/* We don't allow multiple option names in plugins */
+	struct lightningd *ld = plugin->plugins->ld;
+	const char **namesarr = tal_arr(tmpctx, const char *, 1);
+	struct plugin_opt *popt;
+
+	json_object_start(stream, fieldname);
+	list_for_each(&plugin->plugin_opts, popt, list) {
+		struct configvar *cv;
+		const struct opt_table *ot;
+
+		if (popt->deprecated && !include_deprecated)
+			continue;
+
+		namesarr[0] = popt->name + 2;
+		cv = configvar_first(ld->configvars, namesarr);
+		if (!cv && !popt->def)
+			continue;
+
+		ot = opt_find_long(namesarr[0], NULL);
+		if (ot->type & OPT_MULTI) {
+			json_array_start(stream, namesarr[0]);
+			if (!cv) {
+				json_add_plugin_val(stream, ot, NULL,
+						    popt->def);
+			} else {
+				while (cv) {
+					json_add_plugin_val(stream,
+							    ot, NULL,
+							    cv->optarg);
+					cv = configvar_next(ld->configvars,
+							    cv, namesarr);
+				}
+			}
+			json_array_end(stream);
+		} else {
+			if (!cv) {
+				json_add_plugin_val(stream, ot,
+						    namesarr[0],
+						    popt->def);
+			} else if (cv->optarg) {
+				json_add_plugin_val(stream,
+						    ot,
+						    namesarr[0],
+						    cv->optarg);
+			} else {
+				/* We specify non-arg options as 'true' */
+				json_add_bool(stream, namesarr[0], true);
+			}
+		}
+	}
+	json_object_end(stream);
 }
 
 void
 plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 {
-	const char *name;
-	struct plugin_opt *opt;
 	struct lightningd *ld = plugin->plugins->ld;
 
 	/* Add .params.options */
-	json_object_start(req->stream, "options");
-	list_for_each(&plugin->plugin_opts, opt, list) {
-		/* Trim the `--` that we added before */
-		name = opt->name + 2;
-
-		/* If no values, assign default (if any!) */
-		if (tal_count(opt->values) == 0) {
-			if (opt->def)
-				tal_arr_expand(&opt->values, opt->def);
-			else
-				continue;
-		}
-
-		if (opt->multi) {
-			json_array_start(req->stream, name);
-			for (size_t i = 0; i < tal_count(opt->values); i++)
-				json_add_plugin_opt(req->stream, NULL,
-						    opt->type, opt->values[i]);
-			json_array_end(req->stream);
-		} else {
-			json_add_plugin_opt(req->stream, name,
-					    opt->type, opt->values[0]);
-		}
-	}
-	json_object_end(req->stream); /* end of .params.options */
-
+	json_add_plugin_options(req->stream, "options", plugin, true);
 	/* Add .params.configuration */
 	json_object_start(req->stream, "configuration");
 	json_add_string(req->stream, "lightning-dir", ld->config_netdir);
@@ -1970,8 +2021,6 @@ void json_add_opt_plugins_array(struct json_stream *response,
 				bool important)
 {
 	struct plugin *p;
-	struct plugin_opt *opt;
-	const char *opt_name;
 
 	/* we output 'plugins' and their options as an array of substructures */
 	json_array_start(response, name);
@@ -1987,29 +2036,8 @@ void json_add_opt_plugins_array(struct json_stream *response,
 		json_add_string(response, "name", p->shortname);
 
 		if (!list_empty(&p->plugin_opts)) {
-			json_object_start(response, "options");
-			list_for_each(&p->plugin_opts, opt, list) {
-				if (!deprecated_apis && opt->deprecated)
-					continue;
-
-				/* Trim the `--` that we added before */
-				opt_name = opt->name + 2;
-				if (opt->multi) {
-					json_array_start(response, opt_name);
-					for (size_t i = 0; i < tal_count(opt->values); i++)
-						json_add_plugin_opt(response,
-								    NULL,
-								    opt->type,
-								    opt->values[i]);
-					json_array_end(response);
-				} else if (tal_count(opt->values)) {
-					json_add_plugin_opt(response,
-							    opt_name,
-							    opt->type,
-							    opt->values[0]);
-				}
-			}
-			json_object_end(response);
+			json_add_plugin_options(response, "options", p,
+						!deprecated_apis);
 		}
 		json_object_end(response);
 	}

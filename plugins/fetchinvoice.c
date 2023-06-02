@@ -1617,7 +1617,7 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, "config", "experimental-offers")),
-		 "{experimental-offers:%}",
+		 "{configs:{experimental-offers:{set:%}}}",
 		 JSON_SCAN(json_to_bool, &exp_offers));
 
 	if (!exp_offers)
