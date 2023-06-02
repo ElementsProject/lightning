@@ -912,7 +912,7 @@ class Plugin(object):
                 m["long_description"] = method.long_desc
 
         manifest = {
-            'options': list(self.options.values()),
+            'options': list({k: v for k, v in d.items() if v is not None} for d in self.options.values()),
             'rpcmethods': methods,
             'subscriptions': list(self.subscriptions.keys()),
             'hooks': hooks,

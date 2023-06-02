@@ -973,8 +973,13 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				       "%s type \"%s\" cannot have multi",
 				       popt->name, popt->type);
 		/* We default flags to false, the default token is ignored */
-		if (json_tok_streq(buffer, typetok, "flag"))
+		if (json_tok_streq(buffer, typetok, "flag") && defaulttok) {
+			if (!deprecated_apis) {
+				return tal_fmt(plugin, "%s type flag cannot have default",
+					       popt->name);
+			}
 			defaulttok = NULL;
+		}
 	} else {
 		return tal_fmt(plugin,
 			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
