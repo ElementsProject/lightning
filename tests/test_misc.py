@@ -2253,7 +2253,7 @@ def test_config_in_subdir(node_factory, chainparams):
 
     out = subprocess.run(['lightningd/lightningd',
                           '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=TIMEOUT)
     assert out.returncode == 1
     assert "conf: not permitted in configuration files" in out.stderr.decode('utf-8')
 
@@ -2272,7 +2272,7 @@ def test_config_in_subdir(node_factory, chainparams):
                           '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert out.returncode == 1
-    assert "network: not permitted in network-specific configuration files" in out.stderr.decode('utf-8')
+    assert "network={}: not permitted in network-specific configuration files".format(network) in out.stderr.decode('utf-8')
 
     # lightning-dir only allowed if we explicitly use --conf
     os.unlink(os.path.join(subdir, "config"))
@@ -2283,7 +2283,7 @@ def test_config_in_subdir(node_factory, chainparams):
                           '--lightning-dir={}'.format(l1.daemon.opts.get("lightning-dir"))],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert out.returncode == 1
-    assert "lightning-dir: not permitted in implicit configuration files" in out.stderr.decode('utf-8')
+    assert "lightning-dir={}/test: not permitted in implicit configuration files".format(l1.daemon.opts.get("lightning-dir")) in out.stderr.decode('utf-8')
 
     l1.daemon.opts['conf'] = os.path.join(l1.daemon.opts.get("lightning-dir"), "config")
     l1.start()

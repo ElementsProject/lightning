@@ -1020,7 +1020,7 @@ int main(int argc, char *argv[])
 		fatal("Could not initialize the plugins, see above for details.");
 
 	/*~ Handle options and config. */
-	handle_opts(ld, argc, argv);
+	handle_opts(ld);
 
 	/*~ Now create the PID file: this errors out if there's already a
 	 * daemon running, so we call before doing almost anything else. */

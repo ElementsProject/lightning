@@ -3,6 +3,7 @@
 #include <common/amount.h>
 #include <common/bigsize.h>
 #include <common/channel_id.h>
+#include <common/configvar.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/setup.h>

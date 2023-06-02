@@ -85,6 +85,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/channel_type.o			\
 	common/coin_mvt.o			\
 	common/configdir.o			\
+	common/configvar.o			\
 	common/daemon.o				\
 	common/derive_basepoints.o		\
 	common/ecdh_hsmd.o			\

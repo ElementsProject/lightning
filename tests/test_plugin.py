@@ -113,7 +113,7 @@ def test_option_types(node_factory):
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    wait_for(lambda: n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool'))
+    wait_for(lambda: n.daemon.is_in_stderr('--bool_opt=!: ! does not parse as type bool'))
 
     # What happens if we give it a bad int-option?
     n = node_factory.get_node(options={
@@ -126,7 +126,7 @@ def test_option_types(node_factory):
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr('--int_opt: notok does not parse as type int')
+    assert n.daemon.is_in_stderr('--int_opt=notok: notok does not parse as type int')
 
     # Flag opts shouldn't allow any input
     n = node_factory.get_node(options={
@@ -140,7 +140,7 @@ def test_option_types(node_factory):
     # the node should fail after start, and we get a stderr msg
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
+    assert n.daemon.is_in_stderr("--flag_opt=True: doesn't allow an argument")
 
     n = node_factory.get_node(options={
         'plugin': plugin_path,
@@ -1568,7 +1568,7 @@ def test_libplugin(node_factory):
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
-    assert l1.daemon.is_in_stderr(r"somearg-deprecated: deprecated option")
+    assert l1.daemon.is_in_stderr(r"somearg-deprecated=test_opt: deprecated option")
 
     del l1.daemon.opts["somearg-deprecated"]
     l1.start()

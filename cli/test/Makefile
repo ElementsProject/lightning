@@ -10,6 +10,7 @@ ALL_TEST_PROGRAMS += $(CLI_TEST_PROGRAMS)
 CLI_TEST_COMMON_OBJS :=				\
 	common/autodata.o			\
 	common/configdir.o			\
+	common/configvar.o			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/json_parse_simple.o		\

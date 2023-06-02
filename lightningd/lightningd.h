@@ -128,6 +128,8 @@ struct lightningd {
 	char *config_filename;
 	/* Configuration settings. */
 	struct config config;
+	/* Where each configuration setting came from */
+	struct configvar **configvars;
 
 	/* This log_book is owned by all the struct logs */
 	struct log_book *log_book;
