@@ -1713,10 +1713,19 @@ static bool canon_bool(const char *val)
 	return b;
 }
 
-static void add_config(struct lightningd *ld,
-		       struct json_stream *response,
-		       const struct opt_table *opt,
-		       const char *name, size_t len)
+static void check_literal(const char *name, const char *val)
+{
+	if (streq(val, "true") || streq(val, "false"))
+		return;
+	if (!streq(val, "") && strspn(val, "-0123456789.") == strlen(val))
+		return;
+	errx(1, "Bad literal for %s: %s", name, val);
+}
+
+static void add_config_deprecated(struct lightningd *ld,
+				  struct json_stream *response,
+				  const struct opt_table *opt,
+				  const char *name, size_t len)
 {
 	char *name0 = tal_strndup(tmpctx, name, len);
 	char *answer = NULL;
@@ -1905,6 +1914,188 @@ static void add_config(struct lightningd *ld,
 	}
 }
 
+static void json_add_source(struct json_stream *result,
+			    const char *fieldname,
+			    const struct configvar *cv)
+{
+	const char *source;
+
+	if (!cv) {
+		source = "default";
+	} else {
+		source = NULL;
+		switch (cv->src) {
+		case CONFIGVAR_CMDLINE:
+		case CONFIGVAR_CMDLINE_SHORT:
+			source = "cmdline";
+			break;
+		case CONFIGVAR_EXPLICIT_CONF:
+		case CONFIGVAR_BASE_CONF:
+		case CONFIGVAR_NETWORK_CONF:
+			source = tal_fmt(tmpctx, "%s:%u", cv->file, cv->linenum);
+			break;
+		case CONFIGVAR_PLUGIN_START:
+			source = "pluginstart";
+			break;
+		}
+	}
+	json_add_string(result, fieldname, source);
+}
+
+static const char *configval_fieldname(const struct opt_table *ot)
+{
+	bool multi = (ot->type & OPT_MULTI);
+	if (ot->type & OPT_SHOWBOOL)
+		return multi ? "values_bool" : "value_bool";
+	if (ot->type & OPT_SHOWINT)
+		return multi ? "values_int" : "value_int";
+	if (ot->type & OPT_SHOWMSATS)
+		return multi ? "values_msat" : "value_msat";
+	return multi ? "values_str" : "value_str";
+}
+
+#define CONFIG_SHOW_BUFSIZE 4096
+
+static const char *get_opt_val(const struct opt_table *ot,
+			       char buf[],
+			       const struct configvar *cv)
+{
+	if (ot->show == (void *)opt_show_charp) {
+		/* Don't truncate or quote! */
+		return *(char **)ot->u.carg;
+	}
+	if (ot->show) {
+		strcpy(buf + CONFIG_SHOW_BUFSIZE, "...");
+		if (ot->show(buf, CONFIG_SHOW_BUFSIZE, ot->u.carg))
+			return buf;
+		return NULL;
+	}
+
+	/* For everything else we only display if it's set,
+	 * BUT we check here to make sure you've handled
+	 * everything! */
+	if (ot->cb_arg == (void *)opt_set_talstr
+	    || ot->cb_arg == (void *)opt_add_proxy_addr
+	    || ot->cb_arg == (void *)opt_force_feerates
+	    || ot->cb_arg == (void *)opt_set_accept_extra_tlv_types
+	    || ot->cb_arg == (void *)opt_set_websocket_port
+	    || ot->cb_arg == (void *)opt_add_plugin
+	    || ot->cb_arg == (void *)opt_add_plugin_dir
+	    || ot->cb_arg == (void *)opt_important_plugin
+	    || ot->cb_arg == (void *)opt_disable_plugin
+	    || ot->cb_arg == (void *)opt_add_addr
+	    || ot->cb_arg == (void *)opt_add_bind_addr
+	    || ot->cb_arg == (void *)opt_add_announce_addr
+	    || ot->cb_arg == (void *)opt_subdaemon
+	    || ot->cb_arg == (void *)opt_set_db_upgrade
+	    || ot->cb_arg == (void *)arg_log_to_file
+#if DEVELOPER
+	    || ot->cb_arg == (void *)opt_subd_dev_disconnect
+	    || ot->cb_arg == (void *)opt_force_featureset
+	    || ot->cb_arg == (void *)opt_force_privkey
+	    || ot->cb_arg == (void *)opt_force_bip32_seed
+	    || ot->cb_arg == (void *)opt_force_channel_secrets
+	    || ot->cb_arg == (void *)opt_force_tmp_channel_id
+#endif
+	    || is_restricted_print_if_nonnull(ot->cb_arg)) {
+		/* Only if set! */
+		if (cv)
+			return cv->optarg;
+		else
+			return NULL;
+	}
+
+	/* Insert more decodes here! */
+	errx(1, "Unknown decode for %s", ot->names);
+}
+
+static void json_add_configval(struct json_stream *result,
+			       const char *fieldname,
+			       const struct opt_table *ot,
+			       const char *str)
+{
+	if (ot->type & OPT_SHOWBOOL) {
+		json_add_bool(result, fieldname, canon_bool(str));
+	} else if (ot->type & (OPT_SHOWMSATS|OPT_SHOWINT)) {
+		check_literal(ot->names, str);
+		json_add_primitive(result, fieldname, str);
+	} else
+		json_add_string(result, fieldname, str);
+}
+
+/* Config vars can have multiple names ("--large-channels|--wumbo"), but first
+ * is preferred */
+static void json_add_config(struct lightningd *ld,
+			    struct json_stream *response,
+			    bool always_include,
+			    const struct opt_table *ot,
+			    const char **names)
+{
+	char buf[CONFIG_SHOW_BUFSIZE + sizeof("...")];
+	const char *val;
+	struct configvar *cv;
+
+	/* This tells us if they actually set the option */
+	cv = configvar_first(ld->configvars, names);
+
+	/* Ignore dev/hidden options (deprecated) unless they actually used it */
+	if (!cv
+	    && (ot->desc == opt_hidden || (ot->type & OPT_DEV))
+	    && !always_include) {
+		return;
+	}
+
+	/* Ignore options which simply exit */
+	if (ot->type & OPT_EXITS)
+		return;
+
+	if (ot->type & OPT_NOARG) {
+		json_object_start(response, names[0]);
+		json_add_bool(response, "set", cv != NULL);
+		json_add_source(response, "source", cv);
+		json_object_end(response);
+		return;
+	}
+
+	assert(ot->type & OPT_HASARG);
+
+	/* FIXME: handle plugin options: either the default or what they set */
+	if (ot->cb_arg == (void *)plugin_opt_set)
+		return;
+
+	if (ot->type & OPT_MULTI) {
+		json_object_start(response, names[0]);
+		json_array_start(response, configval_fieldname(ot));
+		while (cv) {
+			val = get_opt_val(ot, buf, cv);
+			json_add_configval(response, NULL, ot, val);
+			cv = configvar_next(ld->configvars, cv, names);
+		}
+		json_array_end(response);
+
+		/* Iterate again, for sources */
+		json_array_start(response, "sources");
+		for (cv = configvar_first(ld->configvars, names);
+		     cv;
+		     cv = configvar_next(ld->configvars, cv, names)) {
+			json_add_source(response, NULL, cv);
+		}
+		json_array_end(response);
+		json_object_end(response);
+		return;
+	}
+
+	/* Returns NULL if we don't want to print it */
+	val = get_opt_val(ot, buf, cv);
+	if (!val)
+		return;
+
+	json_object_start(response, names[0]);
+	json_add_configval(response, configval_fieldname(ot), ot, val);
+	json_add_source(response, "source", cv);
+	json_object_end(response);
+}
+
 static struct command_result *param_opt_config(struct command *cmd,
 					       const char *name,
 					       const char *buffer,
@@ -1934,6 +2125,8 @@ static struct command_result *json_listconfigs(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
+
+	/* FIXME: Deprecate old output! */
 	if (!config)
 		json_add_string(response, "# version", version());
 
@@ -1953,14 +2146,45 @@ static struct command_result *json_listconfigs(struct command *cmd,
 				continue;
 
 			if (!config || config == &opt_table[i]) {
-				add_config(cmd->ld, response, &opt_table[i],
-					   name+1, len-1);
+				add_config_deprecated(cmd->ld, response, &opt_table[i],
+						      name+1, len-1);
 			}
 			/* If we have more than one long name, first
 			 * is preferred */
 			break;
 		}
 	}
+
+	json_object_start(response, "configs");
+	for (size_t i = 0; i < opt_count; i++) {
+		unsigned int len;
+		const char *name;
+		const char **names;
+
+		/* FIXME: Print out comment somehow? */
+		if (opt_table[i].type == OPT_SUBTABLE)
+			continue;
+
+		if (config && config != &opt_table[i])
+			continue;
+
+		names = tal_arr(tmpctx, const char *, 0);
+		for (name = first_name(opt_table[i].names, &len);
+		     name;
+		     name = next_name(name, &len)) {
+			/* Skips over first -, so just need to look for one */
+			if (name[0] != '-')
+				continue;
+			tal_arr_expand(&names,
+				       tal_strndup(names, name+1, len-1));
+		}
+		/* We don't usually print dev or deprecated options, unless
+		 * they explicitly ask, or they're set. */
+		json_add_config(cmd->ld, response, config != NULL,
+				&opt_table[i], names);
+	}
+	json_object_end(response);
+
 	return command_success(cmd, response);
 }
 

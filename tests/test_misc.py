@@ -741,10 +741,15 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
 
         # Test one at a time.
         for c in configs.keys():
-            if c.startswith('#') or c.startswith('plugins') or c == 'important-plugins':
+            if c.startswith('#') or c.startswith('plugins') or c == 'important-plugins' or c == 'configs':
                 continue
             oneconfig = l1.rpc.listconfigs(config=c)
             assert(oneconfig[c] == configs[c])
+
+        # Test modern ones!
+        for c in configs['configs'].keys():
+            oneconfig = l1.rpc.listconfigs(config=c)['configs']
+            assert(oneconfig[c] == configs['configs'][c])
 
 
 def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
