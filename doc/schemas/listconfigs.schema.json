@@ -65,6 +65,10 @@
             "source": {
               "type": "string",
               "description": "source of configuration setting"
+            },
+            "plugin": {
+              "type": "string",
+              "description": "plugin which registered this configuration setting"
             }
           }
         },

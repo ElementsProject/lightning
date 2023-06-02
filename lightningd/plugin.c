@@ -1366,6 +1366,29 @@ static struct plugin_opt *plugin_opt_find(const struct plugin *plugin,
 	return NULL;
 }
 
+void json_add_config_plugin(struct json_stream *stream,
+			    const struct plugins *plugins,
+			    const char *fieldname,
+			    const struct opt_table *ot)
+{
+	struct plugin *plugin;
+
+	/* Shortcut */
+	if (!is_plugin_opt(ot))
+		return;
+
+	/* Find the plugin that registered this RPC call */
+	list_for_each(&plugins->plugins, plugin, list) {
+		struct plugin_opt *popt = plugin_opt_find(plugin, ot->names+2);
+		if (popt) {
+			json_add_string(stream, fieldname, plugin->cmd);
+			return;
+		}
+	}
+
+	/* Reaching here is possible, if a plugin was stopped! */
+}
+
 /* Start command might have included plugin-specific parameters.
  * We make sure they *are* parameters for this plugin, then add them
  * to our configvars. */

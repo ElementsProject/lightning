@@ -45,6 +45,7 @@ On success, an object is returned, containing:
   - **disable-mpp** (object, optional):
     - **set** (boolean): `true` if set in config or cmdline
     - **source** (string): source of configuration setting
+    - **plugin** (string, optional): plugin which registered this configuration setting
   - **mainnet** (object, optional):
     - **set** (boolean): `true` if set in config or cmdline
     - **source** (string): source of configuration setting
@@ -446,4 +447,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1702f7c62fe10d63612fbbf56eeaf043cdfef6fa874d4fdbdcb81bbbbe5c98d8)
+[comment]: # ( SHA256STAMP:2b3588b395919162c122cd386f0f4b320d906d0190e706bfa1b68db4126e7ee2)
