@@ -43,17 +43,7 @@ def test_plugin_start(node_factory):
     plugins = l1.rpc.plugin('list')['plugins']
     assert len([p for p in plugins if 'cln-plugin-startup' in p['name'] and p['active']]) == 1
 
-    cfg = l1.rpc.listconfigs()
-    p = cfg['plugins'][0]
-    p['path'] = None  # The path is host-specific, so blank it.
-    expected = {
-        'name': 'cln-plugin-startup',
-        'options': {
-            'test-option': 31337
-        },
-        'path': None
-    }
-    assert expected == p
+    assert str(bin_path) in l1.rpc.listconfigs()['configs']['plugin']['values_str']
 
     # Now check that the `testmethod was registered ok
     l1.rpc.help("testmethod") == {

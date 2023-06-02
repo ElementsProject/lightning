@@ -363,7 +363,7 @@ def test_plugin_disable(node_factory):
     n = node_factory.get_node(options={'disable-plugin':
                                        ['something-else.py', 'helloworld.py']})
 
-    assert n.rpc.listconfigs()['disable-plugin'] == ['something-else.py', 'helloworld.py']
+    assert n.rpc.listconfigs()['configs']['disable-plugin'] == {'values_str': ['something-else.py', 'helloworld.py'], 'sources': ['cmdline', 'cmdline']}
 
 
 def test_plugin_hook(node_factory, executor):
@@ -1572,7 +1572,7 @@ def test_libplugin(node_factory):
     with pytest.raises(RpcError, match=r"Deprecated command.*testrpc-deprecated"):
         l1.rpc.help('testrpc-deprecated')
 
-    assert 'somearg-deprecated' not in str(l1.rpc.listconfigs())
+    assert 'somearg-deprecated' not in str(l1.rpc.listconfigs()['configs'])
 
     l1.stop()
     l1.daemon.opts["somearg-deprecated"] = "test_opt"
@@ -2440,12 +2440,10 @@ def test_dynamic_args(node_factory):
     l1.rpc.plugin_start(plugin_path, greeting='Test arg parsing')
 
     assert l1.rpc.call("hello") == "Test arg parsing world"
-    plugin = only_one([p for p in l1.rpc.listconfigs()['plugins'] if p['path'] == plugin_path])
-    assert plugin['options']['greeting'] == 'Test arg parsing'
+    assert l1.rpc.listconfigs('greeting')['configs']['greeting']['value_str'] == 'Test arg parsing'
 
     l1.rpc.plugin_stop(plugin_path)
-
-    assert [p for p in l1.rpc.listconfigs()['plugins'] if p['path'] == plugin_path] == []
+    assert 'greeting' not in l1.rpc.listconfigs()['configs']
 
 
 def test_pyln_request_notify(node_factory):
@@ -2532,7 +2530,7 @@ def test_custom_notification_topics(node_factory):
 
     # The plugin just dist what previously was a fatal mistake (emit
     # an unknown notification), make sure we didn't kill it.
-    assert 'custom_notifications.py' in [p['name'] for p in l1.rpc.listconfigs()['plugins']]
+    assert str(plugin) in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
 
 
 def test_restart_on_update(node_factory):
