@@ -81,6 +81,10 @@ This is not valid within the per-network configuration file.
 
   Alias for *network=bitcoin*.
 
+* **regtest**
+
+  Alias for *network=regtest* (added in v23.08)
+
 * **testnet**
 
   Alias for *network=testnet*.
