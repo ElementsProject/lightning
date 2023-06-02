@@ -1699,7 +1699,7 @@ def test_logging(node_factory):
                                      '-H',
                                      'listconfigs']).decode('utf-8').splitlines()
     # Arrays get split awkwardly by -H!
-    assert 'log-file=logfile1' in lines
+    assert 'log-file=values_str=logfile1' in lines
     assert 'logfile2' in lines
 
     # Flat mode is better!

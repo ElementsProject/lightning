@@ -2134,7 +2134,9 @@ static struct command_result *json_listconfigs(struct command *cmd,
 
 	response = json_stream_success(cmd);
 
-	/* FIXME: Deprecate old output! */
+	if (!deprecated_apis)
+		goto modern;
+
 	if (!config)
 		json_add_string(response, "# version", version());
 
@@ -2163,6 +2165,7 @@ static struct command_result *json_listconfigs(struct command *cmd,
 		}
 	}
 
+modern:
 	json_object_start(response, "configs");
 	for (size_t i = 0; i < opt_count; i++) {
 		unsigned int len;
