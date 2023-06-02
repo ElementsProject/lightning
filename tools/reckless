@@ -696,9 +696,9 @@ def load_config(reckless_dir: Union[str, None] = None,
     net_conf = None
     # Does the lightning-cli already reference an explicit config?
     try:
-        active_config = lightning_cli('listconfigs', timeout=3)
+        active_config = lightning_cli('listconfigs', timeout=3)['configs']
         if 'conf' in active_config:
-            net_conf = LightningBitcoinConfig(path=active_config['conf'])
+            net_conf = LightningBitcoinConfig(path=active_config['conf']['value_str'])
     except RPCError:
         pass
     if reckless_dir is None:
