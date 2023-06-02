@@ -340,6 +340,9 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 	opt_register_early_noarg("--mainnet",
 				 opt_set_specific_network, "bitcoin",
 				 "Alias for --network=bitcoin");
+	opt_register_early_noarg("--regtest",
+				 opt_set_specific_network, "regtest",
+				 "Alias for --network=regtest");
 	/* Handle --version (and exit) here too */
 	opt_register_version();
 
