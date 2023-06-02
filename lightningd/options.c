@@ -792,7 +792,7 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_allow_localhost,
 		     "Announce and allow announcments for localhost address");
-	clnopt_witharg("--dev-bitcoind-poll", OPT_DEV,
+	clnopt_witharg("--dev-bitcoind-poll", OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->topology->poll_seconds,
 		       "Time between polling for new transactions");
@@ -804,7 +804,7 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_fast_gossip_prune,
 		     "Make gossip pruning 30 seconds");
-	clnopt_witharg("--dev-gossip-time", OPT_DEV,
+	clnopt_witharg("--dev-gossip-time", OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->dev_gossip_time,
 		       "UNIX time to override gossipd to use.");
@@ -817,7 +817,8 @@ static void dev_register_opts(struct lightningd *ld)
 	clnopt_witharg("--dev-force-channel-secrets", OPT_DEV,
 		       opt_force_channel_secrets, NULL, ld,
 		       "Force HSM to use these for all per-channel secrets");
-	clnopt_witharg("--dev-max-funding-unconfirmed-blocks", OPT_DEV,
+	clnopt_witharg("--dev-max-funding-unconfirmed-blocks",
+		       OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->dev_max_funding_unconfirmed,
 		       "Maximum number of blocks we wait for a channel "
@@ -841,7 +842,7 @@ static void dev_register_opts(struct lightningd *ld)
 	clnopt_witharg("--dev-force-features", OPT_DEV,
 		       opt_force_featureset, NULL, ld,
 		       "Force the init/globalinit/node_announce/channel/bolt11/ features, each comma-separated bitnumbers OR a single +/-<bitnumber>");
-	clnopt_witharg("--dev-timeout-secs", OPT_DEV,
+	clnopt_witharg("--dev-timeout-secs", OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->config.connection_timeout_secs,
 		       "Seconds to timeout if we don't receive INIT from peer");
@@ -849,7 +850,7 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_ignore_modern_onion,
 		     "Ignore modern onion messages");
-	clnopt_witharg("--dev-disable-commit-after", OPT_DEV,
+	clnopt_witharg("--dev-disable-commit-after", OPT_DEV|OPT_SHOWINT,
 		       opt_set_intval, opt_show_intval,
 		       &ld->dev_disable_commit,
 		       "Disable commit timer after this many commits");
@@ -857,12 +858,12 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_no_ping_timer,
 		     "Don't hang up if we don't get a ping response");
-	clnopt_witharg("--dev-onion-reply-length", OPT_DEV,
+	clnopt_witharg("--dev-onion-reply-length", OPT_DEV|OPT_SHOWINT,
 		       opt_set_uintval,
 		       opt_show_uintval,
 		       &dev_onion_reply_length,
 		       "Send onion errors of custom length");
-	clnopt_witharg("--dev-max-fee-multiplier", OPT_DEV,
+	clnopt_witharg("--dev-max-fee-multiplier", OPT_DEV|OPT_SHOWINT,
 		       opt_set_uintval,
 		       opt_show_uintval,
 		       &ld->config.max_fee_multiplier,
@@ -871,7 +872,7 @@ static void dev_register_opts(struct lightningd *ld)
 		       "own. Small values will cause channels to be"
 		       " closed more often due to fee fluctuations,"
 		       " large values may result in large fees.");
-	clnopt_witharg("--dev-allowdustreserve", OPT_DEV,
+	clnopt_witharg("--dev-allowdustreserve", OPT_DEV|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->config.allowdustreserve,
 		       "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
@@ -1239,9 +1240,9 @@ static void register_opts(struct lightningd *ld)
 		       "Add an important plugin to be run (can be used multiple times). Die if the plugin dies.");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
-	opt_register_early_arg("--always-use-proxy",
-			       opt_set_bool_arg, opt_show_bool,
-			       &ld->always_use_proxy, "Use the proxy always");
+	clnopt_witharg("--always-use-proxy", OPT_EARLY|OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->always_use_proxy, "Use the proxy always");
 
 	/* This immediately makes is a daemon. */
 	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
@@ -1280,9 +1281,10 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"
 				 " channels.");
-	opt_register_early_arg("--announce-addr-dns",
-			       opt_set_announce_dns, NULL,
-			       ld, opt_hidden);
+	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->announce_dns,
+		       opt_hidden);
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
@@ -1295,57 +1297,61 @@ static void register_opts(struct lightningd *ld)
 			 &ld->pidfile,
 			 "Specify pid file");
 
-	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
-			 &ld->config.ignore_fee_limits,
-			 "(DANGEROUS) allow peer to set any feerate");
-	opt_register_arg("--watchtime-blocks", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--ignore-fee-limits", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->config.ignore_fee_limits,
+		       "(DANGEROUS) allow peer to set any feerate");
+	clnopt_witharg("--watchtime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
-	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--max-locktime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks funds may be locked for");
-	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
-	opt_register_arg("--require-confirmed-inputs", opt_set_bool_arg, opt_show_bool,
-			 &ld->config.require_confirmed_inputs,
-			 "Confirmations required for inputs to funding transaction (v2 opens only)");
-	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--require-confirmed-inputs", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->config.require_confirmed_inputs,
+		       "Confirmations required for inputs to funding transaction (v2 opens only)");
+	clnopt_witharg("--cltv-delta", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");
-	opt_register_arg("--cltv-final", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--cltv-final", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_final,
 			 "Number of blocks for final cltv_expiry");
-	opt_register_arg("--commit-time=<millseconds>",
+	clnopt_witharg("--commit-time=<millseconds>", OPT_SHOWINT,
 			 opt_set_u32, opt_show_u32,
 			 &ld->config.commit_time_ms,
 			 "Time after changes before sending out COMMIT");
-	opt_register_arg("--fee-base", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--fee-base", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.fee_base,
 			 "Millisatoshi minimum to charge for HTLC");
-	opt_register_arg("--rescan", opt_set_s32, opt_show_s32,
+	clnopt_witharg("--rescan", OPT_SHOWINT, opt_set_s32, opt_show_s32,
 			 &ld->config.rescan,
 			 "Number of blocks to rescan from the current head, or "
 			 "absolute blockheight if negative");
-	opt_register_arg("--fee-per-satoshi", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--fee-per-satoshi", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-	opt_register_arg("--htlc-minimum-msat", opt_set_msat, opt_show_msat,
-			 &ld->config.htlc_minimum_msat,
-			 "The default minimal value an HTLC must carry in order to be forwardable for new channels");
-	opt_register_arg("--htlc-maximum-msat", opt_set_msat, opt_show_msat,
-			 &ld->config.htlc_maximum_msat,
-			 "The default maximal value an HTLC must carry in order to be forwardable for new channel");
-	opt_register_arg("--max-concurrent-htlcs", opt_set_u32, opt_show_u32,
+	clnopt_witharg("--htlc-minimum-msat", OPT_SHOWMSATS,
+		       opt_set_msat, opt_show_msat,
+		       &ld->config.htlc_minimum_msat,
+		       "The default minimal value an HTLC must carry in order to be forwardable for new channels");
+	clnopt_witharg("--htlc-maximum-msat", OPT_SHOWMSATS,
+		       opt_set_msat, opt_show_msat,
+		       &ld->config.htlc_maximum_msat,
+		       "The default maximal value an HTLC must carry in order to be forwardable for new channel");
+	clnopt_witharg("--max-concurrent-htlcs", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.max_concurrent_htlcs,
 			 "Number of HTLCs one channel can handle concurrently. Should be between 1 and 483");
-	opt_register_arg("--max-dust-htlc-exposure-msat", opt_set_msat,
-			 opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
-			 "Max HTLC amount that can be trimmed");
-	opt_register_arg("--min-capacity-sat", opt_set_u64, opt_show_u64,
+	clnopt_witharg("--max-dust-htlc-exposure-msat", OPT_SHOWMSATS,
+		       opt_set_msat,
+		       opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
+		       "Max HTLC amount that can be trimmed");
+	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT, opt_set_u64, opt_show_u64,
 			 &ld->config.min_capacity_sat,
 			 "Minimum capacity in satoshis for accepting channels");
-
 	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
 		       ld,
 		       "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
@@ -1360,15 +1366,16 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--announce-addr-discovered", opt_set_autobool_arg, opt_show_autobool,
 			 &ld->config.ip_discovery,
 			 "Explicitly turns IP discovery 'on' or 'off'.");
-	opt_register_arg("--announce-addr-discovered-port", opt_set_uintval,
-			 opt_show_uintval, &ld->config.ip_discovery_port,
-			 "Sets the public TCP port to use for announcing discovered IPs.");
-
+	clnopt_witharg("--announce-addr-discovered-port", OPT_SHOWINT,
+		       opt_set_uintval,
+		       opt_show_uintval, &ld->config.ip_discovery_port,
+		       "Sets the public TCP port to use for announcing discovered IPs.");
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
-	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
-			 &ld->autolisten,
-			 "If true, listen on default port and announce if it seems to be a public interface");
+	clnopt_witharg("--autolisten", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->autolisten,
+		       "If true, listen on default port and announce if it seems to be a public interface");
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
@@ -1395,9 +1402,9 @@ static void register_opts(struct lightningd *ld)
 			 opt_force_feerates, NULL, ld,
 			 "Set testnet/regtest feerates in sats perkw, opening/mutual_close/unlateral_close/delayed_to_us/htlc_resolution/penalty: if fewer specified, last number applies to remainder");
 
-	opt_register_arg("--commit-fee",
-			 opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
-			 "Percentage of fee to request for their commitment");
+	clnopt_witharg("--commit-fee", OPT_SHOWINT,
+		       opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
+		       "Percentage of fee to request for their commitment");
 	clnopt_witharg("--subdaemon",
 		       OPT_MULTI,
 		       opt_subdaemon, NULL,
@@ -1410,16 +1417,16 @@ static void register_opts(struct lightningd *ld)
 		       "--subdaemon=hsmd:remote_signer "
 		       "would use a hypothetical remote signing subdaemon.");
 
-	opt_register_arg("--experimental-websocket-port",
-			 opt_set_websocket_port, NULL,
-			 ld, opt_hidden);
+	clnopt_witharg("--experimental-websocket-port", OPT_SHOWINT,
+		       opt_set_websocket_port, NULL,
+		       ld, opt_hidden);
 	opt_register_noarg("--experimental-upgrade-protocol",
 			   opt_set_bool, &ld->experimental_upgrade_protocol,
 			   "experimental: allow channel types to be upgraded on reconnect");
-	opt_register_arg("--database-upgrade",
-			 opt_set_db_upgrade, NULL,
-			 ld,
-			 "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
+	clnopt_witharg("--database-upgrade", OPT_SHOWBOOL,
+		       opt_set_db_upgrade, NULL,
+		       ld,
+		       "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1698,6 +1705,14 @@ static void json_add_opt_subdaemons(struct json_stream *response,
 	strmap_iterate(alt_subdaemons, json_add_opt_alt_subdaemon, &args);
 }
 
+/* Canonicalize value they've given */
+static bool canon_bool(const char *val)
+{
+	bool b;
+	opt_set_bool_arg(val, &b);
+	return b;
+}
+
 static void add_config(struct lightningd *ld,
 		       struct json_stream *response,
 		       const struct opt_table *opt,
@@ -1788,11 +1803,16 @@ static void add_config(struct lightningd *ld,
 			if (!opt->show(buf, sizeof(buf) - sizeof("..."), opt->u.carg))
 				buf[0] = '\0';
 
-			if (streq(buf, "true") || streq(buf, "false")
-			    || (!streq(buf, "") && strspn(buf, "0123456789.") == strlen(buf))) {
-				/* Let pure numbers and true/false through as
-				 * literals. */
+			if ((opt->type & OPT_SHOWINT)
+			    || (opt->type & OPT_SHOWMSATS)) {
+				if (streq(buf, "")
+				    || strspn(buf, "-0123456789.") != strlen(buf))
+					errx(1, "Bad literal for %s: %s", name0, buf);
 				json_add_primitive(response, name0, buf);
+				return;
+			} else if (opt->type & OPT_SHOWBOOL) {
+				/* We allow variants here.  Json-ize */
+				json_add_bool(response, name0, canon_bool(buf));
 				return;
 			}
 			answer = buf;

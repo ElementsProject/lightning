@@ -347,10 +347,11 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 	opt_register_version();
 
 	/* For convenience, we set deprecated_apis and rpc_filename now, too */
-	opt_register_early_arg("--allow-deprecated-apis",
-			       opt_set_bool_arg, opt_show_bool,
-			       &deprecated_apis,
-			       "Enable deprecated options, JSONRPC commands, fields, etc.");
+	clnopt_witharg("--allow-deprecated-apis",
+		       OPT_EARLY|OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &deprecated_apis,
+		       "Enable deprecated options, JSONRPC commands, fields, etc.");
 
 	/* Allow them to override rpc-file too. */
 	*rpc_filename = default_rpcfile(ctx);
