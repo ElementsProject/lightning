@@ -2025,7 +2025,7 @@ def test_openchannel_no_confirmed_inputs_opener(node_factory, bitcoind):
     l2_opts = l1_opts.copy()
     l1_opts['require-confirmed-inputs'] = True
     l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
-    assert l1.rpc.listconfigs()['require-confirmed-inputs']
+    assert l1.rpc.listconfigs()['configs']['require-confirmed-inputs']['value_bool'] is True
 
     amount = 500000
     l1.fundwallet(20000000)
@@ -2066,7 +2066,7 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
     l2_opts = l1_opts.copy()
     l2_opts['require-confirmed-inputs'] = True
     l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
-    assert l2.rpc.listconfigs()['require-confirmed-inputs']
+    assert l2.rpc.listconfigs()['configs']['require-confirmed-inputs']['value_bool'] is True
 
     amount = 500000
     l1.fundwallet(20000000)
@@ -2117,7 +2117,7 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
     l2.stop()
     del l2.daemon.opts['require-confirmed-inputs']
     l2.start()
-    assert not l2.rpc.listconfigs()['require-confirmed-inputs']
+    assert l2.rpc.listconfigs()['configs']['require-confirmed-inputs']['value_bool'] is False
 
     # Turn the mock back on so we pretend everything l1 sends is unconf
     l2.daemon.rpcproxy.mock_rpc('gettxout', _no_utxo_response)

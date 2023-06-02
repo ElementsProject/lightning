@@ -1348,10 +1348,17 @@ class LightningNode(object):
 
     def config(self, config_name):
         try:
-            opt = self.rpc.listconfigs(config_name)
-            return opt[config_name]
+            config = self.rpc.listconfigs(config_name)
         except RpcError:
             return None
+
+        config = config['configs'][config_name]
+        for valfield in ('set',
+                         'value_str', 'value_bool', 'value_int',
+                         'values_str', 'values_bool', 'values_int'):
+            if valfield in config:
+                return config[valfield]
+        raise ValueError("Unknown value in config {}".format(config))
 
     def dev_pay(self, bolt11, amount_msat=None, label=None, riskfactor=None,
                 maxfeepercent=None, retry_for=None,
