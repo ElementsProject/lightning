@@ -27,20 +27,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-/* Unless overridden, we exit with status 1 when option parsing fails */
-static int opt_exitcode = 1;
-
-static void opt_log_stderr_exitcode(const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
-	va_end(ap);
-	exit(opt_exitcode);
-}
-
 /* FIXME: Put into ccan/time. */
 #define TIME_FROM_SEC(sec) { { .tv_nsec = 0, .tv_sec = sec } }
 #define TIME_FROM_MSEC(msec) \
@@ -1562,11 +1548,14 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 				 ld, opt_hidden);
 
 	/*~ This does enough parsing to get us the base configuration options */
-	initial_config_opts(ld, argc, argv,
-			    &ld->config_filename,
-			    &ld->config_basedir,
-			    &ld->config_netdir,
-			    &ld->rpc_filename);
+	ld->configvars = initial_config_opts(ld, &argc, argv, true,
+					     &ld->config_filename,
+					     &ld->config_basedir,
+					     &ld->config_netdir,
+					     &ld->rpc_filename);
+
+	if (argc != 1)
+		errx(1, "no arguments accepted");
 
 	/* Copy in default config, to be modified by further options */
 	if (chainparams->testnet)
@@ -1611,28 +1600,20 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	 *  mimic this API here, even though they're on separate lines.*/
 	register_opts(ld);
 
-	/* Now look inside config file(s), but only handle the early
+	/* Now, first-pass of parsing.  But only handle the early
 	 * options (testnet, plugins etc), others may be added on-demand */
-	parse_config_files(ld->config_filename, ld->config_basedir, true);
-
-	/* Early cmdline options now override config file options. */
-	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
+	parse_configvars_early(ld->configvars);
 
 	/* Finalize the logging subsystem now. */
 	logging_options_parsed(ld->log_book);
 }
 
-void handle_opts(struct lightningd *ld, int argc, char *argv[])
+void handle_opts(struct lightningd *ld)
 {
-	/* Now look for config file, but only handle non-early
-	 * options, early ones have been parsed in
-	 * handle_early_opts */
-	parse_config_files(ld->config_filename, ld->config_basedir, false);
+	/* Now we know all the options, finish parsing and finish
+	 * populating ld->configvars with cmdline. */
+	parse_configvars_final(ld->configvars, true);
 
-	/* Now parse cmdline, which overrides config. */
-	opt_parse(&argc, argv, opt_log_stderr_exitcode);
-	if (argc != 1)
-		errx(1, "no arguments accepted");
 	/* We keep a separate variable rather than overriding always_use_proxy,
 	 * so listconfigs shows the correct thing. */
 	if (tal_count(ld->proposed_wireaddr) != 0
@@ -1784,7 +1765,7 @@ static void add_config(struct lightningd *ld,
 			 * OPT_HASARG options. */
 		} else {
 			/* Insert more decodes here! */
-			assert(!"A noarg option was added but was not handled");
+			errx(1, "Unknown decode for %s", opt->names);
 		}
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->desc == opt_hidden) {
@@ -1886,7 +1867,7 @@ static void add_config(struct lightningd *ld,
 #endif
 		} else {
 			/* Insert more decodes here! */
-			abort();
+			errx(1, "Unknown decode for %s", opt->names);
 		}
 	}
 

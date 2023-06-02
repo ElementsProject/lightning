@@ -24,7 +24,6 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bolt11.o				\
 	common/blockheight_states.o		\
 	common/channel_id.o			\
-	common/configdir.o			\
 	common/decode_array.o			\
 	common/features.o			\
 	common/fee_states.o			\
@@ -87,7 +86,7 @@ devtools/mkgossip: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/
 
 devtools/mkencoded: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkencoded.o
 
-devtools/checkchannels: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/configdir.o wire/fromwire.o wire/towire.o devtools/checkchannels.o
+devtools/checkchannels: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/checkchannels.o common/configdir.o common/configvar.o
 
 devtools/mkquery: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkquery.o
 

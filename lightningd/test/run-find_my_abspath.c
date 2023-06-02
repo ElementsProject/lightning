@@ -99,7 +99,7 @@ void gossip_notify_new_block(struct lightningd *ld UNNEEDED, u32 blockheight UNN
 void handle_early_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "handle_early_opts called!\n"); abort(); }
 /* Generated stub for handle_opts */
-void handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
+void handle_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)

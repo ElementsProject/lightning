@@ -414,6 +414,8 @@ static bool print_extra_fields(const struct tlv_field *fields)
 	return ok;
 }
 
+bool deprecated_apis = true;
+
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal(NULL, char);
@@ -424,7 +426,6 @@ int main(int argc, char *argv[])
 	bool to_hex = false;
 
 	common_setup(argv[0]);
-	deprecated_apis = true;
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,

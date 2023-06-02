@@ -109,7 +109,7 @@ static void copy_column(void *dst, size_t size,
 
 int main(int argc, char *argv[])
 {
-	char *config_dir, *net_dir, *config_filename, *rpc_filename, *hsmfile, *dbfile;
+	char *net_dir, *rpc_filename, *hsmfile, *dbfile;
 	sqlite3 *sql;
 	sqlite3_stmt *stmt;
 	int flags = SQLITE_OPEN_READONLY, dberr;
@@ -124,14 +124,13 @@ int main(int argc, char *argv[])
 
 	setup_option_allocators();
 
-	initial_config_opts(top_ctx, argc, argv,
-			    &config_filename, &config_dir, &net_dir,
-			    &rpc_filename);
+	minimal_config_opts(top_ctx, argc, argv, &net_dir, &rpc_filename);
 
 	opt_register_noarg("-v|--verbose", opt_set_bool, &verbose,
 			 "Print everything");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
+
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
