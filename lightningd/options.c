@@ -447,7 +447,7 @@ static bool opt_show_s32(char *buf, size_t len, const s32 *u)
 
 static bool opt_show_mode(char *buf, size_t len, const mode_t *m)
 {
-	snprintf(buf, len, "\"%04o\"", (int) *m);
+	snprintf(buf, len, "%04o", (int) *m);
 	return true;
 }
 
