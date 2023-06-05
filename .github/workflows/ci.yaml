@@ -400,6 +400,78 @@ jobs:
           sed -i 's/VALGRIND=0/VALGRIND=1/g' config.vars
           poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
+  integration-sanitizers:
+    name: Sanitizers Test CLN
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      COMPAT: 1
+      BITCOIN_VERSION: "25.0"
+      ELEMENTS_VERSION: 22.0.2
+      RUST_PROFILE: release
+      ASAN: 1
+      UBSAN: 1
+      VALGRIND: 0
+      DEVELOPER: 1
+      SLOW_MACHINE: 1
+      TEST_DEBUG: 1
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+    needs:
+      - prebuild
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - NAME: ASan/UBSan (01/10)
+            PYTEST_OPTS: --test-group=1  --test-group-count=10
+          - NAME: ASan/UBSan (02/10)
+            PYTEST_OPTS: --test-group=2  --test-group-count=10
+          - NAME: ASan/UBSan (03/10)
+            PYTEST_OPTS: --test-group=3  --test-group-count=10
+          - NAME: ASan/UBSan (04/10)
+            PYTEST_OPTS: --test-group=4  --test-group-count=10
+          - NAME: ASan/UBSan (05/10)
+            PYTEST_OPTS: --test-group=5  --test-group-count=10
+          - NAME: ASan/UBSan (06/10)
+            PYTEST_OPTS: --test-group=6  --test-group-count=10
+          - NAME: ASan/UBSan (07/10)
+            PYTEST_OPTS: --test-group=7  --test-group-count=10
+          - NAME: ASan/UBSan (08/10)
+            PYTEST_OPTS: --test-group=8  --test-group-count=10
+          - NAME: ASan/UBSan (09/10)
+            PYTEST_OPTS: --test-group=9  --test-group-count=10
+          - NAME: ASan/UBSan (10/10)
+            PYTEST_OPTS: --test-group=10 --test-group-count=10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          set -e
+          pip3 install --user pip wheel poetry
+          poetry export -o requirements.txt --with dev --without-hashes
+          python3 -m pip install -r requirements.txt
+          poetry install
+
+      - name: Install bitcoind
+        run: .github/scripts/install-bitcoind.sh
+
+      - name: Build
+        run: |
+          ./configure CC=clang
+          make -j $(nproc)
+
+      - name: Test
+        run: |
+          poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+
   gather:
     # A dummy task that depends on the full matrix of tests, and
     # signals successful completion. Used for the PR status to pass
