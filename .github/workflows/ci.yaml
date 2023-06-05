@@ -101,6 +101,40 @@ jobs:
           ./configure
           make -j $(nproc) check-units installcheck
 
+  check-units-sanitizers:
+    name: Run unit tests with ASan and UBSan
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      COMPAT: 1
+      ASAN: 1
+      UBSAN: 1
+      VALGRIND: 0
+    needs:
+      - prebuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          sudo apt-get install -y -qq lowdown
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+
+      - name: Build
+        run: |
+          ./configure CC=clang
+          make -j $(nproc) check-units installcheck
+
   check-fuzz:
     name: Run fuzz regression tests
     runs-on: ubuntu-22.04
