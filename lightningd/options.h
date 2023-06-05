@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/ccan/opt/opt.h>
 
+struct json_stream;
 struct lightningd;
 
 /* After this, early config file and cmdline options parsed. */
@@ -24,4 +25,10 @@ bool opt_show_autobool(char *buf, size_t len, const enum opt_autobool *b);
 
 /* opt_bool is quite loose; you should use this if wanting to add it to JSON */
 bool opt_canon_bool(const char *val);
+
+void add_config_deprecated(struct lightningd *ld,
+			   struct json_stream *response,
+			   const struct opt_table *opt,
+			   const char *name, size_t len);
+bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *));
 #endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */
