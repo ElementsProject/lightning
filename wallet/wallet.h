@@ -406,12 +406,6 @@ struct wallet_transaction {
 
 	/* Fully parsed transaction */
 	const struct bitcoin_tx *tx;
-
-	/* tal_arr containing the annotation types, if any, for the respective
-	 * inputs and outputs. 0 if there are no annotations for the
-	 * element. */
-	struct tx_annotation *input_annotations;
-	struct tx_annotation *output_annotations;
 };
 
 /**
