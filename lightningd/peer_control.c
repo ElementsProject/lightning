@@ -76,13 +76,6 @@ static void destroy_peer(struct peer *peer)
 		peer_dbid_map_del(peer->ld->peers_by_dbid, peer);
 }
 
-static void peer_update_features(struct peer *peer,
-				 const u8 *their_features TAKES)
-{
-	tal_free(peer->their_features);
-	peer->their_features = tal_dup_talarr(peer, u8, their_features);
-}
-
 void peer_set_dbid(struct peer *peer, u64 dbid)
 {
 	assert(!peer->dbid);
@@ -94,6 +87,7 @@ void peer_set_dbid(struct peer *peer, u64 dbid)
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct node_id *id,
 		      const struct wireaddr_internal *addr,
+		      const u8 *their_features,
 		      bool connected_incoming)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
@@ -106,12 +100,16 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->addr = *addr;
 	peer->connected_incoming = connected_incoming;
 	peer->remote_addr = NULL;
-	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
 	peer->connected = PEER_DISCONNECTED;
 	peer->last_connect_attempt.ts.tv_sec
 		= peer->last_connect_attempt.ts.tv_nsec = 0;
+	if (their_features)
+		peer->their_features = tal_dup_talarr(peer, u8, their_features);
+	else
+		peer->their_features = NULL;
+
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
@@ -1403,7 +1401,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	peer = peer_by_id(ld, &id);
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
-				hook_payload->incoming);
+				their_features, hook_payload->incoming);
+	else {
+		tal_free(peer->their_features);
+		peer->their_features = tal_dup_talarr(peer, u8, their_features);
+	}
 
 	/* We track this, because messages can race between connectd and us.
 	 * For example, we could tell it to attach a subd, but it's actually
@@ -1423,7 +1425,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (peer->remote_addr)
 		tal_free(peer->remote_addr);
 	peer->remote_addr = NULL;
-	peer_update_features(peer, their_features);
 	hook_payload->peer_id = id;
 
 	/* If there's a connect command, use its id as basis for hook id */
@@ -1942,9 +1943,6 @@ static void json_add_peer(struct lightningd *ld,
 		num_channels++;
 	json_add_num(response, "num_channels", num_channels);
 
-	/* If it's not connected, features are unreliable: we don't
-	 * store them in the database, and they would only reflect
-	 * their features *last* time they connected. */
 	if (p->connected == PEER_CONNECTED) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
@@ -1956,8 +1954,11 @@ static void json_add_peer(struct lightningd *ld,
 		if (p->remote_addr)
 			json_add_string(response, "remote_addr",
 					fmt_wireaddr(response, p->remote_addr));
-		json_add_hex_talarr(response, "features", p->their_features);
 	}
+
+	/* Note: If !PEER_CONNECTED, peer may use different features on reconnect */
+	json_add_hex_talarr(response, "features", p->their_features);
+
 	if (deprecated_apis) {
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
