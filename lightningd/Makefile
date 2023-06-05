@@ -40,6 +40,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/watch.c
 
 LIGHTNINGD_SRC_NOHDR :=				\
+	lightningd/configs.c			\
 	lightningd/datastore.c			\
 	lightningd/ping.c			\
 	lightningd/offer.c			\
