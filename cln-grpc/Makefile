@@ -8,7 +8,6 @@ CLN_GRPC_GENALL = cln-grpc/proto/node.proto \
 
 DEFAULT_TARGETS += $(CLN_GRPC_EXAMPLES) $(CLN_GRPC_GENALL)
 
-$(CLN_GRPC_GENALL): $(JSON_SCHEMA)
-	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
+MSGGEN_GENALL += $(CLN_GRPC_GENALL)
 
 cln-grpc-all: ${CLN_GRPC_GENALL} ${CLN_GRPC_EXAMPLES}
