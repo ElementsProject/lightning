@@ -834,6 +834,13 @@
             "source": {
               "type": "string",
               "description": "source of configuration setting"
+            },
+            "dynamic": {
+              "type": "boolean",
+              "enum": [
+                true
+              ],
+              "description": "Can this be set by setconfig()"
             }
           }
         },

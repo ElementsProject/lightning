@@ -143,6 +143,8 @@ static void json_add_config(struct lightningd *ld,
 		json_add_bool(response, "set", cv != NULL);
 		json_add_source(response, "source", cv);
 		json_add_config_plugin(response, ld->plugins, "plugin", ot);
+		if (ot->type & OPT_DYNAMIC)
+			json_add_bool(response, "dynamic", true);
 		json_object_end(response);
 		return;
 	}
@@ -167,6 +169,8 @@ static void json_add_config(struct lightningd *ld,
 		}
 		json_array_end(response);
 		json_add_config_plugin(response, ld->plugins, "plugin", ot);
+		if (ot->type & OPT_DYNAMIC)
+			json_add_bool(response, "dynamic", true);
 		json_object_end(response);
 		return;
 	}
@@ -180,6 +184,8 @@ static void json_add_config(struct lightningd *ld,
 	json_add_configval(response, configval_fieldname(ot), ot, val);
 	json_add_source(response, "source", cv);
 	json_add_config_plugin(response, ld->plugins, "plugin", ot);
+	if (ot->type & OPT_DYNAMIC)
+		json_add_bool(response, "dynamic", true);
 	json_object_end(response);
 }
 

@@ -1352,7 +1352,7 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_msat,
 		       opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
 		       "Max HTLC amount that can be trimmed");
-	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT, opt_set_u64, opt_show_u64,
+	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC, opt_set_u64, opt_show_u64,
 			 &ld->config.min_capacity_sat,
 			 "Minimum capacity in satoshis for accepting channels");
 	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
