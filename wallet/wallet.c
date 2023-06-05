@@ -859,7 +859,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT id, node_id, address FROM peers WHERE id=?;"));
+	    w->db, SQL("SELECT id, node_id, address, feature_bits FROM peers WHERE id=?;"));
 	db_bind_u64(stmt, 0, dbid);
 	db_query_prepared(stmt);
 
@@ -869,6 +869,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	if (db_col_is_null(stmt, "node_id")) {
 		db_col_ignore(stmt, "address");
 		db_col_ignore(stmt, "id");
+		db_col_ignore(stmt, "feature_bits");
 		goto done;
 	}
 
@@ -886,7 +887,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	}
 
 	/* FIXME: save incoming in db! */
-	peer = new_peer(w->ld, db_col_u64(stmt, "id"), &id, &addr, false);
+	peer = new_peer(w->ld, db_col_u64(stmt, "id"), &id, &addr, db_col_arr(stmt, stmt, "feature_bits", u8), false);
 
 done:
 	tal_free(stmt);
@@ -2271,21 +2272,23 @@ static void wallet_peer_save(struct wallet *w, struct peer *peer)
 		peer_set_dbid(peer, db_col_u64(stmt, "id"));
 		tal_free(stmt);
 
-		/* Since we're at it update the wireaddr */
+		/* Since we're at it update the wireaddr, feature bits */
 		stmt = db_prepare_v2(
-		    w->db, SQL("UPDATE peers SET address = ? WHERE id = ?"));
+		    w->db, SQL("UPDATE peers SET address = ?, feature_bits = ? WHERE id = ?"));
 		db_bind_text(stmt, 0, addr);
-		db_bind_u64(stmt, 1, peer->dbid);
+		db_bind_talarr(stmt, 1, peer->their_features);
+		db_bind_u64(stmt, 2, peer->dbid);
 		db_exec_prepared_v2(take(stmt));
 
 	} else {
 		/* Unknown peer, create it from scratch */
 		tal_free(stmt);
 		stmt = db_prepare_v2(w->db,
-				     SQL("INSERT INTO peers (node_id, address) VALUES (?, ?);")
+				     SQL("INSERT INTO peers (node_id, address, feature_bits) VALUES (?, ?, ?);")
 			);
 		db_bind_node_id(stmt, 0, &peer->id);
 		db_bind_text(stmt, 1,addr);
+		db_bind_talarr(stmt, 2, peer->their_features);
 		db_exec_prepared_v2(stmt);
 		peer_set_dbid(peer, db_last_insert_id_v2(take(stmt)));
 	}
