@@ -550,14 +550,37 @@ static void configvar_save(struct lightningd *ld,
 	}
 }
 
+static struct command_result *setconfig_success(struct command *cmd,
+						const struct opt_table *ot,
+						const char *val)
+{
+	struct json_stream *response;
+	const char **names, *confline;
+
+	names = opt_names_arr(tmpctx, ot);
+
+	if (val)
+		confline = tal_fmt(tmpctx, "%s=%s", names[0], val);
+	else
+		confline = names[0];
+
+	configvar_save(cmd->ld, names, confline);
+
+	response = json_stream_success(cmd);
+	json_object_start(response, "config");
+	json_add_string(response, "config", names[0]);
+	json_add_config(cmd->ld, response, true, false, ot, names);
+	json_object_end(response);
+	return command_success(cmd, response);
+}
+
 static struct command_result *json_setconfig(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
 					     const jsmntok_t *params)
 {
-	struct json_stream *response;
 	const struct opt_table *ot;
-	const char *val, **names, *confline;
+	const char *val;
 	char *err;
 
 	if (!param(cmd, buffer, params,
@@ -569,14 +592,14 @@ static struct command_result *json_setconfig(struct command *cmd,
 	/* We don't handle DYNAMIC MULTI, at least yet! */
 	assert(!(ot->type & OPT_MULTI));
 
-	names = opt_names_arr(tmpctx, ot);
-
 	if (ot->type & OPT_NOARG) {
 		if (val)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s does not take a value",
 					    ot->names + 2);
-		confline = tal_strdup(tmpctx, names[0]);
+		if (is_plugin_opt(ot))
+			return plugin_set_dynamic_opt(cmd, ot, NULL,
+						      setconfig_success);
 		err = ot->cb(ot->u.arg);
 	} else {
 		assert(ot->type & OPT_HASARG);
@@ -584,7 +607,9 @@ static struct command_result *json_setconfig(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s requires a value",
 					    ot->names + 2);
-		confline = tal_fmt(tmpctx, "%s=%s", names[0], val);
+		if (is_plugin_opt(ot))
+			return plugin_set_dynamic_opt(cmd, ot, val,
+						      setconfig_success);
 		err = ot->cb_arg(val, ot->u.arg);
 	}
 
@@ -593,14 +618,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 				    "Error setting %s: %s", ot->names + 2, err);
 	}
 
-	configvar_save(cmd->ld, names, confline);
-
-	response = json_stream_success(cmd);
-	json_object_start(response, "config");
-	json_add_string(response, "config", names[0]);
-	json_add_config(cmd->ld, response, true, false, ot, names);
-	json_object_end(response);
-	return command_success(cmd, response);
+	return setconfig_success(cmd, ot, val);
 }
 
 static const struct json_command setconfig_command = {
