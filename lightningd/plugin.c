@@ -893,22 +893,43 @@ bool is_plugin_opt(const struct opt_table *ot)
 		|| ot->cb_arg == (void *)plugin_opt_bool_check;
 }
 
+/* Sets *ret to false if it doesn't appear, otherwise, sets to value */
+static char *bool_setting(tal_t *ctx,
+			  const char *optname,
+			  const char *buffer,
+			  const jsmntok_t *opt,
+			  const char *tokname,
+			  bool *ret)
+{
+	const jsmntok_t *tok = json_get_member(buffer, opt, tokname);
+	if (!tok) {
+		*ret = false;
+		return NULL;
+	}
+	if (!json_to_bool(buffer, tok, ret))
+		return tal_fmt(ctx,
+			       "%s: invalid \"%s\" field %.*s",
+			       optname, tokname,
+			       tok->end - tok->start,
+			       buffer + tok->start);
+	return NULL;
+}
+
 /* Add a single plugin option to the plugin as well as registering it with the
  * command line options. */
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				  const jsmntok_t *opt)
 {
-	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deptok, *multitok;
+	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok;
 	struct plugin_opt *popt;
-	bool multi;
-	const char *name;
+	const char *name, *err;
+	enum opt_type optflags = 0;
+	bool set;
 
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
 	desctok = json_get_member(buffer, opt, "description");
 	defaulttok = json_get_member(buffer, opt, "default");
-	deptok = json_get_member(buffer, opt, "deprecated");
-	multitok = json_get_member(buffer, opt, "multi");
 
 	if (!typetok || !nametok || !desctok) {
 		return tal_fmt(plugin,
@@ -938,25 +959,21 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	}
 
 	popt->description = json_strdup(popt, buffer, desctok);
-	if (deptok) {
-		if (!json_to_bool(buffer, deptok, &popt->deprecated))
-			return tal_fmt(plugin,
-				       "%s: invalid \"deprecated\" field %.*s",
-				       name,
-				       deptok->end - deptok->start,
-				       buffer + deptok->start);
-	} else
-		popt->deprecated = false;
+	err = bool_setting(plugin, popt->name, buffer, opt, "deprecated", &popt->deprecated);
+	if (err)
+		return err;
 
-	if (multitok) {
-		if (!json_to_bool(buffer, multitok, &multi))
-			return tal_fmt(plugin,
-				       "%s: invalid \"multi\" field %.*s",
-				       name,
-				       multitok->end - multitok->start,
-				       buffer + multitok->start);
-	} else
-		multi = false;
+	err = bool_setting(plugin, popt->name, buffer, opt, "multi", &set);
+	if (err)
+		return err;
+	if (set)
+		optflags |= OPT_MULTI;
+
+	err = bool_setting(plugin, popt->name, buffer, opt, "dynamic", &set);
+	if (err)
+		return err;
+	if (set)
+		optflags |= OPT_DYNAMIC;
 
 	if (json_tok_streq(buffer, typetok, "flag")) {
 		if (defaulttok) {
@@ -979,16 +996,15 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			}
 			defaulttok = NULL;
 		}
-		if (multi)
+		if (optflags & OPT_MULTI)
 			return tal_fmt(plugin, "flag type cannot be multi");
 		clnopt_noarg(popt->name,
-			     0,
+			     optflags,
 			     plugin_opt_flag_check, popt,
 			     popt->description);
 	} else {
 		/* These all take an arg. */
 		char *(*cb_arg)(const char *optarg, void *arg);
-		enum opt_type optflags = multi ? OPT_MULTI : 0;
 
 		if (json_tok_streq(buffer, typetok, "string")) {
 			cb_arg = (void *)plugin_opt_string_check;
@@ -996,7 +1012,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			cb_arg = (void *)plugin_opt_long_check;
 			optflags |= OPT_SHOWINT;
 		} else if (json_tok_streq(buffer, typetok, "bool")) {
-			if (multi)
+			if (optflags & OPT_MULTI)
 				return tal_fmt(plugin, "bool type cannot be multi");
 			optflags |= OPT_SHOWBOOL;
 			cb_arg = (void *)plugin_opt_bool_check;
