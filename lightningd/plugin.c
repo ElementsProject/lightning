@@ -1379,6 +1379,27 @@ static struct plugin_opt *plugin_opt_find(const struct plugin *plugin,
 	return NULL;
 }
 
+/* Find the plugin_opt for this ot */
+static struct plugin *plugin_opt_find_any(const struct plugins *plugins,
+					  const struct opt_table *ot,
+					  struct plugin_opt **poptp)
+{
+	struct plugin *plugin;
+
+	/* Find the plugin that registered this RPC call */
+	list_for_each(&plugins->plugins, plugin, list) {
+		struct plugin_opt *popt = plugin_opt_find(plugin, ot->names+2);
+		if (popt) {
+			if (poptp)
+				*poptp = popt;
+			return plugin;
+		}
+	}
+
+	/* Reaching here is possible, if a plugin was stopped! */
+	return NULL;
+}
+
 void json_add_config_plugin(struct json_stream *stream,
 			    const struct plugins *plugins,
 			    const char *fieldname,
@@ -1391,15 +1412,9 @@ void json_add_config_plugin(struct json_stream *stream,
 		return;
 
 	/* Find the plugin that registered this RPC call */
-	list_for_each(&plugins->plugins, plugin, list) {
-		struct plugin_opt *popt = plugin_opt_find(plugin, ot->names+2);
-		if (popt) {
-			json_add_string(stream, fieldname, plugin->cmd);
-			return;
-		}
-	}
-
-	/* Reaching here is possible, if a plugin was stopped! */
+	plugin = plugin_opt_find_any(plugins, ot, NULL);
+	if (plugin)
+		json_add_string(stream, fieldname, plugin->cmd);
 }
 
 /* Start command might have included plugin-specific parameters.
@@ -2039,6 +2054,24 @@ bool plugins_config(struct plugins *plugins)
 
 	plugins->startup = false;
 	return true;
+}
+
+struct command_result *plugin_set_dynamic_opt(struct command *cmd,
+					      const struct opt_table *ot,
+					      const char *val,
+					      struct command_result *(*success)
+					      (struct command *,
+					       const struct opt_table *,
+					       const char *))
+{
+	struct plugin_opt *popt;
+	struct plugin *plugin;
+
+	plugin = plugin_opt_find_any(cmd->ld->plugins, ot, &popt);
+	assert(plugin);
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "FIXME: Implement dynamic");
 }
 
 /** json_add_opt_plugins_array

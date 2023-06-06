@@ -365,4 +365,12 @@ void json_add_config_plugin(struct json_stream *stream,
 			    const char *fieldname,
 			    const struct opt_table *ot);
 
+/* Attempt to setconfig an option in a plugin.  Calls success or fail, may be async! */
+struct command_result *plugin_set_dynamic_opt(struct command *cmd,
+					      const struct opt_table *ot,
+					      const char *val,
+					      struct command_result *(*success)
+					      (struct command *,
+					       const struct opt_table *,
+					       const char *));
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
