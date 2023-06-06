@@ -427,6 +427,18 @@ static const char *check_condition(const tal_t *ctx,
 	if (!ptok)
 		return rune_alt_single_missing(ctx, alt);
 
+	/* Pass through valid integers as integers. */
+	if (ptok->type == JSMN_PRIMITIVE) {
+		s64 val;
+
+		if (json_to_s64(cinfo->buf, ptok, &val)) {
+			plugin_log(plugin, LOG_DBG, "It's an int %"PRId64, val);
+			return rune_alt_single_int(ctx, alt, val);
+		}
+
+		/* Otherwise, treat it as a string (< and > will fail with
+		 * "is not an integer field") */
+	}
 	return rune_alt_single_str(ctx, alt,
 				   cinfo->buf + ptok->start,
 				   ptok->end - ptok->start);
