@@ -34,7 +34,7 @@ being run:
 * method: the command being run, e.g. "method=withdraw".
 * rate: the rate limit, per minute, e.g. "rate=60".
 * pnum: the number of parameters. e.g. "pnum<2".
-* pnameX: the parameter named X. e.g. "pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
+* pnameX: the parameter named X (with any punctuation like `_` removed). e.g. "pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
 * parrN: the N'th parameter. e.g. "parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
 
 RESTRICTION FORMAT
