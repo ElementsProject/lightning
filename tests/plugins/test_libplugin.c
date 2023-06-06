@@ -6,7 +6,7 @@
 #include <common/memleak.h>
 #include <plugins/libplugin.h>
 
-static const char *somearg;
+static char *somearg;
 static bool self_disable = false;
 static bool dont_shutdown = false;
 

@@ -114,7 +114,7 @@ struct table_desc {
 static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
 static struct sqlite3 *db;
-static const char *dbfilename;
+static char *dbfilename;
 static int gosstore_fd = -1;
 static size_t gosstore_nodes_off = 0, gosstore_channels_off = 0;
 static u64 next_rowid = 1;

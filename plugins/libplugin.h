@@ -77,7 +77,7 @@ struct plugin_option {
 	const char *name;
 	const char *type;
 	const char *description;
-	char *(*handle)(const char *str, void *arg);
+	char *(*handle)(struct plugin *plugin, const char *str, void *arg);
 	void *arg;
 	/* If true, this options *disabled* if allow-deprecated-apis = false */
 	bool deprecated;
@@ -393,12 +393,22 @@ void plugin_notify_progress(struct command *cmd,
 			    u32 num_stages, u32 stage,
 			    u32 num_progress, u32 progress);
 
+/* Simply exists to check that `set` to plugin_option* is correct type */
+static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
+							const char *arg, void *))
+{
+	return set;
+}
+
 /* Macro to define arguments */
 #define plugin_option_(name, type, description, set, arg, deprecated)	\
 	(name),								\
 	(type),								\
 	(description),							\
-	typesafe_cb_preargs(char *, void *, (set), (arg), const char *),	\
+	plugin_option_cb_check(typesafe_cb_preargs(char *, void *,	\
+						   (set), (arg),	\
+						   struct plugin *,	\
+						   const char *)),	\
 	(arg),								\
 	(deprecated)
 
@@ -409,12 +419,12 @@ void plugin_notify_progress(struct command *cmd,
 	plugin_option_((name), (type), (description), (set), (arg), true)
 
 /* Standard helpers */
-char *u64_option(const char *arg, u64 *i);
-char *u32_option(const char *arg, u32 *i);
-char *u16_option(const char *arg, u16 *i);
-char *bool_option(const char *arg, bool *i);
-char *charp_option(const char *arg, char **p);
-char *flag_option(const char *arg, bool *i);
+char *u64_option(struct plugin *plugin, const char *arg, u64 *i);
+char *u32_option(struct plugin *plugin, const char *arg, u32 *i);
+char *u16_option(struct plugin *plugin, const char *arg, u16 *i);
+char *bool_option(struct plugin *plugin, const char *arg, bool *i);
+char *charp_option(struct plugin *plugin, const char *arg, char **p);
+char *flag_option(struct plugin *plugin, const char *arg, bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],

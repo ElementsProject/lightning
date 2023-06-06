@@ -21,7 +21,7 @@ const char *funder_opt_name(enum funder_opt opt)
 	abort();
 }
 
-char *funding_option(const char *arg, enum funder_opt *opt)
+char *funding_option(struct plugin *plugin, const char *arg, enum funder_opt *opt)
 {
 	if (streq(arg, "match"))
 		*opt = MATCH;
