@@ -3201,9 +3201,11 @@ def test_autoclean(node_factory):
     inv4 = l3.rpc.invoice(amount_msat=12300, label='inv4', description='description4', expiry=2000)
     inv5 = l3.rpc.invoice(amount_msat=12300, label='inv5', description='description5', expiry=2000)
 
-    l3.stop()
-    l3.daemon.opts['autoclean-expiredinvoices-age'] = 2
-    l3.start()
+    # It must be an integer!
+    with pytest.raises(RpcError, match=r'is not a number'):
+        l3.rpc.setconfig('autoclean-expiredinvoices-age', 'xxx')
+
+    l3.rpc.setconfig('autoclean-expiredinvoices-age', 2)
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2
 
@@ -3227,9 +3229,7 @@ def test_autoclean(node_factory):
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1
 
     # Disabling works
-    l3.stop()
-    l3.daemon.opts['autoclean-expiredinvoices-age'] = 0
-    l3.start()
+    l3.rpc.setconfig('autoclean-expiredinvoices-age', 0)
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is False
     assert 'age' not in l3.rpc.autoclean_status()['autoclean']['expiredinvoices']
 
@@ -3250,9 +3250,7 @@ def test_autoclean(node_factory):
     assert 'age' not in l3.rpc.autoclean_status()['autoclean']['expiredinvoices']
 
     # Now enable: they will get autocleaned
-    l3.stop()
-    l3.daemon.opts['autoclean-expiredinvoices-age'] = 2
-    l3.start()
+    l3.rpc.setconfig('autoclean-expiredinvoices-age', 2)
     wait_for(lambda: len(l3.rpc.listinvoices()['invoices']) == 2)
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
 
@@ -3267,9 +3265,7 @@ def test_autoclean(node_factory):
 
     assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is False
     assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 0
-    l3.stop()
-    l3.daemon.opts['autoclean-paidinvoices-age'] = 1
-    l3.start()
+    l3.rpc.setconfig('autoclean-paidinvoices-age', 1)
     assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is True
 
     wait_for(lambda: l3.rpc.listinvoices()['invoices'] == [])
@@ -3278,17 +3274,13 @@ def test_autoclean(node_factory):
 
     assert only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
     assert only_one(l1.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
-    l1.stop()
-    l1.daemon.opts['autoclean-failedpays-age'] = 1
-    l1.start()
+    l1.rpc.setconfig('autoclean-failedpays-age', 1)
 
     wait_for(lambda: l1.rpc.listpays(inv5['bolt11'])['pays'] == [])
     assert l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1
     assert l1.rpc.autoclean_status()['autoclean']['succeededpays']['cleaned'] == 0
 
-    l1.stop()
-    l1.daemon.opts['autoclean-succeededpays-age'] = 2
-    l1.start()
+    l1.rpc.setconfig('autoclean-succeededpays-age', 2)
     wait_for(lambda: l1.rpc.listpays(inv4['bolt11'])['pays'] == [])
     assert l1.rpc.listsendpays() == {'payments': []}
 
@@ -3298,9 +3290,7 @@ def test_autoclean(node_factory):
     assert len(l2.rpc.listforwards()['forwards']) == 2
 
     # Clean failed ones.
-    l2.stop()
-    l2.daemon.opts['autoclean-failedforwards-age'] = 2
-    l2.start()
+    l2.rpc.setconfig('autoclean-failedforwards-age', 2)
     wait_for(lambda: l2.rpc.listforwards(status='failed')['forwards'] == [])
 
     assert len(l2.rpc.listforwards(status='settled')['forwards']) == 1
@@ -3310,9 +3300,7 @@ def test_autoclean(node_factory):
     amt_before = l2.rpc.getinfo()['fees_collected_msat']
 
     # Clean succeeded ones
-    l2.stop()
-    l2.daemon.opts['autoclean-succeededforwards-age'] = 2
-    l2.start()
+    l2.rpc.setconfig('autoclean-succeededforwards-age', 2)
     wait_for(lambda: l2.rpc.listforwards(status='settled')['forwards'] == [])
     assert l2.rpc.listforwards() == {'forwards': []}
     assert l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1

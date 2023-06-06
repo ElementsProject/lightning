@@ -447,27 +447,27 @@ accepted, and ignored.
   Perform search for things to clean every *SECONDS* seconds (default
 3600, or 1 hour, which is usually sufficient).
 
-* **autoclean-succeededforwards-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-succeededforwards-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old successful forwards (`settled` in listforwards `status`) have to be before deletion (default 0, meaning never).
 
-* **autoclean-failedforwards-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-failedforwards-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old failed forwards (`failed` or `local_failed` in listforwards `status`) have to be before deletion (default 0, meaning never).
 
-* **autoclean-succeededpays-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-succeededpays-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old successful payments (`complete` in listpays `status`) have to be before deletion (default 0, meaning never).
 
-* **autoclean-failedpays-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-failedpays-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old failed payment attempts (`failed` in listpays `status`) have to be before deletion (default 0, meaning never).
 
-* **autoclean-paidinvoices-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-paidinvoices-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old invoices which were paid (`paid` in listinvoices `status`) have to be before deletion (default 0, meaning never).
 
-* **autoclean-expiredinvoices-age**=*SECONDS* [plugin `autoclean`]
+* **autoclean-expiredinvoices-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old invoices which were not paid (and cannot be) (`expired` in listinvoices `status`) before deletion (default 0, meaning never).
 
