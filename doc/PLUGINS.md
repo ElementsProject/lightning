@@ -99,7 +99,8 @@ example:
       "type": "string",
       "default": "World",
       "description": "What name should I call you?",
-      "deprecated": false
+      "deprecated": false,
+	  "dynamic": false
     }
   ],
   "rpcmethods": [
@@ -143,7 +144,7 @@ example:
 During startup the `options` will be added to the list of command line options that
 `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a
 default value of `World` and the specified description. *Notice that
-currently string, integers, bool, and flag options are supported.*
+currently string, integers, bool, and flag options are supported.*  If an option specifies `dynamic`: `true`, then it should allow a `setvalue` call for that option after initialization.
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
@@ -253,11 +254,6 @@ Here's an example option set, as sent in response to `getmanifest`
     }
   ],
 ```
-
-**Note**: `lightningd` command line options are only parsed during startup and their
-values are not remembered when the plugin is stopped or killed.
-For dynamic plugins started with `plugin start`, options can be
-passed as extra arguments to that [command][lightning-plugin].
 
 
 #### Custom notifications

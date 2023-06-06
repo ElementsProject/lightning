@@ -2072,6 +2072,65 @@ bool plugins_config(struct plugins *plugins)
 	return true;
 }
 
+struct plugin_set_return {
+	struct command *cmd;
+	const char *val;
+	const char *optname;
+	struct command_result *(*success)(struct command *,
+					  const struct opt_table *,
+					  const char *);
+};
+
+static void plugin_setconfig_done(const char *buffer,
+				  const jsmntok_t *toks,
+				  const jsmntok_t *idtok UNUSED,
+				  struct plugin_set_return *psr)
+{
+	const jsmntok_t *t;
+	const struct opt_table *ot;
+
+	t = json_get_member(buffer, toks, "error");
+	if (t) {
+		const jsmntok_t *e;
+		int ecode;
+
+		e = json_get_member(buffer, t, "code");
+		if (!e || !json_to_int(buffer, e, &ecode))
+			goto bad_response;
+		e = json_get_member(buffer, t, "message");
+		if (!e)
+			goto bad_response;
+		was_pending(command_fail(psr->cmd, ecode, "%.*s",
+					 e->end - e->start, buffer + e->start));
+		return;
+	}
+
+	/* We have to look this up again, since a new plugin could have added some
+	 * while we were in callback, and moved opt_table! */
+	ot = opt_find_long(psr->optname, NULL);
+	if (!ot) {
+		log_broken(command_log(psr->cmd),
+			   "Missing opt %s on plugin return?", psr->optname);
+		was_pending(command_fail(psr->cmd, LIGHTNINGD,
+					 "Missing opt %s on plugin return?", psr->optname));
+		return;
+	}
+
+	t = json_get_member(buffer, toks, "result");
+	if (!t)
+		goto bad_response;
+	was_pending(psr->success(psr->cmd, ot, psr->val));
+	return;
+
+bad_response:
+	log_broken(command_log(psr->cmd),
+		   "Invalid setconfig %s response from plugin: %.*s",
+		   psr->optname,
+		   json_tok_full_len(toks), json_tok_full(buffer, toks));
+	was_pending(command_fail(psr->cmd, LIGHTNINGD,
+				 "Malformed setvalue %s plugin return", psr->optname));
+}
+
 struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					      const struct opt_table *ot,
 					      const char *val,
@@ -2082,12 +2141,33 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 {
 	struct plugin_opt *popt;
 	struct plugin *plugin;
+	struct jsonrpc_request *req;
+	struct plugin_set_return *psr;
 
 	plugin = plugin_opt_find_any(cmd->ld->plugins, ot, &popt);
 	assert(plugin);
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "FIXME: Implement dynamic");
+	assert(ot->type & OPT_DYNAMIC);
+
+	psr = tal(cmd, struct plugin_set_return);
+	psr->cmd = cmd;
+	/* val is a child of cmd, so no copy needed. */
+	psr->val = val;
+	psr->optname = tal_strdup(psr, ot->names + 2);
+	psr->success = success;
+
+	req = jsonrpc_request_start(cmd, "setconfig",
+				    cmd->id,
+				    plugin->non_numeric_ids,
+				    command_log(cmd),
+				    NULL, plugin_setconfig_done,
+				    psr);
+	json_add_string(req->stream, "config", psr->optname);
+	if (psr->val)
+		json_add_string(req->stream, "val", psr->val);
+	jsonrpc_request_end(req);
+	plugin_request_send(plugin, req);
+	return command_still_pending(cmd);
 }
 
 /** json_add_opt_plugins_array
