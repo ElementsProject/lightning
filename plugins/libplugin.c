@@ -915,6 +915,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "type", p->opts[i].type);
 		json_add_string(params, "description", p->opts[i].description);
 		json_add_bool(params, "deprecated", p->opts[i].deprecated);
+		json_add_bool(params, "dynamic", p->opts[i].dynamic);
 		json_object_end(params);
 	}
 	json_array_end(params);
@@ -1136,6 +1137,15 @@ static struct feature_set *json_to_feature_set(struct plugin *plugin,
 	return fset;
 }
 
+static struct plugin_option *find_opt(struct plugin *plugin, const char *name)
+{
+	for (size_t i = 0; i < tal_count(plugin->opts); i++) {
+		if (streq(plugin->opts[i].name, name))
+			return &plugin->opts[i];
+	}
+	return NULL;
+}
+
 static struct command_result *handle_init(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -1197,19 +1207,17 @@ static struct command_result *handle_init(struct command *cmd,
 
 	opttok = json_get_member(buf, params, "options");
 	json_for_each_obj(i, t, opttok) {
-		char *opt = json_strdup(NULL, buf, t);
-		for (size_t optnum = 0; optnum < tal_count(p->opts); optnum++) {
-			char *problem;
-			if (!streq(p->opts[optnum].name, opt))
-				continue;
-			problem = p->opts[optnum].handle(p, json_strdup(opt, buf, t+1),
-							 p->opts[optnum].arg);
-			if (problem)
-				plugin_err(p, "option '%s': %s",
-					   p->opts[optnum].name, problem);
-			break;
-		}
-		tal_free(opt);
+		const char *name, *problem;
+		struct plugin_option *popt;
+
+		name = json_strdup(tmpctx, buf, t);
+		popt = find_opt(p, name);
+		if (!popt)
+			plugin_err(p, "lightningd specified unknown option '%s'?", name);
+
+		problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), popt->arg);
+		if (problem)
+			plugin_err(p, "option '%s': %s", popt->name, problem);
 	}
 
 	if (p->init) {
@@ -1638,6 +1646,41 @@ static void ld_command_handle(struct plugin *plugin,
 		}
 	}
 
+	/* Dynamic parameters */
+	if (streq(cmd->methodname, "setconfig")) {
+		const jsmntok_t *valtok;
+		const char *config, *val, *problem;
+		struct plugin_option *popt;
+		struct command_result *ret;
+		config = json_strdup(tmpctx, plugin->buffer,
+				     json_get_member(plugin->buffer, paramstok, "config"));
+		popt = find_opt(plugin, config);
+		if (!popt) {
+			plugin_err(plugin,
+				   "lightningd setconfig unknown option '%s'?",
+				   config);
+		}
+		if (!popt->dynamic) {
+			plugin_err(plugin,
+				   "lightningd setconfig non-dynamic option '%s'?",
+				   config);
+		}
+		valtok = json_get_member(plugin->buffer, paramstok, "val");
+		if (valtok)
+			val = json_strdup(tmpctx, plugin->buffer, valtok);
+		else
+			val = "true";
+
+		problem = popt->handle(plugin, val, popt->arg);
+		if (problem)
+			ret = command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					   "%s", problem);
+		else
+			ret = command_finished(cmd, jsonrpc_stream_success(cmd));
+		assert(ret == &complete);
+		return;
+	}
+
 	plugin_err(plugin, "Unknown command '%s'", cmd->methodname);
 }
 
@@ -1842,6 +1885,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.handle = va_arg(ap, char *(*)(struct plugin *, const char *str, void *arg));
 		o.arg = va_arg(ap, void *);
 		o.deprecated = va_arg(ap, int); /* bool gets promoted! */
+		o.dynamic = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);
 	}
 

@@ -81,6 +81,8 @@ struct plugin_option {
 	void *arg;
 	/* If true, this options *disabled* if allow-deprecated-apis = false */
 	bool deprecated;
+	/* If true, allow setting after plugin has initialized */
+	bool dynamic;
 };
 
 /* Create an array of these, one for each notification you subscribe to. */
@@ -401,7 +403,7 @@ static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
 }
 
 /* Macro to define arguments */
-#define plugin_option_(name, type, description, set, arg, deprecated)	\
+#define plugin_option_(name, type, description, set, arg, deprecated, dynamic)	\
 	(name),								\
 	(type),								\
 	(description),							\
@@ -410,13 +412,17 @@ static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
 						   struct plugin *,	\
 						   const char *)),	\
 	(arg),								\
-	(deprecated)
+	(deprecated),							\
+	(dynamic)
 
 #define plugin_option(name, type, description, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), false)
+	plugin_option_((name), (type), (description), (set), (arg), false, false)
 
-#define plugin_option_deprecated(name, type, description, set, arg) \
-	plugin_option_((name), (type), (description), (set), (arg), true)
+#define plugin_option_dynamic(name, type, description, set, arg) \
+	plugin_option_((name), (type), (description), (set), (arg), false, true)
+
+#define plugin_option_deprecated(name, type, description, set, arg)	\
+	plugin_option_((name), (type), (description), (set), (arg), true, false)
 
 /* Standard helpers */
 char *u64_option(struct plugin *plugin, const char *arg, u64 *i);
