@@ -1202,7 +1202,7 @@ static struct command_result *handle_init(struct command *cmd,
 			char *problem;
 			if (!streq(p->opts[optnum].name, opt))
 				continue;
-			problem = p->opts[optnum].handle(json_strdup(opt, buf, t+1),
+			problem = p->opts[optnum].handle(p, json_strdup(opt, buf, t+1),
 							 p->opts[optnum].arg);
 			if (problem)
 				plugin_err(p, "option '%s': %s",
@@ -1225,7 +1225,7 @@ static struct command_result *handle_init(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
-char *u64_option(const char *arg, u64 *i)
+char *u64_option(struct plugin *plugin, const char *arg, u64 *i)
 {
 	char *endp;
 
@@ -1239,7 +1239,7 @@ char *u64_option(const char *arg, u64 *i)
 	return NULL;
 }
 
-char *u32_option(const char *arg, u32 *i)
+char *u32_option(struct plugin *plugin, const char *arg, u32 *i)
 {
 	char *endp;
 	u64 n;
@@ -1258,7 +1258,7 @@ char *u32_option(const char *arg, u32 *i)
 	return NULL;
 }
 
-char *u16_option(const char *arg, u16 *i)
+char *u16_option(struct plugin *plugin, const char *arg, u16 *i)
 {
 	char *endp;
 	u64 n;
@@ -1277,7 +1277,7 @@ char *u16_option(const char *arg, u16 *i)
 	return NULL;
 }
 
-char *bool_option(const char *arg, bool *i)
+char *bool_option(struct plugin *plugin, const char *arg, bool *i)
 {
 	if (!streq(arg, "true") && !streq(arg, "false"))
 		return tal_fmt(tmpctx, "'%s' is not a bool, must be \"true\" or \"false\"", arg);
@@ -1286,7 +1286,7 @@ char *bool_option(const char *arg, bool *i)
 	return NULL;
 }
 
-char *flag_option(const char *arg, bool *i)
+char *flag_option(struct plugin *plugin, const char *arg, bool *i)
 {
 	/* We only get called if the flag was provided, so *i should be false
 	 * by default */
@@ -1298,7 +1298,7 @@ char *flag_option(const char *arg, bool *i)
 	return NULL;
 }
 
-char *charp_option(const char *arg, char **p)
+char *charp_option(struct plugin *plugin, const char *arg, char **p)
 {
 	*p = tal_strdup(NULL, arg);
 	return NULL;
@@ -1839,7 +1839,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.name = optname;
 		o.type = va_arg(ap, const char *);
 		o.description = va_arg(ap, const char *);
-		o.handle = va_arg(ap, char *(*)(const char *str, void *arg));
+		o.handle = va_arg(ap, char *(*)(struct plugin *, const char *str, void *arg));
 		o.arg = va_arg(ap, void *);
 		o.deprecated = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);

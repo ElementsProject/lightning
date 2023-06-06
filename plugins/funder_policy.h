@@ -3,6 +3,7 @@
 #include "config.h"
 #include <common/amount.h>
 
+struct plugin;
 struct lease_rates;
 struct node_id;
 
@@ -93,7 +94,7 @@ const char *funder_policy_desc(const tal_t *ctx,
 			       const struct funder_policy *policy);
 
 /* Convert a cmdline option to a funding_opt */
-char *funding_option(const char *arg, enum funder_opt *opt);
+char *funding_option(struct plugin *plugin, const char *arg, enum funder_opt *opt);
 
 /* Check policy settings, return error if fails */
 char *funder_check_policy(const struct funder_policy *policy);
