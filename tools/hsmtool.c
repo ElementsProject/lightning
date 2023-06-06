@@ -448,6 +448,7 @@ static void get_words(struct words **words) {
 	if (errno == ERANGE || (errno != 0 && val == 0) || endptr == selected || val < 0 || val >= ARRAY_SIZE(languages))
         errx(ERROR_USAGE, "Invalid language selection, select one from the list [0-6].");
 
+	free(selected);
 	bip39_get_wordlist(languages[val].abbr, words);
 }
 
@@ -610,6 +611,8 @@ static int check_hsm(const char *hsm_secret_path)
 		errx(ERROR_KEYDERIV, "resulting hsm_secret did not match");
 
 	printf("OK\n");
+
+	free(passphrase);
 	return 0;
 }
 
