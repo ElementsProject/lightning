@@ -14,6 +14,8 @@ file (default: **$HOME/.lightning/config**) then a network-specific
 configuration file (default: **$HOME/.lightning/testnet/config**).  This can
 be changed: see *--conf* and *--lightning-dir*.
 
+Note that some configuration options, marked *dynamic*m can be changed at runtime: see lightning-setconfig(7).
+
 General configuration files are processed first, then network-specific
 ones, then command line options: later options override earlier ones
 except *addr* options and *log-level* with subsystems, which
@@ -316,7 +318,7 @@ millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only
 affect new channels and not existing ones. If you want to change fees
 for existing channels, use the RPC call lightning-setchannel(7).
 
-* **min-capacity-sat**=*SATOSHI*
+* **min-capacity-sat**=*SATOSHI* [*dynamic*]
 
   Default: 10000. This value defines the minimal effective channel
 capacity in satoshi to accept for channel opening requests. This will

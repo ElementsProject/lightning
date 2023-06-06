@@ -3396,3 +3396,57 @@ def test_fast_shutdown(node_factory):
         except ConnectionRefusedError:
             continue
         break
+
+
+def test_setconfig(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    configfile = os.path.join(l2.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+
+    assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
+            == {'min-capacity-sat':
+                {'source': 'default',
+                 'value_int': 10000,
+                 'dynamic': True}})
+
+    with pytest.raises(RpcError, match='requires a value'):
+        l2.rpc.setconfig('min-capacity-sat')
+
+    with pytest.raises(RpcError, match='requires a value'):
+        l2.rpc.setconfig(config='min-capacity-sat')
+
+    with pytest.raises(RpcError, match='is not a number'):
+        l2.rpc.setconfig(config='min-capacity-sat', val="abcd")
+
+    ret = l2.rpc.setconfig(config='min-capacity-sat', val=500000)
+    assert ret == {'config':
+                   {'config': 'min-capacity-sat',
+                    'source': '{}:2'.format(configfile),
+                    'value_int': 500000,
+                    'dynamic': True}}
+
+    with open(configfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert lines[0].startswith('# Inserted by setconfig ')
+        assert lines[1] == 'min-capacity-sat=500000'
+        assert len(lines) == 2
+
+    # Now we need to meet minumum
+    with pytest.raises(RpcError, match='which is below 500000sat'):
+        l1.fundchannel(l2, 400000)
+
+    l1.fundchannel(l2, 10**6)
+    l1.rpc.close(l2.info['id'])
+
+    # It's persistent!
+    l2.restart()
+
+    assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
+            == {'min-capacity-sat':
+                {'source': '{}:2'.format(configfile),
+                 'value_int': 500000,
+                 'dynamic': True}})
+
+    # Still need to meet minumum
+    l1.connect(l2)
+    with pytest.raises(RpcError, match='which is below 500000sat'):
+        l1.fundchannel(l2, 400000)

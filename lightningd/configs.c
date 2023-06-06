@@ -2,15 +2,20 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/opt/private.h>
+#include <ccan/tal/grab_file/grab_file.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/configvar.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/version.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
+#include <unistd.h>
 
 static void json_add_source(struct json_stream *result,
 			    const char *fieldname,
@@ -113,10 +118,14 @@ static void json_add_configval(struct json_stream *result,
 }
 
 /* Config vars can have multiple names ("--large-channels|--wumbo"), but first
- * is preferred */
+ * is preferred.
+ * wrap_object means we wrap json in an object of that name, otherwise outputs
+ * raw fields.
+ */
 static void json_add_config(struct lightningd *ld,
 			    struct json_stream *response,
 			    bool always_include,
+			    bool wrap_object,
 			    const struct opt_table *ot,
 			    const char **names)
 {
@@ -139,19 +148,22 @@ static void json_add_config(struct lightningd *ld,
 		return;
 
 	if (ot->type & OPT_NOARG) {
-		json_object_start(response, names[0]);
+		if (wrap_object)
+			json_object_start(response, names[0]);
 		json_add_bool(response, "set", cv != NULL);
 		json_add_source(response, "source", cv);
 		json_add_config_plugin(response, ld->plugins, "plugin", ot);
 		if (ot->type & OPT_DYNAMIC)
 			json_add_bool(response, "dynamic", true);
-		json_object_end(response);
+		if (wrap_object)
+			json_object_end(response);
 		return;
 	}
 
 	assert(ot->type & OPT_HASARG);
 	if (ot->type & OPT_MULTI) {
-		json_object_start(response, names[0]);
+		if (wrap_object)
+			json_object_start(response, names[0]);
 		json_array_start(response, configval_fieldname(ot));
 		while (cv) {
 			val = get_opt_val(ot, buf, cv);
@@ -171,7 +183,8 @@ static void json_add_config(struct lightningd *ld,
 		json_add_config_plugin(response, ld->plugins, "plugin", ot);
 		if (ot->type & OPT_DYNAMIC)
 			json_add_bool(response, "dynamic", true);
-		json_object_end(response);
+		if (wrap_object)
+			json_object_end(response);
 		return;
 	}
 
@@ -180,13 +193,15 @@ static void json_add_config(struct lightningd *ld,
 	if (!val)
 		return;
 
-	json_object_start(response, names[0]);
+	if (wrap_object)
+		json_object_start(response, names[0]);
 	json_add_configval(response, configval_fieldname(ot), ot, val);
 	json_add_source(response, "source", cv);
 	json_add_config_plugin(response, ld->plugins, "plugin", ot);
 	if (ot->type & OPT_DYNAMIC)
 		json_add_bool(response, "dynamic", true);
-	json_object_end(response);
+	if (wrap_object)
+		json_object_end(response);
 }
 
 static struct command_result *param_opt_config(struct command *cmd,
@@ -292,7 +307,7 @@ modern:
 		}
 		/* We don't usually print dev or deprecated options, unless
 		 * they explicitly ask, or they're set. */
-		json_add_config(cmd->ld, response, config != NULL,
+		json_add_config(cmd->ld, response, config != NULL, true,
 				&opt_table[i], names);
 	}
 	json_object_end(response);
@@ -311,3 +326,172 @@ static const struct json_command listconfigs_command = {
 	"With [config], object only has that field"
 };
 AUTODATA(json_command, &listconfigs_command);
+
+static struct command_result *param_opt_dynamic_config(struct command *cmd,
+						       const char *name,
+						       const char *buffer,
+						       const jsmntok_t *tok,
+						       const struct opt_table **config)
+{
+	struct command_result *ret;
+
+	ret = param_opt_config(cmd, name, buffer, tok, config);
+	if (ret)
+		return ret;
+
+	if (!((*config)->type & OPT_DYNAMIC))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Not a dynamic config option");
+	return NULL;
+}
+
+/* FIXME: put in ccan/mem! */
+static size_t memcount(const void *mem, size_t len, char c)
+{
+	size_t count = 0;
+	for (size_t i = 0; i < len; i++) {
+		if (((char *)mem)[i] == c)
+			count++;
+	}
+	return count;
+}
+
+static void configvar_append_file(struct lightningd *ld,
+				  const char *fname,
+				  enum configvar_src src,
+				  const char *confline,
+				  bool must_exist)
+{
+	int fd;
+	size_t num_lines;
+	const char *buffer, *insert;
+	bool needs_term;
+	struct configvar *cv;
+	time_t now = time(NULL);
+
+	fd = open(fname, O_RDWR|O_APPEND);
+	if (fd < 0) {
+		if (errno != ENOENT || must_exist)
+			fatal("Could not write to config %s: %s",
+			      fname, strerror(errno));
+		fd = open(fname, O_RDWR|O_APPEND|O_CREAT, 0644);
+		if (fd < 0)
+			fatal("Could not create config file %s: %s",
+			      fname, strerror(errno));
+	}
+
+	/* Note: always nul terminates */
+	buffer = grab_fd(tmpctx, fd);
+	if (!buffer)
+		fatal("Error reading %s: %s", fname, strerror(errno));
+
+	num_lines = memcount(buffer, tal_bytelen(buffer)-1, '\n');
+
+	/* If there's a last character and it's not \n, add one */
+	if (tal_bytelen(buffer) == 1)
+		needs_term = false;
+	else
+		needs_term = (buffer[tal_bytelen(buffer)-2] != '\n');
+
+	/* Note: ctime() contains a \n! */
+	insert = tal_fmt(tmpctx, "%s# Inserted by setconfig %s%s\n",
+			 needs_term ? "\n": "",
+			 ctime(&now), confline);
+	if (write(fd, insert, strlen(insert)) != strlen(insert))
+		fatal("Could not write to config file %s: %s",
+		      fname, strerror(errno));
+
+	cv = configvar_new(ld->configvars, src, fname, num_lines+2, confline);
+	configvar_unparsed(cv);
+
+	log_info(ld->log, "setconfig: %s %s (updated %s:%u)",
+		 cv->optvar, cv->optarg ? cv->optarg : "SET",
+		 cv->file, cv->linenum);
+
+	tal_arr_expand(&ld->configvars, cv);
+	configvar_finalize_overrides(ld->configvars);
+}
+
+static void configvar_save(struct lightningd *ld, const char *confline)
+{
+	/* If they used --conf then append to that */
+	if (ld->config_filename)
+		configvar_append_file(ld,
+				      ld->config_filename,
+				      CONFIGVAR_EXPLICIT_CONF,
+				      confline, true);
+	else {
+		const char *fname;
+
+		fname = path_join(tmpctx, ld->config_netdir, "config");
+		configvar_append_file(ld,
+				      fname,
+				      CONFIGVAR_NETWORK_CONF,
+				      confline,
+				      false);
+	}
+}
+
+static struct command_result *json_setconfig(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	const struct opt_table *ot;
+	const char *val, **names, *confline;
+	unsigned int len;
+	char *err;
+
+	if (!param(cmd, buffer, params,
+		   p_req("config", param_opt_dynamic_config, &ot),
+		   p_opt("val", param_string, &val),
+		   NULL))
+		return command_param_failed();
+
+	/* We don't handle DYNAMIC MULTI, at least yet! */
+	assert(!(ot->type & OPT_MULTI));
+
+	names = tal_arr(tmpctx, const char *, 1);
+	/* This includes leading -! */
+	names[0] = first_name(ot->names, &len) + 1;
+
+	if (ot->type & OPT_NOARG) {
+		if (val)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s does not take a value",
+					    ot->names + 2);
+		confline = tal_strdup(tmpctx, names[0]);
+		err = ot->cb(ot->u.arg);
+	} else {
+		assert(ot->type & OPT_HASARG);
+		if (!val)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s requires a value",
+					    ot->names + 2);
+		confline = tal_fmt(tmpctx, "%s=%s", names[0], val);
+		err = ot->cb_arg(val, ot->u.arg);
+	}
+
+	if (err) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Error setting %s: %s", ot->names + 2, err);
+	}
+
+	configvar_save(cmd->ld, confline);
+
+	response = json_stream_success(cmd);
+	json_object_start(response, "config");
+	json_add_string(response, "config", names[0]);
+	json_add_config(cmd->ld, response, true, false, ot, names);
+	json_object_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command setconfig_command = {
+	"setconfig",
+	"utility",
+	json_setconfig,
+	"Set a dynamically-adjustable config."
+};
+AUTODATA(json_command, &setconfig_command);
