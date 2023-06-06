@@ -3128,8 +3128,7 @@ def test_commando_badrune(node_factory):
 
 
 def test_autoclean(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, opts={'autoclean-cycle': 10,
-                                                  'may_reconnect': True},
+    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True},
                                          wait_for_announce=True)
 
     # Under valgrind in CI, it can 50 seconds between creating invoice
@@ -3161,6 +3160,8 @@ def test_autoclean(node_factory):
     assert len(l3.rpc.listinvoices('inv1')['invoices']) == 1
     assert len(l3.rpc.listinvoices('inv2')['invoices']) == 1
     assert l3.rpc.listinvoices('inv1')['invoices'][0]['description'] == 'description1'
+
+    l3.rpc.setconfig('autoclean-cycle', 10)
 
     # First it expires.
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv1')['invoices'])['status'] == 'expired')
@@ -3222,6 +3223,7 @@ def test_autoclean(node_factory):
     assert only_one(l1.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
     assert only_one(l1.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
     l1.rpc.setconfig('autoclean-failedpays-age', 1)
+    l1.rpc.setconfig('autoclean-cycle', 5)
 
     wait_for(lambda: l1.rpc.listpays(inv5['bolt11'])['pays'] == [])
     assert l1.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1
@@ -3237,6 +3239,7 @@ def test_autoclean(node_factory):
     assert len(l2.rpc.listforwards()['forwards']) == 2
 
     # Clean failed ones.
+    l2.rpc.setconfig('autoclean-cycle', 5)
     l2.rpc.setconfig('autoclean-failedforwards-age', 2)
     wait_for(lambda: l2.rpc.listforwards(status='failed')['forwards'] == [])
 

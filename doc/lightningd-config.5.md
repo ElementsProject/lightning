@@ -442,7 +442,7 @@ accepted, and ignored.
 
 ### Cleanup control options:
 
-* **autoclean-cycle**=*SECONDS* [plugin `autoclean`]
+* **autoclean-cycle**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   Perform search for things to clean every *SECONDS* seconds (default
 3600, or 1 hour, which is usually sufficient).
