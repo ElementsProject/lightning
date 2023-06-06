@@ -3124,6 +3124,7 @@ def test_commando_blacklist(node_factory):
     assert blacklisted_rune is True
 
 
+@pytest.mark.slow_test
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
     nodes = node_factory.get_nodes(5)
