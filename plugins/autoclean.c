@@ -61,6 +61,7 @@ static u64 cycle_seconds = 3600;
 static struct clean_info timer_cinfo;
 static u64 total_cleaned[NUM_SUBSYSTEM];
 static struct plugin *plugin;
+/* This is NULL if it's running now. */
 static struct plugin_timer *cleantimer;
 
 static void do_clean_timer(void *unused);
@@ -439,6 +440,7 @@ static struct command_result *do_clean(struct clean_info *cinfo)
 static void do_clean_timer(void *unused)
 {
 	assert(timer_cinfo.cleanup_reqs_remaining == 0);
+	cleantimer = NULL;
 	do_clean(&timer_cinfo);
 }
 
@@ -587,6 +589,22 @@ static const char *init(struct plugin *p,
 	return NULL;
 }
 
+static char *cycle_seconds_option(struct plugin *plugin, const char *arg,
+				  void *unused)
+{
+	char *problem = u64_option(plugin, arg, &cycle_seconds);
+	if (problem)
+		return problem;
+
+	/* If timer is not running right now, reset it to new cycle_seconds */
+	if (cleantimer) {
+		tal_free(cleantimer);
+		cleantimer = plugin_timer(plugin, time_from_sec(cycle_seconds),
+					  do_clean_timer, NULL);
+	}
+	return NULL;
+}
+
 static const struct plugin_command commands[] = { {
 	"autocleaninvoice",
 	"payment",
@@ -626,11 +644,11 @@ int main(int argc, char *argv[])
 				  " invoices that have expired for at least"
 				  " this given seconds are cleaned",
 				  u64_option, &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
-		    plugin_option("autoclean-cycle",
-				  "int",
-				  "Perform cleanup every"
-				  " given seconds",
-				  u64_option, &cycle_seconds),
+		    plugin_option_dynamic("autoclean-cycle",
+					  "int",
+					  "Perform cleanup every"
+					  " given seconds",
+					  cycle_seconds_option, NULL),
 		    plugin_option_dynamic("autoclean-succeededforwards-age",
 					  "int",
 					  "How old do successful forwards have to be before deletion (0 = never)",
