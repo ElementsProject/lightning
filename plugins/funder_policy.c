@@ -30,7 +30,7 @@ char *funding_option(const char *arg, enum funder_opt *opt)
 	else if (streq(arg, "fixed"))
 		*opt = FIXED;
 	else
-		return tal_fmt(NULL, "'%s' is not a valid option"
+		return tal_fmt(tmpctx, "'%s' is not a valid option"
 			       " (match, available, fixed)",
 			       arg);
 	return NULL;

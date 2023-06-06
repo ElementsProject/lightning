@@ -43,10 +43,10 @@ static char *opt_set_u64(const char *arg, u64 *u)
 	errno = 0;
 	l = strtoull(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	*u = l;
 	if (errno || *u != l)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
 static char *opt_set_u32(const char *arg, u32 *u)
@@ -60,10 +60,10 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	errno = 0;
 	l = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	*u = l;
 	if (errno || *u != l)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
 
@@ -78,10 +78,10 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	errno = 0;
 	l = strtol(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	*u = l;
 	if (errno || *u != l)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
 
@@ -130,13 +130,13 @@ static char *opt_set_mode(const char *arg, mode_t *m)
 
 	/* Ensure length, and starts with 0.  */
 	if (strlen(arg) != 4 || arg[0] != '0')
-		return tal_fmt(NULL, "'%s' is not a file mode", arg);
+		return tal_fmt(tmpctx, "'%s' is not a file mode", arg);
 
 	/* strtol, manpage, yech.  */
 	errno = 0;
 	l = strtol(arg, &endp, 8); /* Octal.  */
 	if (errno || *endp)
-		return tal_fmt(NULL, "'%s' is not a file mode", arg);
+		return tal_fmt(tmpctx, "'%s' is not a file mode", arg);
 	*m = l;
 	/* Range check not needed, previous strlen checks ensures only
 	 * 9-bit, which fits mode_t (unless your Unix is seriously borked).
@@ -254,7 +254,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	err_msg = parse_wireaddr_internal(tmpctx, arg, ld->portnum,
 					  dns_lookup_ok, &wi);
 	if (err_msg)
-		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
+		return tal_fmt(tmpctx, "Unable to parse address '%s': %s", arg, err_msg);
 
 	/* Check they didn't specify some weird type! */
 	switch (wi.itype) {
@@ -263,7 +263,7 @@ static char *opt_add_addr_withtype(const char *arg,
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
 			if ((ala & ADDR_ANNOUNCE) && wi.u.allproto.is_websocket)
-				return tal_fmt(NULL,
+				return tal_fmt(tmpctx,
 					       "Cannot announce websocket address, use --bind-addr=%s", arg);
 			/* These can be either bind or announce */
 			break;
@@ -274,7 +274,7 @@ static char *opt_add_addr_withtype(const char *arg,
 			switch (ala) {
 			case ADDR_LISTEN:
 				if (!deprecated_apis)
-					return tal_fmt(NULL,
+					return tal_fmt(tmpctx,
 						       "Don't use --bind-addr=%s, use --announce-addr=%s",
 						       arg, arg);
 				log_unusual(ld->log,
@@ -286,7 +286,7 @@ static char *opt_add_addr_withtype(const char *arg,
 				return NULL;
 			case ADDR_LISTEN_AND_ANNOUNCE:
 				if (!deprecated_apis)
-					return tal_fmt(NULL,
+					return tal_fmt(tmpctx,
 						       "Don't use --addr=%s, use --announce-addr=%s",
 						       arg, arg);
 				log_unusual(ld->log,
@@ -306,10 +306,10 @@ static char *opt_add_addr_withtype(const char *arg,
 			case ADDR_ANNOUNCE:
 				break;
 			case ADDR_LISTEN:
-				return tal_fmt(NULL,
+				return tal_fmt(tmpctx,
 					       "Cannot use dns: prefix with --bind-addr, use --bind-addr=%s", arg + strlen("dns:"));
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				return tal_fmt(NULL,
+				return tal_fmt(tmpctx,
 					       "Cannot use dns: prefix with --addr, use --bind-addr=%s and --addr=%s",
 					       arg + strlen("dns:"),
 					       arg);
@@ -320,18 +320,18 @@ static char *opt_add_addr_withtype(const char *arg,
 			 *   - MUST NOT announce more than one `type 5` DNS hostname.
 			 */
 			if (num_announced_types(ADDR_TYPE_DNS, ld) > 0)
-				return tal_fmt(NULL, "Only one DNS can be announced");
+				return tal_fmt(tmpctx, "Only one DNS can be announced");
 			break;
 		}
 		break;
 	case ADDR_INTERNAL_SOCKNAME:
 		switch (ala) {
 			case ADDR_ANNOUNCE:
-				return tal_fmt(NULL,
+				return tal_fmt(tmpctx,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
 				if (!deprecated_apis)
-					return tal_fmt(NULL, "Don't use --addr=%s, use --bind-addr=%s",
+					return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
 						       arg, arg);
 				ala = ADDR_LISTEN;
 				/* Fall thru */
@@ -355,10 +355,10 @@ static char *opt_add_addr_withtype(const char *arg,
 		/* You can only bind to wildcard, and optionally announce */
 		switch (ala) {
 			case ADDR_ANNOUNCE:
-				return tal_fmt(NULL, "Cannot use wildcard address '%s'", arg);
+				return tal_fmt(tmpctx, "Cannot use wildcard address '%s'", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
 				if (wi.u.allproto.is_websocket)
-				return tal_fmt(NULL,
+				return tal_fmt(tmpctx,
 					       "Cannot announce websocket address, use --bind-addr=%s", arg);
 				/* fall thru */
 			case ADDR_LISTEN:
@@ -368,7 +368,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	case ADDR_INTERNAL_FORPROXY:
 		/* You can't use these addresses here at all: this means we've
 		 * suppressed DNS and given a string-style name */
-		return tal_fmt(NULL, "Cannot resolve address '%s' (not using DNS!)", arg);
+		return tal_fmt(tmpctx, "Cannot resolve address '%s' (not using DNS!)", arg);
 	}
 
 	/* Sanity check for exact duplicates. */
@@ -378,7 +378,7 @@ static char *opt_add_addr_withtype(const char *arg,
 			continue;
 
 		if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
-			return tal_fmt(NULL, "Duplicate %s address %s",
+			return tal_fmt(tmpctx, "Duplicate %s address %s",
 				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
 				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
 	}
@@ -413,11 +413,11 @@ static char *opt_subdaemon(const char *arg, struct lightningd *ld)
 
 	size_t colonoff = strcspn(arg, ":");
 	if (!arg[colonoff])
-		return tal_fmt(NULL, "argument must contain ':'");
+		return tal_fmt(tmpctx, "argument must contain ':'");
 
 	subdaemon = tal_strndup(ld, arg, colonoff);
 	if (!is_subdaemon(subdaemon))
-		return tal_fmt(NULL, "\"%s\" is not a subdaemon", subdaemon);
+		return tal_fmt(tmpctx, "\"%s\" is not a subdaemon", subdaemon);
 
 	/* Make the value a tal-child of the subdaemon */
 	sdpath = tal_strdup(subdaemon, arg + colonoff + 1);
@@ -476,7 +476,7 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	 */
 	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
 	if (!ld->rgb || tal_count(ld->rgb) != 3)
-		return tal_fmt(NULL, "rgb '%s' is not six hex digits", arg);
+		return tal_fmt(tmpctx, "rgb '%s' is not six hex digits", arg);
 	return NULL;
 }
 
@@ -503,7 +503,7 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 	 *   `alias` trailing-bytes equal to 0.
 	 */
 	if (strlen(arg) > 32)
-		return tal_fmt(NULL, "Alias '%s' is over 32 characters", arg);
+		return tal_fmt(tmpctx, "Alias '%s' is over 32 characters", arg);
 	ld->alias = tal_arrz(ld, u8, 33);
 	strncpy((char*)ld->alias, arg, 32);
 	return NULL;
@@ -542,7 +542,7 @@ static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 	}
 	p = plugin_register(ld->plugins, arg, NULL, false, NULL, NULL);
 	if (!p)
-		return tal_fmt(NULL, "Failed to register %s: %s", arg, strerror(errno));
+		return tal_fmt(tmpctx, "Failed to register %s: %s", arg, strerror(errno));
 	return NULL;
 }
 
@@ -579,7 +579,7 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 	}
 	p = plugin_register(ld->plugins, arg, NULL, true, NULL, NULL);
 	if (!p)
-		return tal_fmt(NULL, "Failed to register %s: %s", arg, strerror(errno));
+		return tal_fmt(tmpctx, "Failed to register %s: %s", arg, strerror(errno));
 	return NULL;
 }
 
@@ -656,7 +656,7 @@ static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 	ld->dev_force_privkey = tal(ld, struct privkey);
 	if (!hex_decode(optarg, strlen(optarg),
 			ld->dev_force_privkey, sizeof(*ld->dev_force_privkey)))
-		return tal_fmt(NULL, "Unable to parse privkey '%s'", optarg);
+		return tal_fmt(tmpctx, "Unable to parse privkey '%s'", optarg);
 	return NULL;
 }
 
@@ -667,7 +667,7 @@ static char *opt_force_bip32_seed(const char *optarg, struct lightningd *ld)
 	if (!hex_decode(optarg, strlen(optarg),
 			ld->dev_force_bip32_seed,
 			sizeof(*ld->dev_force_bip32_seed)))
-		return tal_fmt(NULL, "Unable to parse secret '%s'", optarg);
+		return tal_fmt(tmpctx, "Unable to parse secret '%s'", optarg);
 	return NULL;
 }
 
@@ -678,7 +678,7 @@ static char *opt_force_tmp_channel_id(const char *optarg, struct lightningd *ld)
 	if (!hex_decode(optarg, strlen(optarg),
 			ld->dev_force_tmp_channel_id,
 			sizeof(*ld->dev_force_tmp_channel_id)))
-		return tal_fmt(NULL, "Unable to parse channel id '%s'", optarg);
+		return tal_fmt(tmpctx, "Unable to parse channel id '%s'", optarg);
 	return NULL;
 }
 
@@ -1109,7 +1109,7 @@ static bool opt_show_msat(char *buf, size_t len, const struct amount_msat *msat)
 static char *opt_set_msat(const char *arg, struct amount_msat *amt)
 {
 	if (!parse_amount_msat(amt, arg, strlen(arg)))
-		return tal_fmt(NULL, "Unable to parse millisatoshi '%s'", arg);
+		return tal_fmt(tmpctx, "Unable to parse millisatoshi '%s'", arg);
 
 	return NULL;
 }
@@ -1136,7 +1136,7 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 
 	ld->websocket_port = port;
 	if (ld->websocket_port != port)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
 

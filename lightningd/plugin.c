@@ -1685,7 +1685,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 	if (!d) {
 		if (!error_ok && errno == ENOENT)
 			return NULL;
-		return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
+		return tal_fmt(tmpctx, "Failed to open plugin-dir %s: %s",
 			       dir, strerror(errno));
 	}
 
@@ -1705,7 +1705,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 					    NULL, NULL);
 			if (!p && !error_ok) {
 				closedir(d);
-				return tal_fmt(NULL, "Failed to register %s: %s",
+				return tal_fmt(tmpctx, "Failed to register %s: %s",
 				               fullpath, strerror(errno));
 			}
 		}
