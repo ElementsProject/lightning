@@ -3426,6 +3426,7 @@ def test_setconfig(node_factory):
 
     with open(configfile, 'r') as f:
         lines = f.read().splitlines()
+        timeline = lines[0]
         assert lines[0].startswith('# Inserted by setconfig ')
         assert lines[1] == 'min-capacity-sat=500000'
         assert len(lines) == 2
@@ -3450,3 +3451,40 @@ def test_setconfig(node_factory):
     l1.connect(l2)
     with pytest.raises(RpcError, match='which is below 500000sat'):
         l1.fundchannel(l2, 400000)
+
+    # Now, changing again will comment that one out!
+    ret = l2.rpc.setconfig(config='min-capacity-sat', val=400000)
+    assert ret == {'config':
+                   {'config': 'min-capacity-sat',
+                    'source': '{}:2'.format(configfile),
+                    'value_int': 400000,
+                    'dynamic': True}}
+
+    with open(configfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert lines[0].startswith('# Inserted by setconfig ')
+        # It will have changed timestamp since last time!
+        assert lines[0] != timeline
+        assert lines[1] == 'min-capacity-sat=400000'
+        assert len(lines) == 2
+
+    # If it's not set by setconfig, it will comment it out instead.
+    l2.stop()
+
+    with open(configfile, 'w') as f:
+        f.write('min-capacity-sat=500000\n')
+
+    l2.start()
+    ret = l2.rpc.setconfig(config='min-capacity-sat', val=400000)
+    assert ret == {'config':
+                   {'config': 'min-capacity-sat',
+                    'source': '{}:3'.format(configfile),
+                    'value_int': 400000,
+                    'dynamic': True}}
+
+    with open(configfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert lines[0].startswith('# setconfig commented out: min-capacity-sat=500000')
+        assert lines[1].startswith('# Inserted by setconfig ')
+        assert lines[2] == 'min-capacity-sat=400000'
+        assert len(lines) == 3
