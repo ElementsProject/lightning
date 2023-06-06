@@ -1523,14 +1523,14 @@ static char *option_channel_base(const char *arg, struct funder_policy *policy)
 	struct amount_msat amt;
 
 	if (!parse_amount_msat(&amt, arg, strlen(arg)))
-		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
+		return tal_fmt(tmpctx, "Unable to parse amount '%s'", arg);
 
 	if (!policy->rates)
 		policy->rates = default_lease_rates(policy);
 
 	if (!assign_overflow_u32(&policy->rates->channel_fee_max_base_msat,
 				amt.millisatoshis)) /* Raw: conversion */
-		return tal_fmt(NULL, "channel_fee_max_base_msat overflowed");
+		return tal_fmt(tmpctx, "channel_fee_max_base_msat overflowed");
 
 	return NULL;
 }
@@ -1547,7 +1547,7 @@ option_channel_fee_proportional_thousandths_max(const char *arg,
 static char *amount_option(const char *arg, struct amount_sat *amt)
 {
 	if (!parse_amount_sat(amt, arg, strlen(arg)))
-		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
+		return tal_fmt(tmpctx, "Unable to parse amount '%s'", arg);
 
 	return NULL;
 }
@@ -1566,7 +1566,7 @@ static char *option_lease_fee_base(const char *arg,
 
 	if (!assign_overflow_u32(&policy->rates->lease_fee_base_sat,
 				 amt.satoshis)) /* Raw: conversion */
-		return tal_fmt(NULL, "lease_fee_base_sat overflowed");
+		return tal_fmt(tmpctx, "lease_fee_base_sat overflowed");
 
 	return NULL;
 }
@@ -1596,7 +1596,7 @@ static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
 	if (err) {
 		tal_free(err);
 		if (!parse_amount_sat(&sats, arg, strlen(arg)))
-			return tal_fmt(NULL,
+			return tal_fmt(tmpctx,
 				       "Unable to parse option '%s'",
 				       arg);
 

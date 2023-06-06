@@ -1233,9 +1233,9 @@ char *u64_option(const char *arg, u64 *i)
 	errno = 0;
 	*i = strtol(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	if (errno)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
 
@@ -1247,13 +1247,13 @@ char *u32_option(const char *arg, u32 *i)
 	errno = 0;
 	n = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	if (errno)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 
 	*i = n;
 	if (*i != n)
-		return tal_fmt(NULL, "'%s' is too large (overflow)", arg);
+		return tal_fmt(tmpctx, "'%s' is too large (overflow)", arg);
 
 	return NULL;
 }
@@ -1266,13 +1266,13 @@ char *u16_option(const char *arg, u16 *i)
 	errno = 0;
 	n = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
+		return tal_fmt(tmpctx, "'%s' is not a number", arg);
 	if (errno)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
+		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 
 	*i = n;
 	if (*i != n)
-		return tal_fmt(NULL, "'%s' is too large (overflow)", arg);
+		return tal_fmt(tmpctx, "'%s' is too large (overflow)", arg);
 
 	return NULL;
 }
@@ -1280,7 +1280,7 @@ char *u16_option(const char *arg, u16 *i)
 char *bool_option(const char *arg, bool *i)
 {
 	if (!streq(arg, "true") && !streq(arg, "false"))
-		return tal_fmt(NULL, "'%s' is not a bool, must be \"true\" or \"false\"", arg);
+		return tal_fmt(tmpctx, "'%s' is not a bool, must be \"true\" or \"false\"", arg);
 
 	*i = streq(arg, "true");
 	return NULL;
@@ -1292,7 +1292,7 @@ char *flag_option(const char *arg, bool *i)
 	 * by default */
 	assert(*i == false);
 	if (!streq(arg, "true"))
-		return tal_fmt(NULL, "Invalid argument '%s' passed to a flag", arg);
+		return tal_fmt(tmpctx, "Invalid argument '%s' passed to a flag", arg);
 
 	*i = true;
 	return NULL;

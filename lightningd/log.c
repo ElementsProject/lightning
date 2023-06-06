@@ -581,7 +581,7 @@ char *opt_log_level(const char *arg, struct log *log)
 
 	len = strcspn(arg, ":");
 	if (!log_level_parse(arg, len, &level))
-		return tal_fmt(NULL, "unknown log level %.*s", len, arg);
+		return tal_fmt(tmpctx, "unknown log level %.*s", len, arg);
 
 	if (arg[len]) {
 		struct print_filter *f = tal(log->lr, struct print_filter);
@@ -717,7 +717,7 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 	else {
 		outf = fopen(arg, "a");
 		if (!outf)
-			return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
+			return tal_fmt(tmpctx, "Failed to open: %s", strerror(errno));
 	}
 
 	tal_arr_expand(&ld->logfiles, tal_strdup(ld->logfiles, arg));
