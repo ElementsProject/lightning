@@ -960,9 +960,22 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 
 	if (json_tok_streq(buffer, typetok, "flag")) {
 		if (defaulttok) {
-			if (!deprecated_apis) {
-				return tal_fmt(plugin, "%s type flag cannot have default",
-					       popt->name);
+			bool val;
+			/* We used to allow (ignore) anything, now make sure it's 'false' */
+			if (!json_to_bool(buffer, defaulttok, &val)
+			    || val != false) {
+				if (!deprecated_apis)
+					return tal_fmt(plugin, "%s type flag default must be 'false' not %.*s",
+						       popt->name,
+						       json_tok_full_len(defaulttok),
+						       json_tok_full(buffer, defaulttok));
+				else {
+					/* At least warn that we're ignoring! */
+					log_broken(plugin->log, "Ignoring default %.*s for %s (if set, must be 'false'!)",
+						   json_tok_full_len(defaulttok),
+						   json_tok_full(buffer, defaulttok),
+						   popt->name);
+				}
 			}
 			defaulttok = NULL;
 		}
