@@ -1,7 +1,9 @@
 #include "config.h"
+#include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/opt/private.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -235,6 +237,25 @@ static const char *next_name(const char *names, unsigned *len)
 	return first_name(names + 1, len);
 }
 
+static const char **opt_names_arr(const tal_t *ctx,
+				  const struct opt_table *ot)
+{
+	const char **names = tal_arr(ctx, const char *, 0);
+	const char *name;
+	unsigned len;
+
+	for (name = first_name(ot->names, &len);
+	     name;
+	     name = next_name(name, &len)) {
+		/* Skips over first -, so just need to look for one */
+		if (name[0] != '-')
+			continue;
+		tal_arr_expand(&names,
+			       tal_strndup(names, name+1, len-1));
+	}
+	return names;
+}
+
 static struct command_result *json_listconfigs(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *obj UNNEEDED,
@@ -284,8 +305,6 @@ static struct command_result *json_listconfigs(struct command *cmd,
 modern:
 	json_object_start(response, "configs");
 	for (size_t i = 0; i < opt_count; i++) {
-		unsigned int len;
-		const char *name;
 		const char **names;
 
 		/* FIXME: Print out comment somehow? */
@@ -295,16 +314,7 @@ modern:
 		if (config && config != &opt_table[i])
 			continue;
 
-		names = tal_arr(tmpctx, const char *, 0);
-		for (name = first_name(opt_table[i].names, &len);
-		     name;
-		     name = next_name(name, &len)) {
-			/* Skips over first -, so just need to look for one */
-			if (name[0] != '-')
-				continue;
-			tal_arr_expand(&names,
-				       tal_strndup(names, name+1, len-1));
-		}
+		names = opt_names_arr(tmpctx, &opt_table[i]);
 		/* We don't usually print dev or deprecated options, unless
 		 * they explicitly ask, or they're set. */
 		json_add_config(cmd->ld, response, config != NULL, true,
@@ -356,6 +366,28 @@ static size_t memcount(const void *mem, size_t len, char c)
 	return count;
 }
 
+static void configvar_updated(struct lightningd *ld,
+			      enum configvar_src src,
+			      const char *fname,
+			      size_t linenum,
+			      const char *confline)
+{
+	struct configvar *cv;
+
+	cv = configvar_new(ld->configvars, src, fname, linenum, confline);
+	configvar_unparsed(cv);
+
+	log_info(ld->log, "setconfig: %s %s (updated %s:%u)",
+		 cv->optvar, cv->optarg ? cv->optarg : "SET",
+		 cv->file, cv->linenum);
+
+	tal_arr_expand(&ld->configvars, cv);
+	configvar_finalize_overrides(ld->configvars);
+}
+
+/* Marker for our own insertions */
+#define INSERTED_BY_SETCONFIG "# Inserted by setconfig "
+
 static void configvar_append_file(struct lightningd *ld,
 				  const char *fname,
 				  enum configvar_src src,
@@ -366,7 +398,6 @@ static void configvar_append_file(struct lightningd *ld,
 	size_t num_lines;
 	const char *buffer, *insert;
 	bool needs_term;
-	struct configvar *cv;
 	time_t now = time(NULL);
 
 	fd = open(fname, O_RDWR|O_APPEND);
@@ -394,26 +425,113 @@ static void configvar_append_file(struct lightningd *ld,
 		needs_term = (buffer[tal_bytelen(buffer)-2] != '\n');
 
 	/* Note: ctime() contains a \n! */
-	insert = tal_fmt(tmpctx, "%s# Inserted by setconfig %s%s\n",
+	insert = tal_fmt(tmpctx, "%s"INSERTED_BY_SETCONFIG"%s%s\n",
 			 needs_term ? "\n": "",
 			 ctime(&now), confline);
 	if (write(fd, insert, strlen(insert)) != strlen(insert))
 		fatal("Could not write to config file %s: %s",
 		      fname, strerror(errno));
 
-	cv = configvar_new(ld->configvars, src, fname, num_lines+2, confline);
-	configvar_unparsed(cv);
-
-	log_info(ld->log, "setconfig: %s %s (updated %s:%u)",
-		 cv->optvar, cv->optarg ? cv->optarg : "SET",
-		 cv->file, cv->linenum);
-
-	tal_arr_expand(&ld->configvars, cv);
-	configvar_finalize_overrides(ld->configvars);
+	configvar_updated(ld, src, fname, num_lines+2, confline);
 }
 
-static void configvar_save(struct lightningd *ld, const char *confline)
+/* Returns true if it rewrote in place, otherwise it just comments out
+ * if necessary */
+static bool configfile_replace_var(struct lightningd *ld,
+				   const struct configvar *cv,
+				   const char *confline)
 {
+	char *contents, **lines, *template;
+	int outfd;
+	bool replaced;
+
+	switch (cv->src) {
+	case CONFIGVAR_CMDLINE:
+	case CONFIGVAR_CMDLINE_SHORT:
+	case CONFIGVAR_PLUGIN_START:
+		/* These can't be commented out */
+		return false;
+	case CONFIGVAR_EXPLICIT_CONF:
+	case CONFIGVAR_BASE_CONF:
+	case CONFIGVAR_NETWORK_CONF:
+		break;
+	}
+
+	contents = grab_file(tmpctx, cv->file);
+	if (!contents)
+		fatal("Could not load configfile %s: %s",
+		      cv->file, strerror(errno));
+
+	lines = tal_strsplit(contents, contents, "\r\n", STR_EMPTY_OK);
+	if (cv->linenum - 1 >= tal_count(lines))
+		fatal("Configfile %s no longer has %u lines!",
+		      cv->file, cv->linenum);
+
+	if (!streq(lines[cv->linenum - 1], cv->configline))
+		fatal("Configfile %s line %u changed from %s to %s!",
+		      cv->file, cv->linenum,
+		      cv->configline,
+		      lines[cv->linenum - 1]);
+
+	/* If we already have # Inserted by setconfig above, just replace
+	 * those two! */
+	if (cv->linenum > 1
+	    && strstarts(lines[cv->linenum - 2], INSERTED_BY_SETCONFIG)) {
+		time_t now = time(NULL);
+		lines[cv->linenum - 2] = tal_fmt(lines,
+						 INSERTED_BY_SETCONFIG"%s",
+						 ctime(&now));
+		/* But trim final \n! (thanks ctime!) */
+		assert(strends(lines[cv->linenum - 2], "\n"));
+		lines[cv->linenum - 2][strlen(lines[cv->linenum - 2])-1] = '\0';
+		lines[cv->linenum - 1] = cast_const(char *, confline);
+		replaced = true;
+	} else {
+		/* Comment out, in-place */
+		lines[cv->linenum - 1]
+			= tal_fmt(lines, "# setconfig commented out: %s",
+				  lines[cv->linenum - 1]);
+		log_info(ld->log, "setconfig: commented out line %u of %s (%s)",
+			 cv->linenum, cv->file, cv->configline);
+		replaced = false;
+	}
+
+	template = tal_fmt(tmpctx, "%s.setconfig.XXXXXX", cv->file);
+	outfd = mkstemp(template);
+	if (outfd < 0)
+		fatal("Creating %s: %s", template, strerror(errno));
+
+	contents = tal_strjoin(tmpctx, take(lines), "\n", STR_TRAIL);
+	if (!write_all(outfd, contents, strlen(contents)))
+		fatal("Writing %s: %s", template, strerror(errno));
+	fdatasync(outfd);
+
+	if (rename(template, cv->file) != 0)
+		fatal("Renaming %s over %s: %s",
+		      template, cv->file, strerror(errno));
+	close(outfd);
+
+	if (replaced) {
+		configvar_updated(ld, cv->src, cv->file, cv->linenum, confline);
+		return true;
+	}
+	return false;
+}
+
+static void configvar_save(struct lightningd *ld,
+			   const char **names,
+			   const char *confline)
+{
+	/* Simple case: set in a config file. */
+	struct configvar *oldcv;
+
+	oldcv = configvar_first(ld->configvars, names);
+	if (oldcv) {
+		/* At least comment out, maybe replace */
+		if (configfile_replace_var(ld, oldcv, confline))
+			return;
+	}
+
 	/* If they used --conf then append to that */
 	if (ld->config_filename)
 		configvar_append_file(ld,
@@ -440,7 +558,6 @@ static struct command_result *json_setconfig(struct command *cmd,
 	struct json_stream *response;
 	const struct opt_table *ot;
 	const char *val, **names, *confline;
-	unsigned int len;
 	char *err;
 
 	if (!param(cmd, buffer, params,
@@ -452,9 +569,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 	/* We don't handle DYNAMIC MULTI, at least yet! */
 	assert(!(ot->type & OPT_MULTI));
 
-	names = tal_arr(tmpctx, const char *, 1);
-	/* This includes leading -! */
-	names[0] = first_name(ot->names, &len) + 1;
+	names = opt_names_arr(tmpctx, ot);
 
 	if (ot->type & OPT_NOARG) {
 		if (val)
@@ -478,7 +593,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 				    "Error setting %s: %s", ot->names + 2, err);
 	}
 
-	configvar_save(cmd->ld, confline);
+	configvar_save(cmd->ld, names, confline);
 
 	response = json_stream_success(cmd);
 	json_object_start(response, "config");

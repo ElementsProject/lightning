@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **setconfig** RPC command allows you set the (dynamic) configuration option named by `config`: options which take a value (as separate from simple flag options) also need a `val` parameter.
 
-This new value will *also* be written at the end of the config file, for persistence across restarts.
+This new value will *also* be written at the end of the config file, for persistence across restarts (and any old value commented out).
 
 You can see what options are dynamically adjustable using lightning-listconfigs(7).  Note that you can also adjust existing options for stopped plugins; they will have an effect when the plugin is restarted.
 
