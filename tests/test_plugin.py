@@ -2991,6 +2991,59 @@ def test_commando_listrunes(node_factory):
     assert not_our_rune['our_rune'] is False
 
 
+@pytest.mark.xfail(strict=True)
+def test_commando_rune_pay_amount(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    # This doesn't really work, since amount_msat is illegal if invoice
+    # includes an amount, and runes aren't smart enough to decode bolt11!
+    rune = l1.rpc.commando_rune(restrictions=[['method=pay'],
+                                              ['pnameamountmsat<10000']])['rune']
+    inv1 = l2.rpc.invoice(amount_msat=12300, label='inv1', description='description1')['bolt11']
+    inv2 = l2.rpc.invoice(amount_msat='any', label='inv2', description='description2')['bolt11']
+
+    # Rune requires amount_msat!
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.commando(peer_id=l1.info['id'],
+                        rune=rune,
+                        method='pay',
+                        params={'bolt11': inv1})
+
+    # As a named parameter!
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.commando(peer_id=l1.info['id'],
+                        rune=rune,
+                        method='pay',
+                        params=[inv1])
+
+    # Can't get around it this way!
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.commando(peer_id=l1.info['id'],
+                        rune=rune,
+                        method='pay',
+                        params=[inv2, 12000])
+
+    # Nor this way, using a string!
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.commando(peer_id=l1.info['id'],
+                        rune=rune,
+                        method='pay',
+                        params={'bolt11': inv2, 'amount_msat': '10000sat'})
+
+    # Too much!
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.commando(peer_id=l1.info['id'],
+                        rune=rune,
+                        method='pay',
+                        params={'bolt11': inv2, 'amount_msat': 12000})
+
+    # This works
+    l2.rpc.commando(peer_id=l1.info['id'],
+                    rune=rune,
+                    method='pay',
+                    params={'bolt11': inv2, 'amount_msat': 9999})
+
+
 def test_commando_blacklist(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
