@@ -102,9 +102,6 @@ struct state {
 	struct amount_sat *reserve;
 
 	bool allowdustreserve;
-
-	/* Are we allowed to set option_scid_alias is channel_type? */
-	bool can_set_scid_alias_channel_type;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -300,6 +297,33 @@ static void set_remote_upfront_shutdown(struct state *state,
 		peer_failed_err(state->pps, &state->channel_id, "%s", err);
 }
 
+/* Since we can't send OPT_SCID_ALIAS due to compat issues, intuit whether
+ * we really actually want it anyway, we just can't say that. */
+static bool intuit_scid_alias_type(struct state *state, u8 channel_flags,
+				   bool peer_sent_channel_type)
+{
+	/* Don't need to intuit if actually set */
+	if (channel_type_has(state->channel_type, OPT_SCID_ALIAS))
+		return false;
+
+	/* Old clients didn't send channel_type at all */
+	if (!peer_sent_channel_type)
+		return false;
+
+	/* Modern peer: no intuit hacks necessary. */
+	if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+		return false;
+
+	/* Public channel: don't want OPT_SCID_ALIAS which means "only use
+	 * alias". */
+	if (channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		return false;
+
+	/* If we both support it, presumably we want it? */
+	return feature_negotiated(state->our_features, state->their_features,
+				  OPT_SCID_ALIAS);
+}
+
 /* We start the 'open a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state, u8 channel_flags)
@@ -336,9 +360,16 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 						   state->their_features);
 
 	/* Spec says we should use the option_scid_alias variation if we
-	 * want them to *only* use the scid_alias.  But we didn't accept this
-	 * in CLN prior to v23.05, so we don't send that in deprecated mode! */
-	if (state->can_set_scid_alias_channel_type) {
+	 * want them to *only* use the scid_alias (which we do for unannounced
+	 * channels!).
+	 *
+	 * But:
+	 * 1. We didn't accept this in CLN prior to v23.05.
+	 * 2. LND won't accept that without OPT_ANCHORS_ZERO_FEE_HTLC_TX.
+	 *
+	 * So we keep it off for now, until anchors merge.
+	 */
+	if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
 		if (!(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 			channel_type_set_scid_alias(state->channel_type);
 	}
@@ -433,14 +464,26 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *   `open_channel`, and they are not equal types:
 	 *    - MUST reject the channel.
 	 */
-	if (accept_tlvs->channel_type
-	    && !featurebits_eq(accept_tlvs->channel_type,
-			       state->channel_type->features)) {
-		negotiation_failed(state,
-				   "Return unoffered channel_type: %s",
-				   fmt_featurebits(tmpctx,
-						   accept_tlvs->channel_type));
-		return NULL;
+	if (accept_tlvs->channel_type) {
+		/* Except that v23.05 could set OPT_SCID_ALIAS in reply! */
+		struct channel_type *atype;
+
+		atype = channel_type_from(tmpctx, accept_tlvs->channel_type);
+		if (!channel_type_has(atype, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+			featurebits_unset(&atype->features, OPT_SCID_ALIAS);
+
+		if (!channel_type_eq(atype, state->channel_type)) {
+			negotiation_failed(state,
+					   "Return unoffered channel_type: %s",
+					   fmt_featurebits(tmpctx,
+							   accept_tlvs->channel_type));
+			return NULL;
+		}
+
+		/* If they "accepted" SCID_ALIAS, roll with it. */
+		tal_free(state->channel_type);
+		state->channel_type = channel_type_from(state,
+							accept_tlvs->channel_type);
 	}
 
 	/* BOLT #2:
@@ -546,6 +589,12 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	peer_billboard(false,
 		       "Funding channel start: awaiting funding_txid with output to %s",
 		       tal_hex(tmpctx, funding_output_script));
+
+	/* Backwards/cross compat hack */
+	if (intuit_scid_alias_type(state, channel_flags,
+				   accept_tlvs->channel_type != NULL)) {
+		channel_type_set_scid_alias(state->channel_type);
+	}
 
 	return towire_openingd_funder_start_reply(state,
 						  funding_output_script,
@@ -860,6 +909,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs;
 	struct amount_sat *reserve;
+	bool open_channel_had_channel_type;
 
 	/* BOLT #2:
 	 *
@@ -901,6 +951,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (open_tlvs->channel_type) {
+		open_channel_had_channel_type = true;
 		state->channel_type =
 			channel_type_accept(state,
 					    open_tlvs->channel_type,
@@ -914,21 +965,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 							   open_tlvs->channel_type));
 			return NULL;
 		}
-
-		/* If we're not using scid_alias in channel type, intuit it here.
-		 * We have to do this, because we used not to accept that bit, so older
-		 * clients won't send it! */
-		if (!state->can_set_scid_alias_channel_type
-		    && !(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		    && feature_negotiated(state->our_features, state->their_features,
-					  OPT_SCID_ALIAS)) {
-			channel_type_set_scid_alias(state->channel_type);
-		}
-	} else
+	} else {
+		open_channel_had_channel_type = false;
 		state->channel_type
 			= default_channel_type(state,
 					       state->our_features,
 					       state->their_features);
+	}
 
 	/* BOLT #2:
 	 *
@@ -1142,6 +1185,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				type_to_string(msg, struct channel_id,
 					       &state->channel_id),
 				type_to_string(msg, struct channel_id, &id_in));
+
+	/* Backwards/cross compat hack */
+	if (intuit_scid_alias_type(state, channel_flags,
+				   open_channel_had_channel_type)) {
+		channel_type_set_scid_alias(state->channel_type);
+	}
 
 	/*~ Channel is ready; Report the channel parameters to the signer. */
 	msg = towire_hsmd_ready_channel(NULL,
@@ -1475,8 +1524,7 @@ int main(int argc, char *argv[])
 				    &state->minimum_depth,
 				    &state->min_feerate, &state->max_feerate,
 				    &force_tmp_channel_id,
-				    &state->allowdustreserve,
-				    &state->can_set_scid_alias_channel_type))
+				    &state->allowdustreserve))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER
