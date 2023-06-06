@@ -2991,7 +2991,6 @@ def test_commando_listrunes(node_factory):
     assert not_our_rune['our_rune'] is False
 
 
-@pytest.mark.xfail(strict=True)
 def test_commando_rune_pay_amount(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
