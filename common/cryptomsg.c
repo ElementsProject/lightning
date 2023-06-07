@@ -118,7 +118,8 @@ u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 	return decrypted;
 }
 
-bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
+bool cryptomsg_decrypt_header(struct crypto_state *cs, const u8 hdr[18],
+			      u16 *lenp)
 {
 	unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 	unsigned long long mlen;
