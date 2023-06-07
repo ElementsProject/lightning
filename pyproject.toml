@@ -13,6 +13,7 @@ Mako = "^1.1.6"
 websocket-client = "^1.2.3"
 grpcio-tools = "1.54.0"
 grpcio = "1.54.0"
+cryptography = "^41.0.1"
 
 [tool.poetry.dev-dependencies]
 # Test dependencies and inherited dependencies belong here
