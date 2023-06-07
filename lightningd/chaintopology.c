@@ -470,19 +470,11 @@ static void smooth_one_feerate(const struct chain_topology *topo,
 
 	/* But to avoid updating forever, only apply smoothing when its
 	 * effect is more then 10 percent */
-	if (abs((int)rate->rate - (int)feerate_smooth) > (0.1 * rate->rate)) {
+	if (abs((int)rate->rate - (int)feerate_smooth) > (0.1 * rate->rate))
 		rate->rate = feerate_smooth;
-		log_debug(topo->log,
-			  "... polled feerate estimate for %u blocks smoothed to %u (alpha=%.2f)",
-			  rate->blockcount, rate->rate, alpha);
-	}
 
-	if (rate->rate < get_feerate_floor(topo)) {
+	if (rate->rate < get_feerate_floor(topo))
 		rate->rate = get_feerate_floor(topo);
-		log_debug(topo->log,
-			  "... feerate estimate for %u blocks hit floor %u",
-			  rate->blockcount, rate->rate);
-	}
 
 	if (rate->rate != feerate_smooth)
 		log_debug(topo->log,
