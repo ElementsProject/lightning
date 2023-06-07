@@ -1412,6 +1412,9 @@ class LightningNode(object):
             'channel': scid
         }
 
+        # let the signer know this payment is coming
+        self.rpc.preapproveinvoice(bolt11=inv['bolt11'])
+
         # sendpay is async now
         self.rpc.sendpay([routestep], rhash, payment_secret=psecret, bolt11=inv['bolt11'])
         # wait for sendpay to comply
