@@ -25,7 +25,8 @@
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 			  struct crypto_state *cs,
 			  const u8 *msg);
-bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp);
+bool cryptomsg_decrypt_header(struct crypto_state *cs, const u8 hdr[18],
+			      u16 *lenp);
 u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 			   struct crypto_state *cs, const u8 *in);
 #endif /* LIGHTNING_COMMON_CRYPTOMSG_H */
