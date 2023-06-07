@@ -24,6 +24,7 @@ FUZZ_COMMON_OBJS := \
 	common/configvar.o				\
 	common/channel_id.o				\
 	common/channel_type.o				\
+	common/cryptomsg.o				\
 	common/daemon.o					\
 	common/daemon_conn.o				\
 	common/derive_basepoints.o			\
