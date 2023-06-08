@@ -2,6 +2,7 @@ LIBFUZZ_SRC := tests/fuzz/libfuzz.c
 LIBFUZZ_HEADERS := $(LIBFUZZ_SRC:.c=.h)
 LIBFUZZ_OBJS := $(LIBFUZZ_SRC:.c=.o)
 
+tests/fuzz/fuzz-connectd-handshake-act*.o: tests/fuzz/connectd_handshake.h
 
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
