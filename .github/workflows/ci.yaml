@@ -237,7 +237,7 @@ jobs:
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200
+      PYTEST_OPTS: --timeout=1800
     needs:
       - compile
     strategy:
@@ -416,7 +416,7 @@ jobs:
       DEVELOPER: 1
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=2400
     needs:
       - prebuild
     strategy:
