@@ -321,6 +321,7 @@ jobs:
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
         run: |
           tar -xaf cln-${CFG}.tar.bz2
           poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
