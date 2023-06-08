@@ -1370,12 +1370,14 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
 
     # status: offered -> settled
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash13)
 
     # status: offered -> failed
     route = l1.rpc.getroute(l4.info['id'], amount, 1)['route']
     payment_hash14 = "f" * 64
+    l1.rpc.preapprovekeysend(l4.info['id'], payment_hash14, amount)
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, payment_hash14, payment_secret="f" * 64)
         l1.rpc.waitsendpay(payment_hash14)
@@ -1395,6 +1397,7 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
               'delay': 5,
               'channel': c25}]
 
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     executor.submit(l1.rpc.sendpay, route, payment_hash15, payment_secret=inv['payment_secret'])
 
     l5.daemon.wait_for_log('permfail')
@@ -1481,11 +1484,13 @@ def test_sendpay_notifications(node_factory, bitcoind):
     payment_hash2 = inv2['payment_hash']
     route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
 
+    l1.rpc.preapproveinvoice(bolt11=inv1['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash1, payment_secret=inv1['payment_secret'])
     response1 = l1.rpc.waitsendpay(payment_hash1)
 
     l2.rpc.close(chanid23, 1)
 
+    l1.rpc.preapproveinvoice(bolt11=inv2['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash2, payment_secret=inv2['payment_secret'])
     with pytest.raises(RpcError) as err:
         l1.rpc.waitsendpay(payment_hash2)
@@ -1512,11 +1517,13 @@ def test_sendpay_notifications_nowaiter(node_factory):
     payment_hash2 = inv2['payment_hash']
     route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
 
+    l1.rpc.preapproveinvoice(bolt11=inv1['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash1, payment_secret=inv1['payment_secret'])
     l1.daemon.wait_for_log(r'Received a sendpay_success')
 
     l2.rpc.close(chanid23, 1)
 
+    l1.rpc.preapproveinvoice(bolt11=inv2['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash2, payment_secret=inv2['payment_secret'])
     l1.daemon.wait_for_log(r'Received a sendpay_failure')
 
@@ -2158,12 +2165,14 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
 
     # status: offered -> settled
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash13)
 
     # status: offered -> failed
     route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
     payment_hash13 = "f" * 64
+    l1.rpc.preapprovekeysend(l3.info['id'], payment_hash13, amount)
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
         l1.rpc.waitsendpay(payment_hash13)
@@ -2172,6 +2181,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     inv = l1.rpc.invoice(amount // 2, "first", "desc")
     payment_hash31 = inv['payment_hash']
     route = l3.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    l3.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l3.rpc.sendpay(route, payment_hash31, payment_secret=inv['payment_secret'])
     l3.rpc.waitsendpay(payment_hash31)
 
@@ -2179,6 +2189,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     inv = l2.rpc.invoice(amount, "first", "desc")
     payment_hash12 = inv['payment_hash']
     route = l1.rpc.getroute(l2.info['id'], amount, 1)['route']
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, payment_hash12, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash12)
 
@@ -2188,6 +2199,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     # Make sure previous completely settled
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
     route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    l2.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)
 

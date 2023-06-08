@@ -88,6 +88,8 @@ def test_mpp(node_factory):
 
     send_amount = Millisatoshi("1200000sat")
     inv = l6.rpc.invoice(send_amount, "test_renepay", "description")["bolt11"]
+    # FIXME - This shouldn't be necessary, renepay should automatically generate ... vls-hsmd:#6
+    l1.rpc.preapproveinvoice(bolt11=inv) # let the signer know this payment is coming
     details = l1.rpc.call("renepay", {"invstring": inv})
     assert details["status"] == "complete"
     assert details["amount_msat"] == send_amount

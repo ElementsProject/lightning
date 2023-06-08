@@ -833,6 +833,7 @@ def test_reconnect_sender_add1(node_factory):
         l1.daemon.wait_for_log('Already have funding locked in')
 
     # This will send commit, so will reconnect as required.
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
 
 
@@ -863,6 +864,7 @@ def test_reconnect_sender_add(node_factory):
     route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
 
     # This will send commit, so will reconnect as required.
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     # Should have printed this for every reconnect.
     for i in range(0, len(disconnects)):
@@ -894,6 +896,7 @@ def test_reconnect_receiver_add(node_factory):
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
     route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -923,6 +926,7 @@ def test_reconnect_receiver_fulfill(node_factory):
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
     route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -4249,6 +4253,7 @@ def test_multichan(node_factory, executor, bitcoind):
 
     before = l2.rpc.listpeerchannels(l3.info['id'])['channels']
     inv1 = l3.rpc.invoice(100000000, "invoice", "invoice")
+    l1.rpc.preapproveinvoice(bolt11=inv1['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, inv1['payment_hash'], payment_secret=inv1['payment_secret'])
     l1.rpc.waitsendpay(inv1['payment_hash'])
 
@@ -4276,6 +4281,7 @@ def test_multichan(node_factory, executor, bitcoind):
     before = l2.rpc.listpeerchannels(l3.info['id'])['channels']
     route[1]['channel'] = scid23b
     inv2 = l3.rpc.invoice(100000000, "invoice2", "invoice2")
+    l1.rpc.preapproveinvoice(bolt11=inv2['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
     l1.rpc.waitsendpay(inv2['payment_hash'])
     # Wait until HTLCs fully settled
@@ -4320,6 +4326,7 @@ def test_multichan(node_factory, executor, bitcoind):
     # We can actually pay by *closed* scid (at least until it's completely forgotten)
     route[1]['channel'] = scid23a
     inv3 = l3.rpc.invoice(100000000, "invoice3", "invoice3")
+    l1.rpc.preapproveinvoice(bolt11=inv3['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, inv3['payment_hash'], payment_secret=inv3['payment_secret'])
     l1.rpc.waitsendpay(inv3['payment_hash'])
 
