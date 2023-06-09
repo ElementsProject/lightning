@@ -2,6 +2,7 @@
 """
 
 import logging
+import warnings
 from binascii import unhexlify
 from typing import List, Optional, Tuple
 
@@ -10,6 +11,7 @@ from pyln.testing import grpc2py
 from pyln.testing import node_pb2 as pb
 from pyln.testing import node_pb2_grpc as pbgrpc
 from pyln.testing import primitives_pb2 as primpb
+from pyln.client import LightningRpc
 
 DUMMY_CA_PEM = b"""-----BEGIN CERTIFICATE-----
 MIIBcTCCARigAwIBAgIJAJhah1bqO05cMAoGCCqGSM49BAMCMBYxFDASBgNVBAMM
@@ -73,6 +75,7 @@ class LightningGrpc(object):
         self,
         host: str,
         port: int,
+        fallbackrpc: LightningRpc,
         root_certificates: bytes = DUMMY_CA_PEM,
         private_key: bytes = DUMMY_CLIENT_KEY_PEM,
         certificate_chain: bytes = DUMMY_CLIENT_PEM,
@@ -90,6 +93,9 @@ class LightningGrpc(object):
             options=(("grpc.ssl_target_name_override", "cln"),),
         )
         self.stub = pbgrpc.NodeStub(self.channel)
+        self.check_request_schemas = False
+        self.fallbackrpc = fallbackrpc
+        self.fallbackrpc.check_request_schemas = False
 
     def getinfo(self):
         return grpc2py.getinfo2py(self.stub.Getinfo(pb.GetinfoRequest()))
@@ -159,6 +165,7 @@ class LightningGrpc(object):
         close_to: Optional[str] = None,
         # request_amt=None,
         compact_lease: Optional[str] = None,
+        mindepth: Optional[int] = None,
     ):
         payload = pb.FundchannelRequest(
             id=unhexlify(node_id),
@@ -167,6 +174,7 @@ class LightningGrpc(object):
             announce=announce,
             utxos=None,
             minconf=minconf,
+            mindepth=mindepth,
             close_to=close_to,
             compact_lease=compact_lease,
         )
@@ -190,7 +198,6 @@ class LightningGrpc(object):
         retry_for: Optional[int] = None,
         maxdelay: Optional[int] = None,
         exemptfee: Optional[int] = None,
-        localofferid: Optional[str] = None,
         # TODO map the following arguments
         # exclude: Optional[List[str]] = None,
         # maxfee=None,
@@ -206,7 +213,6 @@ class LightningGrpc(object):
             retry_for=retry_for,
             maxdelay=maxdelay,
             exemptfee=exemptfee,
-            localofferid=localofferid,
             # Needs conversion
             # exclude=exclude,
             # maxfee=maxfee
@@ -222,7 +228,7 @@ class LightningGrpc(object):
             expiry: Optional[int] = None,
             fallbacks: Optional[List[str]] = None,
             preimage: Optional[str] = None,
-            exposeprivatechannels: Optional[bool] = None,
+            #exposeprivatechannels: Optional[bool] = None,
             cltv: Optional[int] = None,
             deschashonly: Optional[bool] = None,
             # msatoshi=None
@@ -234,7 +240,7 @@ class LightningGrpc(object):
             expiry=expiry,
             fallbacks=fallbacks,
             preimage=unhexlify(preimage) if preimage else None,
-            exposeprivatechannels=exposeprivatechannels,
+            #exposeprivatechannels=exposeprivatechannels,
             cltv=cltv,
             deschashonly=deschashonly,
         )
@@ -286,3 +292,56 @@ class LightningGrpc(object):
             offer_id=offer_id,
         )
         return grpc2py.listinvoices2py(self.stub.ListInvoices(payload))
+
+    def listpeerchannels(
+            self,
+            id: Optional[str] = None
+    ):
+        payload = pb.ListpeerchannelsRequest(
+            id=unhexlify(id) if id else None
+        )
+        res = self.stub.ListPeerChannels(payload)
+        print(res)
+        return grpc2py.listpeerchannels2py(res)
+
+    def withdraw(
+            self,
+            destination,
+            satoshi=None,
+            feerate=None,
+            minconf=None,
+            utxos=None,
+    ):
+        assert utxos == None and "utxos param is currently unmapped"
+        payload = pb.WithdrawRequest(
+            destination=destination,
+            satoshi=int2amount_or_all(satoshi),
+            feerate=feerate,
+            minconf=minconf,
+        )
+        res = self.stub.Withdraw(payload)
+        return grpc2py.withdraw2py(res)
+
+    def decodepay(
+            self,
+            bolt11: str,
+            description: Optional[str] = None
+    ):
+        payload = pb.DecodepayRequest(
+            bolt11=bolt11,
+            description=description,
+        )
+        res = self.stub.DecodePay(payload)
+        return grpc2py.decodepay2py(res)
+
+    def dev_pay(
+            self,
+            *args,
+            **kwargs
+    ):
+        warnings.warn("Call to `dev_pay` does not use the grpc interface, falling back to JSON-RPC")
+        return self.fallbackrpc.dev_pay(*args, **kwargs)
+
+    def call(self, *args, **kwargs):
+        warnings.warn("Call to `call` does not use the grpc interface, falling back to JSON-RPC")
+        return self.fallbackrpc.call(*args, **kwargs)

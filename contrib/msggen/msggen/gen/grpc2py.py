@@ -64,6 +64,9 @@ class Grpc2PyGenerator(IGenerator):
         # overwritten.
 
         import json
+        import re
+        from pyln.testing import node_pb2
+        from pyln.testing import primitives_pb2
 
 
         def hexlify(b):
@@ -77,6 +80,9 @@ class Grpc2PyGenerator(IGenerator):
         def remove_default(d):
             # grpc is really not good at empty values, they get replaced with the type's default value...
             return {k: v for k, v in d.items() if v is not None and v != ""}
+
+        def camel2snake_case(s) -> str:
+            return re.sub(r'(?<!^)(?=[A-Z])', '_', s).upper()
         """)
 
         self.generate_responses(service)
@@ -90,7 +96,7 @@ class Grpc2PyGenerator(IGenerator):
             self.converters[field.path] = "str(m.{{name}})"
 
     def generate_composite(self, prefix, field: CompositeField):
-        if override.get(field.path, "") is None:
+        if field.omit():
             return
         name = field.name.normalized()
         if prefix:
@@ -129,19 +135,34 @@ class Grpc2PyGenerator(IGenerator):
                 self.write(f'        "{name}": [{rhs} for i in {rhs}], # ArrayField[primitive] in generate_composite\n', cleanup=False)
 
             elif isinstance(f, ArrayField):
-                if override.get(f.path, "") is None:
+                if f.omit():
                     continue
                 rhs = self.converters[f.path]
 
                 self.write(f'        "{name}": [{rhs} for i in m.{name}],  # ArrayField[composite] in generate_composite\n', cleanup=False)
 
             elif isinstance(f, CompositeField):
-                rhs = self.converters[f.path].format(name=f.name)
+                #rhs = self.converters[f.path].format(name=f.name)
                 # self.write(f'        "{name}": {rhs}, # CompositeField in generate_composite\n', cleanup=False)
+                pass
 
             elif isinstance(f, EnumField):
+                # If the enum is a builtin one, i.e., manually
+                # managed, then we need to look it up in primitives,
+                # otherwise it'll be in node_pb2
+                builtins = {
+                    'HtlcState': 'primitives_pb2',
+                    'ChannelState': 'primitives_pb2',
+                }
+
+                mod = builtins.get(f.override(), None)
+                typename = f.override(f.typename)
                 name = f.name
-                self.write(f'        "{name}": str(m.{f.name.normalized()}),  # EnumField in generate_composite\n', cleanup=False)
+                if mod:
+                    enum = f"camel2snake_case({mod}._{typename.upper()}.values_by_number[m.{f.name.normalized()}].name)"
+                else:
+                    enum = f"str(m.{name.normalized()})"
+                self.write(f'        "{name}": {enum},  # EnumField in generate_composite\n', cleanup=False)
 
         self.write(f"    }})\n", cleanup=False)
 

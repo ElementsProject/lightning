@@ -815,11 +815,12 @@ class LightningNode(object):
         """
         if os.environ.get('CLN_TEST_GRPC') == '1':
             logging.info("Switching to GRPC based RPC for tests")
-            self._create_grpc_rpc()
+            self._create_grpc_rpc(jsonschemas)
         else:
+            self.grpc_port = None
             self._create_jsonrpc_rpc(jsonschemas)
 
-    def _create_grpc_rpc(self):
+    def _create_grpc_rpc(self, jsonschemas):
         self.grpc_port = reserve_unused_port()
         d = self.lightning_dir / TEST_NETWORK
         d.mkdir(parents=True, exist_ok=True)
@@ -831,11 +832,15 @@ class LightningNode(object):
         with (d / "ca-key.pem").open(mode='wb') as f:
             f.write(grpc.DUMMY_CA_KEY_PEM)
 
+        # We also want a fallback RPC for stuff we can't do through grpc (yet)
+        self._create_jsonrpc_rpc(jsonschemas)
+
         # Now the node will actually start up and use them, so we can
         # create the RPC instance.
         self.rpc = grpc.LightningGrpc(
             host='localhost',
             port=self.grpc_port,
+            fallbackrpc=self.rpc,
             root_certificates=grpc.DUMMY_CA_PEM,
             private_key=grpc.DUMMY_CLIENT_KEY_PEM,
             certificate_chain=grpc.DUMMY_CLIENT_PEM
@@ -843,7 +848,6 @@ class LightningNode(object):
 
     def _create_jsonrpc_rpc(self, jsonschemas):
         socket_path = self.lightning_dir / TEST_NETWORK / "lightning-rpc"
-        self.grpc_port = None
 
         self.rpc = PrettyPrintingLightningRpc(
             str(socket_path),
