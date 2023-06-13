@@ -125,6 +125,12 @@ char *bolt11_encode_(const tal_t *ctx,
 				secp256k1_ecdsa_recoverable_signature *rsig), \
 		       (arg))
 
+/** to_canonical_invstr - return a canonical string where the following constrains are follow:
+ * - There is no `lightning:` prefix;
+ * - all the string is in lower case.
+ */
+const char *to_canonical_invstr(const tal_t *ctx, const char *invstring);
+
 #if DEVELOPER
 /* Flag for tests to suppress `min_final_cltv_expiry` field generation, to match test vectors */
 extern bool dev_bolt11_no_c_generation;

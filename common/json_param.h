@@ -181,6 +181,12 @@ struct command_result *param_string(struct command *cmd, const char *name,
 				    const char * buffer, const jsmntok_t *tok,
 				    const char **str);
 
+/* Extract an invoice string from a generic string, strip the `lightning:`
+ * prefix from it if needed. */
+struct command_result *param_invstring(struct command *cmd, const char *name,
+				    const char * buffer, const jsmntok_t *tok,
+				    const char **str);
+
 /* Extract a label. It is either an escaped string or a number. */
 struct command_result *param_label(struct command *cmd, const char *name,
 				   const char * buffer, const jsmntok_t *tok,

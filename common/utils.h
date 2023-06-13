@@ -146,4 +146,13 @@ extern const tal_t *wally_tal_ctx;
  * Returns created temporary path name at *created if successful. */
 int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created);
 
+/**
+ * tal_strlowering - return the same string by in lower case.
+ * @ctx: the context to tal from (often NULL)
+ * @string: the string that is going to be lowered (can be take())
+ *
+ * FIXME: move this in ccan
+ */
+char *str_lowering(const void *ctx, const char *string TAKES);
+
 #endif /* LIGHTNING_COMMON_UTILS_H */
