@@ -167,7 +167,18 @@ To Build on FreeBSD
 
 OS version: FreeBSD 11.1-RELEASE or above
 
-Core Lightning is in the FreeBSD ports, so install it as any other port
+```
+pkg install git python py39-pip gmake libtool gmp sqlite3 \
+            postgresql13-client gettext autotools
+https://github.com/ElementsProject/lightning.git
+pip install --upgrade pip
+pip3 install mako
+./configure
+gmake -j$(nproc)
+gmake install
+```
+
+Alternately, Core Lightning is in the FreeBSD ports, so install it as any other port
 (dependencies are handled automatically):
 
     # pkg install c-lightning
