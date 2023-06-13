@@ -82,7 +82,7 @@ start_nodes() {
 
 	LN_NODES=$node_count
 
-	for i in $(seq $node_count); do
+	for i in $(seq "$node_count"); do
 		socket=$(( 7070 + i * 101))
 		mkdir -p "/tmp/l$i-$network"
 		# Node config
@@ -114,7 +114,7 @@ start_nodes() {
 
 		# Start the lightning nodes
 		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
-			$EATMYDATA "$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" &
+			$EATMYDATA "$LIGHTNINGD" "--network=$network" "--lightning-dir=/tmp/l$i-$network" "--bitcoin-datadir=$PATH_TO_BITCOIN" &
 		# shellcheck disable=SC2139 disable=SC2086
 		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-$network"
 		# shellcheck disable=SC2139 disable=SC2086
@@ -126,7 +126,7 @@ start_nodes() {
 	fi
 	# Give a hint.
 	echo "Commands: "
-	for i in $(seq $node_count); do
+	for i in $(seq "$node_count"); do
 		echo "	l$i-cli, l$i-log,"
 	done
 }
@@ -134,23 +134,23 @@ start_nodes() {
 start_ln() {
 	# Start bitcoind in the background
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-		bitcoind -regtest -txindex -fallbackfee=0.00000253 -daemon
+		bitcoind -datadir="$PATH_TO_BITCOIN" -regtest -txindex -fallbackfee=0.00000253 -daemon
 
 	# Wait for it to start.
-	while ! bitcoin-cli -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
+	while ! bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
 
 	# Kick it out of initialblockdownload if necessary
-	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
+	if bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
 		# Modern bitcoind needs createwallet
 		echo "Making \"default\" bitcoind wallet."
-		bitcoin-cli -regtest createwallet default >/dev/null 2>&1
-        # But it might already exist, load it
-        bitcoin-cli -regtest loadwallet default
-		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest createwallet default >/dev/null 2>&1
+		# But it might already exist, load it
+	        bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest loadwallet default
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest generatetoaddress 1 "$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest getnewaddress)" > /dev/null
 	else
-		bitcoin-cli -regtest loadwallet default
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest loadwallet default
 	fi
-	alias bt-cli='bitcoin-cli -regtest'
+	alias bt-cli='bitcoin-cli -datadir=$PATH_TO_BITCOIN -regtest'
 
 	if [ -z "$1" ]; then
 		nodes=2
@@ -164,16 +164,16 @@ start_ln() {
 ensure_bitcoind_funds() {
 
 	if [ -z "$ADDRESS" ]; then
-		ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+		ADDRESS=$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest "$WALLET" getnewaddress)
 	fi
 
-	balance=$(bitcoin-cli -regtest "$WALLET" getbalance)
+	balance=$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest "$WALLET" getbalance)
 
 	if [ 1 -eq "$(echo "$balance"'<1' | bc -l)" ]; then
 
 		printf "%s" "Mining into address " "$ADDRESS""... "
 
-		bitcoin-cli -regtest generatetoaddress 100 "$ADDRESS" > /dev/null
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest generatetoaddress 100 "$ADDRESS" > /dev/null
 
 		echo "done."
 	fi
@@ -195,16 +195,16 @@ fund_nodes() {
 	done
 
 	if [ -z "$NODES" ]; then
-		NODES=$(seq $node_count)
+		NODES=$(seq "$node_count")
 	fi
 
 	WALLET="-rpcwallet=$WALLET"
 
-	ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+	ADDRESS=$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest "$WALLET" getnewaddress)
 
 	ensure_bitcoind_funds
 
-	echo "bitcoind balance:" "$(bitcoin-cli -regtest "$WALLET" getbalance)"
+	echo "bitcoind balance:" "$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest "$WALLET" getbalance)"
 
 	last_node=""
 
@@ -228,9 +228,9 @@ fund_nodes() {
 
 		ensure_bitcoind_funds
 
-		bitcoin-cli -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
 
-		bitcoin-cli -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
 
 		printf "%s" "Waiting for lightning node funds... "
 
@@ -245,7 +245,7 @@ fund_nodes() {
 
 		$LCLI --lightning-dir=/tmp/l"$node1"-regtest fundchannel "$L2_NODE_ID" 1000000 > /dev/null
 
-		bitcoin-cli -regtest generatetoaddress 6 "$ADDRESS" > /dev/null
+		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest generatetoaddress 6 "$ADDRESS" > /dev/null
 
 		printf "%s" "Waiting for confirmation... "
 
@@ -262,7 +262,7 @@ fund_nodes() {
 stop_nodes() {
 	network=${1:-regtest}
 	if [ -n "$LN_NODES" ]; then
-		for i in $(seq $LN_NODES); do
+		for i in $(seq "$LN_NODES"); do
 			test ! -f "/tmp/l$i-$network/lightningd-$network.pid" || \
 				(kill "$(cat "/tmp/l$i-$network/lightningd-$network.pid")"; \
 				rm "/tmp/l$i-$network/lightningd-$network.pid")
