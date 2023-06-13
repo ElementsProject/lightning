@@ -1415,7 +1415,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("amount_msat|msatoshi", param_msat, &msat),
 		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_string, &invstring),
+		   p_opt("bolt11", param_invstring, &invstring),
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
 		   p_opt("localinvreqid", param_sha256, &local_invreq_id),

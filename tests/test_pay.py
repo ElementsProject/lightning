@@ -5418,3 +5418,43 @@ def test_invoice_pay_desc_with_quotes(node_factory):
 
     # pay an invoice
     l1.rpc.pay(invoice, description=description)
+
+
+def test_strip_lightning_suffix_from_inv(node_factory):
+    """
+    Reproducer for [1] that pay an invoice with the `lightning:<bolt11|bolt12>`
+    prefix and then, will check if core lightning is able to strip it during
+    list `listpays` command.
+
+    [1] https://github.com/ElementsProject/lightning/issues/6207
+    """
+    l1, l2 = node_factory.line_graph(2)
+    inv = l2.rpc.invoice(40, "strip-lightning-prefix", "test to be able to strip the `lightning:` prefix.")["bolt11"]
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Testing the prefix stripping case
+    l1.rpc.pay(f"lightning:{inv}")
+    listpays = l1.rpc.listpays()["pays"]
+    assert len(listpays) == 1, f"the list pays is bigger than what we expected {listpays}"
+    # we can access by index here because the payment are sorted by db idx
+    assert listpays[0]['bolt11'] == inv, f"list pays contains a different invoice, expected is {inv} but we get {listpays[0]['bolt11']}"
+
+    # Testing the case of the invoice is upper case
+    inv = l2.rpc.invoice(40, "strip-lightning-prefix-upper-case", "test to be able to strip the `lightning:` prefix with an upper case invoice.")["bolt11"]
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Testing the prefix stripping with an invoice in upper case case
+    l1.rpc.pay(f"lightning:{inv.upper()}")
+    listpays = l1.rpc.listpays()["pays"]
+    assert len(listpays) == 2, f"the list pays is bigger than what we expected {listpays}"
+    assert listpays[1]['bolt11'] == inv, f"list pays contains a different invoice, expected is {inv} but we get {listpays[0]['bolt11']}"
+
+    # Testing the string lowering of an invoice in upper case
+    # Testing the case of the invoice is upper case
+    inv = l2.rpc.invoice(40, "strip-lightning-upper-case", "test to be able to lower the invoice string.")["bolt11"]
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    l1.rpc.pay(inv.upper())
+    listpays = l1.rpc.listpays()["pays"]
+    assert len(listpays) == 3, f"the list pays is bigger than what we expected {listpays}"
+    assert listpays[2]['bolt11'] == inv, f"list pays contains a different invoice, expected is {inv} but we get {listpays[0]['bolt11']}"

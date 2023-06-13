@@ -440,6 +440,15 @@ struct command_result *param_string(struct command *cmd, const char *name,
 	return NULL;
 }
 
+struct command_result *param_invstring(struct command *cmd, const char *name,
+				       const char * buffer, const jsmntok_t *tok,
+				       const char **str)
+{
+	const char *strtmp = json_strdup(cmd, buffer, tok);
+	*str = to_canonical_invstr(cmd, strtmp);
+	return NULL;
+}
+
 struct command_result *param_ignore(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    const void *unused)

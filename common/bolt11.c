@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/address.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
@@ -678,6 +679,24 @@ static bool bech32_decode_alloc(const tal_t *ctx,
 	return true;
 }
 
+static bool has_lightning_prefix(const char *invstring)
+{
+	/* BOLT #11:
+	 *
+	 * If a URI scheme is desired, the current recommendation is to either
+	 * use 'lightning:' as a prefix before the BOLT-11 encoding */
+	return (strstarts(invstring, "lightning:") ||
+		strstarts(invstring, "LIGHTNING:"));
+}
+
+const char *to_canonical_invstr(const tal_t *ctx,
+				const char *invstring)
+{
+	if (has_lightning_prefix(invstring))
+		invstring += strlen("lightning:");
+	return str_lowering(ctx, invstring);
+}
+
 /* Extracts signature but does not check it. */
 struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 				   const struct feature_set *our_features,
@@ -701,14 +720,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	memset(have_field, 0, sizeof(have_field));
 	b11->routes = tal_arr(b11, struct route_info *, 0);
 
-	/* BOLT #11:
-	 *
-	 * If a URI scheme is desired, the current recommendation is to either
-	 * use 'lightning:' as a prefix before the BOLT-11 encoding
-	 */
-	if (strstarts(str, "lightning:") || strstarts(str, "LIGHTNING:"))
-		str += strlen("lightning:");
-
+	assert(!has_lightning_prefix(str));
 	if (strlen(str) < 8)
 		return decode_fail(b11, fail, "Bad bech32 string");
 

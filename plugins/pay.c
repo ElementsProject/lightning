@@ -198,7 +198,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 
 	if (!param(cmd, buf, params,
 		   /* FIXME: rename to invstring */
-		   p_opt("bolt11", param_string, &invstring),
+		   p_opt("bolt11", param_invstring, &invstring),
 		   NULL))
 		return command_param_failed();
 
@@ -547,7 +547,7 @@ static struct command_result *json_listpays(struct command *cmd,
 	/* FIXME: would be nice to parse as a bolt11 so check worked in future */
 	if (!param(cmd, buf, params,
 		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_string, &invstring),
+		   p_opt("bolt11", param_invstring, &invstring),
 		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   p_opt("status", param_string, &status_str),
 		   NULL))
@@ -994,7 +994,7 @@ static struct command_result *json_pay(struct command *cmd,
 	 * initialized directly that way. */
 	if (!param(cmd, buf, params,
 		   /* FIXME: parameter should be invstring now */
-		   p_req("bolt11", param_string, &b11str),
+		   p_req("bolt11", param_invstring, &b11str),
 		   p_opt("amount_msat|msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("riskfactor", param_millionths,

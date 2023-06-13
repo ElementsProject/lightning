@@ -1268,7 +1268,7 @@ static struct command_result *json_listinvoices(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_opt("label", param_label, &label),
-		   p_opt("invstring", param_string, &invstring),
+		   p_opt("invstring", param_invstring, &invstring),
 		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   p_opt("offer_id", param_sha256, &offer_id),
 		   NULL))
@@ -1529,7 +1529,7 @@ static struct command_result *json_decodepay(struct command *cmd,
 	char *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("bolt11", param_string, &str),
+		   p_req("bolt11", param_invstring, &str),
 		   p_opt("description", param_escaped_string, &desc),
 		   NULL))
 		return command_param_failed();
@@ -1650,7 +1650,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	char *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("invstring", param_string, &invstring),
+		   p_req("invstring", param_invstring, &invstring),
 		   p_req("label", param_label, &label),
 		   p_req("preimage", param_preimage, &preimage),
 		   NULL))
@@ -1900,7 +1900,7 @@ static struct command_result *json_signinvoice(struct command *cmd,
 	char *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("invstring", param_string, &invstring),
+		   p_req("invstring", param_invstring, &invstring),
 		   NULL))
 		return command_param_failed();
 

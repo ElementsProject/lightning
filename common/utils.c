@@ -3,6 +3,7 @@
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/path/path.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -159,4 +160,13 @@ int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created)
 		tal_free(path);
 
 	return fd;
+}
+
+char *str_lowering(const void *ctx, const char *string TAKES)
+{
+	char *ret;
+
+	ret = tal_strdup(ctx, string);
+	for (char *p = ret; *p; p++) *p = tolower(*p);
+	return ret;
 }
