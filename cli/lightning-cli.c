@@ -218,6 +218,7 @@ static void human_help(char *buffer, const jsmntok_t *result)
 	tal_free(help);
 
 	printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
+        printf("\nExample: \n  lightning-cli invoice amount_msat=300 label=IV1 description=\"my first invoice\" expiry=300 \n---\n");
 }
 
 enum format {
