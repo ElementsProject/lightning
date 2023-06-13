@@ -5397,3 +5397,18 @@ def test_fetchinvoice_with_no_quantity(node_factory):
     inv = inv['invoice']
     decode_inv = l2.rpc.decode(inv)
     assert decode_inv['invreq_quantity'] == 2, f'`invreq_quantity` in the invoice did not match, received {decode_inv["quantity"]}, expected 2'
+
+
+def test_fetchinvoice_with_no_quantity(node_factory):
+    """
+    Reproducer for https://github.com/ElementsProject/lightning/issues/6085
+    """
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'experimental-offers': None})
+    description=str('[[\"text/plain\",\"Funding @odell on stacker.news\"],[\"text/identifier\",\"odell@stacker.news\"]]')
+
+    invoice = l2.rpc.invoice(label="test12345", amount_msat=1_000,
+                             description=description, deschashonly=True)["bolt11"]
+
+    # pay an invoice
+    _ = l1.rpc.pay(invoice, description=description)
