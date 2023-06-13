@@ -5,6 +5,10 @@ on:
     branches:
       - "master"
   pull_request:
+  workflow_run:
+    workflows: [Pre-Builds Checks]
+    types:
+      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,65 +21,17 @@ env:
   SLOW_MACHINE: 1
 
 jobs:
-  prebuild:
-    name: Pre-build checks
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    env:
-      RUST: 1
-      COMPAT: 1
-      BOLTDIR: bolts
-    strategy:
-      fail-fast: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
-      - name: Rebase
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git fetch origin ${{ github.base_ref }}
-          git rebase origin/${{ github.base_ref }}
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
-          # We're going to check BOLT quotes, so get the latest version
-          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
-      - name: Configure
-        run: ./configure
-      - name: Check source
-        run: make -j 4 check-source BASE_REF="origin/${{ github.base_ref }}"
-      - name: Check Generated Files have been updated
-        run: make -j 4 check-gen-updated
-      - name: Check docs
-        run: make -j 4 check-doc
-
   check-units:
     # The unit test checks are not in the critical path (not dependent
     # on the integration tests), so run them with `valgrind`
     name: Run unit tests
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 30
     env:
       COMPAT: 1
       VALGRIND: 1
       BOLTDIR: bolts
-    needs:
-      - prebuild
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -104,14 +60,13 @@ jobs:
   check-units-sanitizers:
     name: Run unit tests with ASan and UBSan
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 30
     env:
       COMPAT: 1
       ASAN: 1
       UBSAN: 1
       VALGRIND: 0
-    needs:
-      - prebuild
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -138,14 +93,13 @@ jobs:
   check-fuzz:
     name: Run fuzz regression tests
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     env:
       COMPAT: 1
       DEVELOPER: 1
       ASAN: 1
       UBSAN: 1
       VALGRIND: 0
-    needs:
-      - prebuild
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -171,11 +125,10 @@ jobs:
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 30
     env:
       COMPAT: 1
-    needs:
-      - prebuild
     strategy:
       fail-fast: true
       matrix:
@@ -403,6 +356,7 @@ jobs:
   integration-sanitizers:
     name: Sanitizers Test CLN
     runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 120
     env:
       COMPAT: 1
@@ -416,8 +370,6 @@ jobs:
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
-    needs:
-      - prebuild
     strategy:
       fail-fast: true
       matrix:
