@@ -4,6 +4,7 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt11.h>
 #include <common/key_derive.h>
 #include <common/version.h>
 #include <db/bindings.h>
@@ -15,6 +16,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
+#include <stddef.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
 #include <wire/peer_wire.h>
@@ -61,6 +63,9 @@ static void migrate_invalid_last_tx_psbts(struct lightningd *ld,
 
 static void migrate_fill_in_channel_type(struct lightningd *ld,
 					 struct db *db);
+
+static void migrate_normalize_invstr(struct lightningd *ld,
+				     struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -950,6 +955,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD channel_type BLOB DEFAULT NULL;"), NULL},
     {NULL, migrate_fill_in_channel_type},
     {SQL("ALTER TABLE peers ADD feature_bits BLOB DEFAULT NULL;"), NULL},
+    {NULL, migrate_normalize_invstr},
 };
 
 /**
@@ -1694,6 +1700,65 @@ static void migrate_invalid_last_tx_psbts(struct lightningd *ld,
 		db_bind_psbt(update_stmt, 0, psbt);
 		db_bind_u64(update_stmt, 1, id);
 		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
+	tal_free(stmt);
+}
+/**
+ * We store the bolt11 string in several places with the `lightning:` prefix, so
+ * we update one by one by lowering and normalize the string in a canonical one.
+ *
+ * See also `to_canonical_invstr` in `common/bolt11.c` the definition of
+ * canonical invoice.
+ */
+static void migrate_normalize_invstr(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT bolt11, id"
+				     " FROM invoices"
+				     " WHERE bolt11 IS NOT NULL;"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		u64 id;
+		const char *invstr;
+		struct db_stmt *update_stmt;
+
+		id = db_col_u64(stmt, "id");
+		invstr = db_col_strdup(tmpctx, stmt, "bolt11");
+		invstr = to_canonical_invstr(tmpctx, invstr);
+
+		update_stmt = db_prepare_v2(db, SQL("UPDATE invoices"
+						    " SET bolt11 = ?"
+						    " WHERE id = ?;"));
+		db_bind_text(update_stmt, 0, invstr);
+		db_bind_u64(update_stmt, 1, id);
+		db_exec_prepared_v2(update_stmt);
+
+		tal_free(update_stmt);
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("SELECT bolt11, id"
+				     " FROM payments"
+				     " WHERE bolt11 IS NOT NULL;"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		u64 id;
+		const char *invstr;
+		struct db_stmt *update_stmt;
+
+		id = db_col_u64(stmt, "id");
+		invstr = db_col_strdup(tmpctx, stmt, "bolt11");
+		invstr = to_canonical_invstr(tmpctx, invstr);
+
+		update_stmt = db_prepare_v2(db, SQL("UPDATE payments"
+						    " SET bolt11 = ?"
+						    " WHERE id = ?;"));
+		db_bind_text(update_stmt, 0, invstr);
+		db_bind_u64(update_stmt, 1, id);
+		db_exec_prepared_v2(update_stmt);
+
 		tal_free(update_stmt);
 	}
 	tal_free(stmt);
