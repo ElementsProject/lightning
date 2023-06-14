@@ -1,15 +1,10 @@
 name: CI Compilation testing
 
-on:
-  workflow_run:
-    workflows: [Pre-Builds Checks]
-    types:
-      - completed
+on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -17,6 +12,10 @@ jobs:
         include:
           - { OS: alpine }
     on:
+      workflow_run:
+        workflows: [Pre-build checks]
+        types:
+          - completed
     steps:
       - uses: actions/checkout@v2
       - name: Integration testing
