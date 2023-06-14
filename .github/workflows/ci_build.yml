@@ -11,11 +11,6 @@ jobs:
       matrix:
         include:
           - { OS: alpine }
-    on:
-      workflow_run:
-        workflows: [Pre-build checks]
-        types:
-          - completed
     steps:
       - uses: actions/checkout@v2
       - name: Integration testing
