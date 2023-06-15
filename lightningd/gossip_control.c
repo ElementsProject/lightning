@@ -589,6 +589,76 @@ static const struct json_command addgossip_command = {
 };
 AUTODATA(json_command, &addgossip_command);
 
+static struct command_result *json_listprivateinbound(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
+{
+	/* struct node_id *peer_id; */
+	struct peer *peer;
+	/* struct channel *c, **channels; */
+	struct channel *c;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "private_channels");
+
+	/* channels = tal_arr(tmpctx, struct channel *, 0); */
+	struct peer_node_id_map_iter it;
+
+	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
+		/* json_add_peerchannels(cmd->ld, response, peer); */
+		list_for_each(&peer->channels, c, list) {
+			if (c->state != CHANNELD_NORMAL &&
+			    c->state != CHANNELD_AWAITING_SPLICE)
+				continue;
+
+			if (c->private_update) {
+				json_object_start(response, NULL);
+				json_add_node_id(response, "id", &peer->id);
+				/* Zeroconf channels will use the local alias here */
+				json_add_short_channel_id(response,
+							  "short_channel_id",
+							  &c->private_update->scid);
+				if (c->alias[REMOTE])
+					json_add_short_channel_id(response,
+								  "remote_alias",
+								  c->alias[REMOTE]);
+				json_add_u32(response, "fee_base",
+					     c->private_update->fee_base);
+				json_add_u32(response, "fee_ppm",
+					     c->private_update->fee_ppm);
+				json_add_u32(response, "cltv_delta",
+					     c->private_update->cltv_delta);
+				json_add_amount_msat(response, "htlc_minimum_msat",
+						     c->private_update->htlc_minimum_msat);
+				json_add_amount_msat(response, "htlc_maximum_msat",
+						     c->private_update->htlc_maximum_msat);
+				json_add_hex_talarr(response, "features", peer->their_features);
+				json_object_end(response);
+			}
+		}
+	}
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listprivateinbound_command = {
+	"listprivateinbound",
+	"channels",
+	json_listprivateinbound,
+	"Called by plugin to create route hints from incoming private channels",
+	false,
+	NULL
+};
+
+AUTODATA(json_command, &listprivateinbound_command);
+
 static struct command_result *
 json_dev_set_max_scids_encode_size(struct command *cmd,
 				   const char *buffer,
