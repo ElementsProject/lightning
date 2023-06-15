@@ -8,6 +8,6 @@ CLN_GRPC_GENALL = cln-grpc/proto/node.proto \
 
 DEFAULT_TARGETS += $(CLN_GRPC_EXAMPLES) $(CLN_GRPC_GENALL)
 
-MSGGEN_GENALL += $(CLN_GRPC_GENALL)
+MSGGEN_GENALL += $(CLN_GRPC_GENALL) contrib/pyln-testing/pyln/testing/grpc2py.py
 
 cln-grpc-all: ${CLN_GRPC_GENALL} ${CLN_GRPC_EXAMPLES}

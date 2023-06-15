@@ -274,7 +274,7 @@ ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += $(POSTGRES_LDLIBS)
 endif
 
-default: show-flags all-programs all-test-programs doc-all default-targets
+default: show-flags all-programs all-test-programs doc-all default-targets $(PYTHON_GENERATED)
 
 ifneq ($(SUPPRESS_GENERATION),1)
 FORCE = FORCE
@@ -419,7 +419,7 @@ mkdocs.yml: $(MANPAGES:=.md)
 
 
 # Don't delete these intermediaries.
-.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
+.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) $(PYTHON_GENERATED)
 
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
@@ -689,6 +689,7 @@ default-targets: $(DEFAULT_TARGETS)
 
 distclean: clean
 	$(RM) ccan/config.h config.vars
+	$(RM) $(PYTHON_GENERATED)
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
