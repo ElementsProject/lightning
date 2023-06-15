@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [23.05.1] - 2023-06-05: "Austin Texas Agreement(ATXA) II"
+
+Bugfix release for bad issues found since 23.05 which can't wait for 23.08.
+
+### Fixed
+
+ - Fixed crash (memory corruption!) in `listtransactions` ([#6304])
+ - Don't crash on gossip store deletion fail ([#6297])
+ - Fix incompatibility with LND which prevented us opening private channels ([#6304])
+
+### EXPERIMENTAL
+
+ - Fixed crash in dual-funding. ([#6273])
+
+[#6273]: https://github.com/ElementsProject/lightning/pull/6273
+[#6304]: https://github.com/ElementsProject/lightning/pull/6304
+[#6297]: https://github.com/ElementsProject/lightning/pull/6297
+[#6304]: https://github.com/ElementsProject/lightning/pull/6304
+
 
 ## [23.05] - 2023-05-10: "Austin Texas Agreement(ATXA)"
 
