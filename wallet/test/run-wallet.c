@@ -1718,7 +1718,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   7777, 22,
 			   AMOUNT_MSAT(0),
 			   AMOUNT_MSAT(-1ULL),
-			   false);
+			   false,
+			   NULL);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);

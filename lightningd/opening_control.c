@@ -232,7 +232,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      0, NULL, 0, 0, /* No leases on v1s */
 			      ld->config.htlc_minimum_msat,
 			      ld->config.htlc_maximum_msat,
-			      ld->config.ignore_fee_limits);
+			      ld->config.ignore_fee_limits,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1474,7 +1475,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      0, NULL, 0, 0, /* No leases on v1s */
 			      ld->config.htlc_minimum_msat,
 			      ld->config.htlc_maximum_msat,
-			      false);
+			      false,
+			      NULL);
 
 	return channel;
 }

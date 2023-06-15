@@ -147,7 +147,9 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    u16 lease_chan_max_ppt UNNEEDED,
 			    struct amount_msat htlc_minimum_msat UNNEEDED,
 			    struct amount_msat htlc_maximum_msat UNNEEDED,
-			    bool ignore_fee_limits UNNEEDED)
+			    bool ignore_fee_limits UNNEEDED,
+			    /* NULL or stolen */
+			    struct remote_priv_update* remote_update STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,

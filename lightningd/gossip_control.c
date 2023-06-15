@@ -188,9 +188,12 @@ static void set_channel_remote_update(struct lightningd *ld,
 			tal_free(update);
 		return;
 	}
-	/* log_debug(ld->log, "updating channel %s with inbound settings",
-	 *	  type_to_string(tmpctx, struct short_channel_id,
-	 *		         channel->scid)); */
+	struct short_channel_id *scid;
+	scid = channel->scid;
+	if (!scid)
+		scid = channel->alias[LOCAL];
+	log_debug(ld->log, "updating channel %s with private inbound settings",
+		  type_to_string(tmpctx, struct short_channel_id, scid));
 	tal_free(channel->private_update);
 	channel->private_update = tal_dup(channel,
 					  struct remote_priv_update, update);
@@ -211,7 +214,7 @@ static void handle_private_update_data(struct lightningd *ld, const u8 *msg)
 	channel = any_channel_by_scid(ld, &update->scid, true);
 	if (!channel) {
 		log_unusual(ld->log, "could not find channel for peer's "
-			    "channel update");
+			    "private channel update");
 		return;
 	}
 
