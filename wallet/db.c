@@ -978,6 +978,11 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE runes ADD last_used_nsec BIGINT DEFAULT NULL"), NULL},
     {NULL, migrate_runes_idfix},
     {SQL("DELETE FROM vars WHERE name = 'runes_uniqueid'"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_feerate_base INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_feerate_ppm INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_cltv_expiry_delta INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_htlc_maximum_msat BIGINT DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_htlc_minimum_msat BIGINT DEFAULT NULL;"), NULL},
 };
 
 /**
