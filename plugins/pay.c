@@ -1053,24 +1053,6 @@ static struct command_result *json_pay(struct command *cmd,
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "Invalid bolt11:"
 			    " sets feature var_onion with no secret");
-
-		/* BOLT #11:
-		 * A reader:
-		 *...
-		 * - MUST check that the SHA2 256-bit hash in the `h` field
-		 *   exactly matches the hashed description.
-		 */
-		if (!b11->description && !deprecated_apis) {
-			if (!b11->description_hash) {
-				return command_fail(cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "Invalid bolt11: missing description");
-			}
-			if (!description)
-				return command_fail(cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "bolt11 uses description_hash, but you did not provide description parameter");
-		}
 	} else {
 		b12 = invoice_decode(tmpctx, b11str, strlen(b11str),
 				     plugin_feature_set(cmd->plugin),
