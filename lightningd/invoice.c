@@ -1530,7 +1530,7 @@ static struct command_result *json_decodepay(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt11", param_string, &str),
-		   p_opt("description", param_string, &desc),
+		   p_opt("description", param_escaped_string, &desc),
 		   NULL))
 		return command_param_failed();
 

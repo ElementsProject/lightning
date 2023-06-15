@@ -1006,7 +1006,7 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 		   p_opt("maxfee", param_msat, &maxfee),
-		   p_opt("description", param_string, &description),
+		   p_opt("description", param_escaped_string, &description),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
