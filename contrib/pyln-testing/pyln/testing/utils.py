@@ -1063,6 +1063,9 @@ class LightningNode(object):
         if wait_for_active:
             self.wait_local_channel_active(scid)
             l2.wait_local_channel_active(scid)
+            wait_for(lambda: len(self.rpc.listprivateinbound()['private_channels']) > 0)
+            wait_for(lambda: any('short_channel_id' in c for c in self.rpc.listpeerchannels()['channels']))
+            wait_for(lambda: any('short_channel_id' in c for c in l2.rpc.listpeerchannels()['channels']))
 
         return scid, res
 
@@ -1613,6 +1616,9 @@ class NodeFactory(object):
         for i, n in enumerate(scids):
             nodes[i].wait_local_channel_active(scids[i])
             nodes[i + 1].wait_local_channel_active(scids[i])
+            wait_for(lambda: len(nodes[i].rpc.listprivateinbound()['private_channels']) > 0)
+            wait_for(lambda: any('short_channel_id' in c for c in nodes[i].rpc.listpeerchannels()['channels']))
+            wait_for(lambda: any('short_channel_id' in c for c in nodes[i + 1].rpc.listpeerchannels()['channels']))
 
         if not wait_for_announce:
             return

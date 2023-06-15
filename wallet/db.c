@@ -983,6 +983,11 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD remote_cltv_expiry_delta INTEGER DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_htlc_maximum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_htlc_minimum_msat BIGINT DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_channel_flags INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD remote_update_timestamp INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD local_cltv_expiry_delta INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD local_channel_flags INTEGER DEFAULT NULL;"), NULL},
+    {SQL("ALTER TABLE channels ADD local_update_timestamp INTEGER DEFAULT NULL;"), NULL},
 };
 
 /**

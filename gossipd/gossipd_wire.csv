@@ -145,6 +145,8 @@ subtypedata,remote_priv_update,fee_ppm,u32,
 subtypedata,remote_priv_update,cltv_delta,u16,
 subtypedata,remote_priv_update,htlc_minimum_msat,amount_msat,
 subtypedata,remote_priv_update,htlc_maximum_msat,amount_msat,
+subtypedata,remote_priv_update,channel_flags,u8,
+subtypedata,remote_priv_update,timestamp,u32,
 
 # Tell lightningd we received channel update info for a local channel
 msgtype,gossipd_remote_channel_update,3010

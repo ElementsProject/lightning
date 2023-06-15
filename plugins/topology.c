@@ -5,6 +5,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -289,8 +290,141 @@ static struct command_result *json_getroute(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+struct channel_routing_data {
+	u32 fee_base;
+	u32 fee_ppm;
+	u16 delay;
+	struct amount_msat htlc_minimum_msat;
+	struct amount_msat htlc_maximum_msat;
+	u32 channel_flags;
+	u32 timestamp;
+};
+
+struct private_channel {
+	struct short_channel_id scid;
+	struct node_id node;
+	struct channel_routing_data remote_data;
+	struct channel_routing_data local_data;
+};
+
+/* pull private channel data for listchannels from listprivateinbound result */
+static struct private_channel *populate_private_channel(const char *buf,
+						 const jsmntok_t *channel,
+						 struct private_channel *chan)
+{
+	const jsmntok_t *scid_tok, *cltv_tok;
+	struct node_id id;
+	u32 fee_base, fee_ppm;
+	struct amount_msat htlc_min, htlc_max;
+	u32 cltv_delta, channel_flags, timestamp;
+	json_to_node_id(buf, json_get_member(buf, channel, "id"), &id);
+	scid_tok = json_get_member(buf, channel, "short_channel_id");
+	json_to_short_channel_id(buf, scid_tok, &chan->scid);
+
+	const char *err;
+	cltv_tok = json_get_member(buf, channel, "cltv_delta");
+	if (cltv_tok) {
+		err = json_scan(tmpctx, buf, channel,
+				"{fee_base:%,fee_ppm:%,cltv_delta:%,"
+				"htlc_minimum_msat:%,htlc_maximum_msat:%,"
+				"channel_flags:%,timestamp:%}",
+				JSON_SCAN(json_to_u32, &fee_base),
+				JSON_SCAN(json_to_u32, &fee_ppm),
+				JSON_SCAN(json_to_u32, &cltv_delta),
+				JSON_SCAN(json_to_msat, &htlc_min),
+				JSON_SCAN(json_to_msat, &htlc_max),
+				JSON_SCAN(json_to_u32, &channel_flags),
+				JSON_SCAN(json_to_u32, &timestamp));
+		if (err)
+			plugin_err(plugin,
+				   "Bad listprivateinbound response (%s): %.*s",
+				   err,
+				   json_tok_full_len(channel),
+				   json_tok_full(buf, channel));
+
+		/* FIXME: populate node ids in correct position */
+		chan->node = id;
+		chan->remote_data.fee_base = fee_base;
+		chan->remote_data.fee_ppm = fee_ppm;
+		chan->remote_data.delay = cltv_delta;
+		chan->remote_data.htlc_minimum_msat = htlc_min;
+		chan->remote_data.htlc_maximum_msat = htlc_max;
+		chan->remote_data.channel_flags = channel_flags;
+		chan->remote_data.timestamp = timestamp;
+	} else {
+		/* Abused to indicate no update for this half chan */
+		chan->remote_data.delay = 0;
+	}
+	cltv_tok = json_get_member(buf, channel, "local_update_cltv_delta");
+	if (cltv_tok) {
+		err = json_scan(tmpctx, buf, channel,
+				"{local_update_cltv_delta:%,"
+				"local_update_channel_flags:%,"
+				"local_update_timestamp:%}",
+				JSON_SCAN(json_to_u32, &cltv_delta),
+				JSON_SCAN(json_to_u32, &channel_flags),
+				JSON_SCAN(json_to_u32, &timestamp));
+		if (err)
+			plugin_err(plugin,
+				   "Bad listprivateinbound response (%s): %.*s",
+				   err,
+				   json_tok_full_len(channel),
+				   json_tok_full(buf, channel));
+
+		/* FIXME: populate node ids in correct position */
+		chan->node = id;
+		chan->local_data.delay = cltv_delta;
+		chan->local_data.channel_flags = channel_flags;
+		chan->local_data.timestamp = timestamp;
+	} else {
+		chan->local_data.delay = 0;
+	}
+
+	return chan;
+};
+
+static inline const struct short_channel_id *priv_chan_scid(const struct private_channel *c)
+{
+	return &c->scid;
+}
+
+static inline size_t hash_scid(const struct short_channel_id *scid)
+{
+	/* scids cost money to generate, so simple hash works here */
+	return (scid->u64 >> 32) ^ (scid->u64 >> 16) ^ scid->u64;
+}
+
+static inline bool chan_eq_scid(const struct private_channel *c,
+				const struct short_channel_id *scid)
+{
+	return short_channel_id_eq(scid, &c->scid);
+}
+
+HTABLE_DEFINE_TYPE(struct private_channel, priv_chan_scid, hash_scid, chan_eq_scid,
+		   private_channel_map);
+
 HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
 		   node_map);
+
+static const u8 *features_from_listpeerchannel(const char *buf,
+					       const jsmntok_t *chan)
+{
+	const jsmntok_t *chan_type_tok, *bits_tok, *b;
+	chan_type_tok = json_get_member(buf, chan, "channel_type");
+	if (!chan_type_tok)
+		return NULL;
+	bits_tok = json_get_member(buf, chan_type_tok, "bits");
+	if (!bits_tok)
+		return NULL;
+	u8* features = tal_arr(buf, u8, 0);
+	size_t i;
+	int feat;
+	json_for_each_arr(i, b, bits_tok) {
+		json_to_int(buf, b, &feat);
+		set_feature_bit(&features, feat);
+	}
+	return features;
+}
 
 /* To avoid multiple fetches, we represent directions as a bitmap
  * so we can do two at once. */
@@ -337,6 +471,9 @@ static void json_add_halfchan(struct json_stream *response,
 		if (!gossmap_chan_set(c, dir))
 			continue;
 
+		if (c->private)
+			continue;
+
 		json_object_start(response, NULL);
 		json_add_node_id(response, "source", &node_id[dir]);
 		json_add_node_id(response, "destination", &node_id[!dir]);
@@ -373,6 +510,176 @@ static void json_add_halfchan(struct json_stream *response,
 	}
 }
 
+/* populate a listchannels half-channel */
+static void json_add_halfchan_explicit(struct json_stream *js,
+				       struct node_id *source_id,
+				       struct node_id *destination_id,
+				       struct short_channel_id *scid,
+				       int direction,
+				       struct amount_msat channel_total_msat,
+				       u32 channel_flags,
+				       bool active,
+				       u32 timestamp,
+				       u32 fee_base,
+				       u32 fee_ppm,
+				       u16 delay,
+				       struct amount_msat htlc_minimum_msat,
+				       struct amount_msat htlc_maximum_msat,
+				       const u8 *features)
+{
+	json_object_start(js, NULL);
+	json_add_node_id(js, "source", source_id);
+	json_add_node_id(js, "destination", destination_id);
+	json_add_short_channel_id(js, "short_channel_id", scid);
+	json_add_num(js, "direction", direction);
+	json_add_bool(js, "public", false);
+	json_add_amount_msat(js, "amount_msat", channel_total_msat);
+	json_add_num(js, "message_flags", 3);
+	json_add_num(js, "channel_flags", channel_flags);
+	bool disable = channel_flags & 2;
+	json_add_bool(js, "active", active && !disable);
+	json_add_u32(js, "last_update", timestamp);
+	json_add_u32(js, "base_fee_millisatoshi", fee_base);
+	json_add_u32(js, "fee_per_millionth", fee_ppm);
+	json_add_u32(js, "delay", delay);
+	json_add_amount_msat(js, "htlc_minimum_msat", htlc_minimum_msat);
+	json_add_hex_talarr(js, "features", features);
+	json_add_amount_msat(js, "htlc_maximum_msat", htlc_maximum_msat);
+	json_object_end(js);
+}
+
+static const int LOCAL_CHAN = 1;
+static const int REMOTE_CHAN = 2;
+
+static void json_add_lpc_halfchan(const char *buf,
+				  const jsmntok_t *chan,
+				  struct private_channel_map *private_inbound,
+				  u8 direction,
+				  struct json_stream *js)
+{
+	struct short_channel_id scid;
+	struct short_channel_id alias;
+	struct private_channel *privchan;
+	const jsmntok_t *scid_tok, *alias_tok, *amt_tok;
+	const jsmntok_t *connected_tok, *chan_state_tok;
+	struct node_id peer_id;
+	bool active;
+	struct amount_msat channel_total_msat;
+	int local_dir;
+	const u8 *features;
+
+	scid_tok = json_get_member(buf, chan, "short_channel_id");
+	alias_tok = json_get_member(buf, chan, "alias");
+	if (alias_tok) {
+		alias_tok = json_get_member(buf, alias_tok, "local");
+		json_to_short_channel_id(buf, alias_tok, &alias);
+	}
+	if (!scid_tok) {
+		if (!alias_tok) {
+			plugin_err(plugin, "listpeerchannels returned channel "
+				   "without scid or local alias");
+			return;
+		}
+		scid_tok = alias_tok;
+	}
+	json_to_short_channel_id(buf, scid_tok, &scid);
+	/* The listprivateinbound data for this channel */
+	privchan = private_channel_map_get(private_inbound, &scid);
+	if (!privchan && alias_tok) {
+		privchan = private_channel_map_get(private_inbound,
+						   &alias);
+	}
+	if (!privchan)
+		return;
+	json_to_node_id(buf, json_get_member(buf, chan, "peer_id"), &peer_id);
+	json_to_int(buf, json_get_member(buf, chan, "direction"),
+		    &local_dir);
+	amt_tok = json_get_member(buf, chan, "total_msat");
+	if (!amt_tok) {
+		plugin_log(plugin, LOG_DBG, "no channel amt, skipping channel");
+		return;
+	}
+	json_to_msat(buf, amt_tok, &channel_total_msat);
+	connected_tok = json_get_member(buf, chan, "peer_connected");
+	json_to_bool(buf, connected_tok, &active);
+	chan_state_tok = json_get_member(buf, chan, "state");
+	active &= (json_tok_streq(buf, chan_state_tok, "CHANNELD_NORMAL") ||
+		   json_tok_streq(buf, chan_state_tok, "CHANNELD_AWAITING_SPLICE"));
+	features = features_from_listpeerchannel(buf, chan);
+
+	for (int d=LOCAL_CHAN; d<=REMOTE_CHAN; d*=2) {
+		struct channel_routing_data *data;
+		plugin_log(plugin, LOG_DBG, "dir: %i", d);
+		if ((d & direction) == 0) {
+			plugin_log(plugin, LOG_DBG, "skipping wrong dir: %i", d);
+			continue;
+		}
+
+		if (d == LOCAL_CHAN) {
+			data = &privchan->local_data;
+			/* cltv_delta == 0 means this chan half has no data */
+			if (!data->delay) {
+				plugin_log(plugin, LOG_DBG, "no local cltv");
+				continue;
+			}
+			struct amount_msat min_htlc_msat, max_htlc_msat;
+			u32 fee_base, fee_ppm;
+			const char *err;
+			err = json_scan(tmpctx, buf, chan,
+					"{fee_base_msat:%,fee_proportional_"
+					"millionths:%,minimum_htlc_out_msat:%"
+					",maximum_htlc_out_msat:%}",
+					JSON_SCAN(json_to_u32, &fee_base),
+					JSON_SCAN(json_to_u32, &fee_ppm),
+					JSON_SCAN(json_to_msat, &min_htlc_msat),
+					JSON_SCAN(json_to_msat, &max_htlc_msat));
+			if (err) {
+				plugin_log(plugin, LOG_DBG, "listchannels: "
+					   "failed to parse listpeerchannels");
+				continue;
+			}
+			json_add_halfchan_explicit(js,
+						   &local_id,
+						   &peer_id,
+						   &scid,
+						   local_dir,
+						   channel_total_msat,
+						   data->channel_flags,
+						   active,
+						   data->timestamp,
+						   fee_base,
+						   fee_ppm,
+						   data->delay,
+						   min_htlc_msat,
+						   max_htlc_msat,
+						   features);
+		} else if (d == REMOTE_CHAN) {
+			data = &privchan->remote_data;
+			/* cltv_delta == 0 means this chan half has no data */
+			if (!data->delay) {
+				plugin_log(plugin, LOG_DBG, "no remote cltv");
+				continue;
+			}
+			json_add_halfchan_explicit(js,
+						   &peer_id,
+						   &local_id,
+						   &scid,
+						   !local_dir,
+						   channel_total_msat,
+						   data->channel_flags,
+						   active,
+						   data->timestamp,
+						   data->fee_base,
+						   data->fee_ppm,
+						   data->delay,
+						   data->htlc_minimum_msat,
+						   data->htlc_maximum_msat,
+						   features);
+		}
+	}
+	tal_free(features);
+}
+
 struct listchannels_opts {
 	struct node_id *source;
 	struct node_id *destination;
@@ -382,20 +689,24 @@ struct listchannels_opts {
 /* We record which local channels are valid; we could record which are
  * invalid, but our testsuite has some weirdness where it has local
  * channels in the store it knows nothing about. */
-static struct node_map *local_connected(const tal_t *ctx,
-					const char *buf,
-					const jsmntok_t *result)
+static void local_connected(const tal_t *ctx,
+			    const char *buf,
+			    const jsmntok_t *result,
+			    struct node_map **connected)
 {
 	size_t i;
 	const jsmntok_t *channel, *channels = json_get_member(buf, result, "channels");
-	struct node_map *connected = tal(ctx, struct node_map);
+	*connected = tal(ctx, struct node_map);
 
-	node_map_init(connected);
-	tal_add_destructor(connected, node_map_clear);
+	node_map_init(*connected);
+	tal_add_destructor(*connected, node_map_clear);
 
 	json_for_each_arr(i, channel, channels) {
 		struct node_id id;
 		bool is_connected;
+		const jsmntok_t *private_tok, *scid_tok;
+		bool is_private;
+		struct short_channel_id scid;
 		const char *err, *state;
 
 		err = json_scan(tmpctx, buf, channel,
@@ -411,30 +722,90 @@ static struct node_map *local_connected(const tal_t *ctx,
 
 		if (!is_connected)
 			continue;
+		private_tok = json_get_member(buf, channel, "private");
+		json_to_bool(buf, private_tok, &is_private);
+		scid_tok = json_get_member(buf, channel, "short_channel_id");
+		if (scid_tok) {
+			json_to_short_channel_id(buf, scid_tok, &scid);
+		} else {
+			scid_tok = json_get_member(buf, channel, "alias");
+			if (!scid_tok)
+				continue;
+			scid_tok = json_get_member(buf, channel, "local");
+			if (!scid_tok)
+				continue;
+			if (!json_to_short_channel_id(buf, scid_tok, &scid))
+				continue;
+		}
 
 		/* Must also have a channel in CHANNELD_NORMAL/splice */
 		if (streq(state, "CHANNELD_NORMAL")
 		    || streq(state, "CHANNELD_AWAITING_SPLICE")) {
-			node_map_add(connected,
-				     tal_dup(connected, struct node_id, &id));
+			node_map_add(*connected,
+				     tal_dup(*connected, struct node_id, &id));
 		}
 	}
 
-	return connected;
+	return;
 }
 
-/* We want to combine local knowledge to we know which are actually inactive! */
+static bool peer_channel_with_peer(const char *buf, const jsmntok_t *chan,
+				   struct node_id *peer_id)
+{
+	const jsmntok_t *peer_id_tok;
+	peer_id_tok = json_get_member(buf, chan, "peer_id");
+	if (!peer_id_tok)
+		return false;
+	struct node_id channel_peer;
+	json_to_node_id(buf, peer_id_tok, &channel_peer);
+	return node_id_eq(&channel_peer, peer_id);
+}
+
+static bool peer_channel_has_scid(const char *buf, const jsmntok_t *chan,
+				   struct short_channel_id *scid)
+{
+	const jsmntok_t *scid_tok;
+	struct short_channel_id channel_scid;
+	scid_tok = json_get_member(buf, chan, "short_channel_id");
+	/* FIXME: check for alias */
+	if (scid_tok) {
+		json_to_short_channel_id(buf, scid_tok, &channel_scid);
+		if (short_channel_id_eq(scid, &channel_scid))
+			return true;
+	} else {
+		scid_tok = json_get_member(buf, chan, "alias");
+		if (scid_tok) {
+			scid_tok = json_get_member(buf, chan, "local");
+			if (!scid_tok)
+				return false;
+			json_to_short_channel_id(buf, scid_tok, &channel_scid);
+			if (short_channel_id_eq(scid, &channel_scid))
+				return true;
+		}
+	}
+	return false;
+}
+
+struct opts_and_privinbound {
+	struct listchannels_opts *opts;
+	struct private_channel_map *private_inbound;
+};
+
+/* We want to combine local knowledge so we know which are actually inactive! */
+/* We also want to use the local knowledge to populate local private channel
+ * data in lieu of having the private gossip available. */
 static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *result,
-					     struct listchannels_opts *opts)
+					     struct opts_and_privinbound *opts_and_inbound)
 {
 	struct node_map *connected;
 	struct gossmap_chan *c;
 	struct json_stream *js;
 	struct gossmap *gossmap = get_gossmap();
+	struct listchannels_opts *opts = opts_and_inbound->opts;
 
-	connected = local_connected(opts, buf, result);
+	local_connected(opts, buf, result, &connected);
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
@@ -474,9 +845,87 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 		}
 	}
 
+	/* Merge listpeerchannels data with listprivateinbound data to populate
+	 * private channels */
+	const jsmntok_t *chan, *channels;
+	channels = json_get_member(buf, result, "channels");
+	size_t i;
+	struct private_channel_map *inbound;
+	inbound = opts_and_inbound->private_inbound;
+	json_for_each_arr(i, chan, channels) {
+		if (opts->scid) {
+			if (peer_channel_has_scid(buf, chan, opts->scid)) {
+				json_add_lpc_halfchan(buf, chan, inbound,
+						      LOCAL_CHAN | REMOTE_CHAN,
+						      js);
+			}
+		} else if (opts->source) {
+			if (node_id_eq(opts->source, &local_id)) {
+				json_add_lpc_halfchan(buf, chan, inbound,
+						      LOCAL_CHAN, js);
+			} else if (peer_channel_with_peer(buf, chan, opts->source)) {
+				json_add_lpc_halfchan(buf, chan, inbound,
+						      REMOTE_CHAN, js);
+			}
+		} else if (opts->destination) {
+			if (peer_channel_with_peer(buf, chan, opts->destination)) {
+				json_add_lpc_halfchan(buf, chan, inbound,
+						      LOCAL_CHAN, js);
+			} else if (node_id_eq(opts->destination, &local_id)) {
+				json_add_lpc_halfchan(buf, chan, inbound,
+						      REMOTE_CHAN, js);
+			}
+		} else {
+			json_add_lpc_halfchan(buf, chan, inbound,
+					      LOCAL_CHAN | REMOTE_CHAN, js);
+		}
+	}
 	json_array_end(js);
-
 	return command_finished(cmd, js);
+}
+
+/* Private channel gossip data must be retrieved from lightningd. */
+static struct command_result *listchannels_privateinbound_done(struct command *cmd,
+							       const char *buffer,
+							       const jsmntok_t *result,
+							       struct listchannels_opts *opts)
+{
+	struct opts_and_privinbound *opts_and_inbound;
+	struct out_req *req;
+	opts_and_inbound = tal(cmd, struct opts_and_privinbound);
+	opts_and_inbound->opts = opts;
+
+	opts_and_inbound->private_inbound = tal(cmd, struct private_channel_map);
+	private_channel_map_init(opts_and_inbound->private_inbound);
+	tal_add_destructor(opts_and_inbound->private_inbound,
+			   private_channel_map_clear);
+
+	const jsmntok_t *channel, *channels, *scid_tok;
+	channels = json_get_member(buffer, result, "private_channels");
+	size_t i;
+	json_for_each_arr(i, channel, channels) {
+		scid_tok = json_get_member(buffer, channel, "short_channel_id");
+		if (!scid_tok) {
+			plugin_log(plugin, LOG_BROKEN,
+				   "malformed listprivateinbound response.");
+			continue;
+		}
+		struct short_channel_id scid;
+		json_to_short_channel_id(buffer, scid_tok, &scid);
+
+		struct private_channel *privchan;
+		privchan = private_channel_map_get(opts_and_inbound->private_inbound, &scid);
+		assert(!privchan);
+		privchan = tal(opts_and_inbound, struct private_channel);
+		assert(privchan);
+		populate_private_channel(buffer, channel, privchan);
+		private_channel_map_add(opts_and_inbound->private_inbound, privchan);
+	}
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    listpeerchannels_done, forward_error,
+				    opts_and_inbound);
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *json_listchannels(struct command *cmd,
@@ -499,8 +948,9 @@ static struct command_result *json_listchannels(struct command *cmd,
 				    "Can only specify one of "
 				    "`short_channel_id`, "
 				    "`source` or `destination`");
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
-				    listpeerchannels_done, forward_error, opts);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listprivateinbound",
+				    listchannels_privateinbound_done,
+				    forward_error, opts);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -615,6 +1065,8 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 {
 	struct amount_msat capacity = AMOUNT_MSAT(0);
 
+	if (!peer)
+		return capacity;
 	for (size_t i = 0; i < peer->num_chans; i++) {
 		int dir;
 		struct gossmap_chan *c;
@@ -631,24 +1083,147 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 	return capacity;
 }
 
-static struct command_result *json_listincoming(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
+/* current data pulled from listpeerchannels */
+struct chanliquidity {
+	struct short_channel_id scid;
+	struct amount_msat receivable;
+	bool private;
+};
+
+static struct amount_msat max_receivable(struct short_channel_id *scid,
+					 struct amount_msat *htlc_max,
+					 bool *private,
+					 struct chanliquidity *liquidity_data)
+{
+	for(size_t i = 0; i < tal_count(liquidity_data); i++) {
+		if (short_channel_id_eq(&liquidity_data[i].scid, scid)) {
+			if (private)
+				*private = liquidity_data[i].private;
+			if (amount_msat_less(liquidity_data[i].receivable, *htlc_max))
+				return liquidity_data[i].receivable;
+			return *htlc_max;
+		}
+	}
+	if (private)
+		*private = false;
+	return *htlc_max;
+}
+
+/* Extract a private channel from listprivateinbound json and
+ * reconstruct a json_listincoming entry */
+static void add_private_channel(struct json_stream *js, const char *buf,
+				const jsmntok_t *channel,
+				struct chanliquidity *liquidity,
+				struct short_channel_id *processed_channels,
+				struct gossmap *gossmap,
+				struct gossmap_node *me)
+{
+	const jsmntok_t *node_id_tok, *scid_tok, *fee_base_tok;
+	const jsmntok_t *fee_ppm_tok, *cltv_tok;
+	const jsmntok_t *min_tok, *max_tok, *features_tok;
+
+	struct node_id id;
+	struct short_channel_id scid, remote_alias;
+	u32 fee_base, fee_ppm, cltv_delta;
+	struct amount_msat htlc_min, htlc_max;
+	u8 *features;
+	bool private;
+
+	scid_tok = json_get_member(buf, channel, "short_channel_id");
+	if (!scid_tok)
+		return;
+	json_to_short_channel_id(buf, scid_tok, &scid);
+	/* check if we've already used this from the gossmap
+	 * public channels */
+	for (size_t i = 0; i < tal_count(processed_channels); i++) {
+		if (short_channel_id_eq(&scid, &processed_channels[i]))
+			return;
+	}
+
+	/* listprivateinbound provides outbound cltv_delta, channel flags and
+	 * timestamp. It's possible that only outbound routing fields were
+	 * provided, in which case the entry should be ignored. */
+	cltv_tok = json_get_member(buf, channel, "cltv_delta");
+	if (!cltv_tok)
+		return;
+
+	json_object_start(js, NULL);
+
+	node_id_tok = json_get_member(buf, channel, "id");
+	assert(node_id_tok);
+	json_to_node_id(buf, node_id_tok, &id);
+	json_add_node_id(js, "id", &id);
+
+
+	json_add_short_channel_id(js, "short_channel_id", &scid);
+
+	scid_tok = json_get_member(buf, channel, "remote_alias");
+	if (scid_tok) {
+		json_to_short_channel_id(buf, scid_tok, &remote_alias);
+		json_add_short_channel_id(js, "remote_alias", &remote_alias);
+	}
+
+	fee_base_tok = json_get_member(buf, channel, "fee_base");
+	assert(fee_base_tok);
+	json_to_u32(buf, fee_base_tok, &fee_base);
+	json_add_u32(js, "fee_base_msat", fee_base);
+
+	min_tok = json_get_member(buf, channel, "htlc_minimum_msat");
+	assert(min_tok);
+	json_to_msat(buf, min_tok, &htlc_min);
+	json_add_amount_msat(js, "htlc_min_msat", htlc_min);
+
+	max_tok = json_get_member(buf, channel, "htlc_maximum_msat");
+	assert(max_tok);
+	json_to_msat(buf, max_tok, &htlc_max);
+	json_add_amount_msat(js, "htlc_max_msat", htlc_max);
+
+	fee_ppm_tok = json_get_member(buf, channel, "fee_ppm");
+	assert(fee_ppm_tok);
+	json_to_u32(buf, fee_ppm_tok, &fee_ppm);
+	json_add_u32(js, "fee_proportional_millionths", fee_ppm);
+
+	cltv_tok = json_get_member(buf, channel, "cltv_delta");
+	assert(cltv_tok);
+	json_to_u32(buf, cltv_tok, &cltv_delta);
+	json_add_u32(js, "cltv_expiry_delta", cltv_delta);
+
+	struct amount_msat receivable;
+	struct gossmap_node *peer;
+	peer = gossmap_find_node(gossmap, &id);
+	receivable = peer_capacity(gossmap, me, peer, NULL);
+	if (amount_msat_greater(receivable, htlc_max))
+		receivable = htlc_max;
+	receivable = max_receivable(&scid, &receivable, &private, liquidity);
+	json_add_amount_msat(js, "incoming_capacity_msat", receivable);
+
+	json_add_bool(js, "public", !private);
+
+	features_tok = json_get_member(buf, channel, "features");
+	assert(features_tok);
+	features = json_tok_bin_from_hex(tmpctx, buf, features_tok);
+	json_add_hex_talarr(js, "peer_features", features);
+
+	json_object_end(js);
+}
+
+static struct command_result *listprivateinbound_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct chanliquidity *liquidity)
 {
 	struct json_stream *js;
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
-
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
-
-	gossmap = get_gossmap();
-
+	struct short_channel_id *processed_channels = tal_arr(cmd,
+					struct short_channel_id, 0);
 	js = jsonrpc_stream_success(cmd);
+
 	json_array_start(js, "incoming");
+	gossmap = get_gossmap();
 	me = gossmap_find_node(gossmap, &local_id);
 	if (!me)
-		goto done;
+		goto public_done;
 
 	for (size_t i = 0; i < me->num_chans; i++) {
 		struct node_id peer_id;
@@ -657,8 +1232,12 @@ static struct command_result *json_listincoming(struct command *cmd,
 		struct gossmap_node *peer;
 		struct short_channel_id scid;
 		const u8 *peer_features;
+		struct amount_msat htlc_max;
 
 		ourchan = gossmap_nth_chan(gossmap, me, i, &dir);
+		/* FIXME: Rip out once private gossip removed. */
+		if (ourchan->private)
+			continue;
 		/* Entirely missing?  Ignore. */
 		if (ourchan->cupdate_off[!dir] == 0)
 			continue;
@@ -667,6 +1246,8 @@ static struct command_result *json_listincoming(struct command *cmd,
 		 * channel is disabled, so we still use them. */
 		peer = gossmap_nth_node(gossmap, ourchan, !dir);
 		scid = gossmap_chan_scid(gossmap, ourchan);
+		htlc_max = amount_msat(fp16_to_u64(ourchan->half[!dir]
+						   .htlc_max));
 
 		json_object_start(js, NULL);
 		gossmap_node_get_id(gossmap, peer, &peer_id);
@@ -677,25 +1258,107 @@ static struct command_result *json_listincoming(struct command *cmd,
 		json_add_amount_msat(js, "htlc_min_msat",
 				     amount_msat(fp16_to_u64(ourchan->half[!dir]
 							     .htlc_min)));
-		json_add_amount_msat(js, "htlc_max_msat",
-				     amount_msat(fp16_to_u64(ourchan->half[!dir]
-							     .htlc_max)));
+		json_add_amount_msat(js, "htlc_max_msat", htlc_max);
 		json_add_u32(js, "fee_proportional_millionths",
 			     ourchan->half[!dir].proportional_fee);
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
+		struct amount_msat max_inbound;
+		max_inbound = peer_capacity(gossmap, me, peer, ourchan);
+		/* limit by peer's total inbound */
+		if (amount_msat_greater(max_inbound, htlc_max))
+			max_inbound = htlc_max;
 		json_add_amount_msat(js, "incoming_capacity_msat",
-				     peer_capacity(gossmap, me, peer, ourchan));
+				     max_receivable(&scid, &max_inbound,
+						    NULL, liquidity));
 		json_add_bool(js, "public", !ourchan->private);
 		peer_features = gossmap_node_get_features(tmpctx, gossmap, peer);
 		if (peer_features)
 			json_add_hex_talarr(js, "peer_features", peer_features);
 		json_object_end(js);
+		tal_arr_expand(&processed_channels, scid);
 	}
-done:
-	json_array_end(js);
 
-	return command_finished(cmd, js);
+public_done:
+
+	{
+		const jsmntok_t *channel, *channels;
+		channels = json_get_member(buf, result, "private_channels");
+		assert(channels);
+		size_t i;
+
+		json_for_each_arr(i, channel, channels) {
+			add_private_channel(js, buf, channel, liquidity,
+					    processed_channels, gossmap,
+					    me);
+		}
+
+		json_array_end(js);
+		tal_free(processed_channels);
+
+		return command_finished(cmd, js);
+	}
+
 }
+
+static struct command_result *findinboundliquidity(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   void *cb_arg UNUSED)
+{
+	/* Get current values for private inbound receiving capacity. */
+	struct out_req *req;
+
+	size_t i;
+	const jsmntok_t *channel;
+	const jsmntok_t *channels = json_get_member(buf, result, "channels");
+	assert(channels);
+
+	struct chanliquidity *inbound = tal_arr(cmd, struct chanliquidity, 0);
+
+	json_for_each_arr(i, channel, channels) {
+		const jsmntok_t *scid_tok, *receivable_tok, *private_tok;
+		struct chanliquidity chanliquidity;
+		scid_tok = json_get_member(buf, channel, "short_channel_id");
+		if (!scid_tok) {
+			const jsmntok_t *alias_tok;
+			alias_tok = json_get_member(buf, channel, "alias");
+			if (!alias_tok)
+				continue;
+			scid_tok = json_get_member(buf, alias_tok, "local");
+			if (!scid_tok)
+				continue;
+		}
+		json_to_short_channel_id(buf, scid_tok, &chanliquidity.scid);
+		receivable_tok = json_get_member(buf, channel, "receivable_msat");
+		assert(receivable_tok);
+		json_to_msat(buf, receivable_tok, &chanliquidity.receivable);
+		/* This differentiates unannounced public channels (zeroconf)
+		 * from truly private channels */
+		private_tok = json_get_member(buf, channel, "private");
+		json_to_bool(buf, private_tok, &chanliquidity.private);
+		tal_arr_expand(&inbound, chanliquidity);
+	}
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listprivateinbound",
+				    listprivateinbound_done, forward_error,
+				    inbound);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_listincoming(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    findinboundliquidity, forward_error, NULL);
+	return send_outreq(cmd->plugin, req);
+}
+
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
@@ -761,7 +1424,7 @@ static const struct plugin_command commands[] = {
 		"List the channels incoming from our direct peers",
 		"Used by invoice code to select peers for routehints",
 		json_listincoming,
-	},
+	}
 };
 
 int main(int argc, char *argv[])

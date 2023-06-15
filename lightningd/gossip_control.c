@@ -177,7 +177,8 @@ static void set_channel_remote_update(struct lightningd *ld,
 				      struct channel *channel,
 				      struct remote_priv_update* update TAKES)
 {
-	if (!node_id_eq(&update->source_node, &channel->peer->id)) {
+	if (!node_id_eq(&update->source_node, &channel->peer->id) &&
+	    !node_id_eq(&update->source_node, &ld->id)) {
 		log_unusual(ld->log, "%s sent us a channel update for a "
 			    "channel they don't own (%s)",
 			    type_to_string(tmpctx, struct node_id,
@@ -192,14 +193,35 @@ static void set_channel_remote_update(struct lightningd *ld,
 	scid = channel->scid;
 	if (!scid)
 		scid = channel->alias[LOCAL];
-	log_debug(ld->log, "updating channel %s with private inbound settings",
-		  type_to_string(tmpctx, struct short_channel_id, scid));
-	tal_free(channel->private_update);
-	channel->private_update = tal_dup(channel,
-					  struct remote_priv_update, update);
+	log_debug(ld->log, "updating channel %s with private %s settings "
+		  "source node: %s",
+		  type_to_string(tmpctx, struct short_channel_id, scid),
+		  node_id_eq(&update->source_node, &ld->id) ? "outbound" : "inbound",
+		  type_to_string(tmpctx, struct node_id, &update->source_node));
+	if (node_id_eq(&update->source_node, &channel->peer->id)) {
+		channel->private_update = tal_free(channel->private_update);
+		if (update->cltv_delta != 0)
+			channel->private_update = tal_dup(channel,
+					struct remote_priv_update, update);
+	} else {
+		channel->local_private_update = tal_free(channel->local_private_update);
+		if (update->cltv_delta != 0)
+			channel->local_private_update = tal_dup(channel,
+					struct remote_priv_update, update);
+	}
 	if (taken(update))
 		tal_free(update);
 	wallet_channel_save(ld->wallet, channel);
+}
+
+static struct channel *find_channel_by_remote_alias(struct lightningd *ld,
+						    struct short_channel_id *alias,
+						    struct node_id *id)
+{
+	struct peer *channel_peer = peer_by_id(ld, id);
+	if (!channel_peer)
+		return NULL;
+	return find_channel_by_alias(channel_peer, alias, REMOTE);
 }
 
 static void handle_private_update_data(struct lightningd *ld, const u8 *msg)
@@ -212,9 +234,16 @@ static void handle_private_update_data(struct lightningd *ld, const u8 *msg)
 		fatal("Gossip gave bad GOSSIPD_REMOTE_CHANNEL_UPDATE %s",
 		      tal_hex(msg, msg));
 	channel = any_channel_by_scid(ld, &update->scid, true);
+	/* 0conf channels can pass the peer's channel alias */
 	if (!channel) {
-		log_unusual(ld->log, "could not find channel for peer's "
-			    "private channel update");
+		channel = find_channel_by_remote_alias(ld, &update->scid,
+						       &update->source_node);
+	}
+	if (!channel) {
+		log_unusual(ld->log, "could not find channel for the "
+			    "private channel update: %s",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &update->scid));
 		return;
 	}
 
@@ -618,13 +647,15 @@ static struct command_result *json_listprivateinbound(struct command *cmd,
 			    c->state != CHANNELD_AWAITING_SPLICE)
 				continue;
 
+			if (!c->private_update && !c->local_private_update)
+				continue;
+			json_object_start(response, NULL);
 			if (c->private_update) {
-				json_object_start(response, NULL);
 				json_add_node_id(response, "id", &peer->id);
 				/* Zeroconf channels will use the local alias here */
 				json_add_short_channel_id(response,
 							  "short_channel_id",
-							  &c->private_update->scid);
+							  c->scid ? c->scid : c->alias[LOCAL]);
 				if (c->alias[REMOTE])
 					json_add_short_channel_id(response,
 								  "remote_alias",
@@ -640,8 +671,36 @@ static struct command_result *json_listprivateinbound(struct command *cmd,
 				json_add_amount_msat(response, "htlc_maximum_msat",
 						     c->private_update->htlc_maximum_msat);
 				json_add_hex_talarr(response, "features", peer->their_features);
-				json_object_end(response);
+				/* FIXME: the remainder only provide for private
+				 * channel info in listchannels until the
+				 * deprecation cycle is complete in 24.08 */
+				json_add_u32(response, "channel_flags",
+					     c->private_update->channel_flags);
+				json_add_u32(response, "timestamp",
+					     c->private_update->timestamp);
 			}
+			if (!c->private_update && c->local_private_update) {
+				json_add_node_id(response, "id", &peer->id);
+				if (c->scid)
+					json_add_short_channel_id(response,
+							"short_channel_id",
+							c->scid);
+				if (c->alias[REMOTE])
+					json_add_short_channel_id(response,
+							"remote_alias",
+							c->alias[REMOTE]);
+			}
+			if (c->local_private_update) {
+				json_add_u32(response,
+					     "local_update_cltv_delta",
+					     c->local_private_update->cltv_delta);
+				json_add_u32(response,
+					     "local_update_channel_flags",
+					     c->local_private_update->channel_flags);
+				json_add_u32(response, "local_update_timestamp",
+					     c->local_private_update->timestamp);
+			}
+			json_object_end(response);
 		}
 	}
 	json_array_end(response);

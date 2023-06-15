@@ -287,6 +287,10 @@ struct channel {
 	 * peer. Used to generate route hints, blinded paths. */
 	struct remote_priv_update *private_update;
 
+	/* This information allows our local private channel update to
+	 * be replicated by listchannels until deprectated. */
+	struct remote_priv_update *local_private_update;
+
 	/* Latest channel_update, for use in error messages. */
 	u8 *channel_update;
 
@@ -375,7 +379,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat htlc_maximum_msat,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
-			    struct remote_priv_update *private_update STEALS);
+			    struct remote_priv_update *private_update STEALS,
+			    struct remote_priv_update *local_private_update STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

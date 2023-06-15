@@ -314,7 +314,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 		 * we could use listpeers, but if it's private we probably
 		 * don't want to blinded route through it! */
 		pftok = json_get_member(buf, t, "peer_features");
-		if (!pftok)
+		if (!pftok || !ci.public)
 			continue;
 		features = json_tok_bin_from_hex(tmpctx, buf, pftok);
 		if (!feature_offered(features, OPT_ROUTE_BLINDING))

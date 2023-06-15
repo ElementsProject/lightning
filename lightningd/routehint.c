@@ -94,6 +94,13 @@ routehint_candidates(const tal_t *ctx,
 			      json_tok_full(buf, toks));
 		}
 
+		const jsmntok_t *remote_alias_tok;
+		struct short_channel_id remote_alias;
+		remote_alias_tok = json_get_member(buf, t, "remote_alias");
+		if (remote_alias_tok)
+			json_to_short_channel_id(buf, remote_alias_tok,
+						 &remote_alias);
+
 		/* Do we know about this peer? */
 		peer = peer_by_id(ld, &r->pubkey);
 		if (!peer) {
@@ -112,8 +119,8 @@ routehint_candidates(const tal_t *ctx,
 		 * the REMOTE alias, because it is the only scid we
 		 * have, and it is mandatory once the channel is in
 		 * CHANNELD_NORMAL or CHANNELD_AWAITING_SPLICE. */
-		if (!candidate.c)
-			candidate.c = find_channel_by_alias(peer, &r->short_channel_id, REMOTE);
+		if (!candidate.c && remote_alias_tok)
+			candidate.c = find_channel_by_alias(peer, &remote_alias, REMOTE);
 
 		if (!candidate.c) {
 			log_debug(ld->log, "%s: channel not found in peer %s",
@@ -220,6 +227,17 @@ routehint_candidates(const tal_t *ctx,
 		 * private channels, then "is_public" is forced true */
 		if (!(candidate.c->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
 		    && candidate.c->alias[REMOTE]) {
+			r->short_channel_id = *candidate.c->alias[REMOTE];
+		}
+
+		/* Public zeroconf channel may have used local alias, but
+		 * routehint must provide the remote alias */
+		if(candidate.c->alias[LOCAL] &&
+		   short_channel_id_eq(&r->short_channel_id,
+				       candidate.c->alias[LOCAL])) {
+			if (!candidate.c->alias[REMOTE])
+				continue;
+
 			r->short_channel_id = *candidate.c->alias[REMOTE];
 		}
 

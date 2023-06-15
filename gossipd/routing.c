@@ -913,6 +913,32 @@ static void remove_channel_from_store(struct routing_state *rstate,
 	delete_chan_messages_from_store(rstate, chan);
 }
 
+static void tell_lightningd_private_update(struct routing_state *rstate,
+					   const struct node_id *source_peer,
+					   struct short_channel_id scid,
+					   u32 fee_base_msat,
+					   u32 fee_ppm,
+					   u16 cltv_delta,
+					   struct amount_msat htlc_minimum,
+					   struct amount_msat htlc_maximum,
+					   u8 channel_flags,
+					   u32 timestamp)
+{
+	struct remote_priv_update remote_update;
+	u8* msg;
+	remote_update.source_node = *source_peer;
+	remote_update.scid = scid;
+	remote_update.fee_base = fee_base_msat;
+	remote_update.fee_ppm = fee_ppm;
+	remote_update.cltv_delta = cltv_delta;
+	remote_update.htlc_minimum_msat = htlc_minimum;
+	remote_update.htlc_maximum_msat = htlc_maximum;
+	remote_update.channel_flags = channel_flags;
+	remote_update.timestamp = timestamp;
+	msg = towire_gossipd_remote_channel_update(NULL, &remote_update);
+	daemon_conn_send(rstate->daemon->master, take(msg));
+}
+
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
 				      struct amount_sat sat,
@@ -1007,6 +1033,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 		delete_chan_messages_from_store(rstate, oldchan);
 		free_chans_from_node(rstate, oldchan);
 		tal_free(oldchan);
+		/* Effectively delete private update from db */
+		tell_lightningd_private_update(rstate, &node_id_1, scid,
+					       0, 0, 0, amount_msat(0), amount_msat(0), 0, 0);
+		tell_lightningd_private_update(rstate, &node_id_2, scid,
+					       0, 0, 0, amount_msat(0), amount_msat(0), 0, 0);
 	}
 
 	return true;
@@ -1348,28 +1379,6 @@ static bool is_chan_dying(struct routing_state *rstate,
 	return false;
 }
 
-static void tell_lightningd_private_update(struct routing_state *rstate,
-					   const struct node_id *source_peer,
-					   struct short_channel_id scid,
-					   u32 fee_base_msat,
-					   u32 fee_ppm,
-					   u16 cltv_delta,
-					   struct amount_msat htlc_minimum,
-					   struct amount_msat htlc_maximum)
-{
-	struct remote_priv_update remote_update;
-	u8* msg;
-	remote_update.source_node = *source_peer;
-	remote_update.scid = scid;
-	remote_update.fee_base = fee_base_msat;
-	remote_update.fee_ppm = fee_ppm;
-	remote_update.cltv_delta = cltv_delta;
-	remote_update.htlc_minimum_msat = htlc_minimum;
-	remote_update.htlc_maximum_msat = htlc_maximum;
-	msg = towire_gossipd_remote_channel_update(NULL, &remote_update);
-	daemon_conn_send(rstate->daemon->master, take(msg));
-}
-
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
@@ -1428,7 +1437,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 						       short_channel_id, fee_base_msat,
 						       fee_proportional_millionths,
 						       expiry, htlc_minimum,
-						       htlc_maximum);
+						       htlc_maximum,
+						       channel_flags, timestamp);
 			return false;
 		}
 		sat = uc->sat;
@@ -1560,18 +1570,21 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			/* No need to separately track spam for private
 			 * channels. */
 			hc->rgraph.index = hc->bcast.index;
+			/* give lightningd the channel's inbound info to
+			 * store to db */
+			/* FIXME: Validate this is peer's and not our own */
+			tell_lightningd_private_update(rstate, source_peer,
+					       short_channel_id, fee_base_msat,
+					       fee_proportional_millionths,
+					       expiry, htlc_minimum,
+					       htlc_maximum,
+					       channel_flags, timestamp);
 		} else {
 			hc->bcast.index = index;
 			hc->rgraph.index = index;
 		}
 		if (!source_peer)
 			return true;
-		/* give lightningd the channel's inbound info to store to db */
-		tell_lightningd_private_update(rstate, source_peer,
-					       short_channel_id, fee_base_msat,
-					       fee_proportional_millionths,
-					       expiry, htlc_minimum,
-					       htlc_maximum);
 		return true;
 	}
 

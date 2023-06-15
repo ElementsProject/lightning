@@ -1439,6 +1439,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	u16 lease_chan_max_ppt;
 	bool ignore_fee_limits;
 	struct remote_priv_update *remote_update;
+	struct remote_priv_update *local_update;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1612,6 +1613,10 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		remote_update->cltv_delta = db_col_int(stmt, "remote_cltv_expiry_delta");
 		remote_update->htlc_minimum_msat = db_col_amount_msat(stmt, "remote_htlc_minimum_msat");
 		remote_update->htlc_maximum_msat = db_col_amount_msat(stmt, "remote_htlc_maximum_msat");
+		remote_update->channel_flags = db_col_int(stmt, "remote_channel_flags");
+		remote_update->timestamp = db_col_int(stmt, "remote_update_timestamp");
+		if (remote_update->cltv_delta == 0)
+			remote_update = tal_free(remote_update);
 	} else {
 		remote_update = NULL;
 		db_col_ignore(stmt, "remote_feerate_base");
@@ -1619,6 +1624,26 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		db_col_ignore(stmt, "remote_cltv_expiry_delta");
 		db_col_ignore(stmt, "remote_htlc_minimum_msat");
 		db_col_ignore(stmt, "remote_htlc_maximum_msat");
+		db_col_ignore(stmt, "remote_channel_flags");
+		db_col_ignore(stmt, "remote_update_timestamp");
+	}
+	if (!db_col_is_null(stmt, "local_cltv_expiry_delta")) {
+		local_update = tal(NULL, struct remote_priv_update);
+		local_update->source_node = w->ld->id;
+		if (scid)
+			local_update->scid = *scid;
+		else
+			local_update->scid = *alias[LOCAL];
+		local_update->cltv_delta = db_col_int(stmt, "local_cltv_expiry_delta");
+		local_update->channel_flags = db_col_int(stmt, "local_channel_flags");
+		local_update->timestamp = db_col_int(stmt, "local_update_timestamp");
+		if (local_update->cltv_delta == 0)
+			local_update = tal_free(local_update);
+	} else {
+		local_update = NULL;
+		db_col_ignore(stmt, "local_cltv_expiry_delta");
+		db_col_ignore(stmt, "local_channel_flags");
+		db_col_ignore(stmt, "local_update_timestamp");
 	}
 
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
@@ -1681,7 +1706,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   htlc_minimum_msat,
 			   htlc_maximum_msat,
 			   ignore_fee_limits,
-			   remote_update);
+			   remote_update,
+			   local_update);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1874,6 +1900,11 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", remote_cltv_expiry_delta"
 					", remote_htlc_minimum_msat"
 					", remote_htlc_maximum_msat"
+					", remote_channel_flags"
+					", remote_update_timestamp"
+					", local_cltv_expiry_delta"
+					", local_channel_flags"
+					", local_update_timestamp"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2192,8 +2223,13 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_feerate_ppm=?," // 48
 					"  remote_cltv_expiry_delta=?," // 49
 					"  remote_htlc_minimum_msat=?," // 50
-					"  remote_htlc_maximum_msat=?" // 51
-					" WHERE id=?")); // 52
+					"  remote_htlc_maximum_msat=?," // 51
+					"  remote_channel_flags=?," //52
+					"  remote_update_timestamp=?," //53
+					"  local_cltv_expiry_delta=?," //54
+					"  local_channel_flags=?," //55
+					"  local_update_timestamp=?" //56
+					" WHERE id=?")); // 57
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, chan->scid);
@@ -2273,15 +2309,29 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, chan->ignore_fee_limits);
-	if (chan->private_update) {
+	if (chan->private_update && chan->private_update->cltv_delta) {
 		db_bind_int(stmt, chan->private_update->fee_base);
 		db_bind_int(stmt, chan->private_update->fee_ppm);
 		db_bind_int(stmt, chan->private_update->cltv_delta);
 		db_bind_amount_msat(stmt, &chan->private_update->htlc_minimum_msat);
 		db_bind_amount_msat(stmt, &chan->private_update->htlc_maximum_msat);
+		db_bind_int(stmt, chan->private_update->channel_flags);
+		db_bind_int(stmt, chan->private_update->timestamp);
 	} else {
 		db_bind_null(stmt);
 		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
+	if (chan->local_private_update &&
+	    chan->local_private_update->cltv_delta) {
+		db_bind_int(stmt, chan->local_private_update->cltv_delta);
+		db_bind_int(stmt, chan->local_private_update->channel_flags);
+		db_bind_int(stmt, chan->local_private_update->timestamp);
+	} else {
 		db_bind_null(stmt);
 		db_bind_null(stmt);
 		db_bind_null(stmt);

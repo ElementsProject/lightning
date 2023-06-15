@@ -243,6 +243,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
 	channel->private_update = NULL;
+	channel->local_private_update = NULL;
 	channel->channel_update = NULL;
 	channel->alias[LOCAL] = channel->alias[REMOTE] = NULL;
 
@@ -408,7 +409,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat htlc_maximum_msat,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
-			    struct remote_priv_update *private_update STEALS)
+			    struct remote_priv_update *private_update STEALS,
+			    struct remote_priv_update *local_private_update STEALS)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -534,6 +536,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->lease_chan_max_msat = lease_chan_max_msat;
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 	channel->private_update = tal_steal(channel, private_update);
+	channel->local_private_update = tal_steal(channel, local_private_update);
 	channel->blockheight_states = dup_height_states(channel, height_states);
 	channel->channel_update = NULL;
 

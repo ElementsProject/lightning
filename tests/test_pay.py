@@ -1990,10 +1990,10 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert channel['maximum_htlc_out_msat'] == 133337
 
     # wait for gossip and check if l1 sees new fees in listchannels
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
-    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, 137])
-    wait_for(lambda: [c['htlc_minimum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [0, 17])
-    wait_for(lambda: [c['htlc_maximum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [MAX_HTLC, 133337])
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [1337, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [137, DEF_PPM])
+    wait_for(lambda: [c['htlc_minimum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [17, 0])
+    wait_for(lambda: [c['htlc_maximum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [133337, MAX_HTLC])
 
     # also test with named and missing parameters
     result = l1.rpc.setchannel(feeppm=42, id=scid)
@@ -2392,8 +2392,8 @@ def test_setchannel_all(node_factory, bitcoind):
     # now try to set all (two) channels using wildcard syntax
     result = l1.rpc.setchannel("all", 0xDEAD, 0xBEEF, 0xBAD, 0xCAFE)
 
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_BASE, 0xDEAD])
-    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_PPM, 0xBEEF])
+    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid2)['channels']] == [0xDEAD, DEF_BASE])
+    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid2)['channels']] == [0xBEEF, DEF_PPM])
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xDEAD, DEF_BASE])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xBEEF, DEF_PPM])
 
@@ -3978,6 +3978,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     # Increase blockheight by 2, like in test_blockheight_disagreement.
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l3])
+    l3.daemon.wait_for_log(f"lightningd: updating channel {l2l3} with private inbound")
 
     # FIXME: routehint currently requires channels in gossip store
     l3.wait_channel_active(l2l3)
