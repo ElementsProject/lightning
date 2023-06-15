@@ -5403,3 +5403,17 @@ def test_fetchinvoice_with_no_quantity(node_factory):
     inv = inv['invoice']
     decode_inv = l2.rpc.decode(inv)
     assert decode_inv['invreq_quantity'] == 2, f'`invreq_quantity` in the invoice did not match, received {decode_inv["quantity"]}, expected 2'
+
+
+def test_invoice_pay_desc_with_quotes(node_factory):
+    """Test that we can decode and pay invoice where hashed description contains double quotes"""
+    l1, l2 = node_factory.line_graph(2)
+    description = '[["text/plain","Funding @odell on stacker.news"],["text/identifier","odell@stacker.news"]]'
+
+    invoice = l2.rpc.invoice(label="test12345", amount_msat=1000,
+                             description=description, deschashonly=True)["bolt11"]
+
+    l1.rpc.decodepay(invoice, description)
+
+    # pay an invoice
+    l1.rpc.pay(invoice, description=description)
