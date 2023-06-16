@@ -7,12 +7,12 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 [tool.poetry.dependencies]
 # Build dependencies belong here
 python = "^3.7"
-pyln-client = { path = "./contrib/pyln-client", develop = true }
-pyln-proto = { path = "./contrib/pyln-proto", develop = true }
+pyln-client = { path = "contrib/pyln-client", develop = true }
+pyln-proto = { path = "contrib/pyln-proto", develop = true }
 Mako = "^1.1.6"
 websocket-client = "^1.2.3"
-grpcio-tools = "1.54.0"
-grpcio = "1.54.0"
+grpcio-tools = "^1"
+grpcio = "^1"
 cryptography = "^41.0.1"
 
 [tool.poetry.dev-dependencies]
