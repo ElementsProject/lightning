@@ -92,7 +92,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **splice\_amount** (integer): The amouont of sats we're splicing in or out *(added v23.08)*
     - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
   - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
-  - **private** (boolean, optional): if False, we will not announce this channel
+  - **private** (boolean, optional): if True, we will not announce this channel
   - **closer** (string, optional): Who initiated the channel close (one of "local", "remote")
   - **funding** (object, optional):
     - **local\_funds\_msat** (msat): Amount of channel we funded
@@ -399,4 +399,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightning/bolts/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:d75b5070288f26a39df39831212f40c397f1389e7c1765f22829d3f3389a56aa)
+[comment]: # ( SHA256STAMP:7402bcd43be7c031c1e8e1ec7a4d58e94beb44ca48ba2f8f06e4ea908ab8940b)

@@ -199,7 +199,7 @@
           },
           "private": {
             "type": "boolean",
-            "description": "if False, we will not announce this channel"
+            "description": "if True, we will not announce this channel"
           },
           "opener": {
             "type": "string",
