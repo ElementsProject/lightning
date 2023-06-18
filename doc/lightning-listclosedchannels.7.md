@@ -25,7 +25,7 @@ On success, an object containing **closedchannels** is returned.  It is an array
 
 - **channel\_id** (hash): The full channel\_id (funding txid Xored with output number)
 - **opener** (string): Who initiated the channel (one of "local", "remote")
-- **private** (boolean): if False, we will not announce this channel
+- **private** (boolean): if True, we will not announce this channel
 - **total\_local\_commitments** (u64): Number of commitment transaction we made
 - **total\_remote\_commitments** (u64): Number of commitment transaction they made
 - **total\_htlcs\_sent** (u64): Number of HTLCs we ever sent
@@ -76,4 +76,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning> Lightning
 
-[comment]: # ( SHA256STAMP:0c368cb41f46a2124e9b3f0b760494d1f4b9c3b248267f56b887fbf96f26e176)
+[comment]: # ( SHA256STAMP:3020e068d48a43494983df1a902d7483a52d0c41faef85e6d858dcf7c64c188d)
