@@ -246,6 +246,15 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			--max_messages;
 		}
 	}
+
+	/* Simply closing the fd can lose writes; send shutdown and wait
+	 * for them to close (set alarm just in case!) */
+	alarm(30);
+
+	if (shutdown(peer_fd, SHUT_WR) != 0)
+		err(1, "failed to shutdown write to peer: %s", strerror(errno));
+
+	while (sync_crypto_read(NULL, peer_fd, cs));
 	exit(0);
 }
 
