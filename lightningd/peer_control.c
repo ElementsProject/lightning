@@ -2318,11 +2318,9 @@ static struct command_result *json_disconnect(struct command *cmd,
 				    channel_state_name(channel));
 	}
 
-	/* If it's not already disconnecting, tell connectd to disconnect */
-	if (peer->connected == PEER_CONNECTED)
-		subd_send_msg(peer->ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &peer->id,
-								peer->connectd_counter)));
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_discard_peer(NULL, &peer->id,
+							peer->connectd_counter)));
 
 	/* Connectd tells us when it's finally disconnected */
 	dc = tal(cmd, struct disconnect_command);
