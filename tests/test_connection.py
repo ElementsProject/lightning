@@ -4421,3 +4421,20 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
 
     # We should not see a "Peer transient failure" after restart of l1
     assert not l1.daemon.is_in_log(f"{l2id}-chan#1: Peer transient failure in CHANNELD_NORMAL: Disconnected", start=offset1)
+
+
+def test_msat_fields_inside_the_listchannels(node_factory):
+    """
+    Reproducer for https://github.com/ElementsProject/lightning/issues/6254
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+
+    l1id = l1.info['id']
+    # We wait until conenction is established and channel is NORMAL
+    l2.daemon.wait_for_logs([f"{l1id}-connectd: Handed peer, entering loop",
+                             f"{l1id}-chan#1: State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL"])
+    channel = l2.rpc.listchannels()["channels"][0]
+    amount = channel["amount_msat"]
+    assert "msat" not in str(amount), f"value received: {amount}"
+    assert "msat" not in str(channel["htlc_maximum_msat"]), f"value received: {channel['htlc_maximum_msat']}"
+    assert "msat" not in str(channel["htlc_minimum_msat"]), f"value received: {channel['htlc_minimum_msat']}"
