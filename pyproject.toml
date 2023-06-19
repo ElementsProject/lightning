@@ -13,6 +13,8 @@ Mako = "^1.1.6"
 websocket-client = "^1.2.3"
 grpcio-tools = "^1"
 grpcio = "^1"
+# We want a specific version of protobuf to match CI's .github/scripts/setup.sh
+protobuf = "4.21.12"
 cryptography = "^41.0.1"
 
 [tool.poetry.dev-dependencies]
