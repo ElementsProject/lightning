@@ -1652,7 +1652,9 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     # high-fee censored transactions, and fresh, non-censoring
     # hashpower arises, evicting the censor.
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
-    bitcoind.generate_block(1)
+
+    # Make sure we don't mine any though!
+    bitcoind.generate_block(1, needfeerate=10000000)
 
     # This triggers the final RBF attempt
     start = l2.daemon.logsearch_start
