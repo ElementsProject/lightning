@@ -220,8 +220,9 @@ fn test_listpeers() {
         }
       ]
     });
-    let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j.clone()).unwrap();
-    let _l: ListpeersResponse = u.into();
+    let u: cln_rpc::model::responses::ListpeersResponse =
+        serde_json::from_value(j.clone()).unwrap();
+    let _l: cln_rpc::model::responses::ListpeersResponse = u.into();
     //let u2: cln_rpc::model::ListpeersResponse = l.into();
     //let j2 = serde_json::to_value(u2).unwrap();
     println!("{}", j);
@@ -246,7 +247,7 @@ fn test_getinfo() {
 	    "network": "regtest",
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
-    let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
+    let u: cln_rpc::model::responses::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
     let _g: GetinfoResponse = u.into();
     //let u2: cln_rpc::model::GetinfoResponse = g.into();
     //let j2 = serde_json::to_value(u2).unwrap();
@@ -294,7 +295,7 @@ fn test_keysend() {
             extratlvs: None,
         };
 
-    let u: cln_rpc::model::KeysendRequest = g.into();
+    let u: cln_rpc::model::requests::KeysendRequest = g.into();
     let _ser = serde_json::to_string(&u);
 
     let j = r#"{
@@ -309,12 +310,12 @@ fn test_keysend() {
 	"payment_preimage": "e56c22b9ed85560b021e1577daad5742502d25c0c2f636b817f5c0c7580a66a8",
 	"status": "complete"
     }"#;
-    let u: cln_rpc::model::KeysendResponse = serde_json::from_str(j).unwrap();
+    let u: cln_rpc::model::responses::KeysendResponse = serde_json::from_str(j).unwrap();
     let g: KeysendResponse = u.clone().into();
     println!("{:?}", g);
 
     let v: serde_json::Value = serde_json::to_value(u.clone()).unwrap();
-    let g: cln_rpc::model::KeysendResponse = u.into();
+    let g: cln_rpc::model::responses::KeysendResponse = u.into();
     let v2 = serde_json::to_value(g).unwrap();
     assert_eq!(v, v2);
 }

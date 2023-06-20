@@ -159,7 +159,7 @@ mod test {
 
         let mut read = FramedRead::new(uds2, JsonCodec::default());
         tokio::task::spawn(async move {
-            let _: GetinfoResponse = cln.call_typed(req).await.unwrap();
+            let _: responses::GetinfoResponse = cln.call_typed(req).await.unwrap();
         });
 
         let read_req = dbg!(read.next().await.unwrap().unwrap());
