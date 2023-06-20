@@ -94,6 +94,12 @@ PASS,f1=
 PASS,f1=/
 PASS,f1=11
 PASS
+VALID,f_with_underscores equals v1,ee979e1f2c376d69923aab0e8e001111963af038bdce394ffd7ecdc9e7020a6e:f_with_underscores=v1,7peeHyw3bWmSOqsOjgAREZY68Di9zjlP_X7NyecCCm5mX3dpdGhfdW5kZXJzY29yZXM9djE=
+PASS,f_with_underscores=v1
+FAIL,f_with_underscores=v
+FAIL,f_with_underscores=v1a
+FAIL
+FAIL,f2=f_with_underscores
 VALID,f1=1 or f2=3,85c3643dc102f0a0d6f20eeb8c294092151688fae41ef7c8ec7272ab23918376:f1=1|f2=3,hcNkPcEC8KDW8g7rjClAkhUWiPrkHvfI7HJyqyORg3ZmMT0xfGYyPTM=
 PASS,f1=1
 PASS,f1=1,f2=2
@@ -144,7 +150,6 @@ MALFORMED,Bad condition ?,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87
 MALFORMED,Bad condition [,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1[11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMVsxMQ==
 MALFORMED,Bad condition \,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1\11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMVwxMQ==
 MALFORMED,Bad condition ],76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1]11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMV0xMQ==
-MALFORMED,Bad condition _,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1_11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMV8xMQ==
 MALFORMED,Bad condition `,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1`11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMWAxMQ==
 MALFORMED,Bad condition |,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0f:f1|11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw9mMXwxMQ==
 BAD DERIVATION,Incremented sha,76bdd625de0e12058956e6c8a07cac58d7dc2253609a6bfb959f87cc094f3f0e:f1#11,dr3WJd4OEgWJVubIoHysWNfcIlNgmmv7lZ-HzAlPPw5mMSMxMQ==

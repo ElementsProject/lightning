@@ -43,7 +43,7 @@ int main(void)
 	assert(vecs);
 	lines = tal_strsplit(mr, take(vecs), "\n", STR_NO_EMPTY);
 
-	plan_tests(343);
+	plan_tests(355);
 
 	for (size_t i = 0; lines[i]; i++) {
 		struct rune *rune1, *rune2;
