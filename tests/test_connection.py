@@ -1401,7 +1401,13 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     assert len(l1.rpc.listpeers()['peers']) == 0
 
     # on reconnect, channel should get destroyed
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # FIXME: if peer disconnects too fast, we get
+    # "disconnected during connection"
+    try:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    except RpcError as err:
+        assert "disconnected during connection" in err.error
+
     l1.daemon.wait_for_log('Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
