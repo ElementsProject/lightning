@@ -9,8 +9,6 @@
 //! this file was generated from
 
 use serde::{Deserialize, Serialize};
-pub use requests::*;
-pub use responses::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "params")]

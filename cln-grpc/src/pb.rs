@@ -447,7 +447,8 @@ mod convert {
                 }
               ]
             });
-            let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j).unwrap();
+            let u: cln_rpc::model::responses::ListpeersResponse =
+                serde_json::from_value(j).unwrap();
             let _g: ListpeersResponse = u.into();
         }
     }

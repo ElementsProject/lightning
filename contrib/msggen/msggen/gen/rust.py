@@ -293,8 +293,6 @@ class RustGenerator(IGenerator):
         """
         self.write(f"""\
         use serde::{{Deserialize, Serialize}};
-        pub use requests::*;
-        pub use responses::*;
 
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[serde(tag = "method", content = "params")]
