@@ -1,0 +1,107 @@
+syntax = "proto3";
+package cln;
+
+message Amount {
+	uint64 msat = 1;
+}
+
+message AmountOrAll {
+	oneof value {
+		Amount amount = 1;
+		bool all = 2;
+	}
+}
+
+message AmountOrAny {
+	oneof value {
+		Amount amount = 1;
+		bool any = 2;
+	}
+}
+
+enum ChannelSide {
+	LOCAL = 0;
+	REMOTE = 1;
+}
+
+enum ChannelState {
+	Openingd = 0;
+	ChanneldAwaitingLockin = 1;
+	ChanneldNormal = 2;
+	ChanneldShuttingDown = 3;
+	ClosingdSigexchange = 4;
+	ClosingdComplete = 5;
+	AwaitingUnilateral = 6;
+	FundingSpendSeen = 7;
+	Onchain = 8;
+	DualopendOpenInit = 9;
+	DualopendAwaitingLockin = 10;
+}
+
+enum HtlcState {
+      SentAddHtlc = 0;
+      SentAddCommit = 1;
+      RcvdAddRevocation = 2;
+      RcvdAddAckCommit = 3;
+      SentAddAckRevocation = 4;
+      RcvdAddAckRevocation = 5;
+      RcvdRemoveHtlc = 6;
+      RcvdRemoveCommit = 7;
+      SentRemoveRevocation = 8;
+      SentRemoveAckCommit = 9;
+      RcvdRemoveAckRevocation = 10;
+      RCVD_ADD_HTLC = 11;
+      RCVD_ADD_COMMIT = 12;
+      SENT_ADD_REVOCATION = 13;
+      SENT_ADD_ACK_COMMIT = 14;
+      SENT_REMOVE_HTLC = 15;
+      SENT_REMOVE_COMMIT = 16;
+      RCVD_REMOVE_REVOCATION = 17;
+      RCVD_REMOVE_ACK_COMMIT = 18;
+      SENT_REMOVE_ACK_REVOCATION = 19;
+}
+
+message ChannelStateChangeCause {}
+
+message Outpoint {
+	bytes txid = 1;
+	uint32 outnum = 2;
+}
+
+message Feerate {
+	oneof style {
+		bool slow = 1;
+		bool normal = 2;
+		bool urgent = 3;
+		uint32 perkb = 4;
+		uint32 perkw = 5;
+	}
+}
+
+message OutputDesc {
+	string address = 1;
+	Amount amount = 2;
+}
+
+message RouteHop {
+	bytes id = 1;
+        string short_channel_id = 2;
+	Amount feebase = 3;
+        uint32 feeprop = 4;
+	uint32 expirydelta = 5;
+}
+message Routehint {
+	repeated RouteHop hops = 1;
+}
+message RoutehintList {
+	repeated Routehint hints = 2;
+}
+
+
+message TlvEntry {
+	uint64 type = 1;
+	bytes value = 2;
+}
+message TlvStream {
+	repeated TlvEntry entries = 1;
+}
