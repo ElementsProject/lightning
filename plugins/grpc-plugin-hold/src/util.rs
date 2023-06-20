@@ -43,9 +43,9 @@ pub async fn cleanup_htlc_state(
     let mut hold_invoices = plugin.state().holdinvoices.lock().await;
     if let Some(h_inv) = hold_invoices.get_mut(pay_hash) {
         h_inv
-            .htlc_amounts_msat
+            .htlc_data
             .remove(&(scid.to_string() + &htlc_id.to_string()));
-        if h_inv.htlc_amounts_msat.is_empty() {
+        if h_inv.htlc_data.is_empty() {
             hold_invoices.remove(pay_hash);
         }
     }

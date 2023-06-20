@@ -16,10 +16,16 @@ mod tls;
 mod util;
 
 #[derive(Clone, Debug)]
+pub struct HoldHtlc {
+    pub amount_msat: u64,
+    pub cltv_expiry: u32,
+}
+
+#[derive(Clone, Debug)]
 pub struct HoldInvoice {
     pub hold_state: Holdstate,
     pub generation: u64,
-    pub htlc_amounts_msat: HashMap<String, u64>,
+    pub htlc_data: HashMap<String, HoldHtlc>,
     pub invoice: ListinvoicesInvoices,
 }
 

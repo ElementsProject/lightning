@@ -15,7 +15,7 @@ use tokio::time;
 
 use crate::{
     util::{cleanup_htlc_state, listinvoices, make_rpc_path},
-    HoldInvoice, PluginState,
+    HoldHtlc, HoldInvoice, PluginState,
 };
 
 pub(crate) async fn htlc_handler(
@@ -144,23 +144,47 @@ pub(crate) async fn htlc_handler(
                     datastore_htlc_expiry(&rpc_path, pay_hash.to_string(), cltv_expiry.to_string())
                         .await?;
 
-                    let mut amounts_msat = HashMap::new();
-                    amounts_msat.insert(scid.to_string() + &htlc_id.to_string(), amount_msat);
+                    let mut htlc_data = HashMap::new();
+                    htlc_data.insert(
+                        scid.to_string() + &htlc_id.to_string(),
+                        HoldHtlc {
+                            amount_msat,
+                            cltv_expiry,
+                        },
+                    );
                     states.insert(
                         pay_hash.to_string(),
                         HoldInvoice {
                             hold_state,
                             generation,
-                            htlc_amounts_msat: amounts_msat,
+                            htlc_data,
                             invoice: invoice.clone(),
                         },
                     );
                 } else {
-                    states
-                        .get_mut(&pay_hash.to_string())
-                        .unwrap()
-                        .htlc_amounts_msat
-                        .insert(scid.to_string() + &htlc_id.to_string(), amount_msat);
+                    let holdinvoice = states.get_mut(&pay_hash.to_string()).unwrap();
+                    if cltv_expiry
+                        < holdinvoice
+                            .htlc_data
+                            .values()
+                            .map(|htlc| htlc.cltv_expiry)
+                            .min()
+                            .unwrap()
+                    {
+                        datastore_htlc_expiry(
+                            &rpc_path,
+                            pay_hash.to_string(),
+                            cltv_expiry.to_string(),
+                        )
+                        .await?;
+                    }
+                    holdinvoice.htlc_data.insert(
+                        scid.to_string() + &htlc_id.to_string(),
+                        HoldHtlc {
+                            amount_msat,
+                            cltv_expiry,
+                        },
+                    );
                 }
             }
             match v.get("onion").unwrap().get("shared_secret") {
@@ -234,8 +258,11 @@ pub(crate) async fn htlc_handler(
                                     "payment_hash: `{}` scid: `{}` htlc: `{}`. HTLC timed out. Rejecting htlc...",
                                     pay_hash, scid, htlc_id
                                 );
-                                let cur_amt: u64 =
-                                    hold_invoice_data.htlc_amounts_msat.values().sum();
+                                let cur_amt: u64 = hold_invoice_data
+                                    .htlc_data
+                                    .values()
+                                    .map(|htlc| htlc.amount_msat)
+                                    .sum();
                                 if Amount::msat(&invoice.amount_msat.unwrap())
                                     > cur_amt - amount_msat
                                     && holdstate == Holdstate::Accepted
@@ -268,7 +295,11 @@ pub(crate) async fn htlc_handler(
                             match holdstate {
                                 Holdstate::Open => {
                                     if Amount::msat(&invoice.amount_msat.unwrap())
-                                        <= hold_invoice_data.htlc_amounts_msat.values().sum()
+                                        <= hold_invoice_data
+                                            .htlc_data
+                                            .values()
+                                            .map(|htlc| htlc.amount_msat)
+                                            .sum()
                                         && holdstate.is_valid_transition(&Holdstate::Accepted)
                                     {
                                         match datastore_update_state(
@@ -298,7 +329,11 @@ pub(crate) async fn htlc_handler(
                                 }
                                 Holdstate::Accepted => {
                                     if Amount::msat(&invoice.amount_msat.unwrap())
-                                        > hold_invoice_data.htlc_amounts_msat.values().sum()
+                                        > hold_invoice_data
+                                            .htlc_data
+                                            .values()
+                                            .map(|htlc| htlc.amount_msat)
+                                            .sum()
                                         && holdstate.is_valid_transition(&Holdstate::Open)
                                     {
                                         match datastore_update_state(
