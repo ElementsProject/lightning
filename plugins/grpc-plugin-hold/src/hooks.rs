@@ -187,15 +187,6 @@ pub(crate) async fn htlc_handler(
                     );
                 }
             }
-            match v.get("onion").unwrap().get("shared_secret") {
-                Some(ce) => debug!("{}", ce.as_str().unwrap()),
-                None => {
-                    warn!(
-                        "payment_hash: `{}`. shared_secret not found! Rejecting htlc...",
-                        pay_hash
-                    );
-                }
-            };
 
             if let Holdstate::Canceled = hold_state {
                 info!(
