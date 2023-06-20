@@ -1,9 +1,7 @@
 from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
-from pyln.testing import node_pb2 as nodepb
-from pyln.testing import node_pb2_grpc as nodegrpc
-from pyln.testing import primitives_pb2 as primitivespb
+from pyln import grpc as clnpb
 from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT
 import grpc
 import pytest
@@ -102,16 +100,16 @@ def test_grpc_connect(node_factory):
         creds,
         options=(('grpc.ssl_target_name_override', 'cln'),)
     )
-    stub = nodegrpc.NodeStub(channel)
+    stub = clnpb.NodeStub(channel)
 
-    response = stub.Getinfo(nodepb.GetinfoRequest())
+    response = stub.Getinfo(clnpb.GetinfoRequest())
     print(response)
 
-    response = stub.ListFunds(nodepb.ListfundsRequest())
+    response = stub.ListFunds(clnpb.ListfundsRequest())
     print(response)
 
-    inv = stub.Invoice(nodepb.InvoiceRequest(
-        amount_msat=primitivespb.AmountOrAny(any=True),
+    inv = stub.Invoice(clnpb.InvoiceRequest(
+        amount_msat=clnpb.AmountOrAny(any=True),
         description="hello",
         label="lbl1",
         preimage=b"\x00" * 32,
@@ -119,14 +117,14 @@ def test_grpc_connect(node_factory):
     ))
     print(inv)
 
-    rates = stub.Feerates(nodepb.FeeratesRequest(style='PERKB'))
+    rates = stub.Feerates(clnpb.FeeratesRequest(style='PERKB'))
     print(rates)
 
     # Test a failing RPC call, so we know that errors are returned correctly.
     with pytest.raises(Exception, match=r'Duplicate label'):
         # This request creates a label collision
-        stub.Invoice(nodepb.InvoiceRequest(
-            amount_msat=primitivespb.AmountOrAny(amount=primitivespb.Amount(msat=12345)),
+        stub.Invoice(clnpb.InvoiceRequest(
+            amount_msat=clnpb.AmountOrAny(amount=clnpb.Amount(msat=12345)),
             description="hello",
             label="lbl1",
         ))
@@ -220,11 +218,11 @@ def test_grpc_wrong_auth(node_factory):
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
-        return nodegrpc.NodeStub(channel)
+        return clnpb.NodeStub(channel)
 
     stub = connect(l1)
     # This should work, it's the correct node
-    stub.Getinfo(nodepb.GetinfoRequest())
+    stub.Getinfo(clnpb.GetinfoRequest())
 
     l1.stop()
     l2.start()
@@ -232,11 +230,11 @@ def test_grpc_wrong_auth(node_factory):
 
     # This should not work, it's a different node
     with pytest.raises(Exception, match=r'Socket closed|StatusCode.UNAVAILABLE'):
-        stub.Getinfo(nodepb.GetinfoRequest())
+        stub.Getinfo(clnpb.GetinfoRequest())
 
     # Now load the correct ones and we should be good to go
     stub = connect(l2)
-    stub.Getinfo(nodepb.GetinfoRequest())
+    stub.Getinfo(clnpb.GetinfoRequest())
 
 
 def test_cln_plugin_reentrant(node_factory, executor):
@@ -295,13 +293,13 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     stub = l1.grpc
     chan = l2.rpc.listpeerchannels(l3.info['id'])
 
-    routehint = primitivespb.RoutehintList(hints=[
-        primitivespb.Routehint(hops=[
-            primitivespb.RouteHop(
+    routehint = clnpb.RoutehintList(hints=[
+        clnpb.Routehint(hops=[
+            clnpb.RouteHop(
                 id=bytes.fromhex(l2.info['id']),
                 short_channel_id=chan['channels'][0]['short_channel_id'],
                 # Fees are defaults from CLN
-                feebase=primitivespb.Amount(msat=1),
+                feebase=clnpb.Amount(msat=1),
                 feeprop=10,
                 expirydelta=18,
             )
@@ -309,9 +307,9 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     ])
 
     # And now we send a keysend with that routehint list
-    call = nodepb.KeysendRequest(
+    call = clnpb.KeysendRequest(
         destination=bytes.fromhex(l3.info['id']),
-        amount_msat=primitivespb.Amount(msat=42),
+        amount_msat=clnpb.Amount(msat=42),
         routehints=routehint,
     )
 
@@ -332,7 +330,7 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
     )
 
     stub = l1.grpc
-    res = stub.ListPeerChannels(nodepb.ListpeerchannelsRequest(id=None))
+    res = stub.ListPeerChannels(clnpb.ListpeerchannelsRequest(id=None))
 
     # Way too many fields to check, so just do a couple
     assert len(res.channels) == 1
@@ -343,30 +341,30 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
     # And since we're at it let's close the channel as well so we can
     # see it in listclosedchanenls
 
-    res = stub.Close(nodepb.CloseRequest(id=l2.info['id']))
+    res = stub.Close(clnpb.CloseRequest(id=l2.info['id']))
 
     bitcoind.generate_block(100, wait_for_mempool=1)
     l1.daemon.wait_for_log(r'onchaind complete, forgetting peer')
 
-    stub.ListClosedChannels(nodepb.ListclosedchannelsRequest())
+    stub.ListClosedChannels(clnpb.ListclosedchannelsRequest())
 
 
 def test_grpc_decode(node_factory):
     grpc_port = reserve()
     l1 = node_factory.get_node(options={'grpc-port': str(grpc_port)})
-    inv = l1.grpc.Invoice(nodepb.InvoiceRequest(
-        amount_msat=primitivespb.AmountOrAny(any=True),
+    inv = l1.grpc.Invoice(clnpb.InvoiceRequest(
+        amount_msat=clnpb.AmountOrAny(any=True),
         description="desc",
         label="label",
     ))
 
-    res = l1.grpc.DecodePay(nodepb.DecodepayRequest(
+    res = l1.grpc.DecodePay(clnpb.DecodepayRequest(
         bolt11=inv.bolt11
     ))
     # If we get here we're good, conversions work
     print(res)
 
-    res = l1.grpc.Decode(nodepb.DecodeRequest(
+    res = l1.grpc.Decode(clnpb.DecodeRequest(
         string=inv.bolt11
     ))
     print(res)

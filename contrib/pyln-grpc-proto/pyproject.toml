@@ -1,0 +1,25 @@
+
+[tool.poetry]
+name = "pyln-grpc-proto"
+version = "0.1.1"
+description = "The compiled GRPC proto for CLN"
+authors = ["Christian Decker <decker@blockstream.com>"]
+license = "MIT"
+readme = "README.md"
+
+packages = [
+    { include = "pyln/grpc/*.py" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+grpcio = "*"
+protobuf3 = "*"
+
+[tool.poetry.group.dev.dependencies]
+grpcio = "*"
+twine = "^4.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

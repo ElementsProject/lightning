@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from . import node_pb2 as node__pb2
+from pyln.grpc import node_pb2 as node__pb2
 
 
 class NodeStub(object):

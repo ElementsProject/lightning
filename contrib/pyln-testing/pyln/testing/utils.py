@@ -6,11 +6,11 @@ from pathlib import Path
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from pyln.testing.gossip import GossipStore
+from pyln.testing import grpc
 from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
-from pyln.testing import grpc
 
 import ephemeral_port_reserve  # type: ignore
 import json
@@ -881,8 +881,8 @@ class LightningNode(object):
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
-        from pyln.testing import node_pb2_grpc as nodegrpc
-        return nodegrpc.NodeStub(channel)
+        from pyln import grpc as clnpb
+        return clnpb.NodeStub(channel)
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.port)
