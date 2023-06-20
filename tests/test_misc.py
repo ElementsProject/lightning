@@ -3398,7 +3398,7 @@ def test_fast_shutdown(node_factory):
         break
 
 
-def test_setconfig(node_factory):
+def test_setconfig(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
     configfile = os.path.join(l2.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
 
@@ -3436,7 +3436,10 @@ def test_setconfig(node_factory):
         l1.fundchannel(l2, 400000)
 
     l1.fundchannel(l2, 10**6)
-    l1.rpc.close(l2.info['id'])
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    # Make sure we're completely closed! 
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    sync_blockheight(bitcoind, [l1, l2])
 
     # It's persistent!
     l2.restart()
