@@ -923,6 +923,16 @@ files = [
 ]
 
 [[package]]
+name = "protobuf3"
+version = "0.2.1"
+description = "Protocol buffers library for Python 3"
+optional = false
+python-versions = "*"
+files = [
+    {file = "protobuf3-0.2.1.tar.gz", hash = "sha256:ddd878b3f991beff566ab384d3588cf8e89758e3a16a78f4099dbe70de3c41a2"},
+]
+
+[[package]]
 name = "psutil"
 version = "5.9.5"
 description = "Cross-platform lib for process and system monitoring in Python."
@@ -1100,6 +1110,20 @@ type = "directory"
 url = "contrib/pyln-client"
 
 [[package]]
+name = "pyln-grpc-proto"
+version = "0.1.1"
+description = "The compiled GRPC proto for CLN"
+optional = false
+python-versions = ">=3.7,<4.0"
+files = [
+    {file = "pyln_grpc_proto-0.1.1.tar.gz", hash = "sha256:544c1c4a0e80b9ac57ce9d0daf27de8337814cf45e98e2f730d01e3095be8829"},
+]
+
+[package.dependencies]
+grpcio = "*"
+protobuf3 = "*"
+
+[[package]]
 name = "pyln-proto"
 version = "23.05"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
@@ -1136,10 +1160,10 @@ ephemeral-port-reserve = "^1.1.4"
 Flask = "^2"
 grpcio = "^1"
 jsonschema = "^4.4.0"
-protobuf = ">=4"
 psutil = "^5.9"
 psycopg2-binary = "^2.9"
 pyln-client = ">=23"
+pyln-grpc-proto = "^0.1"
 pytest = "^7"
 python-bitcoinlib = "^0.11.0"
 
@@ -1317,14 +1341,14 @@ files = [
 
 [[package]]
 name = "setuptools"
-version = "67.8.0"
+version = "68.0.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-67.8.0-py3-none-any.whl", hash = "sha256:5df61bf30bb10c6f756eb19e7c9f3b473051f48db77fddbe06ff2ca307df9a6f"},
-    {file = "setuptools-67.8.0.tar.gz", hash = "sha256:62642358adc77ffa87233bc4d2354c4b2682d214048f500964dbe760ccedf102"},
+    {file = "setuptools-68.0.0-py3-none-any.whl", hash = "sha256:11e52c67415a381d10d6b462ced9cfb97066179f0e871399e006c4ab101fc85f"},
+    {file = "setuptools-68.0.0.tar.gz", hash = "sha256:baf1fdb41c6da4cd2eae722e135500da913332ab3f2f5c7d33af9b492acb5235"},
 ]
 
 [package.extras]

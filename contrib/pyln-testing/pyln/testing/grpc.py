@@ -7,9 +7,8 @@ from typing import List, Optional, Tuple
 
 import grpc
 from pyln.testing import grpc2py
-from pyln.testing import node_pb2 as pb
-from pyln.testing import node_pb2_grpc as pbgrpc
-from pyln.testing import primitives_pb2 as primpb
+
+from pyln import grpc as clnpb
 
 DUMMY_CA_PEM = b"""-----BEGIN CERTIFICATE-----
 MIIBcTCCARigAwIBAgIJAJhah1bqO05cMAoGCCqGSM49BAMCMBYxFDASBgNVBAMM
@@ -48,24 +47,24 @@ Hh6kK99RAiAKOQOkGnoAICjBmBJeC/iC4/+hhhkWZtFgbC3Jg5JD0w==
 -----END CERTIFICATE-----"""
 
 
-def int2msat(amount: int) -> primpb.Amount:
-    return primpb.Amount(msat=amount)
+def int2msat(amount: int) -> clnpb.Amount:
+    return clnpb.Amount(msat=amount)
 
 
-def int2amount_or_all(amount: Tuple[int, str]) -> primpb.AmountOrAll:
+def int2amount_or_all(amount: Tuple[int, str]) -> clnpb.AmountOrAll:
     if amount == "all":
-        return primpb.AmountOrAll(all=True)
+        return clnpb.AmountOrAll(all=True)
     else:
         assert isinstance(amount, int)
-        return primpb.AmountOrAll(amount=int2msat(amount))
+        return clnpb.AmountOrAll(amount=int2msat(amount))
 
 
-def int2amount_or_any(amount: Tuple[int, str]) -> primpb.AmountOrAny:
+def int2amount_or_any(amount: Tuple[int, str]) -> clnpb.AmountOrAny:
     if amount == "any":
-        return primpb.AmountOrAny(any=True)
+        return clnpb.AmountOrAny(any=True)
     else:
         assert isinstance(amount, int)
-        return primpb.AmountOrAny(amount=int2msat(amount))
+        return clnpb.AmountOrAny(amount=int2msat(amount))
 
 
 class LightningGrpc(object):
@@ -89,20 +88,20 @@ class LightningGrpc(object):
             self.credentials,
             options=(("grpc.ssl_target_name_override", "cln"),),
         )
-        self.stub = pbgrpc.NodeStub(self.channel)
+        self.stub = clnpb.NodeStub(self.channel)
 
     def getinfo(self):
-        return grpc2py.getinfo2py(self.stub.Getinfo(pb.GetinfoRequest()))
+        return grpc2py.getinfo2py(self.stub.Getinfo(clnpb.GetinfoRequest()))
 
     def connect(self, peer_id, host=None, port=None):
         """
         Connect to {peer_id} at {host} and {port}.
         """
-        payload = pb.ConnectRequest(id=peer_id, host=host, port=port)
+        payload = clnpb.ConnectRequest(id=peer_id, host=host, port=port)
         return grpc2py.connect2py(self.stub.ConnectPeer(payload))
 
     def listpeers(self, peerid=None, level=None):
-        payload = pb.ListpeersRequest(
+        payload = clnpb.ListpeersRequest(
             id=unhexlify(peerid) if peerid is not None else None,
             level=level,
         )
@@ -132,7 +131,7 @@ class LightningGrpc(object):
                 f"Unknown addresstype {addresstype}, known values are {enum.values()}"
             )
 
-        payload = pb.NewaddrRequest(addresstype=atype)
+        payload = clnpb.NewaddrRequest(addresstype=atype)
         res = grpc2py.newaddr2py(self.stub.NewAddr(payload))
 
         # Need to remap the bloody spelling of p2sh-segwit to match
@@ -143,7 +142,7 @@ class LightningGrpc(object):
         return res
 
     def listfunds(self, spent=None):
-        payload = pb.ListfundsRequest(spent=spent)
+        payload = clnpb.ListfundsRequest(spent=spent)
         return grpc2py.listfunds2py(self.stub.ListFunds(payload))
 
     def fundchannel(
@@ -160,7 +159,7 @@ class LightningGrpc(object):
         # request_amt=None,
         compact_lease: Optional[str] = None,
     ):
-        payload = pb.FundchannelRequest(
+        payload = clnpb.FundchannelRequest(
             id=unhexlify(node_id),
             amount=int2amount_or_all(amount * 1000),  # This is satoshis after all
             # TODO Parse and insert `feerate`
@@ -173,7 +172,7 @@ class LightningGrpc(object):
         return grpc2py.fundchannel2py(self.stub.FundChannel(payload))
 
     def listchannels(self, short_channel_id=None, source=None, destination=None):
-        payload = pb.ListchannelsRequest(
+        payload = clnpb.ListchannelsRequest(
             short_channel_id=short_channel_id,
             source=unhexlify(source) if source else None,
             destination=unhexlify(destination) if destination else None,
@@ -197,7 +196,7 @@ class LightningGrpc(object):
         description: Optional[str] = None,
         msatoshi: Optional[int] = None,
     ):
-        payload = pb.PayRequest(
+        payload = clnpb.PayRequest(
             bolt11=bolt11,
             amount_msat=int2msat(amount_msat),
             label=label,
@@ -227,7 +226,7 @@ class LightningGrpc(object):
             deschashonly: Optional[bool] = None,
             # msatoshi=None
     ):
-        payload = pb.InvoiceRequest(
+        payload = clnpb.InvoiceRequest(
             amount_msat=int2amount_or_any(amount_msat),
             label=label,
             description=description,
@@ -241,14 +240,14 @@ class LightningGrpc(object):
         return grpc2py.invoice2py(self.stub.Invoice(payload))
 
     def stop(self):
-        payload = pb.StopRequest()
+        payload = clnpb.StopRequest()
         try:
             self.stub.Stop(payload)
         except Exception:
             pass
 
     def listnodes(self, node_id=None):
-        payload = pb.ListnodesRequest(id=unhexlify(node_id) if node_id else None)
+        payload = clnpb.ListnodesRequest(id=unhexlify(node_id) if node_id else None)
         return grpc2py.listnodes2py(self.stub.ListNodes(payload))
 
     def close(
@@ -261,7 +260,7 @@ class LightningGrpc(object):
             # TODO: not mapped yet
             # feerange: Optional[List[str]]=None
     ):
-        payload = pb.CloseRequest(
+        payload = clnpb.CloseRequest(
             id=peer_id,
             unilateraltimeout=unilateraltimeout,
             destination=destination,
@@ -279,7 +278,7 @@ class LightningGrpc(object):
             invstring=None,
             offer_id=None
     ):
-        payload = pb.ListinvoicesRequest(
+        payload = clnpb.ListinvoicesRequest(
             label=label,
             invstring=invstring,
             payment_hash=unhexlify(payment_hash) if payment_hash else None,

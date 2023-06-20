@@ -72,9 +72,9 @@ PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
 MY_CHECK_PYTHONPATH=$${PYTHONPATH}$${PYTHONPATH:+:}$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
 # Collect generated python files to be excluded from lint checks
 PYTHON_GENERATED= \
-	contrib/pyln-testing/pyln/testing/primitives_pb2.py \
-	contrib/pyln-testing/pyln/testing/node_pb2_grpc.py \
-	contrib/pyln-testing/pyln/testing/node_pb2.py \
+	contrib/pyln-grpc-proto/pyln/grpc/primitives_pb2.py \
+	contrib/pyln-grpc-proto/pyln/grpc/node_pb2_grpc.py \
+	contrib/pyln-grpc-proto/pyln/grpc/node_pb2.py \
 	contrib/pyln-testing/pyln/testing/grpc2py.py
 
 # Options to pass to cppcheck. Mostly used to exclude files that are
@@ -369,19 +369,20 @@ ifneq ($(RUST),0)
 $(MSGGEN_GENALL)&: doc/schemas/*.request.json doc/schemas/*.schema.json
 	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
 
-GRPC_GEN = contrib/pyln-testing/pyln/testing/node_pb2.py \
-	contrib/pyln-testing/pyln/testing/node_pb2_grpc.py \
-	contrib/pyln-testing/pyln/testing/primitives_pb2.py
+GRPC_GEN = \
+	contrib/pyln-grpc-proto/pyln/grpc/node_pb2.py \
+	contrib/pyln-grpc-proto/pyln/grpc/node_pb2_grpc.py \
+	contrib/pyln-grpc-proto/pyln/grpc/primitives_pb2.py
 
 ALL_TEST_GEN += $(GRPC_GEN)
 
 $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=contrib/pyln-testing/pyln/testing/ --grpc_python_out=contrib/pyln-testing/pyln/testing/ --experimental_allow_proto3_optional
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=contrib/pyln-testing/pyln/testing/ --experimental_allow_proto3_optional
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=contrib/pyln-grpc-proto/pyln/grpc/ --grpc_python_out=contrib/pyln-grpc-proto/pyln/grpc/ --experimental_allow_proto3_optional
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=contrib/pyln-grpc-proto/pyln/grpc/ --experimental_allow_proto3_optional
 	# The compiler assumes that the proto files are in the same
 	# directory structure as the generated files will be. Since we
 	# don't do that we need to path the files up.
-	find contrib/pyln-testing/pyln/testing/ -type f -name "*.py" -print0 | xargs -0 sed -i 's/^import \(.*\)_pb2 as .*__pb2/from . import \1_pb2 as \1__pb2/g'
+	find contrib/pyln-grpc-proto/pyln/ -type f -name "*.py" -print0 | xargs -0 sed -i 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
 
 endif
 

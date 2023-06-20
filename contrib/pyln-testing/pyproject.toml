@@ -22,10 +22,11 @@ Flask = "^2"
 cheroot = "^8"
 psutil = "^5.9"
 grpcio = "^1"
-protobuf = ">=4"
+pyln-grpc-proto = "^0.1"
 
 [tool.poetry.dev-dependencies]
 pyln-client = { path = "../pyln-client", develop = true}
+pyln-grpc-proto = { path = "../pyln-grpc-proto", develop = true}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
