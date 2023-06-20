@@ -25,6 +25,8 @@ jobs:
             WORKDIR: contrib/pyln-testing
           - PACKAGE: pyln-proto
             WORKDIR: contrib/pyln-proto
+          - PACKAGE: pyln-grpc-proto
+            WORKDIR: contrib/pyln-grpc-proto
           # Bolt packages are handled differently
           #- PACKAGE: pyn-bolt1
           #  WORKDIR: contrib/pyln-spec/bolt1/
