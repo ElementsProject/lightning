@@ -1,9 +1,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Error;
-use cln_grpc_hodl::{
+use cln_grpc_hold::{
     del_datastore_htlc_expiry, del_datastore_state, listdatastore_all, listdatastore_state,
-    Hodlstate,
+    Holdstate,
 };
 use cln_plugin::Plugin;
 use cln_rpc::model::ListinvoicesInvoicesStatus;
@@ -22,11 +22,11 @@ pub async fn lookup_state(plugin: Plugin<PluginState>) -> Result<(), Error> {
     loop {
         let now = Instant::now();
         {
-            let mut hodl_invoice = plugin.state().hodlinvoices.lock().await.clone();
-            for (pay_hash, update) in hodl_invoice.iter_mut() {
+            let mut hold_invoice = plugin.state().holdinvoices.lock().await.clone();
+            for (pay_hash, update) in hold_invoice.iter_mut() {
                 match listdatastore_state(&rpc_path, pay_hash.clone()).await {
                     Ok(s) => {
-                        update.hodl_state = Hodlstate::from_str(&s.string.unwrap())?;
+                        update.hold_state = Holdstate::from_str(&s.string.unwrap())?;
                         update.generation = if let Some(g) = s.generation { g } else { 0 };
                     }
                     Err(e) => warn!(
@@ -36,10 +36,10 @@ pub async fn lookup_state(plugin: Plugin<PluginState>) -> Result<(), Error> {
                     ),
                 };
             }
-            let mut states = plugin.state().hodlinvoices.lock().await;
-            for (pay_hash, update) in hodl_invoice.iter() {
+            let mut states = plugin.state().holdinvoices.lock().await;
+            for (pay_hash, update) in hold_invoice.iter() {
                 if let Some(state) = states.get_mut(pay_hash) {
-                    state.hodl_state = update.hodl_state;
+                    state.hold_state = update.hold_state;
                     state.generation = update.generation;
                 }
             }

@@ -8,12 +8,12 @@ package cln;
 import "node.proto";
 import "primitives.proto";
 
-service Hodl {
+service Hold {
 	rpc DecodeBolt11(DecodeBolt11Request) returns (DecodeBolt11Response) {}
-	rpc HodlInvoice(InvoiceRequest) returns (InvoiceResponse) {}
-	rpc HodlInvoiceSettle(HodlInvoiceSettleRequest) returns (HodlInvoiceSettleResponse) {}
-	rpc HodlInvoiceCancel(HodlInvoiceCancelRequest) returns (HodlInvoiceCancelResponse) {}
-	rpc HodlInvoiceLookup(HodlInvoiceLookupRequest) returns (HodlInvoiceLookupResponse) {}
+	rpc HoldInvoice(InvoiceRequest) returns (InvoiceResponse) {}
+	rpc HoldInvoiceSettle(HoldInvoiceSettleRequest) returns (HoldInvoiceSettleResponse) {}
+	rpc HoldInvoiceCancel(HoldInvoiceCancelRequest) returns (HoldInvoiceCancelResponse) {}
+	rpc HoldInvoiceLookup(HoldInvoiceLookupRequest) returns (HoldInvoiceLookupResponse) {}
 }
 
 message DecodeBolt11Request{
@@ -31,45 +31,45 @@ message DecodeBolt11Response{
 	uint32 timestamp = 7;
 }
 
-message HodlInvoiceSettleRequest {
+message HoldInvoiceSettleRequest {
 	bytes payment_hash = 1;
 }
 
-message HodlInvoiceSettleResponse {
-	enum Hodlstate {
+message HoldInvoiceSettleResponse {
+	enum Holdstate {
 		OPEN = 0;
 		SETTLED = 1;
 		CANCELED = 2;
 		ACCEPTED = 3;
 	}
-	Hodlstate state = 1;
+	Holdstate state = 1;
 }
 
-message HodlInvoiceCancelRequest {
+message HoldInvoiceCancelRequest {
 	bytes payment_hash = 1;
 }
 
-message HodlInvoiceCancelResponse {
-	enum Hodlstate {
+message HoldInvoiceCancelResponse {
+	enum Holdstate {
 		OPEN = 0;
 		SETTLED = 1;
 		CANCELED = 2;
 		ACCEPTED = 3;
 	}
-	Hodlstate state = 1;
+	Holdstate state = 1;
 }
 
-message HodlInvoiceLookupRequest {
+message HoldInvoiceLookupRequest {
 	bytes payment_hash = 1;
 }
 
-message HodlInvoiceLookupResponse {
-	enum Hodlstate {
+message HoldInvoiceLookupResponse {
+	enum Holdstate {
 		OPEN = 0;
 		SETTLED = 1;
 		CANCELED = 2;
 		ACCEPTED = 3;
 	}
-	Hodlstate state = 1;
+	Holdstate state = 1;
 	optional uint32 htlc_expiry = 2;
 }

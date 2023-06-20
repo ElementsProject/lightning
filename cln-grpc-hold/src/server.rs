@@ -1,8 +1,8 @@
-use crate::pb::hodl_server::Hodl;
+use crate::pb::hold_server::Hold;
 use crate::short_channel_id_to_string;
 use crate::{
     datastore_new_state, datastore_update_state_forced, listdatastore_htlc_expiry,
-    listdatastore_state, pb, Hodlstate,
+    listdatastore_state, pb, Holdstate,
 };
 use anyhow::Result;
 use cln_rpc::model::{
@@ -33,15 +33,15 @@ impl Server {
 }
 
 #[tonic::async_trait]
-impl Hodl for Server {
-    async fn hodl_invoice(
+impl Hold for Server {
+    async fn hold_invoice(
         &self,
         request: tonic::Request<pb::InvoiceRequest>,
     ) -> Result<tonic::Response<pb::InvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
         let req: requests::InvoiceRequest = req.into();
-        debug!("Client asked for hodlinvoice");
-        trace!("hodlinvoice request: {:?}", req);
+        debug!("Client asked for holdinvoice");
+        trace!("holdinvoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
@@ -57,7 +57,7 @@ impl Hodl for Server {
                 match datastore_new_state(
                     &self.rpc_path,
                     r.payment_hash.to_string(),
-                    Hodlstate::Open.to_string(),
+                    Holdstate::Open.to_string(),
                 )
                 .await
                 {
@@ -78,14 +78,14 @@ impl Hodl for Server {
         }
     }
 
-    async fn hodl_invoice_settle(
+    async fn hold_invoice_settle(
         &self,
-        request: tonic::Request<pb::HodlInvoiceSettleRequest>,
-    ) -> Result<tonic::Response<pb::HodlInvoiceSettleResponse>, tonic::Status> {
+        request: tonic::Request<pb::HoldInvoiceSettleRequest>,
+    ) -> Result<tonic::Response<pb::HoldInvoiceSettleResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: pb::HodlInvoiceSettleRequest = req.into();
-        debug!("Client asked for hodlinvoicesettle");
-        trace!("hodlinvoicesettle request: {:?}", req);
+        let req: pb::HoldInvoiceSettleRequest = req.into();
+        debug!("Client asked for holdinvoicesettle");
+        trace!("holdinvoicesettle request: {:?}", req);
         let pay_hash = hex::encode(req.payment_hash.clone());
         let data = match listdatastore_state(&self.rpc_path, pay_hash.clone()).await {
             Ok(store) => store,
@@ -100,29 +100,29 @@ impl Hodl for Server {
             }
         };
 
-        let hodlstate = match Hodlstate::from_str(&data.string.unwrap()) {
+        let holdstate = match Holdstate::from_str(&data.string.unwrap()) {
             Ok(hs) => hs,
             Err(e) => {
                 return Err(Status::new(
                     Code::Internal,
                     format!(
-                        "Unexpected result {:?} to method call Hodlstate::from_str",
+                        "Unexpected result {:?} to method call Holdstate::from_str",
                         e
                     ),
                 ))
             }
         };
 
-        if hodlstate.is_valid_transition(&Hodlstate::Settled) {
+        if holdstate.is_valid_transition(&Holdstate::Settled) {
             let result = datastore_update_state_forced(
                 &self.rpc_path,
                 pay_hash.clone(),
-                Hodlstate::Settled.to_string(),
+                Holdstate::Settled.to_string(),
             )
             .await;
             match result {
-                Ok(_r) => Ok(tonic::Response::new(pb::HodlInvoiceSettleResponse {
-                    state: Hodlstate::Settled.as_i32(),
+                Ok(_r) => Ok(tonic::Response::new(pb::HoldInvoiceSettleResponse {
+                    state: Holdstate::Settled.as_i32(),
                 })),
                 Err(e) => Err(Status::new(
                     Code::Internal,
@@ -136,22 +136,22 @@ impl Hodl for Server {
             Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Hodl-Invoice is in wrong state: `{}`. Payment_hash: {}",
-                    hodlstate.to_string(),
+                    "Hold-Invoice is in wrong state: `{}`. Payment_hash: {}",
+                    holdstate.to_string(),
                     pay_hash
                 ),
             ))
         }
     }
 
-    async fn hodl_invoice_cancel(
+    async fn hold_invoice_cancel(
         &self,
-        request: tonic::Request<pb::HodlInvoiceCancelRequest>,
-    ) -> Result<tonic::Response<pb::HodlInvoiceCancelResponse>, tonic::Status> {
+        request: tonic::Request<pb::HoldInvoiceCancelRequest>,
+    ) -> Result<tonic::Response<pb::HoldInvoiceCancelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: pb::HodlInvoiceCancelRequest = req.into();
-        debug!("Client asked for hodlinvoiceCancel");
-        trace!("hodlinvoiceCancel request: {:?}", req);
+        let req: pb::HoldInvoiceCancelRequest = req.into();
+        debug!("Client asked for holdinvoiceCancel");
+        trace!("holdinvoiceCancel request: {:?}", req);
         let pay_hash = hex::encode(req.payment_hash.clone());
         let data = match listdatastore_state(&self.rpc_path, pay_hash.clone()).await {
             Ok(st) => st,
@@ -166,29 +166,29 @@ impl Hodl for Server {
             }
         };
 
-        let hodlstate = match Hodlstate::from_str(&data.string.unwrap()) {
+        let holdstate = match Holdstate::from_str(&data.string.unwrap()) {
             Ok(hs) => hs,
             Err(e) => {
                 return Err(Status::new(
                     Code::Internal,
                     format!(
-                        "Unexpected result {:?} to method call Hodlstate::from_str",
+                        "Unexpected result {:?} to method call Holdstate::from_str",
                         e
                     ),
                 ))
             }
         };
 
-        if hodlstate.is_valid_transition(&Hodlstate::Canceled) {
+        if holdstate.is_valid_transition(&Holdstate::Canceled) {
             let result = datastore_update_state_forced(
                 &self.rpc_path,
                 pay_hash.clone(),
-                Hodlstate::Canceled.to_string(),
+                Holdstate::Canceled.to_string(),
             )
             .await;
             match result {
-                Ok(_r) => Ok(tonic::Response::new(pb::HodlInvoiceCancelResponse {
-                    state: Hodlstate::Canceled.as_i32(),
+                Ok(_r) => Ok(tonic::Response::new(pb::HoldInvoiceCancelResponse {
+                    state: Holdstate::Canceled.as_i32(),
                 })),
                 Err(e) => Err(Status::new(
                     Code::Internal,
@@ -202,22 +202,22 @@ impl Hodl for Server {
             Err(Status::new(
                 Code::Internal,
                 format!(
-                    "Hodl-Invoice is in wrong state: `{}`. Payment_hash: {}",
-                    hodlstate.to_string(),
+                    "Hold-Invoice is in wrong state: `{}`. Payment_hash: {}",
+                    holdstate.to_string(),
                     pay_hash
                 ),
             ))
         }
     }
 
-    async fn hodl_invoice_lookup(
+    async fn hold_invoice_lookup(
         &self,
-        request: tonic::Request<pb::HodlInvoiceLookupRequest>,
-    ) -> Result<tonic::Response<pb::HodlInvoiceLookupResponse>, tonic::Status> {
+        request: tonic::Request<pb::HoldInvoiceLookupRequest>,
+    ) -> Result<tonic::Response<pb::HoldInvoiceLookupResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: pb::HodlInvoiceLookupRequest = req.into();
-        debug!("Client asked for hodlinvoiceLookup");
-        trace!("hodlinvoiceLookup request: {:?}", req);
+        let req: pb::HoldInvoiceLookupRequest = req.into();
+        debug!("Client asked for holdinvoiceLookup");
+        trace!("holdinvoiceLookup request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
@@ -235,13 +235,13 @@ impl Hodl for Server {
             }
         };
 
-        let hodlstate = match Hodlstate::from_str(&data.string.unwrap()) {
+        let holdstate = match Holdstate::from_str(&data.string.unwrap()) {
             Ok(hs) => hs,
             Err(e) => {
                 return Err(Status::new(
                     Code::Internal,
                     format!(
-                        "Unexpected result {:?} to method call Hodlstate::from_str",
+                        "Unexpected result {:?} to method call Holdstate::from_str",
                         e
                     ),
                 ))
@@ -249,9 +249,9 @@ impl Hodl for Server {
         };
 
         let mut htlc_expiry = None;
-        match hodlstate {
-            Hodlstate::Open => (),
-            Hodlstate::Accepted => {
+        match holdstate {
+            Holdstate::Open => (),
+            Holdstate::Accepted => {
                 htlc_expiry =
                     match listdatastore_htlc_expiry(&self.rpc_path, pay_hash.clone()).await {
                         Ok(cltv) => Some(cltv),
@@ -266,7 +266,7 @@ impl Hodl for Server {
                         }
                     }
             }
-            Hodlstate::Canceled => {
+            Holdstate::Canceled => {
                 let now = Instant::now();
                 loop {
                     let mut all_cancelled = true;
@@ -276,7 +276,7 @@ impl Hodl for Server {
                         Status::new(
                             Code::Unknown,
                             format!(
-                                "Error calling method ListPeerChannels in hodl_invoice_lookup: {:?}",
+                                "Error calling method ListPeerChannels in hold_invoice_lookup: {:?}",
                                 e
                             ),
                         )
@@ -317,14 +317,14 @@ impl Hodl for Server {
                     if now.elapsed().as_secs() > 20 {
                         return Err(Status::new(
                             Code::Internal,
-                            format!("hodl_invoice_lookup: Timed out before cancellation could be confirmed"),
+                            format!("hold_invoice_lookup: Timed out before cancellation could be confirmed"),
                         ));
                     }
 
                     time::sleep(Duration::from_secs(1)).await
                 }
             }
-            Hodlstate::Settled => {
+            Holdstate::Settled => {
                 let now = Instant::now();
                 loop {
                     let invoice = rpc
@@ -339,7 +339,7 @@ impl Hodl for Server {
                             Status::new(
                                 Code::Unknown,
                                 format!(
-                                "Error calling method ListInvoices in hodl_invoice_lookup: {:?}",
+                                "Error calling method ListInvoices in hold_invoice_lookup: {:?}",
                                 e
                             ),
                             )
@@ -354,7 +354,7 @@ impl Hodl for Server {
                                     ListinvoicesInvoicesStatus::EXPIRED => {
                                         return Err(Status::new(
                                             Code::Internal,
-                                            format!("hodl_invoice_lookup: Invoice expired while trying to settle!"),
+                                            format!("hold_invoice_lookup: Invoice expired while trying to settle!"),
                                         ))
                                     },
                                     _ => (),
@@ -365,7 +365,7 @@ impl Hodl for Server {
                     if now.elapsed().as_secs() > 20 {
                         return Err(Status::new(
                             Code::Internal,
-                            format!("hodl_invoice_lookup: Timed out before settlement could be confirmed"),
+                            format!("hold_invoice_lookup: Timed out before settlement could be confirmed"),
                         ));
                     }
 
@@ -373,8 +373,8 @@ impl Hodl for Server {
                 }
             }
         }
-        Ok(tonic::Response::new(pb::HodlInvoiceLookupResponse {
-            state: hodlstate.as_i32(),
+        Ok(tonic::Response::new(pb::HoldInvoiceLookupResponse {
+            state: holdstate.as_i32(),
             htlc_expiry,
         }))
     }

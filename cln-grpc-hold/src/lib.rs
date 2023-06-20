@@ -19,71 +19,71 @@ use log::debug;
 
 pub use crate::server::Server;
 
-pub const HODLVOICE_PLUGIN_NAME: &str = "hodlvoice";
-const HODLVOICE_DATASTORE_STATE: &str = "state";
-const HODLVOICE_DATASTORE_HTLC_EXPIRY: &str = "expiry";
+pub const HOLD_INVOICE_PLUGIN_NAME: &str = "hodlvoice";
+const HOLD_INVOICE_DATASTORE_STATE: &str = "state";
+const HOLD_INVOICE_DATASTORE_HTLC_EXPIRY: &str = "expiry";
 
 #[cfg(test)]
 mod test;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum Hodlstate {
+pub enum Holdstate {
     Open,
     Settled,
     Canceled,
     Accepted,
 }
-impl Hodlstate {
+impl Holdstate {
     pub fn to_string(&self) -> String {
         match self {
-            Hodlstate::Open => "open".to_string(),
-            Hodlstate::Settled => "settled".to_string(),
-            Hodlstate::Canceled => "canceled".to_string(),
-            Hodlstate::Accepted => "accepted".to_string(),
+            Holdstate::Open => "open".to_string(),
+            Holdstate::Settled => "settled".to_string(),
+            Holdstate::Canceled => "canceled".to_string(),
+            Holdstate::Accepted => "accepted".to_string(),
         }
     }
-    pub fn from_str(s: &str) -> Result<Hodlstate, Error> {
+    pub fn from_str(s: &str) -> Result<Holdstate, Error> {
         match s.to_lowercase().as_str() {
-            "open" => Ok(Hodlstate::Open),
-            "settled" => Ok(Hodlstate::Settled),
-            "canceled" => Ok(Hodlstate::Canceled),
-            "accepted" => Ok(Hodlstate::Accepted),
-            _ => Err(anyhow!("could not parse Hodlstate from string")),
+            "open" => Ok(Holdstate::Open),
+            "settled" => Ok(Holdstate::Settled),
+            "canceled" => Ok(Holdstate::Canceled),
+            "accepted" => Ok(Holdstate::Accepted),
+            _ => Err(anyhow!("could not parse Holdstate from string")),
         }
     }
     pub fn as_i32(&self) -> i32 {
         match self {
-            Hodlstate::Open => 0,
-            Hodlstate::Settled => 1,
-            Hodlstate::Canceled => 2,
-            Hodlstate::Accepted => 3,
+            Holdstate::Open => 0,
+            Holdstate::Settled => 1,
+            Holdstate::Canceled => 2,
+            Holdstate::Accepted => 3,
         }
     }
-    pub fn is_valid_transition(&self, newstate: &Hodlstate) -> bool {
+    pub fn is_valid_transition(&self, newstate: &Holdstate) -> bool {
         match self {
-            Hodlstate::Open => match newstate {
-                Hodlstate::Settled => false,
+            Holdstate::Open => match newstate {
+                Holdstate::Settled => false,
                 _ => true,
             },
-            Hodlstate::Settled => match newstate {
-                Hodlstate::Settled => true,
+            Holdstate::Settled => match newstate {
+                Holdstate::Settled => true,
                 _ => false,
             },
-            Hodlstate::Canceled => match newstate {
-                Hodlstate::Canceled => true,
+            Holdstate::Canceled => match newstate {
+                Holdstate::Canceled => true,
                 _ => false,
             },
-            Hodlstate::Accepted => true,
+            Holdstate::Accepted => true,
         }
     }
 }
-impl fmt::Display for Hodlstate {
+impl fmt::Display for Holdstate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Hodlstate::Open => write!(f, "open"),
-            Hodlstate::Settled => write!(f, "settled"),
-            Hodlstate::Canceled => write!(f, "canceled"),
-            Hodlstate::Accepted => write!(f, "accepted"),
+            Holdstate::Open => write!(f, "open"),
+            Holdstate::Settled => write!(f, "settled"),
+            Holdstate::Canceled => write!(f, "canceled"),
+            Holdstate::Accepted => write!(f, "accepted"),
         }
     }
 }
@@ -122,9 +122,9 @@ async fn datastore_new_state(
     datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash,
-            HODLVOICE_DATASTORE_STATE.to_string(),
+            HOLD_INVOICE_DATASTORE_STATE.to_string(),
         ],
         Some(string),
         None,
@@ -143,9 +143,9 @@ pub async fn datastore_update_state(
     datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash,
-            HODLVOICE_DATASTORE_STATE.to_string(),
+            HOLD_INVOICE_DATASTORE_STATE.to_string(),
         ],
         Some(string),
         None,
@@ -163,9 +163,9 @@ async fn datastore_update_state_forced(
     datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash,
-            HODLVOICE_DATASTORE_STATE.to_string(),
+            HOLD_INVOICE_DATASTORE_STATE.to_string(),
         ],
         Some(string),
         None,
@@ -183,9 +183,9 @@ pub async fn datastore_htlc_expiry(
     datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash,
-            HODLVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
+            HOLD_INVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
         ],
         Some(string),
         None,
@@ -231,7 +231,7 @@ async fn listdatastore_raw(
 }
 
 pub async fn listdatastore_all(rpc_path: &PathBuf) -> Result<ListdatastoreResponse, Error> {
-    listdatastore_raw(rpc_path, Some(vec![HODLVOICE_PLUGIN_NAME.to_string()])).await
+    listdatastore_raw(rpc_path, Some(vec![HOLD_INVOICE_PLUGIN_NAME.to_string()])).await
 }
 
 pub async fn listdatastore_state(
@@ -241,9 +241,9 @@ pub async fn listdatastore_state(
     let response = listdatastore_raw(
         rpc_path,
         Some(vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash.clone(),
-            HODLVOICE_DATASTORE_STATE.to_string(),
+            HOLD_INVOICE_DATASTORE_STATE.to_string(),
         ]),
     )
     .await?;
@@ -260,9 +260,9 @@ pub async fn listdatastore_htlc_expiry(rpc_path: &PathBuf, pay_hash: String) -> 
     let response = listdatastore_raw(
         rpc_path,
         Some(vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash.clone(),
-            HODLVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
+            HOLD_INVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
         ]),
     )
     .await?;
@@ -312,9 +312,9 @@ pub async fn del_datastore_state(
     del_datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash,
-            HODLVOICE_DATASTORE_STATE.to_string(),
+            HOLD_INVOICE_DATASTORE_STATE.to_string(),
         ],
     )
     .await
@@ -327,9 +327,9 @@ pub async fn del_datastore_htlc_expiry(
     del_datastore_raw(
         rpc_path,
         vec![
-            HODLVOICE_PLUGIN_NAME.to_string(),
+            HOLD_INVOICE_PLUGIN_NAME.to_string(),
             pay_hash.clone(),
-            HODLVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
+            HOLD_INVOICE_DATASTORE_HTLC_EXPIRY.to_string(),
         ],
     )
     .await

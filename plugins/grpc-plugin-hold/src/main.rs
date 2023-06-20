@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
-use cln_grpc_hodl::pb::hodl_server::HodlServer;
-use cln_grpc_hodl::Hodlstate;
+use cln_grpc_hold::pb::hold_server::HoldServer;
+use cln_grpc_hold::Holdstate;
 use cln_plugin::{options, Builder};
 use cln_rpc::model::ListinvoicesInvoices;
 use log::{debug, info, warn};
@@ -16,8 +16,8 @@ mod tls;
 mod util;
 
 #[derive(Clone, Debug)]
-pub struct HodlInvoice {
-    pub hodl_state: Hodlstate,
+pub struct HoldInvoice {
+    pub hold_state: Holdstate,
     pub generation: u64,
     pub htlc_amounts_msat: HashMap<String, u64>,
     pub invoice: ListinvoicesInvoices,
@@ -26,7 +26,7 @@ pub struct HodlInvoice {
 #[derive(Clone, Debug)]
 pub struct PluginState {
     pub blockheight: Arc<Mutex<u32>>,
-    pub hodlinvoices: Arc<tokio::sync::Mutex<BTreeMap<String, HodlInvoice>>>,
+    pub holdinvoices: Arc<tokio::sync::Mutex<BTreeMap<String, HoldInvoice>>>,
     rpc_path: PathBuf,
     identity: tls::Identity,
     ca_cert: Vec<u8>,
@@ -34,7 +34,7 @@ pub struct PluginState {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    debug!("Starting grpc-hodl plugin");
+    debug!("Starting grpc-hold plugin");
     std::env::set_var("CLN_PLUGIN_LOG", "debug");
     let path = Path::new("lightning-rpc");
 
@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
 
     let state = PluginState {
         blockheight: Arc::new(Mutex::new(u32::default())),
-        hodlinvoices: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
+        holdinvoices: Arc::new(tokio::sync::Mutex::new(BTreeMap::new())),
         rpc_path: path.into(),
         identity,
         ca_cert,
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
 
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
-            "grpc-hodl-port",
+            "grpc-hold-port",
             options::Value::Integer(-1),
             "Which port should the grpc plugin listen for incoming connections?",
         ))
@@ -71,17 +71,17 @@ async fn main() -> Result<()> {
         None => return Ok(()),
     };
 
-    let bind_port = match plugin.option("grpc-hodl-port") {
+    let bind_port = match plugin.option("grpc-hold-port") {
         Some(options::Value::Integer(-1)) => {
-            log::info!("`grpc-hodl-port` option is not configured, exiting.");
+            log::info!("`grpc-hold-port` option is not configured, exiting.");
             plugin
-                .disable("`grpc-hodl-port` option is not configured.")
+                .disable("`grpc-hold-port` option is not configured.")
                 .await?;
             return Ok(());
         }
         Some(options::Value::Integer(i)) => i,
-        None => return Err(anyhow!("Missing 'grpc-hodl-port' option")),
-        Some(o) => return Err(anyhow!("grpc-hodl-port is not a valid integer: {:?}", o)),
+        None => return Err(anyhow!("Missing 'grpc-hold-port' option")),
+        Some(o) => return Err(anyhow!("grpc-hold-port is not a valid integer: {:?}", o)),
     };
     let confplugin;
     match plugin.start(state.clone()).await {
@@ -133,8 +133,8 @@ async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> 
     let server = tonic::transport::Server::builder()
         .tls_config(tls)
         .context("configuring tls")?
-        .add_service(HodlServer::new(
-            cln_grpc_hodl::Server::new(&state.rpc_path)
+        .add_service(HoldServer::new(
+            cln_grpc_hold::Server::new(&state.rpc_path)
                 .await
                 .context("creating NodeServer instance")?,
         ))

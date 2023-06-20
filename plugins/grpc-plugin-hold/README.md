@@ -1,4 +1,4 @@
-# GRPC hodl-plugin for Core Lightning
+# GRPC hold-plugin for Core Lightning
 
 This plugin exposes the Hold-Invoice related JSON-RPC interface through grpc over the
 network. It listens on a configurable port, authenticates clients
@@ -9,7 +9,7 @@ interface, performing translations from protobuf to JSON and back.
 ## Getting started
 
 The plugin only runs when `lightningd` is configured with the option
-`--grpc-hodl-port`. Upon starting the plugin generates a number of files,
+`--grpc-hold-port`. Upon starting the plugin generates a number of files,
 if they don't already exist:
 
  - `ca.pem` and `ca-key.pem`: These are the certificate and private
@@ -58,7 +58,7 @@ python -m grpc_tools.protoc \
 ```bash
 python -m grpc_tools.protoc \
   -I path/to/cln-grpc/proto \
-  path/to/cln-grpc/proto/hodl.proto \
+  path/to/cln-grpc/proto/hold.proto \
   --python_out=. \
   --grpc_python_out=. \
   --experimental_allow_proto3_optional
@@ -78,9 +78,9 @@ This will generate 6 files in the current directory:
    exchanging with the server.
  - `node_pb2_grpc.py`: the service and method stubs representing the
    server-side methods as local objects and associated methods.
- - `hodl_pb2.py`: the description of the hold-invoice related protobuf messages we'll be
+ - `hold_pb2.py`: the description of the hold-invoice related protobuf messages we'll be
    exchanging with the server.
- - `hodl_pb2_grpc.py`: the service and method stubs representing the
+ - `hold_pb2_grpc.py`: the service and method stubs representing the
    server-side hold-invoice related methods as local objects and associated methods.
  - `primitives_pb2.py`: the description of the primitives protobuf messages we'll be
    exchanging with the server.
@@ -94,8 +94,8 @@ connect to the node:
 from pathlib import Path
 from node_pb2_grpc import NodeStub
 import node_pb2
-from hodl_pb2_grpc import HodlStub
-import hodl_pb2
+from hold_pb2_grpc import HoldStub
+import hold_pb2
 import primitives_pb2
 
 p = Path(".")
@@ -115,15 +115,15 @@ channel = grpc.secure_channel(
 	options=(('grpc.ssl_target_name_override', 'cln'),)
 )
 channel = grpc.secure_channel(
-	f"localhost:{grpc_hodl_port}",
+	f"localhost:{grpc_hold_port}",
 	creds,
 	options=(('grpc.ssl_target_name_override', 'cln'),)
 )
-hodlstub = HodlStub(channel)
+holdstub = HoldStub(channel)
 
 request = node_pb2.InvoiceRequest(amount_msat=primitives_pb2.AmountOrAny(amount=primitives_pb2.Amount(msat=10_000)), description="test", label="test", cltv=500)
 
-print(hodlstub.HodlInvoice(request))
+print(holdstub.HoldInvoice(request))
 
 print(stub.Getinfo(node_pb2.GetinfoRequest()))
 ```
@@ -139,9 +139,9 @@ will be reachable, and will therefore use `cln` as a standin. See
 custom certificate generation for how this could be changed.
 
 We then use the channel to instantiate the `NodeStub` representing the
-normal cln service and its methods aswell as the `HodlStub` representing
-the hodl service and its methods. Then we create an `InvoiceRequest` and call
-`HodlInvoice` with it. Finally we call the `Getinfo` method
+normal cln service and its methods aswell as the `HoldStub` representing
+the hold service and its methods. Then we create an `InvoiceRequest` and call
+`HoldInvoice` with it. Finally we call the `Getinfo` method
 with default arguments.
 
 ## Generating custom certificates

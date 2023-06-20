@@ -1,10 +1,10 @@
 [package]
 edition = "2021"
-name = "cln-grpc-hodl-plugin"
-version = "0.1.1-hodl"
+name = "cln-grpc-hold-plugin"
+version = "0.1.4"
 
 [[bin]]
-name = "cln-grpc-hodl"
+name = "cln-grpc-hold"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,8 +18,8 @@ rcgen = { version = "0.10", features = ["pem", "x509-parser"] }
 cln-rpc = "0.1.3"
 cln-plugin = "0.1.4"
 
-[dependencies.cln-grpc-hodl]
-path = "../../cln-grpc-hodl"
+[dependencies.cln-grpc-hold]
+path = "../../cln-grpc-hold"
 
 # [dependencies.cln-plugin]
 # path = "../../plugins"

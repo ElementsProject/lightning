@@ -7,5 +7,5 @@ members = [
   "cln-grpc",
   "plugins",
   "plugins/grpc-plugin",
-  "plugins/grpc-plugin-hodl",
+  "plugins/grpc-plugin-hold",
 ]

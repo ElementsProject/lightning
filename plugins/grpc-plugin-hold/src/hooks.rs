@@ -4,8 +4,8 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use cln_grpc_hodl::{
-    datastore_htlc_expiry, datastore_update_state, listdatastore_state, Hodlstate,
+use cln_grpc_hold::{
+    datastore_htlc_expiry, datastore_update_state, listdatastore_state, Holdstate,
 };
 use cln_plugin::Plugin;
 use cln_rpc::primitives::Amount;
@@ -15,7 +15,7 @@ use tokio::time;
 
 use crate::{
     util::{cleanup_htlc_state, listinvoices, make_rpc_path},
-    HodlInvoice, PluginState,
+    HoldInvoice, PluginState,
 };
 
 pub(crate) async fn htlc_handler(
@@ -38,37 +38,37 @@ pub(crate) async fn htlc_handler(
             let invoice;
             let scid;
             let htlc_id;
-            let hodl_state;
+            let hold_state;
 
             {
-                let mut states = plugin.state().hodlinvoices.lock().await;
+                let mut states = plugin.state().holdinvoices.lock().await;
                 let generation;
                 match states.get_mut(&pay_hash.to_string()) {
                     Some(h) => {
                         is_new_invoice = false;
                         debug!(
-                            "payment_hash: `{}`. Htlc is for a known hodl-invoice! Processing...",
+                            "payment_hash: `{}`. Htlc is for a known hold-invoice! Processing...",
                             pay_hash
                         );
 
-                        hodl_state = h.hodl_state;
+                        hold_state = h.hold_state;
                         invoice = h.invoice.clone();
                         generation = h.generation;
                     }
                     None => {
                         is_new_invoice = true;
                         debug!(
-                            "payment_hash: `{}`. Htlc for fresh invoice arrived. Checking if it's a hodl-invoice...",
+                            "payment_hash: `{}`. Htlc for fresh invoice arrived. Checking if it's a hold-invoice...",
                             pay_hash
                         );
 
                         match listdatastore_state(&rpc_path, pay_hash.to_string()).await {
                             Ok(dbstate) => {
                                 debug!(
-                                    "payment_hash: `{}`. Htlc is indeed for a hodl-invoice! Processing...",
+                                    "payment_hash: `{}`. Htlc is indeed for a hold-invoice! Processing...",
                                     pay_hash
                                 );
-                                hodl_state = Hodlstate::from_str(&dbstate.string.unwrap())?;
+                                hold_state = Holdstate::from_str(&dbstate.string.unwrap())?;
                                 generation = if let Some(g) = dbstate.generation {
                                     g
                                 } else {
@@ -80,14 +80,14 @@ pub(crate) async fn htlc_handler(
                                     .invoices
                                     .first()
                                     .ok_or(anyhow!(
-                                        "payment_hash: `{}`. Hodl-invoice not found!",
+                                        "payment_hash: `{}`. Hold-invoice not found!",
                                         pay_hash
                                     ))?
                                     .clone();
                             }
                             Err(_e) => {
                                 debug!(
-                                    "payment_hash: `{}`. Not a hodl-invoice! Continue...",
+                                    "payment_hash: `{}`. Not a hold-invoice! Continue...",
                                     pay_hash
                                 );
                                 return Ok(json!({"result": "continue"}));
@@ -148,8 +148,8 @@ pub(crate) async fn htlc_handler(
                     amounts_msat.insert(scid.to_string() + &htlc_id.to_string(), amount_msat);
                     states.insert(
                         pay_hash.to_string(),
-                        HodlInvoice {
-                            hodl_state,
+                        HoldInvoice {
+                            hold_state,
                             generation,
                             htlc_amounts_msat: amounts_msat,
                             invoice: invoice.clone(),
@@ -173,9 +173,9 @@ pub(crate) async fn htlc_handler(
                 }
             };
 
-            if let Hodlstate::Canceled = hodl_state {
+            if let Holdstate::Canceled = hold_state {
                 info!(
-                        "payment_hash: `{}`. Htlc arrived after hodl-cancellation was requested. Rejecting htlc...",
+                        "payment_hash: `{}`. Htlc arrived after hold-cancellation was requested. Rejecting htlc...",
                         pay_hash
                     );
 
@@ -194,11 +194,11 @@ pub(crate) async fn htlc_handler(
 
             loop {
                 {
-                    let hodl_invoice = plugin.state().hodlinvoices.lock().await.clone();
-                    match hodl_invoice.get(&pay_hash.to_string()) {
-                        Some(hodl_invoice_data) => {
-                            let hodlstate = hodl_invoice_data.hodl_state;
-                            let generation = hodl_invoice_data.generation;
+                    let hold_invoice = plugin.state().holdinvoices.lock().await.clone();
+                    match hold_invoice.get(&pay_hash.to_string()) {
+                        Some(hold_invoice_data) => {
+                            let holdstate = hold_invoice_data.hold_state;
+                            let generation = hold_invoice_data.generation;
                             let now = SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
@@ -206,13 +206,13 @@ pub(crate) async fn htlc_handler(
 
                             if invoice.expires_at <= now + 60 {
                                 warn!(
-                                    "payment_hash: `{}` scid: `{}` htlc: `{}`. Hodl-invoice expired! State=CANCELED",
+                                    "payment_hash: `{}` scid: `{}` htlc: `{}`. Hold-invoice expired! State=CANCELED",
                                     pay_hash, scid, htlc_id
                                 );
                                 match datastore_update_state(
                                     &rpc_path,
                                     pay_hash.to_string(),
-                                    Hodlstate::Canceled.to_string(),
+                                    Holdstate::Canceled.to_string(),
                                     generation,
                                 )
                                 .await
@@ -235,15 +235,15 @@ pub(crate) async fn htlc_handler(
                                     pay_hash, scid, htlc_id
                                 );
                                 let cur_amt: u64 =
-                                    hodl_invoice_data.htlc_amounts_msat.values().sum();
+                                    hold_invoice_data.htlc_amounts_msat.values().sum();
                                 if Amount::msat(&invoice.amount_msat.unwrap())
                                     > cur_amt - amount_msat
-                                    && hodlstate == Hodlstate::Accepted
+                                    && holdstate == Holdstate::Accepted
                                 {
                                     match datastore_update_state(
                                         &rpc_path,
                                         pay_hash.to_string(),
-                                        Hodlstate::Open.to_string(),
+                                        Holdstate::Open.to_string(),
                                         generation,
                                     )
                                     .await
@@ -255,7 +255,7 @@ pub(crate) async fn htlc_handler(
                                         }
                                     };
                                     info!(
-                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hodl-invoice. State=OPEN",
+                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hold-invoice. State=OPEN",
                                         pay_hash, scid, htlc_id
                                     );
                                 }
@@ -265,16 +265,16 @@ pub(crate) async fn htlc_handler(
                                 return Ok(json!({"result": "fail"}));
                             }
 
-                            match hodlstate {
-                                Hodlstate::Open => {
+                            match holdstate {
+                                Holdstate::Open => {
                                     if Amount::msat(&invoice.amount_msat.unwrap())
-                                        <= hodl_invoice_data.htlc_amounts_msat.values().sum()
-                                        && hodlstate.is_valid_transition(&Hodlstate::Accepted)
+                                        <= hold_invoice_data.htlc_amounts_msat.values().sum()
+                                        && holdstate.is_valid_transition(&Holdstate::Accepted)
                                     {
                                         match datastore_update_state(
                                             &rpc_path,
                                             pay_hash.to_string(),
-                                            Hodlstate::Accepted.to_string(),
+                                            Holdstate::Accepted.to_string(),
                                             generation,
                                         )
                                         .await
@@ -286,25 +286,25 @@ pub(crate) async fn htlc_handler(
                                             }
                                         };
                                         info!(
-                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Got enough msats for the hodl-invoice. State=ACCEPTED",
+                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Got enough msats for the hold-invoice. State=ACCEPTED",
                                             pay_hash, scid, htlc_id
                                         );
                                     } else {
                                         debug!(
-                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Not enough msats for the hodl-invoice yet.",
+                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Not enough msats for the hold-invoice yet.",
                                             pay_hash, scid, htlc_id
                                         );
                                     }
                                 }
-                                Hodlstate::Accepted => {
+                                Holdstate::Accepted => {
                                     if Amount::msat(&invoice.amount_msat.unwrap())
-                                        > hodl_invoice_data.htlc_amounts_msat.values().sum()
-                                        && hodlstate.is_valid_transition(&Hodlstate::Open)
+                                        > hold_invoice_data.htlc_amounts_msat.values().sum()
+                                        && holdstate.is_valid_transition(&Holdstate::Open)
                                     {
                                         match datastore_update_state(
                                             &rpc_path,
                                             pay_hash.to_string(),
-                                            Hodlstate::Open.to_string(),
+                                            Holdstate::Open.to_string(),
                                             generation,
                                         )
                                         .await
@@ -316,19 +316,19 @@ pub(crate) async fn htlc_handler(
                                             }
                                         };
                                         info!(
-                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hodl-invoice. State=OPEN",
+                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hold-invoice. State=OPEN",
                                             pay_hash, scid, htlc_id
                                         );
                                     } else {
                                         debug!(
-                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Holding accepted hodl-invoice.",
+                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. Holding accepted hold-invoice.",
                                             pay_hash, scid, htlc_id
                                         );
                                     }
                                 }
-                                Hodlstate::Settled => {
+                                Holdstate::Settled => {
                                     info!(
-                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. Settling htlc for hodl-invoice. State=SETTLED",
+                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. Settling htlc for hold-invoice. State=SETTLED",
                                         pay_hash, scid, htlc_id
                                     );
 
@@ -337,9 +337,9 @@ pub(crate) async fn htlc_handler(
 
                                     return Ok(json!({"result": "continue"}));
                                 }
-                                Hodlstate::Canceled => {
+                                Holdstate::Canceled => {
                                     info!(
-                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. Rejecting htlc for canceled hodl-invoice.  State=CANCELED",
+                                        "payment_hash: `{}` scid: `{}` htlc: `{}`. Rejecting htlc for canceled hold-invoice.  State=CANCELED",
                                         pay_hash, scid, htlc_id
                                     );
 
