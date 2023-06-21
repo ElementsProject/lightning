@@ -164,26 +164,12 @@ pub(crate) async fn htlc_handler(
                             hold_state,
                             generation,
                             htlc_data,
+                            last_htlc_expiry: cltv_expiry,
                             invoice: invoice.clone(),
                         },
                     );
                 } else {
                     let holdinvoice = states.get_mut(&pay_hash.to_string()).unwrap();
-                    if cltv_expiry
-                        < holdinvoice
-                            .htlc_data
-                            .values()
-                            .map(|htlc| htlc.cltv_expiry)
-                            .min()
-                            .unwrap()
-                    {
-                        datastore_htlc_expiry(
-                            &rpc_path,
-                            pay_hash.to_string(),
-                            cltv_expiry.to_string(),
-                        )
-                        .await?;
-                    }
                     holdinvoice.htlc_data.insert(
                         global_htlc_ident.clone(),
                         HoldHtlc {
@@ -191,6 +177,23 @@ pub(crate) async fn htlc_handler(
                             cltv_expiry,
                         },
                     );
+
+                    let earliest_htlc_expiry = holdinvoice
+                        .htlc_data
+                        .values()
+                        .map(|htlc| htlc.cltv_expiry)
+                        .min()
+                        .unwrap();
+
+                    if holdinvoice.last_htlc_expiry != earliest_htlc_expiry {
+                        datastore_htlc_expiry(
+                            &rpc_path,
+                            pay_hash.to_string(),
+                            earliest_htlc_expiry.to_string(),
+                        )
+                        .await?;
+                        holdinvoice.last_htlc_expiry = earliest_htlc_expiry;
+                    }
                 }
             }
 

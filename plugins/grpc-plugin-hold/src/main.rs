@@ -32,6 +32,7 @@ pub struct HoldInvoice {
     pub hold_state: Holdstate,
     pub generation: u64,
     pub htlc_data: HashMap<HtlcIdentifier, HoldHtlc>,
+    pub last_htlc_expiry: u32,
     pub invoice: ListinvoicesInvoices,
 }
 
