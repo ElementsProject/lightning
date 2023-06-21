@@ -3437,7 +3437,7 @@ def test_setconfig(node_factory, bitcoind):
 
     l1.fundchannel(l2, 10**6)
     txid = l1.rpc.close(l2.info['id'])['txid']
-    # Make sure we're completely closed! 
+    # Make sure we're completely closed!
     bitcoind.generate_block(1, wait_for_mempool=txid)
     sync_blockheight(bitcoind, [l1, l2])
 
