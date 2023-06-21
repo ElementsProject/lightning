@@ -15,7 +15,7 @@ use tokio::time;
 
 use crate::{
     util::{cleanup_htlc_state, listinvoices, make_rpc_path},
-    HoldHtlc, HoldInvoice, PluginState,
+    HoldHtlc, HoldInvoice, HtlcIdentifier, PluginState,
 };
 
 pub(crate) async fn htlc_handler(
@@ -37,7 +37,8 @@ pub(crate) async fn htlc_handler(
 
             let invoice;
             let scid;
-            let htlc_id;
+            let chan_htlc_id;
+            let global_htlc_ident;
             let hold_state;
 
             {
@@ -96,7 +97,7 @@ pub(crate) async fn htlc_handler(
                     }
                 }
 
-                htlc_id = match htlc.get("id") {
+                chan_htlc_id = match htlc.get("id") {
                     Some(ce) => ce.as_u64().unwrap(),
                     None => {
                         warn!(
@@ -108,7 +109,7 @@ pub(crate) async fn htlc_handler(
                 };
 
                 scid = match htlc.get("short_channel_id") {
-                    Some(ce) => ce.as_str().unwrap(),
+                    Some(ce) => ce.as_str().unwrap().to_string(),
                     None => {
                         warn!(
                             "payment_hash: `{}`. short_channel_id not found! Rejecting htlc...",
@@ -116,6 +117,11 @@ pub(crate) async fn htlc_handler(
                         );
                         return Ok(json!({"result": "fail"}));
                     }
+                };
+
+                global_htlc_ident = HtlcIdentifier {
+                    scid: scid.clone(),
+                    htlc_id: chan_htlc_id,
                 };
 
                 cltv_expiry = match htlc.get("cltv_expiry") {
@@ -134,7 +140,7 @@ pub(crate) async fn htlc_handler(
                     None => {
                         warn!(
                             "payment_hash: `{}` scid: `{}` htlc_id: {}: amount_msat not found! Rejecting htlc...",
-                            pay_hash, scid, htlc_id
+                            pay_hash, scid.to_string(), chan_htlc_id
                         );
                         return Ok(json!({"result": "fail"}));
                     }
@@ -146,7 +152,7 @@ pub(crate) async fn htlc_handler(
 
                     let mut htlc_data = HashMap::new();
                     htlc_data.insert(
-                        scid.to_string() + &htlc_id.to_string(),
+                        global_htlc_ident.clone(),
                         HoldHtlc {
                             amount_msat,
                             cltv_expiry,
@@ -179,7 +185,7 @@ pub(crate) async fn htlc_handler(
                         .await?;
                     }
                     holdinvoice.htlc_data.insert(
-                        scid.to_string() + &htlc_id.to_string(),
+                        global_htlc_ident.clone(),
                         HoldHtlc {
                             amount_msat,
                             cltv_expiry,
@@ -194,7 +200,7 @@ pub(crate) async fn htlc_handler(
                         pay_hash
                     );
 
-                cleanup_htlc_state(plugin.clone(), pay_hash, scid, htlc_id).await;
+                cleanup_htlc_state(plugin.clone(), pay_hash, &global_htlc_ident).await;
 
                 return Ok(json!({"result": "fail"}));
             }
@@ -203,7 +209,7 @@ pub(crate) async fn htlc_handler(
                 "payment_hash: `{}` scid: `{}` htlc_id: `{}`. Holding {}msat",
                 pay_hash,
                 scid.to_string(),
-                htlc_id,
+                chan_htlc_id,
                 amount_msat
             );
 
@@ -222,7 +228,7 @@ pub(crate) async fn htlc_handler(
                             if invoice.expires_at <= now + 60 {
                                 warn!(
                                     "payment_hash: `{}` scid: `{}` htlc: `{}`. Hold-invoice expired! State=CANCELED",
-                                    pay_hash, scid, htlc_id
+                                    pay_hash, scid, chan_htlc_id
                                 );
                                 match datastore_update_state(
                                     &rpc_path,
@@ -239,7 +245,8 @@ pub(crate) async fn htlc_handler(
                                     }
                                 };
 
-                                cleanup_htlc_state(plugin.clone(), pay_hash, scid, htlc_id).await;
+                                cleanup_htlc_state(plugin.clone(), pay_hash, &global_htlc_ident)
+                                    .await;
 
                                 return Ok(json!({"result": "fail"}));
                             }
@@ -247,7 +254,7 @@ pub(crate) async fn htlc_handler(
                             if cltv_expiry <= plugin.state().blockheight.lock().clone() + 6 {
                                 warn!(
                                     "payment_hash: `{}` scid: `{}` htlc: `{}`. HTLC timed out. Rejecting htlc...",
-                                    pay_hash, scid, htlc_id
+                                    pay_hash, scid, chan_htlc_id
                                 );
                                 let cur_amt: u64 = hold_invoice_data
                                     .htlc_data
@@ -274,11 +281,12 @@ pub(crate) async fn htlc_handler(
                                     };
                                     info!(
                                         "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hold-invoice. State=OPEN",
-                                        pay_hash, scid, htlc_id
+                                        pay_hash, scid, chan_htlc_id
                                     );
                                 }
 
-                                cleanup_htlc_state(plugin.clone(), pay_hash, scid, htlc_id).await;
+                                cleanup_htlc_state(plugin.clone(), pay_hash, &global_htlc_ident)
+                                    .await;
 
                                 return Ok(json!({"result": "fail"}));
                             }
@@ -309,12 +317,12 @@ pub(crate) async fn htlc_handler(
                                         };
                                         info!(
                                             "payment_hash: `{}` scid: `{}` htlc: `{}`. Got enough msats for the hold-invoice. State=ACCEPTED",
-                                            pay_hash, scid, htlc_id
+                                            pay_hash, scid, chan_htlc_id
                                         );
                                     } else {
                                         debug!(
                                             "payment_hash: `{}` scid: `{}` htlc: `{}`. Not enough msats for the hold-invoice yet.",
-                                            pay_hash, scid, htlc_id
+                                            pay_hash, scid, chan_htlc_id
                                         );
                                     }
                                 }
@@ -343,41 +351,49 @@ pub(crate) async fn htlc_handler(
                                         };
                                         info!(
                                             "payment_hash: `{}` scid: `{}` htlc: `{}`. No longer enough msats for the hold-invoice. State=OPEN",
-                                            pay_hash, scid, htlc_id
+                                            pay_hash, scid, chan_htlc_id
                                         );
                                     } else {
                                         debug!(
                                             "payment_hash: `{}` scid: `{}` htlc: `{}`. Holding accepted hold-invoice.",
-                                            pay_hash, scid, htlc_id
+                                            pay_hash, scid, chan_htlc_id
                                         );
                                     }
                                 }
                                 Holdstate::Settled => {
                                     info!(
                                         "payment_hash: `{}` scid: `{}` htlc: `{}`. Settling htlc for hold-invoice. State=SETTLED",
-                                        pay_hash, scid, htlc_id
+                                        pay_hash, scid, chan_htlc_id
                                     );
 
-                                    cleanup_htlc_state(plugin.clone(), pay_hash, scid, htlc_id)
-                                        .await;
+                                    cleanup_htlc_state(
+                                        plugin.clone(),
+                                        pay_hash,
+                                        &global_htlc_ident,
+                                    )
+                                    .await;
 
                                     return Ok(json!({"result": "continue"}));
                                 }
                                 Holdstate::Canceled => {
                                     info!(
                                         "payment_hash: `{}` scid: `{}` htlc: `{}`. Rejecting htlc for canceled hold-invoice.  State=CANCELED",
-                                        pay_hash, scid, htlc_id
+                                        pay_hash, scid, chan_htlc_id
                                     );
 
-                                    cleanup_htlc_state(plugin.clone(), pay_hash, scid, htlc_id)
-                                        .await;
+                                    cleanup_htlc_state(
+                                        plugin.clone(),
+                                        pay_hash,
+                                        &global_htlc_ident,
+                                    )
+                                    .await;
 
                                     return Ok(json!({"result": "fail"}));
                                 }
                             }
                         }
                         None => {
-                            warn!("payment_hash: `{}` scid: `{}` htlc: `{}`. DROPPED INVOICE from internal state!", pay_hash, scid, htlc_id);
+                            warn!("payment_hash: `{}` scid: `{}` htlc: `{}`. DROPPED INVOICE from internal state!", pay_hash, scid, chan_htlc_id);
                             return Err(anyhow!(
                                 "Invoice dropped from internal state unexpectedly: {}",
                                 pay_hash

@@ -7,7 +7,7 @@ use cln_rpc::{
     ClnRpc, Request, Response,
 };
 
-use crate::PluginState;
+use crate::{HtlcIdentifier, PluginState};
 
 pub async fn listinvoices(
     rpc_path: &PathBuf,
@@ -37,14 +37,11 @@ pub fn make_rpc_path(plugin: &Plugin<PluginState>) -> PathBuf {
 pub async fn cleanup_htlc_state(
     plugin: Plugin<PluginState>,
     pay_hash: &str,
-    scid: &str,
-    htlc_id: u64,
+    global_htlc_ident: &HtlcIdentifier,
 ) {
     let mut hold_invoices = plugin.state().holdinvoices.lock().await;
     if let Some(h_inv) = hold_invoices.get_mut(pay_hash) {
-        h_inv
-            .htlc_data
-            .remove(&(scid.to_string() + &htlc_id.to_string()));
+        h_inv.htlc_data.remove(global_htlc_ident);
         if h_inv.htlc_data.is_empty() {
             hold_invoices.remove(pay_hash);
         }

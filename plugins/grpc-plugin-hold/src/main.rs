@@ -21,11 +21,17 @@ pub struct HoldHtlc {
     pub cltv_expiry: u32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct HtlcIdentifier {
+    pub scid: String,
+    pub htlc_id: u64,
+}
+
 #[derive(Clone, Debug)]
 pub struct HoldInvoice {
     pub hold_state: Holdstate,
     pub generation: u64,
-    pub htlc_data: HashMap<String, HoldHtlc>,
+    pub htlc_data: HashMap<HtlcIdentifier, HoldHtlc>,
     pub invoice: ListinvoicesInvoices,
 }
 
