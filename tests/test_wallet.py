@@ -5,7 +5,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
 from utils import (
-    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
+    only_one, wait_for, sync_blockheight,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
     check_utxos_channel
 )
@@ -1063,78 +1063,6 @@ def test_txsend(node_factory, bitcoind, chainparams):
 
     # Change address should appear in listfunds()
     assert scriptpubkey_addr(decode['vout'][changenum]['scriptPubKey']) in [f['address'] for f in l1.rpc.listfunds()['outputs']]
-
-
-@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee outputs throw off our output matching logic")
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Tests annotations which are compiled only with experimental features")
-def test_transaction_annotations(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.get_nodes(3)
-    l1.fundwallet(10**6)
-
-    # We should now have a transaction that gave us the funds in the
-    # transactions table...
-    outputs = l1.rpc.listfunds()['outputs']
-    assert(len(outputs) == 1 and outputs[0]['status'] == 'confirmed')
-    out = outputs[0]
-    idx = out['output']
-    assert(idx in [0, 1] and out['amount_msat'] == Millisatoshi("{}sat".format(10**6)))
-
-    # ... and it should have an annotation on the output reading 'deposit'
-    txs = l1.rpc.listtransactions()['transactions']
-    assert(len(txs) == 1)
-    tx = txs[0]
-    output = tx['outputs'][idx]
-    assert(output['type'] == 'deposit' and output['amount_msat'] == Millisatoshi(1000000000))
-
-    # ... and all other output should be change, and have no annotations
-    types = []
-    for i, o in enumerate(tx['outputs']):
-        if i == idx:
-            continue
-        if 'type' in o:
-            types.append(o['type'])
-        else:
-            types.append(None)
-
-    assert(set([None]) == set(types))
-
-    ##########################################################################
-    # Let's now open a channel. The opener should get the funding transaction
-    # annotated as channel open and deposit.
-    l1.connect(l2)
-    fundingtx = l1.rpc.fundchannel(l2.info['id'], 10**5)
-
-    # We should have one output unreserved, and it should be unconfirmed
-    outputs = l1.rpc.listfunds()['outputs']
-    assert len(outputs) == 2
-    outputs = [o for o in outputs if not o['reserved']]
-    assert(len(outputs) == 1 and outputs[0]['status'] == 'unconfirmed')
-
-    # It should also match the funding txid:
-    assert(outputs[0]['txid'] == fundingtx['txid'])
-
-    # Confirm the channel and check that the output changed to confirmed
-    bitcoind.generate_block(3)
-    sync_blockheight(bitcoind, [l1, l2])
-    outputs = l1.rpc.listfunds()['outputs']
-    assert(len(outputs) == 1 and outputs[0]['status'] == 'confirmed')
-
-    # We should have 2 transactions, the second one should be the funding tx
-    # (we are ordering by blockheight and txindex, so that order should be ok)
-    txs = l1.rpc.listtransactions()['transactions']
-    assert(len(txs) == 2 and txs[1]['hash'] == fundingtx['txid'])
-
-    # Check the annotated types
-    types = [o['type'] for o in txs[1]['outputs']]
-    changeidx = 0 if types[0] == 'deposit' else 1
-    fundidx = 1 - changeidx
-    assert(types[changeidx] == 'deposit' and types[fundidx] == 'channel_funding')
-
-    # And check the channel annotation on the funding output
-    channels = l1.rpc.listpeerchannels()['channels']
-    assert(len(channels) == 1)
-    scid = channels[0]['short_channel_id']
-    assert(txs[1]['outputs'][fundidx]['channel'] == scid)
 
 
 def write_all(fd, bytestr):

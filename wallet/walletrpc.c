@@ -484,16 +484,6 @@ struct {
     {TX_CHANNEL_CHEAT, "channel_unilateral_cheat"},
 };
 
-#if EXPERIMENTAL_FEATURES
-static const char *txtype_to_string(enum wallet_tx_type t)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(wallet_tx_type_display_names); i++)
-		if (t == wallet_tx_type_display_names[i].t)
-			return wallet_tx_type_display_names[i].name;
-	return NULL;
-}
-#endif
-
 static void json_transaction_details(struct json_stream *response,
 				     const struct wallet_transaction *tx)
 {
@@ -517,15 +507,6 @@ static void json_transaction_details(struct json_stream *response,
 			json_add_txid(response, "txid", &prevtxid);
 			json_add_u32(response, "index", in->index);
 			json_add_u32(response, "sequence", in->sequence);
-#if EXPERIMENTAL_FEATURES
-			struct tx_annotation *ann = &tx->input_annotations[i];
-			const char *txtype = txtype_to_string(ann->type);
-			if (txtype != NULL)
-				json_add_string(response, "type", txtype);
-			if (ann->channel.u64 != 0)
-				json_add_short_channel_id(response, "channel", &ann->channel);
-#endif
-
 			json_object_end(response);
 		}
 		json_array_end(response);
@@ -547,15 +528,6 @@ static void json_transaction_details(struct json_stream *response,
 			json_add_u32(response, "index", i);
 			json_add_amount_sat_msat(response, "amount_msat", sat);
 
-#if EXPERIMENTAL_FEATURES
-			struct tx_annotation *ann = &tx->output_annotations[i];
-			const char *txtype = txtype_to_string(ann->type);
-			if (txtype != NULL)
-				json_add_string(response, "type", txtype);
-
-			if (ann->channel.u64 != 0)
-				json_add_short_channel_id(response, "channel", &ann->channel);
-#endif
 			json_add_hex(response, "scriptPubKey", out->script, out->script_len);
 
 			json_object_end(response);
