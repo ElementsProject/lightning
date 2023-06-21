@@ -71,6 +71,9 @@ def test_pay(node_factory):
     payments = l1.rpc.listsendpays(inv)['payments']
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
+    # Make sure they're completely settled, so accounting correct.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
     # Check channels apy summary view of channel activity
     apys_1 = l1.rpc.bkpr_channelsapy()['channels_apy']
     apys_2 = l2.rpc.bkpr_channelsapy()['channels_apy']
