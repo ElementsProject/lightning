@@ -410,10 +410,6 @@ jobs:
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release
-      ASAN: 1
-      UBSAN: 1
-      VALGRIND: 0
-      DEVELOPER: 1
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
@@ -466,12 +462,12 @@ jobs:
 
       - name: Build
         run: |
-          ./configure CC=clang
+          ./configure CC=clang --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind --enable-developer
           make -j $(nproc)
 
       - name: Test
         run: |
-          poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   gather:
     # A dummy task that depends on the full matrix of tests, and
