@@ -1,5 +1,7 @@
 # GRPC hold-plugin for Core Lightning
 
+This plugin is much like cln-grpc, but only has the Hold-Invoice related methods.
+
 This plugin exposes the Hold-Invoice related JSON-RPC interface through grpc over the
 network. It listens on a configurable port, authenticates clients
 using mTLS certificates, and will forward any Hold-Invoice related request to the JSON-RPC
@@ -10,7 +12,7 @@ interface, performing translations from protobuf to JSON and back.
 
 The plugin only runs when `lightningd` is configured with the option
 `--grpc-hold-port`. Upon starting the plugin generates a number of files,
-if they don't already exist:
+if they don't already exist (uses the same ones cln-grpc uses):
 
  - `ca.pem` and `ca-key.pem`: These are the certificate and private
    key for your own certificate authority. The plugin will only accept
@@ -49,51 +51,36 @@ Next we generate the bindings in the current directory:
 
 ```bash
 python -m grpc_tools.protoc \
-  -I path/to/cln-grpc/proto \
-  path/to/cln-grpc/proto/node.proto \
+  -I path/to/cln-grpc-hold/proto \
+  path/to/cln-grpc-hold/proto/hold.proto \
   --python_out=. \
   --grpc_python_out=. \
   --experimental_allow_proto3_optional
 ```
 ```bash
 python -m grpc_tools.protoc \
-  -I path/to/cln-grpc/proto \
-  path/to/cln-grpc/proto/hold.proto \
-  --python_out=. \
-  --grpc_python_out=. \
-  --experimental_allow_proto3_optional
-```
-```bash
-python -m grpc_tools.protoc \
-  -I path/to/cln-grpc/proto \
-  path/to/cln-grpc/proto/primitives.proto \
+  -I path/to/cln-grpc-hold/proto \
+  path/to/cln-grpc-hold/proto/primitives.proto \
   --python_out=. \
   --grpc_python_out=. \
   --experimental_allow_proto3_optional
 ```
 
-This will generate 6 files in the current directory:
+This will generate 3 relevant files in the current directory:
 
- - `node_pb2.py`: the description of the protobuf messages we'll be
-   exchanging with the server.
- - `node_pb2_grpc.py`: the service and method stubs representing the
-   server-side methods as local objects and associated methods.
  - `hold_pb2.py`: the description of the hold-invoice related protobuf messages we'll be
    exchanging with the server.
  - `hold_pb2_grpc.py`: the service and method stubs representing the
    server-side hold-invoice related methods as local objects and associated methods.
  - `primitives_pb2.py`: the description of the primitives protobuf messages we'll be
    exchanging with the server.
- - `primitives_pb2_grpc.py`: the service and method stubs representing the
-   server-side primitives methods as local objects and associated methods.
+
    
 And finally we can use the generated stubs and mTLS identity to
 connect to the node:
 
 ```python
 from pathlib import Path
-from node_pb2_grpc import NodeStub
-import node_pb2
 from hold_pb2_grpc import HoldStub
 import hold_pb2
 import primitives_pb2
@@ -110,22 +97,21 @@ creds = grpc.ssl_channel_credentials(
 )
 
 channel = grpc.secure_channel(
-	f"localhost:{grpc_port}",
-	creds,
-	options=(('grpc.ssl_target_name_override', 'cln'),)
-)
-channel = grpc.secure_channel(
 	f"localhost:{grpc_hold_port}",
 	creds,
 	options=(('grpc.ssl_target_name_override', 'cln'),)
 )
 holdstub = HoldStub(channel)
 
-request = node_pb2.InvoiceRequest(amount_msat=primitives_pb2.AmountOrAny(amount=primitives_pb2.Amount(msat=10_000)), description="test", label="test", cltv=500)
+request = hold_pb2.HoldInvoiceRequest(amount_msat=primitives_pb2.AmountOrAny(amount=primitives_pb2.Amount(msat=10_000)), description="test", label="test", cltv=500)
+response = holdstub.HoldInvoice(request)
 
-print(holdstub.HoldInvoice(request))
+print(response)
 
-print(stub.Getinfo(node_pb2.GetinfoRequest()))
+request2 = hold_pb2.HoldInvoiceLookupRequest(payment_hash=response.payment_hash)
+response2 = holdstub.HoldInvoiceLookup(request)
+
+print(response2)
 ```
 
 In this example we first local the client identity, as well as the CA
@@ -138,11 +124,10 @@ required because the plugin does not know the domain under which it
 will be reachable, and will therefore use `cln` as a standin. See
 custom certificate generation for how this could be changed.
 
-We then use the channel to instantiate the `NodeStub` representing the
-normal cln service and its methods aswell as the `HoldStub` representing
-the hold service and its methods. Then we create an `InvoiceRequest` and call
-`HoldInvoice` with it. Finally we call the `Getinfo` method
-with default arguments.
+We then use the channel to instantiate the `HoldStub` representing
+the hold service and its methods. Then we create a `HoldInvoiceRequest` and call
+`HoldInvoice` with it. Finally we create a `HoldInvoiceLookupRequest` and call
+`HoldInvoiceLookup` with it to check the current state of our Hold-Invoice.
 
 ## Generating custom certificates
 
@@ -179,4 +164,4 @@ allowing you to access the node through its real domain name. You can
 now move `server.pem` and `server-key.pem` into the lightning
 directory, and they should be picked up during the start.
 
-[proto]: https://github.com/ElementsProject/lightning/blob/master/cln-grpc/proto/node.proto
+[proto]: https://github.com/ElementsProject/lightning/blob/master/cln-grpc-hold/proto/hold.proto
