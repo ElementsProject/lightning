@@ -18,6 +18,8 @@ jobs:
       COMPAT: 1
     steps:
     - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
     - name: Test in FreeBSD
       id: test
       uses: vmactions/freebsd-vm@v0.1.5

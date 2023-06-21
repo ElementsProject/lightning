@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Build and run
         run: |
           docker build -f contrib/docker/Dockerfile.ubuntu -t cln-ci-ubuntu .

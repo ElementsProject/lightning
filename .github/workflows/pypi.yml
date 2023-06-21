@@ -37,6 +37,7 @@ jobs:
     steps:
     - uses: actions/checkout@master
       with:
+        ref: ${{ github.event.pull_request.head.sha }}
         # Need to fetch entire history in order to locate the version tag
         fetch-depth: 0
 
