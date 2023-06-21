@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [23.05.2] - 2023-06-21: "Austin Texas Agreement(ATXA) III"
+
+Bugfix release for bad issues found since 23.05.1 which can't wait for 23.08.
+
+### Fixed
+
+ - JSON-RPC: `pay` and `decodepay` with description now correctly handle JSON escapes (e.g " inside description)
+ - JSON-RPC: `pay` has *undeprecated* paying a description-hash invoice without providing the description (since it didn't work reliably until now!)
+ - GRPC: `listpeers` sometimes could fail on unknown HTLC states.
+
+### EXPERIMENTAL
+ -  Fixed compilation error when `--enable-experimental-features` configured.
+rusty@rusty-Framework:~/devel/cvs/lightning/contrib/pyln-client (release-23.05.2)$ 
+
+
 ## [23.05.1] - 2023-06-05: "Austin Texas Agreement(ATXA) II"
 
 Bugfix release for bad issues found since 23.05 which can't wait for 23.08.
