@@ -1,12 +1,11 @@
 syntax = "proto3";
 package cln;
 
-import "node.proto";
 import "primitives.proto";
 
 service Hold {
 	rpc DecodeBolt11(DecodeBolt11Request) returns (DecodeBolt11Response) {}
-	rpc HoldInvoice(InvoiceRequest) returns (InvoiceResponse) {}
+	rpc HoldInvoice(HoldInvoiceRequest) returns (HoldInvoiceResponse) {}
 	rpc HoldInvoiceSettle(HoldInvoiceSettleRequest) returns (HoldInvoiceSettleResponse) {}
 	rpc HoldInvoiceCancel(HoldInvoiceCancelRequest) returns (HoldInvoiceCancelResponse) {}
 	rpc HoldInvoiceLookup(HoldInvoiceLookupRequest) returns (HoldInvoiceLookupResponse) {}
@@ -25,6 +24,29 @@ message DecodeBolt11Response{
 	optional Amount amount_msat = 6;
 	RoutehintList route_hints = 4;
 	uint32 timestamp = 7;
+}
+
+message HoldInvoiceRequest {
+	AmountOrAny amount_msat = 10;
+	string description = 2;
+	string label = 3;
+	optional uint64 expiry = 7;
+	repeated string fallbacks = 4;
+	optional bytes preimage = 5;
+	optional uint32 cltv = 6;
+	optional bool deschashonly = 9;
+}
+
+message HoldInvoiceResponse {
+	string bolt11 = 1;
+	bytes payment_hash = 2;
+	bytes payment_secret = 3;
+	uint64 expires_at = 4;
+	optional string warning_capacity = 5;
+	optional string warning_offline = 6;
+	optional string warning_deadends = 7;
+	optional string warning_private_unused = 8;
+	optional string warning_mpp = 9;
 }
 
 message HoldInvoiceSettleRequest {

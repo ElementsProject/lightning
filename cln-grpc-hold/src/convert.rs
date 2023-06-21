@@ -8,7 +8,7 @@ use cln_rpc::model::{requests, responses};
 use std::convert::From;
 
 #[allow(unused_variables, deprecated)]
-impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
+impl From<requests::InvoiceRequest> for pb::HoldInvoiceRequest {
     fn from(c: requests::InvoiceRequest) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat_or_any
@@ -28,8 +28,8 @@ impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
 }
 
 #[allow(unused_variables, deprecated)]
-impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
-    fn from(c: pb::InvoiceRequest) -> Self {
+impl From<pb::HoldInvoiceRequest> for requests::InvoiceRequest {
+    fn from(c: pb::HoldInvoiceRequest) -> Self {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat_or_any
             description: c.description,                 // Rule #1 for type string
@@ -44,7 +44,7 @@ impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
 }
 
 #[allow(unused_variables, deprecated)]
-impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
+impl From<responses::InvoiceResponse> for pb::HoldInvoiceResponse {
     fn from(c: responses::InvoiceResponse) -> Self {
         Self {
             bolt11: c.bolt11,                                 // Rule #2 for type string

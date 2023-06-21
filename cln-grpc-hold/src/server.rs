@@ -36,8 +36,8 @@ impl Server {
 impl Hold for Server {
     async fn hold_invoice(
         &self,
-        request: tonic::Request<pb::InvoiceRequest>,
-    ) -> Result<tonic::Response<pb::InvoiceResponse>, tonic::Status> {
+        request: tonic::Request<pb::HoldInvoiceRequest>,
+    ) -> Result<tonic::Response<pb::HoldInvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
         let req: requests::InvoiceRequest = req.into();
         debug!("Client asked for holdinvoice");
