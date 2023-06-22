@@ -109,10 +109,10 @@ RUN git clone --recursive /tmp/lightning . && \
 
 ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
-RUN curl -sSL https://install.python-poetry.org | python3 - \
-    && pip3 install -U pip \
-    && pip3 install -U wheel \
-    && /root/.local/bin/poetry install
+RUN curl -sSL https://install.python-poetry.org | python3 - 
+RUN pip3 install -U pip
+RUN pip3 install -U wheel
+RUN /root/.local/bin/poetry install
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
