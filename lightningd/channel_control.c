@@ -1079,6 +1079,10 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	}
 
 	tal_arr_expand(&cancel_channel->forgets, cmd);
+	/* Now, cmd will be ended by forget() or process_check_funding_broadcast(),
+	 * but in the shutdown case it might be freed first and those crash.  So instead
+	 * we make it a child if forgets so it will stay around at least that long! */
+	tal_steal(cancel_channel->forgets, cmd);
 
 	/* Check if the transaction is onchain. */
 	/* Note: The above check and this check can't completely ensure that
