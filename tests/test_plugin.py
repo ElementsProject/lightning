@@ -465,7 +465,13 @@ def test_plugin_connected_hook_chaining(node_factory):
     ])
     assert len(l1.rpc.listpeers(l2id)['peers']) == 1
 
-    l3.connect(l1)
+    # If reject happens fast enough, connect fails with "disconnected
+    # during connection"
+    try:
+        l3.connect(l1)
+    except RpcError as err:
+        assert "disconnected during connection" in err.error
+
     l1.daemon.wait_for_logs([
         f"peer_connected_logger_a {l3id}",
         f"{l3id} is in reject list"
