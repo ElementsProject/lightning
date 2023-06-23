@@ -2694,7 +2694,13 @@ def test_restorefrompeer(node_factory, bitcoind):
     l1.start()
     assert l1.daemon.is_in_log('Server started with public key')
 
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # If this happens fast enough, connect fails with "disconnected
+    # during connection"
+    try:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    except RpcError as err:
+        assert "disconnected during connection" in err.error
+
     l1.daemon.wait_for_log('peer_in WIRE_YOUR_PEER_STORAGE')
 
     assert l1.rpc.restorefrompeer()['stubs'][0] == _['channel_id']
