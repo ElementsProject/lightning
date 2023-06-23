@@ -225,6 +225,11 @@ static void install_expiration_timer(struct invoices *invoices)
 	memset(&expiry, 0, sizeof(expiry));
 	expiry.ts.tv_sec = invoices->min_expiry_time;
 
+	/* Hi!  On a 32 bit time_t platform with an expiry after 2038?  Let's
+	 * not set a timer, assuming you'll upgrade before then! */
+	if (expiry.ts.tv_sec != invoices->min_expiry_time)
+		goto done;
+
 	/* now > expiry */
 	if (time_after(now, expiry))
 		expiry = now;
