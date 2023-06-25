@@ -1435,6 +1435,7 @@ message FeeratesPerkb {
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
+	optional uint32 unilateral_anchor_close = 11;
 	optional uint32 delayed_to_us = 6;
 	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;
@@ -1454,6 +1455,7 @@ message FeeratesPerkw {
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
+	optional uint32 unilateral_anchor_close = 11;
 	optional uint32 delayed_to_us = 6;
 	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;
@@ -1469,6 +1471,7 @@ message FeeratesOnchain_fee_estimates {
 	uint64 opening_channel_satoshis = 1;
 	uint64 mutual_close_satoshis = 2;
 	uint64 unilateral_close_satoshis = 3;
+	optional uint64 unilateral_close_nonanchor_satoshis = 6;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
 }

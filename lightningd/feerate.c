@@ -68,7 +68,11 @@ static struct command_result *param_feerate_unchecked(struct command *cmd,
 		return NULL;
 	}
 	if (json_tok_streq(buffer, tok, "unilateral_close")) {
-		**feerate = unilateral_feerate(cmd->ld->topology);
+		**feerate = unilateral_feerate(cmd->ld->topology, false);
+		return NULL;
+	}
+	if (json_tok_streq(buffer, tok, "unilateral_anchor_close")) {
+		**feerate = unilateral_feerate(cmd->ld->topology, true);
 		return NULL;
 	}
 

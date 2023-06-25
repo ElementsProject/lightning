@@ -618,10 +618,22 @@ u32 mutual_close_feerate(struct chain_topology *topo)
 					     conversions[FEERATE_MUTUAL_CLOSE].blockcount);
 }
 
-u32 unilateral_feerate(struct chain_topology *topo)
+u32 unilateral_feerate(struct chain_topology *topo, bool option_anchors)
 {
 	if (topo->ld->force_feerates)
 		return topo->ld->force_feerates[FEERATE_UNILATERAL_CLOSE];
+
+	if (option_anchors) {
+		/* We can lowball fee, since we can CPFP with anchors */
+		u32 feerate = feerate_for_deadline(topo, 100);
+		if (!feerate)
+			return 0; /* Don't know */
+		/* We still need to get into the mempool, so use 5 sat/byte */
+		if (feerate < 1250)
+			return 1250;
+		return feerate;
+	}
+
 	return smoothed_feerate_for_deadline(topo,
 					     conversions[FEERATE_UNILATERAL_CLOSE].blockcount)
 		* topo->ld->config.commit_fee_percent / 100;
@@ -687,9 +699,13 @@ static struct command_result *json_feerates(struct command *cmd,
 	if (rate)
 		json_add_num(response, "mutual_close",
 			     feerate_to_style(rate, *style));
-	rate = unilateral_feerate(topo);
+	rate = unilateral_feerate(topo, false);
 	if (rate)
 		json_add_num(response, "unilateral_close",
+			     feerate_to_style(rate, *style));
+	rate = unilateral_feerate(topo, true);
+	if (rate)
+		json_add_num(response, "unilateral_anchor_close",
 			     feerate_to_style(rate, *style));
 	rate = penalty_feerate(topo);
 	if (rate)
@@ -731,6 +747,11 @@ static struct command_result *json_feerates(struct command *cmd,
 	json_object_end(response);
 
 	if (!missing) {
+		/* It actually is negotiated per-channel... */
+		bool anchor_outputs
+			= feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
+					  OPT_ANCHOR_OUTPUTS);
+
 		json_object_start(response, "onchain_fee_estimates");
 		/* eg 020000000001016f51de645a47baa49a636b8ec974c28bdff0ac9151c0f4eda2dbe3b41dbe711d000000001716001401fad90abcd66697e2592164722de4a95ebee165ffffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cdb73f890000000000160014c2ccab171c2a5be9dab52ec41b825863024c54660248304502210088f65e054dbc2d8f679de3e40150069854863efa4a45103b2bb63d060322f94702200d3ae8923924a458cffb0b7360179790830027bb6b29715ba03e12fc22365de1012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000 == weight 702 */
 		json_add_num(response, "opening_channel_satoshis",
@@ -739,8 +760,16 @@ static struct command_result *json_feerates(struct command *cmd,
 		json_add_u64(response, "mutual_close_satoshis",
 			     mutual_close_feerate(cmd->ld->topology) * 673 / 1000);
 		/* eg. 02000000000101c4fecaae1ea940c15ec502de732c4c386d51f981317605bbe5ad2c59165690ab00000000009db0e280010a2d0f00000000002200208d290003cedb0dd00cd5004c2d565d55fc70227bf5711186f4fa9392f8f32b4a0400483045022100952fcf8c730c91cf66bcb742cd52f046c0db3694dc461e7599be330a22466d790220740738a6f9d9e1ae5c86452fa07b0d8dddc90f8bee4ded24a88fe4b7400089eb01483045022100db3002a93390fc15c193da57d6ce1020e82705e760a3aa935ebe864bd66dd8e8022062ee9c6aa7b88ff4580e2671900a339754116371d8f40eba15b798136a76cd150147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9a3ed620 == weight 598 */
-		json_add_u64(response, "unilateral_close_satoshis",
-			     unilateral_feerate(cmd->ld->topology) * 598 / 1000);
+		/* Or, with anchors:
+		 * 02000000000101dc824e8e880f90f397a74f89022b4d58f8c36ebc4fffc238bd525bd11f5002a501000000009db0e280044a010000000000002200200e1a08b3da3bea6a7a77315f95afcd589fe799af46cf9bfb89523172814050e44a01000000000000220020be7935a77ca9ab70a4b8b1906825637767fed3c00824aa90c988983587d6848878e001000000000022002009fa3082e61ca0bd627915b53b0cb8afa467248fa4dc95141f78b96e9c98a8ed245a0d000000000022002091fb9e7843a03e66b4b1173482a0eb394f03a35aae4c28e8b4b1f575696bd793040047304402205c2ea9cf6f670e2f454c054f9aaca2d248763e258e44c71675c06135fd8f36cb02201b564f0e1b3f1ea19342f26e978a4981675da23042b4d392737636738c3514da0147304402205fcd2af5b724cbbf71dfa07bd14e8018ce22c08a019976dc03d0f545f848d0a702203652200350cadb464a70a09829d09227ed3da8c6b8ef5e3a59b5eefd056deaae0147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9b3ed620 1112 */
+		if (anchor_outputs)
+			json_add_u64(response, "unilateral_close_satoshis",
+				     unilateral_feerate(cmd->ld->topology, true) * 1112 / 1000);
+		else
+			json_add_u64(response, "unilateral_close_satoshis",
+				     unilateral_feerate(cmd->ld->topology, false) * 598 / 1000);
+		json_add_u64(response, "unilateral_close_nonanchor_satoshis",
+			     unilateral_feerate(cmd->ld->topology, false) * 598 / 1000);
 
 		json_add_u64(response, "htlc_timeout_satoshis",
 			     htlc_timeout_fee(htlc_resolution_feerate(cmd->ld->topology),
