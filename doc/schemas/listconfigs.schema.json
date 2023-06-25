@@ -493,6 +493,25 @@
             }
           }
         },
+        "experimental-anchors": {
+          "type": "object",
+          "added": "v23.08",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
         "database-upgrade": {
           "type": "object",
           "additionalProperties": false,

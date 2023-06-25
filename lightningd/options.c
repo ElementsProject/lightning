@@ -20,7 +20,9 @@
 #include <common/wireaddr.h>
 #include <dirent.h>
 #include <errno.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
@@ -1187,6 +1189,15 @@ static char *opt_set_quiesce(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
+{
+	/* Requires static_remotekey, but we always set that */
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX))));
+	return NULL;
+}
+
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
@@ -1284,6 +1295,10 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"
 				 " channels.");
+	opt_register_early_noarg("--experimental-anchors",
+				 opt_set_anchor_zero_fee_htlc_tx, ld,
+				 "EXPERIMENTAL: enable option_anchors_zero_fee_htlc_tx"
+				 " to open zero-fee-anchor channels");
 	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->announce_dns,

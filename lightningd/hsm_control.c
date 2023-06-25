@@ -160,6 +160,12 @@ struct ext_key *hsm_init(struct lightningd *ld)
 			  hsmd_wire_name(ld->hsm_capabilities[i]));
 	}
 
+	if (feature_offered(ld->our_features->bits[INIT_FEATURE],
+			    OPT_ANCHORS_ZERO_FEE_HTLC_TX)
+	    && !hsm_capable(ld, WIRE_HSMD_SIGN_ANCHORSPEND)) {
+		fatal("--experimental-anchors needs HSM capable of signing anchors!");
+	}
+
 	/* This is equivalent to makesecret("bolt12-invoice-base") */
 	msg = towire_hsmd_derive_secret(NULL, tal_dup_arr(tmpctx, u8,
 							  (const u8 *)INVOICE_PATH_BASE_STRING,
