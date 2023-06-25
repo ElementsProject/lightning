@@ -240,6 +240,9 @@ DEFAULT_TARGETS :=
 ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
 CPATH := /opt/homebrew/include
 LIBRARY_PATH := /opt/homebrew/lib
+LDFLAGS := -L/opt/homebrew/opt/sqlite/lib
+CPPFLAGS := -I/opt/homebrew/opt/sqlite/include
+PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
 else
 CPATH := /usr/local/include
 LIBRARY_PATH := /usr/local/lib
