@@ -129,6 +129,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_ANCHORSPEND:
+	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -163,6 +164,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
+	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
 		break;
 	}
 	return false;
@@ -1504,6 +1506,26 @@ static u8 *handle_sign_anchorspend(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_anchorspend_reply(NULL, psbt);
 }
 
+/*~ Called from lightningd */
+static u8 *handle_sign_htlc_tx_mingle(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct node_id peer_id;
+	u64 dbid;
+	struct utxo **utxos;
+	struct wally_psbt *psbt;
+
+	/* FIXME: Check output goes to us. */
+	if (!fromwire_hsmd_sign_htlc_tx_mingle(tmpctx, msg_in,
+					       &peer_id, &dbid, &utxos, &psbt))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Sign all the UTXOs (htlc_inout input is already signed with
+	 * SIGHASH_SINGLE|SIGHASH_ANYONECANPAY) */
+	sign_our_inputs(utxos, psbt);
+
+	return towire_hsmd_sign_htlc_tx_mingle_reply(NULL, psbt);
+}
+
 /*~ This is another lightningd-only interface; signing a commit transaction.
  * This is dangerous, since if we sign a revoked commitment tx we'll lose
  * funds, thus it's only available to lightningd.
@@ -1909,6 +1931,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_any_penalty_to_us(client, msg);
 	case WIRE_HSMD_SIGN_ANCHORSPEND:
 		return handle_sign_anchorspend(client, msg);
+	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE:
+		return handle_sign_htlc_tx_mingle(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
@@ -1940,6 +1964,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
+	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
@@ -1957,6 +1982,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 		WIRE_HSMD_CHECK_PUBKEY,
 		WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US,
 		WIRE_HSMD_SIGN_ANCHORSPEND,
+		WIRE_HSMD_SIGN_HTLC_TX_MINGLE,
 	};
 
 	/*~ Don't swap this. */
