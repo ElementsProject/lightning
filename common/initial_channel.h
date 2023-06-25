@@ -159,4 +159,8 @@ struct channel_type *channel_desired_type(const tal_t *ctx,
 
 /* Convenience for querying channel->type */
 bool channel_has(const struct channel *channel, int feature);
+
+/* Convenience for querying either anchor_outputs or anchors_zero_fee_htlc_tx */
+bool channel_has_anchors(const struct channel *channel);
+
 #endif /* LIGHTNING_COMMON_INITIAL_CHANNEL_H */
