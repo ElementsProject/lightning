@@ -246,6 +246,11 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* closer not yet known */
 	channel->closer = NUM_SIDES;
 	channel->close_blockheight = NULL;
+	/* In case someone looks at channels before open negotiation,
+	 * initialize this with default */
+	channel->type = default_channel_type(channel,
+					     ld->our_features,
+					     peer->their_features);
 
 	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
 	 * | 222/223 | `option_dual_fund`
