@@ -1276,6 +1276,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			fc->our_upfront_shutdown_script,
 			upfront_shutdown_script_wallet_index,
 			*feerate_per_kw,
+			unilateral_feerate(cmd->ld->topology, true),
 			&tmp_channel_id,
 			fc->channel_flags,
 			fc->uc->reserve);

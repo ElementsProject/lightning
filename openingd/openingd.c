@@ -326,7 +326,8 @@ static bool intuit_scid_alias_type(struct state *state, u8 channel_flags,
 
 /* We start the 'open a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
-static u8 *funder_channel_start(struct state *state, u8 channel_flags)
+static u8 *funder_channel_start(struct state *state, u8 channel_flags,
+				u32 nonanchor_feerate, u32 anchor_feerate)
 {
 	u8 *msg;
 	u8 *funding_output_script;
@@ -372,6 +373,14 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
 		if (!(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 			channel_type_set_scid_alias(state->channel_type);
+	}
+
+	/* Which feerate do we use?  (We can lowball fees if using anchors!) */
+	if (channel_type_has(state->channel_type, OPT_ANCHOR_OUTPUTS)
+	    || channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		state->feerate_per_kw = anchor_feerate;
+	} else {
+		state->feerate_per_kw = nonanchor_feerate;
 	}
 
 	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
@@ -1437,6 +1446,7 @@ static u8 *handle_master_in(struct state *state)
 	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
+	u32 nonanchor_feerate, anchor_feerate;
 
 	switch (t) {
 	case WIRE_OPENINGD_FUNDER_START:
@@ -1445,12 +1455,13 @@ static u8 *handle_master_in(struct state *state)
 						    &state->push_msat,
 						    &state->upfront_shutdown_script[LOCAL],
 						    &state->local_upfront_shutdown_wallet_index,
-						    &state->feerate_per_kw,
+						    &nonanchor_feerate,
+						    &anchor_feerate,
 						    &state->channel_id,
 						    &channel_flags,
 						    &state->reserve))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
-		msg = funder_channel_start(state, channel_flags);
+		msg = funder_channel_start(state, channel_flags, nonanchor_feerate, anchor_feerate);
 
 		/* We want to keep openingd alive, since we're not done yet */
 		if (msg)
