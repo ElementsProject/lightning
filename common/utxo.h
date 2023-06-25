@@ -11,7 +11,7 @@ struct ext_key;
 struct unilateral_close_info {
 	u64 channel_id;
 	struct node_id peer_id;
-	bool option_anchor_outputs;
+	bool option_anchors;
 	/* NULL if this is an option_static_remotekey commitment */
 	struct pubkey *commitment_point;
 	u32 csv;
@@ -71,8 +71,11 @@ static inline bool utxo_is_csv_locked(const struct utxo *utxo, u32 current_heigh
 {
 	if (!utxo->close_info)
 		return false;
-	/* All close outputs are csv locked for option_anchor_outputs */
-	if (!utxo->blockheight && utxo->close_info->option_anchor_outputs)
+	/* BOLT #3:
+	 * If `option_anchors` applies to the commitment transaction, the
+	 * `to_remote` output is encumbered by a one block csv lock.
+	 */
+	if (!utxo->blockheight && utxo->close_info->option_anchors)
 		return true;
 	assert(*utxo->blockheight + utxo->close_info->csv > *utxo->blockheight);
 	return *utxo->blockheight + utxo->close_info->csv > current_height;

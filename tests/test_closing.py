@@ -1455,7 +1455,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
 
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log('got commitsig .*: feerate 11000, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed')
+    l2.daemon.wait_for_log('got commitsig .*: feerate {}, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed'.format(3750 if anchor_expected() else 11000))
 
     # l2 moves on for closed l3
     bitcoind.generate_block(1, wait_for_mempool=1)

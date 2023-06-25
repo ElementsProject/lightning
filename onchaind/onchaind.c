@@ -544,7 +544,9 @@ static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 			     htlc_amount,
 			     to_self_delay[LOCAL],
 			     0,
-			     keyset, option_anchor_outputs);
+			     keyset,
+			     option_anchor_outputs,
+			     option_anchors_zero_fee_htlc_tx);
 
 	/* BOLT #3:
 	 *
@@ -1822,7 +1824,8 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 			htlc_scripts[i] = htlc_offered_wscript(htlc_scripts,
 							       &htlcs[i].ripemd,
 							       keyset,
-							       option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
+							       option_anchor_outputs,
+							       option_anchors_zero_fee_htlc_tx);
 		else {
 			/* FIXME: remove abs_locktime */
 			struct abs_locktime ltime;
@@ -1835,7 +1838,8 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 								&htlcs[i].ripemd,
 								&ltime,
 								keyset,
-								option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
+								option_anchor_outputs,
+								option_anchors_zero_fee_htlc_tx);
 		}
 	}
 	return htlc_scripts;
@@ -1883,7 +1887,8 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
 				     to_self_delay[LOCAL], 0, keyset,
-				     option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
+				     option_anchor_outputs,
+				     option_anchors_zero_fee_htlc_tx);
 
 		if (set_htlc_timeout_fee(tx, out->remote_htlc_sig,
 					 htlc_scripts[matches[i]]))

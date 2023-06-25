@@ -10,7 +10,8 @@ bool htlc_is_trimmed(enum side htlc_owner,
 		     u32 feerate_per_kw,
 		     struct amount_sat dust_limit,
 		     enum side side,
-		     bool option_anchor_outputs);
+		     bool option_anchor_outputs,
+		     bool option_anchors_zero_fee_htlc_tx);
 
 /* Calculate the our htlc-trimming buffer feerate
  * (max(25%, 10s/vbyte) above feerate_per_kw) */

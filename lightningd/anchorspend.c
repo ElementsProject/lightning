@@ -106,7 +106,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	struct anchor_details *adet = tal(ctx, struct anchor_details);
 
 	/* If we don't have an anchor, we can't do anything. */
-	if (!channel_has(channel, OPT_ANCHOR_OUTPUTS))
+	if (!channel_type_has_anchors(channel->type))
 		return tal_free(adet);
 
 	if (!hsm_capable(ld, WIRE_HSMD_SIGN_ANCHORSPEND)) {

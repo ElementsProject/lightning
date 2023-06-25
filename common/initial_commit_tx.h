@@ -25,7 +25,8 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 
 /* The base weight of a commitment tx */
 static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
-					   bool option_anchor_outputs)
+					   bool option_anchor_outputs,
+					   bool option_anchors_zero_fee_htlc_tx)
 {
 	size_t weight;
 	size_t num_outputs;
@@ -36,7 +37,7 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 	 *  - MUST be calculated to match:
 	 *    1. Start with `weight` = 724 (1124 if `option_anchors` applies).
 	 */
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		weight = 1124;
 		num_outputs = 4;
 	} else {
@@ -61,11 +62,13 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 /* Helper to calculate the base fee if we have this many htlc outputs */
 static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
 						   size_t num_untrimmed_htlcs,
-						   bool option_anchor_outputs)
+						   bool option_anchor_outputs,
+						   bool option_anchors_zero_fee_htlc_tx)
 {
 	return amount_tx_fee(feerate_per_kw,
 			     commit_tx_base_weight(num_untrimmed_htlcs,
-						   option_anchor_outputs));
+						   option_anchor_outputs,
+						   option_anchors_zero_fee_htlc_tx));
 }
 
 /**
@@ -107,6 +110,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     enum side side,
 				     u32 csv_lock,
 				     bool option_anchor_outputs,
+				     bool option_anchors_zero_fee_htlc_tx,
 				     char** err_reason);
 
 /* try_subtract_fee - take away this fee from the opener (and return true), or all if insufficient (and return false). */

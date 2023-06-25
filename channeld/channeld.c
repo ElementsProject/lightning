@@ -1070,9 +1070,8 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
 		msg = towire_hsmd_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
-						     &peer->remote_per_commit,
-						      channel_has(peer->channel,
-								  OPT_ANCHOR_OUTPUTS));
+						      &peer->remote_per_commit,
+						      channel_has_anchors(peer->channel));
 
 		msg = hsm_req(tmpctx, take(msg));
 		if (!fromwire_hsmd_sign_tx_reply(msg, &htlc_sigs[i]))
@@ -1599,7 +1598,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	/* SIGHASH_ALL is implied. */
 	commit_sig.sighash_type = SIGHASH_ALL;
 	htlc_sigs = unraw_sigs(tmpctx, raw_sigs,
-			       channel_has(peer->channel, OPT_ANCHOR_OUTPUTS));
+			       channel_has_anchors(peer->channel));
 
 	txs =
 	    channel_txs(tmpctx, &htlc_map, NULL,
@@ -3759,9 +3758,12 @@ static void init_channel(struct peer *peer)
 	peer->dev_fast_gossip = dev_fast_gossip;
 #endif
 
-	status_debug("option_static_remotekey = %u, option_anchor_outputs = %u",
+	status_debug("option_static_remotekey = %u,"
+		     " option_anchor_outputs = %u"
+		     " option_anchors_zero_fee_htlc_tx = %u",
 		     channel_type_has(channel_type, OPT_STATIC_REMOTEKEY),
-		     channel_type_has(channel_type, OPT_ANCHOR_OUTPUTS));
+		     channel_type_has(channel_type, OPT_ANCHOR_OUTPUTS),
+		     channel_type_has(channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX));
 
 	/* Keeping an array of pointers is better since it allows us to avoid
 	 * extra allocations later. */

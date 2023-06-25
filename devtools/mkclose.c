@@ -111,7 +111,8 @@ int main(int argc, char *argv[])
 	argnum++;
 
 	fee = commit_tx_base_fee(feerate_per_kw, 0,
-				 option_anchor_outputs);
+				 option_anchor_outputs,
+				 false);
 	/* BOLT #3:
 	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
