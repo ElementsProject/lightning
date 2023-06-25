@@ -82,8 +82,8 @@ On success, an object is returned, containing:
   - **opening\_channel\_satoshis** (u64): Estimated cost of typical channel open
   - **mutual\_close\_satoshis** (u64): Estimated cost of typical channel close
   - **unilateral\_close\_satoshis** (u64): Estimated cost of typical (non-anchor) unilateral close (without HTLCs)
-  - **htlc\_timeout\_satoshis** (u64): Estimated cost of typical HTLC timeout transaction
-  - **htlc\_success\_satoshis** (u64): Estimated cost of typical HTLC fulfillment transaction
+  - **htlc\_timeout\_satoshis** (u64): Estimated cost of typical HTLC timeout transaction (non-anchors)
+  - **htlc\_success\_satoshis** (u64): Estimated cost of typical HTLC fulfillment transaction (non-anchors)
 
 The following warnings may also be returned:
 
@@ -141,4 +141,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4921275aec48da8b9ddcba5d4237efa72f06b6e005008f2c3aa7029d3bd187fd)
+[comment]: # ( SHA256STAMP:195f8f4cc16197a62269ca1cda77e9d8788ff0c0c49a9d9d45067f6a578c22fd)
