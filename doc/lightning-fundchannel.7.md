@@ -36,8 +36,9 @@ limit, currently set to 546, nor more than 16777215 satoshi (unless large
 channels were negotiated with the peer).
 
 *feerate* is an optional feerate used for the opening transaction and
-as initial feerate for commitment and HTLC transactions (see NOTES in
-lightning-feerates(7)).  The default is *normal*.
+(unless *option\_anchors\_zero\_fee\_htlc\_tx* is negotiated), as initial feerate
+for commitment and HTLC transactions (see NOTES in lightning-feerates(7)).
+The default is *normal*.
 
 *announce* is an optional flag that triggers whether to announce this
 channel or not. Defaults to `true`. An unannounced channel is considered

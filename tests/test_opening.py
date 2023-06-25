@@ -2182,7 +2182,13 @@ def test_no_anchor_liquidity_ads(node_factory, bitcoind):
 def test_commitment_feerate(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
-    opening_feerate = commitment_feerate = 2000
+    opening_feerate = 2000
+    if anchor_expected():
+        # anchors use lowball fees
+        commitment_feerate = 3750
+    else:
+        commitment_feerate = opening_feerate
+
     l1.fundwallet(10**8)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], 10**6,

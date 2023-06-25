@@ -82,6 +82,7 @@ msgdata,openingd_funder_start,len_upfront,u16,
 msgdata,openingd_funder_start,upfront_shutdown_script,u8,len_upfront
 msgdata,openingd_funder_start,upfront_shutdown_wallet_index,?u32,
 msgdata,openingd_funder_start,feerate_per_kw,u32,
+msgdata,openingd_funder_start,anchor_feerate_per_kw,u32,
 msgdata,openingd_funder_start,temporary_channel_id,channel_id,
 msgdata,openingd_funder_start,channel_flags,u8,
 msgdata,openingd_funder_start,reserve,?amount_sat,
