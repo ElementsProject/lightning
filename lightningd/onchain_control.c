@@ -845,12 +845,17 @@ static bool consider_onchain_rebroadcast(struct channel *channel,
 
 	bitcoin_txid(newtx, &newtxid);
 	bitcoin_txid(*tx, &oldtxid);
-	log_info(channel->log,
-		 "RBF onchain txid %s (fee %s) with txid %s (fee %s)",
-		 type_to_string(tmpctx, struct bitcoin_txid, &oldtxid),
-		 fmt_amount_sat(tmpctx, info->fee),
-		 type_to_string(tmpctx, struct bitcoin_txid, &newtxid),
-		 fmt_amount_sat(tmpctx, newfee));
+
+	/* Don't spam the logs! */
+	log_(channel->log,
+	     amount_sat_less_eq(newfee, info->fee) ? LOG_DBG : LOG_INFORM,
+	     NULL, false,
+	     "RBF onchain txid %s (fee %s) with txid %s (fee %s)",
+	     type_to_string(tmpctx, struct bitcoin_txid, &oldtxid),
+	     fmt_amount_sat(tmpctx, info->fee),
+	     type_to_string(tmpctx, struct bitcoin_txid, &newtxid),
+	     fmt_amount_sat(tmpctx, newfee));
+
 	log_debug(channel->log,
 		  "RBF %s->%s",
 		  type_to_string(tmpctx, struct bitcoin_tx, *tx),
