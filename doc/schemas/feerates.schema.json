@@ -199,11 +199,11 @@
         },
         "htlc_timeout_satoshis": {
           "type": "u64",
-          "description": "Estimated cost of typical HTLC timeout transaction"
+          "description": "Estimated cost of typical HTLC timeout transaction (non-anchors)"
         },
         "htlc_success_satoshis": {
           "type": "u64",
-          "description": "Estimated cost of typical HTLC fulfillment transaction"
+          "description": "Estimated cost of typical HTLC fulfillment transaction (non-anchors)"
         }
       }
     }
