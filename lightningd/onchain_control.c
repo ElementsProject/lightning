@@ -652,29 +652,6 @@ onchain_witness_htlc_tx(const tal_t *ctx, u8 **witness)
 	return cast_const2(const struct onchain_witness_element **, welements);
 }
 
-/* feerate_for_deadline, but really lowball for distant targets */
-static u32 feerate_for_target(const struct chain_topology *topo, u64 deadline)
-{
-	u64 blocks, blockheight;
-
-	blockheight = get_block_height(topo);
-
-	/* Past deadline?  Want it now. */
-	if (blockheight > deadline)
-		return feerate_for_deadline(topo, 1);
-
-	blocks = deadline - blockheight;
-
-	/* Over 200 blocks, we *always* use min fee! */
-	if (blocks > 200)
-		return FEERATE_FLOOR;
-	/* Over 100 blocks, use min fee bitcoind will accept */
-	if (blocks > 100)
-		return get_feerate_floor(topo);
-
-	return feerate_for_deadline(topo, blocks);
-}
-
 /* Make normal 1-input-1-output tx to us, but don't sign it yet.
  *
  * If worthwhile is not NULL, we set it to true normally, or false if
