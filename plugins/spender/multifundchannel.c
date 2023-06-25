@@ -1485,8 +1485,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 				type_to_string(tmpctx, struct amount_sat,
 					       &sum));
 	}
-	json_add_string(req->js, "feerate",
-			mfc->feerate_str ? mfc->feerate_str : "normal");
+	json_add_string(req->js, "feerate", tal_fmt(tmpctx, "%uperkw", feerate));
 
 	{
 		size_t startweight;
@@ -1558,9 +1557,8 @@ getfeerate(struct multifundchannel_command *mfc)
 				    mfc);
 
 	/* Internally, it defaults to 'opening', so we use that here */
-	if (!mfc->feerate_str)
-		mfc->feerate_str = "opening";
-	json_add_string(req->js, "feerate", mfc->feerate_str);
+	json_add_string(req->js, "feerate",
+			mfc->feerate_str ? mfc->feerate_str: "opening");
 
 	return send_outreq(mfc->cmd->plugin, req);
 }
