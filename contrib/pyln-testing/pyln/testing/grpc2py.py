@@ -1157,6 +1157,7 @@ def feerates_perkb2py(m):
         "opening": m.opening,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
+        "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "delayed_to_us": m.delayed_to_us,  # PrimitiveField in generate_composite
         "htlc_resolution": m.htlc_resolution,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
@@ -1180,6 +1181,7 @@ def feerates_perkw2py(m):
         "opening": m.opening,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
+        "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "delayed_to_us": m.delayed_to_us,  # PrimitiveField in generate_composite
         "htlc_resolution": m.htlc_resolution,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
@@ -1191,6 +1193,7 @@ def feerates_onchain_fee_estimates2py(m):
         "opening_channel_satoshis": m.opening_channel_satoshis,  # PrimitiveField in generate_composite
         "mutual_close_satoshis": m.mutual_close_satoshis,  # PrimitiveField in generate_composite
         "unilateral_close_satoshis": m.unilateral_close_satoshis,  # PrimitiveField in generate_composite
+        "unilateral_close_nonanchor_satoshis": m.unilateral_close_nonanchor_satoshis,  # PrimitiveField in generate_composite
         "htlc_timeout_satoshis": m.htlc_timeout_satoshis,  # PrimitiveField in generate_composite
         "htlc_success_satoshis": m.htlc_success_satoshis,  # PrimitiveField in generate_composite
     })

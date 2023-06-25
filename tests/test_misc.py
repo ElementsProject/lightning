@@ -1628,10 +1628,14 @@ def test_feerates(node_factory):
                                                'feerate': 5000,
                                                'smoothed_feerate': 5000}]
 
-    assert len(feerates['onchain_fee_estimates']) == 5
+    assert len(feerates['onchain_fee_estimates']) == 6
     assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['opening'] * 702 // 1000
     assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['mutual_close'] * 673 // 1000
-    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
+    if anchor_expected():
+        assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_anchor_close'] * 1112 // 1000
+    else:
+        assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
+    assert feerates['onchain_fee_estimates']['unilateral_close_nonanchor_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
     # htlc resolution currently uses 6 block estimate
     htlc_feerate = [f['feerate'] for f in feerates['perkw']['estimates'] if f['blockcount'] == 6][0]
     htlc_timeout_cost = feerates["onchain_fee_estimates"]["htlc_timeout_satoshis"]
@@ -1959,6 +1963,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening": 30000,
             "mutual_close": 15000,
             "unilateral_close": 44000,
+            'unilateral_anchor_close': 15000,
             "penalty": 30000,
             "min_acceptable": 7500,
             "max_acceptable": 600000,
@@ -1979,7 +1984,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
         "onchain_fee_estimates": {
             "opening_channel_satoshis": 5265,
             "mutual_close_satoshis": 2523,
-            "unilateral_close_satoshis": 6578,
+            "unilateral_close_satoshis": 4170 if anchors else 6578,
+            "unilateral_close_nonanchor_satoshis": 6578,
             "htlc_timeout_satoshis": 7326 if anchors else 7293,
             "htlc_success_satoshis": 7766 if anchors else 7733,
         }
@@ -1996,6 +2002,9 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening": 30000,
             # This has increased (rounded up)
             "mutual_close": 20004,
+            # This has increased (rounded up)
+            "unilateral_anchor_close": 20004,
+            # This has increased (rounded up)
             "unilateral_close": 44000,
             "penalty": 30000,
             # This has increased (rounded up)
@@ -2019,7 +2028,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening_channel_satoshis": 5265,
             # This increases too
             "mutual_close_satoshis": 3365,
-            "unilateral_close_satoshis": 6578,
+            "unilateral_close_satoshis": 5561 if anchors else 6578,
+            "unilateral_close_nonanchor_satoshis": 6578,
             "htlc_timeout_satoshis": 7326 if anchors else 7293,
             "htlc_success_satoshis": 7766 if anchors else 7733,
         }
@@ -2037,6 +2047,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening": 30004,
             # This has increased (rounded up!)
             "mutual_close": 30004,
+            # This has increased (rounded up!)
+            "unilateral_anchor_close": 30004,
             "unilateral_close": 44000,
             # This has increased (rounded up!)
             "penalty": 30004,
@@ -2063,7 +2075,9 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "opening_channel_satoshis": 5265,
             # This increases too
             "mutual_close_satoshis": 5048,
-            "unilateral_close_satoshis": 6578,
+            # This increases too (anchors uses min(100blocks,5 sat/vB))
+            "unilateral_close_satoshis": 8341 if anchors else 6578,
+            "unilateral_close_nonanchor_satoshis": 6578,
             "htlc_timeout_satoshis": 7326 if anchors else 7293,
             "htlc_success_satoshis": 7766 if anchors else 7733,
         }
@@ -2989,6 +3003,7 @@ def test_force_feerates(node_factory):
         "opening": 1111,
         "mutual_close": 1111,
         "unilateral_close": 1111,
+        "unilateral_anchor_close": 1111,
         "penalty": 1111,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
@@ -3004,6 +3019,7 @@ def test_force_feerates(node_factory):
         "opening": 1111,
         "mutual_close": 2222,
         "unilateral_close": 2222,
+        "unilateral_anchor_close": 2222,
         "penalty": 2222,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
@@ -3019,6 +3035,7 @@ def test_force_feerates(node_factory):
         "opening": 1111,
         "mutual_close": 2222,
         "unilateral_close": 3333,
+        "unilateral_anchor_close": 3333,
         "penalty": 6666,
         "min_acceptable": 1875,
         "max_acceptable": 150000,

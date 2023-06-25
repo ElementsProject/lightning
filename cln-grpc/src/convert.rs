@@ -1327,6 +1327,7 @@ impl From<responses::FeeratesPerkb> for pb::FeeratesPerkb {
             opening: c.opening, // Rule #2 for type u32?
             mutual_close: c.mutual_close, // Rule #2 for type u32?
             unilateral_close: c.unilateral_close, // Rule #2 for type u32?
+            unilateral_anchor_close: c.unilateral_anchor_close, // Rule #2 for type u32?
             #[allow(deprecated)]
             delayed_to_us: c.delayed_to_us, // Rule #2 for type u32?
             #[allow(deprecated)]
@@ -1359,6 +1360,7 @@ impl From<responses::FeeratesPerkw> for pb::FeeratesPerkw {
             opening: c.opening, // Rule #2 for type u32?
             mutual_close: c.mutual_close, // Rule #2 for type u32?
             unilateral_close: c.unilateral_close, // Rule #2 for type u32?
+            unilateral_anchor_close: c.unilateral_anchor_close, // Rule #2 for type u32?
             #[allow(deprecated)]
             delayed_to_us: c.delayed_to_us, // Rule #2 for type u32?
             #[allow(deprecated)]
@@ -1375,6 +1377,7 @@ impl From<responses::FeeratesOnchain_fee_estimates> for pb::FeeratesOnchainFeeEs
             opening_channel_satoshis: c.opening_channel_satoshis, // Rule #2 for type u64
             mutual_close_satoshis: c.mutual_close_satoshis, // Rule #2 for type u64
             unilateral_close_satoshis: c.unilateral_close_satoshis, // Rule #2 for type u64
+            unilateral_close_nonanchor_satoshis: c.unilateral_close_nonanchor_satoshis, // Rule #2 for type u64?
             htlc_timeout_satoshis: c.htlc_timeout_satoshis, // Rule #2 for type u64
             htlc_success_satoshis: c.htlc_success_satoshis, // Rule #2 for type u64
         }

@@ -587,6 +587,7 @@
             "Feerates.onchain_fee_estimates.htlc_timeout_satoshis": 4,
             "Feerates.onchain_fee_estimates.mutual_close_satoshis": 2,
             "Feerates.onchain_fee_estimates.opening_channel_satoshis": 1,
+            "Feerates.onchain_fee_estimates.unilateral_close_nonanchor_satoshis": 6,
             "Feerates.onchain_fee_estimates.unilateral_close_satoshis": 3
         },
         "FeeratesPerkb": {
@@ -599,6 +600,7 @@
             "Feerates.perkb.mutual_close": 4,
             "Feerates.perkb.opening": 3,
             "Feerates.perkb.penalty": 8,
+            "Feerates.perkb.unilateral_anchor_close": 11,
             "Feerates.perkb.unilateral_close": 5
         },
         "FeeratesPerkbEstimates": {
@@ -616,6 +618,7 @@
             "Feerates.perkw.mutual_close": 4,
             "Feerates.perkw.opening": 3,
             "Feerates.perkw.penalty": 8,
+            "Feerates.perkw.unilateral_anchor_close": 11,
             "Feerates.perkw.unilateral_close": 5
         },
         "FeeratesPerkwEstimates": {
@@ -2533,6 +2536,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Feerates.onchain_fee_estimates.unilateral_close_nonanchor_satoshis": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "Feerates.onchain_fee_estimates.unilateral_close_satoshis": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -2589,6 +2596,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "Feerates.perkb.unilateral_anchor_close": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "Feerates.perkb.unilateral_close": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -2643,6 +2654,10 @@
         },
         "Feerates.perkw.penalty": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Feerates.perkw.unilateral_anchor_close": {
+            "added": "v23.08",
             "deprecated": false
         },
         "Feerates.perkw.unilateral_close": {

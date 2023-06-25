@@ -75,6 +75,11 @@
           "type": "u32",
           "description": "Feerate for commitment_transaction in a live channel which we originally funded"
         },
+        "unilateral_anchor_close": {
+          "type": "u32",
+          "added": "v23.08",
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was negotiated)"
+        },
         "delayed_to_us": {
           "type": "u32",
           "deprecated": "v23.05",
@@ -156,7 +161,12 @@
         },
         "unilateral_close": {
           "type": "u32",
-          "description": "Feerate for commitment_transaction in a live channel which we originally funded"
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was not negotiated)"
+        },
+        "unilateral_anchor_close": {
+          "type": "u32",
+          "added": "v23.08",
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was negotiated)"
         },
         "delayed_to_us": {
           "type": "u32",
@@ -195,7 +205,12 @@
         },
         "unilateral_close_satoshis": {
           "type": "u64",
-          "description": "Estimated cost of typical (non-anchor) unilateral close (without HTLCs)"
+          "description": "Estimated cost of typical unilateral close (without HTLCs).  If anchors are supported, this assumes a channel with anchors."
+        },
+        "unilateral_close_nonanchor_satoshis": {
+          "added": "v23.08",
+          "type": "u64",
+          "description": "Estimated cost of non-anchor typical unilateral close (without HTLCs)."
         },
         "htlc_timeout_satoshis": {
           "type": "u64",
