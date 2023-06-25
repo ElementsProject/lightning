@@ -37,6 +37,7 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
+#include <lightningd/anchorspend.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -266,6 +267,20 @@ bool invalid_last_tx(const struct bitcoin_tx *tx)
 #endif
 }
 
+static bool commit_tx_send_finished(struct channel *channel,
+				    const struct bitcoin_tx *tx,
+				    bool success,
+				    const char *err,
+				    struct anchor_details *adet)
+{
+	/* We might want to boost immediately! */
+	if (success)
+		commit_tx_boost(channel, &tx, adet);
+
+	/* Keep trying! */
+	return false;
+}
+
 static void sign_and_send_last(struct lightningd *ld,
 			       struct channel *channel,
 			       const char *cmd_id,
@@ -273,15 +288,19 @@ static void sign_and_send_last(struct lightningd *ld,
 			       struct bitcoin_signature *last_sig)
 {
 	struct bitcoin_txid txid;
+	struct anchor_details *adet;
 
 	sign_last_tx(channel, last_tx, last_sig);
 	bitcoin_txid(last_tx, &txid);
 	wallet_transaction_add(ld->wallet, last_tx->wtx, 0, 0);
 
+	/* Remember anchor information for commit_tx_boost */
+	adet = create_anchor_details(NULL, channel, last_tx);
+
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, 0, NULL,
-		     NULL, NULL);
+	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, 0,
+		     commit_tx_send_finished, commit_tx_boost, take(adet));
 
 	remove_sig(last_tx);
 }

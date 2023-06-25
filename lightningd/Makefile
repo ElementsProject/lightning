@@ -1,6 +1,7 @@
 #! /usr/bin/make
 
 LIGHTNINGD_SRC :=				\
+	lightningd/anchorspend.c		\
 	lightningd/bitcoind.c			\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
