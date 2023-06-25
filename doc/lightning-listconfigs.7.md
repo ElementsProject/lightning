@@ -135,6 +135,9 @@ On success, an object is returned, containing:
   - **experimental-peer-storage** (object, optional) *(added v23.02)*:
     - **set** (boolean): `true` if set in config or cmdline
     - **source** (string): source of configuration setting
+  - **experimental-anchors** (object, optional) *(added v23.08)*:
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
   - **database-upgrade** (object, optional):
     - **value\_bool** (boolean): field from config or cmdline, or default
     - **source** (string): source of configuration setting
@@ -463,4 +466,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0440e4634e4a28681323f891307c7bb61143aacad4824f952f24f027a7543835)
+[comment]: # ( SHA256STAMP:d24d8d540253bbe3cf9113b265fd3128e351d4615c28f6054730d1b03b363155)
