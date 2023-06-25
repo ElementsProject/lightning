@@ -299,6 +299,7 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 	} else {
 		output->satoshi = satoshis;
 	}
+	wally_psbt_output_set_amount(&tx->psbt->outputs[outnum], satoshis);
 }
 
 const u8 *wally_tx_output_get_script(const tal_t *ctx,
