@@ -97,6 +97,12 @@ bool channel_type_has(const struct channel_type *type, int feature)
 	return feature_offered(type->features, feature);
 }
 
+bool channel_type_has_anchors(const struct channel_type *type)
+{
+	return feature_offered(type->features, OPT_ANCHOR_OUTPUTS)
+		|| feature_offered(type->features, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+}
+
 bool channel_type_eq(const struct channel_type *a,
 		     const struct channel_type *b)
 {

@@ -182,6 +182,11 @@ bool channel_has(const struct channel *channel, int feature)
 	return channel_type_has(channel->type, feature);
 }
 
+bool channel_has_anchors(const struct channel *channel)
+{
+	return channel_type_has_anchors(channel->type);
+}
+
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 {
 	return tal_fmt(ctx, "{ owed_local=%s,"
