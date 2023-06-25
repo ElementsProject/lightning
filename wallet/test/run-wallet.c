@@ -73,11 +73,13 @@ void broadcast_tx_(struct chain_topology *topo UNNEEDED,
 		   struct channel *channel UNNEEDED,
 		   const struct bitcoin_tx *tx TAKES UNNEEDED,
 		   const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED, u32 minblock UNNEEDED,
-		   void (*finished)(struct channel * UNNEEDED,
+		   bool (*finished)(struct channel * UNNEEDED,
+				    const struct bitcoin_tx * UNNEEDED,
 				    bool success UNNEEDED,
-				    const char *err) UNNEEDED,
+				    const char *err UNNEEDED,
+				    void *) UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
-		   void *refresh_arg TAKES UNNEEDED)
+		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,
