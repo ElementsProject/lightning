@@ -2176,3 +2176,45 @@ def test_no_anchor_liquidity_ads(node_factory, bitcoind):
     assert chan['state'] == 'DUALOPEND_AWAITING_LOCKIN'
     assert chan['funding']['local_funds_msat'] == chan['funding']['remote_funds_msat']
     assert 'option_anchor_outputs' not in chan['features']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd has different feerates')
+def test_commitment_feerate(bitcoind, node_factory):
+    l1, l2 = node_factory.get_nodes(2)
+
+    opening_feerate = commitment_feerate = 2000
+    l1.fundwallet(10**8)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 10**6,
+                       feerate=f'{opening_feerate}perkw')
+
+    wait_for(lambda: bitcoind.rpc.getrawmempool() != [])
+    tx = only_one([t for t in bitcoind.rpc.getrawmempool(True).values()])
+    feerate_perkw = int(tx['fees']['base'] * 100_000_000) / (tx['weight'] / 1000)
+    assert opening_feerate - 10 < feerate_perkw < opening_feerate + 10
+
+    bitcoind.generate_block(1)
+
+    l2.stop()
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+
+    # feerate for this will be the same
+    wait_for(lambda: bitcoind.rpc.getrawmempool() != [])
+    tx = only_one([t for t in bitcoind.rpc.getrawmempool(True).values()])
+    fee = int(tx['fees']['base'] * 100_000_000)
+
+    # Weight is idealized worst case, and we don't meet it!
+    if anchor_expected():
+        # 200 is the approximate cost estimate used for anchor outputs.
+        assert tx['weight'] < 1124 - 200
+    else:
+        assert tx['weight'] < 724
+
+    if anchor_expected():
+        # We pay for two anchors, but only produce one.
+        fee -= 330
+        weight = 1124
+    else:
+        weight = 724
+    feerate_perkw = fee / (weight / 1000)
+    assert commitment_feerate - 10 < feerate_perkw < commitment_feerate + 10
