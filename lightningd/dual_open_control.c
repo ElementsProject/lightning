@@ -165,6 +165,11 @@ void json_add_unsaved_channel(struct json_stream *response,
 			       OPT_ANCHOR_OUTPUTS))
 		json_add_string(response, NULL, "option_anchor_outputs");
 
+	if (feature_negotiated(channel->peer->ld->our_features,
+			       channel->peer->their_features,
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+		json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+
 	json_array_end(response);
 	json_object_end(response);
 }

@@ -359,6 +359,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	struct lightningd *ld = channel->peer->ld;
 	u32 final_commit_feerate;
 	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	if (!channel->shutdown_scriptpubkey[REMOTE]) {
 		channel_internal_error(channel,
@@ -403,7 +404,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	final_commit_feerate = get_feerate(channel->fee_states,
 					   channel->opener, LOCAL);
 	feelimit = commit_tx_base_fee(final_commit_feerate, 0,
-				      option_anchor_outputs);
+				      option_anchor_outputs,
+				      option_anchors_zero_fee_htlc_tx);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
@@ -415,7 +417,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 
 	/* We use a feerate if anchor_outputs, otherwise max fee is set by
 	 * the final unilateral. */
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		max_feerate = tal(tmpctx, u32);
 		/* Aim for reasonable max, but use final if we don't know. */
 		*max_feerate = unilateral_feerate(ld->topology, false);
@@ -499,7 +501,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 				       (channel->closing_fee_negotiation_step == 50
 					&& channel->closing_fee_negotiation_step_unit == CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE)
 				       /* Always use quickclose with anchors */
-				       || option_anchor_outputs,
+				       || option_anchor_outputs
+				       || option_anchors_zero_fee_htlc_tx,
 				       channel->shutdown_wrong_funding);
 
 	/* We don't expect a response: it will give us feedback on

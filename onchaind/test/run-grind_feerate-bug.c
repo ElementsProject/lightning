@@ -61,14 +61,16 @@ enum wallet_tx_type fromwire_wallet_tx_type(const u8 **cursor UNNEEDED, size_t *
 u8 *htlc_offered_wscript(const tal_t *ctx UNNEEDED,
 			 const struct ripemd160 *ripemd UNNEEDED,
 			 const struct keyset *keyset UNNEEDED,
-			 bool option_anchor_outputs UNNEEDED)
+			 bool option_anchor_outputs UNNEEDED,
+			 bool option_anchors_zero_fee_htlc_tx UNNEEDED)
 { fprintf(stderr, "htlc_offered_wscript called!\n"); abort(); }
 /* Generated stub for htlc_received_wscript */
 u8 *htlc_received_wscript(const tal_t *ctx UNNEEDED,
 			  const struct ripemd160 *ripemd UNNEEDED,
 			  const struct abs_locktime *expiry UNNEEDED,
 			  const struct keyset *keyset UNNEEDED,
-			  bool option_anchor_outputs UNNEEDED)
+			  bool option_anchor_outputs UNNEEDED,
+			  bool option_anchors_zero_fee_htlc_tx UNNEEDED)
 { fprintf(stderr, "htlc_received_wscript called!\n"); abort(); }
 /* Generated stub for htlc_success_tx */
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
@@ -79,7 +81,8 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
 				   const struct keyset *keyset UNNEEDED,
-				   bool option_anchor_outputs UNNEEDED)
+				   bool option_anchor_outputs UNNEEDED,
+				   bool option_anchors_zero_fee_htlc_tx UNNEEDED)
 { fprintf(stderr, "htlc_success_tx called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
@@ -303,7 +306,8 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
 				   const struct keyset *keyset UNNEEDED,
-				   bool option_anchor_outputs)
+				   bool option_anchor_outputs,
+				   bool option_anchors_zero_fee_htlc_tx)
 {
  	struct bitcoin_tx *tx;
 	struct amount_sat in_amount;

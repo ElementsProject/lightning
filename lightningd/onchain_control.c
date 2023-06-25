@@ -560,7 +560,7 @@ static u8 *sign_htlc_success(const tal_t *ctx,
 			     const struct bitcoin_tx *tx,
 			     const struct onchain_signing_info *info)
 {
-	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(info->channel->type);
 
 	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
 	return towire_hsmd_sign_any_local_htlc_tx(ctx,
@@ -576,7 +576,7 @@ static u8 *sign_htlc_timeout(const tal_t *ctx,
 			     const struct bitcoin_tx *tx,
 			     const struct onchain_signing_info *info)
 {
-	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(info->channel->type);
 
 	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT);
 	return towire_hsmd_sign_any_local_htlc_tx(ctx,
@@ -592,7 +592,7 @@ static u8 *sign_fulfill(const tal_t *ctx,
 			const struct bitcoin_tx *tx,
 			const struct onchain_signing_info *info)
 {
-	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(info->channel->type);
 
 	assert(info->msgtype == WIRE_ONCHAIND_SPEND_FULFILL);
 	return towire_hsmd_sign_any_remote_htlc_to_us(ctx,
@@ -608,7 +608,7 @@ static u8 *sign_htlc_expired(const tal_t *ctx,
 			     const struct bitcoin_tx *tx,
 			     const struct onchain_signing_info *info)
 {
-	const bool anchor_outputs = channel_has(info->channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(info->channel->type);
 
 	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_EXPIRED);
 	return towire_hsmd_sign_any_remote_htlc_to_us(ctx,
@@ -867,7 +867,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 
 	/* We can't do much without anchor outputs (we could CPFP?) */
-	if (!channel_has(channel, OPT_ANCHOR_OUTPUTS))
+	if (!channel_type_has_anchors(channel->type))
 		return true;
 
 	/* Note that we can have UTXOs taken from us if there are a lot of
@@ -1166,7 +1166,7 @@ static void handle_onchaind_spend_fulfill(struct channel *channel,
 	struct amount_sat out_sats;
 	struct preimage preimage;
 	u64 htlc_id;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(channel->type);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_FULFILL);
 	info->minblock = 0;
@@ -1209,7 +1209,8 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_SUCCESS);
 	info->minblock = 0;
@@ -1231,7 +1232,7 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	tx = htlc_tx(NULL, chainparams, &out, info->wscript, out_sats, htlc_wscript, fee,
-		     0, anchor_outputs);
+		     0, option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 	tal_free(htlc_wscript);
 	if (!tx) {
 		/* Can only happen if fee > out_sats */
@@ -1289,7 +1290,8 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	u8 **witness;
 	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT);
 
@@ -1310,7 +1312,7 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	tx = htlc_tx(NULL, chainparams, &out, info->wscript, out_sats, htlc_wscript, fee,
-		     cltv_expiry, anchor_outputs);
+		     cltv_expiry, option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 	tal_free(htlc_wscript);
 	if (!tx) {
 		/* Can only happen if fee > out_sats */
@@ -1364,7 +1366,7 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 	struct amount_sat out_sats;
 	u64 htlc_id;
 	u32 cltv_expiry;
-	const bool anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	const bool anchor_outputs = channel_type_has_anchors(channel->type);
 
 	info = new_signing_info(msg, channel, WIRE_ONCHAIND_SPEND_HTLC_EXPIRED);
 

@@ -14,6 +14,7 @@ struct keyset;
  * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @side: from which side's point of view
  * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
+ * @option_anchors_zero_fee_htlc_tx: does option_anchors_zero_fee_htlc_tx apply to this channel?
  *
  * We need @side because HTLC fees are different for offered and
  * received HTLCs.
@@ -21,6 +22,7 @@ struct keyset;
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 			       u32 feerate_per_kw,
 			       struct amount_sat dust_limit,
+			       bool option_anchors_zero_fee_htlc_tx,
 			       bool option_anchor_outputs,
 			       enum side side);
 
@@ -42,6 +44,7 @@ bool commit_tx_amount_trimmed(const struct htlc **htlcs,
 			      u32 feerate_per_kw,
 			      struct amount_sat dust_limit,
 			      bool option_anchor_outputs,
+			      bool option_anchors_zero_fee_htlc_tx,
 			      enum side side,
 			      struct amount_msat *amt);
 /**
@@ -86,6 +89,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     struct wally_tx_output *direct_outputs[NUM_SIDES],
 			     u64 obscured_commitment_number,
 			     bool option_anchor_outputs,
+			     bool option_anchors_zero_fee_htlc_tx,
 			     enum side side);
 
 #endif /* LIGHTNING_CHANNELD_COMMIT_TX_H */

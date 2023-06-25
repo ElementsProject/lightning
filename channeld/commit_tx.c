@@ -14,24 +14,29 @@ static bool trim(const struct htlc *htlc,
 		 u32 feerate_per_kw,
 		 struct amount_sat dust_limit,
 		 bool option_anchor_outputs,
+		 bool option_anchors_zero_fee_htlc_tx,
 		 enum side side)
 {
 	return htlc_is_trimmed(htlc_owner(htlc), htlc->amount,
 			       feerate_per_kw, dust_limit, side,
-			       option_anchor_outputs);
+			       option_anchor_outputs,
+			       option_anchors_zero_fee_htlc_tx);
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 			       u32 feerate_per_kw,
 			       struct amount_sat dust_limit,
 			       bool option_anchor_outputs,
+			       bool option_anchors_zero_fee_htlc_tx,
 			       enum side side)
 {
 	size_t i, n;
 
 	for (i = n = 0; i < tal_count(htlcs); i++)
 		n += !trim(htlcs[i], feerate_per_kw, dust_limit,
-			   option_anchor_outputs, side);
+			   option_anchor_outputs,
+			   option_anchors_zero_fee_htlc_tx,
+			   side);
 
 	return n;
 }
@@ -40,14 +45,17 @@ bool commit_tx_amount_trimmed(const struct htlc **htlcs,
 			      u32 feerate_per_kw,
 			      struct amount_sat dust_limit,
 			      bool option_anchor_outputs,
+			      bool option_anchors_zero_fee_htlc_tx,
 			      enum side side,
 			      struct amount_msat *amt)
 {
 	for (size_t i = 0; i < tal_count(htlcs); i++) {
 		if (trim(htlcs[i], feerate_per_kw, dust_limit,
-			 option_anchor_outputs, side))
+			 option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
+			 side)) {
 			if (!amount_msat_add(amt, *amt, htlcs[i]->amount))
 				return false;
+		}
 	}
 	return true;
 }
@@ -55,7 +63,8 @@ bool commit_tx_amount_trimmed(const struct htlc **htlcs,
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
 				 const struct keyset *keyset,
-				 bool option_anchor_outputs)
+				 bool option_anchor_outputs,
+				 bool option_anchors_zero_fee_htlc_tx)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -63,7 +72,8 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_offered_wscript(tx, &ripemd, keyset,
-				       option_anchor_outputs);
+				       option_anchor_outputs,
+				       option_anchors_zero_fee_htlc_tx);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 	SUPERVERBOSE("# HTLC #%" PRIu64 " offered amount %"PRIu64" wscript %s\n", htlc->id,
@@ -75,7 +85,8 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
 				  const struct keyset *keyset,
-				  bool option_anchor_outputs)
+				  bool option_anchor_outputs,
+				  bool option_anchors_zero_fee_htlc_tx)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -83,7 +94,8 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_received_wscript(tx, &ripemd, &htlc->expiry, keyset,
-					option_anchor_outputs);
+					option_anchor_outputs,
+					option_anchors_zero_fee_htlc_tx);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	amount = amount_msat_to_sat_round_down(htlc->amount);
 
@@ -115,6 +127,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     struct wally_tx_output *direct_outputs[NUM_SIDES],
 			     u64 obscured_commitment_number,
 			     bool option_anchor_outputs,
+			     bool option_anchors_zero_fee_htlc_tx,
 			     enum side side)
 {
 	struct amount_sat base_fee;
@@ -146,6 +159,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 					    feerate_per_kw,
 					    dust_limit,
 					    option_anchor_outputs,
+					    option_anchors_zero_fee_htlc_tx,
 					    side);
 
 	/* BOLT #3:
@@ -154,7 +168,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * fee](#fee-calculation).
 	 */
 	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
-				      option_anchor_outputs);
+				      option_anchor_outputs,
+				      option_anchors_zero_fee_htlc_tx);
 
 	SUPERVERBOSE("# base commitment transaction fee = %"PRIu64" for %zu untrimmed\n",
 		     base_fee.satoshis /* Raw: spec uses raw numbers */, untrimmed);
@@ -165,7 +180,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
 	 */
-	if (option_anchor_outputs
+	if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 	    && !amount_sat_add(&base_fee, base_fee, AMOUNT_SAT(660)))
 		/* Can't overflow: feerate is u32. */
 		abort();
@@ -183,7 +198,9 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		bool ok = true;
 		for (size_t i = 0; i < tal_count(htlcs); i++) {
 			if (!trim(htlcs[i], feerate_per_kw, dust_limit,
-				  option_anchor_outputs, side))
+				  option_anchor_outputs,
+				  option_anchors_zero_fee_htlc_tx,
+				  side))
 				ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(htlcs[i]->amount));
 		}
 		if (amount_msat_greater_eq_sat(self_pay, dust_limit))
@@ -219,10 +236,12 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		if (htlc_owner(htlcs[i]) != side)
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit,
-			 option_anchor_outputs, side))
+			 option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
+			 side))
 			continue;
 		add_offered_htlc_out(tx, n, htlcs[i], keyset,
-				     option_anchor_outputs);
+				     option_anchor_outputs,
+				     option_anchors_zero_fee_htlc_tx);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -237,10 +256,12 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		if (htlc_owner(htlcs[i]) == side)
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit,
-			 option_anchor_outputs, side))
+			 option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
+			 side))
 			continue;
 		add_received_htlc_out(tx, n, htlcs[i], keyset,
-				      option_anchor_outputs);
+				      option_anchor_outputs,
+				      option_anchors_zero_fee_htlc_tx);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -303,7 +324,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 *...
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
-		if (option_anchor_outputs) {
+		if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 			redeem = bitcoin_wscript_to_remote_anchored(tmpctx,
 							 &keyset->other_payment_key,
 							 (!side) == lessor ?
@@ -351,7 +372,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
 	 *      [`to_remote_anchor` output]
 	 */
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		if (to_local || untrimmed != 0) {
 			tx_add_anchor_output(tx, local_funding_key);
 			(*htlcmap)[n] = NULL;

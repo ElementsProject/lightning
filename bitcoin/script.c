@@ -606,7 +606,8 @@ u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 					 const struct pubkey *remotehtlckey,
 					 const struct ripemd160 *payment_ripemd,
 					 const struct pubkey *revocationkey,
-					 bool option_anchor_outputs)
+					 bool option_anchor_outputs,
+					 bool option_anchors_zero_fee_htlc_tx)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -638,7 +639,7 @@ u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		add_number(&script, 1);
 		add_op(&script, OP_CHECKSEQUENCEVERIFY);
 		add_op(&script, OP_DROP);
@@ -653,7 +654,8 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *remotehtlckey,
 			       const struct sha256 *payment_hash,
 			       const struct pubkey *revocationkey,
-			       bool option_anchor_outputs)
+			       bool option_anchor_outputs,
+			       bool option_anchors_zero_fee_htlc_tx)
 {
 	struct ripemd160 ripemd;
 
@@ -661,7 +663,8 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 	return bitcoin_wscript_htlc_offer_ripemd160(ctx, localhtlckey,
 						    remotehtlckey,
 						    &ripemd, revocationkey,
-						    option_anchor_outputs);
+						    option_anchor_outputs,
+						    option_anchors_zero_fee_htlc_tx);
 }
 
 /* BOLT #3:
@@ -717,7 +720,8 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 					const struct pubkey *remotehtlckey,
 					const struct ripemd160 *payment_ripemd,
 					const struct pubkey *revocationkey,
-					bool option_anchor_outputs)
+					bool option_anchor_outputs,
+					bool option_anchors_zero_fee_htlc_tx)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -752,7 +756,7 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		add_number(&script, 1);
 		add_op(&script, OP_CHECKSEQUENCEVERIFY);
 		add_op(&script, OP_DROP);
@@ -768,7 +772,8 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct pubkey *remotehtlckey,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey,
-				 bool option_anchor_outputs)
+				 bool option_anchor_outputs,
+				 bool option_anchors_zero_fee_htlc_tx)
 {
 	struct ripemd160 ripemd;
 
@@ -776,7 +781,8 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 	return bitcoin_wscript_htlc_receive_ripemd(ctx, htlc_abstimeout,
 						   localhtlckey, remotehtlckey,
 						   &ripemd, revocationkey,
-						   option_anchor_outputs);
+						   option_anchor_outputs,
+						   option_anchors_zero_fee_htlc_tx);
 }
 
 /* BOLT #3:

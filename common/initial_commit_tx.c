@@ -88,6 +88,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     enum side side,
 				     u32 csv_lock,
 				     bool option_anchor_outputs,
+				     bool option_anchors_zero_fee_htlc_tx,
 				     char** err_reason)
 {
 	struct amount_sat base_fee;
@@ -122,15 +123,16 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * fee](#fee-calculation).
 	 */
 	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
-				      option_anchor_outputs);
+				      option_anchor_outputs,
+				      option_anchors_zero_fee_htlc_tx);
 
-	/* BOLT:
-	 * If `option_anchor_outputs` applies to the commitment
+	/* BOLT #3:
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
 	 */
-	if (option_anchor_outputs
+	if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 	    && !amount_sat_add(&base_fee, base_fee, AMOUNT_SAT(660))) {
 		*err_reason = "Funder cannot afford anchor outputs";
 		return NULL;
@@ -246,7 +248,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		u8 *redeem;
 
 		amount = amount_msat_to_sat_round_down(other_pay);
-		if (option_anchor_outputs) {
+		if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 			redeem = bitcoin_wscript_to_remote_anchored(tmpctx,
 						&keyset->other_payment_key,
 						(!side) == lessor ? csv_lock : 1);
@@ -271,7 +273,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
 	 *      [`to_remote_anchor` output]
 	 */
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		if (to_local || untrimmed != 0) {
 			tx_add_anchor_output(tx, &funding_key[side]);
 			output_order[n] = NULL;

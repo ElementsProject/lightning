@@ -189,7 +189,7 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 			db_bind_pubkey(stmt, 8, utxo->close_info->commitment_point);
 		else
 			db_bind_null(stmt, 8);
-		db_bind_int(stmt, 9, utxo->close_info->option_anchor_outputs);
+		db_bind_int(stmt, 9, utxo->close_info->option_anchors);
 	} else {
 		db_bind_null(stmt, 6);
 		db_bind_null(stmt, 7);
@@ -239,7 +239,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 			= db_col_optional(utxo->close_info, stmt,
 					  "commitment_point",
 					  pubkey);
-		utxo->close_info->option_anchor_outputs
+		utxo->close_info->option_anchors
 			= db_col_int(stmt, "option_anchor_outputs");
 		utxo->close_info->csv = db_col_int(stmt, "csv_lock");
 	} else {
@@ -519,9 +519,11 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo,
 			u32 current_blockheight)
 {
 	if (utxo->close_info
-	    && utxo->close_info->option_anchor_outputs) {
-		/* All option_anchor_output close_infos
-		 * have a csv of at least 1 */
+	    && utxo->close_info->option_anchors) {
+		/* BOLT #3:
+		 * If `option_anchors` applies to the commitment transaction, the
+		 * `to_remote` output is encumbered by a one block csv lock.
+		 */
 		if (!utxo->blockheight)
 			return false;
 
@@ -658,7 +660,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	else
 		db_bind_null(stmt, 8);
 
-	db_bind_int(stmt, 9, channel_has(channel, OPT_ANCHOR_OUTPUTS));
+	db_bind_int(stmt, 9,
+		    channel_type_has_anchors(channel->type));
 	db_bind_int(stmt, 10, blockheight);
 
 	/* spendheight */
@@ -896,7 +899,7 @@ done:
 
 static struct bitcoin_signature *
 wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
-		      bool option_anchor_outputs)
+		      bool option_anchors)
 {
 	struct db_stmt *stmt;
 	struct bitcoin_signature *htlc_sigs = tal_arr(ctx, struct bitcoin_signature, 0);
@@ -916,7 +919,7 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
 		 *   transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is
 		 *   used as described in [BOLT #5]
 		 */
-		if (option_anchor_outputs)
+		if (option_anchors)
 			sig.sighash_type = SIGHASH_SINGLE|SIGHASH_ANYONECANPAY;
 		else
 			sig.sighash_type = SIGHASH_ALL;
@@ -1526,8 +1529,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
 						 db_col_u64(stmt, "id"),
-						 channel_type_has(type, OPT_ANCHOR_OUTPUTS)
-						 || channel_type_has(type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)),
+						 channel_type_has_anchors(type)),
 			   &channel_info,
 			   take(fee_states),
 			   remote_shutdown_scriptpubkey,
