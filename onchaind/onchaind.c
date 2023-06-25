@@ -79,6 +79,9 @@ static u64 static_remotekey_start[NUM_SIDES];
 /* Does option_anchor_outputs apply to this commitment tx? */
 static bool option_anchor_outputs;
 
+/* Does option_anchors_zero_fee_htlc_tx apply to this commitment tx? */
+static bool option_anchors_zero_fee_htlc_tx;
+
 /* The minimum relay feerate acceptable to the fullnode.  */
 static u32 min_relay_feerate;
 
@@ -465,6 +468,9 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, 0);
 	size_t weight;
 
+	amount = amount_asset_to_sat(&asset);
+	assert(amount_asset_is_main(&asset));
+
 	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-timeout transaction:
@@ -474,14 +480,17 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	 *    1. Multiply `feerate_per_kw` by 663 (666 if `option_anchor_outputs`
 	 *       applies) and divide by 1000 (rounding down).
 	 */
+	if (option_anchors_zero_fee_htlc_tx) {
+		fee = AMOUNT_SAT(0);
+		goto set_amount;
+	}
+
 	if (option_anchor_outputs)
 		weight = 666;
 	else
 		weight = 663;
 	weight += elements_tx_overhead(chainparams, 1, 1);
 
-	assert(amount_asset_is_main(&asset));
-	amount = amount_asset_to_sat(&asset);
 
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
 		struct amount_sat grindfee;
@@ -499,8 +508,10 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 			      type_to_string(tmpctx, struct amount_sat, &fee),
 			      type_to_string(tmpctx, struct bitcoin_tx, tx));
 
+set_amount:
 	bitcoin_tx_output_set_amount(tx, 0, amount);
 	bitcoin_tx_finalize(tx);
+
 	return check_tx_sig(tx, 0, NULL, wscript,
 			    &keyset->other_htlc_key, remotesig);
 }
@@ -515,6 +526,11 @@ static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 	/* We only grind once, since they're all equiv. */
 	if (!amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX)))
 		return fee;
+
+	if (option_anchors_zero_fee_htlc_tx) {
+		fee = AMOUNT_SAT(0);
+		return fee;
+	}
 
 	if (!amount_sat_to_msat(&htlc_amount, out->sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1806,7 +1822,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 			htlc_scripts[i] = htlc_offered_wscript(htlc_scripts,
 							       &htlcs[i].ripemd,
 							       keyset,
-							       option_anchor_outputs);
+							       option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
 		else {
 			/* FIXME: remove abs_locktime */
 			struct abs_locktime ltime;
@@ -1819,7 +1835,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 								&htlcs[i].ripemd,
 								&ltime,
 								keyset,
-								option_anchor_outputs);
+								option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
 		}
 	}
 	return htlc_scripts;
@@ -1867,7 +1883,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
 				     to_self_delay[LOCAL], 0, keyset,
-				     option_anchor_outputs);
+				     option_anchor_outputs || option_anchors_zero_fee_htlc_tx);
 
 		if (set_htlc_timeout_fee(tx, out->remote_htlc_sig,
 					 htlc_scripts[matches[i]]))
@@ -1894,7 +1910,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 			      " feerate %u-%u,"
 			      " last tx %s, input %s, signature %s,"
 			      " cltvs %s wscripts %s"
-			      " %s",
+			      "%s%s",
 			      tal_count(matches),
 			      min_possible_feerate, max_possible_feerate,
 			      type_to_string(tmpctx, struct bitcoin_tx, tx),
@@ -1904,7 +1920,9 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					     out->remote_htlc_sig),
 			      cltvs, wscripts,
 			      option_anchor_outputs
-			      ? "option_anchor_outputs" : "");
+			      ? " option_anchor_outputs" : "",
+			      option_anchors_zero_fee_htlc_tx
+			      ? " option_anchors_zero_fee_htlc_tx" : "");
 	}
 
 	/* FIXME: lightningd could derive this itself? */
@@ -2086,7 +2104,7 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 
 static void get_anchor_scriptpubkeys(const tal_t *ctx, u8 **anchor)
 {
-	if (!option_anchor_outputs) {
+	if (!option_anchor_outputs && !option_anchors_zero_fee_htlc_tx) {
 		anchor[LOCAL] = anchor[REMOTE] = NULL;
 		return;
 	}
@@ -2114,7 +2132,7 @@ static u8 *scriptpubkey_to_remote(const tal_t *ctx,
 	 *...
 	 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 	 */
-	if (option_anchor_outputs) {
+	if (option_anchor_outputs || option_anchors_zero_fee_htlc_tx) {
 		return scriptpubkey_p2wsh(ctx,
 					  bitcoin_wscript_to_remote_anchored(tmpctx,
 								  remotekey,
@@ -3471,6 +3489,7 @@ int main(int argc, char *argv[])
 				   &static_remotekey_start[LOCAL],
 				   &static_remotekey_start[REMOTE],
 				   &option_anchor_outputs,
+				   &option_anchors_zero_fee_htlc_tx,
 				   &min_relay_feerate)) {
 		master_badmsg(WIRE_ONCHAIND_INIT, msg);
 	}
