@@ -1780,10 +1780,8 @@ void add_config_deprecated(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_QUIESCE));
-		} else {
-			/* Insert more decodes here! */
-			errx(1, "Unknown nonarg decode for %s", opt->names);
 		}
+		/* We ignore future additions, since these are deprecated anyway! */
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->show == (void *)opt_show_charp) {
 			if (*(char **)opt->u.carg)
@@ -1885,10 +1883,8 @@ void add_config_deprecated(struct lightningd *ld,
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */
 #endif
-		} else {
-			/* Insert more decodes here! */
-			errx(1, "Unknown arg decode for %s", opt->names);
 		}
+		/* We ignore future additions, since these are deprecated anyway! */
 	}
 
 	if (answer) {
