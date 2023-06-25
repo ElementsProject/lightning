@@ -107,6 +107,7 @@ class OptionalPatch(Patch):
         'v22.11',
         'v23.02',
         'v23.05',
+        'v23.08',
     ]
     # Oldest supported versions. Bump this if you no longer want to
     # support older versions, and you want to make required fields
