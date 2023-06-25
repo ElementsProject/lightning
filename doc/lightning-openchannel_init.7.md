@@ -27,7 +27,8 @@ every input. An error (code 309) will be returned if this requirement
 is not met.
 
 *commitment\_feerate* is an optional field. Sets the feerate for
-commitment transactions: see **fundchannel**.
+commitment transactions for non-anchor channels: see **fundchannel**.
+For anchor channels, it is ignored.
 
 *funding\_feerate* is an optional field. Sets the feerate for the
 funding transaction. Defaults to 'opening' feerate.

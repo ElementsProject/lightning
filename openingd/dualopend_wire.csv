@@ -188,6 +188,7 @@ msgdata,dualopend_opener_init,local_shutdown_len,u16,
 msgdata,dualopend_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_opener_init,local_shutdown_wallet_index,?u32,
 msgdata,dualopend_opener_init,feerate_per_kw,u32,
+msgdata,dualopend_opener_init,anchor_feerate_per_kw,u32,
 msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
 msgdata,dualopend_opener_init,channel_flags,u8,
 msgdata,dualopend_opener_init,requested_sats,?amount_sat,
