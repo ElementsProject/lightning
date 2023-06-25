@@ -212,6 +212,7 @@
               "enum": [
                 "option_static_remotekey",
                 "option_anchor_outputs",
+                "option_anchors_zero_fee_htlc_tx",
                 "option_scid_alias",
                 "option_zeroconf"
               ],

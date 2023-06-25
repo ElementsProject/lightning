@@ -9,6 +9,7 @@
 struct channel_type *channel_type_none(const tal_t *ctx);
 struct channel_type *channel_type_static_remotekey(const tal_t *ctx);
 struct channel_type *channel_type_anchor_outputs(const tal_t *ctx);
+struct channel_type *channel_type_anchors_zero_fee_htlc(const tal_t *ctx);
 
 /* channel_type variants */
 void channel_type_set_zeroconf(struct channel_type *channel_type);
