@@ -586,7 +586,7 @@ bool psbt_finalize(struct wally_psbt *psbt)
 	tal_wally_start();
 
 	/* Wally doesn't know how to finalize P2WSH; this happens with
-	 * option_anchor_outputs, and finalizing is trivial. */
+	 * option_anchor_outputs, and finalizing those two cases is trivial. */
 	/* FIXME: miniscript! miniscript! miniscript! */
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct wally_psbt_input *input = &psbt->inputs[i];
@@ -594,9 +594,15 @@ bool psbt_finalize(struct wally_psbt *psbt)
 		const struct wally_map_item *iws;
 
 		iws = wally_map_get_integer(&input->psbt_fields, /* PSBT_IN_WITNESS_SCRIPT */ 0x05);
-		if (!iws || !is_to_remote_anchored_witness_script(iws->value,
-								  iws->value_len))
+		if (!iws)
 			continue;
+
+		if (!is_to_remote_anchored_witness_script(iws->value,
+							  iws->value_len)
+		    && !is_anchor_witness_script(iws->value,
+						 iws->value_len)) {
+			continue;
+		}
 
 		if (input->signatures.num_items != 1)
 			continue;
@@ -615,6 +621,19 @@ bool psbt_finalize(struct wally_psbt *psbt)
 		 *
 		 *    <remote_sig>
 		 */
+		/* BOLT #3:
+		 * #### `to_local_anchor` and `to_remote_anchor` Output (option_anchors)
+		 *...
+		 *    <local_funding_pubkey/remote_funding_pubkey> OP_CHECKSIG OP_IFDUP
+		 *    OP_NOTIF
+		 *        OP_16 OP_CHECKSEQUENCEVERIFY
+		 *    OP_ENDIF
+		 *...
+		 * Spending of the output requires the following witness:
+		 *     <local_sig/remote_sig>
+		 */
+
+		/* i.e. in both cases, this is the same thing */
 		wally_tx_witness_stack_init_alloc(2, &stack);
 		wally_tx_witness_stack_add(stack,
 					   input->signatures.items[0].value,
@@ -623,6 +642,7 @@ bool psbt_finalize(struct wally_psbt *psbt)
 					   iws->value,
 					   iws->value_len);
 		wally_psbt_input_set_final_witness(input, stack);
+		wally_tx_witness_stack_free(stack);
 	}
 
 	ok = (wally_psbt_finalize(psbt, 0 /* flags */) == WALLY_OK);

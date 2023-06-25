@@ -69,6 +69,9 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u8_array */
 void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
+/* Generated stub for is_anchor_witness_script */
+bool is_anchor_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
+{ fprintf(stderr, "is_anchor_witness_script called!\n"); abort(); }
 /* Generated stub for is_to_remote_anchored_witness_script */
 bool is_to_remote_anchored_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
 { fprintf(stderr, "is_to_remote_anchored_witness_script called!\n"); abort(); }
