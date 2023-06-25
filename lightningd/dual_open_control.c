@@ -1273,6 +1273,7 @@ wallet_commit_channel(struct lightningd *ld,
 	} else
 		channel->scb = NULL;
 
+	tal_free(channel->type);
 	channel->type = channel_type_dup(channel, type);
 	channel->scb->type = channel_type_dup(channel->scb, type);
 
