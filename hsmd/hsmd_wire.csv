@@ -332,6 +332,16 @@ msgdata,hsmd_check_pubkey,pubkey,pubkey,
 msgtype,hsmd_check_pubkey_reply,128
 msgdata,hsmd_check_pubkey_reply,ok,bool,
 
+msgtype,hsmd_sign_anchorspend,147
+msgdata,hsmd_sign_anchorspend,peerid,node_id,
+msgdata,hsmd_sign_anchorspend,channel_dbid,u64,
+msgdata,hsmd_sign_anchorspend,num_inputs,u16,
+msgdata,hsmd_sign_anchorspend,inputs,utxo,num_inputs
+msgdata,hsmd_sign_anchorspend,psbt,wally_psbt,
+
+msgtype,hsmd_sign_anchorspend_reply,148
+msgdata,hsmd_sign_anchorspend_reply,psbt,wally_psbt,
+
 # These are where lightningd asks for signatures on onchaind's behalf.
 msgtype,hsmd_sign_any_delayed_payment_to_us,142
 msgdata,hsmd_sign_any_delayed_payment_to_us,commit_num,u64,

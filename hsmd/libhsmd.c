@@ -128,6 +128,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
+	case WIRE_HSMD_SIGN_ANCHORSPEND:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -161,6 +162,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 		break;
 	}
 	return false;
@@ -1461,6 +1463,47 @@ static u8 *handle_sign_any_penalty_to_us(struct hsmd_client *c, const u8 *msg_in
 				     &revocation_secret, tx, wscript);
 }
 
+/*~ Called from lightningd */
+static u8 *handle_sign_anchorspend(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct node_id peer_id;
+	u64 dbid;
+	struct utxo **utxos;
+	struct wally_psbt *psbt;
+	struct secret seed;
+	struct pubkey local_funding_pubkey;
+	struct secrets secrets;
+	int ret;
+
+	/* FIXME: Check output goes to us. */
+	if (!fromwire_hsmd_sign_anchorspend(tmpctx, msg_in,
+					    &peer_id, &dbid, &utxos, &psbt))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Sign all the UTXOs */
+	sign_our_inputs(utxos, psbt);
+
+	get_channel_seed(&peer_id, dbid, &seed);
+	derive_basepoints(&seed, &local_funding_pubkey, NULL, &secrets, NULL);
+
+	tal_wally_start();
+	ret = wally_psbt_sign(psbt, secrets.funding_privkey.secret.data,
+			      sizeof(secrets.funding_privkey.secret.data),
+			      EC_FLAG_GRIND_R);
+	tal_wally_end(psbt);
+	if (ret != WALLY_OK) {
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Received wally_err attempting to "
+				    "sign anchor key %s. PSBT: %s",
+				    type_to_string(tmpctx, struct pubkey,
+						   &local_funding_pubkey),
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
+	}
+
+	return towire_hsmd_sign_anchorspend_reply(NULL, psbt);
+}
+
 /*~ This is another lightningd-only interface; signing a commit transaction.
  * This is dangerous, since if we sign a revoked commitment tx we'll lose
  * funds, thus it's only available to lightningd.
@@ -1864,6 +1907,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_any_local_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
 		return handle_sign_any_penalty_to_us(client, msg);
+	case WIRE_HSMD_SIGN_ANCHORSPEND:
+		return handle_sign_anchorspend(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
@@ -1894,6 +1939,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
@@ -1907,7 +1953,11 @@ u8 *hsmd_init(struct secret hsm_secret,
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;
-	static const u32 capabilities[] = { WIRE_HSMD_CHECK_PUBKEY, WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US };
+	static const u32 capabilities[] = {
+		WIRE_HSMD_CHECK_PUBKEY,
+		WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US,
+		WIRE_HSMD_SIGN_ANCHORSPEND,
+	};
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
