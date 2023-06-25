@@ -170,6 +170,10 @@ struct channel_type *channel_desired_type(const tal_t *ctx,
 					  const struct channel *channel)
 {
 	/* We don't actually want to downgrade anchors! */
+	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+		return channel_type_anchors_zero_fee_htlc(ctx);
+
+	/* We don't actually want to downgrade anchors! */
 	if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
 		return channel_type_anchor_outputs(ctx);
 
