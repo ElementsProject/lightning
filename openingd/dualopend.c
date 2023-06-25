@@ -2929,13 +2929,15 @@ static void opener_start(struct state *state, u8 *msg)
 	struct tx_state *tx_state = state->tx_state;
 	struct amount_sat *requested_lease;
 	size_t locktime;
+	u32 nonanchor_feerate, anchor_feerate;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
 					    &tx_state->psbt,
 					    &tx_state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->local_upfront_shutdown_wallet_index,
-					    &state->feerate_per_kw_commitment,
+					    &nonanchor_feerate,
+					    &anchor_feerate,
 					    &tx_state->feerate_per_kw_funding,
 					    &state->channel_flags,
 					    &requested_lease,
@@ -2961,6 +2963,12 @@ static void opener_start(struct state *state, u8 *msg)
 						   state->our_features,
 						   state->their_features);
 	open_tlv->channel_type = state->channel_type->features;
+
+	/* Given channel type, which feerate do we use? */
+	if (channel_type_has_anchors(state->channel_type))
+		state->feerate_per_kw_commitment = anchor_feerate;
+	else
+		state->feerate_per_kw_commitment = nonanchor_feerate;
 
 	if (requested_lease)
 		state->requested_lease = tal_steal(state, requested_lease);
