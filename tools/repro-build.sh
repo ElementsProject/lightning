@@ -8,11 +8,14 @@ export LANG LC_ALL
 
 for arg; do
     case "$arg" in
+    --force-version=*)
+	    FORCE_VERSION=${arg#*=}
+        ;;
 	--force-mtime=*)
 	    FORCE_MTIME=${arg#*=}
 	    ;;
 	--help)
-	    echo "Usage: [--force-mtime=YYYY-MM-DD]"
+	    echo "Usage: [--force-version=<ver>] [--force-mtime=YYYY-MM-DD]"
 	    exit 0
 	    ;;
 	*)
@@ -51,7 +54,7 @@ else
 fi
 
 PLATFORM="$OS"-"$VER"
-VERSION=$(git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')
+VERSION=${FORCE_VERSION:-$(git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')}
 
 # eg. ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
 # Skip 'v' here in $VERSION
@@ -61,17 +64,21 @@ if [ -z "$MTIME" ]; then
     exit 1
 fi
 
+echo "Repro Version: $VERSION"
+echo "Repro mTime: $MTIME"
+echo "Repro Platform: $PLATFORM"
+
+if grep ^deb /etc/apt/sources.list | grep -- '-\(updates\|security\)'; then
+	echo Please disable security and updates in /etc/apt/sources.list >&2
+	exit 1
+fi
+
+DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
+PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
+INST='sudo dpkg -i'
+
 case "$PLATFORM" in
     Ubuntu-18.04)
-	# Use an ISO base of 5748706937539418ee5707bd538c4f5eabae485d17aa49fb13ce2c9b70532433 /home/rusty/Downloads/ubuntu-18.04.1-desktop-amd64.iso
-	# Check they've turned off updates and security updates
-	if grep ^deb /etc/apt/sources.list | grep -- '-\(updates\|security\)'; then
-	    echo Please disable security and updates in /etc/apt/sources.list >&2
-	    exit 1
-	fi
-	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
-	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 a909ad8b2e97f45960a05458140cff737df30bf7c616778a5a0ca74b9d012d93  /var/cache/apt/archives/autoconf_2.69-11_all.deb
 d25ff344a7b808ef3ef8a3717cdad8f589ad20b57ea954054e9cc016fe7dff01  /var/cache/apt/archives/automake_1%3a1.15.1-3ubuntu2_all.deb
@@ -101,13 +108,6 @@ eb49ad0a92f46080ab23974ee5db69dc08709a74e4275a0906afc220c75ce7a8  /var/cache/apt
 EOF
 	;;
     Ubuntu-20.04)
-	if grep ^deb /etc/apt/sources.list | grep -- '-\(updates\|security\)'; then
-	    echo Please disable security and updates in /etc/apt/sources.list >&2
-	    exit 1
-	fi
-	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
-	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 f554697f01a6267127ef20e6eae4e8ed983507c816475ac72dbb8be26d94c796  /var/cache/apt/archives/autoconf_2.69-11.1_all.deb
 a517394d9dce4a4cc734e45d5b9b5f17fe43d6682843f480b942426736d12050  /var/cache/apt/archives/automake_1%3a1.16.1-4ubuntu6_all.deb
@@ -133,13 +133,6 @@ a7d59420134a8307eb11ef79b68e2b35cadc794a60f82c87f4583e37c763fd01  /var/cache/apt
 EOF
 	;;
     Ubuntu-22.04)
-	if grep ^deb /etc/apt/sources.list | grep -- '-\(updates\|security\)'; then
-	    echo Please disable security and updates in /etc/apt/sources.list >&2
-	    exit 1
-	fi
-	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
-	PKGS='autoconf automake libtool make gcc libsqlite3-dev zlib1g-dev libsodium-dev'
-	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
 96b528889794c4134015a63c75050f93d8aecdf5e3f2a20993c1433f4c61b80e  /var/cache/apt/archives/autoconf_2.71-2_all.deb
 db854b9af0f94eded5039830177f57a5b2d529f76e2b5b0de8ec0b26f7aedc83  /var/cache/apt/archives/gcc-11-base_11.2.0-19ubuntu1_amd64.deb
@@ -183,7 +176,7 @@ $INST $(cut -c66- < /tmp/SHASUMS)
 # Once everyone has gcc8, we can use CC="gcc -ffile-prefix-map=$(pwd)=/home/clightning"
 ./configure --prefix=/usr CC="gcc -fdebug-prefix-map=$(pwd)=/home/clightning"
 # libwally wants "python".  Seems to work to force it here.
-make PYTHON_VERSION=3
+make PYTHON_VERSION=3 VERSION="$VERSION"
 make install DESTDIR=inst/
 
 cd inst && tar --sort=name \
