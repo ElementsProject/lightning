@@ -382,7 +382,8 @@ $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
 	# The compiler assumes that the proto files are in the same
 	# directory structure as the generated files will be. Since we
 	# don't do that we need to path the files up.
-	find contrib/pyln-grpc-proto/pyln/ -type f -name "*.py" -print0 | xargs -0 sed -i 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
+	find contrib/pyln-grpc-proto/pyln/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
+	rm -f contrib/pyln-grpc-proto/pyln/*.py.bak
 
 endif
 
