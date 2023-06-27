@@ -86,6 +86,14 @@ RUN apt-get install -y --no-install-recommends unzip tclsh \
     && make \
     && make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
 
+USER root
+RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
+    && tar xvf gmp-6.1.2.tar.xz \
+    && cd gmp-6.1.2 \
+    && ./configure --disable-assembly \
+    && make \
+    && make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
+
 ENV RUST_PROFILE=release
 ENV PATH=$PATH:/root/.cargo/bin/
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -98,10 +106,10 @@ RUN git clone --recursive /tmp/lightning . && \
 
 ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
-RUN curl -sSL https://install.python-poetry.org | python3 - \
-    && pip3 install -U pip \
-    && pip3 install -U wheel \
-    && /root/.local/bin/poetry install
+RUN curl -sSL https://install.python-poetry.org | python3 - 
+RUN pip3 install -U pip
+RUN pip3 install -U wheel
+RUN /root/.local/bin/poetry install
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
