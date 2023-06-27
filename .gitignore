@@ -83,3 +83,6 @@ focal/
 jammy/
 release/
 .vscode/
+
+# Ignore release verification Sha256Sums
+SHA256SUMS-*
