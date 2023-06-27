@@ -41,23 +41,26 @@ Here's a checklist for the release process.
    should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
-5. Announce rc1 release on core-lightning's release-chat channel on Discord.
+5. Announce rc1 release on core-lightning's release-chat channel on Discord
+    & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 6. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days 
    and contributors data for release note.
 7. Prepare draft release notes including information from above step, and share 
    with the team for editing.
 8. Upgrade your personal nodes to the rc1, to help testing.
-9. Test `tools/build-release.sh` to build the non-reproducible images & reproducible zipfile.
-10. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
+9. Follow [reproducible build](REPRODUCIBLE.md) for [Builder image setup](https://lightning.readthedocs.io/REPRODUCIBLE.html#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
+10. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
+10. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://lightning.readthedocs.io/REPRODUCIBLE.html#setting-up-multiarch-qemu-user-static).
 
-### Releasing -rc2, etc
+### Releasing -rc2, ..., -rcN
 
-1. Change rc1 to rc2 in CHANGELOG.md.
+1. Change rc(N-1) to rcN in CHANGELOG.md.
 2. Update the contrib/pyln package versions: `make update-pyln-versions NEW_VERSION=<VERSION>`
-3. Add a PR with the rc2.
-4. Tag it `git pull && git tag -s v<VERSION>rc2 && git push --tags`
-5. Announce tagged rc release on core-lightning's release-chat channel on Discord.
-6. Upgrade your personal nodes to the rc2.
+3. Add a PR with the rcN.
+4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
+5. Announce tagged rc release on core-lightning's release-chat channel on Discord
+    & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+6. Upgrade your personal nodes to the rcN.
 
 ### Tagging the Release
 
@@ -65,26 +68,30 @@ Here's a checklist for the release process.
 2. Update the contrib/pyln package versions: `make update-pyln-versions NEW_VERSION=<VERSION>`
 3. Add a PR with that release.
 4. Merge the PR, then:
-   - `export VERSION=0.9.3`
+   - `export VERSION=23.05`
    - `git pull`
    - `git tag -a -s v${VERSION} -m v${VERSION}`
    - `git push --tags`
-5. Run `tools/build-release.sh` to build the non-reprodicible images
-   and reproducible zipfile.
-6. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
-7. To create and sign checksums, start by entering the release dir: `cd release`
-8. Create the checksums for signing: `sha256sum * > SHA256SUMS`
-9. Create the first signature with `gpg -sb --armor SHA256SUMS`
-10. The tarballs may be owned by root, so revert ownership if necessary:
+5. Run `tools/build-release.sh` to:
+   - Create reproducible zipfile
+   - Build non-reproducible Fedora image
+   - Build reproducible Ubuntu-v18.04, Ubuntu-v20.04, Ubuntu-v22.04 images. Follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#building-using-the-builder-image) for manually Building Ubuntu Images.
+   - Build Docker images for amd64 and arm64v8
+   - Create and sign checksums. Follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#co-signing-the-release-manifest) for manually signing the release.
+6. The tarballs may be owned by root, so revert ownership if necessary:
     `sudo chown ${USER}:${USER} *${VERSION}*`
-11. Upload the resulting files to github and save as a draft.
+7. Upload the resulting files to github and save as a draft.
     (https://github.com/ElementsProject/lightning/releases/)
-12. Ping the rest of the team to check the SHA256SUMS file and have them send their
-    `gpg -sb --armor SHA256SUMS`.
-13. Append the signatures into a file called `SHA256SUMS.asc`, verify
-    with `gpg --verify SHA256SUMS.asc` and include the file in the draft
-    release.
-14. `make pyln-release` to upload pyln modules to pypi.org.  This requires keys
+8. Send `SHA256SUMS` & `SHA256SUMS.asc` files to the rest of the team to check and sign the release.
+9. Team members can verify the release with the help of `build-release.sh`:
+   9.1 Rename release captain's `SHA256SUMS` to `SHA256SUMS-v${VERSION}` and `SHA256SUMS.asc` to `SHA256SUMS-v${VERSION}.asc`.
+   9.2 Copy them in the root folder (`lightning`).
+   9.3 Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign. 
+   9.4 Send your signatures from `release/SHA256SUMS.new` to release captain.
+   9.5 Or follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#verifying-a-reproducible-build) for manual verification instructions.
+10. Append signatures shared by the team into the `SHA256SUMS.asc` file, verify
+    with `gpg --verify SHA256SUMS.asc` and include the file in the draft release.
+11. `make pyln-release` to upload pyln modules to pypi.org.  This requires keys
     for each of pyln-client, pyln-proto, and pyln-testing accessible to poetry.
     This can be done by configuring the python keyring library along with a
     suitable backend.  Alternatively, the key can be set as an environment
@@ -98,10 +105,11 @@ Here's a checklist for the release process.
 
 1. Edit the GitHub draft and include the `SHA256SUMS.asc` file.
 2. Publish the release as not a draft.
-3. Announce the final release on core-lightning's release-chat channel on Discord.
+3. Announce the final release on core-lightning's release-chat channel on Discord
+    & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 4. Send a mail to c-lightning and lightning-dev mailing lists, using the
    same wording as the Release Notes in github.
-5. Write release blog post and announce the release on Twitter.
+5. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 
 ### Post-release
 
