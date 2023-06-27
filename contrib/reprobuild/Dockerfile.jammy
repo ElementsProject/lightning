@@ -46,7 +46,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp
 RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     bash rustup-install.sh --default-toolchain none --quiet -y && \
     rm rustup-install.sh && \
-    /root/.cargo/bin/rustup install 1.62
+    /root/.cargo/bin/rustup install 1.65
 
 # Download protoc manually, it is in the update repos which we
 # disabled above, so `apt-get` can't find it anymore.
@@ -59,16 +59,11 @@ RUN cd /tmp/ && \
 RUN mkdir /build
 WORKDIR /build
 
-CMD git clone /repo /build \
-    && poetry export -o requirements.txt --without-hashes \
+CMD poetry export -o requirements.txt --without-hashes \
     && pip install -r requirements.txt \
-	&& tools/build-release.sh zipfile \
 	&& mkdir -p /repro \
 	&& cd /repro \
 	&& unzip /build/release/*.zip \
 	&& cd clightning* \
-        && tools/repro-build.sh \
-        && mkdir -p /repo/release \
-	&& cp *.xz /build/release/* /repo/release/ \
-	&& cd /repo/release/ \
-	&& sha256sum *
+    && tools/repro-build.sh \
+	&& cp *.xz /build/release/
