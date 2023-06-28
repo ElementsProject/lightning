@@ -84,10 +84,21 @@ void notify_connect(struct lightningd *ld,
 	plugins_notify(ld->plugins, take(n));
 }
 
+static void json_add_disconnect_fields(struct json_stream *stream,
+					   const struct node_id *nodeid)
+{
+	json_add_node_id(stream, "id", nodeid);
+}
+
 static void disconnect_notification_serialize(struct json_stream *stream,
 					      struct node_id *nodeid)
 {
-	json_add_node_id(stream, "id", nodeid);
+	/* Old style: Add raw fields without disconnect key */
+	/* FIXME: deprecate! */
+	json_add_disconnect_fields(stream, nodeid);
+	json_object_start(stream, "disconnect");
+	json_add_disconnect_fields(stream, nodeid);
+	json_object_end(stream);
 }
 
 REGISTER_NOTIFICATION(disconnect,

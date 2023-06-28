@@ -532,7 +532,9 @@ to a peer was lost.
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  "disconnect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  }
 }
 ```
 
