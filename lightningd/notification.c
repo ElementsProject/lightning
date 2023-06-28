@@ -596,13 +596,23 @@ void notify_balance_snapshot(struct lightningd *ld,
 	plugins_notify(ld->plugins, take(n));
 }
 
-static void block_added_notification_serialize(struct json_stream *stream,
-					       struct block *block)
+static void json_add_block_added_fields(struct json_stream *stream,
+					   const struct block *block)
 {
-	json_object_start(stream, "block");
 	json_add_string(stream, "hash",
 			type_to_string(tmpctx, struct bitcoin_blkid, &block->blkid));
 	json_add_u32(stream, "height", block->height);
+}
+
+static void block_added_notification_serialize(struct json_stream *stream,
+					       struct block *block)
+{
+	/* FIXME: deprecate! */
+	json_object_start(stream, "block");
+	json_add_block_added_fields(stream, block);
+	json_object_end(stream);
+	json_object_start(stream, "block_added");
+	json_add_block_added_fields(stream, block);
 	json_object_end(stream);
 }
 
