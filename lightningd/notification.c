@@ -41,7 +41,7 @@ bool notifications_have_topic(const struct plugins *plugins, const char *topic)
 	return false;
 }
 
-static void connect_notification_serialize(struct json_stream *stream,
+static void json_add_connect_fields(struct json_stream *stream,
 					   const struct node_id *nodeid,
 					   bool incoming,
 					   const struct wireaddr_internal *addr)
@@ -49,6 +49,19 @@ static void connect_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "id", nodeid);
 	json_add_string(stream, "direction", incoming ? "in" : "out");
 	json_add_address_internal(stream, "address", addr);
+}
+
+static void connect_notification_serialize(struct json_stream *stream,
+					   const struct node_id *nodeid,
+					   bool incoming,
+					   const struct wireaddr_internal *addr)
+{
+	/* Old style: Add raw fields without connect key */
+	/* FIXME: Deprecate! */
+	json_add_connect_fields(stream, nodeid, incoming, addr);
+	json_object_start(stream, "connect");
+	json_add_connect_fields(stream, nodeid, incoming, addr);
+	json_object_end(stream);
 }
 
 REGISTER_NOTIFICATION(connect,

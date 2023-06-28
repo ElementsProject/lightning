@@ -513,9 +513,11 @@ to a peer is established. `direction` is either `"in"` or `"out"`.
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-  "direction": "in",
-  "address": "1.2.3.4:1234"
+  "connect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+    "direction": "in",
+    "address": "1.2.3.4:1234"
+  }
 }
 ```
 
