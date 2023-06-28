@@ -848,7 +848,7 @@ current accounts (`account_id` matches the `account_id` emitted from
 
 ```json
 {
-    "balance_snapshots": [
+    "balance_snapshot": [
 	{
 	    'node_id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
 	    'blockheight': 101,
