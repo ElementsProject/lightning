@@ -9,9 +9,9 @@ blocks_catched = []
 
 
 @plugin.subscribe("block_added")
-def notify_block_added(plugin, block, **kwargs):
+def notify_block_added(plugin, block_added, **kwargs):
     global blocks_catched
-    blocks_catched.append(block["height"])
+    blocks_catched.append(block_added["height"])
 
 
 @plugin.method("blockscatched")
