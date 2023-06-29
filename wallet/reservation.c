@@ -492,7 +492,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff, change;
-	bool all, *excess_as_change, *nonwrapped;
+	bool all, *excess_as_change, *nonwrapped, *keep_emergency_funds;
 	u32 *locktime, *reserve, maxheight;
 	u32 current_height;
 
@@ -510,8 +510,15 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 			     &excess_as_change, false),
 		   p_opt_def("nonwrapped", param_bool,
 			     &nonwrapped, false),
+		   p_opt_def("opening_anchor_channel", param_bool,
+			     &keep_emergency_funds, false),
 		   NULL))
 		return command_param_failed();
+
+	/* If we have anchor channels, we definitely need to keep
+	 * emergency funds.  */
+	if (have_anchor_channel(cmd->ld))
+		*keep_emergency_funds = true;
 
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
@@ -608,7 +615,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	/* If needed, add change output for emergency_sat */
 	if (!change_for_emergency(cmd->ld,
-				  have_anchor_channel(cmd->ld),
+				  *keep_emergency_funds,
 				  utxos, *feerate_per_kw, *weight,
 				  &diff, &change)) {
 		return command_fail(cmd, FUND_CANNOT_AFFORD_WITH_EMERGENCY,
@@ -699,7 +706,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 {
 	struct utxo **utxos;
 	u32 *feerate_per_kw, *weight, *min_witness_weight;
-	bool all, *reserved_ok, *excess_as_change;
+	bool all, *reserved_ok, *excess_as_change, *keep_emergency_funds;
 	struct amount_sat *amount, input, excess, change;
 	u32 current_height, *locktime, *reserve;
 
@@ -716,8 +723,15 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 			     &min_witness_weight, 0),
 		   p_opt_def("excess_as_change", param_bool,
 			     &excess_as_change, false),
+		   p_opt_def("opening_anchor_channel", param_bool,
+			     &keep_emergency_funds, false),
 		   NULL))
 		return command_param_failed();
+
+	/* If we have anchor channels, we definitely need to keep
+	 * emergency funds.  */
+	if (have_anchor_channel(cmd->ld))
+		*keep_emergency_funds = true;
 
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 
@@ -787,7 +801,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 
 	/* If needed, add change output for emergency_sat */
 	if (!change_for_emergency(cmd->ld,
-				  have_anchor_channel(cmd->ld),
+				  *keep_emergency_funds,
 				  utxos, *feerate_per_kw, *weight,
 				  &excess, &change)) {
 		return command_fail(cmd, FUND_CANNOT_AFFORD_WITH_EMERGENCY,

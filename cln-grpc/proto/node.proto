@@ -977,6 +977,8 @@ message FundpsbtRequest {
 	optional uint32 locktime = 6;
 	optional uint32 min_witness_weight = 7;
 	optional bool excess_as_change = 8;
+	optional bool nonwrapped = 9;
+	optional bool opening_anchor_channel = 10;
 }
 
 message FundpsbtResponse {
@@ -1025,6 +1027,7 @@ message UtxopsbtRequest {
 	optional uint32 locktime = 6;
 	optional uint32 min_witness_weight = 7;
 	optional bool excess_as_change = 9;
+	optional bool opening_anchor_channel = 10;
 }
 
 message UtxopsbtResponse {
