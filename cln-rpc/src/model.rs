@@ -887,6 +887,10 @@ pub mod requests {
 	    pub min_witness_weight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub excess_as_change: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub nonwrapped: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub opening_anchor_channel: Option<bool>,
 	}
 
 	impl From<FundpsbtRequest> for Request {
@@ -949,6 +953,8 @@ pub mod requests {
 	    pub min_witness_weight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub excess_as_change: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub opening_anchor_channel: Option<bool>,
 	}
 
 	impl From<UtxopsbtRequest> for Request {

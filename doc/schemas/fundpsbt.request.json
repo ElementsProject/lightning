@@ -32,6 +32,14 @@
     },
     "excess_as_change": {
       "type": "boolean"
+    },
+    "nonwrapped": {
+      "added": "v23.02",
+      "type": "boolean"
+    },
+    "opening_anchor_channel": {
+      "added": "v23.08",
+      "type": "boolean"
     }
   }
 }

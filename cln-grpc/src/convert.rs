@@ -1987,6 +1987,8 @@ impl From<requests::FundpsbtRequest> for pb::FundpsbtRequest {
             locktime: c.locktime, // Rule #2 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #2 for type u32?
             excess_as_change: c.excess_as_change, // Rule #2 for type boolean?
+            nonwrapped: c.nonwrapped, // Rule #2 for type boolean?
+            opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
         }
     }
 }
@@ -2026,6 +2028,7 @@ impl From<requests::UtxopsbtRequest> for pb::UtxopsbtRequest {
             locktime: c.locktime, // Rule #2 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #2 for type u32?
             excess_as_change: c.excess_as_change, // Rule #2 for type boolean?
+            opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
         }
     }
 }
@@ -2656,6 +2659,8 @@ impl From<pb::FundpsbtRequest> for requests::FundpsbtRequest {
             locktime: c.locktime, // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #1 for type u32?
             excess_as_change: c.excess_as_change, // Rule #1 for type boolean?
+            nonwrapped: c.nonwrapped, // Rule #1 for type boolean?
+            opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
         }
     }
 }
@@ -2693,6 +2698,7 @@ impl From<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
             locktime: c.locktime, // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #1 for type u32?
             excess_as_change: c.excess_as_change, // Rule #1 for type boolean?
+            opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
         }
     }
 }
