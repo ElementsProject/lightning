@@ -1291,6 +1291,18 @@ fail:
 
 }
 
+static bool any_dest_negotiated_anchors(const struct plugin *plugin,
+					const struct multifundchannel_destination *dests)
+{
+	for (size_t i = 0; i < tal_count(dests); i++) {
+		if (feature_negotiated(plugin_feature_set(plugin),
+				       dests[i].their_features,
+				       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+			return true;
+	}
+	return false;
+}
+
 static struct command_result *
 perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 {
@@ -1327,6 +1339,12 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 		/* If there's any v2 opens, we can't use p2sh inputs */
 		json_add_bool(req->js, "nonwrapped",
 			      dest_count(mfc, OPEN_CHANNEL) > 0);
+	}
+
+	/* If we're about to open an anchor channel, we need emergency funds! */
+	if (any_dest_negotiated_anchors(mfc->cmd->plugin,
+					mfc->destinations)) {
+		json_add_bool(req->js, "opening_anchor_channel", true);
 	}
 
 	/* The entire point is to reserve the inputs. */
