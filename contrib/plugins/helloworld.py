@@ -31,13 +31,13 @@ def init(options, configuration, plugin, **kwargs):
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address, **kwargs):
-    plugin.log("Received connect event for peer {}".format(id))
+def on_connect(plugin, connect, **kwargs):
+    plugin.log("Received connect event for peer {}".format(connect))
 
 
 @plugin.subscribe("disconnect")
-def on_disconnect(plugin, id, **kwargs):
-    plugin.log("Received disconnect event for peer {}".format(id))
+def on_disconnect(plugin, disconnect, **kwargs):
+    plugin.log("Received disconnect event for peer {}".format(disconnect))
 
 
 @plugin.subscribe("invoice_payment")

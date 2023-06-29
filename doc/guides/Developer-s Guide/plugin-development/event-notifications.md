@@ -87,9 +87,11 @@ A notification for topic `connect` is sent every time a new connection to a peer
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-  "direction": "in",
-  "address": "1.2.3.4:1234"
+  "connect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+    "direction": "in",
+    "address": "1.2.3.4:1234"
+  }
 }
 ```
 
@@ -101,7 +103,9 @@ A notification for topic `disconnect` is sent every time a connection to a peer 
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  "disconnect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  }
 }
 ```
 
@@ -378,7 +382,7 @@ Emitted after we've caught up to the chain head on first start. Lists all curren
 
 ```json
 {
-    "balance_snapshots": [
+    "balance_snapshot": [
 	{
 	    'node_id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
 	    'blockheight': 101,
@@ -419,7 +423,7 @@ Emitted after each block is received from bitcoind, either during the initial sy
 
 ```json
 {
-    "block": {
+    "block_added": {
       "hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
       "height": 753304
     }

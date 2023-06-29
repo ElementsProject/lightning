@@ -513,9 +513,11 @@ to a peer is established. `direction` is either `"in"` or `"out"`.
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-  "direction": "in",
-  "address": "1.2.3.4:1234"
+  "connect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+    "direction": "in",
+    "address": "1.2.3.4:1234"
+  }
 }
 ```
 
@@ -526,7 +528,9 @@ to a peer was lost.
 
 ```json
 {
-  "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  "disconnect": {
+    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432"
+  }
 }
 ```
 
@@ -844,7 +848,7 @@ current accounts (`account_id` matches the `account_id` emitted from
 
 ```json
 {
-    "balance_snapshots": [
+    "balance_snapshot": [
 	{
 	    'node_id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
 	    'blockheight': 101,
@@ -884,7 +888,7 @@ throughout the node's life as new blocks appear.
 
 ```json
 {
-    "block": {
+    "block_added": {
       "hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
       "height": 753304
     }
