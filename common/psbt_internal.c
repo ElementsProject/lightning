@@ -1,33 +1,97 @@
 #include "config.h"
+#include <assert.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <bitcoin/varint.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <wire/peer_wire.h>
 
+
+static bool next_size(const u8 **cursor, size_t *max, size_t *size)
+{
+	size_t len;
+	varint_t varint;
+
+	if (*max < 1)
+		return false;
+
+	len = varint_get(*cursor, *max, &varint);
+
+	if (len < 1)
+		return false;
+
+	if (*max < len) {
+		*max = 0;
+		return false;
+	}
+
+	*cursor += len;
+	*max -= len;
+	*size = varint;
+	return true;
+}
+
+static u8 *next_script(const tal_t *ctx, const u8 **cursor, size_t *max)
+{
+	const u8 *p;
+	size_t size;
+	u8 *ret;
+
+	if (!next_size(cursor, max, &size))
+		return NULL;
+
+	if (*max < size) {
+		*max = 0;
+		return NULL;
+	}
+
+	p = *cursor;
+	*max -= size;
+	*cursor += size;
+
+	ret = tal_arr(ctx, u8, size);
+	memcpy(ret, p, size);
+	return ret;
+}
+
 static void
 psbt_input_set_final_witness_stack(const tal_t *ctx,
 				   struct wally_psbt_input *in,
-				   const struct witness_element **elements)
+				   const struct witness *witness)
 {
+	u8 *script, *sctx;
+	const u8 *data = witness->witness_data;
+	size_t size, max = tal_count(data);
+	bool ok;
+
 	wally_tx_witness_stack_free(in->final_witness);
 
-	tal_wally_start();
-	wally_tx_witness_stack_init_alloc(tal_count(elements),
-					  &in->final_witness);
+	/* FIXME: return an error?? */
+	if (!next_size(&data, &max, &size))
+		return;
 
-	for (size_t i = 0; i < tal_count(elements); i++)
-		wally_tx_witness_stack_add(in->final_witness,
-					   elements[i]->witness_data,
-					   tal_bytelen(elements[i]->witness_data));
+	tal_wally_start();
+	sctx = tal(NULL, u8);
+
+	wally_tx_witness_stack_init_alloc(size, &in->final_witness);
+
+	while ((script = next_script(sctx, &data, &max)) && script != NULL) {
+		ok = (wally_tx_witness_stack_add(in->final_witness,
+					   script, tal_count(script)) == WALLY_OK);
+		assert(ok);
+	}
+
 	tal_wally_end(ctx);
+	tal_free(sctx);
 }
 
 void psbt_finalize_input(const tal_t *ctx,
 			 struct wally_psbt_input *in,
-			 const struct witness_element **elements)
+			 const struct witness *witness)
 {
 	const struct wally_map_item *redeem_script;
-	psbt_input_set_final_witness_stack(ctx, in, elements);
+	psbt_input_set_final_witness_stack(ctx, in, witness);
 
 	/* There's this horrible edgecase where we set the final_witnesses
 	 * directly onto the PSBT, but the input is a P2SH-wrapped input
@@ -49,22 +113,20 @@ void psbt_finalize_input(const tal_t *ctx,
 	}
 }
 
-const struct witness_stack **
-psbt_to_witness_stacks(const tal_t *ctx,
-		       const struct wally_psbt *psbt,
-		       enum tx_role side_to_stack)
+const struct witness **
+psbt_to_witnesses(const tal_t *ctx,
+		  const struct wally_psbt *psbt,
+		  enum tx_role side_to_stack)
 {
-	size_t stack_index;
 	u64 serial_id;
-	const struct witness_stack **stacks
-		= tal_arr(ctx, const struct witness_stack *, psbt->num_inputs);
+	const struct witness **witnesses =
+		tal_arr(ctx, const struct witness *, 0);
 
-	stack_index = 0;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
 					&serial_id))
 			/* FIXME: throw an error ? */
-			return NULL;
+			return tal_free(witnesses);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 		 * - if is the *initiator*:
@@ -73,32 +135,29 @@ psbt_to_witness_stacks(const tal_t *ctx,
 		if (serial_id % 2 == side_to_stack) {
 			struct wally_tx_witness_stack *wtx_s =
 				psbt->inputs[i].final_witness;
-			struct witness_stack *stack =
-				tal(stacks, struct witness_stack);
-			/* Convert the wally_tx_witness_stack to
-			 * a witness_stack entry */
-			stack->witness_elements =
-				tal_arr(stack, struct witness_element *,
-					wtx_s->num_items);
-			for (size_t j = 0; j < tal_count(stack->witness_elements); j++) {
-				stack->witness_elements[j] = tal(stack,
-								struct witness_element);
-				stack->witness_elements[j]->witness_data =
-					tal_dup_arr(stack, u8,
-						    wtx_s->items[j].witness,
-						    wtx_s->items[j].witness_len,
-						    0);
 
+			/* BOLT-e299850cb5ebd8bd9c55763bbc498fcdf94a9567 #2:
+			 *
+			 * The `witness_data` is encoded as per bitcoin's
+			 * wire protocol (a CompactSize number of elements,
+			 * with each element a CompactSize length and that
+			 * many bytes following.  Each `witness_data` field
+			 * contains all of the witness elements for a single input,
+			 * including the leading counter of elements.
+			 */
+			struct witness *wit = tal(witnesses, struct witness);
+			wit->witness_data = tal_arr(wit, u8, 0);
+			add_varint(&wit->witness_data, wtx_s->num_items);
+			for (size_t j = 0; j < wtx_s->num_items; j++) {
+				add_varint(&wit->witness_data, wtx_s->items[j].witness_len);
+				tal_expand(&wit->witness_data, wtx_s->items[j].witness,
+					   wtx_s->items[j].witness_len);
 			}
 
-			stacks[stack_index++] = stack;
+			tal_arr_expand(&witnesses, wit);
 		}
 
 	}
 
-	if (stack_index == 0)
-		return tal_free(stacks);
-
-	tal_resize(&stacks, stack_index);
-	return stacks;
+	return witnesses;
 }
