@@ -1712,6 +1712,11 @@
       "type": "u64",
       "added": "v23.05",
       "description": "The percentage of the 6-block fee estimate to use for commitment transactions"
+    },
+    "min-emergency-msat": {
+      "type": "msat",
+      "added": "v23.08",
+      "description": "field from config or cmdline, or default"
     }
   }
 }
