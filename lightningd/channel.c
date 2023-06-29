@@ -729,6 +729,31 @@ struct channel *find_channel_by_alias(const struct peer *peer,
 	return NULL;
 }
 
+bool have_anchor_channel(struct lightningd *ld)
+{
+	struct peer *p;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
+
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
+		if (p->uncommitted_channel) {
+			/* FIXME: Assume anchors if supported */
+			if (feature_negotiated(ld->our_features,
+					       p->their_features,
+					       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+				return true;
+		}
+		list_for_each(&p->channels, channel, list) {
+			if (channel_type_has(channel->type,
+					     OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+				return true;
+		}
+	}
+	return false;
+}
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig)

@@ -320,16 +320,24 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh);
 size_t bitcoin_tx_2of2_input_witness_weight(void);
 
 /**
- * change_amount - Is it worth making a P2WPKH change output at this feerate?
- * @excess: input amount we have above the tx fee and other outputs.
+ * change_fee - what's the cost to add a change output to this tx?
  * @feerate_perkw: feerate.
- *
- * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
- * Otherwise returns the amount of the change output to add (@excess minus
- * the additional fee for the change output itself).
+ * @total_weight: current weight of tx.
  *
  * We pass in the total_weight of the tx (up until this point) so as
  * to avoid any off-by-one errors with rounding the change fee (down)
+ */
+struct amount_sat change_fee(u32 feerate_perkw,	size_t total_weight);
+
+/**
+ * change_amount - Is it worth making a P2WPKH change output at this feerate?
+ * @excess: input amount we have above the tx fee and other outputs.
+ * @feerate_perkw: feerate.
+ * @total_weight: current weight of tx.
+ *
+ * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
+ * Otherwise returns the amount of the change output to add (@excess minus
+ * the change_fee()).
  */
 struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 				size_t total_weight);

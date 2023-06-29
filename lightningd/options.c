@@ -1126,6 +1126,16 @@ static char *opt_set_sat(const char *arg, struct amount_sat *sat)
 	return NULL;
 }
 
+static char *opt_set_sat_nondust(const char *arg, struct amount_sat *sat)
+{
+	char *ret = opt_set_sat(arg, sat);
+	if (ret)
+		return ret;
+	if (amount_sat_less(*sat, chainparams->dust_limit))
+		return tal_fmt(tmpctx, "Option must be over dust limit!");
+	return NULL;
+}
+
 static bool opt_show_sat(char *buf, size_t len, const struct amount_sat *sat)
 {
 	struct amount_msat msat;
@@ -1447,7 +1457,7 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
 		       "Percentage of fee to request for their commitment");
 	clnopt_witharg("--min-emergency-msat", OPT_SHOWMSATS,
-		       opt_set_sat, opt_show_sat, &ld->emergency_sat,
+		       opt_set_sat_nondust, opt_show_sat, &ld->emergency_sat,
 		       "Amount to leave in wallet for spending anchor closes");
 	clnopt_witharg("--subdaemon",
 		       OPT_MULTI,

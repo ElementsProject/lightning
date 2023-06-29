@@ -16,7 +16,9 @@ The address can be of any Bitcoin accepted type, including bech32.
 
 *satoshi* is the amount to be withdrawn from the internal wallet
 (expressed, as name suggests, in satoshi). The string *all* can be used
-to specify withdrawal of all available funds. Otherwise, it is in
+to specify withdrawal of all available funds (but if we have
+any anchor channels, this will always leave at least `min-emergency-msat` as change).
+. Otherwise, it is in
 satoshi precision; it can be a whole number, a whole number ending in
 *sat*, a whole number ending in *000msat*, or a number with 1 to 8
 decimal places ending in *btc*.
@@ -50,6 +52,7 @@ The following error codes may occur:
 - 301: There are not enough funds in the internal wallet (including
 fees) to create the transaction.
 - 302: The dust limit is not met.
+- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels).
 
 AUTHOR
 ------
