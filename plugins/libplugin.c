@@ -1357,8 +1357,8 @@ struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
 	return timer;
 }
 
-static void plugin_logv(struct plugin *p, enum log_level l,
-			const char *fmt, va_list ap)
+void plugin_logv(struct plugin *p, enum log_level l,
+		 const char *fmt, va_list ap)
 {
 	struct json_stream *js = new_json_stream(NULL, NULL, NULL);
 
