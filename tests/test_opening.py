@@ -22,10 +22,8 @@ def find_next_feerate(node, peer):
 @pytest.mark.developer("requres 'dev-queryrates' + 'dev-force-features'")
 def test_queryrates(node_factory, bitcoind):
 
-    opts = {'dev-no-reconnect': None}
-
-    if not anchor_expected():
-        opts['dev-force-features'] = '+21'
+    opts = {'dev-no-reconnect': None,
+            'experimental-anchors': None}
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -382,15 +380,12 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-force-features'")
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+            'experimental-anchors': None,
             'may_reconnect': True}
-
-    if not anchor_expected():
-        opts['dev-force-features'] = '+21'
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -1266,21 +1261,19 @@ def test_funder_contribution_limits(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-disconnect', 'dev-force-features'")
+@pytest.mark.developer("requres 'dev-disconnect'")
 def test_inflight_dbload(node_factory, bitcoind):
     """Bad db field access breaks Postgresql on startup with opening leases"""
     disconnects = ["@WIRE_COMMITMENT_SIGNED"]
 
     opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
-             'may_reconnect': True, 'disconnect': disconnects},
+             'may_reconnect': True, 'disconnect': disconnects,
+             'experimental-anchors': None},
             {'experimental-dual-fund': None, 'dev-no-reconnect': None,
              'may_reconnect': True, 'funder-policy': 'match',
              'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
-             'lease-fee-basis': 100}]
-
-    if not anchor_expected():
-        for opt in opts:
-            opt['dev-force-features'] = '+21'
+             'lease-fee-basis': 100,
+             'experimental-anchors': None}]
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -1578,7 +1571,6 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("dev-force-features required")
 def test_v2_replay_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good
         even if we replay the opening and locking tx!
@@ -1586,14 +1578,12 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
 
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True},
+             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True,
+             'experimental-anchors': None},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True}]
-
-    if not anchor_expected():
-        for opt in opts:
-            opt['dev-force-features'] = '+21'
+             'may_reconnect': True,
+             'experimental-anchors': None}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
@@ -1645,21 +1635,18 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("dev-force-features required")
 def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good."""
 
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'rescan': 10, 'disable-plugin': 'bookkeeper',
-             'funding-confirms': 6, 'may_reconnect': True},
+             'funding-confirms': 6, 'may_reconnect': True,
+             'experimental-anchors': None},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True}]
-
-    if not anchor_expected():
-        for opt in opts:
-            opt['dev-force-features'] = '+21'
+             'may_reconnect': True,
+             'experimental-anchors': None}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
@@ -2141,17 +2128,17 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
 
 
 @unittest.skip("anchors not available")
-@pytest.mark.developer("dev-force-features, dev-queryrates required")
+@pytest.mark.developer("dev-queryrates required")
 @pytest.mark.openchannel('v2')
 def test_no_anchor_liquidity_ads(node_factory, bitcoind):
     """ Liquidity ads requires anchors, which are no longer a
     requirement for dual-funded channels. """
 
-    l1_opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+    l2_opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
                'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
                'may_reconnect': True, 'funder-lease-requests-only': False}
-    l2_opts = l1_opts.copy()
-    l2_opts['dev-force-features'] = ["-21"]
+    l1_opts = l2_opts.copy()
+    l1_opts['experimental-anchors'] = None
     l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
 
     feerate = 2000
