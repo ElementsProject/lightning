@@ -28,7 +28,7 @@ Readiness is indicated by **listpeers** reporting a *state* of
   in a manner understood by **connect**; see lightning-connect(7).
   Each entry in the *destinations* array must have a unique node *id*.
 * *amount* is the amount in satoshis taken from the internal wallet
-  to fund the channel.
+  to fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency-msat` as change).
   The string *all* can be used to specify all available funds
   (or 16,777,215 satoshi if more is available and large channels were
   not negotiated with the peer).
@@ -122,6 +122,7 @@ The following error codes may occur:
 - 301: There are not enough funds in the internal wallet (including fees) to create the transaction.
 - 302: The output amount is too small, and would be considered dust.
 - 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.
+- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).
 
 Failure may also occur if **lightningd** and the peer cannot agree on
 channel parameters (funding limits, channel reserves, fees, etc.).
