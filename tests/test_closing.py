@@ -3669,3 +3669,70 @@ def test_onchain_rexmit_tx(node_factory, bitcoind):
 
     l1.start()
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
+@pytest.mark.developer("needs dev_disconnect")
+def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
+    # We want an outstanding HTLC for l1, so it uses anchor to push.
+    # Set feerates to lowball for now.
+    l1, l2 = node_factory.line_graph(2, opts=[{'feerates': (1000,) * 4,
+                                               'experimental-anchors': None},
+                                              {'feerates': (1000,) * 4,
+                                               'experimental-anchors': None,
+                                               'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
+    assert 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
+
+    inv = l2.rpc.invoice(123000, 'label', 'description')
+    l2.rpc.delinvoice('label', 'unpaid')
+
+    rhash = inv['payment_hash']
+    routestep = {
+        'amount_msat': 123000000,
+        'id': l2.info['id'],
+        'delay': 12,
+        'channel': first_scid(l1, l2)
+    }
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
+    l2.daemon.wait_for_log('dev_disconnect')
+    l2.stop()
+
+    # Tell it fees have gone up: this should make it spend the anchor!
+    l1.set_feerates((2000, 2000, 2000, 2000))
+    bitcoind.generate_block(14)
+
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 116 hit deadline')
+    l1.daemon.wait_for_log('Creating anchor spend for CPFP')
+
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 2)
+
+    # But we don't mine it!  And fees go up again!
+    l1.set_feerates((3000, 3000, 3000, 3000))
+    bitcoind.generate_block(1, needfeerate=5000)
+
+    l1.daemon.wait_for_log('RBF anchor spend')
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+
+    # And now we'll get it in (there's some rounding, so feerate a bit lower!)
+    bitcoind.generate_block(1, needfeerate=2990)
+
+    wait_for(lambda: 'ONCHAIN:Tracking our own unilateral close' in only_one(l1.rpc.listpeerchannels()['channels'])['status'])
+
+    # Now it needs to expire the HTLC tx.
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX',
+                                              'OUR_UNILATERAL/OUR_HTLC')
+    assert blocks == -3
+
+    # It will have RBFd it already, to get that txid!
+    assert l1.daemon.is_in_log(r'RBF HTLC txid .* \(fee 0sat\) with txid {} \(fee .*sat\)'.format(txid))
+
+    # Requirements go up again!  We should RBF again.
+    l1.set_feerates((5000, 5000, 5000, 5000))
+    line = l1.daemon.wait_for_log(r'RBF HTLC txid {} \(fee .*sat\) with txid .* '.format(txid))
+    txid = re.match(r'.*with txid ([0-9a-f]*) ', line).group(1)
+
+    # It will enter the mempool
+    wait_for(lambda: txid in bitcoind.rpc.getrawmempool())
+
+    # And this will mine it!
+    bitcoind.generate_block(1, needfeerate=4990)
