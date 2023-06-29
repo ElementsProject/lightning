@@ -349,11 +349,11 @@ static struct command_result *finish_psbt(struct command *cmd,
 					  struct amount_sat excess,
 					  u32 reserve,
 					  u32 *locktime,
-					  bool excess_as_change)
+					  struct amount_sat change)
 {
 	struct json_stream *response;
 	struct wally_psbt *psbt;
-	size_t change_outnum COMPILER_WANTS_INIT("gcc 9.4.0 -Og");
+	ssize_t change_outnum;
 	u32 current_height = get_block_height(cmd->ld->topology);
 
 	if (!locktime) {
@@ -365,19 +365,13 @@ static struct command_result *finish_psbt(struct command *cmd,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE,
 				NULL);
 	assert(psbt->version == 2);
-	/* Should we add a change output for the excess? */
-	if (excess_as_change) {
-		struct amount_sat change;
+
+	/* Should we add a change output?  (Iff it can pay for itself!) */
+	change = change_amount(change, feerate_per_kw, weight);
+	if (amount_sat_greater(change, AMOUNT_SAT(0))) {
 		struct pubkey pubkey;
 		s64 keyidx;
 		u8 *b32script;
-
-		/* Checks for dust, returns 0sat if below dust */
-		change = change_amount(excess, feerate_per_kw, weight);
-		if (!amount_sat_greater(change, AMOUNT_SAT(0))) {
-			excess_as_change = false;
-			goto fee_calc;
-		}
 
 		/* Get a change adddress */
 		keyidx = wallet_get_newindex(cmd->ld);
@@ -392,14 +386,13 @@ static struct command_result *finish_psbt(struct command *cmd,
 
 		change_outnum = psbt->num_outputs;
 		psbt_append_output(psbt, b32script, change);
-		/* Set excess to zero */
-		excess = AMOUNT_SAT(0);
 		/* Add additional weight of output */
 		weight += bitcoin_tx_output_weight(
 				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	} else {
+		change_outnum = -1;
 	}
 
-fee_calc:
 	/* Add a fee output if this is elements */
 	if (is_elements(chainparams)) {
 		struct amount_sat est_fee =
@@ -420,7 +413,7 @@ fee_calc:
 	json_add_num(response, "feerate_per_kw", feerate_per_kw);
 	json_add_num(response, "estimated_final_weight", weight);
 	json_add_amount_sat_msat(response, "excess_msat", excess);
-	if (excess_as_change)
+	if (change_outnum != -1)
 		json_add_num(response, "change_outnum", change_outnum);
 	if (reserve)
 		reserve_and_report(response, cmd->ld->wallet, current_height,
@@ -451,7 +444,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	struct utxo **utxos;
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
-	struct amount_sat *amount, input, diff;
+	struct amount_sat *amount, input, diff, change;
 	bool all, *excess_as_change, *nonwrapped;
 	u32 *locktime, *reserve, maxheight;
 
@@ -538,10 +531,11 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	}
 
 	if (all) {
-		/* Anything above 0 is "excess" */
+		/* We need to afford one non-dust output, at least. */
 		if (!inputs_sufficient(input, AMOUNT_SAT(0),
 				       *feerate_per_kw, *weight,
-				       &diff)) {
+				       &diff)
+		    || amount_sat_less(diff, chainparams->dust_limit)) {
 			if (!topology_synced(cmd->ld->topology))
 				return command_fail(cmd,
 						    FUNDING_STILL_SYNCING_BITCOIN,
@@ -551,10 +545,19 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					    " fees",
 					    tal_count(utxos));
 		}
+		*excess_as_change = false;
+	}
+
+	/* Turn excess into change. */
+	if (*excess_as_change) {
+		change = diff;
+		diff = AMOUNT_SAT(0);
+	} else {
+		change = AMOUNT_SAT(0);
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,
-			   locktime, *excess_as_change);
+			   locktime, change);
 }
 
 static const struct json_command fundpsbt_command = {
@@ -636,7 +639,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	struct utxo **utxos;
 	u32 *feerate_per_kw, *weight, *min_witness_weight;
 	bool all, *reserved_ok, *excess_as_change;
-	struct amount_sat *amount, input, excess;
+	struct amount_sat *amount, input, excess, change;
 	u32 current_height, *locktime, *reserve;
 
 	if (!param(cmd, buffer, params,
@@ -686,23 +689,43 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		*weight += utxo_spend_weight(utxo, *min_witness_weight);
 	}
 
-	/* For all, anything above 0 is "excess" */
-	if (!inputs_sufficient(input, all ? AMOUNT_SAT(0) : *amount,
-			       *feerate_per_kw, *weight, &excess)) {
-		return command_fail(cmd, FUND_CANNOT_AFFORD,
+	if (all) {
+		/* We need to afford one non-dust output, at least. */
+		if (!inputs_sufficient(input, AMOUNT_SAT(0),
+				       *feerate_per_kw, *weight,
+				       &excess)
+		    || amount_sat_less(excess, chainparams->dust_limit)) {
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "Could not afford anything using UTXOs totalling %s with weight %u at feerate %u",
+					    type_to_string(tmpctx,
+							   struct amount_sat,
+							   &input),
+					    *weight, *feerate_per_kw);
+		}
+		*excess_as_change = false;
+	} else {
+		if (!inputs_sufficient(input, *amount,
+				       *feerate_per_kw, *weight, &excess)) {
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Could not afford %s using UTXOs totalling %s with weight %u at feerate %u",
-				    all ? "anything" :
-				    type_to_string(tmpctx,
-						   struct amount_sat,
-						   amount),
-				    type_to_string(tmpctx,
-						   struct amount_sat,
-						   &input),
-				    *weight, *feerate_per_kw);
+					    type_to_string(tmpctx,
+							   struct amount_sat,
+							   amount),
+					    type_to_string(tmpctx,
+							   struct amount_sat,
+							   &input),
+					    *weight, *feerate_per_kw);
+		}
+	}
+	if (*excess_as_change) {
+		change = excess;
+		excess = AMOUNT_SAT(0);
+	} else {
+		change = AMOUNT_SAT(0);
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
-			   *reserve, locktime, *excess_as_change);
+			   *reserve, locktime, change);
 }
 static const struct json_command utxopsbt_command = {
 	"utxopsbt",
