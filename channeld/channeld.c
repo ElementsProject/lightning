@@ -2091,7 +2091,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 
 static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 {
-	const struct witness_stack **ws;
+	const struct witness **witnesses;
 	struct channel_id cid;
 	struct bitcoin_txid txid;
 
@@ -2099,7 +2099,7 @@ static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 	 * This happens when they've/we've exchanged channel_ready,
 	 * but they did not receive our channel_ready. */
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
-				    cast_const3(struct witness_stack ***, &ws)))
+				    cast_const3(struct witness ***, &witnesses)))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 			    "Bad tx_signatures %s",
 			    tal_hex(msg, msg));
