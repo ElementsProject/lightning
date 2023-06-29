@@ -30,9 +30,6 @@ struct txprepare {
 	struct wally_psbt *psbt;
 	u32 feerate;
 
-	/* Once we have reserved all the inputs, this is set. */
-	struct amount_sat change_amount;
-
 	/* For withdraw, we actually send immediately. */
 	bool is_withdraw;
 
@@ -238,48 +235,6 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
-/* newaddr has given us a change address. */
-static struct command_result *newaddr_done(struct command *cmd,
-					   const char *buf,
-					   const jsmntok_t *result,
-					   struct txprepare *txp)
-{
-	size_t num = tal_count(txp->outputs), pos;
-	const jsmntok_t *addr = json_get_member(buf, result, "bech32");
-
-	/* Insert change in random position in outputs */
-	tal_resize(&txp->outputs, num+1);
-	pos = pseudorand(num+1);
-	memmove(txp->outputs + pos + 1,
-		txp->outputs + pos,
-		sizeof(txp->outputs[0]) * (num - pos));
-
-	txp->outputs[pos].amount = txp->change_amount;
-	txp->outputs[pos].is_to_external = false;
-	if (json_to_address_scriptpubkey(txp, chainparams, buf, addr,
-					 &txp->outputs[pos].script)
-	    != ADDRESS_PARSE_SUCCESS) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Change address '%.*s' unparsable?",
-				    addr->end - addr->start,
-				    buf + addr->start);
-	}
-
-	return finish_txprepare(cmd, txp);
-}
-
-static bool resolve_all_output_amount(struct txprepare *txp,
-				      struct amount_sat excess)
-{
-	if (!amount_sat_greater_eq(excess, chainparams->dust_limit))
-		return false;
-
-	assert(amount_sat_eq(txp->outputs[txp->all_output_idx].amount,
-			     AMOUNT_SAT(-1ULL)));
-	txp->outputs[txp->all_output_idx].amount = excess;
-	return true;
-}
-
 /* fundpsbt/utxopsbt gets a viable PSBT for us. */
 static struct command_result *psbt_created(struct command *cmd,
 					   const char *buf,
@@ -287,7 +242,6 @@ static struct command_result *psbt_created(struct command *cmd,
 					   struct txprepare *txp)
 {
 	const jsmntok_t *psbttok;
-	struct out_req *req;
 	struct amount_msat excess_msat;
 	struct amount_sat excess;
 	u32 weight;
@@ -328,32 +282,12 @@ static struct command_result *psbt_created(struct command *cmd,
 				    result->end - result->start,
 				    buf + result->start);
 
-	/* If we have an "all" output, now we can derive its value: excess
-	 * in this case will be total value after inputs paid for themselves. */
+	/* If we have an "all" output, we now know its value ("excess_msat") */
 	if (txp->all_output_idx != -1) {
-		if (!resolve_all_output_amount(txp, excess))
-			return command_fail(cmd, FUND_CANNOT_AFFORD,
-					    "Insufficient funds to make"
-					    " 'all' output");
-
-		/* Never produce change if they asked for all */
-		excess = AMOUNT_SAT(0);
+		txp->outputs[txp->all_output_idx].amount = excess;
 	}
 
-	/* So, do we need change? */
-	txp->change_amount = change_amount(excess, txp->feerate, weight);
-	if (amount_sat_eq(txp->change_amount, AMOUNT_SAT(0)))
-		return finish_txprepare(cmd, txp);
-
-	/* Ask for a change address */
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "newaddr",
-				    newaddr_done,
-				    /* It would be nice to unreserve inputs,
-				     * but probably won't happen. */
-				    forward_error,
-				    txp);
-	return send_outreq(cmd->plugin, req);
+	return finish_txprepare(cmd, txp);
 }
 
 /* Common point for txprepare and withdraw */
@@ -399,6 +333,7 @@ static struct command_result *txprepare_continue(struct command *cmd,
 		json_add_string(req->js, "satoshi", "all");
 
 	json_add_u32(req->js, "startweight", txp->weight);
+	json_add_bool(req->js, "excess_as_change", true);
 
 	json_add_string(req->js, "feerate", feerate);
 	return send_outreq(cmd->plugin, req);
