@@ -2161,6 +2161,11 @@ static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 }
 #endif /* DEVELOPER */
 
+static void gossipd_failed(struct daemon_conn *gossipd)
+{
+	status_failed(STATUS_FAIL_GOSSIP_IO, "gossipd exited?");
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -2199,6 +2204,7 @@ int main(int argc, char *argv[])
 	daemon->gossipd = daemon_conn_new(daemon, GOSSIPCTL_FD,
 					  recv_gossip, NULL,
 					  daemon);
+	tal_add_destructor(daemon->gossipd, gossipd_failed);
 
 	/* Set up ecdh() function so it uses our HSM fd, and calls
 	 * status_failed on error. */
