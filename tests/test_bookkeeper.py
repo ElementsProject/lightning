@@ -4,8 +4,7 @@ from pyln.client import Millisatoshi
 from db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT,
-    anchor_expected
+    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
 )
 
 from pathlib import Path
@@ -337,7 +336,6 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
-@pytest.mark.developer("dev-force-features")
 def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     """
     Test that a lease is correctly recorded if bookkeeper was off
@@ -347,10 +345,8 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'plugin': str(coin_mvt_plugin),
-            'disable-plugin': 'bookkeeper'}
-
-    if not anchor_expected():
-        opts['dev-force-features'] = '+21'
+            'disable-plugin': 'bookkeeper',
+            'experimental-anchors': None}
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
