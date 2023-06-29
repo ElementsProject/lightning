@@ -1203,11 +1203,6 @@ mfc_psbt_acquired(struct multifundchannel_command *mfc)
 	 * for the life of the tx */
 	psbt_add_serials(mfc->psbt, TX_INITIATOR);
 
-	/* We also mark all of our inputs as *ours*, so we
-	 * can easily identify them for `signpsbt`, later */
-	for (size_t i = 0; i < mfc->psbt->num_inputs; i++)
-		psbt_input_mark_ours(mfc->psbt, &mfc->psbt->inputs[i]);
-
 	return perform_channel_start(mfc);
 }
 
@@ -1371,6 +1366,10 @@ after_fundpsbt(struct command *cmd,
 
 	if (!psbt_set_version(mfc->psbt, 2))
 		goto fail;
+
+	/* Mark our inputs now, so we unreserve correctly on failure! */
+	for (size_t i = 0; i < mfc->psbt->num_inputs; i++)
+		psbt_input_mark_ours(mfc->psbt, &mfc->psbt->inputs[i]);
 
 	field = json_get_member(buf, result, "feerate_per_kw");
 	if (!field || !json_to_u32(buf, field, &mfc->feerate_per_kw))
