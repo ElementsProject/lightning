@@ -87,8 +87,7 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "gossip_store_mark_channel_deleted called!\n"); abort(); }
 /* Generated stub for gossip_store_new */
-struct gossip_store *gossip_store_new(struct routing_state *rstate UNNEEDED,
-				      struct list_head *peers UNNEEDED)
+struct gossip_store *gossip_store_new(struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "gossip_store_new called!\n"); abort(); }
 /* Generated stub for memleak_add_helper_ */
 void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,

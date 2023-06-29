@@ -37,6 +37,16 @@
 #include <gossipd/seeker.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
+const struct node_id *peer_node_id(const struct peer *peer)
+{
+	return &peer->id;
+}
+
+bool peer_node_id_eq(const struct peer *peer, const struct node_id *node_id)
+{
+	return node_id_eq(&peer->id, node_id);
+}
+
 /*~ A channel consists of a `struct half_chan` for each direction, each of
  * which has a `flags` word from the `channel_update`; bit 1 is
  * ROUTING_FLAGS_DISABLED in the `channel_update`.  But we also keep a local
@@ -83,8 +93,8 @@ static void destroy_peer(struct peer *peer)
 {
 	struct node *node;
 
-	/* Remove it from the peers list */
-	list_del_from(&peer->daemon->peers, &peer->list);
+	/* Remove it from the peers table */
+	peer_node_id_map_del(peer->daemon->peers, peer);;
 
 	/* If we have a channel with this peer, disable it. */
 	node = get_node(peer->daemon->rstate, &peer->id);
@@ -95,12 +105,7 @@ static void destroy_peer(struct peer *peer)
 /* Search for a peer. */
 struct peer *find_peer(struct daemon *daemon, const struct node_id *id)
 {
-	struct peer *peer;
-
-	list_for_each(&daemon->peers, peer, list)
-		if (node_id_eq(&peer->id, id))
-			return peer;
-	return NULL;
+	return peer_node_id_map_get(daemon->peers, id);
 }
 
 /* Increase a peer's gossip_counter, if peer not NULL */
@@ -486,8 +491,8 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
 
-	/* We keep a list so we can find peer by id */
-	list_add_tail(&peer->daemon->peers, &peer->list);
+	/* We keep a htable so we can find peer by id */
+	peer_node_id_map_add(daemon->peers, peer);
 	tal_add_destructor(peer, destroy_peer);
 
 	node = get_node(daemon->rstate, &peer->id);
@@ -754,26 +759,26 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		local_disable_chan(daemon, c, half_chan_idx(local_node, c));
 }
 
-struct peer *random_peer(struct daemon *daemon,
-			 bool (*check_peer)(const struct peer *peer))
+struct peer *first_random_peer(struct daemon *daemon,
+			       struct peer_node_id_map_iter *it)
 {
-	u64 target = UINT64_MAX;
-	struct peer *best = NULL, *i;
+	return peer_node_id_map_pick(daemon->peers, pseudorand_u64(), it);
+}
 
-	/* Reservoir sampling */
-	list_for_each(&daemon->peers, i, list) {
-		u64 r;
+struct peer *next_random_peer(struct daemon *daemon,
+			      const struct peer *first,
+			      struct peer_node_id_map_iter *it)
+{
+	struct peer *p;
 
-		if (!check_peer(i))
-			continue;
+	p = peer_node_id_map_next(daemon->peers, it);
+	if (!p)
+		p = peer_node_id_map_first(daemon->peers, it);
 
-		r = pseudorand_u64();
-		if (r <= target) {
-			best = i;
-			target = r;
-		}
-	}
-	return best;
+	/* Full circle? */
+	if (p == first)
+		return NULL;
+	return p;
 }
 
 /* This is called when lightningd or connectd closes its connection to
@@ -808,7 +813,6 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 
 	daemon->rstate = new_routing_state(daemon,
 					   &daemon->id,
-					   &daemon->peers,
 					   &daemon->timers,
 					   take(dev_gossip_time),
 					   dev_fast_gossip,
@@ -887,6 +891,7 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_ptr(memtable, msg);
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
+	memleak_scan_htable(memtable, &daemon->peers->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -1163,7 +1168,8 @@ int main(int argc, char *argv[])
 	subdaemon_setup(argc, argv);
 
 	daemon = tal(NULL, struct daemon);
-	list_head_init(&daemon->peers);
+	daemon->peers = tal(daemon, struct peer_node_id_map);
+	peer_node_id_map_init(daemon->peers);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->node_announce_timer = NULL;
 	daemon->node_announce_regen_timer = NULL;

@@ -16,8 +16,7 @@
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate,
-				      struct list_head *peers);
+struct gossip_store *gossip_store_new(struct routing_state *rstate);
 
 /**
  * Load the initial gossip store, if any.

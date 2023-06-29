@@ -160,6 +160,8 @@ static struct peer *random_seeker(struct seeker *seeker,
 				  bool (*check_peer)(const struct peer *peer))
 {
 	struct peer *peer = seeker->preferred_peer_softref;
+	struct peer *first;
+	struct peer_node_id_map_iter it;
 
 	/* 80% chance of immediately choosing a peer who reported the missing
 	 * stuff: they presumably can tell us more about it.  We don't
@@ -171,7 +173,14 @@ static struct peer *random_seeker(struct seeker *seeker,
 		return peer;
 	}
 
-	return random_peer(seeker->daemon, check_peer);
+	/* Rotate through, so we don't favor a single peer. */
+	peer = first = first_random_peer(seeker->daemon, &it);
+	while (peer) {
+		if (check_peer(peer))
+			break;
+		peer = next_random_peer(seeker->daemon, first, &it);
+	}
+	return peer;
 }
 
 static bool peer_made_progress(struct seeker *seeker)
@@ -741,7 +750,8 @@ static void probe_many_random_scids(struct seeker *seeker)
 
 static void check_firstpeer(struct seeker *seeker)
 {
-	struct peer *peer = seeker->random_peer_softref, *p;
+	struct peer *peer = seeker->random_peer_softref;
+	struct peer_node_id_map_iter it;
 
 	/* It might have died, pick another. */
 	if (!peer) {
@@ -764,7 +774,10 @@ static void check_firstpeer(struct seeker *seeker)
 	/* Other peers can gossip now. */
 	status_peer_debug(&peer->id, "seeker: startup peer finished");
 	clear_softref(seeker, &seeker->random_peer_softref);
-	list_for_each(&seeker->daemon->peers, p, list) {
+
+	for (struct peer *p = peer_node_id_map_first(seeker->daemon->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(seeker->daemon->peers, &it)) {
 		if (p == peer)
 			continue;
 
