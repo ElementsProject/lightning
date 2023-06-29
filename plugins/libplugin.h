@@ -372,6 +372,7 @@ struct plugin_timer *plugin_timer_(struct plugin *p,
 
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
+void plugin_logv(struct plugin *p, enum log_level l, const char *fmt, va_list ap);
 
 /* Notify the caller of something. */
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method);
