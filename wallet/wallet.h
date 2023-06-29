@@ -483,6 +483,20 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 			      const struct utxo **excludes);
 
 /**
+ * wallet_has_funds: do we have sufficient other UTXOs for this amount?
+ * @w: the wallet
+ * @excludes: the utxos not to count (tal_arr or NULL)
+ * @current_blockheight: current chain length.
+ * @sats: the target
+ *
+ * This is a gross estimate, since it doesn't take into account the fees we
+ * would need to actually spend these utxos!
+ */
+bool wallet_has_funds(struct wallet *wallet,
+		      const struct utxo **excludes,
+		      u32 current_blockheight,
+		      struct amount_sat sats);
+/**
  * wallet_add_onchaind_utxo - Add a UTXO with spending info from onchaind.
  *
  * Usually we add UTXOs by looking at transactions, but onchaind tells

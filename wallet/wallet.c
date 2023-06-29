@@ -604,6 +604,69 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+
+bool wallet_has_funds(struct wallet *w,
+		      const struct utxo **excludes,
+		      u32 current_blockheight,
+		      struct amount_sat sats)
+{
+	struct db_stmt *stmt;
+	struct amount_sat total = AMOUNT_SAT(0);
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", option_anchor_outputs"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey "
+					", reserved_til"
+					", csv_lock"
+					", is_in_coinbase"
+					" FROM outputs"
+					" WHERE status = ?"
+					" OR (status = ? AND reserved_til <= ?)"));
+	db_bind_int(stmt, 0, output_status_in_db(OUTPUT_STATE_AVAILABLE));
+	db_bind_int(stmt, 1, output_status_in_db(OUTPUT_STATE_RESERVED));
+	db_bind_u64(stmt, 2, current_blockheight);
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct utxo *utxo = wallet_stmt2output(tmpctx, stmt);
+
+		if (excluded(excludes, utxo)
+ 		    || !deep_enough(-1U, utxo, current_blockheight)) {
+			continue;
+		}
+
+		/* Overflow Should Not Happen */
+		if (!amount_sat_add(&total, total, utxo->amount)) {
+			db_fatal("Invalid value for %s: %s",
+				 type_to_string(tmpctx,
+						struct bitcoin_outpoint,
+						&utxo->outpoint),
+				 fmt_amount_sat(tmpctx, utxo->amount));
+		}
+
+		/* If we've found enough, answer is yes. */
+		if (amount_sat_greater_eq(total, sats)) {
+			tal_free(stmt);
+			return true;
+		}
+	}
+
+	/* Insufficient funds! */
+	tal_free(stmt);
+	return false;
+}
+
 bool wallet_add_onchaind_utxo(struct wallet *w,
 			      const struct bitcoin_outpoint *outpoint,
 			      const u8 *scriptpubkey,

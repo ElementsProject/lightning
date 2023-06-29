@@ -441,6 +441,10 @@ struct channel *find_channel_by_alias(const struct peer *peer,
 				      const struct short_channel_id *alias,
 				      enum side side);
 
+/* Do we have any channel with option_anchors_zero_fee_htlc_tx?  (i.e. we
+ * might need to CPFP the fee if it force closes!) */
+bool have_anchor_channel(struct lightningd *ld);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig);

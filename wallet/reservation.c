@@ -10,6 +10,7 @@
 #include <common/key_derive.h>
 #include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -436,6 +437,52 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	return ld->topology->tip->height - minconf + 1;
 }
 
+/* Returns false if it needed to create change, but couldn't afford. */
+static bool change_for_emergency(struct lightningd *ld,
+				 bool have_anchor_channel,
+				 struct utxo **utxos,
+				 u32 feerate_per_kw,
+				 u32 weight,
+				 struct amount_sat *excess,
+				 struct amount_sat *change)
+{
+	struct amount_sat fee;
+
+	/* Only needed for anchor channels */
+	if (!have_anchor_channel)
+		return true;
+
+	/* Fine if rest of wallet has funds. */
+	if (wallet_has_funds(ld->wallet,
+			     cast_const2(const struct utxo **, utxos),
+			     get_block_height(ld->topology),
+			     ld->emergency_sat))
+		return true;
+
+	/* If we can afford with existing change output, great (or
+	 * ld->emergency_sat is 0) */
+	if (amount_sat_greater_eq(change_amount(*change,
+						feerate_per_kw, weight),
+				  ld->emergency_sat))
+		return true;
+
+	/* Try splitting excess to add to change. */
+	fee = change_fee(feerate_per_kw, weight);
+	if (!amount_sat_sub(excess, *excess, fee)
+	    || !amount_sat_sub(excess, *excess, ld->emergency_sat))
+		return false;
+
+	if (!amount_sat_add(change, *change, fee)
+	    || !amount_sat_add(change, *change, ld->emergency_sat))
+		abort();
+
+	/* We *will* get a change output now! */
+	assert(amount_sat_eq(change_amount(*change, feerate_per_kw,
+						weight),
+			     ld->emergency_sat));
+	return true;
+}
+
 static struct command_result *json_fundpsbt(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *obj UNNEEDED,
@@ -447,6 +494,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	struct amount_sat *amount, input, diff, change;
 	bool all, *excess_as_change, *nonwrapped;
 	u32 *locktime, *reserve, maxheight;
+	u32 current_height;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
@@ -468,6 +516,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
+	current_height = get_block_height(cmd->ld->topology);
+
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
 
@@ -479,7 +529,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		u32 utxo_weight;
 
 		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
-					cmd->ld->topology->tip->height,
+					current_height,
 					&diff,
 					*feerate_per_kw,
 					maxheight,
@@ -554,6 +604,17 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		diff = AMOUNT_SAT(0);
 	} else {
 		change = AMOUNT_SAT(0);
+	}
+
+	/* If needed, add change output for emergency_sat */
+	if (!change_for_emergency(cmd->ld,
+				  have_anchor_channel(cmd->ld),
+				  utxos, *feerate_per_kw, *weight,
+				  &diff, &change)) {
+		return command_fail(cmd, FUND_CANNOT_AFFORD_WITH_EMERGENCY,
+				    "We would not have enough left for min-emergency-msat %s",
+				    fmt_amount_sat(tmpctx,
+						   cmd->ld->emergency_sat));
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,
@@ -722,6 +783,17 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		excess = AMOUNT_SAT(0);
 	} else {
 		change = AMOUNT_SAT(0);
+	}
+
+	/* If needed, add change output for emergency_sat */
+	if (!change_for_emergency(cmd->ld,
+				  have_anchor_channel(cmd->ld),
+				  utxos, *feerate_per_kw, *weight,
+				  &excess, &change)) {
+		return command_fail(cmd, FUND_CANNOT_AFFORD_WITH_EMERGENCY,
+				    "We would not have enough left for min-emergency-msat %s",
+				    fmt_amount_sat(tmpctx,
+						   cmd->ld->emergency_sat));
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
