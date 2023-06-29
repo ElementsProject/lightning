@@ -1116,6 +1116,25 @@ static char *opt_set_msat(const char *arg, struct amount_msat *amt)
 	return NULL;
 }
 
+static char *opt_set_sat(const char *arg, struct amount_sat *sat)
+{
+	struct amount_msat msat;
+	if (!parse_amount_msat(&msat, arg, strlen(arg)))
+		return tal_fmt(NULL, "Unable to parse millisatoshi '%s'", arg);
+	if (!amount_msat_to_sat(sat, msat))
+		return tal_fmt(NULL, "'%s' is not a whole number of sats", arg);
+	return NULL;
+}
+
+static bool opt_show_sat(char *buf, size_t len, const struct amount_sat *sat)
+{
+	struct amount_msat msat;
+	if (!amount_sat_to_msat(&msat, *sat))
+		abort();
+	return opt_show_u64(buf, len,
+			    &msat.millisatoshis); /* Raw: show sats number */
+}
+
 static char *opt_set_wumbo(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
@@ -1427,6 +1446,9 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--commit-fee", OPT_SHOWINT,
 		       opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
 		       "Percentage of fee to request for their commitment");
+	clnopt_witharg("--min-emergency-msat", OPT_SHOWMSATS,
+		       opt_set_sat, opt_show_sat, &ld->emergency_sat,
+		       "Amount to leave in wallet for spending anchor closes");
 	clnopt_witharg("--subdaemon",
 		       OPT_MULTI,
 		       opt_subdaemon, NULL,

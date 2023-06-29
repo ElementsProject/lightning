@@ -440,6 +440,11 @@ have to do that.
 This option specifies that these (comma-separated) types are to be
 accepted, and ignored.
 
+* **min-emergency-msat**=*msat*
+
+  This is the amount of funds to keep in the wallet to close anchor channels (which don't carry their own transaction fees).  It defaults to 25000sat, and is only maintained if there are any anchor channels (or, when opening an anchor channel).  This amount may be insufficient for multiple closes at once, however.
+  
+
 ### Cleanup control options:
 
 * **autoclean-cycle**=*SECONDS* [plugin `autoclean`, *dynamic*]

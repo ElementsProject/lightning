@@ -365,6 +365,9 @@ struct lightningd {
 
 	/* --experimental-upgrade-protocol */
 	bool experimental_upgrade_protocol;
+
+	/* For anchors: how much do we keep for spending close txs? */
+	struct amount_sat emergency_sat;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
