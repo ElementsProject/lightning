@@ -13,8 +13,6 @@ struct migration {
 	void (*func)(struct plugin *p, struct db *db);
 };
 
-static struct plugin *plugin;
-
 static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db);
 
 /* Do not reorder or remove elements from this array.
@@ -173,7 +171,7 @@ static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db)
 			continue;
 		}
 
-		plugin_log(plugin, LOG_INFORM,
+		plugin_log(p, LOG_INFORM,
 			   "Duplicate 'lease_fee' found for"
 			   " account %"PRIu64", deleting dupe",
 			   id);
@@ -187,30 +185,22 @@ static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db)
 	tal_free(stmt);
 }
 
-/* Implement db_fatal, as a wrapper around fatal.
- * We use a ifndef block so that it can get be
- * implemented in a test file first, if necessary */
-#ifndef DB_FATAL
-#define DB_FATAL
-void db_fatal(const char *fmt, ...)
+static void db_error(struct plugin *plugin, bool fatal, const char *fmt, va_list ap)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	plugin_errv(plugin, fmt, ap);
-	/* Won't actually exit, but va_end() required to balance va_start in standard. */
-	va_end(ap);
+	if (fatal)
+		plugin_errv(plugin, fmt, ap);
+	else
+		plugin_logv(plugin, LOG_BROKEN, fmt, ap);
 }
-#endif /* DB_FATAL */
 
 struct db *db_setup(const tal_t *ctx, struct plugin *p,
-		    const char *db_dsn, bool *created)
+		    const char *db_dsn,
+		    bool *created)
 {
 	bool migrated;
 	struct db *db;
 
-	/* Set global for db_fatal */
-	plugin = p;
-	db = db_open(ctx, db_dsn);
+	db = db_open(ctx, db_dsn, db_error, p);
 	db->report_changes_fn = NULL;
 
 	db_begin_transaction(db);
@@ -222,7 +212,7 @@ struct db *db_setup(const tal_t *ctx, struct plugin *p,
 	 * It's a good idea to do this every so often, and on db
 	 * upgrade is a reasonable time. */
 	if (migrated && !db->config->vacuum_fn(db))
-		db_fatal("Error vacuuming db: %s", db->error);
+		db_fatal(db, "Error vacuuming db: %s", db->error);
 
 	return db;
 }

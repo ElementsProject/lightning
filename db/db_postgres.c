@@ -92,7 +92,7 @@ static PGresult *db_postgres_do_exec(struct db_stmt *stmt)
 
 		switch (b->type) {
 		case DB_BINDING_UNINITIALIZED:
-			db_fatal("DB binding not initialized: position=%zu, "
+			db_fatal(stmt->db, "DB binding not initialized: position=%zu, "
 				 "query=\"%s\n",
 				 i, stmt->query->query);
 		case DB_BINDING_UINT64:
@@ -172,7 +172,7 @@ static u64 db_postgres_column_u64(struct db_stmt *stmt, int col)
 	size_t expected = sizeof(bin), actual = PQgetlength(res, stmt->row, col);
 
 	if (expected != actual)
-		db_fatal(
+		db_fatal(stmt->db,
 		    "u64 field doesn't match size: expected %zu, actual %zu\n",
 		    expected, actual);
 
@@ -187,7 +187,7 @@ static s64 db_postgres_column_int(struct db_stmt *stmt, int col)
 	size_t expected = sizeof(bin), actual = PQgetlength(res, stmt->row, col);
 
 	if (expected != actual)
-		db_fatal(
+		db_fatal(stmt->db,
 		    "s32 field doesn't match size: expected %zu, actual %zu\n",
 		    expected, actual);
 

@@ -6,6 +6,7 @@
 #include <ccan/strset/strset.h>
 #include <common/autodata.h>
 #include <common/utils.h>
+#include <stdarg.h>
 
 /**
  * Macro to annotate a named SQL query.
@@ -34,6 +35,10 @@ struct db {
 
 	/* DB-specific context */
 	void *conn;
+
+	/* function to log warnings, or fail (if fatal == true). vprintf-style */
+	void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap);
+	void *errorfn_arg;
 
 	/* The configuration for the current database driver */
 	const struct db_config *config;
@@ -182,9 +187,6 @@ struct db_config {
 			       const char *tablename,
 			       const char **colnames, size_t num_cols);
 };
-
-void db_fatal(const char *fmt, ...)
-	PRINTF_FMT(1, 2);
 
 /* Provide a way for DB backends to register themselves */
 AUTODATA_TYPE(db_backends, struct db_config);

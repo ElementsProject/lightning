@@ -28,7 +28,8 @@ sqlite3 *conn2sql(void *conn)
 	return wrapper->conn;
 }
 
-static void replicate_statement(struct db_sqlite3 *wrapper,
+static void replicate_statement(const struct db *db,
+				struct db_sqlite3 *wrapper,
 				const char *qry)
 {
 	sqlite3_stmt *stmt;
@@ -43,7 +44,7 @@ static void replicate_statement(struct db_sqlite3 *wrapper,
 	sqlite3_finalize(stmt);
 
 	if (err != SQLITE_DONE)
-		db_fatal("Failed to replicate query: %s: %s: %s",
+		db_fatal(db, "Failed to replicate query: %s: %s: %s",
 			 sqlite3_errstr(err),
 			 sqlite3_errmsg(wrapper->backup_conn),
 			 qry);
@@ -53,7 +54,7 @@ static void db_sqlite3_changes_add(struct db_sqlite3 *wrapper,
 				   struct db_stmt *stmt,
 				   const char *qry)
 {
-	replicate_statement(wrapper, qry);
+	replicate_statement(stmt->db, wrapper, qry);
 	db_changes_add(stmt, qry);
 }
 
@@ -125,7 +126,7 @@ static bool db_sqlite3_setup(struct db *db)
 	struct db_sqlite3 *wrapper;
 
 	if (!strstarts(db->filename, "sqlite3://") || strlen(db->filename) < 10)
-		db_fatal("Could not parse the wallet DSN: %s", db->filename);
+		db_fatal(db, "Could not parse the wallet DSN: %s", db->filename);
 
 	/* Strip the scheme from the dsn. */
 	filename = db->filename + strlen("sqlite3://");
@@ -143,14 +144,14 @@ static bool db_sqlite3_setup(struct db *db)
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
 
 	if (err != SQLITE_OK) {
-		db_fatal("failed to open database %s: %s", filename,
+		db_fatal(db, "failed to open database %s: %s", filename,
 			 sqlite3_errstr(err));
 	}
 	wrapper->conn = sql;
 
 	err = sqlite3_extended_result_codes(wrapper->conn, 1);
 	if (err != SQLITE_OK) {
-		db_fatal("failed to enable extended result codes: %s",
+		db_fatal(db, "failed to enable extended result codes: %s",
 			 sqlite3_errstr(err));
 	}
 
@@ -161,7 +162,7 @@ static bool db_sqlite3_setup(struct db *db)
 				      &wrapper->backup_conn,
 				      flags, NULL);
 		if (err != SQLITE_OK) {
-			db_fatal("failed to open backup database %s: %s",
+			db_fatal(db, "failed to open backup database %s: %s",
 				 backup_filename,
 				 sqlite3_errstr(err));
 		}
@@ -173,7 +174,7 @@ static bool db_sqlite3_setup(struct db *db)
 		sqlite3_finalize(stmt);
 
 		if (err != SQLITE_DONE) {
-			db_fatal("failed to use backup database %s: %s",
+			db_fatal(db, "failed to use backup database %s: %s",
 				 backup_filename,
 				 sqlite3_errstr(err));
 		}
@@ -189,13 +190,13 @@ static bool db_sqlite3_setup(struct db *db)
 							     wrapper->conn,
 							     "main");
 		if (!copier) {
-			db_fatal("failed to initiate copy to %s: %s",
+			db_fatal(db, "failed to initiate copy to %s: %s",
 				 backup_filename,
 				 sqlite3_errmsg(wrapper->backup_conn));
 		}
 		err = sqlite3_backup_step(copier, -1);
 		if (err != SQLITE_DONE) {
-			db_fatal("failed to copy database to %s: %s",
+			db_fatal(db, "failed to copy database to %s: %s",
 				 backup_filename,
 				 sqlite3_errstr(err));
 		}
@@ -232,7 +233,7 @@ static bool db_sqlite3_query(struct db_stmt *stmt)
 		int pos = i+1;
 		switch (b->type) {
 		case DB_BINDING_UNINITIALIZED:
-			db_fatal("DB binding not initialized: position=%zu, "
+			db_fatal(stmt->db, "DB binding not initialized: position=%zu, "
 				 "query=\"%s\n",
 				 i, stmt->query->query);
 		case DB_BINDING_UINT64:
@@ -332,7 +333,7 @@ static bool db_sqlite3_begin_tx(struct db *db)
 		db->error = tal_fmt(db, "Failed to begin a transaction: %s", errmsg);
 		return false;
 	}
-	replicate_statement(wrapper, "BEGIN TRANSACTION;");
+	replicate_statement(db, wrapper, "BEGIN TRANSACTION;");
 	return true;
 }
 
@@ -349,7 +350,7 @@ static bool db_sqlite3_commit_tx(struct db *db)
 		db->error = tal_fmt(db, "Failed to commit a transaction: %s", errmsg);
 		return false;
 	}
-	replicate_statement(wrapper, "COMMIT;");
+	replicate_statement(db, wrapper, "COMMIT;");
 	return true;
 }
 
@@ -432,7 +433,7 @@ static bool db_sqlite3_vacuum(struct db *db)
 		db->error = tal_fmt(db, "%s",
 				    sqlite3_errmsg(conn2sql(db->conn)));
 	sqlite3_finalize(stmt);
-	replicate_statement(wrapper, "VACUUM;");
+	replicate_statement(db, wrapper, "VACUUM;");
 
 	return err == SQLITE_DONE;
 }
@@ -495,7 +496,7 @@ static char **prepare_table_manip(const tal_t *ctx,
 	 * mirror changes to the db hook! */
 	bracket = strchr(sql, '(');
 	if (!strstarts(sql, "CREATE TABLE") || !bracket)
-		db_fatal("Bad sql from prepare_table_manip %s: %s",
+		db_fatal(db, "Bad sql from prepare_table_manip %s: %s",
 			 tablename, sql);
 
 	/* Split after ( by commas: any lower case is assumed to be a field */

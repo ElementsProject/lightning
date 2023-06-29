@@ -29,11 +29,9 @@ static bool db_column_null_warn(struct db_stmt *stmt, const char *colname,
 	if (!db_column_is_null(stmt, col))
 		return false;
 
-	/* FIXME: log broken? */
-#if DEVELOPER
-	db_fatal("Accessing a null column %s/%i in query %s",
-		 colname, col, stmt->query->query);
-#endif /* DEVELOPER */
+	db_warn(stmt->db, "Accessing a null column %s/%i in query %s",
+		colname, col, stmt->query->query);
+
 	return true;
 }
 
@@ -441,7 +439,8 @@ struct bitcoin_tx *db_col_tx(const tal_t *ctx, struct db_stmt *stmt, const char 
 	/* Column wasn't null, but we couldn't retrieve a valid wally_tx! */
 	u8 *tx_dup = tal_dup_arr(stmt, u8, src, len, 0);
 
-	db_fatal("db_col_tx: Invalid bitcoin transaction bytes retrieved: %s",
+	db_fatal(stmt->db,
+		 "db_col_tx: Invalid bitcoin transaction bytes retrieved: %s",
 		 tal_hex(stmt, tx_dup));
 	return NULL;
 }
@@ -486,7 +485,7 @@ void *db_col_arr_(const tal_t *ctx, struct db_stmt *stmt, const char *colname,
 	sourcelen = db_column_bytes(stmt, col);
 
 	if (sourcelen % bytes != 0)
-		db_fatal("%s: %s/%zu column size for %zu not a multiple of %s (%zu)",
+		db_fatal(stmt->db, "%s: %s/%zu column size for %zu not a multiple of %s (%zu)",
 			 caller, colname, col, sourcelen, label, bytes);
 
 	p = tal_arr_label(ctx, char, sourcelen, label);

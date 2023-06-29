@@ -49,21 +49,6 @@ struct channel_state_param {
 	const enum channel_state_bucket state;
 };
 
-/* Implement db_fatal, as a wrapper around fatal.
- * We use a ifndef block so that it can get be
- * implemented in a test file first, if necessary */
-#ifndef DB_FATAL
-#define DB_FATAL
-void db_fatal(const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	fatal_vfmt(fmt, ap);
-	va_end(ap);
-}
-#endif /* DB_FATAL */
-
 /* These go in db, so values cannot change (we can't put this into
  * lightningd/channel_state.h since it confuses cdump!) */
 static enum state_change state_change_in_db(enum state_change s)
@@ -648,7 +633,7 @@ bool wallet_has_funds(struct wallet *w,
 
 		/* Overflow Should Not Happen */
 		if (!amount_sat_add(&total, total, utxo->amount)) {
-			db_fatal("Invalid value for %s: %s",
+			db_fatal(w->db, "Invalid value for %s: %s",
 				 type_to_string(tmpctx,
 						struct bitcoin_outpoint,
 						&utxo->outpoint),
@@ -1269,7 +1254,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	if (!db_col_is_null(stmt, "last_tx")) {
 		last_tx = db_col_psbt_to_tx(tmpctx, stmt, "last_tx");
 		if (!last_tx)
-			db_fatal("Failed to decode inflight psbt %s",
+			db_fatal(w->db, "Failed to decode inflight psbt %s",
 				 tal_hex(tmpctx, db_col_arr(tmpctx, stmt,
 							    "last_tx", u8)));
 	} else
@@ -1555,7 +1540,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	if (!db_col_is_null(stmt, "last_tx")) {
 		last_tx = db_col_psbt_to_tx(tmpctx, stmt, "last_tx");
 		if (!last_tx)
-			db_fatal("Failed to decode channel %s psbt %s",
+			db_fatal(w->db, "Failed to decode channel %s psbt %s",
 				 type_to_string(tmpctx, struct channel_id, &cid),
 				 tal_hex(tmpctx, db_col_arr(tmpctx, stmt,
 							    "last_tx", u8)));
@@ -4637,7 +4622,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 
 	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
 	if (!amount_msat_add(&total, total, deleted))
-		db_fatal("Adding forward fees %s + %s overflowed",
+		db_fatal(w->db, "Adding forward fees %s + %s overflowed",
 			 type_to_string(tmpctx, struct amount_msat, &total),
 			 type_to_string(tmpctx, struct amount_msat, &deleted));
 
