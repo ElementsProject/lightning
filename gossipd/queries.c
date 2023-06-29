@@ -1052,17 +1052,16 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 
 void maybe_send_query_responses(struct daemon *daemon)
 {
-	/* Rotate through, so we don't favor a single peer. */
-	struct list_head used;
-	struct peer *p;
+	struct peer *first, *p;
+	struct peer_node_id_map_iter it;
 
-	list_head_init(&used);
-	while ((p = list_pop(&daemon->peers, struct peer, list)) != NULL) {
-		list_add(&used, &p->list);
+	/* Rotate through, so we don't favor a single peer. */
+	p = first = first_random_peer(daemon, &it);
+	while (p) {
 		if (maybe_send_query_responses_peer(p))
 			break;
+		p = next_random_peer(daemon, first, &it);
 	}
-	list_append_list(&daemon->peers, &used);
 }
 
 bool query_channel_range(struct daemon *daemon,

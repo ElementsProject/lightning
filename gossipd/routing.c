@@ -281,7 +281,6 @@ static bool in_txout_failures(struct routing_state *rstate,
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct node_id *local_id,
-					struct list_head *peers,
 					struct timers *timers,
 					const u32 *dev_gossip_time TAKES,
 					bool dev_fast_gossip,
@@ -291,7 +290,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->nodes = new_node_map(rstate);
 	rstate->timers = timers;
 	rstate->local_id = *local_id;
-	rstate->gs = gossip_store_new(rstate, peers);
+	rstate->gs = gossip_store_new(rstate);
 	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);

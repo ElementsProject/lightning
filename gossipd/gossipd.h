@@ -14,11 +14,21 @@
 #define CONNECTD2_FD 5
 
 struct chan;
+struct peer;
 struct channel_update_timestamps;
 struct broadcastable;
 struct lease_rates;
 struct seeker;
 struct dying_channel;
+
+/* Helpers for htable */
+const struct node_id *peer_node_id(const struct peer *peer);
+bool peer_node_id_eq(const struct peer *peer, const struct node_id *node_id);
+
+/* Defines struct peer_node_id_map */
+HTABLE_DEFINE_TYPE(struct peer,
+		   peer_node_id, node_id_hash, peer_node_id_eq,
+		   peer_node_id_map);
 
 /*~ The core daemon structure: */
 struct daemon {
@@ -26,7 +36,7 @@ struct daemon {
 	struct node_id id;
 
 	/* Peers we are gossiping to: id is unique */
-	struct list_head peers;
+	struct peer_node_id_map *peers;
 
 	/* Current blockheight: 0 means we're not up-to-date. */
 	u32 current_blockheight;
@@ -127,9 +137,14 @@ struct peer *find_peer(struct daemon *daemon, const struct node_id *id);
 /* This peer (may be NULL) gave is valid gossip. */
 void peer_supplied_good_gossip(struct peer *peer, size_t amount);
 
-/* Pick a random peer which passes check_peer */
-struct peer *random_peer(struct daemon *daemon,
-			 bool (*check_peer)(const struct peer *peer));
+/* Get a random peer.  NULL if no peers. */
+struct peer *first_random_peer(struct daemon *daemon,
+			       struct peer_node_id_map_iter *it);
+
+/* Get another... return NULL when we're back at frist. */
+struct peer *next_random_peer(struct daemon *daemon,
+			      const struct peer *first,
+			      struct peer_node_id_map_iter *it);
 
 /* Queue a gossip message for the peer: the subdaemon on the other end simply
  * forwards it to the peer. */

@@ -26,12 +26,21 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for first_random_peer */
+struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
+			       struct peer_node_id_map_iter *it UNNEEDED)
+{ fprintf(stderr, "first_random_peer called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
+/* Generated stub for next_random_peer */
+struct peer *next_random_peer(struct daemon *daemon UNNEEDED,
+			      const struct peer *first UNNEEDED,
+			      struct peer_node_id_map_iter *it UNNEEDED)
+{ fprintf(stderr, "next_random_peer called!\n"); abort(); }
 /* Generated stub for query_channel_range */
 bool query_channel_range(struct daemon *daemon UNNEEDED,
 			 struct peer *peer UNNEEDED,
@@ -52,10 +61,6 @@ bool query_short_channel_ids(struct daemon *daemon UNNEEDED,
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
-/* Generated stub for random_peer */
-struct peer *random_peer(struct daemon *daemon UNNEEDED,
-			 bool (*check_peer)(const struct peer *peer))
-{ fprintf(stderr, "random_peer called!\n"); abort(); }
 /* Generated stub for random_select */
 bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)
 { fprintf(stderr, "random_select called!\n"); abort(); }

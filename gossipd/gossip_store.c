@@ -39,9 +39,6 @@ struct gossip_store {
 	 * should it be needed */
 	struct routing_state *rstate;
 
-	/* This is daemon->peers for handling to update_peers_broadcast_index */
-	struct list_head *peers;
-
 	/* Disable compaction if we encounter an error during a prior
 	 * compaction */
 	bool disable_compaction;
@@ -263,8 +260,7 @@ close_old:
 	return 0;
 }
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate,
-				      struct list_head *peers)
+struct gossip_store *gossip_store_new(struct routing_state *rstate)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = gs->deleted = 0;
@@ -278,7 +274,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 	gs->rstate = rstate;
 	gs->disable_compaction = false;
 	gs->len = sizeof(gs->version);
-	gs->peers = peers;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
