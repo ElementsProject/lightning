@@ -1,5 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from decimal import Decimal
 from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import RpcError, Millisatoshi
 import pyln.proto.wire as wire
@@ -1111,6 +1112,7 @@ def test_funding_all_too_much(node_factory):
 
     addr, txid = l1.fundwallet(2**24 + 10000)
     l1.rpc.fundchannel(l2.info['id'], "all")
+    assert l1.daemon.is_in_log("'all' was too large for non-wumbo channel, trimming")
 
     # One reserved, confirmed output spent above, and one change.
     outputs = l1.rpc.listfunds()['outputs']
@@ -1842,7 +1844,14 @@ def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
                     {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
                      "amount": 50000}]
 
-    l1.rpc.multifundchannel(destinations)
+    # There should be change!
+    tx = l1.rpc.multifundchannel(destinations)['tx']
+    decoded = bitcoind.rpc.decoderawtransaction(tx)
+    assert len(decoded['vout']) == len(destinations) + 1
+    # Feerate should be about right, too!
+    fee = Decimal(2000000) / 10**8 * len(decoded['vin']) - sum(v['value'] for v in decoded['vout'])
+    assert 7450 < fee * 10**8 / decoded['weight'] * 1000 < 7550
+
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4], wait_for_mempool=1)
 
     for node in [l1, l2, l3, l4]:
