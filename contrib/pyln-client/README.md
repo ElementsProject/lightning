@@ -96,8 +96,8 @@ def init(options, configuration, plugin):
 
 
 @plugin.subscribe("connect")
-def on_connect(plugin, id, address, **kwargs):
-    plugin.log("Received connect event for peer {}".format(id))
+def on_connect(plugin, connect, **kwargs):
+    plugin.log("Received connect event for peer {}".format(connect))
 
 
 plugin.add_option('greeting', 'Hello', 'The greeting I should use.')
