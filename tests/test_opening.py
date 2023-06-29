@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected
+    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
 )
 
 from pathlib import Path
@@ -2166,11 +2166,16 @@ def test_no_anchor_liquidity_ads(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd has different feerates')
-def test_commitment_feerate(bitcoind, node_factory):
-    l1, l2 = node_factory.get_nodes(2)
+@pytest.mark.parametrize("anchors", [False, True])
+def test_commitment_feerate(bitcoind, node_factory, anchors):
+    opts = {}
+    if anchors:
+        opts['experimental-anchors'] = None
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
 
     opening_feerate = 2000
-    if anchor_expected():
+    if anchors:
         # anchors use lowball fees
         commitment_feerate = 3750
     else:
@@ -2197,13 +2202,13 @@ def test_commitment_feerate(bitcoind, node_factory):
     fee = int(tx['fees']['base'] * 100_000_000)
 
     # Weight is idealized worst case, and we don't meet it!
-    if anchor_expected():
+    if anchors:
         # 200 is the approximate cost estimate used for anchor outputs.
         assert tx['weight'] < 1124 - 200
     else:
         assert tx['weight'] < 724
 
-    if anchor_expected():
+    if anchors:
         # We pay for two anchors, but only produce one.
         fee -= 330
         weight = 1124

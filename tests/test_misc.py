@@ -9,7 +9,7 @@ from pyln.testing.utils import (
     wait_for, TailableProc, env, mine_funding_to_announce
 )
 from utils import (
-    account_balance, scriptpubkey_addr, check_coin_moves, anchor_expected
+    account_balance, scriptpubkey_addr, check_coin_moves
 )
 from ephemeral_port_reserve import reserve
 
@@ -1507,9 +1507,14 @@ def test_ipv4_and_ipv6(node_factory):
     not DEVELOPER or DEPRECATED_APIS, "Without DEVELOPER=1 we snap to "
     "FEERATE_FLOOR on testnets, and we test the new API."
 )
-def test_feerates(node_factory):
-    l1 = node_factory.get_node(options={'log-level': 'io',
-                                        'dev-no-fake-fees': True}, start=False)
+@pytest.mark.parametrize("anchors", [False, True])
+def test_feerates(node_factory, anchors):
+    opts = {'log-level': 'io',
+            'dev-no-fake-fees': True}
+    if anchors:
+        opts['experimental-anchors'] = None
+
+    l1 = node_factory.get_node(options=opts, start=False)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
         'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
     })
@@ -1631,7 +1636,7 @@ def test_feerates(node_factory):
     assert len(feerates['onchain_fee_estimates']) == 6
     assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['opening'] * 702 // 1000
     assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['mutual_close'] * 673 // 1000
-    if anchor_expected():
+    if anchors:
         assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_anchor_close'] * 1112 // 1000
     else:
         assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['unilateral_close'] * 598 // 1000
@@ -1647,13 +1652,9 @@ def test_feerates(node_factory):
         assert feerate['perkw']
         assert 'perkb' not in feerate
 
-    if anchor_expected(l1):
-        # option_anchor_outputs
-        assert htlc_timeout_cost == htlc_feerate * 666 // 1000
-        assert htlc_success_cost == htlc_feerate * 706 // 1000
-    else:
-        assert htlc_timeout_cost == htlc_feerate * 663 // 1000
-        assert htlc_success_cost == htlc_feerate * 703 // 1000
+    # These are always the non-zero-fee-anchors values.
+    assert htlc_timeout_cost == htlc_feerate * 663 // 1000
+    assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
 def test_logging(node_factory):
@@ -1953,11 +1954,14 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
-def test_bitcoind_feerate_floor(node_factory, bitcoind):
+@pytest.mark.parametrize("anchors", [False, True])
+def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
     """Don't return a feerate less than minrelaytxfee/mempoolminfee."""
-    l1 = node_factory.get_node()
+    opts = {}
+    if anchors:
+        opts['experimental-anchors'] = None
+    l1 = node_factory.get_node(options=opts)
 
-    anchors = anchor_expected(l1)
     assert l1.rpc.feerates('perkb') == {
         "perkb": {
             "opening": 30000,
@@ -1986,8 +1990,9 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "mutual_close_satoshis": 2523,
             "unilateral_close_satoshis": 4170 if anchors else 6578,
             "unilateral_close_nonanchor_satoshis": 6578,
-            "htlc_timeout_satoshis": 7326 if anchors else 7293,
-            "htlc_success_satoshis": 7766 if anchors else 7733,
+            # These are always the non-anchor versions!
+            "htlc_timeout_satoshis": 7293,
+            "htlc_success_satoshis": 7733,
         }
     }
 
@@ -2030,8 +2035,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             "mutual_close_satoshis": 3365,
             "unilateral_close_satoshis": 5561 if anchors else 6578,
             "unilateral_close_nonanchor_satoshis": 6578,
-            "htlc_timeout_satoshis": 7326 if anchors else 7293,
-            "htlc_success_satoshis": 7766 if anchors else 7733,
+            "htlc_timeout_satoshis": 7293,
+            "htlc_success_satoshis": 7733,
         }
     }
 
@@ -2078,8 +2083,8 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind):
             # This increases too (anchors uses min(100blocks,5 sat/vB))
             "unilateral_close_satoshis": 8341 if anchors else 6578,
             "unilateral_close_nonanchor_satoshis": 6578,
-            "htlc_timeout_satoshis": 7326 if anchors else 7293,
-            "htlc_success_satoshis": 7766 if anchors else 7733,
+            "htlc_timeout_satoshis": 7293,
+            "htlc_success_satoshis": 7733,
         }
     }
 

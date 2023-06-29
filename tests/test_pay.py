@@ -7,7 +7,7 @@ from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    VALGRIND, mine_funding_to_announce, first_scid, anchor_expected
+    VALGRIND, mine_funding_to_announce, first_scid
 )
 import copy
 import os
@@ -702,10 +702,14 @@ def test_sendpay(node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
-def test_sendpay_cant_afford(node_factory):
+@pytest.mark.parametrize("anchors", [False, True])
+def test_sendpay_cant_afford(node_factory, anchors):
     # Set feerates the same so we don't have to wait for update.
-    l1, l2 = node_factory.line_graph(2, fundamount=10**6,
-                                     opts={'feerates': (15000, 15000, 15000, 15000)})
+    opts = {'feerates': (15000, 15000, 15000, 15000)}
+    if anchors:
+        opts['experimental-anchors'] = None
+
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6, opts=opts)
 
     # Can't pay more than channel capacity.
     with pytest.raises(RpcError):
@@ -729,7 +733,7 @@ def test_sendpay_cant_afford(node_factory):
     # assert False
 
     # This is the fee, which needs to be taken into account for l1.
-    if anchor_expected(l1, l2):
+    if anchors:
         # option_anchor_outputs
         available = 10**9 - 44700000
     else:
