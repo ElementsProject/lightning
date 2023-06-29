@@ -2216,3 +2216,59 @@ def test_commitment_feerate(bitcoind, node_factory, anchors):
         weight = 724
     feerate_perkw = fee / (weight / 1000)
     assert commitment_feerate - 10 < feerate_perkw < commitment_feerate + 10
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd has different tx costs')
+def test_anchor_min_emergency(bitcoind, node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-anchors': None},
+                                     fundchannel=False)
+
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 5000000 / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
+
+    # Cost of tx itself is 3637.
+    with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
+        l1.rpc.fundchannel(l2.info['id'], f'{5000000 - 3637}sat')
+
+    l1.rpc.fundchannel(l2.info['id'], 'all')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Wait for l1 to see that spend.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    # Default is 25000 sats.
+    assert only_one(l1.rpc.listfunds()['outputs'])['amount_msat'] == Millisatoshi('25000sat')
+
+    # And we can't spend it, either!
+    addr2 = l2.rpc.newaddr()['bech32']
+    with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
+        l1.rpc.withdraw(addr2, '500sat')
+
+    with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
+        l1.rpc.withdraw(addr2, 'all')
+
+    # Even with onchain anchor channel, it still keeps reserve (just in case!).
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    # This workse, but will leave the emergency funds as change.
+    l1.rpc.withdraw(addr2, 'all')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    wait_for(lambda: [(o['amount_msat'], o['status']) for o in l1.rpc.listfunds()['outputs']] == [(Millisatoshi('25000sat'), 'confirmed')])
+
+    # Can't spend it!
+    with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
+        l1.rpc.withdraw(addr2, 'all')
+
+    # Once it's totally forgotten, we can spend that!
+    bitcoind.generate_block(99)
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'] == [])
+
+    # And it's *all* gone!
+    l1.rpc.withdraw(addr2, 'all')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: l1.rpc.listfunds()['outputs'] == [])
