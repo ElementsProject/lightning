@@ -85,7 +85,15 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 /**
  * db_open - Open or create a database
  */
-struct db *db_open(const tal_t *ctx, const char *filename);
+#define db_open(ctx, filename, errfn, arg)				\
+	db_open_((ctx), (filename),					\
+		 typesafe_cb_postargs(void, void *, (errfn), (arg),	\
+				      bool, const char *, va_list),		\
+		 (arg))
+
+struct db *db_open_(const tal_t *ctx, const char *filename,
+		    void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap),
+		    void *arg);
 
 /**
  * Report a statement that changes the wallet
@@ -110,4 +118,11 @@ const char **db_changes(struct db *db);
  * to re-use the normal db hook and replication logic.
  */
 struct db_stmt *db_prepare_untranslated(struct db *db, const char *query);
+
+/* Errors and warnings... */
+void db_fatal(const struct db *db, const char *fmt, ...)
+	PRINTF_FMT(2, 3);
+void db_warn(const struct db *db, const char *fmt, ...)
+	PRINTF_FMT(2, 3);
+
 #endif /* LIGHTNING_DB_UTILS_H */

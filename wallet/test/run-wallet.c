@@ -10,24 +10,15 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 }
 #define log_ db_log_
 
-#ifndef DB_FATAL
-#define DB_FATAL
 static char *wallet_err;
-void db_fatal(const char *fmt, ...)
+
+static void test_error(struct lightningd *ld, bool fatal, const char *fmt, va_list ap)
 {
-	va_list ap;
-
 	/* Fail hard if we're complaining about not being in transaction */
 	assert(!strstarts(fmt, "No longer in transaction"));
 
-	/* Fail hard if we're complaining about not being in transaction */
-	assert(!strstarts(fmt, "No longer in transaction"));
-
-	va_start(ap, fmt);
 	wallet_err = tal_vfmt(NULL, fmt, ap);
-	va_end(ap);
 }
-#endif /* DB_FATAL */
 
 #include "wallet/wallet.c"
 #include "lightningd/hsm_control.c"
@@ -159,6 +150,9 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for fatal_vfmt */
+void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
+{ fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -501,6 +495,10 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for logv */
+void logv(struct log *log UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
+	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
+{ fprintf(stderr, "logv called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     struct htlc_in *hin UNNEEDED,
@@ -1045,7 +1043,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	close(fd);
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
-	w->db = db_open(w, dsn);
+	w->db = db_open(w, dsn, test_error, ld);
 	w->db->report_changes_fn = NULL;
 	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);

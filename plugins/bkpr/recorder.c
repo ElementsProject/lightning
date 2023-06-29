@@ -73,7 +73,7 @@ static struct chain_event **find_chain_events(const tal_t *ctx,
 
 	db_query_prepared(stmt);
 	if (stmt->error)
-		db_fatal("find_chain_events err: %s", stmt->error);
+		db_fatal(stmt->db, "find_chain_events err: %s", stmt->error);
 	results = tal_arr(ctx, struct chain_event *, 0);
 	while (db_step(stmt)) {
 		struct chain_event *e = stmt2chain_event(results, stmt);
@@ -1497,10 +1497,10 @@ static void insert_chain_fees_diff(struct db *db,
 		/* These should apply perfectly, as we sorted them by
 		 * insert order */
 		if (!amount_msat_add(&current_amt, current_amt, credit))
-			db_fatal("Overflow when adding onchain fees");
+			db_fatal(db, "Overflow when adding onchain fees");
 
 		if (!amount_msat_sub(&current_amt, current_amt, debit))
-			db_fatal("Underflow when subtracting onchain fees");
+			db_fatal(db, "Underflow when subtracting onchain fees");
 
 	}
 	tal_free(stmt);
@@ -1512,7 +1512,7 @@ static void insert_chain_fees_diff(struct db *db,
 	if (!amount_msat_sub(&credit, amount, current_amt)) {
 		credit = AMOUNT_MSAT(0);
 		if (!amount_msat_sub(&debit, current_amt, amount))
-			db_fatal("shouldn't happen, unable to subtract");
+			db_fatal(db, "shouldn't happen, unable to subtract");
 	} else
 		debit = AMOUNT_MSAT(0);
 

@@ -23,22 +23,6 @@
 #include <unistd.h>
 #include <wire/wire.h>
 
-static char *db_err;
-#ifndef DB_FATAL
-#define DB_FATAL
-void db_fatal(const char *fmt, ...)
-{
-	va_list ap;
-
-	/* Fail hard if we're complaining about not being in transaction */
-	assert(!strstarts(fmt, "No longer in transaction"));
-
-	va_start(ap, fmt);
-	db_err = tal_vfmt(NULL, fmt, ap);
-	va_end(ap);
-}
-#endif /* DB_FATAL */
-
 #include "plugins/bkpr/db.c"
 
 
@@ -424,7 +408,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 	account_add(db, wal_acct);
 	account_add(db, ext_acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
+
 
 	/* Send funds to an external address
 	 * tag     utxo_id vout    txid    debits  credits acct_id
@@ -460,12 +444,10 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 				 '1', 0, '*'));
 	maybe_update_onchain_fees(ctx, db, &txid);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == 2);
 
@@ -509,7 +491,6 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	account_add(db, ext_acct);
 	account_add(db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Close a channel */
 	/* tag     utxo_id vout    txid    debits  credits acct_id
@@ -579,7 +560,6 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 
 	/* Should be no fees yet */
 	ofs = list_chain_fees(ctx, db);
-	CHECK_MSG(!db_err, db_err);
 	CHECK(tal_count(ofs) == 0);
 
 	log_chain_event(db, acct,
@@ -601,7 +581,6 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
 	maybe_update_onchain_fees(ctx, db, &txid);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* txid 2222 */
 	db_begin_transaction(db);
@@ -627,14 +606,12 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	maybe_mark_account_onchain(db, acct);
 	CHECK(acct->onchain_resolved_block == 0);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Expect: 1 onchain fee records, all for chan-1 */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	ofs1 = account_onchain_fees(ctx, db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
 	CHECK(tal_count(ofs) == 1);
@@ -687,14 +664,12 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	maybe_update_onchain_fees(ctx, db, &txid);
 
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Expect: onchain fee records for tx except channel close */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	ofs1 = account_onchain_fees(ctx, db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
 	CHECK(tal_count(ofs) == 3);
@@ -703,7 +678,6 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->onchain_resolved_block == 0);
 	db_begin_transaction(db);
 	maybe_mark_account_onchain(db, acct);
-	CHECK_MSG(!db_err, db_err);
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
 	err = update_channel_onchain_fees(ctx, db, acct);
 	CHECK_MSG(!err, err);
@@ -781,7 +755,6 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	account_add(db, acct);
 	account_add(db, acct2);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Assumption that we rely on later */
 	CHECK(acct->db_id < acct2->db_id);
@@ -840,14 +813,12 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 
 	maybe_update_onchain_fees(ctx, db, &txid);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Expect: 5 onchain fee records, totaling to 151/150msat ea,
 	 * none for wallet */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == 5);
 
@@ -924,7 +895,6 @@ static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
 				 'A');
 	log_channel_event(db, acct3, ev3);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	db_begin_transaction(db);
 	chan_evs = account_get_channel_events(ctx, db, acct1);
@@ -963,7 +933,6 @@ static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
 	CHECK(amount_msat_eq(rebals[0]->fee_msat, AMOUNT_MSAT(12)));
 
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	return true;
 }
@@ -984,7 +953,6 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	account_add(db, acct);
 	account_add(db, acct2);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	ev1 = tal(ctx, struct channel_event);
 	ev1->payment_id = tal(ev1, struct sha256);
@@ -1041,13 +1009,10 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	log_channel_event(db, acct2, ev3);
 
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	db_begin_transaction(db);
 	chan_evs = account_get_channel_events(ctx, db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
-	CHECK_MSG(!db_err, db_err);
 
 	CHECK(streq(acct->name, chan_evs[0]->acct_name));
 	CHECK(streq(acct->name, chan_evs[1]->acct_name));
@@ -1077,7 +1042,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	account_add(db, acct);
 	account_add(db, acct2);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* This event spends the second inserted event */
 	ev1 = tal(ctx, struct chain_event);
@@ -1101,7 +1065,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev1);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	ev2->tag = tal_fmt(ctx, "deposit");
 	ev2->origin_acct = tal_fmt(ctx, "wallet");
@@ -1145,19 +1108,16 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	/* log new event to a different account.. */
 	log_chain_event(db, acct2, ev3);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Try to add an already exiting event */
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev2);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Ok now we ge the list, there should only be two */
 	db_begin_transaction(db);
 	chain_evs = account_get_chain_events(ctx, db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 	CHECK(tal_count(chain_evs) == 2);
 
 	CHECK(streq(acct->name, chain_evs[0]->acct_name));
@@ -1183,7 +1143,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	log_chain_event(db, acct, ev2);
 	chain_evs = account_get_chain_events(ctx, db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* There should be four now */
 	CHECK(tal_count(chain_evs) == 4);
@@ -1269,7 +1228,6 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 				  &balances, NULL);
 	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	/* Should have 2 balances */
 	CHECK(tal_count(balances) == 2);
@@ -1328,12 +1286,10 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	db_begin_transaction(db);
 	account_add(db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	db_begin_transaction(db);
 	acct_list = list_accounts(ctx, db);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 	CHECK(tal_count(acct_list) == 1);
 	accountseq(acct_list[0], acct);
 
@@ -1343,19 +1299,16 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	db_begin_transaction(db);
 	account_add(db, acct);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	db_begin_transaction(db);
 	acct_list = list_accounts(ctx, db);
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 	CHECK(tal_count(acct_list) == 2);
 
 	/* Can we find an account ok? */
 	db_begin_transaction(db);
 	acct2 = find_account(ctx, db, "wallet");
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 	accountseq(acct, acct2);
 
 	/* Will we update an account's properties
@@ -1413,7 +1366,6 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->we_opened);
 
 	db_commit_transaction(db);
-	CHECK_MSG(!db_err, db_err);
 
 	return true;
 }

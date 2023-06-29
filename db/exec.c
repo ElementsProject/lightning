@@ -113,7 +113,7 @@ static void db_data_version_incr(struct db *db)
        db_bind_int(stmt, 0, db->data_version);
        db_exec_prepared_v2(stmt);
        if (db_count_changes(stmt) != 1)
-	       db_fatal("Optimistic lock on the database failed. There"
+	       db_fatal(stmt->db, "Optimistic lock on the database failed. There"
 			" may be a concurrent access to the database."
 			" Aborting since concurrent access is unsafe.");
        tal_free(stmt);
@@ -124,7 +124,7 @@ void db_begin_transaction_(struct db *db, const char *location)
 {
 	bool ok;
 	if (db->in_transaction)
-		db_fatal("Already in transaction from %s", db->in_transaction);
+		db_fatal(db, "Already in transaction from %s", db->in_transaction);
 
 	/* No writes yet. */
 	db->dirty = false;
@@ -132,7 +132,7 @@ void db_begin_transaction_(struct db *db, const char *location)
 	db_prepare_for_changes(db);
 	ok = db->config->begin_tx_fn(db);
 	if (!ok)
-		db_fatal("Failed to start DB transaction: %s", db->error);
+		db_fatal(db, "Failed to start DB transaction: %s", db->error);
 
 	db->in_transaction = location;
 }
@@ -156,7 +156,7 @@ void db_commit_transaction(struct db *db)
 	ok = db->config->commit_tx_fn(db);
 
 	if (!ok)
-		db_fatal("Failed to commit DB transaction: %s", db->error);
+		db_fatal(db, "Failed to commit DB transaction: %s", db->error);
 
 	db->in_transaction = NULL;
 	db->dirty = false;

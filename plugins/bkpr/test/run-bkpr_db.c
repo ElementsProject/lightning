@@ -3,22 +3,6 @@
 #include <ccan/tal/str/str.h>
 #include <db/common.h>
 
-#ifndef DB_FATAL
-#define DB_FATAL
-static char *db_err;
-void db_fatal(const char *fmt, ...)
-{
-	va_list ap;
-
-	/* Fail hard if we're complaining about not being in transaction */
-	assert(!strstarts(fmt, "No longer in transaction"));
-
-	va_start(ap, fmt);
-	db_err = tal_vfmt(NULL, fmt, ap);
-	va_end(ap);
-}
-#endif /* DB_FATAL */
-
 #include "common/json_filter.c"
 #include "plugins/bkpr/db.c"
 #include "plugins/libplugin.c"
@@ -256,7 +240,7 @@ static struct db *create_test_db(void)
 	char *dsn;
 
 	dsn = tmp_dsn(NULL);
-	db = db_open(NULL, dsn);
+	db = db_open(NULL, dsn, db_error, (struct plugin *)NULL);
 	db->data_version = 0;
 	db->report_changes_fn = NULL;
 
