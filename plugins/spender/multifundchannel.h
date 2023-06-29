@@ -218,21 +218,6 @@ struct multifundchannel_command {
 	/* The expected weight of the PSBT after adding in all the outputs.
 	 * In weight units (sipa).  */
 	u32 estimated_final_weight;
-	/* Excess satoshi from the PSBT.
-	 * If "all" this is the entire amount; if not "all" this is the
-	 * proposed change amount, which if dusty should be donated to
-	 * the miners.
-	 */
-	struct amount_sat excess_sat;
-
-	/* A convenient change address. NULL at the start, filled in
-	 * if we detect we need it.  */
-	const u8 *change_scriptpubkey;
-	/* Whether we need a change output.  */
-	bool change_needed;
-	/* The change amount.  */
-	struct amount_sat change_amount;
-
 	/* The txid of the final funding transaction.  */
 	struct bitcoin_txid *txid;
 
