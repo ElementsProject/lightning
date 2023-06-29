@@ -10,7 +10,7 @@ from utils import (
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
     mine_funding_to_announce, first_scid,
-    anchor_expected, CHANNEL_SIZE
+    CHANNEL_SIZE
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -366,7 +366,8 @@ def test_bad_opening(node_factory):
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_opening_tiny_channel(node_factory):
+@pytest.mark.parametrize("anchors", [False, True])
+def test_opening_tiny_channel(node_factory, anchors):
     # Test custom min-capacity-sat parameters
     #
     #  [l1]-----> [l2] (~6000)  - technical minimal value that wont be rejected
@@ -386,9 +387,12 @@ def test_opening_tiny_channel(node_factory):
     #
     dustlimit = 546
     reserves = 2 * dustlimit
-    min_commit_tx_fees = basic_fee(7500)
+    if anchors:
+        min_commit_tx_fees = basic_fee(3750, True)
+    else:
+        min_commit_tx_fees = basic_fee(7500, False)
     overhead = reserves + min_commit_tx_fees
-    if anchor_expected():
+    if anchors:
         # Gotta fund those anchors too!
         overhead += 660
 
@@ -400,6 +404,9 @@ def test_opening_tiny_channel(node_factory):
             {'min-capacity-sat': l2_min_capacity, 'dev-no-reconnect': None},
             {'min-capacity-sat': l3_min_capacity, 'dev-no-reconnect': None},
             {'min-capacity-sat': l4_min_capacity, 'dev-no-reconnect': None}]
+    if anchors:
+        for opt in opts:
+            opt['experimental-anchors'] = None
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -2070,7 +2077,8 @@ def test_multifunding_wumbo(node_factory):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
 @pytest.mark.developer("uses dev-fail")
 @pytest.mark.openchannel('v1')  # v2 the weight calculation is off by 3
-def test_multifunding_feerates(node_factory, bitcoind):
+@pytest.mark.parametrize("anchors", [False, True])
+def test_multifunding_feerates(node_factory, bitcoind, anchors):
     '''
     Test feerate parameters for multifundchannel
     '''
@@ -2078,7 +2086,10 @@ def test_multifunding_feerates(node_factory, bitcoind):
     commitment_tx_feerate_int = 2000
     commitment_tx_feerate = str(commitment_tx_feerate_int) + 'perkw'
 
-    l1, l2, l3 = node_factory.get_nodes(3, opts={'log-level': 'debug'})
+    opts = {'log-level': 'debug'}
+    if anchors:
+        opts['experimental-anchors'] = None
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
 
     l1.fundwallet(1 << 26)
 
@@ -2099,6 +2110,11 @@ def test_multifunding_feerates(node_factory, bitcoind):
     expected_fee = int(funding_tx_feerate[:-5]) * weight // 1000
     assert expected_fee == entry['fees']['base'] * 10 ** 8
 
+    # anchors ignores commitment_feerate!
+    if anchors:
+        commitment_tx_feerate_int = 3750
+        commitment_tx_feerate = str(commitment_tx_feerate_int) + 'perkw'
+
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['feerate']['perkw'] == commitment_tx_feerate_int
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['feerate']['perkb'] == commitment_tx_feerate_int * 4
 
@@ -2113,20 +2129,20 @@ def test_multifunding_feerates(node_factory, bitcoind):
 
     # Because of how the anchor outputs protocol is designed,
     # we *always* pay for 2 anchor outs and their weight
-    if anchor_expected():
+    if anchors:
         weight = 1124
     else:
         # the commitment transactions' feerate is calculated off
         # of this fixed weight
         weight = 724
 
-    expected_fee = int(commitment_tx_feerate[:-5]) * weight // 1000
+    expected_fee = commitment_tx_feerate_int * weight // 1000
 
     # At this point we only have one anchor output on the
     # tx, but we subtract out the extra anchor output amount
     # from the to_us output, so it ends up inflating
     # our fee by that much.
-    if anchor_expected():
+    if anchors:
         expected_fee += 330
 
     assert expected_fee == entry['fees']['base'] * 10 ** 8
@@ -3386,8 +3402,8 @@ def test_feerate_spam(node_factory, chainparams):
     # Now change feerates to something l1 can't afford.
     l1.set_feerates((100000, 100000, 100000, 100000))
 
-    # It will raise as far as it can (48000) (30000 for option_anchor_outputs)
-    maxfeerate = 30000 if anchor_expected(l1, l2) else 48000
+    # It will raise as far as it can (48000)
+    maxfeerate = 48000
     l1.daemon.wait_for_log('Setting REMOTE feerate to {}'.format(maxfeerate))
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
@@ -3567,8 +3583,13 @@ def test_wumbo_channels(node_factory, bitcoind):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_channel_features(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+@pytest.mark.parametrize("anchors", [False, True])
+def test_channel_features(node_factory, bitcoind, anchors):
+    if anchors:
+        opts = {'experimental-anchors': None}
+    else:
+        opts = {}
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
 
     bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.1)
     bitcoind.generate_block(1)
@@ -3579,8 +3600,8 @@ def test_channel_features(node_factory, bitcoind):
     # We should see features in unconfirmed channels.
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if anchor_expected(l1, l2):
-        assert 'option_anchor_outputs' in chan['features']
+    if anchors:
+        assert 'option_anchors_zero_fee_htlc_tx' in chan['features']
 
     # l2 should agree.
     assert only_one(l2.rpc.listpeerchannels()['channels'])['features'] == chan['features']
@@ -3592,8 +3613,8 @@ def test_channel_features(node_factory, bitcoind):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if anchor_expected(l1, l2):
-        assert 'option_anchor_outputs' in chan['features']
+    if anchors:
+        assert 'option_anchors_zero_fee_htlc_tx' in chan['features']
 
     # l2 should agree.
     assert only_one(l2.rpc.listpeerchannels()['channels'])['features'] == chan['features']
@@ -3609,7 +3630,8 @@ def test_nonstatic_channel(node_factory, bitcoind):
                                            {'dev-force-features': '9,15////////'}])
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' not in chan['features']
-    assert 'option_anchor_outputs' not in chan['features']
+    assert 'option_anchor' not in chan['features']
+    assert 'option_anchors_zero_fee_htlc_tx' not in chan['features']
 
     l1.pay(l2, 1000)
     l1.rpc.close(l2.info['id'])

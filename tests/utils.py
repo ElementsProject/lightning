@@ -24,11 +24,6 @@ def default_ln_port(network: str) -> int:
     return network_map[network]
 
 
-def anchor_expected(*args):
-    """Would this/these nodes all support anchors?"""
-    return False
-
-
 def hex_bits(features):
     # We always to full bytes
     flen = (max(features + [0]) + 7) // 8 * 8
@@ -403,9 +398,9 @@ def first_scid(n1, n2):
     return only_one(n1.rpc.listpeerchannels(n2.info['id'])['channels'])['short_channel_id']
 
 
-def basic_fee(feerate):
-    if anchor_expected():
-        # option_anchor_outputs
+def basic_fee(feerate, anchor_expected):
+    if anchor_expected:
+        # option_anchor_outputs / option_anchors_zero_fee_htlc_tx
         weight = 1124
     else:
         weight = 724
