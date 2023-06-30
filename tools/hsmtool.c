@@ -529,13 +529,11 @@ static int generate_hsm(const char *hsm_secret_path)
 }
 
 static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_passwd UNUSED,
-				  const bool is_testnet)
+				  const u32 version)
 {
 	struct secret hsm_secret;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
-	u32 version = is_testnet ?
-		BIP32_VER_TEST_PRIVATE : BIP32_VER_MAIN_PRIVATE;
 	struct ext_key master_extkey;
 	char *enc_xpub, *descriptor;
 	struct descriptor_checksum checksum;
@@ -709,7 +707,7 @@ int main(int argc, char *argv[])
 
 	if (streq(method, "dumponchaindescriptors")) {
 		char *net = NULL;
-		bool is_testnet;
+		u32 version;
 
 		if (argc < 3)
 			show_usage(argv[0]);
@@ -717,16 +715,16 @@ int main(int argc, char *argv[])
 		if (argc > 3)
 			net = argv[3];
 
-		if (net && streq(net, "testnet"))
-			is_testnet = true;
+		if (net && (streq(net, "testnet") || streq(net, "signet")))
+			version = BIP32_VER_TEST_PRIVATE;
 		else if (net && !streq(net, "bitcoin"))
 			errx(ERROR_USAGE, "Network '%s' not supported."
 					  " Supported networks: bitcoin (default),"
-					  " testnet", net);
+					  " testnet and signet", net);
 		else
-			is_testnet = false;
+			version = BIP32_VER_MAIN_PRIVATE;
 
-		return dumponchaindescriptors(argv[2], NULL, is_testnet);
+		return dumponchaindescriptors(argv[2], NULL, version);
 	}
 
 	if (streq(method, "checkhsm")) {
