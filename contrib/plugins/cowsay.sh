@@ -31,7 +31,7 @@ echo '{"jsonrpc":"2.0","id":'"$id"',"result":{}}'
 # eg. { "jsonrpc" : "2.0", "method" : "cowsay", "id" : 6, "params" :[ "hello"] }
 while read -r JSON; do
     read -r _
-    id=$(echo "$JSON" | sed 's/.*"id" *: *\([0-9]*\),.*/\1/')
+    id=$(echo "$JSON" | sed 's/.*"id" *: *\([^,]*\),.*/\1/')
     params=$(echo "$JSON" | sed 's/.*"params" *: *//' | tr -d '[{}]"')
     echo '{"jsonrpc":"2.0","id":'"$id"',"result":{"format-hint":"simple","cowsay":"'
     # FIXME: lightning-cli does not unescape \\, so we replace with an L.
