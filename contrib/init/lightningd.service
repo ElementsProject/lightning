@@ -15,7 +15,7 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/lightningd --daemon --conf /etc/lightningd/lightningd.conf --pid-file=/run/lightningd/lightningd.pid
+ExecStart=/usr/bin/lightningd --conf /etc/lightningd/lightningd.conf --pid-file=/run/lightningd/lightningd.pid
 
 # Creates /run/lightningd owned by bitcoin
 RuntimeDirectory=lightningd
@@ -24,7 +24,7 @@ ConfigurationDirectory=lightningd
 
 User=bitcoin
 Group=bitcoin
-Type=forking
+Type=simple
 PIDFile=/run/lightningd/lightningd.pid
 Restart=on-failure
 
