@@ -56,7 +56,7 @@ jobs:
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure
-        run: ./configure
+        run: ./configure --enable-debugbuild
       - name: Check source
         run: make -j 4 check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure
+          ./configure --enable-debugbuild
           make -j $(nproc) check-units installcheck
 
   check-units-sanitizers:
@@ -132,7 +132,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure CC=clang
+          ./configure --enable-debugbuild CC=clang
           make -j $(nproc) check-units installcheck
 
   check-fuzz:
@@ -165,7 +165,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --enable-fuzzing CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing CC=clang
           make -j $(nproc) check-fuzz
 
   compile:
@@ -215,7 +215,7 @@ jobs:
           pip3 install --user pip wheel poetry
           poetry export -o requirements.txt --with dev --without-hashes
           python3 -m pip install -r requirements.txt
-          ./configure CC="$COMPILER"
+          ./configure --enable-debugbuild CC="$COMPILER"
 
           make -j $(nproc) testpack.tar.bz2
 
@@ -462,7 +462,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure CC=clang --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind --enable-developer
+          ./configure CC=clang --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind --enable-developer --enable-debugbuild
           make -j $(nproc)
 
       - name: Test

@@ -43,7 +43,7 @@ VG=VALGRIND=1 valgrind -q --error-exitcode=7
 VG_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
 
-ifeq ($(DEVELOPER),1)
+ifeq ($(DEBUGBUILD),1)
 DEV_CFLAGS=-DCCAN_TAKE_DEBUG=1 -DCCAN_TAL_DEBUG=1 -DCCAN_JSON_OUT_DEBUG=1
 else
 DEV_CFLAGS=
