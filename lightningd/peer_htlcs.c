@@ -1014,7 +1014,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 				      buffer + failmsgtok->start);
 			local_fail_in_htlc(hin, take(failmsg));
 			return false;
-		} else if (deprecated_apis
+		} else if (ld->deprecated_apis
 			   && (failcodetok = json_get_member(buffer, toks,
 							     "failure_code"))) {
 			unsigned int failcode;

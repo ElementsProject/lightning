@@ -1983,7 +1983,7 @@ static void json_add_peer(struct lightningd *ld,
 	/* Note: If !PEER_CONNECTED, peer may use different features on reconnect */
 	json_add_hex_talarr(response, "features", p->their_features);
 
-	if (deprecated_apis) {
+	if (ld->deprecated_apis) {
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
 

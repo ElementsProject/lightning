@@ -711,7 +711,7 @@ static struct command_result *json_feerates(struct command *cmd,
 	if (rate)
 		json_add_num(response, "penalty",
 			     feerate_to_style(rate, *style));
-	if (deprecated_apis) {
+	if (cmd->ld->deprecated_apis) {
 		rate = delayed_to_us_feerate(topo);
 		if (rate)
 			json_add_num(response, "delayed_to_us",

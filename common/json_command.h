@@ -36,6 +36,9 @@ command_fail_badparam(struct command *cmd,
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);
 
+/* Do we allow deprecated apis? */
+bool command_deprecated_apis(const struct command *cmd);
+
 /* If so, this is called. */
 void command_set_usage(struct command *cmd, const char *usage);
 

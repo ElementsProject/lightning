@@ -115,7 +115,8 @@ static struct command_result *parse_by_position(struct command *cmd,
 	return post_check(cmd, params);
 }
 
-static struct param *find_param(struct param *params, const char *start,
+static struct param *find_param(struct command *cmd,
+				struct param *params, const char *start,
 				size_t n)
 {
 	struct param *first = params;
@@ -125,11 +126,11 @@ static struct param *find_param(struct param *params, const char *start,
 		size_t arglen = strcspn(first->name, "|");
 		if (memeq(first->name, arglen, start, n))
 			return first;
-		if (deprecated_apis
-		    && first->name[arglen]
+		if (first->name[arglen]
 		    && memeq(first->name + arglen + 1,
 			     strlen(first->name + arglen + 1),
-			     start, n))
+			     start, n)
+		    && command_deprecated_apis(cmd))
 			return first;
 		first++;
 	}
@@ -146,7 +147,7 @@ static struct command_result *parse_by_name(struct command *cmd,
 	const jsmntok_t *t;
 
 	json_for_each_obj(i, t, tokens) {
-		struct param *p = find_param(params, buffer + t->start,
+		struct param *p = find_param(cmd, params, buffer + t->start,
 					     t->end - t->start);
 		if (!p) {
 			if (!allow_extra) {

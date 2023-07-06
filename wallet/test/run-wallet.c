@@ -133,8 +133,6 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
 				     const u8 *failure_msg UNNEEDED)
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
 /* Generated stub for derive_channel_id */
 void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 		       const struct bitcoin_outpoint *outpoint UNNEEDED)

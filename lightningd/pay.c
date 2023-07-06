@@ -848,7 +848,7 @@ static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
 		return channel;
 
 	/* We used to ignore scid: now all-zero means "any" */
-	if (!channel && (deprecated_apis || memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
+	if (!channel && (ld->deprecated_apis || memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_can_add_htlc(channel)) {
 				return channel;

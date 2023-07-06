@@ -130,6 +130,7 @@ struct plugins {
  * command line and passing them off to the plugin
  */
 struct plugin_opt {
+	struct plugin *plugin;
 	/* off plugin->plugin_opts */
 	struct list_node list;
 	/* includes -- prefix! */

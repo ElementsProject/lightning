@@ -500,6 +500,11 @@ bool command_usage_only(const struct command *cmd)
 	return cmd->usage_only;
 }
 
+bool command_deprecated_apis(const struct command *cmd)
+{
+	return deprecated_apis;
+}
+
 /* FIXME: would be good to support this! */
 bool command_check_only(const struct command *cmd)
 {

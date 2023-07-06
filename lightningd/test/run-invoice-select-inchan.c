@@ -191,8 +191,6 @@ void db_commit_transaction(struct db *db UNNEEDED)
 /* Generated stub for delete_channel */
 void delete_channel(struct channel *channel STEALS UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
