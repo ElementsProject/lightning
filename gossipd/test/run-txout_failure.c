@@ -108,16 +108,15 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate UNNEEDED)
 int main(int argc, char *argv[])
 {
 	struct routing_state *rstate;
-	struct timers timers;
 	struct timer *t;
 	struct short_channel_id scid1, scid2;
+	struct daemon *daemon;
 
 	common_setup(argv[0]);
 
-	timers_init(&timers, time_mono());
-	/* Random uninitalized node_id, we don't reference it. */
-	rstate = new_routing_state(tmpctx, tal(tmpctx, struct node_id),
-				   &timers, NULL, false, false);
+	daemon = tal(tmpctx, struct daemon);
+	timers_init(&daemon->timers, time_mono());
+	rstate = new_routing_state(tmpctx, daemon, NULL, false, false);
 
 	scid1.u64 = 100;
 	scid2.u64 = 200;
@@ -135,8 +134,9 @@ int main(int argc, char *argv[])
 	assert(rstate->num_txout_failures == 2);
 
 	/* Move time forward 1 hour. */
-	t = timers_expire(&timers, timemono_add(time_mono(),
-						time_from_sec(3601)));
+	t = timers_expire(&daemon->timers,
+			  timemono_add(time_mono(),
+				       time_from_sec(3601)));
 	assert(t);
 	timer_expired(t);
 
@@ -145,8 +145,9 @@ int main(int argc, char *argv[])
 	assert(in_txout_failures(rstate, &scid1));
 	assert(rstate->num_txout_failures == 1);
 
-	t = timers_expire(&timers, timemono_add(time_mono(),
-						time_from_sec(3601)));
+	t = timers_expire(&daemon->timers,
+			  timemono_add(time_mono(),
+				       time_from_sec(3601)));
 	assert(t);
 	timer_expired(t);
 
@@ -155,7 +156,9 @@ int main(int argc, char *argv[])
 	assert(rstate->num_txout_failures == 1);
 	assert(!in_txout_failures(rstate, &scid2));
 
+	tal_free(rstate);
+	timers_cleanup(&daemon->timers);
 	common_shutdown();
-	timers_cleanup(&timers);
+
 	return 0;
 }

@@ -812,8 +812,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	}
 
 	daemon->rstate = new_routing_state(daemon,
-					   &daemon->id,
-					   &daemon->timers,
+					   daemon,
 					   take(dev_gossip_time),
 					   dev_fast_gossip,
 					   dev_fast_gossip_prune);
