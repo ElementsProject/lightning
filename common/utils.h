@@ -54,20 +54,6 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
-/* Macro to set memberptr in tal object outer to point to tal object obj,
- * if it isn't NULL.
- * The 0*sizeof() checks that *memberptr = obj is valid */
-#define set_softref(outer, memberptr, obj)				\
-	set_softref_((outer), sizeof(*(outer)) + 0*sizeof(*(memberptr) = obj), \
-		     (void **)(memberptr), (obj))
-
-/* Macro to clear a (set) softref ptr to NULL  */
-#define clear_softref(outer, memberptr)					\
-	clear_softref_((outer), sizeof(*(outer)), (void **)(memberptr))
-
-void set_softref_(const tal_t *outer, size_t outersize, void **ptr, tal_t *obj);
-void clear_softref_(const tal_t *outer, size_t outersize, void **ptr);
-
 /* Note: p is never a complex expression, otherwise this multi-evaluates! */
 #define tal_arr_expand(p, s)						\
 	do {								\
