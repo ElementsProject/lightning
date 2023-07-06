@@ -12,6 +12,7 @@
 #include <common/route.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
+#include <gossipd/gossipd.h>
 #include <wire/onion_wire.h>
 #include <wire/wire.h>
 
@@ -196,8 +197,7 @@ static inline int half_chan_idx(const struct node *n, const struct chan *chan)
 }
 
 struct routing_state {
-	/* TImers base from struct gossipd. */
-	struct timers *timers;
+	struct daemon *daemon;
 
 	/* All known nodes. */
 	struct node_map *nodes;
@@ -210,9 +210,6 @@ struct routing_state {
 
 	/* Gossip store */
 	struct gossip_store *gs;
-
-	/* Our own ID so we can identify local channels */
-	struct node_id local_id;
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
@@ -254,7 +251,7 @@ static inline bool local_direction(struct routing_state *rstate,
 				   int *direction)
 {
 	for (int dir = 0; dir <= 1; (dir)++) {
-		if (node_id_eq(&chan->nodes[dir]->id, &rstate->local_id)) {
+		if (node_id_eq(&chan->nodes[dir]->id, &rstate->daemon->id)) {
 			if (direction)
 				*direction = dir;
 			return true;
@@ -271,8 +268,7 @@ get_channel(const struct routing_state *rstate,
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct node_id *local_id,
-					struct timers *timers,
+					struct daemon *daemon,
 					const u32 *dev_gossip_time TAKES,
 					bool dev_fast_gossip,
 					bool dev_fast_gossip_prune);

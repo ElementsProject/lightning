@@ -12,7 +12,6 @@
 #include <common/wire_error.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/routing.h>
 
@@ -250,7 +249,7 @@ static void txout_failure_age(struct routing_state *rstate)
 	uintmap_init(&rstate->txout_failures);
 	rstate->num_txout_failures = 0;
 
-	rstate->txout_failure_timer = new_reltimer(rstate->timers,
+	rstate->txout_failure_timer = new_reltimer(&rstate->daemon->timers,
 						   rstate, time_from_sec(3600),
 						   txout_failure_age, rstate);
 }
@@ -280,16 +279,14 @@ static bool in_txout_failures(struct routing_state *rstate,
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct node_id *local_id,
-					struct timers *timers,
+					struct daemon *daemon,
 					const u32 *dev_gossip_time TAKES,
 					bool dev_fast_gossip,
 					bool dev_fast_gossip_prune)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
+	rstate->daemon = daemon;
 	rstate->nodes = new_node_map(rstate);
-	rstate->timers = timers;
-	rstate->local_id = *local_id;
 	rstate->gs = gossip_store_new(rstate);
 	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
@@ -2101,14 +2098,14 @@ bool routing_add_private_channel(struct routing_state *rstate,
 	/* Make sure this id (if any) was allowed to create this */
 	if (id) {
 		struct node_id expected[2];
-		int cmp = node_id_cmp(&rstate->local_id, id);
+		int cmp = node_id_cmp(&rstate->daemon->id, id);
 
 		if (cmp < 0) {
-			expected[0] = rstate->local_id;
+			expected[0] = rstate->daemon->id;
 			expected[1] = *id;
 		} else if (cmp > 0) {
 			expected[0] = *id;
-			expected[1] = rstate->local_id;
+			expected[1] = rstate->daemon->id;
 		} else {
 			/* lightningd sets id, so this is fatal */
 			status_failed(STATUS_FAIL_MASTER_IO,
