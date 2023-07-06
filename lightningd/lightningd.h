@@ -106,6 +106,9 @@ struct lightningd {
 	/* The directory to find all the subdaemons. */
 	const char *daemon_dir;
 
+	/* Are deprecated APIs enabled? */
+	bool deprecated_apis;
+
 	/* If we told to run in the background, this is our parent fd, otherwise
 	 * -1. */
 	int daemon_parent_fd;

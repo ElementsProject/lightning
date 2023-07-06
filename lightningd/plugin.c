@@ -823,7 +823,7 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 static char *plugin_opt_check(struct plugin_opt *popt)
 {
 	/* Warn them that this is deprecated */
-	if (popt->deprecated && !deprecated_apis)
+	if (popt->deprecated && !popt->plugin->plugins->ld->deprecated_apis)
 		return tal_fmt(tmpctx, "deprecated option (will be removed!)");
 	return NULL;
 }
@@ -847,7 +847,7 @@ static char *plugin_opt_bool_check(const char *arg, struct plugin_opt *popt)
 {
 	/* FIXME: For some reason, '1' and '0' were allowed here? */
 	if (streq(arg, "1") || streq(arg, "0")) {
-		if (!deprecated_apis)
+		if (!popt->plugin->plugins->ld->deprecated_apis)
 			return "boolean plugin arguments must be true or false";
 	} else {
 		bool v;
@@ -937,6 +937,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	}
 
 	popt = tal(plugin, struct plugin_opt);
+	popt->plugin = plugin;
 	popt->name = tal_fmt(popt, "--%s",
 			     json_strdup(tmpctx, buffer, nametok));
 	name = popt->name + 2;
@@ -981,7 +982,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			/* We used to allow (ignore) anything, now make sure it's 'false' */
 			if (!json_to_bool(buffer, defaulttok, &val)
 			    || val != false) {
-				if (!deprecated_apis)
+				if (!plugin->plugins->ld->deprecated_apis)
 					return tal_fmt(plugin, "%s type flag default must be 'false' not %.*s",
 						       popt->name,
 						       json_tok_full_len(defaulttok),
@@ -1624,12 +1625,13 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 				       "Invalid nonnumericids: %.*s",
 				       json_tok_full_len(tok),
 				       json_tok_full(buffer, tok));
-		if (!deprecated_apis && !plugin->non_numeric_ids)
+		if (!plugin->plugins->ld->deprecated_apis
+		    && !plugin->non_numeric_ids)
 			return tal_fmt(plugin,
 				       "Plugin does not allow nonnumericids");
 	} else
 		/* Default is false in deprecated mode */
-		plugin->non_numeric_ids = !deprecated_apis;
+		plugin->non_numeric_ids = !plugin->plugins->ld->deprecated_apis;
 
 	err = plugin_notifications_add(buffer, resulttok, plugin);
 	if (!err)
@@ -1837,7 +1839,8 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->non_numeric_ids,
 				    p->log, NULL, plugin_manifest_cb, p);
-	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
+	json_add_bool(req->stream, "allow-deprecated-apis",
+		      p->plugins->ld->deprecated_apis);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
 	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
@@ -2204,7 +2207,7 @@ void json_add_opt_plugins_array(struct json_stream *response,
 
 		if (!list_empty(&p->plugin_opts)) {
 			json_add_plugin_options(response, "options", p,
-						!deprecated_apis);
+						!plugins->ld->deprecated_apis);
 		}
 		json_object_end(response);
 	}

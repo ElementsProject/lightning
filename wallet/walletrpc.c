@@ -93,7 +93,8 @@ static struct command_result *param_newaddr(struct command *cmd,
 					    enum addrtype **addrtype)
 {
 	*addrtype = tal(cmd, enum addrtype);
-	if (deprecated_apis && json_tok_streq(buffer, tok, "p2sh-segwit"))
+	if (cmd->ld->deprecated_apis
+	    && json_tok_streq(buffer, tok, "p2sh-segwit"))
 		**addrtype = ADDR_P2SH_SEGWIT;
 	else if (json_tok_streq(buffer, tok, "bech32"))
 		**addrtype = ADDR_BECH32;
@@ -133,7 +134,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 	b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
 	if (*addrtype & ADDR_BECH32)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
-	if (deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
+	if (cmd->ld->deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
 					  scriptpubkey_p2sh(tmpctx, b32script));
 
@@ -147,7 +148,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 	response = json_stream_success(cmd);
 	if (*addrtype & ADDR_BECH32)
 		json_add_string(response, "bech32", bech32);
-	if (deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
+	if (cmd->ld->deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
 		json_add_string(response, "p2sh-segwit", p2sh);
 	return command_success(cmd, response);
 }

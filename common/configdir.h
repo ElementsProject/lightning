@@ -3,10 +3,6 @@
 #include "config.h"
 #include <ccan/tal/tal.h>
 
-/* Put things we're going to get rid of behind this, so testers can catch
- * them early. */
-extern bool deprecated_apis;
-
 /* Unless overridden, we exit with status 1 when option parsing fails */
 extern int opt_exitcode;
 

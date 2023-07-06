@@ -258,7 +258,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		return failmsg;
 	}
 
-	if (!deprecated_apis)
+	if (!ld->deprecated_apis)
 		return NULL;
 
 	t = json_get_member(buffer, toks, "failure_code");

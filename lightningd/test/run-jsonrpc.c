@@ -16,8 +16,6 @@ void db_commit_transaction(struct db *db UNNEEDED)
 /* Generated stub for delayed_to_us_feerate */
 u32 delayed_to_us_feerate(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "delayed_to_us_feerate called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }

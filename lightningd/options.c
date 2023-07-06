@@ -206,7 +206,7 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 {
 	char *ret, **elements = tal_strsplit(tmpctx, arg, ",", STR_NO_EMPTY);
 
-	if (!deprecated_apis)
+	if (!ld->deprecated_apis)
 		return "Please use --accept-htlc-tlv-type multiple times";
 	for (int i = 0; elements[i] != NULL; i++) {
 		ret = opt_add_accept_htlc_tlv(elements[i],
@@ -275,7 +275,7 @@ static char *opt_add_addr_withtype(const char *arg,
 		case ADDR_TYPE_TOR_V3:
 			switch (ala) {
 			case ADDR_LISTEN:
-				if (!deprecated_apis)
+				if (!ld->deprecated_apis)
 					return tal_fmt(tmpctx,
 						       "Don't use --bind-addr=%s, use --announce-addr=%s",
 						       arg, arg);
@@ -287,7 +287,7 @@ static char *opt_add_addr_withtype(const char *arg,
 				/* And we ignore it */
 				return NULL;
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!deprecated_apis)
+				if (!ld->deprecated_apis)
 					return tal_fmt(tmpctx,
 						       "Don't use --addr=%s, use --announce-addr=%s",
 						       arg, arg);
@@ -332,7 +332,7 @@ static char *opt_add_addr_withtype(const char *arg,
 				return tal_fmt(tmpctx,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!deprecated_apis)
+				if (!ld->deprecated_apis)
 					return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
 						       arg, arg);
 				ala = ADDR_LISTEN;
@@ -1158,7 +1158,7 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 	u32 port COMPILER_WANTS_INIT("9.3.0 -O2");
 	char *err;
 
-	if (!deprecated_apis)
+	if (!ld->deprecated_apis)
 		return "--experimental-websocket-port been deprecated, use --bind=ws:...";
 
 	err = opt_set_u32(arg, &port);
@@ -1248,7 +1248,7 @@ static char *opt_disable_ip_discovery(struct lightningd *ld)
 
 static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 {
-	if (!deprecated_apis)
+	if (!ld->deprecated_apis)
 		return "--announce-addr-dns has been deprecated, use --bind-addr=dns:...";
 	return opt_set_bool_arg(optarg, &ld->announce_dns);
 }
@@ -1260,6 +1260,12 @@ static void register_opts(struct lightningd *ld)
 		     test_subdaemons_and_exit,
 		     ld,
 		     "Test that subdaemons can be run, then exit immediately");
+	/* We need to know this even before we talk to plugins */
+	clnopt_witharg("--allow-deprecated-apis",
+		       OPT_EARLY|OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->deprecated_apis,
+		       "Enable deprecated options, JSONRPC commands, fields, etc.");
 	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
 	clnopt_witharg("--plugin", OPT_MULTI|OPT_EARLY,

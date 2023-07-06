@@ -40,8 +40,6 @@ struct command_result *command_fail(struct command *cmd,
 /* Generated stub for command_filter_ptr */
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
@@ -64,6 +62,7 @@ enum command_mode {
 
 struct command {
 	enum command_mode mode;
+	bool deprecated_apis;
 	const char *usage;
 };
 
@@ -80,6 +79,11 @@ bool command_usage_only(const struct command *cmd)
 bool command_check_only(const struct command *cmd)
 {
 	return cmd->mode == CMD_CHECK;
+}
+
+bool command_deprecated_apis(const struct command *cmd)
+{
+	return cmd->deprecated_apis;
 }
 
 struct json {
@@ -446,12 +450,12 @@ static void deprecated_rename(void)
 		     NULL));
 	assert(*u64 == 42);
 
-	deprecated_apis = true;
+	cmd->deprecated_apis = true;
 	j = json_parse(cmd, "{ 'old_u64': 42 }");
 	assert(param(cmd, j->buffer, j->toks,
 		     p_req("u64|old_u64", param_u64, &u64),
 		     NULL));
-	deprecated_apis = false;
+	cmd->deprecated_apis = false;
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64|old_u64", param_u64, &u64),
 		      NULL));

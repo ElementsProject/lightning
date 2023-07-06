@@ -198,6 +198,7 @@ void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
 
 /* FIXME: Use outpoint here! */
 static void channel_opened_notification_serialize(struct json_stream *stream,
+						  struct lightningd *ld,
 						  struct node_id *node_id,
 						  struct amount_sat *funding_sat,
 						  struct bitcoin_txid *funding_txid,
@@ -207,7 +208,7 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "id", node_id);
 	json_add_amount_sat_msat(stream, "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
-	if (deprecated_apis)
+	if (ld->deprecated_apis)
 		json_add_bool(stream, "funding_locked", channel_ready);
 	json_add_bool(stream, "channel_ready", channel_ready);
 	json_object_end(stream);
@@ -221,6 +222,7 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   bool channel_ready)
 {
 	void (*serialize)(struct json_stream *,
+			  struct lightningd *,
 			  struct node_id *,
 			  struct amount_sat *,
 			  struct bitcoin_txid *,
@@ -228,7 +230,7 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, channel_opened_notification_gen.topic);
-	serialize(n->stream, node_id, funding_sat, funding_txid, channel_ready);
+	serialize(n->stream, ld, node_id, funding_sat, funding_txid, channel_ready);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
