@@ -1326,9 +1326,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 104x1x0 \(was 103x1x0\)')
 
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['status'] == [
-        'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Channel ready for use. They need our announcement signatures.'])
+    l2.daemon.wait_for_logs([r'Peer transient failure in CHANNELD_NORMAL: channeld WARNING: Bad node_signature*'])
 
     # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)

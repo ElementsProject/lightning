@@ -647,9 +647,24 @@ static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
 	billboard_update(peer);
 }
 
+/* Checks that key is valid, and signed this hash
+ *
+ * FIXME: move this inside common/utils.h */
+static bool check_signed_hash_nodeid(const struct sha256_double *hash,
+				     const secp256k1_ecdsa_signature *signature,
+				     const struct node_id *id)
+{
+	struct pubkey key;
+
+	return pubkey_from_node_id(&key, id)
+		&& check_signed_hash(hash, signature, &key);
+}
+
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
 {
+	const u8 *cannounce;
 	struct channel_id chanid;
+	struct sha256_double hash;
 
 	if (!fromwire_announcement_signatures(msg,
 					      &chanid,
@@ -669,6 +684,44 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 				type_to_string(tmpctx, struct channel_id, &chanid));
 	}
 
+	/* BOLT 7:
+	 * - if the node_signature OR the bitcoin_signature is NOT correct:
+	 *  - MAY send a warning and close the connection, or send an error and fail the channel.
+	 *
+	 * In our case, we send an error and stop the open channel procedure. This approach is
+	 * considered overly strict since the peer can recover from it. However, this step is
+	 * optional. If the peer sends it, we assume that the signature must be correct.*/
+	 cannounce = create_channel_announcement(tmpctx, peer);
+
+	/* 2 byte msg type + 256 byte signatures */
+	int offset = 258;
+	sha256_double(&hash, cannounce + offset,
+		       tal_count(cannounce) - offset);
+
+	 if (!check_signed_hash_nodeid(&hash, &peer->announcement_node_sigs[REMOTE], &peer->node_ids[REMOTE])) {
+		peer_failed_warn(peer->pps, &chanid,
+					 "Bad node_signature %s hash %s"
+					 " on announcement_signatures %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							&peer->announcement_node_sigs[REMOTE]),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, cannounce));
+	}
+	if (!check_signed_hash(&hash, &peer->announcement_bitcoin_sigs[REMOTE], &peer->channel->funding_pubkey[REMOTE])) {
+		peer_failed_warn(peer->pps, &chanid,
+					 "Bad bitcoin_signature %s hash %s"
+					 " on announcement_signatures %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							&peer->announcement_bitcoin_sigs[REMOTE]),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, cannounce));
+	}
 	peer->have_sigs[REMOTE] = true;
 	billboard_update(peer);
 
