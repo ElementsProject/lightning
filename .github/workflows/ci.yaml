@@ -62,6 +62,75 @@ jobs:
       - name: Check docs
         run: make -j 4 check-doc
 
+  compile:
+    name: Compile CLN ${{ matrix.cfg }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    needs:
+      - prebuild
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: gcc-dev1
+            DEVELOPER: 1
+            VALGRIND: 1
+            COMPILER: gcc
+          - CFG: gcc-dev0
+            DEVELOPER: 0
+            VALGRIND: 1
+            COMPILER: gcc
+          # While we're at it let's try to compile with clang
+          - CFG: clang-dev1
+            DEVELOPER: 1
+            VALGRIND: 1
+            COMPILER: clang
+          - CFG: clang-sanitizers
+            DEVELOPER: 1
+            COMPILER: clang
+            ASAN: 1
+            UBSAN: 1
+            VALGRIND: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ASAN: ${{ matrix.ASAN }}
+          UBSAN: ${{ matrix.UBSAN }}
+          VALGRIND: ${{ matrix.VALGRIND }}
+          COMPAT: 1
+          CFG: ${{ matrix.CFG }}
+        run: |
+          set -e
+          pip3 install --user pip wheel poetry
+          poetry export -o requirements.txt --with dev --without-hashes
+          python3 -m pip install -r requirements.txt
+          ./configure --enable-debugbuild CC="$COMPILER"
+
+          make -j $(nproc) testpack.tar.bz2
+
+          # Rename now so we don't clash
+          mv testpack.tar.bz2 cln-${CFG}.tar.bz2
+      - name: Check rust packages
+        run: cargo test --all
+      - uses: actions/upload-artifact@v2.2.4
+        with:
+          name: cln-${{ matrix.CFG }}.tar.bz2
+          path: cln-${{ matrix.CFG }}.tar.bz2
+
   check-units:
     # The unit test checks are not in the critical path (not dependent
     # on the integration tests), so run them with `valgrind`
@@ -71,7 +140,15 @@ jobs:
     env:
       BOLTDIR: bolts
     needs:
-      - prebuild
+      - compile
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: gcc-dev1
+            VALGRIND: 1
+          - CFG: clang-sanitizers
+            VALGRIND: 0
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -92,46 +169,15 @@ jobs:
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
-      - name: Build
-        run: |
-          ./configure --enable-debugbuild --enable-valgrind
-          make -j $(nproc) check-units installcheck
-
-  check-units-sanitizers:
-    name: Run unit tests with ASan and UBSan
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    needs:
-      - prebuild
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          sudo apt-get install -y -qq lowdown
-          pip install -U pip wheel poetry
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
-
       - name: Download build
         uses: actions/download-artifact@v3
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
-      - name: Build
+      - name: Check
         run: |
-          tar -xaf cln-${CFG}.tar.bz2
-          poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
-          ./configure --enable-debugbuild --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
-          make -j $(nproc) check-units installcheck
+          tar -xaf cln-${{ matrix.CFG }}.tar.bz2
+          make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }}
 
   check-fuzz:
     name: Run fuzz regression tests
@@ -160,70 +206,6 @@ jobs:
           ./configure --enable-debugbuild --enable-fuzzing --enable-developer --disable-valgrind CC=clang
           make -j $(nproc) check-fuzz
 
-  compile:
-    name: Compile CLN ${{ matrix.cfg }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    needs:
-      - prebuild
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - CFG: gcc-dev1
-            DEVELOPER: 1
-            COMPILER: gcc
-          - CFG: gcc-dev0
-            DEVELOPER: 0
-            COMPILER: gcc
-          # While we're at it let's try to compile with clang
-          - CFG: clang-dev1
-            DEVELOPER: 1
-            COMPILER: clang
-          - CFG: clang-asan
-            DEVELOPER: 1
-            COMPILER: clang
-	    ASAN: 1
-	    UBSAN: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Build
-        env:
-          DEVELOPER: ${{ matrix.DEVELOPER }}
-          COMPILER: ${{ matrix.COMPILER }}
-          ASAN: ${{ matrix.ASAN }}
-          UBSAN: ${{ matrix.UBSAN }}
-          COMPAT: 1
-          CFG: ${{ matrix.CFG }}
-        run: |
-          set -e
-          pip3 install --user pip wheel poetry
-          poetry export -o requirements.txt --with dev --without-hashes
-          python3 -m pip install -r requirements.txt
-          ./configure --enable-debugbuild CC="$COMPILER"
-
-          make -j $(nproc) testpack.tar.bz2
-
-          # Rename now so we don't clash
-          mv testpack.tar.bz2 cln-${CFG}.tar.bz2
-      - name: Check rust packages
-        run: cargo test --all
-      - uses: actions/upload-artifact@v2.2.4
-        with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
-          path: cln-${{ matrix.CFG }}.tar.bz2
-
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
@@ -239,7 +221,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - NAME:  gcc-dev1
+          - NAME: gcc-dev1
             CFG: gcc-dev1
             DEVELOPER: 1
             TEST_DB_PROVIDER: sqlite3
@@ -401,7 +383,7 @@ jobs:
       TEST_DEBUG: 1
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
     needs:
-      - prebuild
+      - compile
     strategy:
       fail-fast: true
       matrix:
@@ -447,10 +429,13 @@ jobs:
       - name: Install bitcoind
         run: .github/scripts/install-bitcoind.sh
 
-      - name: Build
-        run: |
-          ./configure CC=clang --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind --enable-developer --enable-debugbuild
-          make -j $(nproc)
+      - name: Download build
+        uses: actions/download-artifact@v3
+        with:
+          name: cln-clang-sanitizers.tar.bz2
+
+      - name: Unpack build
+        run: tar -xvjf cln-clang-sanitizers.tar.bz2
 
       - name: Test
         run: |
