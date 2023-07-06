@@ -7,10 +7,6 @@ jobs:
     name: Smoke Test macOS
     runs-on: macos-latest
     timeout-minutes: 120
-    env:
-      DEVELOPER: 1
-      VALGRIND: 0
-      COMPAT: 0
     strategy:
       fail-fast: true
     steps:
@@ -39,10 +35,6 @@ jobs:
 
       - name: Build
         env:
-          VALGRIND: ${{ matrix.VALGRIND }}
-          DEVELOPER: ${{ matrix.DEVELOPER }}
-          COMPILER: ${{ matrix.COMPILER }}
-          COMPAT: ${{ matrix.COMPAT }}
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
           PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
           NO_PYTHON: ${{ matrix.NO_PYTHON }}
@@ -63,5 +55,5 @@ jobs:
               slow_test: marks tests as slow (deselect with '-m "not slow_test"')
           EOF
 
-          python3.10 -m poetry run ./configure
+          python3.10 -m poetry run ./configure --enable-developer --disable-valgrind --disable-compat
           python3.10 -m poetry run make

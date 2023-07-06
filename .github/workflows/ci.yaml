@@ -22,8 +22,6 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     env:
-      RUST: 1
-      COMPAT: 1
       BOLTDIR: bolts
     strategy:
       fail-fast: true
@@ -56,7 +54,7 @@ jobs:
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure
-        run: ./configure --enable-debugbuild
+        run: ./configure --enable-debugbuild --enable-rust
       - name: Check source
         run: make -j 4 check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
@@ -71,8 +69,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
-      COMPAT: 1
-      VALGRIND: 1
       BOLTDIR: bolts
     needs:
       - prebuild
@@ -98,18 +94,13 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --enable-debugbuild
+          ./configure --enable-debugbuild --enable-valgrind
           make -j $(nproc) check-units installcheck
 
   check-units-sanitizers:
     name: Run unit tests with ASan and UBSan
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    env:
-      COMPAT: 1
-      ASAN: 1
-      UBSAN: 1
-      VALGRIND: 0
     needs:
       - prebuild
     steps:
@@ -130,20 +121,21 @@ jobs:
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
 
+      - name: Download build
+        uses: actions/download-artifact@v3
+        with:
+          name: cln-${{ matrix.CFG }}.tar.bz2
+
       - name: Build
         run: |
-          ./configure --enable-debugbuild CC=clang
+          tar -xaf cln-${CFG}.tar.bz2
+          poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          ./configure --enable-debugbuild --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
           make -j $(nproc) check-units installcheck
 
   check-fuzz:
     name: Run fuzz regression tests
     runs-on: ubuntu-22.04
-    env:
-      COMPAT: 1
-      DEVELOPER: 1
-      ASAN: 1
-      UBSAN: 1
-      VALGRIND: 0
     needs:
       - prebuild
     steps:
@@ -165,15 +157,13 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --enable-debugbuild --enable-fuzzing CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing --enable-developer --disable-valgrind CC=clang
           make -j $(nproc) check-fuzz
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    env:
-      COMPAT: 1
     needs:
       - prebuild
     strategy:
@@ -190,6 +180,11 @@ jobs:
           - CFG: clang-dev1
             DEVELOPER: 1
             COMPILER: clang
+          - CFG: clang-asan
+            DEVELOPER: 1
+            COMPILER: clang
+	    ASAN: 1
+	    UBSAN: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -205,9 +200,10 @@ jobs:
 
       - name: Build
         env:
-          VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
+          ASAN: ${{ matrix.ASAN }}
+          UBSAN: ${{ matrix.UBSAN }}
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
         run: |
@@ -233,7 +229,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      COMPAT: 1
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
@@ -310,7 +305,6 @@ jobs:
 
       - name: Test
         env:
-          VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
@@ -324,20 +318,17 @@ jobs:
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
         run: |
           tar -xaf cln-${CFG}.tar.bz2
-          poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      COMPAT: 1
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
-      VALGRIND: 1
       CFG: gcc-dev1
-      DEVELOPER: 1
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
     needs:
       - compile
@@ -393,20 +384,16 @@ jobs:
 
       - name: Test
         env:
-          COMPAT: 1
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
         run: |
-
-          sed -i 's/VALGRIND=0/VALGRIND=1/g' config.vars
-          poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 poetry run pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   integration-sanitizers:
     name: Sanitizers Test CLN
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      COMPAT: 1
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release
@@ -478,6 +465,8 @@ jobs:
     needs:
       - integration
       - check-units
+      - integration-valgrind
+      - integration-sanitizers
     steps:
       - name: Complete
         run: |
