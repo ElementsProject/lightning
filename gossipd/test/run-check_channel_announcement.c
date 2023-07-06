@@ -114,7 +114,9 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
-void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
+			       const struct node_id *source_peer UNNEEDED,
+			       size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,

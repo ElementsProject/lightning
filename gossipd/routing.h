@@ -144,8 +144,7 @@ struct pending_cannouncement {
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 
-	/* Automagically turns to NULL of peer freed */
-	struct peer *peer_softref;
+	struct node_id *source_peer;
 
 	/* The raw bits */
 	const u8 *announce;
@@ -153,8 +152,8 @@ struct pending_cannouncement {
 	/* Deferred updates, if we received them while waiting for
 	 * this (one for each direction) */
 	const u8 *updates[2];
-	/* Peers responsible: turns to NULL if they're freed */
-	struct peer *update_peer_softref[2];
+	/* Peers responsible */
+	struct node_id *update_source_peer[2];
 
 	/* Only ever replace with newer updates */
 	u32 update_timestamps[2];
@@ -297,7 +296,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 				const u8 *announce TAKES,
 				u32 current_blockheight,
 				const struct short_channel_id **scid,
-				struct peer *peer);
+				const struct node_id *source_peer TAKES);
 
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
@@ -318,15 +317,16 @@ struct chan *next_chan(const struct node *node, struct chan_map_iter *i);
  * If the error is that the channel is unknown, fills in *unknown_scid
  * (if not NULL). */
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
-			  struct peer *peer,
+			  const struct node_id *source_peer TAKES,
 			  struct short_channel_id *unknown_scid,
 			  bool force);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent.
  * If was_unknown is not NULL, sets it to true if that was the reason for
  * the error: the node was unknown to us. */
-u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node,
-			     struct peer *peer, bool *was_unknown);
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
+			     const struct node_id *source_peer TAKES,
+			     bool *was_unknown);
 
 /* Get a node: use this instead of node_map_get() */
 struct node *get_node(struct routing_state *rstate,
@@ -344,13 +344,13 @@ void route_prune(struct routing_state *rstate);
  * index is usually 0, in which case it's set by insert_broadcast adding it
  * to the store.
  *
- * peer is an optional peer responsible for this.
+ * source_peer is an optional peer responsible for this.
  */
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
 				      struct amount_sat sat,
 				      u32 index,
-				      struct peer *peer);
+				      const struct node_id *source_peer TAKES);
 
 /**
  * Add a channel_update without checking for errors
@@ -363,7 +363,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
-				struct peer *peer,
+				const struct node_id *source_peer TAKES,
 				bool ignore_timestamp,
 				bool force_spam_flag,
 				bool force_zombie_flag);
@@ -377,7 +377,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
-				   struct peer *peer,
+				   const struct node_id *source_peer TAKES,
 				   bool *was_unknown,
 				   bool force_spam_flag);
 
