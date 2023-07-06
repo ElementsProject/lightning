@@ -197,6 +197,9 @@ struct peer {
 
 	/* --experimental-upgrade-protocol */
 	bool experimental_upgrade;
+
+	/* Allow nodes which establish channels to us to set any fee they want. */
+	bool ignore_fee_limits;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -758,13 +761,16 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 *       `error` and fail the channel.
 	 */
 	if (!feerate_same_or_better(peer->channel, feerate,
-				    peer->feerate_min, peer->feerate_max))
+				    peer->feerate_min, peer->feerate_max) && !peer->ignore_fee_limits)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "update_fee %u outside range %u-%u"
 				 " (currently %u)",
 				 feerate,
 				 peer->feerate_min, peer->feerate_max,
 				 channel_feerate(peer->channel, LOCAL));
+	else if (peer->ignore_fee_limits)
+		status_unusual("update_fee outside our normal range (or too low or too high)"
+			       "but the user tell us to ignore this fee, so all it is fine!");
 
 	/* BOLT #2:
 	 *
@@ -3716,6 +3722,7 @@ static void init_channel(struct peer *peer)
 				    &peer->node_ids[REMOTE],
 				    &peer->commit_msec,
 				    &peer->cltv_delta,
+				    &peer->ignore_fee_limits,
 				    &peer->last_was_revoke,
 				    &peer->last_sent_commit,
 				    &peer->next_index[LOCAL],

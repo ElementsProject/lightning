@@ -44,6 +44,7 @@ msgdata,channeld_init,local_node_id,node_id,
 msgdata,channeld_init,remote_node_id,node_id,
 msgdata,channeld_init,commit_msec,u32,
 msgdata,channeld_init,cltv_delta,u16,
+msgdata,channeld_init,ignore_fee_limit,bool,
 msgdata,channeld_init,last_was_revoke,bool,
 msgdata,channeld_init,num_last_sent_commit,u16,
 msgdata,channeld_init,last_sent_commit,changed_htlc,num_last_sent_commit
