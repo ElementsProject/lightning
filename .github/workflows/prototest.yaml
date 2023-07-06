@@ -35,6 +35,7 @@ jobs:
           -e TEST_CMD="make check-protos" \
           -e TEST_GROUP=1 \
           -e TEST_GROUP_COUNT=1 \
+          -e TIMEOUT=120 \
           cln-ci-ubuntu
       - name: Upload Unit Test Results
         if: always()
