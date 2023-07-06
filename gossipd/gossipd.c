@@ -100,6 +100,8 @@ static void destroy_peer(struct peer *peer)
 	node = get_node(peer->daemon->rstate, &peer->id);
 	if (node)
 		peer_disable_channels(peer->daemon, node);
+
+	seeker_peer_gone(peer->daemon->seeker, peer);
 }
 
 /* Search for a peer. */

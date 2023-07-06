@@ -56,8 +56,8 @@ struct seeker {
 	/* Range of scid blocks we've probed. */
 	size_t scid_probe_start, scid_probe_end;
 
-	/* During startup, we ask a single peer for gossip. */
-	struct peer *random_peer_softref;
+	/* During startup, we ask a single peer for gossip (set to NULL if peer dies)*/
+	struct peer *random_peer;
 
 	/* This checks progress of our random peer */
 	size_t prev_gossip_count;
@@ -70,12 +70,11 @@ struct seeker {
 	 * missing channels. */
 	bool unknown_nodes;
 
-	/* Peers we've asked to stream us gossip */
-	struct peer *gossiper_softref[5];
+	/* Peers we've asked to stream us gossip (set to NULL if peer dies) */
+	struct peer *gossiper[5];
 
-	/* A peer that told us about unknown gossip. */
-	struct peer *preferred_peer_softref;
-
+	/* A peer that told us about unknown gossip (set to NULL if peer dies). */
+	struct peer *preferred_peer;
 };
 
 /* Mutual recursion */
@@ -98,7 +97,7 @@ static bool selected_peer(struct seeker *seeker, struct peer *peer)
 	if (!peer)
 		return false;
 
-	set_softref(seeker, &seeker->random_peer_softref, peer);
+	seeker->random_peer = peer;
 
 	/* Give it some grace in case we immediately hit timer */
 	seeker->prev_gossip_count
@@ -135,10 +134,10 @@ struct seeker *new_seeker(struct daemon *daemon)
 	seeker->daemon = daemon;
 	uintmap_init(&seeker->unknown_scids);
 	uintmap_init(&seeker->stale_scids);
-	seeker->random_peer_softref = NULL;
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++)
-		seeker->gossiper_softref[i] = NULL;
-	seeker->preferred_peer_softref = NULL;
+	seeker->random_peer = NULL;
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++)
+		seeker->gossiper[i] = NULL;
+	seeker->preferred_peer = NULL;
 	seeker->unknown_nodes = false;
 	set_state(seeker, STARTING_UP, NULL, "New seeker");
 	begin_check_timer(seeker);
@@ -147,11 +146,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 
 static void set_preferred_peer(struct seeker *seeker, struct peer *peer)
 {
-	if (seeker->preferred_peer_softref
-	    && seeker->preferred_peer_softref != peer) {
-		clear_softref(seeker, &seeker->preferred_peer_softref);
-		set_softref(seeker, &seeker->preferred_peer_softref, peer);
-	}
+	seeker->preferred_peer = peer;
 }
 
 /* Get a random peer, but try our preferred peer first, if any.  This
@@ -159,7 +154,7 @@ static void set_preferred_peer(struct seeker *seeker, struct peer *peer)
 static struct peer *random_seeker(struct seeker *seeker,
 				  bool (*check_peer)(const struct peer *peer))
 {
-	struct peer *peer = seeker->preferred_peer_softref;
+	struct peer *peer = seeker->preferred_peer;
 	struct peer *first;
 	struct peer_node_id_map_iter it;
 
@@ -169,7 +164,7 @@ static struct peer *random_seeker(struct seeker *seeker,
 	 * invalid announcements to get chosen, and we don't handle that case
 	 * well yet. */
 	if (peer && check_peer(peer) && pseudorand(5) != 0) {
-		clear_softref(seeker, &seeker->random_peer_softref);
+		seeker->random_peer = NULL;
 		return peer;
 	}
 
@@ -183,10 +178,8 @@ static struct peer *random_seeker(struct seeker *seeker,
 	return peer;
 }
 
-static bool peer_made_progress(struct seeker *seeker)
+static bool peer_made_progress(struct seeker *seeker, const struct peer *peer)
 {
-	const struct peer *peer = seeker->random_peer_softref;
-
 	/* Has it made progress (at least one valid update per second)?  If
 	 * not, we assume it's finished, and if it hasn't, we'll end up
 	 * querying backwards in next steps. */
@@ -240,9 +233,9 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 	bool enable_stream = false;
 
 	/* Make this one of our streaming gossipers if we aren't full */
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
-		if (seeker->gossiper_softref[i] == NULL) {
-			set_softref(seeker, &seeker->gossiper_softref[i], peer);
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+		if (seeker->gossiper[i] == NULL) {
+			seeker->gossiper[i] = peer;
 			enable_stream = true;
 			break;
 		}
@@ -511,12 +504,12 @@ static void nodeannounce_query_done(struct peer *peer, bool complete)
 	size_t new_nannounce = 0, num_scids;
 
 	/* We might have given up on them, then they replied. */
-	if (seeker->random_peer_softref != peer) {
+	if (seeker->random_peer != peer) {
 		status_peer_debug(&peer->id, "seeker: belated reply: ignoring");
 		return;
 	}
 
-	clear_softref(seeker, &seeker->random_peer_softref);
+	seeker->random_peer = NULL;
 
 	num_scids = tal_count(seeker->nannounce_scids);
 	for (size_t i = 0; i < num_scids; i++) {
@@ -644,10 +637,10 @@ static void process_scid_probe(struct peer *peer,
 	bool new_unknown_scids = false;
 
 	/* We might have given up on them, then they replied. */
-	if (seeker->random_peer_softref != peer)
+	if (seeker->random_peer != peer)
 		return;
 
-	clear_softref(seeker, &seeker->random_peer_softref);
+	seeker->random_peer = NULL;
 
 	for (size_t i = 0; i < tal_count(replies); i++) {
 		struct chan *c = get_channel(seeker->daemon->rstate,
@@ -750,7 +743,7 @@ static void probe_many_random_scids(struct seeker *seeker)
 
 static void check_firstpeer(struct seeker *seeker)
 {
-	struct peer *peer = seeker->random_peer_softref;
+	struct peer *peer = seeker->random_peer;
 	struct peer_node_id_map_iter it;
 
 	/* It might have died, pick another. */
@@ -768,12 +761,12 @@ static void check_firstpeer(struct seeker *seeker)
 
 	/* If no progress, we assume it's finished, and if it hasn't,
 	 * we'll end up querying backwards in next steps. */
-	if (peer_made_progress(seeker))
+	if (peer_made_progress(seeker, peer))
 		return;
 
 	/* Other peers can gossip now. */
 	status_peer_debug(&peer->id, "seeker: startup peer finished");
-	clear_softref(seeker, &seeker->random_peer_softref);
+	seeker->random_peer = NULL;
 
 	for (struct peer *p = peer_node_id_map_first(seeker->daemon->peers, &it);
 	     p;
@@ -795,7 +788,7 @@ static void check_firstpeer(struct seeker *seeker)
 static void check_probe(struct seeker *seeker,
 			void (*restart)(struct seeker *seeker))
 {
-	struct peer *peer = seeker->random_peer_softref;
+	struct peer *peer = seeker->random_peer;
 
 	/* It might have died, pick another. */
 	if (!peer) {
@@ -804,13 +797,13 @@ static void check_probe(struct seeker *seeker,
 	}
 
 	/* Is peer making progress with responses? */
-	if (peer_made_progress(seeker))
+	if (peer_made_progress(seeker, peer))
 		return;
 
 	status_peer_debug(&peer->id,
 			  "has only moved gossip %zu->%zu for probe, giving up on it",
 			  seeker->prev_gossip_count, peer->gossip_counter);
-	clear_softref(seeker, &seeker->random_peer_softref);
+	seeker->random_peer = NULL;
 	restart(seeker);
 }
 
@@ -818,8 +811,8 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 {
 	const struct seeker *seeker = peer->daemon->seeker;
 
-	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
-		if (seeker->gossiper_softref[i] == peer)
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+		if (seeker->gossiper[i] == peer)
 			return false;
 	}
 	return true;
@@ -838,26 +831,25 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 		return;
 
 	/* If we have a slot free, or ~ 1 per hour */
-	for (i = 0; i < ARRAY_SIZE(seeker->gossiper_softref); i++) {
-		if (!seeker->gossiper_softref[i]) {
+	for (i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+		if (!seeker->gossiper[i]) {
 			status_peer_debug(&peer->id, "seeker: filling slot %zu",
 					  i);
 			goto set_gossiper;
 		}
-		if (pseudorand(ARRAY_SIZE(seeker->gossiper_softref) * 60) == 0) {
+		if (pseudorand(ARRAY_SIZE(seeker->gossiper) * 60) == 0) {
 			status_peer_debug(&peer->id,
 					  "seeker: replacing slot %zu",
 					  i);
-			goto clear_and_set_gossiper;
+			goto disable_gossiper;
 		}
 	}
 	return;
 
-clear_and_set_gossiper:
-	disable_gossip_stream(seeker, seeker->gossiper_softref[i]);
-	clear_softref(seeker, &seeker->gossiper_softref[i]);
+disable_gossiper:
+	disable_gossip_stream(seeker, seeker->gossiper[i]);
 set_gossiper:
-	set_softref(seeker, &seeker->gossiper_softref[i], peer);
+	seeker->gossiper[i] = peer;
 	enable_gossip_stream(seeker, peer);
 }
 
@@ -919,7 +911,7 @@ void seeker_setup_peer_gossip(struct seeker *seeker, struct peer *peer)
 
 	switch (seeker->state) {
 	case STARTING_UP:
-		if (seeker->random_peer_softref == NULL)
+		if (seeker->random_peer == NULL)
 			peer_gossip_startup(seeker, peer);
 		/* Waiting for seeker_check to release us */
 		return;
@@ -971,4 +963,19 @@ void query_unknown_node(struct seeker *seeker, struct peer *peer)
 {
 	seeker->unknown_nodes = true;
 	set_preferred_peer(seeker, peer);
+}
+
+/* Peer has died, NULL out any pointers we have */
+void seeker_peer_gone(struct seeker *seeker, const struct peer *peer)
+{
+	if (seeker->random_peer == peer)
+		seeker->random_peer = NULL;
+
+	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
+		if (seeker->gossiper[i] == peer)
+			seeker->gossiper[i] = NULL;
+	}
+
+	if (seeker->preferred_peer == peer)
+		seeker->preferred_peer = NULL;
 }
