@@ -81,13 +81,14 @@ struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "gossip_time_now called!\n"); abort(); }
 /* Generated stub for handle_channel_update */
 u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *update TAKES UNNEEDED,
-			  struct peer *peer UNNEEDED,
+			  const struct node_id *source_peer TAKES UNNEEDED,
 			  struct short_channel_id *unknown_scid UNNEEDED,
 			  bool force UNNEEDED)
 { fprintf(stderr, "handle_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
-u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node UNNEEDED,
-			     struct peer *peer UNNEEDED, bool *was_unknown UNNEEDED)
+u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node_ann UNNEEDED,
+			     const struct node_id *source_peer TAKES UNNEEDED,
+			     bool *was_unknown UNNEEDED)
 { fprintf(stderr, "handle_node_announcement called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
@@ -107,7 +108,9 @@ struct peer *next_random_peer(struct daemon *daemon UNNEEDED,
 bool node_has_broadcastable_channels(const struct node *node UNNEEDED)
 { fprintf(stderr, "node_has_broadcastable_channels called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
-void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
+			       const struct node_id *source_peer UNNEEDED,
+			       size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,

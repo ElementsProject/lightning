@@ -135,7 +135,9 @@ struct peer {
 struct peer *find_peer(struct daemon *daemon, const struct node_id *id);
 
 /* This peer (may be NULL) gave is valid gossip. */
-void peer_supplied_good_gossip(struct peer *peer, size_t amount);
+void peer_supplied_good_gossip(struct daemon *daemon,
+			       const struct node_id *source_peer,
+			       size_t amount);
 
 /* Get a random peer.  NULL if no peers. */
 struct peer *first_random_peer(struct daemon *daemon,

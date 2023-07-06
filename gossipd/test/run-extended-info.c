@@ -75,7 +75,9 @@ struct peer *next_random_peer(struct daemon *daemon UNNEEDED,
 			      struct peer_node_id_map_iter *it UNNEEDED)
 { fprintf(stderr, "next_random_peer called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
-void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
+			       const struct node_id *source_peer UNNEEDED,
+			       size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for queue_peer_from_store */
 void queue_peer_from_store(struct peer *peer UNNEEDED,

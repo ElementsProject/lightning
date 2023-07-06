@@ -76,7 +76,9 @@ bool nannounce_different(struct gossip_store *gs UNNEEDED,
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
-void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
+void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
+			       const struct node_id *source_peer UNNEEDED,
+			       size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,

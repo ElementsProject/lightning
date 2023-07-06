@@ -109,10 +109,20 @@ struct peer *find_peer(struct daemon *daemon, const struct node_id *id)
 }
 
 /* Increase a peer's gossip_counter, if peer not NULL */
-void peer_supplied_good_gossip(struct peer *peer, size_t amount)
+void peer_supplied_good_gossip(struct daemon *daemon,
+			       const struct node_id *source_peer,
+			       size_t amount)
 {
-	if (peer)
-		peer->gossip_counter += amount;
+	struct peer *peer;
+
+	if (!source_peer)
+		return;
+
+	peer = find_peer(daemon, source_peer);
+	if (!peer)
+		return;
+
+	peer->gossip_counter += amount;
 }
 
 /* Queue a gossip message for the peer: connectd simply forwards it to
@@ -232,7 +242,7 @@ static bool get_node_announcement_by_id(const tal_t *ctx,
  * queue.  We'll send a request to lightningd to look it up, and continue
  * processing in `handle_txout_reply`. */
 static const u8 *handle_channel_announcement_msg(struct daemon *daemon,
-						 struct peer *peer,
+						 const struct node_id *source_peer,
 						 const u8 *msg)
 {
 	const struct short_channel_id *scid;
@@ -243,7 +253,7 @@ static const u8 *handle_channel_announcement_msg(struct daemon *daemon,
 	 * which case, it frees and NULLs that ptr) */
 	err = handle_channel_announcement(daemon->rstate, msg,
 					  daemon->current_blockheight,
-					  &scid, peer);
+					  &scid, source_peer);
 	if (err)
 		return err;
 	else if (scid) {
@@ -269,7 +279,7 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	u8 *err;
 
 	unknown_scid.u64 = 0;
-	err = handle_channel_update(peer->daemon->rstate, msg, peer,
+	err = handle_channel_update(peer->daemon->rstate, msg, &peer->id,
 				    &unknown_scid, false);
 	if (err)
 		return err;
@@ -292,7 +302,7 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	bool was_unknown = false;
 	u8 *err;
 
-	err = handle_node_announcement(peer->daemon->rstate, msg, peer,
+	err = handle_node_announcement(peer->daemon->rstate, msg, &peer->id,
 				       &was_unknown);
 	if (was_unknown)
 		query_unknown_node(peer->daemon->seeker, peer);
@@ -304,25 +314,17 @@ static void handle_local_channel_announcement(struct daemon *daemon, const u8 *m
 	u8 *cannouncement;
 	const u8 *err;
 	struct node_id id;
-	struct peer *peer;
 
 	if (!fromwire_gossipd_local_channel_announcement(msg, msg,
 							 &id,
 							 &cannouncement))
 		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT, msg);
 
-	/* We treat it OK even if peer has disconnected since (unlikely though!) */
-	peer = find_peer(daemon, &id);
-	if (!peer)
-		status_debug("Unknown peer %s for local_channel_announcement",
-			     type_to_string(tmpctx, struct node_id, &id));
-
-	err = handle_channel_announcement_msg(daemon, peer, cannouncement);
+	err = handle_channel_announcement_msg(daemon, &id, cannouncement);
 	if (err) {
-		status_broken("peer %s invalid local_channel_announcement %s (%s)",
-			      type_to_string(tmpctx, struct node_id, &id),
-			      tal_hex(tmpctx, msg),
-			      tal_hex(tmpctx, err));
+		status_peer_broken(&id, "invalid local_channel_announcement %s (%s)",
+				   tal_hex(tmpctx, msg),
+				   tal_hex(tmpctx, err));
 	}
 }
 
@@ -573,7 +575,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	/* These are messages relayed from peer */
 	switch ((enum peer_wire)fromwire_peektype(msg)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		err = handle_channel_announcement_msg(peer->daemon, peer, msg);
+		err = handle_channel_announcement_msg(peer->daemon, &id, msg);
 		goto handled_msg;
 	case WIRE_CHANNEL_UPDATE:
 		err = handle_channel_update_msg(peer, msg);
