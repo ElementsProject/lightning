@@ -3978,10 +3978,26 @@ static void do_reconnect_dance(struct state *state)
 	       sizeof(last_remote_per_commit_secret));
 
 	/* We always send reconnect/reestablish */
+
+	/* BOLT-e299850cb5ebd8bd9c55763bbc498fcdf94a9567 #2:
+	 *
+	 * - if it has sent `commitment_signed` for an
+	 *   interactive transaction construction but it has
+	 *   not received `tx_signatures`:
+	 *   - MUST set `next_funding_txid` to the txid of that
+	 *     interactive transaction.
+	 *   - otherwise:
+	 *   - MUST NOT set `next_funding_txid`.
+	 */
+	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+	if (!tx_state->remote_funding_sigs_rcvd)
+		tlvs->next_funding = &tx_state->funding.txid;
+
 	msg = towire_channel_reestablish
 		(NULL, &state->channel_id, 1, 0,
 		 &last_remote_per_commit_secret,
-		 &state->first_per_commitment_point[LOCAL], NULL);
+		 &state->first_per_commitment_point[LOCAL], tlvs);
+
 	peer_write(state->pps, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
