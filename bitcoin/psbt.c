@@ -4,6 +4,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
+#include <bitcoin/varint.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -467,12 +468,12 @@ static void add_type(u8 **key, const u8 num)
 	add(key, &num, 1);
 }
 
-static void add_varint(u8 **key, size_t val)
+void add_varint(u8 **arr, size_t val)
 {
 	u8 vt[VARINT_MAX_LEN];
 	size_t vtlen;
 	vtlen = varint_put(vt, val);
-	add(key, vt, vtlen);
+	tal_expand(arr, vt, vtlen);
 }
 
 #define LIGHTNING_PROPRIETARY_PREFIX "lightning"
