@@ -78,7 +78,11 @@ static struct command_result *json_connected(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *params)
 {
-	const jsmntok_t *idtok = json_get_member(buf, params, "id");
+	const jsmntok_t *connecttok, *idtok;
+
+	connecttok = json_get_member(buf, params, "connect");
+	assert(connecttok);
+	idtok = json_get_member(buf, connecttok, "id");
 	assert(idtok);
 	plugin_log(cmd->plugin, LOG_INFORM, "%s connected",
 		   json_strdup(tmpctx, buf, idtok));
