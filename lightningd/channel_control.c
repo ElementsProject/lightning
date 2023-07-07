@@ -697,7 +697,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* Warn once. */
 	if (ld->config.ignore_fee_limits)
-		log_debug(channel->log, "Ignoring fee limits!");
+		log_unusual(channel->log, "Ignoring fee limits!");
 
 	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet,
 					 channel->dbid,
