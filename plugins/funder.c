@@ -1055,7 +1055,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 	const char *err;
 
 	err = json_scan(tmpctx, buf, params,
-			"{id:%}",
+			"{disconnect:{id:%}}",
 			JSON_SCAN(json_to_node_id, &id));
 	if (err)
 		plugin_err(cmd->plugin,
