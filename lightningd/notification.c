@@ -57,8 +57,8 @@ static void connect_notification_serialize(struct json_stream *stream,
 					   const struct wireaddr_internal *addr)
 {
 	/* Old style: Add raw fields without connect key */
-	/* FIXME: Deprecate! */
-	json_add_connect_fields(stream, nodeid, incoming, addr);
+	if (deprecated_apis)
+		json_add_connect_fields(stream, nodeid, incoming, addr);
 	json_object_start(stream, "connect");
 	json_add_connect_fields(stream, nodeid, incoming, addr);
 	json_object_end(stream);
@@ -94,8 +94,8 @@ static void disconnect_notification_serialize(struct json_stream *stream,
 					      struct node_id *nodeid)
 {
 	/* Old style: Add raw fields without disconnect key */
-	/* FIXME: deprecate! */
-	json_add_disconnect_fields(stream, nodeid);
+	if (deprecated_apis)
+		json_add_disconnect_fields(stream, nodeid);
 	json_object_start(stream, "disconnect");
 	json_add_disconnect_fields(stream, nodeid);
 	json_object_end(stream);
@@ -607,10 +607,11 @@ static void json_add_block_added_fields(struct json_stream *stream,
 static void block_added_notification_serialize(struct json_stream *stream,
 					       struct block *block)
 {
-	/* FIXME: deprecate! */
-	json_object_start(stream, "block");
-	json_add_block_added_fields(stream, block);
-	json_object_end(stream);
+	if (deprecated_apis) {
+		json_object_start(stream, "block");
+		json_add_block_added_fields(stream, block);
+		json_object_end(stream);
+	}
 	json_object_start(stream, "block_added");
 	json_add_block_added_fields(stream, block);
 	json_object_end(stream);
