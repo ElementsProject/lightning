@@ -281,6 +281,7 @@ struct command_result *json_offer(struct command *cmd,
 	const char *desc, *issuer;
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
+	struct pubkey *offer_node_id;
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
@@ -303,6 +304,7 @@ struct command_result *json_offer(struct command *cmd,
 			 &offer->offer_recurrence_limit),
 		   p_opt_def("single_use", param_bool,
 			     &offinfo->single_use, false),
+		   p_opt("nodeid", param_pubkey, &offer_node_id),
 		   /* FIXME: hints support! */
 		   NULL))
 		return command_param_failed();
@@ -366,7 +368,11 @@ struct command_result *json_offer(struct command *cmd,
 	 * - MUST set `offer_node_id` to the node's public key to request the
 	 *   invoice from.
 	 */
-	offer->offer_node_id = tal_dup(offer, struct pubkey, &id);
+	if (offer_node_id) {
+	    offer->offer_node_id = tal_steal(offer, offer_node_id);
+	} else {
+	    offer->offer_node_id = tal_dup(offer, struct pubkey, &id);
+	}
 
 	/* If they specify a different currency, warn if we can't
 	 * convert it! */

@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* [*issuer*] [*label*] [*quantity\_max*] [*absolute\_expiry*] [*recurrence*] [*recurrence\_base*] [*recurrence\_paywindow*] [*recurrence\_limit*] [*single\_use*]
+**offer** *amount* *description* [*issuer*] [*label*] [*quantity\_max*] [*absolute\_expiry*] [*recurrence*] [*recurrence\_base*] [*recurrence\_paywindow*] [*recurrence\_limit*] [*single\_use*] [*nodeid*]
 
 DESCRIPTION
 -----------
@@ -87,6 +87,9 @@ period which exists.  eg. "12" means there are 13 periods, from 0 to
 *single\_use* (default false) indicates that the offer is only valid
 once; we may issue multiple invoices, but as soon as one is paid all other
 invoices will be expired (i.e. only one person can pay this offer).
+
+*nodeid* (default is this node) indicates the node's public key from
+which to request the invoice.
 
 RETURN VALUE
 ------------
