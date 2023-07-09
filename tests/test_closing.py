@@ -2126,7 +2126,11 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
 
     # l2 will drop to chain.
     l2.daemon.wait_for_log('sendrawtx exit 0')
-    l1.bitcoin.generate_block(1, wait_for_mempool=1)
+    # If anchors, we will spend anchor to push it along, so wait for that too!
+    if anchors:
+        l1.bitcoin.generate_block(1, wait_for_mempool=2)
+    else:
+        l1.bitcoin.generate_block(1, wait_for_mempool=1)
     l2.daemon.wait_for_log(' to ONCHAIN')
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log('OUR_UNILATERAL/THEIR_HTLC')
