@@ -636,7 +636,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
-        {'type': 'chain_mvt', 'credit_msat': 11957603000, 'debit_msat': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit_msat': 11956163000, 'debit_msat': 0, 'tags': ['deposit']},
     ]
 
     check_coin_moves(l1, 'external', external_moves, chainparams)

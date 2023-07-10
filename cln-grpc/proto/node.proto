@@ -916,12 +916,14 @@ message NewaddrRequest {
 	// NewAddr.addresstype
 	enum NewaddrAddresstype {
 		BECH32 = 0;
+		P2TR = 3;
 		ALL = 2;
 	}
 	optional NewaddrAddresstype addresstype = 1;
 }
 
 message NewaddrResponse {
+	optional string p2tr = 3;
 	optional string bech32 = 1;
 	optional string p2sh_segwit = 2;
 }

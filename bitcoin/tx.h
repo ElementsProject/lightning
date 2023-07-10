@@ -330,10 +330,12 @@ size_t bitcoin_tx_2of2_input_witness_weight(void);
 struct amount_sat change_fee(u32 feerate_perkw,	size_t total_weight);
 
 /**
- * change_amount - Is it worth making a P2WPKH change output at this feerate?
+ * change_amount - Is it worth making a change output at this feerate?
  * @excess: input amount we have above the tx fee and other outputs.
  * @feerate_perkw: feerate.
  * @total_weight: current weight of tx.
+ *
+ * Change script is P2TR for Bitcoin, P2WPKH for Elements
  *
  * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
  * Otherwise returns the amount of the change output to add (@excess minus

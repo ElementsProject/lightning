@@ -972,7 +972,7 @@ struct amount_sat change_fee(u32 feerate_perkw,	size_t total_weight)
 	struct amount_sat fee;
 
 	/* Must be able to pay for its own additional weight */
-	outweight = bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	outweight = bitcoin_tx_output_weight(chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
 
 	/* Rounding can cause off by one errors, so we do this */
 	if (!amount_sat_sub(&fee,

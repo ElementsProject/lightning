@@ -489,7 +489,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			 * requires the HSM to find the pubkey, and we
 			 * skip doing that until now as a bit of a reduction
 			 * of complexity in the calling code */
-			psbt_input_add_pubkey(psbt, j, &pubkey);
+			psbt_input_add_pubkey(psbt, j, &pubkey, utxo->scriptPubkey && is_p2tr(utxo->scriptPubkey, NULL));
 
 			/* It's actually a P2WSH in this case. */
 			if (utxo->close_info && utxo->close_info->option_anchors) {
@@ -507,6 +507,8 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 					    sizeof(privkey.secret.data),
 					    EC_FLAG_GRIND_R) != WALLY_OK) {
 				tal_wally_end(psbt);
+				/* Converting to v0 for log consumption */
+				psbt_set_version(psbt, 0);
 				hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				    "Received wally_err attempting to "
 				    "sign utxo with key %s. PSBT: %s",

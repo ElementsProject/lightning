@@ -1287,7 +1287,7 @@ wallet_commit_channel(struct lightningd *ld,
 			= tal_steal(channel, our_upfront_shutdown_script);
 	else
 		channel->shutdown_scriptpubkey[LOCAL]
-			= p2wpkh_for_keyidx(channel, channel->peer->ld,
+			= p2tr_for_keyidx(channel, channel->peer->ld,
 					    channel->final_key_idx);
 
 	 /* Can't have gotten their alias for this channel yet. */

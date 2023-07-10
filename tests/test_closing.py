@@ -1338,7 +1338,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
             ]}
         ] + [
             {'blockheight': 108, 'accounts': [
-                {'balance_msat': '995433000msat', 'account_id': 'wallet'},
+                {'balance_msat': '995073000msat', 'account_id': 'wallet'},
                 {'balance_msat': '500000000msat', 'account_id': first_channel_id(l1, l2)},
                 {'balance_msat': '499994999msat', 'account_id': channel_id}]}
         ] * 2  # duplicated; we stop and restart l2 twice (both at block 108)
@@ -3203,7 +3203,7 @@ def test_shutdown(node_factory):
 
 
 @pytest.mark.developer("needs to set upfront_shutdown_script")
-def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
+def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams):
     l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
     # '0014' + l1.rpc.call('dev-listaddrs', [10])['addresses'][-1]['bech32_redeemscript']
@@ -3256,8 +3256,11 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
 
     # Now, if we specify upfront and it's OK, all good.
     l1.stop()
-    # We need to prepend the segwit version (0) and push opcode (14).
-    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = '0014' + addr['bech32_redeemscript']
+    if not chainparams['elements']:
+        l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = bitcoind.rpc.getaddressinfo(addr['p2tr'])['scriptPubKey']
+    else:
+        # We need to prepend the segwit version (0) and push opcode (14).
+        l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = '0014' + addr['bech32_redeemscript']
     l1.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3573,8 +3576,8 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
         l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
 
     if not chainparams['elements']:
-        l1_range = [139, 4140]
-        l2_range = [1035, 1000000]
+        l1_range = [151, 4500]
+        l2_range = [1125, 1000000]
     else:
         # That fee output is a little chunky.
         l1_range = [221, 6577]

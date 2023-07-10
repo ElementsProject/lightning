@@ -290,7 +290,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	psbt_input_set_wit_utxo(psbt, 1,
 				scriptpubkey_p2wsh(tmpctx, adet->anchor_wscript),
 				AMOUNT_SAT(330));
-	psbt_input_add_pubkey(psbt, 1, &channel->local_funding_pubkey);
+	psbt_input_add_pubkey(psbt, 1, &channel->local_funding_pubkey, false);
 
 	if (!amount_sat_add(&change, utxos[0]->amount, AMOUNT_SAT(330))
 	    || !amount_sat_sub(&change, change, fee)) {

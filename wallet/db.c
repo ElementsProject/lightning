@@ -1365,9 +1365,9 @@ migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 					      &remote_funding_pubkey, &last_sig))
 			abort();
 		psbt_input_add_pubkey(last_tx->psbt, 0,
-		    &local_funding_pubkey);
+		    &local_funding_pubkey, false /* is_taproot */);
 		psbt_input_add_pubkey(last_tx->psbt, 0,
-		    &remote_funding_pubkey);
+		    &remote_funding_pubkey, false /* is_taproot */);
 
 		update_stmt = db_prepare_v2(db,
 				SQL("UPDATE channel_funding_inflights"
@@ -1461,9 +1461,9 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 					      &remote_funding_pubkey, &last_sig))
 			abort();
 		psbt_input_add_pubkey(last_tx->psbt, 0,
-		    &local_funding_pubkey);
+		    &local_funding_pubkey, false /* is_taproot */);
 		psbt_input_add_pubkey(last_tx->psbt, 0,
-		    &remote_funding_pubkey);
+		    &remote_funding_pubkey, false /* is_taproot */);
 
 		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
 						    " SET last_tx = ?"

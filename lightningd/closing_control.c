@@ -674,6 +674,11 @@ static struct command_result *json_close(struct command *cmd,
 	index_val = (u32) channel->final_key_idx;
 	final_index = &index_val;
 
+	/* Don't send a scriptpubkey peer won't accept */
+	anysegwit = !chainparams->is_elements && feature_negotiated(cmd->ld->our_features,
+				       channel->peer->their_features,
+				       OPT_SHUTDOWN_ANYSEGWIT);
+
 	/* If we've set a local shutdown script for this peer, and it's not the
 	 * default upfront script, try to close to a different channel.
 	 * Error is an operator error */
@@ -682,8 +687,13 @@ static struct command_result *json_close(struct command *cmd,
 				  tal_count(close_to_script),
 				  channel->shutdown_scriptpubkey[LOCAL],
 				  tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
-		u8 *default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
-							 channel->final_key_idx);
+		u8 *default_close_to = NULL;
+		if (anysegwit)
+			default_close_to = p2tr_for_keyidx(tmpctx, cmd->ld,
+							  				   channel->final_key_idx);
+		else
+            default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
+							  					 channel->final_key_idx);
 		if (!memeq(default_close_to, tal_count(default_close_to),
 			   channel->shutdown_scriptpubkey[LOCAL],
 			   tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
@@ -722,10 +732,6 @@ static struct command_result *json_close(struct command *cmd,
 	} else
 		close_script_set = false;
 
-	/* Don't send a scriptpubkey peer won't accept */
-	anysegwit = feature_negotiated(cmd->ld->our_features,
-				       channel->peer->their_features,
-				       OPT_SHUTDOWN_ANYSEGWIT);
 	if (!valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey[LOCAL],
 					 anysegwit, false)) {
 		/* Explicit check for future segwits. */

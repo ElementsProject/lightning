@@ -52,7 +52,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		assert((local_wallet_index == NULL) == (local_wallet_ext_key == NULL));
 		if (local_wallet_index)
 			psbt_add_keypath_to_last_output(
-				tx, *local_wallet_index, local_wallet_ext_key);
+				tx, *local_wallet_index, local_wallet_ext_key, is_p2tr(script, NULL));
 		num_outputs++;
 	}
 
