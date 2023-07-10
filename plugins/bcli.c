@@ -683,6 +683,14 @@ static void json_add_feerate(struct json_stream *result, const char *fieldname,
 			     const struct estimatefees_stash *stash,
 			     uint64_t value)
 {
+	/* Anthony Towns reported signet had a 900kbtc fee block, and then
+	 * CLN got upset scanning feerate.  It expects a u32. */
+	if (value > 0xFFFFFFFF) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Feerate %"PRIu64" is ridiculous: trimming to 32 bites",
+			   value);
+		value = 0xFFFFFFFF;
+	}
 	/* 0 is special, it means "unknown" */
 	if (value && value < stash->perkb_floor) {
 		plugin_log(cmd->plugin, LOG_DBG,
