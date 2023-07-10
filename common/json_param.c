@@ -687,13 +687,14 @@ struct command_result *param_secrets_array(struct command *cmd,
 }
 
 /**
- * segwit_addr_net_decode - Try to decode a Bech32 address and detect
+ * segwit_addr_net_decode - Try to decode a Bech32(m) address and detect
  * testnet/mainnet/regtest/signet
  *
  * This processes the address and returns a string if it is a Bech32
- * address specified by BIP173. The string is set whether it is
- * testnet or signet (both "tb"),  mainnet ("bc"), regtest ("bcrt")
- * It does not check, witness version and program size restrictions.
+ * address specified by BIP173 or Bech32m as by BIP350. The string is
+ * set whether it is testnet or signet (both "tb"),  mainnet ("bc"),
+ * regtest ("bcrt"). It does not check witness version and program size
+ * restrictions.
  *
  *  Out: witness_version: Pointer to an int that will be updated to contain
  *                 the witness program version (between 0 and 16 inclusive).
@@ -733,7 +734,7 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 	size_t witness_program_len;
 
 	char *addrz;
-	const char *bip173;
+	const char *bech32;
 
 	u8 addr_version;
 
@@ -757,12 +758,12 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 	addrz = tal_dup_arr(tmpctx, char, buffer + tok->start, tok->end - tok->start, 1);
 	addrz[tok->end - tok->start] = '\0';
 
-	bip173 = segwit_addr_net_decode(&witness_version, witness_program,
+	bech32 = segwit_addr_net_decode(&witness_version, witness_program,
 					&witness_program_len, addrz, chainparams);
-	if (bip173) {
+	if (bech32) {
 		bool witness_ok;
 
-		/* We know the rules for v0, rest remain undefined */
+		/* Only V0 has restricted lengths of witness programs */
 		if (witness_version == 0) {
 			witness_ok = (witness_program_len == 20 ||
 				       witness_program_len == 32);
@@ -772,7 +773,7 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 		if (!witness_ok)
 			return ADDRESS_PARSE_UNRECOGNIZED;
 
-		if (!streq(bip173, chainparams->onchain_hrp))
+		if (!streq(bech32, chainparams->onchain_hrp))
 			return ADDRESS_PARSE_WRONG_NETWORK;
 
 		*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
