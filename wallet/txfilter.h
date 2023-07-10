@@ -22,7 +22,7 @@ struct txfilter *txfilter_new(const tal_t *ctx);
  * This ensures that we recognize the scriptpubkeys to our keys when
  * filtering transactions. If any of the outputs matches the
  * scriptpubkey then the transaction is marked as a match. Adds
- * scriptpubkey for both raw p2wpkh and p2wpkh wrapped in p2sh.
+ * scriptpubkey for taproot, raw p2wpkh and p2wpkh wrapped in p2sh.
  */
 void txfilter_add_derkey(struct txfilter *filter,
 			 const u8 derkey[PUBKEY_CMPR_LEN]);
