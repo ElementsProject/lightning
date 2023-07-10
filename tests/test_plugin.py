@@ -4248,3 +4248,20 @@ def test_plugin_persist_option(node_factory):
     assert c['value_str'] == "Static option"
     assert c['plugin'] == plugin_path
     assert l1.rpc.call("hello") == "Static option world"
+
+
+def test_all_subscription(node_factory, directory):
+    """Ensure that registering for all notifications works."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
+    
+    l1, l2 = node_factory.line_graph(2, opts={"plugin": plugin})
+
+    l1.stop()
+
+    # There will be a lot of these!
+    for notstr in ("block_added: {'block_added': {'hash': ",
+                   "balance_snapshot: {'balance_snapshot': {'node_id': ",
+                   "connect: {'connect': {'id': ",
+                   "channel_state_changed: {'channel_state_changed': {'peer_id': ",
+                   "shutdown: {}"):
+        assert l1.daemon.is_in_log(f".*plugin-all_notifications.py: notification {notstr}.*")
