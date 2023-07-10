@@ -113,9 +113,9 @@ static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 	reason = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
-	p = strmap_get(&bitcoind->pluginsmap, method);
+	p = strmap_getn(&bitcoind->pluginsmap, method, strcspn(method, "."));
 	fatal("%s error: bad response to %s (%s), response was %.*s",
-	      p->cmd, method, reason,
+	      p ? p->cmd : "UNKNOWN CALL", method, reason,
 	      toks->end - toks->start, buf + toks->start);
 }
 
