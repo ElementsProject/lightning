@@ -316,7 +316,10 @@ def test_txprepare(node_factory, bitcoind, chainparams):
             assert o['scriptPubKey']['type'] == 'witness_v0_keyhash'
             assert scriptpubkey_addr(o['scriptPubKey']) == addr
         else:
-            assert o['scriptPubKey']['type'] in ['witness_v0_keyhash', 'fee']
+            if chainparams['elements']:
+                o['scriptPubKey']['type'] in ['witness_v0_keyhash', 'fee']
+            else:
+                assert o['scriptPubKey']['type'] in ['witness_v1_taproot', 'fee']
 
     # Now prepare one with no change.
     prep2 = l1.rpc.txprepare([{addr: 'all'}])
@@ -438,7 +441,10 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][outnum2]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][outnum2]['scriptPubKey']) == addr
 
-    assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    if chainparams['elements']:
+        assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    else:
+        assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v1_taproot'
 
 
 def test_reserveinputs(node_factory, bitcoind, chainparams):
@@ -1237,45 +1243,39 @@ def test_hsmtool_secret_decryption(node_factory):
 def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l1.fundwallet(10**6)
-
     # Get a tpub descriptor of lightningd's wallet
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     cmd_line = ["tools/hsmtool", "dumponchaindescriptors", hsm_path, "testnet"]
-    out = subprocess.check_output(cmd_line).decode("utf8").split("\n")
-    descriptor = [l for l in out if l.startswith("wpkh(tpub")][0]
+    descriptors = subprocess.check_output(cmd_line).decode("utf8").split("\n")
 
-    # If we switch wallet, we can't generate address: do so now.
-    mine_to_addr = bitcoind.rpc.getnewaddress()
+    # Deprecated or empty line
+    descriptors = [desc for desc in descriptors if not (desc.startswith("sh(wpkh(") or desc == '')]
 
-    # Import the descriptor to bitcoind
-    try:
-        bitcoind.rpc.importmulti([{
-            "desc": descriptor,
-            # No need to rescan, we'll transact afterward
-            "timestamp": "now",
-            # The default
-            "range": [0, 99]
-        }])
-    except JSONRPCError:
-        # Oh look, a new API!
-        # Need watch-only wallet, since descriptor has no privkeys.
-        bitcoind.rpc.createwallet("lightningd-ro", True)
+    withdraw_addr = None
+    index_offset = 2  # index starts handing out addrs at 2
 
-        # FIXME: No way to access non-default wallet in python-bitcoinlib
-        bitcoind.rpc.unloadwallet("lightningd-tests", True)
-        bitcoind.rpc.importdescriptors([{
-            "desc": descriptor,
-            # No need to rescan, we'll transact afterward
-            "timestamp": "now",
-            # The default
-            "range": [0, 99]
-        }])
+    # Generate twenty addresses for all known descriptors
+    cln_addrs = [l1.rpc.newaddr('all') for _ in range(20)]
+    for descriptor in descriptors:
+        for i, cln_addr in enumerate(cln_addrs):
+            computed_addr = bitcoind.rpc.deriveaddresses(descriptor, [i + index_offset, i + index_offset])[0]
+            if descriptor.startswith("wpkh"):
+                assert cln_addr["bech32"] == computed_addr
+                withdraw_addr = cln_addr["bech32"]
+            elif descriptor.startswith("tr"):
+                assert cln_addr["p2tr"] == computed_addr
+                withdraw_addr = cln_addr["p2tr"]
+            else:
+                raise Exception('Unexpected descriptor!')
 
-    # Funds sent to lightningd can be retrieved by bitcoind
-    addr = l1.rpc.newaddr()["bech32"]
-    txid = l1.rpc.withdraw(addr, 10**3)["txid"]
-    bitcoind.generate_block(1, txid, mine_to_addr)
-    assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
+        # For last address per type:
+        # Funds sent to lightningd can be retrieved by bitcoind
+        txid = l1.rpc.withdraw(withdraw_addr, 10**3)["txid"]
+        bitcoind.generate_block(1, txid, bitcoind.rpc.getnewaddress())
+        l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+        actual_index = len(cln_addrs) - 1 + index_offset
+        res = bitcoind.rpc.scantxoutset("start", [{"desc": descriptor, "range": [actual_index, actual_index]}])
+        assert res["total_amount"] == Decimal('0.00001000')
 
 
 def test_hsmtool_generatehsm(node_factory):
@@ -1543,6 +1543,44 @@ def test_withdraw_bech32m(node_factory, bitcoind):
     # Let's check to make sure outputs are as expected (plus change)
     outputs = bitcoind.rpc.decoderawtransaction(res['tx'])["vout"]
     assert set([output['scriptPubKey']['address'] for output in outputs]).issuperset([addr.lower() for addr in addrs])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Elements-based schnorr is not yet supported")
+def test_p2tr_deposit_withdrawal(node_factory, bitcoind):
+
+    # Don't get any funds from previous runs.
+    l1 = node_factory.get_node(random_hsm=True)
+
+    # Can fetch p2tr addresses through 'all' or specifically
+    deposit_addrs = [l1.rpc.newaddr('all')] * 3
+    withdrawal_addr = l1.rpc.newaddr('p2tr')
+
+    # Add some funds to withdraw
+    for addr_type in ['p2tr', 'bech32']:
+        for i in range(3):
+            l1.bitcoin.rpc.sendtoaddress(deposit_addrs[i][addr_type], 1)
+
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 6)
+    for i in range(3):
+        assert l1.rpc.listfunds()['outputs'][i]['address'] == deposit_addrs[i]['p2tr']
+        assert l1.rpc.listfunds()['outputs'][i + 3]['address'] == deposit_addrs[i]['bech32']
+    l1.rpc.withdraw(withdrawal_addr['p2tr'], 100000000 * 5)
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    raw_tx = bitcoind.rpc.getrawtransaction(bitcoind.rpc.getrawmempool()[0], 1)
+    assert len(raw_tx['vin']) == 6
+    assert len(raw_tx['vout']) == 2
+    # Change goes to p2tr
+    for output in raw_tx['vout']:
+        assert output["scriptPubKey"]["type"] == "witness_v1_taproot"
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listtransactions()['transactions']) == 7)
+
+    # Only self-send + change is left
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    # make sure tap derivation is embedded in PSBT output
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")

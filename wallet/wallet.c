@@ -734,6 +734,8 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 		*output_is_p2sh = true;
 	else if (is_p2wpkh(script, NULL))
 		*output_is_p2sh = false;
+	else if (is_p2tr(script, NULL))
+		*output_is_p2sh = false;
 	else
 		return false;
 
@@ -751,6 +753,18 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 			tal_free(s);
 			s = p2sh;
 		}
+		if (scripteq(s, script)) {
+			/* If we found a used key in the keyscan_gap we should
+			 * remember that. */
+			if (i > bip32_max_index)
+				db_set_intvar(w->db, "bip32_max_index", i);
+			tal_free(s);
+			*index = i;
+			return true;
+		}
+		tal_free(s);
+		/* Try taproot output now */
+		s = scriptpubkey_p2tr_derkey(w, ext.pub_key);
 		if (scripteq(s, script)) {
 			/* If we found a used key in the keyscan_gap we should
 			 * remember that. */

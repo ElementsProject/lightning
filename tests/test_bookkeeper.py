@@ -395,13 +395,13 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
 
     # l1 events
     exp_events = [('channel_open', open_amt * 1000 + lease_fee, 0),
-                  ('onchain_fee', 1224000, 0),
+                  ('onchain_fee', 1320000, 0),
                   ('lease_fee', 0, lease_fee),
                   ('journal_entry', 0, invoice_msat)]
     _check_events(l1, channel_id, exp_events)
 
     exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 796000, 0),
+                  ('onchain_fee', 892000, 0),
                   ('lease_fee', lease_fee, 0),
                   ('journal_entry', invoice_msat, 0)]
     _check_events(l2, channel_id, exp_events)
@@ -461,7 +461,7 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
 
     # l1 events
     exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4567000, 0),
+                  ('onchain_fee', 4927000, 0),
                   ('pushed', 0, push_amt),
                   ('journal_entry', 0, invoice_msat)]
     _check_events(l1, channel_id, exp_events)
@@ -534,7 +534,7 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
 
     # l1 events
     exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4567000, 0),
+                  ('onchain_fee', 4927000, 0),
                   ('invoice', 0, invoice_msat)]
     _check_events(l1, channel_id, exp_events)
 

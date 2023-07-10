@@ -349,9 +349,9 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	/* Set the remote/local pubkeys on the commitment tx psbt */
 	psbt_input_add_pubkey(txs[0]->psbt, 0,
-			      &channel->funding_pubkey[side]);
+			      &channel->funding_pubkey[side], false /* is_taproot */);
 	psbt_input_add_pubkey(txs[0]->psbt, 0,
-			      &channel->funding_pubkey[!side]);
+			      &channel->funding_pubkey[!side], false /* is_taproot */);
 
 	add_htlcs(&txs, *htlcmap, channel, &keyset, side);
 

@@ -789,6 +789,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
 impl From<responses::NewaddrResponse> for pb::NewaddrResponse {
     fn from(c: responses::NewaddrResponse) -> Self {
         Self {
+            p2tr: c.p2tr, // Rule #2 for type string?
             bech32: c.bech32, // Rule #2 for type string?
             #[allow(deprecated)]
             p2sh_segwit: c.p2sh_segwit, // Rule #2 for type string?

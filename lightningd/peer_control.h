@@ -100,6 +100,7 @@ void channel_errmsg(struct channel *channel,
 		    const u8 *err_for_them);
 
 u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
+u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 
 /* We've loaded peers from database, set them going. */
 void setup_peers(struct lightningd *ld);

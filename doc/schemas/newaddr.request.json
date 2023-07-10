@@ -8,6 +8,7 @@
       "type": "string",
       "enum": [
         "bech32",
+        "p2tr",
         "all"
       ]
     }

@@ -81,7 +81,7 @@ penalty_tx_create(const tal_t *ctx,
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);
 	assert((final_index == NULL) == (final_ext_key == NULL));
 	if (final_index)
-		psbt_add_keypath_to_last_output(tx, *final_index, final_ext_key);
+		psbt_add_keypath_to_last_output(tx, *final_index, final_ext_key, is_p2tr(final_scriptpubkey, NULL));
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);

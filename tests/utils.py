@@ -98,7 +98,8 @@ def check_balance_snaps(n, expected_bals):
     snaps = n.rpc.listsnapshots()['balance_snapshots']
     for snap, exp in zip(snaps, expected_bals):
         assert snap['blockheight'] == exp['blockheight']
-        assert _dictify(snap) == _dictify(exp)
+        if _dictify(snap) != _dictify(exp):
+            raise Exception('Unexpected balance snap: {} vs {}'.format(_dictify(snap), _dictify(exp)))
 
 
 def check_coin_moves(n, account_id, expected_moves, chainparams):
@@ -409,7 +410,8 @@ def basic_fee(feerate, anchor_expected):
 
 def closing_fee(feerate, num_outputs):
     assert num_outputs == 1 or num_outputs == 2
-    weight = 428 + 124 * num_outputs
+    # Assumes p2tr outputs
+    weight = 428 + (8 + 1 + 1 + 1 + 32) * 4 * num_outputs
     return (weight * feerate) // 1000
 
 

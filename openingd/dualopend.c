@@ -969,8 +969,8 @@ static char *check_balances(const tal_t *ctx,
 
 static bool is_segwit_output(struct wally_tx_output *output)
 {
-	const u8 *wit_prog = wally_tx_output_get_script(tmpctx, output);
-	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
+	const u8 *script = wally_tx_output_get_script(tmpctx, output);
+	return is_known_segwit_scripttype(script);
 }
 
 static void set_remote_upfront_shutdown(struct state *state,

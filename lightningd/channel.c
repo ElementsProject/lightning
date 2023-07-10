@@ -398,6 +398,10 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
 
+	bool anysegwit = !chainparams->is_elements && feature_negotiated(peer->ld->our_features,
+                        peer->their_features,
+                        OPT_SHUTDOWN_ANYSEGWIT);
+
 	assert(dbid != 0);
 	channel->peer = peer;
 	channel->dbid = dbid;
@@ -477,13 +481,18 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->shutdown_wrong_funding
 		= tal_steal(channel, shutdown_wrong_funding);
 	channel->closing_feerate_range = NULL;
-	if (local_shutdown_scriptpubkey)
+	if (local_shutdown_scriptpubkey) {
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);
-	else
+	} else if (anysegwit) {
+		channel->shutdown_scriptpubkey[LOCAL]
+			= p2tr_for_keyidx(channel, channel->peer->ld,
+						channel->final_key_idx);
+	} else {
 		channel->shutdown_scriptpubkey[LOCAL]
 			= p2wpkh_for_keyidx(channel, channel->peer->ld,
-					    channel->final_key_idx);
+						channel->final_key_idx);
+	}
 	channel->last_was_revoke = last_was_revoke;
 	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;
@@ -534,9 +543,17 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->state_change_cause = reason;
 
 	/* Make sure we see any spends using this key */
-	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
-				  take(p2wpkh_for_keyidx(NULL, peer->ld,
-							 channel->final_key_idx)));
+	if (!local_shutdown_scriptpubkey) {
+		if (anysegwit) {
+			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
+						  take(p2tr_for_keyidx(NULL, peer->ld,
+									 channel->final_key_idx)));
+		} else {
+			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
+						  take(p2wpkh_for_keyidx(NULL, peer->ld,
+									 channel->final_key_idx)));
+		}
+	}
 	/* scid is NULL when opening a new channel so we don't
 	 * need to set error in that case as well */
 	if (is_stub_scid(scid))
