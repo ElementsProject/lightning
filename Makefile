@@ -667,7 +667,7 @@ $(ALL_FUZZ_TARGETS):
 
 
 # Everything depends on the CCAN headers, and Makefile
-$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
+$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile ccan_compat.h
 
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
