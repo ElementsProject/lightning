@@ -277,7 +277,7 @@ ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += $(POSTGRES_LDLIBS)
 endif
 
-default: show-flags all-programs all-test-programs doc-all default-targets $(PYTHON_GENERATED)
+default: show-flags gen all-programs all-test-programs doc-all default-targets $(PYTHON_GENERATED)
 
 ifneq ($(SUPPRESS_GENERATION),1)
 FORCE = FORCE
@@ -596,6 +596,8 @@ CHECK_GEN_ALL = \
 	wallet/statements_gettextgen.po \
 	.msggen.json \
 	doc/index.rst
+
+gen:  $(CHECK_GEN_ALL)
 
 check-gen-updated:  $(CHECK_GEN_ALL)
 	@echo "Checking for generated files being changed by make"
