@@ -52,12 +52,13 @@ static void json_add_connect_fields(struct json_stream *stream,
 }
 
 static void connect_notification_serialize(struct json_stream *stream,
+					   struct lightningd *ld,
 					   const struct node_id *nodeid,
 					   bool incoming,
 					   const struct wireaddr_internal *addr)
 {
 	/* Old style: Add raw fields without connect key */
-	if (deprecated_apis)
+	if (ld->deprecated_apis)
 		json_add_connect_fields(stream, nodeid, incoming, addr);
 	json_object_start(stream, "connect");
 	json_add_connect_fields(stream, nodeid, incoming, addr);
@@ -73,13 +74,14 @@ void notify_connect(struct lightningd *ld,
 		    const struct wireaddr_internal *addr)
 {
 	void (*serialize)(struct json_stream *,
+			  struct lightningd *,
 			  const struct node_id *,
 			  bool,
 			  const struct wireaddr_internal *) = connect_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, connect_notification_gen.topic);
-	serialize(n->stream, nodeid, incoming, addr);
+	serialize(n->stream, ld, nodeid, incoming, addr);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -91,10 +93,11 @@ static void json_add_disconnect_fields(struct json_stream *stream,
 }
 
 static void disconnect_notification_serialize(struct json_stream *stream,
+					      struct lightningd *ld,
 					      struct node_id *nodeid)
 {
 	/* Old style: Add raw fields without disconnect key */
-	if (deprecated_apis)
+	if (ld->deprecated_apis)
 		json_add_disconnect_fields(stream, nodeid);
 	json_object_start(stream, "disconnect");
 	json_add_disconnect_fields(stream, nodeid);
@@ -107,11 +110,12 @@ REGISTER_NOTIFICATION(disconnect,
 void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 {
 	void (*serialize)(struct json_stream *,
+			  struct lightningd *,
 			  struct node_id *) = disconnect_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, disconnect_notification_gen.topic);
-	serialize(n->stream, nodeid);
+	serialize(n->stream, ld, nodeid);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -607,9 +611,10 @@ static void json_add_block_added_fields(struct json_stream *stream,
 }
 
 static void block_added_notification_serialize(struct json_stream *stream,
+					       struct lightningd *ld,
 					       struct block *block)
 {
-	if (deprecated_apis) {
+	if (ld->deprecated_apis) {
 		json_object_start(stream, "block");
 		json_add_block_added_fields(stream, block);
 		json_object_end(stream);
@@ -626,11 +631,12 @@ void notify_block_added(struct lightningd *ld,
 			const struct block *block)
 {
 	void (*serialize)(struct json_stream *,
+			  struct lightningd *ld,
 			  const struct block *block) = block_added_notification_gen.serialize;
 
 	struct jsonrpc_notification *n =
 		jsonrpc_notification_start(NULL, "block_added");
-	serialize(n->stream, block);
+	serialize(n->stream, ld, block);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
