@@ -659,10 +659,13 @@ class Plugin(object):
             self.log(traceback.format_exc())
 
     def _dispatch_notification(self, request: Request) -> None:
-        if request.method not in self.subscriptions:
-            raise ValueError("No subscription for {name} found.".format(
-                name=request.method))
-        func = self.subscriptions[request.method]
+        if request.method in self.subscriptions:
+            func = self.subscriptions[request.method]
+        # Wildcard 'all' subscriptions using asterisk
+        elif '*' in self.subscriptions:
+            func = self.subscriptions['*']
+        else:
+            raise ValueError(f"No subscription for {request.method} found.")
 
         try:
             self._exec_func(func, request)
