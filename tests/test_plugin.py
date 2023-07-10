@@ -4266,7 +4266,7 @@ def test_all_subscription(node_factory, directory):
                    "balance_snapshot: {'balance_snapshot': {'node_id': ",
                    "connect: {'connect': {'id': ",
                    "channel_state_changed: {'channel_state_changed': {'peer_id': ",
-                   "shutdown: {}"):
+                   "shutdown: {'shutdown': {}"):
         assert l1.daemon.is_in_log(f".*plugin-all_notifications.py: notification {notstr}.*")
 
     for notstr in ('block_added: ',

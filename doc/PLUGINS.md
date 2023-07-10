@@ -929,6 +929,12 @@ logging or notifications. New rpc calls will fail with error code -5 and (plugin
 responses will be ignored. Because lightningd can crash or be killed, a plugin cannot
 rely on the shutdown notification always been send.
 
+```json
+{
+    "shutdown": {
+    }
+}
+```
 
 ## Hooks
 
