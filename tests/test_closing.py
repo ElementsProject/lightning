@@ -3775,7 +3775,8 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     bitcoind.generate_block(1, needfeerate=5000)
 
     l1.daemon.wait_for_log('RBF anchor spend')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    # We actually resubmit the commit tx, then the RBF:
+    l1.daemon.wait_for_logs(['sendrawtx exit 0'] * 2)
 
     # And now we'll get it in (there's some rounding, so feerate a bit lower!)
     bitcoind.generate_block(1, needfeerate=2990)
