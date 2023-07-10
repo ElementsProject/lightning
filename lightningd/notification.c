@@ -700,6 +700,9 @@ bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 	struct jsonrpc_notification *n =
 		jsonrpc_notification_start(NULL, "shutdown");
 
+	/* Even shutdown should follow the same "object inside notification" pattern */
+	json_object_start(n->stream, "shutdown");
+	json_object_end(n->stream);
 	jsonrpc_notification_end(n);
 	return plugin_single_notify(p, take(n));
 }
