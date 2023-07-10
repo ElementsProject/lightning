@@ -4252,11 +4252,14 @@ def test_plugin_persist_option(node_factory):
 
 def test_all_subscription(node_factory, directory):
     """Ensure that registering for all notifications works."""
-    plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
-    
-    l1, l2 = node_factory.line_graph(2, opts={"plugin": plugin})
+    plugin1 = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
+    plugin2 = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+
+    l1, l2 = node_factory.line_graph(2, opts=[{"plugin": plugin1},
+                                              {"plugin": plugin2}])
 
     l1.stop()
+    l2.stop()
 
     # There will be a lot of these!
     for notstr in ("block_added: {'block_added': {'hash': ",
@@ -4265,3 +4268,12 @@ def test_all_subscription(node_factory, directory):
                    "channel_state_changed: {'channel_state_changed': {'peer_id': ",
                    "shutdown: {}"):
         assert l1.daemon.is_in_log(f".*plugin-all_notifications.py: notification {notstr}.*")
+
+    for notstr in ('block_added: ',
+                   'balance_snapshot: ',
+                   'channel_state_changed: {'):
+        assert l2.daemon.is_in_log(f'.*test_libplugin: all: {notstr}.*')
+
+    # shutdown and connect are subscribed before the wildcard, so is handled by that handler
+    assert not l2.daemon.is_in_log(f'.*test_libplugin: all: shutdown.*')
+    assert not l2.daemon.is_in_log(f'.*test_libplugin: all: connect.*')
