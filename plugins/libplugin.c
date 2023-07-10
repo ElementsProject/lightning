@@ -1607,7 +1607,8 @@ static void ld_command_handle(struct plugin *plugin,
 #endif
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
-				  plugin->notif_subs[i].name)) {
+				  plugin->notif_subs[i].name)
+			    || streq(plugin->notif_subs[i].name, "*")) {
 				plugin->notif_subs[i].handle(cmd,
 							     plugin->buffer,
 							     paramstok);

@@ -87,6 +87,7 @@ struct plugin_option {
 
 /* Create an array of these, one for each notification you subscribe to. */
 struct plugin_notification {
+	/* "*" means wildcard: notify me on everything (should be last!) */
 	const char *name;
 	/* The handler must eventually trigger a `notification_handled`
 	 * call.  */

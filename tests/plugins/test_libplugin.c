@@ -101,6 +101,17 @@ static struct command_result *json_shutdown(struct command *cmd,
 	plugin_exit(cmd->plugin, 0);
 }
 
+static struct command_result *json_all_notifs(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
+{
+	plugin_log(cmd->plugin, LOG_DBG, "all: %s: %.*s",
+		   cmd->methodname,
+		   json_tok_full_len(params),
+		   json_tok_full(buf, params));
+	return notification_handled(cmd);
+}
+
 static struct command_result *testrpc_cb(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *params,
@@ -209,6 +220,9 @@ static const struct plugin_notification notifs[] = { {
 	}, {
 		"shutdown",
 		json_shutdown
+	}, {
+		"*",
+		json_all_notifs
 	}
 };
 
