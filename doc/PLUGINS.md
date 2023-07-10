@@ -431,6 +431,13 @@ above for example subscribes to the two topics `connect` and
 corresponding payloads are listed below.
 
 
+### `*`
+
+This is a way of specifying that you want to subscribe to all possible
+event notifications.  It is not recommended, but is useful for plugins
+which want to provide generic infrastructure for others (in future, we
+may add the ability to dynamically subscribe/unsubscribe).
+
 ### `channel_opened`
 
 A notification for topic `channel_opened` is sent if a peer successfully

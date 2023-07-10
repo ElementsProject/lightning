@@ -13,6 +13,13 @@ Event notifications allow a plugin to subscribe to events in `lightningd`. `ligh
 
 Plugins subscribe by returning an array of subscriptions as part of the `getmanifest` response. The result for the `getmanifest` call above for example subscribes to the two topics `connect` and `disconnect`. The topics that are currently defined and the corresponding payloads are listed below.
 
+### `*`
+
+This is a way of specifying that you want to subscribe to all possible
+event notifications.  It is not recommended, but is useful for plugins
+which want to provide generic infrastructure for others (in future, we
+may add the ability to dynamically subscribe/unsubscribe).
+
 ### `channel_opened`
 
 A notification for topic `channel_opened` is sent if a peer successfully funded a channel with us. It contains the peer id, the funding amount (in millisatoshis), the funding transaction id, and a boolean indicating if the funding transaction has been included into a block.
