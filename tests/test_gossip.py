@@ -696,8 +696,10 @@ def test_routing_gossip(node_factory, bitcoind):
     # openchannel calls fundwallet which mines a block; so first channel
     # is 4 deep, last is unconfirmed.
 
-    # Allow announce messages.
-    mine_funding_to_announce(bitcoind, nodes, num_blocks=6, wait_for_mempool=1)
+    # Allow announce messages, but don't run too fast, otherwise gossip can be in the future for nodes.
+    sync_blockheight(bitcoind, nodes)
+    bitcoind.generate_block(wait_for_mempool=1)
+    mine_funding_to_announce(bitcoind, nodes)
 
     # Deep check that all channels are in there
     comb = []
