@@ -83,13 +83,13 @@ static bool is_segwit_output(const tal_t *ctx,
 			     struct wally_tx_output *output,
 			     const u8 *redeemscript)
 {
-	const u8 *wit_prog;
+	const u8 *maybe_witness;
 	if (tal_bytelen(redeemscript) > 0)
-		wit_prog = redeemscript;
+		maybe_witness = redeemscript;
 	else
-		wit_prog = wally_tx_output_get_script(ctx, output);
+		maybe_witness = wally_tx_output_get_script(ctx, output);
 
-	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
+	return is_known_segwit_scripttype(maybe_witness);
 }
 
 /* Return first non-handled message or NULL if connection is aborted */
