@@ -153,7 +153,7 @@ void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at);
 
 void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
-			   const struct pubkey *pubkey);
+			   const struct pubkey *pubkey, bool is_taproot);
 
 WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
 						 const struct pubkey *pubkey,

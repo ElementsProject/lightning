@@ -211,7 +211,7 @@ void psbt_rm_output(struct wally_psbt *psbt,
 }
 
 void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
-			   const struct pubkey *pubkey)
+			   const struct pubkey *pubkey, bool is_taproot)
 {
 	int wally_err;
 	u32 empty_path[1] = {0};
@@ -233,11 +233,20 @@ void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
 	pubkey_to_der(pk_der, pubkey);
 
 	tal_wally_start();
-	wally_err = wally_psbt_input_keypath_add(&psbt->inputs[in],
-						      pk_der, sizeof(pk_der),
-						      fingerprint, sizeof(fingerprint),
-						      empty_path, ARRAY_SIZE(empty_path));
-	assert(wally_err == WALLY_OK);
+	if (is_taproot) {
+		wally_err = wally_psbt_input_taproot_keypath_add(&psbt->inputs[in],
+								  pk_der + 1, 32,
+								  NULL /* tapleaf_hashes */, 0 /* tapleaf_hashes_len */,
+								  fingerprint, sizeof(fingerprint),
+								  empty_path, ARRAY_SIZE(empty_path));
+		assert(wally_err == WALLY_OK);
+	} else {
+		wally_err = wally_psbt_input_keypath_add(&psbt->inputs[in],
+								  pk_der, sizeof(pk_der),
+								  fingerprint, sizeof(fingerprint),
+								  empty_path, ARRAY_SIZE(empty_path));
+		assert(wally_err == WALLY_OK);
+	}
 	tal_wally_end(psbt);
 }
 
