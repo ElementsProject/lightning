@@ -292,14 +292,14 @@ struct wallet_shachain {
 	struct shachain chain;
 };
 
-/* Possible states for a wallet_payment. Payments start in
+/* Possible states for a payment. Payments start in
  * `PENDING`. Outgoing payments are set to `PAYMENT_COMPLETE` once we
  * get the preimage matching the rhash, or to
  * `PAYMENT_FAILED`. */
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok but you should append the
- * test case test_wallet_payment_status_enum() ) /!\ */
-enum wallet_payment_status {
+ * test case test_payment_status_enum() ) /!\ */
+enum payment_status {
 	PAYMENT_PENDING = 0,
 	PAYMENT_COMPLETE = 1,
 	PAYMENT_FAILED = 2
@@ -310,7 +310,7 @@ struct tx_annotation {
 	struct short_channel_id channel;
 };
 
-static inline enum wallet_payment_status wallet_payment_status_in_db(enum wallet_payment_status w)
+static inline enum payment_status payment_status_in_db(enum payment_status w)
 {
 	switch (w) {
 	case PAYMENT_PENDING:
@@ -342,7 +342,7 @@ struct wallet_payment {
 	u64 partid;
 	u64 groupid;
 
-	enum wallet_payment_status status;
+	enum payment_status status;
 
 	/* The destination may not be known if we used `sendonion` */
 	struct node_id *destination;
@@ -1115,7 +1115,7 @@ void wallet_payment_store(struct wallet *wallet,
 void wallet_payment_delete(struct wallet *wallet,
 			   const struct sha256 *payment_hash,
 			   const u64 *groupid, const u64 *partid,
-			   const enum wallet_payment_status *status);
+			   const enum payment_status *status);
 
 /**
  * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC
@@ -1157,7 +1157,7 @@ u64 wallet_payment_get_groupid(struct wallet *wallet,
 void wallet_payment_set_status(struct wallet *wallet,
 			       const struct sha256 *payment_hash,
 			       u64 partid, u64 groupid,
-			       const enum wallet_payment_status newstatus,
+			       const enum payment_status newstatus,
 			       const struct preimage *preimage);
 
 /**

@@ -3352,7 +3352,7 @@ u64 wallet_payment_get_groupid(struct wallet *wallet,
 void wallet_payment_delete(struct wallet *wallet,
 			   const struct sha256 *payment_hash,
 			   const u64 *groupid, const u64 *partid,
-			   const enum wallet_payment_status *status)
+			   const enum payment_status *status)
 {
 	struct db_stmt *stmt;
 
@@ -3516,7 +3516,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 void wallet_payment_set_status(struct wallet *wallet,
 			       const struct sha256 *payment_hash,
 			       u64 partid, u64 groupid,
-			       const enum wallet_payment_status newstatus,
+			       const enum payment_status newstatus,
 			       const struct preimage *preimage)
 {
 	struct db_stmt *stmt;
@@ -3538,7 +3538,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 			     SQL("UPDATE payments SET status=?, completed_at=? "
 				 "WHERE payment_hash=? AND partid=? AND groupid=?"));
 
-	db_bind_int(stmt, 0, wallet_payment_status_in_db(newstatus));
+	db_bind_int(stmt, 0, payment_status_in_db(newstatus));
 	if (completed_at != 0) {
 		db_bind_u64(stmt, 1, completed_at);
 	} else {

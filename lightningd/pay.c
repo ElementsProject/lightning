@@ -37,7 +37,7 @@ struct sendpay_command {
 };
 
 static bool string_to_payment_status(const char *status_str, size_t len,
-				     enum wallet_payment_status *status)
+				     enum payment_status *status)
 {
 	if (memeqstr(status_str, len, "complete")) {
 		*status = PAYMENT_COMPLETE;
@@ -52,7 +52,7 @@ static bool string_to_payment_status(const char *status_str, size_t len,
 	return false;
 }
 
-static const char *payment_status_to_string(const enum wallet_payment_status status)
+static const char *payment_status_to_string(const enum payment_status status)
 {
 	switch (status) {
 	case PAYMENT_COMPLETE:
@@ -1534,9 +1534,9 @@ static struct command_result *param_payment_status(struct command *cmd,
 						   const char *name,
 						   const char *buffer,
 						   const jsmntok_t *tok,
-						   enum wallet_payment_status **status)
+						   enum payment_status **status)
 {
-	*status = tal(cmd, enum wallet_payment_status);
+	*status = tal(cmd, enum payment_status);
 	if (string_to_payment_status(buffer + tok->start,
 				     tok->end - tok->start,
 				     *status))
@@ -1555,7 +1555,7 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	struct json_stream *response;
 	struct sha256 *rhash;
 	const char *invstring;
-	enum wallet_payment_status *status;
+	enum payment_status *status;
 
 	if (!param(cmd, buffer, params,
 		   /* FIXME: parameter should be invstring now */
@@ -1622,7 +1622,7 @@ param_payment_status_nopending(struct command *cmd,
 			       const char *name,
 			       const char *buffer,
 			       const jsmntok_t *tok,
-			       enum wallet_payment_status **status)
+			       enum payment_status **status)
 {
 	struct command_result *res;
 
@@ -1646,10 +1646,10 @@ static struct command_result *json_delpay(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
-	const enum wallet_payment_status *found_status = NULL;
+	const enum payment_status *found_status = NULL;
 	struct json_stream *response;
 	const struct wallet_payment **payments;
-	enum wallet_payment_status *status;
+	enum payment_status *status;
 	struct sha256 *payment_hash;
 	u64 *groupid, *partid;
 	bool found;
