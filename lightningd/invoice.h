@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_INVOICE_H
 #define LIGHTNING_LIGHTNINGD_INVOICE_H
 #include "config.h"
+#include <wallet/wallet.h>
 #include <wire/onion_wire.h>
 
 struct amount_msat;
@@ -37,5 +38,8 @@ invoice_check_payment(const tal_t *ctx,
 void invoice_try_pay(struct lightningd *ld,
 		     struct htlc_set *set,
 		     const struct invoice_details *details);
+
+/* Simple enum -> string converter for JSON fields */
+const char *invoice_status_str(enum invoice_status state);
 
 #endif /* LIGHTNING_LIGHTNINGD_INVOICE_H */

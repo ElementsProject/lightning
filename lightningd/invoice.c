@@ -28,13 +28,17 @@
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
-static const char *invoice_status_str(const struct invoice_details *inv)
+const char *invoice_status_str(enum invoice_status state)
 {
-	if (inv->state == PAID)
+	switch (state) {
+	case PAID:
 		return "paid";
-	if (inv->state == EXPIRED)
+	case EXPIRED:
 		return "expired";
-	return "unpaid";
+	case UNPAID:
+		return "unpaid";
+	}
+	abort();
 }
 
 static void json_add_invoice_fields(struct json_stream *response,
@@ -46,7 +50,7 @@ static void json_add_invoice_fields(struct json_stream *response,
 	json_add_sha256(response, "payment_hash", &inv->rhash);
 	if (inv->msat)
 		json_add_amount_msat(response, "amount_msat", *inv->msat);
-	json_add_string(response, "status", invoice_status_str(inv));
+	json_add_string(response, "status", invoice_status_str(inv->state));
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
 		json_add_amount_msat(response,
@@ -1347,7 +1351,7 @@ static struct command_result *json_delinvoice(struct command *cmd,
 
 	/* This is time-sensitive, so only call once; otherwise error msg
 	 * might not make sense if it changed! */
-	actual_status = invoice_status_str(details);
+	actual_status = invoice_status_str(details->state);
 	if (!streq(actual_status, status)) {
 		struct json_stream *js;
 		js = json_stream_fail(cmd, INVOICE_STATUS_UNEXPECTED,
