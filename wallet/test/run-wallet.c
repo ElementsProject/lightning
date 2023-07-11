@@ -238,84 +238,11 @@ void htlc_set_add(struct lightningd *ld UNNEEDED,
 		  struct amount_msat total_msat UNNEEDED,
 		  const struct secret *payment_secret UNNEEDED)
 { fprintf(stderr, "htlc_set_add called!\n"); abort(); }
-/* Generated stub for invoices_create */
-bool invoices_create(struct invoices *invoices UNNEEDED,
-		     struct invoice *pinvoice UNNEEDED,
-		     const struct amount_msat *msat TAKES UNNEEDED,
-		     const struct json_escape *label TAKES UNNEEDED,
-		     u64 expiry UNNEEDED,
-		     const char *b11enc UNNEEDED,
-		     const char *description UNNEEDED,
-		     const u8 *features UNNEEDED,
-		     const struct preimage *r UNNEEDED,
-		     const struct sha256 *rhash UNNEEDED,
-		     const struct sha256 *local_offer_id UNNEEDED)
-{ fprintf(stderr, "invoices_create called!\n"); abort(); }
-/* Generated stub for invoices_delete */
-bool invoices_delete(struct invoices *invoices UNNEEDED,
-		     struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "invoices_delete called!\n"); abort(); }
-/* Generated stub for invoices_delete_description */
-bool invoices_delete_description(struct invoices *invoices UNNEEDED,
-				 struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "invoices_delete_description called!\n"); abort(); }
-/* Generated stub for invoices_delete_expired */
-void invoices_delete_expired(struct invoices *invoices UNNEEDED,
-			     u64 max_expiry_time UNNEEDED)
-{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
-/* Generated stub for invoices_find_by_label */
-bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
-			    struct invoice *pinvoice UNNEEDED,
-			    const struct json_escape *label UNNEEDED)
-{ fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
-/* Generated stub for invoices_find_by_rhash */
-bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
-			    struct invoice *pinvoice UNNEEDED,
-			    const struct sha256 *rhash UNNEEDED)
-{ fprintf(stderr, "invoices_find_by_rhash called!\n"); abort(); }
-/* Generated stub for invoices_find_unpaid */
-bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
-			  struct invoice *pinvoice UNNEEDED,
-			  const struct sha256 *rhash UNNEEDED)
-{ fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
-/* Generated stub for invoices_get_details */
-struct invoice_details *invoices_get_details(const tal_t *ctx UNNEEDED,
-					     struct invoices *invoices UNNEEDED,
-					     struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "invoices_get_details called!\n"); abort(); }
-/* Generated stub for invoices_iterate */
-bool invoices_iterate(struct invoices *invoices UNNEEDED,
-		      struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "invoices_iterate called!\n"); abort(); }
-/* Generated stub for invoices_iterator_deref */
-const struct invoice_details *invoices_iterator_deref(
-	const tal_t *ctx UNNEEDED, struct invoices *invoices UNNEEDED,
-	const struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
 /* Generated stub for invoices_new */
 struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct wallet *wallet UNNEEDED,
 			      struct timers *timers UNNEEDED)
 { fprintf(stderr, "invoices_new called!\n"); abort(); }
-/* Generated stub for invoices_resolve */
-bool invoices_resolve(struct invoices *invoices UNNEEDED,
-		      struct invoice invoice UNNEEDED,
-		      struct amount_msat received UNNEEDED)
-{ fprintf(stderr, "invoices_resolve called!\n"); abort(); }
-/* Generated stub for invoices_waitany */
-void invoices_waitany(const tal_t *ctx UNNEEDED,
-		      struct invoices *invoices UNNEEDED,
-		      u64 lastpay_index UNNEEDED,
-		      void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
-		      void *cbarg UNNEEDED)
-{ fprintf(stderr, "invoices_waitany called!\n"); abort(); }
-/* Generated stub for invoices_waitone */
-void invoices_waitone(const tal_t *ctx UNNEEDED,
-		      struct invoices *invoices UNNEEDED,
-		      struct invoice invoice UNNEEDED,
-		      void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
-		      void *cbarg UNNEEDED)
-{ fprintf(stderr, "invoices_waitone called!\n"); abort(); }
 /* Generated stub for is_hsm_secret_encrypted */
 int is_hsm_secret_encrypted(const char *path UNNEEDED)
 { fprintf(stderr, "is_hsm_secret_encrypted called!\n"); abort(); }

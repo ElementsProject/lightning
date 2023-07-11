@@ -5,6 +5,7 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <lightningd/invoice.h>
 #include <wallet/invoices.h>
 #include <wallet/wallet.h>
 
@@ -14,12 +15,12 @@ struct invoice_waiter {
 	/* Is this waiting for any invoice to resolve? */
 	bool any;
 	/* If !any, the specific invoice this is waiting on */
-	u64 id;
+	u64 inv_dbid;
 
 	struct list_node list;
 
 	/* The callback to use */
-	void (*cb)(const struct invoice *, void*);
+	void (*cb)(const u64 *inv_dbid, void*);
 	void *cbarg;
 };
 
@@ -37,41 +38,41 @@ struct invoices {
 };
 
 static void trigger_invoice_waiter(struct invoice_waiter *w,
-				   const struct invoice *invoice)
+				   const u64 *inv_dbid)
 {
 	w->triggered = true;
-	w->cb(invoice, w->cbarg);
+	w->cb(inv_dbid, w->cbarg);
 }
 
 static void trigger_invoice_waiter_resolve(struct invoices *invoices,
-					   u64 id,
-					   const struct invoice *invoice)
+					   u64 inv_dbid)
 {
 	struct invoice_waiter *w;
 	struct invoice_waiter *n;
 
 	list_for_each_safe(&invoices->waiters, w, n, list) {
-		if (!w->any && w->id != id)
+		if (!w->any && w->inv_dbid != inv_dbid)
 			continue;
 		list_del_from(&invoices->waiters, &w->list);
 		tal_steal(tmpctx, w);
-		trigger_invoice_waiter(w, invoice);
+		trigger_invoice_waiter(w, &inv_dbid);
 	}
 }
+
 static void
 trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
-					u64 id,
-					const struct invoice *invoice)
+					u64 inv_dbid,
+					bool deleted)
 {
 	struct invoice_waiter *w;
 	struct invoice_waiter *n;
 
 	list_for_each_safe(&invoices->waiters, w, n, list) {
-		if (w->any || w->id != id)
+		if (w->any || w->inv_dbid != inv_dbid)
 			continue;
 		list_del_from(&invoices->waiters, &w->list);
 		tal_steal(tmpctx, w);
-		trigger_invoice_waiter(w, invoice);
+		trigger_invoice_waiter(w, deleted ? NULL : &inv_dbid);
 	}
 }
 
@@ -150,7 +151,7 @@ struct invoices *invoices_new(const tal_t *ctx,
 
 struct invoice_id_node {
 	struct list_node list;
-	u64 id;
+	u64 inv_dbid;
 };
 
 static void trigger_expiration(struct invoices *invoices)
@@ -159,7 +160,6 @@ static void trigger_expiration(struct invoices *invoices)
 	struct invoice_id_node *idn;
 	u64 now = time_now().ts.tv_sec;
 	struct db_stmt *stmt;
-	struct invoice i;
 
 	/* Free current expiration timer */
 	invoices->expiration_timer = tal_free(invoices->expiration_timer);
@@ -177,7 +177,7 @@ static void trigger_expiration(struct invoices *invoices)
 	while (db_step(stmt)) {
 		idn = tal(tmpctx, struct invoice_id_node);
 		list_add_tail(&idlist, &idn->list);
-		idn->id = db_col_u64(stmt, "id");
+		idn->inv_dbid = db_col_u64(stmt, "id");
 	}
 	tal_free(stmt);
 
@@ -187,8 +187,7 @@ static void trigger_expiration(struct invoices *invoices)
 	/* Trigger expirations */
 	list_for_each(&idlist, idn, list) {
 		/* Trigger expiration */
-		i.id = idn->id;
-		trigger_invoice_waiter_expire_or_delete(invoices, idn->id, &i);
+		trigger_invoice_waiter_expire_or_delete(invoices, idn->inv_dbid, false);
 	}
 
 	install_expiration_timer(invoices);
@@ -248,7 +247,7 @@ done:
 }
 
 bool invoices_create(struct invoices *invoices,
-		     struct invoice *pinvoice,
+		     u64 *inv_dbid,
 		     const struct amount_msat *msat TAKES,
 		     const struct json_escape *label TAKES,
 		     u64 expiry,
@@ -260,11 +259,10 @@ bool invoices_create(struct invoices *invoices,
 		     const struct sha256 *local_offer_id)
 {
 	struct db_stmt *stmt;
-	struct invoice dummy;
 	u64 expiry_time;
 	u64 now = time_now().ts.tv_sec;
 
-	if (invoices_find_by_label(invoices, &dummy, label)) {
+	if (invoices_find_by_label(invoices, inv_dbid, label)) {
 		if (taken(msat))
 			tal_free(msat);
 		if (taken(label))
@@ -310,7 +308,7 @@ bool invoices_create(struct invoices *invoices,
 
 	db_exec_prepared_v2(stmt);
 
-	pinvoice->id = db_last_insert_id_v2(take(stmt));
+	*inv_dbid = db_last_insert_id_v2(take(stmt));
 
 	/* Install expiration trigger. */
 	if (!invoices->expiration_timer ||
@@ -327,9 +325,8 @@ bool invoices_create(struct invoices *invoices,
 	return true;
 }
 
-
 bool invoices_find_by_label(struct invoices *invoices,
-			    struct invoice *pinvoice,
+			    u64 *inv_dbid,
 			    const struct json_escape *label)
 {
 	struct db_stmt *stmt;
@@ -344,13 +341,13 @@ bool invoices_find_by_label(struct invoices *invoices,
 		return false;
 	}
 
-	pinvoice->id = db_col_u64(stmt, "id");
+	*inv_dbid = db_col_u64(stmt, "id");
 	tal_free(stmt);
 	return true;
 }
 
 bool invoices_find_by_rhash(struct invoices *invoices,
-			    struct invoice *pinvoice,
+			    u64 *inv_dbid,
 			    const struct sha256 *rhash)
 {
 	struct db_stmt *stmt;
@@ -365,14 +362,14 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 		tal_free(stmt);
 		return false;
 	} else {
-		pinvoice->id = db_col_u64(stmt, "id");
+		*inv_dbid = db_col_u64(stmt, "id");
 		tal_free(stmt);
 		return true;
 	}
 }
 
 bool invoices_find_unpaid(struct invoices *invoices,
-			  struct invoice *pinvoice,
+			  u64 *inv_dbid,
 			  const struct sha256 *rhash)
 {
 	struct db_stmt *stmt;
@@ -388,20 +385,20 @@ bool invoices_find_unpaid(struct invoices *invoices,
 		tal_free(stmt);
 		return false;
 	} else  {
-		pinvoice->id = db_col_u64(stmt, "id");
+		*inv_dbid = db_col_u64(stmt, "id");
 		tal_free(stmt);
 		return true;
 	}
 }
 
-bool invoices_delete(struct invoices *invoices, struct invoice invoice)
+bool invoices_delete(struct invoices *invoices, u64 inv_dbid)
 {
 	struct db_stmt *stmt;
 	int changes;
 	/* Delete from database. */
 	stmt = db_prepare_v2(invoices->wallet->db,
 			     SQL("DELETE FROM invoices WHERE id=?;"));
-	db_bind_u64(stmt, 0, invoice.id);
+	db_bind_u64(stmt, 0, inv_dbid);
 	db_exec_prepared_v2(stmt);
 
 	changes = db_count_changes(stmt);
@@ -411,11 +408,11 @@ bool invoices_delete(struct invoices *invoices, struct invoice invoice)
 		return false;
 	}
 	/* Tell all the waiters about the fact that it was deleted. */
-	trigger_invoice_waiter_expire_or_delete(invoices, invoice.id, NULL);
+	trigger_invoice_waiter_expire_or_delete(invoices, inv_dbid, true);
 	return true;
 }
 
-bool invoices_delete_description(struct invoices *invoices, struct invoice invoice)
+bool invoices_delete_description(struct invoices *invoices, u64 inv_dbid)
 {
 	struct db_stmt *stmt;
 	int changes;
@@ -423,7 +420,7 @@ bool invoices_delete_description(struct invoices *invoices, struct invoice invoi
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("UPDATE invoices"
 					       "   SET description = NULL"
 					       " WHERE ID = ?;"));
-	db_bind_u64(stmt, 0, invoice.id);
+	db_bind_u64(stmt, 0, inv_dbid);
 	db_exec_prepared_v2(stmt);
 
 	changes = db_count_changes(stmt);
@@ -502,7 +499,8 @@ static s64 get_next_pay_index(struct db *db)
 	return next_pay_index;
 }
 
-static enum invoice_status invoice_get_status(struct invoices *invoices, struct invoice invoice)
+static enum invoice_status invoice_get_status(struct invoices *invoices,
+					      u64 inv_dbid)
 {
 	struct db_stmt *stmt;
 	enum invoice_status state;
@@ -510,7 +508,7 @@ static enum invoice_status invoice_get_status(struct invoices *invoices, struct 
 
 	stmt = db_prepare_v2(
 	    invoices->wallet->db, SQL("SELECT state FROM invoices WHERE id = ?;"));
-	db_bind_u64(stmt, 0, invoice.id);
+	db_bind_u64(stmt, 0, inv_dbid);
 	db_query_prepared(stmt);
 
 	res = db_step(stmt);
@@ -521,14 +519,14 @@ static enum invoice_status invoice_get_status(struct invoices *invoices, struct 
 }
 
 /* If there's an associated offer, mark it used. */
-static void maybe_mark_offer_used(struct db *db, struct invoice invoice)
+static void maybe_mark_offer_used(struct db *db, u64 inv_dbid)
 {
 	struct db_stmt *stmt;
 	struct sha256 local_offer_id;
 
 	stmt = db_prepare_v2(
 		db, SQL("SELECT local_offer_id FROM invoices WHERE id = ?;"));
-	db_bind_u64(stmt, 0, invoice.id);
+	db_bind_u64(stmt, 0, inv_dbid);
 	db_query_prepared(stmt);
 
 	db_step(stmt);
@@ -543,13 +541,13 @@ static void maybe_mark_offer_used(struct db *db, struct invoice invoice)
 }
 
 bool invoices_resolve(struct invoices *invoices,
-		      struct invoice invoice,
+		      u64 inv_dbid,
 		      struct amount_msat received)
 {
 	struct db_stmt *stmt;
 	s64 pay_index;
 	u64 paid_timestamp;
-	enum invoice_status state = invoice_get_status(invoices, invoice);
+	enum invoice_status state = invoice_get_status(invoices, inv_dbid);
 
 	if (state != UNPAID)
 		return false;
@@ -569,13 +567,13 @@ bool invoices_resolve(struct invoices *invoices,
 	db_bind_u64(stmt, 1, pay_index);
 	db_bind_amount_msat(stmt, 2, &received);
 	db_bind_u64(stmt, 3, paid_timestamp);
-	db_bind_u64(stmt, 4, invoice.id);
+	db_bind_u64(stmt, 4, inv_dbid);
 	db_exec_prepared_v2(take(stmt));
 
-	maybe_mark_offer_used(invoices->wallet->db, invoice);
+	maybe_mark_offer_used(invoices->wallet->db, inv_dbid);
 
 	/* Tell all the waiters about the paid invoice. */
-	trigger_invoice_waiter_resolve(invoices, invoice.id, &invoice);
+	trigger_invoice_waiter_resolve(invoices, inv_dbid);
 	return true;
 }
 
@@ -592,14 +590,14 @@ static void destroy_invoice_waiter(struct invoice_waiter *w)
 static void add_invoice_waiter(const tal_t *ctx,
 			       struct list_head *waiters,
 			       bool any,
-			       u64 id,
-			       void (*cb)(const struct invoice *, void*),
+			       u64 inv_dbid,
+			       void (*cb)(const u64 *, void*),
 			       void* cbarg)
 {
 	struct invoice_waiter *w = tal(ctx, struct invoice_waiter);
 	w->triggered = false;
 	w->any = any;
-	w->id = id;
+	w->inv_dbid = inv_dbid;
 	list_add_tail(waiters, &w->list);
 	w->cb = cb;
 	w->cbarg = cbarg;
@@ -610,11 +608,10 @@ static void add_invoice_waiter(const tal_t *ctx,
 void invoices_waitany(const tal_t *ctx,
 		      struct invoices *invoices,
 		      u64 lastpay_index,
-		      void (*cb)(const struct invoice *, void*),
+		      void (*cb)(const u64 *, void*),
 		      void *cbarg)
 {
 	struct db_stmt *stmt;
-	struct invoice invoice;
 
 	/* Look for an already-paid invoice. */
 	stmt = db_prepare_v2(invoices->wallet->db,
@@ -627,9 +624,9 @@ void invoices_waitany(const tal_t *ctx,
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
-		invoice.id = db_col_u64(stmt, "id");
+		u64 inv_dbid = db_col_u64(stmt, "id");
 
-		cb(&invoice, cbarg);
+		cb(&inv_dbid, cbarg);
 	} else {
 		/* None found. */
 		add_invoice_waiter(ctx, &invoices->waiters,
@@ -641,27 +638,27 @@ void invoices_waitany(const tal_t *ctx,
 
 void invoices_waitone(const tal_t *ctx,
 		      struct invoices *invoices,
-		      struct invoice invoice,
-		      void (*cb)(const struct invoice *, void*),
+		      u64 inv_dbid,
+		      void (*cb)(const u64 *, void*),
 		      void *cbarg)
 {
 	enum invoice_status state;
 
-	state = invoice_get_status(invoices, invoice);
+	state = invoice_get_status(invoices, inv_dbid);
 
 	if (state == PAID || state == EXPIRED) {
-		cb(&invoice, cbarg);
+		cb(&inv_dbid, cbarg);
 		return;
 	}
 
 	/* Not yet paid. */
 	add_invoice_waiter(ctx, &invoices->waiters,
-			   false, invoice.id, cb, cbarg);
+			   false, inv_dbid, cb, cbarg);
 }
 
 struct invoice_details *invoices_get_details(const tal_t *ctx,
 					     struct invoices *invoices,
-					     struct invoice invoice)
+					     u64 inv_dbid)
 {
 	struct db_stmt *stmt;
 	bool res;
@@ -683,7 +680,7 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 					       ", local_offer_id"
 					       " FROM invoices"
 					       " WHERE id = ?;"));
-	db_bind_u64(stmt, 0, invoice.id);
+	db_bind_u64(stmt, 0, inv_dbid);
 	db_query_prepared(stmt);
 	res = db_step(stmt);
 	assert(res);
