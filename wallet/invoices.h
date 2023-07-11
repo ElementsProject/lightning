@@ -30,7 +30,7 @@ struct invoices *invoices_new(const tal_t *ctx,
  * invoices_create - Create a new invoice.
  *
  * @invoices - the invoice handler.
- * @pinvoice - pointer to location to load new invoice in.
+ * @inv_dbid - pointer to location to put the invoice dbid in
  * @msat - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
@@ -43,7 +43,7 @@ struct invoices *invoices_new(const tal_t *ctx,
  * FIXME: Fallback addresses
  */
 bool invoices_create(struct invoices *invoices,
-		     struct invoice *pinvoice,
+		     u64 *inv_dbid,
 		     const struct amount_msat *msat TAKES,
 		     const struct json_escape *label TAKES,
 		     u64 expiry,
@@ -58,14 +58,14 @@ bool invoices_create(struct invoices *invoices,
  * invoices_find_by_label - Search for an invoice by label
  *
  * @param invoices - the invoice handler.
- * @param pinvoice - pointer to location to load found invoice in.
+ * @param inv_dbid - pointer to location to put the found dbid in
  * @param label - the label to search for.
  *
  * Returns false if no invoice with that label exists.
  * Returns true if found.
  */
 bool invoices_find_by_label(struct invoices *invoices,
-			    struct invoice *pinvoice,
+			    u64 *inv_dbid,
 			    const struct json_escape *label);
 
 /**
@@ -73,14 +73,14 @@ bool invoices_find_by_label(struct invoices *invoices,
  * payment_hash
  *
  * @invoices - the invoice handler.
- * @pinvoice - pointer to location to load found invoice in.
+ * @inv_dbid - pointer to location to put the found dbid in
  * @rhash - the payment_hash to search for.
  *
  * Returns false if no invoice with that rhash exists.
  * Returns true if found.
  */
 bool invoices_find_by_rhash(struct invoices *invoices,
-			    struct invoice *pinvoice,
+			    u64 *inv_dbid,
 			    const struct sha256 *rhash);
 
 /**
@@ -88,37 +88,36 @@ bool invoices_find_by_rhash(struct invoices *invoices,
  * payment_hash
  *
  * @invoices - the invoice handler.
- * @pinvoice - pointer to location to load found invoice in.
+ * @inv_dbid - pointer to location to load found invoice dbid in.
  * @rhash - the payment_hash to search for.
  *
  * Returns false if no unpaid invoice with that rhash exists.
  * Returns true if found.
  */
 bool invoices_find_unpaid(struct invoices *invoices,
-			  struct invoice *pinvoice,
+			  u64 *inv_dbid,
 			  const struct sha256 *rhash);
 
 /**
  * invoices_delete - Delete an invoice
  *
  * @invoices - the invoice handler.
- * @invoice - the invoice to delete.
+ * @inv_dbid - the invoice to delete.
  *
  * Return false on failure.
  */
-bool invoices_delete(struct invoices *invoices,
-		     struct invoice invoice);
+bool invoices_delete(struct invoices *invoices, u64 inv_dbid);
 
 /**
  * invoices_delete_description - Remove description from an invoice
  *
  * @invoices - the invoice handler.
- * @invoice - the invoice to remove description from.
+ * @inv_dbid - the invoice to remove description from.
  *
  * Return false on failure.
  */
 bool invoices_delete_description(struct invoices *invoices,
-				 struct invoice invoice);
+				 u64 inv_dbid);
 
 /**
  * invoices_delete_expired - Delete all expired invoices
@@ -166,13 +165,13 @@ const struct invoice_details *invoices_iterator_deref(
  * invoices_resolve - Mark an invoice as paid
  *
  * @invoices - the invoice handler.
- * @invoice - the invoice to mark as paid.
+ * @inv_dbid - the invoice to mark as paid.
  * @received - the actual amount received.
  *
  * If the invoice is not UNPAID, returns false.
  */
 bool invoices_resolve(struct invoices *invoices,
-		      struct invoice invoice,
+		      u64 inv_dbid,
 		      struct amount_msat received);
 
 /**
@@ -187,12 +186,14 @@ bool invoices_resolve(struct invoices *invoices,
  * paid with pay_index greater than lastpay_index, this
  * is called immediately, otherwise it is called during
  * an invoices_resolve call.
+ * If the invoice was deleted, the callback is given a NULL
+ * first argument.
  * @cbarg - the callback data.
  */
 void invoices_waitany(const tal_t *ctx,
 		      struct invoices *invoices,
 		      u64 lastpay_index,
-		      void (*cb)(const struct invoice *, void*),
+		      void (*cb)(const u64 *, void*),
 		      void *cbarg);
 
 /**
@@ -202,19 +203,19 @@ void invoices_waitany(const tal_t *ctx,
  * @ctx - the owner of the callback. If the owner is freed,
  * the callback is cancelled.
  * @invoices - the invoice handler,
- * @invoice - the invoice to wait on.
+ * @inv_dbid - the invoice to wait on.
  * @cb - the callback to invoice. If invoice is already paid
  * or expired, this is called immediately, otherwise it is
  * called during an invoices_resolve or invoices_delete call.
  * If the invoice was deleted, the callback is given a NULL
- * invoice.
+ * first argument (inv_dbid).
  * @cbarg - the callback data.
  *
  */
 void invoices_waitone(const tal_t *ctx,
 		      struct invoices *invoices,
-		      struct invoice invoice,
-		      void (*cb)(const struct invoice *, void*),
+		      u64 inv_dbid,
+		      void (*cb)(const u64 *, void*),
 		      void *cbarg);
 
 /**
@@ -222,11 +223,11 @@ void invoices_waitone(const tal_t *ctx,
  *
  * @ctx - the owner of the label and msatoshi fields returned.
  * @invoices - the invoice handler,
- * @invoice - the invoice to get details on.
+ * @inv_dbid - the invoice to get details on.
  * @return pointer to the invoice details allocated off of `ctx`.
  */
 struct invoice_details *invoices_get_details(const tal_t *ctx,
 					     struct invoices *invoices,
-					     struct invoice invoice);
+					     u64 inv_dbid);
 
 #endif /* LIGHTNING_WALLET_INVOICES_H */

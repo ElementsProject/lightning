@@ -15,6 +15,7 @@ struct amount_msat;
 struct invoices;
 struct channel;
 struct channel_inflight;
+struct json_escape;
 struct lightningd;
 struct node_id;
 struct oneshot;
@@ -61,6 +62,13 @@ static inline enum output_status output_status_in_db(enum output_status s)
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }
+
+/* An object that handles iteration over the set of invoices */
+struct invoice_iterator {
+	/* The contents of this object is subject to change
+	 * and should not be depended upon */
+	void *p;
+};
 
 /* Enumeration of all known output types. These include all types that
  * could ever end up on-chain and we may need to react upon. Notice
@@ -829,247 +837,6 @@ static inline enum invoice_status invoice_status_in_db(enum invoice_status s)
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }
-
-/* The information about an invoice */
-struct invoice_details {
-	/* Current invoice state */
-	enum invoice_status state;
-	/* Preimage for this invoice */
-	struct preimage r;
-	/* Hash of preimage r */
-	struct sha256 rhash;
-	/* Label assigned by user */
-	const struct json_escape *label;
-	/* NULL if they specified "any" */
-	struct amount_msat *msat;
-	/* Absolute UNIX epoch time this will expire */
-	u64 expiry_time;
-	/* Set if state == PAID; order to be returned by waitanyinvoice */
-	u64 pay_index;
-	/* Set if state == PAID; amount received */
-	struct amount_msat received;
-	/* Set if state == PAID; time paid */
-	u64 paid_timestamp;
-	/* BOLT11 or BOLT12 encoding for this invoice */
-	const char *invstring;
-
-	/* The description of the payment. */
-	char *description;
-	/* The features, if any (tal_arr) */
-	u8 *features;
-	/* The offer this refers to, if any. */
-	struct sha256 *local_offer_id;
-};
-
-/* An object that handles iteration over the set of invoices */
-struct invoice_iterator {
-	/* The contents of this object is subject to change
-	 * and should not be depended upon */
-	void *p;
-};
-
-struct invoice {
-	/* Internal, rest of lightningd should not use */
-	/* Database ID */
-	u64 id;
-};
-
-#define INVOICE_MAX_LABEL_LEN 128
-
-/**
- * wallet_invoice_create - Create a new invoice.
- *
- * @wallet - the wallet to create the invoice in.
- * @pinvoice - pointer to location to load new invoice in.
- * @msat - the amount the invoice should have, or
- * NULL for any-amount invoices.
- * @label - the unique label for this invoice. Must be
- * non-NULL.
- * @expiry - the number of seconds before the invoice
- * expires
- *
- * Returns false if label already exists or expiry is 0.
- * Returns true if created invoice.
- * FIXME: Fallback addresses
- */
-bool wallet_invoice_create(struct wallet *wallet,
-			   struct invoice *pinvoice,
-			   const struct amount_msat *msat TAKES,
-			   const struct json_escape *label TAKES,
-			   u64 expiry,
-			   const char *b11enc,
-			   const char *description,
-			   const u8 *features,
-			   const struct preimage *r,
-			   const struct sha256 *rhash,
-			   const struct sha256 *local_offer_id);
-
-/**
- * wallet_invoice_find_by_label - Search for an invoice by label
- *
- * @wallet - the wallet to search.
- * @pinvoice - pointer to location to load found invoice in.
- * @label - the label to search for.
- *
- * Returns false if no invoice with that label exists.
- * Returns true if found.
- */
-bool wallet_invoice_find_by_label(struct wallet *wallet,
-				  struct invoice *pinvoice,
-				  const struct json_escape *label);
-
-/**
- * wallet_invoice_find_by_rhash - Search for an invoice by payment_hash
- *
- * @wallet - the wallet to search.
- * @pinvoice - pointer to location to load found invoice in.
- * @rhash - the payment_hash to search for.
- *
- * Returns false if no invoice with that rhash exists.
- * Returns true if found.
- */
-bool wallet_invoice_find_by_rhash(struct wallet *wallet,
-				  struct invoice *pinvoice,
-				  const struct sha256 *rhash);
-
-/**
- * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by
- * payment_hash
- *
- * @wallet - the wallet to search.
- * @pinvoice - pointer to location to load found invoice in.
- * @rhash - the payment_hash to search for.
- *
- * Returns false if no unpaid invoice with that rhash exists.
- * Returns true if found.
- */
-bool wallet_invoice_find_unpaid(struct wallet *wallet,
-				struct invoice *pinvoice,
-				const struct sha256 *rhash);
-
-/**
- * wallet_invoice_delete - Delete an invoice
- *
- * @wallet - the wallet to delete the invoice from.
- * @invoice - the invoice to delete.
- *
- * Return false on failure.
- */
-bool wallet_invoice_delete(struct wallet *wallet,
-			   struct invoice invoice);
-
-bool wallet_invoice_delete_description(struct wallet *wallet,
-				       struct invoice invoice);
-
-/**
- * wallet_invoice_delete_expired - Delete all expired invoices
- * with expiration time less than or equal to the given.
- *
- * @wallet - the wallet to delete invoices from.
- * @max_expiry_time - the maximum expiry time to delete.
- */
-void wallet_invoice_delete_expired(struct wallet *wallet,
-				   u64 max_expiry_time);
-
-
-/**
- * wallet_invoice_iterate - Iterate over all existing invoices
- *
- * @wallet - the wallet whose invoices are to be iterated over.
- * @iterator - the iterator object to use.
- *
- * Return false at end-of-sequence, true if still iterating.
- * Usage:
- *
- *   struct invoice_iterator it;
- *   memset(&it, 0, sizeof(it))
- *   while (wallet_invoice_iterate(wallet, &it)) {
- *       ...
- *   }
- */
-bool wallet_invoice_iterate(struct wallet *wallet,
-			    struct invoice_iterator *it);
-
-/**
- * wallet_invoice_iterator_deref - Read the details of the
- * invoice currently pointed to by the given iterator.
- *
- * @ctx - the owner of the label and msatoshi fields returned.
- * @wallet - the wallet whose invoices are to be iterated over.
- * @iterator - the iterator object to use.
- * @return pointer to the invoice details allocated off of `ctx`.
- */
-const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx,
-			      struct wallet *wallet,
-			      const struct invoice_iterator *it);
-
-/**
- * wallet_invoice_resolve - Mark an invoice as paid
- *
- * @wallet - the wallet containing the invoice.
- * @invoice - the invoice to mark as paid.
- * @received - the actual amount received.
- *
- * If the invoice is not UNPAID, returns false.
- */
-bool wallet_invoice_resolve(struct wallet *wallet,
-			    struct invoice invoice,
-			    struct amount_msat received);
-
-/**
- * wallet_invoice_waitany - Wait for any invoice to be paid.
- *
- * @ctx - the owner of the callback. If the owner is freed,
- * the callback is cancelled.
- * @wallet - the wallet to query.
- * @lastpay_index - wait for invoices after the specified
- * pay_index. Use 0 to wait for the first invoice.
- * @cb - the callback to invoke. If an invoice is already
- * paid with pay_index greater than lastpay_index, this
- * is called immediately, otherwise it is called during
- * an invoices_resolve call. Will never be given a NULL
- * pointer-to-invoice.
- * @cbarg - the callback data.
- */
-void wallet_invoice_waitany(const tal_t *ctx,
-			    struct wallet *wallet,
-			    u64 lastpay_index,
-			    void (*cb)(const struct invoice *, void*),
-			    void *cbarg);
-
-/**
- * wallet_invoice_waitone - Wait for a specific invoice to be paid,
- * deleted, or expired.
- *
- * @ctx - the owner of the callback. If the owner is freed,
- * the callback is cancelled.
- * @wallet - the wallet to query.
- * @invoice - the invoice to wait on.
- * @cb - the callback to invoice. If invoice is already paid
- * or expired, this is called immediately, otherwise it is
- * called during an invoices_resolve or invoices_delete call.
- * If the invoice was deleted, the callback is given a NULL
- * invoice.
- * @cbarg - the callback data.
- *
- */
-void wallet_invoice_waitone(const tal_t *ctx,
-			    struct wallet *wallet,
-			    struct invoice invoice,
-			    void (*cb)(const struct invoice *, void*),
-			    void *cbarg);
-
-/**
- * wallet_invoice_details - Get the invoice_details of an invoice.
- *
- * @ctx - the owner of the label and msatoshi fields returned.
- * @wallet - the wallet to query.
- * @invoice - the invoice to get details on.
- * @return pointer to the invoice details allocated off of `ctx`.
- */
-struct invoice_details *wallet_invoice_details(const tal_t *ctx,
-					       struct wallet *wallet,
-					       struct invoice invoice);
 
 /**
  * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel

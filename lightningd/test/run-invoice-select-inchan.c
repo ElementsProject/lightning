@@ -349,6 +349,78 @@ u8 *invoice_path_id(const tal_t *ctx UNNEEDED,
 		    const struct secret *base_secret UNNEEDED,
 		    const struct sha256 *payment_hash UNNEEDED)
 { fprintf(stderr, "invoice_path_id called!\n"); abort(); }
+/* Generated stub for invoices_create */
+bool invoices_create(struct invoices *invoices UNNEEDED,
+		     u64 *inv_dbid UNNEEDED,
+		     const struct amount_msat *msat TAKES UNNEEDED,
+		     const struct json_escape *label TAKES UNNEEDED,
+		     u64 expiry UNNEEDED,
+		     const char *b11enc UNNEEDED,
+		     const char *description UNNEEDED,
+		     const u8 *features UNNEEDED,
+		     const struct preimage *r UNNEEDED,
+		     const struct sha256 *rhash UNNEEDED,
+		     const struct sha256 *local_offer_id UNNEEDED)
+{ fprintf(stderr, "invoices_create called!\n"); abort(); }
+/* Generated stub for invoices_delete */
+bool invoices_delete(struct invoices *invoices UNNEEDED, u64 inv_dbid UNNEEDED)
+{ fprintf(stderr, "invoices_delete called!\n"); abort(); }
+/* Generated stub for invoices_delete_description */
+bool invoices_delete_description(struct invoices *invoices UNNEEDED,
+				 u64 inv_dbid UNNEEDED)
+{ fprintf(stderr, "invoices_delete_description called!\n"); abort(); }
+/* Generated stub for invoices_delete_expired */
+void invoices_delete_expired(struct invoices *invoices UNNEEDED,
+			     u64 max_expiry_time UNNEEDED)
+{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
+/* Generated stub for invoices_find_by_label */
+bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
+			    u64 *inv_dbid UNNEEDED,
+			    const struct json_escape *label UNNEEDED)
+{ fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
+/* Generated stub for invoices_find_by_rhash */
+bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
+			    u64 *inv_dbid UNNEEDED,
+			    const struct sha256 *rhash UNNEEDED)
+{ fprintf(stderr, "invoices_find_by_rhash called!\n"); abort(); }
+/* Generated stub for invoices_find_unpaid */
+bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
+			  u64 *inv_dbid UNNEEDED,
+			  const struct sha256 *rhash UNNEEDED)
+{ fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
+/* Generated stub for invoices_get_details */
+struct invoice_details *invoices_get_details(const tal_t *ctx UNNEEDED,
+					     struct invoices *invoices UNNEEDED,
+					     u64 inv_dbid UNNEEDED)
+{ fprintf(stderr, "invoices_get_details called!\n"); abort(); }
+/* Generated stub for invoices_iterate */
+bool invoices_iterate(struct invoices *invoices UNNEEDED,
+		      struct invoice_iterator *it UNNEEDED)
+{ fprintf(stderr, "invoices_iterate called!\n"); abort(); }
+/* Generated stub for invoices_iterator_deref */
+const struct invoice_details *invoices_iterator_deref(
+	const tal_t *ctx UNNEEDED, struct invoices *invoices UNNEEDED,
+	const struct invoice_iterator *it UNNEEDED)
+{ fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
+/* Generated stub for invoices_resolve */
+bool invoices_resolve(struct invoices *invoices UNNEEDED,
+		      u64 inv_dbid UNNEEDED,
+		      struct amount_msat received UNNEEDED)
+{ fprintf(stderr, "invoices_resolve called!\n"); abort(); }
+/* Generated stub for invoices_waitany */
+void invoices_waitany(const tal_t *ctx UNNEEDED,
+		      struct invoices *invoices UNNEEDED,
+		      u64 lastpay_index UNNEEDED,
+		      void (*cb)(const u64 * UNNEEDED, void*) UNNEEDED,
+		      void *cbarg UNNEEDED)
+{ fprintf(stderr, "invoices_waitany called!\n"); abort(); }
+/* Generated stub for invoices_waitone */
+void invoices_waitone(const tal_t *ctx UNNEEDED,
+		      struct invoices *invoices UNNEEDED,
+		      u64 inv_dbid UNNEEDED,
+		      void (*cb)(const u64 * UNNEEDED, void*) UNNEEDED,
+		      void *cbarg UNNEEDED)
+{ fprintf(stderr, "invoices_waitone called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)
@@ -859,79 +931,6 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet UNNEEDED,
 /* Generated stub for wallet_init_channels */
 bool wallet_init_channels(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
-/* Generated stub for wallet_invoice_create */
-bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
-			   struct invoice *pinvoice UNNEEDED,
-			   const struct amount_msat *msat TAKES UNNEEDED,
-			   const struct json_escape *label TAKES UNNEEDED,
-			   u64 expiry UNNEEDED,
-			   const char *b11enc UNNEEDED,
-			   const char *description UNNEEDED,
-			   const u8 *features UNNEEDED,
-			   const struct preimage *r UNNEEDED,
-			   const struct sha256 *rhash UNNEEDED,
-			   const struct sha256 *local_offer_id UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_create called!\n"); abort(); }
-/* Generated stub for wallet_invoice_delete */
-bool wallet_invoice_delete(struct wallet *wallet UNNEEDED,
-			   struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_delete called!\n"); abort(); }
-/* Generated stub for wallet_invoice_delete_description */
-bool wallet_invoice_delete_description(struct wallet *wallet UNNEEDED,
-				       struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_delete_description called!\n"); abort(); }
-/* Generated stub for wallet_invoice_delete_expired */
-void wallet_invoice_delete_expired(struct wallet *wallet UNNEEDED,
-				   u64 max_expiry_time UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_delete_expired called!\n"); abort(); }
-/* Generated stub for wallet_invoice_details */
-struct invoice_details *wallet_invoice_details(const tal_t *ctx UNNEEDED,
-					       struct wallet *wallet UNNEEDED,
-					       struct invoice invoice UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_details called!\n"); abort(); }
-/* Generated stub for wallet_invoice_find_by_label */
-bool wallet_invoice_find_by_label(struct wallet *wallet UNNEEDED,
-				  struct invoice *pinvoice UNNEEDED,
-				  const struct json_escape *label UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_find_by_label called!\n"); abort(); }
-/* Generated stub for wallet_invoice_find_by_rhash */
-bool wallet_invoice_find_by_rhash(struct wallet *wallet UNNEEDED,
-				  struct invoice *pinvoice UNNEEDED,
-				  const struct sha256 *rhash UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_find_by_rhash called!\n"); abort(); }
-/* Generated stub for wallet_invoice_find_unpaid */
-bool wallet_invoice_find_unpaid(struct wallet *wallet UNNEEDED,
-				struct invoice *pinvoice UNNEEDED,
-				const struct sha256 *rhash UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_find_unpaid called!\n"); abort(); }
-/* Generated stub for wallet_invoice_iterate */
-bool wallet_invoice_iterate(struct wallet *wallet UNNEEDED,
-			    struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_iterate called!\n"); abort(); }
-/* Generated stub for wallet_invoice_iterator_deref */
-const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx UNNEEDED,
-			      struct wallet *wallet UNNEEDED,
-			      const struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_iterator_deref called!\n"); abort(); }
-/* Generated stub for wallet_invoice_resolve */
-bool wallet_invoice_resolve(struct wallet *wallet UNNEEDED,
-			    struct invoice invoice UNNEEDED,
-			    struct amount_msat received UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_resolve called!\n"); abort(); }
-/* Generated stub for wallet_invoice_waitany */
-void wallet_invoice_waitany(const tal_t *ctx UNNEEDED,
-			    struct wallet *wallet UNNEEDED,
-			    u64 lastpay_index UNNEEDED,
-			    void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
-			    void *cbarg UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_waitany called!\n"); abort(); }
-/* Generated stub for wallet_invoice_waitone */
-void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
-			    struct wallet *wallet UNNEEDED,
-			    struct invoice invoice UNNEEDED,
-			    void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
-			    void *cbarg UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_waitone called!\n"); abort(); }
 /* Generated stub for wallet_offer_find */
 char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			struct wallet *w UNNEEDED,
