@@ -294,7 +294,7 @@ const struct invoice_details *invoices_iterator_deref(
 { fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
 /* Generated stub for invoices_new */
 struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
-			      struct db *db UNNEEDED,
+			      struct wallet *wallet UNNEEDED,
 			      struct timers *timers UNNEEDED)
 { fprintf(stderr, "invoices_new called!\n"); abort(); }
 /* Generated stub for invoices_resolve */

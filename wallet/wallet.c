@@ -112,7 +112,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	wallet->db = db_setup(wallet, ld, ld->bip32_base);
 
 	db_begin_transaction(wallet->db);
-	wallet->invoices = invoices_new(wallet, wallet->db, timers);
+	wallet->invoices = invoices_new(wallet, wallet, timers);
 	outpointfilters_init(wallet);
 	db_commit_transaction(wallet->db);
 	return wallet;

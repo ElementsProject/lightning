@@ -13,16 +13,17 @@ struct invoice_iterator;
 struct invoices;
 struct sha256;
 struct timers;
+struct wallet;
 
 /**
  * invoices_new - Constructor for a new invoice handler
  *
  * @ctx - the owner of the invoice handler.
- * @db - the database connection to use for saving invoice.
+ * @wallet - the wallet
  * @timers - the timers object to use for expirations.
  */
 struct invoices *invoices_new(const tal_t *ctx,
-			      struct db *db,
+			      struct wallet *wallet,
 			      struct timers *timers);
 
 /**
