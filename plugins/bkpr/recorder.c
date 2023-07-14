@@ -170,8 +170,8 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
 
-	db_bind_u64(stmt, 0, start_time);
-	db_bind_u64(stmt, 1, end_time);
+	db_bind_u64(stmt, BIND_NEXT, start_time);
+	db_bind_u64(stmt, BIND_NEXT, end_time);
 	return find_chain_events(ctx, take(stmt));
 }
 
@@ -211,7 +211,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     " WHERE e.account_id = ?"
 				     " ORDER BY e.timestamp, e.id"));
 
-	db_bind_int(stmt, 0, acct->db_id);
+	db_bind_int(stmt, BIND_NEXT, acct->db_id);
 	return find_chain_events(ctx, take(stmt));
 }
 
@@ -250,7 +250,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.spending_txid NULLS FIRST"
 				     ", e.blockheight"));
 
-	db_bind_txid(stmt, 0, txid);
+	db_bind_txid(stmt, BIND_NEXT, txid);
 	return find_chain_events(ctx, take(stmt));
 }
 
@@ -317,8 +317,8 @@ u64 onchain_fee_last_timestamp(struct db *db,
 				     " ORDER BY timestamp DESC"));
 
 
-	db_bind_u64(stmt, 0, acct_db_id);
-	db_bind_txid(stmt, 1, txid);
+	db_bind_u64(stmt, BIND_NEXT, acct_db_id);
+	db_bind_txid(stmt, BIND_NEXT, txid);
 	db_query_prepared(stmt);
 
 	if (db_step(stmt))
@@ -345,7 +345,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 				     " GROUP BY txid, update_count"
 				     " ORDER BY txid, update_count"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 	db_query_prepared(stmt);
 
 	sums = tal_arr(ctx, struct fee_sum *, 0);
@@ -551,8 +551,8 @@ struct account *find_close_account(const tal_t *ctx,
 				     "  e.tag = ?"
 				     "  AND e.spending_txid = ?"));
 
-	db_bind_text(stmt, 0, mvt_tag_str(CHANNEL_CLOSE));
-	db_bind_txid(stmt, 1, txid);
+	db_bind_text(stmt, BIND_NEXT, mvt_tag_str(CHANNEL_CLOSE));
+	db_bind_txid(stmt, BIND_NEXT, txid);
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
@@ -607,7 +607,7 @@ void maybe_mark_account_onchain(struct db *db, struct account *acct)
 				     " ORDER BY blockheight DESC"
 				     " LIMIT 1"));
 
-		db_bind_u64(stmt, 0, acct->db_id);
+		db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 		db_query_prepared(stmt);
 		ok = db_step(stmt);
 		assert(ok);
@@ -620,8 +620,8 @@ void maybe_mark_account_onchain(struct db *db, struct account *acct)
 					     "  onchain_resolved_block = ?"
 					     " WHERE"
 					     " id = ?"));
-		db_bind_int(stmt, 0, acct->onchain_resolved_block);
-		db_bind_u64(stmt, 1, acct->db_id);
+		db_bind_int(stmt, BIND_NEXT, acct->onchain_resolved_block);
+		db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 		db_exec_prepared_v2(take(stmt));
 	}
 
@@ -639,8 +639,8 @@ void add_payment_hash_desc(struct db *db,
 				     "  ev_desc = ?"
 				     " WHERE"
 				     " payment_id = ?"));
-	db_bind_text(stmt, 0, desc);
-	db_bind_sha256(stmt, 1, payment_hash);
+	db_bind_text(stmt, BIND_NEXT, desc);
+	db_bind_sha256(stmt, BIND_NEXT, payment_hash);
 	db_exec_prepared_v2(take(stmt));
 
 	/* Ok, now we update the account with this blockheight */
@@ -648,8 +648,8 @@ void add_payment_hash_desc(struct db *db,
 				     "  ev_desc = ?"
 				     " WHERE"
 				     " payment_id = ?"));
-	db_bind_text(stmt, 0, desc);
-	db_bind_sha256(stmt, 1, payment_hash);
+	db_bind_text(stmt, BIND_NEXT, desc);
+	db_bind_sha256(stmt, BIND_NEXT, payment_hash);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -685,7 +685,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     " WHERE "
 				     " e.id = ?"));
 
-	db_bind_u64(stmt, 0, event_db_id);
+	db_bind_u64(stmt, BIND_NEXT, event_db_id);
 	db_query_prepared(stmt);
 	if (db_step(stmt))
 		e = stmt2chain_event(ctx, stmt);
@@ -735,7 +735,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     " AND e.account_id = ?"
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"));
-		db_bind_txid(stmt, 0, spending_txid);
+		db_bind_txid(stmt, BIND_NEXT, spending_txid);
 	} else {
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
@@ -765,12 +765,12 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"
 					     " AND e.spending_txid IS NULL"));
-		db_bind_text(stmt, 0, tag);
+		db_bind_text(stmt, BIND_NEXT, tag);
 	}
 
-	db_bind_u64(stmt, 1, acct->db_id);
-	db_bind_txid(stmt, 2, &outpoint->txid);
-	db_bind_int(stmt, 3, outpoint->n);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
+	db_bind_txid(stmt, BIND_NEXT, &outpoint->txid);
+	db_bind_int(stmt, BIND_NEXT, outpoint->n);
 
 	db_query_prepared(stmt);
 	if (db_step(stmt))
@@ -803,10 +803,10 @@ char *account_get_balance(const tal_t *ctx,
 				     " AND ce.ignored != ?"
 				     " GROUP BY ce.currency"));
 
-	db_bind_text(stmt, 0, acct_name);
+	db_bind_text(stmt, BIND_NEXT, acct_name);
 	/* We populate ignored with a 0 or 1,
 	 * if we want both 0+1, we just ignore everything with a 2 */
-	db_bind_int(stmt, 1, skip_ignored ? 1 : 2);
+	db_bind_int(stmt, BIND_NEXT, skip_ignored ? 1 : 2);
 	db_query_prepared(stmt);
 	*balances = tal_arr(ctx, struct acct_balance *, 0);
 	if (account_exists)
@@ -836,7 +836,7 @@ char *account_get_balance(const tal_t *ctx,
 				     " ON a.id = ce.account_id"
 				     " WHERE a.name = ?"
 				     " GROUP BY ce.currency"));
-	db_bind_text(stmt, 0, acct_name);
+	db_bind_text(stmt, BIND_NEXT, acct_name);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -924,8 +924,8 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
 
-	db_bind_u64(stmt, 0, start_time);
-	db_bind_u64(stmt, 1, end_time);
+	db_bind_u64(stmt, BIND_NEXT, start_time);
+	db_bind_u64(stmt, BIND_NEXT, end_time);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct channel_event *, 0);
@@ -971,7 +971,7 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     " WHERE e.account_id = ?"
 				     " ORDER BY e.timestamp, e.id"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct channel_event *, 0);
@@ -1025,7 +1025,7 @@ struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 				     ", of.txid"
 				     ", of.update_count"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct onchain_fee *, 0);
@@ -1064,8 +1064,8 @@ struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 				     ", of.txid"
 				     ", of.update_count"));
 
-	db_bind_u64(stmt, 0, start_time);
-	db_bind_u64(stmt, 1, end_time);
+	db_bind_u64(stmt, BIND_NEXT, start_time);
+	db_bind_u64(stmt, BIND_NEXT, end_time);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct onchain_fee *, 0);
@@ -1142,7 +1142,7 @@ struct account *find_account(const tal_t *ctx,
 				     " FROM accounts"
 				     " WHERE name = ?"));
 
-	db_bind_text(stmt, 0, name);
+	db_bind_text(stmt, BIND_NEXT, name);
 	db_query_prepared(stmt);
 
 	if (db_step(stmt))
@@ -1176,7 +1176,7 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 				     " ON a.id = of.account_id"
 				     " WHERE of.account_id = ?;"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct onchain_fee *, 0);
@@ -1233,14 +1233,14 @@ void account_add(struct db *db, struct account *acct)
 				     " VALUES"
 				     " (?, ?, ?, ?, ?);"));
 
-	db_bind_text(stmt, 0, acct->name);
+	db_bind_text(stmt, BIND_NEXT, acct->name);
 	if (acct->peer_id)
-		db_bind_node_id(stmt, 1, acct->peer_id);
+		db_bind_node_id(stmt, BIND_NEXT, acct->peer_id);
 	else
-		db_bind_null(stmt, 1);
-	db_bind_int(stmt, 2, acct->is_wallet ? 1 : 0);
-	db_bind_int(stmt, 3, acct->we_opened ? 1 : 0);
-	db_bind_int(stmt, 4, acct->leased ? 1 : 0);
+		db_bind_null(stmt, BIND_NEXT);
+	db_bind_int(stmt, BIND_NEXT, acct->is_wallet ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, acct->we_opened ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, acct->leased ? 1 : 0);
 
 	db_exec_prepared_v2(stmt);
 	acct->db_id = db_last_insert_id_v2(stmt);
@@ -1328,24 +1328,24 @@ void maybe_update_account(struct db *db,
 				     " name = ?"));
 
 	if (acct->open_event_db_id)
-		db_bind_u64(stmt, 0, *acct->open_event_db_id);
+		db_bind_u64(stmt, BIND_NEXT, *acct->open_event_db_id);
 	else
-		db_bind_null(stmt, 0);
+		db_bind_null(stmt, BIND_NEXT);
 
 	if (acct->closed_event_db_id)
-		db_bind_u64(stmt, 1, *acct->closed_event_db_id);
+		db_bind_u64(stmt, BIND_NEXT, *acct->closed_event_db_id);
 	else
-		db_bind_null(stmt, 1);
+		db_bind_null(stmt, BIND_NEXT);
 
-	db_bind_int(stmt, 2, acct->we_opened ? 1 : 0);
-	db_bind_int(stmt, 3, acct->leased ? 1 : 0);
-	db_bind_int(stmt, 4, acct->closed_count);
+	db_bind_int(stmt, BIND_NEXT, acct->we_opened ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, acct->leased ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, acct->closed_count);
 	if (acct->peer_id)
-		db_bind_node_id(stmt, 5, acct->peer_id);
+		db_bind_node_id(stmt, BIND_NEXT, acct->peer_id);
 	else
-		db_bind_null(stmt, 5);
+		db_bind_null(stmt, BIND_NEXT);
 
-	db_bind_text(stmt, 6, acct->name);
+	db_bind_text(stmt, BIND_NEXT, acct->name);
 
 	db_exec_prepared_v2(take(stmt));
 }
@@ -1373,27 +1373,27 @@ void log_channel_event(struct db *db,
 				     " VALUES"
 				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
-	db_bind_text(stmt, 1, e->tag);
-	db_bind_amount_msat(stmt, 2, &e->credit);
-	db_bind_amount_msat(stmt, 3, &e->debit);
-	db_bind_amount_msat(stmt, 4, &e->fees);
-	db_bind_text(stmt, 5, e->currency);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
+	db_bind_text(stmt, BIND_NEXT, e->tag);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->credit);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->debit);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->fees);
+	db_bind_text(stmt, BIND_NEXT, e->currency);
 	if (e->payment_id)
-		db_bind_sha256(stmt, 6, e->payment_id);
+		db_bind_sha256(stmt, BIND_NEXT, e->payment_id);
 	else
-		db_bind_null(stmt, 6);
-	db_bind_int(stmt, 7, e->part_id);
-	db_bind_u64(stmt, 8, e->timestamp);
+		db_bind_null(stmt, BIND_NEXT);
+	db_bind_int(stmt, BIND_NEXT, e->part_id);
+	db_bind_u64(stmt, BIND_NEXT, e->timestamp);
 	if (e->desc)
-		db_bind_text(stmt, 9, e->desc);
+		db_bind_text(stmt, BIND_NEXT, e->desc);
 	else
-		db_bind_null(stmt, 9);
+		db_bind_null(stmt, BIND_NEXT);
 
 	if (e->rebalance_id)
-		db_bind_u64(stmt, 10, *e->rebalance_id);
+		db_bind_u64(stmt, BIND_NEXT, *e->rebalance_id);
 	else
-		db_bind_null(stmt, 10);
+		db_bind_null(stmt, BIND_NEXT);
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
@@ -1433,8 +1433,8 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 				     " OR (e.utxo_txid = ? AND e.spending_txid IS NULL)"
 				     " ORDER BY e.account_id"));
 
-	db_bind_txid(stmt, 0, txid);
-	db_bind_txid(stmt, 1, txid);
+	db_bind_txid(stmt, BIND_NEXT, txid);
+	db_bind_txid(stmt, BIND_NEXT, txid);
 	return find_chain_events(ctx, take(stmt));
 }
 
@@ -1448,7 +1448,7 @@ static u64 find_acct_id(struct db *db, const char *name)
 				     " FROM accounts"
 				     " WHERE name = ?"));
 
-	db_bind_text(stmt, 0, name);
+	db_bind_text(stmt, BIND_NEXT, name);
 	db_query_prepared(stmt);
 	if (db_step(stmt))
 		acct_id = db_col_u64(stmt, "id");
@@ -1481,8 +1481,8 @@ static void insert_chain_fees_diff(struct db *db,
 				     " AND account_id = ?"
 				     " ORDER BY update_count"));
 
-	db_bind_txid(stmt, 0, txid);
-	db_bind_u64(stmt, 1, acct_id);
+	db_bind_txid(stmt, BIND_NEXT, txid);
+	db_bind_u64(stmt, BIND_NEXT, acct_id);
 	db_query_prepared(stmt);
 
 	/* If there's no current record, add it */
@@ -1527,13 +1527,13 @@ static void insert_chain_fees_diff(struct db *db,
 				     ") VALUES"
 				     " (?, ?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, 0, acct_id);
-	db_bind_txid(stmt, 1, txid);
-	db_bind_amount_msat(stmt, 2, &credit);
-	db_bind_amount_msat(stmt, 3, &debit);
-	db_bind_text(stmt, 4, currency);
-	db_bind_u64(stmt, 5, timestamp);
-	db_bind_int(stmt, 6, ++update_count);
+	db_bind_u64(stmt, BIND_NEXT, acct_id);
+	db_bind_txid(stmt, BIND_NEXT, txid);
+	db_bind_amount_msat(stmt, BIND_NEXT, &credit);
+	db_bind_amount_msat(stmt, BIND_NEXT, &debit);
+	db_bind_text(stmt, BIND_NEXT, currency);
+	db_bind_u64(stmt, BIND_NEXT, timestamp);
+	db_bind_int(stmt, BIND_NEXT, ++update_count);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -1702,8 +1702,8 @@ void maybe_record_rebalance(struct db *db,
 				     " AND e.credit = ?"
 				     " AND e.rebalance_id IS NULL"));
 
-	db_bind_sha256(stmt, 0, out->payment_id);
-	db_bind_amount_msat(stmt, 1, &credit);
+	db_bind_sha256(stmt, BIND_NEXT, out->payment_id);
+	db_bind_amount_msat(stmt, BIND_NEXT, &credit);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
@@ -1722,16 +1722,16 @@ void maybe_record_rebalance(struct db *db,
 				     "  rebalance_id = ?"
 				     " WHERE"
 				     " id = ?"));
-	db_bind_u64(stmt, 0, *out->rebalance_id);
-	db_bind_u64(stmt, 1, out->db_id);
+	db_bind_u64(stmt, BIND_NEXT, *out->rebalance_id);
+	db_bind_u64(stmt, BIND_NEXT, out->db_id);
 	db_exec_prepared_v2(take(stmt));
 
 	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
 				     "  rebalance_id = ?"
 				     " WHERE"
 				     " id = ?"));
-	db_bind_u64(stmt, 0, out->db_id);
-	db_bind_u64(stmt, 1, *out->rebalance_id);
+	db_bind_u64(stmt, BIND_NEXT, out->db_id);
+	db_bind_u64(stmt, BIND_NEXT, *out->rebalance_id);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -1953,9 +1953,9 @@ void maybe_closeout_external_deposits(struct db *db,
 				     " AND a.name = ?"));
 
 	/* Blockheight for unconfirmeds is zero */
-	db_bind_int(stmt, 0, 0);
-	db_bind_txid(stmt, 1, ev->spending_txid);
-	db_bind_text(stmt, 2, EXTERNAL_ACCT);
+	db_bind_int(stmt, BIND_NEXT, 0);
+	db_bind_txid(stmt, BIND_NEXT, ev->spending_txid);
+	db_bind_text(stmt, BIND_NEXT, EXTERNAL_ACCT);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -1967,8 +1967,8 @@ void maybe_closeout_external_deposits(struct db *db,
 						    " blockheight = ?"
 						    " WHERE id = ?"));
 
-		db_bind_int(update_stmt, 0, ev->blockheight);
-		db_bind_u64(update_stmt, 1, id);
+		db_bind_int(update_stmt, BIND_NEXT, ev->blockheight);
+		db_bind_u64(update_stmt, BIND_NEXT, id);
 		db_exec_prepared_v2(take(update_stmt));
 	}
 
@@ -2009,37 +2009,37 @@ bool log_chain_event(struct db *db,
 				     " VALUES "
 				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, BIND_NEXT, acct->db_id);
 	if (e->origin_acct)
-		db_bind_text(stmt, 1, e->origin_acct);
+		db_bind_text(stmt, BIND_NEXT, e->origin_acct);
 	else
-		db_bind_null(stmt, 1);
-	db_bind_text(stmt, 2, e->tag);
-	db_bind_amount_msat(stmt, 3, &e->credit);
-	db_bind_amount_msat(stmt, 4, &e->debit);
-	db_bind_amount_msat(stmt, 5, &e->output_value);
-	db_bind_text(stmt, 6, e->currency);
-	db_bind_u64(stmt, 7, e->timestamp);
-	db_bind_int(stmt, 8, e->blockheight);
-	db_bind_txid(stmt, 9, &e->outpoint.txid);
-	db_bind_int(stmt, 10, e->outpoint.n);
+		db_bind_null(stmt, BIND_NEXT);
+	db_bind_text(stmt, BIND_NEXT, e->tag);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->credit);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->debit);
+	db_bind_amount_msat(stmt, BIND_NEXT, &e->output_value);
+	db_bind_text(stmt, BIND_NEXT, e->currency);
+	db_bind_u64(stmt, BIND_NEXT, e->timestamp);
+	db_bind_int(stmt, BIND_NEXT, e->blockheight);
+	db_bind_txid(stmt, BIND_NEXT, &e->outpoint.txid);
+	db_bind_int(stmt, BIND_NEXT, e->outpoint.n);
 
 	if (e->payment_id)
-		db_bind_sha256(stmt, 11, e->payment_id);
+		db_bind_sha256(stmt, BIND_NEXT, e->payment_id);
 	else
-		db_bind_null(stmt, 11);
+		db_bind_null(stmt, BIND_NEXT);
 
 	if (e->spending_txid)
-		db_bind_txid(stmt, 12, e->spending_txid);
+		db_bind_txid(stmt, BIND_NEXT, e->spending_txid);
 	else
-		db_bind_null(stmt, 12);
+		db_bind_null(stmt, BIND_NEXT);
 
-	db_bind_int(stmt, 13, e->ignored ? 1 : 0);
-	db_bind_int(stmt, 14, e->stealable ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, e->ignored ? 1 : 0);
+	db_bind_int(stmt, BIND_NEXT, e->stealable ? 1 : 0);
 	if (e->desc)
-		db_bind_text(stmt, 15, e->desc);
+		db_bind_text(stmt, BIND_NEXT, e->desc);
 	else
-		db_bind_null(stmt, 15);
+		db_bind_null(stmt, BIND_NEXT);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;
