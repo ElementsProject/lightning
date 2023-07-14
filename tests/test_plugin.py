@@ -1748,6 +1748,34 @@ def test_bitcoin_backend(node_factory, bitcoind):
                                " bitcoind")
 
 
+def test_bitcoin_bad_estimatefee(node_factory, bitcoind):
+    """
+    This tests that we don't crash if bitcoind backend gives bad estimatefees.
+    """
+    plugin = os.path.join(os.getcwd(), "tests/plugins/badestimate.py")
+    l1 = node_factory.get_node(options={"disable-plugin": "bcli",
+                                        "plugin": plugin,
+                                        "badestimate-badorder": True,
+                                        "wumbo": None},
+                               start=False,
+                               may_fail=True, allow_broken_log=True)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.wait() == 1
+    l1.daemon.is_in_stderr(r"badestimate.py error: bad response to estimatefees.feerates \(Blocks must be ascending order: 2 <= 100!\)")
+
+    del l1.daemon.opts["badestimate-badorder"]
+    l1.start()
+
+    l2 = node_factory.get_node(options={"disable-plugin": "bcli",
+                                        "plugin": plugin,
+                                        "wumbo": None})
+    # Give me some funds.
+    bitcoind.generate_block(5)
+    l1.fundwallet(100 * 10**8)
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info["id"], 50 * 10**8)
+
+
 def test_bcli(node_factory, bitcoind, chainparams):
     """
     This tests the bcli plugin, used to gather Bitcoin data from a local
