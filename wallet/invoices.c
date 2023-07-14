@@ -123,9 +123,9 @@ static void update_db_expirations(struct invoices *invoices, u64 now)
 					       "   SET state = ?"
 					       " WHERE state = ?"
 					       "   AND expiry_time <= ?;"));
-	db_bind_int(stmt, 0, EXPIRED);
-	db_bind_int(stmt, 1, UNPAID);
-	db_bind_u64(stmt, 2, now);
+	db_bind_int(stmt, BIND_NEXT, EXPIRED);
+	db_bind_int(stmt, BIND_NEXT, UNPAID);
+	db_bind_u64(stmt, BIND_NEXT, now);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -170,8 +170,8 @@ static void trigger_expiration(struct invoices *invoices)
 					       "  FROM invoices"
 					       " WHERE state = ?"
 					       "   AND expiry_time <= ?"));
-	db_bind_int(stmt, 0, UNPAID);
-	db_bind_u64(stmt, 1, now);
+	db_bind_int(stmt, BIND_NEXT, UNPAID);
+	db_bind_u64(stmt, BIND_NEXT, now);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -286,25 +286,25 @@ bool invoices_create(struct invoices *invoices,
 		"            , NULL, NULL"
 		"            , NULL, ?, ?, ?, ?);"));
 
-	db_bind_sha256(stmt, 0, rhash);
-	db_bind_preimage(stmt, 1, r);
-	db_bind_int(stmt, 2, UNPAID);
+	db_bind_sha256(stmt, BIND_NEXT, rhash);
+	db_bind_preimage(stmt, BIND_NEXT, r);
+	db_bind_int(stmt, BIND_NEXT, UNPAID);
 	if (msat)
-		db_bind_amount_msat(stmt, 3, msat);
+		db_bind_amount_msat(stmt, BIND_NEXT, msat);
 	else
-		db_bind_null(stmt, 3);
-	db_bind_json_escape(stmt, 4, label);
-	db_bind_u64(stmt, 5, expiry_time);
-	db_bind_text(stmt, 6, b11enc);
+		db_bind_null(stmt, BIND_NEXT);
+	db_bind_json_escape(stmt, BIND_NEXT, label);
+	db_bind_u64(stmt, BIND_NEXT, expiry_time);
+	db_bind_text(stmt, BIND_NEXT, b11enc);
 	if (!description)
-		db_bind_null(stmt, 7);
+		db_bind_null(stmt, BIND_NEXT);
 	else
-		db_bind_text(stmt, 7, description);
-	db_bind_talarr(stmt, 8, features);
+		db_bind_text(stmt, BIND_NEXT, description);
+	db_bind_talarr(stmt, BIND_NEXT, features);
 	if (local_offer_id)
-		db_bind_sha256(stmt, 9, local_offer_id);
+		db_bind_sha256(stmt, BIND_NEXT, local_offer_id);
 	else
-		db_bind_null(stmt, 9);
+		db_bind_null(stmt, BIND_NEXT);
 
 	db_exec_prepared_v2(stmt);
 
@@ -539,11 +539,11 @@ bool invoices_resolve(struct invoices *invoices,
 					       "     , msatoshi_received=?"
 					       "     , paid_timestamp=?"
 					       " WHERE id=?;"));
-	db_bind_int(stmt, 0, PAID);
-	db_bind_u64(stmt, 1, pay_index);
-	db_bind_amount_msat(stmt, 2, &received);
-	db_bind_u64(stmt, 3, paid_timestamp);
-	db_bind_u64(stmt, 4, inv_dbid);
+	db_bind_int(stmt, BIND_NEXT, PAID);
+	db_bind_u64(stmt, BIND_NEXT, pay_index);
+	db_bind_amount_msat(stmt, BIND_NEXT, &received);
+	db_bind_u64(stmt, BIND_NEXT, paid_timestamp);
+	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	maybe_mark_offer_used(invoices->wallet->db, inv_dbid);
