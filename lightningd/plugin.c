@@ -1667,7 +1667,7 @@ static void plugin_manifest_cb(const char *buffer,
 	}
 
 	if (disabled) {
-		plugin_kill(plugin, LOG_DBG,
+		plugin_kill(plugin, LOG_INFORM,
 			    "disabled itself: %s", disabled);
 		return;
 	}
