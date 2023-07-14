@@ -731,11 +731,11 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
 					     " WHERE "
-					     " e.account_id = ?"
+					     " e.spending_txid = ?"
+					     " AND e.account_id = ?"
 					     " AND e.utxo_txid = ?"
-					     " AND e.outnum = ?"
-					     " AND e.spending_txid = ?"));
-		db_bind_txid(stmt, 3, spending_txid);
+					     " AND e.outnum = ?"));
+		db_bind_txid(stmt, 0, spending_txid);
 	} else {
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
@@ -760,18 +760,17 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
 					     " WHERE "
-					     " e.account_id = ?"
+					     " e.tag = ?"
+					     " AND e.account_id = ?"
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"
-					     " AND e.spending_txid IS NULL"
-					     " AND e.tag = ?"));
-
-		db_bind_text(stmt, 3, tag);
+					     " AND e.spending_txid IS NULL"));
+		db_bind_text(stmt, 0, tag);
 	}
 
-	db_bind_u64(stmt, 0, acct->db_id);
-	db_bind_txid(stmt, 1, &outpoint->txid);
-	db_bind_int(stmt, 2, outpoint->n);
+	db_bind_u64(stmt, 1, acct->db_id);
+	db_bind_txid(stmt, 2, &outpoint->txid);
+	db_bind_int(stmt, 3, outpoint->n);
 
 	db_query_prepared(stmt);
 	if (db_step(stmt))
