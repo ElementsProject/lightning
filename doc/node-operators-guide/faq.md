@@ -4,7 +4,7 @@ slug: "faq"
 excerpt: "Common issues and frequently asked questions on operating a CLN node."
 hidden: false
 createdAt: "2023-01-25T13:15:09.290Z"
-updatedAt: "2023-02-21T13:47:49.406Z"
+updatedAt: "2023-07-05T09:42:38.017Z"
 ---
 # General questions
 

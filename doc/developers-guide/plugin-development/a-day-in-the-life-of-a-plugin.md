@@ -3,7 +3,7 @@ title: "A day in the life of a plugin"
 slug: "a-day-in-the-life-of-a-plugin"
 hidden: false
 createdAt: "2023-02-03T08:32:53.431Z"
-updatedAt: "2023-02-21T14:57:10.491Z"
+updatedAt: "2023-07-12T13:48:23.030Z"
 ---
 A plugin may be written in any language, and communicates with `lightningd` through the plugin's `stdin` and `stdout`. JSON-RPCv2 is used as protocol on top of the two streams, with the plugin acting as server and `lightningd` acting as client. The plugin file needs to be executable (e.g. use `chmod a+x plugin_name`).
 
@@ -20,8 +20,6 @@ plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and `~/.lightning/
 ```
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 ```
-
-
 
 `lightningd` will run your plugins from the `--lightning-dir`/networkname as working directory and env variables "LIGHTNINGD_PLUGIN" and "LIGHTNINGD_VERSION" set, then will write JSON-RPC requests to the plugin's `stdin` and will read replies from its `stdout`. To initialise the plugin two RPC methods are required:
 
@@ -46,7 +44,8 @@ The `getmanifest` method is required for all plugins and will be called on start
       "type": "string",
       "default": "World",
       "description": "What name should I call you?",
-      "deprecated": false
+      "deprecated": false,
+   	  "dynamic": false
     }
   ],
   "rpcmethods": [
@@ -87,9 +86,7 @@ The `getmanifest` method is required for all plugins and will be called on start
 }
 ```
 
-
-
-During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._
+During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._ If an option specifies `dynamic`: `true`, then it should allow a `setvalue` call for that option after initialization.
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields  
 are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.
@@ -106,8 +103,7 @@ The `featurebits` object allows the plugin to register featurebits that should b
 
 The `notifications` array allows plugins to announce which custom notifications they intend to send to `lightningd`. These custom notifications can then be subscribed to by other plugins, allowing them to communicate with each other via the existing publish-subscribe mechanism and react to events that happen in other plugins, or collect information based on the notification topics.
 
-Plugins are free to register any `name` for their `rpcmethod` as long as the name was not previously registered. This includes both built-in methods, such as `help` and `getinfo`, as well as methods registered by other plugins. If there is a conflict then `lightningd` will report  
-an error and kill the plugin, this aborts startup if the plugin is _important_.
+Plugins are free to register any `name` for their `rpcmethod` as long as the name was not previously registered. This includes both built-in methods, such as `help` and `getinfo`, as well as methods registered by other plugins. If there is a conflict then `lightningd` will report an error and kill the plugin, this aborts startup if the plugin is _important_.
 
 #### Types of Options
 
@@ -116,9 +112,10 @@ There are currently four supported option 'types':
 - string: a string
 - bool: a boolean
 - int: parsed as a signed integer (64-bit)
-- flag: no-arg flag option. Is boolean under the hood. Defaults to false.
+- flag: no-arg flag option. Presented as `true` if config specifies it.
 
-In addition, string and int types can specify `"multi": true` to indicate they can be specified multiple times.  These will always be represented in `init` as a (possibly empty) JSON array.
+In addition, string and int types can specify `"multi": true` to indicate they can be specified multiple times.  These will always be represented in `init` as a (possibly empty) JSON array. "multi" flag types do not make  
+sense.
 
 Nota bene: if a `flag` type option is not set, it will not appear in the options set that is passed to the plugin.
 
@@ -135,7 +132,6 @@ Here's an example option set, as sent in response to `getmanifest`
     {
       "name": "run-hot",
       "type": "flag",
-      "default": None,  // defaults to false
       "description": "If set, overclocks plugin"
     },
     {
@@ -160,10 +156,6 @@ Here's an example option set, as sent in response to `getmanifest`
   ],
 ```
 
-
-
-**Note**: `lightningd` command line options are only parsed during startup and their values are not remembered when the plugin is stopped or killed. For dynamic plugins started with `plugin start`, options can be passed as extra arguments to the command [lightning-plugin](ref:lightning-plugin).
-
 #### Custom notifications
 
 The plugins may emit custom notifications for topics they have announced during startup. The list of notification topics declared during startup must include all topics that may be emitted, in order to verify that all topics plugins subscribe to are also emitted by some other plugin, and warn if a plugin subscribes to a non-existent topic. In case a plugin emits notifications it has not announced the notification will be ignored and not forwarded to subscribers.
@@ -181,8 +173,6 @@ When forwarding a custom notification `lightningd` will wrap the payload of the 
 } 
 ```
 
-
-
 is delivered as
 
 ```json
@@ -199,8 +189,6 @@ is delivered as
 }
 
 ```
-
-
 
 The notification topic (`method` in the JSON-RPC message) must not match one of the internal events in order to prevent breaking subscribers that expect the existing notification format. Multiple plugins are allowed to emit notifications for the same topics, allowing things like metric aggregators where the aggregator subscribes to a common topic and other plugins publish metrics as notifications.
 
@@ -235,8 +223,6 @@ The `init` method is required so that `lightningd` can pass back the filled comm
   }
 }
 ```
-
-
 
 The plugin must respond to `init` calls.  The response should be a valid JSON-RPC response to the `init`, but this is not currently enforced.  If the response is an object containing `result` which contains `disable` then the plugin will be disabled and the contents  
 of this member is the reason why.

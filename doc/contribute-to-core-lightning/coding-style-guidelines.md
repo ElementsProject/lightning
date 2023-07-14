@@ -3,7 +3,7 @@ title: "Coding Style Guidelines"
 slug: "coding-style-guidelines"
 hidden: false
 createdAt: "2023-01-25T05:34:10.822Z"
-updatedAt: "2023-01-25T05:50:05.437Z"
+updatedAt: "2023-07-13T05:11:09.525Z"
 ---
 Style is an individualistic thing, but working on software is group activity, so consistency is important.  Generally our coding style is similar to the [Linux coding style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html).
 
@@ -31,8 +31,6 @@ We have to stop somewhere.  The two tools here are extracting deeply-indented co
 }
 ```
 
-
-
 ## Tabs and indentaion
 
 The C code uses TAB charaters with a visual indentation of 8 whitespaces.  
@@ -45,8 +43,6 @@ static void subtract_received_htlcs(const struct channel *channel,
 				    struct amount_msat *amount)
 ```
 
-
-
 Note: For more details, the files `.clang-format` and `.editorconfig` are located in the projects root directory.
 
 ## Prefer Simple Statements
@@ -56,8 +52,6 @@ Notice the statement above uses separate tests, rather than combining them.  We 
 ```c
 	if (i->something != NULL && *i->something < 100)
 ```
-
-
 
 ## Use of `take()`
 
@@ -71,8 +65,6 @@ If you're allocating something simply to hand it via `take()` you should use NUL
 	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey);
 	enqueue_peer_msg(peer, take(msg));
 ```
-
-
 
 ## Use of `tmpctx`
 
@@ -97,8 +89,6 @@ Avoid double-initialization of variables; it's better to set them when they're k
 	...
 	if (is_foo)...
 ```
-
-
 
 This way the compiler will warn you if you have one path which doesn't set the variable.  If you initialize with `bool is_foo = false;` then you'll simply get that value without warning when you change the code and forget to set it on one path.
 
@@ -174,7 +164,7 @@ We are maintaining a changelog in the top-level directory of this project. Howev
 - `Changelog-Deprecated: ` if a feature has been marked for deprecation, but not yet removed
 - `Changelog-Fixed: ` if a bug has been fixed
 - `Changelog-Removed: ` if a (previously deprecated) feature has been removed
-- `Changelog-Experimental: ` if it only affects --enable-experimental-features builds, or experimental- config options.
+- `Changelog-Experimental: ` if it only affects experimental- config options
 
 In case you think the pull request is small enough not to require a changelog entry please use `Changelog-None` in one of the commit messages to opt out.
 
