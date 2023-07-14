@@ -3,7 +3,7 @@ title: "Event notifications"
 slug: "event-notifications"
 hidden: false
 createdAt: "2023-02-03T08:57:15.799Z"
-updatedAt: "2023-02-21T15:00:34.233Z"
+updatedAt: "2023-07-14T07:17:17.114Z"
 ---
 Event notifications allow a plugin to subscribe to events in `lightningd`. `lightningd` will then send a push notification if an event matching the subscription occurred. A notification is defined in the JSON-RPC [specification][jsonrpc-spec] as an RPC call that does not include an `id` parameter:
 
@@ -13,12 +13,9 @@ Event notifications allow a plugin to subscribe to events in `lightningd`. `ligh
 
 Plugins subscribe by returning an array of subscriptions as part of the `getmanifest` response. The result for the `getmanifest` call above for example subscribes to the two topics `connect` and `disconnect`. The topics that are currently defined and the corresponding payloads are listed below.
 
-### `*`
-
-This is a way of specifying that you want to subscribe to all possible
-event notifications.  It is not recommended, but is useful for plugins
-which want to provide generic infrastructure for others (in future, we
-may add the ability to dynamically subscribe/unsubscribe).
+> 📘 
+> 
+> This is a way of specifying that you want to subscribe to all possible event notifications. It is not recommended, but is useful for plugins which want to provide generic infrastructure for others (in future, we may add the ability to dynamically subscribe/unsubscribe).
 
 ### `channel_opened`
 
@@ -35,8 +32,6 @@ A notification for topic `channel_opened` is sent if a peer successfully funded 
 }
 ```
 
-
-
 ### `channel_open_failed`
 
 A notification to indicate that a channel open attempt has been unsuccessful.  
@@ -49,8 +44,6 @@ Useful for cleaning up state for a v2 channel open attempt. See `plugins/funder.
   }
 }
 ```
-
-
 
 ### `channel_state_changed`
 
@@ -70,8 +63,6 @@ A notification for topic `channel_state_changed` is sent every time a channel ch
     }
 }
 ```
-
-
 
 A `cause` can have the following values:
 
@@ -102,8 +93,6 @@ A notification for topic `connect` is sent every time a new connection to a peer
 }
 ```
 
-
-
 ### `disconnect`
 
 A notification for topic `disconnect` is sent every time a connection to a peer was lost.
@@ -115,8 +104,6 @@ A notification for topic `disconnect` is sent every time a connection to a peer 
   }
 }
 ```
-
-
 
 ### `invoice_payment`
 
@@ -133,8 +120,6 @@ A notification for topic `invoice_payment` is sent every time an invoice is paid
 
 ```
 
-
-
 ### `invoice_creation`
 
 A notification for topic `invoice_creation` is sent every time an invoice is created.
@@ -148,8 +133,6 @@ A notification for topic `invoice_creation` is sent every time an invoice is cre
   }
 }
 ```
-
-
 
 ### `warning`
 
@@ -165,8 +148,6 @@ A notification for topic `warning` is sent every time a new `BROKEN`/`UNUSUAL` l
   }
 }
 ```
-
-
 
 1. `level` is `warn` or `error`: `warn` means something seems bad happened  and it's under control, but we'd better check it; `error` means something extremely bad is out of control, and it may lead to crash;
 2. `time` is the second since epoch;
@@ -196,8 +177,6 @@ A notification for topic `forward_event` is sent every time the status of a forw
 }
 ```
 
-
-
 or
 
 ```json
@@ -217,8 +196,6 @@ or
 }
 
 ```
-
-
 
 - The status includes `offered`, `settled`, `failed` and `local_failed`, and they are all string type in json.
   - When the forward payment is valid for us, we'll set `offered` and send the forward payment to next hop to resolve;
@@ -255,8 +232,6 @@ A notification for topic `sendpay_success` is sent every time a sendpay succeeds
 }
 ```
 
-
-
 `sendpay` doesn't wait for the result of sendpay and `waitsendpay` returns the result of sendpay in specified time or timeout, but `sendpay_success` will always return the result anytime when sendpay successes if is was subscribed.
 
 ### `sendpay_failure`
@@ -286,8 +261,6 @@ A notification for topic `sendpay_failure` is sent every time a sendpay complete
   }
 }
 ```
-
-
 
 `sendpay` doesn't wait for the result of sendpay and `waitsendpay` returns the result of sendpay in specified time or timeout, but `sendpay_failure` will always return the result anytime when sendpay fails if is was subscribed.
 
@@ -320,8 +293,6 @@ A notification for topic `coin_movement` is sent to record the movement of coins
 	}
 }
 ```
-
-
 
 `version` indicates which version of the coin movement data struct this notification adheres to.
 
@@ -422,22 +393,18 @@ Emitted after we've caught up to the chain head on first start. Lists all curren
 }
 ```
 
-
-
 ### `block_added`
 
 Emitted after each block is received from bitcoind, either during the initial sync or throughout the node's life as new blocks appear.
 
 ```json
 {
-    "block_added": {
-      "hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
+ "block_added": {
+   		"hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
       "height": 753304
     }
 }
 ```
-
-
 
 ### `openchannel_peer_sigs`
 
@@ -452,10 +419,15 @@ When opening a channel with a peer using the collaborative transaction protocol 
 }
 ```
 
-
-
 ### `shutdown`
 
 Send in two situations: lightningd is (almost completely) shutdown, or the plugin `stop` command has been called for this plugin. In both cases the plugin has 30 seconds to exit itself, otherwise it's killed.
 
 In the shutdown case, plugins should not interact with lightnind except via (id-less) logging or notifications. New rpc calls will fail with error code -5 and (plugin's) responses will be ignored. Because lightningd can crash or be killed, a plugin cannot rely on the shutdown notification always been send.
+
+```json
+{
+    "shutdown": {
+    }
+}
+```
