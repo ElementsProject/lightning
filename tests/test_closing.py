@@ -1656,21 +1656,12 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     assert blocks1 == 0
     assert blocks2 == 0
 
-    def get_rbf_txid(node, txid):
-        line = node.daemon.wait_for_log("RBF onchain .*{}".format(txid))
-        newtxid = re.search(r'with txid ([0-9a-fA-F]*)', line).group(1)
-        return newtxid
-
     # Now the censoring miners generate some blocks.
     for depth in range(2, 10):
         bitcoind.generate_block(1)
         # l2 should RBF, twice even, one for the l1 main output,
         # one for the l1 HTLC output.
-        # Don't assume a specific order!
-        start = l2.daemon.logsearch_start
-        txid1 = get_rbf_txid(l2, txid1)
-        l2.daemon.logsearch_start = start
-        txid2 = get_rbf_txid(l2, txid2)
+        l2.daemon.wait_for_logs(['RBF onchain txid'] * 2)
 
     # Now that the transactions have high fees, independent miners
     # realize they can earn potentially more money by grabbing the
@@ -1682,14 +1673,12 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     bitcoind.generate_block(1, needfeerate=10000000)
 
     # This triggers the final RBF attempt
-    start = l2.daemon.logsearch_start
-    txid1 = get_rbf_txid(l2, txid1)
-    l2.daemon.logsearch_start = start
-    txid2 = get_rbf_txid(l2, txid2)
+    l2.daemon.wait_for_logs(['RBF onchain txid'] * 2)
+
+    # FIXME: Some of those RBFs may not be accepted by bitcoind, we don't bother with txid checks
 
     # Now the non-censoring miners overpower the censoring miners.
-    # FIXME: Some of those RBFs may not be accepted by bitcoind, so just check number in mempool.
-    bitcoind.generate_block(1, wait_for_mempool=len([txid1, txid2]))
+    bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l2])
 
     # And l2 should consider it resolved now.
