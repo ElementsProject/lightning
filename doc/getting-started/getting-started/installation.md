@@ -8,17 +8,23 @@ updatedAt: "2023-07-13T05:08:44.966Z"
 ---
 # Binaries
 
-If you're on Ubuntu:
+If you're on Ubuntu, you need to install bitcoind:
+
 
 ```shell
 sudo apt-get install -y software-properties-common
-sudo add-apt-repository -u ppa:lightningnetwork/ppa
-sudo apt-get install lightningd snapd
 sudo snap install bitcoin-core
 sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 ```
 
-Alternatively, you can install a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions. 
+Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions.
+
+You will need some Python packages if you want to use clnrest.  Unfortunately there are some Python packages which are not packaged in Ubuntu, and so you will need to force installation of these (I recommend --user which will install them in your own .local directory, so at least you won't run the risk of breaking Python globally!).
+
+```
+sudo apt-get install python3-json5 python3-flask python3-gunicorn
+pip3 install --user flask_restx pyln-client
+```
 
 If you're on a different distribution or OS, you can compile the source by following the instructions from [Installing from Source](<>).
 
@@ -46,9 +52,7 @@ Core Lightning is also available on nixOS via the [nix-bitcoin](https://github.c
 
 # Installing from source
 
-> 📘 
-> 
-> To build Core Lightning in a reproducible way, follow the steps at [Reproducible builds for Core Lightning](doc:repro).
+To build Core Lightning in a reproducible way, follow the steps at [Reproducible builds for Core Lightning](doc:repro).
 
 ## Library Requirements
 
@@ -124,6 +128,7 @@ To build cln to just install a tagged or master version you can use the followin
 ```shell
 pip3 install --upgrade pip
 pip3 install mako
+pip3 install -r plugins/clnrest/requirements.txt
 ./configure
 make
 sudo make install
