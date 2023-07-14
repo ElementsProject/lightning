@@ -136,7 +136,7 @@ static bool db_migrate(struct plugin *p, struct db *db, bool *created)
 
 	/* Finally, update the version number in the version table */
 	stmt = db_prepare_v2(db, SQL("UPDATE version SET version=?;"));
-	db_bind_int(stmt, 0, available);
+	db_bind_int(stmt, BIND_NEXT, available);
 	db_exec_prepared_v2(take(stmt));
 
 	return current != orig;
@@ -179,7 +179,7 @@ static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db)
 		/* same acct as last, we found a duplicate */
 		del_stmt = db_prepare_v2(db, SQL("DELETE FROM channel_events"
 						 " WHERE id=?"));
-		db_bind_u64(del_stmt, 0, id);
+		db_bind_u64(del_stmt, BIND_NEXT, id);
 		db_exec_prepared_v2(take(del_stmt));
 	}
 	tal_free(stmt);
