@@ -123,9 +123,9 @@ static void update_db_expirations(struct invoices *invoices, u64 now)
 					       "   SET state = ?"
 					       " WHERE state = ?"
 					       "   AND expiry_time <= ?;"));
-	db_bind_int(stmt, BIND_NEXT, EXPIRED);
-	db_bind_int(stmt, BIND_NEXT, UNPAID);
-	db_bind_u64(stmt, BIND_NEXT, now);
+	db_bind_int(stmt, EXPIRED);
+	db_bind_int(stmt, UNPAID);
+	db_bind_u64(stmt, now);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -170,8 +170,8 @@ static void trigger_expiration(struct invoices *invoices)
 					       "  FROM invoices"
 					       " WHERE state = ?"
 					       "   AND expiry_time <= ?"));
-	db_bind_int(stmt, BIND_NEXT, UNPAID);
-	db_bind_u64(stmt, BIND_NEXT, now);
+	db_bind_int(stmt, UNPAID);
+	db_bind_u64(stmt, now);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -207,7 +207,7 @@ static void install_expiration_timer(struct invoices *invoices)
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT MIN(expiry_time)"
 					       "  FROM invoices"
 					       " WHERE state = ?;"));
-	db_bind_int(stmt, BIND_NEXT, UNPAID);
+	db_bind_int(stmt, UNPAID);
 
 	db_query_prepared(stmt);
 
@@ -286,25 +286,25 @@ bool invoices_create(struct invoices *invoices,
 		"            , NULL, NULL"
 		"            , NULL, ?, ?, ?, ?);"));
 
-	db_bind_sha256(stmt, BIND_NEXT, rhash);
-	db_bind_preimage(stmt, BIND_NEXT, r);
-	db_bind_int(stmt, BIND_NEXT, UNPAID);
+	db_bind_sha256(stmt, rhash);
+	db_bind_preimage(stmt, r);
+	db_bind_int(stmt, UNPAID);
 	if (msat)
-		db_bind_amount_msat(stmt, BIND_NEXT, msat);
+		db_bind_amount_msat(stmt, msat);
 	else
-		db_bind_null(stmt, BIND_NEXT);
-	db_bind_json_escape(stmt, BIND_NEXT, label);
-	db_bind_u64(stmt, BIND_NEXT, expiry_time);
-	db_bind_text(stmt, BIND_NEXT, b11enc);
+		db_bind_null(stmt);
+	db_bind_json_escape(stmt, label);
+	db_bind_u64(stmt, expiry_time);
+	db_bind_text(stmt, b11enc);
 	if (!description)
-		db_bind_null(stmt, BIND_NEXT);
+		db_bind_null(stmt);
 	else
-		db_bind_text(stmt, BIND_NEXT, description);
-	db_bind_talarr(stmt, BIND_NEXT, features);
+		db_bind_text(stmt, description);
+	db_bind_talarr(stmt, features);
 	if (local_offer_id)
-		db_bind_sha256(stmt, BIND_NEXT, local_offer_id);
+		db_bind_sha256(stmt, local_offer_id);
 	else
-		db_bind_null(stmt, BIND_NEXT);
+		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
 
@@ -333,7 +333,7 @@ bool invoices_find_by_label(struct invoices *invoices,
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT id"
 					       "  FROM invoices"
 					       " WHERE label = ?;"));
-	db_bind_json_escape(stmt, BIND_NEXT, label);
+	db_bind_json_escape(stmt, label);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
@@ -355,7 +355,7 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT id"
 					       "  FROM invoices"
 					       " WHERE payment_hash = ?;"));
-	db_bind_sha256(stmt, BIND_NEXT, rhash);
+	db_bind_sha256(stmt, rhash);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
@@ -377,8 +377,8 @@ bool invoices_find_unpaid(struct invoices *invoices,
 					       "  FROM invoices"
 					       " WHERE payment_hash = ?"
 					       "   AND state = ?;"));
-	db_bind_sha256(stmt, BIND_NEXT, rhash);
-	db_bind_int(stmt, BIND_NEXT, UNPAID);
+	db_bind_sha256(stmt, rhash);
+	db_bind_int(stmt, UNPAID);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
@@ -398,7 +398,7 @@ bool invoices_delete(struct invoices *invoices, u64 inv_dbid)
 	/* Delete from database. */
 	stmt = db_prepare_v2(invoices->wallet->db,
 			     SQL("DELETE FROM invoices WHERE id=?;"));
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_u64(stmt, inv_dbid);
 	db_exec_prepared_v2(stmt);
 
 	changes = db_count_changes(stmt);
@@ -420,7 +420,7 @@ bool invoices_delete_description(struct invoices *invoices, u64 inv_dbid)
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("UPDATE invoices"
 					       "   SET description = NULL"
 					       " WHERE ID = ?;"));
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_u64(stmt, inv_dbid);
 	db_exec_prepared_v2(stmt);
 
 	changes = db_count_changes(stmt);
@@ -437,8 +437,8 @@ void invoices_delete_expired(struct invoices *invoices,
 			  "DELETE FROM invoices"
 			  " WHERE state = ?"
 			  "   AND expiry_time <= ?;"));
-	db_bind_int(stmt, BIND_NEXT, EXPIRED);
-	db_bind_u64(stmt, BIND_NEXT, max_expiry_time);
+	db_bind_int(stmt, EXPIRED);
+	db_bind_u64(stmt, max_expiry_time);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -484,7 +484,7 @@ static enum invoice_status invoice_get_status(struct invoices *invoices,
 
 	stmt = db_prepare_v2(
 	    invoices->wallet->db, SQL("SELECT state FROM invoices WHERE id = ?;"));
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_u64(stmt, inv_dbid);
 	db_query_prepared(stmt);
 
 	res = db_step(stmt);
@@ -502,7 +502,7 @@ static void maybe_mark_offer_used(struct db *db, u64 inv_dbid)
 
 	stmt = db_prepare_v2(
 		db, SQL("SELECT local_offer_id FROM invoices WHERE id = ?;"));
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_u64(stmt, inv_dbid);
 	db_query_prepared(stmt);
 
 	db_step(stmt);
@@ -539,11 +539,11 @@ bool invoices_resolve(struct invoices *invoices,
 					       "     , msatoshi_received=?"
 					       "     , paid_timestamp=?"
 					       " WHERE id=?;"));
-	db_bind_int(stmt, BIND_NEXT, PAID);
-	db_bind_u64(stmt, BIND_NEXT, pay_index);
-	db_bind_amount_msat(stmt, BIND_NEXT, &received);
-	db_bind_u64(stmt, BIND_NEXT, paid_timestamp);
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_int(stmt, PAID);
+	db_bind_u64(stmt, pay_index);
+	db_bind_amount_msat(stmt, &received);
+	db_bind_u64(stmt, paid_timestamp);
+	db_bind_u64(stmt, inv_dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	maybe_mark_offer_used(invoices->wallet->db, inv_dbid);
@@ -596,7 +596,7 @@ void invoices_waitany(const tal_t *ctx,
 				 " WHERE pay_index IS NOT NULL"
 				 "   AND pay_index > ?"
 				 " ORDER BY pay_index ASC LIMIT 1;"));
-	db_bind_u64(stmt, BIND_NEXT, lastpay_index);
+	db_bind_u64(stmt, lastpay_index);
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
@@ -656,7 +656,7 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 					       ", local_offer_id"
 					       " FROM invoices"
 					       " WHERE id = ?;"));
-	db_bind_u64(stmt, BIND_NEXT, inv_dbid);
+	db_bind_u64(stmt, inv_dbid);
 	db_query_prepared(stmt);
 	res = db_step(stmt);
 	assert(res);

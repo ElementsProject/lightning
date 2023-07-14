@@ -17,55 +17,50 @@ struct onionreply;
 struct wally_psbt;
 struct wally_tx;
 
-/* Magic pos argument meaning "the next field" */
-#define BIND_NEXT -77
-
-int db_col_is_null(struct db_stmt *stmt, const char *colname);
-
-void db_bind_int(struct db_stmt *stmt, int pos, int val);
-int db_col_int(struct db_stmt *stmt, const char *colname);
-
-void db_bind_null(struct db_stmt *stmt, int pos);
-void db_bind_int(struct db_stmt *stmt, int pos, int val);
-void db_bind_u64(struct db_stmt *stmt, int pos, u64 val);
-void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len);
-void db_bind_text(struct db_stmt *stmt, int pos, const char *val);
-void db_bind_preimage(struct db_stmt *stmt, int pos, const struct preimage *p);
-void db_bind_sha256(struct db_stmt *stmt, int pos, const struct sha256 *s);
-void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *s);
-void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s);
-void db_bind_secret_arr(struct db_stmt *stmt, int col, const struct secret *s);
-void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t);
-void db_bind_channel_id(struct db_stmt *stmt, int pos, const struct channel_id *id);
-void db_bind_channel_type(struct db_stmt *stmt, int pos, const struct channel_type *type);
-void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *ni);
-void db_bind_node_id_arr(struct db_stmt *stmt, int col,
+/* These bind the next `?` in stmt (they keep an internal counter). */
+void db_bind_null(struct db_stmt *stmt);
+void db_bind_int(struct db_stmt *stmt, int val);
+void db_bind_u64(struct db_stmt *stmt, u64 val);
+void db_bind_blob(struct db_stmt *stmt, const u8 *val, size_t len);
+void db_bind_text(struct db_stmt *stmt, const char *val);
+void db_bind_preimage(struct db_stmt *stmt, const struct preimage *p);
+void db_bind_sha256(struct db_stmt *stmt, const struct sha256 *s);
+void db_bind_sha256d(struct db_stmt *stmt, const struct sha256_double *s);
+void db_bind_secret(struct db_stmt *stmt, const struct secret *s);
+void db_bind_secret_arr(struct db_stmt *stmt, const struct secret *s);
+void db_bind_txid(struct db_stmt *stmt, const struct bitcoin_txid *t);
+void db_bind_channel_id(struct db_stmt *stmt, const struct channel_id *id);
+void db_bind_channel_type(struct db_stmt *stmt, const struct channel_type *type);
+void db_bind_node_id(struct db_stmt *stmt, const struct node_id *ni);
+void db_bind_node_id_arr(struct db_stmt *stmt,
 			 const struct node_id *ids);
-void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *p);
-void db_bind_short_channel_id(struct db_stmt *stmt, int col,
+void db_bind_pubkey(struct db_stmt *stmt, const struct pubkey *p);
+void db_bind_short_channel_id(struct db_stmt *stmt,
 			      const struct short_channel_id *id);
-void db_bind_short_channel_id_arr(struct db_stmt *stmt, int col,
+void db_bind_short_channel_id_arr(struct db_stmt *stmt,
 				  const struct short_channel_id *id);
-void db_bind_signature(struct db_stmt *stmt, int col,
+void db_bind_signature(struct db_stmt *stmt,
 		       const secp256k1_ecdsa_signature *sig);
-void db_bind_timeabs(struct db_stmt *stmt, int col, struct timeabs t);
-void db_bind_tx(struct db_stmt *stmt, int col, const struct wally_tx *tx);
-void db_bind_psbt(struct db_stmt *stmt, int col, const struct wally_psbt *psbt);
-void db_bind_amount_msat(struct db_stmt *stmt, int pos,
+void db_bind_timeabs(struct db_stmt *stmt, struct timeabs t);
+void db_bind_tx(struct db_stmt *stmt, const struct wally_tx *tx);
+void db_bind_psbt(struct db_stmt *stmt, const struct wally_psbt *psbt);
+void db_bind_amount_msat(struct db_stmt *stmt,
 			 const struct amount_msat *msat);
-void db_bind_amount_sat(struct db_stmt *stmt, int pos,
+void db_bind_amount_sat(struct db_stmt *stmt,
 			const struct amount_sat *sat);
-void db_bind_json_escape(struct db_stmt *stmt, int pos,
+void db_bind_json_escape(struct db_stmt *stmt,
 			 const struct json_escape *esc);
-void db_bind_onionreply(struct db_stmt *stmt, int col,
+void db_bind_onionreply(struct db_stmt *stmt,
 			const struct onionreply *r);
-void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr);
+void db_bind_talarr(struct db_stmt *stmt, const u8 *arr);
 
 /* Modern variants: get columns by name from SELECT */
 /* Bridge function to get column number from SELECT
    (must exist) */
 size_t db_query_colnum(const struct db_stmt *stmt, const char *colname);
 
+int db_col_is_null(struct db_stmt *stmt, const char *colname);
+int db_col_int(struct db_stmt *stmt, const char *colname);
 u64 db_col_u64(struct db_stmt *stmt, const char *colname);
 size_t db_col_bytes(struct db_stmt *stmt, const char *colname);
 const void* db_col_blob(struct db_stmt *stmt, const char *colname);

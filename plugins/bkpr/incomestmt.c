@@ -192,7 +192,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 					     " WHERE "
 					     "  e.spending_txid = ?"));
 
-		db_bind_txid(stmt, BIND_NEXT, &ev->outpoint.txid);
+		db_bind_txid(stmt, &ev->outpoint.txid);
 		db_query_prepared(stmt);
 		if (!db_step(stmt)) {
 			tal_free(stmt);
