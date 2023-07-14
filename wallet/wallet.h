@@ -63,13 +63,6 @@ static inline enum output_status output_status_in_db(enum output_status s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
-/* An object that handles iteration over the set of invoices */
-struct invoice_iterator {
-	/* The contents of this object is subject to change
-	 * and should not be depended upon */
-	void *p;
-};
-
 /* Enumeration of all known output types. These include all types that
  * could ever end up on-chain and we may need to react upon. Notice
  * that `to_local`, `htlc_offer`, and `htlc_recv` may need immediate

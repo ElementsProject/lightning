@@ -9,7 +9,6 @@ struct db;
 struct json_escape;
 struct invoice;
 struct invoice_details;
-struct invoice_iterator;
 struct invoices;
 struct sha256;
 struct timers;
@@ -130,36 +129,28 @@ void invoices_delete_expired(struct invoices *invoices,
 			     u64 max_expiry_time);
 
 /**
- * invoices_iterate - Iterate over all existing invoices
+ * Iterate through all the invoices.
+ * @invoices: the invoices
+ * @inv_dbid: the first invoice dbid (if returns non-NULL)
  *
- * @invoices - the invoice handler.
- * @iterator - the iterator object to use.
- *
- * Return false at end-of-sequence, true if still iterating.
- * Usage:
- *
- *   struct invoice_iterator it;
- *   memset(&it, 0, sizeof(it))
- *   while (invoices_iterate(wallet, &it)) {
- *       ...
- *   }
+ * Returns pointer to hand as @stmt to invoices_next(), or NULL.
+ * If you choose not to call invoices_next() you must free it!
  */
-bool invoices_iterate(struct invoices *invoices,
-		      struct invoice_iterator *it);
+struct db_stmt *invoices_first(struct invoices *invoices,
+			       u64 *inv_dbid);
 
 /**
- * wallet_invoice_iterator_deref - Read the details of the
- * invoice currently pointed to by the given iterator.
+ * Iterate through all the offers.
+ * @invoices: the invoices
+ * @stmt: return from invoices_first() or previous invoices_next()
+ * @inv_dbid: the first invoice dbid (if returns non-NULL)
  *
- * @ctx - the owner of the label and msatoshi fields returned.
- * @wallet - the wallet whose invoices are to be iterated over.
- * @iterator - the iterator object to use.
- * @return The invoice details allocated off of `ctx`
- *
+ * Returns NULL once we're out of invoices.  If you choose not to call
+ * invoices_next() again you must free return.
  */
-const struct invoice_details *invoices_iterator_deref(
-	const tal_t *ctx, struct invoices *invoices,
-	const struct invoice_iterator *it);
+struct db_stmt *invoices_next(struct invoices *invoices,
+			      struct db_stmt *stmt,
+			      u64 *inv_dbid);
 
 /**
  * invoices_resolve - Mark an invoice as paid
