@@ -3770,49 +3770,6 @@ def test_pay_peer(node_factory, bitcoind):
     l1.dev_pay(inv, use_shadow=False)
 
 
-def test_mpp_presplit(node_factory):
-    """Make a rather large payment of 5*10ksat and see it being split.
-    """
-    MPP_TARGET_SIZE = 10**7  # Taken from libpluin-pay.c
-    amt = 5 * MPP_TARGET_SIZE
-
-    # Assert that the amount we're going to send is indeed larger than our
-    # split size.
-    assert(MPP_TARGET_SIZE < amt)
-
-    l1, l2, l3 = node_factory.line_graph(
-        3, fundamount=10**8, wait_for_announce=True,
-        opts={'wumbo': None,
-              'max-dust-htlc-exposure-msat': '500000sat'}
-    )
-
-    inv = l3.rpc.invoice(amt, 'lbl', 'desc')['bolt11']
-    p = l1.rpc.pay(inv)
-
-    assert(p['parts'] >= 5)
-    inv = l3.rpc.listinvoices()['invoices'][0]
-
-    assert(inv['amount_msat'] == inv['amount_received_msat'])
-
-    # Make sure that bolt11 isn't duplicated for every part
-    bolt11s = 0
-    count = 0
-    for p in l1.rpc.listsendpays()['payments']:
-        if 'bolt11' in p:
-            bolt11s += 1
-        count += 1
-
-    # You were supposed to mpp!
-    assert count > 1
-    # Not every one should have the bolt11 string
-    assert bolt11s < count
-    # In fact, only one should
-    assert bolt11s == 1
-
-    # But listpays() gathers it:
-    assert only_one(l1.rpc.listpays()['pays'])['bolt11'] == inv['bolt11']
-
-
 def test_mpp_adaptive(node_factory, bitcoind):
     """We have two paths, both too small on their own, let's combine them.
 
@@ -3965,33 +3922,6 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     assert('completed_at' in pays[0])
 
 
-def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
-    '''
-    We had a bug where pre-splitting the payment prevents *any*
-    routehints from being taken.
-    We tickle that bug here by building l1->l2->l3, but with
-    l2->l3 as an unpublished channel.
-    If the payment is large enough to trigger pre-splitting, the
-    routehints are not applied in any of the splits.
-    '''
-    l1, l2, l3 = node_factory.get_nodes(3)
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1l2, _ = l1.fundchannel(l2, 10**7, announce_channel=True)
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.fundchannel(l3, 10**7, announce_channel=False)
-
-    mine_funding_to_announce(bitcoind, [l1, l2, l3])
-
-    # Wait for l3 to learn about l1->l2, otherwise it will think
-    # l2 is a deadend and not add it to the routehint.
-    wait_for(lambda: len(l3.rpc.listchannels(l1l2)['channels']) >= 2)
-
-    inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
-
-    l1.rpc.pay(inv)
-
-
 def test_delpay_argument_invalid(node_factory, bitcoind):
     """
     This test includes all possible combinations of input error inside the
@@ -4036,24 +3966,6 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     assert payments['payments'][0]['bolt11'] == inv['bolt11']
     assert len(payments['payments']) == 1
     assert len(l2.rpc.listpays()['pays']) == 0
-
-
-def test_delpay_payment_split(node_factory, bitcoind):
-    """
-    Test behavior of delpay with an MPP
-    """
-    MPP_TARGET_SIZE = 10**7  # Taken from libpluin-pay.c
-    amt = 4 * MPP_TARGET_SIZE
-
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
-                                         wait_for_announce=True)
-    inv = l3.rpc.invoice(amt, 'lbl', 'desc')
-    l1.rpc.pay(inv['bolt11'])
-
-    assert len(l1.rpc.listpays()['pays']) == 1
-    delpay_result = l1.rpc.delpay(inv['payment_hash'], 'complete')['payments']
-    assert len(delpay_result) >= 4
-    assert len(l1.rpc.listpays()['pays']) == 0
 
 
 @pytest.mark.developer("needs dev-no-reconnect, dev-routes to force failover")
@@ -4284,38 +4196,6 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     # Both payments should succeed.
     p2.result(TIMEOUT)
     p3.result(TIMEOUT)
-
-
-def test_large_mpp_presplit(node_factory):
-    """Make sure that ludicrous amounts don't saturate channels
-
-    We aim to have at most PRESPLIT_MAX_SPLITS HTLCs created directly from the
-    `presplit` modifier. The modifier will scale up its target size to
-    guarantee this, while still bucketizing payments that are in the following
-    range:
-
-    ```
-    target_size = PRESPLIT_MAX_SPLITS^{n} + MPP_TARGET_SIZE
-    target_size < amount <= target_size * PRESPLIT_MAX_SPLITS
-    ```
-
-    """
-    PRESPLIT_MAX_SPLITS = 16
-    MPP_TARGET_SIZE = 10 ** 7
-    amt = 400 * MPP_TARGET_SIZE
-
-    l1, l2, l3 = node_factory.line_graph(
-        3, fundamount=10**8, wait_for_announce=True,
-        opts={'wumbo': None}
-    )
-
-    inv = l3.rpc.invoice(amt, 'lbl', 'desc')['bolt11']
-    p = l1.rpc.pay(inv)
-
-    assert(p['parts'] <= PRESPLIT_MAX_SPLITS)
-    inv = l3.rpc.listinvoices()['invoices'][0]
-
-    assert(inv['amount_msat'] == inv['amount_received_msat'])
 
 
 @pytest.mark.developer("builds large network, which is slow if not DEVELOPER")
@@ -5037,18 +4917,6 @@ gives a routehint straight to us causes an issue
     l3.stop()
     with pytest.raises(RpcError, match=r'Destination .* is not reachable directly and all routehints were unusable'):
         l2.rpc.pay(inv)
-
-
-def test_pay_low_max_htlcs(node_factory):
-    """Test we can pay if *any* HTLC slots are available"""
-
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts={'max-concurrent-htlcs': 1},
-                                         wait_for_announce=True)
-    l1.rpc.pay(l3.rpc.invoice(FUNDAMOUNT * 50, "test", "test")['bolt11'])
-    l1.daemon.wait_for_log(
-        r'Number of pre-split HTLCs \([0-9]+\) exceeds our HTLC budget \([0-9]+\), skipping pre-splitter'
-    )
 
 
 def test_setchannel_enforcement_delay(node_factory, bitcoind):
