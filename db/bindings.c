@@ -18,7 +18,16 @@
 
 static int check_bind_pos(struct db_stmt *stmt, int pos)
 {
-	assert(pos == ++stmt->bind_pos);
+	if (pos == BIND_NEXT) {
+		/* Don't mix BIND_NEXT with other args! */
+		assert(stmt->bindings[stmt->bind_pos+1].type == DB_BINDING_UNINITIALIZED);
+		return ++stmt->bind_pos;
+	}
+
+	/* Don't mix BIND_NEXT with other args! */
+	assert(stmt->bind_pos == -1);
+	assert(pos >= 0);
+	assert(pos < tal_count(stmt->bindings));
 	return pos;
 }
 
