@@ -17,6 +17,9 @@ struct onionreply;
 struct wally_psbt;
 struct wally_tx;
 
+/* Magic pos argument meaning "the next field" */
+#define BIND_NEXT -77
+
 int db_col_is_null(struct db_stmt *stmt, const char *colname);
 
 void db_bind_int(struct db_stmt *stmt, int pos, int val);
