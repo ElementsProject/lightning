@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 # For --hidden-import gunicorn.glogging gunicorn.workers.sync
-from gunicorn import glogging  # noqa: F401
-from gunicorn.workers import sync  # noqa: F401
+try:
+    from gunicorn import glogging  # noqa: F401
+    from gunicorn.workers import sync  # noqa: F401
 
-from pathlib import Path
-from flask import Flask
-from flask_restx import Api
-from gunicorn.app.base import BaseApplication
-from multiprocessing import Process, cpu_count
-from utilities.generate_certs import generate_certs
-from utilities.shared import set_config
-from utilities.rpc_routes import rpcns
-from utilities.rpc_plugin import plugin
+    from pathlib import Path
+    from flask import Flask
+    from flask_restx import Api
+    from gunicorn.app.base import BaseApplication
+    from multiprocessing import Process, cpu_count
+    from utilities.generate_certs import generate_certs
+    from utilities.shared import set_config
+    from utilities.rpc_routes import rpcns
+    from utilities.rpc_plugin import plugin
+except ModuleNotFoundError as err:
+    # OK, something is not installed?
+    import json
+    import sys
+    getmanfest = json.loads(sys.stdin.readline())
+    print(json.dumps({'jsonrpc': "2.0",
+                      'id': getmanfest['id'],
+                      'result': {'disable': str(err)}}))
+    sys.exit(1)
 
 jobs = {}
 
