@@ -2903,23 +2903,18 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 			 * only a reliability one, thus does not need a lot
 			 * of entropy.
 			 *
-			 * But the most important bit is that *splits get
-			 * contiguous partids*, e.g. a presplit into 4 will
-			 * usually be numbered 2,3,4,5, and an adaptive split
-			 * will get two consecutive partid.
-			 * Because of the contiguity, using the partid for
-			 * the base will cause the split-up payments to
-			 * have fairly diverse initial routehints.
-			 *
-			 * The special-casing for <= 2 and the - 2 is due
-			 * to the presplitter skipping over partid 1, we want
-			 * the starting splits to have partid 2 start at
-			 * base 0.
+			 * But the most important bit is that *splits
+			 * get contiguous partids*, e.g. an adaptive
+			 * split will get two consecutive partid.
+			 * Because of the contiguity, using the partid
+			 * for the base will cause the split-up
+			 * payments to have fairly diverse initial
+			 * routehints.
 			 */
-			if (p->partid <= 2 || num_routehints <= 1)
+			if (num_routehints == 0)
 				d->base = 0;
 			else
-				d->base = (p->partid - 2) % num_routehints;
+				d->base = (p->partid - 1) % num_routehints;
 		}
 		return d;
 	} else {
@@ -3409,60 +3404,6 @@ static void waitblockheight_cb(void *d, struct payment *p)
 
 REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
 
-/*****************************************************************************
- * presplit -- Early MPP splitter modifier.
- *
- * This splitter modifier is applied to the root payment, and splits the
- * payment into parts that are more likely to succeed right away. The
- * parameters are derived from probing the network for channel capacities, and
- * may be adjusted in future.
- */
-
-
-/*By probing the capacity from a well-connected vantage point in the network
- * we found that the 80th percentile of capacities is >= 9765 sats.
- *
- * Rounding to 10e6 msats per part there is a ~80% chance that the payment
- * will go through without requiring further splitting. The fuzzing is
- * symmetric and uniformy distributed around this value, so this should not
- * change the success rate much. For the remaining 20% of payments we might
- * require a split to make the parts succeed, so we try only a limited number
- * of times before we split adaptively.
- *
- * Notice that these numbers are based on a worst case assumption that
- * payments from any node to any other node are equally likely, which isn't
- * really the case, so this is likely a lower bound on the success rate.
- *
- * As the network evolves these numbers are also likely to change.
- *
- * Finally, if applied trivially this splitter may end up creating more splits
- * than the sum of all channels can support, i.e., each split results in an
- * HTLC, and each channel has an upper limit on the number of HTLCs it'll
- * allow us to add. If the initial split would result in more than 1/3rd of
- * the total available HTLCs we clamp the number of splits to 1/3rd. We don't
- * use 3/3rds in order to retain flexibility in the adaptive splitter.
- */
-#define MPP_TARGET_SIZE (10 * 1000 * 1000)
-#define PRESPLIT_MAX_HTLC_SHARE 3
-
-/* How many parts do we split into before we increase the bucket size. This is
- * a tradeoff between the number of payments whose parts are identical and the
- * number of concurrent HTLCs. The larger this amount the more HTLCs we may
- * end up starting, but the more payments result in the same part sizes.*/
-#define PRESPLIT_MAX_SPLITS 16
-
-static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
-{
-	struct presplit_mod_data *d;
-	if (p->parent == NULL) {
-		d = tal(p, struct presplit_mod_data);
-		d->disable = false;
-		return d;
-	} else {
-		return payment_mod_presplit_get_data(p->parent);
-	}
-}
-
 static u32 payment_max_htlcs(const struct payment *p)
 {
 	const struct payment *root;
@@ -3517,152 +3458,6 @@ static bool payment_supports_mpp(struct payment *p)
 	return feature_offered(p->features, OPT_BASIC_MPP);
 }
 
-/* Return fuzzed amount ~= target, but never exceeding max */
-static struct amount_msat fuzzed_near(struct amount_msat target,
-				      struct amount_msat max)
-{
-	s64 fuzz;
-	struct amount_msat res = target;
-
-	/* Somewhere within 25% of target please. */
-	fuzz = pseudorand(target.millisatoshis / 2) /* Raw: fuzz */
-		- target.millisatoshis / 4; /* Raw: fuzz */
-	res.millisatoshis = target.millisatoshis + fuzz; /* Raw: fuzz < msat */
-
-	if (amount_msat_greater(res, max))
-		res = max;
-	return res;
-}
-
-static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
-{
-	struct payment *root = payment_root(p);
-
-	if (d->disable || p->parent != NULL || !payment_supports_mpp(p))
-		return payment_continue(p);
-
-	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
-		/* We need to tell the last hop the total we're going to
-		 * send. Presplit disables amount fuzzing, so we should always
-		 * get the exact value through. */
-		size_t lastidx = tal_count(p->createonion_request->hops) - 1;
-		struct createonion_hop *hop = &p->createonion_request->hops[lastidx];
-		struct tlv_field **fields = &hop->tlv_payload->fields;
-		tlvstream_set_tlv_payload_data(
-			    fields, root->payment_secret,
-			    root->amount.millisatoshis); /* Raw: onion payload */
-	} else if (p->step == PAYMENT_STEP_INITIALIZED) {
-		/* The presplitter only acts on the root and only in the first
-		 * step. */
-		size_t count = 0;
-		u32 htlcs;
-		struct amount_msat target, amt = p->amount;
-		char *partids = tal_strdup(tmpctx, "");
-		u64 target_amount = MPP_TARGET_SIZE;
-
-		/* We aim for at most PRESPLIT_MAX_SPLITS parts, even for
-		 * large values. To achieve this we take the base amount and
-		 * multiply it by the number of targetted parts until the
-		 * total amount divided by part amount gives us at most that
-		 * number of parts. */
-		while (amount_msat_less(amount_msat(target_amount * PRESPLIT_MAX_SPLITS),
-					p->amount))
-			target_amount *= PRESPLIT_MAX_SPLITS;
-
-		/* We need to opt-in to the MPP sending facility no matter
-		 * what we do. That means setting all partids to a non-zero
-		 * value. */
-		root->partid++;
-
-		/* Bump the next_partid as well so we don't have duplicate
-		 * partids. Not really necessary since the root payment whose
-		 * id could be reused will never reach the `sendonion` step,
-		 * but makes debugging a bit easier. */
-		root->next_partid++;
-
-		htlcs = payment_max_htlcs(p);
-		/* Divide it up if we can, but it might be v low already */
-		if (htlcs >= PRESPLIT_MAX_HTLC_SHARE)
-			htlcs /= PRESPLIT_MAX_HTLC_SHARE;
-
-		int targethtlcs =
-		    p->amount.millisatoshis / target_amount; /* Raw: division */
-		if (htlcs == 0) {
-			p->abort = true;
-			return payment_fail(
-			    p, "Cannot attempt payment, we have no channel to "
-			       "which we can add an HTLC");
-		} else if (targethtlcs > htlcs) {
-			paymod_log(p, LOG_INFORM,
-				   "Number of pre-split HTLCs (%d) exceeds our "
-				   "HTLC budget (%d), skipping pre-splitter",
-				   targethtlcs, htlcs);
-			return payment_continue(p);
-		} else
-			target = amount_msat(target_amount);
-
-		/* If we are already below the target size don't split it
-		 * either. */
-		if (amount_msat_greater(target, p->amount))
-			return payment_continue(p);
-
-		payment_set_step(p, PAYMENT_STEP_SPLIT);
-		/* Ok, we know we should split, so split here and then skip this
-		 * payment and start the children instead. */
-		while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
-			double multiplier;
-
-			struct payment *c =
-			    payment_new(p, NULL, p, p->modifiers);
-
-			/* Get ~ target, but don't exceed amt */
-			c->amount = fuzzed_near(target, amt);
-
-			if (!amount_msat_sub(&amt, amt, c->amount))
-				paymod_err(
-				    p,
-				    "Cannot subtract %s from %s in splitter",
-				    type_to_string(tmpctx, struct amount_msat,
-						   &c->amount),
-				    type_to_string(tmpctx, struct amount_msat,
-						   &amt));
-
-			/* Now adjust the constraints so we don't multiply them
-			 * when splitting. */
-			multiplier = amount_msat_ratio(c->amount, p->amount);
-			if (!amount_msat_scale(&c->constraints.fee_budget,
-					       c->constraints.fee_budget,
-					       multiplier))
-				abort(); /* multiplier < 1! */
-			payment_start(c);
-			/* Why the wordy "new partid n" that we repeat for
-			 * each payment?
-			 * So that you can search the logs for the
-			 * creation of a partid by just "new partid n".
-			 */
-			if (count == 0)
-				tal_append_fmt(&partids, "new partid %"PRIu32, c->partid);
-			else
-				tal_append_fmt(&partids, ", new partid %"PRIu32, c->partid);
-			count++;
-		}
-
-		p->result = NULL;
-		p->route = NULL;
-		p->why = tal_fmt(
-		    p,
-		    "Split into %zu sub-payments due to initial size (%s > %s)",
-		    count,
-		    type_to_string(tmpctx, struct amount_msat, &root->amount),
-		    type_to_string(tmpctx, struct amount_msat, &target));
-		paymod_log(p, LOG_INFORM, "%s: %s", p->why, partids);
-	}
-	payment_continue(p);
-}
-
-REGISTER_PAYMENT_MODIFIER(presplit, struct presplit_mod_data *,
-			  presplit_mod_data_init, presplit_cb);
-
 /*****************************************************************************
  * Adaptive splitter -- Split payment if we can't get it through.
  *
@@ -3704,8 +3499,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 	if (p->parent == NULL && d->htlc_budget == 0) {
 		/* Now that we potentially had an early splitter run, let's
 		 * update our htlc_budget that we own exclusively from now
-		 * on. We do this by subtracting the number of payment
-		 * attempts an eventual presplitter has already performed. */
+		 * on. */
 		int children = tal_count(p->children);
 		d->htlc_budget = payment_max_htlcs(p);
 		if (children > d->htlc_budget) {
@@ -3720,9 +3514,9 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 	}
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
-		/* We need to tell the last hop the total we're going to
-		 * send. Presplit disables amount fuzzing, so we should always
-		 * get the exact value through. */
+		/* We need to tell the last hop the total we're going
+		 * to send. MPP disables amount fuzzing, so we should
+		 * always get the exact value through. */
 		size_t lastidx = tal_count(p->createonion_request->hops) - 1;
 		struct createonion_hop *hop = &p->createonion_request->hops[lastidx];
 		struct tlv_field **fields = &hop->tlv_payload->fields;
@@ -3821,7 +3615,7 @@ REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
  * payer-side channels, but assessing the payee requires us to probe the
  * area around it.
  *
- * This paymod must be *after* `routehints` but *before* `presplit` paymods:
+ * This paymod must be *after* `routehints` paymod:
  *
  * - If we cannot find the destination on the public network, we can only
  *   use channels it put in the routehints.
@@ -3829,8 +3623,6 @@ REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
  *   having.
  *   However, the `routehints` paymod may filter out some routehints, thus
  *   we should assess based on the post-filtered routehints.
- * - The `presplit` is the first splitter that executes, so we have to have
- *   performed the payee-channels assessment by then.
  */
 
 /* The default `max-concurrent-htlcs` is 30, but node operators might want
@@ -3841,8 +3633,6 @@ REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
  * expire, which of course requires the HTLCs to be published anyway, meaning
  * it will still be potentially costly.
  * So our initial assumption is 15 HTLCs per channel.
- *
- * The presplitter will divide this by `PRESPLIT_MAX_HTLC_SHARE` as well.
  */
 #define ASSUMED_MAX_HTLCS_PER_CHANNEL 15
 
