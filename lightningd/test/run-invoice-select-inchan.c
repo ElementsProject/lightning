@@ -388,20 +388,20 @@ bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 			  u64 *inv_dbid UNNEEDED,
 			  const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
+/* Generated stub for invoices_first */
+struct db_stmt *invoices_first(struct invoices *invoices UNNEEDED,
+			       u64 *inv_dbid UNNEEDED)
+{ fprintf(stderr, "invoices_first called!\n"); abort(); }
 /* Generated stub for invoices_get_details */
 struct invoice_details *invoices_get_details(const tal_t *ctx UNNEEDED,
 					     struct invoices *invoices UNNEEDED,
 					     u64 inv_dbid UNNEEDED)
 { fprintf(stderr, "invoices_get_details called!\n"); abort(); }
-/* Generated stub for invoices_iterate */
-bool invoices_iterate(struct invoices *invoices UNNEEDED,
-		      struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "invoices_iterate called!\n"); abort(); }
-/* Generated stub for invoices_iterator_deref */
-const struct invoice_details *invoices_iterator_deref(
-	const tal_t *ctx UNNEEDED, struct invoices *invoices UNNEEDED,
-	const struct invoice_iterator *it UNNEEDED)
-{ fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
+/* Generated stub for invoices_next */
+struct db_stmt *invoices_next(struct invoices *invoices UNNEEDED,
+			      struct db_stmt *stmt UNNEEDED,
+			      u64 *inv_dbid UNNEEDED)
+{ fprintf(stderr, "invoices_next called!\n"); abort(); }
 /* Generated stub for invoices_resolve */
 bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      u64 inv_dbid UNNEEDED,

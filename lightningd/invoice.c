@@ -1223,7 +1223,6 @@ static void json_add_invoices(struct json_stream *response,
 			      const struct sha256 *payment_hash,
 			      const struct sha256 *local_offer_id)
 {
-	struct invoice_iterator it;
 	const struct invoice_details *details;
 	u64 inv_dbid;
 
@@ -1242,10 +1241,13 @@ static void json_add_invoices(struct json_stream *response,
 			json_add_invoice(response, NULL, details);
 		}
 	} else {
-		memset(&it, 0, sizeof(it));
-		while (invoices_iterate(wallet->invoices, &it)) {
-			details = invoices_iterator_deref(response,
-							  wallet->invoices, &it);
+		struct db_stmt *stmt;
+
+		for (stmt = invoices_first(wallet->invoices, &inv_dbid);
+		     stmt;
+		     stmt = invoices_next(wallet->invoices, stmt, &inv_dbid)) {
+			details = invoices_get_details(tmpctx,
+						       wallet->invoices, inv_dbid);
 			/* FIXME: db can filter this better! */
 			if (local_offer_id) {
 				if (!details->local_offer_id

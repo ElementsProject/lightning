@@ -442,50 +442,26 @@ void invoices_delete_expired(struct invoices *invoices,
 	db_exec_prepared_v2(take(stmt));
 }
 
-bool invoices_iterate(struct invoices *invoices,
-		      struct invoice_iterator *it)
+struct db_stmt *invoices_first(struct invoices *invoices,
+			       u64 *inv_dbid)
 {
 	struct db_stmt *stmt;
 
-	if (!it->p) {
-		stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT"
-						       "  state"
-						       ", payment_key"
-						       ", payment_hash"
-						       ", label"
-						       ", msatoshi"
-						       ", expiry_time"
-						       ", pay_index"
-						       ", msatoshi_received"
-						       ", paid_timestamp"
-						       ", bolt11"
-						       ", description"
-						       ", features"
-						       ", local_offer_id"
-						       " FROM invoices"
-						       " ORDER BY id;"));
-		db_query_prepared(stmt);
-		it->p = stmt;
-	} else
-		stmt = it->p;
+	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT id FROM invoices ORDER by id;"));
+	db_query_prepared(stmt);
 
-
-	if (db_step(stmt))
-		/* stmt doesn't need to be freed since we expect to be called
-		 * again, and stmt will be freed on the last iteration. */
-		return true;
-
-	tal_free(stmt);
-	it->p = NULL;
-	return false;
+	return invoices_next(invoices, stmt, inv_dbid);
 }
 
-const struct invoice_details *
-invoices_iterator_deref(const tal_t *ctx, struct invoices *invoices UNUSED,
-			const struct invoice_iterator *it)
+struct db_stmt *invoices_next(struct invoices *invoices,
+			      struct db_stmt *stmt,
+			      u64 *inv_dbid)
 {
-	assert(it->p);
-	return wallet_stmt2invoice_details(ctx, (struct db_stmt*) it->p);
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	*inv_dbid = db_col_u64(stmt, "id");
+	return stmt;
 }
 
 static s64 get_next_pay_index(struct db *db)
