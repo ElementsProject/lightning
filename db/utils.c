@@ -81,6 +81,7 @@ static struct db_stmt *db_prepare_core(struct db *db,
 	stmt->query = db_query;
 	stmt->executed = false;
 	stmt->inner_stmt = NULL;
+	stmt->bind_pos = -1;
 
 	tal_add_destructor(stmt, db_stmt_free);
 
