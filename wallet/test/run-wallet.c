@@ -1565,7 +1565,7 @@ static int count_inflights(struct wallet *w, u64 channel_dbid)
 	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(1)"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?;"));
-	db_bind_u64(stmt, 0, channel_dbid);
+	db_bind_u64(stmt, channel_dbid);
 	db_query_prepared(stmt);
 	if (!db_step(stmt))
 		abort();

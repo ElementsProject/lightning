@@ -62,16 +62,16 @@ void db_set_intvar(struct db *db, const char *varname, s64 val)
 {
 	size_t changes;
 	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET intval=? WHERE name=?;"));
-	db_bind_int(stmt, BIND_NEXT, val);
-	db_bind_text(stmt, BIND_NEXT, varname);
+	db_bind_int(stmt, val);
+	db_bind_text(stmt, varname);
 	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
 	tal_free(stmt);
 
 	if (changes == 0) {
 		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, intval) VALUES (?, ?);"));
-		db_bind_text(stmt, BIND_NEXT, varname);
-		db_bind_int(stmt, BIND_NEXT, val);
+		db_bind_text(stmt, varname);
+		db_bind_int(stmt, val);
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
@@ -82,7 +82,7 @@ s64 db_get_intvar(struct db *db, const char *varname, s64 defval)
 	s64 res = defval;
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("SELECT intval FROM vars WHERE name= ? LIMIT 1"));
-	db_bind_text(stmt, BIND_NEXT, varname);
+	db_bind_text(stmt, varname);
 	if (db_query_prepared_canfail(stmt) && db_step(stmt))
 		res = db_col_int(stmt, "intval");
 
@@ -110,7 +110,7 @@ static void db_data_version_incr(struct db *db)
 		       "SET intval = intval + 1 "
 		       "WHERE name = 'data_version'"
 		       " AND intval = ?"));
-       db_bind_int(stmt, BIND_NEXT, db->data_version);
+       db_bind_int(stmt, db->data_version);
        db_exec_prepared_v2(stmt);
        if (db_count_changes(stmt) != 1)
 	       db_fatal(stmt->db, "Optimistic lock on the database failed. There"
