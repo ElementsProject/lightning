@@ -26,9 +26,6 @@ If `rest-port` is not specified, the plugin will disable itself.
 With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. The POST method requires `rune` and `nodeid` headers for authorization.
 
 ### cURL
-Example curl command for GET:
-    `curl -k https://127.0.0.1:3010/v1/notifications`
-
 Example curl command for POST will also require `rune` and `nodeid` headers like below:
     `curl -k -X POST 'https://127.0.0.1:3010/v1/getinfo' -H 'Rune: <node-rune>' -H 'Nodeid: <node-id>'`
 
