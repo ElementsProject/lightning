@@ -520,9 +520,6 @@ check-whitespace/%: %
 
 check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
 
-check-markdown:
-	@tools/check-markdown.sh
-
 check-spelling:
 	@tools/check-spelling.sh
 
@@ -574,7 +571,7 @@ check-amount-access:
 	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -v '/* Raw:')
 	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*"
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
+check-source: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
 
 full-check: check check-source
 
@@ -801,7 +798,7 @@ MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN5PAGES = $(filter %.5,$(MANPAGES))
 MAN7PAGES = $(filter %.7,$(MANPAGES))
 MAN8PAGES = $(filter %.8,$(MANPAGES))
-DOC_DATA = README.md doc/INSTALL.md doc/HACKING.md LICENSE
+DOC_DATA = README.md LICENSE
 
 install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA)
 	@$(NORMAL_INSTALL)
