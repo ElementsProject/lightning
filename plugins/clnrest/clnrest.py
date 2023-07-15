@@ -110,7 +110,10 @@ def start_server():
 
 @plugin.init()
 def init(options, configuration, plugin):
-    set_config(options)
+    # We require options before we open a port.
+    err = set_config(options)
+    if err:
+        return {'disable': err}
     start_server()
 
 

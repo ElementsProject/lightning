@@ -6,11 +6,14 @@ CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT = "", "", "", ""
 
 
 def set_config(options):
+    if 'rest-port' not in options:
+        return "`rest-port` option is not configured"
     global CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT
     CERTS_PATH = str(options["rest-certs"])
     REST_PROTOCOL = str(options["rest-protocol"])
     REST_HOST = str(options["rest-host"])
     REST_PORT = int(options["rest-port"])
+    return None
 
 
 def call_rpc_method(plugin, rpc_method, payload):
