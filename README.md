@@ -41,7 +41,7 @@ There are 4 supported installation options:
 
  - Installation of a pre-compiled binary from the [release page][releases] on GitHub.
  - Using one of the [provided docker images][dockerhub] on the Docker Hub.
- - Compiling the source code yourself as described in the [installation documentation](doc/INSTALL.md).
+ - Compiling the source code yourself as described in the [installation documentation](doc/getting-started/getting-started/installation.md).
 
 ### Starting `lightningd`
 
@@ -210,7 +210,7 @@ If you encrypt your `hsm_secret`, you will have to pass the `--encrypted-hsm` st
 
 ### Developers
 
-Developers wishing to contribute should start with the developer guide [here](doc/HACKING.md).
+Developers wishing to contribute should start with the developer guide [here](doc/contribute-to-core-lightning/coding-style-guidelines.md).
 You should also configure with `--enable-developer` to get additional checks and options.
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
