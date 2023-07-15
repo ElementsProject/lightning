@@ -1,5 +1,5 @@
 import json5
-from flask import request, make_response, Response, stream_with_context
+from flask import request, make_response
 from flask_restx import Namespace, Resource
 from .shared import call_rpc_method, verify_rune, process_help_response
 from .rpc_plugin import plugin
@@ -55,18 +55,4 @@ class RpcMethodResource(Resource):
 
         except Exception as err:
             plugin.log(f"Error: {err}", "error")
-            return json5.loads(str(err)), 500
-
-
-@rpcns.route("/notifications")
-class NotificationsResource(Resource):
-    def get(self):
-        try:
-            def notifications_stream():
-                while True:
-                    from .rpc_plugin import queue
-                    yield queue.get()
-            return Response(stream_with_context(notifications_stream()), mimetype="text/event-stream")
-
-        except Exception as err:
             return json5.loads(str(err)), 500
