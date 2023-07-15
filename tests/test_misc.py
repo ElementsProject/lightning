@@ -1555,11 +1555,14 @@ def test_feerates(node_factory, anchors):
     # Now try setting them, one at a time.
     # Set CONSERVATIVE/2 feerate, for max
     l1.set_feerates((15000, 0, 0, 0), True)
-    wait_for(lambda: l1.rpc.feerates('perkw')['perkw']['max_acceptable'] == 15000 * 10)
+    # Make sure it's digested the bcli plugin results.
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']['estimates']) == 1)
     feerates = l1.rpc.feerates('perkw')
     # We only get the warning if *no* feerates are avail.
     assert 'warning_missing_feerates' not in feerates
     assert 'perkb' not in feerates
+    assert feerates['perkw']['max_acceptable'] == 15000 * 10
+
     # With only one data point, this is a terrible guess!
     assert feerates['perkw']['min_acceptable'] == 15000 // 2
     assert feerates['perkw']['estimates'] == [{'blockcount': 2,
@@ -1568,6 +1571,8 @@ def test_feerates(node_factory, anchors):
 
     # Set ECONOMICAL/6 feerate, for unilateral_close and htlc_resolution
     l1.set_feerates((15000, 11000, 0, 0), True)
+    # Make sure it's digested the bcli plugin results.
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']['estimates']) == 2)
     feerates = l1.rpc.feerates('perkw')
     assert feerates['perkw']['unilateral_close'] == 11000
     assert 'warning_missing_feerates' not in feerates
@@ -1584,6 +1589,8 @@ def test_feerates(node_factory, anchors):
 
     # Set ECONOMICAL/12 feerate, for all but min (so, no mutual_close feerate)
     l1.set_feerates((15000, 11000, 6250, 0), True)
+    # Make sure it's digested the bcli plugin results.
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']['estimates']) == 3)
     feerates = l1.rpc.feerates('perkb')
     assert feerates['perkb']['unilateral_close'] == 11000 * 4
     # We dont' extrapolate, so it uses the same for mutual_close
