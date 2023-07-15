@@ -6,11 +6,15 @@ CLNRest is a lightweight Python-based core lightning plugin that transforms RPC 
 
 Install required packages with `pip install json5 flask flask_restx gunicorn pyln-client` or `pip install -r requirements.txt`.
 
+Note: if you have the older c-lightning-rest plugin, you can use `disable-plugin clnrest.py` to avoid any conflict with this one.  Of course, you could use this one instead!
+
 ## Configuration
 
+If `rest-port` is not specified, the plugin will disable itself.
+
+- --rest-port: Sets the REST server port to listen to (3010 is common)
 - --rest-protocol: Specifies the REST server protocol. Default is HTTPS.
 - --rest-host: Defines the REST server host. Default is 127.0.0.1.
-- --rest-port: Sets the REST server port to listen to. Default is 3010.
 - --rest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
 ## Plugin
