@@ -791,11 +791,12 @@ installdirs:
 
 # $(PLUGINS) is defined in plugins/Makefile.
 
-install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
+install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS)
 	@$(NORMAL_INSTALL)
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
+	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; $(INSTALL_PROGRAM) $$DIR/*.py $(DESTDIR)$(plugindir)/`basename $$DIR`; done
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN5PAGES = $(filter %.5,$(MANPAGES))
@@ -830,7 +831,7 @@ TESTBINS = \
 # version of `lightningd` leading to bogus results. We bundle up all
 # built artefacts here, and will unpack them on the tester (overlaying
 # on top of the checked out repo as if we had just built it in place).
-testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS)
+testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS)
 	tar -caf $@ $^
 
 uninstall:
@@ -842,6 +843,10 @@ uninstall:
 	@for f in $(PLUGINS); do \
 	  $(ECHO) rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
+	done
+	@for f in $(PY_PLUGINS); do \
+	  $(ECHO) rm -rf $(DESTDIR)$(plugindir)/$$(basename $$(dirname $$f)); \
+	  rm -rf $(DESTDIR)$(plugindir)/$$(basename $$(dirname $$f)); \
 	done
 	@for f in $(PKGLIBEXEC_PROGRAMS); do \
 	  $(ECHO) rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
