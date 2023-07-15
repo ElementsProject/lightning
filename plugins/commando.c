@@ -395,7 +395,7 @@ static const char *check_condition(const tal_t *ctx,
 	}
 
 	/* Rest are params looksup: generate this once! */
-	if (strmap_empty(&cinfo->cached_params)) {
+	if (strmap_empty(&cinfo->cached_params) && cinfo->params) {
 		const jsmntok_t *t;
 		size_t i;
 
@@ -518,7 +518,7 @@ static void try_command(struct node_id *peer,
 		return;
 	}
 	params = json_get_member(buf, toks, "params");
-	if (!params || (params->type != JSMN_OBJECT && params->type != JSMN_ARRAY)) {
+	if (params && (params->type != JSMN_OBJECT && params->type != JSMN_ARRAY)) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE,
 			       "Params must be object or array");
 		return;
