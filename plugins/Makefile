@@ -102,12 +102,16 @@ C_PLUGINS :=					\
 	plugins/txprepare			\
 	plugins/spenderp
 
+PY_PLUGINS :=					\
+	plugins/clnrest/clnrest.py
+
 ifeq ($(HAVE_SQLITE3),1)
 C_PLUGINS += plugins/sql
 PLUGIN_ALL_SRC += $(PLUGIN_SQL_SRC)
 PLUGIN_ALL_HEADER += $(PLUGIN_SQL_HEADER)
 endif
 
+# This is non-python plugins (PY_PLUGINS need their whole directory!)
 PLUGINS := $(C_PLUGINS)
 PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
@@ -227,8 +231,10 @@ plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
+PLUGIN_BASES := $(PLUGINS:plugins/%=%) $(PY_PLUGINS:plugins/%=%)
+
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
-	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)
+	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
 
 CLN_PLUGIN_EXAMPLES := \
 	target/${RUST_PROFILE}/examples/cln-plugin-startup \
