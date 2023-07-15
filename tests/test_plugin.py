@@ -3020,6 +3020,9 @@ def test_commando_listrunes(node_factory):
     our_unstored_rune = l1.rpc.commando_listrunes(rune='M8f4jNx9gSP2QoiRbr10ybwzFxUgd-rS4CR4yofMSuA9Mg==')['runes'][0]
     assert our_unstored_rune['stored'] is False
 
+    our_unstored_rune = l1.rpc.commando_listrunes(rune='m_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv')['runes'][0]
+    assert our_unstored_rune['stored'] is False
+
     not_our_rune = l1.rpc.commando_listrunes(rune='Am3W_wI0PRn4qVNEsJ2iInHyFPQK8wfdqEXztm8-icQ9MA==')['runes'][0]
     assert not_our_rune['stored'] is False
     assert not_our_rune['our_rune'] is False

@@ -27,6 +27,7 @@ On success, an object containing **runes** is returned.  It is an array of objec
     - **value** (string): The value accepted for this field
     - **condition** (string): The way to compare fieldname and value
     - **english** (string): English readable description of this alternative
+  - **english** (string): English readable summary of alternatives above
 - **restrictions\_as\_english** (string): English readable description of the restrictions array above
 - **stored** (boolean, optional): This is false if the rune does not appear in our datastore (only possible when `rune` is specified) (always *false*)
 - **blacklisted** (boolean, optional): The rune has been blacklisted; see commando-blacklist(7) (always *true*)
@@ -49,4 +50,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e117496020fda2d3c5eee7f9df8516d40f315b387f4cd18c1483640a2cd9f73b)
+[comment]: # ( SHA256STAMP:cd0e75bbeef3d5824448f67485de4679b0c163e97f405673b2ba9495f970d498)

@@ -66,11 +66,11 @@
                         "description": "English readable description of this alternative"
                       }
                     }
-                  },
-                  "english": {
-                    "type": "string",
-                    "description": "English readable summary of alternatives above"
                   }
+                },
+                "english": {
+                  "type": "string",
+                  "description": "English readable summary of alternatives above"
                 }
               }
             }
