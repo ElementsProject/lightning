@@ -27,7 +27,7 @@ enum state_change;
 struct wallet {
 	struct lightningd *ld;
 	struct db *db;
-	struct log *log;
+	struct logger *log;
 	struct invoices *invoices;
 	struct list_head unstored_payments;
 	u64 max_channel_dbid;

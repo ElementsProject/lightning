@@ -4,7 +4,7 @@
 #include <lightningd/log.h>
 
 /* Returns true (and writes it to log) if it's a status_log message. */
-bool log_status_msg(struct log *log,
+bool log_status_msg(struct logger *log,
  		    const struct node_id *node_id,
 		    const u8 *msg);
 

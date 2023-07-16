@@ -213,7 +213,7 @@ static bool txw_fire(struct txwatch *txw,
 		     unsigned int depth)
 {
 	enum watch_result r;
-	struct log *log;
+	struct logger *log;
 
 	if (depth == txw->depth)
 		return false;

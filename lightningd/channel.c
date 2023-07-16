@@ -211,10 +211,10 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_fmt(channel, "%s",
 					       "Empty channel init'd");
-	channel->log = new_log(channel, ld->log_book,
-			       &peer->id,
-			       "chan#%"PRIu64,
-			       channel->unsaved_dbid);
+	channel->log = new_logger(channel, ld->log_book,
+				  &peer->id,
+				  "chan#%"PRIu64,
+				  channel->unsaved_dbid);
 
 	channel->our_config.id = 0;
 	channel->open_attempt = NULL;
@@ -334,7 +334,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    enum channel_state state,
 			    enum side opener,
 			    /* NULL or stolen */
-			    struct log *log,
+			    struct logger *log,
 			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
 			    bool req_confirmed_ins_local,
@@ -436,11 +436,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->scb = NULL;
 
 	if (!log) {
-		channel->log = new_log(channel,
-				       peer->ld->log_book,
-				       &channel->peer->id,
-				       "chan#%"PRIu64,
-				       dbid);
+		channel->log = new_logger(channel,
+					  peer->ld->log_book,
+					  &channel->peer->id,
+					  "chan#%"PRIu64,
+					  dbid);
 	} else
 		channel->log = tal_steal(channel, log);
 	channel->req_confirmed_ins[LOCAL] = req_confirmed_ins_local;

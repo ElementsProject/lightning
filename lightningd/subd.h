@@ -39,7 +39,7 @@ struct subd {
 	bool rcvd_version;
 
 	/* For logging */
-	struct log *log;
+	struct logger *log;
 	const struct node_id *node_id;
 
 	/* Callback when non-reply message comes in (inside db transaction) */
@@ -126,7 +126,7 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 			       const char *name,
 			       void *channel,
 			       const struct node_id *node_id,
-			       struct log *base_log,
+			       struct logger *base_log,
 			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
 			       unsigned int (*msgcb)(struct subd *, const u8 *,

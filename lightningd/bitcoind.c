@@ -853,7 +853,7 @@ static void destroy_bitcoind(struct bitcoind *bitcoind)
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
-			      struct log *log)
+			      struct logger *log)
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 

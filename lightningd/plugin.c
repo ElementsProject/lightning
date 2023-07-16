@@ -77,8 +77,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
 	list_head_init(&p->plugins);
-	p->log_book = log_book;
-	p->log = new_log(p, log_book, NULL, "plugin-manager");
+	p->log = new_logger(p, log_book, NULL, "plugin-manager");
 	p->ld = ld;
 	p->startup = true;
 	p->plugin_cmds = tal_arr(p, struct plugin_command *, 0);
@@ -299,7 +298,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->non_numeric_ids = false;
 	p->index = plugins->plugin_idx++;
 
-	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s", p->shortname);
+	p->log = new_logger(p, plugins->ld->log_book, NULL, "plugin-%s", p->shortname);
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
 
@@ -2327,7 +2326,7 @@ void *plugins_exclusive_loop(struct plugin **plugins)
 	return ret;
 }
 
-struct log *plugin_get_log(struct plugin *plugin)
+struct logger *plugin_get_logger(struct plugin *plugin)
 {
 	return plugin->log;
 }

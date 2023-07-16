@@ -106,7 +106,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 {
 	struct wallet *wallet = tal(ld, struct wallet);
 	wallet->ld = ld;
-	wallet->log = new_log(wallet, ld->log_book, NULL, "wallet");
+	wallet->log = new_logger(wallet, ld->log_book, NULL, "wallet");
 	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
 	wallet->db = db_setup(wallet, ld, ld->bip32_base);

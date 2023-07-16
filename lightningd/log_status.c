@@ -2,7 +2,7 @@
 #include <common/status_wiregen.h>
 #include <lightningd/log_status.h>
 
-bool log_status_msg(struct log *log,
+bool log_status_msg(struct logger *log,
 		    const struct node_id *node_id,
 		    const u8 *msg)
 {
