@@ -76,28 +76,28 @@ bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDE
 bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **version UNNEEDED)
 { fprintf(stderr, "fromwire_status_version called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_prefix */
-const char *log_prefix(const struct log *log UNNEEDED)
+const char *log_prefix(const struct logger *logger UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
 /* Generated stub for log_print_level */
-enum log_level log_print_level(struct log *log UNNEEDED, const struct node_id *node_id UNNEEDED)
+enum log_level log_print_level(struct logger *log UNNEEDED, const struct node_id *node_id UNNEEDED)
 { fprintf(stderr, "log_print_level called!\n"); abort(); }
 /* Generated stub for log_status_msg */
-bool log_status_msg(struct log *log UNNEEDED,
+bool log_status_msg(struct logger *log UNNEEDED,
  		    const struct node_id *node_id UNNEEDED,
 		    const u8 *msg UNNEEDED)
 { fprintf(stderr, "log_status_msg called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
-		    const struct node_id *default_node_id UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
+/* Generated stub for new_logger */
+struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+			  const struct node_id *default_node_id UNNEEDED,
+			  const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "new_logger called!\n"); abort(); }
 /* Generated stub for new_peer_fd_arr */
 struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fd UNNEEDED)
 { fprintf(stderr, "new_peer_fd_arr called!\n"); abort(); }

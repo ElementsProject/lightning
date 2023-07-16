@@ -53,14 +53,14 @@ bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
 { fprintf(stderr, "json_to_number called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
 /* Generated stub for log_io */
-void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
+void log_io(struct logger *logger UNNEEDED, enum log_level dir UNNEEDED,
 	    const struct node_id *node_id UNNEEDED,
 	    const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
@@ -71,11 +71,11 @@ const char *log_level_name(enum log_level level UNNEEDED)
 /* Generated stub for mutual_close_feerate */
 u32 mutual_close_feerate(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "mutual_close_feerate called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
-		    const struct node_id *default_node_id UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
+/* Generated stub for new_logger */
+struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+			  const struct node_id *default_node_id UNNEEDED,
+			  const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "new_logger called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,

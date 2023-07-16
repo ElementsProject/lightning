@@ -696,7 +696,7 @@ static struct subd *new_subd(const tal_t *ctx,
 			     const char *name,
 			     void *channel,
 			     const struct node_id *node_id,
-			     struct log *base_log,
+			     struct logger *base_log,
 			     bool talks_to_peer,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *,
@@ -726,10 +726,10 @@ static struct subd *new_subd(const tal_t *ctx,
 		shortname = name;
 
 	if (base_log) {
-		sd->log = new_log(sd, ld->log_book, node_id,
-				  "%s-%s", shortname, log_prefix(base_log));
+		sd->log = new_logger(sd, ld->log_book, node_id,
+				     "%s-%s", shortname, log_prefix(base_log));
 	} else {
-		sd->log = new_log(sd, ld->log_book, node_id, "%s", shortname);
+		sd->log = new_logger(sd, ld->log_book, node_id, "%s", shortname);
 	}
 
 #if DEVELOPER
@@ -806,7 +806,7 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 			       const char *name,
 			       void *channel,
 			       const struct node_id *node_id,
-			       struct log *base_log,
+			       struct logger *base_log,
 			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
 			       unsigned int (*msgcb)(struct subd *, const u8 *,

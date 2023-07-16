@@ -59,7 +59,7 @@ struct plugin {
 	 * freeing once empty. */
 	struct json_stream **js_arr;
 
-	struct log *log;
+	struct logger *log;
 
 	/* List of options that this plugin registered */
 	struct list_head plugin_opts;
@@ -104,8 +104,7 @@ struct plugins {
 
 	/* Currently pending requests by their request ID */
 	STRMAP(struct jsonrpc_request *) pending_requests;
-	struct log *log;
-	struct log_book *log_book;
+	struct logger *log;
 
 	struct lightningd *ld;
 	const char *default_dir;
@@ -349,7 +348,7 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 /**
  * Needed for I/O logging for plugin messages.
 */
-struct log *plugin_get_log(struct plugin *plugin);
+struct logger *plugin_get_logger(struct plugin *plugin);
 
 /**
  * Tells the plugin system the directory for builtin plugins.

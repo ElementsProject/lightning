@@ -415,7 +415,7 @@ remote_routing_failure(const tal_t *ctx,
 		       const struct wallet_payment *payment,
 		       const u8 *failuremsg,
 		       int origin_index,
-		       struct log *log,
+		       struct logger *log,
 		       enum jsonrpc_errcode *pay_errcode)
 {
 	enum onion_wire failcode = fromwire_peektype(failuremsg);

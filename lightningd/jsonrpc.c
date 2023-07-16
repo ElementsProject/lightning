@@ -63,7 +63,7 @@ struct json_connection {
 	struct io_conn *conn;
 
 	/* Logging for this json connection. */
-	struct log *log;
+	struct logger *log;
 
 	/* The buffer (required to interpret tokens). */
 	char *buffer;
@@ -149,7 +149,7 @@ static void destroy_jcon(struct json_connection *jcon)
 	tal_free(jcon->log);
 }
 
-struct log *command_log(struct command *cmd)
+struct logger *command_log(struct command *cmd)
 {
 	if (cmd->jcon)
 		return cmd->jcon->log;
@@ -1143,8 +1143,8 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
-	jcon->log = new_log(ld->log_book, ld->log_book, NULL, "jsonrpc#%i",
-			    io_conn_fd(conn));
+	jcon->log = new_logger(ld->log_book, ld->log_book, NULL, "jsonrpc#%i",
+			       io_conn_fd(conn));
 
 	tal_add_destructor(jcon, destroy_jcon);
 
@@ -1381,7 +1381,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
-    const char *id_prefix, bool id_as_string, struct log *log,
+    const char *id_prefix, bool id_as_string, struct logger *log,
     bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,

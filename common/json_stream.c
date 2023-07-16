@@ -38,7 +38,7 @@ static void adjust_io_write(struct json_out *jout,
 
 struct json_stream *new_json_stream(const tal_t *ctx,
 				    struct command *writer,
-				    struct log *log)
+				    struct logger *log)
 {
 	struct json_stream *js = tal(ctx, struct json_stream);
 
@@ -73,7 +73,7 @@ const char *json_stream_detach_filter(const tal_t *ctx, struct json_stream *js)
 
 struct json_stream *json_stream_dup(const tal_t *ctx,
 				    struct json_stream *original,
-				    struct log *log)
+				    struct logger *log)
 {
 	struct json_stream *js = tal_dup(ctx, struct json_stream, original);
 

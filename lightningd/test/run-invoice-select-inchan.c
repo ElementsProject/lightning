@@ -13,11 +13,6 @@ struct channel *any_channel_by_scid(struct lightningd *ld UNNEEDED,
 				    const struct short_channel_id *scid UNNEEDED,
 				    bool privacy_leak_ok UNNEEDED)
 { fprintf(stderr, "any_channel_by_scid called!\n"); abort(); }
-/* Generated stub for param_invstring */
-struct command_result *param_invstring(struct command *cmd, const char *name,
-				    const char * buffer, const jsmntok_t *tok,
-				    const char **str)
-{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
@@ -148,7 +143,7 @@ struct command_result *command_failed(struct command *cmd UNNEEDED,
 struct command_result *command_its_complicated(const char *why UNNEEDED)
 { fprintf(stderr, "command_its_complicated called!\n"); abort(); }
 /* Generated stub for command_log */
-struct log *command_log(struct command *cmd UNNEEDED)
+struct logger *command_log(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
@@ -398,7 +393,7 @@ void json_add_invstring(struct json_stream *result UNNEEDED, const char *invstri
 { fprintf(stderr, "json_add_invstring called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
-		  const struct log_book *lr UNNEEDED,
+		  const struct log_book *log_book UNNEEDED,
 		  const struct node_id *node_id UNNEEDED,
 		  enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
@@ -540,7 +535,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx UNNEEDED, const char *method UNNEEDED,
     const char *id_prefix TAKES UNNEEDED,
     bool id_as_string UNNEEDED,
-    struct log *log UNNEEDED, bool add_header UNNEEDED,
+    struct logger *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
 		      const jsmntok_t *methodtok UNNEEDED,
@@ -555,7 +550,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for log_ */
-void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
+void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
@@ -643,6 +638,11 @@ struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 					    const jsmntok_t *tok UNNEEDED,
 					    const char **str UNNEEDED)
 { fprintf(stderr, "param_escaped_string called!\n"); abort(); }
+/* Generated stub for param_invstring */
+struct command_result *param_invstring(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const char **str UNNEEDED)
+{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for param_label */
 struct command_result *param_label(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				   const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

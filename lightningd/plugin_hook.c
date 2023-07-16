@@ -236,7 +236,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 		  ph_req->hook->name, ph_req->plugin->shortname);
 	req = jsonrpc_request_start(NULL, hook->name, ph_req->cmd_id,
 				    ph_req->plugin->non_numeric_ids,
-				    plugin_get_log(ph_req->plugin),
+				    plugin_get_logger(ph_req->plugin),
 				    NULL,
 				    plugin_hook_callback, ph_req);
 

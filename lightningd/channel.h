@@ -110,7 +110,7 @@ struct channel {
 	struct subd *owner;
 
 	/* History */
-	struct log *log;
+	struct logger *log;
 	struct billboard billboard;
 
 	/* Channel flags from opening message. */
@@ -286,7 +286,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    enum channel_state state,
 			    enum side opener,
 			    /* NULL or stolen */
-			    struct log *log STEALS,
+			    struct logger *log STEALS,
 			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
 			    bool req_confirmed_ins_local,

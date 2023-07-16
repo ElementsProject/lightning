@@ -117,7 +117,7 @@ struct chain_topology {
 	struct feerate_est *smoothed_feerates;
 
 	/* Where to log things. */
-	struct log *log;
+	struct logger *log;
 
 	/* What range of blocks do we have in our database? */
 	u32 min_blockheight, max_blockheight;
@@ -243,7 +243,7 @@ void broadcast_tx_(struct chain_topology *topo,
 		   bool (*refresh)(struct channel *, const struct bitcoin_tx **, void *),
 		   void *cbarg TAKES);
 
-struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
+struct chain_topology *new_topology(struct lightningd *ld, struct logger *log);
 void setup_topology(struct chain_topology *topology,
 		    u32 min_blockheight, u32 max_blockheight);
 

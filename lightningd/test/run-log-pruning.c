@@ -105,14 +105,14 @@ void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 int main(int argc, char *argv[])
 {
 	struct log_book *lb;
-	struct log *l;
+	struct logger *l;
 
 	common_setup(argv[0]);
 
 	lb = new_log_book(NULL,
 			  (sizeof(struct log_entry) + sizeof("test XXXXXX"))
 			  *100);
-	l = new_log(lb, lb, NULL, "test %s", "prefix");
+	l = new_logger(lb, lb, NULL, "test %s", "prefix");
 
 	assert(streq(log_prefix(l), "test prefix"));
 

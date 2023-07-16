@@ -1229,7 +1229,7 @@ static void destroy_chain_topology(struct chain_topology *topo)
 	}
 }
 
-struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
+struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 {
 	struct chain_topology *topo = tal(ld, struct chain_topology);
 

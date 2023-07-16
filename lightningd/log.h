@@ -11,47 +11,47 @@ struct lightningd;
 struct node_id;
 struct timerel;
 
-/* We can have a single log book, with multiple logs in it: it's freed
- * by the last struct log itself. */
+/* We can have a single log book, with multiple loggers writing to it: it's freed
+ * by the last struct logger itself. */
 struct log_book *new_log_book(struct lightningd *ld, size_t max_mem);
 
 /* With different entry points */
-struct log *new_log(const tal_t *ctx, struct log_book *record,
-		    const struct node_id *default_node_id,
-		    const char *fmt, ...) PRINTF_FMT(4,5);
+struct logger *new_logger(const tal_t *ctx, struct log_book *record,
+			  const struct node_id *default_node_id,
+			  const char *fmt, ...) PRINTF_FMT(4,5);
 
-#define log_debug(log, ...) log_((log), LOG_DBG, NULL, false, __VA_ARGS__)
-#define log_info(log, ...) log_((log), LOG_INFORM, NULL, false, __VA_ARGS__)
-#define log_unusual(log, ...) log_((log), LOG_UNUSUAL, NULL, true, __VA_ARGS__)
-#define log_broken(log, ...) log_((log), LOG_BROKEN, NULL, true, __VA_ARGS__)
+#define log_debug(logger, ...) log_((logger), LOG_DBG, NULL, false, __VA_ARGS__)
+#define log_info(logger, ...) log_((logger), LOG_INFORM, NULL, false, __VA_ARGS__)
+#define log_unusual(logger, ...) log_((logger), LOG_UNUSUAL, NULL, true, __VA_ARGS__)
+#define log_broken(logger, ...) log_((logger), LOG_BROKEN, NULL, true, __VA_ARGS__)
 
-#define log_peer_debug(log, nodeid, ...) log_((log), LOG_DBG, nodeid, false, __VA_ARGS__)
-#define log_peer_info(log, nodeid, ...) log_((log), LOG_INFORM, nodeid, false, __VA_ARGS__)
-#define log_peer_unusual(log, nodeid, ...) log_((log), LOG_UNUSUAL, nodeid, true, __VA_ARGS__)
-#define log_peer_broken(log, nodeid, ...) log_((log), LOG_BROKEN, nodeid, true, __VA_ARGS__)
+#define log_peer_debug(logger, nodeid, ...) log_((logger), LOG_DBG, nodeid, false, __VA_ARGS__)
+#define log_peer_info(logger, nodeid, ...) log_((logger), LOG_INFORM, nodeid, false, __VA_ARGS__)
+#define log_peer_unusual(logger, nodeid, ...) log_((logger), LOG_UNUSUAL, nodeid, true, __VA_ARGS__)
+#define log_peer_broken(logger, nodeid, ...) log_((logger), LOG_BROKEN, nodeid, true, __VA_ARGS__)
 
-void log_io(struct log *log, enum log_level dir,
+void log_io(struct logger *logger, enum log_level dir,
 	    const struct node_id *node_id,
 	    const char *comment,
 	    const void *data, size_t len);
 
-void log_(struct log *log, enum log_level level,
+void log_(struct logger *logger, enum log_level level,
 	  const struct node_id *node_id,
 	  bool call_notifier,
 	  const char *fmt, ...)
 	PRINTF_FMT(5,6);
-void logv(struct log *log, enum log_level level, const struct node_id *node_id,
+void logv(struct logger *logger, enum log_level level, const struct node_id *node_id,
 	  bool call_notifier, const char *fmt, va_list ap);
 
-const char *log_prefix(const struct log *log);
-enum log_level log_print_level(struct log *log, const struct node_id *node_id);
+const char *log_prefix(const struct logger *logger);
+enum log_level log_print_level(struct logger *log, const struct node_id *node_id);
 
 void opt_register_logging(struct lightningd *ld);
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld);
 
 /* Once this is set, we dump fatal with a backtrace to this log */
-extern struct log *crashlog;
+extern struct logger *crashlog;
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 void NORETURN fatal_vfmt(const char *fmt, va_list ap);
 
@@ -60,7 +60,7 @@ void log_backtrace_exit(void);
 
 /* Adds an array showing log entries */
 void json_add_log(struct json_stream *result,
-		  const struct log_book *lr,
+		  const struct log_book *log_book,
 		  const struct node_id *node_id,
 		  enum log_level minlevel);
 
@@ -89,7 +89,7 @@ struct log_entry {
 };
 
 /* For options.c's listconfig */
-char *opt_log_level(const char *arg, struct log *log);
-void json_add_opt_log_levels(struct json_stream *response, struct log *log);
-void logging_options_parsed(struct log_book *lr);
+char *opt_log_level(const char *arg, struct logger *logger);
+void json_add_opt_log_levels(struct json_stream *response, struct logger *logger);
+void logging_options_parsed(struct log_book *log_book);
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */

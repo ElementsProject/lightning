@@ -17,7 +17,7 @@ struct bitcoin_block;
 
 struct bitcoind {
 	/* Where to do logging. */
-	struct log *log;
+	struct logger *log;
 
 	/* Main lightningd structure */
 	struct lightningd *ld;
@@ -56,7 +56,7 @@ struct filteredblock {
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,
-			      struct log *log);
+			      struct logger *log);
 
 void bitcoind_estimate_fees(struct bitcoind *bitcoind,
 			    void (*cb)(struct lightningd *ld,

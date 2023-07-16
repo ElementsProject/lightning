@@ -142,7 +142,7 @@ struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
 
 /* Logging point to use for this command (usually, the JSON connection). */
-struct log *command_log(struct command *cmd);
+struct logger *command_log(struct command *cmd);
 
 /* To return if param() fails. */
 extern struct command_result *command_param_failed(void)
@@ -259,7 +259,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
     const char *id_prefix TAKES,
     bool id_as_string,
-    struct log *log, bool add_header,
+    struct logger *log, bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *idtok,
 		      const jsmntok_t *methodtok,
