@@ -91,9 +91,11 @@ class Installer:
         return True
 
     def add_entrypoint(self, entry: str):
+        assert isinstance(entry, str)
         self.entries.append(entry)
 
     def add_dependency_file(self, dep: str):
+        assert isinstance(dep, str)
         self.dependency_file = dep
 
     def add_dependency_call(self, call: list):
@@ -106,18 +108,18 @@ class Installer:
 
 
 class InstInfo:
-    def __init__(self, name, url, git_url):
+    def __init__(self, name: str, url: str, git_url: str):
         self.name = name
         self.repo = url         # Used for 'git clone'
         self.git_url = git_url  # API access for github repos
-        self.entry = None
+        self.entry = None       # relative to source_loc or subdir
         self.deps = None
         self.subdir = None
         self.commit = None
 
     def __repr__(self):
         return (f'InstInfo({self.name}, {self.repo}, {self.git_url}, '
-                f'{self.entry}, {self.deps})')
+                f'{self.entry}, {self.deps}, {self.subdir})')
 
     def get_inst_details(self) -> bool:
         """
@@ -163,28 +165,26 @@ class InstInfo:
         return True
 
 
-def create_dir(r: int, directory: PosixPath) -> bool:
-    """Creation of a directory at path `d` with a maximum new dir depth `r`"""
-    if directory.exists():
-        return True
-    if r <= 0:
-        return False
-    if create_dir(r-1, directory.parent):
-        os.mkdir(directory, 0o777)
-        print(f'created directory {directory}')
-        assert directory.exists()
-        return True
-    return False
-
-
-def remove_dir(target: str) -> bool:
+def create_dir(directory: PosixPath) -> bool:
     try:
-        shutil.rmtree(target)
+        Path(directory).mkdir(parents=False, exist_ok=True)
+        return True
+    # Okay if directory already exists
+    except FileExistsError:
+        return True
+    # Parent directory missing
+    except FileNotFoundError:
+        return False
+
+
+def remove_dir(directory: str) -> bool:
+    try:
+        shutil.rmtree(directory)
         return True
     except NotADirectoryError:
-        print(f"Tried to remove directory {target} that does not exist.")
+        print(f"Tried to remove directory {directory} that does not exist.")
     except PermissionError:
-        print(f"Permission denied removing dir: {target}")
+        print(f"Permission denied removing dir: {directory}")
     return False
 
 
@@ -213,7 +213,7 @@ class Config():
             sys.exit(1)
         parent_path = Path(config_path).parent
         # Create up to one parent in the directory tree.
-        if create_dir(1, parent_path):
+        if create_dir(parent_path):
             with open(self.conf_fp, 'w') as f:
                 f.write(default_text)
                 # FIXME: Handle write failure
@@ -375,6 +375,7 @@ nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
 nodejs.add_dependency_file('package.json')
 
 INSTALLERS = {python3pip, python3pip3, nodejs}
+
 
 def help_alias(targets: list):
     if len(targets) == 0:
@@ -578,7 +579,7 @@ def uninstall(plugin_name: str):
         print(f"{inst.name} uninstalled successfully.")
 
 
-def search(plugin_name: str) -> InstInfo:
+def search(plugin_name: str) -> Union[InstInfo, None]:
     """searches plugin index for plugin"""
     ordered_repos = RECKLESS_SOURCES
     for r in RECKLESS_SOURCES:
@@ -594,7 +595,8 @@ def search(plugin_name: str) -> InstInfo:
             if p.subdir:
                 logging.debug(f'sub-directory: {p.subdir}')
             return p
-    print(f'Unable to locate source for plugin {plugin_name}')
+    logging.debug("Search exhausted all sources")
+    return None
 
 
 class RPCError(Exception):
@@ -616,13 +618,12 @@ class CLIError(Exception):
         return f'CLIError({self.code} {self.message})'
 
 
-def lightning_cli(*args, timeout=15) -> dict:
-    # CLI commands will be added to any necessary options
+def lightning_cli(*cli_args, timeout: int = 15) -> dict:
+    """Interfaces with Core-Lightning via CLI using any configured options."""
     cmd = LIGHTNING_CLI_CALL.copy()
-    cmd.extend(args)
-    clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
-    clncli.wait(timeout=timeout)
-    out = clncli.stdout.read().decode()
+    cmd.extend(cli_args)
+    clncli = run(cmd, stdout=PIPE, stderr=PIPE, check=False, timeout=timeout)
+    out = clncli.stdout.decode()
     if len(out) > 0 and out[0] == '{':
         # If all goes well, a json object is typically returned
         out = json.loads(out.replace('\n', ''))
@@ -635,10 +636,10 @@ def lightning_cli(*args, timeout=15) -> dict:
         # RPC doesn't like our input
         # output contains 'code' and 'message'
         raise CLIError(out['code'], out['message'])
-    if clncli.returncode == 2:
-        # RPC not available - lightningd not running or using alternate config
-        err = clncli.stderr.read().decode()
-        raise RPCError(err)
+    # RPC may not be available - i.e., lightningd not running, using
+    # alternate config.
+    err = clncli.stderr.decode()
+    raise RPCError(err)
 
 
 def enable(plugin_name: str):
@@ -736,7 +737,7 @@ def load_config(reckless_dir: Union[str, None] = None,
 
 
 def get_sources_file() -> str:
-    return Path(RECKLESS_DIR) / '.sources'
+    return str(Path(RECKLESS_DIR) / '.sources')
 
 
 def sources_from_file() -> list:
@@ -749,7 +750,7 @@ def sources_from_file() -> list:
         return read_sources
 
 
-def loadSources() -> list:
+def load_sources() -> list:
     """Look for the repo sources file."""
     sources_file = get_sources_file()
     # This would have been created if possible
@@ -889,7 +890,7 @@ if __name__ == '__main__':
     LIGHTNING_CONFIG = args.conf
     RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
                                   network=NETWORK)
-    RECKLESS_SOURCES = loadSources()
+    RECKLESS_SOURCES = load_sources()
     API_GITHUB_COM = 'https://api.github.com'
     GITHUB_COM = 'https://github.com'
     # Used for blackbox testing to avoid hitting github servers
