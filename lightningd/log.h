@@ -90,7 +90,7 @@ struct log_entry {
 };
 
 /* For options.c's listconfig */
-char *opt_log_level(const char *arg, struct logger *logger);
-void json_add_opt_log_levels(struct json_stream *response, struct logger *logger);
+char *opt_log_level(const char *arg, struct log_book *log_book);
+void json_add_opt_log_levels(struct json_stream *response, struct log_book *log_book);
 void logging_options_parsed(struct log_book *log_book);
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
