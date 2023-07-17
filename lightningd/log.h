@@ -44,7 +44,8 @@ void logv(struct logger *logger, enum log_level level, const struct node_id *nod
 	  bool call_notifier, const char *fmt, va_list ap);
 
 const char *log_prefix(const struct logger *logger);
-enum log_level log_print_level(struct logger *log, const struct node_id *node_id);
+/* Is there any chance we do io-level logging for this node_id in log? */
+bool log_has_io_logging(const struct logger *log);
 
 void opt_register_logging(struct lightningd *ld);
 
