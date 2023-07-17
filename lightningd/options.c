@@ -1895,7 +1895,7 @@ void add_config_deprecated(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_log_level) {
-			json_add_opt_log_levels(response, ld->log);
+			json_add_opt_log_levels(response, ld->log_book);
 		} else if (opt->cb_arg == (void *)opt_disable_plugin) {
 			json_add_opt_disable_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_force_feerates) {

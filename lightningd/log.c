@@ -578,7 +578,7 @@ static void log_one_line(unsigned int skipped,
 	data->prefix = "\n";
 }
 
-char *opt_log_level(const char *arg, struct logger *log)
+char *opt_log_level(const char *arg, struct log_book *log_book)
 {
 	enum log_level level;
 	int len;
@@ -588,34 +588,34 @@ char *opt_log_level(const char *arg, struct logger *log)
 		return tal_fmt(tmpctx, "unknown log level %.*s", len, arg);
 
 	if (arg[len]) {
-		struct print_filter *f = tal(log->log_book, struct print_filter);
+		struct print_filter *f = tal(log_book, struct print_filter);
 		f->prefix = arg + len + 1;
 		f->level = level;
-		list_add_tail(&log->log_book->print_filters, &f->list);
+		list_add_tail(&log_book->print_filters, &f->list);
 	} else {
-		tal_free(log->log_book->default_print_level);
-		log->log_book->default_print_level = tal(log->log_book, enum log_level);
-		*log->log_book->default_print_level = level;
+		tal_free(log_book->default_print_level);
+		log_book->default_print_level = tal(log_book, enum log_level);
+		*log_book->default_print_level = level;
 	}
 	return NULL;
 }
 
-void json_add_opt_log_levels(struct json_stream *response, struct logger *log)
+void json_add_opt_log_levels(struct json_stream *response, struct log_book *log_book)
 {
 	struct print_filter *i;
 
-	list_for_each(&log->log_book->print_filters, i, list) {
+	list_for_each(&log_book->print_filters, i, list) {
 		json_add_str_fmt(response, "log-level", "%s:%s",
 				 log_level_name(i->level), i->prefix);
 	}
 }
 
-static bool show_log_level(char *buf, size_t len, const struct logger *log)
+static bool show_log_level(char *buf, size_t len, const struct log_book *log_book)
 {
 	enum log_level l;
 
-	if (log->log_book->default_print_level)
-		l = *log->log_book->default_print_level;
+	if (log_book->default_print_level)
+		l = *log_book->default_print_level;
 	else
 		l = DEFAULT_LOGLEVEL;
 	strncpy(buf, log_level_name(l), len);
@@ -739,11 +739,11 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 void opt_register_logging(struct lightningd *ld)
 {
 	opt_register_early_arg("--log-level",
-			       opt_log_level, show_log_level, ld->log,
+			       opt_log_level, show_log_level, ld->log_book,
 			       "log level (io, debug, info, unusual, broken) [:prefix]");
 	clnopt_witharg("--log-timestamps", OPT_EARLY|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
-		       &ld->log->log_book->print_timestamps,
+		       &ld->log_book->print_timestamps,
 		       "prefix log messages with timestamp");
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			       ld->log_book,
