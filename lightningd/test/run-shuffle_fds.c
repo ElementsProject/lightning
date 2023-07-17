@@ -82,12 +82,12 @@ void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for log_has_io_logging */
+bool log_has_io_logging(const struct logger *log UNNEEDED)
+{ fprintf(stderr, "log_has_io_logging called!\n"); abort(); }
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct logger *logger UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
-/* Generated stub for log_print_level */
-enum log_level log_print_level(struct logger *log UNNEEDED, const struct node_id *node_id UNNEEDED)
-{ fprintf(stderr, "log_print_level called!\n"); abort(); }
 /* Generated stub for log_status_msg */
 bool log_status_msg(struct logger *log UNNEEDED,
  		    const struct node_id *node_id UNNEEDED,

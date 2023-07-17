@@ -332,7 +332,7 @@ const char *log_prefix(const struct logger *log)
 	return log->prefix->prefix;
 }
 
-enum log_level log_print_level(struct logger *log, const struct node_id *node_id)
+static enum log_level log_print_level(struct logger *log, const struct node_id *node_id)
 {
 	if (!log->print_level) {
 		/* Not set globally yet?  Print UNUSUAL / BROKEN messages only */
@@ -344,6 +344,10 @@ enum log_level log_print_level(struct logger *log, const struct node_id *node_id
 	return *log->print_level;
 }
 
+bool log_has_io_logging(const struct logger *log)
+{
+	return filter_level(log->log_book, log->prefix, log->default_node_id) < LOG_DBG;
+}
 
 /* This may move entry! */
 static void add_entry(struct logger *log, struct log_entry **l)
