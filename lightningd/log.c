@@ -39,6 +39,9 @@ struct log_book {
 	enum log_level *default_print_level;
 	struct timeabs init_time;
 
+	/* Our loggers */
+	struct list_head loggers;
+
 	/* Array of log files: one per ld->logfiles[] */
 	FILE **outfiles;
 	bool print_timestamps;
@@ -57,6 +60,8 @@ struct log_book {
 };
 
 struct logger {
+	/* Inside log_book->loggers. */
+	struct list_node list;
 	struct log_book *log_book;
 	const struct node_id *default_node_id;
 	struct log_prefix *prefix;
@@ -278,6 +283,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	/* We have to allocate this, since we tal_free it on resetting */
 	log_book->prefix = tal_strdup(log_book, "");
 	list_head_init(&log_book->print_filters);
+	list_head_init(&log_book->loggers);
 	log_book->init_time = time_now();
 	log_book->ld = ld;
 	log_book->cache = tal(log_book, struct node_id_map);
@@ -304,6 +310,11 @@ static enum log_level filter_level(struct log_book *log_book,
 	return *log_book->default_print_level;
 }
 
+static void destroy_logger(struct logger *log)
+{
+	list_del_from(&log->log_book->loggers, &log->list);
+}
+
 /* With different entry points */
 struct logger *
 new_logger(const tal_t *ctx, struct log_book *log_book,
@@ -324,6 +335,8 @@ new_logger(const tal_t *ctx, struct log_book *log_book,
 
 	/* Initialized on first use */
 	log->print_level = NULL;
+	list_add(&log->log_book->loggers, &log->list);
+	tal_add_destructor(log, destroy_logger);
 	return log;
 }
 
