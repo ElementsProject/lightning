@@ -443,22 +443,19 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 
 		if (!is_chan_public(chan)) {
 			/* Don't leak private channels, unless it's with you! */
-			if (!node_id_eq(&chan->nodes[!dir]->id, &peer->id))
-				continue;
-			/* There's no announce for this, of course! */
-			/* Private channel updates are wrapped in the store. */
-			else {
-				if (!is_halfchan_defined(&chan->half[dir]))
-					continue;
+			if (node_id_eq(&chan->nodes[!dir]->id, &peer->id)
+			    && is_halfchan_defined(&chan->half[dir])) {
+				/* There's no announce for this, of course! */
+				/* Private channel updates are wrapped in the store. */
 				queue_priv_update(peer, &chan->half[dir].bcast);
-				continue;
 			}
-		} else {
-			/* Send announce */
-			queue_peer_from_store(peer, &chan->bcast);
+			continue;
 		}
 
-		/* Send update if we have one */
+		/* Send channel_announce */
+		queue_peer_from_store(peer, &chan->bcast);
+
+		/* Send channel_update if we have one */
 		if (is_halfchan_defined(&chan->half[dir]))
 			queue_peer_from_store(peer, &chan->half[dir].bcast);
 	}
