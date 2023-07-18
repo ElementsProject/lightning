@@ -142,7 +142,7 @@ def test_search(node_factory):
     n = get_reckless_node(node_factory)
     r = reckless([f"--network={NETWORK}", "search", "testplugpass"], dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'found testplugpass in repo: https://github.com/lightningd/plugins' in r.stdout
+    assert 'found testplugpass in source: https://github.com/lightningd/plugins' in r.stdout
 
 
 def test_install(node_factory):
