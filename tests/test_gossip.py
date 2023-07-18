@@ -2293,3 +2293,41 @@ def test_channel_resurrection(node_factory, bitcoind):
     for l in gs.stdout.decode().splitlines():
         if "ZOMBIE" in l:
             assert ("DELETED" in l)
+
+
+@pytest.mark.xfail(strict=True)
+def test_dump_own_gossip(node_factory):
+    """We *should* send all self-related gossip unsolicited, if we have any"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Make sure l1 has updates in both directions, and node_announcements
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+    wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 2)
+
+    # We should get channel_announcement, channel_update, node_announcement.
+    # (Plus random pings, timestamp_filter)
+    out = subprocess.run(['devtools/gossipwith',
+                          '--timeout-after={}'.format(int(math.sqrt(TIMEOUT) + 1)),
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+
+    # In theory, we could do the node_announcement any time after channel_announcement, but we don't.
+    expect = [256,  # channel_announcement
+              258,  # channel_update
+              258,  # channel_update
+              257]  # node_announcement
+
+    while len(out):
+        l, t = struct.unpack('>HH', out[0:4])
+        out = out[2 + l:]
+
+        # Ignore pings, timestamp_filter
+        if t == 265 or t == 18:
+            continue
+
+        assert t == expect[0]
+        expect = expect[1:]
+
+    # We should get exactly what we expected.
+    assert expect == []
