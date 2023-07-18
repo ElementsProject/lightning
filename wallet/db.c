@@ -1731,8 +1731,8 @@ static void migrate_normalize_invstr(struct lightningd *ld, struct db *db)
 		update_stmt = db_prepare_v2(db, SQL("UPDATE invoices"
 						    " SET bolt11 = ?"
 						    " WHERE id = ?;"));
-		db_bind_text(update_stmt, 0, invstr);
-		db_bind_u64(update_stmt, 1, id);
+		db_bind_text(update_stmt, invstr);
+		db_bind_u64(update_stmt, id);
 		db_exec_prepared_v2(update_stmt);
 
 		tal_free(update_stmt);
@@ -1755,8 +1755,8 @@ static void migrate_normalize_invstr(struct lightningd *ld, struct db *db)
 		update_stmt = db_prepare_v2(db, SQL("UPDATE payments"
 						    " SET bolt11 = ?"
 						    " WHERE id = ?;"));
-		db_bind_text(update_stmt, 0, invstr);
-		db_bind_u64(update_stmt, 1, id);
+		db_bind_text(update_stmt, invstr);
+		db_bind_u64(update_stmt, id);
 		db_exec_prepared_v2(update_stmt);
 
 		tal_free(update_stmt);
