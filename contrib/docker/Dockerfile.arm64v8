@@ -134,6 +134,9 @@ RUN apt-get update && \
       libpq5 && \
     rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install flask gunicorn json5
+RUN pip3 install --user flask_restx pyln-client
+
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
 ENV LIGHTNINGD_PORT=9735
