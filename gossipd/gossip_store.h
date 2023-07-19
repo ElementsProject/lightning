@@ -77,6 +77,17 @@ void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
 				      struct broadcastable *bcast);
 
 /**
+ * Mark this channel_announcement/channel_update as dying.
+ *
+ * We'll clean it up in 12 blocks, but this tells connectd not to gossip
+ * about it.
+ */
+void gossip_store_mark_dying(struct gossip_store *gs,
+			     const struct broadcastable *bcast,
+			     int type);
+
+
+/**
  * Direct store accessor: loads gossip msg back from store.
  *
  * Caller must ensure offset != 0.  Never returns NULL.

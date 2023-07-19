@@ -579,6 +579,40 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 	return gossip_store_add(gs, pupdate, 0, false, false, NULL);
 }
 
+void gossip_store_mark_dying(struct gossip_store *gs,
+			     const struct broadcastable *bcast,
+			     int type)
+{
+	const u8 *msg;
+	be16 flags;
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
+	/* Should never try to overwrite version */
+	assert(bcast->index);
+
+	/* Sanity check, that this is a channel announcement */
+	msg = gossip_store_get(tmpctx, gs, bcast->index);
+	if (fromwire_peektype(msg) != type) {
+		status_broken("gossip_store incorrect dying msg not %u @%u of %"PRIu64": %s",
+			      type, bcast->index, gs->len, tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (pread(gs->fd, &flags, sizeof(flags), bcast->index) != sizeof(flags)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not read to mark dying at %u/%"PRIu64": %s",
+			      bcast->index, gs->len, strerror(errno));
+	}
+
+	flags |= cpu_to_be16(GOSSIP_STORE_DYING_BIT);
+	if (pwrite(gs->fd, &flags, sizeof(flags), bcast->index) != sizeof(flags))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing flags to dying @%u: %s",
+			      bcast->index, strerror(errno));
+}
+
 /* Returns index of following entry. */
 static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 {

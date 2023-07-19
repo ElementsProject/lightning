@@ -2279,6 +2279,17 @@ void routing_channel_spent(struct routing_state *rstate,
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
 	index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
 
+	/* Mark it dying, so we don't gossip it */
+	gossip_store_mark_dying(rstate->gs, &chan->bcast,
+				WIRE_CHANNEL_ANNOUNCEMENT);
+	for (int dir = 0; dir < ARRAY_SIZE(chan->half); dir++) {
+		if (is_halfchan_defined(&chan->half[dir])) {
+			gossip_store_mark_dying(rstate->gs,
+						&chan->half[dir].bcast,
+						WIRE_CHANNEL_UPDATE);
+		}
+	}
+
 	/* Remember locally so we can kill it in 12 blocks */
 	status_debug("channel %s closing soon due"
 		     " to the funding outpoint being spent",
