@@ -284,7 +284,7 @@ pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 Install `mako` otherwise we run into build errors:
 
 ```shell
-pip3.7 install --user poetry
+pip3.8 install --user poetry
 poetry install
 ```
 
