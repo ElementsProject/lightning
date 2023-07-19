@@ -150,7 +150,7 @@ for target in $TARGETS; do
         echo "Fedora Image Built"
         ;;
     Ubuntu)
-		for d in bionic focal jammy; do
+		for d in focal jammy; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
 			echo "Building Ubuntu $D Image"
@@ -197,7 +197,7 @@ if [ -z "${TARGETS##* deb *}" ]; then
     BLDDIR="${TMPDIR}/clightning-${VERSION}"
     ARCH="$(dpkg-architecture -q DEB_BUILD_ARCH)"
 
-    for SUITE in bionic focal hirsute xenial hirsute impish; do
+    for SUITE in focal hirsute xenial hirsute impish; do
 
 	mkdir -p "${BLDDIR}"
 	echo "Building ${BARE_VERSION} in ${TMPDIR}"
