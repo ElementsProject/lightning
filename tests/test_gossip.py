@@ -2226,7 +2226,6 @@ def test_gossip_private_updates(node_factory, bitcoind):
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store_compact_offline: 5 deleted, 3 copied'))
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossip_not_dying(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2, l3 = node_factory.line_graph(2, wait_for_announce=True)

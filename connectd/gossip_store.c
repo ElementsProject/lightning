@@ -130,8 +130,8 @@ u8 *gossip_store_next(const tal_t *ctx,
 		flags = be16_to_cpu(hdr.flags);
 		ratelimited = (flags & GOSSIP_STORE_RATELIMIT_BIT);
 
-		/* Skip any deleted entries. */
-		if (flags & GOSSIP_STORE_DELETED_BIT) {
+		/* Skip any deleted/dying entries. */
+		if (flags & (GOSSIP_STORE_DELETED_BIT|GOSSIP_STORE_DYING_BIT)) {
 			*off += r + msglen;
 			continue;
 		}
