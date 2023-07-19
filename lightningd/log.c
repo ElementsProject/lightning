@@ -66,8 +66,8 @@ struct logger {
 	const struct node_id *default_node_id;
 	struct log_prefix *prefix;
 
-	/* Non-NULL once it's been initialized */
-	enum log_level *print_level;
+	/* Print log message at >= this level */
+	enum log_level print_level;
 };
 
 static struct log_prefix *log_prefix_new(const tal_t *ctx,
@@ -333,8 +333,11 @@ new_logger(const tal_t *ctx, struct log_book *log_book,
 	log->default_node_id = tal_dup_or_null(log, struct node_id,
 					       default_node_id);
 
-	/* Initialized on first use */
-	log->print_level = NULL;
+	/* Still initializing?  Print UNUSUAL / BROKEN messages only  */
+	if (!log->log_book->default_print_level)
+		log->print_level = LOG_UNUSUAL;
+	else
+		log->print_level = filter_level(log->log_book, log->prefix, default_node_id);
 	list_add(&log->log_book->loggers, &log->list);
 	tal_add_destructor(log, destroy_logger);
 	return log;
@@ -343,18 +346,6 @@ new_logger(const tal_t *ctx, struct log_book *log_book,
 const char *log_prefix(const struct logger *log)
 {
 	return log->prefix->prefix;
-}
-
-static enum log_level log_print_level(struct logger *log, const struct node_id *node_id)
-{
-	if (!log->print_level) {
-		/* Not set globally yet?  Print UNUSUAL / BROKEN messages only */
-		if (!log->log_book->default_print_level)
-			return LOG_UNUSUAL;
-		log->print_level = tal(log, enum log_level);
-		*log->print_level = filter_level(log->log_book, log->prefix, node_id);
-	}
-	return *log->print_level;
 }
 
 bool log_has_io_logging(const struct logger *log)
@@ -418,7 +409,7 @@ static struct log_entry *new_log_entry(struct logger *log, enum log_level level,
 
 static void maybe_print(struct logger *log, const struct log_entry *l)
 {
-	if (l->level >= log_print_level(log, l->nc ? &l->nc->node_id : NULL))
+	if (l->level >= log->print_level)
 		log_to_files(log->log_book->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, l->log,
@@ -468,7 +459,7 @@ void log_io(struct logger *log, enum log_level dir,
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 
 	/* Print first, in case we need to truncate. */
-	if (l->level >= log_print_level(log, node_id))
+	if (l->level >= log->print_level)
 		log_to_files(log->log_book->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, str,
@@ -769,17 +760,26 @@ void opt_register_logging(struct lightningd *ld)
 
 void logging_options_parsed(struct log_book *log_book)
 {
+	struct logger *log;
+
 	/* If they didn't set an explicit level, set to info */
 	if (!log_book->default_print_level) {
 		log_book->default_print_level = tal(log_book, enum log_level);
 		*log_book->default_print_level = DEFAULT_LOGLEVEL;
 	}
 
+	/* Set print_levels for each log, depending on filters. */
+	list_for_each(&log_book->loggers, log, list) {
+		log->print_level = filter_level(log_book,
+						log->prefix,
+						log->default_node_id);
+	}
+
 	/* Catch up, since before we were only printing BROKEN msgs */
 	for (size_t i = 0; i < log_book->num_entries; i++) {
 		const struct log_entry *l = &log_book->log[i];
 
-		if (l->level >= filter_level(log_book, l->prefix, NULL))
+		if (l->level >= filter_level(log_book, l->prefix, l->nc ? &l->nc->node_id : NULL))
 			log_to_files(log_book->prefix, l->prefix->prefix, l->level,
 				     l->nc ? &l->nc->node_id : NULL,
 				     &l->time, l->log,
