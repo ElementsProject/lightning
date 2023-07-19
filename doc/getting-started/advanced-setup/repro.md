@@ -38,9 +38,6 @@ the non-updated repos).
 
 The following table lists the codenames of distributions that we currently support:
 
-- Ubuntu 18.06:
-  - Distribution Version: 18.04
-  - Codename: bionic
 - Ubuntu 20.04:
   - Distribution Version: 20.04
   - Codename: focal
@@ -51,7 +48,7 @@ The following table lists the codenames of distributions that we currently suppo
 Depending on your host OS release you might not have `debootstrap` manifests for versions newer than your host OS. Due to this we run the `debootstrap` commands in a container of the latest version itself:
 
 ```shell
-for v in bionic focal jammy; do
+for v in focal jammy; do
   echo "Building base image for $v"
   sudo docker run --rm -v $(pwd):/build ubuntu:22.04 \
 	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
@@ -62,16 +59,16 @@ done
 Verify that the image corresponds to our expectation and is runnable:
 
 ```shell
-sudo docker run bionic cat /etc/lsb-release
+sudo docker run jammy cat /etc/lsb-release
 ```
 
-Which should result in the following output for `bionic`:
+Which should result in the following output for `jammy`:
 
 ```shell
 DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=18.04
-DISTRIB_CODENAME=bionic
-DISTRIB_DESCRIPTION="Ubuntu 18.04 LTS"
+DISTRIB_RELEASE=22.04
+DISTRIB_CODENAME=jammy
+DISTRIB_DESCRIPTION="Ubuntu 22.04 LTS"
 ```
 
 ## Builder image setup
@@ -83,7 +80,6 @@ For this purpose we have a number of Dockerfiles in the [`contrib/reprobuild`](h
 We can then build the builder image by calling `docker build` and passing it the `Dockerfile`:
 
 ```shell
-sudo docker build -t cl-repro-bionic - < contrib/reprobuild/Dockerfile.bionic
 sudo docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
 sudo docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
 ```
@@ -99,7 +95,6 @@ Finally, after this rather lengthy setup we can perform the actual build.  At th
 We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
 
 ```bash
-sudo docker run --rm -v $(pwd):/repo -ti cl-repro-bionic
 sudo docker run --rm -v $(pwd):/repo -ti cl-repro-focal
 sudo docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
 ```
