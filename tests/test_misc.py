@@ -3005,8 +3005,8 @@ def test_log_filter(node_factory):
 
     # No debug messages in l1's log
     assert not l1.daemon.is_in_log(r'-chan#[0-9]*:')
-    # FIXME: the connectd messages should also be matched!
-    # assert not l1.daemon.is_in_log(l2.info['id'])
+    # No mention of l2 at all (except spenderp mentions it)
+    assert not l1.daemon.is_in_log(l2.info['id'] + '-')
 
     # Every message in log2 must be about l1...
     with open(log2, "r") as f:

@@ -74,6 +74,9 @@ struct logger {
 
 	/* Print log message at >= this level */
 	enum log_level print_level;
+	/* For non-trivial setups, we might need to test filters again
+	 * when actually producing output. */
+	bool need_refiltering;
 };
 
 static struct log_prefix *log_prefix_new(const tal_t *ctx,
@@ -154,10 +157,45 @@ static bool filter_level(const struct list_head *print_filters,
 	return false;
 }
 
+/* What's the lowest filtering which could possibly apply? */
+static void lowest_filter(const struct list_head *print_filters,
+			  const char *prefix,
+			  const struct node_id *node_id,
+			  enum log_level *level)
+{
+	struct print_filter *i;
+	const char *node_id_str;
+
+	if (node_id)
+		node_id_str = node_id_to_hexstr(tmpctx, node_id);
+	else
+		node_id_str = NULL;
+
+	list_for_each(print_filters, i, list) {
+		bool match;
+
+		if (strstr(prefix, i->prefix))
+			match = true;
+		else if (node_id_str) {
+			match = (strstr(node_id_str, i->prefix) != NULL);
+		} else {
+			/* Could this possibly match a node_id? */
+			match = strstarts(i->prefix, "02") || strstarts(i->prefix, "03");
+		}
+
+		if (match && i->level < *level) {
+			*level = i->level;
+		}
+	}
+}
+
 static void log_to_files(const char *log_prefix,
 			 const char *entry_prefix,
 			 enum log_level level,
+			 /* The node_id to log under. */
 			 const struct node_id *node_id,
+			 /* Filters to apply, if non-NULL */
+			 const struct list_head *print_filters,
 			 const struct timeabs *time,
 			 const char *str,
 			 const u8 *io,
@@ -201,6 +239,17 @@ static void log_to_files(const char *log_prefix,
 					log_prefix, tstamp, level_prefix(level),
 					nodestr,
 					entry_prefix, str);
+	}
+
+	/* In complex configurations, we tell loggers to overshare: then we
+	 * need to filter here to see if we really want it. */
+	if (print_filters) {
+		enum log_level filter;
+		if (filter_level(print_filters,
+				 entry_prefix, nodestr, &filter)) {
+			if (level < filter)
+				return;
+		}
 	}
 
 	/* Default if nothing set is stdout */
@@ -336,31 +385,33 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	return log_book;
 }
 
-/* What's the minimum level to print for this log book? */
+/* What's the minimum level to print this prefix and node_id for this
+ * log book?  Saves us marshalling long print lines in most cases. */
 static enum log_level print_level(struct log_book *log_book,
 				  const struct log_prefix *lp,
-				  const struct node_id *node_id)
+				  const struct node_id *node_id,
+				  bool *need_refiltering)
 {
-	enum log_level level;
-	const char *node_id_str = node_id ? node_id_to_hexstr(tmpctx, node_id) : "";
+	enum log_level level = *log_book->default_print_level;
+	bool have_filters = false;
 
-	assert(log_book->default_print_level != NULL);
-	if (!filter_level(&log_book->print_filters, lp->prefix,
-			  node_id_str, &level)) {
-		level = *log_book->default_print_level;
-	}
+	lowest_filter(&log_book->print_filters, lp->prefix, node_id, &level);
+	if (!list_empty(&log_book->print_filters))
+		have_filters = true;
 
 	/* We need to look into per-file filters as well: might give a
 	 * lower filter! */
 	for (size_t i = 0; i < tal_count(log_book->log_files); i++) {
-		enum log_level sublevel;
-		if (filter_level(&log_book->log_files[i]->print_filters,
-				 lp->prefix, node_id_str, &sublevel)) {
-			if (sublevel < level) {
-				level = sublevel;
-			}
-		}
+		lowest_filter(&log_book->log_files[i]->print_filters,
+			      lp->prefix, node_id, &level);
+		if (!list_empty(&log_book->log_files[i]->print_filters))
+			have_filters = true;
 	}
+
+	/* Almost any complex array of filters can mean we want to re-check
+	 * when logging. */
+	if (need_refiltering)
+		*need_refiltering = have_filters;
 
 	return level;
 }
@@ -389,10 +440,15 @@ new_logger(const tal_t *ctx, struct log_book *log_book,
 					       default_node_id);
 
 	/* Still initializing?  Print UNUSUAL / BROKEN messages only  */
-	if (!log->log_book->default_print_level)
+	if (!log->log_book->default_print_level) {
 		log->print_level = LOG_UNUSUAL;
-	else
-		log->print_level = print_level(log->log_book, log->prefix, default_node_id);
+		log->need_refiltering = false;
+	} else {
+		log->print_level = print_level(log->log_book,
+					       log->prefix,
+					       default_node_id,
+					       &log->need_refiltering);
+	}
 	list_add(&log->log_book->loggers, &log->list);
 	tal_add_destructor(log, destroy_logger);
 	return log;
@@ -405,7 +461,7 @@ const char *log_prefix(const struct logger *log)
 
 bool log_has_io_logging(const struct logger *log)
 {
-	return print_level(log->log_book, log->prefix, log->default_node_id) < LOG_DBG;
+	return print_level(log->log_book, log->prefix, log->default_node_id, NULL) < LOG_DBG;
 }
 
 /* This may move entry! */
@@ -467,6 +523,7 @@ static void maybe_print(struct logger *log, const struct log_entry *l)
 	if (l->level >= log->print_level)
 		log_to_files(log->log_book->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
+			     log->need_refiltering ? &log->log_book->print_filters : NULL,
 			     &l->time, l->log,
 			     l->io, tal_bytelen(l->io),
 			     log->log_book->print_timestamps,
@@ -518,6 +575,7 @@ void log_io(struct logger *log, enum log_level dir,
 	if (l->level >= log->print_level)
 		log_to_files(log->log_book->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
+			     log->need_refiltering ? &log->log_book->print_filters : NULL,
 			     &l->time, str,
 			     data, len,
 			     log->log_book->print_timestamps,
@@ -857,16 +915,18 @@ void logging_options_parsed(struct log_book *log_book)
 	list_for_each(&log_book->loggers, log, list) {
 		log->print_level = print_level(log_book,
 					       log->prefix,
-					       log->default_node_id);
+					       log->default_node_id,
+					       &log->need_refiltering);
 	}
 
 	/* Catch up, since before we were only printing BROKEN msgs */
 	for (size_t i = 0; i < log_book->num_entries; i++) {
 		const struct log_entry *l = &log_book->log[i];
 
-		if (l->level >= print_level(log_book, l->prefix, l->nc ? &l->nc->node_id : NULL))
+		if (l->level >= print_level(log_book, l->prefix, l->nc ? &l->nc->node_id : NULL, NULL))
 			log_to_files(log_book->prefix, l->prefix->prefix, l->level,
 				     l->nc ? &l->nc->node_id : NULL,
+				     &log_book->print_filters,
 				     &l->time, l->log,
 				     l->io, tal_bytelen(l->io),
 				     log_book->print_timestamps,
