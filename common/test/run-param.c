@@ -40,15 +40,15 @@ struct command_result *command_fail(struct command *cmd,
 /* Generated stub for command_filter_ptr */
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
-/* Generated stub for strip_lightning_prefix */
-const char *to_canonical_invstr(const tal_t *ctx, const char *invstring UNNEEDED)
-{ fprintf(stderr, "strip_lightning_prefix called!\n"); abort(); }
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
+/* Generated stub for to_canonical_invstr */
+const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
+{ fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,

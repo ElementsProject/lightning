@@ -13,11 +13,6 @@ struct channel *any_channel_by_scid(struct lightningd *ld UNNEEDED,
 				    const struct short_channel_id *scid UNNEEDED,
 				    bool privacy_leak_ok UNNEEDED)
 { fprintf(stderr, "any_channel_by_scid called!\n"); abort(); }
-/* Generated stub for param_invstring */
-struct command_result *param_invstring(struct command *cmd, const char *name,
-				    const char * buffer, const jsmntok_t *tok,
-				    const char **str)
-{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
@@ -715,6 +710,11 @@ struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 					    const jsmntok_t *tok UNNEEDED,
 					    const char **str UNNEEDED)
 { fprintf(stderr, "param_escaped_string called!\n"); abort(); }
+/* Generated stub for param_invstring */
+struct command_result *param_invstring(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const char **str UNNEEDED)
+{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for param_label */
 struct command_result *param_label(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				   const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
