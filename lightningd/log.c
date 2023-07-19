@@ -639,6 +639,18 @@ static void log_one_line(unsigned int skipped,
 	data->prefix = "\n";
 }
 
+static struct log_file *find_log_file(struct log_book *log_book,
+				      const char *fname)
+{
+	assert(tal_count(log_book->log_files)
+	       == tal_count(log_book->ld->logfiles));
+	for (size_t i = 0; i < tal_count(log_book->log_files); i++) {
+		if (streq(log_book->ld->logfiles[i], fname))
+			return log_book->log_files[i];
+	}
+	return NULL;
+}
+
 char *opt_log_level(const char *arg, struct log_book *log_book)
 {
 	enum log_level level;
@@ -652,7 +664,21 @@ char *opt_log_level(const char *arg, struct log_book *log_book)
 		struct print_filter *f = tal(log_book, struct print_filter);
 		f->prefix = arg + len + 1;
 		f->level = level;
-		list_add_tail(&log_book->print_filters, &f->list);
+
+		/* :<filename> */
+		len = strcspn(f->prefix, ":");
+		if (f->prefix[len]) {
+			struct log_file *lf;
+			lf = find_log_file(log_book, f->prefix + len + 1);
+			if (!lf)
+				return tal_fmt(tmpctx,
+					       "unknown log file %s",
+					       f->prefix + len + 1);
+			f->prefix = tal_strndup(f, f->prefix, len);
+			list_add_tail(&lf->print_filters, &f->list);
+		} else {
+			list_add_tail(&log_book->print_filters, &f->list);
+		}
 	} else {
 		tal_free(log_book->default_print_level);
 		log_book->default_print_level = tal(log_book, enum log_level);

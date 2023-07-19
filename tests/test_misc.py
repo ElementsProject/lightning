@@ -2988,9 +2988,30 @@ def test_getlog(node_factory):
 def test_log_filter(node_factory):
     """Test the log-level option with subsystem filters"""
     # This actually suppresses debug!
-    l1, l2 = node_factory.line_graph(2, opts=[{'log-level': ['debug', 'broken:022d223620']}, {}])
+    l1 = node_factory.get_node(options={'log-level': ['debug', 'broken:022d223620']})
+    l2 = node_factory.get_node(start=False)
 
+    log1 = os.path.join(l2.daemon.lightning_dir, "log")
+    log2 = os.path.join(l2.daemon.lightning_dir, "log2")
+    # We need to set log file before we set options on it.
+    l2.daemon.early_opts += [f'--log-file={l}' for l in [log2] + l2.daemon.opts['log-file']]
+    del l2.daemon.opts['log-file']
+    l2.daemon.opts['log-level'] = ["broken",  # broken messages go everywhere
+                                   f"debug::{log1}",  # debug to normal log
+                                   "debug::-",  # debug to stdout
+                                   f'io:0266e4598d1d3:{log2}']
+    l2.start()
+    node_factory.join_nodes([l1, l2])
+
+    # No debug messages in l1's log
     assert not l1.daemon.is_in_log(r'-chan#[0-9]*:')
+    # FIXME: the connectd messages should also be matched!
+    # assert not l1.daemon.is_in_log(l2.info['id'])
+
+    # Every message in log2 must be about l1...
+    with open(log2, "r") as f:
+        lines = f.readlines()
+    assert all([' {}-'.format(l1.info['id']) in l for l in lines])
 
 
 def test_force_feerates(node_factory):

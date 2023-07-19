@@ -155,11 +155,11 @@ binary.
 
   Specify pid file to write to.
 
-* **log-level**=*LEVEL*\[:*SUBSYSTEM*\]
+* **log-level**=*LEVEL*\[:*SUBSYSTEM*\]\[:*PATH*\]
 
   What log level to print out: options are io, debug, info, unusual,
 broken.  If *SUBSYSTEM* is supplied, this sets the logging level
-for any subsystem (or *nodeid*) containing that string. This option may be specified multiple times.
+for any subsystem (or *nodeid*) containing that string. If *PATH* is supplied, it means this log-level filter is only applied to that `log-file`, which is useful for creating logs to capture a specific subsystem.  This option may be specified multiple times.
 Subsystems include:
 
   * *lightningd*: The main lightning daemon
@@ -195,8 +195,7 @@ Subsystems include:
   So, **log-level=debug:plugin** would set debug level logging on all
 plugins and the plugin manager.  **log-level=io:chan#55** would set
 IO logging on channel number 55 (or 550, for that matter).
-**log-level=debug:024b9a1fa8** would set debug logging for that channel
-(or any node id containing that string).
+**log-level=debug:024b9a1fa8:/tmp/024b9a1fa8.debug.log** would set debug logging for that channel only on the **log-file=/tmp/024b9a1fa8.debug.log** (or any node id containing that string).
 
 * **log-prefix**=*PREFIX*
 
