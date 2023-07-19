@@ -42,6 +42,9 @@ RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp
     && rm /tmp/get-pip.py \
     && pip install poetry
 
+RUN pip3 install flask gunicorn json5
+RUN pip3 install --user flask_restx pyln-client
+
 RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     bash rustup-install.sh --default-toolchain none --quiet -y && \
     rm rustup-install.sh && \
@@ -60,6 +63,7 @@ WORKDIR /build
 
 CMD poetry export -o requirements.txt --without-hashes \
     && pip install -r requirements.txt \
+    && pip install -r plugins/clnrest/requirements.txt \
 	&& mkdir -p /repro \
 	&& cd /repro \
 	&& unzip /build/release/*.zip \
