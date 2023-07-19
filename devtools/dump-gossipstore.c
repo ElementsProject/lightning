@@ -68,13 +68,14 @@ int main(int argc, char *argv[])
 		u16 flags = be16_to_cpu(hdr.flags);
 		u16 msglen = be16_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted, push, ratelimit, zombie;
+		bool deleted, push, ratelimit, zombie, dying;
 		u32 blockheight;
 
 		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
 		push = (flags & GOSSIP_STORE_PUSH_BIT);
 		ratelimit = (flags & GOSSIP_STORE_RATELIMIT_BIT);
 		zombie = (flags & GOSSIP_STORE_ZOMBIE_BIT);
+		dying = (flags & GOSSIP_STORE_DYING_BIT);
 
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
@@ -84,11 +85,12 @@ int main(int argc, char *argv[])
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
-		printf("%zu: %s%s%s%s", off,
+		printf("%zu: %s%s%s%s%s", off,
 		       deleted ? "DELETED " : "",
 		       push ? "PUSH " : "",
 		       ratelimit ? "RATE-LIMITED " : "",
-		       zombie ? "ZOMBIE " : "");
+		       zombie ? "ZOMBIE " : "",
+		       dying ? "DYING " : "");
 		if (print_timestamp)
 			printf("T=%u ", be32_to_cpu(hdr.timestamp));
 		if (deleted && !print_deleted) {
