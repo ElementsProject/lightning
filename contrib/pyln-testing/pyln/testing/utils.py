@@ -1166,9 +1166,19 @@ class LightningNode(object):
                     wait_for(lambda: len(self.rpc.listpeerchannels(peer["id"])['channels'][idx]['htlcs']) == 0)
 
     # This sends money to a directly connected peer
-    def pay(self, dst, amt, label=None):
+    # if `route` is `True`, it can also send over the network.
+    def pay(self, dst, amt, label=None, route=False):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
+
+        if route is True:
+            invoice = dst.rpc.invoice(amt, label, "desc")
+            route = self.rpc.getroute(dst.info["id"], amt, riskfactor=0, fuzzpercent=0)
+            self.rpc.sendpay(route["route"], invoice["payment_hash"], payment_secret=invoice.get('payment_secret'))
+            result = self.rpc.waitsendpay(invoice["payment_hash"])
+            assert(result.get('status') == 'complete')
+            self.wait_for_htlcs()
+            return
 
         # check we are connected
         dst_id = dst.info['id']
