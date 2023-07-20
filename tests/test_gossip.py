@@ -2341,7 +2341,6 @@ def test_channel_resurrection(node_factory, bitcoind):
             assert ("DELETED" in l)
 
 
-@pytest.mark.xfail(strict=True)
 def test_dump_own_gossip(node_factory):
     """We *should* send all self-related gossip unsolicited, if we have any"""
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
