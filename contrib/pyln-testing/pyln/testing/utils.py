@@ -6,7 +6,6 @@ from pathlib import Path
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from pyln.testing.gossip import GossipStore
-from pyln.testing import grpc
 from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
@@ -820,6 +819,7 @@ class LightningNode(object):
             self._create_jsonrpc_rpc(jsonschemas)
 
     def _create_grpc_rpc(self):
+        from pyln.testing import grpc
         self.grpc_port = reserve_unused_port()
         d = self.lightning_dir / TEST_NETWORK
         d.mkdir(parents=True, exist_ok=True)
