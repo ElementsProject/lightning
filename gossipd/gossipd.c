@@ -459,6 +459,10 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 		if (is_halfchan_defined(&chan->half[dir]))
 			queue_peer_from_store(peer, &chan->half[dir].bcast);
 	}
+
+	/* If we have one, we should send our own node_announcement */
+	if (me->bcast.index)
+		queue_peer_from_store(peer, &me->bcast);
 }
 
 /*~ This is where connectd tells us about a new peer we might want to
