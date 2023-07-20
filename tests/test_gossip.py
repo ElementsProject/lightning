@@ -1383,9 +1383,10 @@ def test_gossipwith(node_factory):
                          check=True,
                          timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
 
-    num_msgs = 0
+    msgs = set()
     while len(out):
         l, t = struct.unpack('>HH', out[0:4])
+        msg = out[2:2 + l]
         out = out[2 + l:]
 
         # Ignore pings, timestamp_filter
@@ -1393,10 +1394,11 @@ def test_gossipwith(node_factory):
             continue
         # channel_announcement node_announcement or channel_update
         assert t == 256 or t == 257 or t == 258
-        num_msgs += 1
+        msgs.add(msg)
 
     # one channel announcement, two channel_updates, two node announcements.
-    assert num_msgs == 7
+    # due to initial blast, we can have duplicates!
+    assert len(msgs) == 5
 
 
 def test_gossip_notices_close(node_factory, bitcoind):
