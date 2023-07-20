@@ -73,7 +73,7 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct node_id *id,
 		      const struct wireaddr_internal *addr,
-			  const u8 *their_features,
+		      const u8 *their_features TAKES,
 		      bool connected_incoming);
 
 /* Last one out deletes peer.  Also removes from db. */

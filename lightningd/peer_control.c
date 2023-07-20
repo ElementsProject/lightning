@@ -1434,10 +1434,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	peer = peer_by_id(ld, &id);
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
-				their_features, hook_payload->incoming);
+				take(their_features), hook_payload->incoming);
 	else {
 		tal_free(peer->their_features);
-		peer->their_features = tal_dup_talarr(peer, u8, their_features);
+		peer->their_features = tal_steal(peer, their_features);
 	}
 
 	/* We track this, because messages can race between connectd and us.
