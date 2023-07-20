@@ -439,10 +439,10 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 		return;
 
 	for (chan = first_chan(me, &i); chan; chan = next_chan(me, &i)) {
-		int dir = half_chan_idx(me, chan);
-
+		/* Don't leak private channels, unless it's with you! */
 		if (!is_chan_public(chan)) {
-			/* Don't leak private channels, unless it's with you! */
+			int dir = half_chan_idx(me, chan);
+
 			if (node_id_eq(&chan->nodes[!dir]->id, &peer->id)
 			    && is_halfchan_defined(&chan->half[dir])) {
 				/* There's no announce for this, of course! */
@@ -455,9 +455,12 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 		/* Send channel_announce */
 		queue_peer_from_store(peer, &chan->bcast);
 
-		/* Send channel_update if we have one */
-		if (is_halfchan_defined(&chan->half[dir]))
-			queue_peer_from_store(peer, &chan->half[dir].bcast);
+		/* Send both channel_updates (if they exist): both help people
+		 * use our channel, so we care! */
+		for (int dir = 0; dir < 2; dir++) {
+			if (is_halfchan_defined(&chan->half[dir]))
+				queue_peer_from_store(peer, &chan->half[dir].bcast);
+		}
 	}
 
 	/* If we have one, we should send our own node_announcement */
