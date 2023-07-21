@@ -1321,7 +1321,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("sendonion", payload)
 
-    def setchannel(self, id, feebase=None, feeppm=None, htlcmin=None, htlcmax=None, enforcedelay=None):
+    def setchannel(self, id, feebase=None, feeppm=None, htlcmin=None, htlcmax=None, enforcedelay=None, ignorefeelimits=None):
         """Set configuration a channel/peer {id} (or 'all').
 
         {feebase} is a value in millisatoshi that is added as base fee
@@ -1339,6 +1339,8 @@ class LightningRpc(UnixDomainSocketRpc):
         {enforcedelay} is the number of seconds before enforcing this
         change.
 
+        {ignorefeelimits} is a flag to indicate peer can set any feerate (dangerous!)
+
         """
         payload = {
             "id": id,
@@ -1347,6 +1349,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "htlcmin": htlcmin,
             "htlcmax": htlcmax,
             "enforcedelay": enforcedelay,
+            "ignorefeelimits": ignorefeelimits,
         }
         return self.call("setchannel", payload)
 

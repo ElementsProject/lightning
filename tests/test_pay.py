@@ -1994,6 +1994,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert(result['channels'][0]['fee_proportional_millionths'] == 137)
     assert(result['channels'][0]['minimum_htlc_out_msat'] == 17)
     assert(result['channels'][0]['maximum_htlc_out_msat'] == 133337)
+    assert(result['channels'][0]['ignore_fee_limits'] is False)
 
     # check if custom values made it into the database
     db_fees = channel_get_config(scid)
