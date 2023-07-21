@@ -5517,3 +5517,15 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
 	return strs;
 }
 
+void wallet_rune_insert(struct wallet *wallet, struct rune *rune)
+{
+    struct db_stmt *stmt;
+
+    assert(rune->unique_id != NULL);
+
+    stmt = db_prepare_v2(wallet->db,
+			 SQL("INSERT INTO runes (rune) VALUES (?);"));
+    db_bind_text(stmt, rune_to_base64(tmpctx, rune));
+    db_exec_prepared_v2(stmt);
+    tal_free(stmt);
+}

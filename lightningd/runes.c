@@ -1,10 +1,13 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -240,3 +243,191 @@ static const struct json_command listrunes_command = {
 	"List a rune or list/decode an optional {rune}."
 };
 AUTODATA(json_command, &listrunes_command);
+
+static struct rune_restr **readonly_restrictions(const tal_t *ctx)
+{
+	struct rune_restr **restrs = tal_arr(ctx, struct rune_restr *, 2);
+
+	/* Any list*, get*, or summary:
+	 *  method^list|method^get|method=summary
+	 */
+	restrs[0] = rune_restr_new(restrs);
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_BEGINS,
+						   "list")));
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_BEGINS,
+						   "get")));
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_EQUAL,
+						   "summary")));
+	/* But not listdatastore!
+	 *  method/listdatastore
+	 */
+	restrs[1] = rune_restr_new(restrs);
+	rune_restr_add_altern(restrs[1],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_NOT_EQUAL,
+						   "listdatastore")));
+
+	return restrs;
+}
+
+static struct rune_altern *rune_altern_from_json(const tal_t *ctx,
+						 const char *buffer,
+						 const jsmntok_t *tok)
+{
+	struct rune_altern *alt;
+	size_t condoff;
+	/* We still need to unescape here, for \\ -> \.  JSON doesn't
+	 * allow unnecessary \ */
+	const char *unescape;
+	struct json_escape *e = json_escape_string_(tmpctx,
+						    buffer + tok->start,
+						    tok->end - tok->start);
+	unescape = json_escape_unescape(tmpctx, e);
+	if (!unescape)
+		return NULL;
+
+	condoff = rune_altern_fieldname_len(unescape, strlen(unescape));
+	if (!rune_condition_is_valid(unescape[condoff]))
+		return NULL;
+
+	alt = tal(ctx, struct rune_altern);
+	alt->fieldname = tal_strndup(alt, unescape, condoff);
+	alt->condition = unescape[condoff];
+	alt->value = tal_strdup(alt, unescape + condoff + 1);
+	return alt;
+}
+
+static struct rune_restr *rune_restr_from_json(struct command *cmd,
+						   const tal_t *ctx,
+					       const char *buffer,
+					       const jsmntok_t *tok)
+{
+	const jsmntok_t *t;
+	size_t i;
+	struct rune_restr *restr;
+
+	/* \| is not valid JSON, so they use \\|: undo it! */
+	if (cmd->ld->deprecated_apis && tok->type == JSMN_STRING) {
+		const char *unescape;
+		struct json_escape *e = json_escape_string_(tmpctx,
+							    buffer + tok->start,
+							    tok->end - tok->start);
+		unescape = json_escape_unescape(tmpctx, e);
+		if (!unescape)
+			return NULL;
+		return rune_restr_from_string(ctx, unescape, strlen(unescape));
+	}
+
+	restr = tal(ctx, struct rune_restr);
+	/* FIXME: after deprecation removed, allow singletons again! */
+	if (tok->type != JSMN_ARRAY)
+		return NULL;
+
+	restr->alterns = tal_arr(restr, struct rune_altern *, tok->size);
+	json_for_each_arr(i, t, tok) {
+		restr->alterns[i] = rune_altern_from_json(restr->alterns,
+							  buffer, t);
+		if (!restr->alterns[i])
+			return tal_free(restr);
+	}
+	return restr;
+}
+
+static struct command_result *param_restrictions(struct command *cmd,
+						 const char *name,
+						 const char *buffer,
+						 const jsmntok_t *tok,
+						 struct rune_restr ***restrs)
+{
+	if (json_tok_streq(buffer, tok, "readonly"))
+		*restrs = readonly_restrictions(cmd);
+	else if (tok->type == JSMN_ARRAY) {
+		size_t i;
+		const jsmntok_t *t;
+
+		*restrs = tal_arr(cmd, struct rune_restr *, tok->size);
+		json_for_each_arr(i, t, tok) {
+			(*restrs)[i] = rune_restr_from_json(cmd, *restrs, buffer, t);
+			if (!(*restrs)[i]) {
+				return command_fail_badparam(cmd, name, buffer, t,
+							     "not a valid restriction (should be array)");
+			}
+		}
+	} else {
+		*restrs = tal_arr(cmd, struct rune_restr *, 1);
+		(*restrs)[0] = rune_restr_from_json(cmd, *restrs, buffer, tok);
+		if (!(*restrs)[0])
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "not a valid restriction (should be array)");
+	}
+	return NULL;
+}
+
+static struct command_result *reply_with_rune(struct command *cmd,
+					      const char *buf UNUSED,
+					      const jsmntok_t *result UNUSED,
+					      struct rune *rune)
+{
+	struct json_stream *js = json_stream_success(cmd);
+
+	json_add_string(js, "rune", rune_to_base64(tmpctx, rune));
+	json_add_string(js, "unique_id", rune->unique_id);
+
+	if (tal_count(rune->restrs) <= 1) {
+		json_add_string(js, "warning_unrestricted_rune", "WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don't trust. Consider using the restrictions parameter to only allow access to specific rpc methods.");
+	}
+	return command_success(cmd, js);
+}
+
+static struct command_result *json_createrune(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct rune_and_string *ras;
+	struct rune_restr **restrs;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("rune", param_rune, &ras),
+		   p_opt("restrictions", param_restrictions, &restrs),
+		   NULL))
+		return command_param_failed();
+
+	if (ras != NULL ) {
+		for (size_t i = 0; i < tal_count(restrs); i++)
+			rune_add_restr(ras->rune, restrs[i]);
+		return reply_with_rune(cmd, NULL, NULL, ras->rune);
+	}
+
+	ras = tal(cmd, struct rune_and_string);
+	ras->rune = rune_derive_start(cmd, cmd->ld->runes->master,
+		tal_fmt(tmpctx, "%"PRIu64, cmd->ld->runes->next_unique_id ? cmd->ld->runes->next_unique_id : 0));
+	ras->runestr = rune_to_base64(tmpctx, ras->rune);
+
+	for (size_t i = 0; i < tal_count(restrs); i++)
+		rune_add_restr(ras->rune, restrs[i]);
+
+	/* Insert into DB*/
+	wallet_rune_insert(cmd->ld->wallet, ras->rune);
+	cmd->ld->runes->next_unique_id = cmd->ld->runes->next_unique_id + 1;
+	db_set_intvar(cmd->ld->wallet->db, "runes_uniqueid", cmd->ld->runes->next_unique_id);
+	return reply_with_rune(cmd, NULL, NULL, ras->rune);
+}
+
+static const struct json_command creatrune_command = {
+	"createrune",
+	"utility",
+	json_createrune,
+	"Create or restrict an optional {rune} with optional {restrictions} and returns {rune}"
+};
+AUTODATA(json_command, &creatrune_command);

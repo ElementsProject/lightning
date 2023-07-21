@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "db.h"
+#include <ccan/rune/rune.h>
 #include <common/onion_encode.h>
 #include <common/penalty_base.h>
 #include <common/utxo.h>
@@ -1541,6 +1542,14 @@ const char *wallet_get_rune(const tal_t *ctx, struct wallet *wallet, u64 unique_
  * @wallet: the wallet
  */
 const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet);
+
+/**
+ * wallet_rune_insert -- Insert the newly created rune into the database
+ *
+ * @wallet: the wallet to save into
+ * @rune: the instance to store
+ */
+void wallet_rune_insert(struct wallet *wallet, struct rune *rune);
 
 /* Load the runes blacklist */
 struct rune_blacklist {
