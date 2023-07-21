@@ -2686,8 +2686,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 			       struct amount_msat *htlc_min,
 			       struct amount_msat *htlc_max,
 			       u32 delaysecs,
-			       struct json_stream *response,
-			       bool add_details)
+			       struct json_stream *response)
 {
 	bool warn_cannot_set_min = false, warn_cannot_set_max = false;
 
@@ -2752,25 +2751,22 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id", channel->scid);
 
-	/* setchannel lists these explicitly */
-	if (add_details) {
-		json_add_amount_msat(response, "fee_base_msat",
-				     amount_msat(channel->feerate_base));
-		json_add_u32(response, "fee_proportional_millionths",
-			     channel->feerate_ppm);
-		json_add_amount_msat(response,
-				     "minimum_htlc_out_msat",
-				     channel->htlc_minimum_msat);
-		if (warn_cannot_set_min)
-			json_add_string(response, "warning_htlcmin_too_low",
-					"Set minimum_htlc_out_msat to minimum allowed by peer");
-		json_add_amount_msat(response,
-				     "maximum_htlc_out_msat",
-				     channel->htlc_maximum_msat);
-		if (warn_cannot_set_max)
-			json_add_string(response, "warning_htlcmax_too_high",
-					"Set maximum_htlc_out_msat to maximum possible in channel");
-	}
+	json_add_amount_msat(response, "fee_base_msat",
+			     amount_msat(channel->feerate_base));
+	json_add_u32(response, "fee_proportional_millionths",
+		     channel->feerate_ppm);
+	json_add_amount_msat(response,
+			     "minimum_htlc_out_msat",
+			     channel->htlc_minimum_msat);
+	if (warn_cannot_set_min)
+		json_add_string(response, "warning_htlcmin_too_low",
+				"Set minimum_htlc_out_msat to minimum allowed by peer");
+	json_add_amount_msat(response,
+			     "maximum_htlc_out_msat",
+			     channel->htlc_maximum_msat);
+	if (warn_cannot_set_max)
+		json_add_string(response, "warning_htlcmax_too_high",
+				"Set maximum_htlc_out_msat to maximum possible in channel");
 	json_object_end(response);
 }
 
@@ -2822,7 +2818,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 					continue;
 				set_channel_config(cmd, channel, base, ppm,
 						   htlc_min, htlc_max,
-						   *delaysecs, response, true);
+						   *delaysecs, response);
 			}
 		}
 	/* single peer should be updated */
@@ -2830,7 +2826,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 		for (size_t i = 0; i < tal_count(channels); i++) {
 			set_channel_config(cmd, channels[i], base, ppm,
 					   htlc_min, htlc_max,
-					   *delaysecs, response, true);
+					   *delaysecs, response);
 		}
 	}
 
