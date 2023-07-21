@@ -199,10 +199,8 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 				      struct channel *channel,
 				      const struct bitcoin_tx *tx)
 {
-	struct amount_sat fee, last_fee, min_fee;
+	struct amount_sat fee, last_fee;
 	u64 weight;
-	u32 min_feerate;
-	bool feerate_unknown;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
 	fee = calc_tx_fee(channel->funding_sats, tx);
@@ -219,16 +217,21 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 		  type_to_string(tmpctx, struct amount_sat, &last_fee),
 		  weight);
 
-	/* If we don't have a feerate estimate, this gives feerate_floor */
-	min_feerate = feerate_min(ld, &feerate_unknown);
+	if (!channel->ignore_fee_limits && !ld->config.ignore_fee_limits) {
+		struct amount_sat min_fee;
+		u32 min_feerate;
 
-	min_fee = amount_tx_fee(min_feerate, weight);
-	if (amount_sat_less(fee, min_fee)) {
-		log_debug(channel->log, "... That's below our min %s"
-			  " for weight %"PRIu64" at feerate %u",
-			  type_to_string(tmpctx, struct amount_sat, &min_fee),
-			  weight, min_feerate);
-		return false;
+		/* If we don't have a feerate estimate, this gives feerate_floor */
+		min_feerate = feerate_min(ld, NULL);
+
+		min_fee = amount_tx_fee(min_feerate, weight);
+		if (amount_sat_less(fee, min_fee)) {
+			log_debug(channel->log, "... That's below our min %s"
+				  " for weight %"PRIu64" at feerate %u",
+				  type_to_string(tmpctx, struct amount_sat, &min_fee),
+				  weight, min_feerate);
+			return false;
+		}
 	}
 
 	/* Prefer new over old: this covers the preference
@@ -434,6 +437,11 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	if (channel->closing_feerate_range) {
 		min_feerate = channel->closing_feerate_range[0];
 		max_feerate = &channel->closing_feerate_range[1];
+	} else if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
+		min_feerate = 1;
+		tal_free(max_feerate);
+		max_feerate = tal(tmpctx, u32);
+		*max_feerate = 0xFFFFFFFF;
 	}
 
 	/* BOLT #3:

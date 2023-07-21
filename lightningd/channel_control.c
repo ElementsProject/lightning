@@ -24,10 +24,10 @@
 #include <lightningd/peer_fd.h>
 #include <wally_bip32.h>
 
-static void update_feerates(struct lightningd *ld, struct channel *channel)
+static void update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
-	u32 min_feerate;
+	u32 min_feerate, max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
 	u32 feerate = unilateral_feerate(ld->topology, anchors);
 
@@ -40,6 +40,12 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 		min_feerate = get_feerate_floor(ld->topology);
 	else
 		min_feerate = feerate_min(ld, NULL);
+	max_feerate = feerate_max(ld, NULL);
+
+	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
+		min_feerate = 1;
+		max_feerate = 0xFFFFFFFF;
+	}
 
 	log_debug(ld->log,
 		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u",
@@ -50,7 +56,7 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
-				       feerate_max(ld, NULL),
+				       max_feerate,
 				       penalty_feerate(ld->topology));
 	subd_send_msg(channel->owner, take(msg));
 }
@@ -624,7 +630,7 @@ bool peer_start_channeld(struct channel *channel,
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
 	struct penalty_base *pbases;
-	u32 min_feerate;
+	u32 min_feerate, max_feerate;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -696,7 +702,7 @@ bool peer_start_channeld(struct channel *channel,
 	}
 
 	/* Warn once. */
-	if (ld->config.ignore_fee_limits)
+	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits)
 		log_unusual(channel->log, "Ignoring fee limits!");
 
 	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet,
@@ -729,6 +735,12 @@ bool peer_start_channeld(struct channel *channel,
 		min_feerate = get_feerate_floor(ld->topology);
 	else
 		min_feerate = feerate_min(ld, NULL);
+	max_feerate = feerate_max(ld, NULL);
+
+	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
+		min_feerate = 1;
+		max_feerate = 0xFFFFFFFF;
+	}
 
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
@@ -744,7 +756,7 @@ bool peer_start_channeld(struct channel *channel,
 				       &channel->channel_info.their_config,
 				       channel->fee_states,
 				       min_feerate,
-				       feerate_max(ld, NULL),
+				       max_feerate,
 				       penalty_feerate(ld->topology),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,

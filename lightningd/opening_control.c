@@ -926,6 +926,7 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 	struct amount_msat min_effective_htlc_capacity;
 	struct uncommitted_channel *uc;
 	const u8 *msg;
+	u32 minrate, maxrate;
 
 	assert(peer->uncommitted_channel);
 	uc = peer->uncommitted_channel;
@@ -957,6 +958,13 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
+	if (peer->ld->config.ignore_fee_limits) {
+		minrate = 1;
+		maxrate = 0xFFFFFFFF;
+	} else {
+		minrate = feerate_min(peer->ld, NULL);
+		maxrate = feerate_max(peer->ld, NULL);
+	}
 
 	msg = towire_openingd_init(NULL,
 				   chainparams,
@@ -968,8 +976,7 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				   &uc->local_basepoints,
 				   &uc->local_funding_pubkey,
 				   uc->minimum_depth,
-				   feerate_min(peer->ld, NULL),
-				   feerate_max(peer->ld, NULL),
+				   minrate, maxrate,
 				   IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				   peer->ld->config.allowdustreserve);
 	subd_send_msg(uc->open_daemon, take(msg));
