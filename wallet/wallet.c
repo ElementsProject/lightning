@@ -5465,3 +5465,55 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 	*hstate = db_col_int(iter->stmt, "h.hstate");
 	return iter;
 }
+
+struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct wallet *wallet)
+{
+	struct db_stmt *stmt;
+	struct rune_blacklist *blist = tal_arr(ctx, struct rune_blacklist, 0);
+
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT start_index, end_index FROM runes_blacklist"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct rune_blacklist b;
+		b.start = db_col_u64(stmt, "start_index");
+		b.end = db_col_u64(stmt, "end_index");
+		tal_arr_expand(&blist, b);
+	}
+	tal_free(stmt);
+	return blist;
+}
+
+const char *wallet_get_rune(const tal_t *ctx, struct wallet *wallet, u64 unique_id)
+{
+	struct db_stmt *stmt;
+	const char *runestr;
+
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT rune FROM runes WHERE id = ?"));
+	db_bind_u64(stmt, unique_id);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt))
+		runestr = db_col_strdup(ctx, stmt, "rune");
+	else
+		runestr = NULL;
+	tal_free(stmt);
+	return runestr;
+}
+
+const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
+{
+	struct db_stmt *stmt;
+	const char **strs = tal_arr(ctx, const char *, 0);
+
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT rune FROM runes"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		const char *str = db_col_strdup(strs, stmt, "rune");
+		tal_arr_expand(&strs, str);
+	}
+	tal_free(stmt);
+	return strs;
+}
+
