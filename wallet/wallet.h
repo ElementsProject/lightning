@@ -1524,4 +1524,34 @@ struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 				    u32 nlocktime,
 				    u32 nsequence,
 				    struct wally_psbt *base);
+
+/**
+ * Get a particular runestring from the db
+ * @ctx: tal ctx for return to be tallocated from
+ * @wallet: the wallet
+ * @unique_id: the id of the rune.
+ *
+ * Returns NULL if it's not found.
+ */
+const char *wallet_get_rune(const tal_t *ctx, struct wallet *wallet, u64 unique_id);
+
+/**
+ * Get every runestring from the db
+ * @ctx: tal ctx for return to be tallocated from
+ * @wallet: the wallet
+ */
+const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet);
+
+/* Load the runes blacklist */
+struct rune_blacklist {
+	u64 start, end;
+};
+
+/**
+ * Load the blacklist from the db.
+ * @ctx: tal ctx for return to be tallocated from
+ * @wallet: the wallet
+ */
+struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct wallet *wallet);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
