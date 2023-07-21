@@ -993,7 +993,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     # This can timeout, so do it in easy stages.
     for i in range(16):
         bitcoind.generate_block(4032 // 16)
-    sync_blockheight(bitcoind, [l2, l3])
+        sync_blockheight(bitcoind, [l2, l3])
 
     l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
 
