@@ -332,7 +332,8 @@ falls below this.
   Allow nodes which establish channels to us to set any fee they want.
 This may result in a channel which cannot be closed, should fees
 increase, but make channels far more reliable since we never close it
-due to unreasonable fees.
+due to unreasonable fees.  Note that this can be set on a per-channel
+basis with lightning-setchannel(7).
 
 * **commit-time**=*MILLISECONDS*
 

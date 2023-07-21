@@ -18,7 +18,8 @@
           "fee_base_msat",
           "fee_proportional_millionths",
           "minimum_htlc_out_msat",
-          "maximum_htlc_out_msat"
+          "maximum_htlc_out_msat",
+          "ignore_fee_limits"
         ],
         "properties": {
           "peer_id": {
@@ -42,6 +43,11 @@
           "fee_proportional_millionths": {
             "type": "u32",
             "description": "The resulting feeppm (this is the BOLT #7 name)"
+          },
+          "ignore_fee_limits": {
+            "type": "boolean",
+            "added": "v23.08",
+            "description": "If we are now allowing peer to set feerate on commitment transaction without restriction"
           },
           "minimum_htlc_out_msat": {
             "type": "msat",

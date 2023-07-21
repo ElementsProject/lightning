@@ -4,7 +4,7 @@ lightning-setchannel -- Command for configuring fees / htlc range advertized for
 SYNOPSIS
 --------
 
-**setchannel** *id* [*feebase*] [*feeppm*] [*htlcmin*] [*htlcmax*] [*enforcedelay*]
+**setchannel** *id* [*feebase*] [*feeppm*] [*htlcmin*] [*htlcmax*] [*enforcedelay*] [*ignorefeelimits*]
 
 DESCRIPTION
 -----------
@@ -62,6 +62,13 @@ only applied to a single rate increase per channel (we don't remember
 an arbitrary number of prior feerates) and if the node is restarted
 the updated configuration is enforced immediately.
 
+*ignorefeelimits* set to True means to allow the peer to set the commitment
+transaction fees (or closing transaction fees) to any value they want.  This is dangerous: they could
+set an exorbitant fee (so HTLCs are unenforcable), or a tiny fee (so that
+commitment transactions cannot be relayed), but avoids channel breakage
+in case of feerate disagreements.  (Note: the global `ignore_fee_limits`
+setting overrides this).
+
 RETURN VALUE
 ------------
 
@@ -72,6 +79,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **channel\_id** (hex): The channel\_id of the channel (always 64 characters)
 - **fee\_base\_msat** (msat): The resulting feebase (this is the BOLT #7 name)
 - **fee\_proportional\_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
+- **ignore\_fee\_limits** (boolean): If we are now allowing peer to set feerate on commitment transaction without restriction *(added v23.08)*
 - **minimum\_htlc\_out\_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc\_minimum\_msat)
 - **maximum\_htlc\_out\_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc\_maximum\_msat)
 - **short\_channel\_id** (short\_channel\_id, optional): the short\_channel\_id (if locked in)
@@ -107,4 +115,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0175aaf74aa6d75640d0b79f68b552b1b700f93ad7576465c73de93af04d71e6)
+[comment]: # ( SHA256STAMP:5209ba4d4bbe2d897d9824f95a97fa48d968e83ffec2e4cfbd87df6fd90c48f0)

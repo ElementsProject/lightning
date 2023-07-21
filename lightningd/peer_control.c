@@ -2686,6 +2686,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 			       struct amount_msat *htlc_min,
 			       struct amount_msat *htlc_max,
 			       u32 delaysecs,
+			       bool *ignore_fee_limits,
 			       struct json_stream *response)
 {
 	bool warn_cannot_set_min = false, warn_cannot_set_max = false;
@@ -2733,12 +2734,18 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 		} else
 			channel->htlc_maximum_msat = *htlc_max;
 	}
+	if (ignore_fee_limits)
+		channel->ignore_fee_limits = *ignore_fee_limits;
 
 	/* tell channeld to make a send_channel_update */
-	if (channel->owner && streq(channel->owner->name, "channeld"))
+	if (channel->owner && streq(channel->owner->name, "channeld")) {
 		subd_send_msg(channel->owner,
 			      take(towire_channeld_config_channel(NULL, base, ppm,
 								  htlc_min, htlc_max)));
+		/* Tell it about the new acceptable feerates */
+		if (ignore_fee_limits)
+			channel_update_feerates(cmd->ld, channel);
+	}
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
@@ -2764,6 +2771,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	json_add_amount_msat(response,
 			     "maximum_htlc_out_msat",
 			     channel->htlc_maximum_msat);
+	json_add_bool(response, "ignore_fee_limits", channel->ignore_fee_limits);
 	if (warn_cannot_set_max)
 		json_add_string(response, "warning_htlcmax_too_high",
 				"Set maximum_htlc_out_msat to maximum possible in channel");
@@ -2780,6 +2788,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 	struct channel **channels;
 	u32 *base, *ppm, *delaysecs;
 	struct amount_msat *htlc_min, *htlc_max;
+	bool *ignore_fee_limits;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
@@ -2789,6 +2798,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 		   p_opt("htlcmin", param_msat, &htlc_min),
 		   p_opt("htlcmax", param_msat, &htlc_max),
 		   p_opt_def("enforcedelay", param_number, &delaysecs, 600),
+		   p_opt("ignorefeelimits", param_bool, &ignore_fee_limits),
 		   NULL))
 		return command_param_failed();
 
@@ -2818,7 +2828,8 @@ static struct command_result *json_setchannel(struct command *cmd,
 					continue;
 				set_channel_config(cmd, channel, base, ppm,
 						   htlc_min, htlc_max,
-						   *delaysecs, response);
+						   *delaysecs, ignore_fee_limits,
+						   response);
 			}
 		}
 	/* single peer should be updated */
@@ -2826,7 +2837,8 @@ static struct command_result *json_setchannel(struct command *cmd,
 		for (size_t i = 0; i < tal_count(channels); i++) {
 			set_channel_config(cmd, channels[i], base, ppm,
 					   htlc_min, htlc_max,
-					   *delaysecs, response);
+					   *delaysecs, ignore_fee_limits,
+					   response);
 		}
 	}
 

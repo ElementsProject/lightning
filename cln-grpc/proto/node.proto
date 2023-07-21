@@ -1639,6 +1639,7 @@ message SetchannelRequest {
 	optional Amount htlcmin = 4;
 	optional Amount htlcmax = 5;
 	optional uint32 enforcedelay = 6;
+	optional bool ignorefeelimits = 7;
 }
 
 message SetchannelResponse {
@@ -1651,6 +1652,7 @@ message SetchannelChannels {
 	optional string short_channel_id = 3;
 	Amount fee_base_msat = 4;
 	uint32 fee_proportional_millionths = 5;
+	optional bool ignore_fee_limits = 10;
 	Amount minimum_htlc_out_msat = 6;
 	optional string warning_htlcmin_too_low = 7;
 	Amount maximum_htlc_out_msat = 8;

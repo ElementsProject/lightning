@@ -1298,6 +1298,7 @@ def setchannel_channels2py(m):
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
         "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
         "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "ignore_fee_limits": m.ignore_fee_limits,  # PrimitiveField in generate_composite
         "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
         "warning_htlcmin_too_low": m.warning_htlcmin_too_low,  # PrimitiveField in generate_composite
         "maximum_htlc_out_msat": amount2msat(m.maximum_htlc_out_msat),  # PrimitiveField in generate_composite
