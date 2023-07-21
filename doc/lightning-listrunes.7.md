@@ -1,0 +1,51 @@
+lightning-listrunes -- Command to list previously generated runes
+==================================================================
+
+SYNOPSIS
+--------
+
+**listrunes** [*rune*]
+
+DESCRIPTION
+-----------
+
+The **listrunes** RPC command either lists runes that we stored as we generate them (see lightning-createrune(7)) or decodes the rune given on the command line. 
+
+RETURN VALUE
+------------
+
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **runes** is returned.  It is an array of objects, where each object contains:
+
+- **rune** (string): Base64 encoded rune
+- **unique\_id** (string): Unique id assigned when the rune was generated; this is always a u64 for commando runes
+- **restrictions** (array of objects): The restrictions on what commands this rune can authorize:
+  - **alternatives** (array of objects):
+    - **fieldname** (string): The field this restriction applies to; see commando-rune(7)
+    - **value** (string): The value accepted for this field
+    - **condition** (string): The way to compare fieldname and value
+    - **english** (string): English readable description of this alternative
+  - **english** (string): English readable summary of alternatives above
+- **restrictions\_as\_english** (string): English readable description of the restrictions array above
+- **stored** (boolean, optional): This is false if the rune does not appear in our datastore (only possible when `rune` is specified) (always *false*)
+- **blacklisted** (boolean, optional): The rune has been blacklisted; see commando-blacklist(7) (always *true*)
+- **our\_rune** (boolean, optional): This is not a rune for this node (only possible when `rune` is specified) (always *false*)
+
+[comment]: # (GENERATE-FROM-SCHEMA-END)
+
+AUTHOR
+------
+
+Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible.
+
+SEE ALSO
+--------
+
+lightning-commando-listrunes(7), lightning-blacklistrune(7)
+
+RESOURCES
+---------
+
+Main web site: <https://github.com/ElementsProject/lightning>
+
+[comment]: # ( SHA256STAMP:cd0e75bbeef3d5824448f67485de4679b0c163e97f405673b2ba9495f970d498)
