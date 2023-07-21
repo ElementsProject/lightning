@@ -2725,7 +2725,7 @@ def test_restorefrompeer(node_factory, bitcoind):
     try:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     except RpcError as err:
-        assert "disconnected during connection" in err.error
+        assert "disconnected during connection" in err.error['message']
 
     l1.daemon.wait_for_log('peer_in WIRE_YOUR_PEER_STORAGE')
 
