@@ -2500,6 +2500,8 @@ def test_fee_limits(node_factory, bitcoind):
 
     # Kick off fee adjustment using HTLC.
     l1.pay(l2, 1000)
+    assert 'ignore_fee_limits' not in only_one(l2.rpc.listpeerchannels()['channels'])
+    assert 'ignore_fee_limits' not in only_one(l1.rpc.listpeerchannels()['channels'])
 
     # L1 asks for stupid low fee (will actually hit the floor of 253)
     l1.stop()
@@ -2512,10 +2514,14 @@ def test_fee_limits(node_factory, bitcoind):
     assert 'update_fee 253 outside range 1875-75000' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'][0]
     assert 'update_fee 253 outside range 1875-75000' in only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status'][0]
 
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] != 253
     # Make l2 accept those fees, and it should recover.
-    l2.stop()
-    l2.set_feerates((15, 15, 15, 15), False)
-    l2.start()
+    assert only_one(l2.rpc.setchannel(l1.get_channel_scid(l2), ignorefeelimits=True)['channels'])['ignore_fee_limits'] is True
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['ignore_fee_limits'] is True
+
+    # Now we stay happy (and connected!)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] == 253)
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['peer_connected'] is True
 
     l1.rpc.close(l2.info['id'])
 
