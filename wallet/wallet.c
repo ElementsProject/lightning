@@ -1619,7 +1619,9 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   lease_chan_max_msat,
 			   lease_chan_max_ppt,
 			   htlc_minimum_msat,
-			   htlc_maximum_msat);
+			   htlc_maximum_msat,
+			   /* FIXME: load from db! */
+			   false);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);

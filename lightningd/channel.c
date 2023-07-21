@@ -262,6 +262,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->future_per_commitment_point = NULL;
 
 	channel->lease_commit_sig = NULL;
+	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -393,7 +394,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 lease_chan_max_msat,
 			    u16 lease_chan_max_ppt,
 			    struct amount_msat htlc_minimum_msat,
-			    struct amount_msat htlc_maximum_msat)
+			    struct amount_msat htlc_maximum_msat,
+			    bool ignore_fee_limits)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -541,6 +543,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->closer = closer;
 	channel->close_blockheight = NULL;
 	channel->state_change_cause = reason;
+	channel->ignore_fee_limits = ignore_fee_limits;
 
 	/* Make sure we see any spends using this key */
 	if (!local_shutdown_scriptpubkey) {
