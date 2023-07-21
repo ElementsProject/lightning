@@ -1142,30 +1142,25 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	 *
 	 * [1] https://github.com/ElementsProject/lightning/issues/6362
 	 * */
-	if (ld->config.ignore_fee_limits)
-		min = 1;
-	else {
-		min = 0xFFFFFFFF;
-		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
-			for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
-				if (topo->feerates[i][j].rate < min)
-					min = topo->feerates[i][j].rate;
-			}
+	min = 0xFFFFFFFF;
+	for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
+		for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
+			if (topo->feerates[i][j].rate < min)
+				min = topo->feerates[i][j].rate;
 		}
-		if (min == 0xFFFFFFFF) {
-			if (unknown)
-				*unknown = true;
-			min = 0;
-		}
-
-		/* FIXME: This is what bcli used to do: halve the slow feerate! */
-		min /= 2;
-
-		/* We can't allow less than feerate_floor, since that won't relay */
-		if (min < get_feerate_floor(topo))
-			return get_feerate_floor(topo);
+	}
+	if (min == 0xFFFFFFFF) {
+		if (unknown)
+			*unknown = true;
+		min = 0;
 	}
 
+	/* FIXME: This is what bcli used to do: halve the slow feerate! */
+	min /= 2;
+
+	/* We can't allow less than feerate_floor, since that won't relay */
+	if (min < get_feerate_floor(topo))
+		return get_feerate_floor(topo);
 	return min;
 }
 
@@ -1176,9 +1171,6 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 
 	if (unknown)
 		*unknown = false;
-
-	if (ld->config.ignore_fee_limits)
-		return UINT_MAX;
 
 	for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
 		for (size_t j = 0; j < tal_count(topo->feerates[i]); j++) {
