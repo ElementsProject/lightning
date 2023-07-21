@@ -371,6 +371,9 @@ struct lightningd {
 
 	/* For anchors: how much do we keep for spending close txs? */
 	struct amount_sat emergency_sat;
+
+	/* runes! */
+	struct runes *runes;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

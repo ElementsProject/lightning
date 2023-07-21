@@ -71,6 +71,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/plugin.h>
+#include <lightningd/runes.h>
 #include <lightningd/subd.h>
 #include <sys/resource.h>
 #include <wallet/txfilter.h>
@@ -1117,6 +1118,11 @@ int main(int argc, char *argv[])
 		max_blockheight = 0;
 	else if (max_blockheight != UINT32_MAX)
 		max_blockheight -= ld->config.rescan;
+
+	/*~ We have bearer tokens called `runes` you can use to control access.  They have
+	 * a fascinating history which I shall not go into now, but they're derived from
+	 * Macaroons which was a over-engineered Googlism. */
+	ld->runes = runes_init(ld);
 
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);

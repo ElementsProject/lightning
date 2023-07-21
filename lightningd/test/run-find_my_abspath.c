@@ -187,6 +187,9 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins UNNEEDED,
 /* Generated stub for resend_closing_transactions */
 void resend_closing_transactions(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "resend_closing_transactions called!\n"); abort(); }
+/* Generated stub for runes_init */
+struct runes *runes_init(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "runes_init called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
