@@ -481,6 +481,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 * 3. `se = ECDH(s.priv, re)`
 	 *     * where `re` is the ephemeral public key of the responder
 	 */
+	tal_free(h->ss);
 	h->ss = tal(h, struct secret);
 	ecdh(&h->re, h->ss);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
