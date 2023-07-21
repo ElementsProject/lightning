@@ -24,7 +24,7 @@
 #include <lightningd/peer_fd.h>
 #include <wally_bip32.h>
 
-static void update_feerates(struct lightningd *ld, const struct channel *channel)
+void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
 	u32 min_feerate, max_feerate;
@@ -71,7 +71,7 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 	if (!channel->owner)
 		return;
 
-	update_feerates(ld, channel);
+	channel_update_feerates(ld, channel);
 }
 
 static void try_update_blockheight(struct lightningd *ld,

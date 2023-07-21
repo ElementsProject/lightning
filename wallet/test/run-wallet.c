@@ -81,6 +81,9 @@ bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
+/* Generated stub for channel_update_feerates */
+void channel_update_feerates(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_update_feerates called!\n"); abort(); }
 /* Generated stub for channel_update_reserve */
 void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct channel_config *their_config UNNEEDED,

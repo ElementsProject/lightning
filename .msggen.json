@@ -1402,6 +1402,7 @@
             "SetChannel.channels[].channel_id": 2,
             "SetChannel.channels[].fee_base_msat": 4,
             "SetChannel.channels[].fee_proportional_millionths": 5,
+            "SetChannel.channels[].ignore_fee_limits": 10,
             "SetChannel.channels[].maximum_htlc_out_msat": 8,
             "SetChannel.channels[].minimum_htlc_out_msat": 6,
             "SetChannel.channels[].peer_id": 1,
@@ -1415,7 +1416,8 @@
             "SetChannel.feeppm": 3,
             "SetChannel.htlcmax": 5,
             "SetChannel.htlcmin": 4,
-            "SetChannel.id": 1
+            "SetChannel.id": 1,
+            "SetChannel.ignorefeelimits": 7
         },
         "SetchannelResponse": {
             "SetChannel.channels[]": 1
@@ -5018,6 +5020,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "SetChannel.channels[].ignore_fee_limits": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "SetChannel.channels[].maximum_htlc_out_msat": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5064,6 +5070,10 @@
         },
         "SetChannel.id": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SetChannel.ignorefeelimits": {
+            "added": "v23.08",
             "deprecated": false
         },
         "SignInvoice": {

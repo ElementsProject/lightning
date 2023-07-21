@@ -1521,6 +1521,7 @@ impl From<responses::SetchannelChannels> for pb::SetchannelChannels {
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             fee_base_msat: Some(c.fee_base_msat.into()), // Rule #2 for type msat
             fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32
+            ignore_fee_limits: c.ignore_fee_limits, // Rule #2 for type boolean?
             minimum_htlc_out_msat: Some(c.minimum_htlc_out_msat.into()), // Rule #2 for type msat
             warning_htlcmin_too_low: c.warning_htlcmin_too_low, // Rule #2 for type string?
             maximum_htlc_out_msat: Some(c.maximum_htlc_out_msat.into()), // Rule #2 for type msat
@@ -2214,6 +2215,7 @@ impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
             htlcmin: c.htlcmin.map(|f| f.into()), // Rule #2 for type msat?
             htlcmax: c.htlcmax.map(|f| f.into()), // Rule #2 for type msat?
             enforcedelay: c.enforcedelay, // Rule #2 for type u32?
+            ignorefeelimits: c.ignorefeelimits, // Rule #2 for type boolean?
         }
     }
 }
@@ -2880,6 +2882,7 @@ impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
             htlcmin: c.htlcmin.map(|a| a.into()), // Rule #1 for type msat?
             htlcmax: c.htlcmax.map(|a| a.into()), // Rule #1 for type msat?
             enforcedelay: c.enforcedelay, // Rule #1 for type u32?
+            ignorefeelimits: c.ignorefeelimits, // Rule #1 for type boolean?
         }
     }
 }
