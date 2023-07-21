@@ -1401,6 +1401,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
+	bool ignore_fee_limits;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1533,6 +1534,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_col_amount_msat(stmt, "msatoshi_to_us_max", &msat_to_us_max);
 	db_col_amount_msat(stmt, "htlc_minimum_msat", &htlc_minimum_msat);
 	db_col_amount_msat(stmt, "htlc_maximum_msat", &htlc_maximum_msat);
+	ignore_fee_limits = db_col_int(stmt, "ignore_fee_limits");
 
 	if (!db_col_is_null(stmt, "lease_commit_sig")) {
 		lease_commit_sig = tal(w, secp256k1_ecdsa_signature);
@@ -1620,8 +1622,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   lease_chan_max_ppt,
 			   htlc_minimum_msat,
 			   htlc_maximum_msat,
-			   /* FIXME: load from db! */
-			   false);
+			   ignore_fee_limits);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1808,6 +1809,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", htlc_maximum_msat"
 					", alias_local"
 					", alias_remote"
+					", ignore_fee_limits"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2091,8 +2093,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  htlc_minimum_msat=?," // 42
 					"  htlc_maximum_msat=?," // 43
 					"  alias_local=?," // 44
-					"  alias_remote=?" // 45
-					" WHERE id=?")); // 46
+					"  alias_remote=?," // 45
+					"  ignore_fee_limits=?" // 46
+					" WHERE id=?")); // 47
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, chan->scid);
@@ -2171,6 +2174,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt);
 
+	db_bind_int(stmt, chan->ignore_fee_limits);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
