@@ -269,6 +269,9 @@ struct channel {
 	/* `Channel-shell` of this channel
 	 * (Minimum information required to backup this channel). */
 	struct scb_chan *scb;
+
+	/* Do we allow the peer to set any fee it wants? */
+	bool ignore_fee_limits;
 };
 
 bool channel_is_connected(const struct channel *channel);
@@ -345,7 +348,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 lease_chan_max_msat,
 			    u16 lease_chan_max_ppt,
 			    struct amount_msat htlc_minimum_msat,
-			    struct amount_msat htlc_maximum_msat);
+			    struct amount_msat htlc_maximum_msat,
+			    bool ignore_fee_limits);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *
