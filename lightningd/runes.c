@@ -8,6 +8,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -17,12 +18,85 @@
 #include <lightningd/runes.h>
 #include <wallet/wallet.h>
 
+struct usage {
+	/* If you really issue more than 2^32 runes, they'll share ratelimit buckets */
+	u32 id;
+	u32 counter;
+};
+
+static u64 usage_id(const struct usage *u)
+{
+	return u->id;
+}
+
+static size_t id_hash(u64 id)
+{
+	return siphash24(siphash_seed(), &id, sizeof(id));
+}
+
+static bool usage_eq_id(const struct usage *u, u64 id)
+{
+	return u->id == id;
+}
+HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
+static struct usage_table *usage_table;
+
+/* Every minute we forget entries. */
+static void flush_usage_table(struct lightningd *ld)
+{
+	tal_free(usage_table);
+	usage_table = notleak(tal(ld, struct usage_table));
+	usage_table_init(usage_table);
+	notleak(new_reltimer(ld->timers, ld, time_from_sec(60), flush_usage_table, ld));
+}
+
+struct cond_info {
+	const struct node_id *peer;
+	const char *buf;
+	const char *method;
+	const jsmntok_t *params;
+	STRMAP(const jsmntok_t *) cached_params;
+	struct usage *usage;
+};
+
 /* This is lightningd->runes */
 struct runes {
 	struct rune *master;
 	u64 next_unique_id;
 	struct rune_blacklist *blacklist;
 };
+
+static const char *rate_limit_check(const tal_t *ctx,
+				    const struct rune *rune,
+				    const struct rune_altern *alt,
+				    struct cond_info *cinfo)
+{
+	unsigned long r;
+	char *endp;
+	if (alt->condition != '=')
+		return "rate operator must be =";
+
+	r = strtoul(alt->value, &endp, 10);
+	if (endp == alt->value || *endp || r == 0 || r >= UINT32_MAX)
+		return "malformed rate";
+
+	/* We cache this: we only add usage counter if whole rune succeeds! */
+	if (!cinfo->usage) {
+		cinfo->usage = usage_table_get(usage_table, atol(rune->unique_id));
+		if (!cinfo->usage) {
+			cinfo->usage = notleak(tal(usage_table, struct usage));
+			cinfo->usage->id = atol(rune->unique_id);
+			cinfo->usage->counter = 0;
+			usage_table_add(usage_table, cinfo->usage);
+		}
+	}
+
+	/* >= becuase if we allow this, counter will increment */
+	if (cinfo->usage->counter >= r)
+		return tal_fmt(ctx, "Rate of %lu per minute exceeded", r);
+
+	return NULL;
+}
 
 struct runes *runes_init(struct lightningd *ld)
 {
@@ -41,6 +115,9 @@ struct runes *runes_init(struct lightningd *ld)
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
 	runes->master = rune_new(runes, secret.data, ARRAY_SIZE(secret.data), NULL);
+
+	/* Initialize usage table and start flush timer. */
+	flush_usage_table(ld);
 
 	return runes;
 }
@@ -61,6 +138,17 @@ static struct command_result *param_rune(struct command *cmd, const char *name,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "should be base64 string");
 
+	return NULL;
+}
+
+static struct command_result *param_params(struct command *cmd, const char *name,
+					 const char * buffer, const jsmntok_t *tok,
+					 const jsmntok_t **params)
+{
+	if (tok->type != JSMN_OBJECT && tok->type != JSMN_ARRAY) {
+		return command_fail_badparam(cmd, name, buffer, tok, "must be object or array");
+	}
+	*params = tok;
 	return NULL;
 }
 
@@ -431,3 +519,135 @@ static const struct json_command creatrune_command = {
 	"Create or restrict an optional {rune} with optional {restrictions} and returns {rune}"
 };
 AUTODATA(json_command, &creatrune_command);
+
+static const char *check_condition(const tal_t *ctx,
+				   const struct rune *rune,
+				   const struct rune_altern *alt,
+				   struct cond_info *cinfo)
+{
+	const jsmntok_t *ptok;
+
+	if (streq(alt->fieldname, "time")) {
+		return rune_alt_single_int(ctx, alt, time_now().ts.tv_sec);
+	} else if (streq(alt->fieldname, "id")) {
+		const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
+		return rune_alt_single_str(ctx, alt, id, strlen(id));
+	} else if (streq(alt->fieldname, "method")) {
+		return rune_alt_single_str(ctx, alt,
+					   cinfo->method, strlen(cinfo->method));
+	} else if (streq(alt->fieldname, "pnum")) {
+		return rune_alt_single_int(ctx, alt, (cinfo && cinfo->params) ? cinfo->params->size : 0);
+	} else if (streq(alt->fieldname, "rate")) {
+		return rate_limit_check(ctx, rune, alt, cinfo);
+	}
+
+	/* Rest are params looksup: generate this once! */
+	if (cinfo->params && strmap_empty(&cinfo->cached_params)) {
+		const jsmntok_t *t;
+		size_t i;
+
+		if (cinfo->params->type == JSMN_OBJECT) {
+			json_for_each_obj(i, t, cinfo->params) {
+				char *pmemname = tal_fmt(tmpctx,
+							 "pname%.*s",
+							 t->end - t->start,
+							 cinfo->buf + t->start);
+				size_t off = strlen("pname");
+				/* Remove punctuation! */
+				for (size_t n = off; pmemname[n]; n++) {
+					if (cispunct(pmemname[n]))
+						continue;
+					pmemname[off++] = pmemname[n];
+				}
+				pmemname[off++] = '\0';
+				strmap_add(&cinfo->cached_params, pmemname, t+1);
+			}
+		} else if (cinfo->params->type == JSMN_ARRAY) {
+			json_for_each_arr(i, t, cinfo->params) {
+				char *pmemname = tal_fmt(tmpctx, "parr%zu", i);
+				strmap_add(&cinfo->cached_params, pmemname, t);
+			}
+		}
+	}
+
+	ptok = strmap_get(&cinfo->cached_params, alt->fieldname);
+	if (!ptok)
+		return rune_alt_single_missing(ctx, alt);
+
+	/* Pass through valid integers as integers. */
+	if (ptok->type == JSMN_PRIMITIVE) {
+		s64 val;
+
+		if (json_to_s64(cinfo->buf, ptok, &val)) {
+			return rune_alt_single_int(ctx, alt, val);
+		}
+
+		/* Otherwise, treat it as a string (< and > will fail with
+		 * "is not an integer field") */
+	}
+	return rune_alt_single_str(ctx, alt,
+				   cinfo->buf + ptok->start,
+				   ptok->end - ptok->start);
+}
+
+static struct command_result *json_checkrune(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	const jsmntok_t *methodparams;
+	struct cond_info cinfo;
+	struct rune_and_string *ras;
+	struct node_id *nodeid;
+	struct json_stream *js;
+	const char *err, *method;
+
+	if (!param(cmd, buffer, params,
+		   p_req("rune", param_rune, &ras),
+		   p_req("nodeid", param_node_id, &nodeid),
+		   p_req("method", param_string, &method),
+		   p_opt("params", param_params, &methodparams),
+		   NULL))
+		return command_param_failed();
+
+	if (is_rune_blacklisted(cmd->ld->runes, ras->rune))
+		return command_fail(cmd, RUNE_BLACKLISTED, "Not authorized: Blacklisted rune");
+
+	cinfo.peer = nodeid;
+	cinfo.buf = buffer;
+	cinfo.method = method;
+	cinfo.params = methodparams;
+	/* We will populate it in rate_limit_check if required. */
+	cinfo.usage = NULL;
+	strmap_init(&cinfo.cached_params);
+
+	err = rune_is_derived(cmd->ld->runes->master, ras->rune);
+	if (err) {
+		return command_fail(cmd, RUNE_NOT_AUTHORIZED, "Not authorized: %s", err);
+	}
+
+	err = rune_test(tmpctx, cmd->ld->runes->master, ras->rune, check_condition, &cinfo);
+	strmap_clear(&cinfo.cached_params);
+
+	/* Just in case they manage to make us speak non-JSON, escape! */
+	if (err) {
+		err = json_escape(tmpctx, err)->s;
+		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
+	}
+
+	/* If it succeeded, *now* we increment any associated usage counter. */
+	if (cinfo.usage)
+		cinfo.usage->counter++;
+
+	js = json_stream_success(cmd);
+	json_add_bool(js, "valid", true);
+	return command_success(cmd, js);
+}
+
+static const struct json_command checkrune_command = {
+	"checkrune",
+	"utility",
+	json_checkrune,
+	"Checks rune for validity with required {nodeid}, {rune}, {method} and optional {params} and returns {valid: true} or error message"
+};
+AUTODATA(json_command, &checkrune_command);
