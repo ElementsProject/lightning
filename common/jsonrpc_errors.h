@@ -111,6 +111,11 @@ enum jsonrpc_errcode {
 	/* Errors from delforward command */
 	DELFORWARD_NOT_FOUND = 1401,
 
+	/* Errors from runes */
+	RUNE_NOT_AUTHORIZED = 1501,
+	RUNE_NOT_PERMITTED = 1502,
+	RUNE_BLACKLISTED = 1503,
+
 	/* Errors from wait* commands */
 	WAIT_TIMEOUT = 2000,
 };
