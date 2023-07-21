@@ -18,8 +18,10 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-bkpr-listaccountevents.7 \
 	doc/lightning-bkpr-listbalances.7 \
 	doc/lightning-bkpr-listincome.7 \
+	doc/lightning-blacklistrune.7 \
 	doc/lightning-check.7 \
 	doc/lightning-checkmessage.7 \
+	doc/lightning-checkrune.7 \
 	doc/lightning-close.7 \
 	doc/lightning-connect.7 \
 	doc/lightning-commando.7 \
@@ -28,6 +30,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-commando-rune.7 \
 	doc/lightning-createonion.7 \
 	doc/lightning-createinvoice.7 \
+	doc/lightning-createrune.7 \
 	doc/lightning-datastore.7 \
 	doc/lightning-decodepay.7 \
 	doc/lightning-decode.7 \
@@ -65,6 +68,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listpeerchannels.7 \
+	doc/lightning-listrunes.7 \
 	doc/lightning-listsendpays.7 \
 	doc/lightning-makesecret.7 \
 	doc/lightning-multifundchannel.7 \

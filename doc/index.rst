@@ -40,8 +40,10 @@ Core Lightning Documentation
    lightning-bkpr-listaccountevents <lightning-bkpr-listaccountevents.7.md>
    lightning-bkpr-listbalances <lightning-bkpr-listbalances.7.md>
    lightning-bkpr-listincome <lightning-bkpr-listincome.7.md>
+   lightning-blacklistrune <lightning-blacklistrune.7.md>
    lightning-check <lightning-check.7.md>
    lightning-checkmessage <lightning-checkmessage.7.md>
+   lightning-checkrune <lightning-checkrune.7.md>
    lightning-cli <lightning-cli.1.md>
    lightning-close <lightning-close.7.md>
    lightning-commando-blacklist <lightning-commando-blacklist.7.md>
@@ -51,6 +53,7 @@ Core Lightning Documentation
    lightning-connect <lightning-connect.7.md>
    lightning-createinvoice <lightning-createinvoice.7.md>
    lightning-createonion <lightning-createonion.7.md>
+   lightning-createrune <lightning-createrune.7.md>
    lightning-datastore <lightning-datastore.7.md>
    lightning-decode <lightning-decode.7.md>
    lightning-decodepay <lightning-decodepay.7.md>
@@ -93,6 +96,7 @@ Core Lightning Documentation
    lightning-listpays <lightning-listpays.7.md>
    lightning-listpeerchannels <lightning-listpeerchannels.7.md>
    lightning-listpeers <lightning-listpeers.7.md>
+   lightning-listrunes <lightning-listrunes.7.md>
    lightning-listsendpays <lightning-listsendpays.7.md>
    lightning-listsqlschemas <lightning-listsqlschemas.7.md>
    lightning-listtransactions <lightning-listtransactions.7.md>
