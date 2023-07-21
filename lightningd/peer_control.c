@@ -748,6 +748,9 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_node_id(response, "peer_id", &peer->id);
 		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
 		json_add_channel_type(response, "channel_type", channel->type);
+		if (channel->ignore_fee_limits) {
+			json_add_bool(response, "ignore_fee_limits", channel->ignore_fee_limits);
+		}
 	}
 	json_add_string(response, "state", channel_state_name(channel));
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {

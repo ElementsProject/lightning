@@ -250,6 +250,7 @@ The following tables are currently supported:
     - `row` (reference to `peerchannels_channel_type.rowid`, sqltype `INTEGER`)
     - `arrindex` (index within array, sqltype `INTEGER`)
     - `names` (type `string`, sqltype `TEXT`)
+  - `ignore_fee_limits` (type `boolean`, sqltype `INTEGER`)
   - `feerate_perkw` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `feerate_perkb` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `owner` (type `string`, sqltype `TEXT`)
@@ -510,4 +511,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:68c72c66bdc8b0515c6d5dddd5ffd14aa0342bd00f17a44929177c48c36a213f)
+[comment]: # ( SHA256STAMP:4cfeeb2855f92a12d6a52d912a58df7573fc34f1f17a190bba26e46695f54de6)

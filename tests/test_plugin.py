@@ -3762,6 +3762,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'scratch_txid',
                          'type': 'txid'},
+                        {'name': 'ignore_fee_limits',
+                         'type': 'boolean'},
                         {'name': 'feerate_perkw',
                          'type': 'u32'},
                         {'name': 'feerate_perkb',
