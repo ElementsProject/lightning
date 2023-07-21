@@ -1999,7 +1999,7 @@ def check_socket(ip_addr, port):
 
 
 @pytest.mark.developer("needs a running Tor service instance at port 9151 or 9051")
-def test_statictor_onions(node_factory):
+def test_static_tor_onions(node_factory):
     """First basic tests ;-)
 
     Assume that tor is configured and just test
@@ -2034,7 +2034,7 @@ def test_statictor_onions(node_factory):
 
 
 @pytest.mark.developer("needs a running Tor service instance at port 9151 or 9051")
-def test_torport_onions(node_factory):
+def test_tor_port_onions(node_factory):
     """First basic tests for torport ;-)
 
     Assume that tor is configured and just test
