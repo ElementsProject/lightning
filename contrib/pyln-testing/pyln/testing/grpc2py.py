@@ -790,6 +790,7 @@ def listpeerchannels_channels2py(m):
         "peer_connected": m.peer_connected,  # PrimitiveField in generate_composite
         "state": str(m.state),  # EnumField in generate_composite
         "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
+        "ignore_fee_limits": m.ignore_fee_limits,  # PrimitiveField in generate_composite
         "owner": m.owner,  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite

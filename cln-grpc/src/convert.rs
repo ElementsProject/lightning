@@ -1003,6 +1003,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             peer_connected: c.peer_connected, // Rule #2 for type boolean?
             state: c.state.map(|v| v as i32),
             scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            ignore_fee_limits: c.ignore_fee_limits, // Rule #2 for type boolean?
             feerate: c.feerate.map(|v| v.into()),
             owner: c.owner, // Rule #2 for type string?
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?

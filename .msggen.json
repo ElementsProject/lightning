@@ -1002,6 +1002,7 @@
             "ListPeerChannels.channels[].funding_outnum": 11,
             "ListPeerChannels.channels[].funding_txid": 10,
             "ListPeerChannels.channels[].htlcs[]": 52,
+            "ListPeerChannels.channels[].ignore_fee_limits": 54,
             "ListPeerChannels.channels[].in_fulfilled_msat": 47,
             "ListPeerChannels.channels[].in_offered_msat": 45,
             "ListPeerChannels.channels[].in_payments_fulfilled": 46,
@@ -3879,6 +3880,10 @@
         },
         "ListPeerChannels.channels[].htlcs[].status": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].ignore_fee_limits": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListPeerChannels.channels[].in_fulfilled_msat": {
