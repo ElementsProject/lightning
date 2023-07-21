@@ -5471,7 +5471,7 @@ struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct walle
 	struct db_stmt *stmt;
 	struct rune_blacklist *blist = tal_arr(ctx, struct rune_blacklist, 0);
 
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT start_index, end_index FROM runes_blacklist"));
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT start_index, end_index FROM runes_blacklist ORDER BY start_index ASC"));
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -5528,4 +5528,31 @@ void wallet_rune_insert(struct wallet *wallet, struct rune *rune)
     db_bind_text(stmt, rune_to_base64(tmpctx, rune));
     db_exec_prepared_v2(stmt);
     tal_free(stmt);
+}
+
+void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
+{
+    struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("INSERT INTO runes_blacklist VALUES (?,?)"));
+	db_bind_u64(stmt, entry->start);
+	db_bind_u64(stmt, entry->end);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
+void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
+{
+    struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("DELETE FROM runes_blacklist WHERE start_index = ? AND end_index = ?"));
+	db_bind_u64(stmt, entry->start);
+	db_bind_u64(stmt, entry->end);
+	db_exec_prepared_v2(stmt);
+	if (db_count_changes(stmt) != 1) {
+		db_fatal(wallet->db, "Failed to delete from runes_blacklist");
+	}
+	tal_free(stmt);
 }

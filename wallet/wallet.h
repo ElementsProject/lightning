@@ -1563,4 +1563,20 @@ struct rune_blacklist {
  */
 struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct wallet *wallet);
 
+/**
+ * wallet_insert_blacklist -- Insert rune into blacklist
+ *
+ * @wallet: the wallet to save into
+ * @entry: the new entry to insert
+ */
+void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry);
+
+/**
+ * wallet_delete_blacklist -- Delete row from blacklist
+ *
+ * @wallet: the wallet to delete from
+ * @entry: the entry to delete
+ */
+void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

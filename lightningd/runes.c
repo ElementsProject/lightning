@@ -520,6 +520,107 @@ static const struct json_command creatrune_command = {
 };
 AUTODATA(json_command, &creatrune_command);
 
+static void blacklist_merge(struct rune_blacklist *blacklist,
+			    const struct rune_blacklist *entry)
+{
+	if (entry->start < blacklist->start) {
+		blacklist->start = entry->start;
+	}
+	if (entry->end > blacklist->end) {
+		blacklist->end = entry->end;
+	}
+}
+
+static bool blacklist_before(const struct rune_blacklist *first,
+			     const struct rune_blacklist *second)
+{
+	// Is it before with a gap
+	return (first->end + 1) < second->start;
+}
+
+static struct command_result *list_blacklist(struct command *cmd)
+{
+	struct json_stream *js = json_stream_success(cmd);
+	json_array_start(js, "blacklist");
+	for (size_t i = 0; i < tal_count(cmd->ld->runes->blacklist); i++) {
+		json_object_start(js, NULL);
+		json_add_u64(js, "start", cmd->ld->runes->blacklist[i].start);
+		json_add_u64(js, "end", cmd->ld->runes->blacklist[i].end);
+		json_object_end(js);
+	}
+	json_array_end(js);
+	return command_success(cmd, js);
+}
+
+static struct command_result *json_blacklistrune(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	u64 *start, *end;
+	struct rune_blacklist *entry, *newblacklist;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
+		return command_param_failed();
+
+	if (end && !start) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end without start");
+	}
+	if (!start) {
+		return list_blacklist(cmd);
+	}
+	if (!end) {
+		end = start;
+	}
+	entry = tal(cmd, struct rune_blacklist);
+	entry->start = *start;
+	entry->end = *end;
+
+	newblacklist = tal_arr(cmd->ld->runes, struct rune_blacklist, 0);
+
+	for (size_t i = 0; i < tal_count(cmd->ld->runes->blacklist); i++) {
+		/* if new entry if already merged just copy the old list */
+		if (entry == NULL) {
+			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
+			continue;
+		}
+		/* old list has not reached the entry yet, so we are just copying it */
+		if (blacklist_before(&(cmd->ld->runes->blacklist)[i], entry)) {
+			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
+			continue;
+		}
+		/* old list has passed the entry, time to put the entry in */
+		if (blacklist_before(entry, &(cmd->ld->runes->blacklist)[i])) {
+			tal_arr_expand(&newblacklist, *entry);
+			tal_arr_expand(&newblacklist, cmd->ld->runes->blacklist[i]);
+			wallet_insert_blacklist(cmd->ld->wallet, entry);
+			// mark entry as copied
+			entry = NULL;
+			continue;
+		}
+		/* old list overlaps combined into the entry we are adding */
+		blacklist_merge(entry, &(cmd->ld->runes->blacklist)[i]);
+		wallet_delete_blacklist(cmd->ld->wallet, &(cmd->ld->runes->blacklist)[i]);
+	}
+	if (entry != NULL) {
+		tal_arr_expand(&newblacklist, *entry);
+		wallet_insert_blacklist(cmd->ld->wallet, entry);
+	}
+
+	tal_free(cmd->ld->runes->blacklist);
+	cmd->ld->runes->blacklist = newblacklist;
+	return list_blacklist(cmd);
+}
+
+static const struct json_command blacklistrune_command = {
+	"blacklistrune",
+	"utility",
+	json_blacklistrune,
+	"Blacklist a rune or range of runes by taking an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}"
+};
+AUTODATA(json_command, &blacklistrune_command);
+
 static const char *check_condition(const tal_t *ctx,
 				   const struct rune *rune,
 				   const struct rune_altern *alt,
