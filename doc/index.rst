@@ -140,6 +140,7 @@ Core Lightning Documentation
    lightning-unreserveinputs <lightning-unreserveinputs.7.md>
    lightning-upgradewallet <lightning-upgradewallet.7.md>
    lightning-utxopsbt <lightning-utxopsbt.7.md>
+   lightning-wait <lightning-wait.7.md>
    lightning-waitanyinvoice <lightning-waitanyinvoice.7.md>
    lightning-waitblockheight <lightning-waitblockheight.7.md>
    lightning-waitinvoice <lightning-waitinvoice.7.md>

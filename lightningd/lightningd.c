@@ -213,6 +213,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->ping_commands);
 	list_head_init(&ld->disconnect_commands);
 	list_head_init(&ld->waitblockheight_commands);
+	list_head_init(&ld->wait_commands);
 
 	/*~ Tal also explicitly supports arrays: it stores the number of
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
