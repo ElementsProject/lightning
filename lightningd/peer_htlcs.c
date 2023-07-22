@@ -1462,7 +1462,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 						hout->msat);
 
 	if (hout->am_origin)
-		payment_succeeded(ld, hout, preimage);
+		payment_succeeded(ld, &hout->payment_hash, hout->partid, hout->groupid, preimage);
 	else if (hout->in) {
 		fulfill_htlc(hout->in, preimage);
 		wallet_forwarded_payment_add(ld->wallet, hout->in,
