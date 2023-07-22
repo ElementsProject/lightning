@@ -140,35 +140,43 @@ struct invoice_id_node {
 	u64 inv_dbid;
 };
 
+/* Get any invoice ids where invoice is >= expiry time and status */
+static u64 *expired_ids(const tal_t *ctx,
+			struct db *db,
+			u64 expiry_time,
+			enum invoice_status status)
+{
+	struct db_stmt *stmt;
+	u64 *ids = tal_arr(ctx, u64, 0);
+
+	stmt = db_prepare_v2(db, SQL("SELECT id"
+				     "  FROM invoices"
+				     " WHERE state = ?"
+				     "   AND expiry_time <= ?"));
+	db_bind_int(stmt, status);
+	db_bind_u64(stmt, expiry_time);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		tal_arr_expand(&ids, db_col_u64(stmt, "id"));
+	}
+	tal_free(stmt);
+	return ids;
+}
+
 static void trigger_expiration(struct invoices *invoices)
 {
-	struct list_head idlist;
-	struct invoice_id_node *idn;
+	u64 *inv_dbids;
 	u64 now = time_now().ts.tv_sec;
 	struct db_stmt *stmt;
 
 	/* Free current expiration timer */
 	invoices->expiration_timer = tal_free(invoices->expiration_timer);
 
-	/* Acquire all expired invoices and save them in a list */
-	list_head_init(&idlist);
-	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT id"
-					       "  FROM invoices"
-					       " WHERE state = ?"
-					       "   AND expiry_time <= ?"));
-	db_bind_int(stmt, UNPAID);
-	db_bind_u64(stmt, now);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		idn = tal(tmpctx, struct invoice_id_node);
-		list_add_tail(&idlist, &idn->list);
-		idn->inv_dbid = db_col_u64(stmt, "id");
-	}
-	tal_free(stmt);
+	inv_dbids = expired_ids(tmpctx, invoices->wallet->db, now, UNPAID);
 
 	/* Trigger expirations */
-	list_for_each(&idlist, idn, list) {
+	for (size_t i = 0; i < tal_count(inv_dbids); i++) {
 		stmt = db_prepare_v2(invoices->wallet->db, SQL("UPDATE invoices"
 							       "   SET state = ?"
 							       "      , updated_index = ?"
@@ -178,11 +186,11 @@ static void trigger_expiration(struct invoices *invoices)
 			    /* FIXME: details! */
 			    invoice_index_update_status(invoices->wallet->ld,
 							NULL, EXPIRED));
-		db_bind_u64(stmt, idn->inv_dbid);
+		db_bind_u64(stmt, inv_dbids[i]);
 		db_exec_prepared_v2(take(stmt));
 
 		/* Trigger expiration */
-		trigger_invoice_waiter_expire_or_delete(invoices, idn->inv_dbid, false);
+		trigger_invoice_waiter_expire_or_delete(invoices, inv_dbids[i], false);
 	}
 
 	install_expiration_timer(invoices);
