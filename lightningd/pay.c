@@ -858,35 +858,24 @@ static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
 	return NULL;
 }
 
-/* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
- * if we're sending a raw onion. */
-static struct command_result *
-send_payment_core(struct lightningd *ld,
-		  struct command *cmd,
-		  const struct sha256 *rhash,
-		  u64 partid,
-		  u64 group,
-		  const struct route_hop *first_hop,
-		  struct amount_msat msat,
-		  struct amount_msat total_msat,
-		  const char *label TAKES,
-		  const char *invstring TAKES,
-		  const char *description TAKES,
-		  const struct onionpacket *packet,
-		  const struct node_id *destination,
-		  struct node_id *route_nodes TAKES,
-		  struct short_channel_id *route_channels TAKES,
-		  struct secret *path_secrets,
-		  const struct sha256 *local_invreq_id)
+/* Check if payment already in progress.  Returns NULL if all good;
+ * sets old_payment to a previous attempt if there is one (otherwise
+ * NULL). */
+static struct command_result *check_progress(struct lightningd *ld,
+					     struct command *cmd,
+					     const struct sha256 *rhash,
+					     struct amount_msat msat,
+					     struct amount_msat total_msat,
+					     u64 partid,
+					     u64 group,
+					     const struct node_id *destination,
+					     const struct wallet_payment **old_payment)
 {
-	const struct wallet_payment **payments, *old_payment = NULL;
-	struct channel *channel;
-	const u8 *failmsg;
-	struct htlc_out *hout;
-	struct routing_failure *fail;
-	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
+	const struct wallet_payment **payments;
 	bool have_complete = false;
-	struct command_result *invreq_err;
+	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
+
+	*old_payment = NULL;
 
 	/* Now, do we already have one or more payments? */
 	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
@@ -1001,7 +990,7 @@ send_payment_core(struct lightningd *ld,
 
 		case PAYMENT_FAILED:
 			if (payments[i]->partid == partid)
-				old_payment = payments[i];
+				*old_payment = payments[i];
  		}
 		/* There is no way for us to add a payment with the
 		 * same (payment_hash, partid, groupid) tuple since
@@ -1018,7 +1007,6 @@ send_payment_core(struct lightningd *ld,
 			    type_to_string(tmpctx, struct sha256, rhash), group,
 			    partid);
 		}
-
 	}
 
 	/* If any part has succeeded, you can't start a new one! */
@@ -1043,9 +1031,47 @@ send_payment_core(struct lightningd *ld,
 						   &total_msat));
 	}
 
-	invreq_err = check_invoice_request_usage(cmd, local_invreq_id);
-	if (invreq_err)
-		return invreq_err;
+	return NULL;
+}
+
+/* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
+ * if we're sending a raw onion. */
+static struct command_result *
+send_payment_core(struct lightningd *ld,
+		  struct command *cmd,
+		  const struct sha256 *rhash,
+		  u64 partid,
+		  u64 group,
+		  const struct route_hop *first_hop,
+		  struct amount_msat msat,
+		  struct amount_msat total_msat,
+		  const char *label TAKES,
+		  const char *invstring TAKES,
+		  const char *description TAKES,
+		  const struct onionpacket *packet,
+		  const struct node_id *destination,
+		  struct node_id *route_nodes TAKES,
+		  struct short_channel_id *route_channels TAKES,
+		  struct secret *path_secrets,
+		  const struct sha256 *local_invreq_id)
+{
+	const struct wallet_payment *old_payment;
+	struct channel *channel;
+	const u8 *failmsg;
+	struct htlc_out *hout;
+	struct routing_failure *fail;
+	struct command_result *ret;
+	struct wallet_payment *payment;
+
+	/* Reconcile this with previous attempts */
+	ret = check_progress(ld, cmd, rhash, msat, total_msat, partid, group, destination,
+			     &old_payment);
+	if (ret)
+		return ret;
+
+	ret = check_invoice_request_usage(cmd, local_invreq_id);
+	if (ret)
+		return ret;
 
 	channel = find_channel_for_htlc_add(ld, &first_hop->node_id,
 					    &first_hop->scid);
@@ -1091,7 +1117,7 @@ send_payment_core(struct lightningd *ld,
 	}
 
 	/* If hout fails, payment should be freed too. */
-	struct wallet_payment *payment = tal(hout, struct wallet_payment);
+	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
 	payment->payment_hash = *rhash;
 	payment->partid = partid;
