@@ -421,6 +421,7 @@ impl From<responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
             status: c.status as i32,
             description: c.description, // Rule #2 for type string
             expires_at: c.expires_at, // Rule #2 for type u64
+            created_index: c.created_index, // Rule #2 for type u64?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
@@ -486,6 +487,8 @@ impl From<responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             description: c.description, // Rule #2 for type string?
             payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            created_index: c.created_index, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             status: c.status as i32,
             expires_at: c.expires_at, // Rule #2 for type u64
             local_offer_id: c.local_offer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -502,6 +505,7 @@ impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
             payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
             payment_secret: c.payment_secret.to_vec(), // Rule #2 for type secret
             expires_at: c.expires_at, // Rule #2 for type u64
+            created_index: c.created_index, // Rule #2 for type u64?
             warning_capacity: c.warning_capacity, // Rule #2 for type string?
             warning_offline: c.warning_offline, // Rule #2 for type string?
             warning_deadends: c.warning_deadends, // Rule #2 for type string?
@@ -548,6 +552,8 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             bolt12: c.bolt12, // Rule #2 for type string?
             local_offer_id: c.local_offer_id.map(|v| v.to_vec()), // Rule #2 for type hash?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
+            created_index: c.created_index, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
@@ -735,6 +741,8 @@ impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
+            created_index: c.created_index, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
@@ -755,6 +763,8 @@ impl From<responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
+            created_index: c.created_index, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?

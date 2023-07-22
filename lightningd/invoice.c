@@ -79,6 +79,9 @@ static void json_add_invoice_fields(struct json_stream *response,
 					 tinv->invreq_payer_note,
 					 tal_bytelen(tinv->invreq_payer_note));
 	}
+	json_add_u64(response, "created_index", inv->created_index);
+	if (inv->updated_index)
+		json_add_u64(response, "updated_index", inv->updated_index);
 }
 
 static void json_add_invoice(struct json_stream *response,
@@ -882,6 +885,7 @@ invoice_complete(struct invoice_info *info,
 	json_add_string(response, "bolt11", details->invstring);
 	invoice_secret(&details->r, &payment_secret);
 	json_add_secret(response, "payment_secret", &payment_secret);
+	json_add_u64(response, "created_index", details->created_index);
 
 	notify_invoice_creation(info->cmd->ld, info->b11->msat,
 				info->payment_preimage, info->label);

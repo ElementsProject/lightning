@@ -7,6 +7,7 @@
     "description",
     "payment_hash",
     "status",
+    "created_index",
     "expires_at"
   ],
   "properties": {
@@ -42,6 +43,16 @@
     "bolt12": {
       "type": "string",
       "description": "the BOLT12 string"
+    },
+    "created_index": {
+      "type": "u64",
+      "added": "v23.08",
+      "description": "1-based index indicating order this invoice was created in"
+    },
+    "updated_index": {
+      "type": "u64",
+      "added": "v23.08",
+      "description": "1-based index indicating order this invoice was changed (only present if it has changed since creation)"
     }
   },
   "allOf": [
@@ -73,6 +84,8 @@
           "amount_msat": {},
           "bolt12": {},
           "expires_at": {},
+          "created_index": {},
+          "updated_index": {},
           "pay_index": {
             "type": "u64",
             "description": "Unique incrementing index for this payment"

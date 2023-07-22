@@ -205,6 +205,8 @@ The following tables are currently supported:
   - `bolt12` (type `string`, sqltype `TEXT`)
   - `local_offer_id` (type `hash`, sqltype `BLOB`)
   - `invreq_payer_note` (type `string`, sqltype `TEXT`)
+  - `created_index` (type `u64`, sqltype `INTEGER`)
+  - `updated_index` (type `u64`, sqltype `INTEGER`)
   - `pay_index` (type `u64`, sqltype `INTEGER`)
   - `amount_received_msat` (type `msat`, sqltype `INTEGER`)
   - `paid_at` (type `u64`, sqltype `INTEGER`)
@@ -511,4 +513,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:4cfeeb2855f92a12d6a52d912a58df7573fc34f1f17a190bba26e46695f54de6)
+[comment]: # ( SHA256STAMP:094d94f4d2cfd8e8bdc99be8b692100d3cbd70ab3c297ed8e191c8d4a0f9b6a7)

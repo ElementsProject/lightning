@@ -2503,6 +2503,8 @@ pub mod responses {
 	    pub description: String,
 	    pub expires_at: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pay_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_received_msat: Option<Amount>,
@@ -2648,6 +2650,10 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    pub payment_hash: Sha256,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    // Path `DelInvoice.status`
 	    pub status: DelinvoiceStatus,
 	    pub expires_at: u64,
@@ -2674,6 +2680,8 @@ pub mod responses {
 	    pub payment_hash: Sha256,
 	    pub payment_secret: Secret,
 	    pub expires_at: u64,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_capacity: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -2776,6 +2784,10 @@ pub mod responses {
 	    pub local_offer_id: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pay_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3175,6 +3187,10 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pay_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_received_msat: Option<Amount>,
@@ -3238,6 +3254,10 @@ pub mod responses {
 	    pub bolt11: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pay_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

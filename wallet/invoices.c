@@ -111,7 +111,8 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 
 	dtl->features = db_col_arr(dtl, stmt, "features", u8);
 	dtl->local_offer_id = db_col_optional(dtl, stmt, "local_offer_id", sha256);
-
+	dtl->created_index = db_col_u64(stmt, "id");
+	dtl->updated_index = db_col_u64(stmt, "updated_index");
 	return dtl;
 }
 
@@ -706,6 +707,8 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 					       ", description"
 					       ", features"
 					       ", local_offer_id"
+					       ", id"
+					       ", updated_index"
 					       " FROM invoices"
 					       " WHERE id = ?;"));
 	db_bind_u64(stmt, inv_dbid);

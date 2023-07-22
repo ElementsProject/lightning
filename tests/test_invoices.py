@@ -727,6 +727,8 @@ def test_wait_invoices(node_factory, executor):
                        'details': {'label': 'invlabel',
                                    'bolt11': inv['bolt11'],
                                    'status': 'unpaid'}}
+    assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['created_index'] == 1
+    assert 'updated_index' not in only_one(l2.rpc.listinvoices('invlabel')['invoices'])
 
     # Second returns instantly, without any details.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
@@ -745,6 +747,8 @@ def test_wait_invoices(node_factory, executor):
     assert waitres == {'subsystem': 'invoices',
                        'updated': 1,
                        'details': {'label': 'invlabel', 'status': 'paid'}}
+    assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['created_index'] == 1
+    assert only_one(l2.rpc.listinvoices('invlabel')['invoices'])['updated_index'] == 1
 
     # Second returns instantly, without any details.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
@@ -760,6 +764,9 @@ def test_wait_invoices(node_factory, executor):
                        # FIXME: fill in details!
                        #  {'label': 'invlabel2', 'bolt11': inv2['bolt11'], 'status': 'expired'}
                        'details': {'status': 'expired'}}
+
+    assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['created_index'] == 2
+    assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['updated_index'] == 2
 
     # Now for deletions
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 0})
@@ -804,6 +811,8 @@ def test_wait_invoices(node_factory, executor):
                        'details': {'label': 'invlabel2',
                                    'bolt11': inv['bolt11'],
                                    'status': 'unpaid'}}
+    assert only_one(l2.rpc.listinvoices('invlabel2')['invoices'])['created_index'] == 3
+    assert 'updated_index' not in only_one(l2.rpc.listinvoices('invlabel2')['invoices'])
 
     # Deleting a description causes updated to fire!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 3})
@@ -883,6 +892,14 @@ def test_listinvoices_index(node_factory, executor):
 
     # They're all still there!
     assert set([inv['label'] for inv in l2.rpc.listinvoices(index='updated')['invoices']]) == set([str(i) for i in range(1, 100)])
+
+    # index values are correct.
+    for inv in l2.rpc.listinvoices(index='updated')['invoices']:
+        assert inv['created_index'] == int(inv['label'])
+        if int(inv['label']) in range(70, 60, -1):
+            assert inv['updated_index'] == 70 - int(inv['label']) + 1
+        else:
+            assert 'updated_index' not in inv
 
     # Last 10 are in a defined order:
     assert [inv['label'] for inv in l2.rpc.listinvoices(index='updated', start=1)['invoices']] == [str(i) for i in range(70, 60, -1)]

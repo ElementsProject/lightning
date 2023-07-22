@@ -368,6 +368,7 @@
             "CreateInvoice.amount_received_msat": 10,
             "CreateInvoice.bolt11": 2,
             "CreateInvoice.bolt12": 3,
+            "CreateInvoice.created_index": 16,
             "CreateInvoice.description": 7,
             "CreateInvoice.expires_at": 8,
             "CreateInvoice.invreq_payer_note": 15,
@@ -574,6 +575,7 @@
             "DelInvoice.amount_msat": 4,
             "DelInvoice.bolt11": 2,
             "DelInvoice.bolt12": 3,
+            "DelInvoice.created_index": 12,
             "DelInvoice.description": 5,
             "DelInvoice.expires_at": 8,
             "DelInvoice.invreq_payer_note": 11,
@@ -581,7 +583,8 @@
             "DelInvoice.local_offer_id": 9,
             "DelInvoice.payer_note": 10,
             "DelInvoice.payment_hash": 6,
-            "DelInvoice.status": 7
+            "DelInvoice.status": 7,
+            "DelInvoice.updated_index": 13
         },
         "DisconnectRequest": {
             "Disconnect.force": 2,
@@ -764,6 +767,7 @@
         },
         "InvoiceResponse": {
             "Invoice.bolt11": 1,
+            "Invoice.created_index": 10,
             "Invoice.expires_at": 4,
             "Invoice.payment_hash": 2,
             "Invoice.payment_secret": 3,
@@ -926,6 +930,7 @@
             "ListInvoices.invoices[].amount_received_msat": 12,
             "ListInvoices.invoices[].bolt11": 7,
             "ListInvoices.invoices[].bolt12": 8,
+            "ListInvoices.invoices[].created_index": 16,
             "ListInvoices.invoices[].description": 2,
             "ListInvoices.invoices[].expires_at": 5,
             "ListInvoices.invoices[].invreq_payer_note": 15,
@@ -936,7 +941,8 @@
             "ListInvoices.invoices[].payer_note": 10,
             "ListInvoices.invoices[].payment_hash": 3,
             "ListInvoices.invoices[].payment_preimage": 14,
-            "ListInvoices.invoices[].status": 4
+            "ListInvoices.invoices[].status": 4,
+            "ListInvoices.invoices[].updated_index": 17
         },
         "ListinvoicesRequest": {
             "ListInvoices.index": 5,
@@ -1513,6 +1519,7 @@
             "WaitAnyInvoice.amount_received_msat": 10,
             "WaitAnyInvoice.bolt11": 7,
             "WaitAnyInvoice.bolt12": 8,
+            "WaitAnyInvoice.created_index": 13,
             "WaitAnyInvoice.description": 2,
             "WaitAnyInvoice.expires_at": 5,
             "WaitAnyInvoice.label": 1,
@@ -1520,7 +1527,8 @@
             "WaitAnyInvoice.pay_index": 9,
             "WaitAnyInvoice.payment_hash": 3,
             "WaitAnyInvoice.payment_preimage": 12,
-            "WaitAnyInvoice.status": 4
+            "WaitAnyInvoice.status": 4,
+            "WaitAnyInvoice.updated_index": 14
         },
         "WaitinvoiceRequest": {
             "WaitInvoice.label": 1
@@ -1530,6 +1538,7 @@
             "WaitInvoice.amount_received_msat": 10,
             "WaitInvoice.bolt11": 7,
             "WaitInvoice.bolt12": 8,
+            "WaitInvoice.created_index": 13,
             "WaitInvoice.description": 2,
             "WaitInvoice.expires_at": 5,
             "WaitInvoice.label": 1,
@@ -1537,7 +1546,8 @@
             "WaitInvoice.pay_index": 9,
             "WaitInvoice.payment_hash": 3,
             "WaitInvoice.payment_preimage": 12,
-            "WaitInvoice.status": 4
+            "WaitInvoice.status": 4,
+            "WaitInvoice.updated_index": 14
         },
         "WaitsendpayRequest": {
             "WaitSendPay.groupid": 4,
@@ -1725,6 +1735,10 @@
         },
         "CreateInvoice.bolt12": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.created_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "CreateInvoice.description": {
@@ -2483,6 +2497,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "DelInvoice.created_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "DelInvoice.desconly": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -2513,6 +2531,10 @@
         },
         "DelInvoice.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DelInvoice.updated_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "Disconnect": {
@@ -3037,6 +3059,10 @@
         },
         "Invoice.cltv": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Invoice.created_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "Invoice.deschashonly": {
@@ -3579,6 +3605,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListInvoices.invoices[].created_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "ListInvoices.invoices[].description": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -3617,6 +3647,10 @@
         },
         "ListInvoices.invoices[].status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.invoices[].updated_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListInvoices.invstring": {
@@ -5315,6 +5349,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "WaitAnyInvoice.created_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "WaitAnyInvoice.description": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5355,6 +5393,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "WaitAnyInvoice.updated_index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "WaitInvoice": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -5373,6 +5415,10 @@
         },
         "WaitInvoice.bolt12": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.created_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "WaitInvoice.description": {
@@ -5405,6 +5451,10 @@
         },
         "WaitInvoice.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.updated_index": {
+            "added": "v23.08",
             "deprecated": false
         },
         "WaitSendPay": {

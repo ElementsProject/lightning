@@ -4,6 +4,7 @@
   "additionalProperties": false,
   "required": [
     "label",
+    "created_index",
     "payment_hash",
     "status",
     "description",
@@ -46,6 +47,11 @@
     "expires_at": {
       "type": "u64",
       "description": "UNIX timestamp of when invoice expires (or expired)"
+    },
+    "created_index": {
+      "type": "u64",
+      "added": "v23.08",
+      "description": "1-based index indicating order this invoice was created in"
     },
     "pay_index": {
       "type": "u64",

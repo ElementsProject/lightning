@@ -82,6 +82,7 @@ On success, an object is returned, containing:
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **payment\_secret** (secret): the *payment\_secret* to place in the onion
 - **expires\_at** (u64): UNIX timestamp of when invoice expires
+- **created\_index** (u64): 1-based index indicating order this invoice was created in *(added v23.08)*
 
 The following warnings may also be returned:
 
@@ -119,4 +120,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:095393c4a1050a9a458eba1033162e99283019329747a66b6461a5bb13fa7a2f)
+[comment]: # ( SHA256STAMP:ffe488e123bad4592e4083c5eaaad0c01194d6ecc9fe14ce9a6ffd488aae8129)

@@ -29,12 +29,14 @@ On success, an object is returned, containing:
 
 - **label** (string): Unique label given at creation time
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
+- **created\_index** (u64): 1-based index indicating order this invoice was created in *(added v23.08)*
 - **status** (string): State of invoice (one of "paid", "expired", "unpaid")
 - **expires\_at** (u64): UNIX timestamp when invoice expires (or expired)
 - **bolt11** (string, optional): BOLT11 string
 - **bolt12** (string, optional): BOLT12 string
 - **amount\_msat** (msat, optional): the amount required to pay this invoice
 - **description** (string, optional): description used in the invoice
+- **updated\_index** (u64, optional): 1-based index indicating order this invoice was changed (only present if it has changed since creation) *(added v23.08)*
 
 If **bolt12** is present:
 
@@ -81,4 +83,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f29100ae7e0ad26fee559e175e104a9e29e1a2cd6917c4072d521ce0600d1656)
+[comment]: # ( SHA256STAMP:4b9c2449a664f955e2155656eaef44f40c36cf84f1fc2890812676a3216b666b)

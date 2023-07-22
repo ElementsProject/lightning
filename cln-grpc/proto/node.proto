@@ -490,6 +490,7 @@ message CreateinvoiceResponse {
 	CreateinvoiceStatus status = 6;
 	string description = 7;
 	uint64 expires_at = 8;
+	optional uint64 created_index = 16;
 	optional uint64 pay_index = 9;
 	optional Amount amount_received_msat = 10;
 	optional uint64 paid_at = 11;
@@ -582,6 +583,8 @@ message DelinvoiceResponse {
 	optional Amount amount_msat = 4;
 	optional string description = 5;
 	bytes payment_hash = 6;
+	optional uint64 created_index = 12;
+	optional uint64 updated_index = 13;
 	DelinvoiceStatus status = 7;
 	uint64 expires_at = 8;
 	optional bytes local_offer_id = 9;
@@ -604,6 +607,7 @@ message InvoiceResponse {
 	bytes payment_hash = 2;
 	bytes payment_secret = 3;
 	uint64 expires_at = 4;
+	optional uint64 created_index = 10;
 	optional string warning_capacity = 5;
 	optional string warning_offline = 6;
 	optional string warning_deadends = 7;
@@ -662,6 +666,8 @@ message ListinvoicesInvoices {
 	optional string bolt12 = 8;
 	optional bytes local_offer_id = 9;
 	optional string invreq_payer_note = 15;
+	optional uint64 created_index = 16;
+	optional uint64 updated_index = 17;
 	optional uint64 pay_index = 11;
 	optional Amount amount_received_msat = 12;
 	optional uint64 paid_at = 13;
@@ -862,6 +868,8 @@ message WaitanyinvoiceResponse {
 	optional Amount amount_msat = 6;
 	optional string bolt11 = 7;
 	optional string bolt12 = 8;
+	optional uint64 created_index = 13;
+	optional uint64 updated_index = 14;
 	optional uint64 pay_index = 9;
 	optional Amount amount_received_msat = 10;
 	optional uint64 paid_at = 11;
@@ -886,6 +894,8 @@ message WaitinvoiceResponse {
 	optional Amount amount_msat = 6;
 	optional string bolt11 = 7;
 	optional string bolt12 = 8;
+	optional uint64 created_index = 13;
+	optional uint64 updated_index = 14;
 	optional uint64 pay_index = 9;
 	optional Amount amount_received_msat = 10;
 	optional uint64 paid_at = 11;

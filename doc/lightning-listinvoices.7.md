@@ -32,12 +32,14 @@ On success, an object containing **invoices** is returned.  It is an array of ob
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): Whether it's paid, unpaid or unpayable (one of "unpaid", "paid", "expired")
 - **expires\_at** (u64): UNIX timestamp of when it will become / became unpayable
+- **created\_index** (u64): 1-based index indicating order this invoice was created in *(added v23.08)*
 - **description** (string, optional): description used in the invoice
 - **amount\_msat** (msat, optional): the amount required to pay this invoice
 - **bolt11** (string, optional): the BOLT11 string (always present unless *bolt12* is)
 - **bolt12** (string, optional): the BOLT12 string (always present unless *bolt11* is)
 - **local\_offer\_id** (hash, optional): the *id* of our offer which created this invoice (**experimental-offers** only).
 - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice (**experimental-offers** only).
+- **updated\_index** (u64, optional): 1-based index indicating order this invoice was changed (only present if it has changed since creation) *(added v23.08)*
 
 If **status** is "paid":
 
@@ -63,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:7b1b70f04245395de28eb378e364537920e2f690db3c97ee638cefd282712dca)
+[comment]: # ( SHA256STAMP:e698b0e345ed4912b7699b43f2571a4cc3bb4ae909efeb631b02dd94a87e765c)
