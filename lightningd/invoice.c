@@ -315,7 +315,8 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	}
 
 	/* Paid or expired in the meantime. */
-	if (!invoices_resolve(ld->wallet->invoices, inv_dbid, payload->msat)) {
+	if (!invoices_resolve(ld->wallet->invoices, inv_dbid, payload->msat,
+			      payload->label)) {
 		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
 							 NULL, ld, payload->set->htlcs[0])));
 		return;
