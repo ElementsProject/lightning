@@ -197,6 +197,7 @@ static void retry_bcli(void *cb_arg)
 	tal_del_destructor(bcli, destroy_bcli);
 
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
+	tal_free(bcli->output);
 	next_bcli(bcli->prio);
 }
 
