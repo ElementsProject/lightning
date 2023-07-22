@@ -963,6 +963,7 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE runes_blacklist (start_index BIGINT, end_index BIGINT);"), NULL},
     {SQL("ALTER TABLE channels ADD ignore_fee_limits INTEGER DEFAULT 0;"), NULL},
     {NULL, migrate_initialize_wait_indexes},
+    {SQL("ALTER TABLE invoices ADD updated_index BIGINT DEFAULT 0"), NULL},
 };
 
 /**

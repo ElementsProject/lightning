@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/tal/tal.h>
+#include <wallet/wallet.h>
 
 struct amount_msat;
 struct db;
@@ -221,4 +222,19 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 					     struct invoices *invoices,
 					     u64 inv_dbid);
 
+/* Returns the id to use for the new invoice, and increments it. */
+u64 invoice_index_created(struct lightningd *ld,
+			  enum invoice_status state,
+			  const struct json_escape *label,
+			  const char *invstring);
+
+/* Returns the current updated_index, and increments it. */
+u64 invoice_index_update_status(struct lightningd *ld,
+				const struct json_escape *label,
+				enum invoice_status state);
+
+void invoice_index_deleted(struct lightningd *ld,
+			   enum invoice_status state,
+			   const struct json_escape *label,
+			   const char *invstring);
 #endif /* LIGHTNING_WALLET_INVOICES_H */
