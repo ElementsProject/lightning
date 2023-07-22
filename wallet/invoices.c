@@ -470,11 +470,24 @@ void invoices_delete_expired(struct invoices *invoices,
 }
 
 struct db_stmt *invoices_first(struct invoices *invoices,
+			       const enum wait_index *listindex,
+			       u64 liststart,
 			       u64 *inv_dbid)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT id FROM invoices ORDER by id;"));
+	if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+		stmt = db_prepare_v2(invoices->wallet->db,
+				     SQL("SELECT id FROM invoices"
+					 " WHERE updated_index >= ?"
+					 " ORDER BY updated_index;"));
+	} else {
+		stmt = db_prepare_v2(invoices->wallet->db,
+				     SQL("SELECT id FROM invoices"
+					 " WHERE id >= ?"
+					 " ORDER BY id;"));
+	}
+	db_bind_u64(stmt, liststart);
 	db_query_prepared(stmt);
 
 	return invoices_next(invoices, stmt, inv_dbid);

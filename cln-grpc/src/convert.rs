@@ -1823,6 +1823,8 @@ impl From<requests::ListinvoicesRequest> for pb::ListinvoicesRequest {
             invstring: c.invstring, // Rule #2 for type string?
             payment_hash: c.payment_hash.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             offer_id: c.offer_id, // Rule #2 for type string?
+            index: c.index.map(|v| v as i32),
+            start: c.start, // Rule #2 for type u64?
         }
     }
 }
@@ -2499,6 +2501,8 @@ impl From<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
             invstring: c.invstring, // Rule #1 for type string?
             payment_hash: c.payment_hash.map(|v| hex::encode(v)), // Rule #1 for type hex?
             offer_id: c.offer_id, // Rule #1 for type string?
+            index: c.index.map(|v| v.try_into().unwrap()),
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }

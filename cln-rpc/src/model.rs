@@ -583,6 +583,34 @@ pub mod requests {
 	    type Response = super::responses::ListdatastoreResponse;
 	}
 
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListinvoicesIndex {
+	    #[serde(rename = "created")]
+	    CREATED,
+	    #[serde(rename = "updated")]
+	    UPDATED,
+	}
+
+	impl TryFrom<i32> for ListinvoicesIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListinvoicesIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListinvoicesIndex::CREATED),
+	    1 => Ok(ListinvoicesIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListinvoicesIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListinvoicesIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListinvoicesIndex::CREATED => "CREATED",
+	            ListinvoicesIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListinvoicesRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -593,6 +621,10 @@ pub mod requests {
 	    pub payment_hash: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListinvoicesIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
 	}
 
 	impl From<ListinvoicesRequest> for Request {

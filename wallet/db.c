@@ -964,6 +964,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD ignore_fee_limits INTEGER DEFAULT 0;"), NULL},
     {NULL, migrate_initialize_wait_indexes},
     {SQL("ALTER TABLE invoices ADD updated_index BIGINT DEFAULT 0"), NULL},
+    {SQL("CREATE INDEX invoice_update_idx ON invoices (updated_index)"), NULL},
 };
 
 /**

@@ -399,6 +399,8 @@ bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 { fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
 /* Generated stub for invoices_first */
 struct db_stmt *invoices_first(struct invoices *invoices UNNEEDED,
+			       const enum wait_index *listindex UNNEEDED,
+			       u64 liststart UNNEEDED,
 			       u64 *inv_dbid UNNEEDED)
 { fprintf(stderr, "invoices_first called!\n"); abort(); }
 /* Generated stub for invoices_get_details */
@@ -720,6 +722,12 @@ struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 					    const jsmntok_t *tok UNNEEDED,
 					    const char **str UNNEEDED)
 { fprintf(stderr, "param_escaped_string called!\n"); abort(); }
+/* Generated stub for param_index */
+struct command_result *param_index(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				   const char *buffer UNNEEDED,
+				   const jsmntok_t *tok UNNEEDED,
+				   enum wait_index **index UNNEEDED)
+{ fprintf(stderr, "param_index called!\n"); abort(); }
 /* Generated stub for param_invstring */
 struct command_result *param_invstring(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
