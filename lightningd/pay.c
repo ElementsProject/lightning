@@ -1117,39 +1117,27 @@ send_payment_core(struct lightningd *ld,
 	}
 
 	/* If hout fails, payment should be freed too. */
-	payment = tal(hout, struct wallet_payment);
-	payment->id = 0;
-	payment->payment_hash = *rhash;
-	payment->partid = partid;
-	payment->groupid = group;
-	payment->destination = tal_dup_or_null(payment, struct node_id,
-					       destination);
-	payment->status = PAYMENT_PENDING;
-	payment->msatoshi = msat;
-	payment->msatoshi_sent = first_hop->amount;
-	payment->total_msat = total_msat;
-	payment->timestamp = time_now().ts.tv_sec;
-	payment->payment_preimage = NULL;
-	payment->path_secrets = tal_steal(payment, path_secrets);
-	payment->route_nodes = tal_steal(payment, route_nodes);
-	payment->route_channels = tal_steal(payment, route_channels);
-	payment->failonion = NULL;
-	payment->completed_at = NULL;
-
-	if (label != NULL)
-		payment->label = tal_strdup(payment, label);
-	else
-		payment->label = NULL;
-	if (invstring != NULL)
-		payment->invstring = tal_strdup(payment, invstring);
-	else
-		payment->invstring = NULL;
-	if (description != NULL)
-		payment->description = tal_strdup(payment, description);
-	else
-		payment->description = NULL;
-	payment->local_invreq_id = tal_dup_or_null(payment, struct sha256,
-						   local_invreq_id);
+	payment = wallet_payment_new(hout,
+				     0, /* ID is not in db yet */
+				     time_now().ts.tv_sec,
+				     NULL,
+				     rhash,
+				     partid,
+				     group,
+				     PAYMENT_PENDING,
+				     destination,
+				     msat,
+				     first_hop->amount,
+				     total_msat,
+				     NULL,
+				     take(path_secrets),
+				     take(route_nodes),
+				     take(route_channels),
+				     invstring,
+				     label,
+				     description,
+				     NULL,
+				     local_invreq_id);
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
