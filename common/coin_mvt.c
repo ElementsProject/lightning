@@ -98,11 +98,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 {
 	struct chain_coin_mvt *mvt = tal(ctx, struct chain_coin_mvt);
 
-	if (account_name)
-		mvt->account_name = tal_strdup(mvt, account_name);
-	else
-		mvt->account_name = NULL;
-
+	mvt->account_name = tal_strdup_or_null(mvt, account_name);
 	mvt->tx_txid = tx_txid;
 	mvt->outpoint = outpoint;
 	mvt->originating_acct = NULL;
@@ -393,11 +389,8 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
 	mvt->account_id = tal_strdup(mvt, chain_mvt->account_name);
-	if (chain_mvt->originating_acct)
-		mvt->originating_acct =
-			tal_strdup(mvt, chain_mvt->originating_acct);
-	else
-		mvt->originating_acct = NULL;
+	mvt->originating_acct =
+		tal_strdup_or_null(mvt, chain_mvt->originating_acct);
 	mvt->hrp_name = tal_strdup(mvt, hrp_name);
 	mvt->type = CHAIN_MVT;
 

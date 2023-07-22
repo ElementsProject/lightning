@@ -13,10 +13,7 @@ struct configvar *configvar_new(const tal_t *ctx,
 				const char *configline)
 {
 	struct configvar *cv = tal(ctx, struct configvar);
-	if (file)
-		cv->file = tal_strdup(cv, file);
-	else
-		cv->file = NULL;
+	cv->file = tal_strdup_or_null(cv, file);
 	cv->src = src;
 	cv->linenum = linenum;
 	cv->configline = tal_strdup(cv, configline);

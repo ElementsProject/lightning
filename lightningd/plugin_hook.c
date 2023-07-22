@@ -262,10 +262,7 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		ph_req->cb_arg = tal_steal(ph_req, cb_arg);
 		ph_req->db = ld->wallet->db;
 		ph_req->ld = ld;
-		if (cmd_id)
-			ph_req->cmd_id = tal_strdup(ph_req, cmd_id);
-		else
-			ph_req->cmd_id = NULL;
+		ph_req->cmd_id = tal_strdup_or_null(ph_req, cmd_id);
 
 		list_head_init(&ph_req->call_chain);
 		for (size_t i=0; i<tal_count(hook->hooks); i++) {
