@@ -1380,7 +1380,10 @@ static struct command_result *json_delinvoice(struct command *cmd,
 		}
 		details->description = tal_free(details->description);
 	} else {
-		if (!invoices_delete(wallet->invoices, inv_dbid)) {
+		if (!invoices_delete(wallet->invoices, inv_dbid,
+				     details->state,
+				     details->label,
+				     details->invstring)) {
 			log_broken(cmd->ld->log,
 				   "Error attempting to remove invoice %"PRIu64,
 				   inv_dbid);
