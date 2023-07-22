@@ -357,17 +357,22 @@ void db_col_node_id(struct db_stmt *stmt, const char *colname, struct node_id *d
 	memcpy(dest->k, db_column_blob(stmt, col), sizeof(dest->k));
 }
 
+/* We don't assume sizeof(struct node_id) == sizeof(struct node_id.k),
+ * otherwise this would simply be a call to db_col_arr!
+ * Thanks ARM! */
 struct node_id *db_col_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
-				      const char *colname)
+				   const char *colname)
 {
 	size_t col = db_query_colnum(stmt, colname);
 	struct node_id *ret;
 	size_t n = db_column_bytes(stmt, col) / sizeof(ret->k);
 	const u8 *arr = db_column_blob(stmt, col);
 	assert(n * sizeof(ret->k) == (size_t)db_column_bytes(stmt, col));
-	ret = tal_arr(ctx, struct node_id, n);
 
-	db_column_null_warn(stmt, colname, col);
+	if (db_column_is_null(stmt, col))
+		return NULL;
+
+	ret = tal_arr(ctx, struct node_id, n);
 	for (size_t i = 0; i < n; i++)
 		memcpy(ret[i].k, arr + i * sizeof(ret[i].k), sizeof(ret[i].k));
 
@@ -410,7 +415,9 @@ db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *
 	size_t len;
 	struct short_channel_id *ret;
 
-	db_column_null_warn(stmt, colname, col);
+	if (db_column_is_null(stmt, col))
+		return NULL;
+
 	ser = db_column_blob(stmt, col);
 	len = db_column_bytes(stmt, col);
 	ret = tal_arr(ctx, struct short_channel_id, 0);
