@@ -732,16 +732,46 @@ def test_wait_invoices(node_factory, executor):
     assert waitres == {'subsystem': 'invoices',
                        'created': 1}
 
-    # Deleting correctly produces 2, not another 1!
-    l2.rpc.delinvoice('invlabel', 'unpaid')
+    # Now for updates
+    waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 0})
+    assert waitres == {'subsystem': 'invoices',
+                       'updated': 0}
 
-    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 2})
+    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
     time.sleep(1)
-    inv = l2.rpc.invoice(42, 'invlabel', 'invdesc2')
+    l1.rpc.pay(inv['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
-                       'created': 2,
-                       'details': {'label': 'invlabel',
+                       'updated': 1,
+                       # FIXME: fill in details!
+                       #  {'label': 'invlabel', 'bolt11': inv['bolt11'], 'status': 'paid'}
+                       'details': {'status': 'paid'}}
+
+    # Second returns instantly, without any details.
+    waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
+    assert waitres == {'subsystem': 'invoices',
+                       'updated': 1}
+
+    # Now check expiry works.
+    l2.rpc.invoice(42, 'invlabel2', 'invdesc2', expiry=2)
+    waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 2})
+
+    assert waitres == {'subsystem': 'invoices',
+                       'updated': 2,
+                       # FIXME: fill in details!
+                       #  {'label': 'invlabel2', 'bolt11': inv2['bolt11'], 'status': 'expired'}
+                       'details': {'status': 'expired'}}
+
+    # Deleting correctly produces 3, not another 2!
+    l2.rpc.delinvoice('invlabel2', 'expired')
+
+    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
+    time.sleep(1)
+    inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2')
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'invoices',
+                       'created': 3,
+                       'details': {'label': 'invlabel2',
                                    'bolt11': inv['bolt11'],
                                    'status': 'unpaid'}}
 
