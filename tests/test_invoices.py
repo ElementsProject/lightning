@@ -744,9 +744,7 @@ def test_wait_invoices(node_factory, executor):
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'updated': 1,
-                       # FIXME: fill in details!
-                       #  {'label': 'invlabel', 'bolt11': inv['bolt11'], 'status': 'paid'}
-                       'details': {'status': 'paid'}}
+                       'details': {'label': 'invlabel', 'status': 'paid'}}
 
     # Second returns instantly, without any details.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})

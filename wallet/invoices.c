@@ -545,7 +545,8 @@ static void maybe_mark_offer_used(struct db *db, u64 inv_dbid)
 
 bool invoices_resolve(struct invoices *invoices,
 		      u64 inv_dbid,
-		      struct amount_msat received)
+		      struct amount_msat received,
+		      const struct json_escape *label)
 {
 	struct db_stmt *stmt;
 	s64 pay_index;
@@ -571,10 +572,9 @@ bool invoices_resolve(struct invoices *invoices,
 	db_bind_u64(stmt, pay_index);
 	db_bind_amount_msat(stmt, &received);
 	db_bind_u64(stmt, paid_timestamp);
-	/* FIXME: populate label */
 	db_bind_u64(stmt,
 		    invoice_index_update_status(invoices->wallet->ld,
-						NULL, PAID));
+						label, PAID));
 	db_bind_u64(stmt, inv_dbid);
 	db_exec_prepared_v2(take(stmt));
 
