@@ -1933,6 +1933,45 @@ static void payment_notify_failure(struct payment *p, const char *error_message)
 	plugin_notification_end(p->plugin, n);
 }
 
+/* Code shared by selfpay fast-path: populate JSON output for successful
+ * payment, and send pay_success notification. */
+void json_add_payment_success(struct json_stream *js,
+			      struct payment *p,
+			      const struct preimage *preimage,
+			      const struct payment_tree_result *result)
+{
+	struct json_stream *n;
+	struct payment *root = payment_root(p);
+
+	json_add_node_id(js, "destination", p->destination);
+	json_add_sha256(js, "payment_hash", p->payment_hash);
+	json_add_timeabs(js, "created_at", p->start_time);
+	if (result)
+		json_add_num(js, "parts", result->attempts);
+	else
+		json_add_num(js, "parts", 1);
+
+	json_add_amount_msat(js, "amount_msat", p->amount);
+	if (result)
+		json_add_amount_msat(js, "amount_sent_msat", result->sent);
+	else
+		json_add_amount_msat(js, "amount_sent_msat", p->amount);
+
+	if (result && result->leafstates != PAYMENT_STEP_SUCCESS)
+		json_add_string(js, "warning_partial_completion",
+				"Some parts of the payment are not yet "
+				"completed, but we have the confirmation "
+				"from the recipient.");
+	json_add_preimage(js, "payment_preimage", preimage);
+	json_add_string(js, "status", "complete");
+
+	n = plugin_notification_start(p->plugin, "pay_success");
+	json_add_sha256(n, "payment_hash", p->payment_hash);
+	if (root->invstring != NULL)
+		json_add_string(n, "bolt11", root->invstring);
+	plugin_notification_end(p->plugin, n);
+}
+
 /* This function is called whenever a payment ends up in a final state, or all
  * leafs in the subtree rooted in the payment are all in a final state. It is
  * called only once, and it is guaranteed to be called in post-order
@@ -1943,8 +1982,6 @@ static void payment_finished(struct payment *p)
 	struct json_stream *ret;
 	struct command *cmd = p->cmd;
 	const char *msg;
-	struct json_stream *n;
-	struct payment *root = payment_root(p);
 
 	/* Either none of the leaf attempts succeeded yet, or we have a
 	 * preimage. */
@@ -1969,30 +2006,8 @@ static void payment_finished(struct payment *p)
 				p->on_payment_success(p);
 
 			ret = jsonrpc_stream_success(cmd);
-			json_add_node_id(ret, "destination", p->destination);
-			json_add_sha256(ret, "payment_hash", p->payment_hash);
-			json_add_timeabs(ret, "created_at", p->start_time);
-			json_add_num(ret, "parts", result.attempts);
-
-			json_add_amount_msat(ret, "amount_msat", p->amount);
-			json_add_amount_msat(ret, "amount_sent_msat",
-					     result.sent);
-
-			if (result.leafstates != PAYMENT_STEP_SUCCESS)
-				json_add_string(
-				    ret, "warning_partial_completion",
-				    "Some parts of the payment are not yet "
-				    "completed, but we have the confirmation "
-				    "from the recipient.");
-			json_add_preimage(ret, "payment_preimage", result.preimage);
-
-			json_add_string(ret, "status", "complete");
-
-			n = plugin_notification_start(p->plugin, "pay_success");
-			json_add_sha256(n, "payment_hash", p->payment_hash);
-			if (root->invstring != NULL)
-				json_add_string(n, "bolt11", root->invstring);
-			plugin_notification_end(p->plugin, n);
+			json_add_payment_success(ret, p, result.preimage,
+						 &result);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			p->cmd = NULL;
