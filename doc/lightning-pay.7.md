@@ -119,7 +119,7 @@ The following error codes may occur:
 - 201: Already paid with this *hash* using different amount or
 destination.
 - 203: Permanent failure at destination. The *data* field of the error
-will be routing failure object.
+will be routing failure object (except for self-payment, which currently returns the error directly from lightning-sendpay(7)).
 - 205: Unable to find a route.
 - 206: Route too expensive. Either the fee or the needed total
 locktime for the route exceeds your *maxfeepercent* or *maxdelay*

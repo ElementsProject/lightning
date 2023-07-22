@@ -484,6 +484,12 @@ void payment_abort(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
 
+/* Add fields for successful payment: result can be NULL for selfpay */
+void json_add_payment_success(struct json_stream *js,
+			      struct payment *p,
+			      const struct preimage *preimage,
+			      const struct payment_tree_result *result);
+
 /* For special effects, like inspecting your own routes. */
 struct gossmap *get_gossmap(struct plugin *plugin);
 

@@ -799,6 +799,55 @@ static void on_payment_failure(struct payment *payment)
 	}
 }
 
+static struct command_result *selfpay_success(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      struct payment *p)
+{
+	struct json_stream *ret = jsonrpc_stream_success(cmd);
+	struct preimage preimage;
+	const char *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{payment_preimage:%}",
+			JSON_SCAN(json_to_preimage, &preimage));
+	if (err)
+		plugin_err(p->plugin,
+			   "selfpay didn't have payment_preimage? %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	json_add_payment_success(ret, p, &preimage, NULL);
+	return command_finished(cmd, ret);
+}
+
+static struct command_result *selfpay(struct command *cmd, struct payment *p)
+{
+	struct out_req *req;
+
+	/* This "struct payment" simply gets freed once command is done. */
+	tal_steal(cmd, p);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+				    selfpay_success,
+				    forward_error, p);
+	/* Empty route means "to-self" */
+	json_array_start(req->js, "route");
+	json_array_end(req->js);
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	if (p->label)
+		json_add_string(req->js, "label", p->label);
+	json_add_amount_msat(req->js, "amount_msat", p->amount);
+	json_add_string(req->js, "bolt11", p->invstring);
+	if (p->payment_secret)
+		json_add_secret(req->js, "payment_secret", p->payment_secret);
+	json_add_u64(req->js, "groupid", p->groupid);
+	if (p->payment_metadata)
+		json_add_hex_talarr(req->js, "payment_metadata", p->payment_metadata);
+	if (p->description)
+		json_add_string(req->js, "description", p->description);
+	return send_outreq(cmd->plugin, req);
+}
+
 /* We are interested in any prior attempts to pay this payment_hash /
  * invoice so we can set the `groupid` correctly and ensure we don't
  * already have a pending payment running. We also collect the summary
@@ -916,6 +965,11 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	p->groupid = last_group + 1;
 	p->on_payment_success = on_payment_success;
 	p->on_payment_failure = on_payment_failure;
+
+	/* Bypass everything if we're doing (synchronous) self-pay */
+	if (node_id_eq(&my_id, p->destination))
+		return selfpay(cmd, p);
+
 	payment_start(p);
 	return command_still_pending(cmd);
 }
@@ -1166,13 +1220,8 @@ static struct command_result *json_pay(struct command *cmd,
 					    "This payment blinded path fee overflows!");
 	}
 
-	if (node_id_eq(&my_id, p->destination))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "This payment is destined for ourselves. "
-				    "Self-payments are not supported");
-
 	p->local_id = &my_id;
-	p->json_buffer = tal_steal(p, buf);
+	p->json_buffer = buf;
 	p->json_toks = params;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
