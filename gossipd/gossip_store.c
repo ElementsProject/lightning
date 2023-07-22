@@ -70,7 +70,7 @@ static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
 #endif /* !HAVE_PWRITEV */
 
 static bool append_msg(int fd, const u8 *msg, u32 timestamp,
-		       bool zombie, bool spam, u64 *len)
+		       bool zombie, bool spam, bool dying, u64 *len)
 {
 	struct gossip_hdr hdr;
 	u32 msglen;
@@ -86,6 +86,8 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_RATELIMIT_BIT);
 	if (zombie)
 		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_ZOMBIE_BIT);
+	if (dying)
+		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_DYING_BIT);
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
 	hdr.timestamp = cpu_to_be32(timestamp);
 
@@ -246,7 +248,7 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 	oldlen = lseek(old_fd, SEEK_END, 0);
 	newlen = lseek(new_fd, SEEK_END, 0);
 	append_msg(old_fd, towire_gossip_store_ended(tmpctx, newlen),
-		   0, false, false, &oldlen);
+		   0, false, false, false, &oldlen);
 	close(old_fd);
 	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
 		     deleted, count);
@@ -526,7 +528,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 
 	/* Write end marker now new one is ready */
 	append_msg(gs->fd, towire_gossip_store_ended(tmpctx, len),
-		   0, false, false, &gs->len);
+		   0, false, false, false, &gs->len);
 
 	gs->count = count;
 	gs->deleted = 0;
@@ -547,19 +549,19 @@ disable:
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 		     u32 timestamp, bool zombie,
-		     bool spam, const u8 *addendum)
+		     bool spam, bool dying, const u8 *addendum)
 {
 	u64 off = gs->len;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, zombie, spam, &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, zombie, spam, dying, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
-	if (addendum && !append_msg(gs->fd, addendum, 0, false, false, &gs->len)) {
+	if (addendum && !append_msg(gs->fd, addendum, 0, false, false, false, &gs->len)) {
 		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -576,7 +578,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 	/* A local update for an unannounced channel: not broadcastable, but
 	 * otherwise the same as a normal channel_update */
 	const u8 *pupdate = towire_gossip_store_private_update(tmpctx, update);
-	return gossip_store_add(gs, pupdate, 0, false, false, NULL);
+	return gossip_store_add(gs, pupdate, 0, false, false, false, NULL);
 }
 
 void gossip_store_mark_dying(struct gossip_store *gs,
@@ -684,7 +686,7 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid)
 {
 	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, false, false, NULL);
+			 0, false, false, false, NULL);
 }
 
 static void mark_zombie(struct gossip_store *gs,
