@@ -6,6 +6,7 @@
 #include <lightningd/htlc_set.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/wait.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <wallet/wallet.h>
@@ -237,6 +238,8 @@ struct lightningd {
 	struct list_head ping_commands;
 	/* Outstanding disconnect commands. */
 	struct list_head disconnect_commands;
+	/* Outstanding wait commands */
+	struct list_head wait_commands;
 
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
@@ -264,6 +267,9 @@ struct lightningd {
 
 	/* Announce names in config as DNS records (recently BOLT 7 addition) */
 	bool announce_dns;
+
+	/* Indexes used by all the wait infra */
+	struct indexes indexes[NUM_WAIT_SUBSYSTEM];
 
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */
