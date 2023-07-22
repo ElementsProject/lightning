@@ -38,14 +38,14 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update);
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
- * @push: true if this should be sent to peers despite any timestamp filters.
- * @spam: true if this message is rate-limited and squelched to peers.
  * @zombie: true if this channel is missing a current channel_update.
+ * @spam: true if this message is rate-limited and squelched to peers.
+ * @dying: true if this message is for a dying channel.
  * @addendum: another message to append immediately after this
  *            (for appending amounts to channel_announcements for internal use).
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool zombie, bool spam,
+		     u32 timestamp, bool zombie, bool spam, bool dying,
 		     const u8 *addendum);
 
 
