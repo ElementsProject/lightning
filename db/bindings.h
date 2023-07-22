@@ -67,9 +67,13 @@ const void* db_col_blob(struct db_stmt *stmt, const char *colname);
 char *db_col_strdup(const tal_t *ctx,
 		    struct db_stmt *stmt,
 		    const char *colname);
+/* string or NULL */
+char *db_col_strdup_optional(const tal_t *ctx,
+			     struct db_stmt *stmt,
+			     const char *colname);
 void db_col_preimage(struct db_stmt *stmt, const char *colname, struct preimage *preimage);
-void db_col_amount_msat(struct db_stmt *stmt, const char *colname, struct amount_msat *msat);
-void db_col_amount_sat(struct db_stmt *stmt, const char *colname, struct amount_sat *sat);
+struct amount_msat db_col_amount_msat(struct db_stmt *stmt, const char *colname);
+struct amount_sat db_col_amount_sat(struct db_stmt *stmt, const char *colname);
 struct json_escape *db_col_json_escape(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
 void db_col_sha256(struct db_stmt *stmt, const char *colname, struct sha256 *sha);
 void db_col_sha256d(struct db_stmt *stmt, const char *colname, struct sha256_double *shad);

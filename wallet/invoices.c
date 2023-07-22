@@ -88,12 +88,17 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 
 	dtl->label = db_col_json_escape(dtl, stmt, "label");
 
-	dtl->msat = db_col_optional(dtl, stmt, "msatoshi", amount_msat);
+	if (db_col_is_null(stmt, "msatoshi"))
+		dtl->msat = NULL;
+	else {
+		dtl->msat = tal(dtl, struct amount_msat);
+		*dtl->msat = db_col_amount_msat(stmt, "msatoshi");
+	}
 	dtl->expiry_time = db_col_u64(stmt, "expiry_time");
 
 	if (dtl->state == PAID) {
 		dtl->pay_index = db_col_u64(stmt, "pay_index");
-		db_col_amount_msat(stmt, "msatoshi_received", &dtl->received);
+		dtl->received = db_col_amount_msat(stmt, "msatoshi_received");
 		dtl->paid_timestamp = db_col_u64(stmt, "paid_timestamp");
 	} else {
 		db_col_ignore(stmt, "pay_index");
@@ -102,13 +107,7 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 	}
 
 	dtl->invstring = db_col_strdup(dtl, stmt, "bolt11");
-
-	if (!db_col_is_null(stmt, "description"))
-		dtl->description = db_col_strdup(dtl, stmt,
-						 "description");
-	else
-		dtl->description = NULL;
-
+	dtl->description = db_col_strdup_optional(dtl, stmt, "description");
 	dtl->features = db_col_arr(dtl, stmt, "features", u8);
 	dtl->local_offer_id = db_col_optional(dtl, stmt, "local_offer_id", sha256);
 	dtl->created_index = db_col_u64(stmt, "id");

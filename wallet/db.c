@@ -1357,7 +1357,7 @@ migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 			continue;
 		}
 		db_col_node_id(stmt, "p.node_id", &peer_id);
-		db_col_amount_sat(stmt, "inflight.funding_satoshi", &funding_sat);
+		funding_sat = db_col_amount_sat(stmt, "inflight.funding_satoshi");
 		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
 		db_col_txid(stmt, "inflight.funding_tx_id", &funding_txid);
 
@@ -1458,7 +1458,7 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 		}
 
 		db_col_node_id(stmt, "p.node_id", &peer_id);
-		db_col_amount_sat(stmt, "c.funding_satoshi", &funding_sat);
+		funding_sat = db_col_amount_sat(stmt, "c.funding_satoshi");
 		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
 
 		get_channel_basepoints(ld, &peer_id, cdb_id,

@@ -32,9 +32,9 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 
 	e->tag = db_col_strdup(e, stmt, "e.tag");
 
-	db_col_amount_msat(stmt, "e.credit", &e->credit);
-	db_col_amount_msat(stmt, "e.debit", &e->debit);
-	db_col_amount_msat(stmt, "e.output_value", &e->output_value);
+	e->credit = db_col_amount_msat(stmt, "e.credit");
+	e->debit = db_col_amount_msat(stmt, "e.debit");
+	e->output_value = db_col_amount_msat(stmt, "e.output_value");
 
 	e->currency = db_col_strdup(e, stmt, "e.currency");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
@@ -96,9 +96,9 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 
 	e->tag = db_col_strdup(e, stmt, "e.tag");
 
-	db_col_amount_msat(stmt, "e.credit", &e->credit);
-	db_col_amount_msat(stmt, "e.debit", &e->debit);
-	db_col_amount_msat(stmt, "e.fees", &e->fees);
+	e->credit = db_col_amount_msat(stmt, "e.credit");
+	e->debit = db_col_amount_msat(stmt, "e.debit");
+	e->fees = db_col_amount_msat(stmt, "e.fees");
 
 	e->currency = db_col_strdup(e, stmt, "e.currency");
 	if (!db_col_is_null(stmt, "e.payment_id")) {
@@ -131,8 +131,8 @@ static struct rebalance *stmt2rebalance(const tal_t *ctx, struct db_stmt *stmt)
 	r->out_ev_id = db_col_u64(stmt, "out_e.id");
 	r->in_acct_name = db_col_strdup(r, stmt, "in_acct.name");
 	r->out_acct_name = db_col_strdup(r, stmt, "out_acct.name");
-	db_col_amount_msat(stmt, "in_e.credit", &r->rebal_msat);
-	db_col_amount_msat(stmt, "out_e.fees", &r->fee_msat);
+	r->rebal_msat = db_col_amount_msat(stmt, "in_e.credit");
+	r->fee_msat = db_col_amount_msat(stmt, "out_e.fees");
 
 	return r;
 }
@@ -289,8 +289,8 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 		sum->acct_db_id = db_col_u64(stmt, "of.account_id");
 		sum->acct_name = db_col_strdup(sum, stmt, "a.name");
 		sum->currency = db_col_strdup(sum, stmt, "of.currency");
-		db_col_amount_msat(stmt, "credit", &sum->fees_paid);
-		db_col_amount_msat(stmt, "debit", &debit);
+		sum->fees_paid = db_col_amount_msat(stmt, "credit");
+		debit = db_col_amount_msat(stmt, "debit");
 
 		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid,
 				     debit);
@@ -359,8 +359,8 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 		sum->txid = tal(sum, struct bitcoin_txid);
 		db_col_txid(stmt, "txid", sum->txid);
 
-		db_col_amount_msat(stmt, "credit", &sum->fees_paid);
-		db_col_amount_msat(stmt, "debit", &amt);
+		sum->fees_paid = db_col_amount_msat(stmt, "credit");
+		amt = db_col_amount_msat(stmt, "debit");
 		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid, amt);
 		assert(ok);
 		tal_arr_expand(&sums, sum);
@@ -818,8 +818,8 @@ char *account_get_balance(const tal_t *ctx,
 		bal = tal(*balances, struct acct_balance);
 
 		bal->currency = db_col_strdup(bal, stmt, "ce.currency");
-		db_col_amount_msat(stmt, "credit", &bal->credit);
-		db_col_amount_msat(stmt, "debit", &bal->debit);
+		bal->credit = db_col_amount_msat(stmt, "credit");
+		bal->debit = db_col_amount_msat(stmt, "debit");
 		tal_arr_expand(balances, bal);
 
 		if (account_exists)
@@ -862,13 +862,13 @@ char *account_get_balance(const tal_t *ctx,
 			tal_arr_expand(balances, bal);
 		}
 
-		db_col_amount_msat(stmt, "credit", &amt);
+		amt = db_col_amount_msat(stmt, "credit");
 		if (!amount_msat_add(&bal->credit, bal->credit, amt)) {
 			tal_free(stmt);
 			return "overflow adding channel_event credits";
 		}
 
-		db_col_amount_msat(stmt, "debit", &amt);
+		amt = db_col_amount_msat(stmt, "debit");
 		if (!amount_msat_add(&bal->debit, bal->debit, amt)) {
 			tal_free(stmt);
 			return "overflow adding channel_event debits";
@@ -992,8 +992,8 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 	of->acct_db_id = db_col_u64(stmt, "of.account_id");
 	of->acct_name = db_col_strdup(of, stmt, "a.name");
 	db_col_txid(stmt, "of.txid", &of->txid);
-	db_col_amount_msat(stmt, "of.credit", &of->credit);
-	db_col_amount_msat(stmt, "of.debit", &of->debit);
+	of->credit = db_col_amount_msat(stmt, "of.credit");
+	of->debit = db_col_amount_msat(stmt, "of.debit");
 	of->currency = db_col_strdup(of, stmt, "of.currency");
 	of->timestamp = db_col_u64(stmt, "of.timestamp");
 	of->update_count = db_col_int(stmt, "of.update_count");
@@ -1490,8 +1490,8 @@ static void insert_chain_fees_diff(struct db *db,
 	update_count = 0;
 	while (db_step(stmt)) {
 		update_count = db_col_int(stmt, "update_count");
-		db_col_amount_msat(stmt, "credit", &credit);
-		db_col_amount_msat(stmt, "debit", &debit);
+		credit = db_col_amount_msat(stmt, "credit");
+		debit = db_col_amount_msat(stmt, "debit");
 
 		/* These should apply perfectly, as we sorted them by
 		 * insert order */
