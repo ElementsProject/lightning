@@ -3,6 +3,7 @@
 #include "config.h"
 
 struct ext_key;
+struct indexes;
 struct lightningd;
 struct db_stmt;
 struct db;
@@ -21,5 +22,8 @@ struct db;
  */
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 		    const struct ext_key *bip32_base);
+
+/* We store last wait indices in our var table. */
+void load_indexes(struct db *db, struct indexes *indexes);
 
 #endif /* LIGHTNING_WALLET_DB_H */

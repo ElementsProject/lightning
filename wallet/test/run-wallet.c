@@ -856,6 +856,12 @@ void try_reconnect(const tal_t *ctx UNNEEDED,
 		   struct peer *peer UNNEEDED,
 		   const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "try_reconnect called!\n"); abort(); }
+/* Generated stub for wait_index_name */
+const char *wait_index_name(enum wait_index index UNNEEDED)
+{ fprintf(stderr, "wait_index_name called!\n"); abort(); }
+/* Generated stub for wait_subsystem_name */
+const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
+{ fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
 /* Generated stub for watch_txid */
 struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
