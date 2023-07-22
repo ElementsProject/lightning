@@ -2,6 +2,7 @@
 #include <common/features.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
+#include <lightningd/channel.h>
 #include <lightningd/htlc_set.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
@@ -101,6 +102,7 @@ void htlc_set_add(struct lightningd *ld,
 {
 	struct htlc_set *set;
 	const struct invoice_details *details;
+	const char *err;
 
 	/* BOLT #4:
 	 * The final node:
@@ -109,8 +111,9 @@ void htlc_set_add(struct lightningd *ld,
 	 *     - Note: "amount paid" specified there is the `total_msat` field.
 	 */
 	details = invoice_check_payment(tmpctx, ld, &hin->payment_hash,
-					total_msat, payment_secret);
+					total_msat, payment_secret, &err);
 	if (!details) {
+		log_debug(hin->key.channel->log, "payment failed: %s", err);
 		local_fail_in_htlc(hin,
 				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
 		return;

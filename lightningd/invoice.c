@@ -367,7 +367,8 @@ invoice_check_payment(const tal_t *ctx,
 		      struct lightningd *ld,
 		      const struct sha256 *payment_hash,
 		      const struct amount_msat msat,
-		      const struct secret *payment_secret)
+		      const struct secret *payment_secret,
+		      const char **err)
 {
 	u64 inv_dbid;
 	const struct invoice_details *details;
@@ -382,11 +383,12 @@ invoice_check_payment(const tal_t *ctx,
 	 *    - MUST return an `incorrect_or_unknown_payment_details` error.
 	 */
 	if (!invoices_find_unpaid(ld->wallet->invoices, &inv_dbid, payment_hash)) {
-		log_debug(ld->log, "Unknown paid invoice %s",
-			  type_to_string(tmpctx, struct sha256, payment_hash));
 		if (invoices_find_by_rhash(ld->wallet->invoices, &inv_dbid, payment_hash)) {
-			log_debug(ld->log, "ALREADY paid invoice %s",
-				  type_to_string(tmpctx, struct sha256, payment_hash));
+			*err = tal_fmt(ctx, "Already paid or expired invoice %s",
+				       type_to_string(tmpctx, struct sha256, payment_hash));
+		} else {
+			*err = tal_fmt(ctx, "Unknown invoice %s",
+				       type_to_string(tmpctx, struct sha256, payment_hash));
 		}
 		return NULL;
 	}
@@ -401,8 +403,8 @@ invoice_check_payment(const tal_t *ctx,
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
 	    && !payment_secret) {
-		log_debug(ld->log, "Attept to pay %s without secret",
-			  type_to_string(tmpctx, struct sha256, &details->rhash));
+		*err = tal_fmt(ctx, "Attempt to pay %s without secret",
+			       type_to_string(tmpctx, struct sha256, &details->rhash));
 		return tal_free(details);
 	}
 
@@ -414,9 +416,9 @@ invoice_check_payment(const tal_t *ctx,
 		else
 			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
-			log_debug(ld->log, "Attept to pay %s with wrong secret",
-				  type_to_string(tmpctx, struct sha256,
-						 &details->rhash));
+			*err = tal_fmt(ctx, "Attempt to pay %s with wrong secret",
+				       type_to_string(tmpctx, struct sha256,
+						      &details->rhash));
 			return tal_free(details);
 		}
 	}
@@ -432,21 +434,21 @@ invoice_check_payment(const tal_t *ctx,
 		struct amount_msat twice;
 
 		if (amount_msat_less(msat, *details->msat)) {
-			log_debug(ld->log, "Attept to pay %s with amount %s < %s",
-				  type_to_string(tmpctx, struct sha256,
-						 &details->rhash),
-				  type_to_string(tmpctx, struct amount_msat, &msat),
-				  type_to_string(tmpctx, struct amount_msat, details->msat));
+			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s < %s",
+				       type_to_string(tmpctx, struct sha256,
+						      &details->rhash),
+				       type_to_string(tmpctx, struct amount_msat, &msat),
+				       type_to_string(tmpctx, struct amount_msat, details->msat));
 			return tal_free(details);
 		}
 
 		if (amount_msat_add(&twice, *details->msat, *details->msat)
 		    && amount_msat_greater(msat, twice)) {
-			log_debug(ld->log, "Attept to pay %s with amount %s > %s",
-				  type_to_string(tmpctx, struct sha256,
-						 &details->rhash),
-				  type_to_string(tmpctx, struct amount_msat, &msat),
-				  type_to_string(tmpctx, struct amount_msat, &twice));
+			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s > %s",
+				       type_to_string(tmpctx, struct sha256,
+						      &details->rhash),
+				       type_to_string(tmpctx, struct amount_msat, &msat),
+				       type_to_string(tmpctx, struct amount_msat, &twice));
 			/* BOLT #4:
 			 *
 			 * - if the amount paid is more than twice the amount

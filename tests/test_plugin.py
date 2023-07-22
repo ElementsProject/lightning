@@ -1917,7 +1917,7 @@ def test_replacement_payload(node_factory):
     with pytest.raises(RpcError, match=r"WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS \(reply from remote\)"):
         l1.rpc.pay(inv)
 
-    assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
+    assert l2.daemon.wait_for_log("Attempt to pay.*with wrong secret")
 
 
 @pytest.mark.developer("Requires dev_sign_last_tx")
