@@ -273,19 +273,22 @@ bool invoices_create(struct invoices *invoices,
 	/* Compute expiration. */
 	expiry_time = now + expiry;
 
+	*inv_dbid = invoice_index_created(invoices->wallet->ld, UNPAID, label, b11enc);
+
 	/* Save to database. */
 	stmt = db_prepare_v2(
 	    invoices->wallet->db,
 	    SQL("INSERT INTO invoices"
-		"            ( payment_hash, payment_key, state"
+		"            ( id, payment_hash, payment_key, state"
 		"            , msatoshi, label, expiry_time"
 		"            , pay_index, msatoshi_received"
 		"            , paid_timestamp, bolt11, description, features, local_offer_id)"
-		"     VALUES ( ?, ?, ?"
+		"     VALUES ( ?, ?, ?, ?"
 		"            , ?, ?, ?"
 		"            , NULL, NULL"
 		"            , NULL, ?, ?, ?, ?);"));
 
+	db_bind_u64(stmt, *inv_dbid);
 	db_bind_sha256(stmt, rhash);
 	db_bind_preimage(stmt, r);
 	db_bind_int(stmt, UNPAID);
@@ -307,8 +310,7 @@ bool invoices_create(struct invoices *invoices,
 		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
-
-	*inv_dbid = db_last_insert_id_v2(take(stmt));
+	tal_free(stmt);
 
 	/* Install expiration trigger. */
 	if (!invoices->expiration_timer ||
