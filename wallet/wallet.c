@@ -209,7 +209,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	u32 *blockheight, *spendheight;
 	db_col_txid(stmt, "prev_out_tx", &utxo->outpoint.txid);
 	utxo->outpoint.n = db_col_int(stmt, "prev_out_index");
-	db_col_amount_sat(stmt, "value", &utxo->amount);
+	utxo->amount = db_col_amount_sat(stmt, "value");
 	utxo->is_p2sh = db_col_int(stmt, "type") == p2sh_wpkh;
 	utxo->status = db_col_int(stmt, "status");
 	utxo->keyindex = db_col_int(stmt, "keyindex");
@@ -1233,8 +1233,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	db_col_txid(stmt, "funding_tx_id", &funding.txid);
 	funding.n = db_col_int(stmt, "funding_tx_outnum"),
-	db_col_amount_sat(stmt, "funding_satoshi", &funding_sat);
-	db_col_amount_sat(stmt, "our_funding_satoshi", &our_funding_sat);
+	funding_sat = db_col_amount_sat(stmt, "funding_satoshi");
+	our_funding_sat = db_col_amount_sat(stmt, "our_funding_satoshi");
 	if (!db_col_signature(stmt, "last_sig", &last_sig.s))
 		return NULL;
 
@@ -1246,8 +1246,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		lease_chan_max_msat = db_col_u64(stmt, "lease_chan_max_msat");
 		lease_chan_max_ppt = db_col_int(stmt, "lease_chan_max_ppt");
 		lease_blockheight_start = db_col_int(stmt, "lease_blockheight_start");
-		db_col_amount_msat(stmt, "lease_fee", &lease_fee);
-		db_col_amount_sat(stmt, "lease_satoshi", &lease_amt);
+		lease_fee = db_col_amount_msat(stmt, "lease_fee");
+		lease_amt = db_col_amount_sat(stmt, "lease_satoshi");
 	} else {
 		lease_commit_sig = NULL;
 		lease_chan_max_msat = 0;
@@ -1354,16 +1354,13 @@ static bool wallet_channel_config_load(struct wallet *w, const u64 id,
 		return false;
 
 	cc->id = id;
-	db_col_amount_sat(stmt, "dust_limit_satoshis", &cc->dust_limit);
-	db_col_amount_msat(stmt, "max_htlc_value_in_flight_msat",
-			   &cc->max_htlc_value_in_flight);
-	db_col_amount_sat(stmt, "channel_reserve_satoshis",
-			  &cc->channel_reserve);
-	db_col_amount_msat(stmt, "htlc_minimum_msat", &cc->htlc_minimum);
+	cc->dust_limit = db_col_amount_sat(stmt, "dust_limit_satoshis");
+	cc->max_htlc_value_in_flight = db_col_amount_msat(stmt, "max_htlc_value_in_flight_msat");
+	cc->channel_reserve = db_col_amount_sat(stmt, "channel_reserve_satoshis");
+	cc->htlc_minimum = db_col_amount_msat(stmt, "htlc_minimum_msat");
 	cc->to_self_delay = db_col_int(stmt, "to_self_delay");
 	cc->max_accepted_htlcs = db_col_int(stmt, "max_accepted_htlcs");
-	db_col_amount_msat(stmt, "max_dust_htlc_exposure_msat",
-			   &cc->max_dust_htlc_exposure_msat);
+	cc->max_dust_htlc_exposure_msat = db_col_amount_msat(stmt, "max_dust_htlc_exposure_msat");
 	tal_free(stmt);
 	return ok;
 }
@@ -1526,14 +1523,14 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			= db_col_int(stmt, "shutdown_wrong_outnum");
 	}
 
-	db_col_amount_sat(stmt, "funding_satoshi", &funding_sat);
-	db_col_amount_sat(stmt, "our_funding_satoshi", &our_funding_sat);
-	db_col_amount_msat(stmt, "push_msatoshi", &push_msat);
-	db_col_amount_msat(stmt, "msatoshi_local", &our_msat);
-	db_col_amount_msat(stmt, "msatoshi_to_us_min", &msat_to_us_min);
-	db_col_amount_msat(stmt, "msatoshi_to_us_max", &msat_to_us_max);
-	db_col_amount_msat(stmt, "htlc_minimum_msat", &htlc_minimum_msat);
-	db_col_amount_msat(stmt, "htlc_maximum_msat", &htlc_maximum_msat);
+	funding_sat = db_col_amount_sat(stmt, "funding_satoshi");
+	our_funding_sat = db_col_amount_sat(stmt, "our_funding_satoshi");
+	push_msat = db_col_amount_msat(stmt, "push_msatoshi");
+	our_msat = db_col_amount_msat(stmt, "msatoshi_local");
+	msat_to_us_min = db_col_amount_msat(stmt, "msatoshi_to_us_min");
+	msat_to_us_max = db_col_amount_msat(stmt, "msatoshi_to_us_max");
+	htlc_minimum_msat = db_col_amount_msat(stmt, "htlc_minimum_msat");
+	htlc_maximum_msat = db_col_amount_msat(stmt, "htlc_maximum_msat");
 	ignore_fee_limits = db_col_int(stmt, "ignore_fee_limits");
 
 	if (!db_col_is_null(stmt, "lease_commit_sig")) {
@@ -1654,11 +1651,11 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	cc->next_htlc_id = db_col_u64(stmt, "next_htlc_id");
 	db_col_sha256d(stmt, "funding_tx_id", &cc->funding.txid.shad);
 	cc->funding.n = db_col_int(stmt, "funding_tx_outnum");
-	db_col_amount_sat(stmt, "funding_satoshi", &cc->funding_sats);
-	db_col_amount_msat(stmt, "push_msatoshi", &cc->push);
-	db_col_amount_msat(stmt, "msatoshi_local", &cc->our_msat);
-	db_col_amount_msat(stmt, "msatoshi_to_us_min", &cc->msat_to_us_min);
-	db_col_amount_msat(stmt, "msatoshi_to_us_max", &cc->msat_to_us_max);
+	cc->funding_sats = db_col_amount_sat(stmt, "funding_satoshi");
+	cc->push = db_col_amount_msat(stmt, "push_msatoshi");
+	cc->our_msat = db_col_amount_msat(stmt, "msatoshi_local");
+	cc->msat_to_us_min = db_col_amount_msat(stmt, "msatoshi_to_us_min");
+	cc->msat_to_us_max = db_col_amount_msat(stmt, "msatoshi_to_us_max");
 	/* last_tx is null for stub channels used for recovering funds through
 	 * Static channel backups. */
 	if (!db_col_is_null(stmt, "last_tx"))
@@ -2789,7 +2786,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	in->dbid = db_col_u64(stmt, "id");
 	in->key.id = db_col_u64(stmt, "channel_htlc_id");
 	in->key.channel = channel;
-	db_col_amount_msat(stmt, "msatoshi", &in->msat);
+	in->msat = db_col_amount_msat(stmt, "msatoshi");
 	in->cltv_expiry = db_col_int(stmt, "cltv_expiry");
 	in->hstate = db_col_int(stmt, "hstate");
 	in->status = NULL;
@@ -2862,7 +2859,7 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	out->dbid = db_col_u64(stmt, "id");
 	out->key.id = db_col_u64(stmt, "channel_htlc_id");
 	out->key.channel = channel;
-	db_col_amount_msat(stmt, "msatoshi", &out->msat);
+	out->msat = db_col_amount_msat(stmt, "msatoshi");
 	out->cltv_expiry = db_col_int(stmt, "cltv_expiry");
 	out->hstate = db_col_int(stmt, "hstate");
 	db_col_sha256(stmt, "payment_hash", &out->payment_hash);
@@ -2887,7 +2884,7 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 		out->failmsg = db_col_arr(out, stmt, "localfailmsg", u8);
 
 	out->in = NULL;
-	db_col_amount_msat(stmt, "fees_msat", &out->fees);
+	out->fees = db_col_amount_msat(stmt, "fees_msat");
 
 	if (!db_col_is_null(stmt, "origin_htlc")) {
 		u64 in_id = db_col_u64(stmt, "origin_htlc");
@@ -3308,7 +3305,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	payment->status = db_col_int(stmt, "status");
 	payment->destination = db_col_optional(payment, stmt, "destination",
 					       node_id);
-	db_col_amount_msat(stmt, "msatoshi", &payment->msatoshi);
+	payment->msatoshi = db_col_amount_msat(stmt, "msatoshi");
 	db_col_sha256(stmt, "payment_hash", &payment->payment_hash);
 
 	payment->timestamp = db_col_int(stmt, "timestamp");
@@ -3337,7 +3334,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		payment->route_channels = NULL;
 	}
 
-	db_col_amount_msat(stmt, "msatoshi_sent", &payment->msatoshi_sent);
+	payment->msatoshi_sent = db_col_amount_msat(stmt, "msatoshi_sent");
 
 	if (!db_col_is_null(stmt, "description"))
 		payment->label = db_col_strdup(payment, stmt, "description");
@@ -3361,7 +3358,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		payment->failonion = NULL;
 
 	if (!db_col_is_null(stmt, "total_msat"))
-		db_col_amount_msat(stmt, "total_msat", &payment->total_msat);
+		payment->total_msat = db_col_amount_msat(stmt, "total_msat");
 	else
 		payment->total_msat = AMOUNT_MSAT(0);
 
@@ -4064,7 +4061,7 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	else
 		op->spendheight = db_col_int(stmt, "spendheight");
 	op->scriptpubkey = db_col_arr(op, stmt, "scriptpubkey", u8);
-	db_col_amount_sat(stmt, "satoshis", &op->sat);
+	op->sat = db_col_amount_sat(stmt, "satoshis");
 	tal_free(stmt);
 
 	return op;
@@ -4551,7 +4548,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	res = db_step(stmt);
 	assert(res);
 
-	db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &total);
+	total = db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)");
 	tal_free(stmt);
 
 	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
@@ -4651,10 +4648,10 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		tal_resize(&results, count+1);
 		struct forwarding *cur = &results[count];
 		cur->status = db_col_int(stmt, "state");
-		db_col_amount_msat(stmt, "in_msatoshi", &cur->msat_in);
+		cur->msat_in = db_col_amount_msat(stmt, "in_msatoshi");
 
 		if (!db_col_is_null(stmt, "out_msatoshi")) {
-			db_col_amount_msat(stmt, "out_msatoshi", &cur->msat_out);
+			cur->msat_out = db_col_amount_msat(stmt, "out_msatoshi");
 			if (!amount_msat_sub(&cur->fee, cur->msat_in, cur->msat_out)) {
 				log_broken(w->log, "Forwarded in %s less than out %s!",
 					   type_to_string(tmpctx, struct amount_msat,
@@ -4760,7 +4757,7 @@ bool wallet_forward_delete(struct wallet *w,
 		if (db_step(stmt)) {
 			struct amount_msat deleted;
 
-			db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &deleted);
+			deleted = db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)");
 			deleted.millisatoshis += /* Raw: db access */
 				db_get_intvar(w->db, "deleted_forward_fees", 0);
 			db_set_intvar(w->db, "deleted_forward_fees",
@@ -4879,7 +4876,7 @@ struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
 		pb.commitment_num = db_col_u64(stmt, "commitnum");
 		db_col_txid(stmt, "txid", &pb.txid);
 		pb.outnum = db_col_int(stmt, "outnum");
-		db_col_amount_sat(stmt, "amount", &pb.amount);
+		pb.amount = db_col_amount_sat(stmt, "amount");
 		tal_arr_expand(&res, pb);
 	}
 	tal_free(stmt);
@@ -5465,7 +5462,7 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 		*owner = REMOTE;
 	else
 		*owner = LOCAL;
-	db_col_amount_msat(iter->stmt, "h.msatoshi", msat);
+	*msat = db_col_amount_msat(iter->stmt, "h.msatoshi");
 	db_col_sha256(iter->stmt, "h.payment_hash", payment_hash);
 	*cltv_expiry = db_col_int(iter->stmt, "h.cltv_expiry");
 	*hstate = db_col_int(iter->stmt, "h.hstate");
