@@ -326,23 +326,25 @@ static void tell_waiters_success(struct lightningd *ld,
 	notify_sendpay_success(ld, payment);
 }
 
-void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
+void payment_succeeded(struct lightningd *ld,
+		       const struct sha256 *payment_hash,
+		       u64 partid, u64 groupid,
 		       const struct preimage *rval)
 {
 	struct wallet_payment *payment;
 
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-				  hout->partid, hout->groupid,
+	wallet_payment_set_status(ld->wallet, payment_hash,
+				  partid, groupid,
 				  PAYMENT_COMPLETE, rval);
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 &hout->payment_hash,
-					 hout->partid, hout->groupid);
+					 payment_hash,
+					 partid, groupid);
 	assert(payment);
 
 	if (payment->local_invreq_id)
 		wallet_invoice_request_mark_used(ld->wallet->db,
 						 payment->local_invreq_id);
-	tell_waiters_success(ld, &hout->payment_hash, payment);
+	tell_waiters_success(ld, payment_hash, payment);
 }
 
 /* Return a struct routing_failure for an immediate failure

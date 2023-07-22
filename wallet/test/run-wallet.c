@@ -621,7 +621,9 @@ void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout 
 void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *payment UNNEEDED)
 { fprintf(stderr, "payment_store called!\n"); abort(); }
 /* Generated stub for payment_succeeded */
-void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
+void payment_succeeded(struct lightningd *ld UNNEEDED,
+		       const struct sha256 *payment_hash UNNEEDED,
+		       u64 partid UNNEEDED, u64 groupid UNNEEDED,
 		       const struct preimage *rval UNNEEDED)
 { fprintf(stderr, "payment_succeeded called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */

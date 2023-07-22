@@ -12,7 +12,9 @@ struct json_stream;
 struct wallet_payment;
 struct routing_failure;
 
-void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
+void payment_succeeded(struct lightningd *ld,
+		       const struct sha256 *payment_hash,
+		       u64 partid, u64 groupid,
 		       const struct preimage *rval);
 
 /* hout->failmsg or hout->failonion must be set. */
