@@ -942,6 +942,7 @@
             "ListInvoices.index": 5,
             "ListInvoices.invstring": 2,
             "ListInvoices.label": 1,
+            "ListInvoices.limit": 7,
             "ListInvoices.offer_id": 4,
             "ListInvoices.payment_hash": 3,
             "ListInvoices.start": 6
@@ -3624,6 +3625,10 @@
         },
         "ListInvoices.label": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.limit": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListInvoices.offer_id": {

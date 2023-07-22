@@ -401,6 +401,7 @@ bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 struct db_stmt *invoices_first(struct invoices *invoices UNNEEDED,
 			       const enum wait_index *listindex UNNEEDED,
 			       u64 liststart UNNEEDED,
+			       const u32 *listlimit UNNEEDED,
 			       u64 *inv_dbid UNNEEDED)
 { fprintf(stderr, "invoices_first called!\n"); abort(); }
 /* Generated stub for invoices_get_details */
@@ -779,6 +780,11 @@ struct command_result *param_string(struct command *cmd UNNEEDED, const char *na
 				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    const char **str UNNEEDED)
 { fprintf(stderr, "param_string called!\n"); abort(); }
+/* Generated stub for param_u32 */
+struct command_result *param_u32(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				 uint32_t **num UNNEEDED)
+{ fprintf(stderr, "param_u32 called!\n"); abort(); }
 /* Generated stub for param_u64 */
 struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

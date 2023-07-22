@@ -4,7 +4,7 @@ lightning-listinvoices -- Command for querying invoice status
 SYNOPSIS
 --------
 
-**listinvoices** [*label*] [*invstring*] [*payment\_hash*] [*offer\_id*] [*index* [*start*]]
+**listinvoices** [*label*] [*invstring*] [*payment\_hash*] [*offer\_id*] [*index* [*start*] [*limit*]]
 
 DESCRIPTION
 -----------
@@ -19,7 +19,8 @@ this invoice was issued for. Only one of the query parameters can be used at onc
 
 `index` controls ordering, by `created` (default) or `updated`.  If
 `index` is specified, `start` may be specified to start from that
-value, which is generally returned from lightning-wait(7).
+value, which is generally returned from lightning-wait(7), and `limit`
+can be used to specify the maximum number of entries to return.
 
 RETURN VALUE
 ------------

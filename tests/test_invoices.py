@@ -890,3 +890,7 @@ def test_listinvoices_index(node_factory, executor):
     assert [inv['label'] for inv in l2.rpc.listinvoices(index='updated', start=10)['invoices']] == [str(i) for i in range(61, 60, -1)]
     assert l2.rpc.listinvoices(index='updated', start=11) == {'invoices': []}
     assert l2.rpc.listinvoices(index='updated', start=2100) == {'invoices': []}
+
+    # limit should work!
+    for i in range(1, 10):
+        assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
