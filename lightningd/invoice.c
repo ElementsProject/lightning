@@ -1371,7 +1371,8 @@ static struct command_result *json_delinvoice(struct command *cmd,
 			return command_fail(cmd, INVOICE_NO_DESCRIPTION,
 					    "Invoice description already removed");
 
-		if (!invoices_delete_description(wallet->invoices, inv_dbid)) {
+		if (!invoices_delete_description(wallet->invoices, inv_dbid,
+						 details->label, details->description)) {
 			log_broken(cmd->ld->log,
 				   "Error attempting to delete description of invoice %"PRIu64,
 				   inv_dbid);

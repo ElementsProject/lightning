@@ -121,7 +121,9 @@ bool invoices_delete(struct invoices *invoices,
  * Return false on failure.
  */
 bool invoices_delete_description(struct invoices *invoices,
-				 u64 inv_dbid);
+				 u64 inv_dbid,
+				 const struct json_escape *label,
+				 const char *description);
 
 /**
  * invoices_delete_expired - Delete all expired invoices
@@ -236,6 +238,11 @@ u64 invoice_index_created(struct lightningd *ld,
 u64 invoice_index_update_status(struct lightningd *ld,
 				const struct json_escape *label,
 				enum invoice_status state);
+
+/* Returns the current updated_index, and increments it. */
+u64 invoice_index_update_deldesc(struct lightningd *ld,
+				 const struct json_escape *label,
+				 const char *description);
 
 void invoice_index_deleted(struct lightningd *ld,
 			   enum invoice_status state,
