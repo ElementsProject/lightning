@@ -114,6 +114,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	db_begin_transaction(wallet->db);
 	wallet->invoices = invoices_new(wallet, wallet, timers);
 	outpointfilters_init(wallet);
+	load_indexes(wallet->db, ld->indexes);
 	db_commit_transaction(wallet->db);
 	return wallet;
 }

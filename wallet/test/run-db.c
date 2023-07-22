@@ -62,6 +62,12 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
+/* Generated stub for wait_index_name */
+const char *wait_index_name(enum wait_index index UNNEEDED)
+{ fprintf(stderr, "wait_index_name called!\n"); abort(); }
+/* Generated stub for wait_subsystem_name */
+const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
+{ fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
 /* Generated stub for wire_sync_read */
 u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 { fprintf(stderr, "wire_sync_read called!\n"); abort(); }
