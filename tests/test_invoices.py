@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
-from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce
+from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce, TIMEOUT
 
 
 import os
@@ -705,6 +705,45 @@ def test_listinvoices_filter(node_factory):
     for q in queries:
         r = l1.rpc.listinvoices(**q)
         assert len(r['invoices']) == 0
+
+
+def test_wait_invoices(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Asking for 0 gives us current index.
+    waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 0})
+    assert waitres == {'subsystem': 'invoices',
+                       'created': 0}
+
+    # Now ask for 1.
+    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
+    time.sleep(1)
+
+    inv = l2.rpc.invoice(42, 'invlabel', 'invdesc')
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'invoices',
+                       'created': 1,
+                       'details': {'label': 'invlabel',
+                                   'bolt11': inv['bolt11'],
+                                   'status': 'unpaid'}}
+
+    # Second returns instantly, without any details.
+    waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
+    assert waitres == {'subsystem': 'invoices',
+                       'created': 1}
+
+    # Deleting correctly produces 2, not another 1!
+    l2.rpc.delinvoice('invlabel', 'unpaid')
+
+    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 2})
+    time.sleep(1)
+    inv = l2.rpc.invoice(42, 'invlabel', 'invdesc2')
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'invoices',
+                       'created': 2,
+                       'details': {'label': 'invlabel',
+                                   'bolt11': inv['bolt11'],
+                                   'status': 'unpaid'}}
 
 
 def test_invoice_deschash(node_factory, chainparams):
