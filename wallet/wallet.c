@@ -3299,87 +3299,99 @@ void wallet_payment_delete(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
+struct wallet_payment *wallet_payment_new(const tal_t *ctx,
+					  u64 dbid,
+					  u32 timestamp,
+					  const u32 *completed_at,
+					  const struct sha256 *payment_hash,
+					  u64 partid,
+					  u64 groupid,
+					  enum payment_status status,
+					  /* The destination may not be known if we used `sendonion` */
+					  const struct node_id *destination,
+					  struct amount_msat msatoshi,
+					  struct amount_msat msatoshi_sent,
+					  struct amount_msat total_msat,
+					  /* If and only if PAYMENT_COMPLETE */
+					  const struct preimage *payment_preimage,
+					  const struct secret *path_secrets,
+					  const struct node_id *route_nodes,
+					  const struct short_channel_id *route_channels,
+					  const char *invstring,
+					  const char *label,
+					  const char *description,
+					  const u8 *failonion,
+					  const struct sha256 *local_invreq_id)
+{
+	struct wallet_payment *payment = tal(ctx, struct wallet_payment);
+
+	payment->id = dbid;
+	payment->status = status;
+	payment->timestamp = timestamp;
+	payment->payment_hash = *payment_hash;
+	payment->partid = partid;
+	payment->groupid = groupid;
+	payment->status = status;
+	payment->msatoshi = msatoshi;
+	payment->msatoshi_sent = msatoshi_sent;
+	payment->total_msat = total_msat;
+
+	/* Optional fields */
+	payment->completed_at = tal_dup_or_null(payment, u32, completed_at);
+	payment->destination = tal_dup_or_null(payment, struct node_id, destination);
+	payment->payment_preimage = tal_dup_or_null(payment, struct preimage, payment_preimage);
+	payment->path_secrets = tal_dup_talarr(payment, struct secret, path_secrets);
+	payment->route_nodes = tal_dup_talarr(payment, struct node_id, route_nodes);
+	payment->route_channels = tal_dup_talarr(payment, struct short_channel_id, route_channels);
+	payment->invstring = tal_strdup_or_null(payment, invstring);
+	payment->label = tal_strdup_or_null(payment, label);
+	payment->description = tal_strdup_or_null(payment, description);
+	payment->failonion = tal_dup_talarr(payment, u8, failonion);
+	payment->local_invreq_id = tal_dup_or_null(payment, struct sha256, local_invreq_id);
+
+	return payment;
+}
+
 static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 						  struct db_stmt *stmt)
 {
-	struct wallet_payment *payment = tal(ctx, struct wallet_payment);
-	payment->id = db_col_u64(stmt, "id");
-	payment->status = db_col_int(stmt, "status");
-	payment->destination = db_col_optional(payment, stmt, "destination",
-					       node_id);
-	payment->msatoshi = db_col_amount_msat(stmt, "msatoshi");
-	db_col_sha256(stmt, "payment_hash", &payment->payment_hash);
+	struct wallet_payment *payment;
+	u32 *completed_at;
+	struct sha256 payment_hash;
 
-	payment->timestamp = db_col_int(stmt, "timestamp");
-	payment->payment_preimage = db_col_optional(payment, stmt,
-						    "payment_preimage",
-						    preimage);
+	db_col_sha256(stmt, "payment_hash", &payment_hash);
 
-	/* We either used `sendpay` or `sendonion` with the `shared_secrets`
-	 * argument. */
-	if (!db_col_is_null(stmt, "path_secrets"))
-		payment->path_secrets
-			= db_col_secret_arr(payment, stmt, "path_secrets");
-	else
-		payment->path_secrets = NULL;
+	if (!db_col_is_null(stmt, "completed_at")) {
+		completed_at = tal(tmpctx, u32);
+		*completed_at = db_col_int(stmt, "completed_at");
+	} else
+		completed_at = NULL;
+
+	payment = wallet_payment_new(ctx,
+				     db_col_u64(stmt, "id"),
+				     db_col_int(stmt, "timestamp"),
+				     completed_at,
+				     &payment_hash,
+				     db_col_is_null(stmt, "partid") ? 0 : db_col_u64(stmt, "partid"),
+				     db_col_u64(stmt, "groupid"),
+				     payment_status_in_db(db_col_int(stmt, "status")),
+				     take(db_col_optional(NULL, stmt, "destination", node_id)),
+				     db_col_amount_msat(stmt, "msatoshi"),
+				     db_col_amount_msat(stmt, "msatoshi_sent"),
+				     db_col_amount_msat(stmt, "total_msat"),
+				     take(db_col_optional(NULL, stmt, "payment_preimage", preimage)),
+				     take(db_col_secret_arr(NULL, stmt, "path_secrets")),
+				     take(db_col_node_id_arr(NULL, stmt, "route_nodes")),
+				     take(db_col_short_channel_id_arr(NULL, stmt, "route_channels")),
+				     take(db_col_strdup_optional(NULL, stmt, "bolt11")),
+				     take(db_col_strdup_optional(NULL, stmt, "description")),
+				     take(db_col_strdup_optional(NULL, stmt, "paydescription")),
+				     take(db_col_arr(NULL, stmt, "failonionreply", u8)),
+				     take(db_col_optional(NULL, stmt, "local_invreq_id", sha256)));
 
 	/* Either none, or both are set */
 	assert(db_col_is_null(stmt, "route_nodes")
 	       == db_col_is_null(stmt, "route_channels"));
-	if (!db_col_is_null(stmt, "route_nodes")) {
-		payment->route_nodes
-			= db_col_node_id_arr(payment, stmt, "route_nodes");
-		payment->route_channels =
-			db_col_short_channel_id_arr(payment, stmt, "route_channels");
-	} else {
-		payment->route_nodes = NULL;
-		payment->route_channels = NULL;
-	}
-
-	payment->msatoshi_sent = db_col_amount_msat(stmt, "msatoshi_sent");
-
-	if (!db_col_is_null(stmt, "description"))
-		payment->label = db_col_strdup(payment, stmt, "description");
-	else
-		payment->label = NULL;
-
-	if (!db_col_is_null(stmt, "paydescription"))
-		payment->description = db_col_strdup(payment, stmt, "paydescription");
-	else
-		payment->description = NULL;
-
-	if (!db_col_is_null(stmt, "bolt11"))
-		payment->invstring = db_col_strdup(payment, stmt, "bolt11");
-	else
-		payment->invstring = NULL;
-
-	if (!db_col_is_null(stmt, "failonionreply"))
-		payment->failonion
-			= db_col_arr(payment, stmt, "failonionreply", u8);
-	else
-		payment->failonion = NULL;
-
-	if (!db_col_is_null(stmt, "total_msat"))
-		payment->total_msat = db_col_amount_msat(stmt, "total_msat");
-	else
-		payment->total_msat = AMOUNT_MSAT(0);
-
-	if (!db_col_is_null(stmt, "partid"))
-		payment->partid = db_col_u64(stmt, "partid");
-	else
-		payment->partid = 0;
-
-	payment->local_invreq_id = db_col_optional(payment, stmt,
-						   "local_invreq_id", sha256);
-
-	if (!db_col_is_null(stmt, "completed_at")) {
-		payment->completed_at = tal(payment, u32);
-		*payment->completed_at = db_col_int(stmt, "completed_at");
-	} else
-		payment->completed_at = NULL;
-
-	payment->groupid = db_col_u64(stmt, "groupid");
-
 	return payment;
 }
 
