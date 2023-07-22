@@ -6,8 +6,8 @@
 #include <db/exec.h>
 #include <db/utils.h>
 #include <lightningd/invoice.h>
+#include <lightningd/wait.h>
 #include <wallet/invoices.h>
-#include <wallet/wallet.h>
 
 struct invoice_waiter {
 	/* Is this waiter already triggered? */
@@ -664,4 +664,60 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 	details = wallet_stmt2invoice_details(ctx, stmt);
 	tal_free(stmt);
 	return details;
+}
+
+static u64 invoice_index_inc(struct lightningd *ld,
+			     const enum invoice_status *state,
+			     const struct json_escape *label,
+			     const char *invstring,
+			     const char *description,
+			     enum wait_index idx)
+{
+	const char *invstrname;
+
+	if (invstring && strstarts(invstring, "lni"))
+		invstrname = "bolt12";
+	else
+		invstrname = "bolt11";
+
+
+	return wait_index_increment(ld, WAIT_SUBSYSTEM_INVOICE, idx,
+				 "status", state ? invoice_status_str(*state) : NULL,
+				 /* We don't want to add more JSON escapes here! */
+				 "=label", label ? tal_fmt(tmpctx, "\"%s\"", label->s) : NULL,
+				 invstrname, invstring,
+				 "description", description,
+				 NULL);
+}
+
+void invoice_index_deleted(struct lightningd *ld,
+			   enum invoice_status state,
+			   const struct json_escape *label,
+			   const char *invstring)
+{
+	assert(label);
+	assert(invstring);
+	invoice_index_inc(ld, &state, label, invstring, NULL, WAIT_INDEX_DELETED);
+}
+
+/* Fortuntely, dbids start at 1, not 0! */
+u64 invoice_index_created(struct lightningd *ld,
+			  enum invoice_status state,
+			  const struct json_escape *label,
+			  const char *invstring)
+{
+	assert(label);
+	assert(invstring);
+
+	return invoice_index_inc(ld, &state, label, invstring, NULL,
+				 WAIT_INDEX_CREATED);
+}
+
+/* FIXME: We allow missing label here! :( */
+u64 invoice_index_update_status(struct lightningd *ld,
+				const struct json_escape *label,
+				enum invoice_status state)
+{
+	return invoice_index_inc(ld, &state, label, NULL, NULL,
+				 WAIT_INDEX_UPDATED);
 }

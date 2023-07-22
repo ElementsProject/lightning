@@ -6,6 +6,7 @@
 
 struct amount_msat;
 struct htlc_set;
+struct json_escape;
 struct lightningd;
 struct sha256;
 
