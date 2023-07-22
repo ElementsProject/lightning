@@ -625,6 +625,8 @@ pub mod requests {
 	    pub index: Option<ListinvoicesIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub start: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
 	}
 
 	impl From<ListinvoicesRequest> for Request {

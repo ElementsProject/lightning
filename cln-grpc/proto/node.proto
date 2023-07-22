@@ -638,6 +638,7 @@ message ListinvoicesRequest {
 	optional string offer_id = 4;
 	optional ListinvoicesIndex index = 5;
 	optional uint64 start = 6;
+	optional uint32 limit = 7;
 }
 
 message ListinvoicesResponse {

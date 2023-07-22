@@ -1825,6 +1825,7 @@ impl From<requests::ListinvoicesRequest> for pb::ListinvoicesRequest {
             offer_id: c.offer_id, // Rule #2 for type string?
             index: c.index.map(|v| v as i32),
             start: c.start, // Rule #2 for type u64?
+            limit: c.limit, // Rule #2 for type u32?
         }
     }
 }
@@ -2503,6 +2504,7 @@ impl From<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
             offer_id: c.offer_id, // Rule #1 for type string?
             index: c.index.map(|v| v.try_into().unwrap()),
             start: c.start, // Rule #1 for type u64?
+            limit: c.limit, // Rule #1 for type u32?
         }
     }
 }
