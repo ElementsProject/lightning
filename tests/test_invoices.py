@@ -858,3 +858,35 @@ def test_invoice_deschash(node_factory, chainparams):
     wait_for(lambda: len([ev for ev in l1.rpc.bkpr_listincome()['income_events'] if ev['tag'] == 'invoice']) == 1)
     inv = only_one([ev for ev in l1.rpc.bkpr_listincome()['income_events'] if ev['tag'] == 'invoice'])
     assert inv['description'] == b11['description_hash']
+
+
+def test_listinvoices_index(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    invs = {}
+    for i in range(1, 100):
+        invs[i] = l2.rpc.invoice(i, str(i), "test_listinvoices_index")
+
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='created')['invoices']] == [str(i) for i in range(1, 100)]
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='created', start=1)['invoices']] == [str(i) for i in range(1, 100)]
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='created', start=2)['invoices']] == [str(i) for i in range(2, 100)]
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='created', start=99)['invoices']] == [str(i) for i in range(99, 100)]
+    assert l2.rpc.listinvoices(index='created', start=100) == {'invoices': []}
+    assert l2.rpc.listinvoices(index='created', start=2100) == {'invoices': []}
+
+    # Pay 10 of them, in reverse order.  These will be the last ones in the 'updated' index.
+    for i in range(70, 60, -1):
+        l1.rpc.pay(invs[i]['bolt11'])
+
+    # Make sure it's fully resolved!
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # They're all still there!
+    assert set([inv['label'] for inv in l2.rpc.listinvoices(index='updated')['invoices']]) == set([str(i) for i in range(1, 100)])
+
+    # Last 10 are in a defined order:
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='updated', start=1)['invoices']] == [str(i) for i in range(70, 60, -1)]
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='updated', start=2)['invoices']] == [str(i) for i in range(69, 60, -1)]
+    assert [inv['label'] for inv in l2.rpc.listinvoices(index='updated', start=10)['invoices']] == [str(i) for i in range(61, 60, -1)]
+    assert l2.rpc.listinvoices(index='updated', start=11) == {'invoices': []}
+    assert l2.rpc.listinvoices(index='updated', start=2100) == {'invoices': []}

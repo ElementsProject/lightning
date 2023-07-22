@@ -627,10 +627,17 @@ message ListdatastoreDatastore {
 }
 
 message ListinvoicesRequest {
+	// ListInvoices.index
+	enum ListinvoicesIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional string label = 1;
 	optional string invstring = 2;
 	optional bytes payment_hash = 3;
 	optional string offer_id = 4;
+	optional ListinvoicesIndex index = 5;
+	optional uint64 start = 6;
 }
 
 message ListinvoicesResponse {

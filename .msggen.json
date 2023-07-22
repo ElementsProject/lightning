@@ -102,6 +102,10 @@
             "spent": 2,
             "unconfirmed": 0
         },
+        "ListinvoicesIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListinvoicesInvoicesStatus": {
             "expired": 2,
             "paid": 1,
@@ -935,10 +939,12 @@
             "ListInvoices.invoices[].status": 4
         },
         "ListinvoicesRequest": {
+            "ListInvoices.index": 5,
             "ListInvoices.invstring": 2,
             "ListInvoices.label": 1,
             "ListInvoices.offer_id": 4,
-            "ListInvoices.payment_hash": 3
+            "ListInvoices.payment_hash": 3,
+            "ListInvoices.start": 6
         },
         "ListinvoicesResponse": {
             "ListInvoices.invoices[]": 1
@@ -3548,6 +3554,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListInvoices.index": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "ListInvoices.invoices[]": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -3622,6 +3632,10 @@
         },
         "ListInvoices.payment_hash": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListInvoices.start": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListNodes": {

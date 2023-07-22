@@ -138,12 +138,16 @@ void invoices_delete_expired(struct invoices *invoices,
 /**
  * Iterate through all the invoices.
  * @invoices: the invoices
+ * @listindex: what index order to use (if you care)
+ * @liststart: first index to return (0 == all).
  * @inv_dbid: the first invoice dbid (if returns non-NULL)
  *
  * Returns pointer to hand as @stmt to invoices_next(), or NULL.
  * If you choose not to call invoices_next() you must free it!
  */
 struct db_stmt *invoices_first(struct invoices *invoices,
+			       const enum wait_index *listindex,
+			       u64 liststart,
 			       u64 *inv_dbid);
 
 /**

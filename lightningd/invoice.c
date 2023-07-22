@@ -1222,7 +1222,9 @@ static void json_add_invoices(struct json_stream *response,
 			      struct wallet *wallet,
 			      const struct json_escape *label,
 			      const struct sha256 *payment_hash,
-			      const struct sha256 *local_offer_id)
+			      const struct sha256 *local_offer_id,
+			      const enum wait_index *listindex,
+			      u64 liststart)
 {
 	const struct invoice_details *details;
 	u64 inv_dbid;
@@ -1244,7 +1246,9 @@ static void json_add_invoices(struct json_stream *response,
 	} else {
 		struct db_stmt *stmt;
 
-		for (stmt = invoices_first(wallet->invoices, &inv_dbid);
+		for (stmt = invoices_first(wallet->invoices,
+					   listindex, liststart,
+					   &inv_dbid);
 		     stmt;
 		     stmt = invoices_next(wallet->invoices, stmt, &inv_dbid)) {
 			details = invoices_get_details(tmpctx,
@@ -1271,6 +1275,8 @@ static struct command_result *json_listinvoices(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 	const char *invstring;
 	struct sha256 *payment_hash, *offer_id;
+	enum wait_index *listindex;
+	u64 *liststart;
 	char *fail;
 
 	if (!param(cmd, buffer, params,
@@ -1278,6 +1284,8 @@ static struct command_result *json_listinvoices(struct command *cmd,
 		   p_opt("invstring", param_invstring, &invstring),
 		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   p_opt("offer_id", param_sha256, &offer_id),
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -1287,6 +1295,10 @@ static struct command_result *json_listinvoices(struct command *cmd,
 				    "Can only specify one of"
 				    " {label}, {invstring}, {payment_hash}"
 				    " or {offer_id}");
+	}
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
 	}
 
 	/* Extract the payment_hash from the invoice. */
@@ -1312,7 +1324,8 @@ static struct command_result *json_listinvoices(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "invoices");
-	json_add_invoices(response, wallet, label, payment_hash, offer_id);
+	json_add_invoices(response, wallet, label, payment_hash, offer_id,
+			  listindex, *liststart);
 	json_array_end(response);
 	return command_success(cmd, response);
 }
