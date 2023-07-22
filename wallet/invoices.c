@@ -396,7 +396,10 @@ bool invoices_find_unpaid(struct invoices *invoices,
 	}
 }
 
-bool invoices_delete(struct invoices *invoices, u64 inv_dbid)
+bool invoices_delete(struct invoices *invoices, u64 inv_dbid,
+		     enum invoice_status status,
+		     const struct json_escape *label,
+		     const char *invstring)
 {
 	struct db_stmt *stmt;
 	int changes;
@@ -413,6 +416,7 @@ bool invoices_delete(struct invoices *invoices, u64 inv_dbid)
 		return false;
 	}
 	/* Tell all the waiters about the fact that it was deleted. */
+	invoice_index_deleted(invoices->wallet->ld, status, label, invstring);
 	trigger_invoice_waiter_expire_or_delete(invoices, inv_dbid, true);
 	return true;
 }
@@ -437,14 +441,25 @@ bool invoices_delete_description(struct invoices *invoices, u64 inv_dbid)
 void invoices_delete_expired(struct invoices *invoices,
 			     u64 max_expiry_time)
 {
-	struct db_stmt *stmt;
-	stmt = db_prepare_v2(invoices->wallet->db, SQL(
-			  "DELETE FROM invoices"
-			  " WHERE state = ?"
-			  "   AND expiry_time <= ?;"));
-	db_bind_int(stmt, EXPIRED);
-	db_bind_u64(stmt, max_expiry_time);
-	db_exec_prepared_v2(take(stmt));
+	u64 *ids = expired_ids(tmpctx, invoices->wallet->db, max_expiry_time,
+			       EXPIRED);
+
+	for (size_t i = 0; i < tal_count(ids); i++) {
+		struct db_stmt *stmt;
+		const struct invoice_details *details;
+
+		details = invoices_get_details(tmpctx, invoices, ids[i]);
+		stmt = db_prepare_v2(invoices->wallet->db, SQL(
+					     "DELETE FROM invoices"
+					     " WHERE id = ?;"));
+		db_bind_u64(stmt, ids[i]);
+		db_exec_prepared_v2(take(stmt));
+
+		invoice_index_deleted(invoices->wallet->ld,
+				      details->state,
+				      details->label,
+				      details->invstring);
+	}
 }
 
 struct db_stmt *invoices_first(struct invoices *invoices,

@@ -106,7 +106,11 @@ bool invoices_find_unpaid(struct invoices *invoices,
  *
  * Return false on failure.
  */
-bool invoices_delete(struct invoices *invoices, u64 inv_dbid);
+bool invoices_delete(struct invoices *invoices,
+		     u64 inv_dbid,
+		     enum invoice_status status,
+		     const struct json_escape *label,
+		     const char *invstring);
 
 /**
  * invoices_delete_description - Remove description from an invoice

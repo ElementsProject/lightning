@@ -366,7 +366,11 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 		     const struct sha256 *local_offer_id UNNEEDED)
 { fprintf(stderr, "invoices_create called!\n"); abort(); }
 /* Generated stub for invoices_delete */
-bool invoices_delete(struct invoices *invoices UNNEEDED, u64 inv_dbid UNNEEDED)
+bool invoices_delete(struct invoices *invoices UNNEEDED,
+		     u64 inv_dbid UNNEEDED,
+		     enum invoice_status status UNNEEDED,
+		     const struct json_escape *label UNNEEDED,
+		     const char *invstring UNNEEDED)
 { fprintf(stderr, "invoices_delete called!\n"); abort(); }
 /* Generated stub for invoices_delete_description */
 bool invoices_delete_description(struct invoices *invoices UNNEEDED,
