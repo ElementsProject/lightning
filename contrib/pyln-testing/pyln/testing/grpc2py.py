@@ -332,6 +332,7 @@ def createinvoice2py(m):
         "status": str(m.status),  # EnumField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "expires_at": m.expires_at,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "pay_index": m.pay_index,  # PrimitiveField in generate_composite
         "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
         "paid_at": m.paid_at,  # PrimitiveField in generate_composite
@@ -379,6 +380,8 @@ def delinvoice2py(m):
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
         "expires_at": m.expires_at,  # PrimitiveField in generate_composite
         "local_offer_id": hexlify(m.local_offer_id),  # PrimitiveField in generate_composite
@@ -392,6 +395,7 @@ def invoice2py(m):
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
         "expires_at": m.expires_at,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "warning_capacity": m.warning_capacity,  # PrimitiveField in generate_composite
         "warning_offline": m.warning_offline,  # PrimitiveField in generate_composite
         "warning_deadends": m.warning_deadends,  # PrimitiveField in generate_composite
@@ -427,6 +431,8 @@ def listinvoices_invoices2py(m):
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "local_offer_id": hexlify(m.local_offer_id),  # PrimitiveField in generate_composite
         "invreq_payer_note": m.invreq_payer_note,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "pay_index": m.pay_index,  # PrimitiveField in generate_composite
         "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
         "paid_at": m.paid_at,  # PrimitiveField in generate_composite
@@ -568,6 +574,8 @@ def waitanyinvoice2py(m):
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "pay_index": m.pay_index,  # PrimitiveField in generate_composite
         "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
         "paid_at": m.paid_at,  # PrimitiveField in generate_composite
@@ -585,6 +593,8 @@ def waitinvoice2py(m):
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "pay_index": m.pay_index,  # PrimitiveField in generate_composite
         "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
         "paid_at": m.paid_at,  # PrimitiveField in generate_composite

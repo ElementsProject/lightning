@@ -5,6 +5,7 @@
   "required": [
     "payment_hash",
     "expires_at",
+    "created_index",
     "bolt11",
     "payment_secret"
   ],
@@ -24,6 +25,11 @@
     "expires_at": {
       "type": "u64",
       "description": "UNIX timestamp of when invoice expires"
+    },
+    "created_index": {
+      "type": "u64",
+      "added": "v23.08",
+      "description": "1-based index indicating order this invoice was created in"
     },
     "warning_capacity": {
       "type": "string",

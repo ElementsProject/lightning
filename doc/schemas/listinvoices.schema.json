@@ -13,6 +13,7 @@
         "additionalProperties": true,
         "required": [
           "label",
+          "created_index",
           "payment_hash",
           "status",
           "expires_at"
@@ -62,6 +63,16 @@
           "invreq_payer_note": {
             "type": "string",
             "description": "the optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+          },
+          "created_index": {
+            "type": "u64",
+            "added": "v23.08",
+            "description": "1-based index indicating order this invoice was created in"
+          },
+          "updated_index": {
+            "type": "u64",
+            "added": "v23.08",
+            "description": "1-based index indicating order this invoice was changed (only present if it has changed since creation)"
           }
         },
         "allOf": [
@@ -96,6 +107,8 @@
                 "local_offer_id": {},
                 "invreq_payer_note": {},
                 "expires_at": {},
+                "created_index": {},
+                "updated_index": {},
                 "pay_index": {
                   "type": "u64",
                   "description": "Unique incrementing index for this payment"
@@ -127,6 +140,8 @@
                 "bolt12": {},
                 "local_offer_id": {},
                 "invreq_payer_note": {},
+                "created_index": {},
+                "updated_index": {},
                 "expires_at": {}
               }
             }

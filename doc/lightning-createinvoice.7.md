@@ -38,6 +38,7 @@ On success, an object is returned, containing:
 - **status** (string): Whether it has been paid, or can no longer be paid (one of "paid", "expired", "unpaid")
 - **description** (string): Description extracted from **bolt11** or **bolt12**
 - **expires\_at** (u64): UNIX timestamp of when invoice expires (or expired)
+- **created\_index** (u64): 1-based index indicating order this invoice was created in *(added v23.08)*
 - **bolt11** (string, optional): the bolt11 string (always present unless **bolt12** is)
 - **bolt12** (string, optional): the bolt12 string instead of **bolt11** (**experimental-offers** only)
 - **amount\_msat** (msat, optional): The amount of the invoice (if it has one)
@@ -75,4 +76,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:fffebe36aa6671261082894e8b1429035c08f797064a60b03e3e9ea10ea71038)
+[comment]: # ( SHA256STAMP:2d2180c9e903e2b79d5ddb2b0cf995b1f7aa27b0f9bb1f6e19252b94dcd46ef1)
