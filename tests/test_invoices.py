@@ -799,13 +799,22 @@ def test_wait_invoices(node_factory, executor):
     # Creating a new on gives us 3, not another 2!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
     time.sleep(1)
-    inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2')
+    inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2', deschashonly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'created': 3,
                        'details': {'label': 'invlabel2',
                                    'bolt11': inv['bolt11'],
                                    'status': 'unpaid'}}
+
+    # Deleting a description causes updated to fire!
+    waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 3})
+    time.sleep(1)
+    l2.rpc.delinvoice('invlabel2', status='unpaid', desconly=True)
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'invoices',
+                       'updated': 3,
+                       'details': {'label': 'invlabel2', 'description': 'invdesc2'}}
 
 
 def test_invoice_deschash(node_factory, chainparams):
