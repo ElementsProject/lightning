@@ -148,6 +148,16 @@ char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
 	return ret;
 }
 
+char *tal_strdup_or_null(const tal_t *ctx, const char *str)
+{
+	if (!str) {
+		/* You might have taken NULL; that's legal!  Release now. */
+		taken(str);
+		return NULL;
+	}
+	return tal_strdup(ctx, str);
+}
+
 int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created)
 {
 	char *tmpdir = getenv("TMPDIR");

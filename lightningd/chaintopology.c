@@ -186,8 +186,7 @@ static void rebroadcast_txs(struct chain_topology *topo)
 
 		tal_arr_expand(&txs->txs, fmt_bitcoin_tx(txs->txs, otx->tx));
 		tal_arr_expand(&txs->allowhighfees, otx->allowhighfees);
-		tal_arr_expand(&txs->cmd_id,
-			       otx->cmd_id ? tal_strdup(txs, otx->cmd_id) : NULL);
+		tal_arr_expand(&txs->cmd_id, tal_strdup_or_null(txs, otx->cmd_id));
 	}
 	tal_free(cleanup_ctx);
 
@@ -277,10 +276,7 @@ void broadcast_tx_(struct chain_topology *topo,
 	otx->cbarg = cbarg;
 	if (taken(otx->cbarg))
 		tal_steal(otx, otx->cbarg);
-	if (cmd_id)
-		otx->cmd_id = tal_strdup(otx, cmd_id);
-	else
-		otx->cmd_id = NULL;
+	otx->cmd_id = tal_strdup_or_null(otx, cmd_id);
 
 	/* Note that if the minimum block is N, we broadcast it when
 	 * we have block N-1! */
