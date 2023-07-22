@@ -5289,7 +5289,6 @@ def test_invoice_pay_desc_with_quotes(node_factory):
     l1.rpc.pay(invoice, description=description)
 
 
-@pytest.mark.xfail(strict=True)
 def test_self_sendpay(node_factory):
     """We get much more descriptive errors from a self-payment than a remote payment, since we're not relying on a single WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS but can share more useful information"""
     l1 = node_factory.get_node()

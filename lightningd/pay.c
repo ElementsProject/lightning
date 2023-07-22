@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
@@ -11,9 +12,11 @@
 #include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
+#include <wallet/invoices.h>
 
 /* Routing failure object */
 struct routing_failure {
@@ -1398,9 +1401,9 @@ static struct command_result *param_route_hops(struct command *cmd,
 	size_t i;
 	const jsmntok_t *t;
 
-	if (tok->type != JSMN_ARRAY || tok->size == 0)
+	if (tok->type != JSMN_ARRAY)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s must be an (non-empty) array", name);
+				    "%s must be an array", name);
 
 	*hops = tal_arr(cmd, struct route_hop, tok->size);
 	json_for_each_arr(i, t, tok) {
@@ -1429,6 +1432,106 @@ static struct command_result *param_route_hops(struct command *cmd,
 	}
 
 	return NULL;
+}
+
+/* We're paying ourselves! */
+static struct command_result *self_payment(struct lightningd *ld,
+					   struct command *cmd,
+					   const struct sha256 *rhash,
+					   u64 partid,
+					   u64 groupid,
+					   struct amount_msat msat,
+					   const char *label TAKES,
+					   const char *invstring TAKES,
+					   const char *description TAKES,
+					   const struct sha256 *local_invreq_id,
+					   const struct secret *payment_secret,
+					   const u8 *payment_metadata)
+{
+	struct wallet_payment *payment;
+	const struct invoice_details *inv;
+	u64 inv_dbid;
+	const char *err;
+
+	payment = wallet_payment_new(tmpctx,
+				     0, /* ID is not in db yet */
+				     time_now().ts.tv_sec,
+				     NULL,
+				     rhash,
+				     partid,
+				     groupid,
+				     PAYMENT_PENDING,
+				     &ld->id,
+				     msat,
+				     msat,
+				     msat,
+				     NULL,
+				     NULL,
+				     NULL,
+				     NULL,
+				     invstring,
+				     label,
+				     description,
+				     NULL,
+				     local_invreq_id);
+
+	/* We write this into db immediately, but we're expected to do
+	 * it in two stages like a normal payment. */
+	wallet_payment_setup(ld->wallet, payment);
+	payment_store(ld, payment);
+
+	/* Now, resolved the invoice */
+	inv = invoice_check_payment(tmpctx, ld, rhash, msat, payment_secret, &err);
+	if (!inv) {
+		struct routing_failure *fail;
+		wallet_payment_set_status(ld->wallet, rhash, partid, groupid,
+					  PAYMENT_FAILED, NULL);
+
+		/* tell_waiters_failed expects one of these! */
+		fail = tal(payment, struct routing_failure);
+		fail->failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
+		fail->erring_node = &ld->id;
+		fail->erring_index = 0;
+		fail->erring_channel = NULL;
+		fail->msg = NULL;
+
+		/* Only some of these fields make sense for self payments */
+		wallet_payment_set_failinfo(ld->wallet,
+					    rhash,
+					    partid, NULL,
+					    true,
+					    0,
+					    fail->failcode, fail->erring_node,
+					    NULL, NULL,
+					    err,
+					    0);
+		/* We do this even though there really can't be any waiters,
+		 * since we didn't block. */
+		tell_waiters_failed(ld, rhash, payment, PAY_DESTINATION_PERM_FAIL,
+				    NULL, fail, err);
+		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL,
+				    fail, err);
+	}
+
+	/* These should not fail, given the above succeded! */
+	if (!invoices_find_by_rhash(ld->wallet->invoices, &inv_dbid, rhash)
+	    || !invoices_resolve(ld->wallet->invoices, inv_dbid, msat)) {
+		log_broken(ld->log, "Could not resolve invoice %"PRIu64"!?!", inv_dbid);
+		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL, NULL, "broken");
+	}
+
+	log_info(ld->log, "Self-resolved invoice '%s' with amount %s",
+		 inv->label->s,
+		 type_to_string(tmpctx, struct amount_msat, &msat));
+	notify_invoice_payment(ld, msat, inv->r, inv->label);
+
+	/* Now resolve the payment */
+	payment_succeeded(ld, rhash, partid, groupid,  &inv->r);
+
+	/* Now the specific command which called this. */
+	payment->status = PAYMENT_COMPLETE;
+	payment->payment_preimage = tal_dup(payment, struct preimage, &inv->r);
+	return sendpay_success(cmd, payment);
 }
 
 static struct command_result *json_sendpay(struct command *cmd,
@@ -1466,13 +1569,25 @@ static struct command_result *json_sendpay(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Must specify msatoshi with partid");
 
-	const struct amount_msat final_amount = route[tal_count(route)-1].amount;
-
 	/* If groupid was not provided default to incrementing from the previous one. */
 	if (group == NULL) {
 		group = tal(tmpctx, u64);
 		*group = wallet_payment_get_groupid(cmd->ld->wallet, rhash) + 1;
 	}
+
+	if (tal_count(route) == 0) {
+		if (!msat)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Self-payment requires amount_msat");
+		if (*partid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Self-payment does not allow (non-zero) partid");
+		return self_payment(cmd->ld, cmd, rhash, *partid, *group, *msat,
+				    label, invstring, description, local_invreq_id,
+				    payment_secret, payment_metadata);
+	}
+
+	const struct amount_msat final_amount = route[tal_count(route)-1].amount;
 
 	if (msat && !*partid && !amount_msat_eq(*msat, final_amount))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
