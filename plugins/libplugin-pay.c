@@ -2360,7 +2360,6 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 	chans = json_to_listpeers_channels(tmpctx, buffer, toks);
 
 	for (size_t i = 0; i < tal_count(chans); i++) {
-		struct short_channel_id scid;
 		bool enabled;
 		u16 htlc_budget;
 
@@ -2368,11 +2367,6 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		 * either a) disconnected, or b) not in normal
 		 * state. */
 		enabled = chans[i]->connected && streq(chans[i]->state, "CHANNELD_NORMAL");
-
-		if (chans[i]->scid != NULL)
-			scid = *chans[i]->scid;
-		else
-			scid = *chans[i]->alias[LOCAL];
 
 		/* Take the configured number of max_htlcs and
 		 * subtract any HTLCs that might already be added to
@@ -2384,8 +2378,28 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 		else
 			htlc_budget = chans[i]->max_accepted_htlcs - chans[i]->num_htlcs;
 
-		channel_hints_update(p, scid, chans[i]->direction, enabled, true,
-				     &chans[i]->spendable_msat, &htlc_budget);
+		/* If we have both a scid and a local alias we want to
+		 * use the scid, and mark the alias as
+		 * unusable. Otherwise `getroute` might return the
+		 * alias, which we resolve correctly, but our
+		 * channel_hints would be off after updates, since
+		 * we'd only ever update one of the aliases. Causing
+		 * the other to be considered usable.
+		 */
+		if (chans[i]->scid != NULL) {
+			channel_hints_update(
+			    p, *chans[i]->scid, chans[i]->direction, enabled,
+			    true, &chans[i]->spendable_msat, &htlc_budget);
+			channel_hints_update(p, *chans[i]->alias[LOCAL],
+					     chans[i]->direction,
+					     false /* not enabled */, true,
+					     &AMOUNT_MSAT(0), &htlc_budget);
+		} else {
+			channel_hints_update(p, *chans[i]->alias[LOCAL],
+					     chans[i]->direction, enabled, true,
+					     &chans[i]->spendable_msat,
+					     &htlc_budget);
+		}
 	}
 
 	payment_continue(p);
