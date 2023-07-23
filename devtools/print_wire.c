@@ -91,7 +91,7 @@ bool printwire_s64(const char *fieldname, const u8 **cursor, size_t *plen)
 		printf("**TRUNCATED s64 %s**\n", fieldname);
 		return false;
 	}
-	printf("%ld\n", v);
+	printf("%"PRId64"\n", v);
 	return true;
 }
 
