@@ -830,32 +830,53 @@ static struct command_result *check_invoice_request_usage(struct command *cmd,
 	return NULL;
 }
 
-static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
-						 const struct node_id *node,
-						 const struct short_channel_id *scid_or_alias)
+static struct channel *
+find_channel_for_htlc_add(struct lightningd *ld, const struct node_id *node,
+			  const struct short_channel_id *scid_or_alias,
+			  const struct amount_msat *amount)
 {
 	struct channel *channel;
+	struct short_channel_id *scid;
 	struct peer *peer = peer_by_id(ld, node);
 	if (!peer)
 		return NULL;
 
 	channel = find_channel_by_scid(peer, scid_or_alias);
-	if (channel && channel_can_add_htlc(channel))
-		return channel;
+	if (channel && channel_can_add_htlc(channel)) {
+		goto found;
+	}
 
 	channel = find_channel_by_alias(peer, scid_or_alias, LOCAL);
-	if (channel && channel_can_add_htlc(channel))
-		return channel;
+	if (channel && channel_can_add_htlc(channel)) {
+		goto found;
+	}
 
 	/* We used to ignore scid: now all-zero means "any" */
-	if (!channel && (ld->deprecated_apis || memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
+	if (!channel && (ld->deprecated_apis ||
+			 memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
 		list_for_each(&peer->channels, channel, list) {
-			if (channel_can_add_htlc(channel)) {
-				return channel;
+			if (channel_can_add_htlc(channel) &&
+			    amount_msat_greater(channel->our_msat, *amount)) {
+				goto found;
 			}
 		}
 	}
+
+	log_debug(ld->log, "No channel found for selector %s (%s)",
+		  short_channel_id_to_str(tmpctx, scid_or_alias),
+		  type_to_string(tmpctx, struct amount_msat, amount));
 	return NULL;
+
+found:
+	scid = channel->scid ? channel->scid : channel->alias[LOCAL];
+	log_debug(
+	    ld->log, "Selected channel %s (%s) for selector %s (%s)",
+	    short_channel_id_to_str(tmpctx, scid),
+	    type_to_string(tmpctx, struct amount_msat, &channel->our_msat),
+	    short_channel_id_to_str(tmpctx, scid_or_alias),
+	    type_to_string(tmpctx, struct amount_msat, amount));
+
+	return channel;
 }
 
 /* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
@@ -1048,7 +1069,7 @@ send_payment_core(struct lightningd *ld,
 		return invreq_err;
 
 	channel = find_channel_for_htlc_add(ld, &first_hop->node_id,
-					    &first_hop->scid);
+					    &first_hop->scid, &msat);
 	if (!channel) {
 		struct json_stream *data
 			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
