@@ -921,6 +921,11 @@ void subd_release_channel(struct subd *owner, const void *channel)
 		assert(owner->channel == channel);
 		owner->channel = NULL;
 		tal_free(owner);
+	} else {
+		/* Caller has reassigned channel->owner, so there's no pointer
+		 * to this subd owner while it's freeing itself.  If we
+		 * ask memleak right now, it will complain! */
+		notleak(owner);
 	}
 }
 
