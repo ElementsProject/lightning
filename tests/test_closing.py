@@ -3796,7 +3796,6 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     bitcoind.generate_block(1, needfeerate=4990)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev_disconnect")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
