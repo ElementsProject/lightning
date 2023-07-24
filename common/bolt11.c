@@ -412,6 +412,17 @@ static const char *decode_f(struct bolt11 *b11,
 					       "f: witness v0 bad length %zu",
 					       tal_count(f));
 		}
+		if (version == 1 && tal_count(f) != 32) {
+			return tal_fmt(b11,
+				       "f: witness v1 bad length %zu",
+				       tal_count(f));
+		}
+		if (tal_count(f) > 40) {
+			return tal_fmt(b11,
+				       "f: witness v%ld bad length %zu",
+				       version,
+				       tal_count(f));
+		}
 		fallback = scriptpubkey_witness_raw(b11, version,
 						    f, tal_count(f));
 	} else {
@@ -1129,12 +1140,12 @@ static void encode_f(u5 **data, const u8 *fallback)
 		push_fallback_addr(data, 0, &pkh, sizeof(pkh));
 	} else if (is_p2wsh(fallback, &wsh)) {
 		push_fallback_addr(data, 0, &wsh, sizeof(wsh));
-	} else if (tal_count(fallback)
+	} else if (tal_count(fallback) > 1
 		   && fallback[0] >= 0x50
 		   && fallback[0] < (0x50+16)) {
 		/* Other (future) witness versions: turn OP_N into N */
-		push_fallback_addr(data, fallback[0] - 0x50, fallback + 1,
-				   tal_count(fallback) - 1);
+		push_fallback_addr(data, fallback[0] - 0x50, fallback + 2,
+				   tal_count(fallback) - 2);
 	} else {
 		/* Copy raw. */
 		push_field(data, 'f',
