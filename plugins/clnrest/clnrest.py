@@ -4,11 +4,14 @@ try:
     from gunicorn import glogging  # noqa: F401
     from gunicorn.workers import sync  # noqa: F401
 
+    import os
+    import time
     from pathlib import Path
     from flask import Flask
     from flask_restx import Api
     from gunicorn.app.base import BaseApplication
-    from multiprocessing import Process, cpu_count
+    from multiprocessing import Process, Queue
+    from flask_socketio import SocketIO
     from utilities.generate_certs import generate_certs
     from utilities.shared import set_config
     from utilities.rpc_routes import rpcns
@@ -17,24 +20,54 @@ except ModuleNotFoundError as err:
     # OK, something is not installed?
     import json
     import sys
-    getmanfest = json.loads(sys.stdin.readline())
+    getmanifest = json.loads(sys.stdin.readline())
     print(json.dumps({'jsonrpc': "2.0",
-                      'id': getmanfest['id'],
+                      'id': getmanifest['id'],
                       'result': {'disable': str(err)}}))
     sys.exit(1)
 
+
 jobs = {}
+app = Flask(__name__)
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins='*')
+msgq = Queue()
+
+
+def broadcast_from_message_queue():
+    while True:
+        while not msgq.empty():
+            msg = msgq.get()
+            if msg is None:
+                return
+            plugin.log(f"Emitting message: {msg}", "debug")
+            socketio.emit("message", msg)
+        time.sleep(1)  # Wait for a second after processing all items in the queue
+
+
+socketio.start_background_task(broadcast_from_message_queue)
+
+
+@socketio.on("connect", namespace="/ws")
+def ws_connect():
+    plugin.log("Client Connected", "debug")
+    msgq.put("Client Connected")
+
+
+@socketio.on("disconnect", namespace="/ws")
+def ws_disconnect():
+    plugin.log("Client Disconnected", "debug")
+    msgq.put("Client Disconnected")
 
 
 def create_app():
-    app = Flask(__name__)
+    global app
+    app.config['SECRET_KEY'] = os.urandom(24).hex()
     authorizations = {
         "rune": {"type": "apiKey", "in": "header", "name": "Rune"},
         "nodeid": {"type": "apiKey", "in": "header", "name": "Nodeid"}
     }
     api = Api(app, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune", "nodeid"])
     api.add_namespace(rpcns, path="/v1")
-    return app
 
 
 def set_application_options(plugin):
@@ -43,7 +76,8 @@ def set_application_options(plugin):
     if REST_PROTOCOL == "http":
         options = {
             "bind": f"{REST_HOST}:{REST_PORT}",
-            "workers": cpu_count(),
+            "workers": 1,
+            "worker_class": "geventwebsocket.gunicorn.workers.GeventWebSocketWorker",
             "timeout": 60,
             "loglevel": "warning",
         }
@@ -59,7 +93,8 @@ def set_application_options(plugin):
             raise Exception(f"{err}: Certificates do not exist at {CERTS_PATH}")
         options = {
             "bind": f"{REST_HOST}:{REST_PORT}",
-            "workers": cpu_count(),
+            "workers": 1,
+            "worker_class": "geventwebsocket.gunicorn.workers.GeventWebSocketWorker",
             "timeout": 60,
             "loglevel": "warning",
             "certfile": f"{CERTS_PATH}/client.pem",
@@ -87,16 +122,17 @@ class CLNRestApplication(BaseApplication):
 
 
 def worker():
+    global app
     options = set_application_options(plugin)
-    app = create_app()
+    create_app()
     CLNRestApplication(app, options).run()
 
 
 def start_server():
+    global jobs
     from utilities.shared import REST_PORT
     if REST_PORT in jobs:
         return False, "server already running"
-
     p = Process(
         target=worker,
         args=[],
@@ -117,4 +153,13 @@ def init(options, configuration, plugin):
     start_server()
 
 
-plugin.run()
+@plugin.subscribe("*")
+def on_any_notification(request, **kwargs):
+    plugin.log("Notification: {}".format(kwargs), "debug")
+    msgq.put(str(kwargs))
+
+
+try:
+    plugin.run()
+except (KeyboardInterrupt, SystemExit):
+    pass

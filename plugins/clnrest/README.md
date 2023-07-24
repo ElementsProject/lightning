@@ -4,7 +4,7 @@ CLNRest is a lightweight Python-based core lightning plugin that transforms RPC 
 
 ## Installation
 
-Install required packages with `pip install json5 flask flask_restx gunicorn pyln-client` or `pip install -r requirements.txt`.
+Install required packages with `pip install json5 flask flask_restx gunicorn pyln-client flask-socketio gevent gevent-websocket` or `pip install -r requirements.txt`.
 
 Note: if you have the older c-lightning-rest plugin, you can use `disable-plugin clnrest.py` to avoid any conflict with this one.  Of course, you could use this one instead!
 
@@ -16,10 +16,6 @@ If `rest-port` is not specified, the plugin will disable itself.
 - --rest-protocol: Specifies the REST server protocol. Default is HTTPS.
 - --rest-host: Defines the REST server host. Default is 127.0.0.1.
 - --rest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
-
-## Plugin
-
-- It can be configured by adding `plugin=/<path>/clnrest/clnrest.py` to the Core Lightning's config file.
 
 ## Server
 
@@ -46,3 +42,56 @@ This option should be used only when testing with self signed certificate.
     <img src="./.github/screenshots/Postman-with-body.png" width="200" alt="Postman with JSON body">
     <img src="./.github/screenshots/Postman-bkpr-plugin.png" width="200" alt="Postman bkpr plugin RPC">
 </p>
+
+## Websocket Server
+Websocket server is available at `/ws` endpoint. clnrest queues up notifications received for a second then broadcasts them to listeners.
+
+### Websocket client examples
+
+#### Python
+
+```python
+import socketio
+import requests
+
+http_session = requests.Session()
+http_session.verify = False
+sio = socketio.Client(http_session=http_session)
+
+@sio.event
+def message(data):
+    print(f'I received a message: {data}')
+
+@sio.event
+def connect():
+    print("I'm connected!")
+
+@sio.event
+def disconnect():
+    print("I'm disconnected!")
+
+sio.connect('https://127.0.0.1:3010/ws')
+sio.wait()
+
+```
+
+#### NodeJS
+
+```javascript
+const io = require('socket.io-client');
+
+const socket = io.connect('https://127.0.0.1:3010', {rejectUnauthorized: false});
+
+socket.on('connect', function() {
+  console.log("I'm connected!");
+});
+
+socket.on('message', function(data) {
+  console.log('I received a message: ', data);
+});
+
+socket.on('disconnect', function() {
+  console.log("I'm disconnected!");
+});
+
+```
