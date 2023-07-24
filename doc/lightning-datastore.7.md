@@ -60,7 +60,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listdatastore(7), lightning-deldatastore(7)
+lightning-listdatastore(7), lightning-deldatastore(7), lightning-datastoreusage(7)
 
 RESOURCES
 ---------

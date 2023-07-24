@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "added": "v23.11",
+  "properties": {
+    "key": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "key is an array of values (though a single value is treated as a one-element array). Used as the starting point to traverse the datastore.",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}
