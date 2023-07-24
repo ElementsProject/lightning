@@ -1499,12 +1499,16 @@ static void handle_preimage(struct tracked_output **outs,
 		if (!ripemd160_eq(&outs[i]->htlc.ripemd, &ripemd))
 			continue;
 
-		/* Too late? */
+		/* If HTLC has timed out, we will already have
+		 * proposed a "ignore this, it's their problem".  But
+		 * now try this proposal instead! */
 		if (outs[i]->resolved) {
-			status_broken("HTLC already resolved by %s"
-				     " when we found preimage",
-				     tx_type_name(outs[i]->resolved->tx_type));
-			return;
+			if (outs[i]->resolved->tx_type != SELF) {
+				status_broken("HTLC already resolved by %s"
+					      " when we found preimage",
+					      tx_type_name(outs[i]->resolved->tx_type));
+				return;
+			}
 		}
 
 		/* stash the payment_hash so we can track this coin movement */
