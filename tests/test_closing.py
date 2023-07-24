@@ -11,6 +11,7 @@ from utils import (
     first_scid
 )
 
+import bitcoin
 import os
 import queue
 import pytest
@@ -3793,3 +3794,78 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
 
     # And this will mine it!
     bitcoind.generate_block(1, needfeerate=4990)
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs dev_disconnect")
+@pytest.mark.parametrize("anchors", [False, True])
+def test_htlc_no_force_close(node_factory, bitcoind, anchors):
+    """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
+    opts = [{}, {}, {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}]
+    if anchors:
+        for opt in opts:
+            opt['experimental-anchors'] = None
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts)
+
+    MSATS = 12300000
+    inv = l3.rpc.invoice(MSATS, 'label', 'description')
+
+    route = [{'amount_msat': MSATS + 1 + MSATS * 10 // 1000000,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2)},
+             {'amount_msat': MSATS,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)}]
+    l1.rpc.sendpay(route, inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    l3.daemon.wait_for_log('dev_disconnect')
+
+    htlc_txs = []
+
+    # l3 drops to chain, holding htlc (but we stop it xmitting txs)
+    def censoring_sendrawtx(r):
+        htlc_txs.append(r['params'][0])
+        return {'id': r['id'], 'result': {}}
+
+    l3.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # l3 gets upset, drops to chain when there are < 4 blocks remaining.
+    # But tx doesn't get mined...
+    bitcoind.generate_block(8)
+    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 114 hit deadline")
+
+    # l2 closes drops the commitment tx at block 115 (one block after timeout)
+    bitcoind.generate_block(4)
+    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 114 hit deadline")
+    l1.set_feerates((15000, 15000, 15000, 15000))
+
+    # Two more blocks, with no htlc tx.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Make sure l2 sees it onchain!
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'ONCHAIN')
+    # Don't let l2's htlc timeout tx get mined either!
+    bitcoind.generate_block(1, needfeerate=9999999)
+
+    # l2 will have abandoned l2->l3 HTLC to close l1->l2.
+    l2.daemon.wait_for_log(r'Abandoning unresolved onchain HTLC at block 117 \(expired at 114\) to avoid peer closing incoming HTLC at block 120')
+
+    # l1 should not have force-closed, htlc should be finished by l2.
+    assert not l1.daemon.is_in_log('Peer permanent failure in CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # Now, surprise!  l3 fulfills htlc (l2 loses out!)
+    assert htlc_txs != []
+    for tx in htlc_txs:
+        try:
+            bitcoind.rpc.sendrawtransaction(tx)
+        except bitcoin.rpc.VerifyError:
+            pass
+
+    # l2 should note this, but not crash, at least.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # FIXME: l2 should complain!
