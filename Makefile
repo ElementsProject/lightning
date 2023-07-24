@@ -369,22 +369,24 @@ ifneq ($(RUST),0)
 $(MSGGEN_GENALL)&: doc/schemas/*.request.json doc/schemas/*.schema.json
 	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
 
+# The compiler assumes that the proto files are in the same
+# directory structure as the generated files will be. Since we
+# don't do that we need to path the files up.
+GRPC_DIR = contrib/pyln-grpc-proto/pyln
+GRPC_PATH = $(GRPC_DIR)/grpc
+
 GRPC_GEN = \
-	contrib/pyln-grpc-proto/pyln/grpc/node_pb2.py \
-	contrib/pyln-grpc-proto/pyln/grpc/node_pb2_grpc.py \
-	contrib/pyln-grpc-proto/pyln/grpc/primitives_pb2.py
+	$(GRPC_PATH)/node_pb2.py \
+	$(GRPC_PATH)/node_pb2_grpc.py \
+	$(GRPC_PATH)/primitives_pb2.py
 
 ALL_TEST_GEN += $(GRPC_GEN)
 
 $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=contrib/pyln-grpc-proto/pyln/grpc/ --grpc_python_out=contrib/pyln-grpc-proto/pyln/grpc/ --experimental_allow_proto3_optional
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=contrib/pyln-grpc-proto/pyln/grpc/ --experimental_allow_proto3_optional
-	# The compiler assumes that the proto files are in the same
-	# directory structure as the generated files will be. Since we
-	# don't do that we need to path the files up.
-	find contrib/pyln-grpc-proto/pyln/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
-	rm -f contrib/pyln-grpc-proto/pyln/*.py.bak
-
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=$(GRPC_PATH)/ --grpc_python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
+	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
+	find $(GRPC_DIR)/ -type f -name "*.py.bak" -delete
 endif
 
 # We make pretty much everything depend on these.
