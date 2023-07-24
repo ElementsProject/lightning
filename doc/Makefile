@@ -32,6 +32,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-createinvoice.7 \
 	doc/lightning-createrune.7 \
 	doc/lightning-datastore.7 \
+	doc/lightning-datastoreusage.7 \
 	doc/lightning-decodepay.7 \
 	doc/lightning-decode.7 \
 	doc/lightning-deldatastore.7 \

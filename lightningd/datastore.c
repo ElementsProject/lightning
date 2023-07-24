@@ -289,6 +289,54 @@ static struct command_result *json_deldatastore(struct command *cmd,
 	return command_success(cmd, response);
 }
 
+static struct command_result *json_datastoreusage(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	const char **k, **key;
+	struct db_stmt *stmt;
+	const u8 *data;
+	u64 gen, total_bytes = 0;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("key", param_list_or_string, &key),
+		   NULL))
+		return command_param_failed();
+
+	// We ignore an empty key string or key array.
+	if (key && *key[0] == '\0')
+		key = NULL;
+
+	response = json_stream_success(cmd);
+	json_object_start(response, "datastoreusage");
+	json_add_string(response, "key", datastore_key_fmt(tmpctx, key));
+
+	for (stmt = wallet_datastore_first(cmd, cmd->ld->wallet, key,
+					   &k, &data, &gen);
+	     stmt;
+	     stmt = wallet_datastore_next(cmd, key, stmt,
+	     				  &k, &data, &gen)) {
+
+		u64 self_bytes = tal_bytelen(data);
+		/* The key is stored as a binary blob where each string is separated by
+		 * a '\0'. Therefore we add an additional `len(k) - 1`. k is the primary
+		 * key of the table and can not be NULL */
+		self_bytes += tal_count(k) - 1;
+		for (size_t i = 0; i < tal_count(k); i++) {
+			self_bytes += strlen(k[i]);
+		};
+		total_bytes += self_bytes;
+	};
+	tal_free(stmt);
+
+	json_add_u64(response, "total_bytes", total_bytes);
+	json_object_end(response);
+
+	return command_success(cmd, response);
+}
+
 static const struct json_command datastore_command = {
 	"datastore",
 	"utility",
@@ -312,3 +360,11 @@ static const struct json_command listdatastore_command = {
 	"List the datastore, optionally only {key}",
 };
 AUTODATA(json_command, &listdatastore_command);
+
+static const struct json_command datastoreusage_command = {
+	"datastoreusage",
+	"utility",
+	json_datastoreusage,
+	"List the datastore usage, starting from an optional {key}",
+};
+AUTODATA(json_command, &datastoreusage_command);

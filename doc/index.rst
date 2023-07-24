@@ -38,6 +38,7 @@ Core Lightning Documentation
    lightning-createonion <lightning-createonion.7.md>
    lightning-createrune <lightning-createrune.7.md>
    lightning-datastore <lightning-datastore.7.md>
+   lightning-datastoreusage <lightning-datastoreusage.7.md>
    lightning-decode <lightning-decode.7.md>
    lightning-decodepay <lightning-decodepay.7.md>
    lightning-deldatastore <lightning-deldatastore.7.md>

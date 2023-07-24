@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "datastoreusage"
+  ],
+  "properties": {
+    "datastoreusage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "total_bytes"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The key from which the database was traversed."
+        },
+        "total_bytes": {
+          "type": "u64",
+          "description": "The total bytes that are stored under the *key*, including the all descendants data and the size of the keys themselves."
+        }
+      }
+    }
+  }
+}
