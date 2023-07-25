@@ -15,6 +15,11 @@
 #include <common/json_param.h>
 #include <common/route.h>
 
+/* Overridden by run-param.c */
+#ifndef paramcheck_assert
+#define paramcheck_assert assert
+#endif
+
 struct param {
 	const char *name;
 	bool is_set;
@@ -23,16 +28,16 @@ struct param {
 	void *arg;
 };
 
-static bool param_add(struct param **params,
+static void param_add(struct param **params,
 		      const char *name,
 		      enum param_style style,
 		      param_cbx cbx, void *arg)
 {
-#if DEVELOPER
-	if (!(name && cbx && arg))
-		return false;
-#endif
 	struct param last;
+
+	paramcheck_assert(name);
+	paramcheck_assert(cbx);
+	paramcheck_assert(arg);
 
 	last.is_set = false;
 	last.name = name;
@@ -41,7 +46,6 @@ static bool param_add(struct param **params,
 	last.arg = arg;
 
 	tal_arr_expand(params, last);
-	return true;
 }
 
 /* FIXME: To support the deprecated p_req_dup_ok */
@@ -175,7 +179,6 @@ static struct command_result *parse_by_name(struct command *cmd,
 	return post_check(cmd, params);
 }
 
-#if DEVELOPER
 static int comp_by_name(const struct param *a, const struct param *b,
 			void *unused)
 {
@@ -208,54 +211,47 @@ static int comp_req_order(const struct param *a, const struct param *b,
  * Make sure 2 sequential items in @params are not equal (based on
  * provided comparator).
  */
-static bool check_distinct(struct param *params,
-			   int (*compar) (const struct param *a,
-					  const struct param *b, void *unused))
+static void check_distinct(const struct param *params,
+			   int (*compar)(const struct param *a,
+					 const struct param *b, void *unused))
 {
-	struct param *first = params;
-	struct param *last = first + tal_count(params);
+	const struct param *first = params;
+	const struct param *last = first + tal_count(params);
 	first++;
 	while (first != last) {
-		if (compar(first - 1, first, NULL) == 0)
-			return false;
+		paramcheck_assert(compar(first - 1, first, NULL) != 0);
 		first++;
 	}
-	return true;
 }
 
-static bool check_unique(struct param *copy,
+static void check_unique(struct param *copy,
 			 int (*compar) (const struct param *a,
 					const struct param *b, void *unused))
 {
 	asort(copy, tal_count(copy), compar, NULL);
-	return check_distinct(copy, compar);
+	check_distinct(copy, compar);
 }
 
 /*
  * Verify consistent internal state.
  */
-static bool check_params(struct param *params)
+static void check_params(const struct param *params)
 {
 	if (tal_count(params) < 2)
-		return true;
+		return;
 
 	/* make sure there are no required params following optional */
-	if (!check_distinct(params, comp_req_order))
-		return false;
+	check_distinct(params, comp_req_order);
 
 	/* duplicate so we can sort */
 	struct param *copy = tal_dup_talarr(params, struct param, params);
 
 	/* check for repeated names and args */
-	if (!check_unique(copy, comp_by_name))
-		return false;
-	if (!check_unique(copy, comp_by_arg))
-		return false;
+	check_unique(copy, comp_by_name);
+	check_unique(copy, comp_by_arg);
 
 	tal_free(copy);
-	return true;
 }
-#endif
 
 static char *param_usage(const tal_t *ctx,
 			 const struct param *params)
@@ -279,12 +275,6 @@ static struct command_result *param_arr(struct command *cmd, const char *buffer,
 					struct param *params,
 					bool allow_extra)
 {
-#if DEVELOPER
-	if (!check_params(params)) {
-		return command_fail(cmd, PARAM_DEV_ERROR,
-				    "developer error: check_params");
-	}
-#endif
 	if (tokens->type == JSMN_ARRAY)
 		return parse_by_position(cmd, params, buffer, tokens, allow_extra);
 	else if (tokens->type == JSMN_OBJECT)
@@ -315,6 +305,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 		for (size_t i = 0; i < tal_count(names); i++)
 			tal_append_fmt(&usage, "%c%s",
 				       i == 0 ? '=' : '|', names[i]);
+		check_params(params);
 		command_set_usage(cmd, usage);
 		return NULL;
 	}
@@ -354,19 +345,12 @@ bool param(struct command *cmd, const char *buffer,
 			allow_extra = true;
 			continue;
 		}
-		if (!param_add(&params, name, style, cbx, arg)) {
-			/* We really do ignore this return! */
-			struct command_result *ignore;
-			ignore = command_fail(cmd, PARAM_DEV_ERROR,
-					      "developer error: param_add %s", name);
-			assert(ignore);
-			va_end(ap);
-			return false;
-		}
+		param_add(&params, name, style, cbx, arg);
 	}
 	va_end(ap);
 
 	if (command_usage_only(cmd)) {
+		check_params(params);
 		command_set_usage(cmd, param_usage(cmd, params));
 		return false;
 	}

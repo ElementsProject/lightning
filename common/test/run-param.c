@@ -3,11 +3,23 @@
 #include "../json_filter.c"
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
-#include "../json_param.c"
+#include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
 #include <common/setup.h>
 #include <stdio.h>
+
+/* We want to catch parameter checs for bad_programmer() */
+#define paramcheck_assert save_paramcheck_assert
+
+static bool paramcheck_assert_failed;
+static void save_paramcheck_assert(bool cond)
+{
+	if (!cond)
+		paramcheck_assert_failed = true;
+}
+
+#include "../json_param.c"
 
 char *fail_msg = NULL;
 bool failed = false;
@@ -299,8 +311,6 @@ static void no_params(void)
 	assert(!param(cmd, j->buffer, j->toks, NULL));
 }
 
-
-#if DEVELOPER
 /*
  * Check to make sure there are no programming mistakes.
  */
@@ -311,56 +321,60 @@ static void bad_programmer(void)
 	u64 *fpval;
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
 
+	/* Usage mode makes it check parameters are sane */
+	cmd->mode = CMD_USAGE;
+
 	/* check for repeated names */
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("repeat", param_u64, &ival),
-		      p_req("fp", param_millionths, &fpval),
-		      p_req("repeat", param_u64, &ival2), NULL));
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	paramcheck_assert_failed = false;
+	param(cmd, j->buffer, j->toks,
+	      p_req("repeat", param_u64, &ival),
+	      p_req("fp", param_millionths, &fpval),
+	      p_req("repeat", param_u64, &ival2), NULL);
+	assert(paramcheck_assert_failed);
 
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("repeat", param_u64, &ival),
-		      p_req("fp", param_millionths, &fpval),
-		      p_req("repeat", param_u64, &ival), NULL));
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	paramcheck_assert_failed = false;
+	param(cmd, j->buffer, j->toks,
+	      p_req("repeat", param_u64, &ival),
+	      p_req("fp", param_millionths, &fpval),
+	      p_req("repeat", param_u64, &ival), NULL);
+	assert(paramcheck_assert_failed);
 
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", param_u64, &ival),
-		      p_req("repeat", param_millionths, &fpval),
-		      p_req("repeat", param_millionths, &fpval), NULL));
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	paramcheck_assert_failed = false;
+	param(cmd, j->buffer, j->toks,
+	      p_req("u64", param_u64, &ival),
+	      p_req("repeat", param_millionths, &fpval),
+	      p_req("repeat", param_millionths, &fpval), NULL);
+	assert(paramcheck_assert_failed);
 
 	/* check for repeated arguments */
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", param_u64, &ival),
-		      p_req("repeated-arg", param_u64, &ival), NULL));
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	paramcheck_assert_failed = false;
+	param(cmd, j->buffer, j->toks,
+	      p_req("u64", param_u64, &ival),
+	      p_req("repeated-arg", param_u64, &ival), NULL);
+	assert(paramcheck_assert_failed);
 
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", (param_cbx) NULL, NULL), NULL));
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	paramcheck_assert_failed = false;
+	param(cmd, j->buffer, j->toks,
+	      p_req("u64", (param_cbx) NULL, NULL), NULL);
+	assert(paramcheck_assert_failed);
 
 	/* Add required param after optional */
 	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
 	unsigned int *msatoshi;
 	u64 *riskfactor_millionths;
-	assert(!param(
+	paramcheck_assert_failed = false;
+	param(
 	    cmd, j->buffer, j->toks, p_req("u64", param_u64, &ival),
 	    p_req("fp", param_millionths, &fpval),
 	    p_opt_def("msatoshi", param_number, &msatoshi, 100),
 	    p_req("riskfactor", param_millionths, &riskfactor_millionths),
-	    NULL));
+	    NULL);
 	assert(*msatoshi);
 	assert(*msatoshi == 100);
-	assert(check_fail());
-	assert(strstr(fail_msg, "developer error"));
+	assert(paramcheck_assert_failed);
+
+	cmd->mode = CMD_NORMAL;
 }
-#endif
 
 static void add_members(struct param **params,
 			char **obj,
@@ -665,9 +679,7 @@ int main(int argc, char *argv[])
 	tok_tok();
 	null_params();
 	no_params();
-#if DEVELOPER
 	bad_programmer();
-#endif
 	dup_names();
 	five_hundred_params();
 	sendpay();
