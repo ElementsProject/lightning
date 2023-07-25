@@ -18,6 +18,7 @@
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/runes.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/invoices.h>
 #include <wallet/txfilter.h>
@@ -5317,49 +5318,26 @@ void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_datastore_remove(struct wallet *w, const char **key)
+static void db_datastore_remove(struct db *db, const char **key)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM datastore"
-					" WHERE key = ?"));
+	stmt = db_prepare_v2(db, SQL("DELETE FROM datastore"
+				     " WHERE key = ?"));
 	db_bind_datastore_key(stmt, key);
 	db_exec_prepared_v2(take(stmt));
 }
 
-struct db_stmt *wallet_datastore_first(const tal_t *ctx,
-				       struct wallet *w,
-				       const char **startkey,
-				       const char ***key,
-				       const u8 **data,
-				       u64 *generation)
+void wallet_datastore_remove(struct wallet *w, const char **key)
 {
-	struct db_stmt *stmt;
-
-	if (startkey) {
-		stmt = db_prepare_v2(w->db,
-				     SQL("SELECT key, data, generation"
-					 " FROM datastore"
-					 " WHERE key >= ?"
-					 " ORDER BY key;"));
-		db_bind_datastore_key(stmt, startkey);
-	} else {
-		stmt = db_prepare_v2(w->db,
-				     SQL("SELECT key, data, generation"
-					 " FROM datastore"
-					 " ORDER BY key;"));
-	}
-	db_query_prepared(stmt);
-
-	return wallet_datastore_next(ctx, w, stmt, key, data, generation);
+	db_datastore_remove(w->db, key);
 }
 
-struct db_stmt *wallet_datastore_next(const tal_t *ctx,
-				      struct wallet *w,
-				      struct db_stmt *stmt,
-				      const char ***key,
-				      const u8 **data,
-				      u64 *generation)
+static struct db_stmt *db_datastore_next(const tal_t *ctx,
+					 struct db_stmt *stmt,
+					 const char ***key,
+					 const u8 **data,
+					 u64 *generation)
 {
 	if (!db_step(stmt))
 		return tal_free(stmt);
@@ -5376,6 +5354,53 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 		db_col_ignore(stmt, "generation");
 
 	return stmt;
+}
+
+static struct db_stmt *db_datastore_first(const tal_t *ctx,
+					  struct db *db,
+					  const char **startkey,
+					  const char ***key,
+					  const u8 **data,
+					  u64 *generation)
+{
+	struct db_stmt *stmt;
+
+	if (startkey) {
+		stmt = db_prepare_v2(db,
+				     SQL("SELECT key, data, generation"
+					 " FROM datastore"
+					 " WHERE key >= ?"
+					 " ORDER BY key;"));
+		db_bind_datastore_key(stmt, startkey);
+	} else {
+		stmt = db_prepare_v2(db,
+				     SQL("SELECT key, data, generation"
+					 " FROM datastore"
+					 " ORDER BY key;"));
+	}
+	db_query_prepared(stmt);
+
+	return db_datastore_next(ctx, stmt, key, data, generation);
+}
+
+struct db_stmt *wallet_datastore_first(const tal_t *ctx,
+				       struct wallet *w,
+				       const char **startkey,
+				       const char ***key,
+				       const u8 **data,
+				       u64 *generation)
+{
+	return db_datastore_first(ctx, w->db, startkey, key, data, generation);
+}
+
+struct db_stmt *wallet_datastore_next(const tal_t *ctx,
+				      struct wallet *w,
+				      struct db_stmt *stmt,
+				      const char ***key,
+				      const u8 **data,
+				      u64 *generation)
+{
+	return db_datastore_next(ctx, stmt, key, data, generation);
 }
 
 /* We use a different query form if we only care about a single channel. */
@@ -5524,24 +5549,30 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
 	return strs;
 }
 
-void wallet_rune_insert(struct wallet *wallet, struct rune *rune)
+static void db_rune_insert(struct db *db, struct rune *rune)
 {
-    struct db_stmt *stmt;
+	struct db_stmt *stmt;
 
-    assert(rune->unique_id != NULL);
+	assert(rune->unique_id != NULL);
 
-    stmt = db_prepare_v2(wallet->db,
-			 SQL("INSERT INTO runes (rune) VALUES (?);"));
-    db_bind_text(stmt, rune_to_base64(tmpctx, rune));
-    db_exec_prepared_v2(stmt);
-    tal_free(stmt);
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO runes (rune) VALUES (?);"));
+	db_bind_text(stmt, rune_to_base64(tmpctx, rune));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
 }
 
-void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
+void wallet_rune_insert(struct wallet *wallet, struct rune *rune)
 {
-    struct db_stmt *stmt;
+	db_rune_insert(wallet->db, rune);
+}
 
-	stmt = db_prepare_v2(wallet->db,
+static void db_insert_blacklist(struct db *db,
+				const struct rune_blacklist *entry)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO runes_blacklist VALUES (?,?)"));
 	db_bind_u64(stmt, entry->start);
 	db_bind_u64(stmt, entry->end);
@@ -5549,9 +5580,14 @@ void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist 
 	tal_free(stmt);
 }
 
+void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
+{
+	db_insert_blacklist(wallet->db, entry);
+}
+
 void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry)
 {
-    struct db_stmt *stmt;
+	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("DELETE FROM runes_blacklist WHERE start_index = ? AND end_index = ?"));
