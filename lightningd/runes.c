@@ -59,6 +59,11 @@ struct runes {
 	struct usage_table *usage_table;
 };
 
+const char *rune_is_ours(struct lightningd *ld, const struct rune *rune)
+{
+	return rune_is_derived(ld->runes->master, rune);
+}
+
 #if DEVELOPER
 static void memleak_help_usage_table(struct htable *memtable,
 				     struct usage_table *usage_table)
@@ -111,16 +116,13 @@ static const char *rate_limit_check(const tal_t *ctx,
 	return NULL;
 }
 
-struct runes *runes_init(struct lightningd *ld)
+/* We need to initialize master runes secret early, so db can use rune_is_ours */
+struct runes *runes_early_init(struct lightningd *ld)
 {
 	const u8 *msg;
 	struct runes *runes = tal(ld, struct runes);
 	const u8 *data;
 	struct secret secret;
-
-	runes->ld = ld;
-	runes->next_unique_id = db_get_intvar(ld->wallet->db, "runes_uniqueid", 0);
-	runes->blacklist = wallet_get_runes_blacklist(runes, ld->wallet);
 
 	/* Runes came out of commando, hence the derivation key is 'commando' */
 	data = tal_dup_arr(tmpctx, u8, (u8 *)"commando", strlen("commando"), 0);
@@ -128,13 +130,22 @@ struct runes *runes_init(struct lightningd *ld)
 	if (!fromwire_hsmd_derive_secret_reply(msg, &secret))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
+	runes->ld = ld;
 	runes->master = rune_new(runes, secret.data, ARRAY_SIZE(secret.data), NULL);
+
+	return runes;
+}
+
+void runes_finish_init(struct runes *runes)
+{
+	struct lightningd *ld = runes->ld;
+
+	runes->next_unique_id = db_get_intvar(ld->wallet->db, "runes_uniqueid", 0);
+	runes->blacklist = wallet_get_runes_blacklist(runes, ld->wallet);
 
 	/* Initialize usage table and start flush timer. */
 	runes->usage_table = NULL;
 	flush_usage_table(runes);
-
-	return runes;
 }
 
 struct rune_and_string {
@@ -281,7 +292,7 @@ static struct command_result *json_add_rune(struct lightningd *ld,
 	if (is_rune_blacklisted(ld->runes, rune)) {
 		json_add_bool(js, "blacklisted", true);
 	}
-	if (rune_is_derived(ld->runes->master, rune)) {
+	if (rune_is_ours(ld, rune) != NULL) {
 		json_add_bool(js, "our_rune", false);
 	}
 	json_add_string(js, "unique_id", rune->unique_id);
@@ -757,7 +768,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.usage = NULL;
 	strmap_init(&cinfo.cached_params);
 
-	err = rune_is_derived(cmd->ld->runes->master, ras->rune);
+	err = rune_is_ours(cmd->ld, ras->rune);
 	if (err) {
 		return command_fail(cmd, RUNE_NOT_AUTHORIZED, "Not authorized: %s", err);
 	}
