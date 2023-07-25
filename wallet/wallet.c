@@ -5333,8 +5333,67 @@ void wallet_datastore_remove(struct wallet *w, const char **key)
 	db_datastore_remove(w->db, key);
 }
 
+/* Does k1 match k2 as far as k2 goes? */
+bool datastore_key_startswith(const char **k1, const char **k2)
+{
+	size_t k1len = tal_count(k1), k2len = tal_count(k2);
+
+	if (k2len > k1len)
+		return false;
+
+	for (size_t i = 0; i < k2len; i++) {
+		if (!streq(k1[i], k2[i]))
+			return false;
+	}
+	return true;
+}
+
+bool datastore_key_eq(const char **k1, const char **k2)
+{
+	return tal_count(k1) == tal_count(k2)
+		&& datastore_key_startswith(k1, k2);
+}
+
+static u8 *db_datastore_get(const tal_t *ctx,
+			    struct db *db,
+			    const char **key,
+			    u64 *generation)
+{
+	struct db_stmt *stmt;
+	u8 *ret;
+
+	stmt = db_prepare_v2(db,
+			     SQL("SELECT data, generation"
+				 " FROM datastore"
+				 " WHERE key = ?"));
+	db_bind_datastore_key(stmt, key);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return NULL;
+	}
+
+	ret = db_col_arr(ctx, stmt, "data", u8);
+	if (generation)
+		*generation = db_col_u64(stmt, "generation");
+	else
+		db_col_ignore(stmt, "generation");
+	tal_free(stmt);
+	return ret;
+}
+
+u8 *wallet_datastore_get(const tal_t *ctx,
+			 struct wallet *w,
+			 const char **key,
+			 u64 *generation)
+{
+	return db_datastore_get(ctx, w->db, key, generation);
+}
+
 static struct db_stmt *db_datastore_next(const tal_t *ctx,
 					 struct db_stmt *stmt,
+					 const char **startkey,
 					 const char ***key,
 					 const u8 **data,
 					 u64 *generation)
@@ -5343,6 +5402,14 @@ static struct db_stmt *db_datastore_next(const tal_t *ctx,
 		return tal_free(stmt);
 
 	*key = db_col_datastore_key(ctx, stmt, "key");
+
+	/* We select from startkey onwards, so once we're past it, stop */
+	if (startkey && !datastore_key_startswith(*key, startkey)) {
+		db_col_ignore(stmt, "data");
+		db_col_ignore(stmt, "generation");
+		return tal_free(stmt);
+	}
+
 	if (data)
 		*data = db_col_arr(ctx, stmt, "data", u8);
 	else
@@ -5380,7 +5447,7 @@ static struct db_stmt *db_datastore_first(const tal_t *ctx,
 	}
 	db_query_prepared(stmt);
 
-	return db_datastore_next(ctx, stmt, key, data, generation);
+	return db_datastore_next(ctx, stmt, startkey, key, data, generation);
 }
 
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
@@ -5394,13 +5461,13 @@ struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 }
 
 struct db_stmt *wallet_datastore_next(const tal_t *ctx,
-				      struct wallet *w,
+				      const char **startkey,
 				      struct db_stmt *stmt,
 				      const char ***key,
 				      const u8 **data,
 				      u64 *generation)
 {
-	return db_datastore_next(ctx, stmt, key, data, generation);
+	return db_datastore_next(ctx, stmt, startkey, key, data, generation);
 }
 
 /* We use a different query form if we only care about a single channel. */

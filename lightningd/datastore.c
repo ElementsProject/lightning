@@ -91,27 +91,6 @@ static struct command_result *param_list_or_string(struct command *cmd,
 	return NULL;
 }
 
-/* Does k1 match k2 as far as k2 goes? */
-static bool datastore_key_startswith(const char **k1, const char **k2)
-{
-	size_t k1len = tal_count(k1), k2len = tal_count(k2);
-
-	if (k2len > k1len)
-		return false;
-
-	for (size_t i = 0; i < k2len; i++) {
-		if (!streq(k1[i], k2[i]))
-			return false;
-	}
-	return true;
-}
-
-static bool datastore_key_eq(const char **k1, const char **k2)
-{
-	return tal_count(k1) == tal_count(k2)
-		&& datastore_key_startswith(k1, k2);
-}
-
 static char *datastore_key_fmt(const tal_t *ctx, const char **key)
 {
 	char *ret = tal_strdup(ctx, "[");
@@ -180,16 +159,14 @@ static struct command_result *json_datastore(struct command *cmd,
 		for (size_t i = 1; i < tal_count(key); i++) {
 			const char **parent;
 			parent = tal_dup_arr(cmd, const char *, key, i, 0);
-
-			stmt = wallet_datastore_first(cmd, cmd->ld->wallet,
-						      parent, &k, NULL, NULL);
-			tal_free(stmt);
-			if (stmt && datastore_key_eq(k, parent))
+			if (wallet_datastore_get(cmd, cmd->ld->wallet, parent,
+						 NULL)) {
 				return command_fail(cmd,
 						    DATASTORE_UPDATE_NO_CHILDREN,
 						    "Parent key %s exists",
 						    datastore_key_fmt(tmpctx,
 								      parent));
+			}
 		}
 	}
 
@@ -252,13 +229,13 @@ static struct command_result *json_listdatastore(struct command *cmd,
 	for (stmt = wallet_datastore_first(cmd, cmd->ld->wallet, key,
 					   &k, &data, &generation);
 	     stmt;
-	     stmt = wallet_datastore_next(cmd, cmd->ld->wallet,
+	     stmt = wallet_datastore_next(cmd, key,
 					  stmt, &k, &data,
 					  &generation)) {
 		log_debug(cmd->ld->log, "Got %s",
 			  datastore_key_fmt(tmpctx, k));
 
-		/* Don't list children, except implicitly */
+		/* Don't list sub-children, except as summary to show it exists. */
 		if (tal_count(k) > tal_count(key) + 1) {
 			log_debug(cmd->ld->log, "Too long");
 			if (!prev_k || !datastore_key_startswith(k, prev_k)) {
@@ -268,10 +245,6 @@ static struct command_result *json_listdatastore(struct command *cmd,
 				json_add_datastore(response, prev_k, NULL, 0);
 				json_object_end(response);
 			}
-		} else if (key && !datastore_key_startswith(k, key)) {
-			log_debug(cmd->ld->log, "Not interested");
-			tal_free(stmt);
-			break;
 		} else {
 			log_debug(cmd->ld->log, "Printing");
 			json_object_start(response, NULL);
@@ -289,11 +262,10 @@ static struct command_result *json_deldatastore(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	struct json_stream *response;
-	const char **key, **k;
+	const char **key;
 	const u8 *data;
 	u64 *generation;
 	u64 actual_gen;
-	struct db_stmt *stmt;
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_list_or_string, &key),
@@ -301,11 +273,8 @@ static struct command_result *json_deldatastore(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	stmt = wallet_datastore_first(cmd, cmd->ld->wallet, key,
-				      &k, &data, &actual_gen);
-	tal_free(stmt);
-
-	if (!stmt || !datastore_key_eq(k, key)) {
+	data = wallet_datastore_get(cmd, cmd->ld->wallet, key, &actual_gen);
+	if (!data) {
 		return command_fail(cmd, DATASTORE_DEL_DOES_NOT_EXIST,
 				    "Key does not exist");
 	}
