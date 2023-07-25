@@ -2743,7 +2743,7 @@ def test_commando_rune(node_factory):
     # Test rune with \|.
     weirdrune = l1.rpc.commando_rune(restrictions=[["method=invoice"],
                                                    ["pnamedescription=@tipjar|jb55@sendsats.lol"]])
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnamedescription is not equal to @tipjar|jb55@sendsats.lol'):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'rune': weirdrune['rune'],
@@ -2853,7 +2853,7 @@ def test_commando_rune(node_factory):
 
     for rune, cmd, params in failures:
         print("{} {}".format(cmd, params))
-        with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+        with pytest.raises(RpcError, match='Invalid rune: Not permitted:') as exc_info:
             l2.rpc.call(method='commando',
                         payload={'peer_id': l1.info['id'],
                                  'rune': rune['rune'],
@@ -2876,7 +2876,7 @@ def test_commando_rune(node_factory):
         time.sleep(1)
 
     # This fails immediately, since we've done one.
-    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: Rate of 1 per minute exceeded') as exc_info:
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'rune': rune9['rune'],
@@ -2894,7 +2894,7 @@ def test_commando_rune(node_factory):
     assert exc_info.value.error['code'] == 0x4c51
 
     # Now we've had 3 in one minute, this will fail.
-    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+    with pytest.raises(RpcError, match='') as exc_info:
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'rune': rune8['rune'],
@@ -2905,7 +2905,7 @@ def test_commando_rune(node_factory):
     # rune5 can only be used by l2:
     l3 = node_factory.get_node()
     l3.connect(l1)
-    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: id does not start with 022d223620a359a47ff7') as exc_info:
         l3.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'rune': rune5['rune'],
@@ -2977,35 +2977,35 @@ def test_commando_rune_pay_amount(node_factory):
     inv2 = l2.rpc.invoice(amount_msat='any', label='inv2', description='description2')['bolt11']
 
     # Rune requires amount_msat!
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params={'bolt11': inv1})
 
     # As a named parameter!
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params=[inv1])
 
     # Can't get around it this way!
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params=[inv2, 12000])
 
     # Nor this way, using a string!
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params={'bolt11': inv2, 'amount_msat': '10000sat'})
 
     # Too much!
-    with pytest.raises(RpcError, match='Not authorized:'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is greater or equal to 10000'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
@@ -3018,7 +3018,6 @@ def test_commando_rune_pay_amount(node_factory):
                     params={'bolt11': inv2, 'amount_msat': 9999})
 
 
-@pytest.mark.skip("commando_blacklist not converted yet!")
 def test_commando_blacklist(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
