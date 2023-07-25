@@ -208,7 +208,7 @@ def test_createrune(node_factory):
                                 params=params)['valid'] is True
 
 
-def test_listrunes(node_factory):
+def test_showrunes(node_factory):
     l1 = node_factory.get_node()
     rune1 = l1.rpc.createrune()
     assert rune1 == {
@@ -216,12 +216,12 @@ def test_listrunes(node_factory):
         'unique_id': '0',
         'warning_unrestricted_rune': 'WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don\'t trust. Consider using the restrictions parameter to only allow access to specific rpc methods.'
     }
-    listrunes = l1.rpc.listrunes()
-    assert len(l1.rpc.listrunes()) == 1
+    showrunes = l1.rpc.showrunes()
+    assert len(l1.rpc.showrunes()) == 1
     l1.rpc.createrune()
-    listrunes = l1.rpc.listrunes()
-    assert len(listrunes['runes']) == 2
-    assert listrunes == {
+    showrunes = l1.rpc.showrunes()
+    assert len(showrunes['runes']) == 2
+    assert showrunes == {
         'runes': [
             {
                 'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
@@ -238,11 +238,11 @@ def test_listrunes(node_factory):
         ]
     }
 
-    our_unstored_rune = l1.rpc.listrunes(rune='lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ==')['runes'][0]
+    our_unstored_rune = l1.rpc.showrunes(rune='lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ==')['runes'][0]
     assert our_unstored_rune['unique_id'] == '9'
     assert our_unstored_rune['stored'] is False
 
-    not_our_rune = l1.rpc.listrunes(rune='oNJAqigqDrHBGzsm7gV3z87oGpzq-KqFlOxx2O9iEQk9MA==')['runes'][0]
+    not_our_rune = l1.rpc.showrunes(rune='oNJAqigqDrHBGzsm7gV3z87oGpzq-KqFlOxx2O9iEQk9MA==')['runes'][0]
     assert not_our_rune['stored'] is False
     assert not_our_rune['our_rune'] is False
 
@@ -320,7 +320,7 @@ def test_blacklistrune(node_factory):
     assert blacklist == {'blacklist': [{'start': 0, 'end': 6},
                                        {'start': 9, 'end': 9}]}
 
-    blacklisted_rune = l1.rpc.listrunes(rune='geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==')['runes'][0]['blacklisted']
+    blacklisted_rune = l1.rpc.showrunes(rune='geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==')['runes'][0]['blacklisted']
     assert blacklisted_rune is True
 
 

@@ -68,7 +68,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listpeerchannels.7 \
-	doc/lightning-listrunes.7 \
+	doc/lightning-showrunes.7 \
 	doc/lightning-listsendpays.7 \
 	doc/lightning-makesecret.7 \
 	doc/lightning-multifundchannel.7 \

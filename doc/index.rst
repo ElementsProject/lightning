@@ -96,7 +96,6 @@ Core Lightning Documentation
    lightning-listpays <lightning-listpays.7.md>
    lightning-listpeerchannels <lightning-listpeerchannels.7.md>
    lightning-listpeers <lightning-listpeers.7.md>
-   lightning-listrunes <lightning-listrunes.7.md>
    lightning-listsendpays <lightning-listsendpays.7.md>
    lightning-listsqlschemas <lightning-listsqlschemas.7.md>
    lightning-listtransactions <lightning-listtransactions.7.md>
@@ -128,6 +127,7 @@ Core Lightning Documentation
    lightning-setchannel <lightning-setchannel.7.md>
    lightning-setconfig <lightning-setconfig.7.md>
    lightning-setpsbtversion <lightning-setpsbtversion.7.md>
+   lightning-showrunes <lightning-showrunes.7.md>
    lightning-signinvoice <lightning-signinvoice.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-signpsbt <lightning-signpsbt.7.md>
