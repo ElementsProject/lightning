@@ -5672,6 +5672,7 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 	struct db_stmt *stmt;
 	const char **startkey, **k;
 	const u8 *data;
+	size_t max;
 
 	/* datastore routines expect a tal_arr */
 	startkey = tal_arr(tmpctx, const char *, 2);
@@ -5701,4 +5702,24 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 		}
 		db_datastore_remove(db, k);
 	}
+
+	/* Now convert blacklist */
+	startkey[0] = "commando";
+	startkey[1] = "blacklist";
+
+	data = db_datastore_get(tmpctx, db, startkey, NULL);
+	max = tal_bytelen(data);
+	while (max) {
+		struct rune_blacklist b;
+
+		b.start = fromwire_u64(&data, &max);
+		b.end = fromwire_u64(&data, &max);
+
+		if (!data)
+			db_fatal(db, "Invalid commando blacklist?");
+		log_debug(ld->log, "Transferring commando blacklist to db: %"PRIu64"-%"PRIu64,
+			  b.start, b.end);
+		db_insert_blacklist(db, &b);
+	}
+	db_datastore_remove(db, startkey);
 }
