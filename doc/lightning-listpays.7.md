@@ -31,7 +31,9 @@ On success, an object containing **pays** is returned.  It is an array of object
 
 If **status** is "complete":
 
+  - **amount\_sent\_msat** (msat): The amount of millisatoshi we sent in order to pay (may include fees and not match amount\_msat)
   - **preimage** (secret): proof of payment
+  - **amount\_msat** (msat, optional): The amount of millisatoshi we intended to send to the destination
   - **number\_of\_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
 
 If **status** is "failed":
@@ -57,4 +59,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:716bcbf01d946c6e4da0bd2f6817c34e6471a1fcd2f0f388ce47984271285c72)
+[comment]: # ( SHA256STAMP:1485c07b6a62b67169675ecd1e6e42f34fb371c2eb687adf7451ad1bec5dcc50)

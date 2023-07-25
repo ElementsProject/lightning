@@ -1627,6 +1627,8 @@ message ListpaysPays {
 	optional string bolt11 = 6;
 	optional string description = 11;
 	optional string bolt12 = 7;
+	optional Amount amount_msat = 8;
+	optional Amount amount_sent_msat = 9;
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
 	optional bytes erroronion = 10;

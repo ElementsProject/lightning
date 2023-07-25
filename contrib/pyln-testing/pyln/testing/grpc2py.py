@@ -1277,6 +1277,8 @@ def listpays_pays2py(m):
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
         "preimage": hexlify(m.preimage),  # PrimitiveField in generate_composite
         "number_of_parts": m.number_of_parts,  # PrimitiveField in generate_composite
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
