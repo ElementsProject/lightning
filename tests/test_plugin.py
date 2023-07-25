@@ -2718,51 +2718,34 @@ def test_commando(node_factory, executor):
 
 
 def test_commando_rune(node_factory):
-    l1, l2 = node_factory.get_nodes(2)
-
-    # Force l1's commando secret
-    l1.rpc.datastore(key=['commando', 'secret'], hex='1241faef85297127c2ac9bde95421b2c51e5218498ae4901dc670c974af4284b')
-    l1.restart()
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    # I put that into a test node's commando.py to generate these runes (modified readonly to match ours):
-    # $ l1-cli commando-rune
-    #   "rune": "zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=="
-    # $ l1-cli commando-rune restrictions=readonly
-    #   "rune": "1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl"
-    # $ l1-cli commando-rune restrictions='[[time>1656675211]]'
-    #   "rune": "RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE="
-    # $ l1-cli commando-rune restrictions='[["id^022d223620a359a47ff7"],["method=listpeers"]]'
-    #   "rune": "lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz"
-    # $ l1-cli commando-rune lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz '[pnamelevel!,pnamelevel/io]'
-    #   "rune": "Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8="
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     rune1 = l1.rpc.commando_rune()
-    assert rune1['rune'] == 'zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=='
+    assert rune1['rune'] == 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA=='
     assert rune1['unique_id'] == '0'
     rune2 = l1.rpc.commando_rune(restrictions="readonly")
-    assert rune2['rune'] == '1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
+    assert rune2['rune'] == 'zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
     assert rune2['unique_id'] == '1'
     rune3 = l1.rpc.commando_rune(restrictions=[["time>1656675211"]])
-    assert rune3['rune'] == 'RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE='
+    assert rune3['rune'] == 'mxHwVsC_W-PH7r79wXQWqxBNHaHncIqIjEPyP_vGOsE9MiZ0aW1lPjE2NTY2NzUyMTE='
     assert rune3['unique_id'] == '2'
     rune4 = l1.rpc.commando_rune(restrictions=[["id^022d223620a359a47ff7"], ["method=listpeers"]])
-    assert rune4['rune'] == 'lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
+    assert rune4['rune'] == 'YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
     assert rune4['unique_id'] == '3'
     rune5 = l1.rpc.commando_rune(rune4['rune'], [["pnamelevel!", "pnamelevel/io"]])
-    assert rune5['rune'] == 'Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
+    assert rune5['rune'] == 'Zm7A2mKkLnd5l6Er_OMAHzGKba97ij8lA-MpNYMw9nk9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
     rune6 = l1.rpc.commando_rune(rune5['rune'], [["parr1!", "parr1/io"]])
-    assert rune6['rune'] == '2Wh6F4R51D3esZzp-7WWG51OhzhfcYKaaI8qiIonaHE9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
+    assert rune6['rune'] == 'm_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
     assert rune6['unique_id'] == '3'
     rune7 = l1.rpc.commando_rune(restrictions=[["pnum=0"]])
-    assert rune7['rune'] == 'QJonN6ySDFw-P5VnilZxlOGRs_tST1ejtd-bAYuZfjk9NCZwbnVtPTA='
+    assert rune7['rune'] == 'enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA='
     assert rune7['unique_id'] == '4'
     rune8 = l1.rpc.commando_rune(rune7['rune'], [["rate=3"]])
-    assert rune8['rune'] == 'kSYFx6ON9hr_ExcQLwVkm1ABnvc1TcMFBwLrAVee0EA9NCZwbnVtPTAmcmF0ZT0z'
+    assert rune8['rune'] == '_h2eKjoK7ITAF-JQ1S5oum9oMQesrz-t1FR9kDChRB49NCZwbnVtPTAmcmF0ZT0z'
     assert rune8['unique_id'] == '4'
     rune9 = l1.rpc.commando_rune(rune8['rune'], [["rate=1"]])
-    assert rune9['rune'] == 'O8Zr-ULTBKO3_pKYz0QKE9xYl1vQ4Xx9PtlHuist9Rk9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
+    assert rune9['rune'] == 'U1GDXqXRvfN1A4WmDVETazU9YnvMsDyt7WwNzpY0khE9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
     assert rune9['unique_id'] == '4'
 
     # Test rune with \|.
