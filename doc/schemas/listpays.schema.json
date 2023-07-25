@@ -87,8 +87,14 @@
                 "bolt11": {},
                 "description": {},
                 "bolt12": {},
-                "amount_msat": {},
-                "amount_sent_msat": {},
+                "amount_msat": {
+                  "type": "msat",
+                  "description": "The amount of millisatoshi we intended to send to the destination"
+                },
+                "amount_sent_msat": {
+                  "type": "msat",
+                  "description": "The amount of millisatoshi we sent in order to pay (may include fees and not match amount_msat)"
+                },
                 "preimage": {
                   "type": "secret",
                   "description": "proof of payment"

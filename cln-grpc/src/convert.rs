@@ -1487,6 +1487,8 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             bolt11: c.bolt11, // Rule #2 for type string?
             description: c.description, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
             preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             number_of_parts: c.number_of_parts, // Rule #2 for type u64?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
