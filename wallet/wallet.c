@@ -5666,3 +5666,39 @@ void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist 
 	}
 	tal_free(stmt);
 }
+
+void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt;
+	const char **startkey, **k;
+	const u8 *data;
+
+	/* datastore routines expect a tal_arr */
+	startkey = tal_arr(tmpctx, const char *, 2);
+	startkey[0] = "commando";
+	startkey[1] = "runes";
+
+	for (stmt = db_datastore_first(tmpctx, db, startkey, &k, &data, NULL);
+	     stmt;
+	     stmt = db_datastore_next(tmpctx, stmt, startkey, &k, &data, NULL)) {
+		const char *err, *str;
+		struct rune *r;
+
+		str = db_col_strdup(tmpctx, stmt, "data");
+		r = rune_from_base64(tmpctx, str);
+		if (!r)
+			db_fatal(db, "Invalid commando rune %s", str);
+		err = rune_is_ours(ld, r);
+		if (err) {
+			log_unusual(ld->log,
+				    "Warning: removing commando"
+				    " rune %s (uid %s): %s",
+				    str, r->unique_id, err);
+		} else {
+			log_debug(ld->log, "Transferring commando rune to db: %s",
+				  str);
+			db_rune_insert(db, r);
+		}
+		db_datastore_remove(db, k);
+	}
+}
