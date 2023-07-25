@@ -505,17 +505,14 @@ static const char *check_rune(const tal_t *ctx,
 	return err;
 }
 
-static void try_command(struct node_id *peer,
-			u64 idnum,
-			const u8 *msg, size_t msglen)
+static void try_command(struct commando *incoming STEALS)
 {
-	struct commando *incoming = new_commando(plugin, NULL, peer, idnum);
 	const jsmntok_t *toks, *method, *params, *rune, *id, *filter;
-	const char *buf = (const char *)msg, *failmsg;
+	const char *buf = (const char *)incoming->contents, *failmsg;
 	struct out_req *req;
 	const char *cmdid_prefix;
 
-	toks = json_parse_simple(incoming, buf, msglen);
+	toks = json_parse_simple(incoming, buf, tal_bytelen(buf));
 	if (!toks) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE,
 			       "Invalid JSON");
@@ -560,12 +557,16 @@ static void try_command(struct node_id *peer,
 						json_tok_full_len(id));
 	}
 
-	failmsg = check_rune(tmpctx, incoming, peer, buf, method, params, rune);
+	failmsg = check_rune(tmpctx, incoming, &incoming->peer, buf, method, params, rune);
 	if (failmsg) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE_AUTH,
 			       "Not authorized: %s", failmsg);
 		return;
 	}
+
+	/* Don't count this towards incomings anymore */
+	destroy_commando(incoming, &incoming_commands);
+	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
 
 	/* We handle success and failure the same */
 	req = jsonrpc_request_whole_object_start(plugin, NULL,
@@ -649,8 +650,7 @@ static void handle_incmd(struct node_id *peer,
 		return;
 	}
 
-	try_command(peer, idnum, incmd->contents, tal_bytelen(incmd->contents));
-	tal_free(incmd);
+	try_command(incmd);
 }
 
 static struct command_result *handle_reply(struct node_id *peer,
