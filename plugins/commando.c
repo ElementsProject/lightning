@@ -50,7 +50,7 @@ struct blacklist {
 static struct plugin *plugin;
 static struct commando **outgoing_commands;
 static struct commando **incoming_commands;
-static u64 *rune_counter;
+static u64 rune_counter;
 static struct rune *master_rune;
 static struct blacklist *blacklist;
 
@@ -602,9 +602,6 @@ static void handle_incmd(struct node_id *peer,
 {
 	struct commando *incmd;
 
-	if (!rune_counter)
-		return;
-
 	incmd = find_commando(incoming_commands, peer, NULL);
 	/* Don't let them buffer multiple commands: discard old. */
 	if (incmd && incmd->id != idnum) {
@@ -1092,8 +1089,7 @@ static struct command_result *json_commando_rune(struct command *cmd,
 	}
 
 	rune = rune_derive_start(cmd, master_rune,
-				 tal_fmt(tmpctx, "%"PRIu64,
-					 rune_counter ? *rune_counter : 0));
+				 tal_fmt(tmpctx, "%"PRIu64, rune_counter));
 	for (size_t i = 0; i < tal_count(restrs); i++)
 		rune_add_restr(rune, restrs[i]);
 
@@ -1105,17 +1101,14 @@ static struct command_result *json_commando_rune(struct command *cmd,
 	json_add_string(req->js, NULL, "rune_counter");
 	json_array_end(req->js);
 	if (rune_counter) {
-		(*rune_counter)++;
 		json_add_string(req->js, "mode", "must-replace");
 	} else {
 		/* This used to say "🌩🤯🧨🔫!" but our log filters are too strict :( */
 		plugin_log(plugin, LOG_INFORM, "Commando powers enabled: BOOM!");
-		rune_counter = tal(plugin, u64);
-		*rune_counter = 1;
 		json_add_string(req->js, "mode", "must-create");
 	}
-	json_add_string(req->js, "string",
-			tal_fmt(tmpctx, "%"PRIu64, *rune_counter));
+	rune_counter++;
+	json_add_string(req->js, "string", tal_fmt(tmpctx, "%"PRIu64, rune_counter));
 	return send_outreq(plugin, req);
 }
 
@@ -1346,8 +1339,6 @@ static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 	memleak_scan_obj(memtable, master_rune);
 	memleak_scan_htable(memtable, &usage_table->raw);
 	memleak_scan_obj(memtable, blacklist);
-	if (rune_counter)
-		memleak_scan_obj(memtable, rune_counter);
 }
 #endif
 
@@ -1378,12 +1369,11 @@ static const char *init(struct plugin *p,
 	plugin_set_memleak_handler(p, memleak_mark_globals);
 #endif
 
-	rune_counter = tal(p, u64);
 	/* If this fails, it probably doesn't exist */
 	err = rpc_scan_datastore_str(tmpctx, plugin, "commando/rune_counter",
-				     JSON_SCAN(json_to_u64, rune_counter));
+				     JSON_SCAN(json_to_u64, &rune_counter));
 	if (err)
-		rune_counter = tal_free(rune_counter);
+		rune_counter = 0;
 
 	/* Old python commando used to store secret */
 	err = rpc_scan_datastore_hex(tmpctx, plugin, "commando/secret",
