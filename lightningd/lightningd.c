@@ -1059,6 +1059,13 @@ int main(int argc, char *argv[])
 	 * Daemon Software Module. */
 	ld->bip32_base = hsm_init(ld);
 
+	/*~ We have bearer tokens called `runes` you can use to control access.  They have
+	 * a fascinating history which I shall not go into now, but they're derived from
+	 * Macaroons which was a over-engineered Googlism.
+	 *
+	 * We need them minimally bootstrapped for our db migration code. */
+	ld->runes = runes_early_init(ld);
+
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
@@ -1120,10 +1127,8 @@ int main(int argc, char *argv[])
 	else if (max_blockheight != UINT32_MAX)
 		max_blockheight -= ld->config.rescan;
 
-	/*~ We have bearer tokens called `runes` you can use to control access.  They have
-	 * a fascinating history which I shall not go into now, but they're derived from
-	 * Macaroons which was a over-engineered Googlism. */
-	ld->runes = runes_init(ld);
+	/*~ Finish our runes initialization (includes reading from db) */
+	runes_finish_init(ld->runes);
 
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
