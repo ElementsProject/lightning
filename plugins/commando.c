@@ -77,6 +77,25 @@ static bool usage_eq_id(const struct usage *u, u64 id)
 HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
 static struct usage_table *usage_table;
 
+
+/* The minimum fields required to respond. */
+static struct commando *new_commando(const tal_t *ctx,
+				     struct command *cmd,
+				     const struct node_id *peer,
+				     u64 id)
+{
+	struct commando *commando = tal(ctx, struct commando);
+
+	commando->cmd = cmd;
+	commando->peer = *peer;
+	commando->id = id;
+
+	commando->contents = NULL;
+	commando->json_id = NULL;
+
+	return commando;
+}
+
 /* The unique id is embedded with a special restriction with an empty field name */
 static bool is_unique_id(struct rune_restr **restrs, unsigned int index)
 {
@@ -490,14 +509,11 @@ static void try_command(struct node_id *peer,
 			u64 idnum,
 			const u8 *msg, size_t msglen)
 {
-	struct commando *incoming = tal(plugin, struct commando);
+	struct commando *incoming = new_commando(plugin, NULL, peer, idnum);
 	const jsmntok_t *toks, *method, *params, *rune, *id, *filter;
 	const char *buf = (const char *)msg, *failmsg;
 	struct out_req *req;
 	const char *cmdid_prefix;
-
-	incoming->peer = *peer;
-	incoming->id = idnum;
 
 	toks = json_parse_simple(incoming, buf, msglen);
 	if (!toks) {
@@ -611,10 +627,7 @@ static void handle_incmd(struct node_id *peer,
 	}
 
 	if (!incmd) {
-		incmd = tal(plugin, struct commando);
-		incmd->id = idnum;
-		incmd->cmd = NULL;
-		incmd->peer = *peer;
+		incmd = new_commando(plugin, NULL, peer, idnum);
 		incmd->contents = tal_arr(incmd, u8, 0);
 		tal_arr_expand(&incoming_commands, incmd);
 		tal_add_destructor2(incmd, destroy_commando, &incoming_commands);
@@ -817,6 +830,7 @@ static struct command_result *json_commando(struct command *cmd,
 	struct outgoing *outgoing;
 	char *json;
 	size_t jsonlen;
+	u64 oid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("peer_id", param_node_id, &peer),
@@ -827,14 +841,14 @@ static struct command_result *json_commando(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	ocmd = tal(cmd, struct commando);
-	ocmd->cmd = cmd;
-	ocmd->peer = *peer;
+	do {
+		oid = pseudorand_u64();
+	} while (find_commando(outgoing_commands, NULL, &oid));
+
+	ocmd = new_commando(cmd, cmd, peer, oid);
 	ocmd->contents = tal_arr(ocmd, u8, 0);
 	ocmd->json_id = tal_strdup(ocmd, cmd->id);
-	do {
-		ocmd->id = pseudorand_u64();
-	} while (find_commando(outgoing_commands, NULL, &ocmd->id));
+
 	tal_arr_expand(&outgoing_commands, ocmd);
 	tal_add_destructor2(ocmd, destroy_commando, &outgoing_commands);
 
