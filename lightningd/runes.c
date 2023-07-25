@@ -310,7 +310,7 @@ static struct command_result *json_add_rune(struct lightningd *ld,
 	return NULL;
 }
 
-static struct command_result *json_listrunes(struct command *cmd,
+static struct command_result *json_showrunes(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
 					     const jsmntok_t *params)
@@ -339,13 +339,13 @@ static struct command_result *json_listrunes(struct command *cmd,
 	return command_success(cmd, response);
 }
 
-static const struct json_command listrunes_command = {
-	"listrunes",
+static const struct json_command showrunes_command = {
+	"showrunes",
 	"utility",
-	json_listrunes,
-	"List a rune or list/decode an optional {rune}."
+	json_showrunes,
+	"Show the list of runes or decode an optional {rune}."
 };
-AUTODATA(json_command, &listrunes_command);
+AUTODATA(json_command, &showrunes_command);
 
 static struct rune_restr **readonly_restrictions(const tal_t *ctx)
 {

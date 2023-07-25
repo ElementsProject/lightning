@@ -34,7 +34,7 @@ Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-commando-blacklist(7), lightning-listrunes(7)
+lightning-commando-blacklist(7), lightning-showrunes(7)
 
 RESOURCES
 ---------
