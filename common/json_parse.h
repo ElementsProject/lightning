@@ -122,7 +122,7 @@ bool json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 			 struct channel_id *cid);
 
 /* Guide is % for a token: each must be followed by JSON_SCAN().
- * Returns NULL on error (asserts() on bad guide). */
+ * Returns NULL on success, otherwise errmsg (asserts() on bad guide). */
 const char *json_scan(const tal_t *ctx,
 		      const char *buffer,
 		      const jsmntok_t *tok,
