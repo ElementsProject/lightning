@@ -11,11 +11,13 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 #include "db/exec.c"
 #include "db/utils.c"
 #include "wallet/db.c"
+#include "wallet/wallet.c"
 
 #include "test_utils.h"
 
 #include <common/setup.h>
 #include <common/utils.h>
+#include <lightningd/channel.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -23,6 +25,20 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
+/* Generated stub for channel_scid_or_local_alias */
+const struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
+{ fprintf(stderr, "channel_scid_or_local_alias called!\n"); abort(); }
+/* Generated stub for connect_htlc_in */
+void connect_htlc_in(struct htlc_in_map *map UNNEEDED, struct htlc_in *hin UNNEEDED)
+{ fprintf(stderr, "connect_htlc_in called!\n"); abort(); }
+/* Generated stub for connect_htlc_out */
+void connect_htlc_out(struct htlc_out_map *map UNNEEDED, struct htlc_out *hout UNNEEDED)
+{ fprintf(stderr, "connect_htlc_out called!\n"); abort(); }
+/* Generated stub for create_onionreply */
+struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
+				     const struct secret *shared_secret UNNEEDED,
+				     const u8 *failure_msg UNNEEDED)
+{ fprintf(stderr, "create_onionreply called!\n"); abort(); }
 /* Generated stub for derive_channel_id */
 void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 		       const struct bitcoin_outpoint *outpoint UNNEEDED)
@@ -33,6 +49,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
+/* Generated stub for find_peer_by_dbid */
+struct peer *find_peer_by_dbid(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "find_peer_by_dbid called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }
@@ -46,13 +65,173 @@ void get_channel_basepoints(struct lightningd *ld UNNEEDED,
 			    struct basepoints *local_basepoints UNNEEDED,
 			    struct pubkey *local_funding_pubkey UNNEEDED)
 { fprintf(stderr, "get_channel_basepoints called!\n"); abort(); }
+/* Generated stub for htlc_in_check */
+struct htlc_in *htlc_in_check(const struct htlc_in *hin UNNEEDED, const char *abortstr UNNEEDED)
+{ fprintf(stderr, "htlc_in_check called!\n"); abort(); }
+/* Generated stub for htlc_out_connect_htlc_in */
+void htlc_out_connect_htlc_in(struct htlc_out *hout UNNEEDED, struct htlc_in *hin UNNEEDED)
+{ fprintf(stderr, "htlc_out_connect_htlc_in called!\n"); abort(); }
+/* Generated stub for invoices_new */
+struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
+			      struct wallet *wallet UNNEEDED,
+			      struct timers *timers UNNEEDED)
+{ fprintf(stderr, "invoices_new called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv called!\n"); abort(); }
+/* Generated stub for new_channel */
+struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
+			    /* NULL or stolen */
+			    struct wallet_shachain *their_shachain STEALS UNNEEDED,
+			    enum channel_state state UNNEEDED,
+			    enum side opener UNNEEDED,
+			    /* NULL or stolen */
+			    struct logger *log STEALS UNNEEDED,
+			    const char *transient_billboard TAKES UNNEEDED,
+			    u8 channel_flags UNNEEDED,
+			    bool req_confirmed_ins_local UNNEEDED,
+			    bool req_confirmed_ins_remote UNNEEDED,
+			    const struct channel_config *our_config UNNEEDED,
+			    u32 minimum_depth UNNEEDED,
+			    u64 next_index_local UNNEEDED,
+			    u64 next_index_remote UNNEEDED,
+			    u64 next_htlc_id UNNEEDED,
+			    const struct bitcoin_outpoint *funding UNNEEDED,
+			    struct amount_sat funding_sats UNNEEDED,
+			    struct amount_msat push UNNEEDED,
+			    struct amount_sat our_funds UNNEEDED,
+			    bool remote_channel_ready UNNEEDED,
+			    /* NULL or stolen */
+			    struct short_channel_id *scid STEALS UNNEEDED,
+			    struct short_channel_id *alias_local STEALS UNNEEDED,
+			    struct short_channel_id *alias_remote STEALS UNNEEDED,
+			    struct channel_id *cid UNNEEDED,
+			    struct amount_msat our_msatoshi UNNEEDED,
+			    struct amount_msat msatoshi_to_us_min UNNEEDED,
+			    struct amount_msat msatoshi_to_us_max UNNEEDED,
+			    struct bitcoin_tx *last_tx STEALS UNNEEDED,
+			    const struct bitcoin_signature *last_sig UNNEEDED,
+			    /* NULL or stolen */
+			    const struct bitcoin_signature *last_htlc_sigs STEALS UNNEEDED,
+			    const struct channel_info *channel_info UNNEEDED,
+			    const struct fee_states *fee_states TAKES UNNEEDED,
+			    /* NULL or stolen */
+			    u8 *remote_shutdown_scriptpubkey STEALS UNNEEDED,
+			    const u8 *local_shutdown_scriptpubkey UNNEEDED,
+			    u64 final_key_idx UNNEEDED,
+			    bool last_was_revoke UNNEEDED,
+			    /* NULL or stolen */
+			    struct changed_htlc *last_sent_commit STEALS UNNEEDED,
+			    u32 first_blocknum UNNEEDED,
+			    u32 min_possible_feerate UNNEEDED,
+			    u32 max_possible_feerate UNNEEDED,
+			    const struct basepoints *local_basepoints UNNEEDED,
+			    const struct pubkey *local_funding_pubkey UNNEEDED,
+			    const struct pubkey *future_per_commitment_point UNNEEDED,
+			    u32 feerate_base UNNEEDED,
+			    u32 feerate_ppm UNNEEDED,
+			    /* NULL or stolen */
+			    const u8 *remote_upfront_shutdown_script STEALS UNNEEDED,
+			    u64 local_static_remotekey_start UNNEEDED,
+			    u64 remote_static_remotekey_start UNNEEDED,
+			    const struct channel_type *type STEALS UNNEEDED,
+			    enum side closer UNNEEDED,
+			    enum state_change reason UNNEEDED,
+			    /* NULL or stolen */
+			    const struct bitcoin_outpoint *shutdown_wrong_funding STEALS UNNEEDED,
+			    const struct height_states *height_states TAKES UNNEEDED,
+			    u32 lease_expiry UNNEEDED,
+			    secp256k1_ecdsa_signature *lease_commit_sig STEALS UNNEEDED,
+			    u32 lease_chan_max_msat UNNEEDED,
+			    u16 lease_chan_max_ppt UNNEEDED,
+			    struct amount_msat htlc_minimum_msat UNNEEDED,
+			    struct amount_msat htlc_maximum_msat UNNEEDED,
+			    bool ignore_fee_limits UNNEEDED)
+{ fprintf(stderr, "new_channel called!\n"); abort(); }
+/* Generated stub for new_coin_wallet_deposit */
+struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
+					       const struct bitcoin_outpoint *outpoint UNNEEDED,
+					       u32 blockheight UNNEEDED,
+					       struct amount_sat amount UNNEEDED,
+					       enum mvt_tag tag)
+
+{ fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
+/* Generated stub for new_inflight */
+struct channel_inflight *new_inflight(struct channel *channel UNNEEDED,
+	     const struct bitcoin_outpoint *funding_outpoint UNNEEDED,
+	     u32 funding_feerate UNNEEDED,
+	     struct amount_sat funding_sat UNNEEDED,
+	     struct amount_sat our_funds UNNEEDED,
+	     struct wally_psbt *funding_psbt STEALS UNNEEDED,
+	     struct bitcoin_tx *last_tx STEALS UNNEEDED,
+	     const struct bitcoin_signature last_sig UNNEEDED,
+	     const u32 lease_expiry UNNEEDED,
+	     const secp256k1_ecdsa_signature *lease_commit_sig UNNEEDED,
+	     const u32 lease_chan_max_msat UNNEEDED,
+	     const u16 lease_chan_max_ppt UNNEEDED,
+	     const u32 lease_blockheight_start UNNEEDED,
+	     const struct amount_msat lease_fee UNNEEDED,
+	     const struct amount_sat lease_amt UNNEEDED)
+{ fprintf(stderr, "new_inflight called!\n"); abort(); }
+/* Generated stub for new_logger */
+struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
+			  const struct node_id *default_node_id UNNEEDED,
+			  const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "new_logger called!\n"); abort(); }
+/* Generated stub for new_peer */
+struct peer *new_peer(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED,
+		      const struct node_id *id UNNEEDED,
+		      const struct wireaddr_internal *addr UNNEEDED,
+		      const u8 *their_features TAKES UNNEEDED,
+		      bool connected_incoming UNNEEDED)
+{ fprintf(stderr, "new_peer called!\n"); abort(); }
+/* Generated stub for notify_chain_mvt */
+void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
+{ fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
+/* Generated stub for notify_forward_event */
+void notify_forward_event(struct lightningd *ld UNNEEDED,
+			  const struct htlc_in *in UNNEEDED,
+			  /* May be NULL if we don't know. */
+			  const struct short_channel_id *scid_out UNNEEDED,
+			  /* May be NULL. */
+			  const struct amount_msat *amount_out UNNEEDED,
+			  enum forward_status state UNNEEDED,
+			  enum onion_wire failcode UNNEEDED,
+			  struct timeabs *resolved_time UNNEEDED,
+			  enum forward_style forward_style UNNEEDED)
+{ fprintf(stderr, "notify_forward_event called!\n"); abort(); }
+/* Generated stub for onion_wire_name */
+const char *onion_wire_name(int e UNNEEDED)
+{ fprintf(stderr, "onion_wire_name called!\n"); abort(); }
+/* Generated stub for outpointfilter_add */
+void outpointfilter_add(struct outpointfilter *of UNNEEDED,
+			const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "outpointfilter_add called!\n"); abort(); }
+/* Generated stub for outpointfilter_matches */
+bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
+			    const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "outpointfilter_matches called!\n"); abort(); }
+/* Generated stub for outpointfilter_new */
+struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
+/* Generated stub for outpointfilter_remove */
+void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
+			   const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
+/* Generated stub for peer_set_dbid */
+void peer_set_dbid(struct peer *peer UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "peer_set_dbid called!\n"); abort(); }
 /* Generated stub for psbt_fixup */
 const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
 { fprintf(stderr, "psbt_fixup called!\n"); abort(); }
+/* Generated stub for remove_htlc_in_by_dbid */
+struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in UNNEEDED,
+				       u64 dbid UNNEEDED)
+{ fprintf(stderr, "remove_htlc_in_by_dbid called!\n"); abort(); }
+/* Generated stub for rune_is_ours */
+const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
+{ fprintf(stderr, "rune_is_ours called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
@@ -62,6 +241,12 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
+/* Generated stub for towire_temporary_node_failure */
+u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }
+/* Generated stub for txfilter_add_scriptpubkey */
+void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
+{ fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
 /* Generated stub for wait_index_name */
 const char *wait_index_name(enum wait_index index UNNEEDED)
 { fprintf(stderr, "wait_index_name called!\n"); abort(); }

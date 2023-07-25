@@ -674,6 +674,9 @@ const char *resolve_close_command(const tal_t *ctx UNNEEDED,
 				  struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 				  bool cooperative UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
+/* Generated stub for rune_is_ours */
+const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
+{ fprintf(stderr, "rune_is_ours called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,

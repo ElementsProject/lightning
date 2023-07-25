@@ -352,8 +352,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool ignore_fee_limits);
 
 /* new_inflight - Create a new channel_inflight for a channel */
-struct channel_inflight *
-new_inflight(struct channel *channel,
+struct channel_inflight *new_inflight(struct channel *channel,
 	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
 	     struct amount_sat funding_sat,
@@ -517,8 +516,7 @@ static inline bool channel_has(const struct channel *channel, int f)
  * don't have a scid yet, e.g., for `zeroconf` channels, so we resort
  * to referencing it by the local alias, which we have in that case.
  */
-const struct short_channel_id *
-channel_scid_or_local_alias(const struct channel *chan);
+const struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan);
 
 void get_channel_basepoints(struct lightningd *ld,
 			    const struct node_id *peer_id,

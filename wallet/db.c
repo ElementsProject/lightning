@@ -965,6 +965,7 @@ static struct migration dbmigrations[] = {
     {NULL, migrate_initialize_wait_indexes},
     {SQL("ALTER TABLE invoices ADD updated_index BIGINT DEFAULT 0"), NULL},
     {SQL("CREATE INDEX invoice_update_idx ON invoices (updated_index)"), NULL},
+    {NULL, migrate_datastore_commando_runes},
 };
 
 /**

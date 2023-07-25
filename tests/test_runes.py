@@ -1,8 +1,11 @@
 from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 import base64
+import os
 import pytest
 import time
+import unittest
 
 
 def test_createrune(node_factory):
@@ -421,3 +424,28 @@ def test_rune_pay_amount(node_factory):
                            method='pay',
                            params={'bolt11': inv2, 'amount_msat': 9999})
     assert res['valid'] is True
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on canned sqlite3 db")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'canned sqlite3 db is regtest')
+def test_commando_rune_migration(node_factory):
+    """Test migration from commando's datastore using db from test_commando_listrunes"""
+    l1 = node_factory.get_node(dbfile='commando_listrunes.sqlite3.xz',
+                               options={'database-upgrade': True})
+
+    # This happens really early in logs!
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_logs(['Transferring commando rune to db: '] * 2)
+
+    # datastore should be empty:
+    assert l1.rpc.listdatastore(['commando', 'runes']) == {'datastore': []}
+
+    # Should match commando results!
+    assert l1.rpc.showrunes() == {'runes': [{'rune':
+                                             'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+                                             'unique_id': '0', 'restrictions':
+                                             [], 'restrictions_as_english': ''},
+                                            {'rune':
+                                             'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==',
+                                             'unique_id': '1', 'restrictions':
+                                             [], 'restrictions_as_english': ''}]}
