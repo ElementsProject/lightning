@@ -535,6 +535,14 @@ static const struct json_command creatrune_command = {
 };
 AUTODATA(json_command, &creatrune_command);
 
+static const struct json_command invokerune_command = {
+	"invokerune",
+	"utility",
+	json_createrune,
+	"Invoke or restrict an optional {rune} with optional {restrictions} and returns {rune}"
+};
+AUTODATA(json_command, &invokerune_command);
+
 static void blacklist_merge(struct rune_blacklist *blacklist,
 			    const struct rune_blacklist *entry)
 {
@@ -635,6 +643,14 @@ static const struct json_command blacklistrune_command = {
 	"Blacklist a rune or range of runes by taking an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}"
 };
 AUTODATA(json_command, &blacklistrune_command);
+
+static const struct json_command destroyrune_command = {
+	"destroyrune",
+	"utility",
+	json_blacklistrune,
+	"Destroy a rune or range of runes by taking an optional {start} and an optional {end} and returns {blacklist} array containing {start}, {end}"
+};
+AUTODATA(json_command, &destroyrune_command);
 
 static const char *check_condition(const tal_t *ctx,
 				   const struct rune *rune,
