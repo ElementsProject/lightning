@@ -326,8 +326,11 @@ static struct command_result *json_showrunes(struct command *cmd,
 	json_array_start(response, "runes");
 	if (ras) {
 		long uid = atol(ras->rune->unique_id);
-		bool in_db = (wallet_get_rune(tmpctx, cmd->ld->wallet, uid) != NULL);
-		json_add_rune(cmd->ld, response, NULL, ras->runestr, ras->rune, in_db);
+		const char *from_db = wallet_get_rune(tmpctx, cmd->ld->wallet, uid);
+
+		/* We consider it stored iff this is exactly stored */
+		json_add_rune(cmd->ld, response, NULL, ras->runestr, ras->rune,
+			      from_db && streq(from_db, ras->runestr));
 	} else {
 		const char **strs = wallet_get_runes(cmd, cmd->ld->wallet);
 		for (size_t i = 0; i < tal_count(strs); i++) {
