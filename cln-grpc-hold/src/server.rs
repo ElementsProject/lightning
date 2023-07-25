@@ -137,8 +137,7 @@ impl Hold for Server {
                 Code::Internal,
                 format!(
                     "Hold-Invoice is in wrong state: `{}`. Payment_hash: {}",
-                    holdstate.to_string(),
-                    pay_hash
+                    holdstate, pay_hash
                 ),
             ))
         }
@@ -203,8 +202,7 @@ impl Hold for Server {
                 Code::Internal,
                 format!(
                     "Hold-Invoice is in wrong state: `{}`. Payment_hash: {}",
-                    holdstate.to_string(),
-                    pay_hash
+                    holdstate, pay_hash
                 ),
             ))
         }
@@ -317,7 +315,7 @@ impl Hold for Server {
                     if now.elapsed().as_secs() > 20 {
                         return Err(Status::new(
                             Code::Internal,
-                            format!("hold_invoice_lookup: Timed out before cancellation could be confirmed"),
+                            "hold_invoice_lookup: Timed out before cancellation could be confirmed",
                         ));
                     }
 
@@ -347,25 +345,23 @@ impl Hold for Server {
 
                     if let Response::ListInvoices(i) = invoice {
                         if let Some(inv) = i.invoices.first() {
-                            match inv.status{
-                                    ListinvoicesInvoicesStatus::PAID => {
-                                        break;
-                                    },
-                                    ListinvoicesInvoicesStatus::EXPIRED => {
-                                        return Err(Status::new(
-                                            Code::Internal,
-                                            format!("hold_invoice_lookup: Invoice expired while trying to settle!"),
-                                        ))
-                                    },
-                                    _ => (),
-                               }
+                            match inv.status {
+                                ListinvoicesInvoicesStatus::PAID => {
+                                    break;
+                                }
+                                ListinvoicesInvoicesStatus::EXPIRED => return Err(Status::new(
+                                    Code::Internal,
+                                    "hold_invoice_lookup: Invoice expired while trying to settle!",
+                                )),
+                                _ => (),
+                            }
                         }
                     }
 
                     if now.elapsed().as_secs() > 20 {
                         return Err(Status::new(
                             Code::Internal,
-                            format!("hold_invoice_lookup: Timed out before settlement could be confirmed"),
+                            "hold_invoice_lookup: Timed out before settlement could be confirmed",
                         ));
                     }
 
@@ -408,10 +404,9 @@ impl Hold for Server {
                 ))
             }
         };
-        let amount_msat = match invoice.amount_milli_satoshis() {
-            Some(amt) => Some(Amount::from_msat(amt).into()),
-            None => None,
-        };
+        let amount_msat = invoice
+            .amount_milli_satoshis()
+            .map(|amt| Amount::from_msat(amt).into());
         let mut description = None;
         let mut description_hash = None;
         match invoice.description() {
