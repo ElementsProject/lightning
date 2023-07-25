@@ -17,6 +17,9 @@ you try, the rune will be rejected.  There is no limit on how many
 runes you can issue; the node simply decodes and checks them as they are 
 received.
 
+Oh, I almost forgot. Runes can also be invoked like in ancient times with 
+the **invokerune** command. Feel the magical powers of a rune by invoking it.
+
 If *rune* is supplied, the restrictions are simple appended to that
 *rune* (it doesn't need to be a rune belonging to this node). If no
 *rune* is supplied, a new one is constructed, with a new unique id.

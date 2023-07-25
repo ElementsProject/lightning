@@ -11,6 +11,8 @@ DESCRIPTION
 
 The **blacklistrune** RPC command allows you to effectively revoke the rune you have created (and any runes derived from that rune with additional restictions). Attempting to use these runes will be resulted in a `Blacklisted rune` error message.
 
+Destroy a rune like in olden times with the **destroyrune** command.
+
 All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted.
 
 RETURN VALUE
