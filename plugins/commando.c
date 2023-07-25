@@ -352,11 +352,29 @@ static void commando_error(struct commando *incoming,
 }
 
 struct cond_info {
-	const struct node_id *peer;
+	/* The commando message (and our parent!) */
+	struct commando *incoming;
+
+	/* Convenience pointer into incoming->contents */
 	const char *buf;
+
+	/* Array of tokens in buf */
+	const jsmntok_t *toks;
+
+	/* Method they asked for. */
 	const jsmntok_t *method;
+
+	/* Optional params and filter args. */
 	const jsmntok_t *params;
+	const jsmntok_t *filter;
+
+	/* Prefix for commands we execute */
+	const char *cmdid_prefix;
+
+	/* If we have to evaluate params for runes, we populate this */
 	STRMAP(const jsmntok_t *) cached_params;
+
+	/* If it contains a ratelimit check, we populate this */
 	struct usage *usage;
 };
 
@@ -401,7 +419,7 @@ static const char *check_condition(const tal_t *ctx,
 	if (streq(alt->fieldname, "time")) {
 		return rune_alt_single_int(ctx, alt, time_now().ts.tv_sec);
 	} else if (streq(alt->fieldname, "id")) {
-		const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
+		const char *id = node_id_to_hexstr(tmpctx, &cinfo->incoming->peer);
 		return rune_alt_single_str(ctx, alt, id, strlen(id));
 	} else if (streq(alt->fieldname, "method")) {
 		return rune_alt_single_str(ctx, alt,
@@ -463,22 +481,60 @@ static const char *check_condition(const tal_t *ctx,
 				   ptok->end - ptok->start);
 }
 
+static void destroy_cond_info(struct cond_info *cinfo)
+{
+	strmap_clear(&cinfo->cached_params);
+}
+
+static struct cond_info *new_cond_info(const tal_t *ctx,
+				       struct commando *incoming,
+				       const jsmntok_t *toks STEALS,
+				       const jsmntok_t *method,
+				       const jsmntok_t *params,
+				       const jsmntok_t *id,
+				       const jsmntok_t *filter)
+{
+	struct cond_info *cinfo = tal(ctx, struct cond_info);
+
+	cinfo->incoming = incoming;
+	/* Convenience pointer, since contents is u8 */
+	cinfo->buf = cast_signed(const char *, incoming->contents);
+	cinfo->toks = tal_steal(cinfo, toks);
+	cinfo->method = method;
+	cinfo->params = params;
+	cinfo->filter = filter;
+
+	if (!id) {
+		cinfo->cmdid_prefix = NULL;
+		incoming->json_id = NULL;
+	} else {
+		cinfo->cmdid_prefix = tal_fmt(cinfo, "%.*s/",
+					      id->end - id->start,
+					      cinfo->buf + id->start);
+		/* Includes quotes, if any! */
+		incoming->json_id = tal_strndup(incoming,
+						json_tok_full(cinfo->buf, id),
+						json_tok_full_len(id));
+	}
+
+	cinfo->usage = NULL;
+	strmap_init(&cinfo->cached_params);
+	tal_add_destructor(cinfo, destroy_cond_info);
+
+	return cinfo;
+}
+
 static const char *check_rune(const tal_t *ctx,
-			      struct commando *incoming,
-			      const struct node_id *peer,
-			      const char *buf,
-			      const jsmntok_t *method,
-			      const jsmntok_t *params,
+			      struct cond_info *cinfo,
 			      const jsmntok_t *runetok)
 {
 	struct rune *rune;
-	struct cond_info cinfo;
 	const char *err;
 
 	if (!runetok)
 		return "Missing rune";
 
-	rune = rune_from_base64n(tmpctx, buf + runetok->start,
+	rune = rune_from_base64n(tmpctx, cinfo->buf + runetok->start,
 				 runetok->end - runetok->start);
 	if (!rune)
 		return "Invalid rune";
@@ -486,31 +542,69 @@ static const char *check_rune(const tal_t *ctx,
 	if (is_rune_blacklisted(rune))
 		return "Blacklisted rune";
 
-	cinfo.peer = peer;
-	cinfo.buf = buf;
-	cinfo.method = method;
-	cinfo.params = params;
-	cinfo.usage = NULL;
-	strmap_init(&cinfo.cached_params);
-	err = rune_test(tmpctx, master_rune, rune, check_condition, &cinfo);
+	err = rune_test(tmpctx, master_rune, rune, check_condition, cinfo);
 	/* Just in case they manage to make us speak non-JSON, escape! */
 	if (err)
 		err = json_escape(ctx, err)->s;
 
-	strmap_clear(&cinfo.cached_params);
-
 	/* If it succeeded, *now* we increment any associated usage counter. */
-	if (!err && cinfo.usage)
-		cinfo.usage->counter++;
+	if (!err && cinfo->usage)
+		cinfo->usage->counter++;
 	return err;
+}
+
+static void execute_command(struct cond_info *cinfo)
+{
+	struct out_req *req;
+
+	/* We handle success and failure the same */
+	req = jsonrpc_request_whole_object_start(plugin, NULL,
+						 json_strdup(tmpctx, cinfo->buf, cinfo->method),
+						 cinfo->cmdid_prefix,
+						 cmd_done, cinfo->incoming);
+	if (cinfo->params) {
+		size_t i;
+		const jsmntok_t *t;
+
+		/* FIXME: This is ugly! */
+		if (cinfo->params->type == JSMN_OBJECT) {
+			json_object_start(req->js, "params");
+			json_for_each_obj(i, t, cinfo->params) {
+				json_add_jsonstr(req->js,
+						 json_strdup(tmpctx, cinfo->buf, t),
+						 json_tok_full(cinfo->buf, t+1),
+						 json_tok_full_len(t+1));
+			}
+			json_object_end(req->js);
+		} else {
+			assert(cinfo->params->type == JSMN_ARRAY);
+			json_array_start(req->js, "params");
+			json_for_each_arr(i, t, cinfo->params) {
+				json_add_jsonstr(req->js,
+						 NULL,
+						 json_tok_full(cinfo->buf, t),
+						 json_tok_full_len(t));
+			}
+			json_array_end(req->js);
+		}
+	} else {
+		json_object_start(req->js, "params");
+		json_object_end(req->js);
+	}
+
+	if (cinfo->filter) {
+		json_add_jsonstr(req->js, "filter",
+				 json_tok_full(cinfo->buf, cinfo->filter),
+				 json_tok_full_len(cinfo->filter));
+	}
+	send_outreq(plugin, req);
 }
 
 static void try_command(struct commando *incoming STEALS)
 {
 	const jsmntok_t *toks, *method, *params, *rune, *id, *filter;
 	const char *buf = (const char *)incoming->contents, *failmsg;
-	struct out_req *req;
-	const char *cmdid_prefix;
+	struct cond_info *cinfo;
 
 	toks = json_parse_simple(incoming, buf, tal_bytelen(buf));
 	if (!toks) {
@@ -539,25 +633,16 @@ static void try_command(struct commando *incoming STEALS)
 	rune = json_get_member(buf, toks, "rune");
 	filter = json_get_member(buf, toks, "filter");
 	id = json_get_member(buf, toks, "id");
-	if (!id) {
-		if (!deprecated_apis) {
-			commando_error(incoming, COMMANDO_ERROR_REMOTE,
-				       "missing id field");
-			return;
-		}
-		cmdid_prefix = NULL;
-		incoming->json_id = NULL;
-	} else {
-		cmdid_prefix = tal_fmt(tmpctx, "%.*s/",
-				       id->end - id->start,
-				       buf + id->start);
-		/* Includes quotes, if any! */
-		incoming->json_id = tal_strndup(incoming,
-						json_tok_full(buf, id),
-						json_tok_full_len(id));
+	if (!id && !deprecated_apis) {
+		commando_error(incoming, COMMANDO_ERROR_REMOTE,
+			       "missing id field");
+		return;
 	}
 
-	failmsg = check_rune(tmpctx, incoming, &incoming->peer, buf, method, params, rune);
+	/* Gather all the info we need to execute this command (steals toks). */
+	cinfo = new_cond_info(incoming, incoming, toks, method, params, id, filter);
+
+	failmsg = check_rune(tmpctx, cinfo, rune);
 	if (failmsg) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE_AUTH,
 			       "Not authorized: %s", failmsg);
@@ -568,48 +653,7 @@ static void try_command(struct commando *incoming STEALS)
 	destroy_commando(incoming, &incoming_commands);
 	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
 
-	/* We handle success and failure the same */
-	req = jsonrpc_request_whole_object_start(plugin, NULL,
-						 json_strdup(tmpctx, buf,
-							     method),
-						 cmdid_prefix,
-						 cmd_done, incoming);
-	if (params) {
-		size_t i;
-		const jsmntok_t *t;
-
-		/* FIXME: This is ugly! */
-		if (params->type == JSMN_OBJECT) {
-			json_object_start(req->js, "params");
-			json_for_each_obj(i, t, params) {
-				json_add_jsonstr(req->js,
-						 json_strdup(tmpctx, buf, t),
-						 json_tok_full(buf, t+1),
-						 json_tok_full_len(t+1));
-			}
-			json_object_end(req->js);
-		} else {
-			assert(params->type == JSMN_ARRAY);
-			json_array_start(req->js, "params");
-			json_for_each_arr(i, t, params) {
-				json_add_jsonstr(req->js,
-						 NULL,
-						 json_tok_full(buf, t),
-						 json_tok_full_len(t));
-			}
-			json_array_end(req->js);
-		}
-	} else {
-		json_object_start(req->js, "params");
-		json_object_end(req->js);
-	}
-	if (filter) {
-		json_add_jsonstr(req->js, "filter",
-				 json_tok_full(buf, filter),
-				 json_tok_full_len(filter));
-	}
-	tal_free(toks);
-	send_outreq(plugin, req);
+	execute_command(cinfo);
 }
 
 static void handle_incmd(struct node_id *peer,
