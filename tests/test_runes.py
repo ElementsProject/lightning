@@ -438,7 +438,7 @@ def test_commando_rune_migration(node_factory):
     l1.daemon.wait_for_logs(['Transferring commando rune to db: '] * 2)
 
     # datastore should be empty:
-    assert l1.rpc.listdatastore(['commando', 'runes']) == {'datastore': []}
+    assert l1.rpc.listdatastore(['commando']) == {'datastore': []}
 
     # Should match commando results!
     assert l1.rpc.showrunes() == {'runes': [{'rune':
@@ -463,7 +463,7 @@ def test_commando_blacklist_migration(node_factory):
     l1.daemon.wait_for_logs(['Transferring commando blacklist to db: '] * 2)
 
     # datastore should be empty:
-    assert l1.rpc.listdatastore(['commando', 'blacklist']) == {'datastore': []}
+    assert l1.rpc.listdatastore(['commando']) == {'datastore': []}
 
     # Should match commando results!
     assert l1.rpc.blacklistrune() == {'blacklist': [{'start': 0, 'end': 6},

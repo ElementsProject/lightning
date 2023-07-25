@@ -5722,4 +5722,10 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 		db_insert_blacklist(db, &b);
 	}
 	db_datastore_remove(db, startkey);
+
+	/* Might as well clean up "rune_counter" while we're here, so
+	 * commando datastore is completely clean. */
+	startkey[0] = "commando";
+	startkey[1] = "rune_counter";
+	db_datastore_remove(db, startkey);
 }
