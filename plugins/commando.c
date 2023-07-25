@@ -524,7 +524,7 @@ static struct cond_info *new_cond_info(const tal_t *ctx,
 	return cinfo;
 }
 
-static const char *check_rune(const tal_t *ctx,
+static UNNEEDED const char *check_rune(const tal_t *ctx,
 			      struct cond_info *cinfo,
 			      const jsmntok_t *runetok)
 {
@@ -553,7 +553,7 @@ static const char *check_rune(const tal_t *ctx,
 	return err;
 }
 
-static void execute_command(struct cond_info *cinfo)
+static struct command_result *execute_command(struct cond_info *cinfo)
 {
 	struct out_req *req;
 
@@ -597,14 +597,64 @@ static void execute_command(struct cond_info *cinfo)
 				 json_tok_full(cinfo->buf, cinfo->filter),
 				 json_tok_full_len(cinfo->filter));
 	}
-	send_outreq(plugin, req);
+	return send_outreq(plugin, req);
+}
+
+static struct command_result *checkrune_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct cond_info *cinfo)
+{
+	bool valid;
+	const char *err;
+
+	err = json_scan(cmd, buf, result, "{valid:%}",
+			JSON_SCAN(json_to_bool, &valid));
+	if (err) {
+		plugin_err(plugin, "Invalid checkrune response (%s) %.*s",
+			   err,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	/* Shouldn't happen! */
+	if (!valid) {
+		commando_error(cinfo->incoming, COMMANDO_ERROR_REMOTE,
+			       "Invalid rune");
+		return command_done();
+	}
+
+	return execute_command(cinfo);
+}
+
+static struct command_result *checkrune_failed(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct cond_info *cinfo)
+{
+	const char *msg, *err;
+
+	err = json_scan(cmd, buf, result, "{error:{message:%}}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
+	if (err) {
+		plugin_err(plugin, "Invalid checkrune error (%s) %.*s",
+			   err,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	commando_error(cinfo->incoming, COMMANDO_ERROR_REMOTE,
+		       "Invalid rune: %s", msg);
+	return command_done();
 }
 
 static void try_command(struct commando *incoming STEALS)
 {
-	const jsmntok_t *toks, *method, *params, *rune, *id, *filter;
-	const char *buf = (const char *)incoming->contents, *failmsg;
+	const jsmntok_t *toks, *method, *params, *runetok, *id, *filter;
+	const char *buf = (const char *)incoming->contents;
 	struct cond_info *cinfo;
+	struct rune *rune;
+	struct out_req *req;
 
 	toks = json_parse_simple(incoming, buf, tal_bytelen(buf));
 	if (!toks) {
@@ -630,7 +680,6 @@ static void try_command(struct commando *incoming STEALS)
 			       "Params must be object or array");
 		return;
 	}
-	rune = json_get_member(buf, toks, "rune");
 	filter = json_get_member(buf, toks, "filter");
 	id = json_get_member(buf, toks, "id");
 	if (!id && !deprecated_apis) {
@@ -638,25 +687,37 @@ static void try_command(struct commando *incoming STEALS)
 			       "missing id field");
 		return;
 	}
-
-	/* Gather all the info we need to execute this command (steals toks). */
-	cinfo = new_cond_info(incoming, incoming, toks, method, params, id, filter);
-
-	failmsg = check_rune(tmpctx, cinfo, rune);
-	if (failmsg) {
-		commando_error(incoming, COMMANDO_ERROR_REMOTE_AUTH,
-			       "Not authorized: %s", failmsg);
+	runetok = json_get_member(buf, toks, "rune");
+	if (!runetok) {
+		commando_error(incoming, COMMANDO_ERROR_REMOTE, "Missing rune");
 		return;
 	}
+	rune = rune_from_base64n(tmpctx, buf + runetok->start,
+				 runetok->end - runetok->start);
+	if (!rune) {
+		commando_error(incoming, COMMANDO_ERROR_REMOTE, "Invalid rune");
+		return;
+	}
+	/* Gather all the info we need to execute this command (steals toks). */
+	cinfo = new_cond_info(incoming, incoming, toks, method, params, id, filter);
 
 	/* Don't count this towards incomings anymore */
 	destroy_commando(incoming, &incoming_commands);
 	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
 
-	execute_command(cinfo);
+	req = jsonrpc_request_start(plugin, NULL, "checkrune",
+				    checkrune_done, checkrune_failed,
+				    cinfo);
+	json_add_node_id(req->js, "nodeid", &incoming->peer);
+	json_add_tok(req->js, "rune", runetok, cinfo->buf);
+	json_add_tok(req->js, "method", method, cinfo->buf);
+	if (params)
+		json_add_tok(req->js, "params", params, cinfo->buf);
+	send_outreq(plugin, req);
 }
 
-static void handle_incmd(struct node_id *peer,
+static void handle_incmd(struct command *cmd,
+			 struct node_id *peer,
 			 u64 idnum,
 			 const u8 *msg, size_t msglen,
 			 bool terminal)
@@ -816,7 +877,7 @@ static struct command_result *handle_custommsg(struct command *cmd,
 		switch (mtype) {
 		case COMMANDO_MSG_CMD_CONTINUES:
 		case COMMANDO_MSG_CMD_TERM:
-			handle_incmd(&peer, idnum, msg, len,
+			handle_incmd(cmd, &peer, idnum, msg, len,
 				     mtype == COMMANDO_MSG_CMD_TERM);
 			break;
 		case COMMANDO_MSG_REPLY_CONTINUES:
