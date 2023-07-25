@@ -5,7 +5,7 @@ mod convert;
 pub mod pb;
 mod server;
 
-use std::{fmt, path::PathBuf};
+use std::{fmt, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Error};
 use cln_rpc::{
@@ -34,23 +34,6 @@ pub enum Holdstate {
     Accepted,
 }
 impl Holdstate {
-    pub fn to_string(&self) -> String {
-        match self {
-            Holdstate::Open => "open".to_string(),
-            Holdstate::Settled => "settled".to_string(),
-            Holdstate::Canceled => "canceled".to_string(),
-            Holdstate::Accepted => "accepted".to_string(),
-        }
-    }
-    pub fn from_str(s: &str) -> Result<Holdstate, Error> {
-        match s.to_lowercase().as_str() {
-            "open" => Ok(Holdstate::Open),
-            "settled" => Ok(Holdstate::Settled),
-            "canceled" => Ok(Holdstate::Canceled),
-            "accepted" => Ok(Holdstate::Accepted),
-            _ => Err(anyhow!("could not parse Holdstate from string")),
-        }
-    }
     pub fn as_i32(&self) -> i32 {
         match self {
             Holdstate::Open => 0,
@@ -61,18 +44,9 @@ impl Holdstate {
     }
     pub fn is_valid_transition(&self, newstate: &Holdstate) -> bool {
         match self {
-            Holdstate::Open => match newstate {
-                Holdstate::Settled => false,
-                _ => true,
-            },
-            Holdstate::Settled => match newstate {
-                Holdstate::Settled => true,
-                _ => false,
-            },
-            Holdstate::Canceled => match newstate {
-                Holdstate::Canceled => true,
-                _ => false,
-            },
+            Holdstate::Open => !matches!(newstate, Holdstate::Settled),
+            Holdstate::Settled => matches!(newstate, Holdstate::Settled),
+            Holdstate::Canceled => matches!(newstate, Holdstate::Canceled),
             Holdstate::Accepted => true,
         }
     }
@@ -84,6 +58,18 @@ impl fmt::Display for Holdstate {
             Holdstate::Settled => write!(f, "settled"),
             Holdstate::Canceled => write!(f, "canceled"),
             Holdstate::Accepted => write!(f, "accepted"),
+        }
+    }
+}
+impl FromStr for Holdstate {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "open" => Ok(Holdstate::Open),
+            "settled" => Ok(Holdstate::Settled),
+            "canceled" => Ok(Holdstate::Canceled),
+            "accepted" => Ok(Holdstate::Accepted),
+            _ => Err(anyhow!("could not parse Holdstate from {}", s)),
         }
     }
 }

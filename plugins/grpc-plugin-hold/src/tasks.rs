@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    str::FromStr,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Error;
 use cln_grpc_hold::{

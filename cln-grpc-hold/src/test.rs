@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::Holdstate;
 
 #[test]
