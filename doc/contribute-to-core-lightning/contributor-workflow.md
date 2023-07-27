@@ -123,9 +123,9 @@ Here's a checklist for the release process.
 6. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
 7. Prepare draft release notes including information from above step, and share with the team for editing.
 8. Upgrade your personal nodes to the rc1, to help testing.
-9. Follow [reproducible build](REPRODUCIBLE.md) for [Builder image setup](https://lightning.readthedocs.io/REPRODUCIBLE.html#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
+9. Follow [reproducible build](https://docs.corelightning.org/docs/repro) for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). It will create builder images `cl-repro-<codename>` which are required for the next step.
 10. Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script to prepare required builds for the release. With `bin-Fedora-28-amd64 bin-Ubuntu sign`, it will build a zipfile, a non-reproducible Fedora, reproducible Ubuntu images. Once it is done, the script will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
-11. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://lightning.readthedocs.io/REPRODUCIBLE.html#setting-up-multiarch-qemu-user-static).
+11. RC images are not uploaded on Docker. Hence they can be removed from the target list for RC versions. Each docker image takes approx. 90 minutes to bundle but it is highly recommended to test docker setup once, if you haven't done that before. Prior to building docker images, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/repro#setting-up-multiarchqemu-user-static).
 
 ### Releasing -rc2, ..., -rcN
 
@@ -149,9 +149,9 @@ Here's a checklist for the release process.
 5. Run `tools/build-release.sh` to:
    - Create reproducible zipfile
    - Build non-reproducible Fedora image
-   - Build reproducible Ubuntu-v18.04, Ubuntu-v20.04, Ubuntu-v22.04 images. Follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#building-using-the-builder-image) for manually Building Ubuntu Images.
+   - Build reproducible Ubuntu-v18.04, Ubuntu-v20.04, Ubuntu-v22.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8
-   - Create and sign checksums. Follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#co-signing-the-release-manifest) for manually signing the release.
+   - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
 6. The tarballs may be owned by root, so revert ownership if necessary:  
    `sudo chown ${USER}:${USER} *${VERSION}*`
 7. Upload the resulting files to github and save as a draft.  
@@ -162,7 +162,7 @@ Here's a checklist for the release process.
    2. Copy them in the root folder (`lightning`).
    3. Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign.
    4. Send your signatures from `release/SHA256SUMS.new` to release captain.
-   5. Or follow [link](https://lightning.readthedocs.io/REPRODUCIBLE.html#verifying-a-reproducible-build) for manual verification instructions.
+   5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
 10. Append signatures shared by the team into the `SHA256SUMS.asc` file, verify with `gpg --verify SHA256SUMS.asc` and include the file in the draft release.
 11. `make pyln-release` to upload pyln modules to pypi.org.  This requires keys for each of pyln-client, pyln-proto, and pyln-testing accessible to poetry. This can be done by configuring the python keyring library along with a suitable backend.  Alternatively, the key can be set as an environment variable and each of the pyln releases can be built and published independently:
     - `export POETRY_PYPI_TOKEN_PYPI=<pyln-client token>`
