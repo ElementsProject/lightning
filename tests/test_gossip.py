@@ -14,6 +14,7 @@ import logging
 import math
 import os
 import pytest
+import re
 import struct
 import subprocess
 import time
@@ -1773,9 +1774,14 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
 
     l2.restart()
 
-    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
+    # These appear before we're fully started, so will already in log:
+    line = l2.daemon.is_in_log(r'gossip_store_compact_offline: .* deleted, 9 copied')
+    m = re.search(r'gossip_store_compact_offline: (.*) deleted', line)
+    # We can have private re-tranmissions, but at minumum we had a deleted private
+    # channel message and two private updates, then two deleted updates.
+    assert int(m.group(1)) >= 5
 
-    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 2/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes'))
+    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
