@@ -287,6 +287,11 @@ static bool update_own_node_announcement(struct daemon *daemon,
 					 &only_missing_tlv)) {
 			if (always_refresh)
 				goto send;
+			/* Update if old announcement is at least 7 days old. */
+			if (timestamp > self->bcast.timestamp &&
+			    timestamp - self->bcast.timestamp >
+			    GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune) / 2)
+				goto send;
 			return false;
 		}
 
