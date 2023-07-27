@@ -37,6 +37,14 @@ struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat)
 	return sat;
 }
 
+struct amount_msat amount_msat_to_sat_remainder(struct amount_msat msat)
+{
+	struct amount_msat res;
+
+	res.millisatoshis = msat.millisatoshis % MSAT_PER_SAT;
+	return res;
+}
+
 /* Different formatting by amounts: btc, sat and msat */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
 				struct amount_msat msat,
@@ -358,6 +366,27 @@ WARN_UNUSED_RESULT bool amount_sat_scale(struct amount_sat *val,
 		return false;
 	val->satoshis = scaled;
 	return true;
+}
+
+WARN_UNUSED_RESULT bool amount_msat_add_sat_s64(struct amount_msat *val,
+						struct amount_msat a,
+						s64 b)
+{
+	if (b < 0)
+		return amount_msat_sub_sat(val, a, amount_sat(-b));
+	else
+		return amount_msat_add_sat(val, a, amount_sat(b));
+}
+
+
+WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
+					       struct amount_sat a,
+					       s64 b)
+{
+	if (b < 0)
+		return amount_sat_sub(val, a, amount_sat(-b));
+	else
+		return amount_sat_add(val, a, amount_sat(b));
 }
 
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b)

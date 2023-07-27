@@ -133,7 +133,9 @@ new_inflight(struct channel *channel,
 	     const u32 lease_chan_max_msat, const u16 lease_chan_max_ppt,
 	     const u32 lease_blockheight_start,
 	     const struct amount_msat lease_fee,
-	     const struct amount_sat lease_amt)
+	     const struct amount_sat lease_amt,
+	     s64 splice_amnt,
+	     bool i_am_initiator)
 {
 	struct wally_psbt *last_tx_psbt_clone;
 	struct channel_inflight *inflight
@@ -145,6 +147,7 @@ new_inflight(struct channel *channel,
 	funding->total_funds = total_funds;
 	funding->feerate = funding_feerate;
 	funding->our_funds = our_funds;
+	funding->splice_amnt = splice_amnt;
 
 	inflight->funding = funding;
 	inflight->channel = channel;
@@ -171,6 +174,8 @@ new_inflight(struct channel *channel,
 	inflight->lease_chan_max_ppt = lease_chan_max_ppt;
 	inflight->lease_fee = lease_fee;
 	inflight->lease_amt = lease_amt;
+
+	inflight->i_am_initiator = i_am_initiator;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);
@@ -595,6 +600,11 @@ bool channel_state_awaitish(const struct channel *channel)
 		|| channel->state == CHANNELD_AWAITING_SPLICE;
 }
 
+bool channel_state_closish(enum channel_state channel_state)
+{
+	return channel_state > CHANNELD_NORMAL && channel_state <= CLOSED;
+}
+
 struct channel *peer_any_active_channel(struct peer *peer, bool *others)
 {
 	struct channel *channel, *ret = NULL;
@@ -808,8 +818,7 @@ void channel_set_state(struct channel *channel,
 	struct timeabs timestamp;
 
 	/* set closer, if known */
-	if (!(state == CHANNELD_AWAITING_SPLICE)
-	    && state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
+	if (channel_state_closish(state) && channel->closer == NUM_SIDES) {
 		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
 		if (reason == REASON_USER)    channel->closer = LOCAL;
 		if (reason == REASON_REMOTE)  channel->closer = REMOTE;

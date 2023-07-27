@@ -35,6 +35,7 @@ typemap = {
     'outputdesc': 'OutputDesc',
     'hash': 'Sha256',
     'secret': 'Secret',
+    'integer': 'i64',
 }
 
 header = f"""#![allow(non_camel_case_types)]

@@ -172,7 +172,9 @@ struct channel_inflight *new_inflight(struct channel *channel UNNEEDED,
 	     const u16 lease_chan_max_ppt UNNEEDED,
 	     const u32 lease_blockheight_start UNNEEDED,
 	     const struct amount_msat lease_fee UNNEEDED,
-	     const struct amount_sat lease_amt UNNEEDED)
+	     const struct amount_sat lease_amt UNNEEDED,
+	     s64 splice_amnt UNNEEDED,
+	     bool i_am_initiator UNNEEDED)
 { fprintf(stderr, "new_inflight called!\n"); abort(); }
 /* Generated stub for new_logger */
 struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,

@@ -309,9 +309,29 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				u64 commitment_number,
 				enum side side)
 {
+	return channel_splice_txs(ctx, &channel->funding, channel->funding_sats,
+				  htlcmap, direct_outputs, funding_wscript,
+				  channel, per_commitment_point,
+				  commitment_number, side, 0, 0);
+}
+
+struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
+				       const struct bitcoin_outpoint *funding,
+				       struct amount_sat funding_sats,
+				       const struct htlc ***htlcmap,
+				       struct wally_tx_output *direct_outputs[NUM_SIDES],
+				       const u8 **funding_wscript,
+				       const struct channel *channel,
+				       const struct pubkey *per_commitment_point,
+				       u64 commitment_number,
+				       enum side side,
+				       s64 splice_amnt,
+				       s64 remote_splice_amnt)
+{
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	struct keyset keyset;
+	struct amount_msat side_pay, other_side_pay;
 
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
@@ -329,10 +349,25 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 					      &channel->funding_pubkey[side],
 					      &channel->funding_pubkey[!side]);
 
+	side_pay = channel->view[side].owed[side];
+	other_side_pay = channel->view[side].owed[!side];
+
+	if (side == LOCAL) {
+		if (!amount_msat_add_sat_s64(&side_pay, side_pay, splice_amnt))
+			return NULL;
+		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, remote_splice_amnt))
+			return NULL;
+	} else if (side == REMOTE) {
+		if (!amount_msat_add_sat_s64(&side_pay, side_pay, remote_splice_amnt))
+			return NULL;
+		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, splice_amnt))
+			return NULL;
+	}
+
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
-	    ctx, &channel->funding,
-	    channel->funding_sats,
+	    txs, funding,
+	    funding_sats,
 	    &channel->funding_pubkey[side],
 	    &channel->funding_pubkey[!side],
 	    channel->opener,
@@ -340,8 +375,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    channel->lease_expiry,
 	    channel_blockheight(channel, side),
 	    &keyset, channel_feerate(channel, side),
-	    channel->config[side].dust_limit, channel->view[side].owed[side],
-	    channel->view[side].owed[!side], committed, htlcmap, direct_outputs,
+	    channel->config[side].dust_limit, side_pay,
+	    other_side_pay, committed, htlcmap, direct_outputs,
 	    commitment_number ^ channel->commitment_number_obscurer,
 	    channel_has(channel, OPT_ANCHOR_OUTPUTS),
 	    channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
@@ -371,8 +406,22 @@ static bool get_room_above_reserve(const struct channel *channel,
 	/* Reserve is set by the *other* side */
 	struct amount_sat reserve = channel->config[!side].channel_reserve;
 	struct balance balance;
+	struct amount_msat owed = view->owed[side];
 
-	to_balance(&balance, view->owed[side]);
+	/* `lowest_splice_amnt` will always be negative or 0 */
+	if (amount_msat_less_eq_sat(owed, amount_sat(-view->lowest_splice_amnt[side]))) {
+		status_debug("Relative splice balance invalid");
+		return false;
+	}
+
+	/* `lowest_splice_amnt` is a relative amount */
+	if (!amount_msat_sub_sat(&owed, owed,
+				 amount_sat(-view->lowest_splice_amnt[side]))) {
+		status_debug("Owed amount should not wrap around from splice");
+		return false;
+	}
+
+	to_balance(&balance, owed);
 
 	for (size_t i = 0; i < tal_count(removing); i++)
 		balance_remove_htlc(&balance, removing[i], side);

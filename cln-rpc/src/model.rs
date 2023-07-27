@@ -1866,6 +1866,8 @@ pub mod responses {
 	    pub feerate: String,
 	    pub total_funding_msat: Amount,
 	    pub our_funding_msat: Amount,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice_amount: Option<i64>,
 	    pub scratch_txid: String,
 	}
 
@@ -3629,6 +3631,8 @@ pub mod responses {
 	    DUALOPEND_OPEN_INIT,
 	    #[serde(rename = "DUALOPEND_AWAITING_LOCKIN")]
 	    DUALOPEND_AWAITING_LOCKIN,
+	    #[serde(rename = "CHANNELD_AWAITING_SPLICE")]
+	    CHANNELD_AWAITING_SPLICE,
 	}
 
 	impl TryFrom<i32> for ListpeerchannelsChannelsState {
@@ -3646,6 +3650,7 @@ pub mod responses {
 	    8 => Ok(ListpeerchannelsChannelsState::ONCHAIN),
 	    9 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT),
 	    10 => Ok(ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN),
+	    11 => Ok(ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeerchannelsChannelsState", o)),
 	        }
 	    }
@@ -3665,6 +3670,7 @@ pub mod responses {
 	            ListpeerchannelsChannelsState::ONCHAIN => "ONCHAIN",
 	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
 	            ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
+	            ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE => "CHANNELD_AWAITING_SPLICE",
 	        }.to_string()
 	    }
 	}
@@ -3687,6 +3693,8 @@ pub mod responses {
 	    pub feerate: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub total_funding_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice_amount: Option<i64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_funding_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

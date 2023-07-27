@@ -107,7 +107,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
 
 	case WIRE_HSMD_SIGN_SPLICE_TX:
-		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
+		return (client->capabilities & WIRE_HSMD_SIGN_SPLICE_TX) != 0;
 
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER:
 		return (client->capabilities & HSM_CAP_SIGN_WILL_FUND_OFFER) != 0;
@@ -2024,6 +2024,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 		WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US,
 		WIRE_HSMD_SIGN_ANCHORSPEND,
 		WIRE_HSMD_SIGN_HTLC_TX_MINGLE,
+		WIRE_HSMD_SIGN_SPLICE_TX,
 	};
 
 	/*~ Don't swap this. */

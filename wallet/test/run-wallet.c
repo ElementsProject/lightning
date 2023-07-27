@@ -158,7 +158,7 @@ void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_got_commitsig */
-bool fromwire_channeld_got_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct bitcoin_signature *signature UNNEEDED, struct bitcoin_signature **htlc_signature UNNEEDED, struct added_htlc **added UNNEEDED, struct fulfilled_htlc **fulfilled UNNEEDED, struct failed_htlc ***failed UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_tx **tx UNNEEDED)
+bool fromwire_channeld_got_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct bitcoin_signature *signature UNNEEDED, struct bitcoin_signature **htlc_signature UNNEEDED, struct added_htlc **added UNNEEDED, struct fulfilled_htlc **fulfilled UNNEEDED, struct failed_htlc ***failed UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_tx **tx UNNEEDED, struct commitsig ***inflight_commitsigs UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_got_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_got_revoke */
 bool fromwire_channeld_got_revoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *revokenum UNNEEDED, struct secret *per_commitment_secret UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct penalty_base **pbase UNNEEDED, struct bitcoin_tx **penalty_tx UNNEEDED)
@@ -350,6 +350,10 @@ void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
+/* Generated stub for json_add_s64 */
+void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  int64_t value UNNEEDED)
+{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED,
@@ -1713,7 +1717,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				sig,
 				1, lease_commit_sig, 2, 4, 22,
 				AMOUNT_MSAT(10),
-				AMOUNT_SAT(1111));
+				AMOUNT_SAT(1111),
+				0,
+				false);
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
@@ -1737,7 +1743,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				sig,
 				0, NULL, 0, 0, 0,
 				AMOUNT_MSAT(0),
-				AMOUNT_SAT(0));
+				AMOUNT_SAT(0),
+				0,
+				false);
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
 		  tal_fmt(w, "Load from DB"));

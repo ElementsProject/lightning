@@ -182,6 +182,7 @@
         "ListpeerchannelsChannelsState": {
             "AWAITING_UNILATERAL": 6,
             "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_AWAITING_SPLICE": 11,
             "CHANNELD_NORMAL": 2,
             "CHANNELD_SHUTTING_DOWN": 3,
             "CLOSINGD_COMPLETE": 5,
@@ -1131,6 +1132,7 @@
             "ListPeerChannels.channels[].inflight[].funding_txid": 1,
             "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
             "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
+            "ListPeerChannels.channels[].inflight[].splice_amount": 7,
             "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
         },
         "ListpeerchannelsChannelsState_changes": {
@@ -1241,6 +1243,7 @@
             "ListPeers.peers[].channels[].inflight[].funding_txid": 1,
             "ListPeers.peers[].channels[].inflight[].our_funding_msat": 5,
             "ListPeers.peers[].channels[].inflight[].scratch_txid": 6,
+            "ListPeers.peers[].channels[].inflight[].splice_amount": 7,
             "ListPeers.peers[].channels[].inflight[].total_funding_msat": 4
         },
         "ListpeersPeersLog": {
@@ -4078,6 +4081,10 @@
             "added": "v23.02",
             "deprecated": false
         },
+        "ListPeerChannels.channels[].inflight[].splice_amount": {
+            "added": "v23.08",
+            "deprecated": false
+        },
         "ListPeerChannels.channels[].inflight[].total_funding_msat": {
             "added": "v23.02",
             "deprecated": false
@@ -4420,6 +4427,10 @@
         },
         "ListPeers.peers[].channels[].inflight[].scratch_txid": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListPeers.peers[].channels[].inflight[].splice_amount": {
+            "added": "v23.08",
             "deprecated": false
         },
         "ListPeers.peers[].channels[].inflight[].total_funding_msat": {

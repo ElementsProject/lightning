@@ -2,7 +2,7 @@ from pyln.testing.utils import TEST_NETWORK, TIMEOUT, VALGRIND, DEVELOPER, DEPRE
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum, mine_funding_to_announce, scid_to_int  # noqa: F401
 import bitstring
 from pyln.client import Millisatoshi
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, EXPERIMENTAL_SPLICING
 import time
 
 COMPAT = env("COMPAT", "1") == "1"
@@ -42,6 +42,10 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
+    if EXPERIMENTAL_SPLICING:
+        features += [29]  # option_dual_fund
+        features += [35]  # option_quiesce
+        features += [63]  # option_splice
     return hex_bits(features + extra)
 
 
@@ -55,6 +59,10 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
+    if EXPERIMENTAL_SPLICING:
+        features += [29]  # option_dual_fund
+        features += [35]  # option_quiesce
+        features += [63]  # option_splice
     return hex_bits(features + extra)
 
 

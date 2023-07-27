@@ -503,6 +503,18 @@ struct command_result *param_u64(struct command *cmd, const char *name,
 				     "should be an unsigned 64 bit integer");
 }
 
+struct command_result *param_s64(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 int64_t **num)
+{
+	*num = tal(cmd, int64_t);
+	if (json_to_s64(buffer, tok, *num))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be an sign 64 bit integer");
+}
+
 struct command_result *param_msat(struct command *cmd, const char *name,
 				  const char *buffer, const jsmntok_t *tok,
 				  struct amount_msat **msat)

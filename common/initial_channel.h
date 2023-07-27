@@ -16,8 +16,19 @@ struct fulfilled_htlc;
 
 /* View from each side */
 struct channel_view {
-	/* How much is owed to each side (includes pending changes) */
+	/* How much is owed to each side (includes pending changes).
+	 * The index of `owed` array is always relative to the machine
+	 * this code is running on, so REMOTE is always the other machine
+	 * and LOCAL is always this machine (regardless of view).
+	 *
+	 * For example:
+	 * view[REMOTE].owed[REMOTE] == view[LOCAL].owed[REMOTE]
+	 * view[REMOTE].owed[LOCAL] == view[LOCAL].owed[LOCAL]
+	 */
 	struct amount_msat owed[NUM_SIDES];
+	/* Lowest splice relative change amount of all candidate splices.
+	 * This will be 0 or negative -- never positive. */
+	s64 lowest_splice_amnt[NUM_SIDES];
 };
 
 struct channel {
@@ -134,6 +145,17 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      enum side side,
 				      struct wally_tx_output *direct_outputs[NUM_SIDES],
 				      char** err_reason);
+
+/* channel_update_funding: Changes the funding for the channel and updates the
+ * balance by the difference between `old_local_funding_msatoshi` and
+ * `new_local_funding_msatoshi`.
+ *
+ * Returns NULL on success or an error on failure.
+ */
+const char *channel_update_funding(struct channel *channel,
+				   const struct bitcoin_outpoint *funding,
+				   struct amount_sat funding_sats,
+				   s64 splice_amnt);
 
 /**
  * channel_feerate: Get fee rate for this side of channel.

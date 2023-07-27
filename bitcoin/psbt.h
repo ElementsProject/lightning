@@ -127,6 +127,9 @@ void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 void psbt_input_set_utxo(struct wally_psbt *psbt, size_t in,
 			 const struct wally_tx *prev_tx);
 
+void psbt_input_set_outpoint(struct wally_psbt *psbt, size_t in,
+			     struct bitcoin_outpoint outpoint);
+
 /* psbt_elements_input_set_asset - Set the asset/value fields for an
  * 				   Elements PSBT (PSET, technically */
 void psbt_elements_input_set_asset(struct wally_psbt *psbt, size_t in,
@@ -211,6 +214,10 @@ void psbt_output_set_unknown(const tal_t *ctx,
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 					size_t in);
 
+/* psbt_input_get_weight - Calculate the tx weight for input index `in` */
+size_t psbt_input_get_weight(const struct wally_psbt *psbt,
+			     size_t in);
+
 /* psbt_output_get_amount - Returns the value of this output
  *
  * @psbt - psbt
@@ -218,6 +225,10 @@ struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
  */
 struct amount_sat psbt_output_get_amount(const struct wally_psbt *psbt,
 					 size_t out);
+
+/* psbt_output_get_weight - Calculate the tx weight for output index `outnum` */
+size_t psbt_output_get_weight(const struct wally_psbt *psbt,
+			      size_t outnum);
 
 /* psbt_compute_fee - Returns value of fee for PSBT
  *
@@ -266,6 +277,7 @@ struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt);
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written);
+bool validate_psbt(const struct wally_psbt *psbt);
 struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
 				   size_t byte_len);
 void towire_wally_psbt(u8 **pptr, const struct wally_psbt *psbt);

@@ -99,7 +99,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define COMPULSORY_FEATURE(x)	((x) & 0xFFFFFFFE)
 #define OPTIONAL_FEATURE(x)	((x) | 1)
 
-/* BOLT #9:
+/* BOLT-a526652801a541ed33b34d000a3b686a857c811f #9:
  *
  * | Bits  | Name                              |...
  * | 0/1   | `option_data_loss_protect`        |... IN ...
@@ -118,6 +118,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 26/27 | `option_shutdown_anysegwit`       |... IN ...
  * | 44/45 | `option_channel_type`             |... IN ...
  * | 48/49 | `option_payment_metadata`         |...  9 ...
+ * | 62/63 | `option_splice`                   |... IN ...
  */
 #define OPT_DATA_LOSS_PROTECT			0
 #define OPT_INITIAL_ROUTING_SYNC		2
@@ -135,6 +136,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 #define OPT_CHANNEL_TYPE			44
 #define OPT_PAYMENT_METADATA			48
+#define OPT_SPLICE				62
 
 /* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
  * | 28/29 | `option_dual_fund` | ... IN9 ...
