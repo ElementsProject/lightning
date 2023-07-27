@@ -2405,10 +2405,12 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 			channel_hints_update(
 			    p, *chans[i]->scid, chans[i]->direction, enabled,
 			    true, &chans[i]->spendable_msat, &htlc_budget);
-			channel_hints_update(p, *chans[i]->alias[LOCAL],
-					     chans[i]->direction,
-					     false /* not enabled */, true,
-					     &AMOUNT_MSAT(0), &htlc_budget);
+			if (chans[i]->alias[LOCAL] != NULL)
+				channel_hints_update(p, *chans[i]->alias[LOCAL],
+						     chans[i]->direction,
+						     false /* not enabled */,
+						     true, &AMOUNT_MSAT(0),
+						     &htlc_budget);
 		} else {
 			channel_hints_update(p, *chans[i]->alias[LOCAL],
 					     chans[i]->direction, enabled, true,
