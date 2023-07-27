@@ -88,6 +88,7 @@ COMMON_SRC_NOGEN :=				\
 	common/status_wire.c			\
 	common/subdaemon.c			\
 	common/timeout.c			\
+	common/trace.c				\
 	common/tx_roles.c			\
 	common/type_to_string.c			\
 	common/utils.c				\

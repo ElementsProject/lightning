@@ -26,6 +26,7 @@
 #include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
+#include <common/trace.h>
 #include <db/exec.h>
 #include <fcntl.h>
 #include <lightningd/jsonrpc.h>
@@ -978,7 +979,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook->custom_replace = NULL;
 	rpc_hook->custom_buffer = NULL;
 
+	trace_span_start("lightningd/jsonrpc", &c);
+	trace_span_tag(&c, "method", c->json_cmd->name);
 	completed = plugin_hook_call_rpc_command(jcon->ld, c->id, rpc_hook);
+	trace_span_end(&c);
 
 	/* If it's deferred, mark it (otherwise, it's completed) */
 	if (!completed)
