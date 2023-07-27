@@ -13,6 +13,8 @@
 #include <stdio.h>
 
 #if HAVE_USDT
+#include <sys/sdt.h>
+
 #define MAX_ACTIVE_SPANS 128
 #define SPAN_ID_LEN 33
 
@@ -110,7 +112,7 @@ static void trace_emit(struct span *s)
 
 	trace_span_id_serialize(s, id);
 	tal_append_fmt(&res, "}, \"traceId\": \"%.*s\"}]", 16, id);
-	fprintf(stderr, "%s\n", res);
+	DTRACE_PROBE2(lightningd, span_emit, id, res);
 	tal_free(res);
 }
 
@@ -145,6 +147,7 @@ void trace_span_start(const char *name, const void *key)
 	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
 	s->name = notleak(tal_strdup(NULL, name));
 	current = s;
+	DTRACE_PROBE1(lightningd, span_start, s->id);
 }
 
 void trace_span_end(const void *key)
@@ -156,6 +159,7 @@ void trace_span_end(const void *key)
 
 	struct timeabs now = time_now();
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
+	DTRACE_PROBE1(lightningd, span_end, s->id);
 	trace_emit(s);
 
 	/* Reset the context span we are in. */
@@ -179,15 +183,17 @@ void trace_span_tag(const void *key, const char *name, const char *value)
 
 void trace_span_suspend(const void *key)
 {
+	size_t numkey = trace_key(key);
+	struct span *span = trace_span_find(numkey);
 	current = NULL;
-	fprintf(stderr, "spanSuspend-%s (%p)\n", "???", key);
+	DTRACE_PROBE1(lightningd, span_suspend, span->id);
 }
 
 void trace_span_resume(const void *key)
 {
 	size_t numkey = trace_key(key);
 	current = trace_span_find(numkey);
-	fprintf(stderr, "spanResume-%s (%p)\n", "???", key);
+	DTRACE_PROBE1(lightningd, span_resume, current->id);
 }
 #else /* HAVE_USDT */
 
