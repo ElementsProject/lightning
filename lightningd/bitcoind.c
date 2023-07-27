@@ -15,6 +15,7 @@
 #include <common/configdir.h>
 #include <common/json_parse.h>
 #include <common/memleak.h>
+#include <common/trace.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -464,6 +465,8 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	const char *block_str, *err;
 	struct bitcoin_blkid blkid;
 	struct bitcoin_block *blk;
+	trace_span_resume(call);
+	trace_span_end(call);
 
 	/* If block hash is `null`, this means not found! Call the callback
 	 * with NULL values. */
@@ -514,6 +517,9 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
+	trace_span_start("plugin/bitcoind", call);
+	trace_span_tag(call, "method", "getrawblockbyheight");
+	trace_span_suspend(call);
 	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight", NULL, true,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,

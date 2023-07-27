@@ -10,6 +10,7 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/timeout.h>
+#include <common/trace.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
@@ -971,13 +972,22 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	b->prev = topo->tip;
 	topo->tip->next = b;	/* FIXME this doesn't seem to be used anywhere */
 	topo->tip = b;
+	trace_span_start("wallet_block_add", b);
 	wallet_block_add(topo->ld->wallet, b);
+	trace_span_end(b);
 
+	trace_span_start("topo_add_utxo", b);
 	topo_add_utxos(topo, b);
+	trace_span_end(b);
+
+	trace_span_start("topo_update_spends", b);
 	topo_update_spends(topo, b);
+	trace_span_end(b);
 
 	/* Only keep the transactions we care about. */
+	trace_span_start("filter_block_txs", b);
 	filter_block_txs(topo, b);
+	trace_span_end(b);
 
 	block_map_add(topo->block_map, b);
 	topo->max_blockheight = b->height;
@@ -1056,6 +1066,7 @@ static void get_new_block(struct bitcoind *bitcoind,
 	if (!blkid && !blk) {
 		/* No such block, we're done. */
 		updates_complete(topo);
+		trace_span_end(topo);
 		return;
 	}
 	assert(blkid && blk);
@@ -1075,6 +1086,7 @@ static void get_new_block(struct bitcoind *bitcoind,
 	}
 
 	/* Try for next one. */
+	trace_span_end(topo);
 	try_extend_tip(topo);
 }
 
@@ -1083,6 +1095,7 @@ static void try_extend_tip(struct chain_topology *topo)
 	topo->extend_timer = NULL;
 	if (topo->stopping)
 		return;
+	trace_span_start("extend_tip", topo);
 	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
