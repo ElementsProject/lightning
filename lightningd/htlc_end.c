@@ -203,9 +203,9 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
 		} else if (hout->preimage) {
-			if (hout->in->failonion)
-				return corrupt(abortstr,
-					       "Output preimage, input failonion");
+			/* If we abandoned the HTLC to save the incoming channel,
+			 * (see consider_failing_incoming), hout->in->failonion
+			 * will be set! */
 			if (hout->in->badonion)
 				return corrupt(abortstr,
 					       "Output preimage, input badonion");

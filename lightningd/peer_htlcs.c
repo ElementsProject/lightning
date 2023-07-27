@@ -1464,11 +1464,18 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	if (hout->am_origin)
 		payment_succeeded(ld, &hout->payment_hash, hout->partid, hout->groupid, preimage);
 	else if (hout->in) {
-		fulfill_htlc(hout->in, preimage);
-		wallet_forwarded_payment_add(ld->wallet, hout->in,
-					     FORWARD_STYLE_TLV,
-					     channel_scid_or_local_alias(hout->key.channel), hout,
-					     FORWARD_SETTLED, 0);
+		/* Did we abandon the incoming?  Oops! */
+		if (hout->in->failonion) {
+			/* FIXME: Accounting? */
+			log_unusual(channel->log, "FUNDS LOSS of %s: peer took funds onchain before we could time out the HTLC, but we abandoned incoming HTLC to save the incoming channel",
+				    fmt_amount_msat(tmpctx, hout->msat));
+		} else {
+			fulfill_htlc(hout->in, preimage);
+			wallet_forwarded_payment_add(ld->wallet, hout->in,
+						     FORWARD_STYLE_TLV,
+						     channel_scid_or_local_alias(hout->key.channel), hout,
+						     FORWARD_SETTLED, 0);
+		}
 	}
 }
 
