@@ -1170,6 +1170,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 
 	case CHANNELD_AWAITING_LOCKIN:
 	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
 	case CHANNELD_SHUTTING_DOWN:
 	case CLOSINGD_SIGEXCHANGE:
 		assert(!channel->owner);
@@ -1827,10 +1828,13 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	tal_free(txidstr);
 
 	bool min_depth_reached = depth >= channel->minimum_depth;
+	bool min_depth_no_scid = min_depth_reached && !channel->scid;
+	bool some_depth_has_scid = depth && channel->scid;
 
 	/* Reorg can change scid, so always update/save scid when possible (depth=0
 	 * means the stale block with our funding tx was removed) */
-	if ((min_depth_reached && !channel->scid) || (depth && channel->scid)) {
+	if (channel->state != CHANNELD_AWAITING_SPLICE
+	    && (min_depth_no_scid || some_depth_has_scid)) {
 		struct txlocator *loc;
 		struct channel_inflight *inf;
 
@@ -2632,6 +2636,7 @@ static struct command_result *param_channel_or_all(struct command *cmd,
 		*channels = tal_arr(cmd, struct channel *, 0);
 		list_for_each(&peer->channels, channel, list) {
 			if (channel->state != CHANNELD_NORMAL
+			    && channel->state != CHANNELD_AWAITING_SPLICE
 			    && channel->state != CHANNELD_AWAITING_LOCKIN
 			    && channel->state != DUALOPEND_AWAITING_LOCKIN)
 				continue;

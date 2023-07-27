@@ -993,7 +993,7 @@ static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 			       const struct wally_psbt *psbt)
 {
 	const struct witness **ws =
-		psbt_to_witnesses(tmpctx, psbt, state->our_role);
+		psbt_to_witnesses(tmpctx, psbt, state->our_role, -1);
 
 	return towire_tx_signatures(ctx, &state->channel_id,
 				    &state->tx_state->funding.txid,

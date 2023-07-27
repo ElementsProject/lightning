@@ -888,7 +888,8 @@ bool channel_tell_depth(struct lightningd *ld,
 				    txid, depth);
 		return true;
 	} else if (channel->state != CHANNELD_AWAITING_LOCKIN
-	    && channel->state != CHANNELD_NORMAL) {
+	    && channel->state != CHANNELD_NORMAL
+	    && channel->state != CHANNELD_AWAITING_SPLICE) {
 		/* If not awaiting lockin/announce, it doesn't
 		 * care any more */
 		log_debug(channel->log,
@@ -1187,7 +1188,7 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
 	channel = peer_any_active_channel(peer, &more_than_one);
-	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
+	if (!channel || !channel->owner || !channel_state_normalish(channel))
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)
@@ -1247,7 +1248,7 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 
 	/* FIXME: If this becomes a real API, check for OPT_QUIESCE! */
 	channel = peer_any_active_channel(peer, &more_than_one);
-	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
+	if (!channel || !channel->owner || !channel_state_normalish(channel))
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)
