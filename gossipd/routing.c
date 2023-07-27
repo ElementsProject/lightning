@@ -505,7 +505,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
-		if(node->rgraph.index != node->bcast.index)
+		if (node->rgraph.index != node->bcast.index)
 			gossip_store_delete(rstate->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
@@ -522,7 +522,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
-		if(node->rgraph.index != node->bcast.index)
+		if (node->rgraph.index != node->bcast.index)
 			gossip_store_delete(rstate->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);

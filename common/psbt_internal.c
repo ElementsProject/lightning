@@ -116,7 +116,8 @@ void psbt_finalize_input(const tal_t *ctx,
 const struct witness **
 psbt_to_witnesses(const tal_t *ctx,
 		  const struct wally_psbt *psbt,
-		  enum tx_role side_to_stack)
+		  enum tx_role side_to_stack,
+		  int input_index_to_ignore)
 {
 	u64 serial_id;
 	const struct witness **witnesses =
@@ -127,6 +128,9 @@ psbt_to_witnesses(const tal_t *ctx,
 					&serial_id))
 			/* FIXME: throw an error ? */
 			return tal_free(witnesses);
+
+		if (input_index_to_ignore == i)
+			continue;
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 		 * - if is the *initiator*:

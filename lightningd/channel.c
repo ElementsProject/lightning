@@ -152,8 +152,11 @@ new_inflight(struct channel *channel,
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 
 	/* Make a 'clone' of this tx */
-	last_tx_psbt_clone = clone_psbt(inflight, last_tx->psbt);
-	inflight->last_tx = bitcoin_tx_with_psbt(inflight, last_tx_psbt_clone);
+	inflight->last_tx = NULL;
+	if (last_tx) {
+		last_tx_psbt_clone = clone_psbt(inflight, last_tx->psbt);
+		inflight->last_tx = bitcoin_tx_with_psbt(inflight, last_tx_psbt_clone);
+	}
 	inflight->last_sig = last_sig;
 	inflight->tx_broadcast = false;
 
@@ -580,6 +583,18 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
+bool channel_state_normalish(const struct channel *channel)
+{
+	return channel->state == CHANNELD_NORMAL
+		|| channel->state == CHANNELD_AWAITING_SPLICE;
+}
+
+bool channel_state_awaitish(const struct channel *channel)
+{
+	return channel->state == CHANNELD_AWAITING_LOCKIN
+		|| channel->state == CHANNELD_AWAITING_SPLICE;
+}
+
 struct channel *peer_any_active_channel(struct peer *peer, bool *others)
 {
 	struct channel *channel, *ret = NULL;
@@ -793,7 +808,8 @@ void channel_set_state(struct channel *channel,
 	struct timeabs timestamp;
 
 	/* set closer, if known */
-	if (state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
+	if (!(state == CHANNELD_AWAITING_SPLICE)
+	    && state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
 		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
 		if (reason == REASON_USER)    channel->closer = LOCAL;
 		if (reason == REASON_REMOTE)  channel->closer = REMOTE;

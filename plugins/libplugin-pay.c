@@ -3291,7 +3291,8 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 		if (!chan->connected)
 			continue;
 
-		if (!streq(chan->state, "CHANNELD_NORMAL"))
+		if (!streq(chan->state, "CHANNELD_NORMAL")
+			&& !streq(chan->state, "CHANNELD_AWAITING_SPLICE"))
 			continue;
 
 		/* Must have either a local alias for zeroconf

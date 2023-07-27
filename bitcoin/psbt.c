@@ -95,7 +95,7 @@ bool psbt_is_finalized(const struct wally_psbt *psbt)
 }
 
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
-					struct wally_tx_input *input,
+					const struct wally_tx_input *input,
 				       	size_t insert_at)
 {
 	const u32 flags = WALLY_PSBT_FLAG_NON_FINAL; /* Skip script/witness */

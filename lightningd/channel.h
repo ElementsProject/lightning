@@ -384,6 +384,12 @@ void delete_channel(struct channel *channel STEALS);
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
 
+/* Is the channel in NORMAL or AWAITING_SPLICE state? */
+bool channel_state_normalish(const struct channel *channel);
+
+/* Is the channel in AWAITING_*? */
+bool channel_state_awaitish(const struct channel *channel);
+
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
 /* Channel has failed, but can try again. */
@@ -454,12 +460,12 @@ void channel_set_last_tx(struct channel *channel,
 
 static inline bool channel_can_add_htlc(const struct channel *channel)
 {
-	return channel->state == CHANNELD_NORMAL;
+	return channel_state_normalish(channel);
 }
 
 static inline bool channel_fees_can_change(const struct channel *channel)
 {
-	return channel->state == CHANNELD_NORMAL
+	return channel_state_normalish(channel)
 		|| channel->state == CHANNELD_SHUTTING_DOWN;
 }
 
