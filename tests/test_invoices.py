@@ -911,3 +911,17 @@ def test_listinvoices_index(node_factory, executor):
     # limit should work!
     for i in range(1, 10):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
+def test_invoices_wait_db_migration(node_factory, bitcoind):
+    """Canned db is from v23.02.2's test_invoice_routeboost_private l2"""
+    bitcoind.generate_block(28)
+    l2 = node_factory.get_node(node_id=2,
+                               dbfile='invoices_pre_waitindex.sqlite3.xz',
+                               options={'database-upgrade': True})
+
+    # And now we crash:
+    # Error executing statement: wallet/invoices.c:282: INSERT INTO invoices            ( id, payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features, local_offer_id)     VALUES ( ?, ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?, ?);: UNIQUE constraint failed: invoices.id
+    l2.rpc.invoice(1000, "test", "test")
