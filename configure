@@ -413,6 +413,18 @@ int main(void)
 	return 0;
 }
 /*END*/
+var=HAVE_USDT
+desc=User Statically-Defined Tracing (USDT)
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+code=
+#include <sys/sdt.h>
+
+int main(void)
+{
+	DTRACE_PROBE(lightningd, test_sdt);
+	return 0;
+}
+/*END*/
 var=HAVE_GCC
 desc=compiler is GCC
 style=OUTSIDE_MAIN
