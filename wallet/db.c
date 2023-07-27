@@ -70,6 +70,9 @@ static void migrate_normalize_invstr(struct lightningd *ld,
 static void migrate_initialize_wait_indexes(struct lightningd *ld,
 					    struct db *db);
 
+static void migrate_invoice_created_index_var(struct lightningd *ld,
+					      struct db *db);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -966,6 +969,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE invoices ADD updated_index BIGINT DEFAULT 0"), NULL},
     {SQL("CREATE INDEX invoice_update_idx ON invoices (updated_index)"), NULL},
     {NULL, migrate_datastore_commando_runes},
+    {NULL, migrate_invoice_created_index_var},
 };
 
 /**
@@ -1669,6 +1673,18 @@ static void migrate_initialize_wait_indexes(struct lightningd *ld,
 	if (!db_col_is_null(stmt, "MAX(id)"))
 		db_set_intvar(db, "last_invoice_created_index",
 			      db_col_u64(stmt, "MAX(id)"));
+	tal_free(stmt);
+}
+
+static void migrate_invoice_created_index_var(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	/* Prior migration had a typo! */
+	stmt = db_prepare_v2(db, SQL("UPDATE vars"
+				     " SET name = 'last_invoices_created_index'"
+				     " WHERE name = 'last_invoice_created_index'"));
+	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 }
 
