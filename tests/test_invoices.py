@@ -913,7 +913,6 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
 def test_invoices_wait_db_migration(node_factory, bitcoind):
     """Canned db is from v23.02.2's test_invoice_routeboost_private l2"""
