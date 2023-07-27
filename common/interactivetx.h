@@ -26,9 +26,6 @@ enum tx_msgs {
 
 struct interactivetx_context {
 
-	/* Users can set this to their own context */
-	void *ctx;
-
 	enum tx_role our_role;
 	struct per_peer_state *pps;
 	struct channel_id channel_id;
@@ -45,16 +42,14 @@ struct interactivetx_context {
 	 * If no more changes are demanded, return NULL or current_psbt
 	 * unchanged to signal completion.
 	 */
-	struct wally_psbt *(*next_update)(const tal_t *ctx,
+	struct wally_psbt *(*next_update_fn)(const tal_t *ctx,
 					  struct interactivetx_context *ictx);
 
-	/* Set this to the intial psbt. If NULL will be filled with an empty
-	 * psbt.
-	 */
+	/* Set this to the intial psbt. Defaults to an empty PSBT. */
 	struct wally_psbt *current_psbt;
 
 	/* Optional field for storing your side's desired psbt state, to be
-	 * used inside 'next_update'.
+	 * used inside 'next_update_fn'.
 	 */
 	struct wally_psbt *desired_psbt;
 
@@ -74,8 +69,8 @@ struct interactivetx_context *new_interactivetx_context(const tal_t *ctx,
 							struct channel_id channel_id);
 
 /* Blocks the thread until we run out of changes (and we send tx_complete),
- * or an error occurs. If 'pause_when_complete' is set, this behavior changes
- * and we return without sending tx_complete.
+ * or an error occurs. If 'pause_when_complete' on the `interactivetx_context`
+ * is set, this behavior changes and we return without sending tx_complete.
  *
  * If received_tx_complete is not NULL:
  * in -> true means we assume we've received tx_complete in a previous round.
@@ -86,5 +81,12 @@ struct interactivetx_context *new_interactivetx_context(const tal_t *ctx,
 char *process_interactivetx_updates(const tal_t *ctx,
 				    struct interactivetx_context *ictx,
 				    bool *received_tx_complete);
+
+/* If the given ictx would cause `process_interactivetx_updates to send tx
+ * changes when called. Returns true if an error occurs
+ * (call `process_interactivetx_updates` for a description of the error).
+ */
+bool interactivetx_has_changes(struct interactivetx_context *ictx,
+			       struct wally_psbt *next_psbt);
 
 #endif /* LIGHTNING_COMMON_INTERACTIVETX_H */
