@@ -231,6 +231,7 @@ class Type(FieldSet):
         'failed_htlc',
         'existing_htlc',
         'simple_htlc',
+        'inflight',
         'utxo',
         'bitcoin_tx',
         'wirestring',

@@ -26,7 +26,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 
 - **peer\_id** (pubkey): Node Public key
 - **peer\_connected** (boolean): A boolean flag that is set to true if the peer is online
-- **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
+- **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN", "CHANNELD\_AWAITING\_SPLICE")
 - **opener** (string): Who initiated the channel (one of "local", "remote")
 - **features** (array of strings):
   - BOLT #9 features which apply to this channel (one of "option\_static\_remotekey", "option\_anchor\_outputs", "option\_anchors\_zero\_fee\_htlc\_tx", "option\_scid\_alias", "option\_zeroconf")
@@ -49,11 +49,12 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **last\_feerate** (string, optional): For inflight opens, the most recent feerate used on the channel open
 - **next\_feerate** (string, optional): For inflight opens, the next feerate we'll use for the channel open
 - **next\_fee\_step** (u32, optional): For inflight opens, the next feerate step we'll use for the channel open
-- **inflight** (array of objects, optional): Current candidate funding transactions (only for dual-funding):
+- **inflight** (array of objects, optional): Current candidate funding transactions:
   - **funding\_txid** (txid): ID of the funding transaction
   - **funding\_outnum** (u32): The 0-based output number of the funding transaction which opens the channel
   - **feerate** (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
   - **total\_funding\_msat** (msat): total amount in the channel
+  - **splice\_amount** (integer): The amouont of sats we're splicing in or out *(added v23.08)*
   - **our\_funding\_msat** (msat): amount we have in the channel
   - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
 - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
@@ -195,4 +196,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c530e39c9144b5fbef0f6474170865095bd7b4c48e6378fdb7f9a7697b909473)
+[comment]: # ( SHA256STAMP:dade32248bd309f2514a237cb71be6ddbe12220e1b6899693a032b45b7980a01)

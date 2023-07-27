@@ -270,7 +270,7 @@ bool invalid_last_tx(const struct bitcoin_tx *tx)
 	 * 0.7.1 release. */
 #ifdef COMPAT_V070
 	/* Old bug had commitment txs with no outputs; bitcoin_txid asserts. */
-	return tx->wtx->num_outputs == 0;
+	return !tx || !tx->wtx || tx->wtx->num_outputs == 0;
 #else
 	return false;
 #endif
@@ -841,6 +841,9 @@ static void json_add_channel(struct lightningd *ld,
 			json_add_amount_sat_msat(response,
 						 "our_funding_msat",
 						 inflight->funding->our_funds);
+			json_add_s64(response,
+				     "splice_amount",
+				     inflight->funding->splice_amnt);
 			/* Add the expected commitment tx id also */
 			bitcoin_txid(inflight->last_tx, &txid);
 			json_add_txid(response, "scratch_txid", &txid);
@@ -1764,15 +1767,32 @@ static bool check_funding_tx(const struct bitcoin_tx *tx,
 	return false;
 }
 
-static void update_channel_from_inflight(struct lightningd *ld,
-					 struct channel *channel,
-					 const struct channel_inflight *inflight)
+void update_channel_from_inflight(struct lightningd *ld,
+				  struct channel *channel,
+				  const struct channel_inflight *inflight)
 {
 	struct wally_psbt *psbt_copy;
 
 	channel->funding = inflight->funding->outpoint;
 	channel->funding_sats = inflight->funding->total_funds;
+
 	channel->our_funds = inflight->funding->our_funds;
+
+	if (!amount_sat_add_sat_s64(&channel->our_funds, channel->our_funds,
+				    inflight->funding->splice_amnt)) {
+
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Updaing channel view for splice causes"
+				       " an invalid satoshi amount wrapping,"
+				       " channel: %s, initial funds: %s, splice"
+				       " banace change: %s",
+				       type_to_string(tmpctx, struct channel_id,
+						      &channel->cid),
+				       type_to_string(tmpctx, struct amount_sat,
+						      &channel->our_funds),
+				       inflight->funding->splice_amnt);
+	}
 
 	/* Lease infos ! */
 	channel->lease_expiry = inflight->lease_expiry;
@@ -1829,23 +1849,22 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 
 	bool min_depth_reached = depth >= channel->minimum_depth;
 	bool min_depth_no_scid = min_depth_reached && !channel->scid;
-	bool some_depth_has_scid = depth && channel->scid;
+	bool some_depth_has_scid = depth != 0 && channel->scid;
 
 	/* Reorg can change scid, so always update/save scid when possible (depth=0
 	 * means the stale block with our funding tx was removed) */
-	if (channel->state != CHANNELD_AWAITING_SPLICE
-	    && (min_depth_no_scid || some_depth_has_scid)) {
+	if (min_depth_no_scid || some_depth_has_scid) {
 		struct txlocator *loc;
 		struct channel_inflight *inf;
 
 		/* Update the channel's info to the correct tx, if needed to
 		 * It's possible an 'inflight' has reached depth */
-		if (!list_empty(&channel->inflights)) {
+		if (channel->state != CHANNELD_AWAITING_SPLICE
+		    && !list_empty(&channel->inflights)) {
 			inf = channel_inflight_find(channel, txid);
 			if (!inf) {
-				channel_fail_permanent(channel,
-						       REASON_LOCAL,
-					"Txid %s for channel"
+				log_debug(channel->log,
+					"Ignoring event for txid %s for channel"
 					" not found in inflights. (peer %s)",
 					type_to_string(tmpctx,
 						       struct bitcoin_txid,
@@ -1874,8 +1893,9 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 
 		/* If we restart, we could already have peer->scid from database,
 		 * we don't need to update scid for stub channels(1x1x1) */
-		if (!channel->scid) {
-			channel->scid = tal(channel, struct short_channel_id);
+		if (!channel->scid || channel->state == CHANNELD_AWAITING_SPLICE) {
+			if(!channel->scid)
+				channel->scid = tal(channel, struct short_channel_id);
 			*channel->scid = scid;
 			wallet_channel_save(ld->wallet, channel);
 
@@ -1926,10 +1946,22 @@ static enum watch_result funding_spent(struct channel *channel,
 				       const struct block *block)
 {
 	struct bitcoin_txid txid;
+	struct channel_inflight *inflight;
+
 	bitcoin_txid(tx, &txid);
 
 	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
 			      WIRE_ONCHAIND_INIT, &txid, 0, block->height);
+
+	/* If we're doing a splice, we expect the funding transaction to be
+	 * spent, so don't freak out and just keep watching in that case */
+	list_for_each(&channel->inflights, inflight, list) {
+		if (bitcoin_txid_eq(&txid,
+				    &inflight->funding->outpoint.txid)) {
+			return KEEP_WATCHING;
+		}
+	}
+
 	return onchaind_funding_spent(channel, tx, block->height);
 }
 
@@ -1957,7 +1989,7 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 	channel_watch_wrong_funding(ld, channel);
 }
 
-static void channel_watch_inflight(struct lightningd *ld,
+void channel_watch_inflight(struct lightningd *ld,
 				   struct channel *channel,
 				   struct channel_inflight *inflight)
 {

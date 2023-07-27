@@ -89,6 +89,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **feerate** (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
     - **total\_funding\_msat** (msat): total amount in the channel
     - **our\_funding\_msat** (msat): amount we have in the channel
+    - **splice\_amount** (integer): The amouont of sats we're splicing in or out *(added v23.08)*
     - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
   - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
   - **private** (boolean, optional): if False, we will not announce this channel
@@ -398,4 +399,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightning/bolts/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c0d0cc8f083168fd76caa2430a7c7d27d72a5273c55fb14b0efcbcb7a87274f4)
+[comment]: # ( SHA256STAMP:d75b5070288f26a39df39831212f40c397f1389e7c1765f22829d3f3389a56aa)

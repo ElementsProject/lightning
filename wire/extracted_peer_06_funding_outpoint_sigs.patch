@@ -1,0 +1,18 @@
+--- wire/peer_exp_wire.csv	2022-06-22 19:07:24.000000000 -0500
++++ -	2022-06-30 16:00:51.000000000 -0500
+@@ -65,12 +57,15 @@
+ msgdata,tx_signatures,txid,sha256,
+ msgdata,tx_signatures,num_witnesses,u16,
+ msgdata,tx_signatures,witness_stack,witness_stack,num_witnesses
++msgdata,tx_signatures,tlvs,txsigs_tlvs,
+ subtype,witness_stack
+ subtypedata,witness_stack,num_input_witness,u16,
+ subtypedata,witness_stack,witness_element,witness_element,num_input_witness
+ subtype,witness_element
+ subtypedata,witness_element,len,u16,
+ subtypedata,witness_element,witness,byte,len
++tlvtype,txsigs_tlvs,funding_outpoint_sig,0
++tlvdata,txsigs_tlvs,funding_outpoint_sig,sig,byte,...
+ msgtype,tx_init_rbf,72
+ msgdata,tx_init_rbf,channel_id,channel_id,
+ msgdata,tx_init_rbf,locktime,u32,

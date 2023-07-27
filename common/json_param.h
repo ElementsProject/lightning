@@ -212,6 +212,11 @@ struct command_result *param_u64(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 uint64_t **num);
 
+/* Extract number from this (may be a string, or a number literal) */
+struct command_result *param_s64(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 int64_t **num);
+
 /* Extract msatoshi amount from this string */
 struct command_result *param_msat(struct command *cmd, const char *name,
 				  const char *buffer, const jsmntok_t *tok,

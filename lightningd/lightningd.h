@@ -241,6 +241,9 @@ struct lightningd {
 	/* Outstanding wait commands */
 	struct list_head wait_commands;
 
+	/* Outstanding splice commands. */
+	struct list_head splice_commands;
+
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
 

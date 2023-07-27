@@ -263,6 +263,15 @@ jobs:
             TEST_NETWORK: regtest
             DEVELOPER: 1
             EXPERIMENTAL_DUAL_FUND: 1
+          # And splicing!
+          - NAME: splicing
+            CFG: gcc-dev1
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+            TEST_NETWORK: regtest
+            DEVELOPER: 1
+            EXPERIMENTAL_DUAL_FUND: 1
+            EXPERIMENTAL_SPLICING: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -290,6 +299,7 @@ jobs:
           DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
+          EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1

@@ -108,6 +108,7 @@ impl From<responses::ListpeersPeersChannelsInflight> for pb::ListpeersPeersChann
             feerate: c.feerate, // Rule #2 for type string
             total_funding_msat: Some(c.total_funding_msat.into()), // Rule #2 for type msat
             our_funding_msat: Some(c.our_funding_msat.into()), // Rule #2 for type msat
+            splice_amount: c.splice_amount, // Rule #2 for type integer?
             scratch_txid: hex::decode(&c.scratch_txid).unwrap(), // Rule #2 for type txid
         }
     }
@@ -960,6 +961,7 @@ impl From<responses::ListpeerchannelsChannelsInflight> for pb::ListpeerchannelsC
             funding_outnum: c.funding_outnum, // Rule #2 for type u32?
             feerate: c.feerate, // Rule #2 for type string?
             total_funding_msat: c.total_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
+            splice_amount: c.splice_amount, // Rule #2 for type integer?
             our_funding_msat: c.our_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
             scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
         }

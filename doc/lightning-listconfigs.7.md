@@ -120,6 +120,9 @@ On success, an object is returned, containing:
   - **experimental-dual-fund** (object, optional):
     - **set** (boolean): `true` if set in config or cmdline
     - **source** (string): source of configuration setting
+  - **experimental-splicing** (object, optional) *(added v23.08)*:
+    - **set** (boolean): `true` if set in config or cmdline
+    - **source** (string): source of configuration setting
   - **experimental-onion-messages** (object, optional):
     - **set** (boolean): `true` if set in config or cmdline
     - **source** (string): source of configuration setting
@@ -298,6 +301,7 @@ On success, an object is returned, containing:
 - **wallet** (string, optional): `wallet` field from config or cmdline default **deprecated, removal in v24.05**
 - **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default **deprecated, removal in v24.05**
+- **experimental-splicing** (boolean, optional): `experimental-splicing` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default **deprecated, removal in v24.05**
@@ -467,4 +471,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a40882cad0d889aa736a2932250102be43ae7e62b3d2429b26e0961e4c315f7b)
+[comment]: # ( SHA256STAMP:8e7ec36b820cb17ecfc3066802bb07e159fffdd8dfe049d092b8f3b804e05588)

@@ -131,6 +131,7 @@ Core Lightning Documentation
    lightning-signinvoice <lightning-signinvoice.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-signpsbt <lightning-signpsbt.7.md>
+   lightning-splice_init <lightning-splice_init.7.md>
    lightning-sql <lightning-sql.7.md>
    lightning-staticbackup <lightning-staticbackup.7.md>
    lightning-stop <lightning-stop.7.md>

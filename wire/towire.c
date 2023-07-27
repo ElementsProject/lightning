@@ -4,6 +4,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <channeld/inflight.h>
 #include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)

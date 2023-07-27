@@ -1150,8 +1150,10 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", lease_blockheight_start"
 				 ", lease_fee"
 				 ", lease_satoshi"
+				 ", splice_amnt"
+				 ", i_am_initiator"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1184,6 +1186,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_null(stmt);
 		db_bind_int(stmt, 0);
 	}
+
+	db_bind_s64(stmt, inflight->funding->splice_amnt);
+	db_bind_int(stmt, inflight->i_am_initiator);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1249,6 +1254,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	struct bitcoin_signature last_sig;
 	struct bitcoin_tx *last_tx;
 	struct channel_inflight *inflight;
+	s64 splice_amnt;
+	bool i_am_initiator;
 
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 lease_blockheight_start;
@@ -1299,6 +1306,9 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	} else
 		last_tx = NULL;
 
+	splice_amnt = db_col_s64(stmt, "splice_amnt");
+	i_am_initiator = db_col_int(stmt, "i_am_initiator");
+
 	inflight = new_inflight(chan, &funding,
 				db_col_int(stmt, "funding_feerate"),
 				funding_sat,
@@ -1312,7 +1322,9 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				lease_chan_max_ppt,
 				lease_blockheight_start,
 				lease_fee,
-				lease_amt);
+				lease_amt,
+				splice_amnt,
+				i_am_initiator);
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_col_int(stmt, "funding_tx_remote_sigs_received");
@@ -1342,6 +1354,8 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", lease_blockheight_start"
 					", lease_fee"
 					", lease_satoshi"
+					", splice_amnt"
+					", i_am_initiator"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
@@ -2064,7 +2078,7 @@ void wallet_announcement_save(struct wallet *w, u64 id,
 
 
 void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
-				      struct bitcoin_outpoint confirmed_outpoint)
+				      const struct bitcoin_outpoint *confirmed_outpoint)
 {
 	struct db_stmt *stmt;
 
@@ -2079,15 +2093,15 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 						 " inflight_tx_outnum!=?"
 						 ")"
 					     ")"));
-	db_bind_u64(stmt, 0, chan->dbid);
-	db_bind_txid(stmt, 1, &confirmed_outpoint.txid);
-	db_bind_int(stmt, 2, confirmed_outpoint.n);
+	db_bind_u64(stmt, chan->dbid);
+	db_bind_txid(stmt, &confirmed_outpoint->txid);
+	db_bind_int(stmt, confirmed_outpoint->n);
 	db_exec_prepared_v2(take(stmt));
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE htlc_sigs"
 					" SET inflight_tx_id=NULL"
 					" WHERE channelid=?"));
-	db_bind_u64(stmt, 0, chan->dbid);
+	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -3850,10 +3864,10 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 				     SQL("INSERT INTO htlc_sigs (channelid,"
 					 " inflight_tx_id, inflight_tx_outnum,"
 					 " signature) VALUES (?, ?, ?)"));
-		db_bind_u64(stmt, 0, channel_id);
-		db_bind_txid(stmt, 1, &inflight_outpoint.txid);
-		db_bind_int(stmt, 2, inflight_outpoint.n);
-		db_bind_signature(stmt, 3, &htlc_sigs[i].s);
+		db_bind_u64(stmt, channel_id);
+		db_bind_txid(stmt, &inflight_outpoint.txid);
+		db_bind_int(stmt, inflight_outpoint.n);
+		db_bind_signature(stmt, &htlc_sigs[i].s);
 		db_exec_prepared_v2(take(stmt));
 	}
 }

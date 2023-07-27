@@ -65,6 +65,11 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		= channel->view[LOCAL].owed[REMOTE]
 		= remote_msatoshi;
 
+	channel->view[LOCAL].lowest_splice_amnt[LOCAL] = 0;
+	channel->view[LOCAL].lowest_splice_amnt[REMOTE] = 0;
+	channel->view[REMOTE].lowest_splice_amnt[LOCAL] = 0;
+	channel->view[REMOTE].lowest_splice_amnt[REMOTE] = 0;
+
 	channel->basepoints[LOCAL] = *local_basepoints;
 	channel->basepoints[REMOTE] = *remote_basepoints;
 
@@ -145,6 +150,34 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	}
 
 	return init_tx;
+}
+
+const char *channel_update_funding(struct channel *channel,
+				   const struct bitcoin_outpoint *funding,
+				   struct amount_sat funding_sats,
+				   s64 splice_amnt)
+{
+	s64 funding_diff = (s64)funding_sats.satoshis - (s64)channel->funding_sats.satoshis; /* Raw: splicing */
+	s64 remote_splice_amnt = funding_diff - splice_amnt;
+
+	channel->funding = *funding;
+	channel->funding_sats = funding_sats;
+
+	if (splice_amnt * 1000 + channel->view[LOCAL].owed[LOCAL].millisatoshis < 0) /* Raw: splicing */
+		return tal_fmt(tmpctx, "Channel funding update would make local"
+			       " balance negative.");
+
+	channel->view[LOCAL].owed[LOCAL].millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	channel->view[REMOTE].owed[LOCAL].millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+
+	if (remote_splice_amnt * 1000 + channel->view[LOCAL].owed[REMOTE].millisatoshis < 0) /* Raw: splicing */
+		return tal_fmt(tmpctx, "Channel funding update would make"
+			       " remote balance negative.");
+
+	channel->view[LOCAL].owed[REMOTE].millisatoshis += remote_splice_amnt * 1000; /* Raw: splicing */
+	channel->view[REMOTE].owed[REMOTE].millisatoshis += remote_splice_amnt * 1000; /* Raw: splicing */
+
+	return NULL;
 }
 
 u32 channel_feerate(const struct channel *channel, enum side side)

@@ -13,6 +13,8 @@ CHANNELD_HEADERS :=			\
 CHANNELD_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c			\
+	channeld/splice.c			\
+	channeld/inflight.c			\
 	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
@@ -25,8 +27,13 @@ ALL_C_HEADERS += $(CHANNELD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_channeld
 
 # Here's what lightningd depends on
-LIGHTNINGD_CONTROL_HEADERS += channeld/channeld_wiregen.h
-LIGHTNINGD_CONTROL_OBJS += channeld/channeld_wiregen.o
+LIGHTNINGD_CONTROL_HEADERS += \
+	channeld/channeld_wiregen.h \
+	channeld/inflight.h
+LIGHTNINGD_CONTROL_OBJS +=  \
+	channeld/channeld_wiregen.o \
+	channeld/inflight.o
+
 
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
@@ -53,6 +60,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/gossip_store.o			\
 	common/hmac.o				\
+	common/interactivetx.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
 	common/htlc_tx.o			\
@@ -73,6 +81,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/psbt_keypath.o		\
 	common/psbt_open.o			\
+	common/psbt_internal.o			\
 	common/private_channel_announcement.o	\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\

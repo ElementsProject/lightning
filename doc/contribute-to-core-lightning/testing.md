@@ -59,7 +59,8 @@ TEST_CHECK_DBSTMTS=[0|1]            - When running blackbox tests, this will
                                       Note: Only SQLite3.
 TEST_DB_PROVIDER=[sqlite3|postgres] - Selects the database to use when running
                                       blackbox tests.
-EXPERIMENTAL_DUAL_FUND=[0|1]	    - Enable dual-funding tests.
+EXPERIMENTAL_DUAL_FUND=[0|1]        - Enable dual-funding tests.
+EXPERIMENTAL_SPLICING=[0|1]         - Enable splicing tests.
 ```
 
 #### Troubleshooting

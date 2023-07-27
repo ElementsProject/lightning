@@ -41,7 +41,8 @@
               "FUNDING_SPEND_SEEN",
               "ONCHAIN",
               "DUALOPEND_OPEN_INIT",
-              "DUALOPEND_AWAITING_LOCKIN"
+              "DUALOPEND_AWAITING_LOCKIN",
+              "CHANNELD_AWAITING_SPLICE"
             ],
             "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
           },
@@ -146,7 +147,7 @@
           },
           "inflight": {
             "type": "array",
-            "description": "Current candidate funding transactions (only for dual-funding)",
+            "description": "Current candidate funding transactions",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -155,6 +156,7 @@
                 "funding_outnum",
                 "feerate",
                 "total_funding_msat",
+                "splice_amount",
                 "our_funding_msat",
                 "scratch_txid"
               ],
@@ -174,6 +176,11 @@
                 "total_funding_msat": {
                   "type": "msat",
                   "description": "total amount in the channel"
+                },
+                "splice_amount": {
+                  "type": "integer",
+                  "added": "v23.08",
+                  "description": "The amouont of sats we're splicing in or out"
                 },
                 "our_funding_msat": {
                   "type": "msat",

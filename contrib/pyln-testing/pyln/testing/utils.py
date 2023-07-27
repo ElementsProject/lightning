@@ -80,6 +80,7 @@ SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
 EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
+EXPERIMENTAL_SPLICING = env("EXPERIMENTAL_SPLICING", "0") == "1"
 
 
 def wait_for(success, timeout=TIMEOUT):
@@ -787,6 +788,8 @@ class LightningNode(object):
                 self.daemon.opts["dev-no-reconnect"] = None
         if EXPERIMENTAL_DUAL_FUND:
             self.daemon.opts["experimental-dual-fund"] = None
+        if EXPERIMENTAL_SPLICING:
+            self.daemon.opts["experimental-splicing"] = None
 
         if options is not None:
             self.daemon.opts.update(options)

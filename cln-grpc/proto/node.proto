@@ -243,6 +243,7 @@ message ListpeersPeersChannelsInflight {
 	string feerate = 3;
 	Amount total_funding_msat = 4;
 	Amount our_funding_msat = 5;
+	optional sint64 splice_amount = 7;
 	bytes scratch_txid = 6;
 }
 
@@ -1122,6 +1123,7 @@ message ListpeerchannelsChannels {
 		ONCHAIN = 8;
 		DUALOPEND_OPEN_INIT = 9;
 		DUALOPEND_AWAITING_LOCKIN = 10;
+		CHANNELD_AWAITING_SPLICE = 11;
 	}
 	optional bytes peer_id = 1;
 	optional bool peer_connected = 2;
@@ -1186,6 +1188,7 @@ message ListpeerchannelsChannelsInflight {
 	optional uint32 funding_outnum = 2;
 	optional string feerate = 3;
 	optional Amount total_funding_msat = 4;
+	optional sint64 splice_amount = 7;
 	optional Amount our_funding_msat = 5;
 	optional bytes scratch_txid = 6;
 }

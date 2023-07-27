@@ -402,6 +402,25 @@
             }
           }
         },
+        "experimental-splicing": {
+          "added": "v23.08",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
         "experimental-onion-messages": {
           "type": "object",
           "additionalProperties": false,
@@ -1448,6 +1467,11 @@
       "deprecated": "v23.08",
       "type": "boolean",
       "description": "`experimental-dual-fund` field from config or cmdline, or default"
+    },
+    "experimental-splicing": {
+      "deprecated": "v23.08",
+      "type": "boolean",
+      "description": "`experimental-splicing` field from config or cmdline, or default"
     },
     "experimental-onion-messages": {
       "deprecated": "v23.08",

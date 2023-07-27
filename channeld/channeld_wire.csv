@@ -1,5 +1,6 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/tx.h>
+#include <channeld/inflight.h>
 #include <common/bip32.h>
 #include <common/blockheight_states.h>
 #include <common/cryptomsg.h>
@@ -83,6 +84,8 @@ msgdata,channeld_init,reestablish_only,bool,
 msgdata,channeld_init,channel_update_len,u16,
 msgdata,channeld_init,channel_update,u8,channel_update_len
 msgdata,channeld_init,experimental_upgrade,bool,
+msgdata,channeld_init,num_inflights,u16,
+msgdata,channeld_init,inflights,inflight,num_inflights
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 # alias != NULL if zeroconf and short_channel_id == NULL
@@ -91,6 +94,8 @@ msgtype,channeld_funding_depth,1002
 msgdata,channeld_funding_depth,short_channel_id,?short_channel_id,
 msgdata,channeld_funding_depth,alias_local,?short_channel_id,
 msgdata,channeld_funding_depth,depth,u32,
+msgdata,channeld_funding_depth,splicing,bool,
+msgdata,channeld_funding_depth,txid,bitcoin_txid,
 
 # Tell channel to offer this htlc
 msgtype,channeld_offer_htlc,1004
@@ -121,6 +126,12 @@ msgdata,channeld_fail_htlc,failed_htlc,failed_htlc,
 msgtype,channeld_got_channel_ready,1019
 msgdata,channeld_got_channel_ready,next_per_commit_point,pubkey,
 msgdata,channeld_got_channel_ready,alias,?short_channel_id,
+
+# When we receive funding_locked.
+msgtype,channeld_got_splice_locked,1119
+msgdata,channeld_got_splice_locked,funding_sats,amount_sat,
+msgdata,channeld_got_splice_locked,splice_amnt,s64,
+msgdata,channeld_got_splice_locked,locked_txid,bitcoin_txid,
 
 #include <common/penalty_base.h>
 
@@ -160,6 +171,14 @@ msgdata,channeld_got_commitsig,failed,failed_htlc,num_failed
 msgdata,channeld_got_commitsig,num_changed,u16,
 msgdata,channeld_got_commitsig,changed,changed_htlc,num_changed
 msgdata,channeld_got_commitsig,tx,bitcoin_tx,
+# Inflight splice commitments
+msgdata,channeld_got_commitsig,num_inflight_commitsigs,u16,
+msgdata,channeld_got_commitsig,inflight_commitsigs,commitsig,num_inflight_commitsigs
+subtype,commitsig
+subtypedata,commitsig,tx,bitcoin_tx,
+subtypedata,commitsig,commit_signature,bitcoin_signature,
+subtypedata,commitsig,num_htlcs,u16,
+subtypedata,commitsig,htlc_signatures,bitcoin_signature,num_htlcs
 
 # Wait for reply, to make sure it's on disk before we send revocation.
 msgtype,channeld_got_commitsig_reply,1121
@@ -182,6 +201,79 @@ msgdata,channeld_got_revoke,penalty_tx,?bitcoin_tx,
 msgtype,channeld_got_revoke_reply,1122
 
 #include <wally_bip32.h>
+
+# master->channeld: hello, I'd like to start a channel splice open
+msgtype,channeld_splice_init,7204
+msgdata,channeld_splice_init,psbt,wally_psbt,
+msgdata,channeld_splice_init,relative_amount,s64,
+msgdata,channeld_splice_init,feerate_per_kw,u32,
+msgdata,channeld_splice_init,force_feerate,bool,
+
+# channeld->master: hello, I started a channel splice open
+msgtype,channeld_splice_confirmed_init,7205
+msgdata,channeld_splice_confirmed_init,psbt,wally_psbt,
+
+# master->channeld: Update an active splice
+msgtype,channeld_splice_update,7206
+msgdata,channeld_splice_update,psbt,wally_psbt,
+
+# channeld->master: Splice update complete
+msgtype,channeld_splice_confirmed_update,7207
+msgdata,channeld_splice_confirmed_update,psbt,wally_psbt,
+msgdata,channeld_splice_confirmed_update,commitments_secured,bool,
+
+# channeld->master: Lookup a transaction
+msgtype,channeld_splice_lookup_tx,7208
+msgdata,channeld_splice_lookup_tx,txid,bitcoin_txid,
+
+# master->channeld: Retrieved transaction
+msgtype,channeld_splice_lookup_tx_result,7209
+msgdata,channeld_splice_lookup_tx_result,tx,bitcoin_tx,
+
+# master->channeld: User has signed psbt and it's ready to complete
+msgtype,channeld_splice_signed,7212
+msgdata,channeld_splice_signed,psbt,wally_psbt,
+msgdata,channeld_splice_signed,force_sign_first,bool,
+
+# channeld->master: Signed psbt is completed
+msgtype,channeld_splice_confirmed_signed,7213
+msgdata,channeld_splice_confirmed_signed,tx,bitcoin_tx,
+msgdata,channeld_splice_confirmed_signed,output_index,u32,
+
+# channeld->master: A feerate error has occured
+msgtype,channeld_splice_feerate_error,7215
+msgdata,channeld_splice_feerate_error,fee,amount_msat,
+msgdata,channeld_splice_feerate_error,too_high,bool,
+
+# channeld->master: Add an inflight to the DB
+msgtype,channeld_add_inflight,7216
+msgdata,channeld_add_inflight,tx_id,bitcoin_txid,
+msgdata,channeld_add_inflight,tx_outnum,u32,
+msgdata,channeld_add_inflight,feerate,u32,
+msgdata,channeld_add_inflight,satoshis,amount_sat,
+msgdata,channeld_add_inflight,splice_amount,s64,
+msgdata,channeld_add_inflight,psbt,wally_psbt,
+msgdata,channeld_add_inflight,i_am_initiator,bool,
+
+# master->channeld: Inflight saved successfully
+msgtype,channeld_got_inflight,7217
+
+# channeld->master: Update inflight with sigs
+msgtype,channeld_update_inflight,7219
+msgdata,channeld_update_inflight,psbt,wally_psbt,
+msgdata,channeld_update_inflight,last_tx,?bitcoin_tx,
+msgdata,channeld_update_inflight,last_sig,?bitcoin_signature,
+
+# channeld->master: A funding error has occured
+msgtype,channeld_splice_funding_error,7220
+msgdata,channeld_splice_funding_error,funding,amount_msat,
+msgdata,channeld_splice_funding_error,req_funding,amount_msat,
+msgdata,channeld_splice_funding_error,opener_error,bool,
+
+# channeld->master: A splice state error has occured
+msgtype,channeld_splice_state_error,7221
+msgdata,channeld_splice_state_error,state_error,wirestring,
+
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023
 msgdata,channeld_send_shutdown,final_index,?u32,
