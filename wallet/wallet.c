@@ -7,6 +7,7 @@
 #include <common/blockheight_states.h>
 #include <common/fee_states.h>
 #include <common/onionreply.h>
+#include <common/trace.h>
 #include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -110,12 +111,21 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	wallet->log = new_logger(wallet, ld->log_book, NULL, "wallet");
 	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
+	trace_span_start("db_setup", wallet);
 	wallet->db = db_setup(wallet, ld, ld->bip32_base);
+	trace_span_end(wallet);
 
 	db_begin_transaction(wallet->db);
+
+	trace_span_start("invoices_new", wallet);
 	wallet->invoices = invoices_new(wallet, wallet, timers);
+	trace_span_end(wallet);
+
+	trace_span_start("outpointfilters_init", wallet);
 	outpointfilters_init(wallet);
 	load_indexes(wallet->db, ld->indexes);
+	trace_span_end(wallet);
+
 	db_commit_transaction(wallet->db);
 	return wallet;
 }
