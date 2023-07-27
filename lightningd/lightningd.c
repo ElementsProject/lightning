@@ -52,6 +52,7 @@
 #include <common/hsm_encryption.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
+#include <common/trace.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <db/exec.h>
@@ -924,6 +925,8 @@ int main(int argc, char *argv[])
 	char **orig_argv;
 	bool try_reexec;
 
+	trace_span_start("lightningd/startup", argv);
+
 	/*~ We fork out new processes very very often; every channel gets its
 	 * own process, for example, and we have `hsmd` and `gossipd` and
 	 * the plugins as well.
@@ -1023,7 +1026,9 @@ int main(int argc, char *argv[])
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
 	 *  options registration). */
+	trace_span_start("plugins/init", ld->plugins);
 	plugins_init(ld->plugins);
+	trace_span_end(ld->plugins);
 
 	/*~ If the plugis are misconfigured we don't want to proceed. A
 	 * misconfiguration could for example be a plugin marked as important
@@ -1047,8 +1052,10 @@ int main(int argc, char *argv[])
 	 * but the `dev_no_version_checks` field of `ld` doesn't even exist
 	 * if DEVELOPER isn't defined, so we use IFDEV(devoption,non-devoption):
 	 */
+	trace_span_start("test_subdaemons", ld);
 	if (IFDEV(!ld->dev_no_version_checks, 1))
 		test_subdaemons(ld);
+	trace_span_end(ld);
 
 	/*~ Set up the HSM daemon, which knows our node secret key, so tells
 	 *  us who we are.
@@ -1057,7 +1064,9 @@ int main(int argc, char *argv[])
 	 * standard of key storage; ours is in software for now, so the name
 	 * doesn't really make sense, but we can't call it the Badly-named
 	 * Daemon Software Module. */
+	trace_span_start("hsmd_init", ld);
 	ld->bip32_base = hsm_init(ld);
+	trace_span_end(ld);
 
 	/*~ We have bearer tokens called `runes` you can use to control access.  They have
 	 * a fascinating history which I shall not go into now, but they're derived from
@@ -1069,7 +1078,9 @@ int main(int argc, char *argv[])
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
+	trace_span_start("wallet_new", ld);
 	ld->wallet = wallet_new(ld, ld->timers);
+	trace_span_end(ld);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
@@ -1091,7 +1102,9 @@ int main(int argc, char *argv[])
 	 * which knows (via node_announcement messages) the public
 	 * addresses of nodes, so connectd_init hands it one end of a
 	 * socket pair, and gives us the other */
+	trace_span_start("connectd_init", ld);
 	connectd_gossipd_fd = connectd_init(ld);
+	trace_span_end(ld);
 
 	/*~ We do every database operation within a transaction; usually this
 	 * is covered by the infrastructure (eg. opening a transaction before
@@ -1109,7 +1122,9 @@ int main(int argc, char *argv[])
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
 	/*~ Initialize the transaction filter with our pubkeys. */
+	trace_span_start("init_txfilter", ld->wallet);
 	init_txfilter(ld->wallet, ld->bip32_base, ld->owned_txfilter);
+	trace_span_end(ld->wallet);
 
 	/*~ Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an uninitialized wallet and that we should start off of bitcoind's
@@ -1135,7 +1150,9 @@ int main(int argc, char *argv[])
 
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
+	trace_span_start("setup_topology", ld->topology);
 	setup_topology(ld->topology, min_blockheight, max_blockheight);
+	trace_span_end(ld->topology);
 
 	db_begin_transaction(ld->wallet->db);
 
@@ -1185,6 +1202,8 @@ int main(int argc, char *argv[])
 
 	/*~ Now handle sigchld, so we can clean up appropriately. */
 	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
+
+	trace_span_end(argv);
 
 	/*~ Mark ourselves live.
 	 *
