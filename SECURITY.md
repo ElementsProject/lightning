@@ -7,7 +7,7 @@ We have a 3 month release cycle, and the last two versions are supported.
 ## Reporting a Vulnerability
 
 To report security issues send an email to rusty@rustcorp.com.au, or
-security@bockstream.com (not for support).
+security@blockstream.com (not for support).
 
 ## Signatures For Releases
 
