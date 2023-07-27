@@ -137,6 +137,15 @@ void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id U
 /* Generated stub for towire_node_id */
 void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_node_id called!\n"); abort(); }
+/* Generated stub for trace_span_end */
+void trace_span_end(const void *key UNNEEDED)
+{ fprintf(stderr, "trace_span_end called!\n"); abort(); }
+/* Generated stub for trace_span_start */
+void trace_span_start(const char *name UNNEEDED, const void *key UNNEEDED)
+{ fprintf(stderr, "trace_span_start called!\n"); abort(); }
+/* Generated stub for trace_span_tag */
+void trace_span_tag(const void *key UNNEEDED, const char *name UNNEEDED, const char *value UNNEEDED)
+{ fprintf(stderr, "trace_span_tag called!\n"); abort(); }
 /* Generated stub for unilateral_feerate */
 u32 unilateral_feerate(struct chain_topology *topo UNNEEDED, bool option_anchors UNNEEDED)
 { fprintf(stderr, "unilateral_feerate called!\n"); abort(); }
