@@ -539,6 +539,9 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     # Payment should now complete.
     t.result(timeout=10)
 
+    # Make sure both sides completely settled.
+    wait_for(lambda: all([only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == [] for n in (l1, l2)]))
+
     # Now we really mess things up!
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
@@ -670,8 +673,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
     t.result(timeout=10)
 
     # Make sure both sides got revoke_and_ack for final.
-    l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
-    l2.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+    wait_for(lambda: all([only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == [] for n in (l1, l2)]))
 
     # Now we really mess things up!
     bitcoind.rpc.sendrawtransaction(tx)
