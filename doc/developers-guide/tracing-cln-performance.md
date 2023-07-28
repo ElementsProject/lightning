@@ -1,52 +1,35 @@
-# Tracing CLN Performance
+---
+title: "Tracing CLN Performance"
+slug: "tracing-cln-performance"
+hidden: false
+---
+CLN includes a simple opentracing exporter that allows tracing the execution of the node in real-time, without incurring a performance penalty when not listening for traces. Quoting the [Wikipedia](https://en.wikipedia.org/wiki/Tracing_(software)) entry on Tracing:
 
-CLN includes a simple opentracing exporter that allows tracing the
-execution of the node in real-time, without incurring a performance
-penalty when not listening for traces. Quoting the [Wikipedia][wp]
-entry on Tracing:
+> In software engineering, tracing involves a specialized use of logging to record information about a program's execution. This information is typically used by programmers for debugging purposes, and additionally, depending on the type and detail of information contained in a trace log, by experienced system administrators or technical-support personnel and by software monitoring tools to diagnose common problems with software.
 
-> In software engineering, tracing involves a specialized use of
-> logging to record information about a program's execution. This
-> information is typically used by programmers for debugging purposes,
-> and additionally, depending on the type and detail of information
-> contained in a trace log, by experienced system administrators or
-> technical-support personnel and by software monitoring tools to
-> diagnose common problems with software.
-
-The tracing system in CLN is implemented using [USDTs][usdt] (no, not
-that kind of [USDT][tether]). As such it emits events into the kernel,
-from where an exporter can receive them. If no exporter is configured
-then the kernel will replace the call-sites of the probe with a `NOP`,
-thus causing only minimal overhead when not tracing.
+The tracing system in CLN is implemented using [USDTs](https://illumos.org/books/dtrace/chp-usdt.html) (no, not that kind of [USDT](https://en.wikipedia.org/wiki/Tether_(cryptocurrency))). As such it emits events into the kernel, from where an exporter can receive them. If no exporter is configured then the kernel will replace the call-sites of the probe with a `NOP`, thus causing only minimal overhead when not tracing.
 
 ## Compiling with tracing support
 
-CLN will build with tracing support if the necessary headers
-(`sys/sdt.h`) are present during the compilation. For debian and
-ubuntu based systems that is easily achieved by installing
-`systemtap-sdt-dev`:
+CLN will build with tracing support if the necessary headers (`sys/sdt.h`) are present during the compilation. For debian and ubuntu based systems that is easily achieved by installing `systemtap-sdt-dev`:
 
 ```bash
 # apt-get install -y systemtap-sdt-dev
 ```
--
-Don't forget to run `./configure` and `make` to recompile after
-installing the dependencies. `config.vars` should contain the
-following line after running `./configure`:
+
+- Don't forget to run `./configure` and `make` to recompile after installing the dependencies. `config.vars` should contain the following line after running `./configure`:
 
 ```
 HAVE_USDT=1
 ```
 
-If you have a compiled binary you can verify whether it was compiled
-with USDT support with the following command:
+If you have a compiled binary you can verify whether it was compiled with USDT support with the following command:
 
 ```bash
 $ readelf -S lightningd/lightningd | grep -i sdt
 ```
 
-Alternatively you can list the tracepoints in the binary with the
-following:
+Alternatively you can list the tracepoints in the binary with the following:
 
 ```bash
 $ sudo bpftrace -l 'U:lightningd/lightningd:*'
@@ -59,9 +42,7 @@ usdt:lightningd/lightningd:lightningd:span_suspend
 
 ## Exporters
 
-The simplest way to get started with eBPF in general (which the
-tracing is built upon) is the `bpftrace` command that we've already
-seen above when checking if the binary was built with tracing support.
+The simplest way to get started with eBPF in general (which the tracing is built upon) is the `bpftrace` command that we've already seen above when checking if the binary was built with tracing support.
 
 ```bash
 $ sudo bpftrace -l 'U:lightningd/lightningd:*'
@@ -72,9 +53,7 @@ usdt:lightningd/lightningd:lightningd:span_start
 usdt:lightningd/lightningd:lightningd:span_suspend
 ```
 
-We want to attach to the `span_emit` probe, as that's the one getting
-the opentracing-compatible JSON string passed as an argument, and we'd
-like to extract that.
+We want to attach to the `span_emit` probe, as that's the one getting the opentracing-compatible JSON string passed as an argument, and we'd like to extract that.
 
 ```bash
 $ export BPFTRACE_STRLEN=200
@@ -97,13 +76,4 @@ Attaching 1 probe...
 
 ```
 
-Notice that due to a [limitation][200char] in `bpftrace` you'll at
-most get the first 200 bytes of the payload. If you write your own
-exporter you'll be able to specify the size of the buffer that is
-being used, and can extract the entire span.
-
-[wp]: https://en.wikipedia.org/wiki/Tracing_(software)
-[usdt]: https://illumos.org/books/dtrace/chp-usdt.html
-[tether]: https://en.wikipedia.org/wiki/Tether_(cryptocurrency)
-[bcc]: https://github.com/iovisor/bcc
-[200char]: https://github.com/iovisor/bpftrace/issues/305
+Notice that due to a [limitation](https://github.com/iovisor/bpftrace/issues/305) in `bpftrace` you'll at most get the first 200 bytes of the payload. If you write your own exporter you'll be able to specify the size of the buffer that is being used, and can extract the entire span.
