@@ -251,17 +251,13 @@ static void setup_force_nannounce_regen_timer(struct daemon *daemon);
  * the routing.c code like any other `node_announcement`.  Such announcements
  * are only accepted if there is an announced channel associated with that node
  * (to prevent spam), so we only call this once we've announced a channel. */
-/* Returns true if this sent one, or has arranged to send one in future. */
-static bool update_own_node_announcement(struct daemon *daemon,
+static void update_own_node_announcement(struct daemon *daemon,
 					 bool startup,
 					 bool always_refresh)
 {
 	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	u8 *nannounce;
 	struct node *self = get_node(daemon->rstate, &daemon->id);
-
-	/* Discard existing timer. */
-	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
 
 	/* If we don't have any channels now, don't send node_announcement */
 	if (!self || !node_has_broadcastable_channels(self))
@@ -292,7 +288,10 @@ static bool update_own_node_announcement(struct daemon *daemon,
 			    timestamp - self->bcast.timestamp >
 			    GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune) / 2)
 				goto send;
-			return false;
+			/* First time? Start regen timer. */
+			if (!daemon->node_announce_regen_timer)
+				goto reset_timer;
+			return;
 		}
 
 		/* Missing liquidity_ad, maybe we'll get plugin callback */
@@ -301,13 +300,16 @@ static bool update_own_node_announcement(struct daemon *daemon,
 			status_debug("node_announcement: delaying"
 				     " %u secs at start", delay);
 
+			/* Discard existing timer. */
+			daemon->node_announce_timer
+				= tal_free(daemon->node_announce_timer);
 			daemon->node_announce_timer
 				= new_reltimer(&daemon->timers,
 					       daemon,
 					       time_from_sec(delay),
 					       update_own_node_announcement_after_startup,
 					       daemon);
-			return true;
+			return;
 		}
 		/* BOLT #7:
 		 *
@@ -323,13 +325,16 @@ static bool update_own_node_announcement(struct daemon *daemon,
 			status_debug("node_announcement: delaying %u secs",
 				     next - timestamp);
 
+			/* Discard existing timer. */
+			daemon->node_announce_timer
+				= tal_free(daemon->node_announce_timer);
 			daemon->node_announce_timer
 				= new_reltimer(&daemon->timers,
 					       daemon,
 					       time_from_sec(next - timestamp),
 					       update_own_node_announcement_after_startup,
 					       daemon);
-			return true;
+			return;
 		}
 	}
 
@@ -340,7 +345,7 @@ reset_timer:
 	/* Generate another one in 24 hours. */
 	setup_force_nannounce_regen_timer(daemon);
 
-	return true;
+	return;
 }
 
 static void update_own_node_announcement_after_startup(struct daemon *daemon)
