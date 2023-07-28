@@ -747,6 +747,42 @@ static void gossip_refresh_network(struct daemon *daemon)
 	route_prune(daemon->rstate);
 }
 
+static void tell_master_local_cupdates(struct daemon *daemon)
+{
+	struct chan_map_iter i;
+	struct chan *c;
+	struct node *me;
+
+	me = get_node(daemon->rstate, &daemon->id);
+	if (!me)
+		return;
+
+	for (c = first_chan(me, &i); c; c = next_chan(me, &i)) {
+		struct half_chan *hc;
+		int direction;
+		const u8 *cupdate;
+
+		/* We don't provide update_channel for unannounced channels */
+		if (!is_chan_public(c))
+			continue;
+
+		if (!local_direction(daemon->rstate, c, &direction))
+			continue;
+
+		hc = &c->half[direction];
+		if (!is_halfchan_defined(hc))
+			continue;
+
+		cupdate = gossip_store_get(tmpctx,
+					   daemon->rstate->gs,
+					   hc->bcast.index);
+		daemon_conn_send(daemon->master,
+				 take(towire_gossipd_init_cupdate(NULL,
+								  &c->scid,
+								  cupdate)));
+	}
+}
+
 /* Disables all channels connected to our node. */
 static void gossip_disable_local_channels(struct daemon *daemon)
 {
@@ -850,6 +886,10 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 					   connectd_req,
 					   maybe_send_query_responses, daemon);
 	tal_add_destructor(daemon->connectd, master_or_connectd_gone);
+
+	/* Tell it about all our local (public) channel_update messages,
+	 * so it doesn't unnecessarily regenerate them. */
+	tell_master_local_cupdates(daemon);
 
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,
@@ -1143,6 +1183,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 #endif /* !DEVELOPER */
 
 	/* We send these, we don't receive them */
+	case WIRE_GOSSIPD_INIT_CUPDATE:
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:

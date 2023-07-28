@@ -109,6 +109,33 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
+static void handle_init_cupdate(struct lightningd *ld, const u8 *msg)
+{
+	struct short_channel_id scid;
+	u8 *update;
+	struct channel *channel;
+
+	if (!fromwire_gossipd_init_cupdate(msg, msg, &scid, &update)) {
+		fatal("Gossip gave bad GOSSIPD_INIT_CUPDATE %s",
+		      tal_hex(msg, msg));
+	}
+
+	/* In theory this could vanish before gossipd gets around to telling
+	 * us. */
+	channel = any_channel_by_scid(ld, &scid, true);
+	if (!channel) {
+		log_unusual(ld->log, "init_cupdate for bad scid %s",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &scid));
+		return;
+	}
+
+	/* This should only happen on initialization, *but* gossipd also
+	 * disabled channels on startup, so that can set this first. */
+	if (!channel->channel_update)
+		channel->channel_update = tal_steal(channel, update);
+}
+
 static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 {
 	struct short_channel_id scid;
@@ -177,6 +204,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DISCOVERED_IP:
 		break;
 
+	case WIRE_GOSSIPD_INIT_CUPDATE:
+		handle_init_cupdate(gossip->ld, msg);
+		break;
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
