@@ -1,17 +1,15 @@
-name: ReadMe GitHub Action 🦉
+name: ReadMe Sync
 
 on:
-  push:
-    # This workflow will run every time you push code to the following branch: `master` and includes a change to any files inside doc/
-    # Check out GitHub's docs for more info on configuring this:
-    # https://docs.github.com/actions/using-workflows/events-that-trigger-workflows
-    branches:
-      - master
+  pull_request:
+    types:
+      - closed
     paths:
-      - 'doc/'
+      - 'doc/*'
 
 jobs:
-  rdme-docs:
+  if_merged:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo 📚
