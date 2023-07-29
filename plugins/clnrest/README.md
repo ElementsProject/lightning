@@ -21,6 +21,9 @@ If `rest-port` is not specified, the plugin will disable itself.
 
 With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. The POST method requires `rune` and `nodeid` headers for authorization.
 
+- `nodeid` is the same as `id (pubkey)` received from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo).
+- A new `rune` can be created via [createrune](https://docs.corelightning.org/reference/lightning-createrune) or the list of existing runes can be retrieved with [listrunes](https://docs.corelightning.org/reference/lightning-listrunes) command.
+
 ### cURL
 Example curl command for POST will also require `rune` and `nodeid` headers like below:
     `curl -k -X POST 'https://127.0.0.1:3010/v1/getinfo' -H 'Rune: <node-rune>' -H 'Nodeid: <node-id>'`
