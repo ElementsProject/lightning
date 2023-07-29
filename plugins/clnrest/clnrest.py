@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # For --hidden-import gunicorn.glogging gunicorn.workers.sync
 try:
+    import sys
+    import os
+    import time
     from gunicorn import glogging  # noqa: F401
     from gunicorn.workers import sync  # noqa: F401
 
-    import os
-    import time
     from pathlib import Path
     from flask import Flask
     from flask_restx import Api
@@ -19,7 +20,6 @@ try:
 except ModuleNotFoundError as err:
     # OK, something is not installed?
     import json
-    import sys
     getmanifest = json.loads(sys.stdin.readline())
     print(json.dumps({'jsonrpc': "2.0",
                       'id': getmanifest['id'],
@@ -29,7 +29,7 @@ except ModuleNotFoundError as err:
 
 jobs = {}
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins='*')
+socketio = SocketIO(app, async_mode="gevent", cors_allowed_origins="*")
 msgq = Queue()
 
 
@@ -41,9 +41,12 @@ def broadcast_from_message_queue():
                 return
             plugin.log(f"Emitting message: {msg}", "debug")
             socketio.emit("message", msg)
-        time.sleep(1)  # Wait for a second after processing all items in the queue
+        # Wait for a second after processing all items in the queue
+        time.sleep(1)
 
 
+# Starts a background task which pulls notifications from the message queue
+# and broadcasts them to all connected ws clients at one-second intervals.
 socketio.start_background_task(broadcast_from_message_queue)
 
 
@@ -74,6 +77,8 @@ def set_application_options(plugin):
     from utilities.shared import CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT
     plugin.log(f"REST Server is starting at {REST_PROTOCOL}://{REST_HOST}:{REST_PORT}", "debug")
     if REST_PROTOCOL == "http":
+        # Assigning only one worker due to added complexity between gunicorn's multiple worker process forks
+        # and websocket connection's persistance with a single worker.
         options = {
             "bind": f"{REST_HOST}:{REST_PORT}",
             "workers": 1,
@@ -91,6 +96,8 @@ def set_application_options(plugin):
             plugin.log(f"Certs Path: {CERTS_PATH}", "debug")
         except Exception as err:
             raise Exception(f"{err}: Certificates do not exist at {CERTS_PATH}")
+        # Assigning only one worker due to added complexity between gunicorn's multiple worker process forks
+        # and websocket connection's persistance with a single worker.
         options = {
             "bind": f"{REST_HOST}:{REST_PORT}",
             "workers": 1,
@@ -156,10 +163,16 @@ def init(options, configuration, plugin):
 @plugin.subscribe("*")
 def on_any_notification(request, **kwargs):
     plugin.log("Notification: {}".format(kwargs), "debug")
-    msgq.put(str(kwargs))
+    if request.method == 'shutdown':
+        # A plugin which subscribes to shutdown is expected to exit itself.
+        sys.exit(0)
+    else:
+        msgq.put(str(kwargs))
 
 
 try:
     plugin.run()
+except ValueError as err:
+    plugin.log("Unable to subscribe to all events. Feature available with CLN v23.08 and above: {}".format(err), "warn")
 except (KeyboardInterrupt, SystemExit):
     pass
