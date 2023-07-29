@@ -380,6 +380,150 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+@pytest.mark.xfail
+def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None,
+                                             'allow_warning': True})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendmany("",
+                          {l1.rpc.newaddr()['bech32']: amount / 10**8 + 0.01,
+                           l2.rpc.newaddr()['bech32']: amount / 10**8 + 0.01})
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) > 0)
+
+    l1_utxos = ['{}:{}'.format(utxo['txid'], utxo['output']) for utxo in l1.rpc.listfunds()['outputs']]
+
+    # setup l2 to dual-fund!
+    l2.rpc.call('funderupdate', {'policy': 'match',
+                                 'policy_mod': 100,
+                                 'leases_only': False})
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    prev_utxos = ["{}:{}".format(vin['txid'], vin['vout']) for vin in vins if "{}:{}".format(vin['txid'], vin['vout']) in l1_utxos]
+
+    # Check that we're waiting for lockin
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # Check that feerate info is correct
+    info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    next_rate = "{}perkw".format(info_1['next_feerate'][:-5])
+
+    # Initiate an RBF
+    startweight = 42 + 172  # base weight, funding output
+    initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
+                               prev_utxos, reservedok=True,
+                               min_witness_weight=110,
+                               excess_as_change=True)
+
+    # Do the bump
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+
+    # We abort the channel mid-way throught the RBF
+    l1.rpc.openchannel_abort(chan_id)
+
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_update(chan_id, bump['psbt'])
+
+    # - initiate a channel open eclair -> cln
+    # - wait for the transaction to be published
+    # - eclair initiates rbf, and cancels it by sending tx_abort before exchanging commit_sig
+    # - at that point everything looks good, cln echoes the tx_abort and stays connected
+    # - eclair initiates another RBF attempt and sends tx_init_rbf: for some unknown reason, cln answers with channel_reestablish (??) followed by an error saying "Bad reestablish message: WIRE_TX_INIT_RBF"
+
+    # attempt to initiate an RBF again
+    info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    next_rate = "{}perkw".format(int(info_1['next_feerate'][:-5]) * 2)
+
+    # Gotta unreserve the psbt and re-reserve with higher feerate
+    l1.rpc.unreserveinputs(initpsbt['psbt'])
+    initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
+                               prev_utxos, reservedok=True,
+                               min_witness_weight=110,
+                               excess_as_change=True)
+    # Do the bump+sign
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
+                                   funding_feerate=next_rate)
+
+    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+    assert not l1.daemon.is_in_log('WIRE_CHANNEL_REESTABLISH')
+    assert not l2.daemon.is_in_log('WIRE_CHANNEL_REESTABLISH')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.xfail
+@pytest.mark.openchannel('v2')
+def test_v2_rbf_abort_channel_opens(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None,
+                                             'allow_warning': True})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendmany("",
+                          {l1.rpc.newaddr()['bech32']: amount / 10**8 + 0.01,
+                           l2.rpc.newaddr()['bech32']: amount / 10**8 + 0.01})
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) > 0)
+
+    l1_utxos = ['{}:{}'.format(utxo['txid'], utxo['output']) for utxo in l1.rpc.listfunds()['outputs']]
+
+    # setup l2 to dual-fund!
+    l2.rpc.call('funderupdate', {'policy': 'match',
+                                 'policy_mod': 100,
+                                 'leases_only': False})
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    prev_utxos = ["{}:{}".format(vin['txid'], vin['vout']) for vin in vins if "{}:{}".format(vin['txid'], vin['vout']) in l1_utxos]
+
+    # Check that we're waiting for lockin
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # Check that feerate info is correct
+    info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    next_rate = "{}perkw".format(info_1['next_feerate'][:-5])
+
+    # Initiate an RBF
+    startweight = 42 + 172  # base weight, funding output
+    initpsbt = l1.rpc.utxopsbt(chan_amount, next_rate, startweight,
+                               prev_utxos, reservedok=True,
+                               min_witness_weight=110,
+                               excess_as_change=True)
+
+    # Do the bump
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+
+    # We abort the channel mid-way throught the RBF
+    l1.rpc.openchannel_abort(chan_id)
+
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_update(chan_id, bump['psbt'])
+
+    # When the original open tx is mined, we should still arrive at
+    # NORMAL channel ops
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
