@@ -1,0 +1,57 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * lqueue - Simple, singly-linked-list queue implementation
+ *
+ * This code provides a simple implementation of the Queue abstract
+ * data type in terms of a singly linked (circular) list.
+ *
+ * License: BSD-MIT
+ * Author: David Gibson <david@gibson.dropbear.id.au>
+ *
+ * Example:
+ *	#include <ccan/lqueue/lqueue.h>
+ *
+ *	struct arg {
+ *		const char *arg;
+ *		struct lqueue_link ql;
+ *	};
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		int i;
+ *		struct arg *a;
+ *		LQUEUE(struct arg, ql) argq = LQUEUE_INIT;
+ *
+ *		for (i = 0; i < argc; i++) {
+ *			a = malloc(sizeof(*a));
+ *			a->arg = argv[i];
+ *			lqueue_enqueue(&argq, a);
+ *		}
+ *
+ *		printf("Command line arguments in order:\n");
+ *
+ *		while (!lqueue_empty(&argq)) {
+ *			a = lqueue_dequeue(&argq);
+ *			printf("Argument: %s\n", a->arg);
+ *			free(a);
+ *		}
+ *
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tcon\n");
+		return 0;
+	}
+
+	return 1;
+}
