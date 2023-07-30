@@ -57,6 +57,19 @@ The returned result must contain a `result` member which is either the string `d
 
 Note that `peer_connected` is a chained hook. The first plugin that decides to `disconnect` with or without an `error_message` will lead to the subsequent plugins not being called anymore.
 
+### `recover`
+
+This hook is called whenever the node is started using the --recovery flag. So basically whenever a user wants to recover their node with a codex32 secret, they can use --recover=<codex32secret> to use that secret as their HSM Secret.
+
+The payload consists of the following information:
+```json
+{
+	"codex32": "ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma"
+}
+```
+
+This hook is intended to be used for recovering the node and funds by connecting to some known peers who keep your peer storage backups with them.
+
 ### `commitment_revocation`
 
 This hook is called whenever a channel state is updated, and the old state was revoked. State updates in Lightning consist of the following steps:
