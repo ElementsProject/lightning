@@ -50,6 +50,7 @@
 #include <common/daemon.h>
 #include <common/ecdh_hsmd.h>
 #include <common/hsm_encryption.h>
+#include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
@@ -72,6 +73,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/plugin.h>
+#include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
 #include <sys/resource.h>
@@ -207,6 +209,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * parsing, we know they're to be set to the defaults. */
 	ld->alias = NULL;
 	ld->rgb = NULL;
+	ld->recover = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
@@ -910,6 +913,49 @@ void lightningd_exit(struct lightningd *ld, int exit_code)
 	io_break(ld);
 }
 
+struct recover_payload {
+	const char *codex32secret;
+};
+
+static bool
+recover_hook_deserialize(struct recover_payload *payload,
+			 const char *buffer, const jsmntok_t *toks)
+{
+	const jsmntok_t *t_res;
+
+	if (!toks || !buffer)
+		return true;
+
+	t_res = json_get_member(buffer, toks, "result");
+
+	/* fail */
+	if (!t_res || !json_tok_streq(buffer, t_res, "continue"))
+		fatal("Plugin returned an invalid response to the "
+		      "recover hook: %s", buffer);
+
+	/* call next hook */
+	return true;
+}
+
+static void recover_hook_final(struct recover_payload *payload STEALS)
+{
+	tal_steal(tmpctx, payload);
+}
+
+static void recover_hook_serialize(struct recover_payload *payload,
+					struct json_stream *stream,
+					struct plugin *plugin)
+{
+	json_add_string(stream, "codex32", payload->codex32secret);
+}
+
+
+REGISTER_PLUGIN_HOOK(recover,
+		     recover_hook_deserialize,
+		     recover_hook_final,
+		     recover_hook_serialize,
+		     struct recover_payload *);
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -1001,6 +1047,7 @@ int main(int argc, char *argv[])
 	orig_argv = notleak(tal_arr(ld, char *, argc + 1));
 	for (size_t i = 1; i < argc; i++)
 		orig_argv[i] = tal_strdup(orig_argv, argv[i]);
+
 	/*~ Turn argv[0] into an absolute path (if not already) */
 	orig_argv[0] = path_join(orig_argv, take(path_cwd(NULL)), argv[0]);
 	orig_argv[argc] = NULL;
@@ -1220,6 +1267,12 @@ int main(int argc, char *argv[])
 		 tal_hex(tmpctx, ld->rgb), version());
 	ld->state = LD_STATE_RUNNING;
 
+	if (ld->recover) {
+		struct recover_payload *payload = tal(NULL, struct recover_payload);
+		payload->codex32secret = tal_strdup(payload,
+						    ld->recover);
+		plugin_hook_call_recover(ld, NULL, payload);
+	}
 	/*~ If `closefrom_may_be_slow`, we limit ourselves to 4096 file
 	 * descriptors; tell the user about it as that limits the number
 	 * of channels they can have.

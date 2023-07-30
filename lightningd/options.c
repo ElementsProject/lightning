@@ -1322,6 +1322,8 @@ static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 		return tal_fmt(tmpctx, "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
+
+	ld->recover = tal_strdup(ld, arg);
 	opt_set_offline(ld);
 
 	return NULL;

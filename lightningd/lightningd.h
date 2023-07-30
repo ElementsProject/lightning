@@ -271,6 +271,9 @@ struct lightningd {
 	/* Indexes used by all the wait infra */
 	struct indexes indexes[NUM_WAIT_SUBSYSTEM];
 
+	/* Contains the codex32 string used with --recover flag */
+	char *recover;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */
 	char *dev_debug_subprocess;
