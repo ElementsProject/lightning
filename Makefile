@@ -181,6 +181,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/json_out/json_out.h		\
 	$(CCANDIR)/ccan/likely/likely.h			\
 	$(CCANDIR)/ccan/list/list.h			\
+	$(CCANDIR)/ccan/lqueue/lqueue.h			\
 	$(CCANDIR)/ccan/mem/mem.h			\
 	$(CCANDIR)/ccan/membuf/membuf.h			\
 	$(CCANDIR)/ccan/noerr/noerr.h			\
