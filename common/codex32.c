@@ -97,7 +97,7 @@ static void multiply_gf32(uint8_t *x, uint8_t y)
 }
 
 /* Helper to input a single field element in the checksum engine. */
-static void input_fe(const u8 *generator, u8 *residue, uint8_t e, int len)
+static void input_fe(const u8 *generator, u8 *residue, uint8_t e, size_t len)
 {
 	size_t res_len = len;
 	u8 xn = residue[0];
@@ -116,7 +116,7 @@ static void input_fe(const u8 *generator, u8 *residue, uint8_t e, int len)
 }
 
 /* Helper to input the HRP of codex32 string into the checksum engine */
-static void input_hrp(const u8 *generator, u8 *residue, const char *hrp, int len)
+static void input_hrp(const u8 *generator, u8 *residue, const char *hrp, size_t len)
 {
 	size_t i = 0;
 	for (i = 0; i < strlen(hrp); i++) {
@@ -130,7 +130,7 @@ static void input_hrp(const u8 *generator, u8 *residue, const char *hrp, int len
 }
 
 /* Helper to input data strong of codex32 into the checksum engine. */
-static void input_data_str(u8 *generator, u8 *residue, const char *datastr, int len)
+static void input_data_str(u8 *generator, u8 *residue, const char *datastr, size_t len)
 {
 	size_t i = 0;
 
@@ -142,23 +142,20 @@ static void input_data_str(u8 *generator, u8 *residue, const char *datastr, int 
 }
 
 /* Helper to verify codex32 checksum */
-static bool checksum_verify (const char *hrp, const char *codex_datastr, bool codexl)
+static bool checksum_verify(const char *hrp, const char *codex_datastr,
+			    const struct checksum_engine *initial_engine)
 {
-	struct checksum_engine engine =  initial_engine_csum[codexl];
+	struct checksum_engine engine = *initial_engine;
 
-	input_hrp((&engine)->generator, (&engine)->residue ,hrp, engine.len);
-	input_data_str((&engine)->generator, (&engine)->residue, codex_datastr, engine.len);
+	input_hrp(engine.generator, engine.residue ,hrp, engine.len);
+	input_data_str(engine.generator, engine.residue, codex_datastr, engine.len);
 
-	if (memcmp((&engine)->target, (&engine)->residue,
-		     engine.len) != 0) {
-			return false;
-	}
-	return true;
+	return memcmp(engine.target, engine.residue, engine.len) == 0;
 }
 
 /* Helper to sanity check the codex32 string parts */
-static char *sanity_check (const tal_t *ctx,
-			   const struct codex32 *parts)
+static char *sanity_check(const tal_t *ctx,
+			  const struct codex32 *parts)
 {
 	if (!streq(parts->hrp, "ms") && !streq(parts->hrp, "MS")) {
 		return tal_fmt(ctx, "Invalid HRP!");
@@ -166,17 +163,17 @@ static char *sanity_check (const tal_t *ctx,
 	if (parts->threshold > 9 ||
 	    parts->threshold < 0 ||
 	    parts->threshold == 1) {
-		return tal_fmt(ctx, "Invalid threshold!");;
+		return tal_fmt(ctx, "Invalid threshold!");
 	}
 	if (strlen(parts->id) != 4) {
-		return tal_fmt(ctx, "Invalid ID!");;
+		return tal_fmt(ctx, "Invalid ID!");
 	}
 	if ((parts->threshold == 0 && !(*(parts->share_idx) == 'S' || *(parts->share_idx) == 's')))
 	{
-		return tal_fmt(ctx, "Expected share index S for threshold 0!");;
+		return tal_fmt(ctx, "Expected share index S for threshold 0!");
 	}
-	if((strlen(parts->payload) * 5) % 8 > 4) {
-		return tal_fmt(ctx, "Incomplete group exist in payload!");;
+	if ((strlen(parts->payload) * 5) % 8 > 4) {
+		return tal_fmt(ctx, "Incomplete group exist in payload!");
 	}
 
 	return NULL;
@@ -264,13 +261,13 @@ static bool case_check(const char *codex32str)
 
 /* Return NULL if the codex32 is invalid */
 struct codex32 *codex32_decode(const tal_t *ctx,
-		    		     const char *codex32str,
-		    		     char **fail)
+			       const char *codex32str,
+			       char **fail)
 {
 	struct codex32 *parts = tal(ctx, struct codex32);
-	size_t checksum_len;
-	const char *sep = strchr(codex32str, '1');
+	const char *sep = strchr(codex32str, '1'), *codex_datastr;
 	size_t codex32str_len = strlen(codex32str);
+	const struct checksum_engine *csum_engine;
 
 	// Separator `1` doesn't exist, Invalid codex string!
 	if (!sep) {
@@ -283,17 +280,13 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 		return tal_free(parts);
 	}
 
-	const char *hrp = tal_strndup(parts, codex32str, sep - codex32str),
-	           *codex_datastr = tal_strndup(parts,
-		   			        sep + 1,
-					        strlen(sep + 1));
-
-
-	if (!(streq(hrp, "ms") || streq(hrp, "MS"))) {
+	parts->hrp = tal_strndup(parts, codex32str, sep - codex32str);
+	if (!(streq(parts->hrp, "ms") || streq(parts->hrp, "MS"))) {
 		*fail = tal_fmt(ctx, "Invalid HRP!");
 		return tal_free(parts);
 	}
 
+	codex_datastr = sep + 1;
 	for (size_t i = 0; i < strlen(codex_datastr); i++) {
 		int c = codex_datastr[i];
 		if (c < 0 || c > 128) {
@@ -310,31 +303,25 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 
 	/* FIXME: Confirm if the numbers are correct. */
 	if (codex32str_len >= 48 && codex32str_len < 94) {
-		parts->codexl = 0;
+		parts->codexl = false;
 	} else if (codex32str_len >= 125 && codex32str_len < 128) {
-		parts->codexl = 1;
+		parts->codexl = true;
 	} else {
 		*fail = tal_fmt(ctx, "Invalid length!");
 		return tal_free(parts);
 	}
 
-	if (strlen(codex_datastr) > 93) {
-		checksum_len = 15;
-	} else {
-		checksum_len = 13;
-	}
-
-	if(!checksum_verify(hrp, codex_datastr, parts->codexl)) {
+	csum_engine = &initial_engine_csum[parts->codexl];
+	if (!checksum_verify(parts->hrp, codex_datastr, csum_engine)) {
 		*fail = tal_fmt(ctx, "Invalid checksum!");
 		return tal_free(parts);
 	}
 
-	parts->hrp = hrp;
 	parts->threshold = *pull_front_bytes(parts, &codex_datastr, 1) - '0';
 	parts->id = pull_front_bytes(parts, &codex_datastr, 4);
 	parts->share_idx = pull_front_bytes(parts, &codex_datastr, 1);
-	parts->payload = pull_remaining_bytes(parts, &codex_datastr, checksum_len);
-	parts->checksum = pull_front_bytes(parts, &codex_datastr, checksum_len);
+	parts->payload = pull_remaining_bytes(parts, &codex_datastr, csum_engine->len);
+	parts->checksum = pull_front_bytes(parts, &codex_datastr, csum_engine->len);
 
 	if (*(parts->share_idx) == 's' || *(parts->share_idx) == 'S') {
 		parts->type = CODEX32_ENCODING_SECRET;
@@ -342,11 +329,9 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 		parts->type = CODEX32_ENCODING_SHARE;
 	}
 
-	char *chk = sanity_check(parts, parts);
-	if(chk) {
-		*fail = tal_strdup(ctx, chk);
+	*fail = sanity_check(ctx, parts);
+	if (*fail)
 		return tal_free(parts);
-	}
 
 	return parts;
 }
