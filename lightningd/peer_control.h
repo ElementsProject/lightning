@@ -97,6 +97,7 @@ void channel_errmsg(struct channel *channel,
 		    const struct channel_id *channel_id,
 		    const char *desc,
 		    bool warning,
+		    bool aborted,
 		    const u8 *err_for_them);
 
 u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);

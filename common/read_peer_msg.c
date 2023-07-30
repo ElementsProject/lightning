@@ -83,7 +83,7 @@ bool handle_peer_error(struct per_peer_state *pps,
 		}
 
 		/* We hang up when a warning is received. */
-		peer_failed_received_errmsg(pps, err, channel_id, warning);
+		peer_failed_received_errmsg(pps, err, channel_id, warning, false);
 	}
 
 	return false;

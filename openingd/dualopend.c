@@ -326,13 +326,13 @@ static bool shutdown_complete(const struct state *state)
 }
 
 /* They failed the open with us */
-static void negotiation_aborted(struct state *state, const char *why)
+static void negotiation_aborted(struct state *state, const char *why, bool aborted)
 {
 	status_debug("aborted opening negotiation: %s", why);
 
 	/* Tell master that funding failed. */
 	peer_failed_received_errmsg(state->pps, why,
-				    &state->channel_id, true);
+				    &state->channel_id, true, aborted);
 }
 
 /* Softer version of 'warning' (we don't disconnect)
@@ -1269,7 +1269,7 @@ static void handle_tx_abort(struct state *state, u8 *msg)
 	} else
 		desc = state->aborted_err;
 
-	negotiation_aborted(state, desc);
+	negotiation_aborted(state, desc, true);
 }
 
 static u8 *handle_channel_ready(struct state *state, u8 *msg)
@@ -1352,7 +1352,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			}
 			negotiation_aborted(state,
 					    tal_fmt(tmpctx, "They sent %s",
-						    err));
+						    err), false);
 			/* Return NULL so caller knows to stop negotiating. */
 			return NULL;
 		}
@@ -4268,6 +4268,7 @@ int main(int argc, char *argv[])
 	u8 *msg;
 	struct amount_sat total_funding, *requested_lease;
 	struct amount_msat our_msat;
+	bool from_abort;
 
 	subdaemon_setup(argc, argv);
 
@@ -4297,6 +4298,7 @@ int main(int argc, char *argv[])
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));
+		from_abort = false;
 		state->channel = NULL;
 		state->tx_state->remote_funding_sigs_rcvd = false;
 
@@ -4317,6 +4319,7 @@ int main(int argc, char *argv[])
 		state->requested_lease = NULL;
 	} else if (fromwire_dualopend_reinit(state, msg,
 					     &chainparams,
+					     &from_abort,
 					     &state->our_features,
 					     &state->their_features,
 					     &state->tx_state->localconf,
@@ -4431,7 +4434,7 @@ int main(int argc, char *argv[])
 	pollfd[1].events = POLLIN;
 
 	/* Do reconnect, if need be */
-	if (state->channel) {
+	if (state->channel && !from_abort) {
 		do_reconnect_dance(state);
 		state->reconnected = true;
 	}

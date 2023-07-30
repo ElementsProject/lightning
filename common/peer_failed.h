@@ -37,7 +37,8 @@ void peer_failed_err(struct per_peer_state *pps,
 void peer_failed_received_errmsg(struct per_peer_state *pps,
 				 const char *desc,
 				 const struct channel_id *channel_id,
-				 bool soft_error)
+				 bool soft_error,
+				 bool abort_restart)
 	NORETURN;
 
 /* I/O error */

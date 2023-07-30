@@ -11,7 +11,8 @@ bool peer_start_dualopend(struct peer *peer, struct peer_fd *peer_fd,
 
 bool peer_restart_dualopend(struct peer *peer,
 			    struct peer_fd *peer_fd,
-			    struct channel *channel);
+			    struct channel *channel,
+			    bool from_abort);
 
 void dualopen_tell_depth(struct subd *dualopend,
 			 struct channel *channel,

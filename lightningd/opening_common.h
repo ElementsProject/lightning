@@ -112,6 +112,7 @@ void opend_channel_errmsg(struct uncommitted_channel *uc,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
+			  bool aborted UNUSED,
 			  const u8 *err_for_them UNUSED);
 
 void opend_channel_set_billboard(struct uncommitted_channel *uc,

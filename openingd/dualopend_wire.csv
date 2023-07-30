@@ -33,6 +33,7 @@ msgdata,dualopend_init,require_confirmed_inputs,bool,
 # master-dualopend: peer has reconnected
 msgtype,dualopend_reinit,7001
 msgdata,dualopend_reinit,chainparams,chainparams,
+msgdata,dualopend_reinit,from_abort,bool,
 msgdata,dualopend_reinit,our_feature_set,feature_set,
 msgdata,dualopend_reinit,their_init_features_len,u16,
 msgdata,dualopend_reinit,their_init_features,u8,their_init_features_len
