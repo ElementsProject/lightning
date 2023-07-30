@@ -695,6 +695,8 @@ listfunds_success(struct command *cmd,
 					     committed_funds,
 					     avail_utxos);
 		json_add_bool(req->js, "reservedok", true);
+		/* We don't re-reserve any UTXOS :) */
+		json_add_num(req->js, "reserve", 0);
 	} else {
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "fundpsbt",
