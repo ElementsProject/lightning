@@ -43,6 +43,7 @@ struct checksum_engine {
 	u8 residue[15];
 	u8 target[15];
 	size_t len;
+	size_t max_payload_len;
 };
 
 static const struct checksum_engine initial_engine_csum[] = {
@@ -64,6 +65,7 @@ static const struct checksum_engine initial_engine_csum[] = {
 			10,
 		},
 		13,
+		74,
 	},
 	/* Long Codex32 Engine */
 	{
@@ -83,6 +85,7 @@ static const struct checksum_engine initial_engine_csum[] = {
 			10, 25,	6
 		},
 		15,
+		103,
 	}
 };
 
@@ -142,11 +145,11 @@ static void input_hrp(const u8 *generator, u8 *residue, const char *hrp, size_t 
 {
 	size_t i = 0;
 	for (i = 0; i < strlen(hrp); i++) {
-		input_fe(generator, residue, tolower(hrp[i]) >> 5, len);
+		input_fe(generator, residue, hrp[i] >> 5, len);
 	}
-	input_fe(generator, residue, tolower(hrp[i]) >> 0, len);
+	input_fe(generator, residue, hrp[i] >> 0, len);
 	for (i = 0; i < strlen(hrp); i++) {
-		input_fe(generator, residue, tolower(hrp[i]) & 0x1f, len);
+		input_fe(generator, residue, hrp[i] & 0x1f, len);
 	}
 	return;
 }
@@ -175,70 +178,38 @@ static bool checksum_verify(const char *hrp, const char *codex_datastr,
 	return memcmp(engine.target, engine.residue, engine.len) == 0;
 }
 
-/* Helper to sanity check the codex32 string parts */
-static char *sanity_check(const tal_t *ctx,
-			  const struct codex32 *parts)
+/* Pull len chars from cursor into dst. */
+static bool pull_chars(char *dst, size_t len, const char **cursor, size_t *max)
 {
-	if (!streq(parts->hrp, "ms") && !streq(parts->hrp, "MS")) {
-		return tal_fmt(ctx, "Invalid HRP!");
-	}
-	if (parts->threshold > 9 ||
-	    parts->threshold < 0 ||
-	    parts->threshold == 1) {
-		return tal_fmt(ctx, "Invalid threshold!");
-	}
-	if (strlen(parts->id) != 4) {
-		return tal_fmt(ctx, "Invalid ID!");
-	}
-	if ((parts->threshold == 0 && !(*(parts->share_idx) == 'S' || *(parts->share_idx) == 's')))
-	{
-		return tal_fmt(ctx, "Expected share index S for threshold 0!");
-	}
-	if ((strlen(parts->payload) * 5) % 8 > 4) {
-		return tal_fmt(ctx, "Incomplete group exist in payload!");
-	}
-
-	return NULL;
-}
-
-/* Pull `len` bytes from the front. */
-static const char *pull_front_bytes(const tal_t *ctx, const char **cursor, size_t len)
-{
-	const char *ret;
-	if (strlen(*cursor) < len)
-		return NULL;
-	ret = tal_strndup(ctx, *cursor, len);
+	if (*max < len)
+		return false;
+	memcpy(dst, *cursor, len);
 	*cursor += len;
-	return ret;
+	*max -= len;
+	return true;
 }
 
-/* Pull all bytes except for `leave` at the end. */
-static const char *pull_remaining_bytes(const tal_t *ctx, const char **cursor, size_t leave)
+/* Truncate length of *cursor (i.e. trim from end) */
+static bool trim_chars(size_t len, const char **cursor, size_t *max)
 {
-	size_t slen = strlen(*cursor);
-	if (slen < leave)
-		return NULL;
-	slen -= leave;
-	return pull_front_bytes(ctx, cursor, slen);
+	if (*max < len)
+		return false;
+	*max -= len;
+	return true;
 }
 
 /* Helper to fetch data from payload as a valid hex buffer */
-const u8 *codex32_decode_payload(const tal_t *ctx,
-				 const struct codex32 *parts)
+static const u8 *decode_payload(const tal_t *ctx, const char *payload, size_t payload_len)
 {
-	if (!parts->payload) {
-		return NULL;
-	}
-
-	// FIXME: Make sure the size of array is correct, because the documentation has 1 extra byte...
-	u8 *ret = tal_arr(ctx, u8, ((strlen(parts->payload) * 5 + 7) / 8) - 1);
-
+	u8 *ret = tal_arr(ctx, u8, (payload_len * 5 + 7) / 8);
 	uint8_t next_byte = 0;
 	uint8_t rem = 0;
-	size_t i = 0, j = 0;
-	while (parts->payload[i] != '\0') {
-		char ch = parts->payload[i++];
-		uint8_t fe = bech32_charset_rev[(int)ch];
+	size_t j = 0;
+
+	/* We have already checked this is a valid bech32 string! */
+	for (size_t i = 0; i < payload_len; i++) {
+		int ch = payload[i];
+		uint8_t fe = bech32_charset_rev[ch];
 
 		if (rem < 3) {
 			// If we are within 3 bits of the start we can fit the whole next char in
@@ -259,26 +230,65 @@ const u8 *codex32_decode_payload(const tal_t *ctx,
 
 		rem = (rem + 5) % 8;
 	}
-	assert(rem <= 4); // checked when parsing the string
+
+	/* BIP-93:
+	 * Any incomplete group at the end MUST be 4 bits or less, and is discarded.
+	 */
+	if (rem > 4)
+		return tal_free(ret);
+
+	/* As a result, we often don't use the final byte */
+	tal_resize(&ret, j);
 	return ret;
 }
 
-/* Checks case inconsistency */
-static bool case_check(const char *codex32str)
+/* Checks case inconsistency, and for non-bech32 chars. */
+static const char *bech32_case_fixup(const tal_t *ctx,
+				     const char *codex32str,
+				     const char **sep)
 {
-	bool have_lower = false, have_upper = false;
 	size_t str_len = strlen(codex32str);
+	char *was_upper_str;
+
+	*sep = NULL;
+
+	/* If first is upper, lower-case the rest */
+	if (cisupper(codex32str[0])) {
+		/* We need a non-const str var, and a flag */
+		was_upper_str = tal_strdup(ctx, codex32str);
+		codex32str = was_upper_str;
+	} else {
+		was_upper_str = NULL;
+	}
+
 	for (size_t i = 0; i < str_len; i++) {
-		if (codex32str[i] >= 'a' && codex32str[i] <= 'z') {
-            		have_lower = true;
-		} else if (codex32str[i] >= 'A' && codex32str[i] <= 'Z') {
-			have_upper = true;
+		int c = codex32str[i];
+		if (c == '1') {
+			/* Two separators? */
+			if (*sep)
+				goto fail;
+			*sep = codex32str + i;
+			continue;
 		}
+		if (c < 0 || c > 128)
+			goto fail;
+		if (was_upper_str) {
+			/* Mixed case not allowed! */
+			if (cislower(c))
+				goto fail;
+			was_upper_str[i] = c = tolower(c);
+		} else {
+			if (cisupper(c))
+				goto fail;
+		}
+		if (bech32_charset_rev[c] == -1)
+			goto fail;
 	}
-	if (have_lower && have_upper) {
-		return false;
-	}
-	return true;
+
+	return codex32str;
+
+fail:
+	return tal_free(was_upper_str);
 }
 
 /* Return NULL if the codex32 is invalid */
@@ -287,72 +297,80 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 			       char **fail)
 {
 	struct codex32 *parts = tal(ctx, struct codex32);
-	const char *sep = strchr(codex32str, '1'), *codex_datastr;
-	size_t codex32str_len = strlen(codex32str);
+	const char *sep, *codex_datastr;
+	char threshold_char;
+	size_t maxlen;
 	const struct checksum_engine *csum_engine;
 
-	// Separator `1` doesn't exist, Invalid codex string!
+	/* Lowercase it all, iff it's all uppercase. */
+	codex32str = bech32_case_fixup(tmpctx, codex32str, &sep);
+	if (!codex32str) {
+		*fail = tal_fmt(ctx, "Not a valid bech32 string!");
+		return tal_free(parts);
+	}
+
 	if (!sep) {
 		*fail = tal_fmt(ctx, "Separator doesn't exist!");
 		return tal_free(parts);
 	}
 
-	if (!case_check(codex32str)) {
-		*fail = tal_fmt(ctx, "Case inconsistency!");
-		return tal_free(parts);
-	}
-
 	parts->hrp = tal_strndup(parts, codex32str, sep - codex32str);
-	if (!(streq(parts->hrp, "ms") || streq(parts->hrp, "MS"))) {
+	if (!streq(parts->hrp, "ms")) {
 		*fail = tal_fmt(ctx, "Invalid HRP!");
 		return tal_free(parts);
 	}
 
 	codex_datastr = sep + 1;
-	for (size_t i = 0; i < strlen(codex_datastr); i++) {
-		int c = codex_datastr[i];
-		if (c < 0 || c > 128) {
-			*fail = tal_fmt(ctx,
-					"Expected bech32 characters only");
-			return tal_free(parts);
-		}
-		if (bech32_charset_rev[c] == -1) {
-			*fail = tal_fmt(ctx,
-					"Expected bech32 characters only");
-			return tal_free(parts);
-		}
-	}
+	maxlen = strlen(codex_datastr);
 
-	if (codex32str_len >= 22 && codex32str_len <= 96) {
-		parts->codexl = false;
-	} else if (codex32str_len >= 99 && codex32str_len <= 127) {
-		parts->codexl = true;
-	} else {
-		*fail = tal_fmt(ctx, "Invalid length!");
-		return tal_free(parts);
-	}
-
-	csum_engine = &initial_engine_csum[parts->codexl];
+	/* If it's short, use short checksum engine.  If it's invalid,
+	 * use short checksum and we'll fail when payload is too long. */
+	csum_engine = &initial_engine_csum[maxlen >= 96];
 	if (!checksum_verify(parts->hrp, codex_datastr, csum_engine)) {
 		*fail = tal_fmt(ctx, "Invalid checksum!");
 		return tal_free(parts);
 	}
 
-	parts->threshold = *pull_front_bytes(parts, &codex_datastr, 1) - '0';
-	parts->id = pull_front_bytes(parts, &codex_datastr, 4);
-	parts->share_idx = pull_front_bytes(parts, &codex_datastr, 1);
-	parts->payload = pull_remaining_bytes(parts, &codex_datastr, csum_engine->len);
-	parts->checksum = pull_front_bytes(parts, &codex_datastr, csum_engine->len);
+	/* Pull fixed parts and discard checksum */
+	if (!pull_chars(&threshold_char, 1, &codex_datastr, &maxlen)
+	    || !pull_chars(parts->id, ARRAY_SIZE(parts->id) - 1, &codex_datastr, &maxlen)
+	    || !pull_chars(&parts->share_idx, 1, &codex_datastr, &maxlen)
+	    || !trim_chars(csum_engine->len, &codex_datastr, &maxlen)) {
+		*fail = tal_fmt(ctx, "Too short!");
+		return tal_free(parts);
+	}
+	parts->id[ARRAY_SIZE(parts->id)-1] = 0;
+	/* Is payload too long for this checksum? */
+	if (maxlen > csum_engine->max_payload_len) {
+		*fail = tal_fmt(ctx, "Invalid length!");
+		return tal_free(parts);
+	}
 
-	if (*(parts->share_idx) == 's' || *(parts->share_idx) == 'S') {
+	parts->payload = decode_payload(parts, codex_datastr, maxlen);
+	if (!parts->payload) {
+		*fail = tal_fmt(ctx, "Invalid payload!");
+		return tal_free(parts);
+	}
+
+	if (parts->share_idx == 's') {
 		parts->type = CODEX32_ENCODING_SECRET;
 	} else {
 		parts->type = CODEX32_ENCODING_SHARE;
 	}
 
-	*fail = sanity_check(ctx, parts);
-	if (*fail)
+	parts->threshold = threshold_char - '0';
+	if (parts->threshold > 9 ||
+	    parts->threshold < 0 ||
+	    /* Can't happen because bech32 `1` is invalid, but worth noting */
+	    parts->threshold == 1) {
+		*fail = tal_fmt(ctx, "Invalid threshold!");
 		return tal_free(parts);
+	}
+
+	if (parts->threshold == 0 && parts->type != CODEX32_ENCODING_SECRET) {
+		*fail = tal_fmt(ctx, "Expected share index s for threshold 0!");
+		return tal_free(parts);
+	}
 
 	return parts;
 }

@@ -12,14 +12,17 @@ typedef enum {
 
 /* Decoded codex32 parts */
 struct codex32 {
+	/* "ms" */
 	const char *hrp;
+	/* 0, or 2-9 */
 	uint8_t threshold;
-	const char *id;
-	const char *share_idx;
-	const char *payload;
-	const char *checksum;
-	/* True if it is a codex32 long string, otherwise false. */
-	bool codexl;
+	/* Four valid bech32 characters which identify this complete codex32 secret, the last char is null */
+	char id[4 + 1];
+	/* Valid bech32 character identifying this share of the secret, or `s` for unshared */
+	char share_idx;
+	/* The actual data payload */
+	const u8 *payload;
+	/* Is this a share, or a secret? */
 	codex32_encoding type;
 };
 
@@ -34,16 +37,7 @@ struct codex32 {
  * 	with appropriate reason in the fail param
  */
 struct codex32 *codex32_decode(const tal_t *ctx,
-				     const char *codex32str,
-				     char **fail);
-
-/** Get hex encoding of the payload.
- *
- *  Out: payload:          Pointer to a u8 array which contains the hex encoding of parts->payload.
- *  In:  parts:        Pointer to a valid struct codex32.
- *       Returns hex encoding of the payload or NULL if it doesn't exists.
- */
-const u8 *codex32_decode_payload(const tal_t *ctx,
-				 const struct codex32 *parts);
+			       const char *codex32str,
+			       char **fail);
 
 #endif /* LIGHTNING_COMMON_CODEX32_H */

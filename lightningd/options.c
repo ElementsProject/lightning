@@ -1260,7 +1260,6 @@ static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 
 static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 {
-	const uint8_t *payload;
 	char *err;
 	struct codex32 *parts = codex32_decode(tmpctx, arg, &err);
 
@@ -1272,12 +1271,11 @@ static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 		return tal_fmt(tmpctx, "Not a valid codex32 secret!");
 	}
 
-	payload = codex32_decode_payload(tmpctx, parts);
-	if (tal_bytelen(payload) != 32) {
+	if (tal_bytelen(parts->payload) != 32) {
 		return tal_fmt(tmpctx, "Expected 32 Byte secret: %s",
 					tal_hexstr(tmpctx,
-						   payload,
-						   tal_bytelen(payload)));
+						   parts->payload,
+						   tal_bytelen(parts->payload)));
 	}
 
 	/* Checks if hsm_secret exists */
@@ -1291,7 +1289,7 @@ static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 			       strerror(errno));
 	}
 
-	if (!write_all(fd, payload, tal_count(payload))) {
+	if (!write_all(fd, parts->payload, tal_count(parts->payload))) {
 		unlink_noerr("hsm_secret");
 		return tal_fmt(tmpctx, "Writing HSM: %s",
 			   strerror(errno));
