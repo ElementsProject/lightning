@@ -1,3 +1,25 @@
+/* Implementation of BIP-93 "codex32: Checksummed SSSS-aware BIP32 seeds".
+ *
+ * There are two representations, short and long:
+ *
+ *   CODEX32 := HRP "1" SHORT-DATA | LONG-DATA
+ *   HRP := "ms" | "MS"
+ *   SHORT-DATA := THRESHOLD IDENTIFIER SHAREINDEX SHORT-PAYLOAD SHORT-CHECKSUM
+ *   LONG-DATA := THRESHOLD IDENTIFIER SHAREINDEX LONG-PAYLOAD LONG-CHECKSUM
+ *
+ *   THRESHOLD = "0" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+ *   IDENTIFER := BECH32*4
+ *   SHAREINDEX := BECH32
+ *
+ *   SHORT-PAYLOAD := BECH32 [0 - 74 times]
+ *   SHORT-CHECKSUM := BECH32*13
+ *
+ *   LONG-PAYLOAD := BECH32 [75 - 103 times]
+ *   LONG-CHECKSUM := BECH32*15
+ *
+ * Thus, a short codex32 string has 22 bytes of non-payload, so 22 to 96 characters long.
+ * A long codex32 string has 24 bytes of non-payload, so 99 to 127 characters.
+ */
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
@@ -301,10 +323,9 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 		}
 	}
 
-	/* FIXME: Confirm if the numbers are correct. */
-	if (codex32str_len >= 48 && codex32str_len < 94) {
+	if (codex32str_len >= 22 && codex32str_len <= 96) {
 		parts->codexl = false;
-	} else if (codex32str_len >= 125 && codex32str_len < 128) {
+	} else if (codex32str_len >= 99 && codex32str_len <= 127) {
 		parts->codexl = true;
 	} else {
 		*fail = tal_fmt(ctx, "Invalid length!");
