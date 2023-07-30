@@ -629,7 +629,8 @@ void payment_succeeded(struct lightningd *ld UNNEEDED,
 /* Generated stub for peer_restart_dualopend */
 bool peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
-			    struct channel *channel UNNEEDED)
+			    struct channel *channel UNNEEDED,
+			    bool from_abort UNNEEDED)
 { fprintf(stderr, "peer_restart_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 bool peer_start_channeld(struct channel *channel UNNEEDED,

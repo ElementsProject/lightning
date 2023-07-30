@@ -375,6 +375,7 @@ void channel_errmsg(struct channel *channel,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    bool warning,
+		    bool aborted UNUSED,
 		    const u8 *err_for_them)
 {
 	/* Clean up any in-progress open attempts */
@@ -404,8 +405,10 @@ void channel_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning) {
-		channel_fail_transient(channel, "%s WARNING: %s",
-				       channel->owner->name, desc);
+		channel_fail_transient(channel, "%s%s: %s",
+				       channel->owner->name,
+				       warning ? " WARNING" : " (aborted)",
+				       desc);
 		return;
 	}
 
@@ -1160,7 +1163,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 		}
 		if (peer_restart_dualopend(channel->peer,
 					   new_peer_fd(tmpctx, fds[0]),
-					   channel))
+					   channel, false))
 			goto tell_connectd;
 		close(fds[1]);
 		return;
@@ -1529,7 +1532,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 								  "Trouble in paradise?");
 					goto send_error;
 				}
-				if (peer_restart_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel))
+				if (peer_restart_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel, false))
 					goto tell_connectd;
 				/* FIXME: Send informative error? */
 				close(fds[1]);

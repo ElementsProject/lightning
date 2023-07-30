@@ -1496,6 +1496,7 @@ static void onchain_error(struct channel *channel,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
+			  bool aborted UNUSED,
 			  const u8 *err_for_them UNUSED)
 {
 	channel_set_owner(channel, NULL);

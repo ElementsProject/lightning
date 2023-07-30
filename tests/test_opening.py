@@ -380,7 +380,6 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail
 def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None,
                                              'allow_warning': True})
@@ -463,7 +462,6 @@ def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail
 @pytest.mark.openchannel('v2')
 def test_v2_rbf_abort_channel_opens(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None,

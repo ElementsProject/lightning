@@ -1820,6 +1820,8 @@ static void handle_channel_locked(struct subd *dualopend,
 	return;
 }
 
+
+
 void dualopen_tell_depth(struct subd *dualopend,
 			 struct channel *channel,
 			 const struct bitcoin_txid *txid,
@@ -2312,6 +2314,33 @@ json_openchannel_abort(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
+			       struct channel *channel, bool from_abort)
+{
+	int fds[2];
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		log_broken(channel->log,
+			   "Failed to create socketpair: %s",
+			   strerror(errno));
+		return tal_fmt(ctx, "Unable to create socket: %s",
+			       strerror(errno));
+	}
+
+	if (!peer_restart_dualopend(channel->peer,
+				    new_peer_fd(tmpctx, fds[0]),
+				    channel, from_abort)) {
+		close(fds[1]);
+		return tal_fmt(ctx, "Peer not connected");
+	}
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_connect_subd(NULL,
+							     &channel->peer->id,
+							     channel->peer->connectd_counter,
+							     &channel->cid)));
+	subd_send_fd(ld->connectd, fds[1]);
+	return NULL;
+}
+
 static struct command_result *
 json_openchannel_bump(struct command *cmd,
 		      const char *buffer,
@@ -2404,29 +2433,10 @@ json_openchannel_bump(struct command *cmd,
 	/* It's possible that the last open failed/was aborted.
 	 * So now we restart the attempt! */
 	if (!channel->owner) {
-		int fds[2];
-		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-			log_broken(channel->log,
-				   "Failed to create socketpair: %s",
-				   strerror(errno));
+		char *err = restart_dualopend(cmd, cmd->ld, channel, false);
+		if (err)
 			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-					    "Unable to create socket: %s",
-					    strerror(errno));
-		}
-
-		if (!peer_restart_dualopend(channel->peer,
-					    new_peer_fd(tmpctx, fds[0]),
-					    channel)) {
-			close(fds[1]);
-			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-					      "Peer not connected.");
-		}
-		subd_send_msg(cmd->ld->connectd,
-			      take(towire_connectd_peer_connect_subd(NULL,
-								     &channel->peer->id,
-								     channel->peer->connectd_counter,
-								     &channel->cid)));
-		subd_send_fd(cmd->ld->connectd, fds[1]);
+					    "%s", err);
 	}
 
 	if (channel->open_attempt)
@@ -3574,6 +3584,103 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
+void static dualopen_errmsg(struct channel *channel,
+			    struct peer_fd *peer_fd,
+			    const struct channel_id *channel_id UNUSED,
+			    const char *desc,
+			    bool warning,
+			    bool aborted,
+			    const u8 *err_for_them)
+{
+	/* Clean up any in-progress open attempts */
+	channel_cleanup_commands(channel, desc);
+
+	if (channel_unsaved(channel)) {
+		log_info(channel->log, "%s", "Unsaved peer failed."
+			 " Deleting channel.");
+		delete_channel(channel);
+		return;
+	}
+
+	/* No peer_fd means a subd crash or disconnection. */
+	if (!peer_fd) {
+		/* If the channel is unsaved, we forget it */
+		channel_fail_transient(channel, "%s: %s",
+				       channel->owner->name, desc);
+		return;
+	}
+
+	/* Do we have an error to send? */
+	if (err_for_them && !channel->error && !warning)
+		channel->error = tal_dup_talarr(channel, u8, err_for_them);
+
+	/* Other implementations chose to ignore errors early on.  Not
+	 * surprisingly, they now spew out spurious errors frequently,
+	 * and we would close the channel on them.  We now support warnings
+	 * for this case. */
+	if (warning || aborted) {
+		channel_fail_transient(channel, "%s %s: %s",
+				       channel->owner->name,
+				       warning ? "WARNING" : "ABORTED",
+				       desc);
+
+		if (aborted) {
+			char *err = restart_dualopend(tmpctx,
+						      channel->peer->ld,
+						      channel, true);
+			if (err)
+				log_broken(channel->log,
+					   "Unable to restart dualopend"
+					   " after abort: %s", err);
+		}
+
+		return;
+	}
+
+	/* BOLT #1:
+	 *
+	 * A sending node:
+	 *...
+	 *   - when sending `error`:
+	 *     - MUST fail the channel(s) referred to by the error message.
+	 *     - MAY set `channel_id` to all zero to indicate all channels.
+	 */
+	/* FIXME: Close if it's an all-channels error sent or rcvd */
+
+	/* BOLT #1:
+	 *
+	 * A sending node:
+	 *...
+	 *  - when sending `error`:
+	 *    - MUST fail the channel(s) referred to by the error message.
+	 *    - MAY set `channel_id` to all zero to indicate all channels.
+	 *...
+	 * The receiving node:
+	 *  - upon receiving `error`:
+	 *    - if `channel_id` is all zero:
+	 *       - MUST fail all channels with the sending node.
+	 *    - otherwise:
+	 *      - MUST fail the channel referred to by `channel_id`, if that channel is with the
+	 *        sending node.
+	 */
+
+	/* FIXME: We don't close all channels */
+	/* We should immediately forget the channel if we receive error during
+	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
+	if (!err_for_them && channel->opener == REMOTE
+	    && channel->state == CHANNELD_AWAITING_LOCKIN)
+		channel_fail_forget(channel, "%s: %s ERROR %s",
+				    channel->owner->name,
+				    err_for_them ? "sent" : "received", desc);
+	else
+		channel_fail_permanent(channel,
+				       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
+				       "%s: %s ERROR %s",
+				       channel->owner->name,
+				       err_for_them ? "sent" : "received", desc);
+}
+
+
 bool peer_start_dualopend(struct peer *peer,
 			  struct peer_fd *peer_fd,
 			  struct channel *channel)
@@ -3596,7 +3703,7 @@ bool peer_start_dualopend(struct peer *peer,
 					  channel->log, true,
 					  dualopend_wire_name,
 					  dual_opend_msg,
-					  channel_errmsg,
+					  dualopen_errmsg,
 					  channel_set_billboard,
 					  take(&peer_fd->fd),
 					  take(&hsmfd), NULL);
@@ -3641,7 +3748,8 @@ bool peer_start_dualopend(struct peer *peer,
 
 bool peer_restart_dualopend(struct peer *peer,
 			    struct peer_fd *peer_fd,
-			    struct channel *channel)
+			    struct channel *channel,
+			    bool from_abort)
 {
 	u32 max_to_self_delay, blockheight;
 	struct amount_msat min_effective_htlc_capacity;
@@ -3667,7 +3775,7 @@ bool peer_restart_dualopend(struct peer *peer,
 					   channel->log, true,
 					   dualopend_wire_name,
 					   dual_opend_msg,
-					   channel_errmsg,
+					   dualopen_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
 					   take(&hsmfd), NULL));
@@ -3706,6 +3814,7 @@ bool peer_restart_dualopend(struct peer *peer,
 
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
+				      from_abort,
 				      peer->ld->our_features,
 				      peer->their_features,
 				      &channel->our_config,
