@@ -18,6 +18,7 @@ struct codex32 {
 	const char *share_idx;
 	const char *payload;
 	const char *checksum;
+	/* True if it is a codex32 long string, otherwise false. */
 	bool codexl;
 	codex32_encoding type;
 };
