@@ -520,7 +520,7 @@ static char *opt_set_offline(struct lightningd *ld)
 {
 	ld->reconnect = false;
 	ld->listen = false;
-
+	log_info(ld->log, "Started in offline mode!");
 	return NULL;
 }
 
@@ -1322,6 +1322,7 @@ static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 		return tal_fmt(tmpctx, "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
+	opt_set_offline(ld);
 
 	return NULL;
 }
