@@ -11,84 +11,76 @@
 
 static void insertion_in_increasing_distance(const tal_t *ctx)
 {
-	dijkstra_malloc(ctx,10);
+	struct dijkstra *dijkstra = dijkstra_new(ctx,10);
 
-	for(int i=0;i<dijkstra_maxsize();++i)
+	for(int i=0;i<dijkstra_maxsize(dijkstra);++i)
 	{
-		dijkstra_update(i,10+i);
-		assert(dijkstra_size()==(i+1));
+		dijkstra_update(dijkstra,i,10+i);
+		assert(dijkstra_size(dijkstra)==(i+1));
 	}
 
-	dijkstra_update(3,3);
-	assert(dijkstra_top()==3);
+	dijkstra_update(dijkstra,3,3);
+	assert(dijkstra_top(dijkstra)==3);
 
-	dijkstra_update(3,15);
-	assert(dijkstra_top()==0);
+	dijkstra_update(dijkstra,3,15);
+	assert(dijkstra_top(dijkstra)==0);
 
-	dijkstra_update(3,-1);
-	assert(dijkstra_top()==3);
+	dijkstra_update(dijkstra,3,-1);
+	assert(dijkstra_top(dijkstra)==3);
 
-	dijkstra_pop();
-	assert(dijkstra_size()==9);
-	assert(dijkstra_top()==0);
+	dijkstra_pop(dijkstra);
+	assert(dijkstra_size(dijkstra)==9);
+	assert(dijkstra_top(dijkstra)==0);
 
 	// Insert again
-	dijkstra_update(3,3+10);
+	dijkstra_update(dijkstra,3,3+10);
 
 	u32 top=0;
-	while(!dijkstra_empty())
+	while(!dijkstra_empty(dijkstra))
 	{
-		assert(top==dijkstra_top());
+		assert(top==dijkstra_top(dijkstra));
 		top++;
-		dijkstra_pop();
+		dijkstra_pop(dijkstra);
 	}
 }
 static void insertion_in_decreasing_distance(const tal_t *ctx)
 {
-	dijkstra_malloc(ctx,10);
+	struct dijkstra *dijkstra = dijkstra_new(ctx,10);
 
-	for(int i=0;i<dijkstra_maxsize();++i)
+	for(int i=0;i<dijkstra_maxsize(dijkstra);++i)
 	{
-		dijkstra_update(i,10-i);
-		assert(dijkstra_size()==(i+1));
+		dijkstra_update(dijkstra,i,10-i);
+		assert(dijkstra_size(dijkstra)==(i+1));
 	}
 
-	dijkstra_update(3,-3);
-	assert(dijkstra_top()==3);
+	dijkstra_update(dijkstra,3,-3);
+	assert(dijkstra_top(dijkstra)==3);
 
-	dijkstra_update(3,15);
-	assert(dijkstra_top()==9);
+	dijkstra_update(dijkstra,3,15);
+	assert(dijkstra_top(dijkstra)==9);
 
-	dijkstra_update(3,-1);
-	assert(dijkstra_top()==3);
+	dijkstra_update(dijkstra,3,-1);
+	assert(dijkstra_top(dijkstra)==3);
 
-	dijkstra_pop();
-	assert(dijkstra_size()==9);
-	assert(dijkstra_top()==9);
+	dijkstra_pop(dijkstra);
+	assert(dijkstra_size(dijkstra)==9);
+	assert(dijkstra_top(dijkstra)==9);
 
 	// Insert again
-	dijkstra_update(3,10-3);
+	dijkstra_update(dijkstra,3,10-3);
 
 	u32 top=9;
-	while(!dijkstra_empty())
+	while(!dijkstra_empty(dijkstra))
 	{
-		assert(top==dijkstra_top());
+		assert(top==dijkstra_top(dijkstra));
 		top--;
-		dijkstra_pop();
+		dijkstra_pop(dijkstra);
 	}
 }
 
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
-
-	insertion_in_increasing_distance(NULL);
-	insertion_in_decreasing_distance(tmpctx);
-
-	// test dijkstra_free
-	dijkstra_free();
-	// we can call it twice, no problem
-	dijkstra_free();
 
 	// does tal_free() cleansup correctly?
 	const tal_t *this_ctx = tal(NULL,tal_t);
