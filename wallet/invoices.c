@@ -6,6 +6,7 @@
 #include <db/exec.h>
 #include <db/utils.h>
 #include <lightningd/invoice.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/wait.h>
 #include <wallet/invoices.h>
 
@@ -115,7 +116,6 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 	return dtl;
 }
 
-static void trigger_expiration(struct invoices *invoices);
 static void install_expiration_timer(struct invoices *invoices);
 
 struct invoices *invoices_new(const tal_t *ctx,
@@ -130,8 +130,6 @@ struct invoices *invoices_new(const tal_t *ctx,
 	list_head_init(&invs->waiters);
 
 	invs->expiration_timer = NULL;
-
-	trigger_expiration(invs);
 	return invs;
 }
 
@@ -783,4 +781,9 @@ u64 invoice_index_update_deldesc(struct lightningd *ld,
 	assert(description);
 	return invoice_index_inc(ld, NULL, label, NULL, description,
 				 WAIT_INDEX_UPDATED);
+}
+
+void invoices_start_expiration(struct lightningd *ld)
+{
+	trigger_expiration(ld->wallet->invoices);
 }

@@ -27,6 +27,13 @@ struct invoices *invoices_new(const tal_t *ctx,
 			      struct timers *timers);
 
 /**
+ * invoices_start_expiration - Once ld->wallet complete, we can start expiring.
+ *
+ * @ld - the lightningd object
+ */
+void invoices_start_expiration(struct lightningd *ld);
+
+/**
  * invoices_create - Create a new invoice.
  *
  * @invoices - the invoice handler.

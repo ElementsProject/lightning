@@ -77,6 +77,7 @@
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
 #include <sys/resource.h>
+#include <wallet/invoices.h>
 #include <wallet/txfilter.h>
 #include <wally_bip32.h>
 
@@ -1191,6 +1192,9 @@ int main(int argc, char *argv[])
 
 	/*~ Finish our runes initialization (includes reading from db) */
 	runes_finish_init(ld->runes);
+
+	/*~ Start expiring old invoices now ld->wallet is set.*/
+	invoices_start_expiration(ld);
 
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);

@@ -114,6 +114,9 @@ void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 void htlcs_resubmit(struct lightningd *ld UNNEEDED,
 		    struct htlc_in_map *unconnected_htlcs_in STEALS UNNEEDED)
 { fprintf(stderr, "htlcs_resubmit called!\n"); abort(); }
+/* Generated stub for invoices_start_expiration */
+void invoices_start_expiration(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "invoices_start_expiration called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,
