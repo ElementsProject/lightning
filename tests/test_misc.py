@@ -1368,6 +1368,12 @@ def test_recover(node_factory, bitcoind):
     # Node should throw error to recover flag if HSM already exists.
     l1.daemon.opts['recover'] = "ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma"
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+
+    cmd_line = ["tools/hsmtool", "getcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"), "leet", "0"]
+    lines = subprocess.check_output(cmd_line).decode('utf-8').splitlines()
+    expected_output = "Codex32 Secret of your hsm_secret is: ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma"
+    assert [expected_output] == lines
+
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
     assert l1.daemon.is_in_stderr(r"hsm_secret already exists!")
