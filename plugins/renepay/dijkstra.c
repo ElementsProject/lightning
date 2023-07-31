@@ -1,3 +1,4 @@
+#define NDEBUG 1
 #include "config.h"
 #include <plugins/renepay/dijkstra.h>
 

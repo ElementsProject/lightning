@@ -409,11 +409,12 @@ static arc_t channel_idx_to_arc(
 		int dual)
 {
 	arc_t arc;
-	// arc.idx=0; // shouldn't be necessary, but valgrind complains of uninitialized field idx
 	arc.dual=dual;
 	arc.part=part;
 	arc.chandir=half;
 	arc.chanidx = chan_idx;
+	/* check that it doesn't overflow */
+	assert(arc.chanidx == chan_idx);
 	return arc;
 }
 
@@ -439,8 +440,25 @@ static void linearize_channel(
 			__LINE__);
 	}
 
+	s64 h = extra_half->htlc_total.millisatoshis/1000; /* Raw: linearize_channel */
 	s64 a = extra_half->known_min.millisatoshis/1000, /* Raw: linearize_channel */
 	    b = 1 + extra_half->known_max.millisatoshis/1000; /* Raw: linearize_channel */
+
+	/* If HTLCs add up to more than the known_max it means we have a
+	 * completely wrong knowledge. */
+	// assert(h<b);
+	/* HTLCs allocated could instead be greater than known_min, we enter in
+	 * the uncertainty region. If h>a it doesn't mean automatically that our
+	 * known_min should have been updated, because we reserve this HTLC
+	 * after sendpay behind the scenes it might happen that sendpay failed
+	 * because of insufficient funds we haven't noticed yet. */
+	// assert(h<=a);
+
+	/* We reduce this channel capacity because HTLC are reserving liquidity. */
+	a -= h;
+	b -= h;
+	a = MAX(a,0);
+	b = MAX(a+1,b);
 
 	capacity[0]=a;
 	cost[0]=0;
@@ -579,7 +597,6 @@ static void init_linear_network(
 			const struct gossmap_chan *c = gossmap_nth_chan(params->gossmap,
 			                                                node, j, &half);
 
-			// TODO(eduardo): in which case can this be triggered?
 			if (!gossmap_chan_set(c,half))
 				continue;
 
@@ -818,9 +835,9 @@ static int find_feasible_flow(
 
 		// commit that flow to the path
 		delta = MIN(amount,delta);
-		augment_flow(linear_network,residual_network,source,target,prev,delta);
-
 		assert(delta>0 && delta<=amount);
+
+		augment_flow(linear_network,residual_network,source,target,prev,delta);
 		amount -= delta;
 	}
 
@@ -961,9 +978,9 @@ static int optimize_mcf(
 
 		// commit that flow to the path
 		delta = MIN(remaining_amount,delta);
-		augment_flow(linear_network,residual_network,source,target,prev,delta);
-
 		assert(delta>0 && delta<=remaining_amount);
+
+		augment_flow(linear_network,residual_network,source,target,prev,delta);
 		remaining_amount -= delta;
 
 		// update potentials
@@ -1066,7 +1083,6 @@ struct list_data
 	struct flow *flow_path;
 };
 
-// TODO(eduardo): check this
 /* Given a flow in the residual network, build a set of payment flows in the
  * gossmap that corresponds to this flow. */
 static struct flow **
@@ -1123,10 +1139,7 @@ static struct flow **
 	}
 
 
-	size_t num_paths=0;
-	tal_t *list_ctx = tal(this_ctx,tal_t);
-	LIST_HEAD(path_list);
-	struct list_data *ld;
+	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
 	// Select all nodes with negative balance and find a flow that reaches a
 	// positive balance node.
@@ -1170,7 +1183,7 @@ static struct flow **
 			}
 
 
-			struct flow *fp = tal(list_ctx,struct flow);
+			struct flow *fp = tal(this_ctx,struct flow);
 			fp->path = tal_arr(fp,struct gossmap_chan const*,length);
 			fp->dirs = tal_arr(fp,int,length);
 
@@ -1214,22 +1227,16 @@ static struct flow **
 			// probabilities.
 			flow_complete(fp,gossmap,chan_extra_map,delivered);
 
-			// add fp to list
-			ld = tal(list_ctx,struct list_data);
-			ld->flow_path = fp;
-			list_add(&path_list,&ld->list);
-			num_paths++;
+			// add fp to flows
+			tal_arr_expand(&flows, fp);
 		}
 	}
 
-	// copy the list into the array we are going to return
-	struct flow **flows = tal_arr(ctx,struct flow*,num_paths);
-	size_t pos=0;
-	list_for_each(&path_list,ld,list)
+	/* Stablish ownership. */
+	for(int i=0;i<tal_count(flows);++i)
 	{
-		flows[pos++] = tal_steal(flows,ld->flow_path);
+		flows[i] = tal_steal(flows,flows[i]);
 	}
-
 	tal_free(this_ctx);
 	return flows;
 }

@@ -20,8 +20,14 @@
 // TODO(eduardo): maybe there are too many debug_err and plugin_err and
 // plugin_log(...,LOG_BROKEN,...) that could be resolved with a command_fail
 
+// TODO(eduardo): notice that pending attempts performed with another
+// pay plugin are not considered by the uncertainty network in renepay,
+// it would be nice if listsendpay would give us the route of pending
+// sendpays.
+
 #define INVALID_ID UINT64_MAX
 #define MAX(a,b) ((a)>(b)? (a) : (b))
+#define MIN(a,b) ((a)<(b)? (a) : (b))
 
 static struct pay_plugin the_pay_plugin;
 struct pay_plugin * const pay_plugin = &the_pay_plugin;
@@ -30,10 +36,6 @@ static void timer_kick(struct renepay * renepay);
 static struct command_result *try_paying(struct command *cmd,
 					 struct renepay * renepay,
 					 bool first_time);
-
-// TODO(eduardo): maybe we don't need these
-static void background_timer_kick(void*p UNUSED);
-static void background_settimer(void);
 
 void amount_msat_accumulate_(struct amount_msat *dst,
 			     struct amount_msat src,
@@ -92,7 +94,6 @@ static const char *init(struct plugin *p,
 
 	pay_plugin->ctx = notleak_with_children(tal(p,tal_t));
 	pay_plugin->plugin = p;
-	pay_plugin->rexmit_timer=NULL;
 	pay_plugin->last_time = 0;
 
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
@@ -132,56 +133,9 @@ static const char *init(struct plugin *p,
 #if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark);
 #endif
-
-	background_settimer();
 	return NULL;
 }
 
-
-// /* TODO(eduardo): an example of an RPC call that is not bound to any command. */
-//static
-//struct command_result* getinfo_done(struct command *cmd UNUSED,
-//			 const char *buf,
-//			 const jsmntok_t *result,
-//			 void* pp  UNUSED)
-//{
-//	struct node_id id;
-//	const jsmntok_t *id_tok = json_get_member(buf,result,"id");
-//	json_to_node_id(buf,id_tok,&id);
-//
-//	plugin_log(pay_plugin->plugin,LOG_DBG,
-//		"calling %s, nodeid = %s",
-//		__PRETTY_FUNCTION__,
-//		type_to_string(tmpctx,struct node_id,&id));
-//
-//	return command_still_pending(NULL);
-//}
-
-static void background_settimer(void)
-{
-	pay_plugin->rexmit_timer
-		= tal_free(pay_plugin->rexmit_timer);
-	pay_plugin->rexmit_timer
-		= plugin_timer(
-			pay_plugin->plugin,
-			time_from_msec(2000),
-			background_timer_kick, NULL);
-}
-
-static void background_timer_kick(void * p UNUSED)
-{
-	// plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	background_settimer();
-
-	// /* TODO(eduardo): an example of an RPC call that is not bound to any command. */
-	// struct out_req * req = jsonrpc_request_start(pay_plugin->plugin,
-	// 				NULL,
-	// 				"getinfo",
-	// 			    	getinfo_done,
-	// 			    	getinfo_done,
-	// 			    	NULL);
-	// send_outreq(pay_plugin->plugin, req);
-}
 
 static void renepay_settimer(struct renepay * renepay)
 {
@@ -202,17 +156,20 @@ static void timer_kick(struct renepay * renepay)
 	{
 		/* Some flows succeeded, we finish the payment. */
 		case PAYMENT_SUCCESS:
+			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_SUCCESS");
 			renepay_success(renepay);
 		break;
 
 		/* Some flows failed, we retry. */
 		case PAYMENT_FAIL:
+			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_FAIL");
 			payment_assert_delivering_incomplete(p);
-			try_paying(renepay->cmd,renepay,false);
+			try_paying(renepay->cmd,renepay,/* always try even if prob is low */ true);
 		break;
 
 		/* Nothing has returned yet, we have to wait. */
 		case PAYMENT_PENDING:
+			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_PENDING");
 			payment_assert_delivering_all(p);
 			renepay_settimer(renepay);
 		break;
@@ -454,6 +411,12 @@ sendpay_flows(struct command *cmd,
 	debug_paynote(p, "Sending out batch of %zu payments", tal_count(flows));
 
 	for (size_t i = 0; i < tal_count(flows); i++) {
+		const u64 path_lengh = tal_count(flows[i]->amounts);
+		debug_paynote(p, "sendpay flow groupid=%ld, partid=%ld, delivering=%s",
+			      flows[i]->key.groupid,
+			      flows[i]->key.partid,
+			      type_to_string(tmpctx,struct amount_msat,
+				&flows[i]->amounts[path_lengh-1]));
 		struct out_req *req;
 		req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
 					    flow_sent, flow_sendpay_failed,
@@ -607,7 +570,7 @@ static struct command_result *try_paying(struct command *cmd,
 
 						/* would you accept unlikely
 						 * payments? */
-						first_time,
+						true,
 
 				 		/* is entire payment? */
 						amount_msat_eq(p->total_delivering, AMOUNT_MSAT(0)),
@@ -617,7 +580,6 @@ static struct command_result *try_paying(struct command *cmd,
 	// plugin_log(pay_plugin->plugin,LOG_DBG,"get_payflows produced %s",fmt_payflows(tmpctx,pay_flows));
 
 	/* MCF cannot find a feasible route, we stop. */
-	// TODO(eduardo): alternatively we can fallback to `pay`.
 	if (!pay_flows)
 	{
 		return renepay_fail(renepay, PAY_ROUTE_NOT_FOUND,
@@ -787,6 +749,10 @@ payment_listsendpays_previous(
 		    cmd, LIGHTNINGD,
 		    "Unexpected non-array result from listsendpays");
 
+	/* We need two scans of the payments, the first to identify the groupid
+	 * that have pending sendpays and the second to get the maximum partid
+	 * from that group. */
+
 	/* We iterate through all prior sendpays, looking for the
 	 * latest group and remembering what its state is. */
 	json_for_each_arr(i, t, arr)
@@ -807,9 +773,12 @@ payment_listsendpays_previous(
 			  JSON_SCAN(json_to_msat,&this_msat),
 			  JSON_SCAN(json_to_msat,&this_sent));
 
+		if(last_group==INVALID_ID)
+			last_group = groupid;
+
+		last_group = MAX(last_group,groupid);
+
 		/* status could be completed, pending or failed */
-
-
 		status = json_get_member(buf, t, "status");
 
 		if(json_tok_streq(buf,status,"failed"))
@@ -841,32 +810,54 @@ payment_listsendpays_previous(
 			   last_pending_group_id==INVALID_ID)
 				first_pending_group_id = last_pending_group_id = groupid;
 
-			if(groupid > last_pending_group_id)
-			{
-				last_pending_group_id = groupid;
-				last_pending_partid = partid;
-				pending_msat = AMOUNT_MSAT(0);
-				pending_sent = AMOUNT_MSAT(0);
-			}
-			if(groupid < first_pending_group_id)
-			{
-				first_pending_group_id = groupid;
-			}
-			if(groupid == last_pending_group_id)
-			{
-				amount_msat_accumulate(&pending_sent,this_sent);
-				amount_msat_accumulate(&pending_msat,this_msat);
-
-				last_pending_partid = MAX(last_pending_partid,partid);
-				plugin_log(pay_plugin->plugin,LOG_DBG,
-					"pending deliver increased by %s",
-					type_to_string(tmpctx,struct amount_msat,&this_msat));
-			}
-
+			last_pending_group_id = MAX(last_pending_group_id,groupid);
+			first_pending_group_id = MIN(first_pending_group_id,groupid);
 		}
 	}
 
+	/* We iterate through all prior sendpays, looking for the
+	 * latest pending group. */
+	json_for_each_arr(i, t, arr)
+	{
+		u64 partid, groupid;
+		struct amount_msat this_msat, this_sent;
+
+		const jsmntok_t *status;
+
+		// TODO(eduardo): assuming amount_msat is always known.
+		json_scan(tmpctx,buf,t,
+			  "{partid:%"
+			  ",groupid:%"
+			  ",amount_msat:%"
+			  ",amount_sent_msat:%}",
+			  JSON_SCAN(json_to_u64,&partid),
+			  JSON_SCAN(json_to_u64,&groupid),
+			  JSON_SCAN(json_to_msat,&this_msat),
+			  JSON_SCAN(json_to_msat,&this_sent));
+
+		/* status could be completed, pending or failed */
+		status = json_get_member(buf, t, "status");
+
+		/* It seems I cannot reuse failed partids for the same groupid,
+		 * therefore let's count them all whatever the status. */
+		if(groupid==last_pending_group_id)
+			last_pending_partid = MAX(last_pending_partid,partid);
+
+		if(groupid == last_pending_group_id && json_tok_streq(buf,status,"pending"))
+		{
+			amount_msat_accumulate(&pending_sent,this_sent);
+			amount_msat_accumulate(&pending_msat,this_msat);
+
+			plugin_log(pay_plugin->plugin,LOG_DBG,
+				"pending deliver increased by %s",
+				type_to_string(tmpctx,struct amount_msat,&this_msat));
+		}
+	}
+
+
 	if (completed) {
+		/* There are completed sendpays, we don't need to do anything
+		 * but summarize the result. */
 		struct json_stream *ret = jsonrpc_stream_success(cmd);
 		json_add_preimage(ret, "payment_preimage", &complete_preimage);
 		json_add_string(ret, "status", "complete");
@@ -883,6 +874,9 @@ payment_listsendpays_previous(
 
 		return command_finished(cmd, ret);
 	} else if (pending) {
+		assert(last_pending_group_id!=INVALID_ID);
+		assert(first_pending_group_id!=INVALID_ID);
+
 		p->groupid = last_pending_group_id;
 		renepay->next_partid = last_pending_partid+1;
 
@@ -916,6 +910,8 @@ payment_listsendpays_previous(
 		}
 	}else
 	{
+		/* There are no pending nor completed sendpays, get me the last
+		 * sendpay group. */
 		p->groupid = (last_group==INVALID_ID  ? 1 : (last_group+1)) ;
 		renepay->next_partid=1;
 	}
@@ -940,14 +936,14 @@ static struct command_result *json_pay(struct command *cmd,
  	u64 invexpiry;
  	struct amount_msat *msat, *invmsat;
 	struct amount_msat *maxfee;
-	u64 *riskfactor_millionths;
 	u32 *maxdelay;
-	u64 *base_fee_penalty;
-	u64 *prob_cost_factor;
-	u64 *min_prob_success_millionths;
 	u32 *retryfor;
 
 #if DEVELOPER
+	u64 *base_fee_penalty;
+	u64 *prob_cost_factor;
+	u64 *riskfactor_millionths;
+	u64 *min_prob_success_millionths;
 	bool *use_shadow;
 #endif
 
@@ -955,15 +951,6 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_req("invstring", param_string, &invstr),
  		   p_opt("amount_msat", param_msat, &msat),
  		   p_opt("maxfee", param_msat, &maxfee),
-
-		   // MCF parameters
-		   // TODO(eduardo): are these parameters read correctly?
-		   p_opt_def("base_fee_penalty", param_millionths, &base_fee_penalty,10),
- 		   p_opt_def("prob_cost_factor", param_millionths, &prob_cost_factor,10),
-		   p_opt_def("min_prob_success", param_millionths,
-		   	&min_prob_success_millionths,100000),// default is 10%
-
-		   p_opt_def("riskfactor", param_millionths,&riskfactor_millionths,1),
 
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     /* We're initially called to probe usage, before init! */
@@ -975,6 +962,13 @@ static struct command_result *json_pay(struct command *cmd,
  		   p_opt("description", param_string, &description),
  		   p_opt("label", param_string, &label),
 #if DEVELOPER
+		   // MCF parameters
+		   // TODO(eduardo): are these parameters read correctly?
+		   p_opt_def("base_fee_penalty", param_millionths, &base_fee_penalty,10),
+ 		   p_opt_def("prob_cost_factor", param_millionths, &prob_cost_factor,10),
+		   p_opt_def("riskfactor", param_millionths,&riskfactor_millionths,1),
+		   p_opt_def("min_prob_success", param_millionths,
+		   	&min_prob_success_millionths,900000),// default is 90%
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
 		   NULL))
@@ -993,6 +987,23 @@ static struct command_result *json_pay(struct command *cmd,
 	p->label = tal_steal(p,label);
 	p->local_offer_id = tal_steal(p,local_offer_id);
 
+
+
+	/* Please renepay try to give me a reliable payment 90% chances of
+	 * success, once you do, then minimize as much as possible those fees. */
+	p->min_prob_success = 0.9;
+
+	/* Default delay_feefactor: how much shall we penalize for delay. */
+	p->delay_feefactor = 1e-6;
+
+	/* Default prob_cost_factor: how to convert prob. cost to sats. */
+	p->prob_cost_factor = 10;
+
+	/* Default base_fee_penalty: how to convert a base fee into a
+	 * proportional fee. */
+	p->base_fee_penalty = 10;
+
+#if DEVELOPER
 	p->base_fee_penalty = *base_fee_penalty;
 	base_fee_penalty = tal_free(base_fee_penalty);
 
@@ -1004,6 +1015,7 @@ static struct command_result *json_pay(struct command *cmd,
 
 	p->delay_feefactor = *riskfactor_millionths/1e6;
 	riskfactor_millionths = tal_free(riskfactor_millionths);
+#endif
 
 	p->maxdelay = *maxdelay;
 	maxdelay = tal_free(maxdelay);
@@ -1456,7 +1468,7 @@ static void handle_sendpay_failure_flow(
 	u64 errcode;
 	if (!json_to_u64(buf, json_get_member(buf, result, "code"), &errcode))
 	{
-		plugin_log(pay_plugin->plugin,LOG_BROKEN,
+		plugin_err(pay_plugin->plugin,
 			  "Failed to get code from sendpay_failure notification"
 			  ", received json: %.*s",
 			  json_tok_full_len(result),

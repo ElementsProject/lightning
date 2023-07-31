@@ -78,22 +78,17 @@ struct pay_plugin {
 	/* I'll allocate all global (controlled by pay_plugin) variables tied to
 	 * this tal_t. */
 	tal_t *ctx;
-	// TODO(eduardo): pending flows have HTLCs (in-flight) liquidity
-	// attached that is reflected in the uncertainty network. When
-	// waitsendpay returns either fail or success that flow is destroyed and
-	// the liquidity is restored. A payment command could end before all
-	// flows are destroyed, therefore it is important to delegate the
-	// ownership of the waitsendpay request to pay_plugin->ctx so that the
-	// request is kept alive. One more thing: to double check that flows are
-	// not accumulating ad-infinitum I would insert them into a data
-	// structure here so that once in a while a timer kicks and verifies the
-	// list of pending flows.
-	// TODO(eduardo): notice that pending attempts performed with another
-	// pay plugin are not considered by the uncertainty network in renepay,
-	// it would be nice if listsendpay would give us the route of pending
-	// sendpays.
-	/* Timers. */
-	struct plugin_timer *rexmit_timer;
+	/* Pending flows have HTLCs (in-flight) liquidity
+	 * attached that is reflected in the uncertainty network.
+	 * When sendpay_fail or sendpay_success notifications arrive
+	 * that flow is destroyed and the liquidity is restored.
+	 * A payment command could end before all
+	 * flows are destroyed, therefore it is important to delegate the
+	 * ownership of the flows to pay_plugin->ctx so that the
+	 * flows are kept alive.
+	 *
+	 * TODO(eduardo): maybe we should add a check to ensure that pending
+	 * flows are not accumulating ad-infinitum. */
 
 	/* It allows us to measure elapsed time
 	 * and forget channel information accordingly. */

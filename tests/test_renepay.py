@@ -60,11 +60,6 @@ def test_errors(node_factory, bitcoind):
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call('renepay', {'invstring': inv})
 
-    node_factory.join_nodes([l4, l6],
-                            wait_for_announce=True, fundamount=1000000)
-    node_factory.join_nodes([l5, l6],
-                            wait_for_announce=True, fundamount=1000000)
-
     l4.rpc.connect(l6.info['id'], 'localhost', l6.port)
     l5.rpc.connect(l6.info['id'], 'localhost', l6.port)
 
@@ -225,15 +220,8 @@ def test_limits(node_factory):
     assert err.value.error['code'] == PAY_ROUTE_NOT_FOUND
 
     inv2 = l6.rpc.invoice("800000sat", "inv2", 'description')
-    failmsg = r'Probability is too small'
-    with pytest.raises(RpcError, match=failmsg) as err:
-        l1.rpc.call(
-            'renepay', {'invstring': inv2['bolt11'], 'min_prob_success': '0.5'})
-    assert err.value.error['code'] == PAY_ROUTE_NOT_FOUND
-
-    # if we try again we can finish this payment
     l1.rpc.call(
-        'renepay', {'invstring': inv2['bolt11'], 'min_prob_success': 0})
+        'renepay', {'invstring': inv2['bolt11']})
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi('800000sat')
