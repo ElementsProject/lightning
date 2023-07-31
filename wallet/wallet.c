@@ -117,13 +117,16 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 
 	db_begin_transaction(wallet->db);
 
+	trace_span_start("load_indexes", wallet);
+	load_indexes(wallet->db, ld->indexes);
+	trace_span_end(wallet);
+
 	trace_span_start("invoices_new", wallet);
 	wallet->invoices = invoices_new(wallet, wallet, timers);
 	trace_span_end(wallet);
 
 	trace_span_start("outpointfilters_init", wallet);
 	outpointfilters_init(wallet);
-	load_indexes(wallet->db, ld->indexes);
 	trace_span_end(wallet);
 
 	db_commit_transaction(wallet->db);
