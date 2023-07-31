@@ -40,4 +40,20 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 			       const char *codex32str,
 			       char **fail);
 
+/** Encode a seed into codex32 secret format.
+ *
+ *  Out: char *:      String containing the codex32 (BIP93) format secret.
+ *       fail:        Asserting error if invalid threshold is used.
+ *  In: input:        id: Valid 4 char string identifying the secret
+ * 		      threshold: Threshold according to the bip93
+ * 		      seed: The secret in u8*
+ * 		      seedlen: Length of the seed provided.
+ *      Returns a string which contains the seed provided in bip93 format.
+ */
+char *codex32_secret_encode(const tal_t *ctx,
+			    const char *id,
+			    const u32 threshold,
+			    const u8 *seed,
+			    size_t seedlen);
+
 #endif /* LIGHTNING_COMMON_CODEX32_H */

@@ -166,6 +166,13 @@ static void input_data_str(u8 *generator, u8 *residue, const char *datastr, size
 	return;
 }
 
+static void input_own_target(const u8 *generator, u8 *residue, const u8 *target, size_t len)
+{
+	for (size_t i = 0; i < len; i++) {
+		input_fe(generator, residue, target[i], len);
+	}
+}
+
 /* Helper to verify codex32 checksum */
 static bool checksum_verify(const char *hrp, const char *codex_datastr,
 			    const struct checksum_engine *initial_engine)
@@ -176,6 +183,19 @@ static bool checksum_verify(const char *hrp, const char *codex_datastr,
 	input_data_str(engine.generator, engine.residue, codex_datastr, engine.len);
 
 	return memcmp(engine.target, engine.residue, engine.len) == 0;
+}
+
+static void calculate_checksum(const char *hrp, char *csum, const char *codex_datastr,
+		      	     const struct checksum_engine *initial_engine)
+{
+	struct checksum_engine engine = *initial_engine;
+
+	input_hrp(engine.generator, engine.residue, hrp, engine.len);
+	input_data_str(engine.generator, engine.residue, codex_datastr, engine.len);
+	input_own_target(engine.generator, engine.residue, engine.target, engine.len);
+
+	for (size_t i = 0; i < engine.len; i++)
+		csum[i] = bech32_charset[engine.residue[i]];
 }
 
 /* Pull len chars from cursor into dst. */
@@ -373,4 +393,48 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 	}
 
 	return parts;
+}
+
+/* Returns Codex32 encoded secret of the seed provided. */
+char *codex32_secret_encode(const tal_t *ctx,
+			    const char *id,
+			    const u32 threshold,
+			    const u8 *seed,
+			    size_t seedlen)
+{
+	const struct checksum_engine *csum_engine;
+	const char *hrp = "ms";
+	assert(threshold <= 9 && threshold >= 0 &&
+		threshold != 1 && strlen(id) == 4);
+
+	/* Every codex32 has hrp `ms` and since we are generating a
+	 * secret it's share index would be `s` and threshold given by user. */
+	char *ret = tal_fmt(ctx, "%s1%d%ss", hrp, threshold, id);
+
+	uint8_t next_u5 = 0, rem = 0;
+
+        for (size_t i = 0; i < seedlen; i++) {
+            /* Each byte provides at least one u5. Push that. */
+            uint8_t u5 = (next_u5 << (5 - rem)) | seed[i] >> (3 + rem);
+
+	    tal_append_fmt(&ret, "%c", bech32_charset[u5]);
+            next_u5 = seed[i] & ((1 << (3 + rem)) - 1);
+
+            /* If there were 2 or more bits from the last iteration, then
+             * this iteration will push *two* u5s. */
+            if(rem >= 2) {
+	        tal_append_fmt(&ret, "%c", bech32_charset[next_u5 >> (rem - 2)]);
+                next_u5 &= (1 << (rem - 2)) - 1;
+            }
+            rem = (rem + 8) % 5;
+        }
+        if(rem > 0) {
+	    tal_append_fmt(&ret, "%c", bech32_charset[next_u5 << (5 - rem)]);
+        }
+
+	csum_engine = &initial_engine_csum[seedlen >= 51];
+	char csum[csum_engine->len];
+	calculate_checksum(hrp, csum, ret + 3, csum_engine);
+	tal_append_fmt(&ret, "%.*s", (int)csum_engine->len, csum);
+	return ret;
 }
