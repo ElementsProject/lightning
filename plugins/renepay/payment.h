@@ -82,7 +82,7 @@ struct payment {
 
 	/* Conversion from prob. cost to millionths */
 	double prob_cost_factor;
-	/* linear prob. cost =
+	/* prob. cost =
 	 * 	- prob_cost_factor * log prob. */
 
 

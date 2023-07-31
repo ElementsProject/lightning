@@ -17,6 +17,13 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+static void swap(int *a, int *b)
+{
+	int temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
 /* Canned gossmap, taken from tests/test_gossip.py's
  * setup_gossip_store_test via od -v -Anone -tx1 < /tmp/ltests-kaf30pn0/test_gossip_store_compact_noappend_1/lightning-2/regtest/gossip_store
  */
@@ -451,20 +458,29 @@ int main(int argc, char *argv[])
 	debug_info("%s\n",
 		print_flows(tmpctx,"Flow via two paths, high mu", gossmap, flows2));
 	assert(tal_count(flows2) == 2);
-	assert(tal_count(flows2[0]->path) == 1);
-	assert(tal_count(flows2[1]->path) == 2);
+
+	/* The solution is composed by two paths, one with lenght 1 and the
+	 * other with lenght 2. There is no guaranteed order of the solutions
+	 * returning from minflow, hence we need to test them. */
+	int ID1 = 0, ID2 = 1;
+	if(tal_count(flows2[ID1]->path)==2)
+	{
+		swap(&ID1,&ID2);
+	}
+	assert(tal_count(flows2[ID1]->path) == 1);
+	assert(tal_count(flows2[ID2]->path) == 2);
 
 	// /* Sends more via 1->3, since it's more expensive (but lower prob) */
-	assert(amount_msat_greater(flows2[0]->amounts[0], flows2[1]->amounts[0]));
-	assert(flows2[0]->success_prob < flows2[1]->success_prob);
+	assert(amount_msat_greater(flows2[ID1]->amounts[0], flows2[ID2]->amounts[0]));
+	assert(flows2[ID1]->success_prob < flows2[ID2]->success_prob);
 
 	/* Delivered amount must be the total! */
-	assert(flows2[0]->amounts[0].millisatoshis
-	       + flows2[1]->amounts[1].millisatoshis == 500000000);
+	assert(flows2[ID1]->amounts[0].millisatoshis
+	       + flows2[ID2]->amounts[1].millisatoshis == 500000000);
 
 	// /* But in total it's more expensive! */
-	assert(flows2[0]->amounts[0].millisatoshis + flows2[1]->amounts[0].millisatoshis
-	       > flows2[0]->amounts[0].millisatoshis - flows2[1]->amounts[0].millisatoshis);
+	assert(flows2[ID1]->amounts[0].millisatoshis + flows2[ID2]->amounts[0].millisatoshis
+	       > flows2[ID1]->amounts[0].millisatoshis - flows2[ID2]->amounts[0].millisatoshis);
 
 	common_shutdown();
 }
