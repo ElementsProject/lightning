@@ -51,14 +51,15 @@ struct close_command {
 
 /* Resolve a single close command. */
 static void
-resolve_one_close_command(struct close_command *cc, bool cooperative)
+resolve_one_close_command(struct close_command *cc, bool cooperative,
+			  const struct bitcoin_tx *close_tx)
 {
 	struct json_stream *result = json_stream_success(cc->cmd);
 
-	json_add_tx(result, "tx", cc->channel->last_tx);
-	if (!invalid_last_tx(cc->channel->last_tx)) {
+	json_add_tx(result, "tx", close_tx);
+	if (!invalid_last_tx(close_tx)) {
 		struct bitcoin_txid txid;
-		bitcoin_txid(cc->channel->last_tx, &txid);
+		bitcoin_txid(close_tx, &txid);
 		json_add_txid(result, "txid", &txid);
 	}
 	if (cooperative)
@@ -69,24 +70,31 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 	was_pending(command_success(cc->cmd, result));
 }
 
-/* Resolve a close command for a channel that will be closed soon: returns
- * the cmd_id of one, if any (allocated off ctx). */
-const char *resolve_close_command(const tal_t *ctx,
-				  struct lightningd *ld, struct channel *channel,
-				  bool cooperative)
+const char *cmd_id_from_close_command(const tal_t *ctx,
+				      struct lightningd *ld, struct channel *channel)
+{
+	struct close_command *cc;
+
+	list_for_each(&ld->close_commands, cc, list) {
+		if (cc->channel != channel)
+			continue;
+		return tal_strdup(ctx, cc->cmd->id);
+	}
+	return NULL;
+}
+
+/* Resolve a close command for a channel that will be closed soon. */
+void resolve_close_command(struct lightningd *ld, struct channel *channel,
+			   bool cooperative, const struct bitcoin_tx *close_tx)
 {
 	struct close_command *cc;
 	struct close_command *n;
-	const char *cmd_id = NULL;
 
 	list_for_each_safe(&ld->close_commands, cc, n, list) {
 		if (cc->channel != channel)
 			continue;
-		if (!cmd_id)
-			cmd_id = tal_strdup(ctx, cc->cmd->id);
-		resolve_one_close_command(cc, cooperative);
+		resolve_one_close_command(cc, cooperative, close_tx);
 	}
-	return cmd_id;
 }
 
 /* Destroy the close command structure in reaction to the
