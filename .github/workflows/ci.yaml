@@ -401,7 +401,7 @@ jobs:
           - NAME: ASan/UBSan (01/10)
             PYTEST_OPTS: --test-group=1  --test-group-count=10
           - NAME: ASan/UBSan (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10
+            PYTEST_OPTS: --test-group=2  --test-group-count=10 -n 1
           - NAME: ASan/UBSan (03/10)
             PYTEST_OPTS: --test-group=3  --test-group-count=10
           - NAME: ASan/UBSan (04/10)
