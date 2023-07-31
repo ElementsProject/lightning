@@ -132,6 +132,10 @@ void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct channel_config *their_config UNNEEDED,
 			    struct amount_sat funding_total UNNEEDED)
 { fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
+/* Generated stub for cmd_id_from_close_command */
+const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
+				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
+{ fprintf(stderr, "cmd_id_from_close_command called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -841,9 +845,8 @@ bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id U
 void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "report_subd_memleak called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
-const char *resolve_close_command(const tal_t *ctx UNNEEDED,
-				  struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
-				  bool cooperative UNNEEDED)
+void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
+			   bool cooperative UNNEEDED, const struct bitcoin_tx *close_tx UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
 /* Generated stub for start_leak_request */
 void start_leak_request(const struct subd_req *req UNNEEDED,

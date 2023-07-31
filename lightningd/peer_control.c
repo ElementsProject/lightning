@@ -287,17 +287,18 @@ static bool commit_tx_send_finished(struct channel *channel,
 	return false;
 }
 
-static void sign_and_send_last(struct lightningd *ld,
-			       struct channel *channel,
-			       const char *cmd_id,
-			       const struct bitcoin_tx *last_tx,
-			       const struct bitcoin_signature *last_sig)
+static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
+					     struct lightningd *ld,
+					     struct channel *channel,
+					     const char *cmd_id,
+					     const struct bitcoin_tx *last_tx,
+					     const struct bitcoin_signature *last_sig)
 {
 	struct bitcoin_txid txid;
 	struct anchor_details *adet;
 	struct bitcoin_tx *tx;
 
-	tx = sign_last_tx(tmpctx, channel, last_tx, last_sig);
+	tx = sign_last_tx(ctx, channel, last_tx, last_sig);
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
 
@@ -308,6 +309,8 @@ static void sign_and_send_last(struct lightningd *ld,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(ld->topology, channel, tx, cmd_id, false, 0,
 		     commit_tx_send_finished, commit_tx_boost, take(adet));
+
+	return tx;
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
@@ -317,7 +320,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	const char *cmd_id;
 
 	/* If this was triggered by a close command, get a copy of the cmd id */
-	cmd_id = resolve_close_command(tmpctx, ld, channel, cooperative);
+	cmd_id = cmd_id_from_close_command(tmpctx, ld, channel);
 
 	/* BOLT #2:
 	 *
@@ -335,15 +338,19 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			   "Cannot broadcast our commitment tx:"
 			   " it's invalid! (ancient channel?)");
 	} else {
+		struct bitcoin_tx *tx;
+
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
 			list_for_each(&channel->inflights, inflight, list)
-				sign_and_send_last(ld, channel, cmd_id,
-						   inflight->last_tx,
-						   &inflight->last_sig);
+				tx = sign_and_send_last(tmpctx, ld, channel, cmd_id,
+							inflight->last_tx,
+							&inflight->last_sig);
 		} else
-			sign_and_send_last(ld, channel, cmd_id, channel->last_tx,
-					   &channel->last_sig);
+			tx = sign_and_send_last(tmpctx, ld, channel, cmd_id, channel->last_tx,
+						&channel->last_sig);
+
+		resolve_close_command(ld, channel, cooperative, tx);
 	}
 
 }

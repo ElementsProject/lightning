@@ -8,11 +8,13 @@ struct channel;
 struct lightningd;
 struct peer_fd;
 
-/* Resolve a close command for a channel that will be closed soon: returns
- * the cmd_id of one, if any (allocated off ctx). */
-const char *resolve_close_command(const tal_t *ctx,
-				  struct lightningd *ld, struct channel *channel,
-				  bool cooperative);
+/* Find cmd_id for closing command, if any. */
+const char *cmd_id_from_close_command(const tal_t *ctx,
+				      struct lightningd *ld, struct channel *channel);
+
+/* Resolve a close command for a channel that will be closed soon. */
+void resolve_close_command(struct lightningd *ld, struct channel *channel,
+			   bool cooperative, const struct bitcoin_tx *close_tx);
 
 void peer_start_closingd(struct channel *channel,
 			 struct peer_fd *peer_fd);

@@ -3872,7 +3872,6 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     # FIXME: l2 should complain!
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev-no-reconnect")
 def test_closing_tx_valid(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
