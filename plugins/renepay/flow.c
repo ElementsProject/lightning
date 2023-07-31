@@ -15,6 +15,9 @@
 #define SUPERVERBOSE_ENABLED 1
 #endif
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 bool chan_extra_is_busy(struct chan_extra const * const ce)
 {
 	if(ce==NULL)return false;
@@ -277,7 +280,8 @@ static void chan_extra_relax_(
 	if(!amount_msat_sub(&new_a,ce->half[dir].known_min,down))
 		new_a = AMOUNT_MSAT(0);
 	if(!amount_msat_add(&new_b,ce->half[dir].known_max,up))
-		new_b = amount_msat_min(new_b,ce->capacity);
+		new_b = ce->capacity;
+	new_b = amount_msat_min(new_b,ce->capacity);
 
 	ce->half[dir].known_min = new_a;
 	ce->half[dir].known_max = new_b;
@@ -299,6 +303,23 @@ void chan_extra_relax(
 			__PRETTY_FUNCTION__);
 	}
 	chan_extra_relax_(ce,dir,x,y);
+}
+
+/* Forget the channel information by a fraction of the capacity. */
+void chan_extra_relax_fraction(
+		struct chan_extra* ce,
+		double fraction)
+{
+	fraction = fabs(fraction); // this number is always non-negative
+	fraction = MIN(1.0,fraction); // this number cannot be greater than 1.
+	struct amount_msat delta = amount_msat(ce->capacity.millisatoshis * fraction); /* Raw: get a fraction of the capacity */
+
+	/* The direction here is not important because the 'down' and the 'up'
+	 * limits are changed by the same amount.
+	 * Notice that if chan[0] with capacity C changes from (a,b) to (a-d,b+d)
+	 * then its counterpart chan[1] changes from (C-b,C-a) to (C-b-d,C-a+d),
+	 * hence both dirs are applied the same transformation. */
+	chan_extra_relax_(ce,/*dir=*/0,delta,delta);
 }
 
 

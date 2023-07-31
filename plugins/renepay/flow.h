@@ -178,6 +178,11 @@ void chan_extra_relax(struct chan_extra_map *chan_extra_map,
 		      struct amount_msat down,
 		      struct amount_msat up);
 
+/* Forget the channel information by a fraction of the capacity. */
+void chan_extra_relax_fraction(
+		struct chan_extra* ce,
+		double fraction);
+
 
 /* Returns either NULL, or an entry from the hash */
 struct chan_extra_half *get_chan_extra_half_by_scid(struct chan_extra_map *chan_extra_map,

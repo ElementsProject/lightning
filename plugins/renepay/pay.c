@@ -93,6 +93,7 @@ static const char *init(struct plugin *p,
 	pay_plugin->ctx = notleak_with_children(tal(p,tal_t));
 	pay_plugin->plugin = p;
 	pay_plugin->rexmit_timer=NULL;
+	pay_plugin->last_time = 0;
 
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &pay_plugin->my_id));
@@ -731,6 +732,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
+
 /* Taken from ./plugins/pay.c
  *
  * We are interested in any prior attempts to pay this payment_hash /
@@ -1177,9 +1179,9 @@ static struct command_result *json_pay(struct command *cmd,
 	}
 	tal_free(maxfee);
 
-	if (time_now().ts.tv_sec > invexpiry)
+	const u64 now_sec = time_now().ts.tv_sec;
+	if (now_sec > invexpiry)
 		return renepay_fail(renepay, PAY_INVOICE_EXPIRED, "Invoice expired");
-
 
 	/* To construct the uncertainty network we need to perform the following
 	 * steps:
@@ -1198,6 +1200,16 @@ static struct command_result *json_pay(struct command *cmd,
 		uncertainty_network_update(pay_plugin->gossmap,
 					   pay_plugin->chan_extra_map);
 
+
+	/* TODO(eduardo): We use a linear function to decide how to decay the
+	 * channel information. Other shapes could be used.
+	 * Also the choice of the proportional parameter TIMER_FORGET_SEC is
+	 * arbitrary.
+	 * Another idea is to measure time in blockheight. */
+	const double fraction = (now_sec - pay_plugin->last_time)*1.0/TIMER_FORGET_SEC;
+	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
+					   fraction);
+	pay_plugin->last_time = now_sec;
 
 	// TODO(eduardo): are there route hints for B12?
 	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
@@ -1218,12 +1230,6 @@ static struct command_result *json_pay(struct command *cmd,
 
 	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
 	return send_outreq(cmd->plugin, req);
-
-	// TODO(eduardo):
-	// - get time since last payment,
-	// - forget a portion of the bounds
-	// - note that if sufficient time has passed, then we would forget
-	// everything use TIMER_FORGET_SEC.
 }
 
 static void handle_sendpay_failure_renepay(

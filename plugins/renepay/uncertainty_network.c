@@ -346,3 +346,17 @@ bool uncertainty_network_update_from_listpeerchannels(
 malformed:
 	return false;
 }
+
+/* Forget ALL channels information by a fraction of the capacity. */
+void uncertainty_network_relax_fraction(
+		struct chan_extra_map* chan_extra_map,
+		double fraction)
+{
+	struct chan_extra_map_iter it;
+	for(struct chan_extra *ce=chan_extra_map_first(chan_extra_map,&it);
+	    ce;
+	    ce=chan_extra_map_next(chan_extra_map,&it))
+	{
+		chan_extra_relax_fraction(ce,fraction);
+	}
+}
