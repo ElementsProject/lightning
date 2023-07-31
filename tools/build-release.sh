@@ -8,7 +8,7 @@ if [ "$1" = "--inside-docker" ]; then
     PLTFM="$3"
     git clone /src /build
     cd /build
-    pip3 install -r plugins/clnrest/requirements.txt
+    pip3 install ./contrib/pyln-client
     ./configure
     make VERSION="$VER"
     make install DESTDIR=/"$VER-$PLTFM" RUST_PROFILE=release
@@ -245,15 +245,17 @@ if [ -z "${TARGETS##* docker *}" ]; then
         git clone --recursive . "${TMPDIR}"
         (
         cd "${TMPDIR}"
-        git checkout "v${BARE_VERSION}"
+        if ! $FORCE_UNCLEAN; then
+            git checkout "v${BARE_VERSION}"
+        fi
         case "$d" in
             "arm32v7")
                 cp "${SRCDIR}/contrib/docker/Dockerfile.$d" "${TMPDIR}/"
-                docker buildx build --load --platform linux/arm64 -t "elementsproject/lightningd:$VERSION-$d" -f Dockerfile.$d "${TMPDIR}"
+                docker buildx build --load --platform linux/arm/v7 -t "elementsproject/lightningd:$VERSION-$d" -f Dockerfile.$d "${TMPDIR}"
                 ;;
             "arm64v8")
                 cp "${SRCDIR}/contrib/docker/Dockerfile.$d" "${TMPDIR}/"
-                docker buildx build --load --platform linux/arm/v7 -t "elementsproject/lightningd:$VERSION-$d" -f Dockerfile.$d "${TMPDIR}"
+                docker buildx build --load --platform linux/arm64 -t "elementsproject/lightningd:$VERSION-$d" -f Dockerfile.$d "${TMPDIR}"
                 ;;
             *)
                 cp "${SRCDIR}/Dockerfile" "${TMPDIR}/"
