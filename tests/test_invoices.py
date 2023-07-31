@@ -926,7 +926,6 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
     l2.rpc.invoice(1000, "test", "test")
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
 def test_invoice_botched_migration(node_factory, chainparams):
     """Test for grubles' case, where they ran successfully with the wrong var: they have *both* last_invoice_created_index *and *last_invoices_created_index* (this can happen if invoice id 1 was deleted, so they didn't die on invoice creation):
