@@ -86,7 +86,7 @@ void uncertainty_network_add_routehints(
 		struct chan_extra_map *chan_extra_map,
 		struct renepay *renepay)
 {
-	struct payment const * const p = renepay->payment;
+	const struct payment *const p = renepay->payment;
 	struct bolt11 *b11;
 	char *fail;
 

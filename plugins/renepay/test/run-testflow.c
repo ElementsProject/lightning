@@ -630,7 +630,7 @@ static void test_flow_complete(void)
 	struct amount_msat deliver;
 
 	// flow 1->2
-	F->path = tal_arr(F,struct gossmap_chan const *,1);
+	F->path = tal_arr(F,const struct gossmap_chan *,1);
 	F->dirs = tal_arr(F,int,1);
 	F->path[0]=gossmap_find_chan(gossmap,&scid12);
 	F->dirs[0]=0;
@@ -640,7 +640,7 @@ static void test_flow_complete(void)
 	assert(fabs(F->success_prob - 0.5)<eps);
 
 	// flow 3->4->5
-	F->path = tal_arr(F,struct gossmap_chan const *,2);
+	F->path = tal_arr(F,const struct gossmap_chan *,2);
 	F->dirs = tal_arr(F,int,2);
 	F->path[0]=gossmap_find_chan(gossmap,&scid34);
 	F->path[1]=gossmap_find_chan(gossmap,&scid45);
@@ -652,7 +652,7 @@ static void test_flow_complete(void)
 	assert(fabs(F->success_prob - 1.)<eps);
 
 	// flow 2->3->4->5
-	F->path = tal_arr(F,struct gossmap_chan const *,3);
+	F->path = tal_arr(F,const struct gossmap_chan *,3);
 	F->dirs = tal_arr(F,int,3);
 	F->path[0]=gossmap_find_chan(gossmap,&scid23);
 	F->path[1]=gossmap_find_chan(gossmap,&scid34);
@@ -666,7 +666,7 @@ static void test_flow_complete(void)
 	assert(fabs(F->success_prob - 1. + 250.087534/2000)<eps);
 
 	// flow 1->2->3->4->5
-	F->path = tal_arr(F,struct gossmap_chan const *,4);
+	F->path = tal_arr(F,const struct gossmap_chan *,4);
 	F->dirs = tal_arr(F,int,4);
 	F->path[0]=gossmap_find_chan(gossmap,&scid12);
 	F->path[1]=gossmap_find_chan(gossmap,&scid23);

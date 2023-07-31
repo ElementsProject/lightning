@@ -75,7 +75,7 @@ def test_errors(node_factory, bitcoind):
                              .format(scid56),
                              r'update for channel {}/1 now ACTIVE'
                              .format(scid56)])
-    details = l1.rpc.call('renepay', {'invstring': inv, 'use_shadow': False})
+    details = l1.rpc.call('renepay', {'invstring': inv})
     assert details['status'] == 'complete'
     assert details['amount_msat'] == send_amount
     assert details['destination'] == l6.info['id']

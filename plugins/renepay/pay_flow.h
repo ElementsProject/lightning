@@ -69,7 +69,7 @@ static inline size_t payflow_key_hash(const struct payflow_key k)
 	return k.payment_hash->u.u32[0] ^ (k.groupid << 32) ^ k.partid;
 }
 
-static inline bool payflow_key_equal(struct pay_flow const *pf,
+static inline bool payflow_key_equal(const struct pay_flow *pf,
 				      const struct payflow_key k)
 {
 	return pf->key.partid==k.partid && pf->key.groupid==k.groupid
@@ -86,7 +86,7 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 			       struct amount_msat feebudget,
 			       bool unlikely_ok,
 			       bool is_entire_payment,
-			       char const ** err_msg);
+			       const char **err_msg);
 
 void commit_htlc_payflow(
 		struct chan_extra_map *chan_extra_map,

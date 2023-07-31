@@ -65,19 +65,10 @@ void amount_msat_reduce_(struct amount_msat *dst,
 #if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	/* TODO(eduardo): understand the purpose of memleak_scan_obj, why use it
-	 * instead of tal_free?
-	 * 1st problem: this is executed before the plugin can process the
-	 * shutdown notification,
-	 * 2nd problem: memleak_scan_obj does not propagate to children.
-	 * For the moment let's just (incorrectly) do tal_free here
-	 * */
-	pay_plugin->ctx = tal_free(pay_plugin->ctx);
-
-	// memleak_scan_obj(memtable, pay_plugin->ctx);
-	// memleak_scan_obj(memtable, pay_plugin->gossmap);
-	// memleak_scan_obj(memtable, pay_plugin->chan_extra_map);
-	// memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
+	memleak_scan_obj(memtable, pay_plugin->ctx);
+	memleak_scan_obj(memtable, pay_plugin->gossmap);
+	memleak_scan_obj(memtable, pay_plugin->chan_extra_map);
+	memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
 }
 #endif
 
@@ -411,12 +402,13 @@ sendpay_flows(struct command *cmd,
 	debug_paynote(p, "Sending out batch of %zu payments", tal_count(flows));
 
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		const u64 path_lengh = tal_count(flows[i]->amounts);
-		debug_paynote(p, "sendpay flow groupid=%ld, partid=%ld, delivering=%s",
+		const size_t path_lengh = tal_count(flows[i]->amounts);
+		debug_paynote(p, "sendpay flow groupid=%ld, partid=%ld, delivering=%s, probability=%.3lf",
 			      flows[i]->key.groupid,
 			      flows[i]->key.partid,
 			      type_to_string(tmpctx,struct amount_msat,
-				&flows[i]->amounts[path_lengh-1]));
+				&flows[i]->amounts[path_lengh-1]),
+			      flows[i]->success_prob);
 		struct out_req *req;
 		req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
 					    flow_sent, flow_sendpay_failed,
@@ -560,7 +552,7 @@ static struct command_result *try_paying(struct command *cmd,
 
 	// plugin_log(pay_plugin->plugin,LOG_DBG,fmt_chan_extra_map(tmpctx,pay_plugin->chan_extra_map));
 
-	char const * err_msg;
+	const char *err_msg;
 
 	/* We let this return an unlikely path, as it's better to try once
 	 * than simply refuse.  Plus, models are not truth! */

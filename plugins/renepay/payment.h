@@ -137,14 +137,14 @@ void renepay_cleanup(
 
 void payment_fail(struct payment * p);
 void payment_success(struct payment * p);
-struct amount_msat payment_sent(struct payment const * p);
-struct amount_msat payment_delivered(struct payment const * p);
-struct amount_msat payment_amount(struct payment const * p);
-struct amount_msat payment_fees(struct payment const*p);
+struct amount_msat payment_sent(const struct payment *p);
+struct amount_msat payment_delivered(const struct payment *p);
+struct amount_msat payment_amount(const struct payment *p);
+struct amount_msat payment_fees(const struct payment *p);
 
 void payment_note(struct payment *p, const char *fmt, ...);
-void payment_assert_delivering_incomplete(struct payment const * p);
-void payment_assert_delivering_all(struct payment const * p);
+void payment_assert_delivering_incomplete(const struct payment *p);
+void payment_assert_delivering_all(const struct payment *p);
 
 
 int renepay_current_attempt(const struct renepay *renepay);
@@ -158,6 +158,6 @@ struct command_result *renepay_fail(
 	enum jsonrpc_errcode code,
 	const char *fmt, ...);
 
-u64 renepay_parts(struct renepay const * renepay);
+u64 renepay_parts(const struct renepay *renepay);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */
