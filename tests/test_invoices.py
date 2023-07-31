@@ -913,6 +913,33 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
+@pytest.mark.xfail(strict=True)
+def test_expiry_startup_crash(node_factory, bitcoind):
+    """We crash trying to expire invoice on startup"""
+    l1 = node_factory.get_node()
+
+    l1.rpc.invoice(42, 'invlabel', 'invdesc', expiry=10)
+    l1.stop()
+
+    time.sleep(12)
+    # Boom!:
+    # 0x55eddb820d30 wait_index_increment
+    # 	lightningd/wait.c:112
+    # 0x55eddb82ca9e invoice_index_inc
+    # 	wallet/invoices.c:738
+    # 0x55eddb82cc23 invoice_index_update_status
+    # 	wallet/invoices.c:775
+    # 0x55eddb82b769 trigger_expiration
+    # 	wallet/invoices.c:185
+    # 0x55eddb82b570 invoices_new
+    # 	wallet/invoices.c:134
+    # 0x55eddb82eeac wallet_new
+    # 	wallet/wallet.c:121
+    # 0x55eddb7dca6f main
+    # 	lightningd/lightningd.c:1082
+    l1.start()
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 def test_invoices_wait_db_migration(node_factory, bitcoind):
