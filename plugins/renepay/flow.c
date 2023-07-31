@@ -18,7 +18,7 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-bool chan_extra_is_busy(struct chan_extra const * const ce)
+bool chan_extra_is_busy(const struct chan_extra *const ce)
 {
 	if(ce==NULL)return false;
 	return ce->half[0].num_htlcs || ce->half[1].num_htlcs;
@@ -624,7 +624,7 @@ struct chan_inflight_flow
 // TODO(eduardo): here flows should be const
 double flow_set_probability(
 		struct flow ** flows,
-		struct gossmap const*const gossmap,
+		const struct gossmap *const gossmap,
 		struct chan_extra_map * chan_extra_map)
 {
 	tal_t *this_ctx = tal(tmpctx,tal_t);

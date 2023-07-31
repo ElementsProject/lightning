@@ -341,7 +341,7 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 			       struct amount_msat feebudget,
 			       bool unlikely_ok,
 			       bool is_entire_payment,
-			       char const ** err_msg)
+			       const char **err_msg)
 {
 	*err_msg = tal_fmt(tmpctx,"[no error]");
 
@@ -395,6 +395,13 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 		prob = flow_set_probability(flows,pay_plugin->gossmap,pay_plugin->chan_extra_map);
 		fee = flow_set_fee(flows);
 		delay = flows_worst_delay(flows) + p->final_cltv;
+
+		debug_paynote(p,
+			      "we have computed a set of %ld flows with probability %.3lf, fees %s and delay %ld",
+			      tal_count(flows),
+			      prob,
+			      type_to_string(tmpctx,struct amount_msat,&fee),
+			      delay);
 
 		too_unlikely = (prob < p->min_prob_success);
 		if (too_unlikely && !unlikely_ok)

@@ -40,7 +40,7 @@ struct chan_extra {
 	} half[2];
 };
 
-bool chan_extra_is_busy(struct chan_extra const * const ce);
+bool chan_extra_is_busy(const struct chan_extra *const ce);
 
 static inline const struct short_channel_id
 chan_extra_scid(const struct chan_extra *cd)
@@ -205,7 +205,7 @@ struct chan_extra_half *get_chan_extra_half_by_chan(const struct gossmap *gossma
 
 /* An actual partial flow. */
 struct flow {
-	struct gossmap_chan const **path;
+	const struct gossmap_chan **path;
 	/* The directions to traverse. */
 	int *dirs;
 	/* Amounts for this flow (fees mean this shrinks across path). */
@@ -241,7 +241,7 @@ void flow_complete(struct flow *flow,
 /* Compute the prob. of success of a set of concurrent set of flows. */
 double flow_set_probability(
 		struct flow ** flows,
-		struct gossmap const*const gossmap,
+		const struct gossmap *const gossmap,
 		struct chan_extra_map * chan_extra_map);
 
 // TODO(eduardo): we probably don't need this. Instead we should have payflow

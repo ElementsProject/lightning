@@ -273,8 +273,8 @@ typedef union
 struct pay_parameters {
 	/* The gossmap we are using */
 	struct gossmap *gossmap;
-	struct gossmap_node const*source;
-	struct gossmap_node const*target;
+	const struct gossmap_node *source;
+	const struct gossmap_node *target;
 
 	/* Extra information we intuited about the channels */
 	struct chan_extra_map *chan_extra_map;
@@ -865,7 +865,7 @@ static int  find_optimal_path(
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
 
-	s64 const * const distance=dijkstra_distance_data(dijkstra);
+	const s64 *const distance=dijkstra_distance_data(dijkstra);
 
 	dijkstra_init(dijkstra);
 	dijkstra_update(dijkstra,source,0);
@@ -961,7 +961,7 @@ static int optimize_mcf(
 	zero_flow(linear_network,residual_network);
 	arc_t *prev = tal_arr(this_ctx,arc_t,linear_network->max_num_nodes);
 
-	s64 const*const distance = dijkstra_distance_data(dijkstra);
+	const s64 *const distance = dijkstra_distance_data(dijkstra);
 
 	s64 remaining_amount = amount;
 
@@ -1021,7 +1021,7 @@ static u32 find_positive_balance(
 		const u32 start_idx,
 		const s64 *balance,
 
-		struct gossmap_chan const** prev_chan,
+		const struct gossmap_chan **prev_chan,
 		int *prev_dir,
 		u32 *prev_idx)
 {
@@ -1045,7 +1045,7 @@ static u32 find_positive_balance(
 		for(size_t i=0;i<cur->num_chans;++i)
 		{
 			int dir;
-			struct gossmap_chan const *c
+			const struct gossmap_chan *c
 				= gossmap_nth_chan(gossmap,
 				                   cur,i,&dir);
 
@@ -1112,8 +1112,8 @@ static struct flow **
 	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
 	s64 *balance = tal_arrz(this_ctx,s64,max_num_nodes);
 
-	struct gossmap_chan const **prev_chan
-		= tal_arr(this_ctx,struct gossmap_chan const*,max_num_nodes);
+	const struct gossmap_chan **prev_chan
+		= tal_arr(this_ctx,const struct gossmap_chan *,max_num_nodes);
 
 	int *prev_dir = tal_arr(this_ctx,int,max_num_nodes);
 	u32 *prev_idx = tal_arr(this_ctx,u32,max_num_nodes);
@@ -1171,7 +1171,7 @@ static struct flow **
 				assert(cur_idx!=INVALID_INDEX);
 
 				const int dir = prev_dir[cur_idx];
-				struct gossmap_chan const * const c = prev_chan[cur_idx];
+				const struct gossmap_chan *const c = prev_chan[cur_idx];
 				const u32 c_idx = gossmap_chan_idx(gossmap,c);
 
 				delta=MIN(delta,chan_flow[c_idx].half[dir]);
@@ -1186,7 +1186,7 @@ static struct flow **
 
 
 			struct flow *fp = tal(this_ctx,struct flow);
-			fp->path = tal_arr(fp,struct gossmap_chan const*,length);
+			fp->path = tal_arr(fp,const struct gossmap_chan *,length);
 			fp->dirs = tal_arr(fp,int,length);
 
 			balance[node_idx] += delta;
@@ -1200,7 +1200,7 @@ static struct flow **
 				assert(cur_idx!=INVALID_INDEX);
 
 				const int dir = prev_dir[cur_idx];
-				struct gossmap_chan const * const c = prev_chan[cur_idx];
+				const struct gossmap_chan *const c = prev_chan[cur_idx];
 				const u32 c_idx = gossmap_chan_idx(gossmap,c);
 
 				length--;
@@ -1475,17 +1475,23 @@ struct flow** minflow(
 						params->chan_extra_map);
 		struct amount_msat fee = flow_set_fee(flow_paths);
 
-		// is this better than the previous one?
+		/* Is this better than the previous one? */
 		if(!best_flow_paths ||
 			is_better(params->max_fee,params->min_probability,
 				  fee,prob_success,
 			          best_fee, best_prob_success))
 		{
+			struct flow **tmp = best_flow_paths;
 			best_flow_paths = tal_steal(ctx,flow_paths);
+			tal_free(tmp);
+
 			best_fee = fee;
 			best_prob_success=prob_success;
 			flow_paths = NULL;
 		}
+		/* I don't like this candidate. */
+		else
+			tal_free(flow_paths);
 
 		if(amount_msat_greater(fee,params->max_fee))
 		{
@@ -1502,9 +1508,6 @@ struct flow** minflow(
 			// the fees
 			mu_left = mu+1;
 		}
-
-		if(flow_paths)
-			tal_free(flow_paths);
 	}
 
 

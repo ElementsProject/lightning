@@ -73,20 +73,20 @@ void payment_success(struct payment * p)
 	p->status=PAYMENT_SUCCESS;
 }
 
-struct amount_msat payment_sent(struct payment const * p)
+struct amount_msat payment_sent(const struct payment *p)
 {
 	return p->total_sent;
 }
-struct amount_msat payment_delivered(struct payment const * p)
+struct amount_msat payment_delivered(const struct payment *p)
 {
 	return p->total_delivering;
 }
-struct amount_msat payment_amount(struct payment const * p)
+struct amount_msat payment_amount(const struct payment *p)
 {
 	return p->amount;
 }
 
-struct amount_msat payment_fees(struct payment const*p)
+struct amount_msat payment_fees(const struct payment *p)
 {
 	struct amount_msat fees;
 	struct amount_msat sent = payment_sent(p),
@@ -111,7 +111,7 @@ void payment_note(struct payment *p, const char *fmt, ...)
 	debug_info("%s",str);
 }
 
-void payment_assert_delivering_incomplete(struct payment const * p)
+void payment_assert_delivering_incomplete(const struct payment *p)
 {
 	if(!amount_msat_less(p->total_delivering, p->amount))
 	{
@@ -121,7 +121,7 @@ void payment_assert_delivering_incomplete(struct payment const * p)
 			type_to_string(tmpctx,struct amount_msat,&p->amount));
 	}
 }
-void payment_assert_delivering_all(struct payment const * p)
+void payment_assert_delivering_all(const struct payment *p)
 {
 	if(amount_msat_less(p->total_delivering, p->amount))
 	{
@@ -194,7 +194,7 @@ struct command_result *renepay_fail(
 	return command_fail(renepay->cmd,code,"%s",message);
 }
 
-u64 renepay_parts(struct renepay const * renepay)
+u64 renepay_parts(const struct renepay *renepay)
 {
 	return renepay->next_partid-1;
 }
