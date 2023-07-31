@@ -1,9 +1,10 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError, Millisatoshi
-from utils import only_one, wait_for, mine_funding_to_announce
+from utils import only_one, wait_for, mine_funding_to_announce, sync_blockheight
 import pytest
 import random
 import time
+import json
 
 
 def test_simple(node_factory):
@@ -225,3 +226,82 @@ def test_limits(node_factory):
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi('800000sat')
+
+
+def start_channels(connections):
+    nodes = list()
+    for src, dst, fundamount in connections:
+        nodes.append(src)
+        nodes.append(dst)
+        src.rpc.connect(dst.info['id'], 'localhost', dst.port)
+
+    bitcoind = nodes[0].bitcoin
+    # If we got here, we want to fund channels
+    for src, dst, fundamount in connections:
+        addr = src.rpc.newaddr()['bech32']
+        bitcoind.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, nodes)
+    txids = []
+    for src, dst, fundamount in connections:
+        txids.append(src.rpc.fundchannel(dst.info['id'], fundamount,
+                                         announce=True)['txid'])
+
+    # Confirm all channels and wait for them to become usable
+    bitcoind.generate_block(1, wait_for_mempool=txids)
+    scids = []
+    for src, dst, fundamount in connections:
+        wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
+        scid = src.get_channel_scid(dst)
+        scids.append(scid)
+
+    bitcoind.generate_block(5)
+
+    # Make sure everyone sees all channels, all other nodes
+    for n in nodes:
+        for scid in scids:
+            n.wait_channel_active(scid)
+
+    # Make sure we have all node announcements, too
+    for n in nodes:
+        for n2 in nodes:
+            wait_for(lambda: 'alias' in only_one(n.rpc.listnodes(n2.info['id'])['nodes']))
+
+
+def test_hardmpp(node_factory):
+    '''
+    Topology:
+    1----2----4
+    |         |
+    3----5----6
+    This a payment that fails if pending HTLCs are not taken into account when
+    we build the network capacities.
+    '''
+    opts = [
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0},
+    ]
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
+    start_channels([(l1, l2, 10000000), (l2, l4, 3000000), (l4, l6, 10000000),
+                    (l1, l3, 10000000), (l3, l5, 1000000), (l5, l6, 10000000)])
+
+    with open('/tmp/l1-chans.txt', 'w') as f:
+        print(json.dumps(l1.rpc.listchannels()), file=f)
+
+    inv = l4.rpc.invoice('any', 'any', 'description')
+    l2.rpc.call('pay', {'bolt11': inv['bolt11'], 'amount_msat': 2000000000})
+    l2.wait_for_htlcs()
+    assert l4.rpc.listinvoices()["invoices"][0]["amount_received_msat"] == 2000000000
+
+    with open('/tmp/l2-peerchan.txt', 'w') as f:
+        print(json.dumps(l2.rpc.listpeerchannels()), file=f)
+    with open('/tmp/l3-peerchan.txt', 'w') as f:
+        print(json.dumps(l3.rpc.listpeerchannels()), file=f)
+
+    inv2 = l6.rpc.invoice("1800000sat", "inv2", 'description')
+    l1.rpc.call(
+        'renepay', {'invstring': inv2['bolt11']})
+    l1.wait_for_htlcs()
+    invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
+    assert isinstance(invoice['amount_received_msat'], Millisatoshi)
+    assert invoice['amount_received_msat'] >= Millisatoshi('1800000sat')
