@@ -13,9 +13,9 @@ RUN set -ex \
 
 WORKDIR /opt
 
-RUN wget -qO /opt/tini "https://github.com/krallin/tini/releases/download/v0.18.0/tini" \
-    && echo "12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855 /opt/tini" | sha256sum -c - \
-    && chmod +x /opt/tini
+RUN wget -qO /tini "https://github.com/krallin/tini/releases/download/v0.18.0/tini" \
+    && echo "12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855 /tini" | sha256sum -c - \
+    && chmod +x /tini
 
 ARG BITCOIN_VERSION=22.0
 ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
@@ -60,13 +60,18 @@ RUN apt-get update -qq && \
         libpq-dev \
         libtool \
         libffi-dev \
+        pkg-config \
+        libssl-dev \
         protobuf-compiler \
-        python3 \
+        python3.9 \
         python3-dev \
         python3-mako \
         python3-pip \
         python3-venv \
         python3-setuptools \
+        libev-dev \
+        libevent-dev \
+        qemu-user-static \
         wget
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz \
@@ -101,35 +106,41 @@ RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
 WORKDIR /opt/lightningd
 COPY . /tmp/lightning
+
 RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
-RUN curl -sSL https://install.python-poetry.org | python3 - 
-RUN pip3 install -U pip
-RUN pip3 install -U wheel
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
+
+RUN pip3 install --upgrade pip setuptools wheel
+RUN pip3 wheel cryptography
+RUN pip3 install grpcio-tools
+
 RUN /root/.local/bin/poetry install
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
     /root/.local/bin/poetry run make install
 
-FROM debian:bullseye-slim as final
+# RUN pip3 install -r plugins/clnrest/requirements.txt
+RUN pip3 install flask gunicorn json5 flask_restx flask-socketio gevent gevent-websocket
+RUN pip3 install ./contrib/pyln-client
 
-COPY --from=downloader /opt/tini /usr/bin/tini
+FROM debian:bullseye-slim as final
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       socat \
       inotify-tools \
-      python3 \
+      python3.9 \
       python3-pip \
+      qemu-user-static \
       libpq5 && \
     rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install flask gunicorn json5
-RUN pip3 install --user flask_restx pyln-client
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
@@ -139,9 +150,12 @@ ENV LIGHTNINGD_NETWORK=bitcoin
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
+
 COPY --from=builder /tmp/lightning_install/ /usr/local/
+COPY --from=builder /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
+COPY --from=downloader "/tini" /usr/bin/tini
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
