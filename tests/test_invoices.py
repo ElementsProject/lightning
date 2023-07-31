@@ -914,6 +914,7 @@ def test_listinvoices_index(node_factory, executor):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 def test_invoices_wait_db_migration(node_factory, bitcoind):
     """Canned db is from v23.02.2's test_invoice_routeboost_private l2"""
     bitcoind.generate_block(28)
@@ -926,6 +927,7 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
     l2.rpc.invoice(1000, "test", "test")
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
 def test_invoice_botched_migration(node_factory, chainparams):
     """Test for grubles' case, where they ran successfully with the wrong var: they have *both* last_invoice_created_index *and *last_invoices_created_index* (this can happen if invoice id 1 was deleted, so they didn't die on invoice creation):
