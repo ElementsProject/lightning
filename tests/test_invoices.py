@@ -924,3 +924,17 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
     # And now we crash:
     # Error executing statement: wallet/invoices.c:282: INSERT INTO invoices            ( id, payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features, local_offer_id)     VALUES ( ?, ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?, ?);: UNIQUE constraint failed: invoices.id
     l2.rpc.invoice(1000, "test", "test")
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
+def test_invoice_botched_migration(node_factory, chainparams):
+    """Test for grubles' case, where they ran successfully with the wrong var: they have *both* last_invoice_created_index *and *last_invoices_created_index* (this can happen if invoice id 1 was deleted, so they didn't die on invoice creation):
+    Error executing statement: wallet/db.c:1684: UPDATE vars SET name = 'last_invoices_created_index' WHERE name = 'last_invoice_created_index': UNIQUE constraint failed: vars.name
+    """
+    l1 = node_factory.get_node(dbfile='invoices_botched_waitindex_migrate.sqlite3.xz',
+                               options={'database-upgrade': True})
+
+    assert ([(i['created_index'], i['label']) for i in l1.rpc.listinvoices()["invoices"]]
+            == [(1, "made_after_bad_migration"), (2, "label1")])
+    assert l1.rpc.invoice(100, "test", "test")["created_index"] == 3
