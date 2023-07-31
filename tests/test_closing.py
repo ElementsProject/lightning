@@ -3870,3 +3870,32 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     sync_blockheight(bitcoind, [l1, l2, l3])
 
     # FIXME: l2 should complain!
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs dev-no-reconnect")
+def test_closing_tx_valid(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'dev-no-reconnect': None})
+
+    # First, mutual close.
+    close = l1.rpc.close(l2.info['id'])
+
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    assert only_one(bitcoind.rpc.getrawmempool()) == close['txid']
+    assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
+    bitcoind.generate_block(1)
+    # Change output and the closed channel output.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    # Now, unilateral close.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    close = l1.rpc.close(l2.info['id'], 1)
+
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    assert only_one(bitcoind.rpc.getrawmempool()) == close['txid']
+    assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
