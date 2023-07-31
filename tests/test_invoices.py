@@ -913,7 +913,6 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
-@pytest.mark.xfail(strict=True)
 def test_expiry_startup_crash(node_factory, bitcoind):
     """We crash trying to expire invoice on startup"""
     l1 = node_factory.get_node()
