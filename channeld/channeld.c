@@ -1023,7 +1023,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 
 		reply = wire_sync_read(ctx, MASTER_FD);
 		if (!reply)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_MASTER_IO,
 				      "Could not set sync read from master: %s",
 				      strerror(errno));
 		type = fromwire_peektype(reply);
