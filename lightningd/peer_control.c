@@ -226,22 +226,23 @@ u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2tr(ctx, &shutdownkey);
 }
 
-static void sign_last_tx(struct channel *channel,
-			 struct bitcoin_tx *last_tx,
-			 struct bitcoin_signature *last_sig)
+static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
+				       const struct channel *channel,
+				       const struct bitcoin_tx *last_tx,
+				       const struct bitcoin_signature *last_sig)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_signature sig;
 	const u8 *msg;
 	u8 **witness;
-
 	u64 commit_index = channel->next_index[LOCAL] - 1;
+	struct bitcoin_tx *tx = clone_bitcoin_tx(ctx, last_tx);
 
-	assert(!last_tx->wtx->inputs[0].witness);
+	assert(!tx->wtx->inputs[0].witness);
 	msg = towire_hsmd_sign_commitment_tx(NULL,
 					     &channel->peer->id,
 					     channel->dbid,
-					     last_tx,
+					     tx,
 					     &channel->channel_info
 					     .remote_fundingkey,
 					     commit_index);
@@ -252,16 +253,12 @@ static void sign_last_tx(struct channel *channel,
 		      tal_hex(tmpctx, msg));
 
 	witness =
-	    bitcoin_witness_2of2(last_tx, last_sig,
+	    bitcoin_witness_2of2(tx, last_sig,
 				 &sig, &channel->channel_info.remote_fundingkey,
 				 &channel->local_funding_pubkey);
 
-	bitcoin_tx_input_set_witness(last_tx, 0, take(witness));
-}
-
-static void remove_sig(struct bitcoin_tx *signed_tx)
-{
-	bitcoin_tx_input_set_witness(signed_tx, 0, NULL);
+	bitcoin_tx_input_set_witness(tx, 0, take(witness));
+	return tx;
 }
 
 bool invalid_last_tx(const struct bitcoin_tx *tx)
@@ -293,25 +290,24 @@ static bool commit_tx_send_finished(struct channel *channel,
 static void sign_and_send_last(struct lightningd *ld,
 			       struct channel *channel,
 			       const char *cmd_id,
-			       struct bitcoin_tx *last_tx,
-			       struct bitcoin_signature *last_sig)
+			       const struct bitcoin_tx *last_tx,
+			       const struct bitcoin_signature *last_sig)
 {
 	struct bitcoin_txid txid;
 	struct anchor_details *adet;
+	struct bitcoin_tx *tx;
 
-	sign_last_tx(channel, last_tx, last_sig);
-	bitcoin_txid(last_tx, &txid);
-	wallet_transaction_add(ld->wallet, last_tx->wtx, 0, 0);
+	tx = sign_last_tx(tmpctx, channel, last_tx, last_sig);
+	bitcoin_txid(tx, &txid);
+	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
 
 	/* Remember anchor information for commit_tx_boost */
-	adet = create_anchor_details(NULL, channel, last_tx);
+	adet = create_anchor_details(NULL, channel, tx);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, 0,
+	broadcast_tx(ld->topology, channel, tx, cmd_id, false, 0,
 		     commit_tx_send_finished, commit_tx_boost, take(adet));
-
-	remove_sig(last_tx);
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
@@ -2909,6 +2905,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	struct peer *peer;
 	struct json_stream *response;
 	struct channel *channel;
+	struct bitcoin_tx *tx;
 	bool more_than_one;
 
 	if (!param(cmd, buffer, params,
@@ -2931,9 +2928,8 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
 		  channel->last_tx->wtx->num_outputs);
 
-	sign_last_tx(channel, channel->last_tx, &channel->last_sig);
-	json_add_tx(response, "tx", channel->last_tx);
-	remove_sig(channel->last_tx);
+	tx = sign_last_tx(cmd, channel, channel->last_tx, &channel->last_sig);
+	json_add_tx(response, "tx", tx);
 
 	/* If we've got inflights, return them */
 	if (!list_empty(&channel->inflights)) {
@@ -2941,13 +2937,12 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 
 		json_array_start(response, "inflights");
 		list_for_each(&channel->inflights, inflight, list) {
-			sign_last_tx(channel, inflight->last_tx,
-				     &inflight->last_sig);
+			tx = sign_last_tx(cmd, channel, inflight->last_tx,
+					  &inflight->last_sig);
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
 				      &inflight->funding->outpoint.txid);
-			remove_sig(inflight->last_tx);
-			json_add_tx(response, "tx", channel->last_tx);
+			json_add_tx(response, "tx", tx);
 			json_object_end(response);
 		}
 		json_array_end(response);
