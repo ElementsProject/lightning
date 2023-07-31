@@ -44,4 +44,9 @@ bool uncertainty_network_update_from_listpeerchannels(
 		const char *buf,
 		const jsmntok_t *toks);
 
+/* Forget ALL channels information by a fraction of the capacity. */
+void uncertainty_network_relax_fraction(
+		struct chan_extra_map* chan_extra_map,
+		double fraction);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_NETWORK_H */

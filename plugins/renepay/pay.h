@@ -94,6 +94,10 @@ struct pay_plugin {
 	// sendpays.
 	/* Timers. */
 	struct plugin_timer *rexmit_timer;
+
+	/* It allows us to measure elapsed time
+	 * and forget channel information accordingly. */
+	u64 last_time;
 };
 
 /* Set in init */
