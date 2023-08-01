@@ -1,16 +1,14 @@
 name: ReadMe Sync
 
 on:
-  pull_request_target:
-    types:
-      - closed
+  push:
     branches:
       - 'master'
     paths:
-      - 'doc/'
+      - 'doc/**'
 
 jobs:
-  rdme-docs:  
+  rdme-docs-sync:  
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo 📚
@@ -19,24 +17,29 @@ jobs:
       - name: Sync doc/getting-started/ 🚀
         uses: readmeio/rdme@v8
         with:
-          rdme: docs doc/getting-started --key=${{ secrets.README_API_KEY }} --version=1
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          rdme: docs doc/getting-started --key=$README_API_KEY --version=1
             
       - name: Sync doc/beginners-guide/ 🚀
         uses: readmeio/rdme@v8
         with:
-          rdme: docs doc/beginners-guide --key=${{ secrets.README_API_KEY }} --version=1
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          rdme: docs doc/beginners-guide --key=$README_API_KEY --version=1
       
       - name: Sync doc/node-operators-guide/ 🚀
         uses: readmeio/rdme@v8
         with:
-          rdme: docs doc/node-operators-guide --key=${{ secrets.README_API_KEY }} --version=1
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          rdme: docs doc/node-operators-guide --key=$README_API_KEY --version=1
       
       - name: Sync doc/developers-guide/ 🚀
         uses: readmeio/rdme@v8
         with:
-          rdme: docs doc/developers-guide --key=${{ secrets.README_API_KEY }} --version=1
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          rdme: docs doc/developers-guide --key=$README_API_KEY --version=1
       
       - name: Sync doc/contributing-to-core-lightning/ 🚀
         uses: readmeio/rdme@v8
         with:
-          rdme: docs doc/contributing-to-core-lightning --key=${{ secrets.README_API_KEY }} --version=1
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          rdme: docs doc/contributing-to-core-lightning --key=$README_API_KEY --version=1
