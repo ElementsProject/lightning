@@ -251,9 +251,15 @@ static int make_codexsecret(const char *hsm_secret_path,
 			    const u32 threshold)
 {
 	struct secret hsm_secret;
+	char *bip93;
+	const char *err;
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
-	printf("Codex32 Secret of your hsm_secret is: %s\n",
-		codex32_secret_encode(tmpctx, id, threshold, hsm_secret.data, 32));
+
+	err = codex32_secret_encode(tmpctx, id, threshold, hsm_secret.data, 32, &bip93);
+	if (err)
+		errx(ERROR_USAGE, "%s", err);
+
+	printf("%s\n", bip93);
 	return 0;
 }
 
