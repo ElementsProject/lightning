@@ -73,6 +73,9 @@ the last parameter. By default, mainnet-encoded keys are generated.
 This produces the same results as lightning-commando-rune(7) on a fresh node.
 You will still need to create a rune once the node starts, if you want commando to work (as it is only activated once it has generated one).
 
+**getcodexsecret** *hsm\_secret\_path* *id*
+  Print out the BIP-93 formatted HSM secret, for use with `--recover`.  The `id` is any 4 character string you can use to identify this secret (e.g. `adi0`): it cannot contain `i`, `o`, or `b`, but can contain digits except `1`.
+
 BUGS
 ----
 
