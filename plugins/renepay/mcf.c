@@ -189,10 +189,6 @@
 // cost function arcs.
 static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 
-// how many bits for linearization parts plus 1 bit for the direction of the
-// channel plus 1 bit for the dual representation.
-static const size_t ARC_ADDITIONAL_BITS = PARTS_BITS + 2;
-
 static const s64 INFINITE = INT64_MAX;
 static const u32 INVALID_INDEX=0xffffffff;
 static const s64 MU_MAX = 128;
@@ -274,6 +270,10 @@ struct arc {
 #define ARC_CHANDIR_BITOFF (1 + PARTS_BITS)
 #define ARC_CHANIDX_BITOFF (1 + PARTS_BITS + 1)
 #define ARC_CHANIDX_BITS  (32 - ARC_CHANIDX_BITOFF)
+
+/* How many arcs can we have for a single channel?
+ * linearization parts, both directions, and dual */
+#define ARCS_PER_CHANNEL ((size_t)1 << (PARTS_BITS + 1 + 1))
 
 static inline void arc_to_parts(struct arc arc,
 				u32 *chanidx,
@@ -575,7 +575,7 @@ static void init_linear_network(
 		struct linear_network *linear_network)
 {
 	const size_t max_num_chans = gossmap_max_chan_idx(params->gossmap);
-	const size_t max_num_arcs = max_num_chans << ARC_ADDITIONAL_BITS;
+	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
 	const size_t max_num_nodes = gossmap_max_node_idx(params->gossmap);
 
 	linear_network->max_num_arcs = max_num_arcs;
