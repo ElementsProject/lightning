@@ -45,7 +45,7 @@ static void show_usage(const char *progname)
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
-	printf("	- getcodexsecret <path/to/hsm_secret> <id> <threshold>\n");
+	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
 	exit(0);
 }
 
@@ -247,15 +247,14 @@ static int decrypt_hsm(const char *hsm_secret_path)
 }
 
 static int make_codexsecret(const char *hsm_secret_path,
-			    const char *id,
-			    const u32 threshold)
+			    const char *id)
 {
 	struct secret hsm_secret;
 	char *bip93;
 	const char *err;
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
-	err = codex32_secret_encode(tmpctx, id, threshold, hsm_secret.data, 32, &bip93);
+	err = codex32_secret_encode(tmpctx, id, 0, hsm_secret.data, 32, &bip93);
 	if (err)
 		errx(ERROR_USAGE, "%s", err);
 
@@ -765,9 +764,9 @@ int main(int argc, char *argv[])
 	}
 
 	if(streq(method, "getcodexsecret")) {
-		if (argc < 3)
+		if (argc < 2)
 			show_usage(argv[0]);
-		return make_codexsecret(argv[2], argv[3], atol(argv[4]));
+		return make_codexsecret(argv[2], argv[3]);
 	}
 	show_usage(argv[0]);
 }

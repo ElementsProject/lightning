@@ -1359,7 +1359,7 @@ def test_recover(node_factory, bitcoind):
     out = subprocess.check_output(cmd_line + ["leet", "0"]).decode('utf-8')
     assert out == "ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma\n"
 
-    # Check bad ids, threshold.
+    # Check bad ids.
     out = subprocess.run(cmd_line + ["lee", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
     assert 'Invalid id: must be 4 characters' in out.stderr.decode('utf-8')
     assert out.returncode == 2
@@ -1376,14 +1376,6 @@ def test_recover(node_factory, bitcoind):
         out = subprocess.run(cmd_line + [bad_bech32 + "eet", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
         assert 'Invalid id: must be valid bech32 string' in out.stderr.decode('utf-8')
         assert out.returncode == 2
-
-    out = subprocess.run(cmd_line + ["leet", "1"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-    assert 'Invalid threshold 1' in out.stderr.decode('utf-8')
-    assert out.returncode == 2
-
-    out = subprocess.run(cmd_line + ["leet", "99"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-    assert 'Invalid threshold 99' in out.stderr.decode('utf-8')
-    assert out.returncode == 2
 
     basedir = l1.daemon.opts.get("lightning-dir")
     with open(os.path.join(basedir, TEST_NETWORK, 'hsm_secret'), 'rb') as f:
