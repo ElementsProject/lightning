@@ -98,15 +98,12 @@ int main(int argc, char *argv[])
 		arc_to_parts(a, NULL, NULL, NULL, &dual);
 		assert(dual == i);
 
-/* This code not converted yet! */
-#if 0
 		assert(arc_is_dual(a) == dual);
 
 		a = arc_dual(a);
 		arc_to_parts(a, NULL, NULL, NULL, &dual);
 		assert(dual == !i);
 		assert(arc_is_dual(a) == dual);
-#endif
 	}
 
 	common_shutdown();
