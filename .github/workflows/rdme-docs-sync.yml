@@ -1,15 +1,16 @@
 name: ReadMe Sync
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - closed
+    branches:
+      - 'master'
     paths:
-      - 'doc/*'
+      - 'doc/'
 
 jobs:
-  if_merged:
-    if: github.event.pull_request.merged == true
+  rdme-docs:  
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo 📚
