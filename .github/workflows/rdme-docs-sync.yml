@@ -47,4 +47,4 @@ jobs:
         env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
         with:
-          rdme: docs doc/contributing-to-core-lightning --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs doc/contribute-to-core-lightning --key=${{ env.README_API_KEY }} --version=1
