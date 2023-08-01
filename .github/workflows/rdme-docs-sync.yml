@@ -16,30 +16,35 @@ jobs:
 
       - name: Sync doc/getting-started/ 🚀
         uses: readmeio/rdme@v8
-        with:
+        env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
-          rdme: docs doc/getting-started --key=$README_API_KEY --version=1
+        with:
+          rdme: docs doc/getting-started --key=${{ env.README_API_KEY }} --version=1
             
       - name: Sync doc/beginners-guide/ 🚀
         uses: readmeio/rdme@v8
-        with:
+        env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
-          rdme: docs doc/beginners-guide --key=$README_API_KEY --version=1
+        with:
+          rdme: docs doc/beginners-guide --key=${{ env.README_API_KEY }} --version=1
       
       - name: Sync doc/node-operators-guide/ 🚀
         uses: readmeio/rdme@v8
-        with:
+        env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
-          rdme: docs doc/node-operators-guide --key=$README_API_KEY --version=1
+        with:
+          rdme: docs doc/node-operators-guide --key=${{ env.README_API_KEY }} --version=1
       
       - name: Sync doc/developers-guide/ 🚀
         uses: readmeio/rdme@v8
-        with:
+        env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
-          rdme: docs doc/developers-guide --key=$README_API_KEY --version=1
+        with:
+          rdme: docs doc/developers-guide --key=${{ env.README_API_KEY }} --version=1
       
       - name: Sync doc/contributing-to-core-lightning/ 🚀
         uses: readmeio/rdme@v8
-        with:
+        env:
           README_API_KEY: ${{ secrets.README_API_KEY }}
-          rdme: docs doc/contributing-to-core-lightning --key=$README_API_KEY --version=1
+        with:
+          rdme: docs doc/contribute-to-core-lightning --key=${{ env.README_API_KEY }} --version=1
