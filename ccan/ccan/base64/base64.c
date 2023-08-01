@@ -31,7 +31,7 @@ static int8_t sixbit_from_b64(const base64_maps_t *maps,
 	int8_t ret;
 
 	ret = maps->decode_map[(unsigned char)b64letter];
-	if (ret == (char)0xff) {
+	if (ret == (int8_t)'\xff') {
 		errno = EDOM;
 		return -1;
 	}
@@ -41,7 +41,7 @@ static int8_t sixbit_from_b64(const base64_maps_t *maps,
 
 bool base64_char_in_alphabet(const base64_maps_t *maps, const char b64char)
 {
-	return (maps->decode_map[(const unsigned char)b64char] != (char)0xff);
+	return (maps->decode_map[(const unsigned char)b64char] != (signed char)'\xff');
 }
 
 void base64_init_maps(base64_maps_t *dest, const char src[64])
