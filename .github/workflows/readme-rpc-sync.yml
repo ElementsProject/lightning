@@ -19,6 +19,9 @@ jobs:
       with:
         python-version: '3.8'
 
+    - name: Install requests module
+      run: python -m pip install requests
+
     - name: Set environment variable and run
       env:
         README_API_KEY: ${{ secrets.README_API_KEY }}  
