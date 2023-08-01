@@ -122,7 +122,7 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
-	char *fail;
+	char *fail, *c;
 	struct codex32 *parts;
 
 	/* Test vector for codex32_secret_encode*/
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
             0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
 	};
 
-	char *c = codex32_secret_encode(tmpctx, "leet", 0, seed_b, ARRAY_SIZE(seed_b));
+	assert(codex32_secret_encode(tmpctx, "leet", 0, seed_b, ARRAY_SIZE(seed_b), &c) == NULL);
 	assert(streq(c,
 		     "ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma"));
 
