@@ -256,6 +256,55 @@ static const s64 MU_MAX = 128;
  * I hope this will clarify my future self when I forget.
  *
  * */
+
+/*
+ * We want to use the whole number here for convenience, but
+ * we can't us a union, since bit order is implementation-defined and
+ * we want chanidx on the highest bits:
+ *
+ * [ 0       1 2     3            4 5 6 ... 31 ]
+ *   dual    part    chandir      chanidx
+ */
+struct arc {
+	u32 idx;
+};
+
+#define ARC_DUAL_BITOFF (0)
+#define ARC_PART_BITOFF (1)
+#define ARC_CHANDIR_BITOFF (1 + PARTS_BITS)
+#define ARC_CHANIDX_BITOFF (1 + PARTS_BITS + 1)
+#define ARC_CHANIDX_BITS  (32 - ARC_CHANIDX_BITOFF)
+
+static inline void arc_to_parts(struct arc arc,
+				u32 *chanidx,
+				int *chandir,
+				u32 *part,
+				bool *dual)
+{
+	if (chanidx)
+		*chanidx = (arc.idx >> ARC_CHANIDX_BITOFF);
+	if (chandir)
+		*chandir = (arc.idx >> ARC_CHANDIR_BITOFF) & 1;
+	if (part)
+		*part = (arc.idx >> ARC_PART_BITOFF) & ((1 << PARTS_BITS)-1);
+	if (dual)
+		*dual = (arc.idx >> ARC_DUAL_BITOFF) & 1;
+}
+
+static inline struct arc arc_from_parts(u32 chanidx, int chandir, u32 part, bool dual)
+{
+	struct arc arc;
+
+	assert(part < CHANNEL_PARTS);
+	assert(chandir == 0 || chandir == 1);
+	assert(chanidx < (1U << ARC_CHANIDX_BITS));
+	arc.idx = ((u32)dual << ARC_DUAL_BITOFF)
+		| (part << ARC_PART_BITOFF)
+		| ((u32)chandir << ARC_CHANDIR_BITOFF)
+		| (chanidx << ARC_CHANIDX_BITOFF);
+	return arc;
+}
+
 typedef union
 {
 	struct{
