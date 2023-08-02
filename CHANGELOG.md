@@ -4,6 +4,160 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [v23.08rc1] - 2023-08-02: "Satoshi's Successor"
+
+This release named by Matt Morehouse.
+
+### Added
+
+ - Plugins: `renepay`: an experimental pay plugin implementing Pickhardt payments (`renepay` and `renepaystatus`). ([#6376])
+ - Plugins: `clnrest`: a lightweight python rest API service. ([#6389])
+ - JSON-RPC: `wait`: new generic command to wait for events. ([#6127])
+ - JSON-RPC: `setchannel` adds a new `ignorefeelimits` parameter to allow peer to set arbitrary commitment transaction fees on a per-channel basis. ([#6398])
+ - Config: A new opentracing system with minimal performance impact for performance tracing in productive systems: see doc/developers-guide/tracing-cln-performance.md ([#5492])
+ - Plugins: `pay` will now pay your own invoices if you try. ([#6399])
+ - JSON-RPC: `checkrune`: check rune validity for authorization; `createrune` to create/modify rune; `showrunes` to list existing runes; `blacklistrune` to revoke permission of rune ([#6403])
+ - Protocol: When we send our own gossip when a peer connects, also send any incoming channel_updates. ([#6412])
+ - Config: `log-level` can be specified on a per-logfile basis. ([#6406])
+ - Config: `--recover` can restore a node from a codex32 secret ([#6302])
+ - Tools: `hsmtool` `getcodexsecret` to extract node secret as codex32 secret ([#6466])
+ - JSON-RPC: newaddr: p2tr option to create taproot addresses. ([#6035])
+ - JSON-RPC: new command `setconfig` allows a limited number of configuration settings to be changed without restart. ([#6303])
+ - JSON-RPC: `listconfigs` now has `configs` subobject with more information about each config option. ([#6243])
+ - Config: `--regtest` option as alias for `--network=regtest` ([#6243])
+ - Config: `accept-htlc-tlv-type` (replaces awkward-to-use `accept-htlc-tlv-types`) ([#6243])
+ - Config: `bind=ws:...` to explicitly listen on a websocket. ([#6173])
+ - Config: `bind` can now take `dns:` prefix to advertize DNS records. ([#6173])
+ - Plugins: `sendpay` now allows self-payment of invoices, by specifying an empty route. ([#6399])
+ - Plugins: plugins can subscribe to all notifications using "*". ([#6347])
+ - Plugins: Pass the current known block height down to the getchaininfo call. ([#6181])
+ - JSON-RPC: `listinvoices` has `limit` parameter for listing control. ([#6127])
+ - JSON-RPC: `listinvoices` has `index` and `start` parameters for listing control. ([#6127])
+ - JSON-RPC: `listpeerchannels` has a new field `ignore_fee_limits` ([#6398])
+ - JSON-RPC: `shutdown` notification contains `shutdown` object (notification consistency) ([#6347])
+ - JSON-RPC: `block_added` notification wraps fields in `block_added` object (notification consistency) ([#6388])
+ - JSON-RPC: `connect` and `disconnect` notifications now wrap `id` field in a `connect`/`disconnect` object (consistency with other notifications) ([#6388])
+ - JSON-RPC: `fundpsbt` and `utxopsbt` new parameter `opening_anchor_channel` so lightningd knowns it needs emergency reserve for anchors. ([#6334])
+ - Config: `min-emergency-msat` setting for (currently experimental!) anchor channels, to keep funds in reserve for forced closes. ([#6334])
+ - JSON-RPC: `feerates` has new fields `unilateral_anchor_close` to show the feerate used for anchor channels (currently experimental), and `unilateral_close_nonanchor_satoshis`. ([#6334])
+
+
+### Changed
+
+ - Tools: Reckless can now install directly from local sources. ([#6393])
+ - Protocol: We allow update_fail_malformed_htlc with invalid error codes (LND?) ([#6425])
+ - pyln-testing: The grpc dependencies are now optional. ([#6417])
+ - Protocol: commando commands now allow a missing params field, instead of requiring an empty field. ([#6405])
+ - Wallet: we now use taproot change addresses. ([#6035])
+ - Plugins: `autoclean` configuration variables now settable with `setconfig`. ([#6303])
+ - JSON-RPC: `fundchannel` and `multifundchannel` will refuse to spend funds below `min-emergency-msat` if we have any anchor channels (or are opening one). ([#6334])
+ - JSON-RPC: `withdraw` will refuse to spend funds below `min-emergency-msat` if we have any anchor channels (and `all` will be reduced appropriately). ([#6334])
+ - JSON-RPC: `fundpsbt` and `utxopsbt` will refuse to spend funds below `min-emergency-msat` if we have any anchor channels. ([#6334])
+ - JSON-RPC: `feerates` `unilateral_close_satoshis` now assumes anchor channels if enabled (currently experimental). ([#6334])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `commando-rune`, `commando-listrunes` and `commando-blacklist` (use `createrune`, `showrunes` and `blacklistrune` ([#6403])
+ - JSON-RPC: `connect`, `disconnect` and `block_added` notification fields outside the same-named object (use .connect/.disconnect/.block_added sub-objects) ([#6388])
+ - `pay` has *undeprecated* paying a description-hash invoice without providing the description. ([#6337])
+ - JSON-RPC: `listconfigs` direct fields, use `configs` sub-object and `set`, `value_bool`, `value_str`, `value_int`, or `value_msat` fields. ([#6243])
+ - Config: boolean plugin options set to `1` or `0` (use `true` and `false` like non-plugin options). ([#6243])
+ - Config: `accept-htlc-tlv-types` (use `accept-htlc-tlv-type` multiple times) ([#6243])
+ - Config: `experimental-websocket-port`: use `--bind=ws::<portnum>`. ([#6173])
+ - Config: bind-addr=xxx.onion and addr=xxx.onion, use announce=xxx.onion (which was always equivalent). ([#6173])
+ - Config: addr=/socketpath, use listen=/socketpath (which was always equivalent). ([#6173])
+ - Config: `announce-addr-dns`; use `--bind-addr=dns:ADDR` for finer control. ([#6173])
+
+
+### Removed
+
+ - Plugins: `commando` no longer allows datastore ['commando', 'secret'] to override master secret (re-issue runes if you were using that!). ([#6431])
+ - Plugins: pay: `pay` no longer splits based on common size, as it was causing issues in various scenarios. ([#6400])
+ - Build: Support for python v<=3.7 & Ubuntu bionic ([#6414])
+
+
+### Fixed
+
+ - Protocol: Fix incompatibility with LND which prevented us opening private channels ([#6304])
+ - Protocol: We no longer gossip about recently-closed channels (Eclair gets upset with this). ([#6413])
+ - Protocol: We will close incoming HTLCs early if the outgoing HTLC is stuck onchain long enough, to avoid cascating failure. ([#6378])
+ - JSON-RPC: `close` returns a `tx` field with witness data populated (i.e. signed). ([#6468])
+ - Protocol: When we send our own gossip when a peer connects, send our node_announcement too (regression in v23.05) ([#6412])
+ - Protocol: `dualopend`: Fix behavior for tx-aborts. No longer hangs, appropriately continues re-init of RBF requests without reconnection msg exchange. ([#6461])
+ - Protocol: Node announcements are refreshed more reliably. ([#6454])
+ - Build: Small fix for Mac OS building ([#6253])
+ - msggen: `listpays` now includes the missing `amount_msat` and `amount_sent_msat` fields ([#6441])
+ - Protocol: Adding a >0 version witness program to a fallback address now is *just* the witness program, as per bolt11 spec ([#6435])
+ - JSON-RPC: `sendonion` and `sendpay` will now consider amounts involved when using picking one channel for a peer ([#6428])
+ - Plugins: pay: We now track spendable amounts when routing on both the local alias as well as the short channel ID ([#6428])
+ - Config: `log-level` filters now apply correctly to messages from `connectd`. ([#6406])
+ - Lightnind: don't infinite loop on 32 bit platforms if only invoices are expiring after 2038. ([#6361])
+ - JSON-RPC: `pay` and `decodepay` with description now correctly handle JSON escapes (e.g " inside description) ([#6337])
+ - Plugins: `commando` runes can now compare integer parameters using '<' and '>' as expected. ([#6295])
+ - Plugins: reloaded plugins get passed any vars from configuration files. ([#6243])
+ - JSON-RPC: `listconfigs` `rpc-file-mode` no longer has gratuitous quotes (e.g. "0600" not "\"0600\""). ([#6243])
+ - JSON-RPC: `listconfigs` `htlc-minimum-msat`, `htlc-maximum-msat` and `max-dust-htlc-exposure-msat` fields are now numbers, not strings. ([#6243])
+
+
+### EXPERIMENTAL
+
+ - Build: all experimental features are now runtime-enabled; no more `./configure --enable-experimental-features` ([#6209])
+ - Protocol: `experimental-splicing` to enable splicing & resizing of active channels. ([#6253])
+ - protocol: `experimental-anchors` to support zero-fee-htlc anchors (`option_anchors_zero_fee_htlc_tx`). ([#6334])
+ - Protocol: Removed support for advertizing websocket addresses in gossip. ([#6173])
+ - Crash: Fixed crash in dual-funding. ([#6273])
+ - Config: `experimental-upgrade-protocol` enables simple channel upgrades. ([#6209])
+ - Config: `experimental-quiesce` enables quiescence, for testing. ([#6209])
+
+
+[#5492]: https://github.com/ElementsProject/lightning/pull/5492
+[#6035]: https://github.com/ElementsProject/lightning/pull/6035
+[#6127]: https://github.com/ElementsProject/lightning/pull/6127
+[#6173]: https://github.com/ElementsProject/lightning/pull/6173
+[#6181]: https://github.com/ElementsProject/lightning/pull/6181
+[#6209]: https://github.com/ElementsProject/lightning/pull/6209
+[#6243]: https://github.com/ElementsProject/lightning/pull/6243
+[#6253]: https://github.com/ElementsProject/lightning/pull/6253
+[#6273]: https://github.com/ElementsProject/lightning/pull/6273
+[#6295]: https://github.com/ElementsProject/lightning/pull/6295
+[#6302]: https://github.com/ElementsProject/lightning/pull/6302
+[#6303]: https://github.com/ElementsProject/lightning/pull/6303
+[#6304]: https://github.com/ElementsProject/lightning/pull/6304
+[#6310]: https://github.com/ElementsProject/lightning/pull/6310
+[#6334]: https://github.com/ElementsProject/lightning/pull/6334
+[#6337]: https://github.com/ElementsProject/lightning/pull/6337
+[#6347]: https://github.com/ElementsProject/lightning/pull/6347
+[#6361]: https://github.com/ElementsProject/lightning/pull/6361
+[#6376]: https://github.com/ElementsProject/lightning/pull/6376
+[#6378]: https://github.com/ElementsProject/lightning/pull/6378
+[#6388]: https://github.com/ElementsProject/lightning/pull/6388
+[#6389]: https://github.com/ElementsProject/lightning/pull/6389
+[#6393]: https://github.com/ElementsProject/lightning/pull/6393
+[#6398]: https://github.com/ElementsProject/lightning/pull/6398
+[#6399]: https://github.com/ElementsProject/lightning/pull/6399
+[#6400]: https://github.com/ElementsProject/lightning/pull/6400
+[#6403]: https://github.com/ElementsProject/lightning/pull/6403
+[#6405]: https://github.com/ElementsProject/lightning/pull/6405
+[#6406]: https://github.com/ElementsProject/lightning/pull/6406
+[#6412]: https://github.com/ElementsProject/lightning/pull/6412
+[#6413]: https://github.com/ElementsProject/lightning/pull/6413
+[#6414]: https://github.com/ElementsProject/lightning/pull/6414
+[#6417]: https://github.com/ElementsProject/lightning/pull/6417
+[#6425]: https://github.com/ElementsProject/lightning/pull/6425
+[#6428]: https://github.com/ElementsProject/lightning/pull/6428
+[#6431]: https://github.com/ElementsProject/lightning/pull/6431
+[#6435]: https://github.com/ElementsProject/lightning/pull/6435
+[#6441]: https://github.com/ElementsProject/lightning/pull/6441
+[#6454]: https://github.com/ElementsProject/lightning/pull/6454
+[#6461]: https://github.com/ElementsProject/lightning/pull/6461
+[#6466]: https://github.com/ElementsProject/lightning/pull/6466
+[#6468]: https://github.com/ElementsProject/lightning/pull/6468
+[v23.08rc1]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc1
+
+
 ## [23.05.2] - 2023-06-21: "Austin Texas Agreement(ATXA) III"
 
 Bugfix release for bad issues found since 23.05.1 which can't wait for 23.08.
