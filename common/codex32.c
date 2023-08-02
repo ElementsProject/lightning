@@ -313,6 +313,7 @@ fail:
 
 /* Return NULL if the codex32 is invalid */
 struct codex32 *codex32_decode(const tal_t *ctx,
+			       const char *hrp,
 			       const char *codex32str,
 			       char **fail)
 {
@@ -335,8 +336,8 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 	}
 
 	parts->hrp = tal_strndup(parts, codex32str, sep - codex32str);
-	if (!streq(parts->hrp, "ms")) {
-		*fail = tal_fmt(ctx, "Invalid HRP!");
+	if (hrp && !streq(parts->hrp, hrp)) {
+		*fail = tal_fmt(ctx, "Invalid hrp %s!", parts->hrp);
 		return tal_free(parts);
 	}
 
@@ -397,6 +398,7 @@ struct codex32 *codex32_decode(const tal_t *ctx,
 
 /* Returns Codex32 encoded secret of the seed provided. */
 const char *codex32_secret_encode(const tal_t *ctx,
+				  const char *hrp,
 				  const char *id,
 				  const u32 threshold,
 				  const u8 *seed,
@@ -404,7 +406,11 @@ const char *codex32_secret_encode(const tal_t *ctx,
 				  char **bip93)
 {
 	const struct checksum_engine *csum_engine;
-	const char *hrp = "ms";
+
+	/* FIXME: Our code assumes a two-letter HRP!  Larger won't allow a
+	 * 128-bit secret in a "standard billfold metal wallet" acording to
+	 * Russell O'Connor */
+	assert(strlen(hrp) == 2);
 
 	if (threshold > 9 || threshold < 0 || threshold == 1)
 		return tal_fmt(ctx, "Invalid threshold %u", threshold);

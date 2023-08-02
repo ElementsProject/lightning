@@ -254,7 +254,7 @@ static int make_codexsecret(const char *hsm_secret_path,
 	const char *err;
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
-	err = codex32_secret_encode(tmpctx, id, 0, hsm_secret.data, 32, &bip93);
+	err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
 	if (err)
 		errx(ERROR_USAGE, "%s", err);
 

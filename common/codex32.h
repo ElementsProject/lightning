@@ -32,17 +32,22 @@ struct codex32 {
  *                    updated to contain the details extracted from the codex32 string.
  *       fail:        Pointer to a char *, that would be updated with the reason
  * 		      of failure in case this function returns a NULL.
- *  In: input:        Pointer to a null-terminated codex32 string.
+ *  In: ctx:          Allocation context for *fail or return.
+ *      hrp:          If non-NULL, a hrp which must match.
+ *      codex32str:   Pointer to a nul-terminated codex32 string.
+ *
  *      Returns Parts to indicate decoding was successful. NULL is returned if decoding failed,
  * 	with appropriate reason in the fail param
  */
 struct codex32 *codex32_decode(const tal_t *ctx,
+			       const char *hrp,
 			       const char *codex32str,
 			       char **fail);
 
 /** Encode a seed into codex32 secret format.
  *
- *  In: input:        id: Valid 4 char string identifying the secret
+ *  In: input:        hrp: 2 character human-readable-prefix
+ *                    id: Valid 4 char string identifying the secret
  * 		      threshold: Threshold according to the bip93
  * 		      seed: The secret in u8*
  * 		      seedlen: Length of the seed provided.
@@ -51,6 +56,7 @@ struct codex32 *codex32_decode(const tal_t *ctx,
  * Returns an error string, or returns NULL and sets @bip93.
  */
 const char *codex32_secret_encode(const tal_t *ctx,
+				  const char *hrp,
 				  const char *id,
 				  const u32 threshold,
 				  const u8 *seed,
