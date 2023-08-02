@@ -64,7 +64,7 @@ This hook is called whenever the node is started using the --recovery flag. So b
 The payload consists of the following information:
 ```json
 {
-	"codex32": "ms10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqtum9pgv99ycma"
+	"codex32": "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"
 }
 ```
 

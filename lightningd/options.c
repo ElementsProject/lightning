@@ -1275,7 +1275,7 @@ static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 {
 	char *err;
-	struct codex32 *parts = codex32_decode(tmpctx, arg, &err);
+	struct codex32 *parts = codex32_decode(tmpctx, "cl", arg, &err);
 
 	if (!parts) {
 		return err;
