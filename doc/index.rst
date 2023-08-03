@@ -3,27 +3,9 @@ Core Lightning Documentation
 
 .. toctree::
    :maxdepth: 1
-   :caption: User Documentation
+   :caption: Main Documentation
 
-   INSTALL.md
-   TOR.md
-   FAQ <FAQ.md>
-   Backups <BACKUP.md>
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Integrator Documentation
-
-   Writing plugins <PLUGINS.md>
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Developer Documentation
-
-   HACKING.md
-   Coding Style Guideline <STYLE.md>
-   MAKING-RELEASES.md
-   CHANGELOG.md
+   https://docs.corelightning.org/docs
 
 .. toctree::
    :maxdepth: 1
