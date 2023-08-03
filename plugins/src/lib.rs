@@ -104,7 +104,7 @@ where
 impl<S, I, O> Builder<S, I, O>
 where
     O: Send + AsyncWrite + Unpin + 'static,
-    S: Clone + Sync + Send + Clone + 'static,
+    S: Clone + Sync + Send + 'static,
     I: AsyncRead + Send + Unpin + 'static,
 {
     pub fn new(input: I, output: O) -> Self {
@@ -146,7 +146,7 @@ where
     where
         C: Send + Sync + 'static,
         C: Fn(Plugin<S>, Request) -> F + 'static,
-        F: Future<Output = Result<(), Error>> + Send + Sync + 'static,
+        F: Future<Output = Result<(), Error>> + Send + 'static,
     {
         self.subscriptions.insert(
             topic.to_string(),
@@ -162,7 +162,7 @@ where
     where
         C: Send + Sync + 'static,
         C: Fn(Plugin<S>, Request) -> F + 'static,
-        F: Future<Output = Response> + Send + Sync + 'static,
+        F: Future<Output = Response> + Send + 'static,
     {
         self.hooks.insert(
             hookname.to_string(),
@@ -179,7 +179,7 @@ where
     where
         C: Send + Sync + 'static,
         C: Fn(Plugin<S>, Request) -> F + 'static,
-        F: Future<Output = Response> + Send + Sync + 'static,
+        F: Future<Output = Response> + Send + 'static,
     {
         self.rpcmethods.insert(
             name.to_string(),
@@ -504,7 +504,7 @@ where
 
 impl<S> PluginDriver<S>
 where
-    S: Send + Clone + Sync,
+    S: Send + Clone,
 {
     /// Run the plugin until we get a shutdown command.
     async fn run<I, O>(
