@@ -106,9 +106,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
 
-	case WIRE_HSMD_SIGN_SPLICE_TX:
-		return (client->capabilities & WIRE_HSMD_SIGN_SPLICE_TX) != 0;
-
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER:
 		return (client->capabilities & HSM_CAP_SIGN_WILL_FUND_OFFER) != 0;
 
@@ -133,6 +130,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_ANCHORSPEND:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE:
+	case WIRE_HSMD_SIGN_SPLICE_TX:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
