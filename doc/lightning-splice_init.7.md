@@ -49,7 +49,7 @@ RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT)
 PSBT=$(echo $RESULT | jq -r ".psbt")
 echo $RESULT
 
-RESULT=$(lightning-cli signpsbt $PSBT)
+RESULT=$(lightning-cli signpsbt -k psbt="$PSBT")
 PSBT=$(echo $RESULT | jq -r ".signed_psbt")
 echo $RESULT
 
@@ -79,4 +79,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:40121e2e7b0db8c99de12b4fd086f58f63e0d6643b9da1c1697a34dd5057454e)
+[comment]: # ( SHA256STAMP:28e857bb214a084bb638c7db3e7277291b7d60d78360fb8603423bc4d1d427a1)
