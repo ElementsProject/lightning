@@ -1,0 +1,28 @@
+name: ReadMe RPC Sync
+
+on:
+  push:
+    branches:
+      - 'master'
+    paths:
+      - 'doc/**.md'
+
+jobs:
+  rdme-rpc-sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install requests module
+      run: python -m pip install requests
+
+    - name: Set environment variable and run
+      env:
+        README_API_KEY: ${{ secrets.README_API_KEY }}  
+      run: python .github/scripts/sync-rpc-cmds.py
