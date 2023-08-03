@@ -15,9 +15,5 @@ contrib/pyln-testing/   @cdecker
 # Needed to ensure hsmd wire compatibility between releases
 hsmd/hsmd_wire.csv      @cdecker
 
-wallet/invoices.*          @ZmnSCPxj
-plugins/multifundchannel.c @ZmnSCPxj
-doc/BACKUP.md              @ZmnSCPxj
-
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
