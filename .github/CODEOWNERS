@@ -13,7 +13,7 @@ contrib/msggen/         @cdecker
 contrib/pyln-client/    @cdecker
 contrib/pyln-testing/   @cdecker
 # Needed to ensure hsmd wire compatibility between releases
-hsmd/hsmd_wire.csv      @cdecker
+hsmd/hsmd_wire.csv      @cdecker @ksedgwic @devrandom
 
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
