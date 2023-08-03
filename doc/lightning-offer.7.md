@@ -16,8 +16,7 @@ one), which is a precursor to creating one or more invoices.  It
 automatically enables the processing of an incoming invoice\_request,
 and issuing of invoices.
 
-Note that for making an offer to *pay* someone else, see
-lightning-invoicerequest(7).
+Note that for making an offer to *pay* someone else, see lightning-invoicerequest(7).
 
 The *amount* parameter can be the string "any", which creates an offer
 that can be paid with any amount (e.g. a donation).  Otherwise it can
