@@ -34,7 +34,7 @@ struct splice_state *splice_state_new(const tal_t *ctx);
 
 /* An active splice negotiation. Born when splice beings and dies when a splice
  * negotation has finished */
-struct splice {
+struct splicing {
 	/* The opener side's relative balance change */
 	s64 opener_relative;
 	/* The accepter side's relative balance change */
@@ -58,6 +58,6 @@ struct splice {
 };
 
 /* Sets `splice` items to default values */
-struct splice *splice_new(const tal_t *ctx);
+struct splicing *splicing_new(const tal_t *ctx);
 
 #endif /* LIGHTNING_CHANNELD_SPLICE_H */

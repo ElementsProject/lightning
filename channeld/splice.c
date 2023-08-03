@@ -17,21 +17,21 @@ struct splice_state *splice_state_new(const tal_t *ctx)
 	return splice_state;
 }
 
-struct splice *splice_new(const tal_t *ctx)
+struct splicing *splicing_new(const tal_t *ctx)
 {
-	struct splice *splice = tal(ctx, struct splice);
+	struct splicing *splicing = tal(ctx, struct splicing);
 
-	splice->opener_relative = 0;
-	splice->accepter_relative = 0;
-	splice->feerate_per_kw = 0;
-	splice->force_feerate = false;
-	splice->force_sign_first = false;
-	splice->mode = false;
-	splice->tx_add_input_count = 0;
-	splice->tx_add_output_count = 0;
-	splice->current_psbt = NULL;
-	splice->received_tx_complete = false;
-	splice->sent_tx_complete = false;
+	splicing->opener_relative = 0;
+	splicing->accepter_relative = 0;
+	splicing->feerate_per_kw = 0;
+	splicing->force_feerate = false;
+	splicing->force_sign_first = false;
+	splicing->mode = false;
+	splicing->tx_add_input_count = 0;
+	splicing->tx_add_output_count = 0;
+	splicing->current_psbt = NULL;
+	splicing->received_tx_complete = false;
+	splicing->sent_tx_complete = false;
 
-	return splice;
+	return splicing;
 }
