@@ -877,9 +877,9 @@ payment_listsendpays_previous(
 
 		plugin_log(pay_plugin->plugin,LOG_DBG,
 			   "There are pending sendpays to this invoice. "
-			   "groupid = %ld, "
+			   "groupid = %"PRIu64" "
 			   "delivering = %s, "
-			   "last_partid = %ld",
+			   "last_partid = %"PRIu64,
 			   last_pending_group_id,
 			   type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
 			   last_pending_partid);
