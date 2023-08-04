@@ -294,6 +294,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.PreapproveinvoiceRequest.SerializeToString,
                 response_deserializer=node__pb2.PreapproveinvoiceResponse.FromString,
                 )
+        self.StaticBackup = channel.unary_unary(
+                '/cln.Node/StaticBackup',
+                request_serializer=node__pb2.StaticbackupRequest.SerializeToString,
+                response_deserializer=node__pb2.StaticbackupResponse.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -635,6 +640,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StaticBackup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -917,6 +928,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.PreApproveInvoice,
                     request_deserializer=node__pb2.PreapproveinvoiceRequest.FromString,
                     response_serializer=node__pb2.PreapproveinvoiceResponse.SerializeToString,
+            ),
+            'StaticBackup': grpc.unary_unary_rpc_method_handler(
+                    servicer.StaticBackup,
+                    request_deserializer=node__pb2.StaticbackupRequest.FromString,
+                    response_serializer=node__pb2.StaticbackupResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1877,5 +1893,22 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/PreApproveInvoice',
             node__pb2.PreapproveinvoiceRequest.SerializeToString,
             node__pb2.PreapproveinvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StaticBackup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/StaticBackup',
+            node__pb2.StaticbackupRequest.SerializeToString,
+            node__pb2.StaticbackupResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

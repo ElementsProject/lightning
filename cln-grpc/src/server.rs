@@ -1818,4 +1818,36 @@ async fn pre_approve_invoice(
 
 }
 
+async fn static_backup(
+    &self,
+    request: tonic::Request<pb::StaticbackupRequest>,
+) -> Result<tonic::Response<pb::StaticbackupResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::StaticbackupRequest = req.into();
+    debug!("Client asked for static_backup");
+    trace!("static_backup request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::StaticBackup(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method StaticBackup: {:?}", e)))?;
+    match result {
+        Response::StaticBackup(r) => {
+           trace!("static_backup response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call StaticBackup",
+                r
+            )
+        )),
+    }
+
+}
+
 }
