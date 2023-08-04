@@ -186,7 +186,7 @@ static struct command_result *handle_unhandleable_error(struct renepay * renepay
 
 	if (n == 1)
 	{
-		payflow_fail(flow);
+		// payflow_fail(flow);
 		return renepay_fail(renepay, PAY_UNPARSEABLE_ONION,
 				    "Got %s from the destination", what);
 	}
@@ -225,7 +225,7 @@ static struct command_result *addgossip_done(struct command *cmd,
 
 	/* Release this: if it's the last flow we'll retry immediately */
 
-	payflow_fail(adg->flow);
+	// payflow_fail(adg->flow);
 	tal_free(adg);
 	renepay_settimer(renepay);
 
@@ -386,7 +386,7 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 	 * We just disable this scid. */
 	tal_arr_expand(&renepay->disabled, flow->path_scids[0]);
 
-	payflow_fail(flow);
+	// payflow_fail(flow);
 	return command_still_pending(cmd);
 }
 
@@ -1727,6 +1727,11 @@ static struct command_result *notification_sendpay_failure(
 			"sendpay_failure does not correspond to a renepay attempt, %s",
 			fmt_payflow_key(tmpctx,&key));
 		goto done;
+	}else
+	{
+		// mark for failure
+		tal_add_destructor(flow,payflow_fail);
+		flow = tal_steal(tmpctx,flow);
 	}
 
 	// 3. process failure
@@ -1739,7 +1744,6 @@ static struct command_result *notification_sendpay_failure(
 		handle_sendpay_failure_renepay(cmd,buf,resulttok,renepay,flow);
 
 	done:
-	if(flow) payflow_fail(flow);
 	return notification_handled(cmd);
 }
 

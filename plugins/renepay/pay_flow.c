@@ -623,7 +623,7 @@ struct amount_msat payflow_delivered(const struct pay_flow *flow)
 	return flow->amounts[tal_count(flow->amounts)-1];
 }
 
-struct pay_flow* payflow_fail(struct pay_flow *flow)
+void payflow_fail(struct pay_flow *flow)
 {
 	debug_assert(flow);
 	struct payment * p = flow->payment;
@@ -632,9 +632,6 @@ struct pay_flow* payflow_fail(struct pay_flow *flow)
 	payment_fail(p);
 	amount_msat_reduce(&p->total_delivering, payflow_delivered(flow));
 	amount_msat_reduce(&p->total_sent, flow->amounts[0]);
-
-	/* Release the HTLCs in the uncertainty_network. */
-	return tal_free(flow);
 }
 
 

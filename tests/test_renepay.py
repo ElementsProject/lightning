@@ -4,7 +4,6 @@ from utils import only_one, wait_for, mine_funding_to_announce, sync_blockheight
 import pytest
 import random
 import time
-import json
 
 
 def test_simple(node_factory):
@@ -285,18 +284,10 @@ def test_hardmpp(node_factory):
     start_channels([(l1, l2, 10000000), (l2, l4, 3000000), (l4, l6, 10000000),
                     (l1, l3, 10000000), (l3, l5, 1000000), (l5, l6, 10000000)])
 
-    with open('/tmp/l1-chans.txt', 'w') as f:
-        print(json.dumps(l1.rpc.listchannels()), file=f)
-
     inv = l4.rpc.invoice('any', 'any', 'description')
     l2.rpc.call('pay', {'bolt11': inv['bolt11'], 'amount_msat': 2000000000})
     l2.wait_for_htlcs()
     assert l4.rpc.listinvoices()["invoices"][0]["amount_received_msat"] == 2000000000
-
-    with open('/tmp/l2-peerchan.txt', 'w') as f:
-        print(json.dumps(l2.rpc.listpeerchannels()), file=f)
-    with open('/tmp/l3-peerchan.txt', 'w') as f:
-        print(json.dumps(l3.rpc.listpeerchannels()), file=f)
 
     inv2 = l6.rpc.invoice("1800000sat", "inv2", 'description')
     l1.rpc.call(

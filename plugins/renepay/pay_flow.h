@@ -107,6 +107,6 @@ struct amount_msat payflow_delivered(const struct pay_flow *flow);
 /* Removes amounts from payment and frees flow pointer.
  * A possible destructor for flow would remove HTLCs from the
  * uncertainty_network and remove the flow from any data structure. */
-struct pay_flow* payflow_fail(struct pay_flow *flow);
+void payflow_fail(struct pay_flow *flow);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_FLOW_H */
