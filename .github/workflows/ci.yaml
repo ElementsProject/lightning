@@ -270,7 +270,6 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: regtest
             DEVELOPER: 1
-            EXPERIMENTAL_DUAL_FUND: 1
             EXPERIMENTAL_SPLICING: 1
     steps:
       - name: Checkout
