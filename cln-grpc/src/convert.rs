@@ -1624,6 +1624,16 @@ impl From<responses::PreapproveinvoiceResponse> for pb::PreapproveinvoiceRespons
 }
 
 #[allow(unused_variables)]
+impl From<responses::StaticbackupResponse> for pb::StaticbackupResponse {
+    fn from(c: responses::StaticbackupResponse) -> Self {
+        Self {
+            // Field: StaticBackup.scb[]
+            scb: c.scb.into_iter().map(|i| hex::decode(i).unwrap()).collect(), // Rule #3 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -2317,6 +2327,14 @@ impl From<requests::PreapproveinvoiceRequest> for pb::PreapproveinvoiceRequest {
     }
 }
 
+#[allow(unused_variables)]
+impl From<requests::StaticbackupRequest> for pb::StaticbackupRequest {
+    fn from(c: requests::StaticbackupRequest) -> Self {
+        Self {
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -2992,6 +3010,14 @@ impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
     fn from(c: pb::PreapproveinvoiceRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StaticbackupRequest> for requests::StaticbackupRequest {
+    fn from(c: pb::StaticbackupRequest) -> Self {
+        Self {
         }
     }
 }

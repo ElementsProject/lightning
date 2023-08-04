@@ -70,6 +70,7 @@ pub enum Request {
 	Stop(requests::StopRequest),
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
+	StaticBackup(requests::StaticbackupRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -132,6 +133,7 @@ pub enum Response {
 	Stop(responses::StopResponse),
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
+	StaticBackup(responses::StaticbackupResponse),
 }
 
 
@@ -1553,6 +1555,20 @@ pub mod requests {
 
 	impl IntoRequest for PreapproveinvoiceRequest {
 	    type Response = super::responses::PreapproveinvoiceResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct StaticbackupRequest {
+	}
+
+	impl From<StaticbackupRequest> for Request {
+	    fn from(r: StaticbackupRequest) -> Self {
+	        Request::StaticBackup(r)
+	    }
+	}
+
+	impl IntoRequest for StaticbackupRequest {
+	    type Response = super::responses::StaticbackupResponse;
 	}
 
 }
@@ -4895,6 +4911,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::PreApproveInvoice(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct StaticbackupResponse {
+	    pub scb: Vec<String>,
+	}
+
+	impl TryFrom<Response> for StaticbackupResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::StaticBackup(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

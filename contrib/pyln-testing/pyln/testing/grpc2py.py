@@ -1371,3 +1371,9 @@ def preapprovekeysend2py(m):
 def preapproveinvoice2py(m):
     return remove_default({
     })
+
+
+def staticbackup2py(m):
+    return remove_default({
+        "scb": [hexlify(m.scb) for i in hexlify(m.scb)], # ArrayField[primitive] in generate_composite
+    })
