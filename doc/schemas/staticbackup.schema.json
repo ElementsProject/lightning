@@ -9,7 +9,7 @@
     "scb": {
       "type": "array",
       "items": {
-        "type": "string",
+        "type": "hex",
         "description": "SCB of a channel in TLV format"
       }
     }
