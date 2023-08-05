@@ -206,6 +206,7 @@ static void log_to_files(const char *log_prefix,
 {
 	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
 	char *entry, *nodestr;
+	bool filtered;
 
 	if (print_timestamps) {
 		char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ ")];
@@ -243,12 +244,15 @@ static void log_to_files(const char *log_prefix,
 
 	/* In complex configurations, we tell loggers to overshare: then we
 	 * need to filter here to see if we really want it. */
+	filtered = false;
 	if (print_filters) {
 		enum log_level filter;
 		if (filter_level(print_filters,
 				 entry_prefix, nodestr, &filter)) {
 			if (level < filter)
 				return;
+			/* Even if they specify a default filter level of 'INFO', this overrides */
+			filtered = true;
 		}
 	}
 
@@ -264,10 +268,15 @@ static void log_to_files(const char *log_prefix,
 		if (!filter_level(&log_files[i]->print_filters,
 				  entry_prefix, nodestr, &filter)) {
 			/* If we haven't set default yet, only log UNUSUAL */
-			if (default_print_level)
-				filter = *default_print_level;
-			else
+			if (!default_print_level)
 				filter = LOG_UNUSUAL;
+			else {
+				/* If we've filtered it already, it passes */
+				if (filtered)
+					filter = level;
+				else
+					filter = *default_print_level;
+			}
 		}
 		if (level < filter)
 			continue;

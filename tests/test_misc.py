@@ -3076,7 +3076,6 @@ def test_log_filter(node_factory):
     assert all([' {}-'.format(l1.info['id']) in l for l in lines])
 
 
-@pytest.mark.xfail(strict=True)
 def test_log_filter_bug(node_factory):
     """Test the log-level option with overriding to a more verbose setting"""
     log_plugin = os.path.join(os.getcwd(), 'tests/plugins/log.py')
