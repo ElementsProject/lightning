@@ -15,9 +15,13 @@ The **staticbackup** RPC command returns an object with SCB of all the channels 
 RETURN VALUE
 ------------
 
+[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **scb** (array of hexs):
-  - Each item is SCB of a channel in TLV format
+  - SCB of a channel in TLV format
+
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 
 AUTHOR
@@ -35,4 +39,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:9cfaa9eb4609b36accc3e3b12a352c00ddd402307e4461f4df274146d12f6eb0)
+[comment]: # ( SHA256STAMP:d76fa5580c067419d83f7103758907b8771f9c393a38ec053c3a36de03a76e9a)
