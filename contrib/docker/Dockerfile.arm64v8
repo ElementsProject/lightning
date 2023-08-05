@@ -129,8 +129,7 @@ RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
     /root/.local/bin/poetry run make install
 
-# RUN pip3 install -r plugins/clnrest/requirements.txt
-RUN pip3 install flask gunicorn json5 flask_restx flask-socketio gevent gevent-websocket
+RUN pip3 install -r plugins/clnrest/requirements.txt
 RUN pip3 install ./contrib/pyln-client
 
 FROM debian:bullseye-slim as final

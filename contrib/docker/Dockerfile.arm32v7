@@ -5,7 +5,7 @@
 # * final: Copy the binaries required at runtime
 # The resulting image uploaded to dockerhub will only contain what is needed for runtime.
 # From the root of the repository, run "docker build -t yourimage:yourtag ."
-FROM debian:bullseye-slim as downloader
+FROM debian:bookworm-slim as downloader
 
 RUN set -ex \
     && apt-get update \
@@ -41,7 +41,7 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
-FROM debian:bullseye-slim as builder
+FROM debian:bookworm as builder
 
 ENV LIGHTNINGD_VERSION=master
 RUN apt-get update -qq && \
@@ -52,7 +52,6 @@ RUN apt-get update -qq && \
         ca-certificates \
         curl \
         dirmngr \
-        gcc-10 \
         gettext \
         git \
         gnupg \
@@ -62,43 +61,27 @@ RUN apt-get update -qq && \
         pkg-config \
         libssl-dev \
         protobuf-compiler \
-        python3.9 \
+        python3 \
         python3-dev \
         python3-mako \
         python3-pip \
         python3-venv \
         python3-setuptools \
+        python3-wheel \
         libev-dev \
         libevent-dev \
         qemu-user-static \
+        zlib1g-dev \
+        zlib1g \
+        unzip \
+        tclsh \
+        sqlite3 \
+        libsqlite3-dev \
+        libgmp-dev \
         wget
 
-ENV PKG_CONFIG_PATH /usr/lib/arm-linux-gnueabihf/pkgconfig
-
-RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz \
-    && tar xvf zlib-1.2.13.tar.gz \
-    && cd zlib-1.2.13 \
-    && ./configure \
-    && make \
-    && make install && cd .. && \
-    rm zlib-1.2.13.tar.gz && \
-    rm -rf zlib-1.2.13
-
-RUN apt-get install -y --no-install-recommends unzip tclsh \
-    && wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
-    && unzip sqlite-src-3290000.zip \
-    && cd sqlite-src-3290000 \
-    && ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension \
-    && make \
-    && make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
-
 USER root
-RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
-    && tar xvf gmp-6.1.2.tar.xz \
-    && cd gmp-6.1.2 \
-    && ./configure --disable-assembly \
-    && make \
-    && make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
+ENV PKG_CONFIG_PATH /usr/lib/arm-linux-gnueabihf/pkgconfig
 
 ENV RUST_PROFILE=release
 ENV PATH=$PATH:/root/.cargo/bin/
@@ -106,33 +89,34 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
 WORKDIR /opt/lightningd
-COPY . /tmp/lightning
+COPY . .
 
-RUN git clone --recursive /tmp/lightning . && \
-    git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
+# RUN git clone --recursive /tmp/lightning . && \
+#     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 60 --slave /usr/bin/g++ g++ /usr/bin/g++-10
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-RUN pip3 install --upgrade pip setuptools wheel
 RUN pip3 wheel cryptography
-RUN pip3 install grpcio-tools
 
 RUN /root/.local/bin/poetry install
+
+RUN python3 -m venv clnenv
+RUN source clnenv/bin/activate
+RUN pip3 install grpcio-tools
+RUN pip3 install mako
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
     /root/.local/bin/poetry run make install
 
-# RUN pip3 install -r plugins/clnrest/requirements.txt
-RUN pip3 install flask gunicorn json5 flask_restx flask-socketio gevent gevent-websocket
+RUN pip3 install -r plugins/clnrest/requirements.txt
 RUN pip3 install ./contrib/pyln-client
 
-FROM debian:bullseye-slim as final
+FROM debian:bookworm-slim as final
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
