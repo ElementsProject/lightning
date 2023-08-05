@@ -3076,6 +3076,17 @@ def test_log_filter(node_factory):
     assert all([' {}-'.format(l1.info['id']) in l for l in lines])
 
 
+@pytest.mark.xfail(strict=True)
+def test_log_filter_bug(node_factory):
+    """Test the log-level option with overriding to a more verbose setting"""
+    log_plugin = os.path.join(os.getcwd(), 'tests/plugins/log.py')
+    l1 = node_factory.get_node(options={'plugin': log_plugin,
+                                        'log-level': ['info', 'debug:plugin-log']})
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log("printing debug log")
+    l1.daemon.wait_for_log("printing info log")
+
+
 def test_force_feerates(node_factory):
     l1 = node_factory.get_node(options={'force-feerates': 1111})
     assert l1.rpc.listconfigs()['configs']['force-feerates']['value_str'] == '1111'
