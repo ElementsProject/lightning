@@ -8,6 +8,7 @@ if [ "$1" = "--inside-docker" ]; then
     PLTFM="$3"
     git clone /src /build
     cd /build
+    pip3 install -r plugins/clnrest/requirements.txt
     pip3 install ./contrib/pyln-client
     ./configure
     make VERSION="$VER"
