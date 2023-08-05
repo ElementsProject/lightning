@@ -26,7 +26,7 @@ packaging==23.1
 pycparser==2.21
 pyln-bolt7==1.0.246
 pyln-client==23.08
-pyln-proto==23.08
+pyln-proto==23.5.2
 PySocks==1.7.1
 python-engineio==4.5.1
 python-socketio==5.8.0
