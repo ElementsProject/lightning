@@ -425,7 +425,7 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < ARRAY_SIZE(addr_invalid1); i++) {
 		parts = codex32_decode(tmpctx, NULL, addr_invalid1[i], &fail);
 		if (parts) {
-			printf("payload ==  %ld\n", tal_bytelen(parts->payload));
+			printf("payload ==  %zu\n", tal_bytelen(parts->payload));
 			abort();
 		} else {
 			assert(streq(fail, "Invalid checksum!") ||
@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < ARRAY_SIZE(addr_invalid2); i++) {
 		parts = codex32_decode(tmpctx, NULL, addr_invalid2[i], &fail);
 		if (parts) {
-			printf("payload %ld\n", tal_bytelen(parts->payload));
+			printf("payload %zu\n", tal_bytelen(parts->payload));
 			abort();
 		} else {
 			assert(streq(fail, "Invalid payload!") ||
