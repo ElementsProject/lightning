@@ -69,8 +69,8 @@ static void valgrind_ok1(void)
 
 		printf("key1 = %s\n",fmt_payflow_key(local_ctx,&p1->key));
 		printf("key1 = %s\n",fmt_payflow_key(local_ctx,&p2->key));
-		printf("key hash 1 = %ld\n",payflow_key_hash(p1->key));
-		printf("key hash 2 = %ld\n",payflow_key_hash(p2->key));
+		printf("key hash 1 = %zu\n",payflow_key_hash(p1->key));
+		printf("key hash 2 = %zu\n",payflow_key_hash(p2->key));
 
 		payflow_map_add(map,p1); tal_add_destructor2(p1,destroy_payflow,map);
 		payflow_map_add(map,p2); tal_add_destructor2(p2,destroy_payflow,map);

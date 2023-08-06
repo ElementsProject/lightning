@@ -3349,7 +3349,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 	if (tal_count(inws) > current_psbt->num_inputs)
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "%lu too many witness elements received",
+				 "%zu too many witness elements received",
 				 tal_count(inws) - current_psbt->num_inputs);
 
 	/* We put the PSBT + sigs all together */
