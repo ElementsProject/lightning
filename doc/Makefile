@@ -87,6 +87,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-preapproveinvoice.7 \
 	doc/lightning-preapprovekeysend.7 \
 	doc/lightning-recoverchannel.7 \
+	doc/lightning-renepay.7 \
+	doc/lightning-renepaystatus.7 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
 	doc/lightning-sendonion.7 \
