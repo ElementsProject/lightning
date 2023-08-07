@@ -57,12 +57,14 @@ def publishDoc(title, body, order):
 def extract_rpc_commands(rst_content):
     manpages_block = re.search(
             r"\.\. block_start manpages(.*?)"
-            r"\.\. block_end manpages", rst_content, re.DOTALL)
+            r"\.\. block_end manpages",
+            rst_content, re.DOTALL)
     if manpages_block:
         commands = re.findall(
                 r"\b([a-zA-Z0-9_-]+)"
                 r"\s+<([^>]+)>\n",
-                manpages_block.group(1))
+                manpages_block.group(1)
+                )
         return commands
     return []
 
