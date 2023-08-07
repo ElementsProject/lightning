@@ -1486,15 +1486,21 @@ static u8 *send_commit_part(struct peer *peer,
 	const struct htlc **htlc_map;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
-
-	status_debug("send_commit_part(splice: %d, remote_splice: %d)",
-		     (int)splice_amnt, (int)remote_splice_amnt);
-
-
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
-	cs_tlv->splice_info = tal(cs_tlv, struct channel_id);
-	derive_channel_id(cs_tlv->splice_info, funding);
+
+	/* In theory, peer will ignore TLV 1 as unknown, but while
+	 * spec is in flux this is dangerous, as it may change: so don't
+	 * send unless negotiated */
+	if (feature_negotiated(peer->our_features,
+			       peer->their_features,
+			       OPT_SPLICE)) {
+		status_debug("send_commit_part(splice: %d, remote_splice: %d)",
+			     (int)splice_amnt, (int)remote_splice_amnt);
+
+		cs_tlv->splice_info = tal(cs_tlv, struct channel_id);
+		derive_channel_id(cs_tlv->splice_info, funding);
+	}
 
 	txs = channel_splice_txs(tmpctx, funding, funding_sats, &htlc_map,
 				 direct_outputs, &funding_wscript,
