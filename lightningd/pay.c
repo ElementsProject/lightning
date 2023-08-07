@@ -1333,7 +1333,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
 		   p_opt_def("partid", param_u64, &partid, 0),
 		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_string, &invstring),
+		   p_opt("bolt11", param_invstring, &invstring),
 		   p_opt_def("amount_msat|msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
 		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
@@ -1711,7 +1711,7 @@ static struct command_result *json_listsendpays(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_string, &invstring),
+		   p_opt("bolt11", param_invstring, &invstring),
 		   p_opt("payment_hash", param_sha256, &rhash),
 		   p_opt("status", param_payment_status, &status),
 		   NULL))
