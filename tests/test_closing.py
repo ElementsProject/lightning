@@ -3641,7 +3641,6 @@ def test_close_weight_estimate(node_factory, bitcoind):
     assert signed_weight + 6 >= final_estimate  # 70byte signature
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev_disconnect")
 def test_onchain_close_upstream(node_factory, bitcoind):
     """https://github.com/ElementsProject/lightning/issues/4649

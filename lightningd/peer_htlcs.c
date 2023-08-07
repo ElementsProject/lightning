@@ -11,6 +11,7 @@
 #include <common/onionreply.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
+#include <connectd/connectd_wiregen.h>
 #include <db/exec.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/chaintopology.h>
@@ -591,6 +592,14 @@ static void htlc_offer_timeout(struct htlc_out *out)
 	tal_free(channel->owner);
 	channel_set_billboard(channel, false,
 			      "Adding HTLC timed out: killed connection");
+
+	/* Force a disconnect in case the issue is with TCP */
+	if (channel->peer->ld->connectd) {
+		const struct peer *peer = channel->peer;
+		subd_send_msg(peer->ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &peer->id,
+								peer->connectd_counter)));
+	}
 }
 
 /* Returns failmsg, or NULL on success. */
