@@ -20,7 +20,7 @@
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -379,8 +379,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	}
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id, channel->dbid,
-				  HSM_CAP_SIGN_CLOSING_TX
-				  | HSM_CAP_COMMITMENT_POINT);
+				  HSM_PERM_SIGN_CLOSING_TX
+				  | HSM_PERM_COMMITMENT_POINT);
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, ld,

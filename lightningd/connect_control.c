@@ -10,7 +10,7 @@
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
@@ -661,7 +661,7 @@ int connectd_init(struct lightningd *ld)
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
 
-	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH);
+	hsmfd = hsm_get_global_fd(ld, HSM_PERM_ECDH);
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
 				       connectd_wire_name, connectd_msg,

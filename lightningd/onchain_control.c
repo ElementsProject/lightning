@@ -9,8 +9,8 @@
 #include <common/type_to_string.h>
 #include <db/exec.h>
 #include <errno.h>
-#include <hsmd/capabilities.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <hsmd/permissions.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -1553,8 +1553,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
-				  HSM_CAP_SIGN_ONCHAIN_TX
-				  | HSM_CAP_COMMITMENT_POINT);
+				  HSM_PERM_SIGN_ONCHAIN_TX
+				  | HSM_PERM_COMMITMENT_POINT);
 
 	channel_set_owner(channel, new_channel_subd(channel, ld,
 						    "lightning_onchaind",

@@ -11,10 +11,10 @@ struct ext_key;
 int hsm_get_client_fd(struct lightningd *ld,
 		      const struct node_id *id,
 		      u64 dbid,
-		      int capabilities);
+		      u64 permissions);
 
 /* Ask HSM for an fd for a global subdaemon to use (gossipd, connectd) */
-int hsm_get_global_fd(struct lightningd *ld, int capabilities);
+int hsm_get_global_fd(struct lightningd *ld, u64 permissions);
 
 /* Is this capability supported by the HSM? (So far, always a message
  * number) */

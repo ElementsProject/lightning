@@ -15,7 +15,7 @@
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
@@ -933,8 +933,8 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 	assert(!uc->open_daemon);
 
 	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
-				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
+				  HSM_PERM_COMMITMENT_POINT
+				  | HSM_PERM_SIGN_REMOTE_TX);
 
 	uc->open_daemon = new_channel_subd(peer, peer->ld,
 					"lightning_openingd",

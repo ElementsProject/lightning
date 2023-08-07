@@ -7,7 +7,7 @@
 #include <common/json_stream.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -270,7 +270,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	int hsmfd;
 	void *ret;
 
-	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH|HSM_CAP_SIGN_GOSSIP);
+	hsmfd = hsm_get_global_fd(ld, HSM_PERM_ECDH|HSM_PERM_SIGN_GOSSIP);
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
 				     gossipd_wire_name, gossip_msg,
