@@ -1852,7 +1852,7 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   /* FIXME: parameter should be invstring now */
-		   p_req("bolt11", param_string, &invstring),
+		   p_req("bolt11", param_invstring, &invstring),
 		   NULL))
 		return command_param_failed();
 

@@ -5382,7 +5382,6 @@ def test_strip_lightning_suffix_from_inv(node_factory):
     assert listpays[2]['bolt11'] == inv, f"list pays contains a different invoice, expected is {inv} but we get {listpays[0]['bolt11']}"
 
 
-@pytest.mark.xfail(strict=True)
 def test_listsendpays_crash(node_factory):
     l1 = node_factory.get_node()
 

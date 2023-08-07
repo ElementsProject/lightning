@@ -625,7 +625,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	struct payment *p;
 
 	if (!param(cmd, buf, params,
-		   p_opt("invstring", param_string, &invstring),
+		   p_opt("invstring", param_invstring, &invstring),
 		   NULL))
 		return command_param_failed();
 
@@ -940,7 +940,7 @@ static struct command_result *json_pay(struct command *cmd,
 #endif
 
 	if (!param(cmd, buf, params,
-		   p_req("invstring", param_string, &invstr),
+		   p_req("invstring", param_invstring, &invstr),
  		   p_opt("amount_msat", param_msat, &msat),
  		   p_opt("maxfee", param_msat, &maxfee),
 
