@@ -504,7 +504,8 @@ static bool configfile_replace_var(struct lightningd *ld,
 	contents = tal_strjoin(tmpctx, take(lines), "\n", STR_TRAIL);
 	if (!write_all(outfd, contents, strlen(contents)))
 		fatal("Writing %s: %s", template, strerror(errno));
-	fdatasync(outfd);
+	if (fsync(outfd) != 0)
+		fatal("Syncing %s: %s", template, strerror(errno));
 
 	if (rename(template, cv->file) != 0)
 		fatal("Renaming %s over %s: %s",
