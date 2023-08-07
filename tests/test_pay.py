@@ -5380,3 +5380,11 @@ def test_strip_lightning_suffix_from_inv(node_factory):
     listpays = l1.rpc.listpays()["pays"]
     assert len(listpays) == 3, f"the list pays is bigger than what we expected {listpays}"
     assert listpays[2]['bolt11'] == inv, f"list pays contains a different invoice, expected is {inv} but we get {listpays[0]['bolt11']}"
+
+
+@pytest.mark.xfail(strict=True)
+def test_listsendpays_crash(node_factory):
+    l1 = node_factory.get_node()
+
+    inv = l1.rpc.invoice(40, "inv", "inv")["bolt11"]
+    l1.rpc.listsendpays('lightning:' + inv)
