@@ -46,13 +46,13 @@ msgdata,hsmd_new_channel,dbid,u64,
 # No value returned.
 msgtype,hsmd_new_channel_reply,130
 
-# Get a new HSM FD, with the specified capabilities
+# Get a new HSM FD, with the specified permissions
 msgtype,hsmd_client_hsmfd,9
 # Which identity to use for requests
 msgdata,hsmd_client_hsmfd,id,node_id,
 # Database id for this client, if any.
 msgdata,hsmd_client_hsmfd,dbid,u64,
-msgdata,hsmd_client_hsmfd,capabilities,u64,
+msgdata,hsmd_client_hsmfd,permissions,u64,
 
 # No content, just an fd.
 msgtype,hsmd_client_hsmfd_reply,109

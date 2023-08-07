@@ -4,7 +4,7 @@ HSMD_SRC := hsmd/hsmd.c	\
 	hsmd/hsmd_wiregen.c \
 	hsmd/libhsmd.c
 
-HSMD_HEADERS := hsmd/hsmd_wiregen.h
+HSMD_HEADERS := hsmd/hsmd_wiregen.h hsmd/permissions.h
 HSMD_OBJS := $(HSMD_SRC:.c=.o)
 
 $(HSMD_OBJS): $(HSMD_HEADERS)

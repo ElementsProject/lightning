@@ -17,7 +17,7 @@
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
@@ -3695,9 +3695,9 @@ bool peer_start_dualopend(struct peer *peer,
 	const u8 *msg;
 
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
-				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX
-				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
+				  HSM_PERM_COMMITMENT_POINT
+				  | HSM_PERM_SIGN_REMOTE_TX
+				  | HSM_PERM_SIGN_WILL_FUND_OFFER);
 
 	channel->owner = new_channel_subd(channel,
 					  peer->ld,
@@ -3767,9 +3767,9 @@ bool peer_restart_dualopend(struct peer *peer,
 		return peer_start_dualopend(peer, peer_fd, channel);
 
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
-				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX
-				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
+				  HSM_PERM_COMMITMENT_POINT
+				  | HSM_PERM_SIGN_REMOTE_TX
+				  | HSM_PERM_SIGN_WILL_FUND_OFFER);
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, peer->ld,

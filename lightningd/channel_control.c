@@ -13,7 +13,7 @@
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <hsmd/capabilities.h>
+#include <hsmd/permissions.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
@@ -1264,12 +1264,12 @@ bool peer_start_channeld(struct channel *channel,
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
-				  HSM_CAP_SIGN_GOSSIP
-				  | HSM_CAP_ECDH
-				  | HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX
-				  | HSM_CAP_SIGN_ONCHAIN_TX
-				  | HSM_CAP_SIGN_CLOSING_TX);
+				  HSM_PERM_SIGN_GOSSIP
+				  | HSM_PERM_ECDH
+				  | HSM_PERM_COMMITMENT_POINT
+				  | HSM_PERM_SIGN_REMOTE_TX
+				  | HSM_PERM_SIGN_ONCHAIN_TX
+				  | HSM_PERM_SIGN_CLOSING_TX);
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, ld,

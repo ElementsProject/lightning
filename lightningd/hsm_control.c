@@ -24,12 +24,12 @@
 static int hsm_get_fd(struct lightningd *ld,
 		      const struct node_id *id,
 		      u64 dbid,
-		      int capabilities)
+		      u64 permissions)
 {
 	int hsm_fd;
 	const u8 *msg;
 
-	msg = towire_hsmd_client_hsmfd(NULL, id, dbid, capabilities);
+	msg = towire_hsmd_client_hsmfd(NULL, id, dbid, permissions);
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
@@ -43,16 +43,16 @@ static int hsm_get_fd(struct lightningd *ld,
 int hsm_get_client_fd(struct lightningd *ld,
 		      const struct node_id *id,
 		      u64 dbid,
-		      int capabilities)
+		      u64 permissions)
 {
 	assert(dbid);
 
-	return hsm_get_fd(ld, id, dbid, capabilities);
+	return hsm_get_fd(ld, id, dbid, permissions);
 }
 
-int hsm_get_global_fd(struct lightningd *ld, int capabilities)
+int hsm_get_global_fd(struct lightningd *ld, u64 permissions)
 {
-	return hsm_get_fd(ld, &ld->id, 0, capabilities);
+	return hsm_get_fd(ld, &ld->id, 0, permissions);
 }
 
 static unsigned int hsm_msg(struct subd *hsmd,
