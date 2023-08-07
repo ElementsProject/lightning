@@ -4255,3 +4255,21 @@ def test_all_subscription(node_factory, directory):
     # shutdown and connect are subscribed before the wildcard, so is handled by that handler
     assert not l2.daemon.is_in_log(f'.*test_libplugin: all: shutdown.*')
     assert not l2.daemon.is_in_log(f'.*test_libplugin: all: connect.*')
+
+
+def test_renepay_not_important(node_factory):
+    # I mean, it's *important*, it's just not "mission-critical" just yet!
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+
+    assert not any([p['name'] == 'cln-renepay' for p in l1.rpc.listconfigs()['important-plugins']])
+    assert [p['name'] for p in l1.rpc.listconfigs()['plugins'] if p['name'] == 'cln-renepay'] == ['cln-renepay']
+
+    # We can kill it without cln dying.
+    line = l1.daemon.is_in_log(r'.*started\([0-9]*\).*plugins/cln-renepay')
+    pidstr = re.search(r'.*started\(([0-9]*)\).*plugins/cln-renepay', line).group(1)
+    os.kill(int(pidstr), signal.SIGKILL)
+    l1.daemon.wait_for_log('plugin-cln-renepay: Killing plugin: exited during normal operation')
+
+    # But we don't shut down, and we can restrart.
+    assert [p['name'] for p in l1.rpc.listconfigs()['plugins'] if p['name'] == 'cln-renepay'] == []
+    l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-renepay'))

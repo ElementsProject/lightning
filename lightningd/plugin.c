@@ -2340,7 +2340,8 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				take(path_join(NULL, dir,
 					       list_of_builtin_plugins[i])),
 				NULL,
-				/* important = */ true,
+				/* important = */
+				!streq(list_of_builtin_plugins[i], "cln-renepay"),
 				NULL, NULL);
 }
 
