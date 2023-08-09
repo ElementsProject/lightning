@@ -650,7 +650,7 @@ int main(int argc, char *argv[])
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
 	const tal_t *ctx = tal(NULL, char);
-	char *net_dir, *rpc_filename;
+	char *config_filename, *base_dir, *net_dir, *rpc_filename;
 	jsmn_parser parser;
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
@@ -668,7 +668,8 @@ int main(int argc, char *argv[])
 	setup_option_allocators();
 
 	opt_exitcode = ERROR_USAGE;
-	minimal_config_opts(ctx, argc, argv, &net_dir, &rpc_filename);
+	minimal_config_opts(ctx, argc, argv, &config_filename, &base_dir,
+			    &net_dir, &rpc_filename);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");

@@ -281,16 +281,18 @@ static struct configvar **gather_cmdline_args(const tal_t *ctx,
 
 void minimal_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
+			 char **config_filename,
+			 char **basedir,
 			 char **config_netdir,
 			 char **rpc_filename)
 {
-	char *unused_filename, *unused_basedir;
-
 	initial_config_opts(tmpctx, &argc, argv, false,
-			    &unused_filename,
-			    &unused_basedir,
+			    config_filename,
+			    basedir,
 			    config_netdir,
 			    rpc_filename);
+	tal_steal(ctx, *config_filename);
+	tal_steal(ctx, *basedir);
 	tal_steal(ctx, *config_netdir);
 	tal_steal(ctx, *rpc_filename);
 }

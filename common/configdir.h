@@ -15,6 +15,8 @@ void setup_option_allocators(void);
 /* Minimal config parsing for tools: use opt_early_parse/opt_parse after */
 void minimal_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
+			 char **config_filename,
+			 char **basedir,
 			 char **config_netdir,
 			 char **rpc_filename);
 
