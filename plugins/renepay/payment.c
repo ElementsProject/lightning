@@ -55,7 +55,6 @@ struct renepay * renepay_new(struct command *cmd)
 	renepay->rexmit_timer = NULL;
 	renepay->next_attempt=1;
 	renepay->next_partid=1;
-	renepay->all_flows = tal(renepay,tal_t);
 
 	return renepay;
 }
