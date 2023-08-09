@@ -244,7 +244,6 @@ static struct pay_flow **flows_to_pay_flows(struct payment *payment,
 		pf->amounts = tal_steal(pf, f->amounts);
 		pf->path_dirs = tal_steal(pf, f->dirs);
 		pf->success_prob = f->success_prob;
-		pf->attempt = renepay_current_attempt(payment->renepay);
 	}
 	tal_free(flows);
 

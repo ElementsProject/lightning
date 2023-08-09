@@ -120,8 +120,6 @@ struct renepay
 	/* Timers. */
 	struct plugin_timer *rexmit_timer;
 
-	/* Keep track of the number of attempts. */
-	int next_attempt;
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
 };
@@ -142,11 +140,6 @@ struct amount_msat payment_fees(const struct payment *p);
 void payment_note(struct payment *p, const char *fmt, ...);
 void payment_assert_delivering_incomplete(const struct payment *p);
 void payment_assert_delivering_all(const struct payment *p);
-
-
-int renepay_current_attempt(const struct renepay *renepay);
-int renepay_attempt_count(const struct renepay *renepay);
-void renepay_new_attempt(struct renepay *renepay);
 
 struct command_result *renepay_success(struct renepay *renepay);
 

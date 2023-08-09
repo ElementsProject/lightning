@@ -490,19 +490,9 @@ static struct command_result *try_paying(struct command *cmd,
 	struct payment * const p = renepay->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	// TODO(eduardo): does it make sense to have this limit on attempts?
-	/* I am classifying the flows in attempt cycles. */
-	renepay_new_attempt(renepay);
-	/* We try only MAX_NUM_ATTEMPTS, then we give up. */
-	if ( renepay_attempt_count(renepay) > MAX_NUM_ATTEMPTS)
-	{
-		return renepay_fail(renepay, PAY_STOPPED_RETRYING,
-				    "Reached maximum number of attempts (%d)",
-				    MAX_NUM_ATTEMPTS);
-	}
-
 	struct amount_msat feebudget, fees_spent, remaining;
 
+	renepay->payment->status=PAYMENT_PENDING;
 	if (time_after(time_now(), p->stop_time))
 		return renepay_fail(renepay, PAY_STOPPED_RETRYING, "Timed out");
 
