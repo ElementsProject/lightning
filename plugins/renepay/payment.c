@@ -49,7 +49,6 @@ struct renepay * renepay_new(struct command *cmd)
 
 	renepay->cmd = cmd;
 	renepay->payment = payment_new(renepay);
-	renepay->localmods_applied=false;
  	renepay->local_gossmods = gossmap_localmods_new(renepay);
 	renepay->disabled = tal_arr(renepay,struct short_channel_id,0);
 	renepay->rexmit_timer = NULL;
@@ -190,21 +189,10 @@ void renepay_cleanup(
 		struct gossmap * gossmap)
 {
 	debug_info("calling %s",__PRETTY_FUNCTION__);
-	/* Always remove our local mods (routehints) so others can use
-	 * gossmap. We do this only after the payment completes. */
 	// TODO(eduardo): it can happen that local_gossmods removed below
 	// contained a set of channels for which there is information in the
 	// uncertainty network (chan_extra_map) and that are part of some pending
 	// payflow (payflow_map). Handle this situation.
-	if(renepay->localmods_applied)
-		gossmap_remove_localmods(gossmap,
-					 renepay->local_gossmods);
-	// TODO(eduardo): I wonder if it is possible to have two instances of
-	// renepay at the same time.
-	// 1st problem: dijkstra datastructure is global, this can be fixed,
-	// 2nd problem: we don't know if gossmap_apply_localmods and gossmap_remove_localmods,
-	// 	can handle different local_gossmods applied to the same gossmap.
-	renepay->localmods_applied=false;
 	tal_free(renepay->local_gossmods);
 
 	renepay->rexmit_timer = tal_free(renepay->rexmit_timer);

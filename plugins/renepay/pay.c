@@ -546,6 +546,7 @@ static struct command_result *try_paying(struct command *cmd,
 
 	/* We let this return an unlikely path, as it's better to try once
 	 * than simply refuse.  Plus, models are not truth! */
+	gossmap_apply_localmods(pay_plugin->gossmap, renepay->local_gossmods);
 	struct pay_flow **pay_flows = get_payflows(
 						renepay,
 						remaining, feebudget,
@@ -558,6 +559,7 @@ static struct command_result *try_paying(struct command *cmd,
 						amount_msat_eq(p->total_delivering, AMOUNT_MSAT(0)),
 
 						&err_msg);
+	gossmap_remove_localmods(pay_plugin->gossmap, renepay->local_gossmods);
 
 	// plugin_log(pay_plugin->plugin,LOG_DBG,"get_payflows produced %s",fmt_payflows(tmpctx,pay_flows));
 
@@ -590,13 +592,9 @@ static struct command_result *listpeerchannels_done(
 				    "listpeerchannels malformed: %.*s",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
-	// So we have all localmods data, now we apply it. Only once per
-	// payment.
 	// TODO(eduardo): check that there won't be a prob. cost associated with
 	// any gossmap local chan. The same way there aren't fees to pay for my
 	// local channels.
-	gossmap_apply_localmods(pay_plugin->gossmap,renepay->local_gossmods);
-	renepay->localmods_applied=true;
 	return try_paying(cmd, renepay, true);
 }
 

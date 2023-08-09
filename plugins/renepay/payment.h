@@ -111,7 +111,6 @@ struct renepay
 	struct payment * payment;
 
 	/* Localmods to apply to gossip_map for our own use. */
-	bool localmods_applied;
 	struct gossmap_localmods *local_gossmods;
 
 	/* Channels we decided to disable for various reasons. */
