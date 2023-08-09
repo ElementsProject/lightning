@@ -363,9 +363,8 @@ include tests/plugins/Makefile
 ifneq ($(FUZZING),0)
 	include tests/fuzz/Makefile
 endif
-ifneq ($(RUST),0)
-	include cln-rpc/Makefile
-	include cln-grpc/Makefile
+include cln-rpc/Makefile
+include cln-grpc/Makefile
 
 $(MSGGEN_GENALL)&: doc/schemas/*.request.json doc/schemas/*.schema.json
 	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
@@ -388,7 +387,6 @@ $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
 	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
 	find $(GRPC_DIR)/ -type f -name "*.py.bak" -delete
-endif
 
 # We make pretty much everything depend on these.
 ALL_GEN_HEADERS := $(filter %gen.h,$(ALL_C_HEADERS))

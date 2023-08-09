@@ -4,7 +4,10 @@ cln-rpc-wrongdir:
 CLN_RPC_EXAMPLES := target/${RUST_PROFILE}/examples/cln-rpc-getinfo
 CLN_RPC_GENALL = cln-rpc/src/model.rs
 CLN_RPC_SOURCES = $(shell find cln-rpc -name *.rs) ${CLN_RPC_GENALL}
+
+ifneq ($(RUST),0)
 DEFAULT_TARGETS += $(CLN_RPC_EXAMPLES) $(CLN_RPC_GENALL)
+endif
 
 MSGGEN_GENALL += $(CLN_RPC_GENALL)
 

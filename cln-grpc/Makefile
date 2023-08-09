@@ -6,7 +6,9 @@ CLN_GRPC_GENALL = cln-grpc/proto/node.proto \
 	cln-grpc/src/convert.rs \
 	cln-grpc/src/server.rs
 
+ifneq ($(RUST),0)
 DEFAULT_TARGETS += $(CLN_GRPC_EXAMPLES) $(CLN_GRPC_GENALL)
+endif
 
 MSGGEN_GENALL += $(CLN_GRPC_GENALL) contrib/pyln-testing/pyln/testing/grpc2py.py
 
