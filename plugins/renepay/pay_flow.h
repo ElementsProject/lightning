@@ -14,9 +14,6 @@ struct pay_flow {
 	/* So we can be an independent object for callbacks. */
 	struct payment * payment;
 
-	// TODO(eduardo): remove this, unnecessary
-	int attempt;
-
 	/* Information to link this flow to a unique sendpay. */
 	struct payflow_key
 	{

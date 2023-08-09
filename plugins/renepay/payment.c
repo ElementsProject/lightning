@@ -53,7 +53,6 @@ struct renepay * renepay_new(struct command *cmd)
  	renepay->local_gossmods = gossmap_localmods_new(renepay);
 	renepay->disabled = tal_arr(renepay,struct short_channel_id,0);
 	renepay->rexmit_timer = NULL;
-	renepay->next_attempt=1;
 	renepay->next_partid=1;
 
 	return renepay;
@@ -131,20 +130,6 @@ void payment_assert_delivering_all(const struct payment *p)
 	}
 }
 
-
-int renepay_current_attempt(const struct renepay * renepay)
-{
-	return renepay->next_attempt-1;
-}
-int renepay_attempt_count(const struct renepay * renepay)
-{
-	return renepay->next_attempt-1;
-}
-void renepay_new_attempt(struct renepay * renepay)
-{
-	renepay->payment->status=PAYMENT_PENDING;
-	renepay->next_attempt++;
-}
 struct command_result *renepay_success(struct renepay * renepay)
 {
 	debug_info("calling %s",__PRETTY_FUNCTION__);
