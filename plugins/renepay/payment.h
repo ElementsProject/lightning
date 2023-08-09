@@ -124,9 +124,6 @@ struct renepay
 	int next_attempt;
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
-
-	/* Root to destroy pending flows */
-	tal_t *all_flows;
 };
 
 struct payment * payment_new(struct renepay *renepay);
