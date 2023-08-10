@@ -916,16 +916,18 @@ static struct command_result *json_pay(struct command *cmd,
  	u64 invexpiry;
  	struct amount_msat *msat, *invmsat;
 	struct amount_msat *maxfee;
+	struct sha256 payment_hash;
+	struct secret *payment_secret;
+	const u8 *payment_metadata;
+	struct node_id destination;
 	u32 *maxdelay;
 	u32 *retryfor;
-
-#if DEVELOPER
 	u64 *base_fee_penalty;
 	u64 *prob_cost_factor;
 	u64 *riskfactor_millionths;
 	u64 *min_prob_success_millionths;
 	bool *use_shadow;
-#endif
+	u16 final_cltv;
 
 	if (!param(cmd, buf, params,
 		   p_req("invstring", param_invstring, &invstr),
@@ -954,95 +956,34 @@ static struct command_result *json_pay(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* renepay is bound to the command, if the command finishes renepay is
-	 * freed. */
-	struct renepay * renepay = renepay_new(cmd);
-	tal_add_destructor2(renepay,
-			    renepay_cleanup,
-			    pay_plugin->gossmap);
- 	struct payment * p = renepay->payment;
-
-	p->invstr = tal_steal(p,invstr);
-	p->description = tal_steal(p,description);
-	p->label = tal_steal(p,label);
-	p->local_offer_id = tal_steal(p,local_offer_id);
-
-
-
-	/* Please renepay try to give me a reliable payment 90% chances of
-	 * success, once you do, then minimize as much as possible those fees. */
-	p->min_prob_success = 0.9;
-
-	/* Default delay_feefactor: how much shall we penalize for delay. */
-	p->delay_feefactor = 1e-6;
-
-	/* Default prob_cost_factor: how to convert prob. cost to sats. */
-	p->prob_cost_factor = 10;
-
-	/* Default base_fee_penalty: how to convert a base fee into a
-	 * proportional fee. */
-	p->base_fee_penalty = 10;
-
-#if DEVELOPER
-	p->base_fee_penalty = *base_fee_penalty;
-	base_fee_penalty = tal_free(base_fee_penalty);
-
-	p->prob_cost_factor = *prob_cost_factor;
-	prob_cost_factor = tal_free(prob_cost_factor);
-
-	p->min_prob_success = *min_prob_success_millionths/1e6;
-	min_prob_success_millionths = tal_free(min_prob_success_millionths);
-
-	p->delay_feefactor = *riskfactor_millionths/1e6;
-	riskfactor_millionths = tal_free(riskfactor_millionths);
-#endif
-
-	p->maxdelay = *maxdelay;
-	maxdelay = tal_free(maxdelay);
-
-	/* We inmediately add this payment to the payment list. */
-	tal_steal(pay_plugin->ctx,p);
-	list_add_tail(&pay_plugin->payments, &p->list);
-	tal_add_destructor(p, destroy_payment);
-
-	plugin_log(pay_plugin->plugin,LOG_DBG,"Starting renepay");
-	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
-
-	if (pay_plugin->gossmap == NULL)
-		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
-			   strerror(errno));
-
-	p->start_time = time_now();
-	p->stop_time = timeabs_add(p->start_time, time_from_sec(*retryfor));
-	tal_free(retryfor);
-
+	/* We might need to parse invstring to get amount */
 	bool invstr_is_b11=false;
-	if (!bolt12_has_prefix(p->invstr)) {
+	if (!bolt12_has_prefix(invstr)) {
 		struct bolt11 *b11;
 		char *fail;
 
 		b11 =
-		    bolt11_decode(tmpctx, p->invstr, plugin_feature_set(cmd->plugin),
-				  p->description, chainparams, &fail);
+		    bolt11_decode(tmpctx, invstr, plugin_feature_set(cmd->plugin),
+				  description, chainparams, &fail);
 		if (b11 == NULL)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", fail);
 		invstr_is_b11=true;
 
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
 
-		p->destination = b11->receiver_id;
-		p->payment_hash = b11->payment_hash;
-		p->payment_secret =
-			tal_dup_or_null(p, struct secret, b11->payment_secret);
+		destination = b11->receiver_id;
+		payment_hash = b11->payment_hash;
+		payment_secret =
+			tal_dup_or_null(cmd, struct secret, b11->payment_secret);
 		if (b11->metadata)
-			p->payment_metadata = tal_dup_talarr(p, u8, b11->metadata);
+			payment_metadata = tal_dup_talarr(cmd, u8, b11->metadata);
 		else
-			p->payment_metadata = NULL;
+			payment_metadata = NULL;
 
 
-		p->final_cltv = b11->min_final_cltv_expiry;
+		final_cltv = b11->min_final_cltv_expiry;
 		/* Sanity check */
 		if (feature_offered(b11->features, OPT_VAR_ONION) &&
 		    !b11->payment_secret)
@@ -1058,12 +999,12 @@ static struct command_result *json_pay(struct command *cmd,
 		 */
 		if (!b11->description) {
 			if (!b11->description_hash) {
-				return renepay_fail(renepay,
+				return command_fail(cmd,
 						    JSONRPC2_INVALID_PARAMS,
 						    "Invalid bolt11: missing description");
 			}
-			if (!p->description)
-				return renepay_fail(renepay,
+			if (!description)
+				return command_fail(cmd,
 						    JSONRPC2_INVALID_PARAMS,
 						    "bolt11 uses description_hash, but you did not provide description parameter");
 		}
@@ -1071,24 +1012,24 @@ static struct command_result *json_pay(struct command *cmd,
 		// TODO(eduardo): check this, compare with `pay`
 		const struct tlv_invoice *b12;
 		char *fail;
-		b12 = invoice_decode(tmpctx, p->invstr, strlen(p->invstr),
+		b12 = invoice_decode(tmpctx, invstr, strlen(invstr),
 				     plugin_feature_set(cmd->plugin),
 				     chainparams, &fail);
 		if (b12 == NULL)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt12: %s", fail);
 		if (!pay_plugin->exp_offers)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "experimental-offers disabled");
 
 		if (!b12->offer_node_id)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing offer_node_id");
 		if (!b12->invoice_payment_hash)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing payment_hash");
 		if (!b12->invoice_created_at)
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing created_at");
 		if (b12->invoice_amount) {
 			invmsat = tal(cmd, struct amount_msat);
@@ -1096,25 +1037,24 @@ static struct command_result *json_pay(struct command *cmd,
 		} else
 			invmsat = NULL;
 
-		node_id_from_pubkey(&p->destination, b12->offer_node_id);
-		p->payment_hash = *b12->invoice_payment_hash;
-		if (b12->invreq_recurrence_counter && !p->label)
-			return renepay_fail(
-			    renepay, JSONRPC2_INVALID_PARAMS,
+		node_id_from_pubkey(&destination, b12->offer_node_id);
+		payment_hash = *b12->invoice_payment_hash;
+		if (b12->invreq_recurrence_counter && !label)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			    "recurring invoice requires a label");
 		/* FIXME payment_secret should be signature! */
 		{
 			struct sha256 merkle;
 
-			p->payment_secret = tal(p, struct secret);
+			payment_secret = tal(cmd, struct secret);
 			merkle_tlv(b12->fields, &merkle);
-			memcpy(p->payment_secret, &merkle, sizeof(merkle));
-			BUILD_ASSERT(sizeof(*p->payment_secret) ==
+			memcpy(payment_secret, &merkle, sizeof(merkle));
+			BUILD_ASSERT(sizeof(*payment_secret) ==
 				     sizeof(merkle));
 		}
-		p->payment_metadata = NULL;
+		payment_metadata = NULL;
 		/* FIXME: blinded paths! */
-		p->final_cltv = 18;
+		final_cltv = 18;
 		/* BOLT-offers #12:
 		 * - if `relative_expiry` is present:
 		 *   - MUST reject the invoice if the current time since
@@ -1131,49 +1071,96 @@ static struct command_result *json_pay(struct command *cmd,
 			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
 	}
 
-	if (node_id_eq(&pay_plugin->my_id, &p->destination))
-		return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+	if (node_id_eq(&pay_plugin->my_id, &destination))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "This payment is destined for ourselves. "
 				    "Self-payments are not supported");
-
 
 	// set the payment amount
 	if (invmsat) {
 		// amount is written in the invoice
 		if (msat) {
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "amount_msat parameter unnecessary");
 		}
-		p->amount = *invmsat;
-		tal_free(invmsat);
+		msat = invmsat;
 	} else {
 		// amount is not written in the invoice
 		if (!msat) {
-			return renepay_fail(renepay, JSONRPC2_INVALID_PARAMS,
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "amount_msat parameter required");
 		}
-		p->amount = *msat;
-		tal_free(msat);
 	}
 
 	/* Default max fee is 5 sats, or 0.5%, whichever is *higher* */
 	if (!maxfee) {
-		struct amount_msat fee = amount_msat_div(p->amount, 200);
+		struct amount_msat fee = amount_msat_div(*msat, 200);
 		if (amount_msat_less(fee, AMOUNT_MSAT(5000)))
 			fee = AMOUNT_MSAT(5000);
 		maxfee = tal_dup(tmpctx, struct amount_msat, &fee);
 	}
 
-	if (!amount_msat_add(&p->maxspend, p->amount, *maxfee)) {
-		return renepay_fail(
-			renepay, JSONRPC2_INVALID_PARAMS,
-			"Overflow when computing fee budget, fee far too high.");
-	}
-	tal_free(maxfee);
-
 	const u64 now_sec = time_now().ts.tv_sec;
 	if (now_sec > invexpiry)
-		return renepay_fail(renepay, PAY_INVOICE_EXPIRED, "Invoice expired");
+		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
+
+#if !DEVELOPER
+	/* Please renepay try to give me a reliable payment 90% chances of
+	 * success, once you do, then minimize as much as possible those fees. */
+	base_fee_penalty = tal(tmpctx, u64);
+	*base_fee_penalty = 10;
+	prob_cost_factor = tal(tmpctx, u64);
+	*prob_cost_factor = 10;
+	riskfactor_millionths = tal(tmpctx, u64);
+	*riskfactor_millionths = 1;
+	min_prob_success_millionths = tal(tmpctx, u64);
+	*min_prob_success_millionths = 90;
+	use_shadow = tal(tmpctx, bool);
+	*use_shadow = 1;
+#endif
+
+	/* renepay is bound to the command, if the command finishes renepay is
+	 * freed. */
+	struct renepay * renepay = renepay_new(cmd,
+					       take(invstr),
+					       take(label),
+					       take(description),
+					       take(local_offer_id),
+					       take(payment_secret),
+					       take(payment_metadata),
+					       &destination,
+					       &payment_hash,
+					       *msat,
+					       *maxfee,
+					       *maxdelay,
+					       *retryfor,
+					       final_cltv,
+					       *base_fee_penalty,
+					       *prob_cost_factor,
+					       *riskfactor_millionths,
+					       *min_prob_success_millionths,
+					       use_shadow);
+	tal_add_destructor2(renepay,
+			    renepay_cleanup,
+			    pay_plugin->gossmap);
+
+	/* We inmediately add this payment to the payment list. */
+	tal_steal(pay_plugin->ctx, renepay->payment);
+	list_add_tail(&pay_plugin->payments, &renepay->payment->list);
+	tal_add_destructor(renepay->payment, destroy_payment);
+
+	plugin_log(pay_plugin->plugin,LOG_DBG,"Starting renepay");
+	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
+
+	if (pay_plugin->gossmap == NULL)
+		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
+			   strerror(errno));
+
+	/* Free parameters which would be considered "leaks" by our fussy memleak code */
+	tal_free(msat);
+	tal_free(maxfee);
+	tal_free(maxdelay);
+	tal_free(retryfor);
 
 	/* To construct the uncertainty network we need to perform the following
 	 * steps:
@@ -1220,7 +1207,7 @@ static struct command_result *json_pay(struct command *cmd,
 			payment_listsendpays_previous,
 			payment_listsendpays_previous, renepay);
 
-	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
+	json_add_sha256(req->js, "payment_hash", &renepay->payment->payment_hash);
 	return send_outreq(cmd->plugin, req);
 }
 

@@ -123,8 +123,27 @@ struct renepay
 	u64 next_partid;
 };
 
-struct payment * payment_new(struct renepay *renepay);
-struct renepay * renepay_new(struct command *cmd);
+struct renepay *renepay_new(struct command *cmd,
+			    const char *invstr TAKES,
+			    const char *label TAKES,
+			    const char *description TAKES,
+			    const struct sha256 *local_offer_id TAKES,
+			    const struct secret *payment_secret TAKES,
+			    const u8 *payment_metadata TAKES,
+			    const struct node_id *destination,
+			    const struct sha256 *payment_hash,
+			    struct amount_msat amount,
+			    struct amount_msat maxfee,
+			    unsigned int maxdelay,
+			    u64 retryfor,
+			    u16 final_cltv,
+			    /* Tweakable in DEVELOPER mode */
+			    u64 base_fee_penalty,
+			    u64 prob_cost_factor,
+			    u64 riskfactor_millionths,
+			    u64 min_prob_success_millionths,
+			    bool use_shadow);
+
 void renepay_cleanup(
 		struct renepay * renepay,
 		struct gossmap * gossmap);
