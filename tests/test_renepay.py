@@ -1,10 +1,11 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError, Millisatoshi
-from utils import only_one, wait_for, mine_funding_to_announce, sync_blockheight
+from utils import only_one, wait_for, mine_funding_to_announce, sync_blockheight, TEST_NETWORK
 import pytest
 import random
 import time
 import json
+import subprocess
 
 
 def test_simple(node_factory):
@@ -309,8 +310,19 @@ def test_hardmpp(node_factory):
         print(json.dumps(l3.rpc.listpeerchannels()), file=f)
 
     inv2 = l6.rpc.invoice("1800000sat", "inv2", 'description')
-    l1.rpc.call(
-        'renepay', {'invstring': inv2['bolt11']})
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-k',
+                                   'renepay', 'invstring={}'.format(inv2['bolt11'])]).decode('utf-8')
+    lines = out.split('\n')
+    # First comes commentry
+    assert any([l.startswith('#') for l in lines])
+
+    # Now comes JSON
+    json.loads("".join([l for l in lines if not l.startswith('#')]))
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
