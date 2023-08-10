@@ -37,29 +37,29 @@
 
 static void remove_htlc_payflow(
 		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *flow)
+		struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
+	for (size_t i = 0; i < tal_count(pf->path_scids); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
 							       chan_extra_map,
-							       flow->path_scids[i],
-							       flow->path_dirs[i]);
+							       pf->path_scids[i],
+							       pf->path_dirs[i]);
 		if(!h)
 		{
 			plugin_err(pay_plugin->plugin,
 				   "%s could not resolve chan_extra_half",
 				   __PRETTY_FUNCTION__);
 		}
-		if (!amount_msat_sub(&h->htlc_total, h->htlc_total, flow->amounts[i]))
+		if (!amount_msat_sub(&h->htlc_total, h->htlc_total, pf->amounts[i]))
 		{
 			plugin_err(pay_plugin->plugin,
 				   "%s could not substract HTLC amounts, "
 				   "half total htlc amount = %s, "
-				   "flow->amounts[%lld] = %s.",
+				   "pf->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
 				   type_to_string(tmpctx, struct amount_msat, &h->htlc_total),
 				   i,
-				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
+				   type_to_string(tmpctx, struct amount_msat, &pf->amounts[i]));
 		}
 		if (h->num_htlcs == 0)
 		{
@@ -73,27 +73,27 @@ static void remove_htlc_payflow(
 
 static void commit_htlc_payflow(
 		struct chan_extra_map *chan_extra_map,
-		const struct pay_flow *flow)
+		const struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
+	for (size_t i = 0; i < tal_count(pf->path_scids); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
 							       chan_extra_map,
-							       flow->path_scids[i],
-							       flow->path_dirs[i]);
+							       pf->path_scids[i],
+							       pf->path_dirs[i]);
 		if(!h)
 		{
 			plugin_err(pay_plugin->plugin,
 				   "%s could not resolve chan_extra_half",
 				   __PRETTY_FUNCTION__);
 		}
-		if (!amount_msat_add(&h->htlc_total, h->htlc_total, flow->amounts[i]))
+		if (!amount_msat_add(&h->htlc_total, h->htlc_total, pf->amounts[i]))
 		{
 			plugin_err(pay_plugin->plugin,
 				   "%s could not add HTLC amounts, "
-				   "flow->amounts[%lld] = %s.",
+				   "pf->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
 				   i,
-				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
+				   type_to_string(tmpctx, struct amount_msat, &pf->amounts[i]));
 		}
 		h->num_htlcs++;
 	}
