@@ -41,7 +41,7 @@ bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map)
 
 static void add_hintchan(
 		struct chan_extra_map *chan_extra_map,
-		struct renepay * renepay,
+		struct payment *payment,
 		const struct node_id *src,
 		const struct node_id *dst,
 		u16 cltv_expiry_delta,
@@ -63,9 +63,9 @@ static void add_hintchan(
 				    scid,
 				    MAX_CAP);
 		/* FIXME: features? */
-		gossmap_local_addchan(renepay->local_gossmods,
+		gossmap_local_addchan(payment->local_gossmods,
 				      src, dst, &scid, NULL);
-		gossmap_local_updatechan(renepay->local_gossmods,
+		gossmap_local_updatechan(payment->local_gossmods,
 					 &scid,
 					 /* We assume any HTLC is allowed */
 					 AMOUNT_MSAT(0), MAX_CAP,
@@ -84,15 +84,14 @@ static void add_hintchan(
 /* Add routehints provided by bolt11 */
 void uncertainty_network_add_routehints(
 		struct chan_extra_map *chan_extra_map,
-		struct renepay *renepay)
+		struct payment *p)
 {
-	const struct payment *const p = renepay->payment;
 	struct bolt11 *b11;
 	char *fail;
 
 	b11 =
 	    bolt11_decode(tmpctx, p->invstr,
-	    		  plugin_feature_set(renepay->cmd->plugin),
+	    		  plugin_feature_set(p->cmd->plugin),
 			  p->description, chainparams, &fail);
 	if (b11 == NULL)
 		debug_err("add_routehints: Invalid bolt11: %s", fail);
@@ -104,7 +103,7 @@ void uncertainty_network_add_routehints(
 		for (int j = tal_count(r)-1; j >= 0; j--) {
 			add_hintchan(
 				chan_extra_map,
-				renepay, &r[j].pubkey, end,
+				p, &r[j].pubkey, end,
 				r[j].cltv_expiry_delta,
 				r[j].short_channel_id,
 				r[j].fee_base_msat,
@@ -232,11 +231,10 @@ void uncertainty_network_channel_can_send(
 bool uncertainty_network_update_from_listpeerchannels(
 		struct chan_extra_map * chan_extra_map,
 		struct node_id my_id,
-		struct renepay * renepay,
+		struct payment *p,
 		const char *buf,
 		const jsmntok_t *toks)
 {
-	struct payment * const p = renepay->payment;
 	const jsmntok_t *channels, *channel;
 	size_t i;
 
@@ -270,7 +268,7 @@ bool uncertainty_network_update_from_listpeerchannels(
 				type_to_string(tmpctx,
 					       struct short_channel_id,
 					       &scid));
-			tal_arr_expand(&renepay->disabled, scid);
+			tal_arr_expand(&p->disabled, scid);
 			continue;
 		}
 
@@ -302,7 +300,7 @@ bool uncertainty_network_update_from_listpeerchannels(
 
 		/* Don't report opening/closing channels */
 		if (!json_tok_streq(buf, statetok, "CHANNELD_NORMAL")) {
-			tal_arr_expand(&renepay->disabled, scid);
+			tal_arr_expand(&p->disabled, scid);
 			continue;
 		}
 
@@ -316,9 +314,9 @@ bool uncertainty_network_update_from_listpeerchannels(
 					    scid,
 					    capacity);
 			/* FIXME: features? */
-			gossmap_local_addchan(renepay->local_gossmods,
+			gossmap_local_addchan(p->local_gossmods,
 					      &src, &dst, &scid, NULL);
-			gossmap_local_updatechan(renepay->local_gossmods,
+			gossmap_local_updatechan(p->local_gossmods,
 						 &scid,
 
 						 /* TODO(eduardo): does it

@@ -32,9 +32,9 @@
 static struct pay_plugin the_pay_plugin;
 struct pay_plugin * const pay_plugin = &the_pay_plugin;
 
-static void timer_kick(struct renepay * renepay);
+static void timer_kick(struct payment *payment);
 static struct command_result *try_paying(struct command *cmd,
-					 struct renepay * renepay,
+					 struct payment *payment,
 					 bool first_time);
 
 void amount_msat_accumulate_(struct amount_msat *dst,
@@ -126,56 +126,54 @@ static const char *init(struct plugin *p,
 }
 
 
-static void renepay_settimer(struct renepay * renepay)
+static void payment_settimer(struct payment *payment)
 {
-	renepay->rexmit_timer = tal_free(renepay->rexmit_timer);
-	renepay->rexmit_timer = plugin_timer(
+	payment->rexmit_timer = tal_free(payment->rexmit_timer);
+	payment->rexmit_timer = plugin_timer(
 			pay_plugin->plugin,
 			time_from_msec(TIMER_COLLECT_FAILURES_MSEC),
-			timer_kick, renepay);
+			timer_kick, payment);
 }
 
 /* Happens when timer goes off, but also works to arm timer if nothing to do */
-static void timer_kick(struct renepay * renepay)
+static void timer_kick(struct payment *payment)
 {
-	struct payment * const p = renepay->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	switch(p->status)
+	switch (payment->status)
 	{
 		/* Some flows succeeded, we finish the payment. */
 		case PAYMENT_SUCCESS:
 			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_SUCCESS");
-			renepay_success(renepay);
+			payment_success(payment);
 		break;
 
 		/* Some flows failed, we retry. */
 		case PAYMENT_FAIL:
 			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_FAIL");
-			payment_assert_delivering_incomplete(p);
-			try_paying(renepay->cmd,renepay,/* always try even if prob is low */ true);
+			payment_assert_delivering_incomplete(payment);
+			try_paying(payment->cmd,payment,/* always try even if prob is low */ true);
 		break;
 
 		/* Nothing has returned yet, we have to wait. */
 		case PAYMENT_PENDING:
 			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_PENDING");
-			payment_assert_delivering_all(p);
-			renepay_settimer(renepay);
+			payment_assert_delivering_all(payment);
+			payment_settimer(payment);
 		break;
 	}
 }
 
 /* Sometimes we don't know exactly who to blame... */
-static struct command_result *handle_unhandleable_error(struct renepay * renepay,
+static struct command_result *handle_unhandleable_error(struct payment *payment,
 							struct pay_flow *flow,
 							const char *what)
 {
-	struct payment * const p = renepay->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 	size_t n = tal_count(flow);
 
 	/* We got a mangled reply.  We don't know who to penalize! */
-	debug_paynote(p, "%s on route %s", what, flow_path_to_str(tmpctx, flow));
+	debug_paynote(payment, "%s on route %s", what, flow_path_to_str(tmpctx, flow));
 
 	// TODO(eduardo): does LOG_BROKEN finish the plugin execution?
 	plugin_log(pay_plugin->plugin, LOG_BROKEN,
@@ -185,7 +183,7 @@ static struct command_result *handle_unhandleable_error(struct renepay * renepay
 	if (n == 1)
 	{
 		payflow_fail(flow);
-		return renepay_fail(renepay, PAY_UNPARSEABLE_ONION,
+		return payment_fail(payment, PAY_UNPARSEABLE_ONION,
 				    "Got %s from the destination", what);
 	}
 	/* FIXME: check chan_extra_map, since we might have succeeded though
@@ -199,8 +197,8 @@ static struct command_result *handle_unhandleable_error(struct renepay * renepay
 		/* Assume it's not the destination */
 		n = pseudorand(n-1);
 
-	tal_arr_expand(&renepay->disabled, flow->path_scids[n]);
-	debug_paynote(p, "... eliminated %s",
+	tal_arr_expand(&payment->disabled, flow->path_scids[n]);
+	debug_paynote(payment, "... eliminated %s",
 		type_to_string(tmpctx, struct short_channel_id,
 			       &flow->path_scids[n]));
 	return NULL;
@@ -219,13 +217,13 @@ static struct command_result *addgossip_done(struct command *cmd,
 					     struct addgossip *adg)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	struct renepay * renepay = adg->flow->payment->renepay;
+	struct payment * payment = adg->flow->payment;
 
 	/* Release this: if it's the last flow we'll retry immediately */
 
 	payflow_fail(adg->flow);
 	tal_free(adg);
-	renepay_settimer(renepay);
+	payment_settimer(payment);
 
 	return command_still_pending(cmd);
 }
@@ -236,14 +234,13 @@ static struct command_result *addgossip_failure(struct command *cmd,
 						struct addgossip *adg)
 
 {
+	struct payment * payment = adg->flow->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	struct payment * p = adg->flow->payment;
-	struct renepay * renepay = p->renepay;
 
-	debug_paynote(p, "addgossip failed, removing channel %s (%.*s)",
+	debug_paynote(payment, "addgossip failed, removing channel %s (%.*s)",
 		type_to_string(tmpctx, struct short_channel_id, &adg->scid),
 		err->end - err->start, buf + err->start);
-	tal_arr_expand(&renepay->disabled, adg->scid);
+	tal_arr_expand(&payment->disabled, adg->scid);
 
 	return addgossip_done(cmd, buf, err, adg);
 }
@@ -254,8 +251,7 @@ static struct command_result *submit_update(struct command *cmd,
 					    struct short_channel_id errscid)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	struct payment * p = flow->payment;
-	struct renepay * renepay = p->renepay;
+	struct payment *payment = flow->payment;
 	struct out_req *req;
 	struct addgossip *adg = tal(cmd, struct addgossip);
 
@@ -264,10 +260,9 @@ static struct command_result *submit_update(struct command *cmd,
 	adg->scid = errscid;
 	adg->flow = flow;
 	/* Disable re-xmit until this returns */
-	renepay->rexmit_timer
-		= tal_free(renepay->rexmit_timer);
+	payment->rexmit_timer = tal_free(payment->rexmit_timer);
 
-	debug_paynote(p, "... extracted channel_update, telling gossipd");
+	debug_paynote(payment, "... extracted channel_update, telling gossipd");
 	plugin_log(pay_plugin->plugin, LOG_DBG, "(update = %s)", tal_hex(tmpctx, update));
 
 	req = jsonrpc_request_start(pay_plugin->plugin, NULL, "addgossip",
@@ -357,13 +352,12 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	struct payment *p = flow->payment;
-	debug_assert(p);
-	struct renepay * renepay = p->renepay;
-	debug_assert(renepay);
+	struct payment *payment = flow->payment;
+	debug_assert(payment);
 
 	/* This is a fail. */
-	payment_fail(p);
+	if (payment->status != PAYMENT_SUCCESS)
+		payment->status=PAYMENT_FAIL;
 
 	u64 errcode;
 	const jsmntok_t *msg = json_get_member(buf, err, "message");
@@ -376,13 +370,13 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 		plugin_err(cmd->plugin, "Strange error from sendpay: %.*s",
 			   json_tok_full_len(err), json_tok_full(buf, err));
 
-	debug_paynote(p,
+	debug_paynote(payment,
 		"sendpay didn't like first hop, eliminated: %.*s",
 		msg->end - msg->start, buf + msg->start);
 
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	tal_arr_expand(&renepay->disabled, flow->path_scids[0]);
+	tal_arr_expand(&payment->disabled, flow->path_scids[0]);
 
 	payflow_fail(flow);
 	return command_still_pending(cmd);
@@ -391,11 +385,9 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 
 static struct command_result *
 sendpay_flows(struct command *cmd,
-	      struct renepay * renepay,
+	      struct payment *p,
 	      struct pay_flow **flows STEALS)
 {
-	struct payment * const p = renepay->payment;
-
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 	debug_paynote(p, "Sending out batch of %zu payments", tal_count(flows));
 
@@ -476,44 +468,43 @@ sendpay_flows(struct command *cmd,
 	tal_free(flows);
 
 	/* Get ready to process replies */
-	renepay_settimer(renepay);
+	payment_settimer(p);
 
 	return command_still_pending(cmd);
 }
 
 static struct command_result *try_paying(struct command *cmd,
-					 struct renepay *renepay,
+					 struct payment *payment,
 					 bool first_time)
 {
-	struct payment * const p = renepay->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
 	struct amount_msat feebudget, fees_spent, remaining;
 
-	renepay->payment->status=PAYMENT_PENDING;
-	if (time_after(time_now(), p->stop_time))
-		return renepay_fail(renepay, PAY_STOPPED_RETRYING, "Timed out");
+	payment->status = PAYMENT_PENDING;
+	if (time_after(time_now(), payment->stop_time))
+		return payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
 
 	/* Total feebudget  */
-	if (!amount_msat_sub(&feebudget, p->maxspend, p->amount))
+	if (!amount_msat_sub(&feebudget, payment->maxspend, payment->amount))
 	{
 		plugin_err(pay_plugin->plugin,
 			   "%s (line %d) could not substract maxspend=%s and amount=%s.",
 			   __PRETTY_FUNCTION__,
 			   __LINE__,
-			   type_to_string(tmpctx, struct amount_msat, &p->maxspend),
-			   type_to_string(tmpctx, struct amount_msat, &p->amount));
+			   type_to_string(tmpctx, struct amount_msat, &payment->maxspend),
+			   type_to_string(tmpctx, struct amount_msat, &payment->amount));
 	}
 
 	/* Fees spent so far */
-	if (!amount_msat_sub(&fees_spent, p->total_sent, p->total_delivering))
+	if (!amount_msat_sub(&fees_spent, payment->total_sent, payment->total_delivering))
 	{
 		plugin_err(pay_plugin->plugin,
 			   "%s (line %d) could not substract total_sent=%s and total_delivering=%s.",
 			   __PRETTY_FUNCTION__,
 			   __LINE__,
-			   type_to_string(tmpctx, struct amount_msat, &p->total_sent),
-			   type_to_string(tmpctx, struct amount_msat, &p->total_delivering));
+			   type_to_string(tmpctx, struct amount_msat, &payment->total_sent),
+			   type_to_string(tmpctx, struct amount_msat, &payment->total_delivering));
 	}
 
 	/* Remaining fee budget. */
@@ -528,14 +519,14 @@ static struct command_result *try_paying(struct command *cmd,
 	}
 
 	/* How much are we still trying to send? */
-	if (!amount_msat_sub(&remaining, p->amount, p->total_delivering))
+	if (!amount_msat_sub(&remaining, payment->amount, payment->total_delivering))
 	{
 		plugin_err(pay_plugin->plugin,
 			   "%s (line %d) could not substract amount=%s and total_delivering=%s.",
 			   __PRETTY_FUNCTION__,
 			   __LINE__,
-			   type_to_string(tmpctx, struct amount_msat, &p->amount),
-			   type_to_string(tmpctx, struct amount_msat, &p->total_delivering));
+			   type_to_string(tmpctx, struct amount_msat, &payment->amount),
+			   type_to_string(tmpctx, struct amount_msat, &payment->total_delivering));
 	}
 
 	// plugin_log(pay_plugin->plugin,LOG_DBG,fmt_chan_extra_map(tmpctx,pay_plugin->chan_extra_map));
@@ -544,9 +535,9 @@ static struct command_result *try_paying(struct command *cmd,
 
 	/* We let this return an unlikely path, as it's better to try once
 	 * than simply refuse.  Plus, models are not truth! */
-	gossmap_apply_localmods(pay_plugin->gossmap, renepay->local_gossmods);
+	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	struct pay_flow **pay_flows = get_payflows(
-						renepay,
+						payment,
 						remaining, feebudget,
 
 						/* would you accept unlikely
@@ -554,46 +545,59 @@ static struct command_result *try_paying(struct command *cmd,
 						true,
 
 				 		/* is entire payment? */
-						amount_msat_eq(p->total_delivering, AMOUNT_MSAT(0)),
+						amount_msat_eq(payment->total_delivering, AMOUNT_MSAT(0)),
 
 						&err_msg);
-	gossmap_remove_localmods(pay_plugin->gossmap, renepay->local_gossmods);
+	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	// plugin_log(pay_plugin->plugin,LOG_DBG,"get_payflows produced %s",fmt_payflows(tmpctx,pay_flows));
 
 	/* MCF cannot find a feasible route, we stop. */
 	if (!pay_flows)
 	{
-		return renepay_fail(renepay, PAY_ROUTE_NOT_FOUND,
+		return payment_fail(payment, PAY_ROUTE_NOT_FOUND,
 				    "Failed to find a route, %s",
 				    err_msg);
 	}
 	/* Now begin making payments */
 
-	return sendpay_flows(cmd, renepay, pay_flows);
+	return sendpay_flows(cmd, payment, pay_flows);
+}
+
+static void destroy_cmd_payment_ptr(struct command *cmd,
+				    struct payment *payment)
+{
+	assert(payment->cmd == cmd);
+	payment->cmd = NULL;
 }
 
 static struct command_result *listpeerchannels_done(
 		struct command *cmd,
 		const char *buf,
 		const jsmntok_t *result,
-		struct renepay *renepay)
+		struct payment *payment)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 	if (!uncertainty_network_update_from_listpeerchannels(
 			pay_plugin->chan_extra_map,
 			pay_plugin->my_id,
-			renepay,
+			payment,
 			buf,
 			result))
-		return renepay_fail(renepay,LIGHTNINGD,
+		return command_fail(cmd, LIGHTNINGD,
 				    "listpeerchannels malformed: %.*s",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
 	// TODO(eduardo): check that there won't be a prob. cost associated with
 	// any gossmap local chan. The same way there aren't fees to pay for my
 	// local channels.
-	return try_paying(cmd, renepay, true);
+
+	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
+	tal_steal(pay_plugin->plugin, payment);
+	/* When we terminate cmd for any reason, clear it from payment so we don't do it again. */
+	tal_add_destructor2(cmd, destroy_cmd_payment_ptr, payment);
+
+	return try_paying(cmd, payment, true);
 }
 
 
@@ -685,10 +689,9 @@ payment_listsendpays_previous(
 		struct command *cmd,
 		const char *buf,
 		const jsmntok_t *result,
-		struct renepay * renepay)
+		struct payment * payment)
 {
 	debug_info("calling %s",__PRETTY_FUNCTION__);
-	struct payment * p = renepay->payment;
 
 	size_t i;
 	const jsmntok_t *t, *arr, *err;
@@ -841,25 +844,23 @@ payment_listsendpays_previous(
 		json_add_string(ret, "status", "complete");
 		json_add_amount_msat(ret, "amount_msat", complete_msat);
 		json_add_amount_msat(ret, "amount_sent_msat",complete_sent);
-		json_add_node_id(ret, "destination", &p->destination);
-		json_add_sha256(ret, "payment_hash", &p->payment_hash);
+		json_add_node_id(ret, "destination", &payment->destination);
+		json_add_sha256(ret, "payment_hash", &payment->payment_hash);
 		json_add_u32(ret, "created_at", complete_created_at);
 		json_add_num(ret, "parts", complete_parts);
 
 		/* This payment was already completed, we don't keep record of
-		 * it twice. */
-		renepay->payment = tal_free(renepay->payment);
-
+		 * it twice: payment will be freed with cmd */
 		return command_finished(cmd, ret);
 	} else if (pending) {
 		assert(last_pending_group_id!=INVALID_ID);
 		assert(first_pending_group_id!=INVALID_ID);
 
-		p->groupid = last_pending_group_id;
-		renepay->next_partid = last_pending_partid+1;
+		payment->groupid = last_pending_group_id;
+		payment->next_partid = last_pending_partid+1;
 
-		p->total_sent = pending_sent;
-		p->total_delivering = pending_msat;
+		payment->total_sent = pending_sent;
+		payment->total_delivering = pending_msat;
 
 		plugin_log(pay_plugin->plugin,LOG_DBG,
 			   "There are pending sendpays to this invoice. "
@@ -867,31 +868,29 @@ payment_listsendpays_previous(
 			   "delivering = %s, "
 			   "last_partid = %"PRIu64,
 			   last_pending_group_id,
-			   type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
+			   type_to_string(tmpctx,struct amount_msat,&payment->total_delivering),
 			   last_pending_partid);
 
 		if( first_pending_group_id != last_pending_group_id)
 		{
 			/* At least two pending groups for the same invoice,
 			 * this is weird, we better stop. */
-			renepay->payment = tal_free(renepay->payment);
-			return renepay_fail(renepay, PAY_IN_PROGRESS,
+			return command_fail(cmd, PAY_IN_PROGRESS,
 					    "Payment is pending by some other request.");
 		}
-		if(amount_msat_greater_eq(p->total_delivering,p->amount))
+		if(amount_msat_greater_eq(payment->total_delivering,payment->amount))
 		{
 			/* Pending payment already pays the full amount, we
 			 * better stop. */
-			renepay->payment = tal_free(renepay->payment);
-			return renepay_fail(renepay, PAY_IN_PROGRESS,
+			return command_fail(cmd, PAY_IN_PROGRESS,
 					    "Payment is pending with full amount already commited");
 		}
 	}else
 	{
 		/* There are no pending nor completed sendpays, get me the last
 		 * sendpay group. */
-		p->groupid = (last_group==INVALID_ID  ? 1 : (last_group+1)) ;
-		renepay->next_partid=1;
+		payment->groupid = (last_group==INVALID_ID  ? 1 : (last_group+1)) ;
+		payment->next_partid=1;
 	}
 
 
@@ -899,7 +898,7 @@ payment_listsendpays_previous(
 	/* Get local capacities... */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
 				    listpeerchannels_done,
-				    listpeerchannels_done, renepay);
+				    listpeerchannels_done, payment);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -1117,9 +1116,12 @@ static struct command_result *json_pay(struct command *cmd,
 	*use_shadow = 1;
 #endif
 
-	/* renepay is bound to the command, if the command finishes renepay is
-	 * freed. */
-	struct renepay * renepay = renepay_new(cmd,
+	/* Payment is allocated off cmd to start, in case we fail cmd
+	 * (e.g. already in progress, already succeeded).  Once it's
+	 * actually started, it persists beyond the command, so we
+	 * tal_steal. */
+	struct payment *payment = payment_new(cmd,
+					       cmd,
 					       take(invstr),
 					       take(label),
 					       take(description),
@@ -1138,14 +1140,10 @@ static struct command_result *json_pay(struct command *cmd,
 					       *riskfactor_millionths,
 					       *min_prob_success_millionths,
 					       use_shadow);
-	tal_add_destructor2(renepay,
-			    renepay_cleanup,
-			    pay_plugin->gossmap);
 
-	/* We inmediately add this payment to the payment list. */
-	tal_steal(pay_plugin->ctx, renepay->payment);
-	list_add_tail(&pay_plugin->payments, &renepay->payment->list);
-	tal_add_destructor(renepay->payment, destroy_payment);
+	/* We immediately add this payment to the payment list. */
+	list_add_tail(&pay_plugin->payments, &payment->list);
+	tal_add_destructor(payment, destroy_payment);
 
 	plugin_log(pay_plugin->plugin,LOG_DBG,"Starting renepay");
 	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
@@ -1191,7 +1189,7 @@ static struct command_result *json_pay(struct command *cmd,
 	// TODO(eduardo): are there route hints for B12?
 	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
 	if(invstr_is_b11)
-		uncertainty_network_add_routehints(pay_plugin->chan_extra_map,renepay);
+		uncertainty_network_add_routehints(pay_plugin->chan_extra_map, payment);
 
 	if(!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
 		plugin_log(pay_plugin->plugin,
@@ -1203,9 +1201,9 @@ static struct command_result *json_pay(struct command *cmd,
 	struct out_req *req
 		= jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
 			payment_listsendpays_previous,
-			payment_listsendpays_previous, renepay);
+			payment_listsendpays_previous, payment);
 
-	json_add_sha256(req->js, "payment_hash", &renepay->payment->payment_hash);
+	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -1213,12 +1211,10 @@ static void handle_sendpay_failure_renepay(
 		struct command *cmd,
 		const char *buf,
 		const jsmntok_t *result,
-		struct renepay *renepay,
+		struct payment *p,
 		struct pay_flow *flow)
 {
-	debug_assert(renepay);
 	debug_assert(flow);
-	struct payment *p = renepay->payment;
 	debug_assert(p);
 
 	u64 errcode;
@@ -1249,11 +1245,11 @@ static void handle_sendpay_failure_renepay(
 		case PAY_TRY_OTHER_ROUTE:
 			break;
 		case PAY_DESTINATION_PERM_FAIL:
-			renepay_fail(renepay,errcode,
+			payment_fail(p, errcode,
 				     "Got a final failure from destination");
 			return;
 		default:
-			renepay_fail(renepay,errcode,
+			payment_fail(p, errcode,
 				     "Unexpected errocode from sendpay_failure: %.*s",
 				     json_tok_full_len(result),
 				     json_tok_full(buf,result));
@@ -1315,7 +1311,7 @@ static void handle_sendpay_failure_renepay(
 	{
 		// TODO(eduardo): I wonder which error code should I show the
 		// user in this case?
-		renepay_fail(renepay,LIGHTNINGD,
+		payment_fail(p,LIGHTNINGD,
 			  "Failed to get failcode from sendpay_failure notification"
 			  ", received json: %.*s",
 			  json_tok_full_len(result),
@@ -1355,7 +1351,7 @@ static void handle_sendpay_failure_renepay(
 	case WIRE_EXPIRY_TOO_FAR:
 		debug_paynote(p, "we're removing scid %s",
 			      type_to_string(tmpctx,struct short_channel_id,&errscid));
-		tal_arr_expand(&renepay->disabled, errscid);
+		tal_arr_expand(&p->disabled, errscid);
 		return;
 
 	/* These can be fixed (maybe) by applying the included channel_update */
@@ -1375,7 +1371,7 @@ static void handle_sendpay_failure_renepay(
 
 		debug_paynote(p, "missing an update, so we're removing scid %s",
 			      type_to_string(tmpctx,struct short_channel_id,&errscid));
-		tal_arr_expand(&renepay->disabled, errscid);
+		tal_arr_expand(&p->disabled, errscid);
 		return;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
@@ -1387,7 +1383,7 @@ static void handle_sendpay_failure_renepay(
 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 		debug_paynote(p,"final destination failure");
-		renepay_fail(renepay,errcode,
+		payment_fail(p,errcode,
 				    "Destination said %s: %s",
 				    onion_wire_name(onionerr),
 				    message);
@@ -1400,7 +1396,7 @@ static void handle_sendpay_failure_renepay(
 	{
 		debug_paynote(p,"unkown onion error code %u, fatal",
 			      onionerr);
-		renepay_fail(renepay,errcode,
+		payment_fail(p,errcode,
 			     "Destination gave unknown error code %u: %s",
 			     onionerr,message);
 		return;
@@ -1409,12 +1405,12 @@ static void handle_sendpay_failure_renepay(
 		debug_paynote(p,"unkown onion error code %u, removing scid %s",
 			      onionerr,
 			      type_to_string(tmpctx,struct short_channel_id,&errscid));
-		tal_arr_expand(&renepay->disabled, errscid);
+		tal_arr_expand(&p->disabled, errscid);
 		return;
 	}
 	unhandleable:
 	// TODO(eduardo): check
-	handle_unhandleable_error(renepay, flow, "");
+	handle_unhandleable_error(p, flow, "");
 }
 
 static void handle_sendpay_failure_flow(
@@ -1428,7 +1424,8 @@ static void handle_sendpay_failure_flow(
 	debug_assert(flow);
 
 	struct payment * const p = flow->payment;
-	payment_fail(p);
+	if (p->status != PAYMENT_SUCCESS)
+		p->status=PAYMENT_FAIL;
 
 	u64 errcode;
 	if (!json_to_u64(buf, json_get_member(buf, result, "code"), &errcode))
@@ -1620,8 +1617,7 @@ static struct command_result *notification_sendpay_success(
 	// 3. mark as success
 	struct payment * const p = flow->payment;
 	debug_assert(p);
-
-	payment_success(p);
+	p->status = PAYMENT_SUCCESS;
 
 	const jsmntok_t *preimagetok
 		= json_get_member(buf, resulttok, "payment_preimage");
@@ -1633,6 +1629,8 @@ static struct command_result *notification_sendpay_success(
 			  json_tok_full_len(params),
 			  json_tok_full(buf,params));
 
+	/* We could have preimage from previous part */
+	tal_free(p->preimage);
 	p->preimage = tal_dup_or_null(p,struct preimage,&preimage);
 
 	// 4. update information and release pending HTLCs
@@ -1706,10 +1704,7 @@ static struct command_result *notification_sendpay_failure(
 	handle_sendpay_failure_flow(cmd,buf,resulttok,flow);
 
 	// there is possibly a pending renepay command for this flow
-	struct renepay * const renepay = flow->payment->renepay;
-
-	if(renepay)
-		handle_sendpay_failure_renepay(cmd,buf,resulttok,renepay,flow);
+	handle_sendpay_failure_renepay(cmd,buf,resulttok,flow->payment,flow);
 
 	done:
 	if(flow) payflow_fail(flow);

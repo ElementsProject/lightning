@@ -3,7 +3,8 @@
 #include <plugins/renepay/debug.h>
 #include <plugins/renepay/payment.h>
 
-static struct payment * payment_new(struct renepay * renepay,
+struct payment *payment_new(const tal_t *ctx,
+			    struct command *cmd,
 				    const char *invstr TAKES,
 				    const char *label TAKES,
 				    const char *description TAKES,
@@ -24,8 +25,8 @@ static struct payment * payment_new(struct renepay * renepay,
 				    u64 min_prob_success_millionths,
 				    bool use_shadow)
 {
-	struct payment *p = tal(renepay,struct payment);
-	p->renepay = renepay;
+	struct payment *p = tal(ctx,struct payment);
+	p->cmd = cmd;
 	p->paynotes = tal_arr(p, const char *, 0);
 
 	p->total_sent = AMOUNT_MSAT(0);
@@ -61,64 +62,12 @@ static struct payment * payment_new(struct renepay * renepay,
 	p->groupid=1;
 
 	p->result = NULL;
+ 	p->local_gossmods = gossmap_localmods_new(p);
+	p->disabled = tal_arr(p,struct short_channel_id,0);
+	p->rexmit_timer = NULL;
+	p->next_partid=1;
+
 	return p;
-}
-
-struct renepay *renepay_new(struct command *cmd,
-			    const char *invstr TAKES,
-			    const char *label TAKES,
-			    const char *description TAKES,
-			    const struct sha256 *local_offer_id TAKES,
-			    const struct secret *payment_secret TAKES,
-			    const u8 *payment_metadata TAKES,
-			    const struct node_id *destination,
-			    const struct sha256 *payment_hash,
-			    struct amount_msat amount,
-			    struct amount_msat maxfee,
-			    unsigned int maxdelay,
-			    u64 retryfor,
-			    u16 final_cltv,
-			    /* Tweakable in DEVELOPER mode */
-			    u64 base_fee_penalty,
-			    u64 prob_cost_factor,
-			    u64 riskfactor_millionths,
-			    u64 min_prob_success_millionths,
-			    bool use_shadow)
-{
-	struct renepay *renepay = tal(cmd,struct renepay);
-
-	renepay->cmd = cmd;
-	renepay->payment = payment_new(renepay,
-				       invstr, label, description,
-				       local_offer_id, payment_secret, payment_metadata,
-				       destination, payment_hash,
-				       amount, maxfee, maxdelay,
-				       retryfor, final_cltv,
-				       base_fee_penalty,
-				       prob_cost_factor,
-				       riskfactor_millionths,
-				       min_prob_success_millionths,
-				       use_shadow);
-
- 	renepay->local_gossmods = gossmap_localmods_new(renepay);
-	renepay->disabled = tal_arr(renepay,struct short_channel_id,0);
-	renepay->rexmit_timer = NULL;
-	renepay->next_partid=1;
-
-	return renepay;
-}
-
-
-void payment_fail(struct payment * p)
-{
-	/* If the payment already succeeded this function call must correspond
-	 * to an old sendpay. */
-	if(p->status == PAYMENT_SUCCESS)return;
-	p->status=PAYMENT_FAIL;
-}
-void payment_success(struct payment * p)
-{
-	p->status=PAYMENT_SUCCESS;
 }
 
 struct amount_msat payment_sent(const struct payment *p)
@@ -180,22 +129,25 @@ void payment_assert_delivering_all(const struct payment *p)
 	}
 }
 
-struct command_result *renepay_success(struct renepay * renepay)
+struct command_result *payment_success(struct payment *p)
 {
 	debug_info("calling %s",__PRETTY_FUNCTION__);
-	struct payment *p = renepay->payment;
 
-	payment_success(p);
+	p->status = PAYMENT_SUCCESS;
 	payment_assert_delivering_all(p);
 
+	/* We only finish command once: its destructor clears this. */
+	if (!p->cmd)
+		return NULL;
+
 	struct json_stream *response
-		= jsonrpc_stream_success(renepay->cmd);
+		= jsonrpc_stream_success(p->cmd);
 
 	/* Any one succeeding is success. */
 	json_add_preimage(response, "payment_preimage", p->preimage);
 	json_add_sha256(response, "payment_hash", &p->payment_hash);
 	json_add_timeabs(response, "created_at", p->start_time);
-	json_add_u32(response, "parts", renepay_parts(renepay));
+	json_add_u32(response, "parts", payment_parts(p));
 	json_add_amount_msat(response, "amount_msat",
 				  p->amount);
 	json_add_amount_msat(response, "amount_sent_msat",
@@ -203,51 +155,45 @@ struct command_result *renepay_success(struct renepay * renepay)
 	json_add_string(response, "status", "complete");
 	json_add_node_id(response, "destination", &p->destination);
 
-	return command_finished(renepay->cmd, response);
+	return command_finished(p->cmd, response);
 }
 
-struct command_result *renepay_fail(
-	struct renepay * renepay,
+struct command_result *payment_fail(
+	struct payment *payment,
 	enum jsonrpc_errcode code,
 	const char *fmt, ...)
 {
-	/* renepay_fail is called after command finished. */
-	if(renepay==NULL)
-	{
-		return command_still_pending(NULL);
-	}
-	payment_fail(renepay->payment);
+	/* We only finish command once: its destructor clears this. */
+	if (!payment->cmd)
+		return NULL;
+
+	if (payment->status != PAYMENT_SUCCESS)
+		payment->status = PAYMENT_FAIL;
 
 	va_list args;
 	va_start(args, fmt);
 	char *message = tal_vfmt(tmpctx,fmt,args);
 	va_end(args);
 
-	debug_paynote(renepay->payment,"%s",message);
+	debug_paynote(payment,"%s",message);
 
-	return command_fail(renepay->cmd,code,"%s",message);
+	return command_fail(payment->cmd,code,"%s",message);
 }
 
-u64 renepay_parts(const struct renepay *renepay)
+u64 payment_parts(const struct payment *payment)
 {
-	return renepay->next_partid-1;
+	return payment->next_partid-1;
 }
 
 /* Either the payment succeeded or failed, we need to cleanup/set the plugin
  * into a valid state before the next payment. */
-void renepay_cleanup(
-		struct renepay * renepay,
-		struct gossmap * gossmap)
+void payment_cleanup(struct payment *payment)
 {
 	debug_info("calling %s",__PRETTY_FUNCTION__);
 	// TODO(eduardo): it can happen that local_gossmods removed below
 	// contained a set of channels for which there is information in the
 	// uncertainty network (chan_extra_map) and that are part of some pending
 	// payflow (payflow_map). Handle this situation.
-	tal_free(renepay->local_gossmods);
-
-	renepay->rexmit_timer = tal_free(renepay->rexmit_timer);
-
-	if(renepay->payment)
-		renepay->payment->renepay = NULL;
+	payment->local_gossmods = tal_free(payment->local_gossmods);
+	payment->rexmit_timer = tal_free(payment->rexmit_timer);
 }
