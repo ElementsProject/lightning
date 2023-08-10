@@ -114,24 +114,24 @@ static const char *init(struct plugin *p,
 }
 
 /* Sometimes we don't know exactly who to blame... */
-static struct pf_result *handle_unhandleable_error(struct pay_flow *flow,
+static struct pf_result *handle_unhandleable_error(struct pay_flow *pf,
 						   const char *what)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	size_t n = tal_count(flow);
+	size_t n = tal_count(pf);
 
 	/* We got a mangled reply.  We don't know who to penalize! */
-	debug_paynote(flow->payment, "%s on route %s", what, flow_path_to_str(tmpctx, flow));
+	debug_paynote(pf->payment, "%s on route %s", what, flow_path_to_str(tmpctx, pf));
 
 	// TODO(eduardo): does LOG_BROKEN finish the plugin execution?
 	plugin_log(pay_plugin->plugin, LOG_BROKEN,
 		   "%s on route %s",
-		   what, flow_path_to_str(tmpctx, flow));
+		   what, flow_path_to_str(tmpctx, pf));
 
 	if (n == 1)
 	{
 		/* This is a terminal error. */
-		return pay_flow_failed_final(flow, PAY_UNPARSEABLE_ONION, what);
+		return pay_flow_failed_final(pf, PAY_UNPARSEABLE_ONION, what);
 	}
 	/* FIXME: check chan_extra_map, since we might have succeeded though
 	 * this node before? */
@@ -144,19 +144,19 @@ static struct pf_result *handle_unhandleable_error(struct pay_flow *flow,
 		/* Assume it's not the destination */
 		n = pseudorand(n-1);
 
-	tal_arr_expand(&flow->payment->disabled, flow->path_scids[n]);
-	debug_paynote(flow->payment, "... eliminated %s",
+	tal_arr_expand(&pf->payment->disabled, pf->path_scids[n]);
+	debug_paynote(pf->payment, "... eliminated %s",
 		type_to_string(tmpctx, struct short_channel_id,
-			       &flow->path_scids[n]));
+			       &pf->path_scids[n]));
 
-	return pay_flow_failed(flow);
+	return pay_flow_failed(pf);
 }
 
 /* We hold onto the flow (and delete the timer) while we're waiting for
  * gossipd to receive the channel_update we got from the error. */
 struct addgossip {
 	struct short_channel_id scid;
-	struct pay_flow *flow;
+	struct pay_flow *pf;
 };
 
 static struct command_result *addgossip_done(struct command *cmd,
@@ -166,7 +166,7 @@ static struct command_result *addgossip_done(struct command *cmd,
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	pay_flow_finished_adding_gossip(adg->flow);
+	pay_flow_finished_adding_gossip(adg->pf);
 	tal_free(adg);
 
 	return command_still_pending(cmd);
@@ -178,7 +178,7 @@ static struct command_result *addgossip_failure(struct command *cmd,
 						struct addgossip *adg)
 
 {
-	struct payment * payment = adg->flow->payment;
+	struct payment * payment = adg->pf->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
 	debug_paynote(payment, "addgossip failed, removing channel %s (%.*s)",
@@ -189,19 +189,19 @@ static struct command_result *addgossip_failure(struct command *cmd,
 	return addgossip_done(cmd, buf, err, adg);
 }
 
-static struct pf_result *submit_update(struct pay_flow *flow,
+static struct pf_result *submit_update(struct pay_flow *pf,
 				       const u8 *update,
 				       struct short_channel_id errscid)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	struct payment *payment = flow->payment;
+	struct payment *payment = pf->payment;
 	struct out_req *req;
-	struct addgossip *adg = tal(flow, struct addgossip);
+	struct addgossip *adg = tal(pf, struct addgossip);
 
 	/* We need to stash scid in case this fails, and we need to hold flow so
 	 * we don't get a rexmit before this is complete. */
 	adg->scid = errscid;
-	adg->flow = flow;
+	adg->pf = pf;
 
 	debug_paynote(payment, "... extracted channel_update, telling gossipd");
 	plugin_log(pay_plugin->plugin, LOG_DBG, "(update = %s)", tal_hex(tmpctx, update));
@@ -214,7 +214,7 @@ static struct pf_result *submit_update(struct pay_flow *flow,
 	send_outreq(pay_plugin->plugin, req);
 
 	/* Don't retry until we call pay_flow_finished_adding_gossip! */
-	return pay_flow_failed_adding_gossip(flow);
+	return pay_flow_failed_adding_gossip(pf);
 }
 
 /* Fix up the channel_update to include the type if it doesn't currently have
@@ -277,7 +277,7 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 static struct command_result *flow_sent(struct command *cmd,
 					const char *buf,
 					const jsmntok_t *result,
-					struct pay_flow *flow)
+					struct pay_flow *pf)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 	return command_still_pending(cmd);
@@ -290,9 +290,9 @@ static struct command_result *flow_sent(struct command *cmd,
 static struct command_result *flow_sendpay_failed(struct command *cmd,
 						  const char *buf,
 						  const jsmntok_t *err,
-						  struct pay_flow *flow)
+						  struct pay_flow *pf)
 {
-	struct payment *payment = flow->payment;
+	struct payment *payment = pf->payment;
 	enum jsonrpc_errcode errcode;
 	const char *msg;
 
@@ -316,9 +316,9 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	tal_arr_expand(&payment->disabled, flow->path_scids[0]);
+	tal_arr_expand(&payment->disabled, pf->path_scids[0]);
 
-	pay_flow_failed(flow);
+	pay_flow_failed(pf);
 	return command_still_pending(cmd);
 }
 
@@ -1053,21 +1053,21 @@ static struct command_result *json_pay(struct command *cmd,
 }
 
 /* Terminates flow */
-static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *flow STEALS,
+static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEALS,
 							const char *message,
 							u32 erridx,
 							enum onion_wire onionerr,
 							const u8 *raw)
 {
 	struct short_channel_id errscid;
-	struct payment *p = flow->payment;
+	struct payment *p = pf->payment;
 	const u8 *update;
 
-	debug_assert(flow);
+	debug_assert(pf);
 	debug_assert(p);
 
 	/* Final node is usually a hard failure */
-	if (erridx == tal_count(flow->path_scids)) {
+	if (erridx == tal_count(pf->path_scids)) {
 		debug_paynote(p,
 			      "onion error %s from final node #%u: %s",
 			      onion_wire_name(onionerr),
@@ -1075,14 +1075,14 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *flow ST
 			      message);
 
 		if (onionerr == WIRE_MPP_TIMEOUT) {
-			return pay_flow_failed(flow);
+			return pay_flow_failed(pf);
 		}
 
 		debug_paynote(p,"final destination failure");
-		return pay_flow_failed_final(flow, PAY_DESTINATION_PERM_FAIL, message);
+		return pay_flow_failed_final(pf, PAY_DESTINATION_PERM_FAIL, message);
 	}
 
-	errscid = flow->path_scids[erridx];
+	errscid = pf->path_scids[erridx];
 	debug_paynote(p,
 		"onion error %s from node #%u %s: %s",
 		onion_wire_name(onionerr),
@@ -1112,7 +1112,7 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *flow ST
 		debug_paynote(p, "we're removing scid %s",
 			      type_to_string(tmpctx,struct short_channel_id,&errscid));
 		tal_arr_expand(&p->disabled, errscid);
-		return pay_flow_failed(flow);
+		return pay_flow_failed(pf);
 
 	/* These can be fixed (maybe) by applying the included channel_update */
 	case WIRE_AMOUNT_BELOW_MINIMUM:
@@ -1124,21 +1124,21 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *flow ST
 		// TODO(eduardo): check
 		update = channel_update_from_onion_error(tmpctx, raw);
 		if (update)
-			return submit_update(flow, update, errscid);
+			return submit_update(pf, update, errscid);
 
 		debug_paynote(p, "missing an update, so we're removing scid %s",
 			      type_to_string(tmpctx,struct short_channel_id,&errscid));
 		tal_arr_expand(&p->disabled, errscid);
-		return pay_flow_failed(flow);
+		return pay_flow_failed(pf);
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
 		/* These also contain a channel_update, but in this case it's simply
 		 * advisory, not necessary. */
 		update = channel_update_from_onion_error(tmpctx, raw);
 		if (update)
-			return submit_update(flow, update, errscid);
+			return submit_update(pf, update, errscid);
 
-		return pay_flow_failed(flow);
+		return pay_flow_failed(pf);
 
 	/* These should only come from the final distination. */
 	case WIRE_MPP_TIMEOUT:
@@ -1152,48 +1152,48 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *flow ST
 		      onionerr,
 		      type_to_string(tmpctx,struct short_channel_id,&errscid));
 	tal_arr_expand(&p->disabled, errscid);
-	return pay_flow_failed(flow);
+	return pay_flow_failed(pf);
 }
 
-static void handle_sendpay_failure_flow(struct pay_flow *flow,
+static void handle_sendpay_failure_flow(struct pay_flow *pf,
 					const char *msg,
 					u32 erridx,
 					u32 onionerr)
 {
-	debug_assert(flow);
+	debug_assert(pf);
 
-	struct payment * const p = flow->payment;
+	struct payment * const p = pf->payment;
 
 	plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 		"onion error %s from node #%u %s: "
 		"%s",
 		onion_wire_name(onionerr),
 		erridx,
-		erridx == tal_count(flow->path_scids)
+		erridx == tal_count(pf->path_scids)
 		? "final"
-		: type_to_string(tmpctx, struct short_channel_id, &flow->path_scids[erridx]),
+		: type_to_string(tmpctx, struct short_channel_id, &pf->path_scids[erridx]),
 		msg);
 
 	/* we know that all channels before erridx where able to commit to this payment */
 	uncertainty_network_channel_can_send(
 			pay_plugin->chan_extra_map,
-			flow,
+			pf,
 			erridx);
 
 	/* Insufficient funds (not from final, that's weird!) */
 	if((enum onion_wire)onionerr == WIRE_TEMPORARY_CHANNEL_FAILURE
-	   && erridx < tal_count(flow->path_scids))
+	   && erridx < tal_count(pf->path_scids))
 	{
 		plugin_log(pay_plugin->plugin,LOG_DBG,
 			   "sendpay_failure says insufficient funds!");
 
 		chan_extra_cannot_send(p,pay_plugin->chan_extra_map,
-				       flow->path_scids[erridx],
-				       flow->path_dirs[erridx],
+				       pf->path_scids[erridx],
+				       pf->path_dirs[erridx],
 				    /* This channel can't send all that was
 				     * commited in HTLCs.
 				     * Had we removed the commited amount then
-				     * we would have to put here flow->amounts[erridx]. */
+				     * we would have to put here pf->amounts[erridx]. */
 				       AMOUNT_MSAT(0));
 	}
 }
@@ -1229,13 +1229,13 @@ static struct command_result *notification_sendpay_success(
 		const char *buf,
 		const jsmntok_t *params)
 {
-	struct pay_flow *flow;
+	struct pay_flow *pf;
 	struct preimage preimage;
 	const char *err;
 	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_success");
 
-	flow = pay_flow_from_notification(buf, sub);
-	if (!flow)
+	pf = pay_flow_from_notification(buf, sub);
+	if (!pf)
 		return notification_handled(cmd);
 
 	err = json_scan(tmpctx, buf, sub, "{payment_preimage:%}",
@@ -1249,16 +1249,16 @@ static struct command_result *notification_sendpay_success(
 	}
 
 	// 2. update information
-	uncertainty_network_flow_success(pay_plugin->chan_extra_map, flow);
+	uncertainty_network_flow_success(pay_plugin->chan_extra_map, pf);
 
-	// 3. mark as success (frees flow)
-	pay_flow_succeeded(flow, &preimage);
+	// 3. mark as success (frees pf)
+	pay_flow_succeeded(pf, &preimage);
 
 	return notification_handled(cmd);
 }
 
 /* Dummy return ensures all paths call pay_flow_* to close flow! */
-static struct pf_result *sendpay_failure(struct pay_flow *flow,
+static struct pf_result *sendpay_failure(struct pay_flow *pf,
 					 enum jsonrpc_errcode errcode,
 					 const char *buf,
 					 const jsmntok_t *sub)
@@ -1270,16 +1270,16 @@ static struct pf_result *sendpay_failure(struct pay_flow *flow,
 	/* Only one code is really actionable */
 	switch (errcode) {
 	case PAY_UNPARSEABLE_ONION:
-		debug_paynote(flow->payment, "Unparsable onion reply on route %s",
-			      flow_path_to_str(tmpctx, flow));
-		return handle_unhandleable_error(flow, "Unparsable onion reply");
+		debug_paynote(pf->payment, "Unparsable onion reply on route %s",
+			      flow_path_to_str(tmpctx, pf));
+		return handle_unhandleable_error(pf, "Unparsable onion reply");
 
 	case PAY_TRY_OTHER_ROUTE:
 		break;
 	case PAY_DESTINATION_PERM_FAIL:
 		break;
 	default:
-		return pay_flow_failed_final(flow,
+		return pay_flow_failed_final(pf,
 					     errcode,
 					     "Unexpected errorcode from sendpay_failure");
 	}
@@ -1295,19 +1295,19 @@ static struct pf_result *sendpay_failure(struct pay_flow *flow,
 			JSON_SCAN(json_to_u32, &onionerr),
 			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &raw));
 	if (err)
-		return handle_unhandleable_error(flow, err);
+		return handle_unhandleable_error(pf, err);
 
 	/* Answer must be sane: but note, erridx can be final node! */
-	if (erridx > tal_count(flow->path_scids)) {
+	if (erridx > tal_count(pf->path_scids)) {
 		plugin_err(pay_plugin->plugin,
 			   "Erring channel %u/%zu in path %s",
-			   erridx, tal_count(flow->path_scids),
-			   flow_path_to_str(tmpctx, flow));
+			   erridx, tal_count(pf->path_scids),
+			   flow_path_to_str(tmpctx, pf));
 	}
 
-	handle_sendpay_failure_flow(flow, msg, erridx, onionerr);
+	handle_sendpay_failure_flow(pf, msg, erridx, onionerr);
 
-	return handle_sendpay_failure_payment(flow, msg, erridx, onionerr, raw);
+	return handle_sendpay_failure_payment(pf, msg, erridx, onionerr, raw);
 }
 
 static struct command_result *notification_sendpay_failure(
@@ -1315,13 +1315,13 @@ static struct command_result *notification_sendpay_failure(
 		const char *buf,
 		const jsmntok_t *params)
 {
-	struct pay_flow *flow;
+	struct pay_flow *pf;
 	const char *err;
 	enum jsonrpc_errcode errcode;
 	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_failure");
 
-	flow = pay_flow_from_notification(buf, json_get_member(buf, sub, "data"));
-	if (!flow)
+	pf = pay_flow_from_notification(buf, json_get_member(buf, sub, "data"));
+	if (!pf)
 		return notification_handled(cmd);
 
 	err = json_scan(tmpctx, buf, sub, "{code:%}",
@@ -1334,7 +1334,7 @@ static struct command_result *notification_sendpay_failure(
 			   json_tok_full(buf, params));
 	}
 
-	sendpay_failure(flow, errcode, buf, sub);
+	sendpay_failure(pf, errcode, buf, sub);
 	return notification_handled(cmd);
 }
 

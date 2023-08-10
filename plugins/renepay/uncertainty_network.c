@@ -186,34 +186,34 @@ void uncertainty_network_update(
 
 void uncertainty_network_flow_success(
 		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *flow)
+		struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++)
+	for (size_t i = 0; i < tal_count(pf->path_scids); i++)
 	{
 		chan_extra_sent_success(
 			chan_extra_map,
-			flow->path_scids[i],
-			flow->path_dirs[i],
-			flow->amounts[i]);
+			pf->path_scids[i],
+			pf->path_dirs[i],
+			pf->amounts[i]);
 	}
 }
 /* All parts up to erridx succeeded, so we know something about min
  * capacity! */
 void uncertainty_network_channel_can_send(
 		struct chan_extra_map * chan_extra_map,
-		struct pay_flow *flow,
+		struct pay_flow *pf,
 		u32 erridx)
 {
 	for (size_t i = 0; i < erridx; i++)
 	{
 		chan_extra_can_send(chan_extra_map,
-				    flow->path_scids[i],
-				    flow->path_dirs[i],
+				    pf->path_scids[i],
+				    pf->path_dirs[i],
 
 				    /* This channel can send all that was
 				     * commited in HTLCs.
 				     * Had we removed the commited amount then
-				     * we would have to put here flow->amounts[i]. */
+				     * we would have to put here pf->amounts[i]. */
 				    AMOUNT_MSAT(0));
 	}
 }
