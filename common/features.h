@@ -140,6 +140,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 /* BOLT-splice #9:
  * | 62/63 | `option_splice` |  ... IN ...
  */
+#define OPT_SPLICE				62
 #define OPT_EXPERIMENTAL_SPLICE			162
 
 /* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
