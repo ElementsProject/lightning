@@ -75,9 +75,6 @@ struct pay_plugin {
 	bool debug_mcf;
 	bool debug_payflow;
 
-	/* I'll allocate all global (controlled by pay_plugin) variables tied to
-	 * this tal_t. */
-	tal_t *ctx;
 	/* Pending flows have HTLCs (in-flight) liquidity
 	 * attached that is reflected in the uncertainty network.
 	 * When sendpay_fail or sendpay_success notifications arrive
@@ -96,7 +93,7 @@ struct pay_plugin {
 };
 
 /* Set in init */
-extern struct pay_plugin * const pay_plugin;
+extern struct pay_plugin *pay_plugin;
 
 /* Accumulate or panic on overflow */
 #define amount_msat_accumulate(dst, src) \
