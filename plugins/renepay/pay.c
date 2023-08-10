@@ -853,6 +853,7 @@ static struct command_result *json_pay(struct command *cmd,
 	u64 *min_prob_success_millionths;
 	bool *use_shadow;
 	u16 final_cltv;
+	const struct route_info **routes = NULL;
 
 	if (!param(cmd, buf, params,
 		   p_req("invstring", param_invstring, &invstr),
@@ -882,7 +883,6 @@ static struct command_result *json_pay(struct command *cmd,
 		return command_param_failed();
 
 	/* We might need to parse invstring to get amount */
-	bool invstr_is_b11=false;
 	if (!bolt12_has_prefix(invstr)) {
 		struct bolt11 *b11;
 		char *fail;
@@ -893,7 +893,6 @@ static struct command_result *json_pay(struct command *cmd,
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", fail);
-		invstr_is_b11=true;
 
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
@@ -933,6 +932,9 @@ static struct command_result *json_pay(struct command *cmd,
 						    JSONRPC2_INVALID_PARAMS,
 						    "bolt11 uses description_hash, but you did not provide description parameter");
 		}
+
+		routes = cast_const2(const struct route_info **,
+				     b11->routes);
 	} else {
 		// TODO(eduardo): check this, compare with `pay`
 		const struct tlv_invoice *b12;
@@ -1116,8 +1118,7 @@ static struct command_result *json_pay(struct command *cmd,
 
 	// TODO(eduardo): are there route hints for B12?
 	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
-	if(invstr_is_b11)
-		uncertainty_network_add_routehints(pay_plugin->chan_extra_map, payment);
+	uncertainty_network_add_routehints(pay_plugin->chan_extra_map, routes, payment);
 
 	if(!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
 		plugin_log(pay_plugin->plugin,

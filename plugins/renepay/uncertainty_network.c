@@ -41,7 +41,7 @@ bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map)
 
 static void add_hintchan(
 		struct chan_extra_map *chan_extra_map,
-		struct payment *payment,
+		struct gossmap_localmods *local_gossmods,
 		const struct node_id *src,
 		const struct node_id *dst,
 		u16 cltv_expiry_delta,
@@ -63,9 +63,9 @@ static void add_hintchan(
 				    scid,
 				    MAX_CAP);
 		/* FIXME: features? */
-		gossmap_local_addchan(payment->local_gossmods,
+		gossmap_local_addchan(local_gossmods,
 				      src, dst, &scid, NULL);
-		gossmap_local_updatechan(payment->local_gossmods,
+		gossmap_local_updatechan(local_gossmods,
 					 &scid,
 					 /* We assume any HTLC is allowed */
 					 AMOUNT_MSAT(0), MAX_CAP,
@@ -84,26 +84,18 @@ static void add_hintchan(
 /* Add routehints provided by bolt11 */
 void uncertainty_network_add_routehints(
 		struct chan_extra_map *chan_extra_map,
+		const struct route_info **routes,
 		struct payment *p)
 {
-	struct bolt11 *b11;
-	char *fail;
-
-	b11 =
-	    bolt11_decode(tmpctx, p->invstr,
-	    		  plugin_feature_set(p->cmd->plugin),
-			  p->description, chainparams, &fail);
-	if (b11 == NULL)
-		debug_err("add_routehints: Invalid bolt11: %s", fail);
-
-	for (size_t i = 0; i < tal_count(b11->routes); i++) {
+	for (size_t i = 0; i < tal_count(routes); i++) {
 		/* Each one, presumably, leads to the destination */
-		const struct route_info *r = b11->routes[i];
+		const struct route_info *r = routes[i];
 		const struct node_id *end = & p->destination;
 		for (int j = tal_count(r)-1; j >= 0; j--) {
 			add_hintchan(
 				chan_extra_map,
-				p, &r[j].pubkey, end,
+				p->local_gossmods,
+				&r[j].pubkey, end,
 				r[j].cltv_expiry_delta,
 				r[j].short_channel_id,
 				r[j].fee_base_msat,
