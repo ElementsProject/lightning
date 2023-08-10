@@ -309,6 +309,10 @@ void json_add_pubkey(struct json_stream *response UNNEEDED,
 void json_add_s32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  int32_t value UNNEEDED)
 { fprintf(stderr, "json_add_s32 called!\n"); abort(); }
+/* Generated stub for json_add_s64 */
+void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  int64_t value UNNEEDED)
+{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
 /* Generated stub for json_add_secret */
 void json_add_secret(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -354,10 +358,6 @@ void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
-/* Generated stub for json_add_s64 */
-void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  int64_t value UNNEEDED)
-{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED,

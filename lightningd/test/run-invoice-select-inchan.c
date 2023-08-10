@@ -499,6 +499,10 @@ void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_s64 */
+void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  int64_t value UNNEEDED)
+{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
 /* Generated stub for json_add_secret */
 void json_add_secret(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -544,10 +548,6 @@ void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
-/* Generated stub for json_add_s64 */
-void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  int64_t value UNNEEDED)
-{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED,
@@ -798,12 +798,6 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				 uint64_t **num UNNEEDED)
 { fprintf(stderr, "param_u64 called!\n"); abort(); }
-/* Generated stub for channel_state_normalish */
-bool channel_state_normalish(const struct channel *channel UNNEEDED)
-{ fprintf(stderr, "channel_state_normalish called!\n"); abort(); }
-/* Generated stub for channel_state_awaitish */
-bool channel_state_awaitish(const struct channel *channel UNNEEDED)
-{ fprintf(stderr, "channel_state_awaitish called!\n"); abort(); }
 /* Generated stub for peer_any_active_channel */
 struct channel *peer_any_active_channel(struct peer *peer UNNEEDED, bool *others UNNEEDED)
 { fprintf(stderr, "peer_any_active_channel called!\n"); abort(); }

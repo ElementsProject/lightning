@@ -29,8 +29,7 @@
 #define MAX(a,b) ((a)>(b)? (a) : (b))
 #define MIN(a,b) ((a)<(b)? (a) : (b))
 
-static struct pay_plugin the_pay_plugin;
-struct pay_plugin * const pay_plugin = &the_pay_plugin;
+struct pay_plugin *pay_plugin;
 
 static void timer_kick(struct payment *payment);
 static struct command_result *try_paying(struct command *cmd,
@@ -64,7 +63,7 @@ void amount_msat_reduce_(struct amount_msat *dst,
 #if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	memleak_scan_region(memtable, pay_plugin, sizeof(*pay_plugin));
+	memleak_scan_obj(memtable, pay_plugin);
 	memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
 }
 #endif
@@ -80,7 +79,7 @@ static const char *init(struct plugin *p,
 {
 	size_t num_channel_updates_rejected;
 
-	pay_plugin->ctx = notleak_with_children(tal(p,tal_t));
+	tal_steal(p, pay_plugin);
 	pay_plugin->plugin = p;
 	pay_plugin->last_time = 0;
 
@@ -98,13 +97,13 @@ static const char *init(struct plugin *p,
 
 	list_head_init(&pay_plugin->payments);
 
-	pay_plugin->chan_extra_map = tal(pay_plugin->ctx,struct chan_extra_map);
+	pay_plugin->chan_extra_map = tal(pay_plugin,struct chan_extra_map);
 	chan_extra_map_init(pay_plugin->chan_extra_map);
 
-	pay_plugin->payflow_map = tal(pay_plugin->ctx,struct payflow_map);
+	pay_plugin->payflow_map = tal(pay_plugin,struct payflow_map);
 	payflow_map_init(pay_plugin->payflow_map);
 
-	pay_plugin->gossmap = gossmap_load(pay_plugin->ctx,
+	pay_plugin->gossmap = gossmap_load(pay_plugin,
 					   GOSSIP_STORE_FILENAME,
 					   &num_channel_updates_rejected);
 
@@ -445,7 +444,7 @@ sendpay_flows(struct command *cmd,
 		/* Flow now owned by all_flows instead of req., in this way we
 		 * can control the destruction occurs before we remove temporary
 		 * channels from chan_extra_map. */
-		tal_steal(pay_plugin->ctx,flows[i]);
+		tal_steal(pay_plugin,flows[i]);
 
 		/* Let's keep record of this flow. */
 		payflow_map_add(pay_plugin->payflow_map,flows[i]);
@@ -1469,6 +1468,11 @@ static const struct plugin_notification notifications[] = {
 int main(int argc, char *argv[])
 {
 	setup_locale();
+
+	/* Most gets initialized in init(), but set debug options here. */
+	pay_plugin = tal(NULL, struct pay_plugin);
+	pay_plugin->debug_mcf = pay_plugin->debug_payflow = false;
+
 	plugin_main(
 		argv,
 		init,
@@ -1487,7 +1491,5 @@ int main(int argc, char *argv[])
 			flag_option, &pay_plugin->debug_payflow),
 		NULL);
 
-	// TODO(eduardo): I think this is actually never executed
-	tal_free(pay_plugin->ctx);
 	return 0;
 }
