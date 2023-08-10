@@ -8,9 +8,36 @@
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
 
+/* There are several states a payment can be in */
+enum pay_flow_state {
+	/* Created, but not sent to sendpay */
+	PAY_FLOW_NOT_STARTED,
+	/* Normally, here */
+	PAY_FLOW_IN_PROGRESS,
+	/* Failed: we've fed the data back to the uncertainly network. */
+	PAY_FLOW_FAILED,
+	/* Failed from the final node, so give up: see ->final_error. */
+	PAY_FLOW_FAILED_FINAL,
+	/* Failed, but still updating gossip. */
+	PAY_FLOW_FAILED_GOSSIP_PENDING,
+	/* Succeeded: see ->payment_preimage. */
+	PAY_FLOW_SUCCESS,
+};
+#define NUM_PAY_FLOW (PAY_FLOW_SUCCESS + 1)
+
 /* This is like a struct flow, but independent of gossmap, and contains
  * all we need to actually send the part payment. */
 struct pay_flow {
+	/* Linked from payment->flows */
+	struct list_node list;
+
+	enum pay_flow_state state;
+	/* Iff state == PAY_FLOW_SUCCESS */
+	const struct preimage *payment_preimage;
+	/* Iff state == PAY_FAILED_FINAL */
+	enum jsonrpc_errcode final_error;
+	const char *final_msg;
+
 	/* So we can be an independent object for callbacks. */
 	struct payment * payment;
 
@@ -76,21 +103,32 @@ HTABLE_DEFINE_TYPE(struct pay_flow,
 		   payflow_get_key, payflow_key_hash, payflow_key_equal,
 		   payflow_map);
 
+/* Add one or more IN_PROGRESS pay_flow to payment.  Return NULL if we did,
+ * otherwise an error message (and sets *ecode). */
+const char *add_payflows(const tal_t *ctx,
+			 struct payment *payment,
+			 struct amount_msat amount,
+			 struct amount_msat feebudget,
+			 bool is_entire_payment,
+			 enum jsonrpc_errcode *ecode);
 
-struct pay_flow **get_payflows(struct payment *payment,
-			       struct amount_msat amount,
-			       struct amount_msat feebudget,
-			       bool is_entire_payment,
-			       const char **err_msg);
+/* Each payflow is eventually terminated by one of these: */
 
-void commit_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		const struct pay_flow *flow);
+/* We've been notified that a pay_flow has failed */
+void pay_flow_failed(struct pay_flow *pf STEALS);
+/* We've been notified that a pay_flow has failed, payment is done. */
+void pay_flow_failed_final(struct pay_flow *pf STEALS,
+			   enum jsonrpc_errcode final_error,
+			   const char *final_msg TAKES);
+/* We've been notified that a pay_flow has failed, adding gossip. */
+void pay_flow_failed_adding_gossip(struct pay_flow *pf STEALS);
+/* We've finished adding gossip. */
+void pay_flow_finished_adding_gossip(struct pay_flow *pf STEALS);
+/* We've been notified that a pay_flow has succeeded. */
+void pay_flow_succeeded(struct pay_flow *pf STEALS,
+			const struct preimage *preimage);
 
-void remove_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *flow);
-
+/* Formatting helpers */
 const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow);
 
 const char* fmt_payflows(const tal_t *ctx,
@@ -98,10 +136,5 @@ const char* fmt_payflows(const tal_t *ctx,
 
 /* How much does this flow deliver to destination? */
 struct amount_msat payflow_delivered(const struct pay_flow *flow);
-
-/* Removes amounts from payment and frees flow pointer.
- * A possible destructor for flow would remove HTLCs from the
- * uncertainty_network and remove the flow from any data structure. */
-struct pay_flow* payflow_fail(struct pay_flow *flow);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_FLOW_H */
