@@ -108,6 +108,9 @@ void payment_note(struct payment *p, const char *fmt, ...)
 	va_end(ap);
 	tal_arr_expand(&p->paynotes, str);
 	debug_info("%s",str);
+
+	if (p->cmd)
+		plugin_notify_message(p->cmd, LOG_INFORM, "%s", str);
 }
 
 void payment_assert_delivering_incomplete(const struct payment *p)
