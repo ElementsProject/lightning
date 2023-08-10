@@ -74,6 +74,7 @@ class LnFeatureBits(object):
     OPTION_PROPOSED_UPFRONT_FEE = 56                # IN9       #1052
     OPTION_PROPOSED_CLOSING_REJECTED = 60           # IN        #1016
     OPTION_PROPOSED_SPLICE = 62                     # IN        #863
+    OPTION_PROPOSED_EXPERIMENTAL_SPLICE = 162       # IN        #863
 
 
 def _parse_features(featurebytes):

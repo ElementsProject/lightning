@@ -136,7 +136,11 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 #define OPT_CHANNEL_TYPE			44
 #define OPT_PAYMENT_METADATA			48
-#define OPT_SPLICE				62
+
+/* BOLT-splice #9:
+ * | 62/63 | `option_splice` |  ... IN ...
+ */
+#define OPT_EXPERIMENTAL_SPLICE			162
 
 /* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
  * | 28/29 | `option_dual_fund` | ... IN9 ...

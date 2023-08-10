@@ -44,7 +44,7 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
         features += [29]
     if EXPERIMENTAL_SPLICING:
         features += [35]  # option_quiesce
-        features += [63]  # option_splice
+        features += [163]  # option_experimental_splice
     return hex_bits(features + extra)
 
 
@@ -60,7 +60,7 @@ def expected_node_features(wumbo_channels=False, extra=[]):
         features += [29]
     if EXPERIMENTAL_SPLICING:
         features += [35]  # option_quiesce
-        features += [63]  # option_splice
+        features += [163]  # option_experimental_splice
     return hex_bits(features + extra)
 
 
