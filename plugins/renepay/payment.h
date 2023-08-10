@@ -108,8 +108,6 @@ struct payment {
 
 	/* Groupid, so listpays() can group them back together */
 	u64 groupid;
-
-	struct command_result * result;
 };
 
 
