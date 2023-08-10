@@ -14,7 +14,8 @@ bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map)
 /* Add routehints provided by bolt11 */
 void uncertainty_network_add_routehints(
 		struct chan_extra_map *chan_extra_map,
-		struct payment *payment);
+		const struct route_info **routes,
+		struct payment *p);
 
 /* Mirror the gossmap in the public uncertainty network.
  * result: Every channel in gossmap must have associated data in chan_extra_map,
