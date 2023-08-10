@@ -34,8 +34,7 @@ struct pay_plugin * const pay_plugin = &the_pay_plugin;
 
 static void timer_kick(struct payment *payment);
 static struct command_result *try_paying(struct command *cmd,
-					 struct payment *payment,
-					 bool first_time);
+					 struct payment *payment);
 
 void amount_msat_accumulate_(struct amount_msat *dst,
 			     struct amount_msat src,
@@ -152,7 +151,7 @@ static void timer_kick(struct payment *payment)
 		case PAYMENT_FAIL:
 			plugin_log(pay_plugin->plugin,LOG_DBG,"status is PAYMENT_FAIL");
 			payment_assert_delivering_incomplete(payment);
-			try_paying(payment->cmd,payment,/* always try even if prob is low */ true);
+			try_paying(payment->cmd, payment);
 		break;
 
 		/* Nothing has returned yet, we have to wait. */
@@ -472,8 +471,7 @@ sendpay_flows(struct command *cmd,
 }
 
 static struct command_result *try_paying(struct command *cmd,
-					 struct payment *payment,
-					 bool first_time)
+					 struct payment *payment)
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
@@ -537,11 +535,6 @@ static struct command_result *try_paying(struct command *cmd,
 	struct pay_flow **pay_flows = get_payflows(
 						payment,
 						remaining, feebudget,
-
-						/* would you accept unlikely
-						 * payments? */
-						true,
-
 				 		/* is entire payment? */
 						amount_msat_eq(payment->total_delivering, AMOUNT_MSAT(0)),
 
@@ -595,7 +588,7 @@ static struct command_result *listpeerchannels_done(
 	/* When we terminate cmd for any reason, clear it from payment so we don't do it again. */
 	tal_add_destructor2(cmd, destroy_cmd_payment_ptr, payment);
 
-	return try_paying(cmd, payment, true);
+	return try_paying(cmd, payment);
 }
 
 

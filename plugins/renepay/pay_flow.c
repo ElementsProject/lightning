@@ -336,7 +336,6 @@ static bool disable_htlc_violations(struct payment *payment,
 struct pay_flow **get_payflows(struct payment *p,
 			       struct amount_msat amount,
 			       struct amount_msat feebudget,
-			       bool unlikely_ok,
 			       bool is_entire_payment,
 			       const char **err_msg)
 {
@@ -365,7 +364,7 @@ struct pay_flow **get_payflows(struct payment *p,
 		double prob;
 		struct amount_msat fee;
 		u64 delay;
-		bool too_unlikely, too_expensive, too_delayed;
+		bool too_expensive, too_delayed;
 		const u32 *final_cltvs;
 
 		flows = minflow(tmpctx, pay_plugin->gossmap, src, dst,
@@ -399,17 +398,6 @@ struct pay_flow **get_payflows(struct payment *p,
 			      type_to_string(tmpctx,struct amount_msat,&fee),
 			      delay);
 
-		too_unlikely = (prob < p->min_prob_success);
-		if (too_unlikely && !unlikely_ok)
-		{
-			debug_paynote(p, "Flows too unlikely, P() = %f%%", prob * 100);
-			*err_msg = tal_fmt(tmpctx,
-					  "Probability is too small, "
-					  "Prob = %f%% (min = %f%%)",
-					  prob*100,
-					  p->min_prob_success*100);
-			goto fail;
-		}
 		too_expensive = amount_msat_greater(fee, feebudget);
 		if (too_expensive)
 		{
