@@ -35,11 +35,69 @@
 
 #define MAX_SHADOW_LEN 3
 
-/* FIXME: rearrange to avoid predecls. */
-static void remove_htlc_payflow(struct chan_extra_map *chan_extra_map,
-				struct pay_flow *flow);
-static void commit_htlc_payflow(struct chan_extra_map *chan_extra_map,
-				const struct pay_flow *flow);
+static void remove_htlc_payflow(
+		struct chan_extra_map *chan_extra_map,
+		struct pay_flow *flow)
+{
+	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
+		struct chan_extra_half *h = get_chan_extra_half_by_scid(
+							       chan_extra_map,
+							       flow->path_scids[i],
+							       flow->path_dirs[i]);
+		if(!h)
+		{
+			plugin_err(pay_plugin->plugin,
+				   "%s could not resolve chan_extra_half",
+				   __PRETTY_FUNCTION__);
+		}
+		if (!amount_msat_sub(&h->htlc_total, h->htlc_total, flow->amounts[i]))
+		{
+			plugin_err(pay_plugin->plugin,
+				   "%s could not substract HTLC amounts, "
+				   "half total htlc amount = %s, "
+				   "flow->amounts[%lld] = %s.",
+				   __PRETTY_FUNCTION__,
+				   type_to_string(tmpctx, struct amount_msat, &h->htlc_total),
+				   i,
+				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
+		}
+		if (h->num_htlcs == 0)
+		{
+			plugin_err(pay_plugin->plugin,
+				   "%s could not decrease HTLC count.",
+				   __PRETTY_FUNCTION__);
+		}
+		h->num_htlcs--;
+	}
+}
+
+static void commit_htlc_payflow(
+		struct chan_extra_map *chan_extra_map,
+		const struct pay_flow *flow)
+{
+	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
+		struct chan_extra_half *h = get_chan_extra_half_by_scid(
+							       chan_extra_map,
+							       flow->path_scids[i],
+							       flow->path_dirs[i]);
+		if(!h)
+		{
+			plugin_err(pay_plugin->plugin,
+				   "%s could not resolve chan_extra_half",
+				   __PRETTY_FUNCTION__);
+		}
+		if (!amount_msat_add(&h->htlc_total, h->htlc_total, flow->amounts[i]))
+		{
+			plugin_err(pay_plugin->plugin,
+				   "%s could not add HTLC amounts, "
+				   "flow->amounts[%lld] = %s.",
+				   __PRETTY_FUNCTION__,
+				   i,
+				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
+		}
+		h->num_htlcs++;
+	}
+}
 
 /* Returns CLTV, and fills in *shadow_fee, based on extending the path */
 static u32 shadow_one_flow(const struct gossmap *gossmap,
@@ -207,8 +265,6 @@ static u32 *shadow_additions(const tal_t *ctx,
 static void destroy_payment_flow(struct pay_flow *pf)
 {
 	list_del_from(&pf->payment->flows, &pf->list);
-	remove_htlc_payflow(pay_plugin->chan_extra_map, pf);
-	payflow_map_del(pay_plugin->payflow_map, pf);
 }
 
 /* Calculates delays and converts to scids, and links to the payment.
@@ -557,92 +613,41 @@ const char* fmt_payflows(const tal_t *ctx,
 	return json_out_contents(jout,&len);
 }
 
-static void remove_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *flow)
-{
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
-		struct chan_extra_half *h = get_chan_extra_half_by_scid(
-							       chan_extra_map,
-							       flow->path_scids[i],
-							       flow->path_dirs[i]);
-		if(!h)
-		{
-			plugin_err(pay_plugin->plugin,
-				   "%s could not resolve chan_extra_half",
-				   __PRETTY_FUNCTION__);
-		}
-		if (!amount_msat_sub(&h->htlc_total, h->htlc_total, flow->amounts[i]))
-		{
-			plugin_err(pay_plugin->plugin,
-				   "%s could not substract HTLC amounts, "
-				   "half total htlc amount = %s, "
-				   "flow->amounts[%lld] = %s.",
-				   __PRETTY_FUNCTION__,
-				   type_to_string(tmpctx, struct amount_msat, &h->htlc_total),
-				   i,
-				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
-		}
-		if (h->num_htlcs == 0)
-		{
-			plugin_err(pay_plugin->plugin,
-				   "%s could not decrease HTLC count.",
-				   __PRETTY_FUNCTION__);
-		}
-		h->num_htlcs--;
-	}
-}
-static void commit_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		const struct pay_flow *flow)
-{
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
-		struct chan_extra_half *h = get_chan_extra_half_by_scid(
-							       chan_extra_map,
-							       flow->path_scids[i],
-							       flow->path_dirs[i]);
-		if(!h)
-		{
-			plugin_err(pay_plugin->plugin,
-				   "%s could not resolve chan_extra_half",
-				   __PRETTY_FUNCTION__);
-		}
-		if (!amount_msat_add(&h->htlc_total, h->htlc_total, flow->amounts[i]))
-		{
-			plugin_err(pay_plugin->plugin,
-				   "%s could not add HTLC amounts, "
-				   "flow->amounts[%lld] = %s.",
-				   __PRETTY_FUNCTION__,
-				   i,
-				   type_to_string(tmpctx, struct amount_msat, &flow->amounts[i]));
-		}
-		h->num_htlcs++;
-	}
-}
-
 /* How much does this flow deliver to destination? */
 struct amount_msat payflow_delivered(const struct pay_flow *flow)
 {
 	return flow->amounts[tal_count(flow->amounts)-1];
 }
 
-/* Remove (failed) payment from amounts. */
-static void payment_remove_flowamount(const struct pay_flow *pf)
+static struct pf_result *pf_resolve(struct pay_flow *pf,
+				    enum pay_flow_state oldstate,
+				    enum pay_flow_state newstate,
+				    bool reconsider)
 {
-	amount_msat_reduce(&pf->payment->total_delivering,
-			   payflow_delivered(pf));
-	amount_msat_reduce(&pf->payment->total_sent, pf->amounts[0]);
+	assert(pf->state == oldstate);
+	pf->state = newstate;
+
+	/* If it didn't deliver, remove from totals */
+	if (pf->state != PAY_FLOW_SUCCESS) {
+		amount_msat_reduce(&pf->payment->total_delivering,
+				   payflow_delivered(pf));
+		amount_msat_reduce(&pf->payment->total_sent, pf->amounts[0]);
+	}
+
+	/* Subtract HTLC counters from the path */
+	remove_htlc_payflow(pay_plugin->chan_extra_map, pf);
+	/* And remove from the global map: no more notifications about this! */
+	payflow_map_del(pay_plugin->payflow_map, pf);
+
+	if (reconsider)
+		payment_reconsider(pf->payment);
+	return NULL;
 }
 
 /* We've been notified that a pay_flow has failed */
 struct pf_result *pay_flow_failed(struct pay_flow *pf)
 {
-	assert(pf->state == PAY_FLOW_IN_PROGRESS);
-	pf->state = PAY_FLOW_FAILED;
-	payment_remove_flowamount(pf);
-
-	payment_reconsider(pf->payment);
-	return NULL;
+	return pf_resolve(pf, PAY_FLOW_IN_PROGRESS, PAY_FLOW_FAILED, true);
 }
 
 /* We've been notified that a pay_flow has failed, payment is done. */
@@ -650,23 +655,18 @@ struct pf_result *pay_flow_failed_final(struct pay_flow *pf,
 					enum jsonrpc_errcode final_error,
 					const char *final_msg TAKES)
 {
-	assert(pf->state == PAY_FLOW_IN_PROGRESS);
-	pf->state = PAY_FLOW_FAILED_FINAL;
 	pf->final_error = final_error;
 	pf->final_msg = tal_strdup(pf, final_msg);
-	payment_remove_flowamount(pf);
 
-	payment_reconsider(pf->payment);
-	return NULL;
+	return pf_resolve(pf, PAY_FLOW_IN_PROGRESS, PAY_FLOW_FAILED_FINAL, true);
 }
 
 /* We've been notified that a pay_flow has failed, adding gossip. */
 struct pf_result *pay_flow_failed_adding_gossip(struct pay_flow *pf)
 {
-	assert(pf->state == PAY_FLOW_IN_PROGRESS);
-	pf->state = PAY_FLOW_FAILED_GOSSIP_PENDING;
-	payment_remove_flowamount(pf);
-	return NULL;
+	/* Don't bother reconsidering until addgossip done */
+	return pf_resolve(pf, PAY_FLOW_IN_PROGRESS, PAY_FLOW_FAILED_GOSSIP_PENDING,
+			  false);
 }
 
 /* We've finished adding gossip. */
@@ -683,10 +683,6 @@ struct pf_result *pay_flow_finished_adding_gossip(struct pay_flow *pf)
 struct pf_result *pay_flow_succeeded(struct pay_flow *pf,
 				     const struct preimage *preimage)
 {
-	assert(pf->state == PAY_FLOW_IN_PROGRESS);
-	pf->state = PAY_FLOW_SUCCESS;
 	pf->payment_preimage = tal_dup(pf, struct preimage, preimage);
-
-	payment_reconsider(pf->payment);
-	return NULL;
+	return pf_resolve(pf, PAY_FLOW_IN_PROGRESS, PAY_FLOW_SUCCESS, true);
 }
