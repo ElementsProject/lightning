@@ -17,8 +17,7 @@ struct pay_flow {
 	/* Information to link this flow to a unique sendpay. */
 	struct payflow_key
 	{
-		// TODO(eduardo): pointer or value?
-		struct sha256 *payment_hash;
+		struct sha256 payment_hash;
 		u64 groupid;
 		u64 partid;
 	} key;
@@ -36,9 +35,9 @@ struct pay_flow {
 };
 
 static inline struct payflow_key
-payflow_key(struct sha256 *hash, u64 groupid, u64 partid)
+payflow_key(const struct sha256 *hash, u64 groupid, u64 partid)
 {
-	struct payflow_key k= {hash,groupid,partid};
+	struct payflow_key k= {*hash,groupid,partid};
 	return k;
 }
 
@@ -50,27 +49,27 @@ static inline const char* fmt_payflow_key(
 		ctx,
 		"key: groupid=%"PRIu64", partid=%"PRIu64", payment_hash=%s",
 		k->groupid,k->partid,
-		type_to_string(ctx,struct sha256,k->payment_hash));
+		type_to_string(ctx,struct sha256,&k->payment_hash));
 	return str;
 }
 
 
-static inline const struct payflow_key
+static inline const struct payflow_key *
 payflow_get_key(const struct pay_flow * pf)
 {
-	return pf->key;
+	return &pf->key;
 }
 
-static inline size_t payflow_key_hash(const struct payflow_key k)
+static inline size_t payflow_key_hash(const struct payflow_key *k)
 {
-	return k.payment_hash->u.u32[0] ^ (k.groupid << 32) ^ k.partid;
+	return k->payment_hash.u.u32[0] ^ (k->groupid << 32) ^ k->partid;
 }
 
 static inline bool payflow_key_equal(const struct pay_flow *pf,
-				      const struct payflow_key k)
+				     const struct payflow_key *k)
 {
-	return pf->key.partid==k.partid && pf->key.groupid==k.groupid
-		&& sha256_eq(pf->key.payment_hash,k.payment_hash);
+	return pf->key.partid==k->partid && pf->key.groupid==k->groupid
+		&& sha256_eq(&pf->key.payment_hash, &k->payment_hash);
 }
 
 HTABLE_DEFINE_TYPE(struct pay_flow,
