@@ -926,8 +926,9 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			if (!routing_add_node_announcement(rstate,
 							   take(msg), gs->len,
 							   NULL, NULL, spam)) {
-				bad = "Bad node_announcement";
-				goto badmsg;
+				/* FIXME: This has been reported: routing.c
+				 * has logged, so ignore. */
+				break;
 			}
 			stats[2]++;
 			break;
