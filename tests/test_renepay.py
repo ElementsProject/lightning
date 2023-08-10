@@ -48,6 +48,8 @@ def test_errors(node_factory, bitcoind):
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     send_amount = Millisatoshi('21sat')
     inv = l6.rpc.invoice(send_amount, 'test_renepay', 'description')['bolt11']
+    inv_deleted = l6.rpc.invoice(send_amount, 'test_renepay2', 'description2')['bolt11']
+    l6.rpc.delinvoice('test_renepay2', 'unpaid')
 
     failmsg = r'We don\'t have any channels'
     with pytest.raises(RpcError, match=failmsg):
@@ -80,6 +82,14 @@ def test_errors(node_factory, bitcoind):
     assert details['status'] == 'complete'
     assert details['amount_msat'] == send_amount
     assert details['destination'] == l6.info['id']
+
+    # Test error from final node.
+    with pytest.raises(RpcError) as err:
+        l1.rpc.call('renepay', {'invstring': inv_deleted})
+
+    PAY_DESTINATION_PERM_FAIL = 203
+    assert err.value.error['code'] == PAY_DESTINATION_PERM_FAIL
+    assert 'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS' in err.value.error['message']
 
 
 @pytest.mark.developer("needs to deactivate shadow routing")

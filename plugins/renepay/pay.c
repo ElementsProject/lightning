@@ -1154,7 +1154,7 @@ static void handle_sendpay_failure_payment(struct pay_flow *flow,
 			return;
 
 		debug_paynote(p,"final destination failure");
-		payment_fail(p, PAY_STATUS_UNEXPECTED,
+		payment_fail(p, PAY_DESTINATION_PERM_FAIL,
 				    "Destination said %s: %s",
 				    onion_wire_name(onionerr),
 				    message);
@@ -1388,10 +1388,7 @@ static struct command_result *notification_sendpay_failure(
 	case PAY_TRY_OTHER_ROUTE:
 		break;
 	case PAY_DESTINATION_PERM_FAIL:
-		/* FIXME: This is a *success* from the routing POV! */
-		payment_fail(flow->payment, errcode,
-			     "Got a final failure from destination");
-		goto done;
+		break;
 	default:
 		payment_fail(flow->payment, errcode,
 			     "Unexpected errocode from sendpay_failure: %.*s",
