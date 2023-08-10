@@ -3,7 +3,26 @@
 #include <plugins/renepay/debug.h>
 #include <plugins/renepay/payment.h>
 
-struct payment * payment_new(struct renepay * renepay)
+static struct payment * payment_new(struct renepay * renepay,
+				    const char *invstr TAKES,
+				    const char *label TAKES,
+				    const char *description TAKES,
+				    const struct sha256 *local_offer_id TAKES,
+				    const struct secret *payment_secret TAKES,
+				    const u8 *payment_metadata TAKES,
+				    const struct node_id *destination,
+				    const struct sha256 *payment_hash,
+				    struct amount_msat amount,
+				    struct amount_msat maxfee,
+				    unsigned int maxdelay,
+				    u64 retryfor,
+				    u16 final_cltv,
+				    /* Tweakable in DEVELOPER mode */
+				    u64 base_fee_penalty,
+				    u64 prob_cost_factor,
+				    u64 riskfactor_millionths,
+				    u64 min_prob_success_millionths,
+				    bool use_shadow)
 {
 	struct payment *p = tal(renepay,struct payment);
 	p->renepay = renepay;
@@ -12,43 +31,75 @@ struct payment * payment_new(struct renepay * renepay)
 	p->total_sent = AMOUNT_MSAT(0);
 	p->total_delivering = AMOUNT_MSAT(0);
 
-	p->invstr=NULL;
+	p->invstr = tal_strdup(p, invstr);
 
-	p->amount = AMOUNT_MSAT(0);
-	// p->destination=
-	// p->payment_hash
-	p->maxspend = AMOUNT_MSAT(0);
-	p->maxdelay=0;
-	// p->start_time=
-	// p->stop_time=
+	p->amount = amount;
+	p->destination = *destination;
+	p->payment_hash = *payment_hash;
+	if (!amount_msat_add(&p->maxspend, amount, maxfee))
+		p->maxspend = AMOUNT_MSAT(UINT64_MAX);
+
+	p->maxdelay = maxdelay;
+	p->start_time = time_now();
+	p->stop_time = timeabs_add(p->start_time, time_from_sec(retryfor));
 	p->preimage = NULL;
-	p->payment_secret=NULL;
-	p->payment_metadata=NULL;
+	p->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
+	p->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
 	p->status=PAYMENT_PENDING;
-	p->final_cltv=0;
+	p->final_cltv=final_cltv;
 	// p->list=
-	p->description=NULL;
-	p->label=NULL;
+	p->description = tal_strdup_or_null(p, description);
+	p->label = tal_strdup_or_null(p, label);
 
-	p->delay_feefactor=0;
-	p->base_fee_penalty=0;
-	p->prob_cost_factor=0;
-	p->min_prob_success=0;
+	p->delay_feefactor = riskfactor_millionths / 1e6;
+	p->base_fee_penalty = base_fee_penalty;
+	p->prob_cost_factor = prob_cost_factor;
+	p->min_prob_success = min_prob_success_millionths / 1e6;
 
-	p->local_offer_id=NULL;
-	p->use_shadow=true;
+	p->local_offer_id = tal_dup_or_null(p, struct sha256, local_offer_id);
+	p->use_shadow = use_shadow;
 	p->groupid=1;
 
 	p->result = NULL;
 	return p;
 }
 
-struct renepay * renepay_new(struct command *cmd)
+struct renepay *renepay_new(struct command *cmd,
+			    const char *invstr TAKES,
+			    const char *label TAKES,
+			    const char *description TAKES,
+			    const struct sha256 *local_offer_id TAKES,
+			    const struct secret *payment_secret TAKES,
+			    const u8 *payment_metadata TAKES,
+			    const struct node_id *destination,
+			    const struct sha256 *payment_hash,
+			    struct amount_msat amount,
+			    struct amount_msat maxfee,
+			    unsigned int maxdelay,
+			    u64 retryfor,
+			    u16 final_cltv,
+			    /* Tweakable in DEVELOPER mode */
+			    u64 base_fee_penalty,
+			    u64 prob_cost_factor,
+			    u64 riskfactor_millionths,
+			    u64 min_prob_success_millionths,
+			    bool use_shadow)
 {
 	struct renepay *renepay = tal(cmd,struct renepay);
 
 	renepay->cmd = cmd;
-	renepay->payment = payment_new(renepay);
+	renepay->payment = payment_new(renepay,
+				       invstr, label, description,
+				       local_offer_id, payment_secret, payment_metadata,
+				       destination, payment_hash,
+				       amount, maxfee, maxdelay,
+				       retryfor, final_cltv,
+				       base_fee_penalty,
+				       prob_cost_factor,
+				       riskfactor_millionths,
+				       min_prob_success_millionths,
+				       use_shadow);
+
  	renepay->local_gossmods = gossmap_localmods_new(renepay);
 	renepay->disabled = tal_arr(renepay,struct short_channel_id,0);
 	renepay->rexmit_timer = NULL;
