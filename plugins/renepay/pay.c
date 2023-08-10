@@ -1326,54 +1326,23 @@ static struct command_result *notification_sendpay_success(
 		const char *buf,
 		const jsmntok_t *params)
 {
-	struct pay_flow *flow = NULL;
-	const jsmntok_t *resulttok = json_get_member(buf,params,"sendpay_success");
-	if(!resulttok)
-		debug_err("Failed to get result from sendpay_success notification"
-			  ", received json: %.*s",
-			  json_tok_full_len(params),
-			  json_tok_full(buf,params));
+	struct pay_flow *flow;
+	struct preimage preimage;
+	const char *err;
+	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_success");
 
-	// 1. generate the key of this payflow
-	struct payflow_key key;
-	key.payment_hash = tal(tmpctx,struct sha256);
+	flow = pay_flow_from_notification(buf, sub);
+	if (!flow)
+		return notification_handled(cmd);
 
-	const jsmntok_t *parttok = json_get_member(buf,resulttok,"partid");
-	if(!parttok || !json_to_u64(buf,parttok,&key.partid))
-	{
-		// No partid, is this a single-path payment?
-		key.partid = 0;
-		// debug_err("Failed to get partid from sendpay_success notification"
-		// 	  ", received json: %.*s",
-		// 	  json_tok_full_len(params),
-		// 	  json_tok_full(buf,params));
-	}
-	const jsmntok_t *grouptok = json_get_member(buf,resulttok,"groupid");
-	if(!grouptok || !json_to_u64(buf,grouptok,&key.groupid))
-		debug_err("Failed to get groupid from sendpay_success notification"
-			  ", received json: %.*s",
-			  json_tok_full_len(params),
-			  json_tok_full(buf,params));
-
-	const jsmntok_t *hashtok = json_get_member(buf,resulttok,"payment_hash");
-	if(!hashtok || !json_to_sha256(buf,hashtok,key.payment_hash))
-		debug_err("Failed to get payment_hash from sendpay_success notification"
-			  ", received json: %.*s",
-			  json_tok_full_len(params),
-			  json_tok_full(buf,params));
-
-	plugin_log(pay_plugin->plugin,LOG_DBG,
-		"I received a sendpay_success with key %s",
-		fmt_payflow_key(tmpctx,&key));
-
-	// 2. is this payflow recorded in renepay?
-	flow = payflow_map_get(pay_plugin->payflow_map,key);
-	if(!flow)
-	{
-		plugin_log(pay_plugin->plugin,LOG_DBG,
-			"sendpay_success does not correspond to a renepay attempt, %s",
-			fmt_payflow_key(tmpctx,&key));
-		goto done;
+	err = json_scan(tmpctx, buf, sub, "{payment_preimage:%}",
+			JSON_SCAN(json_to_preimage, &preimage));
+	if (err) {
+		plugin_err(pay_plugin->plugin,
+			   "Bad payment_preimage (%s) in sendpay_success: %.*s",
+			   err,
+			   json_tok_full_len(params),
+			   json_tok_full(buf, params));
 	}
 
 	// 3. mark as success
@@ -1381,25 +1350,14 @@ static struct command_result *notification_sendpay_success(
 	debug_assert(p);
 	p->status = PAYMENT_SUCCESS;
 
-	const jsmntok_t *preimagetok
-		= json_get_member(buf, resulttok, "payment_preimage");
-	struct preimage preimage;
-
-	if (!preimagetok || !json_to_preimage(buf, preimagetok,&preimage))
-		debug_err("Failed to get payment_preimage from sendpay_success notification"
-			  ", received json: %.*s",
-			  json_tok_full_len(params),
-			  json_tok_full(buf,params));
-
 	/* We could have preimage from previous part */
 	tal_free(p->preimage);
-	p->preimage = tal_dup_or_null(p,struct preimage,&preimage);
+	p->preimage = tal_dup(p,struct preimage, &preimage);
 
 	// 4. update information and release pending HTLCs
 	uncertainty_network_flow_success(pay_plugin->chan_extra_map,flow);
-
-	done:
 	tal_free(flow);
+
 	return notification_handled(cmd);
 }
 
