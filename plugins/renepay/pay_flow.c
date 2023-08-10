@@ -220,7 +220,7 @@ static struct pay_flow **flows_to_pay_flows(struct payment *payment,
 		pf->payment = payment;
 		pf->key.partid = (*next_partid)++;
 		pf->key.groupid = payment->groupid;
-		pf->key.payment_hash = &payment->payment_hash;
+		pf->key.payment_hash = payment->payment_hash;
 
 		/* Convert gossmap_chan into scids and nodes */
 		pf->path_scids = tal_arr(pf, struct short_channel_id, plen);

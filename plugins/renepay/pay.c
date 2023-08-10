@@ -1292,11 +1292,10 @@ static struct pay_flow *pay_flow_from_notification(const char *buf,
 
 	/* Single part payment?  No partid */
 	key.partid = 0;
-	key.payment_hash = tal(tmpctx, struct sha256);
 	err = json_scan(tmpctx, buf, obj, "{partid?:%,groupid:%,payment_hash:%}",
 			JSON_SCAN(json_to_u64, &key.partid),
 			JSON_SCAN(json_to_u64, &key.groupid),
-			JSON_SCAN(json_to_sha256, key.payment_hash));
+			JSON_SCAN(json_to_sha256, &key.payment_hash));
 	if (err) {
 		plugin_err(pay_plugin->plugin,
 			   "Missing fields (%s) in notification: %.*s",
@@ -1305,7 +1304,7 @@ static struct pay_flow *pay_flow_from_notification(const char *buf,
 			   json_tok_full(buf, obj));
 	}
 
-	return payflow_map_get(pay_plugin->payflow_map, key);
+	return payflow_map_get(pay_plugin->payflow_map, &key);
 }
 
 // TODO(eduardo): if I subscribe to a shutdown notification, the plugin takes

@@ -31,14 +31,14 @@ static void destroy_payflow(
 }
 static struct pay_flow* new_payflow(
 		const tal_t *ctx,
-		struct sha256 * payment_hash,
+		const struct sha256 * payment_hash,
 		u64 gid,
 		u64 pid)
 {
 	struct pay_flow *p = tal(ctx,struct pay_flow);
 
 	p->payment=NULL;
-	p->key.payment_hash=payment_hash;
+	p->key.payment_hash = *payment_hash;
 	p->key.groupid = gid;
 	p->key.partid = pid;
 
@@ -61,6 +61,7 @@ static void valgrind_ok1(void)
 
 	{
 		tal_t *local_ctx = tal(this_ctx,tal_t);
+		struct payflow_key key;
 
 		struct pay_flow *p1 = new_payflow(local_ctx,
 						  &hash,1,1);
@@ -69,17 +70,19 @@ static void valgrind_ok1(void)
 
 		printf("key1 = %s\n",fmt_payflow_key(local_ctx,&p1->key));
 		printf("key1 = %s\n",fmt_payflow_key(local_ctx,&p2->key));
-		printf("key hash 1 = %zu\n",payflow_key_hash(p1->key));
-		printf("key hash 2 = %zu\n",payflow_key_hash(p2->key));
+		printf("key hash 1 = %zu\n",payflow_key_hash(&p1->key));
+		printf("key hash 2 = %zu\n",payflow_key_hash(&p2->key));
 
 		payflow_map_add(map,p1); tal_add_destructor2(p1,destroy_payflow,map);
 		payflow_map_add(map,p2); tal_add_destructor2(p2,destroy_payflow,map);
 
-		struct pay_flow *q1 = payflow_map_get(map,payflow_key(&hash,1,1));
-		struct pay_flow *q2 = payflow_map_get(map,payflow_key(&hash,2,3));
+		key = payflow_key(&hash,1,1);
+		struct pay_flow *q1 = payflow_map_get(map, &key);
+		key = payflow_key(&hash,2,3);
+		struct pay_flow *q2 = payflow_map_get(map, &key);
 
-		assert(payflow_key_hash(q1->key)==payflow_key_hash(p1->key));
-		assert(payflow_key_hash(q2->key)==payflow_key_hash(p2->key));
+		assert(payflow_key_hash(&q1->key)==payflow_key_hash(&p1->key));
+		assert(payflow_key_hash(&q2->key)==payflow_key_hash(&p2->key));
 
 		tal_free(local_ctx);
 	}
