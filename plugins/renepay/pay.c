@@ -1213,6 +1213,12 @@ static void handle_sendpay_failure_payment(struct pay_flow *flow,
 		return;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+		/* These also contain a channel_update, but in this case it's simply
+		 * advisory, not necessary. */
+		const u8 *update = channel_update_from_onion_error(tmpctx, raw);
+		if (update)
+			submit_update(flow, update, errscid);
+
 		return;
 
 	/* These should only come from the final distination. */
