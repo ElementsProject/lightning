@@ -14,7 +14,7 @@ bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map)
 /* Add routehints provided by bolt11 */
 void uncertainty_network_add_routehints(
 		struct chan_extra_map *chan_extra_map,
-		struct renepay *renepay);
+		struct payment *payment);
 
 /* Mirror the gossmap in the public uncertainty network.
  * result: Every channel in gossmap must have associated data in chan_extra_map,
@@ -40,7 +40,7 @@ void uncertainty_network_channel_can_send(
 bool uncertainty_network_update_from_listpeerchannels(
 		struct chan_extra_map * chan_extra_map,
 		struct node_id my_id,
-		struct renepay * renepay,
+		struct payment *payment,
 		const char *buf,
 		const jsmntok_t *toks);
 

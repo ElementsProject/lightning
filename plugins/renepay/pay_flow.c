@@ -137,11 +137,10 @@ static u64 flow_delay(const struct flow *flow)
 /* This enhances f->amounts, and returns per-flow cltvs */
 static u32 *shadow_additions(const tal_t *ctx,
 			     const struct gossmap *gossmap,
-			     struct renepay *renepay,
+			     struct payment *p,
 			     struct flow **flows,
 			     bool is_entire_payment)
 {
-	struct payment * p = renepay->payment;
 	u32 *final_cltvs;
 
 	/* Set these up now in case we decide to do nothing */
@@ -279,12 +278,11 @@ static u64 flows_worst_delay(struct flow **flows)
 }
 
 /* FIXME: If only path has channels marked disabled, we should try... */
-static bool disable_htlc_violations_oneflow(struct renepay * renepay,
+static bool disable_htlc_violations_oneflow(struct payment *p,
 					    const struct flow *flow,
 					    const struct gossmap *gossmap,
 					    bitmap *disabled)
 {
-	struct payment * p = renepay->payment;
 	bool disabled_some = false;
 
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
@@ -307,7 +305,7 @@ static bool disable_htlc_violations_oneflow(struct renepay * renepay,
 			reason);
 
 		/* Add this for future searches for this payment. */
-		tal_arr_expand(&renepay->disabled, scid);
+		tal_arr_expand(&p->disabled, scid);
 		/* Add to existing bitmap */
 		bitmap_set_bit(disabled,
 			       gossmap_chan_idx(gossmap, flow->path[i]));
@@ -318,7 +316,7 @@ static bool disable_htlc_violations_oneflow(struct renepay * renepay,
 
 /* If we can't use one of these flows because we hit limits, we disable that
  * channel for future searches and return false */
-static bool disable_htlc_violations(struct renepay *renepay,
+static bool disable_htlc_violations(struct payment *payment,
 				    struct flow **flows,
 				    const struct gossmap *gossmap,
 				    bitmap *disabled)
@@ -327,7 +325,7 @@ static bool disable_htlc_violations(struct renepay *renepay,
 
 	/* We continue through all of them, to disable many at once. */
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		disabled_some |= disable_htlc_violations_oneflow(renepay, flows[i],
+		disabled_some |= disable_htlc_violations_oneflow(payment, flows[i],
 								 gossmap,
 								 disabled);
 	}
@@ -335,7 +333,7 @@ static bool disable_htlc_violations(struct renepay *renepay,
 }
 
 /* Get some payment flows to get this amount to destination, or NULL. */
-struct pay_flow **get_payflows(struct renepay * renepay,
+struct pay_flow **get_payflows(struct payment *p,
 			       struct amount_msat amount,
 			       struct amount_msat feebudget,
 			       bool unlikely_ok,
@@ -344,12 +342,11 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 {
 	*err_msg = tal_fmt(tmpctx,"[no error]");
 
-	struct payment * p = renepay->payment;
 	bitmap *disabled;
 	struct pay_flow **pay_flows;
 	const struct gossmap_node *src, *dst;
 
-	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, renepay->disabled);
+	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled);
 	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
 	if (!src) {
 		debug_paynote(p, "We don't have any channels?");
@@ -453,7 +450,7 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 		 * to do this inside minflow(), but the diagnostics here
 		 * are far better, since we can report min/max which
 		 * *actually* made us reconsider. */
-		if (disable_htlc_violations(renepay, flows, pay_plugin->gossmap,
+		if (disable_htlc_violations(p, flows, pay_plugin->gossmap,
 					    disabled))
 		{
 			continue; // retry
@@ -462,12 +459,12 @@ struct pay_flow **get_payflows(struct renepay * renepay,
 		/* This can adjust amounts and final cltv for each flow,
 		 * to make it look like it's going elsewhere */
 		final_cltvs = shadow_additions(tmpctx, pay_plugin->gossmap,
-					       renepay, flows, is_entire_payment);
+					       p, flows, is_entire_payment);
 		/* OK, we are happy with these flows: convert to
 		 * pay_flows to outlive the current gossmap. */
-		pay_flows = flows_to_pay_flows(renepay->payment, pay_plugin->gossmap,
+		pay_flows = flows_to_pay_flows(p, pay_plugin->gossmap,
 					       flows, final_cltvs,
-					       &renepay->next_partid);
+					       &p->next_partid);
 		break;
 	}
 
@@ -628,7 +625,8 @@ struct pay_flow* payflow_fail(struct pay_flow *flow)
 	struct payment * p = flow->payment;
 	debug_assert(p);
 
-	payment_fail(p);
+	if (p->status != PAYMENT_SUCCESS)
+		p->status = PAYMENT_FAIL;
 	amount_msat_reduce(&p->total_delivering, payflow_delivered(flow));
 	amount_msat_reduce(&p->total_sent, flow->amounts[0]);
 
