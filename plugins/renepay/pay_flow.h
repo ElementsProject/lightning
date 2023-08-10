@@ -112,21 +112,24 @@ const char *add_payflows(const tal_t *ctx,
 			 bool is_entire_payment,
 			 enum jsonrpc_errcode *ecode);
 
-/* Each payflow is eventually terminated by one of these: */
+/* Each payflow is eventually terminated by one of these.
+ *
+ * To make sure you deal with flows, they return a special type.
+ */
 
 /* We've been notified that a pay_flow has failed */
-void pay_flow_failed(struct pay_flow *pf STEALS);
+struct pf_result *pay_flow_failed(struct pay_flow *pf STEALS);
 /* We've been notified that a pay_flow has failed, payment is done. */
-void pay_flow_failed_final(struct pay_flow *pf STEALS,
-			   enum jsonrpc_errcode final_error,
-			   const char *final_msg TAKES);
+struct pf_result *pay_flow_failed_final(struct pay_flow *pf STEALS,
+					enum jsonrpc_errcode final_error,
+					const char *final_msg TAKES);
 /* We've been notified that a pay_flow has failed, adding gossip. */
-void pay_flow_failed_adding_gossip(struct pay_flow *pf STEALS);
+struct pf_result *pay_flow_failed_adding_gossip(struct pay_flow *pf STEALS);
 /* We've finished adding gossip. */
-void pay_flow_finished_adding_gossip(struct pay_flow *pf STEALS);
+struct pf_result *pay_flow_finished_adding_gossip(struct pay_flow *pf STEALS);
 /* We've been notified that a pay_flow has succeeded. */
-void pay_flow_succeeded(struct pay_flow *pf STEALS,
-			const struct preimage *preimage);
+struct pf_result *pay_flow_succeeded(struct pay_flow *pf STEALS,
+				     const struct preimage *preimage);
 
 /* Formatting helpers */
 const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow);

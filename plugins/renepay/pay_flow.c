@@ -635,19 +635,20 @@ static void payment_remove_flowamount(const struct pay_flow *pf)
 }
 
 /* We've been notified that a pay_flow has failed */
-void pay_flow_failed(struct pay_flow *pf)
+struct pf_result *pay_flow_failed(struct pay_flow *pf)
 {
 	assert(pf->state == PAY_FLOW_IN_PROGRESS);
 	pf->state = PAY_FLOW_FAILED;
 	payment_remove_flowamount(pf);
 
 	payment_reconsider(pf->payment);
+	return NULL;
 }
 
 /* We've been notified that a pay_flow has failed, payment is done. */
-void pay_flow_failed_final(struct pay_flow *pf,
-			   enum jsonrpc_errcode final_error,
-			   const char *final_msg TAKES)
+struct pf_result *pay_flow_failed_final(struct pay_flow *pf,
+					enum jsonrpc_errcode final_error,
+					const char *final_msg TAKES)
 {
 	assert(pf->state == PAY_FLOW_IN_PROGRESS);
 	pf->state = PAY_FLOW_FAILED_FINAL;
@@ -656,32 +657,36 @@ void pay_flow_failed_final(struct pay_flow *pf,
 	payment_remove_flowamount(pf);
 
 	payment_reconsider(pf->payment);
+	return NULL;
 }
 
 /* We've been notified that a pay_flow has failed, adding gossip. */
-void pay_flow_failed_adding_gossip(struct pay_flow *pf)
+struct pf_result *pay_flow_failed_adding_gossip(struct pay_flow *pf)
 {
 	assert(pf->state == PAY_FLOW_IN_PROGRESS);
 	pf->state = PAY_FLOW_FAILED_GOSSIP_PENDING;
 	payment_remove_flowamount(pf);
+	return NULL;
 }
 
 /* We've finished adding gossip. */
-void pay_flow_finished_adding_gossip(struct pay_flow *pf)
+struct pf_result *pay_flow_finished_adding_gossip(struct pay_flow *pf)
 {
 	assert(pf->state == PAY_FLOW_FAILED_GOSSIP_PENDING);
 	pf->state = PAY_FLOW_FAILED;
 
 	payment_reconsider(pf->payment);
+	return NULL;
 }
 
 /* We've been notified that a pay_flow has succeeded. */
-void pay_flow_succeeded(struct pay_flow *pf,
-			const struct preimage *preimage)
+struct pf_result *pay_flow_succeeded(struct pay_flow *pf,
+				     const struct preimage *preimage)
 {
 	assert(pf->state == PAY_FLOW_IN_PROGRESS);
 	pf->state = PAY_FLOW_SUCCESS;
 	pf->payment_preimage = tal_dup(pf, struct preimage, preimage);
 
 	payment_reconsider(pf->payment);
+	return NULL;
 }
