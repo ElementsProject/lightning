@@ -696,26 +696,20 @@ payment_listsendpays_previous(
 	size_t i;
 	const jsmntok_t *t, *arr, *err;
 
-	/* Do we have pending sendpays for the previous attempt? */
-	bool pending = false;
-	/* Group ID of the first pending payment, this will be the one
+	/* Group ID of the pending payment, this will be the one
 	 * who's result gets replayed if we end up suspending. */
-	u64 first_pending_group_id = INVALID_ID;
-	u64 last_pending_group_id = INVALID_ID;
-	u64 last_pending_partid=0;
+	u64 pending_group_id = INVALID_ID;
+	u64 max_pending_partid=0;
+	u64 max_group_id = 0;
 	struct amount_msat pending_sent = AMOUNT_MSAT(0),
 			   pending_msat = AMOUNT_MSAT(0);
 
-	/* Did a prior attempt succeed? */
-	bool completed = false;
 	/* Metadata for a complete payment, if one exists. */
 	u32 complete_parts = 0;
 	struct preimage complete_preimage;
 	struct amount_msat complete_sent = AMOUNT_MSAT(0),
 			   complete_msat = AMOUNT_MSAT(0);
 	u32 complete_created_at;
-
-	u64 last_group=INVALID_ID;
 
 	err = json_get_member(buf, result, "error");
 	if (err)
@@ -730,45 +724,32 @@ payment_listsendpays_previous(
 		    cmd, LIGHTNINGD,
 		    "Unexpected non-array result from listsendpays");
 
-	/* We need two scans of the payments, the first to identify the groupid
-	 * that have pending sendpays and the second to get the maximum partid
-	 * from that group. */
-
-	/* We iterate through all prior sendpays, looking for the
-	 * latest group and remembering what its state is. */
 	json_for_each_arr(i, t, arr)
 	{
 		u64 partid, groupid;
 		struct amount_msat this_msat, this_sent;
-
-		const jsmntok_t *status;
+		const char *status;
 
 		// TODO(eduardo): assuming amount_msat is always known.
 		json_scan(tmpctx,buf,t,
-			  "{partid:%"
+			  "{status:%"
+			  ",partid:%"
 			  ",groupid:%"
 			  ",amount_msat:%"
 			  ",amount_sent_msat:%}",
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &status),
 			  JSON_SCAN(json_to_u64,&partid),
 			  JSON_SCAN(json_to_u64,&groupid),
 			  JSON_SCAN(json_to_msat,&this_msat),
 			  JSON_SCAN(json_to_msat,&this_sent));
 
-		if(last_group==INVALID_ID)
-			last_group = groupid;
-
-		last_group = MAX(last_group,groupid);
+		/* If we decide to create a new group, we base it on max_group_id */
+		if (groupid > max_group_id)
+			max_group_id = 1;
 
 		/* status could be completed, pending or failed */
-		status = json_get_member(buf, t, "status");
-
-		if(json_tok_streq(buf,status,"failed"))
-			continue;
-
-		if(json_tok_streq(buf,status,"complete"))
-		{
+		if (streq(status, "complete")) {
 			/* Now we know the payment completed. */
-			completed = true;
 			if(!amount_msat_add(&complete_msat,complete_msat,this_msat))
 				debug_err("%s (line %d) msat overflow.",
 					__PRETTY_FUNCTION__,__LINE__);
@@ -780,63 +761,21 @@ payment_listsendpays_previous(
 				  ",payment_preimage:%}",
 				  JSON_SCAN(json_to_u32, &complete_created_at),
 				  JSON_SCAN(json_to_preimage, &complete_preimage));
-			complete_parts ++;
-		}
-
-		if(json_tok_streq(buf,status,"pending"))
-		{
-			pending = true; // there are parts pending
-
-			if(first_pending_group_id==INVALID_ID ||
-			   last_pending_group_id==INVALID_ID)
-				first_pending_group_id = last_pending_group_id = groupid;
-
-			last_pending_group_id = MAX(last_pending_group_id,groupid);
-			first_pending_group_id = MIN(first_pending_group_id,groupid);
-		}
+			complete_parts++;
+		} else if (streq(status, "pending")) {
+			/* If we have more than one pending group, something went wrong! */
+			if (pending_group_id != INVALID_ID
+			    && groupid != pending_group_id)
+				return command_fail(cmd, PAY_STATUS_UNEXPECTED,
+						    "Multiple pending groups for this payment?");
+			pending_group_id = groupid;
+			if (partid > max_pending_partid)
+				max_pending_partid = partid;
+		} else
+			assert(streq(status, "failed"));
 	}
 
-	/* We iterate through all prior sendpays, looking for the
-	 * latest pending group. */
-	json_for_each_arr(i, t, arr)
-	{
-		u64 partid, groupid;
-		struct amount_msat this_msat, this_sent;
-
-		const jsmntok_t *status;
-
-		// TODO(eduardo): assuming amount_msat is always known.
-		json_scan(tmpctx,buf,t,
-			  "{partid:%"
-			  ",groupid:%"
-			  ",amount_msat:%"
-			  ",amount_sent_msat:%}",
-			  JSON_SCAN(json_to_u64,&partid),
-			  JSON_SCAN(json_to_u64,&groupid),
-			  JSON_SCAN(json_to_msat,&this_msat),
-			  JSON_SCAN(json_to_msat,&this_sent));
-
-		/* status could be completed, pending or failed */
-		status = json_get_member(buf, t, "status");
-
-		/* It seems I cannot reuse failed partids for the same groupid,
-		 * therefore let's count them all whatever the status. */
-		if(groupid==last_pending_group_id)
-			last_pending_partid = MAX(last_pending_partid,partid);
-
-		if(groupid == last_pending_group_id && json_tok_streq(buf,status,"pending"))
-		{
-			amount_msat_accumulate(&pending_sent,this_sent);
-			amount_msat_accumulate(&pending_msat,this_msat);
-
-			plugin_log(pay_plugin->plugin,LOG_DBG,
-				"pending deliver increased by %s",
-				type_to_string(tmpctx,struct amount_msat,&this_msat));
-		}
-	}
-
-
-	if (completed) {
+	if (complete_parts != 0) {
 		/* There are completed sendpays, we don't need to do anything
 		 * but summarize the result. */
 		struct json_stream *ret = jsonrpc_stream_success(cmd);
@@ -852,12 +791,10 @@ payment_listsendpays_previous(
 		/* This payment was already completed, we don't keep record of
 		 * it twice: payment will be freed with cmd */
 		return command_finished(cmd, ret);
-	} else if (pending) {
-		assert(last_pending_group_id!=INVALID_ID);
-		assert(first_pending_group_id!=INVALID_ID);
-
-		payment->groupid = last_pending_group_id;
-		payment->next_partid = last_pending_partid+1;
+	} else if (pending_group_id != INVALID_ID) {
+		/* Continue where we left off? */
+		payment->groupid = pending_group_id;
+		payment->next_partid = max_pending_partid+1;
 
 		payment->total_sent = pending_sent;
 		payment->total_delivering = pending_msat;
@@ -867,17 +804,10 @@ payment_listsendpays_previous(
 			   "groupid = %"PRIu64" "
 			   "delivering = %s, "
 			   "last_partid = %"PRIu64,
-			   last_pending_group_id,
+			   pending_group_id,
 			   type_to_string(tmpctx,struct amount_msat,&payment->total_delivering),
-			   last_pending_partid);
+			   max_pending_partid);
 
-		if( first_pending_group_id != last_pending_group_id)
-		{
-			/* At least two pending groups for the same invoice,
-			 * this is weird, we better stop. */
-			return command_fail(cmd, PAY_IN_PROGRESS,
-					    "Payment is pending by some other request.");
-		}
 		if(amount_msat_greater_eq(payment->total_delivering,payment->amount))
 		{
 			/* Pending payment already pays the full amount, we
@@ -889,7 +819,12 @@ payment_listsendpays_previous(
 	{
 		/* There are no pending nor completed sendpays, get me the last
 		 * sendpay group. */
-		payment->groupid = (last_group==INVALID_ID  ? 1 : (last_group+1)) ;
+		/* FIXME: use groupid 0 to have sendpay assign an unused groupid,
+		 * as this is theoretically racy against other plugins paying the
+		 * same thing!
+		 * *BUT* that means we have to create one flow first, so we
+		 * can match the others. */
+		payment->groupid = max_group_id + 1;
 		payment->next_partid=1;
 	}
 
