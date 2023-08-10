@@ -80,7 +80,6 @@ HTABLE_DEFINE_TYPE(struct pay_flow,
 struct pay_flow **get_payflows(struct payment *payment,
 			       struct amount_msat amount,
 			       struct amount_msat feebudget,
-			       bool unlikely_ok,
 			       bool is_entire_payment,
 			       const char **err_msg);
 
