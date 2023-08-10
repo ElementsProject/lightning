@@ -10,6 +10,9 @@ enum payment_status {
 
 
 struct payment {
+	/* Inside pay_plugin->payments list */
+	struct list_node list;
+
 	struct renepay * renepay;
 
 	/* Chatty description of attempts. */
@@ -55,9 +58,6 @@ struct payment {
 	enum payment_status status;
 
 	u32 final_cltv;
-
-	/* Inside pay_plugin->payments list */
-	struct list_node list;
 
 	/* Description and labels, if any. */
 	const char *description, *label;
