@@ -1869,7 +1869,7 @@ static struct command_result *param_channel_for_splice(struct command *cmd,
 
 	if (!feature_negotiated(cmd->ld->our_features,
 			        (*channel)->peer->their_features,
-				OPT_SPLICE))
+				OPT_EXPERIMENTAL_SPLICE))
 		return command_fail(cmd, SPLICE_NOT_SUPPORTED,
 				    "splicing not supported");
 

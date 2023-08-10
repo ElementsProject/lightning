@@ -1494,7 +1494,7 @@ static u8 *send_commit_part(struct peer *peer,
 	 * send unless negotiated */
 	if (feature_negotiated(peer->our_features,
 			       peer->their_features,
-			       OPT_SPLICE)) {
+			       OPT_EXPERIMENTAL_SPLICE)) {
 		status_debug("send_commit_part(splice: %d, remote_splice: %d)",
 			     (int)splice_amnt, (int)remote_splice_amnt);
 
