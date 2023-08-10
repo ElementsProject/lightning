@@ -65,9 +65,7 @@ void amount_msat_reduce_(struct amount_msat *dst,
 #if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	memleak_scan_obj(memtable, pay_plugin->ctx);
-	memleak_scan_obj(memtable, pay_plugin->gossmap);
-	memleak_scan_obj(memtable, pay_plugin->chan_extra_map);
+	memleak_scan_region(memtable, pay_plugin, sizeof(*pay_plugin));
 	memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
 }
 #endif
