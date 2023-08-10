@@ -59,7 +59,7 @@ def test_errors(node_factory, bitcoind):
     node_factory.join_nodes([l1, l3, l5],
                             wait_for_announce=True, fundamount=1000000)
 
-    failmsg = r'Destination is unreacheable in the network gossip.'
+    failmsg = r'Destination is unknown in the network gossip.'
     with pytest.raises(RpcError, match=failmsg):
         l1.rpc.call('renepay', {'invstring': inv})
 
@@ -208,7 +208,7 @@ def test_limits(node_factory):
 
     # FIXME: pylightning should define these!
     # PAY_STOPPED_RETRYING = 210
-    PAY_ROUTE_NOT_FOUND = 205
+    PAY_ROUTE_TOO_EXPENSIVE = 206
 
     inv = l6.rpc.invoice("any", "any", 'description')
 
@@ -217,7 +217,7 @@ def test_limits(node_factory):
     with pytest.raises(RpcError, match=failmsg) as err:
         l1.rpc.call(
             'renepay', {'invstring': inv['bolt11'], 'amount_msat': 1000000, 'maxfee': 1})
-    assert err.value.error['code'] == PAY_ROUTE_NOT_FOUND
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
     # TODO(eduardo): which error code shall we use here?
 
     # TODO(eduardo): shall we list attempts in renepay?
@@ -228,7 +228,7 @@ def test_limits(node_factory):
     with pytest.raises(RpcError, match=failmsg) as err:
         l1.rpc.call(
             'renepay', {'invstring': inv['bolt11'], 'amount_msat': 1000000, 'maxdelay': 0})
-    assert err.value.error['code'] == PAY_ROUTE_NOT_FOUND
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
     inv2 = l6.rpc.invoice("800000sat", "inv2", 'description')
     l1.rpc.call(

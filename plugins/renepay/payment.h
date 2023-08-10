@@ -8,12 +8,20 @@ enum payment_status {
         PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL
 };
 
-
 struct payment {
 	/* Inside pay_plugin->payments list */
 	struct list_node list;
 
-	/* The command if still running (needed for timer func) */
+	/* Overall, how are we going? */
+	enum payment_status status;
+
+	/* The flows we are managing. */
+	struct list_head flows;
+
+	/* Deadline for flow status collection. */
+	struct timemono *progress_deadline;
+
+	/* The command if still running */
 	struct command *cmd;
 
 	/* Localmods to apply to gossip_map for our own use. */
@@ -21,9 +29,6 @@ struct payment {
 
 	/* Channels we decided to disable for various reasons. */
 	struct short_channel_id *disabled;
-
-	/* Timers. */
-	struct plugin_timer *rexmit_timer;
 
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
@@ -65,9 +70,6 @@ struct payment {
 
 	/* Payment metadata, if specified by invoice. */
 	const u8 *payment_metadata;
-
-	/* To know if the last attempt failed, succeeded or is it pending. */
-	enum payment_status status;
 
 	u32 final_cltv;
 
@@ -142,14 +144,14 @@ void payment_note(struct payment *p, const char *fmt, ...);
 void payment_assert_delivering_incomplete(const struct payment *p);
 void payment_assert_delivering_all(const struct payment *p);
 
-struct command_result *payment_success(struct payment *payment);
+/* A flow has changed state, or we've hit a timeout: do something! */
+void payment_reconsider(struct payment *p);
+
+u64 payment_parts(const struct payment *payment);
 
 struct command_result *payment_fail(
 	struct payment *payment,
 	enum jsonrpc_errcode code,
 	const char *fmt, ...);
-
-u64 payment_parts(const struct payment *payment);
-void payment_cleanup(struct payment *payment);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

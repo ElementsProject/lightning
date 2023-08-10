@@ -69,7 +69,7 @@ struct pay_plugin {
 	/* Per-channel metadata: some persists between payments */
 	struct chan_extra_map *chan_extra_map;
 
-	/* Pending senpays. */
+	/* Pending sendpays (to match notifications to). */
 	struct payflow_map * payflow_map;
 
 	bool debug_mcf;
@@ -110,4 +110,8 @@ void amount_msat_reduce_(struct amount_msat *dst,
 			 const char *dstname,
 			 const char *srcname);
 
+/* Returns NULL if OK, otherwise an error msg and sets *ecode */
+const char *try_paying(const tal_t *ctx,
+		       struct payment *payment,
+		       enum jsonrpc_errcode *ecode);
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_H */
