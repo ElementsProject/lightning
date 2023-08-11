@@ -22,6 +22,11 @@
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
+struct pending_spam_node_announce {
+	u8 *node_announcement;
+	u32 index;
+};
+
 struct pending_node_announce {
 	struct routing_state *rstate;
 	struct node_id nodeid;
@@ -31,6 +36,8 @@ struct pending_node_announce {
 	u32 index;
 	/* If non-NULL this is peer to credit it with */
 	struct node_id *source_peer;
+	/* required for loading gossip store */
+	struct pending_spam_node_announce spam;
 };
 
 /* As per the below BOLT #7 quote, we delay forgetting a channel until 12
@@ -776,6 +783,8 @@ static void catch_node_announcement(const tal_t *ctx,
 		pna->index = 0;
 		pna->refcount = 0;
 		pna->source_peer = NULL;
+		pna->spam.node_announcement = NULL;
+		pna->spam.index = 0;
 		pending_node_map_add(rstate->pending_node_map, pna);
 	}
 	pna->refcount++;
@@ -804,6 +813,22 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
 		pna->node_announcement = tal_free(pna->node_announcement);
+	}
+	if (pna->spam.node_announcement) {
+		SUPERVERBOSE(
+		    "Processing deferred node_announcement for node %s",
+		    type_to_string(pna, struct node_id, nodeid));
+
+		/* Can fail it timestamp is now too old */
+		if (!routing_add_node_announcement(rstate,
+						   pna->spam.node_announcement,
+						   pna->spam.index,
+						   NULL, NULL,
+						   true))
+			status_unusual("pending node_announcement %s too old?",
+				       tal_hex(tmpctx, pna->spam.node_announcement));
+		/* Never send this again. */
+		pna->spam.node_announcement = tal_free(pna->spam.node_announcement);
 	}
 
 	/* We don't need to catch any more node_announcements, since we've
@@ -1821,12 +1846,20 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 		SUPERVERBOSE("Deferring node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
-		pna->timestamp = timestamp;
-		pna->index = index;
-		tal_free(pna->node_announcement);
-		tal_free(pna->source_peer);
-		pna->node_announcement = tal_dup_talarr(pna, u8, msg);
-		pna->source_peer = tal_dup_or_null(pna, struct node_id, source_peer);
+		/* a pending spam node announcement is possible when loading
+		 * from the store */
+		if (index && force_spam_flag) {
+			tal_free(pna->spam.node_announcement);
+			pna->spam.node_announcement = tal_dup_talarr(pna, u8, msg);
+			pna->spam.index = index;
+		} else {
+			tal_free(pna->node_announcement);
+			tal_free(pna->source_peer);
+			pna->node_announcement = tal_dup_talarr(pna, u8, msg);
+			pna->source_peer = tal_dup_or_null(pna, struct node_id, source_peer);
+			pna->timestamp = timestamp;
+			pna->index = index;
+		}
 		return true;
 	}
 
