@@ -419,6 +419,9 @@ update_node_annoucement:
 	maybe_send_own_node_announce(daemon, false);
 }
 
+/* Statistically, how many peers to we tell about each channel? */
+#define GOSSIP_SPAM_REDUNDANCY 5
+
 /* BOLT #7:
  *   - if the `gossip_queries` feature is negotiated:
  *     - MUST NOT relay any gossip messages it did not generate itself,
@@ -430,15 +433,16 @@ update_node_annoucement:
 static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 {
 	struct node *me;
-	struct chan_map_iter i;
-	struct chan *chan;
+	struct chan_map_iter it;
+	const struct chan *chan, **chans = tal_arr(tmpctx, const struct chan *, 0);
+	size_t num_to_send;
 
 	/* Find ourselves; if no channels, nothing to send */
 	me = get_node(daemon->rstate, &daemon->id);
 	if (!me)
 		return;
 
-	for (chan = first_chan(me, &i); chan; chan = next_chan(me, &i)) {
+	for (chan = first_chan(me, &it); chan; chan = next_chan(me, &it)) {
 		/* Don't leak private channels, unless it's with you! */
 		if (!is_chan_public(chan)) {
 			int dir = half_chan_idx(me, chan);
@@ -451,6 +455,26 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 			}
 			continue;
 		}
+
+		tal_arr_expand(&chans, chan);
+	}
+
+	/* Just in case we have many peers and not all are connecting or
+	 * some other corner case, send everything to first few. */
+	if (peer_node_id_map_count(daemon->peers) <= GOSSIP_SPAM_REDUNDANCY)
+		num_to_send = tal_count(chans);
+	else {
+		if (tal_count(chans) < GOSSIP_SPAM_REDUNDANCY)
+			num_to_send = tal_count(chans);
+		else {
+			/* Pick victims at random */
+			tal_arr_randomize(chans, const struct chan *);
+			num_to_send = GOSSIP_SPAM_REDUNDANCY;
+		}
+	}
+
+	for (size_t i = 0; i < num_to_send; i++) {
+		chan = chans[i];
 
 		/* Send channel_announce */
 		queue_peer_from_store(peer, &chan->bcast);
