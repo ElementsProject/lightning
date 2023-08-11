@@ -2385,7 +2385,6 @@ def test_dump_own_gossip(node_factory):
     assert expect == []
 
 
-@pytest.mark.xfail
 @pytest.mark.developer("needs --dev-gossip-time")
 @unittest.skipIf(
     TEST_NETWORK != 'regtest',
