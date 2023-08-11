@@ -4,6 +4,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/likely/likely.h>
+#include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
 #include <sodium/randombytes.h>
 #include <string.h>
@@ -55,4 +56,32 @@ const struct siphash_seed *siphash_seed(void)
 	init_if_needed();
 
 	return &siphashseed;
+}
+
+
+void tal_arr_randomize_(void *arr, size_t elemsize)
+{
+	/* Easier arith. */
+	char *carr = arr;
+	size_t n = tal_bytelen(arr) / elemsize;
+
+	assert(tal_bytelen(arr) % elemsize == 0);
+
+	/* From Wikipedia's Fischer-Yates shuffle article:
+	 *
+	 * for i from 0 to n−2 do
+	 *      j ← random integer such that i ≤ j < n
+	 *      exchange a[i] and a[j]
+	 */
+	if (n < 2)
+		return;
+
+	for (size_t i = 0; i < n - 1; i++) {
+		size_t j = i + pseudorand(n - i);
+		char tmp[elemsize];
+
+		memcpy(tmp, carr + i * elemsize, elemsize);
+		memcpy(carr + i * elemsize, carr + j * elemsize, elemsize);
+		memcpy(carr + j * elemsize, tmp, elemsize);
+	}
 }
