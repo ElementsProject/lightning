@@ -598,8 +598,7 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 static void calc_fee_bounds(size_t expected_weight,
 			    u32 min_feerate,
 			    u32 desired_feerate,
-			    u32 *max_feerate,
-			    struct amount_sat commitment_fee,
+			    u32 max_feerate,
 			    struct amount_sat funding,
 			    enum side opener,
 			    struct amount_sat *minfee,
@@ -620,36 +619,22 @@ static void calc_fee_bounds(size_t expected_weight,
 	if (opener == REMOTE) {
 		*maxfee = funding;
 
-	/* This used to appear in BOLT #2: we still set it for non-anchor
-	 * peers who may still enforce it:
-	 * - If the channel does not use `option_anchor_outputs`:
-	 *   - MUST set `fee_satoshis` less than or equal to the base fee of
-	 *     the final commitment transaction, as calculated in
-	 *     [BOLT #3](03-transactions.md#fee-calculation).
-	 */
-	} else if (max_feerate) {
-		*maxfee = amount_tx_fee(*max_feerate, expected_weight);
-
-		status_debug("deriving max fee from rate %u -> %s (not %s)",
-			     *max_feerate,
-			     type_to_string(tmpctx, struct amount_sat, maxfee),
-			     type_to_string(tmpctx, struct amount_sat, &commitment_fee));
-
-		/* option_anchor_outputs sets commitment_fee to max, so this
-		 * doesn't do anything */
-		if (amount_sat_greater(*maxfee, commitment_fee)) {
-			/* FIXME: would be nice to notify close cmd here! */
-			status_unusual("Maximum feerate %u would give fee %s:"
-				       " we must limit it to the final commitment fee %s",
-				       *max_feerate,
-				       type_to_string(tmpctx, struct amount_sat,
-						      maxfee),
-				       type_to_string(tmpctx, struct amount_sat,
-						      &commitment_fee));
-			*maxfee = commitment_fee;
-		}
-	} else
-		*maxfee = commitment_fee;
+	} else {
+		/* BOLT #2:
+		 * The sending node:
+		 *
+		 *   - SHOULD set the initial `fee_satoshis` according to its
+		 *   estimate of cost of inclusion in a block.
+		 *
+		 *   - SHOULD set `fee_range` according to the minimum and
+		 *   maximum fees it is prepared to pay for a close
+		 *   transaction.
+		 */
+		*maxfee = amount_tx_fee(max_feerate, expected_weight);
+		status_debug("deriving max fee from rate %u -> %s",
+			     max_feerate,
+			     type_to_string(tmpctx, struct amount_sat, maxfee));
+	}
 
 	/* Can't exceed maxfee. */
 	if (amount_sat_greater(*minfee, *maxfee))
@@ -868,9 +853,9 @@ int main(int argc, char *argv[])
 	struct bitcoin_outpoint funding;
 	struct amount_sat funding_sats, out[NUM_SIDES];
 	struct amount_sat our_dust_limit;
-	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES],
+	struct amount_sat min_fee_to_accept, offer[NUM_SIDES],
 		max_fee_to_accept;
-	u32 min_feerate, initial_feerate, *max_feerate;
+	u32 min_feerate, initial_feerate, max_feerate;
 	struct feerange feerange;
 	enum side opener;
 	u32 *local_wallet_index;
@@ -902,7 +887,6 @@ int main(int argc, char *argv[])
 				    &out[REMOTE],
 				    &our_dust_limit,
 				    &min_feerate, &initial_feerate, &max_feerate,
-				    &commitment_fee,
 				    &local_wallet_index,
 				    &local_wallet_ext_key,
 				    &scriptpubkey[LOCAL],
@@ -929,7 +913,7 @@ int main(int argc, char *argv[])
 						   local_wallet_index,
 						   local_wallet_ext_key),
 			min_feerate, initial_feerate, max_feerate,
-			commitment_fee, funding_sats, opener,
+			funding_sats, opener,
 			&min_fee_to_accept, &offer[LOCAL], &max_fee_to_accept);
 
 	/* Write values into tlv for updated closing fee neg */
@@ -1099,7 +1083,6 @@ exit_thru_the_giftshop:
 	tal_free(wrong_funding);
 	tal_free(our_feerange);
 	tal_free(their_feerange);
-	tal_free(max_feerate);
 	tal_free(local_wallet_index);
 	tal_free(local_wallet_ext_key);
 	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
