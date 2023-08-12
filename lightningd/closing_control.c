@@ -446,7 +446,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 		min_feerate = channel->closing_feerate_range[0];
 		max_feerate = &channel->closing_feerate_range[1];
 	} else if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
-		min_feerate = 1;
+		min_feerate = 253;
 		tal_free(max_feerate);
 		max_feerate = tal(tmpctx, u32);
 		*max_feerate = 0xFFFFFFFF;
