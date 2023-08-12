@@ -3902,3 +3902,17 @@ def test_closing_tx_valid(node_factory, bitcoind):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
     assert only_one(bitcoind.rpc.getrawmempool()) == close['txid']
     assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs dev-no-reconnect")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd does not provide feerates on regtest')
+def test_closing_minfee(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': None})
+
+    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    bitcoind.generate_block(1, wait_for_mempool=txid)
