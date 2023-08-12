@@ -83,5 +83,4 @@ jobs:
         cd ${{ env.WORKDIR}}
         export VERSION=$(git describe --abbrev=0)
         make upgrade-version NEW_VERSION=$VERSION
-        poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry publish --repository testpypi --no-interaction
+        poetry publish --no-interaction
