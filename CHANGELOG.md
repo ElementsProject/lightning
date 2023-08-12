@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [v23.08rc1] - 2023-08-02: "Satoshi's Successor"
+## [v23.08rc2] - 2023-08-02: "Satoshi's Successor"
 
 This release named by Matt Morehouse.
 
@@ -40,6 +40,7 @@ This release named by Matt Morehouse.
  - JSON-RPC: `fundpsbt` and `utxopsbt` new parameter `opening_anchor_channel` so lightningd knowns it needs emergency reserve for anchors. ([#6334])
  - Config: `min-emergency-msat` setting for (currently experimental!) anchor channels, to keep funds in reserve for forced closes. ([#6334])
  - JSON-RPC: `feerates` has new fields `unilateral_anchor_close` to show the feerate used for anchor channels (currently experimental), and `unilateral_close_nonanchor_satoshis`. ([#6334])
+ - cln-grpc: Added `staticbackup` support to cln-grpc ([#6507])
 
 
 ### Changed
@@ -100,6 +101,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Plugins: reloaded plugins get passed any vars from configuration files. ([#6243])
  - JSON-RPC: `listconfigs` `rpc-file-mode` no longer has gratuitous quotes (e.g. "0600" not "\"0600\""). ([#6243])
  - JSON-RPC: `listconfigs` `htlc-minimum-msat`, `htlc-maximum-msat` and `max-dust-htlc-exposure-msat` fields are now numbers, not strings. ([#6243])
+ - Protocol: We may propose mutual close transaction which has a slightly higher fee than the final commitment tx (depending on the outputs, e.g. two taproot outputs). ([#6547])
+ - Protocol: We now close connection with a peer if adding an HTLC times out (which may be a TCP connectivity issue). ([#6520])
 
 
 ### EXPERIMENTAL
@@ -155,7 +158,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6461]: https://github.com/ElementsProject/lightning/pull/6461
 [#6466]: https://github.com/ElementsProject/lightning/pull/6466
 [#6468]: https://github.com/ElementsProject/lightning/pull/6468
-[v23.08rc1]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc1
+[#6507]: https://github.com/ElementsProject/lightning/pull/6507
+[#6520]: https://github.com/ElementsProject/lightning/pull/6520
+[#6547]: https://github.com/ElementsProject/lightning/pull/6547
+[v23.08rc2]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc2
 
 
 ## [23.05.2] - 2023-06-21: "Austin Texas Agreement(ATXA) III"
