@@ -3354,13 +3354,15 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
 
 
 @pytest.mark.developer("needs to set dev-disconnect")
-def test_closing_higherfee(node_factory, bitcoind, executor):
-    """With anchor outputs we can ask for a *higher* fee than the last commit tx"""
+@pytest.mark.parametrize("anchors", [False, True])
+def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
+    """We can ask for a *higher* fee than the last commit tx"""
 
     opts = {'may_reconnect': True,
             'dev-no-reconnect': None,
-            'experimental-anchors': None,
             'feerates': (7500, 7500, 7500, 7500)}
+    if anchors:
+        opts['experimental-anchors'] = None
 
     # We change the feerate before it starts negotiating close, so it aims
     # for *higher* than last commit tx.
@@ -3379,7 +3381,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # This causes us to *exceed* previous requirements!
-    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> .*sat \(not 1000000sat\)')
+    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> .*sat')
 
     # This will fail because l1 restarted!
     with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
@@ -3904,7 +3906,6 @@ def test_closing_tx_valid(node_factory, bitcoind):
     assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev-no-reconnect")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd does not provide feerates on regtest')
 def test_closing_minfee(node_factory, bitcoind):
