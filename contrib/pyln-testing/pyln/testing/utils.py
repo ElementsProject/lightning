@@ -1542,7 +1542,8 @@ class NodeFactory(object):
         )
 
         # Regtest estimatefee are unusable, so override.
-        node.set_feerates(feerates, False)
+        if feerates is not None:
+            node.set_feerates(feerates, False)
 
         self.nodes.append(node)
         self.reserved_ports.append(port)
