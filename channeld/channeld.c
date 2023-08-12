@@ -443,7 +443,11 @@ static void send_channel_update(struct peer *peer, int disable_flag)
  * they route through us */
 static void send_channel_initial_update(struct peer *peer)
 {
-	send_channel_update(peer, 0);
+	/* If `stfu` is already active then the channel is being mutated quickly
+	 * after creation. These mutations (ie. splice) must announce the
+	 * channel when they finish anyway, so it is safe to skip it here */
+	if (!is_stfu_active(peer))
+		send_channel_update(peer, 0);
 }
 
 /**
@@ -591,6 +595,12 @@ static void announce_channel(struct peer *peer)
 	send_channel_update(peer, 0);
 }
 
+static void announce_channel_if_not_stfu(struct peer *peer)
+{
+	if (!is_stfu_active(peer))
+		announce_channel(peer);
+}
+
 /* Returns true if an announcement was sent */
 static bool channel_announcement_negotiate(struct peer *peer)
 {
@@ -665,7 +675,7 @@ static bool channel_announcement_negotiate(struct peer *peer)
 		/* Give other nodes time to notice new block. */
 		notleak(new_reltimer(&peer->timers, peer,
 				     time_from_sec(GOSSIP_ANNOUNCE_DELAY(peer->dev_fast_gossip)),
-				     announce_channel, peer));
+				     announce_channel_if_not_stfu, peer));
 	}
 
 	return sent_announcement;
@@ -1722,6 +1732,18 @@ static void send_commit(struct peer *peer)
 	start_commit_timer(peer);
 }
 
+static void send_commit_if_not_stfu(struct peer *peer)
+{
+	if (!is_stfu_active(peer)) {
+		send_commit(peer);
+	}
+	else {
+		/* Timer now considered expired, you can add a new one. */
+		peer->commit_timer = NULL;
+		start_commit_timer(peer);
+	}
+}
+
 static void start_commit_timer(struct peer *peer)
 {
 	/* Already armed? */
@@ -1730,7 +1752,7 @@ static void start_commit_timer(struct peer *peer)
 
 	peer->commit_timer = new_reltimer(&peer->timers, peer,
 					  time_from_msec(peer->commit_msec),
-					  send_commit, peer);
+					  send_commit_if_not_stfu, peer);
 }
 
 /* If old_secret is NULL, we don't care, otherwise it is filled in. */
