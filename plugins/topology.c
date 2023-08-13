@@ -566,10 +566,12 @@ static struct command_result *json_listincoming(struct command *cmd,
 		const u8 *peer_features;
 
 		ourchan = gossmap_nth_chan(gossmap, me, i, &dir);
-		/* If its half is disabled, ignore. */
-		if (!ourchan->half[!dir].enabled)
+		/* Entirely missing?  Ignore. */
+		if (ourchan->cupdate_off[!dir] == 0)
 			continue;
-
+		/* We used to ignore if the peer said it was disabled,
+		 * but we have a report of LND telling us our unannounced
+		 * channel is disabled, so we still use them. */
 		peer = gossmap_nth_node(gossmap, ourchan, !dir);
 		scid = gossmap_chan_scid(gossmap, ourchan);
 
