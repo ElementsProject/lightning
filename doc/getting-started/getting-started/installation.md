@@ -315,8 +315,10 @@ Use nix-shell launch a shell with a full Core Lightning dev environment:
 
 ```shell
 $ nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
-autogen automake libsodium 'python3.withPackages (p: [p.bitcoinlib])' \
-valgrind --run make
+autogen automake gmp zlib gettext libsodium poetry 'python3.withPackages (p: [p.bitcoinlib])' \
+valgrind --run "./configure && poetry shell"
+$ poetry install
+$ make
 ```
 
 ## To Build on macOS
