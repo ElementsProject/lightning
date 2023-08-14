@@ -369,6 +369,9 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(ce->half[1].known_min, AMOUNT_MSAT(0)));
 	assert(amount_msat_eq(ce->half[1].known_max, AMOUNT_MSAT(1000000000)));
 
+	/* Clear that */
+	remove_completed_flow_set(gossmap, chan_extra_map, flows);
+
 	// /* Now try adding a local channel scid */
 
 	struct short_channel_id scid13;
@@ -388,9 +391,6 @@ int main(int argc, char *argv[])
 	gossmap_apply_localmods(gossmap, mods);
 	struct gossmap_chan *local_chan = gossmap_find_chan(gossmap, &scid13);
 	assert(local_chan);
-
-	/* Clear that */
-	remove_completed_flow_set(gossmap, chan_extra_map, flows);
 
 	/* The local chans have no "capacity", so set it manually. */
 	new_chan_extra(chan_extra_map, scid13,
