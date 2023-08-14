@@ -193,43 +193,41 @@ static bool is_unique_id(struct rune_restr **restrs, unsigned int index)
 	return streq(restrs[index]->alterns[0]->fieldname, "");
 }
 
+static char *fmt_cond(const tal_t *ctx,
+		      const struct rune_altern *alt,
+		      const char *cond_str)
+{
+	return tal_fmt(ctx, "%s %s %s", alt->fieldname, cond_str, alt->value);
+}
+
 static char *rune_altern_to_english(const tal_t *ctx, const struct rune_altern *alt)
 {
-	const char *cond_str;
 	switch (alt->condition) {
 		case RUNE_COND_IF_MISSING:
 			return tal_strcat(ctx, alt->fieldname, " is missing");
 		case RUNE_COND_EQUAL:
-			cond_str = "equal to";
-			break;
+			return fmt_cond(ctx, alt, "equal to");
 		case RUNE_COND_NOT_EQUAL:
-			cond_str = "unequal to";
-			break;
+			return fmt_cond(ctx, alt, "unequal to");
 		case RUNE_COND_BEGINS:
-			cond_str = "starts with";
-			break;
+			return fmt_cond(ctx, alt, "starts with");
 		case RUNE_COND_ENDS:
-			cond_str = "ends with";
-			break;
+			return fmt_cond(ctx, alt, "ends with");
 		case RUNE_COND_CONTAINS:
-			cond_str = "contains";
-			break;
+			return fmt_cond(ctx, alt, "contains");
 		case RUNE_COND_INT_LESS:
-			cond_str = "<";
-			break;
+			return fmt_cond(ctx, alt, "<");
 		case RUNE_COND_INT_GREATER:
-			cond_str = ">";
-			break;
+			return fmt_cond(ctx, alt, ">");
 		case RUNE_COND_LEXO_BEFORE:
-			cond_str = "sorts before";
-			break;
+			return fmt_cond(ctx, alt, "sorts before");
 		case RUNE_COND_LEXO_AFTER:
-			cond_str = "sorts after";
-			break;
+			return fmt_cond(ctx, alt, "sorts after");
 		case RUNE_COND_COMMENT:
 			return tal_fmt(ctx, "comment: %s %s", alt->fieldname, alt->value);
 	}
-	return tal_fmt(ctx, "%s %s %s", alt->fieldname, cond_str, alt->value);
+
+	abort();
 }
 
 static char *json_add_alternative(const tal_t *ctx,
