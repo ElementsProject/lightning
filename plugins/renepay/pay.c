@@ -166,8 +166,9 @@ static struct command_result *addgossip_done(struct command *cmd,
 {
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
+	/* This may free adg (pf is the parent), or otherwise it'll
+	 * happen later. */
 	pay_flow_finished_adding_gossip(adg->pf);
-	tal_free(adg);
 
 	return command_still_pending(cmd);
 }
