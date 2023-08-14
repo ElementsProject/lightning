@@ -4614,7 +4614,6 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 	struct inflight *inflight;
-	bool next_matches_current, next_matches_inflight;
 	struct bitcoin_txid *local_next_funding, *remote_next_funding;
 
 	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
@@ -4632,11 +4631,11 @@ static void peer_reconnect(struct peer *peer,
 	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
 
+	inflight = last_inflight(peer);
+
 	if (peer->experimental_upgrade) {
 		/* Subtle: we free tmpctx below as we loop, so tal off peer */
 		send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
-
-		inflight = last_inflight(peer);
 
 		/* If inflight with no sigs on it, send next_funding */
 		if (inflight && !inflight->last_tx)
@@ -5039,6 +5038,8 @@ static void peer_reconnect(struct peer *peer,
 	remote_next_funding = (recv_tlvs ? recv_tlvs->next_funding : NULL);
 
 	if (local_next_funding || remote_next_funding) {
+		bool next_matches_current = false, next_matches_inflight = false;
+
 		if (remote_next_funding) {
 			next_matches_current = bitcoin_txid_eq(remote_next_funding,
 							       &peer->channel->funding.txid);
