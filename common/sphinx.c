@@ -108,9 +108,8 @@ bool sphinx_add_hop_has_length(struct sphinx_path *path, const struct pubkey *pu
 	struct sphinx_hop sp;
 	bigsize_t lenlen, prepended_len;
 
-	/* You promised size was prepended! */
-	if (tal_bytelen(payload) == 0)
-		return false;
+	/* In case length is missing, we'll return false. */
+	prepended_len = UINT64_MAX;
 	lenlen = bigsize_get(payload, tal_bytelen(payload), &prepended_len);
 	if (add_overflows_u64(lenlen, prepended_len))
 		return false;
