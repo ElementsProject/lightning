@@ -191,8 +191,8 @@ void payment_reconsider(struct payment *payment)
 {
 	struct pay_flow *i, *next;
 	bool have_state[NUM_PAY_FLOW] = {false};
-	enum jsonrpc_errcode final_error, ecode;
-	const char *final_msg;
+	enum jsonrpc_errcode final_error COMPILER_WANTS_INIT("gcc 12.3.0 -O3"), ecode;
+	const char *final_msg COMPILER_WANTS_INIT("gcc 12.3.0 -O3");
 	const char *errmsg;
 
 	plugin_log(pay_plugin->plugin, LOG_DBG, "payment_reconsider");
