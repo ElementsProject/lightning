@@ -1285,11 +1285,12 @@ static struct pf_result *sendpay_failure(struct pay_flow *pf,
 	}
 
 	/* Extract remaining fields for feedback */
+	raw = NULL;
  	err = json_scan(tmpctx, buf, sub,
 			"{message:%"
 			",data:{erring_index:%"
 			",failcode:%"
-			",raw_message:%}}",
+			",raw_message?:%}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &msg),
 			JSON_SCAN(json_to_u32, &erridx),
 			JSON_SCAN(json_to_u32, &onionerr),
