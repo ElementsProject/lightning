@@ -80,6 +80,7 @@ jobs:
             DEVELOPER: 0
             VALGRIND: 1
             COMPILER: gcc
+            COPTFLAGS_VAR: COPTFLAGS="-O3 -Werror"
           # While we're at it let's try to compile with clang
           - CFG: clang-dev1
             DEVELOPER: 1
@@ -118,7 +119,7 @@ jobs:
           pip3 install --user pip wheel poetry
           poetry export -o requirements.txt --with dev --without-hashes
           python3 -m pip install -r requirements.txt
-          ./configure --enable-debugbuild CC="$COMPILER"
+          ./configure --enable-debugbuild CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
           make -j $(nproc) testpack.tar.bz2
 
