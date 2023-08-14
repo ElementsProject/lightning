@@ -446,7 +446,7 @@ static void send_channel_initial_update(struct peer *peer)
 	/* If `stfu` is already active then the channel is being mutated quickly
 	 * after creation. These mutations (ie. splice) must announce the
 	 * channel when they finish anyway, so it is safe to skip it here */
-	if (!is_stfu_active(peer))
+	if (!is_stfu_active(peer) && !peer->want_stfu)
 		send_channel_update(peer, 0);
 }
 
@@ -597,7 +597,7 @@ static void announce_channel(struct peer *peer)
 
 static void announce_channel_if_not_stfu(struct peer *peer)
 {
-	if (!is_stfu_active(peer))
+	if (!is_stfu_active(peer) && !peer->want_stfu)
 		announce_channel(peer);
 }
 
@@ -1734,7 +1734,7 @@ static void send_commit(struct peer *peer)
 
 static void send_commit_if_not_stfu(struct peer *peer)
 {
-	if (!is_stfu_active(peer)) {
+	if (!is_stfu_active(peer) && !peer->want_stfu) {
 		send_commit(peer);
 	}
 	else {
