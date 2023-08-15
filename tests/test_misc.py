@@ -1195,6 +1195,13 @@ def test_daemon_option(node_factory):
         assert 'No child process' not in f.read()
 
 
+def test_cli_no_argument():
+    """If no arguments are provided, should display help and exit."""
+    out = subprocess.run(['cli/lightning-cli'], stdout=subprocess.PIPE)
+    assert out.returncode in [0, 2]  # returns 2 if lightning-rpc not available
+    assert "Usage: cli/lightning-cli <command> [<params>...]" in out.stdout.decode()
+
+
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
