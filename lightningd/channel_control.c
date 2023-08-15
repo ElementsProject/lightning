@@ -645,8 +645,10 @@ static void handle_update_inflight(struct lightningd *ld,
 						      struct bitcoin_txid,
 						      &txid));
 
-	if (last_tx)
-		inflight->last_tx = tal_steal(inflight, last_tx);
+	if (last_tx) {
+		tal_free(inflight->last_tx);
+		inflight->last_tx = clone_bitcoin_tx(inflight, last_tx);
+	}
 
 	if (last_sig)
 		inflight->last_sig = *last_sig;
@@ -825,9 +827,20 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
-	/* Empty out the inflights */
 	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
+
+	/* Take out the successful inflight from the list temporarily */
+	list_del(&inflight->list);
+
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
+
+	/* Put the successful inflight back in as a memory-only object.
+	 * peer_control's funding_spent function will pick this up and clean up
+	 * our inflight.
+	 *
+	 * This prevents any potential race conditions between us and them. */
+	inflight->splice_locked_memonly = true;
+	list_add_tail(&channel->inflights, &inflight->list);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
 }
@@ -1394,7 +1407,12 @@ bool peer_start_channeld(struct channel *channel,
 
 	inflights = tal_arr(tmpctx, struct inflight *, 0);
 	list_for_each(&channel->inflights, inflight, list) {
-		struct inflight *infcopy = tal(inflights, struct inflight);
+		struct inflight *infcopy;
+
+		if (inflight->splice_locked_memonly)
+			continue;
+
+		infcopy = tal(inflights, struct inflight);
 
 		infcopy->outpoint = inflight->funding->outpoint;
 		infcopy->amnt = inflight->funding->total_funds;
