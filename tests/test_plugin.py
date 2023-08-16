@@ -4273,3 +4273,10 @@ def test_renepay_not_important(node_factory):
     # But we don't shut down, and we can restrart.
     assert [p['name'] for p in l1.rpc.listconfigs()['plugins'] if p['name'] == 'cln-renepay'] == []
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-renepay'))
+
+
+@pytest.mark.xfail(strict=True)
+def test_plugin_startdir_lol(node_factory):
+    """Though we fail to start many of them, we don't crash!"""
+    l1 = node_factory.get_node(allow_broken_log=True)
+    l1.rpc.plugin_startdir(os.path.join(os.getcwd(), 'tests/plugins'))
