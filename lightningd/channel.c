@@ -176,6 +176,7 @@ new_inflight(struct channel *channel,
 	inflight->lease_amt = lease_amt;
 
 	inflight->i_am_initiator = i_am_initiator;
+	inflight->splice_locked_memonly = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);

@@ -1953,17 +1953,25 @@ static enum watch_result funding_spent(struct channel *channel,
 
 	bitcoin_txid(tx, &txid);
 
-	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
-			      WIRE_ONCHAIND_INIT, &txid, 0, block->height);
-
 	/* If we're doing a splice, we expect the funding transaction to be
 	 * spent, so don't freak out and just keep watching in that case */
 	list_for_each(&channel->inflights, inflight, list) {
 		if (bitcoin_txid_eq(&txid,
 				    &inflight->funding->outpoint.txid)) {
+			/* splice_locked is a special flag that indicates this
+			 * is a memory-only inflight acting as a race condition
+			 * safeguard. When we see this, it is our responsability
+			 * to clean up this memory-only inflight. */
+			if (inflight->splice_locked_memonly) {
+				tal_free(inflight);
+				return DELETE_WATCH;
+			}
 			return KEEP_WATCHING;
 		}
 	}
+
+	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+			      WIRE_ONCHAIND_INIT, &txid, 0, block->height);
 
 	return onchaind_funding_spent(channel, tx, block->height);
 }

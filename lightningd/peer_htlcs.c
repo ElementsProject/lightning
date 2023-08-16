@@ -2320,7 +2320,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	i = 0;
 	list_for_each(&channel->inflights, inflight, list) {
-		i++;
+		if (!inflight->splice_locked_memonly)
+			i++;
 	}
 	if (i != tal_count(inflight_commit_sigs)) {
 		channel_internal_error(channel, "Got commitsig with incorrect "
@@ -2381,9 +2382,15 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	/* Now append htlc sigs for inflights */
 	i = 0;
 	list_for_each(&channel->inflights, inflight, list) {
-		struct commitsig *commit = inflight_commit_sigs[i];
+		struct commitsig *commit;
 
-		inflight->last_tx = tal_steal(inflight, commit->tx);
+		if (inflight->splice_locked_memonly)
+			continue;
+
+		commit = inflight_commit_sigs[i];
+
+		tal_free(inflight->last_tx);
+		inflight->last_tx = clone_bitcoin_tx(inflight, commit->tx);
 		inflight->last_tx->chainparams = chainparams;
 		inflight->last_sig = commit->commit_signature;
 		wallet_inflight_save(ld->wallet, inflight);
