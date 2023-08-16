@@ -318,9 +318,14 @@ static u32 init_chan_arr(struct gossmap_chan *chan_arr, size_t start)
 	for (i = start; i < tal_count(chan_arr) - 1; i++) {
 		chan_arr[i].cann_off = i + 1;
 		chan_arr[i].plus_scid_off = 0;
+		/* We don't need to initialize this, *but* on some platforms
+		 * (ppc, arm64) valgrind complains: this is a bitfield shared
+		 * with plus_scid_off */
+		chan_arr[i].private = false;
 	}
 	chan_arr[i].cann_off = UINT_MAX;
 	chan_arr[i].plus_scid_off = 0;
+	chan_arr[i].private = false;
 	return start;
 }
 
