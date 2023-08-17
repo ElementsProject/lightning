@@ -5387,3 +5387,31 @@ def test_listsendpays_crash(node_factory):
 
     inv = l1.rpc.invoice(40, "inv", "inv")["bolt11"]
     l1.rpc.listsendpays('lightning:' + inv)
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
+def test_pay_routehint_minhtlc(node_factory, bitcoind):
+    # l1 -> l2 -> l3 private -> l4
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l4 = node_factory.get_node()
+
+    l3.fundchannel(l4, announce_channel=False)
+
+    # l2->l3 required htlc of at least 1sat
+    scid = only_one(l2.rpc.setchannel(l3.info['id'], htlcmin=1000)['channels'])['short_channel_id']
+
+    # Make sure l4 knows about l1
+    wait_for(lambda: l4.rpc.listnodes(l1.info['id'])['nodes'] != [])
+
+    # And make sure l1 knows that l2->l3 has htlcmin 1000
+    wait_for(lambda: l1.rpc.listchannels(scid)['channels'][0]['htlc_minimum_msat'] == Millisatoshi(1000))
+
+    inv = l4.rpc.invoice(100000, "inv", "inv")
+    assert only_one(l1.rpc.decodepay(inv['bolt11'])['routes'])
+
+    # You should be able to pay the invoice!
+    l1.rpc.pay(inv['bolt11'])
+
+    # And you should also be able to getroute (and have it ignore htlc_min/max constraints!)
+    l1.rpc.getroute(l3.info['id'], amount_msat=0, riskfactor=1)
