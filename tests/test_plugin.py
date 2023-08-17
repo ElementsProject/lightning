@@ -9,7 +9,7 @@ from utils import (
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce
+    mine_funding_to_announce, VALGRIND
 )
 
 import ast
@@ -4273,6 +4273,18 @@ def test_renepay_not_important(node_factory):
     # But we don't shut down, and we can restrart.
     assert [p['name'] for p in l1.rpc.listconfigs()['plugins'] if p['name'] == 'cln-renepay'] == []
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-renepay'))
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(VALGRIND, "Valgrind doesn't handle bad #! lines the same")
+def test_plugin_nostart(node_factory):
+    "Should not appear in list if it didn't even start"
+
+    l1 = node_factory.get_node()
+    with pytest.raises(RpcError, match="badinterp.py: opening pipe: No such file or directory"):
+        l1.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/badinterp.py'))
+
+    assert [p['name'] for p in l1.rpc.plugin_list()['plugins'] if 'badinterp' in p['name']] == []
 
 
 @pytest.mark.xfail(strict=True)
