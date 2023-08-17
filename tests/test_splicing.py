@@ -39,3 +39,7 @@ def test_splice(node_factory, bitcoind):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+    # Check for channel announcement failure
+    assert not l1.daemon.is_in_log("invalid local_channel_announcement")
+    assert not l2.daemon.is_in_log("invalid local_channel_announcement")
