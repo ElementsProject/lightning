@@ -17,7 +17,9 @@ arrive at *id* with *cltv*-blocks to spare (default 9).
 *amount\_msat* is in millisatoshi precision; it can be a whole number, or a
 whole number ending in *msat* or *sat*, or a number with three decimal
 places ending in *sat*, or a number with 1 to 11 decimal places ending
-in *btc*.
+in *btc*.  The 0 value is special: it ignores any *htlc\_minimum\_msat*
+setting on channels, and simply returns a possible route (if any) which
+is useful for simple probing.
 
 There are two considerations for how good a route is: how low the fees
 are, and how long your payment will get stuck in a delayed output if a

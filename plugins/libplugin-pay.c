@@ -2521,7 +2521,7 @@ static struct route_info **filter_routehints(struct gossmap *map,
 		}
 
 		distance = dijkstra_distance(
-		    dijkstra(tmpctx, map, entrynode, AMOUNT_MSAT(1), 1,
+		    dijkstra(tmpctx, map, entrynode, AMOUNT_MSAT(0), 1,
 			     payment_route_can_carry_even_disabled,
 			     route_score_cheaper, p),
 		    gossmap_node_idx(map, src));
@@ -2763,12 +2763,12 @@ static void routehint_check_reachable(struct payment *p)
 	if (dst == NULL)
 		d->destination_reachable = false;
 	else if (src != NULL) {
-		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(1000),
+		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0),
 			       10 / 1000000.0,
 			       payment_route_can_carry_even_disabled,
 			       route_score_cheaper, p);
 		r = route_from_dijkstra(tmpctx, gossmap, dij, src,
-					AMOUNT_MSAT(1000), 0);
+					AMOUNT_MSAT(0), 0);
 
 		/* If there was a route the destination is reachable
 		 * without routehints. */
