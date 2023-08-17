@@ -1869,7 +1869,7 @@ bool plugins_send_getmanifest(struct plugins *plugins, const char *cmd_id)
 		}
 		if (plugins->startup)
 			fatal("error starting plugin '%s': %s", p->cmd, err);
-		plugin_kill(p, LOG_UNUSUAL, "%s", err);
+		tal_free(p);
 	}
 
 	return sent;

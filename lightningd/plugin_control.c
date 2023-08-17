@@ -74,13 +74,16 @@ plugin_dynamic_start(struct plugin_command *pcmd, const char *plugin_path,
 				    "%s: %s", plugin_path,
 					    errno ? strerror(errno) : "already registered");
 
-	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
 	err = plugin_send_getmanifest(p, pcmd->cmd->id);
-	if (err)
+	if (err) {
+		/* Free plugin with cmd (it owns buffer and params!) */
+		tal_steal(pcmd->cmd, p);
 		return command_fail(pcmd->cmd, PLUGIN_ERROR,
 				    "%s: %s",
 				    plugin_path, err);
+	}
 
+	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
 	return command_still_pending(pcmd->cmd);
 }
 

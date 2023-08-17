@@ -4275,7 +4275,6 @@ def test_renepay_not_important(node_factory):
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-renepay'))
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(VALGRIND, "Valgrind doesn't handle bad #! lines the same")
 def test_plugin_nostart(node_factory):
     "Should not appear in list if it didn't even start"
@@ -4287,7 +4286,6 @@ def test_plugin_nostart(node_factory):
     assert [p['name'] for p in l1.rpc.plugin_list()['plugins'] if 'badinterp' in p['name']] == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
     l1 = node_factory.get_node(allow_broken_log=True)
