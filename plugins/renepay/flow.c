@@ -178,7 +178,15 @@ void chan_extra_cannot_send(
 		x = AMOUNT_MSAT(0);
 	}
 
-	ce->half[dir].known_min = amount_msat_min(ce->half[dir].known_min,x);
+	/* If we "knew" the capacity was at least this, we just showed we're wrong! */
+	if (amount_msat_less_eq(x, ce->half[dir].known_min)) {
+		debug_paynote(p, "Expected scid=%s, dir=%d min %s, but %s failed!  Setting min to 0",
+			      type_to_string(tmpctx,struct short_channel_id,&scid),
+			      dir,
+			      type_to_string(tmpctx,struct amount_msat,&ce->half[dir].known_min),
+			      type_to_string(tmpctx,struct amount_msat,&x));
+		ce->half[dir].known_min = AMOUNT_MSAT(0);
+	}
 	ce->half[dir].known_max = amount_msat_min(ce->half[dir].known_max,x);
 
 	debug_paynote(p,"Update chan knowledge scid=%s, dir=%d: [%s,%s]",
