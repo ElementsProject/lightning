@@ -378,7 +378,7 @@ use the RPC call lightning-setchannel(7).
   Note: You also need to open TCP port 9735 on your router towords your node.
   Note: Will always be disabled if you use 'always-use-proxy'.
 
-* **announce-addr-discovered-port**
+* **announce-addr-discovered-port**=*PORT*
   Sets the public TCP port to use for announcing dynamically discovered IPs.
   If unset, this defaults to the selected networks lightning port,
   which is 9735 on mainnet.
@@ -438,11 +438,11 @@ the outgoing is redeemed.
 might need to redeem this on-chain, so this is the number of blocks we
 have to do that.
 
-* **accept-htlc-tlv-types**=*types*
+* **accept-htlc-tlv-type**=*types*
 
   Normally HTLC onions which contain unknown even fields are rejected.
-This option specifies that these (comma-separated) types are to be
-accepted, and ignored.
+This option specifies that this type is to be accepted, and ignored.  Can be
+specified multuple times. (Added in v23.08).
 
 * **min-emergency-msat**=*msat*
 
@@ -622,6 +622,23 @@ all DNS lookups, to avoid leaking information.
   Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
+* **rest-port**=*PORT* [plugin `clnrest.py`]
+
+  Sets the REST server port to listen to (3010 is common).  If this is not specified, the clnrest.py plugin will be disabled.
+
+* **rest-protocol**=*PROTOCOL* [plugin `clnrest.py`]
+
+  Specifies the REST server protocol. Default is HTTPS.
+
+* **rest-host**=*HOST* [plugin `clnrest.py`]
+
+  Defines the REST server host. Default is 127.0.0.1.
+
+* **rest-certs**=*PATH*  [plugin `clnrest.py`]
+
+  Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
+
+
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration
@@ -721,12 +738,14 @@ The operations will be bundled into a single transaction. The channel will remai
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
 
-* **experimental-websocket-port**=*PORT*
+* **experimental-websocket-port**=*PORT* (deprecated in v23.08)
 
   Specifying this enables support for accepting incoming WebSocket
 connections on that port, on any IPv4 and IPv6 addresses you listen
 to ([bolt][bolt] #891).  The normal protocol is expected to be sent over WebSocket binary
 frames once the connection is upgraded.
+
+  You should use `bind=ws::<portnum>` instead to create a WebSocket listening port.
 
 * **experimental-peer-storage**
 
