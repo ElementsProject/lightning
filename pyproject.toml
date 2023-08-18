@@ -9,7 +9,7 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 python = "^3.8"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
-Mako = "^1.1.6"
+mako = "^1.1.6"
 websocket-client = "^1.2.3"
 grpcio-tools = "^1"
 grpcio = "^1"
