@@ -42,8 +42,7 @@ bool channel_type_eq(const struct channel_type *a,
 struct channel_type *channel_type_accept(const tal_t *ctx,
 					 const u8 *t,
 					 const struct feature_set *our_features,
-					 const u8 *their_features,
-					 bool accept_zeroconf);
+					 const u8 *their_features);
 
 /* Return an array of feature strings indicating channel type. */
 const char **channel_type_name(const tal_t *ctx, const struct channel_type *t);
