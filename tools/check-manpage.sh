@@ -36,7 +36,7 @@ if [ -z "$CMD_OPTNAMES" ]; then
 fi
 
 # Now, gather (long) opt names from man page, make sure they match.
-MAN_OPTNAMES=$(sed -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p' < "$2" | sort)
+MAN_OPTNAMES=$(grep -vi 'deprecated in' "$2" | sed -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p'| sort)
 
 # Remove undocumented proprieties, usually these proprieties are
 # under experimental phases.
