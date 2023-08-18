@@ -8,8 +8,9 @@ fi
 
 get_cmd_opts()
 {
-    # Trim out -- after first one (--option mentioned in help!)
-    $1 --help | grep '^\*' | sed 's/[ 	].*--.*//' | while IFS=$'\n' read -r opt; do
+    # Trim out -- after first one: ensure width sufficient to give desc
+    # on same line, and ignore single-letter prefix e.g. -X|--ex
+    COLUMNS=1000 $1 --help | sed -n 's/^\(-.|\)\?\(--[^	]*\)\(  \|	\).*/\2/p' | while IFS=$'\n' read -r opt; do
 	case "$opt" in
 	    # We don't document dev options.
 	    --dev*)
@@ -27,10 +28,15 @@ get_cmd_opts()
     done
 }
 
+# If we don't get any, we failed!
 CMD_OPTNAMES=$(get_cmd_opts "$1" | sort)
+if [ -z "$CMD_OPTNAMES" ]; then
+    echo "Failed to get options from $0!" >&2
+    exit 1
+fi
 
 # Now, gather (long) opt names from man page, make sure they match.
-MAN_OPTNAMES=$(sed -E -n 's/^ \*\*(--)?([^*/]*)\*\*(=?).*/\2\3/p' < "$2" | sort)
+MAN_OPTNAMES=$(sed -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p' < "$2" | sort)
 
 # Remove undocumented proprieties, usually these proprieties are
 # under experimental phases.
@@ -44,6 +50,6 @@ done
 
 if [ "$CMD_OPTNAMES" != "$MAN_OPTNAMES" ]; then
     echo "diff of command names vs manpage names":
-    diff -u <(echo "$CMD_OPTNAMES") <(echo "$MAN_OPTNAMES")
+    diff -u --label="$1" <(echo "$CMD_OPTNAMES") --label="$2" <(echo "$MAN_OPTNAMES")
     exit 2
 fi
