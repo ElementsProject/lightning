@@ -27,6 +27,7 @@ OPTIONS
 * **--mainnet**
 * **--testnet**
 * **--signet**
+* **--regtest**
 
   Sets network explicitly.
 
@@ -83,12 +84,6 @@ be changed using `-F`, `-R`, `-J`, `-H` etc.
 * **--version**/**-V**
 
   Print version number to standard output and exit.
-
-* **--allow-deprecated-apis**=*BOOL*
-
-  Enable deprecated options. It defaults to *true*, but you should set
-it to *false* when testing to ensure that an upgrade won't break your
-configuration.
 
 * **--commando**/**-c**=**peerid**:**rune**
 
