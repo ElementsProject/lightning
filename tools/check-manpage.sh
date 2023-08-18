@@ -28,8 +28,18 @@ get_cmd_opts()
     done
 }
 
+# Remove undocumented proprieties, usually these proprieties are
+# under experimental phases.
+remove_undoc()
+{
+    # shellcheck disable=SC2162
+    while read OPT; do
+	grep -q "^$OPT$" < doc/undoc-flags.list || echo "$OPT"
+    done
+}
+
 # If we don't get any, we failed!
-CMD_OPTNAMES=$(get_cmd_opts "$1" | sort)
+CMD_OPTNAMES=$(get_cmd_opts "$1" | sort | remove_undoc)
 if [ -z "$CMD_OPTNAMES" ]; then
     echo "Failed to get options from $0!" >&2
     exit 1
@@ -37,16 +47,6 @@ fi
 
 # Now, gather (long) opt names from man page, make sure they match.
 MAN_OPTNAMES=$(grep -vi 'deprecated in' "$2" | sed -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p'| sort)
-
-# Remove undocumented proprieties, usually these proprieties are
-# under experimental phases.
-for flag in $(jq '.flags[]' <doc/undoc-flags.json) ; do
-    # Remove the quotes from the string, so the code will remove
-    # the first and last char in the string.
-    FLAG=$(sed 's/.//;s/.$//' <(echo "$flag"))
-    CMD_OPTNAMES=$(sed "/$FLAG=/d" <(echo "$CMD_OPTNAMES"))
-done
-
 
 if [ "$CMD_OPTNAMES" != "$MAN_OPTNAMES" ]; then
     echo "diff of command names vs manpage names":
