@@ -559,6 +559,8 @@ class GrpcServerGenerator(GrpcConverterGenerator):
             mname = method_name_overrides.get(method.name, method.name)
             # Tonic will convert to snake-case, so we have to do it here too
             name = re.sub(r'(?<!^)(?=[A-Z])', '_', mname).lower()
+            name = name.replace("-", "")
+            method.name = method.name.replace("-", "")
             self.write(f"""\
             async fn {name}(
                 &self,
