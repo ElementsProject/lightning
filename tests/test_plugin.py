@@ -3442,7 +3442,7 @@ def test_sql(node_factory, bitcoind):
               'lease-fee-base-sat': '2000msat',
               'channel-fee-max-base-msat': '500sat',
               'channel-fee-max-proportional-thousandths': 200,
-              'sqlfilename': 'sql.sqlite3',
+              'dev-sqlfilename': 'sql.sqlite3',
               'may_reconnect': True}
     l2opts.update(opts)
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -4163,7 +4163,7 @@ def test_sql(node_factory, bitcoind):
     l2.stop()
     l2.daemon.opts["alias"] = "TESTALIAS"
     # Don't try to reuse the same db file!
-    del l2.daemon.opts["sqlfilename"]
+    del l2.daemon.opts["dev-sqlfilename"]
     l2.start()
     # DEV appends stuff to alias!
     alias = l2.rpc.getinfo()['alias']
