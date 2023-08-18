@@ -1126,13 +1126,22 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!fromwire_openingd_got_offer_reply(state, msg, &err_reason,
 					       &state->upfront_shutdown_script[LOCAL],
 					       &state->local_upfront_shutdown_wallet_index,
-					       &reserve))
+					       &reserve,
+					       &state->minimum_depth))
 		master_badmsg(WIRE_OPENINGD_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
 	if (err_reason) {
 		negotiation_failed(state, "%s", err_reason);
 		tal_free(err_reason);
+		return NULL;
+	}
+
+	if (channel_type_has(state->channel_type, OPT_ZEROCONF) &&
+	    state->minimum_depth > 0) {
+		negotiation_failed(
+		    state,
+		    "You required zeroconf, but you're not on our allowlist");
 		return NULL;
 	}
 

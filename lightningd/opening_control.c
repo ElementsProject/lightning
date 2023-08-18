@@ -725,7 +725,8 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
 							   our_upfront_shutdown_script,
 							   upfront_shutdown_script_wallet_index,
-							   payload->uc->reserve)));
+							   payload->uc->reserve,
+							   payload->uc->minimum_depth)));
 }
 
 static bool
