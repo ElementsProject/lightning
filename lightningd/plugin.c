@@ -1004,7 +1004,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		clnopt_noarg(popt->name,
 			     optflags,
 			     plugin_opt_flag_check, popt,
-			     popt->description);
+			     popt->deprecated ? opt_hidden : popt->description);
 	} else {
 		/* These all take an arg. */
 		char *(*cb_arg)(const char *optarg, void *arg);
@@ -1037,7 +1037,8 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		/* show is only used for defaults: listconfigs uses
 		 * configvar if it's set. */
 		clnopt_witharg(popt->name,
-			       optflags, cb_arg, popt_show_default, popt, popt->description);
+			       optflags, cb_arg, popt_show_default, popt,
+			       popt->deprecated ? opt_hidden : popt->description);
 	}
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
