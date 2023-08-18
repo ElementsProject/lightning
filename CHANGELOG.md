@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [v23.08rc2] - 2023-08-02: "Satoshi's Successor"
+## [v23.08rc3] - 2023-08-18: "Satoshi's Successor"
 
 This release named by Matt Morehouse.
 
@@ -47,6 +47,7 @@ This release named by Matt Morehouse.
 
  - Tools: Reckless can now install directly from local sources. ([#6393])
  - Protocol: We allow update_fail_malformed_htlc with invalid error codes (LND?) ([#6425])
+ - Protocol: `invoice` will use channels for routehints even if peer says they're "disabled" (LND compat) ([#6556])
  - pyln-testing: The grpc dependencies are now optional. ([#6417])
  - Protocol: commando commands now allow a missing params field, instead of requiring an empty field. ([#6405])
  - Wallet: we now use taproot change addresses. ([#6035])
@@ -94,6 +95,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: Adding a >0 version witness program to a fallback address now is *just* the witness program, as per bolt11 spec ([#6435])
  - JSON-RPC: `sendonion` and `sendpay` will now consider amounts involved when using picking one channel for a peer ([#6428])
  - Plugins: pay: We now track spendable amounts when routing on both the local alias as well as the short channel ID ([#6428])
+ - Plugins: pay: will still use an invoice routehint if path to it doesn't take 1-msat payments. ([#6579])
  - Config: `log-level` filters now apply correctly to messages from `connectd`. ([#6406])
  - Lightnind: don't infinite loop on 32 bit platforms if only invoices are expiring after 2038. ([#6361])
  - JSON-RPC: `pay` and `decodepay` with description now correctly handle JSON escapes (e.g " inside description) ([#6337])
@@ -103,6 +105,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: `listconfigs` `htlc-minimum-msat`, `htlc-maximum-msat` and `max-dust-htlc-exposure-msat` fields are now numbers, not strings. ([#6243])
  - Protocol: We may propose mutual close transaction which has a slightly higher fee than the final commitment tx (depending on the outputs, e.g. two taproot outputs). ([#6547])
  - Protocol: We now close connection with a peer if adding an HTLC times out (which may be a TCP connectivity issue). ([#6520])
+ - Plugins: we clean up properly if a plugin fails to start, and we don't kill all processes if it's from `plugin startdir`. ([#6570])
+ - lightning-cli: properly returns help without argument ([#6568])
 
 
 ### EXPERIMENTAL
@@ -161,7 +165,12 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6507]: https://github.com/ElementsProject/lightning/pull/6507
 [#6520]: https://github.com/ElementsProject/lightning/pull/6520
 [#6547]: https://github.com/ElementsProject/lightning/pull/6547
-[v23.08rc2]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc2
+[#6556]: https://github.com/ElementsProject/lightning/pull/6556
+[#6579]: https://github.com/ElementsProject/lightning/pull/6579
+[#6570]: https://github.com/ElementsProject/lightning/pull/6570
+[#6568]: https://github.com/ElementsProject/lightning/pull/6568
+[#6564]: https://github.com/ElementsProject/lightning/pull/6564
+[v23.08rc3]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc3
 
 
 ## [23.05.2] - 2023-06-21: "Austin Texas Agreement(ATXA) III"
