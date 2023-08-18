@@ -142,8 +142,7 @@ struct channel_type *channel_type_from(const tal_t *ctx,
 struct channel_type *channel_type_accept(const tal_t *ctx,
 					 const u8 *t,
 					 const struct feature_set *our_features,
-					 const u8 *their_features,
-					 bool accept_zeroconf)
+					 const u8 *their_features)
 {
 	struct channel_type *ctype, proposed;
 	/* Need to copy since we're going to blank variant bits for equality. */
@@ -182,15 +181,6 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 				return NULL;
 		}
 	}
-
-	/* BOLT #2:
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *     - if `type` includes `option_zeroconf` and it does not trust the
-	 *       sender to open an unconfirmed channel.
-	 */
-	if (feature_is_set(t, OPT_ZEROCONF) && !accept_zeroconf)
-		return NULL;
 
 	/* Blank variants so we can just check for equality. */
 	for (size_t i = 0; i< ARRAY_SIZE(variants); i++)

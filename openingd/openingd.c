@@ -965,16 +965,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	if (open_tlvs->channel_type) {
 		open_channel_had_channel_type = true;
-		/* Tentatively accept OPT_ZEROCONF. We'll check
-		 * further down again. This is required because we
-		 * haven't talked to the openchannel hook at this
-		 * point. */
-		state->channel_type =
-			channel_type_accept(state,
-					    open_tlvs->channel_type,
-					    state->our_features,
-					    state->their_features,
-					    true);
+		state->channel_type = channel_type_accept(
+		    state, open_tlvs->channel_type, state->our_features,
+		    state->their_features);
 		if (!state->channel_type) {
 			negotiation_failed(state,
 					   "Did not support channel_type %s",
@@ -1137,6 +1130,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *     - if `type` includes `option_zeroconf` and it does not trust the
+	 *       sender to open an unconfirmed channel.
+	 */
 	if (channel_type_has(state->channel_type, OPT_ZEROCONF) &&
 	    state->minimum_depth > 0) {
 		negotiation_failed(
