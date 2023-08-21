@@ -38,11 +38,10 @@ static void remove_htlc_payflow(
 		struct chan_extra_map *chan_extra_map,
 		struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(pf->path_scids); i++) {
+	for (size_t i = 0; i < tal_count(pf->path_scidds); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
 							       chan_extra_map,
-							       pf->path_scids[i],
-							       pf->path_dirs[i]);
+							       &pf->path_scidds[i]);
 		if(!h)
 		{
 			plugin_err(pay_plugin->plugin,
@@ -74,11 +73,10 @@ static void commit_htlc_payflow(
 		struct chan_extra_map *chan_extra_map,
 		const struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(pf->path_scids); i++) {
+	for (size_t i = 0; i < tal_count(pf->path_scidds); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
 							       chan_extra_map,
-							       pf->path_scids[i],
-							       pf->path_dirs[i]);
+							       &pf->path_scidds[i]);
 		if(!h)
 		{
 			plugin_err(pay_plugin->plugin,
@@ -288,14 +286,15 @@ static void convert_and_attach_flows(struct payment *payment,
 		pf->key.payment_hash = payment->payment_hash;
 
 		/* Convert gossmap_chan into scids and nodes */
-		pf->path_scids = tal_arr(pf, struct short_channel_id, plen);
+		pf->path_scidds = tal_arr(pf, struct short_channel_id_dir, plen);
 		pf->path_nodes = tal_arr(pf, struct node_id, plen);
 		for (size_t j = 0; j < plen; j++) {
 			struct gossmap_node *n;
 			n = gossmap_nth_node(gossmap, f->path[j], !f->dirs[j]);
 			gossmap_node_get_id(gossmap, n, &pf->path_nodes[j]);
-			pf->path_scids[j]
+			pf->path_scidds[j].scid
 				= gossmap_chan_scid(gossmap, f->path[j]);
+			pf->path_scidds[j].dir = f->dirs[j];
 		}
 
 		/* Calculate cumulative delays (backwards) */
@@ -306,7 +305,6 @@ static void convert_and_attach_flows(struct payment *payment,
 				+ f->path[j]->half[f->dirs[j]].delay;
 		}
 		pf->amounts = tal_steal(pf, f->amounts);
-		pf->path_dirs = tal_steal(pf, f->dirs);
 		pf->success_prob = f->success_prob;
 
 		/* Payment keeps a list of its flows. */
@@ -539,10 +537,10 @@ const char *add_payflows(const tal_t *ctx,
 const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow)
 {
 	char *s = tal_strdup(ctx, "");
-	for (size_t i = 0; i < tal_count(flow->path_scids); i++) {
+	for (size_t i = 0; i < tal_count(flow->path_scidds); i++) {
 		tal_append_fmt(&s, "-%s->",
 			       type_to_string(tmpctx, struct short_channel_id,
-					      &flow->path_scids[i]));
+					      &flow->path_scidds[i].scid));
 	}
 	return s;
 }
