@@ -436,3 +436,24 @@ In order to make a proper uncorrupted backup of the SQLITE3 file while `lightnin
 Even if the backup is not corrupted, take note that this backup strategy should still be a last resort; recovery of all funds is still not assured with this backup strategy.
 
 `sqlite3` has `.dump` and `VACUUM INTO` commands, but note that those lock the main database for long time periods, which will negatively affect your `lightningd` instance.
+
+### Backing up using Static Channel Backup
+
+Core Lightning also equips users with the ability to recover their channels using the static channel backup feature. This feature allows users to regain access to their node by utilizing the `emergency.recover` file located in the `$LIGHTNINGDIR`. It's important to note that this recovery method requires cooperation with peers and should only be used as a last resort to retrieve coins that are stuck in a channel. The `emergency.recover` file gets updated each time a user opens a new channel on their node. Therefore, it's recommended that users update the backup of this file whenever they open a new channel.
+
+Steps to recover the node using `emergency.recover`:
+  - Copy the valid `hsm_secret` and `emergency.recover` file into the `$LIGHTNINGDIR` before starting up the node.
+  - Start `lightningd`
+  - Run `emergencyrecover`, it'll return all the channel ids, that would be recovered on the node.
+  - Now the user would have to wait untill their peer force closes the channel and the node would automatically sweep the funds, that were stuck in the channel before, this could take some time, so please have patience.
+
+### Recover the node using --recover flag
+
+Starting `lightningd` with the `--recover` flag enables users to recover the node using the secret provided in the `codex32 secret` string. The node will automatically generate an hsm_secret using the secret key specified in the codex32 secret.
+
+Please note that when the node is started with the --recover flag, it will initiate in offline mode. As a result, it won't establish connections with peers automatically. Users will need to explicitly establish these connections.
+
+Steps to get the `hsm_secret` in codex32 format:
+  - Run tools/hsmtool getcodexsecret <hsm\_secret\_path> <id>, here `id` is any 4 character string you can use to identify this secret (e.g. `adi0`): it cannot contain `i`, `o`, or `b`, but can contain digits except `1`.
+
+Warning: The `hsm_secret` file contains highly confidential information, and its loss could lead to the theft of your funds. Therefore, it is crucial to ensure that the `codex32 secret` is kept in a secure location where only you have access.
