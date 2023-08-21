@@ -220,8 +220,10 @@ void chan_extra_cannot_send(
 	oldmax = ce->half[scidd->dir].known_max;
 
 	/* If we "knew" the capacity was at least this, we just showed we're wrong! */
-	if (amount_msat_less(x, ce->half[scidd->dir].known_min))
-		ce->half[scidd->dir].known_min = AMOUNT_MSAT(0);
+	if (amount_msat_less(x, ce->half[scidd->dir].known_min)) {
+		/* Skip to half of x, since we don't know (rounds down) */
+		ce->half[scidd->dir].known_min = amount_msat_div(x, 2);
+	}
 
 	ce->half[scidd->dir].known_max = amount_msat_min(ce->half[scidd->dir].known_max,x);
 
