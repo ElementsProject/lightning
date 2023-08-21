@@ -255,7 +255,7 @@ static u32 *shadow_additions(const tal_t *ctx,
 		}
 
 		final_cltvs[i] += shadow_delay;
-		debug_paynote(p, "Shadow route on flow %zu/%zu added %u block delay. now %u",
+		payment_note(p, LOG_DBG, "Shadow route on flow %zu/%zu added %u block delay. now %u",
 			i, tal_count(flows), shadow_delay, final_cltvs[i]);
 	}
 
