@@ -188,12 +188,11 @@ void uncertainty_network_flow_success(
 		struct chan_extra_map *chan_extra_map,
 		struct pay_flow *pf)
 {
-	for (size_t i = 0; i < tal_count(pf->path_scids); i++)
+	for (size_t i = 0; i < tal_count(pf->path_scidds); i++)
 	{
 		chan_extra_sent_success(
 			chan_extra_map,
-			pf->path_scids[i],
-			pf->path_dirs[i],
+			&pf->path_scidds[i],
 			pf->amounts[i]);
 	}
 }
@@ -207,9 +206,7 @@ void uncertainty_network_channel_can_send(
 	for (size_t i = 0; i < erridx; i++)
 	{
 		chan_extra_can_send(chan_extra_map,
-				    pf->path_scids[i],
-				    pf->path_dirs[i],
-
+				    &pf->path_scidds[i],
 				    /* This channel can send all that was
 				     * commited in HTLCs.
 				     * Had we removed the commited amount then
@@ -238,14 +235,14 @@ bool uncertainty_network_update_from_listpeerchannels(
 		goto malformed;
 
 	json_for_each_arr(i, channel, channels) {
-		struct short_channel_id scid;
+		struct short_channel_id_dir scidd;
 		const jsmntok_t *scidtok = json_get_member(buf, channel, "short_channel_id");
 		/* If channel is still opening, this won't be there.
 		 * Also it won't be in the gossmap, so there is
 		 * no need to mark it as disabled. */
 		if (!scidtok)
 			continue;
-		if (!json_to_short_channel_id(buf, scidtok, &scid))
+		if (!json_to_short_channel_id(buf, scidtok, &scidd.scid))
 			goto malformed;
 
 		bool connected;
@@ -259,15 +256,14 @@ bool uncertainty_network_update_from_listpeerchannels(
 				" peer disconnected",
 				type_to_string(tmpctx,
 					       struct short_channel_id,
-					       &scid));
-			tal_arr_expand(&p->disabled, scid);
+					       &scidd.scid));
+			tal_arr_expand(&p->disabled, scidd.scid);
 			continue;
 		}
 
 		const jsmntok_t *spendabletok, *dirtok,*statetok, *totaltok,
 			*peeridtok;
 		struct amount_msat spendable,capacity;
-		int dir;
 
 		const struct node_id src=my_id;
 		struct node_id dst;
@@ -285,7 +281,7 @@ bool uncertainty_network_update_from_listpeerchannels(
 			goto malformed;
 		if (!json_to_msat(buf, totaltok, &capacity))
 			goto malformed;
-		if (!json_to_int(buf, dirtok,&dir))
+		if (!json_to_int(buf, dirtok, &scidd.dir))
 			goto malformed;
 		if(!json_to_node_id(buf,peeridtok,&dst))
 			goto malformed;
@@ -293,24 +289,24 @@ bool uncertainty_network_update_from_listpeerchannels(
 		/* Don't report opening/closing channels */
 		if (!json_tok_streq(buf, statetok, "CHANNELD_NORMAL")
 		    && !json_tok_streq(buf, statetok, "CHANNELD_AWAITING_SPLICE")) {
-			tal_arr_expand(&p->disabled, scid);
+			tal_arr_expand(&p->disabled, scidd.scid);
 			continue;
 		}
 
 		struct chan_extra *ce = chan_extra_map_get(chan_extra_map,
-							   scid);
+							   scidd.scid);
 
 		if(!ce)
 		{
 			/* this channel is not public, but it belongs to us */
 			ce = new_chan_extra(chan_extra_map,
-					    scid,
+					    scidd.scid,
 					    capacity);
 			/* FIXME: features? */
 			gossmap_local_addchan(p->local_gossmods,
-					      &src, &dst, &scid, NULL);
+					      &src, &dst, &scidd.scid, NULL);
 			gossmap_local_updatechan(p->local_gossmods,
-						 &scid,
+						 &scidd.scid,
 
 						 /* TODO(eduardo): does it
 						  * matter to consider HTLC
@@ -323,14 +319,14 @@ bool uncertainty_network_update_from_listpeerchannels(
 						  * matter to set this delay? */
 						 /*delay=*/0,
 						 true,
-						 dir);
+						 scidd.dir);
 		}
 
 		// TODO(eduardo): this includes pending HTLC of previous
 		// payments!
 		/* We know min and max liquidity exactly now! */
 		chan_extra_set_liquidity(chan_extra_map,
-					 scid,dir,spendable);
+					 &scidd,spendable);
 	}
 	return true;
 

@@ -148,33 +148,28 @@ static inline struct amount_msat amount_msat_max(
 
 /* Update the knowledge that this (channel,direction) can send x msat.*/
 void chan_extra_can_send(struct chan_extra_map *chan_extra_map,
-			 struct short_channel_id scid,
-			 int dir,
+			 const struct short_channel_id_dir *scidd,
 			 struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
 void chan_extra_cannot_send(struct payment* p,
 			    struct chan_extra_map *chan_extra_map,
-			    struct short_channel_id scid,
-			    int dir,
+			    const struct short_channel_id_dir *scidd,
 			    struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
 void chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
-			      struct short_channel_id scid,
-			      int dir,
+			      const struct short_channel_id_dir *scidd,
 			      struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
 void chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
-			     struct short_channel_id scid,
-			     int dir,
+			     const struct short_channel_id_dir *scidd,
 			     struct amount_msat x);
 
 /* Forget a bit about this (channel,direction) state. */
 void chan_extra_relax(struct chan_extra_map *chan_extra_map,
-		      struct short_channel_id scid,
-		      int dir,
+		      const struct short_channel_id_dir *scidd,
 		      struct amount_msat down,
 		      struct amount_msat up);
 
@@ -186,8 +181,7 @@ void chan_extra_relax_fraction(
 
 /* Returns either NULL, or an entry from the hash */
 struct chan_extra_half *get_chan_extra_half_by_scid(struct chan_extra_map *chan_extra_map,
-						    const struct short_channel_id scid,
-						    int dir);
+						    const struct short_channel_id_dir *scidd);
 /* If the channel is not registered, then a new entry is created. scid must be
  * present in the gossmap. */
 struct chan_extra_half *

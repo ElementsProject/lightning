@@ -144,10 +144,10 @@ static struct pf_result *handle_unhandleable_error(struct pay_flow *pf,
 		/* Assume it's not the destination */
 		n = pseudorand(n-1);
 
-	tal_arr_expand(&pf->payment->disabled, pf->path_scids[n]);
+	tal_arr_expand(&pf->payment->disabled, pf->path_scidds[n].scid);
 	debug_paynote(pf->payment, "... eliminated %s",
 		type_to_string(tmpctx, struct short_channel_id,
-			       &pf->path_scids[n]));
+			       &pf->path_scidds[n].scid));
 
 	return pay_flow_failed(pf);
 }
@@ -317,7 +317,7 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	tal_arr_expand(&payment->disabled, pf->path_scids[0]);
+	tal_arr_expand(&payment->disabled, pf->path_scidds[0].scid);
 
 	pay_flow_failed(pf);
 	return command_still_pending(cmd);
@@ -350,11 +350,11 @@ static void sendpay_new_flows(struct payment *p)
 			json_add_node_id(req->js, "id",
 					 &pf->path_nodes[j]);
 			json_add_short_channel_id(req->js, "channel",
-						  &pf->path_scids[j]);
+						  &pf->path_scidds[j].scid);
 			json_add_amount_msat(req->js, "amount_msat",
 						  pf->amounts[j]);
 			json_add_num(req->js, "direction",
-						  pf->path_dirs[j]);
+						  pf->path_scidds[j].dir);
 			json_add_u32(req->js, "delay",
 				     pf->cltv_delays[j]);
 			json_add_string(req->js,"style","tlv");
@@ -1068,7 +1068,7 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 	debug_assert(p);
 
 	/* Final node is usually a hard failure */
-	if (erridx == tal_count(pf->path_scids)) {
+	if (erridx == tal_count(pf->path_scidds)) {
 		debug_paynote(p,
 			      "onion error %s from final node #%u: %s",
 			      onion_wire_name(onionerr),
@@ -1083,7 +1083,7 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 		return pay_flow_failed_final(pf, PAY_DESTINATION_PERM_FAIL, message);
 	}
 
-	errscid = pf->path_scids[erridx];
+	errscid = pf->path_scidds[erridx].scid;
 	debug_paynote(p,
 		"onion error %s from node #%u %s: %s",
 		onion_wire_name(onionerr),
@@ -1170,9 +1170,9 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 		"%s",
 		onion_wire_name(onionerr),
 		erridx,
-		erridx == tal_count(pf->path_scids)
+		erridx == tal_count(pf->path_scidds)
 		? "final"
-		: type_to_string(tmpctx, struct short_channel_id, &pf->path_scids[erridx]),
+		: type_to_string(tmpctx, struct short_channel_id_dir, &pf->path_scidds[erridx]),
 		msg);
 
 	/* we know that all channels before erridx where able to commit to this payment */
@@ -1183,14 +1183,13 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 
 	/* Insufficient funds (not from final, that's weird!) */
 	if((enum onion_wire)onionerr == WIRE_TEMPORARY_CHANNEL_FAILURE
-	   && erridx < tal_count(pf->path_scids))
+	   && erridx < tal_count(pf->path_scidds))
 	{
 		plugin_log(pay_plugin->plugin,LOG_DBG,
 			   "sendpay_failure says insufficient funds!");
 
 		chan_extra_cannot_send(p,pay_plugin->chan_extra_map,
-				       pf->path_scids[erridx],
-				       pf->path_dirs[erridx],
+				       &pf->path_scidds[erridx],
 				    /* This channel can't send all that was
 				     * commited in HTLCs.
 				     * Had we removed the commited amount then
@@ -1300,10 +1299,10 @@ static struct pf_result *sendpay_failure(struct pay_flow *pf,
 		return handle_unhandleable_error(pf, err);
 
 	/* Answer must be sane: but note, erridx can be final node! */
-	if (erridx > tal_count(pf->path_scids)) {
+	if (erridx > tal_count(pf->path_scidds)) {
 		plugin_err(pay_plugin->plugin,
 			   "Erring channel %u/%zu in path %s",
-			   erridx, tal_count(pf->path_scids),
+			   erridx, tal_count(pf->path_scidds),
 			   flow_path_to_str(tmpctx, pf));
 	}
 

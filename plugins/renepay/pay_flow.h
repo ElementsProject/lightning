@@ -50,9 +50,8 @@ struct pay_flow {
 	} key;
 
 	/* The series of channels and nodes to traverse. */
-	struct short_channel_id *path_scids;
+	struct short_channel_id_dir *path_scidds;
 	struct node_id *path_nodes;
-	int *path_dirs;
 	/* CLTV delays for each hop */
 	u32 *cltv_delays;
 	/* The amounts at each step */
