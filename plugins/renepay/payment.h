@@ -4,6 +4,8 @@
 #include <common/gossmap.h>
 #include <plugins/libplugin.h>
 
+struct pay_flow;
+
 enum payment_status {
         PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL
 };
@@ -140,7 +142,13 @@ struct amount_msat payment_delivered(const struct payment *p);
 struct amount_msat payment_amount(const struct payment *p);
 struct amount_msat payment_fees(const struct payment *p);
 
-void payment_note(struct payment *p, const char *fmt, ...);
+/* These log at LOG_DBG, append to notes, and send command notification */
+void payment_note(struct payment *p,
+		  enum log_level lvl,
+		  const char *fmt, ...);
+void payflow_note(struct pay_flow *pf,
+		  enum log_level lvl,
+		  const char *fmt, ...);
 void payment_assert_delivering_incomplete(const struct payment *p);
 void payment_assert_delivering_all(const struct payment *p);
 

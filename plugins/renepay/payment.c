@@ -98,7 +98,9 @@ struct amount_msat payment_fees(const struct payment *p)
 	return fees;
 }
 
-void payment_note(struct payment *p, const char *fmt, ...)
+void payment_note(struct payment *p,
+		  enum log_level lvl,
+		  const char *fmt, ...)
 {
 	va_list ap;
 	const char *str;
@@ -107,10 +109,27 @@ void payment_note(struct payment *p, const char *fmt, ...)
 	str = tal_vfmt(p->paynotes, fmt, ap);
 	va_end(ap);
 	tal_arr_expand(&p->paynotes, str);
-	debug_info("%s",str);
+	/* Log at debug, unless it's weird... */
+	plugin_log(pay_plugin->plugin,
+		   lvl < LOG_UNUSUAL ? LOG_DBG : lvl, "%s", str);
 
 	if (p->cmd)
-		plugin_notify_message(p->cmd, LOG_INFORM, "%s", str);
+		plugin_notify_message(p->cmd, lvl, "%s", str);
+}
+
+void payflow_note(struct pay_flow *pf,
+		  enum log_level lvl,
+		  const char *fmt, ...)
+{
+	va_list ap;
+	const char *str;
+
+	va_start(ap, fmt);
+	str = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	payment_note(pf->payment, lvl, "  Flow %"PRIu64": %s",
+		     pf->key.partid, str);
 }
 
 void payment_assert_delivering_incomplete(const struct payment *p)
