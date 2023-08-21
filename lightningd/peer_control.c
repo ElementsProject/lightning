@@ -1276,7 +1276,8 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 
 	/* connect appropriate subds for all (active) channels! */
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_active(channel)) {
+		/* FIXME: It can race by opening a channel before this! */
+		if (channel_active(channel) && !channel->owner) {
 			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
