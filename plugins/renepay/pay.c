@@ -1190,11 +1190,7 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 
 		chan_extra_cannot_send(p,pay_plugin->chan_extra_map,
 				       &pf->path_scidds[erridx],
-				    /* This channel can't send all that was
-				     * commited in HTLCs.
-				     * Had we removed the commited amount then
-				     * we would have to put here pf->amounts[erridx]. */
-				       AMOUNT_MSAT(0));
+				       pf->amounts[erridx]);
 	}
 }
 
