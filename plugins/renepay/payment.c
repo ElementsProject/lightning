@@ -65,11 +65,46 @@ struct payment *payment_new(const tal_t *ctx,
 	p->groupid=1;
 
  	p->local_gossmods = gossmap_localmods_new(p);
-	p->disabled = tal_arr(p,struct short_channel_id,0);
+	p->disabled_scids = tal_arr(p,struct short_channel_id,0);
 	p->next_partid=1;
 	p->progress_deadline = NULL;
 
 	return p;
+}
+
+/* Disable this scid for this payment, and tell me why! */
+void payflow_disable_chan(struct pay_flow *pf,
+			  struct short_channel_id scid,
+			  enum log_level lvl,
+			  const char *fmt, ...)
+{
+	va_list ap;
+	const char *str;
+
+	va_start(ap, fmt);
+	str = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+	payflow_note(pf, lvl, "disabling %s: %s",
+		     type_to_string(tmpctx, struct short_channel_id, &scid),
+		     str);
+	tal_arr_expand(&pf->payment->disabled_scids, scid);
+}
+
+void payment_disable_chan(struct payment *p,
+			  struct short_channel_id scid,
+			  enum log_level lvl,
+			  const char *fmt, ...)
+{
+	va_list ap;
+	const char *str;
+
+	va_start(ap, fmt);
+	str = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+	payment_note(p, lvl, "disabling %s: %s",
+		     type_to_string(tmpctx, struct short_channel_id, &scid),
+		     str);
+	tal_arr_expand(&p->disabled_scids, scid);
 }
 
 struct amount_msat payment_sent(const struct payment *p)

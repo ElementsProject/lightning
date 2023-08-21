@@ -252,12 +252,8 @@ bool uncertainty_network_update_from_listpeerchannels(
 			goto malformed;
 
 		if (!connected) {
-			debug_paynote(p, "local channel %s disabled:"
-				" peer disconnected",
-				type_to_string(tmpctx,
-					       struct short_channel_id,
-					       &scidd.scid));
-			tal_arr_expand(&p->disabled, scidd.scid);
+			payment_disable_chan(p, scidd.scid, LOG_DBG,
+					     "peer disconnected");
 			continue;
 		}
 
@@ -289,7 +285,10 @@ bool uncertainty_network_update_from_listpeerchannels(
 		/* Don't report opening/closing channels */
 		if (!json_tok_streq(buf, statetok, "CHANNELD_NORMAL")
 		    && !json_tok_streq(buf, statetok, "CHANNELD_AWAITING_SPLICE")) {
-			tal_arr_expand(&p->disabled, scidd.scid);
+			payment_disable_chan(p, scidd.scid, LOG_DBG,
+					     "channel in state %.*s",
+					     statetok->end - statetok->start,
+					     buf + statetok->start);
 			continue;
 		}
 

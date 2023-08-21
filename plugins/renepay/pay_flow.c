@@ -404,12 +404,7 @@ static bool disable_htlc_violations_oneflow(struct payment *p,
 			continue;
 
 		scid = gossmap_chan_scid(gossmap, flow->path[i]);
-		debug_paynote(p, "...disabling channel %s: %s",
-			type_to_string(tmpctx, struct short_channel_id, &scid),
-			reason);
-
-		/* Add this for future searches for this payment. */
-		tal_arr_expand(&p->disabled, scid);
+		payment_disable_chan(p, scid, LOG_INFORM, "%s", reason);
 		/* Add to existing bitmap */
 		bitmap_set_bit(disabled,
 			       gossmap_chan_idx(gossmap, flow->path[i]));
@@ -446,7 +441,7 @@ const char *add_payflows(const tal_t *ctx,
 	bitmap *disabled;
 	const struct gossmap_node *src, *dst;
 
-	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled);
+	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled_scids);
 	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
 	if (!src) {
 		debug_paynote(p, "We don't have any channels?");

@@ -140,10 +140,8 @@ static struct pf_result *handle_unhandleable_error(struct pay_flow *pf,
 		/* Assume it's not the destination */
 		n = pseudorand(n-1);
 
-	tal_arr_expand(&pf->payment->disabled, pf->path_scidds[n].scid);
-	payflow_note(pf, LOG_DBG, "... eliminated %s",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &pf->path_scidds[n].scid));
+	payflow_disable_chan(pf, pf->path_scidds[n].scid,
+			     LOG_INFORM, "randomly chosen");
 
 	return pay_flow_failed(pf);
 }
@@ -175,14 +173,11 @@ static struct command_result *addgossip_failure(struct command *cmd,
 						struct addgossip *adg)
 
 {
-	struct payment * payment = adg->pf->payment;
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	payflow_note(adg->pf, LOG_UNUSUAL,
-		     "addgossip failed, removing channel %s (%.*s)",
-		     type_to_string(tmpctx, struct short_channel_id, &adg->scid),
-		     err->end - err->start, buf + err->start);
-	tal_arr_expand(&payment->disabled, adg->scid);
+	payflow_disable_chan(adg->pf, adg->scid,
+			     LOG_INFORM, "addgossip failed (%.*s)",
+			     err->end - err->start, buf + err->start);
 
 	return addgossip_done(cmd, buf, err, adg);
 }
@@ -307,12 +302,11 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 		plugin_err(cmd->plugin, "Strange error from sendpay: %.*s",
 			   json_tok_full_len(err), json_tok_full(buf, err));
 
-	payflow_note(pf, LOG_INFORM,
-		     "sendpay didn't like first hop, eliminated: %s", msg);
-
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	tal_arr_expand(&payment->disabled, pf->path_scidds[0].scid);
+	payflow_disable_chan(pf, pf->path_scidds[0].scid,
+			     LOG_INFORM,
+			     "sendpay didn't like first hop: %s", msg);
 
 	pay_flow_failed(pf);
 	return command_still_pending(cmd);
@@ -1075,13 +1069,6 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 	}
 
 	errscid = pf->path_scidds[erridx].scid;
-	debug_paynote(p,
-		"onion error %s from node #%u %s: %s",
-		onion_wire_name(onionerr),
-		erridx,
-		type_to_string(tmpctx, struct short_channel_id, &errscid),
-		message);
-
 	switch (onionerr) {
 	/* These definitely mean eliminate channel */
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
@@ -1101,9 +1088,9 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 	case WIRE_INVALID_ONION_PAYLOAD:
 	case WIRE_INVALID_ONION_BLINDING:
 	case WIRE_EXPIRY_TOO_FAR:
-		debug_paynote(p, "we're removing scid %s",
-			      type_to_string(tmpctx,struct short_channel_id,&errscid));
-		tal_arr_expand(&p->disabled, errscid);
+		payflow_disable_chan(pf, errscid, LOG_UNUSUAL,
+				     "%s",
+				     onion_wire_name(onionerr));
 		return pay_flow_failed(pf);
 
 	/* These can be fixed (maybe) by applying the included channel_update */
@@ -1118,9 +1105,8 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 		if (update)
 			return submit_update(pf, update, errscid);
 
-		debug_paynote(p, "missing an update, so we're removing scid %s",
-			      type_to_string(tmpctx,struct short_channel_id,&errscid));
-		tal_arr_expand(&p->disabled, errscid);
+		payflow_disable_chan(pf, errscid,
+				     LOG_UNUSUAL, "missing channel_update");
 		return pay_flow_failed(pf);
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
@@ -1140,10 +1126,9 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 		break;
 	}
 
-	debug_paynote(p,"unkown onion error code %u, removing scid %s",
-		      onionerr,
-		      type_to_string(tmpctx,struct short_channel_id,&errscid));
-	tal_arr_expand(&p->disabled, errscid);
+	payflow_disable_chan(pf, errscid,
+			     LOG_UNUSUAL, "unexpected error code %u",
+			     onionerr);
 	return pay_flow_failed(pf);
 }
 
