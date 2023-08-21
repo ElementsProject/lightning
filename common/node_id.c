@@ -58,7 +58,11 @@ void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id)
 
 void towire_node_id(u8 **pptr, const struct node_id *id)
 {
-	/* Cheap sanity check */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	/* Cheap sanity check. For wire fuzzing, we only care about correct
+	 * encoding of node IDs and not whether the IDs are valid, so we disable
+	 * this check while fuzzing. */
 	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
+#endif
 	towire(pptr, id->k, sizeof(id->k));
 }
