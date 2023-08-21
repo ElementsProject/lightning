@@ -3191,10 +3191,22 @@ def test_autoclean(node_factory):
 
     l3.rpc.setconfig('autoclean-cycle', 10)
 
-    # First it expires.
-    wait_for(lambda: only_one(l3.rpc.listinvoices('inv1')['invoices'])['status'] == 'expired')
-    # Now will get autocleaned
-    wait_for(lambda: l3.rpc.listinvoices('inv1')['invoices'] == [])
+    # It will always go unpaid->expired->deleted, but we might miss it!
+    was_expired = False
+    while True:
+        # Is it deleted yet?
+        invs = l3.rpc.listinvoices('inv1')['invoices']
+        if invs == []:
+            break
+        if was_expired:
+            assert only_one(invs)['status'] == 'expired'
+        else:
+            if only_one(invs)['status'] == 'expired':
+                was_expired = True
+            else:
+                assert only_one(invs)['status'] == 'unpaid'
+        time.sleep(1)
+
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1
 
     # Keeps settings across restarts
