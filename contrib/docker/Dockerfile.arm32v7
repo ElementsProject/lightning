@@ -89,10 +89,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
 WORKDIR /opt/lightningd
-COPY . .
+COPY . /tmp/lightning
 
-# RUN git clone --recursive /tmp/lightning . && \
-#     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
+RUN git clone --recursive /tmp/lightning . && \
+    git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
@@ -101,13 +101,9 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 RUN pip3 wheel cryptography
+RUN pip3 install grpcio-tools
 
 RUN /root/.local/bin/poetry install
-
-RUN python3 -m venv clnenv
-RUN source clnenv/bin/activate
-RUN pip3 install grpcio-tools
-RUN pip3 install mako
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
     make DEVELOPER=${DEVELOPER} && \
@@ -122,7 +118,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       socat \
       inotify-tools \
-      python3.9 \
+      python3 \
       python3-pip \
       qemu-user-static \
       libpq5 && \
@@ -138,7 +134,7 @@ RUN mkdir $LIGHTNINGD_DATA && \
 VOLUME [ "/root/.lightning" ]
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
+COPY --from=builder /usr/local/lib/python3/dist-packages/ /usr/local/lib/python3/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY --from=downloader "/tini" /usr/bin/tini
