@@ -191,7 +191,7 @@ void uncertainty_network_flow_success(
 	for (size_t i = 0; i < tal_count(pf->path_scidds); i++)
 	{
 		chan_extra_sent_success(
-			chan_extra_map,
+			pf, chan_extra_map,
 			&pf->path_scidds[i],
 			pf->amounts[i]);
 	}
