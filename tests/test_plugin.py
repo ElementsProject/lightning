@@ -469,7 +469,7 @@ def test_plugin_connected_hook_chaining(node_factory):
     try:
         l3.connect(l1)
     except RpcError as err:
-        assert "disconnected during connection" in err.error
+        assert "disconnected during connection" in err.error['message']
 
     l1.daemon.wait_for_logs([
         f"peer_connected_logger_a {l3id}",
