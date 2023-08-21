@@ -30,7 +30,7 @@ struct payment {
 	struct gossmap_localmods *local_gossmods;
 
 	/* Channels we decided to disable for various reasons. */
-	struct short_channel_id *disabled;
+	struct short_channel_id *disabled_scids;
 
 	/* Used in get_payflows to set ids to each pay_flow. */
 	u64 next_partid;
@@ -156,6 +156,18 @@ void payment_assert_delivering_all(const struct payment *p);
 void payment_reconsider(struct payment *p);
 
 u64 payment_parts(const struct payment *payment);
+
+/* Disable this scid for this payment, and tell me why! */
+void payflow_disable_chan(struct pay_flow *pf,
+			  struct short_channel_id scid,
+			  enum log_level lvl,
+			  const char *fmt, ...);
+
+/* Sometimes, disabling chan is independent of a flow. */
+void payment_disable_chan(struct payment *p,
+			  struct short_channel_id scid,
+			  enum log_level lvl,
+			  const char *fmt, ...);
 
 struct command_result *payment_fail(
 	struct payment *payment,
