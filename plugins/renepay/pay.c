@@ -1046,25 +1046,18 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 							const u8 *raw)
 {
 	struct short_channel_id errscid;
-	struct payment *p = pf->payment;
 	const u8 *update;
 
 	debug_assert(pf);
-	debug_assert(p);
 
 	/* Final node is usually a hard failure */
 	if (erridx == tal_count(pf->path_scidds)) {
-		debug_paynote(p,
-			      "onion error %s from final node #%u: %s",
-			      onion_wire_name(onionerr),
-			      erridx,
-			      message);
-
 		if (onionerr == WIRE_MPP_TIMEOUT) {
 			return pay_flow_failed(pf);
 		}
 
-		debug_paynote(p,"final destination failure");
+		payflow_note(pf, LOG_INFORM,
+			     "final destination permanent failure");
 		return pay_flow_failed_final(pf, PAY_DESTINATION_PERM_FAIL, message);
 	}
 
@@ -1229,8 +1222,6 @@ static struct pf_result *sendpay_failure(struct pay_flow *pf,
 	/* Only one code is really actionable */
 	switch (errcode) {
 	case PAY_UNPARSEABLE_ONION:
-		debug_paynote(pf->payment, "Unparsable onion reply on route %s",
-			      flow_path_to_str(tmpctx, pf));
 		return handle_unhandleable_error(pf, "Unparsable onion reply");
 
 	case PAY_TRY_OTHER_ROUTE:
