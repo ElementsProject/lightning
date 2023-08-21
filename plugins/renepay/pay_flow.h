@@ -134,9 +134,6 @@ struct pf_result *pay_flow_succeeded(struct pay_flow *pf STEALS,
 /* Formatting helpers */
 const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow);
 
-const char* fmt_payflows(const tal_t *ctx,
-			 struct pay_flow ** flows);
-
 /* How much does this flow deliver to destination? */
 struct amount_msat payflow_delivered(const struct pay_flow *flow);
 
