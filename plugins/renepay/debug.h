@@ -30,9 +30,6 @@ void _debug_exec_branch(const char* fname,const char* fun, int lineno);
 #define debug_err(...) \
 	{_debug_info(MYLOG,__VA_ARGS__); abort();}
 
-#define debug_paynote(p,...) \
-	{payment_note(p,LOG_INFORM,__VA_ARGS__);_debug_info(MYLOG,__VA_ARGS__);}
-
 #else
 /* Debugging information goes either to payment notes or to lightningd log. */
 
@@ -41,9 +38,6 @@ void _debug_exec_branch(const char* fname,const char* fun, int lineno);
 
 #define debug_err(...) \
 	plugin_err(pay_plugin->plugin,__VA_ARGS__)
-
-#define debug_paynote(p,...) \
-	payment_note(p,LOG_INFORM,__VA_ARGS__);
 
 #endif
 

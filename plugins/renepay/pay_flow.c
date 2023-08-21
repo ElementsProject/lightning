@@ -220,11 +220,12 @@ static u32 *shadow_additions(const tal_t *ctx,
 		shadow_delay = shadow_one_flow(gossmap, flows[i],
 					       &shadow_fee);
 		if (flow_delay(flows[i]) + shadow_delay > p->maxdelay) {
-			debug_paynote(p, "No shadow for flow %zu/%zu:"
-				" delay would add %u to %"PRIu64", exceeding max delay.",
-				i, tal_count(flows),
-				shadow_delay,
-				flow_delay(flows[i]));
+			payment_note(p, LOG_UNUSUAL,
+				     "No shadow for flow %zu/%zu:"
+				     " delay would add %u to %"PRIu64", exceeding max delay.",
+				     i, tal_count(flows),
+				     shadow_delay,
+				     flow_delay(flows[i]));
 			continue;
 		}
 
@@ -235,7 +236,8 @@ static u32 *shadow_additions(const tal_t *ctx,
 		if (is_entire_payment && tal_count(flows) == 1) {
 			if (!add_to_amounts(gossmap, flows[i], p->maxspend,
 					    shadow_fee)) {
-				debug_paynote(p, "No shadow fee for flow %zu/%zu:"
+				payment_note(p, LOG_UNUSUAL,
+					     "No shadow fee for flow %zu/%zu:"
 					" fee would add %s to %s, exceeding budget %s.",
 					i, tal_count(flows),
 					type_to_string(tmpctx, struct amount_msat,
@@ -245,7 +247,8 @@ static u32 *shadow_additions(const tal_t *ctx,
 					type_to_string(tmpctx, struct amount_msat,
 						       &p->maxspend));
 			} else {
-				debug_paynote(p, "No MPP, so added %s shadow fee",
+				payment_note(p, LOG_DBG,
+					"No MPP, so added %s shadow fee",
 					type_to_string(tmpctx, struct amount_msat,
 						       &shadow_fee));
 			}
@@ -444,13 +447,11 @@ const char *add_payflows(const tal_t *ctx,
 	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled_scids);
 	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
 	if (!src) {
-		debug_paynote(p, "We don't have any channels?");
 		*ecode = PAY_ROUTE_NOT_FOUND;
 		return tal_fmt(ctx, "We don't have any channels.");
 	}
 	dst = gossmap_find_node(pay_plugin->gossmap, &p->destination);
 	if (!dst) {
-		debug_paynote(p, "No trace of destination in network gossip");
 		*ecode = PAY_ROUTE_NOT_FOUND;
 		return tal_fmt(ctx, "Destination is unknown in the network gossip.");
 	}
@@ -472,10 +473,6 @@ const char *add_payflows(const tal_t *ctx,
 				p->base_fee_penalty,
 				p->prob_cost_factor);
 		if (!flows) {
-			debug_paynote(p,
-				      "minflow couldn't find a feasible flow for %s",
-				      type_to_string(tmpctx,struct amount_msat,&amount));
-
 			*ecode = PAY_ROUTE_NOT_FOUND;
 			return tal_fmt(ctx,
 				       "minflow couldn't find a feasible flow for %s",
@@ -487,7 +484,7 @@ const char *add_payflows(const tal_t *ctx,
 		fee = flow_set_fee(flows);
 		delay = flows_worst_delay(flows) + p->final_cltv;
 
-		debug_paynote(p,
+		payment_note(p, LOG_INFORM,
 			      "we have computed a set of %ld flows with probability %.3lf, fees %s and delay %ld",
 			      tal_count(flows),
 			      prob,
@@ -497,9 +494,6 @@ const char *add_payflows(const tal_t *ctx,
 		too_expensive = amount_msat_greater(fee, feebudget);
 		if (too_expensive)
 		{
-			debug_paynote(p, "Flows too expensive, fee = %s (max %s)",
-				type_to_string(tmpctx, struct amount_msat, &fee),
-				type_to_string(tmpctx, struct amount_msat, &feebudget));
 			*ecode = PAY_ROUTE_TOO_EXPENSIVE;
 			return tal_fmt(ctx,
 				       "Fee exceeds our fee budget, "
@@ -509,12 +503,8 @@ const char *add_payflows(const tal_t *ctx,
 		}
 		too_delayed = (delay > p->maxdelay);
 		if (too_delayed) {
-			debug_paynote(p, "Flows too delayed, delay = %"PRIu64" (max %u)",
-				delay, p->maxdelay);
-
 			/* FIXME: What is a sane limit? */
 			if (p->delay_feefactor > 1000) {
-				debug_paynote(p, "Giving up!");
 				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
 				return tal_fmt(ctx,
 					       "CLTV delay exceeds our CLTV budget, "
@@ -523,8 +513,10 @@ const char *add_payflows(const tal_t *ctx,
 			}
 
 			p->delay_feefactor *= 2;
-			debug_paynote(p, "Doubling delay_feefactor to %f",
-				p->delay_feefactor);
+			payment_note(p, LOG_INFORM,
+				     "delay %"PRIu64" exceeds our max %u, so doubling delay_feefactor to %f",
+				     delay, p->maxdelay,
+				     p->delay_feefactor);
 
 			continue; // retry
 		}

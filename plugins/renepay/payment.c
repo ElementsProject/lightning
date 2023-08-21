@@ -217,6 +217,8 @@ struct command_result *payment_fail(
 	enum jsonrpc_errcode code,
 	const char *fmt, ...)
 {
+	struct command *cmd;
+
 	/* We usually get called because a flow failed, but we
 	 * can also get called because we couldn't route any more
 	 * or some strange error. */
@@ -231,9 +233,14 @@ struct command_result *payment_fail(
 	char *message = tal_vfmt(tmpctx,fmt,args);
 	va_end(args);
 
-	debug_paynote(payment,"%s",message);
+	/* Don't bother notifying command, it's about to get failure */
+	cmd = payment->cmd;
+	payment->cmd = NULL;
+	payment_note(payment, LOG_DBG, "%s", message);
+	/* Restore to keep destructor happy! */
+	payment->cmd = cmd;
 
-	return command_fail(payment->cmd,code,"%s",message);
+	return command_fail(cmd,code,"%s",message);
 }
 
 u64 payment_parts(const struct payment *payment)
