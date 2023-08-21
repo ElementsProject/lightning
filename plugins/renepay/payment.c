@@ -216,7 +216,8 @@ void payment_reconsider(struct payment *payment)
 			final_msg = tal_steal(tmpctx, i->final_msg);
 			break;
 		case PAY_FLOW_FAILED_GOSSIP_PENDING:
-			break;
+			/* Don't free, it's still going! */
+			continue;
 		case PAY_FLOW_SUCCESS:
 			if (payment->preimage) {
 				/* This should be impossible without breaking SHA256 */
