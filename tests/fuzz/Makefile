@@ -5,6 +5,7 @@ LIBFUZZ_OBJS := $(LIBFUZZ_SRC:.c=.o)
 tests/fuzz/fuzz-connectd-handshake-act*.o: tests/fuzz/connectd_handshake.h
 tests/fuzz/fuzz-ripemd160: LDLIBS += -lcrypto
 tests/fuzz/fuzz-sha256: LDLIBS += -lcrypto
+tests/fuzz/fuzz-wire-*.o: tests/fuzz/wire.h
 
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
