@@ -166,7 +166,7 @@ set_defaults()
 	fi
     fi
     if [ "$FUZZING" != 0 ]; then
-	FUZZFLAGS="-fsanitize=fuzzer-no-link"
+	FUZZFLAGS="-fsanitize=fuzzer-no-link -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
 	CSANFLAGS="$CSANFLAGS $FUZZFLAGS"
     fi
     echo CSANFLAGS = $CSANFLAGS
