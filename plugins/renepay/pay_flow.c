@@ -264,6 +264,23 @@ static void destroy_payment_flow(struct pay_flow *pf)
 	list_del_from(&pf->payment->flows, &pf->list);
 }
 
+/* Print out flow, and any information we already know */
+static const char *flow_path_annotated(const tal_t *ctx,
+				       const struct pay_flow *flow)
+{
+	char *s = tal_strdup(ctx, "");
+	for (size_t i = 0; i < tal_count(flow->path_scidds); i++) {
+		tal_append_fmt(&s, "-%s%s->",
+			       type_to_string(tmpctx,
+					      struct short_channel_id_dir,
+					      &flow->path_scidds[i]),
+			       fmt_chan_extra_details(tmpctx,
+						      pay_plugin->chan_extra_map,
+						      &flow->path_scidds[i]));
+	}
+	return s;
+}
+
 /* Calculates delays and converts to scids, and links to the payment.
  * Frees flows. */
 static void convert_and_attach_flows(struct payment *payment,
@@ -309,6 +326,15 @@ static void convert_and_attach_flows(struct payment *payment,
 
 		/* Payment keeps a list of its flows. */
 		list_add(&payment->flows, &pf->list);
+
+		/* First time they see this: annotate important points */
+		payflow_note(pf, LOG_INFORM,
+			     "amount=%s prob=%.3lf fees=%s delay=%u path=%s",
+			     fmt_amount_msat(tmpctx, payflow_delivered(pf)),
+			     pf->success_prob,
+			     fmt_amount_msat(tmpctx, payflow_fee(pf)),
+			     pf->cltv_delays[0] - pf->cltv_delays[plen-1],
+			     flow_path_annotated(tmpctx, pf));
 
 		/* Increase totals for payment */
 		amount_msat_accumulate(&payment->total_sent, pf->amounts[0]);
@@ -549,6 +575,16 @@ const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow)
 struct amount_msat payflow_delivered(const struct pay_flow *flow)
 {
 	return flow->amounts[tal_count(flow->amounts)-1];
+}
+
+/* How much does this flow pay in fees? */
+struct amount_msat payflow_fee(const struct pay_flow *pf)
+{
+	struct amount_msat fee;
+
+	if (!amount_msat_sub(&fee, pf->amounts[0], payflow_delivered(pf)))
+		abort();
+	return fee;
 }
 
 static struct pf_result *pf_resolve(struct pay_flow *pf,

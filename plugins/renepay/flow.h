@@ -118,6 +118,12 @@ const char *fmt_chan_extra_map(
 		const tal_t *ctx,
 		struct chan_extra_map* chan_extra_map);
 
+/* Returns "" if nothing useful known about channel, otherwise
+ * "(details)" */
+const char *fmt_chan_extra_details(const tal_t *ctx,
+				   struct chan_extra_map* chan_extra_map,
+				   const struct short_channel_id_dir *scidd);
+
 /* Creates a new chan_extra and adds it to the chan_extra_map. */
 struct chan_extra *new_chan_extra(
 		struct chan_extra_map *chan_extra_map,
@@ -152,7 +158,7 @@ void chan_extra_can_send(struct chan_extra_map *chan_extra_map,
 			 struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
-void chan_extra_cannot_send(struct payment* p,
+void chan_extra_cannot_send(struct pay_flow* pf,
 			    struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd,
 			    struct amount_msat x);
@@ -163,7 +169,8 @@ void chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			      struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
-void chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
+void chan_extra_sent_success(struct pay_flow *pf,
+			     struct chan_extra_map *chan_extra_map,
 			     const struct short_channel_id_dir *scidd,
 			     struct amount_msat x);
 

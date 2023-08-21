@@ -136,4 +136,7 @@ const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow);
 /* How much does this flow deliver to destination? */
 struct amount_msat payflow_delivered(const struct pay_flow *flow);
 
+/* At what cost? */
+struct amount_msat payflow_fee(const struct pay_flow *flow);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_FLOW_H */
