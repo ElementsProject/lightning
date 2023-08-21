@@ -143,13 +143,14 @@ void chan_extra_can_send(
 	chan_extra_can_send_(ce,scidd->dir,x);
 }
 
-/* Update the knowledge that this (channel,direction) cannot send x msat.*/
+/* Update the knowledge that this (channel,direction) cannot send.*/
 void chan_extra_cannot_send(
 		struct payment *p,
 		struct chan_extra_map *chan_extra_map,
 		const struct short_channel_id_dir *scidd,
-		struct amount_msat x)
+		struct amount_msat sent)
 {
+	struct amount_msat x;
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map,
 						   scidd->scid);
 	if(!ce)
@@ -158,27 +159,19 @@ void chan_extra_cannot_send(
 			__PRETTY_FUNCTION__,__LINE__);
 	}
 
-	/* If a channel cannot send x it means that the upper bound for the
-	 * liquidity is MAX_L < x + htlc_total */
-	if(!amount_msat_add(&x,x,ce->half[scidd->dir].htlc_total))
+	/* Note: sent is already included in htlc_total! */
+	if(!amount_msat_sub(&x,ce->half[scidd->dir].htlc_total,AMOUNT_MSAT(1)))
 	{
-		debug_err("%s (line %d) cannot add x=%s and htlc_total=%s",
+		debug_err("%s (line %d) unexpected htlc_total=%s is less than 0msat",
 			__PRETTY_FUNCTION__,__LINE__,
-			type_to_string(tmpctx,struct amount_msat,&x),
-			type_to_string(tmpctx,struct amount_msat,&ce->half[scidd->dir].htlc_total));
-	}
-
-	if(!amount_msat_sub(&x,x,AMOUNT_MSAT(1)))
-	{
-		debug_err("%s (line %d) unexpected x=%s is less than 0msat",
-			__PRETTY_FUNCTION__,__LINE__,
-			type_to_string(tmpctx,struct amount_msat,&x)
+			type_to_string(tmpctx,struct amount_msat,
+				       &ce->half[scidd->dir].htlc_total)
 			);
 		x = AMOUNT_MSAT(0);
 	}
 
 	/* If we "knew" the capacity was at least this, we just showed we're wrong! */
-	if (amount_msat_less_eq(x, ce->half[scidd->dir].known_min)) {
+	if (amount_msat_less(x, ce->half[scidd->dir].known_min)) {
 		debug_paynote(p, "Expected scid=%s min %s, but %s failed!  Setting min to 0",
 			      type_to_string(tmpctx,struct short_channel_id_dir,scidd),
 			      type_to_string(tmpctx,struct amount_msat,&ce->half[scidd->dir].known_min),
