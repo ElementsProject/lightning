@@ -69,7 +69,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Config: boolean plugin options set to `1` or `0` (use `true` and `false` like non-plugin options). ([#6243])
  - Config: `accept-htlc-tlv-types` (use `accept-htlc-tlv-type` multiple times) ([#6243])
  - Config: `experimental-websocket-port`: use `--bind=ws::<portnum>`. ([#6173])
- - Config: bind-addr=xxx.onion and addr=xxx.onion, use announce=xxx.onion (which was always equivalent). ([#6173])
+ - Config: bind-addr=xxx.onion and addr=xxx.onion, use announce-addr=xxx.onion (which was always equivalent). ([#6173])
  - Config: addr=/socketpath, use listen=/socketpath (which was always equivalent). ([#6173])
  - Config: `announce-addr-dns`; use `--bind-addr=dns:ADDR` for finer control. ([#6173])
 
