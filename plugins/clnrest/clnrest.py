@@ -4,6 +4,7 @@ try:
     import sys
     import os
     import time
+    import multiprocessing
     from gunicorn import glogging  # noqa: F401
     from gunicorn.workers import sync  # noqa: F401
 
@@ -26,6 +27,7 @@ except ModuleNotFoundError as err:
                       'result': {'disable': str(err)}}))
     sys.exit(1)
 
+multiprocessing.set_start_method('fork')
 
 jobs = {}
 app = Flask(__name__)
