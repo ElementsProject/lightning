@@ -326,6 +326,13 @@ bool uncertainty_network_update_from_listpeerchannels(
 						 dir);
 		}
 
+		/* FIXME: There is a bug with us trying to send more down a local
+		 * channel (after fees) than it has capacity.  For now, we reduce
+		 * our capacity by 1% of total, to give fee headroom. */
+		if (!amount_msat_sub(&spendable, spendable,
+				     amount_msat_div(p->amount, 100)))
+			spendable = AMOUNT_MSAT(0);
+
 		// TODO(eduardo): this includes pending HTLC of previous
 		// payments!
 		/* We know min and max liquidity exactly now! */
