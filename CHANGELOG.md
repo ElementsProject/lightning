@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [v23.08rc3] - 2023-08-18: "Satoshi's Successor"
+## [v23.08] - 2023-08-23: "Satoshi's Successor"
 
 This release named by Matt Morehouse.
 
@@ -170,7 +170,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6570]: https://github.com/ElementsProject/lightning/pull/6570
 [#6568]: https://github.com/ElementsProject/lightning/pull/6568
 [#6564]: https://github.com/ElementsProject/lightning/pull/6564
-[v23.08rc3]: https://github.com/ElementsProject/lightning/releases/tag/v23.08rc3
+[v23.08]: https://github.com/ElementsProject/lightning/releases/tag/v23.08
 
 
 ## [23.05.2] - 2023-06-21: "Austin Texas Agreement(ATXA) III"
