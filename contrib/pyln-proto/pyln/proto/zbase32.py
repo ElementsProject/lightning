@@ -1,4 +1,4 @@
-import bitstring  # type: ignore
+import bitstring
 from typing import Union
 
 
