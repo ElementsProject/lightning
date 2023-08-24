@@ -138,11 +138,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       socat \
       inotify-tools \
-      python3 \
+      python3.9 \
       python3-pip \
       qemu-user-static \
       libpq5 && \
     rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
@@ -154,7 +156,7 @@ RUN mkdir $LIGHTNINGD_DATA && \
 VOLUME [ "/root/.lightning" ]
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder /usr/local/lib/python3/dist-packages/ /usr/local/lib/python3/dist-packages/
+COPY --from=builder /usr/local/lib/python3.9/dist-packages/ /usr/local/lib/python3.9/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY --from=downloader "/tini" /usr/bin/tini
