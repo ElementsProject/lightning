@@ -314,6 +314,15 @@ fi
 
 if [ "$VERIFY_RELEASE" = "true" ]; then
     echo "Verifying Release"
+    sumfile="SHA256SUMS-${VERSION}"
+    # Ensure that the release captains checksum exists at the desired location.
+    if [ ! -f "$sumfile" ]; then
+        echo "Can not find release captains checksum file \"$sumfile\"".
+        echo "You can download it from the repository at:"
+        echo "https://github.com/ElementsProject/lightning/releases/tag/$VERSION"
+        echo "Place it under the project root as \"$sumfile\"."
+        exit 1
+    fi
     cd release/
     # Creating fake Fedora tar for SHA256SUMS match
     # It is important for zipfile checksum match
