@@ -334,8 +334,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
 	sha256sum clightning-"$VERSION"* > SHA256SUMS
 	# Replacing Fedora checksums from root file to release/SHA256SUMS
 	# because we do not have reproducible builds for Fedora
-	replace_fedora_sums=$(head -n 1 "../SHA256SUMS-$VERSION")
-	{ echo "$replace_fedora_sums"; tail -n +2 SHA256SUMS; } > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS
+	echo "$(head -n1 ${sumfile})\n$(head SHA256SUMS)" > SHA256SUMS
 	# compare our and release captain's SHA256SUMS contents
 	if [ -f "SHA256SUMS" ] && cmp -s "SHA256SUMS" "../SHA256SUMS-$VERSION"; then
         echo "SHA256SUMS are Identical"
