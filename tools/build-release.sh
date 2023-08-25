@@ -323,10 +323,13 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         echo "Place it under the project root as \"$sumfile\"."
         exit 1
     fi
+    sumfile="$(pwd)/${sumfile}"
     cd release/
-    # Creating fake Fedora tar for SHA256SUMS match
-    # It is important for zipfile checksum match
-    touch clightning-v23.05-Fedora-28-amd64.tar.gz
+    # Check that the release captains sum matches. Ignore missing entries as we 
+    # do not have a repro build for Fedora. Strictly this is not necessary here
+    # as we compare our checksums with the release captains checksums later, but
+    # it gives a direct hint which specific checksums don't match if so.
+    sha256sum --check --ignore-missing "${sumfile}"
     # Creating SHA256SUMS
 	sha256sum clightning-"$VERSION"* > SHA256SUMS
 	# Replacing Fedora checksums from root file to release/SHA256SUMS
