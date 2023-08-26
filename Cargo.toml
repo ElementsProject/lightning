@@ -2,6 +2,7 @@
 strip = "debuginfo"
 
 [workspace]
+resolver = "2"
 members = [
   "cln-rpc",
   "cln-grpc",
