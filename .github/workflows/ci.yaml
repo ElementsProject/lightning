@@ -33,6 +33,8 @@ jobs:
           fetch-depth: 0
 
       - name: Rebase
+        # We can't rebase if we're on master already.
+        if: github.ref == 'refs/heads/master'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
