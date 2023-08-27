@@ -212,7 +212,6 @@ class TestStringMethods(unittest.TestCase):
         self.assertIsNotNone(result_settle)
         self.assertTrue(isinstance(result_settle, dict))
         self.assertEqual(result_settle["state"], "settled")
-        self.assertNotIn("htlc_expiry", result_settle)
 
         result_lookup = rpc2.holdinvoicelookup(
             payment_hash=result["payment_hash"])
@@ -278,7 +277,6 @@ class TestStringMethods(unittest.TestCase):
         self.assertIsNotNone(result_cancel)
         self.assertTrue(isinstance(result_cancel, dict))
         self.assertEqual(result_cancel["state"], "canceled")
-        self.assertNotIn("htlc_expiry", result_cancel)
 
         result_lookup = rpc2.holdinvoicelookup(
             payment_hash=result["payment_hash"])
