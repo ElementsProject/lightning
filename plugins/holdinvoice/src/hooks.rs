@@ -531,15 +531,18 @@ async fn loop_htlc_hold(
 }
 
 pub async fn block_added(plugin: Plugin<PluginState>, v: serde_json::Value) -> Result<(), Error> {
-    if let Some(block) = v.get("block") {
-        if let Some(h) = block.get("height") {
-            *plugin.state().blockheight.lock() = h.as_u64().unwrap() as u32
-        } else {
-            return Err(anyhow!("could not find height for block"));
-        }
+    let block = if let Some(b) = v.get("block") {
+        b
+    } else if let Some(b) = v.get("block_added") {
+        b
     } else {
         return Err(anyhow!("could not read block notification"));
     };
+    if let Some(h) = block.get("height") {
+        *plugin.state().blockheight.lock() = h.as_u64().unwrap() as u32
+    } else {
+        return Err(anyhow!("could not find height for block"));
+    }
 
     let mut holdinvoices = plugin.state().holdinvoices.lock().await;
     for (_, invoice) in holdinvoices.iter_mut() {
