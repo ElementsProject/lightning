@@ -128,9 +128,8 @@ pub async fn hold_invoice_settle(
                     ));
                 }
 
-                Ok(json!(HoldstateResponse {
+                Ok(json!(HoldStateResponse {
                     state: Holdstate::Settled.to_string(),
-                    htlc_expiry: None
                 }))
             }
             Err(e) => Err(anyhow!(
@@ -177,9 +176,8 @@ pub async fn hold_invoice_cancel(
                     }
                 }
 
-                Ok(json!(HoldstateResponse {
+                Ok(json!(HoldStateResponse {
                     state: Holdstate::Canceled.to_string(),
-                    htlc_expiry: None
                 }))
             }
             Err(e) => Err(anyhow!(
@@ -282,17 +280,22 @@ pub async fn hold_invoice_lookup(
             }
         }
     }
-    Ok(json!(HoldstateResponse {
+    Ok(json!(HoldLookupResponse {
         state: holdstate.to_string(),
         htlc_expiry
     }))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct HoldstateResponse {
+struct HoldLookupResponse {
     state: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     htlc_expiry: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct HoldStateResponse {
+    state: String,
 }
 
 fn missing_parameter_error(param: &str) -> serde_json::Value {
