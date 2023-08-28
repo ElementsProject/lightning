@@ -368,7 +368,7 @@ ifneq ($(RUST),0)
 	include cln-grpc/Makefile
 
 $(MSGGEN_GENALL)&: doc/schemas/*.request.json doc/schemas/*.schema.json
-	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
+	PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py
 
 # The compiler assumes that the proto files are in the same
 # directory structure as the generated files will be. Since we
@@ -384,8 +384,8 @@ GRPC_GEN = \
 ALL_TEST_GEN += $(GRPC_GEN)
 
 $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
-	python3 -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=$(GRPC_PATH)/ --grpc_python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
-	python3 -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
+	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=$(GRPC_PATH)/ --grpc_python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
+	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
 	find $(GRPC_DIR)/ -type f -name "*.py.bak" -delete
 endif
@@ -421,7 +421,7 @@ mkdocs.yml: $(MANPAGES:=.md)
 	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
 	  cut -b 5- | LC_ALL=C sort | \
 	  sed 's/\(.*\)\.\(.*\).*\.md/- "\1": "\1.\2.md"/' | \
-	  python3 devtools/blockreplace.py mkdocs.yml manpages --language=yml --indent "          " \
+	  $(PYTHON) devtools/blockreplace.py mkdocs.yml manpages --language=yml --indent "          " \
 	)
 
 
