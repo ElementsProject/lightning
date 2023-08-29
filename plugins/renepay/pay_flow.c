@@ -172,8 +172,8 @@ static bool add_to_amounts(const struct gossmap *gossmap,
 	for (int i = num-2; i >= 0; i--) {
 		amounts[i] = amounts[i+1];
 		if (!amount_msat_add_fee(&amounts[i],
-					 flow_edge(f, i)->base_fee,
-					 flow_edge(f, i)->proportional_fee))
+					 flow_edge(f, i+1)->base_fee,
+					 flow_edge(f, i+1)->proportional_fee))
 			return false;
 	}
 
@@ -322,7 +322,7 @@ static void convert_and_attach_flows(struct payment *payment,
 		pf->cltv_delays[plen-1] = final_cltvs[i];
 		for (int j = (int)plen-2; j >= 0; j--) {
 			pf->cltv_delays[j] = pf->cltv_delays[j+1]
-				+ f->path[j]->half[f->dirs[j]].delay;
+				+ f->path[j+1]->half[f->dirs[j+1]].delay;
 		}
 		pf->amounts = tal_steal(pf, f->amounts);
 		pf->success_prob = f->success_prob;

@@ -18,7 +18,6 @@ def test_simple(node_factory):
     assert details['destination'] == l2.info['id']
 
 
-@pytest.mark.xfail(strict=True)
 def test_direction_matters(node_factory):
     '''Make sure we use correct delay and fees for the direction we're going.'''
     l1, l2, l3 = node_factory.line_graph(3,
