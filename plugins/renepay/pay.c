@@ -295,11 +295,11 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 		      "{code:%,message:%}",
 		      JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
 		      JSON_SCAN_TAL(tmpctx, json_strdup, &msg))) {
-		plugin_err(cmd->plugin, "Bad fail from sendpay: %.*s",
+		plugin_err(pay_plugin->plugin, "Bad fail from sendpay: %.*s",
 			   json_tok_full_len(err), json_tok_full(buf, err));
 	}
 	if (errcode != PAY_TRY_OTHER_ROUTE)
-		plugin_err(cmd->plugin, "Strange error from sendpay: %.*s",
+		plugin_err(pay_plugin->plugin, "Strange error from sendpay: %.*s",
 			   json_tok_full_len(err), json_tok_full(buf, err));
 
 	/* There is no new knowledge from this kind of failure.
