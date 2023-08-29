@@ -115,7 +115,7 @@ static u32 shadow_one_flow(const struct gossmap *gossmap,
 	/* We only create shadow for extra CLTV delays, *not* for
 	 * amounts.  This is because with MPP our amounts are random
 	 * looking already. */
-	for (hop = 0; hop < MAX_SHADOW_LEN && pseudorand(1); hop++) {
+	for (hop = 0; hop < MAX_SHADOW_LEN && pseudorand(2); hop++) {
 		/* Try for a believable channel up to 10 times, then stop */
 		for (size_t i = 0; i < 10; i++) {
 			struct amount_sat cap;
@@ -124,7 +124,7 @@ static u32 shadow_one_flow(const struct gossmap *gossmap,
 			if (!gossmap_chan_set(chans[hop], dirs[hop])
 			    || !gossmap_chan_get_capacity(gossmap, chans[hop], &cap)
 			    /* This test is approximate, since amount would differ */
-			    || amount_msat_less_sat(amount, cap)) {
+			    || amount_msat_greater_sat(amount, cap)) {
 				chans[hop] = NULL;
 				continue;
 			}
