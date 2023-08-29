@@ -17,7 +17,11 @@ sudo snap install bitcoin-core
 sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 ```
 
-Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions.
+Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions. Normally these binaries are extracted into /usr/local:
+
+```shell
+sudo tar -xvf <release>.tar.xz -C /usr/local --strip-components=2
+```
 
 You will need some Python packages if you want to use clnrest.  Unfortunately there are some Python packages which are not packaged in Ubuntu, and so you will need to force installation of these (I recommend --user which will install them in your own .local directory, so at least you won't run the risk of breaking Python globally!).
 
