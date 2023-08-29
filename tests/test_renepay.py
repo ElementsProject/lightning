@@ -32,6 +32,29 @@ def test_direction_matters(node_factory):
     assert details['destination'] == l3.info['id']
 
 
+@pytest.mark.xfail(strict=True)
+def test_shadow(node_factory):
+    '''Make sure we shadow correctly.'''
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         wait_for_announce=True,
+                                         opts=[{},
+                                               {'fee-base': 2000, 'fee-per-satoshi': 20, 'cltv-delta': 20},
+                                               {'fee-base': 3000, 'fee-per-satoshi': 30, 'cltv-delta': 30}])
+
+    # Shadow doesn't always happen (50% chance)!
+    for i in range(20):
+        inv = l2.rpc.invoice(123000, f'test_renepay{i}', 'description')['bolt11']
+        details = l1.rpc.call('renepay', {'invstring': inv})
+        assert details['status'] == 'complete'
+        assert details['amount_msat'] == Millisatoshi(123000)
+        assert details['destination'] == l2.info['id']
+
+        line = l1.daemon.wait_for_log("No MPP, so added .*msat shadow fee")
+        if 'added 0msat' not in line:
+            break
+        assert i != 19
+
+
 def test_mpp(node_factory):
     '''Test paying a remote node using two routes.
     1----2----4
