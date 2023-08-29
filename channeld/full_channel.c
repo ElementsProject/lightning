@@ -914,6 +914,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee,
+				      const bool endorsed,
 				      bool err_immediate_failures)
 {
 	enum htlc_state state;

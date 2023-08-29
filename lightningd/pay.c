@@ -1060,6 +1060,7 @@ send_payment_core(struct lightningd *ld,
 		  struct secret *path_secrets,
 		  const struct sha256 *local_invreq_id)
 {
+	bool endorsed;
 	const struct wallet_payment *old_payment;
 	struct channel *channel;
 	const u8 *failmsg;
@@ -1105,9 +1106,21 @@ send_payment_core(struct lightningd *ld,
 			 fmt_amount_msat(tmpctx, first_hop->amount),
 			 fmt_amount_msat(tmpctx, msat));
 
+	/* BOLT 2 (0539ad868a263040087d2790684f69fb28d3fa97):
+	 * A sending node:
+	 * - if it is the original source of the HTLC:
+	 *    - if it does not expect immediate fulfillment upon receipt by the
+	 *    final destination:
+	 *       - SHOULD set `endorsed` to `0`.
+	 * - otherwise:
+	 *    - SHOULD set `endorsed` to `1`.
+	 *
+	 * We wait that someone else smarted than me will provide the way to
+	 * calculate it for now it is just a placeholder. */
+	endorsed = false;
 	failmsg = send_onion(tmpctx, ld, packet, first_hop, msat,
 			     rhash, NULL, partid,
-			     group, channel, &hout);
+			     group, channel, &hout, &endorsed);
 
 	if (failmsg) {
 		fail = immediate_routing_failure(

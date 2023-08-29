@@ -1006,6 +1006,8 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet, tlvs->blinding_point, &htlc, NULL,
+				   /* We just forward it :) smart ah? */
+				   tlvs->endorsed,
 				   /* We don't immediately fail incoming htlcs,
 				    * instead we wait and fail them after
 				    * they've been committed */
@@ -5622,9 +5624,12 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	billboard_update(peer);
 }
 
+
+/* Offer an HTLC to the remote side. */
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
+	bool endorsed;
 	u32 cltv_expiry;
 	struct amount_msat amount;
 	struct sha256 payment_hash;
@@ -5644,22 +5649,23 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 					 &cltv_expiry, &payment_hash,
 					 onion_routing_packet, &blinding))
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
-
 	if (blinding) {
 		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
 		tlvs->blinding_point = tal_dup(tlvs, struct pubkey, blinding);
 	} else
 		tlvs = NULL;
 
+	endorsed = false;
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, take(blinding), NULL,
-			     &htlc_fee, true);
-	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
+			     &htlc_fee, endorsed, true);
+	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s endorsed=%d",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),
 		     cltv_expiry,
-		     channel_add_err_name(e));
+		     channel_add_err_name(e),
+		     endorsed);
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:

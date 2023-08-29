@@ -97,6 +97,7 @@ msgdata,channeld_offer_htlc,cltv_expiry,u32,
 msgdata,channeld_offer_htlc,payment_hash,sha256,
 msgdata,channeld_offer_htlc,onion_routing_packet,u8,1366
 msgdata,channeld_offer_htlc,blinding,?pubkey,
+msgdata,channeld_offer_htlc,endorsed,?bool,
 
 # Reply; synchronous since IDs have to increment.
 msgtype,channeld_offer_htlc_reply,1104
