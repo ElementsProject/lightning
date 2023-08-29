@@ -32,7 +32,6 @@ def test_direction_matters(node_factory):
     assert details['destination'] == l3.info['id']
 
 
-@pytest.mark.xfail(strict=True)
 def test_shadow(node_factory):
     '''Make sure we shadow correctly.'''
     l1, l2, l3 = node_factory.line_graph(3,
