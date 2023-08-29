@@ -48,7 +48,10 @@ class RpcMethodResource(Resource):
 
         try:
             if request.is_json:
-                payload = request.get_json()
+                if len(request.data) != 0:
+                    payload = request.get_json()
+                else:
+                    payload = {}
             else:
                 payload = request.form.to_dict()
             return call_rpc_method(plugin, rpc_method, payload), 201

@@ -53,7 +53,10 @@ def verify_rune(plugin, request):
         raise Exception('{ "error": {"code": 403, "message": "Not authorized: Missing rune"} }')
 
     if request.is_json:
-        rpc_params = request.get_json()
+        if len(request.data) != 0:
+            rpc_params = request.get_json()
+        else:
+            rpc_params = {}
     else:
         rpc_params = request.form.to_dict()
 
