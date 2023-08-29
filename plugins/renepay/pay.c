@@ -350,7 +350,19 @@ static void sendpay_new_flows(struct payment *p)
 		json_add_sha256(req->js, "payment_hash", &p->payment_hash);
 		json_add_secret(req->js, "payment_secret", p->payment_secret);
 
-		json_add_amount_msat(req->js, "amount_msat", p->amount);
+		/* FIXME: sendpay has a check that we don't total more than
+		 * the exact amount, if we're setting partid (i.e. MPP).  However,
+		 * we always set partid, and we add a shadow amount *if we've
+		 * only have one part*, so we have to use that amount here.
+		 *
+		 * The spec was loosened so you are actually allowed
+		 * to overpay, so this check is now overzealous. */
+		if (amount_msat_greater(payflow_delivered(pf), p->amount)) {
+			json_add_amount_msat(req->js, "amount_msat",
+					     payflow_delivered(pf));
+		} else {
+			json_add_amount_msat(req->js, "amount_msat", p->amount);
+		}
 
 		json_add_u64(req->js, "partid", pf->key.partid);
 
