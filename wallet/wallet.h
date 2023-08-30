@@ -1603,7 +1603,7 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet);
  * @wallet: the wallet to save into
  * @rune: the instance to store
  */
-void wallet_rune_insert(struct wallet *wallet, struct rune *rune);
+void wallet_rune_insert(struct wallet *wallet, const struct rune *rune);
 
 /* Load the runes blacklist */
 struct rune_blacklist {
