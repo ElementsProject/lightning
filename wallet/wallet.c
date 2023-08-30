@@ -5696,12 +5696,13 @@ const char *wallet_get_rune(const tal_t *ctx, struct wallet *wallet, u64 unique_
 	return runestr;
 }
 
-const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
+/* Migration code needs db, not wallet access */
+static const char **db_get_runes(const tal_t *ctx, struct db *db)
 {
 	struct db_stmt *stmt;
 	const char **strs = tal_arr(ctx, const char *, 0);
 
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT rune FROM runes"));
+	stmt = db_prepare_v2(db, SQL("SELECT rune FROM runes"));
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -5710,6 +5711,12 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
 	}
 	tal_free(stmt);
 	return strs;
+}
+
+const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
+{
+	return db_get_runes(ctx, wallet->db);
+
 }
 
 static void db_rune_insert(struct db *db,
@@ -5824,4 +5831,25 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 	startkey[0] = "commando";
 	startkey[1] = "rune_counter";
 	db_datastore_remove(db, startkey);
+}
+
+void migrate_runes_idfix(struct lightningd *ld, struct db *db)
+{
+	/* ID fields were wrong.  Pull them all out and put them back */
+	const char **runes = db_get_runes(tmpctx, db);
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("DELETE FROM runes;"));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+
+	for (size_t i = 0; i < tal_count(runes); i++) {
+		struct rune *r;
+
+		r = rune_from_base64(tmpctx, runes[i]);
+		if (!r)
+			db_fatal(db, "Invalid databse rune %s", runes[i]);
+
+		db_rune_insert(db, r);
+	}
 }
