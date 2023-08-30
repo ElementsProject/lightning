@@ -372,13 +372,15 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 
 static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg UNUSED)
 {
+	struct subd *onchaind = channel->owner;
+
 	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
 	free_htlcs(channel->peer->ld, channel);
 
 	log_info(channel->log, "onchaind complete, forgetting peer");
 
-	/* This will also free onchaind. */
 	delete_channel(channel);
+	tal_free(onchaind);
 }
 
 
