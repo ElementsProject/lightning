@@ -471,7 +471,6 @@ def test_commando_blacklist_migration(node_factory):
                                                     {'start': 9, 'end': 9}]}
 
 
-@pytest.mark.xfail(strict=True)
 def test_showrune_id(node_factory):
     l1 = node_factory.get_node()
 

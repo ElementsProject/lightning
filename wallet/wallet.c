@@ -5712,20 +5712,20 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet)
 	return strs;
 }
 
-static void db_rune_insert(struct db *db, struct rune *rune)
+static void db_rune_insert(struct db *db,
+			   const struct rune *rune)
 {
 	struct db_stmt *stmt;
 
-	assert(rune->unique_id != NULL);
-
 	stmt = db_prepare_v2(db,
-			     SQL("INSERT INTO runes (rune) VALUES (?);"));
+			     SQL("INSERT INTO runes (id, rune) VALUES (?, ?);"));
+	db_bind_u64(stmt, atol(rune->unique_id));
 	db_bind_text(stmt, rune_to_base64(tmpctx, rune));
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 }
 
-void wallet_rune_insert(struct wallet *wallet, struct rune *rune)
+void wallet_rune_insert(struct wallet *wallet, const struct rune *rune)
 {
 	db_rune_insert(wallet->db, rune);
 }
