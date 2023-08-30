@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
+from utils import only_one
 import base64
 import os
 import pytest
@@ -468,3 +469,13 @@ def test_commando_blacklist_migration(node_factory):
     # Should match commando results!
     assert l1.rpc.blacklistrune() == {'blacklist': [{'start': 0, 'end': 6},
                                                     {'start': 9, 'end': 9}]}
+
+
+@pytest.mark.xfail(strict=True)
+def test_showrune_id(node_factory):
+    l1 = node_factory.get_node()
+
+    rune = l1.rpc.createrune()['rune']
+
+    # Won't have stored: false
+    assert 'stored' not in only_one(l1.rpc.showrunes(rune)['runes'])
