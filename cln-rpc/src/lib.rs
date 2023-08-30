@@ -19,12 +19,12 @@ pub mod model;
 pub mod notifications;
 pub mod primitives;
 
+use crate::model::IntoRequest;
 pub use crate::{
     model::{Request, Response},
     notifications::Notification,
     primitives::RpcError,
 };
-use crate::model::IntoRequest;
 
 ///
 pub struct ClnRpc {
@@ -66,11 +66,13 @@ impl ClnRpc {
         let req = serde_json::to_value(req).map_err(|e| RpcError {
             code: None,
             message: format!("Error parsing request: {}", e),
+            data: None,
         })?;
         let req2 = req.clone();
         self.write.send(req).await.map_err(|e| RpcError {
             code: None,
             message: format!("Error passing request to lightningd: {}", e),
+            data: None,
         })?;
 
         let mut response = self
@@ -80,10 +82,12 @@ impl ClnRpc {
             .ok_or_else(|| RpcError {
                 code: None,
                 message: "no response from lightningd".to_string(),
+                data: None,
             })?
             .map_err(|_| RpcError {
                 code: None,
                 message: "reading response from socket".to_string(),
+                data: None,
             })?;
         trace!("Read response {:?}", response);
 
@@ -95,6 +99,7 @@ impl ClnRpc {
             serde_json::from_value(response).map_err(|e| RpcError {
                 code: None,
                 message: format!("Malformed response from lightningd: {}", e),
+                data: None,
             })
         } else if let Some(e) = response.get("error") {
             let e: RpcError = serde_json::from_value(e.clone()).unwrap();
@@ -103,12 +108,17 @@ impl ClnRpc {
             Err(RpcError {
                 code: None,
                 message: format!("Malformed response from lightningd: {}", response),
+                data: None,
             })
         }
     }
 
-    pub async fn call_typed<R: IntoRequest>(&mut self, request: R) -> Result<R::Response, RpcError> {
-        Ok(self.call(request.into())
+    pub async fn call_typed<R: IntoRequest>(
+        &mut self,
+        request: R,
+    ) -> Result<R::Response, RpcError> {
+        Ok(self
+            .call(request.into())
             .await?
             .try_into()
             .expect("CLN will reply correctly"))
@@ -121,7 +131,7 @@ where
     T: Clone,
 {
     // TODO Find a better way to check, possibly without cloning
-    let f =    f.clone();
+    let f = f.clone();
     f.is_none() || f.unwrap().is_empty()
 }
 

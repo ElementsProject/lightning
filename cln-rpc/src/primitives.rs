@@ -3,6 +3,7 @@ use anyhow::{anyhow, Error, Result};
 use bitcoin::hashes::Hash as BitcoinHash;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
+use serde_json::Value;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
@@ -776,6 +777,7 @@ impl<'de> Deserialize<'de> for Routehint {
 pub struct RpcError {
     pub code: Option<i32>,
     pub message: String,
+    pub data: Option<Value>,
 }
 
 impl Display for RpcError {
