@@ -478,3 +478,18 @@ def test_showrune_id(node_factory):
 
     # Won't have stored: false
     assert 'stored' not in only_one(l1.rpc.showrunes(rune)['runes'])
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
+def test_id_migration(node_factory):
+    """Database was taken from test_createrune"""
+    l1 = node_factory.get_node(dbfile='runes_bad_id.sqlite3.xz',
+                               options={'database-upgrade': True})
+
+    for rune in ('OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+                 'zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl',
+                 'mxHwVsC_W-PH7r79wXQWqxBNHaHncIqIjEPyP_vGOsE9MiZ0aW1lPjE2NTY2NzUyMTE=',
+                 'YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz',
+                 'enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA='):
+        assert 'stored' not in only_one(l1.rpc.showrunes(rune)['runes'])

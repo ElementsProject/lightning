@@ -28,4 +28,6 @@ void load_indexes(struct db *db, struct indexes *indexes);
 
 /* Migration function for old commando datastore runes. */
 void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db);
+/* Migrate old runes with incorrect id fields */
+void migrate_runes_idfix(struct lightningd *ld, struct db *db);
 #endif /* LIGHTNING_WALLET_DB_H */
