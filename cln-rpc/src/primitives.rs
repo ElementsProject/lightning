@@ -24,6 +24,7 @@ pub enum ChannelState {
     ONCHAIN = 8,
     DUALOPEND_OPEN_INIT = 9,
     DUALOPEND_AWAITING_LOCKIN = 10,
+    CHANNELD_AWAITING_SPLICE = 11,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -309,6 +310,7 @@ impl TryFrom<i32> for ChannelState {
             8 => Ok(ChannelState::ONCHAIN),
             9 => Ok(ChannelState::DUALOPEND_OPEN_INIT),
             10 => Ok(ChannelState::DUALOPEND_AWAITING_LOCKIN),
+            11 => Ok(ChannelState::CHANNELD_AWAITING_SPLICE),
             _ => Err(anyhow!("Invalid channel state {}", value)),
         }
     }
