@@ -36,6 +36,7 @@ enum ChannelState {
 	Onchain = 8;
 	DualopendOpenInit = 9;
 	DualopendAwaitingLockin = 10;
+	ChanneldAwaitingSplice = 11;
 }
 
 enum HtlcState {
