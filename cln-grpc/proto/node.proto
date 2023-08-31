@@ -1533,7 +1533,7 @@ message GetrouteRequest {
 	bytes id = 1;
 	Amount amount_msat = 9;
 	uint64 riskfactor = 3;
-	optional double cltv = 4;
+	optional uint32 cltv = 4;
 	optional bytes fromid = 5;
 	optional uint32 fuzzpercent = 6;
 	repeated string exclude = 7;
