@@ -1270,7 +1270,7 @@ pub mod requests {
 	    pub amount_msat: Amount,
 	    pub riskfactor: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub cltv: Option<f64>,
+	    pub cltv: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fromid: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

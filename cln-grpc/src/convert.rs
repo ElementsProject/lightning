@@ -2204,7 +2204,7 @@ impl From<requests::GetrouteRequest> for pb::GetrouteRequest {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             riskfactor: c.riskfactor, // Rule #2 for type u64
-            cltv: c.cltv, // Rule #2 for type number?
+            cltv: c.cltv, // Rule #2 for type u32?
             fromid: c.fromid.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             fuzzpercent: c.fuzzpercent, // Rule #2 for type u32?
             // Field: GetRoute.exclude[]
@@ -2892,7 +2892,7 @@ impl From<pb::GetrouteRequest> for requests::GetrouteRequest {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             riskfactor: c.riskfactor, // Rule #1 for type u64
-            cltv: c.cltv, // Rule #1 for type number?
+            cltv: c.cltv, // Rule #1 for type u32?
             fromid: c.fromid.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             fuzzpercent: c.fuzzpercent, // Rule #1 for type u32?
             exclude: Some(c.exclude.into_iter().map(|s| s.into()).collect()), // Rule #4

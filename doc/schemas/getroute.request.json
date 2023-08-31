@@ -20,7 +20,7 @@
       "description": ""
     },
     "cltv": {
-      "type": "number",
+      "type": "u32",
       "description": ""
     },
     "fromid": {
