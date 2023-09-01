@@ -89,21 +89,6 @@ the default `bitcoind` max.
 
 Effort has been made to get `lightningd` running on Android, [see issue #3484](https://github.com/ElementsProject/lightning/issues/3484). Currently unusable.
 
-### How to "backup my wallet" ?
-
-See [Backup and recovery](doc:backup-and-recovery) for a more comprehensive discussion of your options.
-
-In summary: as a Bitcoin user, one may be familiar with a file or a seed (or some mnemonics) from which it can recover all its funds.
-
-Core Lightning has an internal bitcoin wallet, which you can use to make "on-chain" transactions, (see [withdraw](ref:lightning-withdraw)). These on-chain funds are backed up via the HD wallet seed, stored in byte-form in `hsm_secret`.
-
-`lightningd` also stores information for funds locked in Lightning Network channels, which are stored in a database. This database is required for on-going channel updates as well as channel closure. There is no single-seed backup for funds locked in channels.
-
-While crucial for node operation, snapshot-style backups of the `lightningd` database is **discouraged**, as _any_ loss of state may result in permanent loss of funds. See the [penalty mechanism](https://github.com/lightning/bolts/blob/master/05-onchain.md#revoked-transaction-close-handling) for more information on why any amount of state-loss results in fund loss.
-
-Real-time database replication is the recommended approach to backing up node data.  
-Tools for replication are currently in active development, using the [`db write` plugin hook](doc:hooks#db_write).
-
 # Channel Management
 
 ### How to forget about a channel?
