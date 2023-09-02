@@ -39,7 +39,7 @@ class TestStringMethods(unittest.TestCase):
 
         result = rpc2.holdinvoice(
             amount_msat=1000000,
-            description="Valid invoice description",
+            description="Numbers only as label",
             label=generate_random_number()
         )
         self.assertIsNotNone(result)
@@ -48,7 +48,7 @@ class TestStringMethods(unittest.TestCase):
 
     def test_missing_required_fields(self):
         result = rpc2.holdinvoice(
-            description="Incomplete invoice description",
+            description="Missing amount",
             label=generate_random_label()
         )
         self.assertIsNotNone(result)
@@ -58,7 +58,7 @@ class TestStringMethods(unittest.TestCase):
 
         result = rpc2.holdinvoice(
             amount_msat=1000000,
-            description="Incomplete invoice description",
+            description="Missing label",
         )
         self.assertIsNotNone(result)
         self.assertTrue(isinstance(result, dict))
@@ -95,7 +95,7 @@ class TestStringMethods(unittest.TestCase):
         # Negative amount_msat
         result = rpc2.holdinvoice(
             amount_msat=-1000,
-            description="Invalid amount",
+            description="Invalid amount negative",
             label=generate_random_label()
         )
         self.assertIsNotNone(result)
@@ -107,7 +107,7 @@ class TestStringMethods(unittest.TestCase):
         # 0 amount_msat
         result = rpc2.holdinvoice(
             amount_msat=0,
-            description="Invalid amount",
+            description="Invalid amount 0",
             label=generate_random_label()
         )
         self.assertIsNotNone(result)
@@ -158,7 +158,7 @@ class TestStringMethods(unittest.TestCase):
     def test_valid_hold_then_settle(self):
         result = rpc2.holdinvoice(
             amount_msat=1_000_100_000,
-            description="Valid invoice description",
+            description="test_valid_hold_then_settle",
             label=generate_random_label()
         )
         self.assertIsNotNone(result)
@@ -237,7 +237,7 @@ class TestStringMethods(unittest.TestCase):
     def test_valid_hold_then_cancel(self):
         result = rpc2.holdinvoice(
             amount_msat=1_000_100_000,
-            description="Valid invoice description",
+            description="test_valid_hold_then_cancel",
             label=generate_random_label()
         )
         self.assertIsNotNone(result)
