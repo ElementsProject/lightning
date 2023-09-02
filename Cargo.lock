@@ -297,9 +297,9 @@ dependencies = [
 
 [[package]]
 name = "cln-plugin"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e59ac0c0944b5f43bf8008b8495a3b0d0036e4c208fa34d8575aaff93694e197"
+checksum = "1098794b7562120ec5caa7b768847655fd5249088676a8d8ba9110a01becf97b"
 dependencies = [
  "anyhow",
  "bytes",
@@ -332,9 +332,9 @@ dependencies = [
 
 [[package]]
 name = "cln-rpc"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da3b630e345cdfc6f64315414b50815a9eeabbf12438413798bf09e9e79be8b8"
+checksum = "0fc0228e674bd18614b04e56150f295ebeef4a0cfc1fd8d2a83feb70e9929f3e"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -614,11 +614,11 @@ dependencies = [
  "windows-sys",
 =======
 name = "holdinvoice"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
- "cln-plugin 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "cln-rpc 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cln-plugin 0.1.5",
+ "cln-rpc 0.1.4",
  "log",
  "parking_lot",
  "serde",

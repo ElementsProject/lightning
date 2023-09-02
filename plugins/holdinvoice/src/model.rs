@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use cln_rpc::model::ListinvoicesInvoices;
+use cln_rpc::model::responses::ListinvoicesInvoices;
 use parking_lot::Mutex;
 
 use crate::Holdstate;

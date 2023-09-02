@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{anyhow, Error};
 use cln_plugin::Plugin;
-use cln_rpc::{model::ListinvoicesInvoices, primitives::Amount};
+use cln_rpc::{model::responses::ListinvoicesInvoices, primitives::Amount};
 use log::{debug, info, warn};
 use serde_json::json;
 use tokio::time::{self};

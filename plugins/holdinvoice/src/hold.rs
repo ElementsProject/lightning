@@ -3,7 +3,7 @@ use std::{str::FromStr, time::Duration};
 use anyhow::{anyhow, Error};
 use cln_plugin::Plugin;
 use cln_rpc::{
-    model::{InvoiceRequest, ListinvoicesInvoicesStatus},
+    model::{requests::InvoiceRequest, responses::ListinvoicesInvoicesStatus},
     primitives::{Amount, AmountOrAny},
     ClnRpc, Request, Response,
 };

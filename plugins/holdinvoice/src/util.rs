@@ -3,13 +3,16 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use cln_plugin::{Error, Plugin};
-use cln_rpc::model::{
-    ListinvoicesRequest, ListinvoicesResponse, ListpeerchannelsRequest, ListpeerchannelsResponse,
-};
 use cln_rpc::{
     model::{
-        DatastoreMode, DatastoreRequest, DatastoreResponse, DeldatastoreRequest,
-        DeldatastoreResponse, ListdatastoreDatastore, ListdatastoreRequest, ListdatastoreResponse,
+        requests::{
+            DatastoreMode, DatastoreRequest, DeldatastoreRequest, ListdatastoreRequest,
+            ListinvoicesRequest, ListpeerchannelsRequest,
+        },
+        responses::{
+            DatastoreResponse, DeldatastoreResponse, ListdatastoreDatastore, ListdatastoreResponse,
+            ListinvoicesResponse, ListpeerchannelsResponse,
+        },
     },
     ClnRpc, Request, Response,
 };
@@ -36,6 +39,9 @@ pub async fn listinvoices(
             invstring: None,
             payment_hash,
             offer_id: None,
+            index: None,
+            start: None,
+            limit: None,
         }))
         .await
         .map_err(|e| anyhow!("Error calling listinvoices: {:?}", e))?;
