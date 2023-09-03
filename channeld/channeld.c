@@ -3599,7 +3599,7 @@ static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_setup_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 }
 
