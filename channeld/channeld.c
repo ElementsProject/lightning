@@ -2915,6 +2915,39 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
 	return weight;
 }
 
+/* Get the fundee amount in the channel after the splice */
+static struct amount_msat
+relative_splice_balance_fundee(struct peer *peer,
+			       enum tx_role our_role,
+			       const struct wally_psbt *psbt,
+			       int chan_output_index,
+			       int chan_input_index)
+{
+	/* Relative fundee channel balance */
+	u64 push_value;
+
+	/* We calculcate the `push_value` to send to the
+	 * hsmd, that is the remote amount in the channel
+	 * after the splice. */
+	switch (our_role) {
+	case TX_INITIATOR:
+		/* push_value is the fundee relative value so if we open the channel
+		 * fundee is the remote node. */
+		push_value = peer->splicing->accepter_relative;
+		break;
+	case TX_ACCEPTER:
+		/* push_value is the fundee relative value so if the remote node open the channel
+		 * fundee in this case is the opener. */
+		push_value = peer->splicing->opener_relative;
+		break;
+	default:
+		/* This should never happen. Help us to early catch the tx_role change */
+		abort();
+	}
+
+	return amount_msat(push_value);
+}
+
 /* Returns the total channel funding output amount if all checks pass.
  * Otherwise, exits via peer_failed_warn. DTODO: Change to `tx_abort`. */
 static struct amount_sat check_balances(struct peer *peer,
@@ -2973,7 +3006,6 @@ static struct amount_sat check_balances(struct peer *peer,
 	 *
 	 *   While we're, here, adjust the output counts by splice amount.
 	 */
-
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3441,6 +3473,38 @@ static struct inflight *inflights_new(struct peer *peer)
 	return inf;
 }
 
+static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight,
+				    const enum tx_role our_role,
+				    const struct amount_msat push_val)
+{
+	u8 *msg;
+
+	/* local_upfront_shutdown_script, local_upfront_shutdown_wallet_index,
+	 * remote_upfront_shutdown_script aren't allowed to change, so we
+	 * don't need to gather them */
+	msg = towire_hsmd_ready_channel(
+		NULL,
+		peer->channel->opener == LOCAL,
+		inflight->amnt,
+		push_val,
+		&inflight->outpoint.txid,
+		inflight->outpoint.n,
+		peer->channel->config[LOCAL].to_self_delay,
+		/*local_upfront_shutdown_script*/ NULL,
+		/*local_upfront_shutdown_wallet_index*/ NULL,
+		&peer->channel->basepoints[REMOTE],
+		&peer->channel->funding_pubkey[REMOTE],
+		peer->channel->config[REMOTE].to_self_delay,
+		/*remote_upfront_shutdown_script*/ NULL,
+		peer->channel->type);
+
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+}
+
 /* ACCEPTER side of the splice. Here we handle all the accepter's steps for the
  * splice. Since the channel must be in STFU mode we block the daemon here until
  * the splice is finished or aborted. */
@@ -3459,12 +3523,14 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct inflight *new_inflight;
 	struct wally_psbt_output *new_chan_output;
 	struct bitcoin_outpoint outpoint;
+	struct amount_msat current_push_val;
+	const enum tx_role our_role = TX_ACCEPTER;
 
 	/* Can't start a splice with another splice still active */
 	assert(!peer->splicing);
 	peer->splicing = splicing_new(peer);
 
-	ictx = new_interactivetx_context(tmpctx, TX_ACCEPTER,
+	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
 
 	if (!fromwire_splice(inmsg,
@@ -3520,7 +3586,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	 *   The receiver of `splice_ack`:
 	 *    - MUST begin splice negotiation.
 	 */
-
 	ictx->next_update_fn = next_splice_step;
 	ictx->desired_psbt = NULL;
 	ictx->pause_when_complete = false;
@@ -3543,7 +3608,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_chan_output = find_channel_output(peer, ictx->current_psbt,
 					      &outpoint.n);
 
-	both_amount = check_balances(peer, TX_ACCEPTER, ictx->current_psbt,
+	both_amount = check_balances(peer, our_role, ictx->current_psbt,
 				     outpoint.n, splice_funding_index);
 	new_chan_output->amount = both_amount.satoshis; /* Raw: type conv */
 
@@ -3577,6 +3642,10 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_inflight->splice_amnt = peer->splicing->accepter_relative;
 	new_inflight->last_tx = NULL;
 	new_inflight->i_am_initiator = false;
+
+	current_push_val = relative_splice_balance_fundee(peer, our_role,ictx->current_psbt,
+					  outpoint.n, splice_funding_index);
+	update_hsmd_with_splice(peer, new_inflight, our_role, current_push_val);
 
 	update_view_from_inflights(peer);
 
@@ -3746,8 +3815,10 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	struct bitcoin_txid current_psbt_txid;
 	struct amount_sat both_amount;
 	struct commitsig *their_commit;
+	struct amount_msat current_push_val;
+	const enum tx_role our_role = TX_INITIATOR;
 
-	ictx = new_interactivetx_context(tmpctx, TX_INITIATOR,
+	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
 
 	ictx->next_update_fn = next_splice_step;
@@ -3774,7 +3845,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	splice_funding_index = find_channel_funding_input(ictx->current_psbt,
 							  &peer->channel->funding);
 
-	both_amount = check_balances(peer, TX_INITIATOR, ictx->current_psbt,
+	both_amount = check_balances(peer, our_role, ictx->current_psbt,
 				     chan_output_index, splice_funding_index);
 	new_chan_output->amount = both_amount.satoshis; /* Raw: type conv */
 
@@ -3807,12 +3878,16 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->last_tx = NULL;
 	new_inflight->i_am_initiator = true;
 
+	current_push_val = relative_splice_balance_fundee(peer, our_role, ictx->current_psbt,
+					  chan_output_index, splice_funding_index);
+	update_hsmd_with_splice(peer, new_inflight, our_role, current_push_val);
+
 	update_view_from_inflights(peer);
 
 	peer->splice_state->count++;
 
 	their_commit = interactive_send_commitments(peer, ictx->current_psbt,
-						    TX_INITIATOR);
+						    our_role);
 
 	new_inflight->last_tx = tal_steal(new_inflight, their_commit->tx);
 	new_inflight->last_sig = their_commit->commit_signature;
@@ -5157,8 +5232,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 
 	if (depth < peer->channel->minimum_depth) {
 		peer->depth_togo = peer->channel->minimum_depth - depth;
-	}
-	else {
+	} else {
 		peer->depth_togo = 0;
 
 		/* For splicing we only update the short channel id on mutual
@@ -5203,8 +5277,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			peer_write(peer->pps, take(msg));
 
 			peer->channel_ready[LOCAL] = true;
-		}
-		else if(splicing && !peer->splice_state->locked_ready[LOCAL]) {
+		} else if (splicing && !peer->splice_state->locked_ready[LOCAL]) {
 			assert(scid);
 
 			msg = towire_splice_locked(NULL, &peer->channel_id);
