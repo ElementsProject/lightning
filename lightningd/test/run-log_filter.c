@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 	struct log_book *lb;
 	struct node_id node_id;
 	struct lightningd *ld;
-	char tmpfiletemplate[] = "/tmp/run-log_filter.XXXXXX";
+	char *tmpfile;
 
 	common_setup(argv[0]);
 
@@ -131,8 +131,8 @@ int main(int argc, char *argv[])
 	ld->log = new_logger(ld, lb, NULL, "dummy");
 	assert(arg_log_to_file("-", ld) == NULL);
 
-	assert(mkstemp(tmpfiletemplate) >= 0);
-	assert(arg_log_to_file(tmpfiletemplate, ld) == NULL);
+	assert(tmpdir_mkstemp(tmpctx, "run-log_filter.XXXXXX", &tmpfile) >= 0);
+	assert(arg_log_to_file(tmpfile, ld) == NULL);
 
 	/* Log level default. */
 	assert(opt_log_level("BROKEN", lb) == NULL);
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 	assert(try_log(lb, "prefix", NULL, LOG_IO_IN) == 0);
 
 	/* File exception: tmpfile logs everything */
-	assert(opt_log_level(tal_fmt(tmpctx, "io::%s", tmpfiletemplate), lb) == NULL);
+	assert(opt_log_level(tal_fmt(tmpctx, "io::%s", tmpfile), lb) == NULL);
 	assert(try_log(lb, "stdout1", NULL, LOG_BROKEN) == 2);
 	assert(try_log(lb, "stdout1", NULL, LOG_INFORM) == 2);
 	assert(try_log(lb, "stdout1", NULL, LOG_DBG) == 2);
