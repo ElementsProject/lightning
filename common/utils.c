@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
@@ -178,5 +179,137 @@ char *str_lowering(const void *ctx, const char *string TAKES)
 
 	ret = tal_strdup(ctx, string);
 	for (char *p = ret; *p; p++) *p = tolower(*p);
+	return ret;
+}
+
+static bool iswordc(int c)
+{
+	return isalnum(c) || c == '_';
+}
+
+static size_t wordlen(const char *str)
+{
+	size_t len = 0;
+	while (iswordc((unsigned char) str[len])) ++len;
+	return len;
+}
+
+static size_t numlen(const char *str)
+{
+	size_t len = 0;
+	while (isdigit((unsigned char) str[len])) ++len;
+	return len;
+}
+
+char *str_expand(const void *ctx,
+                 const char *str TAKES,
+                 const char *TAKES (*subst)(const void *ptr,
+                                            const char *name,
+                                            size_t namelen),
+                 const void *ptr)
+{
+	char *ret, *r;
+	const char *p, *sub;
+	size_t len = 0, namelen = (size_t) -1;
+
+	// count how many chars we'll produce
+	for (p = str; *p;)
+		if (*p == '\\' && p[1])
+			++len, p += 2;
+		else if (*p == '$') {
+			const char *name = ++p;
+			if (*p == '{') {
+				namelen = wordlen(name = ++p);
+				if (name[namelen] != '}') {
+					len += 2; // ${
+					continue;
+				}
+				p += namelen + 1; // }
+			}
+			else if (isdigit((unsigned char) *p))
+				p += (namelen = 1 + numlen(p + 1));
+			else if (iswordc((unsigned char) *p))
+				p += (namelen = 1 + wordlen(p + 1));
+			else {
+				++len; // $
+				continue;
+			}
+			sub = subst(ptr, name, namelen);
+			if (sub)
+				len += strlen(sub);
+			if (taken(sub))
+				tal_free(sub);
+		}
+		else
+			++len, ++p;
+
+	if (namelen == (size_t) -1 && len == p - str) // fast path: verbatim copy
+		// already know the length; avoid the overhead of tal_strdup
+		return tal_dup_arr(ctx, char, str, len + 1, 0);
+
+	// allocate an appropriately sized buffer and produce the string
+	ret = r = tal_arr(ctx, char, len + 1);
+	for (p = str; *p && len;)
+		if (*p == '\\' && p[1])
+			*r++ = p[1], --len, p += 2;
+		else if (*p == '$') {
+			const char *name = ++p;
+			if (*p == '{') {
+				namelen = wordlen(name = ++p);
+				if (name[namelen] != '}') {
+					*r++ = '$', --len;
+					if (len)
+						*r++ = '{', --len;
+					continue;
+				}
+				p += namelen + 1; // }
+			}
+			else if (isdigit((unsigned char) *p))
+				p += (namelen = 1 + numlen(p + 1));
+			else if (iswordc((unsigned char) *p))
+				p += (namelen = 1 + wordlen(p + 1));
+			else {
+				*r++ = '$', --len;
+				continue;
+			}
+			sub = subst(ptr, name, namelen);
+			if (sub) {
+				size_t n = strnlen(sub, len);
+				memcpy(r, sub, n);
+				r += n, len -= n;
+			}
+			if (taken(sub))
+				tal_free(sub);
+		}
+		else
+			*r++ = *p++, --len;
+	*r = '\0';
+	assert(!len); // our buffer should be exactly the right size
+
+	if (taken(str))
+		tal_free(str);
+
+	return ret;
+}
+
+const char *subst_getenv(const void *defaults,
+                         const char *name,
+                         size_t namelen)
+{
+	char *ret, *mut;
+
+	if (name[namelen] == '\0')
+		return getenv(name);
+
+	mut = tal_dup_arr(NULL, char, name, namelen, 1);
+	mut[namelen] = '\0';
+	ret = getenv(mut);
+	tal_free(mut);
+
+	if (!ret && defaults)
+		for (const char *const *d = defaults; *d; ++d)
+			if (strncmp(*d, name, namelen) == 0 && (*d)[namelen] == '=')
+				return *d + namelen + 1;
+
 	return ret;
 }

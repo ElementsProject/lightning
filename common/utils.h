@@ -158,4 +158,63 @@ int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created)
  */
 char *str_lowering(const void *ctx, const char *string TAKES);
 
+/**
+ * str_expand: substitute variable references in string via callback function.
+ * @ctx: the tal context from which to allocate the returned string.
+ * @str: the string containing variable references as described below.
+ * @subst: a callback function to resolve variable names to values.
+ * @ptr: an opaque pointer to be passed as the first parameter to @subst.
+ *
+ * Variable references in @str are of the same form used by the POSIX shell,
+ * a dollar sign followed by exactly one of the following:
+ *  - a brace-enclosed word,
+ *  - an ASCII decimal number of any non-zero length,
+ *  - a word not beginning with a digit.
+ * Here, a "word" means any non-empty run of word characters, which are
+ * underscores or characters for which isalnum() returns true.
+ *
+ * A partial match of one of the above productions is not an error and does not
+ * produce a substitution; the characters are simply copied verbatim.
+ *
+ * For each variable reference encountered in @str, the @subst callback
+ * function is invoked, passing @ptr, a pointer to the name of the variable
+ * being referenced, and the length of the variable name. The function must
+ * return a pointer to a string containing the value to be substituted or NULL.
+ * If the pointer is returned as take(), then this function will tal_free() it.
+ * If the pointer returned is NULL, then the empty string will be substituted.
+ *
+ * Within the context of one invocation of str_expand(), the @subst callback
+ * function must be invariant with respect to the length of the string that it
+ * returns for each distinct given variable name.
+ *
+ * Returns a copy of @str with all substitutions made.
+ *
+ * Example:
+ * const char *str = "How about a ${adj} ${game of $game?";
+ * If subst is a function that returns "nice" when passed "adj" and "chess"
+ * when passed "game", then str_expand(NULL, str, subst, NULL) will return
+ * "How about a nice ${game of chess?"
+ */
+char *str_expand(const void *ctx,
+                 const char *str TAKES,
+                 const char *TAKES (*subst)(const void *ptr,
+                                            const char *name,
+                                            size_t namelen),
+                 const void *ptr);
+
+/**
+ * subst_getenv: callback function for str_expand to get variables from environ
+ * @defaults: pointer to a NULL-terminated array of pointers to strings in the
+ * style of environ, providing default values for variables not found in the
+ * environment, or NULL if no defaults are to be provided.
+ * @name: name of an environment variable (which need not be NUL-terminated)
+ * @namelen: length of name
+ *
+ * This function is a suitable callback for str_expand when variable references
+ * are to be resolved using getenv().
+ */
+const char *subst_getenv(const void *defaults,
+                         const char *name,
+                         size_t namelen);
+
 #endif /* LIGHTNING_COMMON_UTILS_H */
