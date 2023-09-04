@@ -9,8 +9,7 @@
 #include <common/node_id.h>
 #include <ccan/read_write_all/read_write_all.h>
 
-#define MYLOG "/tmp/debug.txt"
-#define RENEPAY_UNITTEST // logs are written in MYLOG
+#define RENEPAY_UNITTEST // logs are written in $TMPDIR/debug.txt
 #include "../payment.c"
 #include "../flow.c"
 #include "../uncertainty_network.c"

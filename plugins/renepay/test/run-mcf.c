@@ -1,6 +1,6 @@
 #include "config.h"
 
-#define RENEPAY_UNITTEST // logs are written in /tmp/debug.txt
+#define RENEPAY_UNITTEST // logs are written in $TMPDIR/debug.txt
 #include "../payment.c"
 #include "../flow.c"
 #include "../uncertainty_network.c"

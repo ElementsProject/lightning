@@ -17,7 +17,7 @@ void _debug_call(const char* fname, const char* fun);
 void _debug_exec_branch(const char* fname,const char* fun, int lineno);
 
 #ifndef MYLOG
-#define MYLOG "/tmp/debug.txt"
+#define MYLOG "$TMPDIR/debug.txt"
 #endif
 
 
