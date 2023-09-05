@@ -156,7 +156,7 @@ sudo apt-get install docker.io binfmt-support qemu-user-static
 sudo systemctl restart docker
 ```
 
-3. Setup QEMU to run binaries from multiple different architectures
+3. Setup QEMU to run binaries from multiple architectures
 
 ```
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
@@ -178,10 +178,23 @@ Buildkit:  v0.11.6
 Platforms: linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/amd64/v4, linux/386, linux/arm64, linux/riscv64, linux/ppc64, linux/ppc64le, linux/s390x, linux/mips64le, linux/mips64
 ```
 
-# (Co-)Signing the release manifest
+# Building/publishing images on Dockerhub
+1. Ensure that your multiarch setup is working
+
+2. Run script `tools/build-release.sh --push docker` to build `amd64` and `arm64v8` images and publish them on Dockerhub.
+
+3. If you do not want to push the images directly on Dockerhub then run `tools/build-release.sh docker`. It will only create images locally but not push them to Dockerhub.
+
+# Signing the release manifest
 
 The release captain is in charge of creating the manifest, whereas contributors and interested bystanders may contribute their signatures to further increase trust in the binaries.
 
+## Script build-release
+1: Pull latest code from master
+
+2: Run `tools/build-release.sh bin-Fedora-28-amd64 bin-Ubuntu sign` script. It will create release directory, build bineries for Fedora, build bineries for Ubuntu (Focal & Jammy), sign zip, fedora & ubuntu builds.
+
+## Manual
 The release captain creates the manifest as follows:
 
 ```shell
@@ -190,6 +203,20 @@ sha256sum *v0.9.0* > SHA256SUMS
 gpg -sb --armor SHA256SUMS
 ```
 
+# Co-signing the release manifest
+
+## Script build-release
+1: Pull latest code from master.
+
+2: Rename checksum files, shared by the release captain, to `SHA256SUMS-v($VERSION)` and `SHA256SUMS-v($VERSION).asc`.
+
+2: Copy above files in the lightning directory.
+
+3: Run `tools/build-release.sh --verify` script. It will build bineries for Ubuntu (Focal & Jammy), verify zip & ubuntu builds while copying Fedora checksums from the release captain's file.
+
+4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
+
+## Manual
 Co-maintainers and contributors wishing to add their own signature verify that the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain matches their binaries before also signing the manifest:
 
 ```shell
@@ -206,7 +233,7 @@ Then send the resulting `SHA256SUMS.new` file to the release captain so it can b
 You can verify the reproducible build in two ways:
 
 - Repeating the entire reproducible build, making sure from scratch that the binaries match. Just follow the instructions above for this.
-- Verifying that the downloaded binaries match match the hashes in `SHA256SUMS` and that the signatures in `SHA256SUMS.asc` are valid.
+- Verifying that the downloaded binaries match the hashes in `SHA256SUMS` and that the signatures in `SHA256SUMS.asc` are valid.
 
 Assuming you have downloaded the binaries, the manifest and the signatures into the same directory, you can verify the signatures with the following:
 
