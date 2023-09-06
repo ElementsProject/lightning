@@ -86,3 +86,10 @@ release/
 
 # Ignore release verification Sha256Sums
 SHA256SUMS-*
+
+# Ignore nix outputs
+result
+result-[0-9]*
+
+# Ignore .direnv cache
+.direnv
