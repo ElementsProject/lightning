@@ -459,7 +459,7 @@ ifeq ($(PYTEST),)
 	@echo "py.test is required to run the protocol tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."; false
 else
 ifeq ($(DEVELOPER),1)
-	@(cd external/lnprototest && PYTHONPATH=$(MY_CHECK_PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
+	@(cd external/lnprototest && LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
 else
 	@echo "lnprototest target requires DEVELOPER=1, skipping"
 endif
@@ -471,7 +471,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+	TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 check-fuzz: $(ALL_FUZZ_TARGETS)
@@ -532,7 +532,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
-	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(MAKE) check)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) $(MAKE) check)
 
 check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
 
@@ -544,7 +544,7 @@ check-python-flake8:
 	@flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
-	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
