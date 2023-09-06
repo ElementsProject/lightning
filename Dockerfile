@@ -28,7 +28,7 @@ RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && grep $BITCOIN_TARBALL bitcoin | tee SHA256SUMS \
     && sha256sum -c SHA256SUMS \
     && BD=bitcoin-$BITCOIN_VERSION/bin \
-    && tar -xzvf $BITCOIN_TARBALL $BD/bitcoin-cli --strip-components=1 \
+    && tar -xzvf $BITCOIN_TARBALL $BD/ --strip-components=1 \
     && rm $BITCOIN_TARBALL
 
 ENV LITECOIN_VERSION 0.16.3
