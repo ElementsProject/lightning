@@ -54,8 +54,6 @@ jobs:
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
-          # Make sure we have clnrest requirements, for check-manpages
-          pip install -r plugins/clnrest/requirements.txt
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure

@@ -60,7 +60,6 @@ WORKDIR /build
 
 CMD poetry export -o requirements.txt --without-hashes \
     && pip install -r requirements.txt \
-    && pip install -r plugins/clnrest/requirements.txt \
 	&& mkdir -p /repro \
 	&& cd /repro \
 	&& unzip /build/release/*.zip \

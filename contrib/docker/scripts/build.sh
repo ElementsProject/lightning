@@ -23,7 +23,6 @@ pip3 install --upgrade pip
 pip3 install --user poetry
 poetry export --dev --without-hashes -o requirements.txt
 pip3 install -r requirements.txt
-pip3 install -r plugins/clnrest/requirements.txt
 
 git clone https://github.com/lightning/bolts.git ../bolts
 git submodule update --init --recursive
