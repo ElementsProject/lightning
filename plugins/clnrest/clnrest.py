@@ -9,13 +9,13 @@ try:
     from gunicorn.workers import sync  # noqa: F401
 
     from pathlib import Path
-    from flask import Flask
+    from flask import Flask, request
     from flask_restx import Api
     from gunicorn.app.base import BaseApplication
     from multiprocessing import Process, Queue
-    from flask_socketio import SocketIO
+    from flask_socketio import SocketIO, disconnect
     from utilities.generate_certs import generate_certs
-    from utilities.shared import set_config
+    from utilities.shared import set_config, verify_rune
     from utilities.rpc_routes import rpcns
     from utilities.rpc_plugin import plugin
 except ModuleNotFoundError as err:
@@ -52,16 +52,30 @@ def broadcast_from_message_queue():
 socketio.start_background_task(broadcast_from_message_queue)
 
 
-@socketio.on("connect", namespace="/ws")
+@socketio.on("message")
+def handle_message(message):
+    plugin.log(f"Received message from client: {message}", "debug")
+    socketio.emit('message', {"client_message": message, "session": request.sid})
+
+
+@socketio.on("connect")
 def ws_connect():
-    plugin.log("Client Connected", "debug")
-    msgq.put("Client Connected")
+    try:
+        plugin.log("Client Connecting...", "debug")
+        is_valid_rune = verify_rune(plugin, request)
 
+        if "error" in is_valid_rune:
+            # Logging as error/warn emits the event for all clients
+            plugin.log(f"Error: {is_valid_rune}", "info")
+            raise Exception(is_valid_rune)
 
-@socketio.on("disconnect", namespace="/ws")
-def ws_disconnect():
-    plugin.log("Client Disconnected", "debug")
-    msgq.put("Client Disconnected")
+        plugin.log("Client Connected", "debug")
+        return True
+
+    except Exception as err:
+        # Logging as error/warn emits the event for all clients
+        plugin.log(f"{err}", "info")
+        disconnect()
 
 
 def create_app():
