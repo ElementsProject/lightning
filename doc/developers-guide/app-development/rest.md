@@ -63,7 +63,7 @@ With `-k` or `--insecure` option curl proceeds with the connection even if the S
 This option should be used only when testing with self signed certificate.
 
 ## Websocket Server
-Websocket server is available at `/ws` endpoint. clnrest queues up notifications received for a second then broadcasts them to listeners.
+Websocket server is available at `https://127.0.0.1:3010`. clnrest queues up notifications received for a second then broadcasts them to listeners.
 
 ### Websocket client examples
 
@@ -74,22 +74,30 @@ import socketio
 import requests
 
 http_session = requests.Session()
-http_session.verify = False
+http_session.verify = True
+http_session.headers.update({
+    "rune": "your-generated-rune"
+})
 sio = socketio.Client(http_session=http_session)
 
 @sio.event
-def message(data):
-    print(f'I received a message: {data}')
-
-@sio.event
 def connect():
-    print("I'm connected!")
+    print("Client Connected")
 
 @sio.event
 def disconnect():
-    print("I'm disconnected!")
+    print(f"Server connection closed.\nCheck CLN logs for errors if unexpected")
 
-sio.connect('https://127.0.0.1:3010/ws')
+@sio.event
+def message(data):
+    print(f"Message from server: {data}")
+
+@sio.event
+def error(err):
+    print(f"Error from server: {err}")
+
+sio.connect('http://127.0.0.1:3010')
+
 sio.wait()
 
 ```
@@ -99,18 +107,84 @@ sio.wait()
 ```javascript
 const io = require('socket.io-client');
 
-const socket = io.connect('https://127.0.0.1:3010', {rejectUnauthorized: false});
+const socket = io.connect('http://127.0.0.1:3010', {extraHeaders: {rune: "your-generated-rune"}});
 
 socket.on('connect', function() {
-  console.log("I'm connected!");
+  console.log('Client Connected');
+});
+
+socket.on('disconnect', function(reason) {
+  console.log('Server connection closed: ', reason, '\nCheck CLN logs for errors if unexpected');
 });
 
 socket.on('message', function(data) {
-  console.log('I received a message: ', data);
+  console.log('Message from server: ', data);
 });
 
-socket.on('disconnect', function() {
-  console.log("I'm disconnected!");
+socket.on('error', function(err) {
+  console.error('Error from server: ', err);
 });
+
+```
+
+#### HTML
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Client Example</title>
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Socket.IO Client Example</h1>
+    <hr>
+    <h3>Status:</h3>
+    <div id="status">Not connected</div>
+    <hr>
+    <h3>Send Message:</h3>
+    <input type="text" id="messageInput" placeholder="Type your message here">
+    <button onclick="sendMessage()">Send</button>
+    <hr>
+    <h3>Received Messages:</h3>
+    <div id="messages"></div>
+    <script>
+        const statusElement = document.getElementById('status');
+        const messagesElement = document.getElementById('messages');
+
+        const socket = io('http://127.0.0.1:3010', {extraHeaders: {rune: "your-generated-rune"}});
+
+        socket.on('connect', () => {
+            statusElement.textContent = 'Client Connected';
+        });
+
+        socket.on('disconnect', (reason) => {
+            statusElement.textContent = 'Server connection closed: ' + reason + '\n Check CLN logs for errors if unexpected';
+        });
+
+        socket.on('message', (data) => {
+            const item = document.createElement('li');
+            item.textContent = JSON.stringify(data);
+            messagesElement.appendChild(item);
+            console.log('Message from server: ', data);
+        });
+
+        socket.on('error', (err) => {
+            const item = document.createElement('li');
+            item.textContent = JSON.stringify(err);
+            messagesElement.appendChild(item);
+            console.error('Error from server: ', err);
+        });
+
+        function sendMessage() {
+            const message = messageInput.value;
+            if (message) {
+                socket.emit('message', message);
+                messageInput.value = '';
+            }
+        }
+    </script>
+</body>
+</html>
 
 ```
