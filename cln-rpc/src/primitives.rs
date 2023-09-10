@@ -125,7 +125,7 @@ impl std::ops::Sub for Amount {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShortChannelId(u64);
 
 impl Serialize for ShortChannelId {
