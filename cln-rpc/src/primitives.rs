@@ -165,9 +165,9 @@ impl FromStr for ShortChannelId {
         ))
     }
 }
-impl ToString for ShortChannelId {
-    fn to_string(&self) -> String {
-        format!("{}x{}x{}", self.block(), self.txindex(), self.outnum())
+impl Display for ShortChannelId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{}x{}", self.block(), self.txindex(), self.outnum())
     }
 }
 impl ShortChannelId {
