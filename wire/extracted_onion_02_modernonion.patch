@@ -1,25 +1,9 @@
 --- wire/onion_wire.csv	2021-11-16 15:17:39.446494580 +1030
 +++ wire/onion_wire.csv.raw	2021-11-16 15:36:00.046441058 +1030
-@@ -8,6 +8,41 @@
- tlvdata,payload,payment_data,total_msat,tu64,
- tlvtype,payload,payment_metadata,16
- tlvdata,payload,payment_metadata,payment_metadata,byte,...
-+tlvtype,payload,encrypted_recipient_data,10
-+tlvdata,payload,encrypted_recipient_data,encrypted_data,byte,...
-+tlvtype,payload,blinding_point,12
-+tlvdata,payload,blinding_point,blinding,point,
-+tlvtype,payload,total_amount_msat,18
-+tlvdata,payload,total_amount_msat,total_msat,tu64,
-+tlvtype,encrypted_data_tlv,padding,1
-+tlvdata,encrypted_data_tlv,padding,padding,byte,...
-+tlvtype,encrypted_data_tlv,short_channel_id,2
-+tlvdata,encrypted_data_tlv,short_channel_id,short_channel_id,short_channel_id,
-+tlvtype,encrypted_data_tlv,next_node_id,4
-+tlvdata,encrypted_data_tlv,next_node_id,node_id,point,
-+tlvtype,encrypted_data_tlv,path_id,6
-+tlvdata,encrypted_data_tlv,path_id,data,byte,...
-+tlvtype,encrypted_data_tlv,next_blinding_override,8
-+tlvdata,encrypted_data_tlv,next_blinding_override,blinding,point,
+@@ -8,6 +8,25 @@
+ tlvdata,encrypted_data_tlv,payment_constraints,htlc_minimum_msat,tu64,
+ tlvtype,encrypted_data_tlv,allowed_features,14
+ tlvdata,encrypted_data_tlv,allowed_features,features,byte,...
 +tlvtype,onionmsg_tlv,reply_path,2
 +tlvdata,onionmsg_tlv,reply_path,path,blinded_path,
 +tlvtype,onionmsg_tlv,encrypted_recipient_data,4
