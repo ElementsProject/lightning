@@ -282,6 +282,18 @@ jobs:
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
+      - name: Unpack pre-built CLN
+        env:
+          CFG: ${{ matrix.CFG }}
+        run: |
+          tar -xaf cln-${CFG}.tar.bz2
+
+      - name: Switch network
+        if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
+        run: |
+          # Loading the network from config.vars rather than the envvar is a terrible idea...
+          sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
+
       - name: Test
         env:
           COMPILER: ${{ matrix.COMPILER }}
@@ -296,7 +308,6 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
         run: |
-          tar -xaf cln-${CFG}.tar.bz2
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
