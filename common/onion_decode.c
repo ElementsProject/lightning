@@ -21,7 +21,7 @@ static bool check_nonfinal_tlv(const struct tlv_payload *tlv,
 {
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		switch (tlv->fields[i].numtype) {
-		case TLV_PAYLOAD_BLINDING_POINT:
+		case TLV_PAYLOAD_CURRENT_BLINDING_POINT:
 		case TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
 			continue;
 		}
@@ -45,7 +45,7 @@ static bool check_final_tlv(const struct tlv_payload *tlv,
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		switch (tlv->fields[i].numtype) {
 		case TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA:
-		case TLV_PAYLOAD_BLINDING_POINT:
+		case TLV_PAYLOAD_CURRENT_BLINDING_POINT:
 		case TLV_PAYLOAD_AMT_TO_FORWARD:
 		case TLV_PAYLOAD_OUTGOING_CLTV_VALUE:
 		case TLV_PAYLOAD_TOTAL_AMOUNT_MSAT:
@@ -230,18 +230,18 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *     - MUST use that `current_blinding_point` as the blinding point for decryption.
 		 */
 		if (blinding) {
-			if (p->tlv->blinding_point) {
-				*failtlvtype = TLV_PAYLOAD_BLINDING_POINT;
+			if (p->tlv->current_blinding_point) {
+				*failtlvtype = TLV_PAYLOAD_CURRENT_BLINDING_POINT;
 				goto field_bad;
 			}
 			p->blinding = tal_dup(p, struct pubkey, blinding);
 		} else {
-			if (!p->tlv->blinding_point) {
-				*failtlvtype = TLV_PAYLOAD_BLINDING_POINT;
+			if (!p->tlv->current_blinding_point) {
+				*failtlvtype = TLV_PAYLOAD_CURRENT_BLINDING_POINT;
 				goto field_bad;
 			}
 			p->blinding = tal_dup(p, struct pubkey,
-					      p->tlv->blinding_point);
+					      p->tlv->current_blinding_point);
 		}
 
 		/* BOLT #4:
@@ -335,7 +335,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *        incoming `update_add_htlc` or `current_blinding_point`
 	 *        is present.
 	 */
-	if (blinding || p->tlv->blinding_point) {
+	if (blinding || p->tlv->current_blinding_point) {
 		*failtlvtype = TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 		goto field_bad;
 	}
