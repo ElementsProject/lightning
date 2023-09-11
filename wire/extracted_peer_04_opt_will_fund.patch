@@ -1,9 +1,9 @@
 --- wire/peer_wire.csv	2021-06-10 12:47:17.225844741 -0500
 +++ -	2021-06-10 12:47:40.960373156 -0500
 @@ -143,6 +139,9 @@
- tlvdata,opening_tlvs,upfront_shutdown_script,shutdown_scriptpubkey,byte,...
  tlvtype,opening_tlvs,channel_type,1
  tlvdata,opening_tlvs,channel_type,type,byte,...
+ tlvtype,opening_tlvs,require_confirmed_inputs,2
 +tlvtype,opening_tlvs,request_funds,3
 +tlvdata,opening_tlvs,request_funds,requested_sats,u64,
 +tlvdata,opening_tlvs,request_funds,blockheight,u32,
@@ -11,10 +11,10 @@
  msgdata,accept_channel2,channel_id,channel_id,
  msgdata,accept_channel2,funding_satoshis,u64,
 @@ -162,6 +161,15 @@
- tlvdata,accept_tlvs,upfront_shutdown_script,shutdown_scriptpubkey,byte,...
  tlvtype,accept_tlvs,channel_type,1
  tlvdata,accept_tlvs,channel_type,type,byte,...
-+tlvtype,accept_tlvs,will_fund,2
+ tlvtype,accept_tlvs,require_confirmed_inputs,2
++tlvtype,accept_tlvs,will_fund,3
 +tlvdata,accept_tlvs,will_fund,signature,signature,
 +tlvdata,accept_tlvs,will_fund,lease_rates,lease_rates,
 +subtype,lease_rates
