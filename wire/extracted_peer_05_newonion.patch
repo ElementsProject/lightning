@@ -1,3 +1,5 @@
+FIXME: This is actually from BOLT 4, but we remove it from onion_wire.csv and put it here.
+
 --- peer_wire.csv	2021-08-25 12:41:02.876254003 +0930
 +++ peer_wire.csv.raw	2021-08-25 13:42:31.991693809 +0930
 @@ -320,3 +210,7 @@

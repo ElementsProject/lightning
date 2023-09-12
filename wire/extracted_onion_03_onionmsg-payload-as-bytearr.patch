@@ -1,3 +1,5 @@
+We can't handle nested tlvs yet, so make these byte arrays.
+
 diff --git b/wire/onion_wire.csv a/wire/onion_wire.csv
 index 5c52fe9a1..2ac0c4cff 100644
 --- b/wire/onion_wire.csv
