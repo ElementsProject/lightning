@@ -445,7 +445,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	/* BOLT #2:
 	 * - if `channel_type` is set, and `channel_type` was set in
 	 *   `open_channel`, and they are not equal types:
-	 *    - MUST reject the channel.
+	 *    - MUST fail the channel.
 	 */
 	if (accept_tlvs->channel_type) {
 		/* Except that v23.05 could set OPT_SCID_ALIAS in reply! */
