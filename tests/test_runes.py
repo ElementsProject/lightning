@@ -514,6 +514,14 @@ def test_missing_method_or_nodeid(node_factory):
         l1.rpc.checkrune(rune=rune4, nodeid=l1.info['id'])
 
 
+def test_invalid_restrictions(node_factory):
+    # I meant "method!" not "!method"!
+    l1 = node_factory.get_node()
+    for cond in "!=/^$~<>{}#,":
+        with pytest.raises(RpcError, match='not a valid restriction'):
+            print(l1.rpc.createrune(restrictions=[[f"{cond}method"]]))
+
+
 def test_showrune_id(node_factory):
     l1 = node_factory.get_node()
 

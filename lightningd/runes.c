@@ -419,6 +419,10 @@ static struct rune_altern *rune_altern_from_json(const tal_t *ctx,
 	alt->fieldname = tal_strndup(alt, unescape, condoff);
 	alt->condition = unescape[condoff];
 	alt->value = tal_strdup(alt, unescape + condoff + 1);
+
+	/* don't let them add empty fieldnames */
+	if (streq(alt->fieldname, ""))
+		return tal_free(alt);
 	return alt;
 }
 
