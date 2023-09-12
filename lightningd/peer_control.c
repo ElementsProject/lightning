@@ -375,7 +375,6 @@ void resend_closing_transactions(struct lightningd *ld)
 
 void channel_errmsg(struct channel *channel,
 		    struct peer_fd *peer_fd,
-		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    bool warning,
 		    bool aborted UNUSED,

@@ -51,7 +51,6 @@ struct subd {
 	 * error message we sent them if any. */
 	void (*errcb)(void *channel,
 		      struct peer_fd *peer_fd,
-		      const struct channel_id *channel_id,
 		      const char *desc,
 		      bool warning,
 		      bool aborted,
@@ -134,7 +133,6 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 						     const int *fds),
 			       void (*errcb)(void *channel,
 					     struct peer_fd *peer_fd,
-					     const struct channel_id *channel_id,
 					     const char *desc,
 					     bool warning,
 					     bool aborted,
@@ -152,7 +150,6 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel),		\
 					       struct peer_fd *,	\
-					       const struct channel_id *, \
 					       const char *, bool, bool, const u8 *), \
 			  typesafe_cb_postargs(void, void *, (billboardcb), \
 					       (channel), bool,		\

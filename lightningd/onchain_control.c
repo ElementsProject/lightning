@@ -1493,7 +1493,6 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 /* Only error onchaind can get is if it dies. */
 static void onchain_error(struct channel *channel,
 			  struct peer_fd *pps UNUSED,
-			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
 			  bool aborted UNUSED,

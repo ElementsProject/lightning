@@ -39,7 +39,7 @@ peer_failed(struct per_peer_state *pps,
 	peer_write(pps, msg);
 
 	/* Tell master the error so it can re-xmit. */
-	msg = towire_status_peer_error(NULL, channel_id,
+	msg = towire_status_peer_error(NULL,
 				       desc,
 				       warn,
 				       false,
@@ -95,7 +95,7 @@ void peer_failed_received_errmsg(struct per_peer_state *pps,
 			       " let's give it some space");
 		warning = true;
 	}
-	msg = towire_status_peer_error(NULL, channel_id, desc, warning,
+	msg = towire_status_peer_error(NULL, desc, warning,
 				       abort_restart, NULL);
 	peer_billboard(true, "Received %s", desc);
 	peer_fatal_continue(take(msg), pps);

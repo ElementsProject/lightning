@@ -420,7 +420,6 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[1])
 {
 	void *channel = sd->channel;
-	struct channel_id channel_id;
 	char *desc;
 	struct peer_fd *peer_fd;
 	u8 *err_for_them;
@@ -428,7 +427,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[1])
 	bool aborted;
 
 	if (!fromwire_status_peer_error(msg, msg,
-					&channel_id, &desc, &warning,
+					&desc, &warning,
 					&aborted, &err_for_them))
 		return false;
 
@@ -436,7 +435,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[1])
 
 	/* Don't free sd; we may be about to free channel. */
 	sd->channel = NULL;
-	sd->errcb(channel, peer_fd, &channel_id, desc, warning, aborted, err_for_them);
+	sd->errcb(channel, peer_fd, desc, warning, aborted, err_for_them);
 	return true;
 }
 
@@ -646,7 +645,7 @@ static void destroy_subd(struct subd *sd)
 		if (!outer_transaction)
 			db_begin_transaction(db);
 		if (sd->errcb)
-			sd->errcb(channel, NULL, NULL,
+			sd->errcb(channel, NULL,
 				  tal_fmt(sd, "Owning subdaemon %s died (%i)",
 					  sd->name, status),
 				  false, false, NULL);
@@ -704,7 +703,6 @@ static struct subd *new_subd(const tal_t *ctx,
 						   const u8 *, const int *fds),
 			     void (*errcb)(void *channel,
 					   struct peer_fd *peer_fd,
-					   const struct channel_id *channel_id,
 					   const char *desc,
 					   bool warning,
 					   bool aborted,
@@ -815,7 +813,6 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 						     const int *fds),
 			       void (*errcb)(void *channel,
 					     struct peer_fd *peer_fd,
-					     const struct channel_id *channel_id,
 					     const char *desc,
 					     bool warning,
 					     bool aborted,
