@@ -13,6 +13,8 @@ The **checkrune** RPC command checks the validity/authorization rights of specif
 
 If successful, the rune "usage" counter (used for ratelimiting) is incremented.
 
+See lightning-createrune(7) for the fields in the rune which are checked.
+
 RETURN VALUE
 ------------
 
