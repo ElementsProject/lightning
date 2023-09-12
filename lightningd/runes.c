@@ -674,11 +674,17 @@ static const char *check_condition(const tal_t *ctx,
 	if (streq(alt->fieldname, "time")) {
 		return rune_alt_single_int(ctx, alt, time_now().ts.tv_sec);
 	} else if (streq(alt->fieldname, "id")) {
-		const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
-		return rune_alt_single_str(ctx, alt, id, strlen(id));
+		if (cinfo->peer) {
+			const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
+			return rune_alt_single_str(ctx, alt, id, strlen(id));
+		}
+		return rune_alt_single_missing(ctx, alt);
 	} else if (streq(alt->fieldname, "method")) {
-		return rune_alt_single_str(ctx, alt,
-					   cinfo->method, strlen(cinfo->method));
+		if (cinfo->method) {
+			return rune_alt_single_str(ctx, alt,
+						   cinfo->method, strlen(cinfo->method));
+		}
+		return rune_alt_single_missing(ctx, alt);
 	} else if (streq(alt->fieldname, "pnum")) {
 		return rune_alt_single_int(ctx, alt, (cinfo && cinfo->params) ? cinfo->params->size : 0);
 	} else if (streq(alt->fieldname, "rate")) {
@@ -748,8 +754,8 @@ static struct command_result *json_checkrune(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("rune", param_rune, &ras),
-		   p_req("nodeid", param_node_id, &nodeid),
-		   p_req("method", param_string, &method),
+		   p_opt("nodeid", param_node_id, &nodeid),
+		   p_opt("method", param_string, &method),
 		   p_opt("params", param_params, &methodparams),
 		   NULL))
 		return command_param_failed();
@@ -793,6 +799,6 @@ static const struct json_command checkrune_command = {
 	"checkrune",
 	"utility",
 	json_checkrune,
-	"Checks rune for validity with required {nodeid}, {rune}, {method} and optional {params} and returns {valid: true} or error message"
+	"Checks rune for validity with required {rune} and optional {nodeid}, {method}, {params} and returns {valid: true} or error message"
 };
 AUTODATA(json_command, &checkrune_command);
