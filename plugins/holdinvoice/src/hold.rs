@@ -227,6 +227,8 @@ pub async fn hold_invoice_lookup(
                         htlc_expiry
                     }));
                 }
+            } else {
+                return Ok(payment_hash_missing_error(&pay_hash));
             }
         }
         Holdstate::Accepted => {
