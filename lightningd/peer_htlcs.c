@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/blinding.h>
@@ -1571,16 +1572,19 @@ static bool peer_failed_our_htlc(struct channel *channel,
 		/* BOLT #2:
 		 *
 		 *   - if the `sha256_of_onion` in `update_fail_malformed_htlc`
-		 *     doesn't match the onion it sent:
+		 *     doesn't match the onion it sent and is not all zero:
 		 *    - MAY retry or choose an alternate error response.
 		 */
 		sha256(&our_sha256_of_onion, hout->onion_routing_packet,
 		       sizeof(hout->onion_routing_packet));
-		if (!sha256_eq(failed->sha256_of_onion, &our_sha256_of_onion))
+		if (!sha256_eq(failed->sha256_of_onion, &our_sha256_of_onion)
+		    && !memeqzero(failed->sha256_of_onion,
+				  sizeof(failed->sha256_of_onion))) {
 			log_unusual(channel->log,
 				    "update_fail_malformed_htlc for bad onion"
 				       " for htlc with id %"PRIu64".",
 				    hout->key.id);
+		}
 
 		/* BOLT #2:
 		 *
