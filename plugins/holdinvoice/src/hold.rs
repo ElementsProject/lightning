@@ -210,7 +210,25 @@ pub async fn hold_invoice_lookup(
 
     let mut htlc_expiry = None;
     match holdstate {
-        Holdstate::Open => (),
+        Holdstate::Open => {
+            let invoices = listinvoices(&rpc_path, None, Some(pay_hash.clone()))
+                .await?
+                .invoices;
+            if let Some(inv) = invoices.first() {
+                if inv.status == ListinvoicesInvoicesStatus::EXPIRED {
+                    datastore_update_state_forced(
+                        &rpc_path,
+                        pay_hash.clone(),
+                        Holdstate::Canceled.to_string(),
+                    )
+                    .await?;
+                    return Ok(json!(HoldLookupResponse {
+                        state: Holdstate::Canceled.to_string(),
+                        htlc_expiry
+                    }));
+                }
+            }
+        }
         Holdstate::Accepted => {
             htlc_expiry = Some(listdatastore_htlc_expiry(&rpc_path, pay_hash.clone()).await?)
         }
