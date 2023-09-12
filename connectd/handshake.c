@@ -383,6 +383,12 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 		hkdf_two_keys(&cs.sk, &cs.rk, &h->ck, NULL, 0);
 
 	cs.rn = cs.sn = 0;
+	/* BOLT #8:
+	 *
+	 * 11. `rck = sck = ck`
+	 *      * The sending and receiving chaining keys are initialized the same.
+	 */
+
 	cs.r_ck = cs.s_ck = h->ck;
 
 	cb = h->cb;
@@ -509,7 +515,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 8.  Send `m = 0 || c || t` over the network buffer.
+	 * 9.  Send `m = 0 || c || t` over the network buffer.
 	 *
 	 */
 	h->act3.v = 0;

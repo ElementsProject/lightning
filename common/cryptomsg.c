@@ -37,7 +37,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 * A key is to be rotated after a party encrypts or decrypts 1000 times
 	 * with it (i.e. every 500 messages). This can be properly accounted
 	 * for by rotating the key once the nonce dedicated to it
-	 * exceeds 1000.
+	 * reaches 1000.
 	 */
 	if (*n != 1000)
 		return;
@@ -47,7 +47,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 * Key rotation for a key `k` is performed according to the following
 	 * steps:
 	 *
-	 * 1. Let `ck` be the chaining key obtained at the end of Act Three.
+	 * 1. Let `ck` be the chaining key (i.e. `rck` for `rk` or `sck` for `sk`)
 	 * 2. `ck', k' = HKDF(ck, k)`
 	 * 3. Reset the nonce for the key to `n = 0`.
 	 * 4. `k = k'`
