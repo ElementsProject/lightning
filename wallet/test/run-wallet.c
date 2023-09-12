@@ -687,6 +687,9 @@ void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *chann
 /* Generated stub for rune_is_ours */
 const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_is_ours called!\n"); abort(); }
+/* Generated stub for rune_unique_id */
+u64 rune_unique_id(const struct rune *rune UNNEEDED)
+{ fprintf(stderr, "rune_unique_id called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
