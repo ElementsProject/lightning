@@ -3084,7 +3084,7 @@ static void opener_start(struct state *state, u8 *msg)
 	/* BOLT #2:
 	 * - if `channel_type` is set, and `channel_type` was set in
 	 *   `open_channel`, and they are not equal types:
-	 *    - MUST reject the channel.
+	 *    - MUST fail the channel.
 	 */
 	if (a_tlv->channel_type
 	    && !featurebits_eq(a_tlv->channel_type,
