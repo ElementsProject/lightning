@@ -402,7 +402,7 @@ static void handle_localpay(struct htlc_in *hin,
 		 * 2. data:
 		 *    * [`u64`:`incoming_htlc_amt`]
 		 *
-		 * The amount in the HTLC doesn't match the value in the onion.
+		 * The amount in the HTLC is less than the value in the onion.
 		 */
 		failmsg = towire_final_incorrect_htlc_amount(NULL, hin->msat);
 		goto fail;
@@ -423,7 +423,7 @@ static void handle_localpay(struct htlc_in *hin,
 		 * 2. data:
 		 *    * [`u32`:`cltv_expiry`]
 		 *
-		 * The CLTV expiry in the HTLC doesn't match the value in the onion.
+		 * The CLTV expiry in the HTLC is less than the value in the onion.
 		 */
 		failmsg = towire_final_incorrect_cltv_expiry(NULL,
 							     hin->cltv_expiry);
