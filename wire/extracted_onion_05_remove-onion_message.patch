@@ -1,0 +1,17 @@
+We put this in peer_wire instead, in extracted_peer_05_newonion.patch
+
+diff --git a/wire/onion_wire.csv b/wire/onion_wire.csv
+index 3884c63dd..25798c3da 100644
+--- a/wire/onion_wire.csv
++++ b/wire/onion_wire.csv
+@@ -103,10 +103,6 @@ msgdata,invalid_onion_payload,offset,u16,
+ msgtype,mpp_timeout,23
+ msgtype,invalid_onion_blinding,BADONION|PERM|24
+ msgdata,invalid_onion_blinding,sha256_of_onion,sha256,
+-msgtype,onion_message,513
+-msgdata,onion_message,blinding,point,
+-msgdata,onion_message,len,u16,
+-msgdata,onion_message,onion_message_packet,byte,len
+ tlvtype,onionmsg_tlv,reply_path,2
+ tlvdata,onionmsg_tlv,reply_path,path,blinded_path,
+ tlvtype,onionmsg_tlv,encrypted_recipient_data,4
