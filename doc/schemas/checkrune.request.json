@@ -3,9 +3,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "nodeid",
-    "rune",
-    "method"
+    "rune"
   ],
   "added": "v23.08",
   "properties": {
@@ -15,11 +13,11 @@
     },
     "nodeid": {
       "type": "string",
-      "description": "node id of your node"
+      "description": "node id of requesting node *(required until v23.11)*"
     },
     "method": {
       "type": "string",
-      "description": "method for which rune needs to be validated"
+      "description": "method for which rune needs to be validated *(required until v23.11)*"
     },
     "params": {
       "oneOf": [
