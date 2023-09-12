@@ -11,7 +11,7 @@ updatedAt: "2023-02-21T13:50:10.086Z"
 
 ## Using `lightning-cli`
 
-Core Lightning exposes a [JSON-RPC 2.0](https://www.jsonrpc.org/specification) interface over a Unix Domain socket; the [`lightning-cli`](ref:lightning-cli) tool can be used to access it, or there is a [python client library](???).
+Core Lightning exposes a [JSON-RPC 2.0](https://www.jsonrpc.org/specification) interface over a Unix Domain socket; the [`lightning-cli`](ref:lightning-cli) tool can be used to access it, or there is a [python client library](doc:json-rpc#using-python).
 
 You can use `[lightning-cli](ref:lightning-cli) help` to print a table of RPC methods; `[lightning-cli](lightning-cli) help <command>` will offer specific information on that command.
 
@@ -25,7 +25,7 @@ Useful commands:
 - [lightning-pay](ref:lightning-pay): pay someone else's invoice.
 - [lightning-plugin](ref:lightning-plugin): commands to control extensions.
 
-A complete list of all JSON-RPC commands is available at [API Reference](doc:api-reference).
+A complete list of all JSON-RPC commands is available at [API Reference](ref:lightning-addgossip).
 
 ## Using Python
 
