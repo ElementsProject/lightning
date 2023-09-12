@@ -1291,7 +1291,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		u8 *msg;
 		char *err;
 		bool warning;
-		struct channel_id actual;
 		enum peer_wire t;
 
 		/* The event loop is responsible for freeing tmpctx, so our
@@ -1329,25 +1328,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 						    err), false);
 			/* Return NULL so caller knows to stop negotiating. */
 			return NULL;
-		}
-
-		/*~ We do not support multiple "live" channels, though the
-		 * protocol has a "channel_id" field in all non-gossip messages
-		 * so it's possible.  Our one-process-one-channel mechanism
-		 * keeps things simple: if we wanted to change this, we would
-		 * probably be best with another daemon to de-multiplex them;
-		 * this could be connectd itself, in fact. */
-		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
-			status_debug("Rejecting %s for unknown channel_id %s",
-				     peer_wire_name(fromwire_peektype(msg)),
-				     type_to_string(tmpctx, struct channel_id,
-						    &actual));
-			peer_write(state->pps,
-				   take(towire_errorfmt(NULL, &actual,
-							"Multiple channels"
-							" unsupported")));
-			tal_free(msg);
-			continue;
 		}
 
 		/* In theory, we're in the middle of an open/RBF, but

@@ -24,18 +24,6 @@ bool is_peer_error(const tal_t *ctx, const u8 *msg,
 		   char **desc, bool *warning);
 
 /**
- * is_wrong_channel - if it's a message about a different channel, return true
- * @msg: the peer message.
- * @channel_id: the channel id of the current channel.
- * @actual: set to the actual channel id if this returns false.
- *
- * Note that this only handles some message types, returning false for others.
- */
-bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
-		      struct channel_id *actual);
-
-
-/**
  * handle_peer_error - simple handler for errors
  * @pps: per-peer state.
  * @channel_id: the channel id of the current channel.
