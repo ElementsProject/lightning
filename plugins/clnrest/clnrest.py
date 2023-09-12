@@ -3,6 +3,8 @@
 try:
     import sys
     import os
+    import re
+    import ssl
     import time
     import multiprocessing
     from gunicorn import glogging  # noqa: F401
@@ -30,9 +32,25 @@ except ModuleNotFoundError as err:
 
 multiprocessing.set_start_method('fork')
 
+
+def check_origin(origin):
+    from utilities.shared import REST_CORS_ORIGINS
+    is_whitelisted = False
+    if REST_CORS_ORIGINS[0] == "*":
+        is_whitelisted = True
+    else:
+        for whitelisted_origin in REST_CORS_ORIGINS:
+            try:
+                does_match = bool(re.compile(whitelisted_origin).match(origin))
+                is_whitelisted = is_whitelisted or does_match
+            except Exception as err:
+                plugin.log(f"Error from rest-cors-origin {whitelisted_origin} match with {origin}: {err}", "info")
+    return is_whitelisted
+
+
 jobs = {}
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode="gevent", cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode="gevent", cors_allowed_origins=check_origin)
 msgq = Queue()
 
 
@@ -82,7 +100,7 @@ def ws_connect():
 def create_app():
     from utilities.shared import REST_CORS_ORIGINS
     global app
-    app.config['SECRET_KEY'] = os.urandom(24).hex()
+    app.config["SECRET_KEY"] = os.urandom(24).hex()
     authorizations = {
         "rune": {"type": "apiKey", "in": "header", "name": "Rune"}
     }
@@ -124,6 +142,7 @@ def set_application_options(plugin):
             "loglevel": "warning",
             "certfile": f"{CERTS_PATH}/client.pem",
             "keyfile": f"{CERTS_PATH}/client-key.pem",
+            "ssl_version": ssl.PROTOCOL_TLSv1_2
         }
     return options
 

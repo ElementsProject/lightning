@@ -44,7 +44,7 @@ class RpcMethodResource(Resource):
                 raise Exception(is_valid_rune)
 
         except Exception as err:
-            return json5.loads(str(err)), 403
+            return json5.loads(str(err)), 401
 
         try:
             if request.is_json:
