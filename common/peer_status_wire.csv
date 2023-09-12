@@ -5,6 +5,7 @@
 msgtype,status_peer_error,0xFFF4
 msgdata,status_peer_error,desc,wirestring,
 # Take a deep breath, then try reconnecting to the precious little snowflake.
+# (Means we sent it, since we don't hang up if they send one)
 msgdata,status_peer_error,warning,bool,
 # From an abort, no reconnect but restart daemon
 msgdata,status_peer_error,abort_do_restart,bool,

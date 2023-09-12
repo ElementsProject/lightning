@@ -97,8 +97,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 	u8 *msg = NULL;
 
 	for (;;) {
-		char *desc;
-		bool warning;
+		const char *desc;
 		enum peer_wire t;
 
 		/* Prevent runaway memory usage from many messages */
@@ -118,20 +117,19 @@ static u8 *read_next_msg(const tal_t *ctx,
 			continue;
 
 		/* A helper which decodes an error. */
-		if (is_peer_error(msg, msg, &state->channel_id,
-				  &desc, &warning)) {
-			/* In this case, is_peer_error returns true, but sets
-			 * desc to NULL */
-			if (!desc)
-				continue;
+		desc = is_peer_error(msg, msg);
+		if (desc) {
+			*error = tal_fmt(ctx, "They sent an error: %s", desc);
 
-			*error = tal_fmt(ctx, "They sent a %s: %s",
-					 warning ? "warning" : "error",
-					 desc);
-
-			tal_free(msg);
 			/* Return NULL so caller knows to stop negotiating. */
-			return NULL;
+			return tal_free(msg);
+		}
+
+		desc = is_peer_warning(msg, msg);
+		if (desc) {
+			status_info("They sent %s", desc);
+			tal_free(msg);
+			continue;
 		}
 
 		/* In theory, we're in the middle of an open/RBF/splice, but

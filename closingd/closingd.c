@@ -116,15 +116,14 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 
 /* Handle random messages we might get, returning the first non-handled one. */
 static u8 *closing_read_peer_msg(const tal_t *ctx,
-				 struct per_peer_state *pps,
-				 const struct channel_id *channel_id)
+				 struct per_peer_state *pps)
 {
 	for (;;) {
 		u8 *msg;
 
 		clean_tmpctx();
 		msg = peer_read(ctx, pps);
-		if (!handle_peer_error(pps, channel_id, msg))
+		if (!handle_peer_error_or_warning(pps, msg))
 			return msg;
 	}
 }
@@ -255,7 +254,7 @@ receive_offer(struct per_peer_state *pps,
 
 	/* Wait for them to say something interesting */
 	do {
-		msg = closing_read_peer_msg(tmpctx, pps, channel_id);
+		msg = closing_read_peer_msg(tmpctx, pps);
 
 		/* BOLT #2:
 		 *

@@ -402,14 +402,22 @@ void channel_errmsg(struct channel *channel,
 	if (err_for_them && !channel->error && !warning)
 		channel->error = tal_dup_talarr(channel, u8, err_for_them);
 
-	/* Other implementations chose to ignore errors early on.  Not
-	 * surprisingly, they now spew out spurious errors frequently,
-	 * and we would close the channel on them.  We now support warnings
-	 * for this case. */
-	if (warning) {
-		channel_fail_transient(channel, "%s%s: %s",
+	/* LND sends "internal error" and we close the channel.  But
+	 * prior to 0.11 we would turn this into a warning, and they
+	 * would recover after a reconnect.  So we downgrade, but snark
+	 * about it in the logs. */
+	if (!err_for_them && strends(desc, "internal error")) {
+		channel_fail_transient(channel, "%s: %s",
 				       channel->owner->name,
-				       warning ? " WARNING" : " (aborted)",
+				       "lnd sent 'internal error':"
+				       " let's give it some space");
+		return;
+	}
+
+	/* This is us, sending a warning.  */
+	if (warning) {
+		channel_fail_transient(channel, "%s sent %s",
+				       channel->owner->name,
 				       desc);
 		return;
 	}
@@ -446,13 +454,13 @@ void channel_errmsg(struct channel *channel,
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
 	if (!err_for_them && channel->opener == REMOTE
 	    && channel->state == CHANNELD_AWAITING_LOCKIN)
-		channel_fail_forget(channel, "%s: %s ERROR %s",
+		channel_fail_forget(channel, "%s: %s %s",
 				    channel->owner->name,
 				    err_for_them ? "sent" : "received", desc);
 	else
 		channel_fail_permanent(channel,
 				       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
-				       "%s: %s ERROR %s",
+				       "%s: %s %s",
 				       channel->owner->name,
 				       err_for_them ? "sent" : "received", desc);
 }

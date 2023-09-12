@@ -80,23 +80,11 @@ void peer_failed_err(struct per_peer_state *pps,
 /* We're failing because peer sent us an error/warning message */
 void peer_failed_received_errmsg(struct per_peer_state *pps,
 				 const char *desc,
-				 const struct channel_id *channel_id,
-				 bool warning,
 				 bool abort_restart)
 {
 	u8 *msg;
 
-	/* LND sends "internal error" and we close the channel.  But
-	 * prior to 0.11 we would turn this into a warning, and they
-	 * would recover after a reconnect.  So we downgrade, but snark
-	 * about it in the logs. */
-	if (!warning && strends(desc, "internal error")) {
-		status_unusual("lnd sent 'internal error':"
-			       " let's give it some space");
-		warning = true;
-	}
-	msg = towire_status_peer_error(NULL, desc, warning,
-				       abort_restart, NULL);
+	msg = towire_status_peer_error(NULL, desc, false, abort_restart, NULL);
 	peer_billboard(true, "Received %s", desc);
 	peer_fatal_continue(take(msg), pps);
 }

@@ -118,7 +118,7 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 	}
 
 	return tal_fmt(ctx, "%s%s%s: %.*s",
-		       warning ? "warning" : "error",
+		       warning ? "WARNING" : "ERROR",
 		       channel_id_is_all(channel_id) ? "": " channel ",
 		       channel_id_is_all(channel_id) ? ""
 		       : type_to_string(tmpctx, struct channel_id, channel_id),

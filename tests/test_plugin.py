@@ -993,7 +993,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['old_state'] == "CHANNELD_NORMAL")
     assert(event1['new_state'] == "AWAITING_UNILATERAL")
     assert(event1['cause'] == "protocol")
-    assert(event1['message'] == "channeld: received ERROR error channel {}: Forcibly closed by `close` command timeout".format(cid))
+    assert(event1['message'] == "channeld: received ERROR channel {}: Forcibly closed by `close` command timeout".format(cid))
 
     # settle the channel closure
     bitcoind.generate_block(100)
