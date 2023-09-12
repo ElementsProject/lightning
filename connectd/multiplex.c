@@ -1109,12 +1109,14 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       status_peer_io(LOG_IO_IN, &peer->id, decrypted);
 
 	       /* Could be a all-channel error or warning?  Log it
-		* more verbose, and hang up. */
+		* more verbose: hang up on error. */
 	       if (type == WIRE_ERROR || type == WIRE_WARNING) {
 		       char *desc = sanitize_error(tmpctx, decrypted, NULL);
 		       status_peer_info(&peer->id,
 					"Received %s: %s",
 					peer_wire_name(type), desc);
+		       if (type == WIRE_WARNING)
+			       return read_hdr_from_peer(peer_conn, peer);
 		       return io_close(peer_conn);
 	       }
 
