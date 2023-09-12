@@ -284,7 +284,9 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.set_feerates((10**6, 10**6, 10**6, 10**6), False)
 
     # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld WARNING: .*: update_fee \d+ outside range 1875-75000')
+    l1.daemon.wait_for_log(r'WARNING .*: update_fee \d+ outside range 1875-75000')
+    # They hang up on us
+    l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL')
 
     # Make l2 fail hard.
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)

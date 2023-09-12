@@ -185,8 +185,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	 * form, but we use it in a very limited way. */
 	for (;;) {
 		u8 *msg;
-		char *err;
-		bool warning;
+		const char *err;
 
 		/* The event loop is responsible for freeing tmpctx, so our
 		 * temporary allocations don't grow unbounded. */
@@ -205,24 +204,20 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			continue;
 
 		/* A helper which decodes an error. */
-		if (is_peer_error(tmpctx, msg, &state->channel_id,
-				  &err, &warning)) {
-			/* BOLT #1:
-			 *
-			 *  - if no existing channel is referred to by `channel_id`:
-			 *    - MUST ignore the message.
-			 */
-			/* In this case, is_peer_error returns true, but sets
-			 * err to NULL */
-			if (!err) {
-				tal_free(msg);
-				continue;
-			}
+		err = is_peer_error(tmpctx, msg);
+		if (err) {
 			negotiation_aborted(state,
 					    tal_fmt(tmpctx, "They sent %s",
 						    err));
 			/* Return NULL so caller knows to stop negotiating. */
-			return NULL;
+			return tal_free(msg);
+		}
+
+		err = is_peer_warning(tmpctx, msg);
+		if (err) {
+			status_info("They sent %s", err);
+			tal_free(msg);
+			continue;
 		}
 
 		/* If we get here, it's an interesting message. */
@@ -1391,7 +1386,7 @@ static u8 *handle_peer_in(struct state *state)
 		return fundee_channel(state, msg);
 
 	/* Handles error cases. */
-	if (handle_peer_error(state->pps, &state->channel_id, msg))
+	if (handle_peer_error_or_warning(state->pps, msg))
 		return NULL;
 
 	extracted = extract_channel_id(msg, &channel_id);

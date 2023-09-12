@@ -12,66 +12,38 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-bool is_peer_error(const tal_t *ctx, const u8 *msg,
-		   const struct channel_id *channel_id,
-		   char **desc, bool *warning)
+const char *is_peer_warning(const tal_t *ctx, const u8 *msg)
 {
-	struct channel_id err_chanid;
-
-	if (fromwire_peektype(msg) == WIRE_ERROR)
-		*warning = false;
-	else if (fromwire_peektype(msg) == WIRE_WARNING)
-		*warning = true;
-	else
-		return false;
-
-	*desc = sanitize_error(ctx, msg, &err_chanid);
-
-	/* BOLT #1:
-	 *
-	 * The channel is referred to by `channel_id`, unless `channel_id` is
-	 * 0 (i.e. all bytes are 0), in which case it refers to all channels.
-	 * ...
-	 * The receiving node:
-	 *  - upon receiving `error`:
-	 *     - if `channel_id` is all zero:
-	 *       - MUST fail all channels with the sending node.
-	 *     - otherwise:
-	 *       - MUST fail the channel referred to by `channel_id`, if that channel is with the sending node.
-	 *   - upon receiving `warning`:
-	 *     - SHOULD log the message for later diagnosis.
-	 *     - MAY disconnect.
-	 *     - MAY reconnect after some delay to retry.
-	 *     - MAY attempt `shutdown` if permitted at this point.
-	 *   - if no existing channel is referred to by `channel_id`:
-	 *     - MUST ignore the message.
-	 */
-
-	/* FIXME: We don't actually free all channels at once, they'll
-	 * have to error each in turn. */
-	if (!channel_id_is_all(&err_chanid)
-	    && !channel_id_eq(&err_chanid, channel_id))
-		*desc = tal_free(*desc);
-
-	return true;
+	if (fromwire_peektype(msg) != WIRE_WARNING)
+		return NULL;
+	/* connectd demuxes, so we only see it if channel_id is ours. */
+	return sanitize_error(ctx, msg, NULL);
 }
 
-bool handle_peer_error(struct per_peer_state *pps,
-		       const struct channel_id *channel_id,
-		       const u8 *msg TAKES)
+const char *is_peer_error(const tal_t *ctx, const u8 *msg)
 {
-	char *err;
-	bool warning;
-	if (is_peer_error(tmpctx, msg, channel_id, &err, &warning)) {
-		/* Ignore unknown channel errors. */
-		if (!err) {
-			if (taken(msg))
-				tal_free(msg);
-			return true;
-		}
+	if (fromwire_peektype(msg) != WIRE_ERROR)
+		return NULL;
+	/* connectd demuxes, so we only see it if channel_id is ours. */
+	return sanitize_error(ctx, msg, NULL);
+}
 
-		/* We hang up when a warning is received. */
-		peer_failed_received_errmsg(pps, err, channel_id, warning, false);
+bool handle_peer_error_or_warning(struct per_peer_state *pps,
+				  const u8 *msg TAKES)
+{
+	const char *err;
+
+	err = is_peer_error(tmpctx, msg);
+	if (err)
+		peer_failed_received_errmsg(pps, err, false);
+
+	/* Simply log incoming warnings */
+	err = is_peer_warning(tmpctx, msg);
+	if (err) {
+		if (taken(msg))
+			tal_free(msg);
+		status_info("Received %s", err);
+		return true;
 	}
 
 	return false;
