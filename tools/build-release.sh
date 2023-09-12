@@ -330,21 +330,19 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     # as we compare our checksums with the release captains checksums later, but
     # it gives a direct hint which specific checksums don't match if so.
     sha256sum --check --ignore-missing "${sumfile}"
-    # Creating SHA256SUMS
-	sha256sum clightning-"$VERSION"* > SHA256SUMS
-	# Replacing Fedora checksums from root file to release/SHA256SUMS
-	# because we do not have reproducible builds for Fedora
-	echo "$(head -n1 ${sumfile})\n$(head SHA256SUMS)" > SHA256SUMS
-	# compare our and release captain's SHA256SUMS contents
-	if [ -f "SHA256SUMS" ] && cmp -s "SHA256SUMS" "../SHA256SUMS-$VERSION"; then
+    # Creating SHA256SUMS, except Fedora (copy that from theirs)
+    grep 'bin-Fedora-28-amd64' "$sumfile" > SHA256SUMS
+    sha256sum clightning-"$VERSION"* | grep -v 'bin-Fedora-28-amd64' >> SHA256SUMS
+    # compare our and release captain's SHA256SUMS contents
+    if cmp -s SHA256SUMS "$sumfile"; then
         echo "SHA256SUMS are Identical"
     else
         echo "Error: SHA256SUMS do NOT Match"
-		exit 1
+	exit 1
     fi
-	# verify release captain signature
+    # verify release captain signature
     gpg --verify "../SHA256SUMS-$VERSION.asc"
-	# create ASCII-armored detached signature
+    # create ASCII-armored detached signature
     gpg -sb --armor < SHA256SUMS > SHA256SUMS.new
     echo "Verified Successfully! Signature Updated in release/SHA256SUMS.new"
 fi
