@@ -11,6 +11,7 @@ try:
     from pathlib import Path
     from flask import Flask, request
     from flask_restx import Api
+    from flask_cors import CORS
     from gunicorn.app.base import BaseApplication
     from multiprocessing import Process, Queue
     from flask_socketio import SocketIO, disconnect
@@ -79,11 +80,13 @@ def ws_connect():
 
 
 def create_app():
+    from utilities.shared import REST_CORS_ORIGINS
     global app
     app.config['SECRET_KEY'] = os.urandom(24).hex()
     authorizations = {
         "rune": {"type": "apiKey", "in": "header", "name": "Rune"}
     }
+    CORS(app, resources={r"/*": {"origins": REST_CORS_ORIGINS}})
     api = Api(app, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune"])
     api.add_namespace(rpcns, path="/v1")
 
