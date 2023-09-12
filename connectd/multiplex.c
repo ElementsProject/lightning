@@ -448,12 +448,8 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 #endif
 	set_urgent_flag(peer, is_urgent(type));
 
-	/* BOLT #1:
-	 *
-	 * A sending node:
-	 *...
-	 *  - MAY close the connection after sending.
-	 */
+	/* We are no longer required to do this, but we do disconnect
+	 * after sending an error or warning. */
 	if (type == WIRE_ERROR || type == WIRE_WARNING) {
 		/* Might already be draining... */
 		if (!peer->draining)
