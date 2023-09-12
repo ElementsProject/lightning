@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.08.1] - 2023-09-12: "Satoshi's Successor II"
+
+Bugfix release for bad issues found since 23.08 which can't wait for 23.11, and some minor low-impact fixes (e.g. docker images, documentation, CI).
+
+
+### Added
+
+ - cln-rpc: `ShortChannelId` has Eq, PartialOrd, Ord and Hash traits ([#6662])
+ - doc: documentation for REST interface (clnrest) ([#6631])
+
+
+### Changed
+
+ - JSON-RPC: `checkrune` `nodeid` parameter now optional ([#6622])
+
+
+### Fixed
+
+ - Protocol: Fixed a wrong number type being used in routes ([#6642])
+ - JSON-RPC: `showrunes` on a specific rune would always say `stored`: false. ([#6640])
+ - MacOS: `clnrest` now works ([#6605]) 
+ - Build: test for `python3` or `python`, rather than assuming `python3` ([#6630])
+
+
+### EXPERIMENTAL
+
+  - Plugins: `renepay`: various minor fixes. ([#6632])
+
+
+[#6605]: https://github.com/ElementsProject/lightning/pull/6605
+[#6622]: https://github.com/ElementsProject/lightning/pull/6622
+[#6630]: https://github.com/ElementsProject/lightning/pull/6630
+[#6631]: https://github.com/ElementsProject/lightning/pull/6631
+[#6632]: https://github.com/ElementsProject/lightning/pull/6632
+[#6642]: https://github.com/ElementsProject/lightning/pull/6642
+[#6640]: https://github.com/ElementsProject/lightning/pull/6640
+[#6662]: https://github.com/ElementsProject/lightning/pull/6662
+[v23.08.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.08.1
+
+
 ## [v23.08] - 2023-08-23: "Satoshi's Successor"
 
 This release named by Matt Morehouse.
