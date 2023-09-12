@@ -68,10 +68,9 @@ def create_app():
     global app
     app.config['SECRET_KEY'] = os.urandom(24).hex()
     authorizations = {
-        "rune": {"type": "apiKey", "in": "header", "name": "Rune"},
-        "nodeid": {"type": "apiKey", "in": "header", "name": "Nodeid"}
+        "rune": {"type": "apiKey", "in": "header", "name": "Rune"}
     }
-    api = Api(app, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune", "nodeid"])
+    api = Api(app, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune"])
     api.add_namespace(rpcns, path="/v1")
 
 

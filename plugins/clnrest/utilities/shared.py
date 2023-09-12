@@ -44,10 +44,6 @@ def call_rpc_method(plugin, rpc_method, payload):
 
 def verify_rune(plugin, request):
     rune = request.headers.get("rune", None)
-    nodeid = request.headers.get("nodeid", None)
-
-    if nodeid is None:
-        raise Exception('{ "error": {"code": 403, "message": "Not authorized: Missing nodeid"} }')
 
     if rune is None:
         raise Exception('{ "error": {"code": 403, "message": "Not authorized: Missing rune"} }')
@@ -60,7 +56,10 @@ def verify_rune(plugin, request):
     else:
         rpc_params = request.form.to_dict()
 
-    return call_rpc_method(plugin, "checkrune", [rune, nodeid, request.view_args["rpc_method"], rpc_params])
+    return call_rpc_method(plugin, "checkrune",
+                           {"rune": rune,
+                            "method": request.view_args["rpc_method"],
+                            "params": rpc_params})
 
 
 def process_help_response(help_response):
