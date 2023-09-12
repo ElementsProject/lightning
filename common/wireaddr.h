@@ -23,7 +23,7 @@ struct sockaddr_un;
  *       * version 3 ([prop224](https://gitweb.torproject.org/torspec.git/tree/proposals/224-rend-spec-ng.txt))
  *         onion service addresses; Encodes:
  *            `[32:32_byte_ed25519_pubkey] || [2:checksum] || [1:version]`,
- *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
+ *             where `checksum = sha3(".onion checksum" || pubkey || version)[:2]`
  */
 
 /* BOLT-hostnames #7:
