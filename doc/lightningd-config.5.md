@@ -638,6 +638,10 @@ authenticate to the Tor control port.
 
   Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
+* **rest-cors-origins**=*CORSORIGINS*  [plugin `clnrest.py`]
+
+  Define multiple origins which are allowed to share resources on web pages to a domain different from the one that served the web page. Default is `*` which allows all origins.
+
 
 ### Lightning Plugins
 
