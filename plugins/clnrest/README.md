@@ -19,19 +19,22 @@ If `rest-port` is not specified, the plugin will disable itself.
 
 ## Server
 
-With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. The POST method requires `rune` and `nodeid` headers for authorization.
+With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. The POST method requires `rune` header for authorization.
 
-- `nodeid` is the same as `id (pubkey)` received from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo).
 - A new `rune` can be created via [createrune](https://docs.corelightning.org/reference/lightning-createrune) or the list of existing runes can be retrieved with [listrunes](https://docs.corelightning.org/reference/lightning-listrunes) command.
 
+Note: in version v23.08, a parameter `Nodeid` was required to be the id of the node we're talking to (see `id (pubkey)` received from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo) ).  You can still send this for backwards compatiblity, but it is completely ignored.
+
 ### cURL
-Example curl command for POST will also require `rune` and `nodeid` headers like below:
-    `curl -k -X POST 'https://127.0.0.1:3010/v1/getinfo' -H 'Rune: <node-rune>' -H 'Nodeid: <node-id>'`
+Example curl command for POST will also require a `rune` header like below:
+    `curl -k -X POST 'https://127.0.0.1:3010/v1/getinfo' -H 'Rune: <node-rune>'`
 
 With `-k` or `--insecure` option curl proceeds with the connection even if the SSL certificate cannot be verified.
 This option should be used only when testing with self signed certificate.
 
 ### Swagger
+FIX SCREEN SHOTS PLEASE SHAHANA!
+
 <p float="left">
     <img src="./.github/screenshots/Swagger.png" width="200" alt="Swagger Dashboard" />
     <img src="./.github/screenshots/Swagger-auth.png" width="200" alt="Swagger Authorize" />

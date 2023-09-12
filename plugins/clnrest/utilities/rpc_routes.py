@@ -29,7 +29,7 @@ class ListMethodsResource(Resource):
 
 @rpcns.route("/<rpc_method>")
 class RpcMethodResource(Resource):
-    @rpcns.doc(security=[{"rune": [], "nodeid": []}])
+    @rpcns.doc(security=[{"rune": []}])
     @rpcns.doc(params={"rpc_method": (f"Name of the RPC method to be called")})
     @rpcns.expect(payload_model, validate=False)
     @rpcns.response(201, "Success")
