@@ -46,6 +46,14 @@ If `rest-port` is not specified, the plugin will disable itself.
 - --rest-protocol: Specifies the REST server protocol. Default is HTTPS.
 - --rest-host: Defines the REST server host. Default is 127.0.0.1.
 - --rest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
+- --rest-cors-origins:   Define multiple origins which are allowed to share resources on web pages to a domain different from the one that served the web page. Default is `*` which allows all origins. Example to define multiple origins:
+
+```
+rest-cors-origins=https://localhost:5500
+rest-cors-origins=http://192.168.1.50:3030
+rest-cors-origins=https?://127.0.0.1:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])
+
+```
 
 ## Server
 
