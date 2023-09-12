@@ -93,7 +93,6 @@ new_uncommitted_channel(struct peer *peer)
 
 void opend_channel_errmsg(struct uncommitted_channel *uc,
 			  struct peer_fd *peer_fd,
-			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
 			  bool aborted UNUSED,

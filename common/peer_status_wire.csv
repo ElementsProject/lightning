@@ -3,8 +3,6 @@
 
 # An error occurred: if error_for_them, that to go to them.
 msgtype,status_peer_error,0xFFF4
-# This is implied if error_for_them, but master tries not to parse packets.
-msgdata,status_peer_error,channel,channel_id,
 msgdata,status_peer_error,desc,wirestring,
 # Take a deep breath, then try reconnecting to the precious little snowflake.
 msgdata,status_peer_error,warning,bool,

@@ -3588,9 +3588,8 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
-void static dualopen_errmsg(struct channel *channel,
+static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
-			    const struct channel_id *channel_id UNUSED,
 			    const char *desc,
 			    bool warning,
 			    bool aborted,
