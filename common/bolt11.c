@@ -1043,7 +1043,7 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
  *
  * - if `x` is included:
  *   - SHOULD use the minimum `data_length` possible.
- * - MUST include one `c` field (`min_final_cltv_expiry_delta`).
+ * - SHOULD include one `c` field (`min_final_cltv_expiry_delta`).
  *...
  *   - SHOULD use the minimum `data_length` possible.
  */
@@ -1312,9 +1312,15 @@ char *bolt11_encode_(const tal_t *ctx,
 		encode_x(&data, b11->expiry);
 
 	/* BOLT #11:
-	 *   - MUST include one `c` field (`min_final_cltv_expiry_delta`).
+	 *   - SHOULD include one `c` field (`min_final_cltv_expiry_delta`).
+	 *...
+	 * A reader:
+	 *...
+	 *   - if the `c` field (`min_final_cltv_expiry_delta`) is not provided:
+	 *     - MUST use an expiry delta of at least 18 when making the payment
 	 */
-	encode_c(&data, b11->min_final_cltv_expiry);
+	if (b11->min_final_cltv_expiry != 18)
+		encode_c(&data, b11->min_final_cltv_expiry);
 
 	for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
 		encode_f(&data, b11->fallbacks[i]);
