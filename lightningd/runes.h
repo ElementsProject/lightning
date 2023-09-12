@@ -15,4 +15,7 @@ void runes_finish_init(struct runes *runes);
  */
 const char *rune_is_ours(struct lightningd *ld, const struct rune *rune);
 
+/* Get unique id number of rune. */
+u64 rune_unique_id(const struct rune *rune);
+
 #endif /* LIGHTNING_LIGHTNINGD_RUNES_H */

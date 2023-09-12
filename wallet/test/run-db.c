@@ -234,6 +234,9 @@ struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in UN
 /* Generated stub for rune_is_ours */
 const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_is_ours called!\n"); abort(); }
+/* Generated stub for rune_unique_id */
+u64 rune_unique_id(const struct rune *rune UNNEEDED)
+{ fprintf(stderr, "rune_unique_id called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }

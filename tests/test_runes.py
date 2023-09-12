@@ -522,6 +522,27 @@ def test_invalid_restrictions(node_factory):
             print(l1.rpc.createrune(restrictions=[[f"{cond}method"]]))
 
 
+def test_nonnumeric_uniqueid(node_factory):
+    """We always use numeric uniqueids, don't allow other forms"""
+    l1 = node_factory.get_node()
+
+    # "zero"
+    with pytest.raises(RpcError, match='should have valid numeric unique_id'):
+        l1.rpc.showrunes('pX1h8z05kg0WZqe0ogo_8MHOa7-8gVZNXTckyyLKuLk9emVybw==')
+
+    # "0andstr"
+    with pytest.raises(RpcError, match='should have valid numeric unique_id'):
+        l1.rpc.showrunes('1dYYAIxmjRDHbXUIpztpwDA0q7RrHKbXJd9Yhj50Dfc9MGFuZHN0cmluZw==')
+
+    # "9223372036854775809"
+    with pytest.raises(RpcError, match='should have valid numeric unique_id'):
+        l1.rpc.showrunes('cr7eQmdhPVqH3-M2g67JymP2zVKyZ_n5hhFk3IMSg5o9OTIyMzM3MjAzNjg1NDc3NTgwOQ==')
+
+    # No unique id!
+    with pytest.raises(RpcError, match='should have valid numeric unique_id'):
+        l1.rpc.showrunes('SaQlgbzu6SGAhANReucs7P8GLuVbSlPg30QG78UzNcY=')
+
+
 def test_showrune_id(node_factory):
     l1 = node_factory.get_node()
 
