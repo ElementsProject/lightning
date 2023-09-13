@@ -11,7 +11,7 @@ try:
     from gunicorn.workers import sync  # noqa: F401
 
     from pathlib import Path
-    from flask import Flask, request
+    from flask import Flask, request, Blueprint
     from flask_restx import Api
     from flask_cors import CORS
     from gunicorn.app.base import BaseApplication
@@ -105,8 +105,20 @@ def create_app():
         "rune": {"type": "apiKey", "in": "header", "name": "Rune"}
     }
     CORS(app, resources={r"/*": {"origins": REST_CORS_ORIGINS}})
-    api = Api(app, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune"])
+    blueprint = Blueprint("api", __name__)
+    api = Api(blueprint, version="1.0", title="Core Lightning Rest", description="Core Lightning REST API Swagger", authorizations=authorizations, security=["rune"])
+    app.register_blueprint(blueprint)
     api.add_namespace(rpcns, path="/v1")
+
+
+@app.after_request
+def add_csp_headers(response):
+    try:
+        from utilities.shared import REST_CSP
+        response.headers['Content-Security-Policy'] = REST_CSP.replace('\\', '').replace("[\"", '').replace("\"]", '')
+        return response
+    except Exception as err:
+        plugin.log(f"Error from rest-csp config: {err}", "info")
 
 
 def set_application_options(plugin):
