@@ -289,12 +289,10 @@ show-flags: config.vars
 	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
 	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
-ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
+# We will re-generate, but we won't generate for the first time!
+ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
+	@if [ ! -f config.vars ]; then echo 'File config.vars not found: you must run ./configure before running make.' >&2; exit 1; fi
 	./configure --reconfigure
-
-config.vars:
-	@echo 'File config.vars not found: you must run ./configure before running make.' >&2
-	@exit 1
 
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
