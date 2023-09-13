@@ -2420,7 +2420,6 @@ def test_anchor_min_emergency(bitcoind, node_factory):
     wait_for(lambda: l1.rpc.listfunds()['outputs'] == [])
 
 
-@pytest.mark.xfail(strict=True)
 def test_fundchannel_utxo_too_small(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
