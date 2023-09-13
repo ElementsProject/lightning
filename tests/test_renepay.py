@@ -37,8 +37,8 @@ def test_shadow(node_factory):
     l1, l2, l3 = node_factory.line_graph(3,
                                          wait_for_announce=True,
                                          opts=[{},
-                                               {'fee-base': 2000, 'fee-per-satoshi': 20, 'cltv-delta': 20},
-                                               {'fee-base': 3000, 'fee-per-satoshi': 30, 'cltv-delta': 30}])
+                                               {'fee-base': 20, 'fee-per-satoshi': 20, 'cltv-delta': 20},
+                                               {'fee-base': 30, 'fee-per-satoshi': 30, 'cltv-delta': 30}])
 
     # Shadow doesn't always happen (50% chance)!
     for i in range(20):
