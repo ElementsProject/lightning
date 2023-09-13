@@ -275,6 +275,8 @@ jobs:
           poetry install
 
       - name: Install bitcoind
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
