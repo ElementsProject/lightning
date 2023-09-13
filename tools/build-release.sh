@@ -253,7 +253,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     # it gives a direct hint which specific checksums don't match if so.
     sha256sum --check --ignore-missing "${sumfile}"
     # Creating SHA256SUMS, except Fedora (copy that from theirs)
-    grep 'bin-Fedora-28-amd64' "$sumfile" > SHA256SUMS
+    grep 'Fedora-28-amd64' "$sumfile" > SHA256SUMS
     sha256sum clightning-"$VERSION"* | grep -v 'bin-Fedora-28-amd64' >> SHA256SUMS
     # compare our and release captain's SHA256SUMS contents
     if cmp -s SHA256SUMS "$sumfile"; then
