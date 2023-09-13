@@ -2418,3 +2418,18 @@ def test_anchor_min_emergency(bitcoind, node_factory):
     l1.rpc.withdraw(addr2, 'all')
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: l1.rpc.listfunds()['outputs'] == [])
+
+
+@pytest.mark.xfail(strict=True)
+def test_fundchannel_utxo_too_small(bitcoind, node_factory):
+    l1, l2 = node_factory.get_nodes(2)
+
+    # Add 1 600 sat UTXO to a fresh node
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.00000600)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    # a higher fee rate, making the 600 sat UTXO uneconomical:
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match=r'Could not afford 100000sat using all 0 available UTXOs'):
+        l1.rpc.fundchannel(l2.info['id'], 100000, 10000)
