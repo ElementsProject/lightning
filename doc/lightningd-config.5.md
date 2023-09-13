@@ -642,6 +642,9 @@ authenticate to the Tor control port.
 
   Define multiple origins which are allowed to share resources on web pages to a domain different from the one that served the web page. Default is `*` which allows all origins.
 
+* **rest-csp**=*CSPOLICY*  [plugin `clnrest.py`]
+
+  Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. Default CSP is `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`.
 
 ### Lightning Plugins
 
