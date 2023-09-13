@@ -498,6 +498,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					      const jsmntok_t *params)
 {
 	struct utxo **utxos;
+	const struct utxo **excluded;
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff, change;
@@ -537,8 +538,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
 
-	/* We seperate out UTXOs to exclude if they are uneconomical */
-	struct utxo **uneconomical_utxos = tal_arr(cmd, struct utxo *, 0);
+	/* Either uneconomical at this feerate, or already included. */
+	excluded = tal_arr(cmd, const struct utxo *, 0);
 
 	input = AMOUNT_SAT(0);
 	while (!inputs_sufficient(input, *amount, *feerate_per_kw, *weight,
@@ -547,35 +548,23 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		struct amount_sat fee;
 		u32 utxo_weight;
 
-
-		/* Merge the two lists for exclusion */
-		struct utxo **all_excluded = tal_arr(cmd, struct utxo *, 0);
-		for(size_t i = 0; i < tal_count(utxos); i++) {
-			tal_arr_expand(&all_excluded, utxos[i]);
-		}
-		for(size_t i = 0; i < tal_count(uneconomical_utxos); i++) {
-			tal_arr_expand(&all_excluded, uneconomical_utxos[i]);
-		}
-
 		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
 					current_height,
 					&diff,
 					*feerate_per_kw,
 					maxheight,
 					*nonwrapped,
-					cast_const2(const struct utxo **, all_excluded));
-		tal_free(all_excluded);
+					excluded);
 
 		if (utxo) {
+			tal_arr_expand(&excluded, utxo);
 			utxo_weight = utxo_spend_weight(utxo,
 							*min_witness_weight);
 			fee = amount_tx_fee(*feerate_per_kw, utxo_weight);
 
 			/* Uneconomic to add this utxo, skip it */
-			if (!all && amount_sat_greater_eq(fee, utxo->amount)){
-				tal_arr_expand(&uneconomical_utxos, utxo);
+			if (!all && amount_sat_greater_eq(fee, utxo->amount))
 				continue;
-			}
 
 			tal_arr_expand(&utxos, utxo);
 
@@ -613,7 +602,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						     &diff));
 	}
 
-	tal_free(uneconomical_utxos);
+	tal_free(excluded);
 
 	if (all) {
 		/* We need to afford one non-dust output, at least. */
