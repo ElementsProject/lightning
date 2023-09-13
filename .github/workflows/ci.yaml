@@ -295,6 +295,7 @@ jobs:
         run: |
           # Loading the network from config.vars rather than the envvar is a terrible idea...
           sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
+          cat config.vars
 
       - name: Test
         env:
@@ -310,6 +311,8 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
         run: |
+          env
+          cat config.vars
           VALGRIND=0 poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
