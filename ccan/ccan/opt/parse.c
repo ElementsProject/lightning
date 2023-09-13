@@ -92,8 +92,11 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 		arg = 1;
 	} else {
 		for (arg = 1; argv[arg]; arg++) {
-			if (argv[arg][0] == '-')
-				break;
+			if (argv[arg][0] == '-') {
+				/* Negative numerical values are not options */
+				if (argv[arg][1] < '0' || argv[arg][1] > '9')
+					break;
+			}
 		}
 	}
 
