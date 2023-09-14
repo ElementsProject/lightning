@@ -212,6 +212,82 @@ def test_createrune(node_factory):
                                 params=params)['valid'] is True
 
 
+def do_test_rune_per_restriction(l1, rune_to_test, per_sec):
+    assert 'last_used' not in l1.rpc.showrunes(rune=rune_to_test)['runes'][0]
+
+    before = time.time()
+    checkrune_result_1 = l1.rpc.checkrune(nodeid=l1.info['id'],
+                                          rune=rune_to_test,
+                                          method='getinfo',
+                                          params={})
+
+    show_rune = l1.rpc.showrunes(rune=rune_to_test)['runes'][0]
+    after = time.time()
+
+    assert checkrune_result_1['valid'] is True
+    assert before < show_rune['last_used'] < after
+
+    # cannot use same rune till 'per_sec' seconds
+    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_to_test,
+                         method='listpeers',
+                         params={})
+
+    assert exc_info.value.error['code'] == 0x5de
+    assert exc_info.value.error['message'] == 'Not permitted: too soon'
+    assert l1.rpc.showrunes(rune=rune_to_test)['runes'][0]['last_used'] == show_rune['last_used']
+
+    print(f'PER SEC VALUE: {per_sec}')
+    print(show_rune['last_used'])
+    print(time.time())
+    time.sleep(per_sec + 1)
+    print(time.time())
+
+    # rune should again be valid after 'per_sec' seconds
+    checkrune_result_3 = l1.rpc.checkrune(nodeid=l1.info['id'],
+                                          rune=rune_to_test,
+                                          method='listinvoices',
+                                          params={})
+
+    assert checkrune_result_3['valid'] is True
+    assert show_rune['last_used'] <= l1.rpc.showrunes(rune=rune_to_test)['runes'][0]['last_used'] <= time.time()
+
+
+def test_createrune_per_restriction(node_factory):
+    l1 = node_factory.get_node()
+
+    # 1 sec = 1,000,000,000 nanoseconds (nsec)
+    rune_per_nano_sec = l1.rpc.createrune(restrictions=[["per=1000000000nsec"]])['rune']
+    assert rune_per_nano_sec == 'Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM='
+    do_test_rune_per_restriction(l1, rune_per_nano_sec, 1)
+
+    # 1 sec = 1,000,000 microseconds (usec)
+    rune_per_micro_sec = l1.rpc.createrune(restrictions=[["per=2000000usec"]])['rune']
+    assert rune_per_micro_sec == 'i8H9Rk5iDvXdiNgRUbeWqKUdMH2x0h58-1LqE1jthio9MSZwZXI9MjAwMDAwMHVzZWM='
+    do_test_rune_per_restriction(l1, rune_per_micro_sec, 2)
+
+    # 1 sec = 1,000 milliseconds (msec)
+    rune_per_milli_sec = l1.rpc.createrune(restrictions=[["per=1000msec"]])['rune']
+    assert rune_per_milli_sec == 'EzVpQwjYe2aoNQiRa4_s7FJtomD3kWzx7lusMpzA59w9MiZwZXI9MTAwMG1zZWM='
+    do_test_rune_per_restriction(l1, rune_per_milli_sec, 1)
+
+    # 1 sec
+    rune_per_sec = l1.rpc.createrune(restrictions=[["per=2sec"]])['rune']
+    assert rune_per_sec == 'dBbGI4T85cF4eSHvuQF_kW8bXgSDJY8Wr9cTsPGRCqg9MyZwZXI9MnNlYw=='
+    do_test_rune_per_restriction(l1, rune_per_sec, 2)
+
+    # default (sec)
+    rune_per_default = l1.rpc.createrune(restrictions=[["per=1"]])['rune']
+    assert rune_per_default == 'NrM7go6C4qzfRQDkUSv1DtRroJWSKqdjIOuvGS4TLFE9NCZwZXI9MQ=='
+    do_test_rune_per_restriction(l1, rune_per_default, 1)
+
+    # 1 minute
+    rune_per_min = l1.rpc.createrune(restrictions=[["per=1min"]])['rune']
+    assert rune_per_min == 'ZfWDjFa7wTiadUWOjwpztSClfiubwVusxxUEtoLtCBk9NSZwZXI9MW1pbg=='
+    do_test_rune_per_restriction(l1, rune_per_min, 60)
+
+
 def test_showrunes(node_factory):
     l1 = node_factory.get_node()
     rune1 = l1.rpc.createrune()
