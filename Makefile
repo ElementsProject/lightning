@@ -697,11 +697,11 @@ default-targets: $(DEFAULT_TARGETS)
 
 distclean: clean
 	$(RM) ccan/config.h config.vars
-	$(RM) $(PYTHON_GENERATED)
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
+	$(RM) $(PYTHON_GENERATED)
 
 # We used to have gen_ files, now we have _gen files.
 obsclean:
