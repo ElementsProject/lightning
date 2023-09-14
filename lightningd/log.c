@@ -1087,7 +1087,7 @@ static void log_to_json(unsigned int skipped,
 			: level == LOG_IO_IN ? "IO_IN"
 			: level == LOG_IO_OUT ? "IO_OUT"
 			: "UNKNOWN");
-	json_add_time(info->response, "time", diff.ts);
+	json_add_timestr(info->response, "time", diff.ts);
 	if (node_id)
 		json_add_node_id(info->response, "node_id", node_id);
 	json_add_string(info->response, "source", prefix);
@@ -1148,7 +1148,7 @@ static struct command_result *json_getlog(struct command *cmd,
 	response = json_stream_success(cmd);
 	/* Suppress logging for this stream, to not bloat io logs */
 	json_stream_log_suppress_for_cmd(response, cmd);
-	json_add_time(response, "created_at", log_book->init_time.ts);
+	json_add_timestr(response, "created_at", log_book->init_time.ts);
 	json_add_num(response, "bytes_used", (unsigned int)log_book->mem_used);
 	json_add_num(response, "bytes_max", (unsigned int)log_book->max_mem);
 	json_add_log(response, log_book, NULL, *minlevel);

@@ -370,11 +370,11 @@ void json_add_timeabs(struct json_stream *result, const char *fieldname,
 		      struct timeabs t)
 {
 	json_add_primitive_fmt(result, fieldname,
-			       "%" PRIu64 ".%03" PRIu64,
-			       (u64)t.ts.tv_sec, (u64)t.ts.tv_nsec / 1000000);
+			       "%" PRIu64 ".%09" PRIu64,
+			       (u64)t.ts.tv_sec, (u64)t.ts.tv_nsec);
 }
 
-void json_add_time(struct json_stream *result, const char *fieldname,
+void json_add_timestr(struct json_stream *result, const char *fieldname,
 			  struct timespec ts)
 {
 	char timebuf[100];
