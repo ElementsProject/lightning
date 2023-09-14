@@ -46,7 +46,7 @@ def test_plugin_start(node_factory):
     assert str(bin_path) in l1.rpc.listconfigs()['configs']['plugin']['values_str']
 
     # Now check that the `testmethod was registered ok
-    l1.rpc.help("testmethod") == {
+    assert l1.rpc.help("testmethod") == {
         'help': [
             {
                 'command': 'testmethod ',
@@ -59,6 +59,8 @@ def test_plugin_start(node_factory):
     }
 
     assert l1.rpc.testmethod() == "Hello"
+    assert l1.rpc.test_custom_notification() == "Notification sent"
+    l1.daemon.wait_for_log(r'Received a test_custom_notification')
 
     l1.connect(l2)
     l1.daemon.wait_for_log(r'Got a connect hook call')
