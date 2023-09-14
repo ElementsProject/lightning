@@ -70,7 +70,7 @@ RESULT=$(lightning-cli listpeerchannels);
 CHANNEL_ID=$(echo $RESULT| jq -r ".channels[0].channel_id");
 echo $RESULT;
 
-RESULT=$(lightning-cli newoutput 100000);
+RESULT=$(lightning-cli addpsbtoutput 100000);
 INITIALPSBT=$(echo $RESULT | jq -r ".psbt");
 echo $RESULT;
 

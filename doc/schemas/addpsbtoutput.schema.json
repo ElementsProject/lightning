@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "psbt",
+    "estimated_added_weight",
+    "outnum"
+  ],
+  "added": "v23.11",
+  "properties": {
+    "psbt": {
+      "type": "string",
+      "description": "Unsigned PSBT which fulfills the parameters given"
+    },
+    "estimated_added_weight": {
+      "type": "u32",
+      "description": "The estimated weight of the added output"
+    },
+    "outnum": {
+      "type": "u32",
+      "description": "The 0-based number where the output was placed"
+    }
+  }
+}

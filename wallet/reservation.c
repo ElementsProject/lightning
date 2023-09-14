@@ -654,6 +654,94 @@ static const struct json_command fundpsbt_command = {
 };
 AUTODATA(json_command, &fundpsbt_command);
 
+static struct command_result *json_addpsbtoutput(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct amount_sat *amount;
+	struct wally_psbt *psbt;
+	u32 *locktime;
+	ssize_t outnum;
+	u32 weight;
+	struct pubkey pubkey;
+	s64 keyidx;
+	u8 *b32script;
+
+	if (!param(cmd, buffer, params,
+		   p_req("satoshi", param_sat, &amount),
+		   p_opt("initialpsbt", param_psbt, &psbt),
+		   p_opt("locktime", param_number, &locktime),
+		   NULL))
+		return command_param_failed();
+
+	if (!psbt) {
+		if (!locktime) {
+			locktime = tal(cmd, u32);
+			*locktime = default_locktime(cmd->ld->topology);
+		}
+		psbt = create_psbt(cmd, 0, 0, *locktime);
+	}
+	else if(locktime) {
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Can't set locktime of an existing {initialpsbt}");
+	}
+
+	if (!validate_psbt(psbt))
+		return command_fail(cmd,
+				    FUNDING_PSBT_INVALID,
+				    "PSBT failed to validate.");
+
+	if (amount_sat_less(*amount, chainparams->dust_limit))
+		return command_fail(cmd, FUND_OUTPUT_IS_DUST,
+				    "Receive amount is below dust limit (%s)",
+				    type_to_string(tmpctx,
+				    		   struct amount_sat,
+				    		   &chainparams->dust_limit));
+
+	/* Get a change adddress */
+	keyidx = wallet_get_newindex(cmd->ld);
+	if (keyidx < 0)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to generate change address."
+				    " Keys exhausted.");
+
+	if (chainparams->is_elements) {
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
+		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+	} else {
+		b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+	}
+	if (!b32script) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to generate change address."
+				    " Keys generation failure");
+	}
+	txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+
+	outnum = psbt->num_outputs;
+	psbt_append_output(psbt, b32script, *amount);
+	/* Add additional weight of output */
+	weight = bitcoin_tx_output_weight(
+			chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "psbt", psbt);
+	json_add_num(response, "estimated_added_weight", weight);
+	json_add_num(response, "outnum", outnum);
+	return command_success(cmd, response);
+}
+
+static const struct json_command addpsbtoutput_command = {
+	"addpsbtoutput",
+	"bitcoin",
+	json_addpsbtoutput,
+	"Create a PSBT (or modify existing {initialpsbt}) with an output receiving {satoshi} amount.",
+	false
+};
+AUTODATA(json_command, &addpsbtoutput_command);
+
 static struct command_result *param_txout(struct command *cmd,
 					  const char *name,
 					  const char *buffer,
