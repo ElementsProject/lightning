@@ -1747,6 +1747,7 @@ def test_bitcoin_backend(node_factory, bitcoind):
                                " bitcoind")
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'test relies on bitcoind and bitcoin-cli, not available on liquid')
 def test_bitcoin_bad_estimatefee(node_factory, bitcoind):
     """
     This tests that we don't crash if bitcoind backend gives bad estimatefees.
