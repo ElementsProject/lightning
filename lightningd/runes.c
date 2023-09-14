@@ -374,13 +374,15 @@ static struct command_result *json_showrunes(struct command *cmd,
 	json_array_start(response, "runes");
 	if (ras) {
 		u64 uid = rune_unique_id(ras->rune);
-		const char *from_db = wallet_get_rune(tmpctx, cmd->ld->wallet, uid);
+		struct timeabs last_used;
+		const char *from_db = wallet_get_rune(tmpctx, cmd->ld->wallet, uid, &last_used);
 
 		/* We consider it stored iff this is exactly stored */
 		json_add_rune(cmd->ld, response, NULL, ras->runestr, ras->rune,
 			      from_db && streq(from_db, ras->runestr));
 	} else {
-		const char **strs = wallet_get_runes(cmd, cmd->ld->wallet);
+		struct timeabs *last_used;
+		const char **strs = wallet_get_runes(cmd, cmd->ld->wallet, &last_used);
 		for (size_t i = 0; i < tal_count(strs); i++) {
 			const struct rune *r = rune_from_base64(cmd, strs[i]);
 			json_add_rune(cmd->ld, response, NULL, strs[i], r, true);
