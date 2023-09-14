@@ -5753,6 +5753,20 @@ void wallet_rune_insert(struct wallet *wallet, const struct rune *rune)
 	db_rune_insert(wallet->db, rune);
 }
 
+void wallet_rune_update_last_used(struct wallet *wallet, const struct rune *rune, struct timeabs last_used)
+{
+	struct db_stmt *stmt;
+	struct timerel t;
+
+	t.ts = last_used.ts;
+	stmt = db_prepare_v2(wallet->db,
+			     SQL("UPDATE runes SET last_used_nsec = ? WHERE id = ?;"));
+	db_bind_u64(stmt, time_to_nsec(t));
+	db_bind_u64(stmt, rune_unique_id(rune));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
 static void db_insert_blacklist(struct db *db,
 				const struct rune_blacklist *entry)
 {
@@ -5852,7 +5866,8 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 void migrate_runes_idfix(struct lightningd *ld, struct db *db)
 {
 	/* ID fields were wrong.  Pull them all out and put them back */
-	const char **runes = db_get_runes(tmpctx, db, NULL);
+	struct timeabs *last_used;
+	const char **runes = db_get_runes(tmpctx, db, &last_used);
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("DELETE FROM runes;"));

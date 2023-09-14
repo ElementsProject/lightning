@@ -1607,6 +1607,15 @@ const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet, struct ti
  */
 void wallet_rune_insert(struct wallet *wallet, const struct rune *rune);
 
+/**
+ * wallet_rune_update_last_used -- Update the timestamp on an existing rune
+ *
+ * @wallet: the wallet to save into
+ * @rune: the instance to store
+ * @last_used: now
+ */
+void wallet_rune_update_last_used(struct wallet *wallet, const struct rune *rune, struct timeabs last_used);
+
 /* Load the runes blacklist */
 struct rune_blacklist {
 	u64 start, end;

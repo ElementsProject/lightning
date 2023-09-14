@@ -786,6 +786,12 @@ static const char *check_condition(const tal_t *ctx,
 				   ptok->end - ptok->start);
 }
 
+static void update_rune_usage_time(struct runes *runes,
+						 struct rune *rune)
+{
+	wallet_rune_update_last_used(runes->ld->wallet, rune, time_now());
+}
+
 static struct command_result *json_checkrune(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,
@@ -835,6 +841,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	/* If it succeeded, *now* we increment any associated usage counter. */
 	if (cinfo.usage)
 		cinfo.usage->counter++;
+	update_rune_usage_time(cmd->ld->runes, ras->rune);
 
 	js = json_stream_success(cmd);
 	json_add_bool(js, "valid", true);
