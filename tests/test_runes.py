@@ -250,6 +250,26 @@ def test_showrunes(node_factory):
     assert not_our_rune['stored'] is False
     assert not_our_rune['our_rune'] is False
 
+    # test that we don't set timestamp if rune fails
+    new_rune = l1.rpc.createrune(restrictions=[["method=getinfo"]])['rune']
+    assert "last_used" not in l1.rpc.showrunes(rune=new_rune)['runes'][0]
+
+    with pytest.raises(RpcError, match='Not permitted:'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=new_rune,
+                         method='listchannels',
+                         params={})
+    assert "last_used" not in l1.rpc.showrunes(rune=new_rune)['runes'][0]
+
+    before = time.time()
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=new_rune,
+                     method='getinfo',
+                     params={})
+    after = time.time()
+
+    assert before <= l1.rpc.showrunes(rune=new_rune)['runes'][0]['last_used'] <= after
+
 
 def test_blacklistrune(node_factory):
     l1 = node_factory.get_node()

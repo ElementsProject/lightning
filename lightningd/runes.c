@@ -317,7 +317,8 @@ static struct command_result *json_add_rune(struct lightningd *ld,
 					    const char *fieldname,
 					    const char *runestr,
 					    const struct rune *rune,
-					    bool stored)
+					    bool stored,
+					    struct timeabs last_used)
 {
 	char *rune_english;
 	rune_english = "";
@@ -331,6 +332,9 @@ static struct command_result *json_add_rune(struct lightningd *ld,
 	}
 	if (rune_is_ours(ld, rune) != NULL) {
 		json_add_bool(js, "our_rune", false);
+	}
+	if (last_used.ts.tv_sec != 0) {
+		json_add_timeabs(js, "last_used", last_used);
 	}
 	json_add_string(js, "unique_id", rune->unique_id);
 	json_array_start(js, "restrictions");
@@ -377,15 +381,18 @@ static struct command_result *json_showrunes(struct command *cmd,
 		struct timeabs last_used;
 		const char *from_db = wallet_get_rune(tmpctx, cmd->ld->wallet, uid, &last_used);
 
+		/* This is how we indicate no timestamp: */
+		if (!from_db)
+			last_used.ts.tv_sec = 0;
 		/* We consider it stored iff this is exactly stored */
 		json_add_rune(cmd->ld, response, NULL, ras->runestr, ras->rune,
-			      from_db && streq(from_db, ras->runestr));
+			      from_db && streq(from_db, ras->runestr), last_used);
 	} else {
 		struct timeabs *last_used;
 		const char **strs = wallet_get_runes(cmd, cmd->ld->wallet, &last_used);
 		for (size_t i = 0; i < tal_count(strs); i++) {
 			const struct rune *r = rune_from_base64(cmd, strs[i]);
-			json_add_rune(cmd->ld, response, NULL, strs[i], r, true);
+			json_add_rune(cmd->ld, response, NULL, strs[i], r, true, last_used[i]);
 		}
 	}
 	json_array_end(response);

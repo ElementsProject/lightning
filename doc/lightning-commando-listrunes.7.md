@@ -31,6 +31,7 @@ On success, an object containing **runes** is returned.  It is an array of objec
 - **restrictions\_as\_english** (string): English readable description of the restrictions array above
 - **stored** (boolean, optional): This is false if the rune does not appear in our datastore (only possible when `rune` is specified) (always *false*)
 - **blacklisted** (boolean, optional): The rune has been blacklisted; see commando-blacklist(7) (always *true*)
+- **last\_used** (number, optional): The last time this rune was successfully used *(added 23.11)*
 - **our\_rune** (boolean, optional): This is not a rune for this node (only possible when `rune` is specified) (always *false*)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -50,4 +51,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cd0e75bbeef3d5824448f67485de4679b0c163e97f405673b2ba9495f970d498)
+[comment]: # ( SHA256STAMP:900e91777cd1e181c87a78913ab6f914585fcd99cd0dba16da19a81159f98aea)
