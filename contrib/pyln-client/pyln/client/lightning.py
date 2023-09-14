@@ -1523,6 +1523,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundpsbt", payload)
 
+    def addpsbtoutput(self, satoshi, initialpsbt=None, locktime=None):
+        """
+        Create a PSBT with an output of amount satoshi leading to the on-chain wallet
+        """
+        payload = {
+            "satoshi": satoshi,
+            "initialpsbt": initialpsbt,
+            "locktime": locktime,
+        }
+        return self.call("addpsbtoutput", payload)
+
     def utxopsbt(self, satoshi, feerate, startweight, utxos, reserve=None, reservedok=False, locktime=None, min_witness_weight=None, excess_as_change=False):
         """
         Create a PSBT with given inputs, to give an output of satoshi.

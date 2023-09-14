@@ -607,6 +607,33 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
         l1.rpc.fundpsbt(amount // 2, feerate, 0)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_addpsbtoutput(node_factory, bitcoind, chainparams):
+    amount1 = 1000000
+    amount2 = 3333333
+    locktime = 111
+    l1 = node_factory.get_node()
+
+    result = l1.rpc.addpsbtoutput(amount1, locktime=locktime)
+    assert result['outnum'] == 0
+
+    psbt_info = bitcoind.rpc.decodepsbt(l1.rpc.setpsbtversion(result['psbt'], 0)['psbt'])
+
+    assert len(psbt_info['tx']['vout']) == 1
+    assert psbt_info['tx']['vout'][0]['n'] == result['outnum']
+    assert psbt_info['tx']['vout'][0]['value'] * 100000000 == amount1
+    assert psbt_info['tx']['locktime'] == locktime
+
+    result = l1.rpc.addpsbtoutput(amount2, result['psbt'])
+    n = result['outnum']
+
+    psbt_info = bitcoind.rpc.decodepsbt(l1.rpc.setpsbtversion(result['psbt'], 0)['psbt'])
+
+    assert len(psbt_info['tx']['vout']) == 2
+    assert psbt_info['tx']['vout'][n]['value'] * 100000000 == amount2
+    assert psbt_info['tx']['vout'][n]['n'] == result['outnum']
+
+
 def test_utxopsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node()
