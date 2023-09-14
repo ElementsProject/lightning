@@ -93,6 +93,11 @@
             ],
             "description": "The rune has been blacklisted; see commando-blacklist(7)"
           },
+          "last_used": {
+            "type": "number",
+            "description": "The last time this rune was successfully used",
+            "added": "23.11"
+          },
           "our_rune": {
             "type": "boolean",
             "enum": [
