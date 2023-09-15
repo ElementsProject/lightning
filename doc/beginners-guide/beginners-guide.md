@@ -65,4 +65,4 @@ Once you've started for the first time, there's a script called `contrib/bootstr
 
 There are also numerous plugins available for Core Lightning which add capabilities: see the [Plugins](doc:plugins) guide, and check out the plugin collection at: <https://github.com/lightningd/plugins>, including [helpme](https://github.com/lightningd/plugins/tree/master/helpme) which guides you through setting up your first channels and customising your node.
 
-For a less reckless experience, you can encrypt the HD wallet seed: see [HD wallet encryption](doc:backup-and-recovery###hsm-secret-backup).
+For a less reckless experience, you can encrypt the HD wallet seed: see [HD wallet encryption](doc:backup-and-recovery#hsm-secret-backup).

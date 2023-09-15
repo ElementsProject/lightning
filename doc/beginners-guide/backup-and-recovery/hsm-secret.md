@@ -1,10 +1,8 @@
 ---
 title: "HSM Secret"
-slug: "hsm-secret-methods"
+slug: "hsm-secret"
 excerpt: "Learn about various cool HSM secret methods."
-hidden: true
-createdAt: "2023-08-31T17:52:17.292Z"
-updatedAt: "2023-08-31T17:52:17.292Z"
+hidden: false
 ---
 
 
