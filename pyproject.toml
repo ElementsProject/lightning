@@ -27,7 +27,7 @@ pytest-timeout = "^2.1.0"
 flake8 = "^4.0.1"
 mypy = "^0.931"
 pytest-custom-exit-code = "0.3.0"
-pyln-testing = { path = "./contrib/pyln-testing", develop = true }
+pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
