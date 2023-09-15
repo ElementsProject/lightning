@@ -3,8 +3,6 @@ title: "App Development"
 slug: "app-development"
 excerpt: "Build a lightning application using Core Lightning APIs."
 hidden: false
-createdAt: "2022-12-09T09:56:04.704Z"
-updatedAt: "2023-09-05T13:48:15.261Z"
 ---
 There are several ways to connect and interact with a Core Lightning node in order to build a lightning app or integrate lightning in your application.
 
@@ -19,7 +17,7 @@ There are several ways to connect and interact with a Core Lightning node in ord
   "images": [
     {
       "image": [
-        "https://files.readme.io/b8d50a6-cln-api.png",
+        "https://files.readme.io/a7cf433-CLN-App-Development.png",
         null,
         "A visual chart of all interface and transport protocols to interact with a CLN node."
       ],
