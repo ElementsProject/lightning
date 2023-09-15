@@ -2,9 +2,7 @@
 title: "Advanced DB Backup"
 slug: "advanced-db-backup"
 excerpt: "Learn the various DB backup techniques."
-hidden: true
-createdAt: "2023-08-31T16:28:17.292Z"
-updatedAt: "2023-08-31T16:28:17.292Z"
+hidden: false
 ---
 
 To recover in-channel funds, you need to use one or more of the backup strategies below.
