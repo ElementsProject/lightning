@@ -10,12 +10,12 @@ updatedAt: "2023-09-05T09:54:01.784Z"
 
 CLNRest is a lightweight Python-based core lightning plugin that transforms RPC calls into a REST service. By generating REST API endpoints, it enables the execution of Core Lightning's RPC methods behind the scenes and provides responses in JSON format.
 
-A complete documentation for the REST interface is available at [REST API REFERENCE](ref:get-a-list-of-all-valid-rpc-methods). 
+A complete documentation for the REST interface is available at [REST API REFERENCE](ref:get_list_methods_resource). 
 
 
 > 📘 Pro-tip
 > 
-> [REST API REFERENCE](ref:post_rpc_method_resource) can also be tested with your own server.
+> [REST API REFERENCE](ref:get_list_methods_resource) can also be tested with your own server.
 >
 > By default, the base URL is set to connect with the Blockstream-hosted regtest node. 
 >
