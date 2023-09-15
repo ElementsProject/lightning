@@ -364,6 +364,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update -qq
           sudo apt-get install -yyq valgrind
           pip3 install --user pip wheel poetry
           poetry install
