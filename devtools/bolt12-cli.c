@@ -414,7 +414,250 @@ static bool print_extra_fields(const struct tlv_field *fields)
 	return ok;
 }
 
-bool deprecated_apis = true;
+static u64 get_offer_type(const char *name)
+{
+	u64 val;
+	char *endptr;
+	struct name_map {
+		const char *name;
+		u64 val;
+	} map = {
+		/* BOLT-offers #12:
+		 * 1. `tlv_stream`: `offer`
+		 * 2. types:
+		 *     1. type: 2 (`offer_chains`)
+		 *     2. data:
+		 *         * [`...*chain_hash`:`chains`]
+		 *     1. type: 4 (`offer_metadata`)
+		 *     2. data:
+		 *         * [`...*byte`:`data`]
+		 *     1. type: 6 (`offer_currency`)
+		 *     2. data:
+		 *         * [`...*utf8`:`iso4217`]
+		 *     1. type: 8 (`offer_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`amount`]
+		 *     1. type: 10 (`offer_description`)
+		 *     2. data:
+		 *         * [`...*utf8`:`description`]
+		 *     1. type: 12 (`offer_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 14 (`offer_absolute_expiry`)
+		 *     2. data:
+		 *         * [`tu64`:`seconds_from_epoch`]
+		 *     1. type: 16 (`offer_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 18 (`offer_issuer`)
+		 *     2. data:
+		 *         * [`...*utf8`:`issuer`]
+		 *     1. type: 20 (`offer_quantity_max`)
+		 *     2. data:
+		 *         * [`tu64`:`max`]
+		 *     1. type: 22 (`offer_node_id`)
+		 *     2. data:
+		 *         * [`point`:`node_id`]
+		 */
+		{ "offer_chains", 2 },
+		{ "offer_metadata", 4 },
+		{ "offer_currency", 6 },
+		{ "offer_amount", 8 },
+		{ "offer_description", 10 },
+		{ "offer_features", 12 },
+		{ "offer_absolute_expiry", 14 },
+		{ "offer_paths", 16 },
+		{ "offer_issuer", 18 },
+		{ "offer_quantity_max", 20 },
+		{ "offer_node_id", 22 },
+		/* BOLT-offers #12:
+		 * 1. `tlv_stream`: `invoice_request`
+		 * 2. types:
+		 *     1. type: 0 (`invreq_metadata`)
+		 *     2. data:
+		 *         * [`...*byte`:`blob`]
+		 *     1. type: 2 (`offer_chains`)
+		 *     2. data:
+		 *         * [`...*chain_hash`:`chains`]
+		 *     1. type: 4 (`offer_metadata`)
+		 *     2. data:
+		 *         * [`...*byte`:`data`]
+		 *     1. type: 6 (`offer_currency`)
+		 *     2. data:
+		 *         * [`...*utf8`:`iso4217`]
+		 *     1. type: 8 (`offer_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`amount`]
+		 *     1. type: 10 (`offer_description`)
+		 *     2. data:
+		 *         * [`...*utf8`:`description`]
+		 *     1. type: 12 (`offer_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 14 (`offer_absolute_expiry`)
+		 *     2. data:
+		 *         * [`tu64`:`seconds_from_epoch`]
+		 *     1. type: 16 (`offer_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 18 (`offer_issuer`)
+		 *     2. data:
+		 *         * [`...*utf8`:`issuer`]
+		 *     1. type: 20 (`offer_quantity_max`)
+		 *     2. data:
+		 *         * [`tu64`:`max`]
+		 *     1. type: 22 (`offer_node_id`)
+		 *     2. data:
+		 *         * [`point`:`node_id`]
+		 *     1. type: 80 (`invreq_chain`)
+		 *     2. data:
+		 *         * [`chain_hash`:`chain`]
+		 *     1. type: 82 (`invreq_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`msat`]
+		 *     1. type: 84 (`invreq_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 86 (`invreq_quantity`)
+		 *     2. data:
+		 *         * [`tu64`:`quantity`]
+		 *     1. type: 88 (`invreq_payer_id`)
+		 *     2. data:
+		 *         * [`point`:`key`]
+		 *     1. type: 89 (`invreq_payer_note`)
+		 *     2. data:
+		 *         * [`...*utf8`:`note`]
+		 *     1. type: 240 (`signature`)
+		 *     2. data:
+		 *         * [`bip340sig`:`sig`]
+		 */
+		 { "invreq_metadata", 0 },
+		 { "invreq_chain", 80 },
+		 { "invreq_amount", 82 },
+		 { "invreq_features", 84 },
+		 { "invreq_quantity", 86 },
+		 { "invreq_payer_id", 88 },
+		 { "invreq_payer_note", 89 },
+		 { "signature", 240 },
+		/* BOLT-offers #12:
+		 * 1. `tlv_stream`: `invoice`
+		 * 2. types:
+		 *     1. type: 0 (`invreq_metadata`)
+		 *     2. data:
+		 *         * [`...*byte`:`blob`]
+		 *     1. type: 2 (`offer_chains`)
+		 *     2. data:
+		 *         * [`...*chain_hash`:`chains`]
+		 *     1. type: 4 (`offer_metadata`)
+		 *     2. data:
+		 *         * [`...*byte`:`data`]
+		 *     1. type: 6 (`offer_currency`)
+		 *     2. data:
+		 *         * [`...*utf8`:`iso4217`]
+		 *     1. type: 8 (`offer_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`amount`]
+		 *     1. type: 10 (`offer_description`)
+		 *     2. data:
+		 *         * [`...*utf8`:`description`]
+		 *     1. type: 12 (`offer_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 14 (`offer_absolute_expiry`)
+		 *     2. data:
+		 *         * [`tu64`:`seconds_from_epoch`]
+		 *     1. type: 16 (`offer_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 18 (`offer_issuer`)
+		 *     2. data:
+		 *         * [`...*utf8`:`issuer`]
+		 *     1. type: 20 (`offer_quantity_max`)
+		 *     2. data:
+		 *         * [`tu64`:`max`]
+		 *     1. type: 22 (`offer_node_id`)
+		 *     2. data:
+		 *         * [`point`:`node_id`]
+		 *     1. type: 80 (`invreq_chain`)
+		 *     2. data:
+		 *         * [`chain_hash`:`chain`]
+		 *     1. type: 82 (`invreq_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`msat`]
+		 *     1. type: 84 (`invreq_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 86 (`invreq_quantity`)
+		 *     2. data:
+		 *         * [`tu64`:`quantity`]
+		 *     1. type: 88 (`invreq_payer_id`)
+		 *     2. data:
+		 *         * [`point`:`key`]
+		 *     1. type: 89 (`invreq_payer_note`)
+		 *     2. data:
+		 *         * [`...*utf8`:`note`]
+		 *     1. type: 160 (`invoice_paths`)
+		 *     2. data:
+		 *         * [`...*blinded_path`:`paths`]
+		 *     1. type: 162 (`invoice_blindedpay`)
+		 *     2. data:
+		 *         * [`...*blinded_payinfo`:`payinfo`]
+		 *     1. type: 164 (`invoice_created_at`)
+		 *     2. data:
+		 *         * [`tu64`:`timestamp`]
+		 *     1. type: 166 (`invoice_relative_expiry`)
+		 *     2. data:
+		 *         * [`tu32`:`seconds_from_creation`]
+		 *     1. type: 168 (`invoice_payment_hash`)
+		 *     2. data:
+		 *         * [`sha256`:`payment_hash`]
+		 *     1. type: 170 (`invoice_amount`)
+		 *     2. data:
+		 *         * [`tu64`:`msat`]
+		 *     1. type: 172 (`invoice_fallbacks`)
+		 *     2. data:
+		 *         * [`...*fallback_address`:`fallbacks`]
+		 *     1. type: 174 (`invoice_features`)
+		 *     2. data:
+		 *         * [`...*byte`:`features`]
+		 *     1. type: 176 (`invoice_node_id`)
+		 *     2. data:
+		 *         * [`point`:`node_id`]
+		 *     1. type: 240 (`signature`)
+		 *     2. data:
+		 *         * [`bip340sig`:`sig`]
+		 */
+		 { "invoice_paths", 160 },
+		 { "invoice_blindedpay", 162 },
+		 { "invoice_created_at", 164 },
+		 { "invoice_relative_expiry", 166 },
+		 { "invoice_payment_hash", 168 },
+		 { "invoice_amount", 170 },
+		 { "invoice_fallbacks", 172 },
+		 { "invoice_features", 174 },
+		 { "invoice_node_id", 176 },
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(map); i++) {
+		if (streq(map[i].name, name))
+			return map[i].val;
+	}
+
+	/* Numeric value */
+	val = strtoul(name, &endptr, 0);
+	if (*endptr)
+		errx(1, "Unknown value %s", name);
+	return val;
+}
+
+static u8 *get_tlv_val(const tal_t *ctx, const char *val)
+{
+	u8 *val = tal_hexdata(ctx, val, strlen(val));
+	if (val)
+		return val;
+	/* Literal string */
+	return tal_dup_arr(ctx, u8, (u8 *)val, strlen(val), 0);
+}
 
 int main(int argc, char *argv[])
 {
@@ -431,6 +674,7 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "decode|decodehex <bolt12>\n"
 			   "encodehex <hrp> <hexstr>...",
+			   "encode <hrp> [<tlvname> <tlvval>]...",
 			   "Show this message");
 	opt_register_version();
 
@@ -462,6 +706,21 @@ int main(int argc, char *argv[])
 		if (!data)
 			errx(ERROR_USAGE, "Invalid hexstr\n%s",
 			     opt_usage(argv[0], NULL));
+		printf("%s\n", to_bech32_charset(ctx, argv[2], data));
+		goto out;
+	}
+	if (streq(method, "encode")) {
+		data = tal_arr(ctx, u8, 0);
+
+		/* We encode literally, to make it possible to create invalid ones for
+		 * testing! */
+		for (size_t i = 3; i < argc; i += 2) {
+			u64 tlvtype = get_offer_type(argv[i]);
+			u8 *tlvval = get_tlv_val(ctx, argv[i+1]);
+			towire_bigsize(&data, tlvtype);
+			towire_bigsize(&data, tal_bytelen(tlvval));
+			towire(&data, tlvval, tal_bytelen(tlvval));
+		}
 		printf("%s\n", to_bech32_charset(ctx, argv[2], data));
 		goto out;
 	}
