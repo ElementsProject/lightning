@@ -5,10 +5,10 @@
 #include <ccan/tal/tal.h>
 #include <common/type_to_string.h>
 #include <math.h>
-#include <plugins/renepay/debug.h>
 #include <plugins/renepay/dijkstra.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/mcf.h>
+#include <plugins/renepay/pay.h>
 #include <stdint.h>
 
 /* # Optimal payments
@@ -457,7 +457,7 @@ static void linearize_channel(
 
 	if(!extra_half)
 	{
-		debug_err("%s (line %d) unexpected, extra_half is NULL",
+		plugin_err(pay_plugin->plugin,"%s (line %d) unexpected, extra_half is NULL",
 			__PRETTY_FUNCTION__,
 			__LINE__);
 	}
@@ -1242,7 +1242,7 @@ static struct flow **
 			struct amount_msat delivered = amount_msat(delta*1000);
 			if(!amount_msat_sub(&delivered,delivered,excess))
 			{
-				debug_err("%s (line %d) unable to substract excess.",
+				plugin_err(pay_plugin->plugin,"%s (line %d) unable to substract excess.",
 					__PRETTY_FUNCTION__,
 					__LINE__);
 			}

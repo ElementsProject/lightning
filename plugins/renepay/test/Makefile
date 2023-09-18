@@ -9,8 +9,7 @@ ALL_TEST_PROGRAMS += $(PLUGIN_RENEPAY_TEST_PROGRAMS)
 $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_RENEPAY_SRC)
 
 PLUGIN_RENEPAY_TEST_COMMON_OBJS :=		\
-	plugins/renepay/dijkstra.o		\
-	plugins/renepay/debug.o
+	plugins/renepay/dijkstra.o
 
 $(PLUGIN_RENEPAY_TEST_PROGRAMS): $(PLUGIN_RENEPAY_TEST_COMMON_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) bitcoin/chainparams.o common/gossmap.o common/fp16.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12$(EXP)_wiregen.o
 

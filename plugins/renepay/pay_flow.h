@@ -3,8 +3,8 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/short_types/short_types.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
-#include <plugins/renepay/debug.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
 
