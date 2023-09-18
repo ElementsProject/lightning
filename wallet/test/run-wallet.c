@@ -687,9 +687,6 @@ void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *chann
 /* Generated stub for rune_is_ours */
 const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_is_ours called!\n"); abort(); }
-/* Generated stub for rune_unique_id */
-u64 rune_unique_id(const struct rune *rune UNNEEDED)
-{ fprintf(stderr, "rune_unique_id called!\n"); abort(); }
 /* Generated stub for serialize_onionpacket */
 u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
@@ -797,7 +794,7 @@ u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireadd
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_client_hsmfd */
-u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED, u64 capabilities UNNEEDED)
+u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED, u64 permissions UNNEEDED)
 { fprintf(stderr, "towire_hsmd_client_hsmfd called!\n"); abort(); }
 /* Generated stub for towire_hsmd_derive_secret */
 u8 *towire_hsmd_derive_secret(const tal_t *ctx UNNEEDED, const u8 *info UNNEEDED)
