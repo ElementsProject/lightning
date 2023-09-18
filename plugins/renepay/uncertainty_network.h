@@ -7,6 +7,7 @@
 #include <plugins/renepay/payment.h>
 
 struct pay_flow;
+struct route_info;
 
 /* Checks the entire uncertainty network for invariant violations. */
 bool uncertainty_network_check_invariants(struct chan_extra_map *chan_extra_map);

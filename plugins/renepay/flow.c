@@ -5,8 +5,8 @@
 #include <ccan/tal/tal.h>
 #include <common/type_to_string.h>
 #include <math.h>
-#include <plugins/renepay/debug.h>
 #include <plugins/renepay/flow.h>
+#include <plugins/renepay/pay.h>
 #include <stdio.h>
 
 #ifndef SUPERVERBOSE
@@ -128,7 +128,8 @@ void chan_extra_adjust_half(struct chan_extra *ce,
 {
 	if(!amount_msat_sub(&ce->half[dir].known_max,ce->capacity,ce->half[!dir].known_min))
 	{
-		debug_err("%s cannot substract capacity=%s and known_min=%s",
+		plugin_err(pay_plugin->plugin,
+			   "%s cannot substract capacity=%s and known_min=%s",
 			__PRETTY_FUNCTION__,
 			type_to_string(tmpctx,struct amount_msat,&ce->capacity),
 			type_to_string(tmpctx,struct amount_msat,&ce->half[!dir].known_min)
@@ -136,7 +137,7 @@ void chan_extra_adjust_half(struct chan_extra *ce,
 	}
 	if(!amount_msat_sub(&ce->half[dir].known_min,ce->capacity,ce->half[!dir].known_max))
 	{
-		debug_err("%s cannot substract capacity=%s and known_max=%s",
+		plugin_err(pay_plugin->plugin,"%s cannot substract capacity=%s and known_max=%s",
 			__PRETTY_FUNCTION__,
 			type_to_string(tmpctx,struct amount_msat,&ce->capacity),
 			type_to_string(tmpctx,struct amount_msat,&ce->half[!dir].known_max)
@@ -153,7 +154,7 @@ static void chan_extra_can_send_(
 {
 	if(amount_msat_greater(x,ce->capacity))
 	{
-		debug_err("%s unexpected capacity=%s is less than x=%s",
+		plugin_err(pay_plugin->plugin,"%s unexpected capacity=%s is less than x=%s",
 			__PRETTY_FUNCTION__,
 			type_to_string(tmpctx,struct amount_msat,&ce->capacity),
 			type_to_string(tmpctx,struct amount_msat,&x)
@@ -176,12 +177,12 @@ void chan_extra_can_send(
 						   scidd->scid);
 	if(!ce)
 	{
-		debug_err("%s unexpected chan_extra ce is NULL",
+		plugin_err(pay_plugin->plugin,"%s unexpected chan_extra ce is NULL",
 			__PRETTY_FUNCTION__);
 	}
 	if(!amount_msat_add(&x,x,ce->half[scidd->dir].htlc_total))
 	{
-		debug_err("%s (line %d) cannot add x=%s and htlc_total=%s",
+		plugin_err(pay_plugin->plugin,"%s (line %d) cannot add x=%s and htlc_total=%s",
 			__PRETTY_FUNCTION__,__LINE__,
 			type_to_string(tmpctx,struct amount_msat,&x),
 			type_to_string(tmpctx,struct amount_msat,&ce->half[scidd->dir].htlc_total));
@@ -201,14 +202,14 @@ void chan_extra_cannot_send(
 						   scidd->scid);
 	if(!ce)
 	{
-		debug_err("%s (line %d) unexpected chan_extra ce is NULL",
+		plugin_err(pay_plugin->plugin,"%s (line %d) unexpected chan_extra ce is NULL",
 			__PRETTY_FUNCTION__,__LINE__);
 	}
 
 	/* Note: sent is already included in htlc_total! */
 	if(!amount_msat_sub(&x,ce->half[scidd->dir].htlc_total,AMOUNT_MSAT(1)))
 	{
-		debug_err("%s (line %d) unexpected htlc_total=%s is less than 0msat",
+		plugin_err(pay_plugin->plugin,"%s (line %d) unexpected htlc_total=%s is less than 0msat",
 			__PRETTY_FUNCTION__,__LINE__,
 			type_to_string(tmpctx,struct amount_msat,
 				       &ce->half[scidd->dir].htlc_total)
@@ -246,7 +247,7 @@ static void chan_extra_set_liquidity_(
 {
 	if(amount_msat_greater(x,ce->capacity))
 	{
-		debug_err("%s unexpected capacity=%s is less than x=%s",
+		plugin_err(pay_plugin->plugin,"%s unexpected capacity=%s is less than x=%s",
 			__PRETTY_FUNCTION__,
 			type_to_string(tmpctx,struct amount_msat,&ce->capacity),
 			type_to_string(tmpctx,struct amount_msat,&x)
@@ -268,7 +269,7 @@ void chan_extra_set_liquidity(
 						   scidd->scid);
 	if(!ce)
 	{
-		debug_err("%s unexpected chan_extra ce is NULL",
+		plugin_err(pay_plugin->plugin,"%s unexpected chan_extra ce is NULL",
 			__PRETTY_FUNCTION__);
 	}
 	chan_extra_set_liquidity_(ce,scidd->dir,x);
@@ -284,13 +285,13 @@ void chan_extra_sent_success(
 						   scidd->scid);
 	if(!ce)
 	{
-		debug_err("%s unexpected chan_extra ce is NULL",
+		plugin_err(pay_plugin->plugin,"%s unexpected chan_extra ce is NULL",
 			__PRETTY_FUNCTION__);
 	}
 
 	if(amount_msat_greater(x,ce->capacity))
 	{
-		debug_err("%s unexpected capacity=%s is less than x=%s",
+		plugin_err(pay_plugin->plugin,"%s unexpected capacity=%s is less than x=%s",
 			__PRETTY_FUNCTION__,
 			type_to_string(tmpctx,struct amount_msat,&ce->capacity),
 			type_to_string(tmpctx,struct amount_msat,&x)
@@ -349,7 +350,7 @@ void chan_extra_relax(
 						   scidd->scid);
 	if(!ce)
 	{
-		debug_err("%s unexpected chan_extra ce is NULL",
+		plugin_err(pay_plugin->plugin,"%s unexpected chan_extra ce is NULL",
 			__PRETTY_FUNCTION__);
 	}
 	chan_extra_relax_(ce,scidd->dir,x,y);
@@ -427,7 +428,7 @@ get_chan_extra_half_by_chan_verify(
 		if (!gossmap_chan_get_capacity(gossmap,chan, &cap) ||
 		    !amount_sat_to_msat(&cap_msat, cap))
 		{
-			debug_err("%s (line %d) unable convert sat to msat or "
+			plugin_err(pay_plugin->plugin,"%s (line %d) unable convert sat to msat or "
 				"get channel capacity",
 				__PRETTY_FUNCTION__,
 				__LINE__);
@@ -488,7 +489,7 @@ static double edge_probability(struct amount_msat min, struct amount_msat max,
 	// one past the last known value, makes computations simpler
 	if(!amount_msat_add(&B,B,one))
 	{
-		debug_err("%s (line %d) cannot add B=%s and %s",
+		plugin_err(pay_plugin->plugin,"%s (line %d) cannot add B=%s and %s",
 			__PRETTY_FUNCTION__,
 			__LINE__,
 			type_to_string(this_ctx, struct amount_msat, &B),
@@ -497,7 +498,7 @@ static double edge_probability(struct amount_msat min, struct amount_msat max,
 	// in_flight cannot be greater than max
 	if(!amount_msat_sub(&B,B,in_flight))
 	{
-		debug_err("%s (line %d) in_flight=%s cannot be greater than B=%s",
+		plugin_err(pay_plugin->plugin,"%s (line %d) in_flight=%s cannot be greater than B=%s",
 			__PRETTY_FUNCTION__,
 			__LINE__,
 			type_to_string(this_ctx, struct amount_msat, &in_flight),
@@ -513,7 +514,7 @@ static double edge_probability(struct amount_msat min, struct amount_msat max,
 	// B cannot be smaller than or equal A
 	if(!amount_msat_sub(&denominator,B,A) || amount_msat_less_eq(B,A))
 	{
-		debug_err("%s (line %d) B=%s must be greater than A=%s",
+		plugin_err(pay_plugin->plugin,"%s (line %d) B=%s must be greater than A=%s",
 			__PRETTY_FUNCTION__,
 			__LINE__,
 			type_to_string(this_ctx, struct amount_msat, &B),
@@ -545,7 +546,7 @@ void remove_completed_flow(const struct gossmap *gossmap,
 							       flow->dirs[i]);
 		if (!amount_msat_sub(&h->htlc_total, h->htlc_total, flow->amounts[i]))
 		{
-			debug_err("%s could not substract HTLC amounts, "
+			plugin_err(pay_plugin->plugin,"%s could not substract HTLC amounts, "
 				   "half total htlc amount = %s, "
 				   "flow->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
@@ -555,7 +556,7 @@ void remove_completed_flow(const struct gossmap *gossmap,
 		}
 		if (h->num_htlcs == 0)
 		{
-			debug_err("%s could not decrease HTLC count.",
+			plugin_err(pay_plugin->plugin,"%s could not decrease HTLC count.",
 				   __PRETTY_FUNCTION__);
 		}
 		h->num_htlcs--;
@@ -586,7 +587,7 @@ void commit_flow(
 							       flow->dirs[i]);
 		if (!amount_msat_add(&h->htlc_total, h->htlc_total, flow->amounts[i]))
 		{
-			debug_err("%s could not add HTLC amounts, "
+			plugin_err(pay_plugin->plugin,"%s could not add HTLC amounts, "
 				   "flow->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
 				   i,
@@ -631,7 +632,7 @@ void flow_complete(struct flow *flow,
 
 		if(!h)
 		{
-			debug_err("%s unexpected chan_extra_half is NULL",
+			plugin_err(pay_plugin->plugin,"%s unexpected chan_extra_half is NULL",
 				__PRETTY_FUNCTION__);
 		}
 
@@ -645,7 +646,7 @@ void flow_complete(struct flow *flow,
 					 flow_edge(flow, i)->base_fee,
 					 flow_edge(flow, i)->proportional_fee))
 		{
-			debug_err("%s fee overflow",
+			plugin_err(pay_plugin->plugin,"%s fee overflow",
 				__PRETTY_FUNCTION__);
 		}
 	}
@@ -716,7 +717,7 @@ double flow_set_probability(
 			struct amount_msat prev_flow;
 			if(!amount_msat_add(&prev_flow,h->htlc_total,in_flight[c_idx].half[c_dir]))
 			{
-				debug_err("%s (line %d) in-flight amount_msat overflow",
+				plugin_err(pay_plugin->plugin,"%s (line %d) in-flight amount_msat overflow",
 					__PRETTY_FUNCTION__,
 					__LINE__);
 			}
@@ -728,7 +729,7 @@ double flow_set_probability(
 					in_flight[c_idx].half[c_dir],
 					deliver))
 			{
-				debug_err("%s (line %d) in-flight amount_msat overflow",
+				plugin_err(pay_plugin->plugin,"%s (line %d) in-flight amount_msat overflow",
 					__PRETTY_FUNCTION__,
 					__LINE__);
 			}
@@ -810,7 +811,7 @@ static void get_medians(const struct gossmap *gossmap,
 		*median_capacity = amount;
 	else if (!amount_sat_to_msat(median_capacity, caps[num_caps / 2]))
 	{
-		debug_err("%s (line %d) amount_msat overflow",
+		plugin_err(pay_plugin->plugin,"%s (line %d) amount_msat overflow",
 			__PRETTY_FUNCTION__,
 			__LINE__);
 	}
@@ -877,13 +878,13 @@ struct amount_msat flow_set_fee(struct flow **flows)
 				     flows[i]->amounts[0],
 				     flows[i]->amounts[n-1]))
 		{
-			debug_err("%s (line %d) amount_msat overflow",
+			plugin_err(pay_plugin->plugin,"%s (line %d) amount_msat overflow",
 				__PRETTY_FUNCTION__,
 				__LINE__);
 		}
 		if(!amount_msat_add(&fee, this_fee,fee))
 		{
-			debug_err("%s (line %d) amount_msat overflow",
+			plugin_err(pay_plugin->plugin,"%s (line %d) amount_msat overflow",
 				__PRETTY_FUNCTION__,
 				__LINE__);
 		}

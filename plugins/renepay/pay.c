@@ -12,7 +12,6 @@
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <errno.h>
-#include <plugins/renepay/debug.h>
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/uncertainty_network.h>
@@ -38,7 +37,7 @@ void amount_msat_accumulate_(struct amount_msat *dst,
 {
 	if (amount_msat_add(dst, *dst, src))
 		return;
-	debug_err("Overflow adding %s (%s) into %s (%s)",
+	plugin_err(pay_plugin->plugin,"Overflow adding %s (%s) into %s (%s)",
 		   srcname, type_to_string(tmpctx, struct amount_msat, &src),
 		   dstname, type_to_string(tmpctx, struct amount_msat, dst));
 }
@@ -50,7 +49,7 @@ void amount_msat_reduce_(struct amount_msat *dst,
 {
 	if (amount_msat_sub(dst, *dst, src))
 		return;
-	debug_err("Underflow subtracting %s (%s) from %s (%s)",
+	plugin_err(pay_plugin->plugin,"Underflow subtracting %s (%s) from %s (%s)",
 		   srcname, type_to_string(tmpctx, struct amount_msat, &src),
 		   dstname, type_to_string(tmpctx, struct amount_msat, dst));
 }
@@ -285,7 +284,7 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 
 	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
 
-	debug_assert(payment);
+	assert(payment);
 
 	if (json_scan(tmpctx, buf, err,
 		      "{code:%,message:%}",
@@ -555,7 +554,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 		{
 			case PAYMENT_SUCCESS:
 				json_add_string(ret,"status","complete");
-				debug_assert(p->preimage);
+				assert(p->preimage);
 				json_add_preimage(ret,"payment_preimage",p->preimage);
 				json_add_amount_msat(ret, "amount_sent_msat", p->total_sent);
 
@@ -599,8 +598,6 @@ payment_listsendpays_previous(
 		const jsmntok_t *result,
 		struct payment * payment)
 {
-	debug_info("calling %s",__PRETTY_FUNCTION__);
-
 	size_t i;
 	const jsmntok_t *t, *arr;
 
@@ -654,10 +651,10 @@ payment_listsendpays_previous(
 		if (streq(status, "complete")) {
 			/* Now we know the payment completed. */
 			if(!amount_msat_add(&complete_msat,complete_msat,this_msat))
-				debug_err("%s (line %d) msat overflow.",
+				plugin_err(pay_plugin->plugin,"%s (line %d) msat overflow.",
 					__PRETTY_FUNCTION__,__LINE__);
 			if(!amount_msat_add(&complete_sent,complete_sent,this_sent))
-				debug_err("%s (line %d) msat overflow.",
+				plugin_err(pay_plugin->plugin,"%s (line %d) msat overflow.",
 					__PRETTY_FUNCTION__,__LINE__);
 			json_scan(tmpctx, buf, t,
 				  "{created_at:%"
@@ -1039,7 +1036,7 @@ static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEA
 	struct short_channel_id errscid;
 	const u8 *update;
 
-	debug_assert(pf);
+	assert(pf);
 
 	/* Final node is usually a hard failure */
 	if (erridx == tal_count(pf->path_scidds)) {
@@ -1121,7 +1118,7 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 					u32 erridx,
 					u32 onionerr)
 {
-	debug_assert(pf);
+	assert(pf);
 
 	/* we know that all channels before erridx where able to commit to this payment */
 	uncertainty_network_channel_can_send(

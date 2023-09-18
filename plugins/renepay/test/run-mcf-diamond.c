@@ -54,8 +54,7 @@ static const char* print_flows(
 		delivered = flows[i]->amounts[tal_count(flows[i]->amounts)-1];
 		if (!amount_msat_sub(&fee, flows[i]->amounts[0], delivered))
 		{
-			debug_err("%s: flow[i]->amount[0]<delivered\n",
-				__PRETTY_FUNCTION__);
+			abort();
 		}
 		tal_append_fmt(&buff," prob %.2f, %s delivered with fee %s\n",
 		       flows[i]->success_prob,
@@ -159,7 +158,7 @@ int main(int argc, char *argv[])
 			 /* base fee penalty */ 0,
 			 /* prob cost factor = */ 1);
 
-	debug_info("%s\n",
+	printf("%s\n",
 		print_flows(tmpctx,"Simple minflow", gossmap,chan_extra_map, flows));
 
 	common_shutdown();

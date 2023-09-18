@@ -1,9 +1,9 @@
 /* Routines to get suitable pay_flow array from pay constraints */
 #include "config.h"
+#include <bitcoin/preimage.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <plugins/renepay/mcf.h>

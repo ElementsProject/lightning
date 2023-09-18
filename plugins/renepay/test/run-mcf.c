@@ -320,8 +320,8 @@ int main(int argc, char *argv[])
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10);
 	commit_flow_set(gossmap,chan_extra_map,flows);
-	debug_info("%s\n",
-		print_flows(tmpctx,"Flow via single path l1->l2->l3", gossmap, flows));
+	printf("%s\n",
+	       print_flows(tmpctx,"Flow via single path l1->l2->l3", gossmap, flows));
 
 
 
@@ -465,7 +465,7 @@ int main(int argc, char *argv[])
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10);
-	debug_info("%s\n",
+	printf("%s\n",
 		print_flows(tmpctx,"Flow via two paths, high mu", gossmap, flows2));
 	assert(tal_count(flows2) == 2);
 

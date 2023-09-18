@@ -1,7 +1,10 @@
 #include "config.h"
+#include <bitcoin/preimage.h>
+#include <bitcoin/privkey.h>
 #include <ccan/ccan/tal/str/str.h>
+#include <common/json_stream.h>
 #include <common/memleak.h>
-#include <plugins/renepay/debug.h>
+#include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/payment.h>
 
@@ -127,7 +130,7 @@ struct amount_msat payment_fees(const struct payment *p)
 			   delivered = payment_delivered(p);
 
 	if(!amount_msat_sub(&fees,sent,delivered))
-		debug_err( "Strange, sent amount (%s) is less than delivered (%s), aborting.",
+		plugin_err(pay_plugin->plugin, "Strange, sent amount (%s) is less than delivered (%s), aborting.",
 			   type_to_string(tmpctx,struct amount_msat,&sent),
 			   type_to_string(tmpctx,struct amount_msat,&delivered));
 	return fees;
@@ -171,7 +174,7 @@ void payment_assert_delivering_incomplete(const struct payment *p)
 {
 	if(!amount_msat_less(p->total_delivering, p->amount))
 	{
-		debug_err(
+		plugin_err(pay_plugin->plugin,
 			"Strange, delivering (%s) is not smaller than amount (%s)",
 			type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
 			type_to_string(tmpctx,struct amount_msat,&p->amount));
@@ -181,7 +184,7 @@ void payment_assert_delivering_all(const struct payment *p)
 {
 	if(amount_msat_less(p->total_delivering, p->amount))
 	{
-		debug_err(
+		plugin_err(pay_plugin->plugin,
 			"Strange, delivering (%s) is less than amount (%s)",
 			type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
 			type_to_string(tmpctx,struct amount_msat,&p->amount));
