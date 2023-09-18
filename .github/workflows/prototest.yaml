@@ -35,9 +35,3 @@ jobs:
           -e TEST_GROUP_COUNT=1 \
           -e TIMEOUT=120 \
           cln-ci-ubuntu
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2.2.4
-        with:
-          name: Junit Report ${{ github.run_number }}.{{ matrix.cfg }}
-          path: report.*
