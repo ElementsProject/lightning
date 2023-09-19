@@ -158,6 +158,9 @@ cryptography==41.0.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:aeb57c421b34af8f9fe830e1955bf493a86a7996cc1338fe41b30047d16e962c \
     --hash=sha256:ce785cf81a7bdade534297ef9e490ddff800d956625020ab2ec2780a556c313e \
     --hash=sha256:d0d651aa754ef58d75cec6edfbd21259d93810b73f6ec246436a21b7841908de
+flask-cors==4.0.0 ; python_version >= "3.8" and python_version < "4.0" \
+    --hash=sha256:bc3492bfd6368d27cfe79c7821df5a8a319e1a6d5eab277a3794be19bdc51783 \
+    --hash=sha256:f268522fcb2f73e2ecdde1ef45e2fd5c71cc48fe03cffb4b441c6d1b40684eb0
 flask-restx==1.1.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:62b6b6c9de65e5960cf4f8b35e1bd3eca6998838a01b2f71e2a9d4c14a4ccd14 \
     --hash=sha256:eaff65f6edd400ee00b40475496d61a4937b28371dfed039d3fd180d206fee4e
