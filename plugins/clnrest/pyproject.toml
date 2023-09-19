@@ -14,6 +14,7 @@ pyln-client = "^23.8"
 flask-socketio = "^5.3.6"
 gevent = "^23.9.0.post1"
 gevent-websocket = "^0.10.1"
+flask-cors = "^4.0.0"
 
 
 [build-system]
