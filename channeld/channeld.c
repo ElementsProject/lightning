@@ -756,6 +756,9 @@ static void check_mutual_splice_locked(struct peer *peer)
 						&inflight->outpoint.txid);
 	wire_sync_write(MASTER_FD, take(msg));
 
+	/* We must regossip the scid since it has changed */
+	peer->gossip_scid_announced = false;
+
 	channel_announcement_negotiate(peer);
 	billboard_update(peer);
 	send_channel_update(peer, 0);
