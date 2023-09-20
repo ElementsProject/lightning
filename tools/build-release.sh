@@ -9,7 +9,6 @@ if [ "$1" = "--inside-docker" ]; then
     git clone /src /build
     cd /build
     pip3 install -r plugins/clnrest/requirements.txt
-    pip3 install ./contrib/pyln-client
     ./configure
     make VERSION="$VER"
     make install DESTDIR=/"$VER-$PLTFM" RUST_PROFILE=release
@@ -172,77 +171,6 @@ for target in $TARGETS; do
     esac
 done
 
-if [ -z "${TARGETS##* tarball *}" ]; then
-    echo "Creating Tarball"
-    TMPDIR="$(mktemp -d /tmp/lightningd-tarball.XXXXXX)"
-    DIR="${TMPDIR}/lightningd_${BARE_VERSION}"
-    DESTINATION="${RELEASEDIR}/lightningd_${BARE_VERSION}.orig.tar.bz2"
-    echo "Bundling tarball in ${DIR}"
-    git clone --recursive . "${DIR}"
-    (
-	cd "${DIR}"
-	# Materialize the version in the Makefile, allows us to skip
-	# the git dependency
-	sed -i "/^VERSION=/c\VERSION=v${BARE_VERSION}" "Makefile"
-	./configure --disable-valgrind --enable-developer
-	make doc-all check-gen-updated clean
-	find . -name .git -type d -print0 | xargs -0 /bin/rm -rf
-    )
-
-    (
-	cd "$TMPDIR"
-	tar -cjvf "${DESTINATION}" "lightningd_${BARE_VERSION}"
-    )
-
-    rm -rf "${TMPDIR}"
-    echo "Tarball Created"
-fi
-
-if [ -z "${TARGETS##* deb *}" ]; then
-    echo "Building Debian Image"
-    TMPDIR="$(mktemp -d /tmp/lightningd-deb.XXXXXX)"
-    SRCDIR="$(pwd)"
-    BLDDIR="${TMPDIR}/clightning-${VERSION}"
-    ARCH="$(dpkg-architecture -q DEB_BUILD_ARCH)"
-
-    for SUITE in focal hirsute xenial hirsute impish; do
-
-	mkdir -p "${BLDDIR}"
-	echo "Building ${BARE_VERSION} in ${TMPDIR}"
-
-	# Stage the source directory, with the debian directory bolted on
-	# until we add it to contrib
-	tar --directory="$BLDDIR" --strip-components=1 -xjf "${TARBALL}"
-	cp -R "${SRCDIR}/debian" "${BLDDIR}"
-
-	# Stage the tarball so `debuild` can find it in the parent of the
-	# source directory.
-	cp "${TARBALL}" "${TMPDIR}"
-	cp "${TARBALL}" "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}.orig.tar.bz2"
-
-	# Now actually build all the artifacts.
-	#(cd "${BLDDIR}" && debuild -i -us -uc -b)
-	(
-	    cd "${BLDDIR}"
-	    # Add a dummy changelog entry
-	    dch -D "${SUITE}" -v "${BARE_VERSION}~${DATE}~${SUITE}" "Upstream release $BARE_VERSION"
-	    head debian/changelog
-	    debuild -k5B7EE09E54473A764A23515B25B5BC531246001A -S
-	    debuild -k5B7EE09E54473A764A23515B25B5BC531246001A -b
-	)
-	rm -rf "${BLDDIR}"
-
-	# Save the debs locally
-	cp -v "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}_${ARCH}.deb" "${RELEASEDIR}"
-	cp -v "${TMPDIR}/lightningd-dbgsym_${BARE_VERSION}~${DATE}~${SUITE}_${ARCH}.ddeb" "${RELEASEDIR}"
-
-	# Send to PPA
-	dput ppa:cdecker/clightning "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}_source.changes"
-    done
-    rm -rf "${TMPDIR}"
-    echo "Debian Image Built"
-fi
-
 if [ -z "${TARGETS##* docker *}" ]; then
     echo "Building Docker Images"
     DOCKER_USER="elementsproject"
@@ -260,20 +188,23 @@ if [ -z "${TARGETS##* docker *}" ]; then
         cp "${SRCDIR}/Dockerfile" "${TMPDIR}/"
         case "$d" in
             "arm32v7")
+                TARBALL_ARCH="arm-linux-gnueabihf"
                 PLATFORM="linux/arm/v7"
                 ;;
             "arm64v8")
+                TARBALL_ARCH="aarch64-linux-gnu"
                 PLATFORM="linux/arm64"
                 ;;
-            *)
+            "amd64")
+                TARBALL_ARCH="x86_64-linux-gnu"
                 PLATFORM="linux/amd64"
                 ;;
         esac
         if $DOCKER_PUSH; then
-            docker buildx build --push --platform $PLATFORM -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
+            docker buildx build --push --platform $PLATFORM --build-arg TARBALL_ARCH=$TARBALL_ARCH -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
             echo "Docker Image for $PLATFORM Built and Uploaded on Dockerhub."
         else
-            docker buildx build --load --platform $PLATFORM -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
+            docker buildx build --load --platform $PLATFORM --build-arg TARBALL_ARCH=$TARBALL_ARCH -t "$DOCKER_USER"/lightningd:"$VERSION"-"$d" -f Dockerfile "${TMPDIR}"
             echo "Docker Image for $PLATFORM Built. Ready to Upload on Dockerhub."
         fi
         )
@@ -289,15 +220,6 @@ if [ -z "${TARGETS##* docker *}" ]; then
         # docker buildx create --use
         # docker buildx build --push --platform linux/amd64,linux/arm64v8 -t "$DOCKER_USER/lightningd:"$VERSION"-$d" .
         echo "Pushed a multi-platform image tagged as $VERSION"
-        echo "Creating and pushing a multi-platform image tagged as latest"
-        docker manifest create --amend "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
-        docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
-        docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
-        docker manifest push "$DOCKER_USER"/lightningd:latest
-        # FIXME: Throws ERROR: failed to solve: debian:bullseye-slim: no match for platform in manifest
-        # docker buildx create --use
-        # docker buildx build --push --platform linux/amd64,linux/arm64v8 -t $DOCKER_USER/lightningd:latest -t "$DOCKER_USER/lightningd:"$VERSION"-$d" .
-        echo "Pushed a multi-platform image tagged as latest"
     else
         echo "Docker Images Built. Ready to Upload on Dockerhub."
     fi
