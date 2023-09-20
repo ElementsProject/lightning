@@ -614,7 +614,7 @@ dependencies = [
  "windows-sys",
 =======
 name = "holdinvoice"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "cln-plugin 0.1.5",

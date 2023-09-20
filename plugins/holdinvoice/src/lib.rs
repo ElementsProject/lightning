@@ -27,7 +27,7 @@ impl Holdstate {
             Holdstate::Open => !matches!(newstate, Holdstate::Settled),
             Holdstate::Settled => matches!(newstate, Holdstate::Settled),
             Holdstate::Canceled => matches!(newstate, Holdstate::Canceled),
-            Holdstate::Accepted => true,
+            Holdstate::Accepted => !matches!(newstate, Holdstate::Open),
         }
     }
 }

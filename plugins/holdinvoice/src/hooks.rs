@@ -229,7 +229,6 @@ pub async fn htlc_handler(
                 global_htlc_ident,
                 invoice,
                 cltv_expiry,
-                amount_msat,
             )
             .await;
         }
@@ -245,7 +244,6 @@ async fn loop_htlc_hold(
     global_htlc_ident: HtlcIdentifier,
     invoice: ListinvoicesInvoices,
     cltv_expiry: u32,
-    amount_msat: u64,
 ) -> Result<serde_json::Value, Error> {
     let mut first_iter = true;
     loop {
@@ -290,93 +288,44 @@ async fn loop_htlc_hold(
                     };
 
                     // cln cannot accept htlcs for expired invoices
-                    if invoice.expires_at <= now + CANCEL_HOLD_BEFORE_INVOICE_EXPIRY_SECONDS {
-                        warn!(
-                            "payment_hash: `{}` scid: `{}` htlc: `{}`. \
-                            holdinvoice expired! State=CANCELED",
-                            pay_hash, global_htlc_ident.scid, global_htlc_ident.htlc_id
-                        );
-                        match datastore_update_state(
-                            &rpc_path,
-                            pay_hash.to_string(),
-                            Holdstate::Canceled.to_string(),
-                            holdinvoice_data.generation,
-                        )
-                        .await
-                        {
-                            Ok(_o) => (),
-                            Err(e) => {
-                                warn!(
-                                    "Error updating state for pay_hash: {} {}",
-                                    pay_hash,
-                                    e.to_string()
-                                );
-                                continue;
-                            }
-                        };
-
-                        cleanup_pluginstate_holdinvoices(
-                            &mut holdinvoices,
-                            pay_hash,
-                            &global_htlc_ident,
-                        )
-                        .await;
-
-                        return Ok(json!({"result": "fail"}));
-                    }
-
                     #[allow(clippy::clone_on_copy)]
                     if cltv_expiry
                         <= plugin.state().blockheight.lock().clone()
                             + CANCEL_HOLD_BEFORE_HTLC_EXPIRY_BLOCKS
+                        || invoice.expires_at <= now + CANCEL_HOLD_BEFORE_INVOICE_EXPIRY_SECONDS
                     {
-                        warn!(
-                            "payment_hash: `{}` scid: `{}` htlc: `{}`. \
-                            HTLC timed out. Rejecting htlc...",
-                            pay_hash, global_htlc_ident.scid, global_htlc_ident.htlc_id
-                        );
-                        let cur_amt: u64 = holdinvoice_data
-                            .htlc_data
-                            .values()
-                            .map(|htlc| htlc.amount_msat)
-                            .sum();
-                        if Amount::msat(&invoice.amount_msat.unwrap()) > cur_amt - amount_msat
-                            && holdinvoice_data.hold_state == Holdstate::Accepted
-                        {
-                            match datastore_update_state(
-                                &rpc_path,
-                                pay_hash.to_string(),
-                                Holdstate::Open.to_string(),
-                                holdinvoice_data.generation,
-                            )
-                            .await
-                            {
-                                Ok(_o) => (),
-                                Err(e) => {
-                                    warn!(
-                                        "Error updating state for pay_hash: {} {}",
-                                        pay_hash,
-                                        e.to_string()
-                                    );
-                                    continue;
+                        match holdinvoice_data.hold_state {
+                            Holdstate::Open | Holdstate::Accepted => {
+                                match datastore_update_state(
+                                    &rpc_path,
+                                    pay_hash.to_string(),
+                                    Holdstate::Canceled.to_string(),
+                                    holdinvoice_data.generation,
+                                )
+                                .await
+                                {
+                                    Ok(_o) => {
+                                        warn!(
+                                            "payment_hash: `{}` scid: `{}` htlc: `{}`. \
+                                        holdinvoice/htlc expired! Canceling htlc...",
+                                            pay_hash,
+                                            global_htlc_ident.scid,
+                                            global_htlc_ident.htlc_id
+                                        );
+                                        holdinvoice_data.hold_state = Holdstate::Canceled
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            "Error updating state for pay_hash: {} {}",
+                                            pay_hash,
+                                            e.to_string()
+                                        );
+                                        continue;
+                                    }
                                 }
-                            };
-                            info!(
-                                "payment_hash: `{}` scid: `{}` htlc: `{}`. \
-                                No longer enough msats for holdinvoice. \
-                                State=OPEN",
-                                pay_hash, global_htlc_ident.scid, global_htlc_ident.htlc_id
-                            );
+                            }
+                            Holdstate::Canceled | Holdstate::Settled => (),
                         }
-
-                        cleanup_pluginstate_holdinvoices(
-                            &mut holdinvoices,
-                            pay_hash,
-                            &global_htlc_ident,
-                        )
-                        .await;
-
-                        return Ok(json!({"result": "fail"}));
                     }
 
                     match holdinvoice_data.hold_state {
@@ -437,14 +386,11 @@ async fn loop_htlc_hold(
                                     .values()
                                     .map(|htlc| htlc.amount_msat)
                                     .sum()
-                                && holdinvoice_data
-                                    .hold_state
-                                    .is_valid_transition(&Holdstate::Open)
                             {
                                 match datastore_update_state(
                                     &rpc_path,
                                     pay_hash.to_string(),
-                                    Holdstate::Open.to_string(),
+                                    Holdstate::Canceled.to_string(),
                                     holdinvoice_data.generation,
                                 )
                                 .await
@@ -459,10 +405,10 @@ async fn loop_htlc_hold(
                                         continue;
                                     }
                                 };
-                                info!(
+                                warn!(
                                     "payment_hash: `{}` scid: `{}` htlc: `{}`. \
-                                    No longer enough msats for holdinvoice. \
-                                    State=OPEN",
+                                    No longer enough msats for holdinvoice! \
+                                    Canceling htlcs...",
                                     pay_hash, global_htlc_ident.scid, global_htlc_ident.htlc_id
                                 );
                             } else {
