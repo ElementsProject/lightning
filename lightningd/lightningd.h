@@ -128,6 +128,9 @@ struct lightningd {
 	 * transaction. */
 	struct jsonrpc *jsonrpc;
 
+	/* --developer? */
+	bool developer;
+
 	/* Configuration file name */
 	char *config_filename;
 	/* Configuration settings. */

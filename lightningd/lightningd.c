@@ -116,6 +116,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * us to use const more liberally: the style rule here is that you
 	 * should use 'const' on pointers if you can. */
 
+	/* They can turn this on with --developer */
+	ld->developer = IFDEV(true, false);
+
 	/*~ Note that we generally EXPLICITLY #if-wrap DEVELOPER code.  This
 	 * is a nod to keeping it minimal and explicit: we need this code for
 	 * testing, but its existence means we're not actually testing the

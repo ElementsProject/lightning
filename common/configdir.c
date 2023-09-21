@@ -179,7 +179,8 @@ void setup_option_allocators(void)
 
 static void parse_configvars(struct configvar **cvs,
 			     bool early,
-			     bool full_knowledge)
+			     bool full_knowledge,
+			     bool developer)
 {
 	for (size_t i = 0; i < tal_count(cvs); i++) {
 		const char *problem;
@@ -194,7 +195,7 @@ static void parse_configvars(struct configvar **cvs,
 		problem = configvar_parse(cvs[i],
 					  early,
 					  should_know,
-					  IFDEV(true, false));
+					  developer);
 		current_cv = NULL;
 		if (!problem)
 			continue;
@@ -354,7 +355,7 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 			       "Set JSON-RPC socket (or /dev/tty)");
 
 	cmdline_cvs = gather_cmdline_args(tmpctx, argc, argv, remove_args);
-	parse_configvars(cmdline_cvs, true, false);
+	parse_configvars(cmdline_cvs, true, false, false);
 
 	/* Base default or direct config can set network */
 	if (*config_filename) {
@@ -371,7 +372,7 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 						  false, 0);
 		/* This might set network! */
 		parse_configvars(configvar_join(tmpctx, base_cvs, cmdline_cvs),
-				 true, false);
+				 true, false, false);
 
 		/* Now, we can get network config */
 		dir = path_join(tmpctx, dir, chainparams->network_name);
@@ -385,7 +386,7 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 
 	/* This will be called again, once caller has added their own
 	 * early vars! */
-	parse_configvars_early(cvs);
+	parse_configvars_early(cvs, false);
 
 	*config_netdir
 		= path_join(NULL, *config_basedir, chainparams->network_name);
@@ -395,15 +396,16 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 	return cvs;
 }
 
-void parse_configvars_early(struct configvar **cvs)
+void parse_configvars_early(struct configvar **cvs, bool developer)
 {
-	parse_configvars(cvs, true, false);
+	parse_configvars(cvs, true, false, developer);
 }
 
 void parse_configvars_final(struct configvar **cvs,
-			    bool full_knowledge)
+			    bool full_knowledge,
+			    bool developer)
 {
-	parse_configvars(cvs, false, full_knowledge);
+	parse_configvars(cvs, false, full_knowledge, developer);
 	configvar_finalize_overrides(cvs);
 }
 
