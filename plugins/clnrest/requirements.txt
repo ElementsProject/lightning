@@ -8,7 +8,7 @@ blinker==1.6.2
 cffi==1.15.1
 click==8.1.6
 coincurve==18.0.0
-cryptography==41.0.2
+cryptography==41.0.4
 Flask==2.3.2
 Flask-Cors==4.0.0
 flask-restx==1.1.0
