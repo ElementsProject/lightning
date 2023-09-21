@@ -16,12 +16,10 @@
 #include <sodium/utils.h>
 #include <wally_psbt.h>
 
-#if DEVELOPER
 /* If they specify --dev-force-privkey it ends up in here. */
 struct privkey *dev_force_privkey;
 /* If they specify --dev-force-bip32-seed it ends up in here. */
 struct secret *dev_force_bip32_seed;
-#endif
 
 /*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
  * tree, bolt12 payer_id keys and derived_secret are derived from that, and
@@ -228,8 +226,7 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
 					     node_privkey->secret.data));
 
-#if DEVELOPER
-	/* In DEVELOPER mode, we can override with --dev-force-privkey */
+	/* In --developer mode, we can override with --dev-force-privkey */
 	if (dev_force_privkey) {
 		*node_privkey = *dev_force_privkey;
 		if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
@@ -237,7 +234,6 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Failed to derive pubkey for dev_force_privkey");
 	}
-#endif
 }
 
 /*~ This returns the secret key for this node. */
@@ -2053,8 +2049,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 				     bip32_key_version.bip32_privkey_version,
 				     0, &master_extkey) != WALLY_OK);
 
-#if DEVELOPER
-	/* In DEVELOPER mode, we can override with --dev-force-bip32-seed */
+	/* In --developer mode, we can override with --dev-force-bip32-seed */
 	if (dev_force_bip32_seed) {
 		if (bip32_key_from_seed(dev_force_bip32_seed->data,
 					sizeof(dev_force_bip32_seed->data),
@@ -2063,7 +2058,6 @@ u8 *hsmd_init(struct secret hsm_secret,
 			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					   "Can't derive bip32 master key");
 	}
-#endif /* DEVELOPER */
 
 	/* BIP 32:
 	 *

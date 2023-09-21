@@ -35,13 +35,6 @@
  * stream from lightningd. */
 #define REQ_FD 3
 
-#if DEVELOPER
-/* If they specify --dev-force-privkey it ends up in here. */
-extern struct privkey *dev_force_privkey;
-/* If they specify --dev-force-bip32-seed it ends up in here. */
-extern struct secret *dev_force_bip32_seed;
-#endif
-
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
 struct secret hsm_secret;
 
@@ -86,6 +79,9 @@ static UINTMAP(struct client *) clients;
 /*~ Plus the three zero-dbid clients: master, gossipd and connnectd. */
 static struct client *dbid_zero_clients[3];
 static size_t num_dbid_zero_clients;
+
+/* Are we in developer mode */
+static bool developer;
 
 /*~ We need this deep inside bad_req_fmt, and for memleak, so we make it a
  * global. */
@@ -437,10 +433,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				struct client *c,
 				const u8 *msg_in)
 {
-	struct privkey *privkey;
-	struct secret *seed;
-	struct secrets *secrets;
-	struct sha256 *shaseed;
 	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
@@ -454,7 +446,11 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
 	if (!fromwire_hsmd_init(NULL, msg_in, &bip32_key_version, &chainparams,
-				&hsm_encryption_key, &privkey, &seed, &secrets, &shaseed,
+				&hsm_encryption_key,
+				&dev_force_privkey,
+				&dev_force_bip32_seed,
+				&dev_force_channel_secrets,
+				&dev_force_channel_secrets_shaseed,
 				&minversion, &maxversion))
 		return bad_req(conn, c, msg_in);
 
@@ -476,12 +472,12 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	/*~ Don't swap this. */
 	sodium_mlock(hsm_secret.data, sizeof(hsm_secret.data));
 
-#if DEVELOPER
-	dev_force_privkey = privkey;
-	dev_force_bip32_seed = seed;
-	dev_force_channel_secrets = secrets;
-	dev_force_channel_secrets_shaseed = shaseed;
-#endif
+	if (!developer) {
+		assert(!dev_force_privkey);
+		assert(!dev_force_bip32_seed);
+		assert(!dev_force_channel_secrets);
+		assert(!dev_force_channel_secrets_shaseed);
+	}
 
 	/* Once we have read the init message we know which params the master
 	 * will use */
@@ -558,7 +554,6 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 			     send_pending_client_fd, c);
 }
 
-#if DEVELOPER
 static struct io_plan *handle_memleak(struct io_conn *conn,
 				      struct client *c,
 				      const u8 *msg_in)
@@ -582,7 +577,6 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
 	return req_reply(conn, c, take(reply));
 }
-#endif /* DEVELOPER */
 
 u8 *hsmd_status_bad_request(struct hsmd_client *client, const u8 *msg, const char *error)
 {
@@ -645,13 +639,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-#if DEVELOPER
 	case WIRE_HSMD_DEV_MEMLEAK:
-		return handle_memleak(conn, c, c->msg_in);
-#else
-	case WIRE_HSMD_DEV_MEMLEAK:
-#endif /* DEVELOPER */
-
+		if (developer)
+			return handle_memleak(conn, c, c->msg_in);
+		/* fall thru */
 	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_READY_CHANNEL:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
@@ -745,8 +736,8 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 
-	/* This sets up tmpctx, various DEVELOPER options, backtraces, etc. */
-	subdaemon_setup(argc, argv);
+	/* This sets up tmpctx, various --developer options, backtraces, etc. */
+	developer = subdaemon_setup(argc, argv);
 
 	/* A trivial daemon_conn just for writing. */
 	status_conn = daemon_conn_new(NULL, STDIN_FILENO, NULL, NULL, NULL);
