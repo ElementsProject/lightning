@@ -82,10 +82,8 @@
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
-#if DEVELOPER
 static void memleak_help_alt_subdaemons(struct htable *memtable,
 					struct lightningd *ld);
-#endif /* DEVELOPER */
 
 /*~ The core lightning object: it's passed everywhere, and is basically a
  * global variable.  This new_xxx pattern is something we'll see often:
@@ -377,13 +375,11 @@ static void destroy_alt_subdaemons(struct lightningd *ld)
 	strmap_clear(&ld->alt_subdaemons);
 }
 
-#if DEVELOPER
 static void memleak_help_alt_subdaemons(struct htable *memtable,
 					struct lightningd *ld)
 {
 	memleak_scan_strmap(memtable, &ld->alt_subdaemons);
 }
-#endif /* DEVELOPER */
 
 const char *subdaemon_path(const tal_t *ctx, const struct lightningd *ld, const char *name)
 {

@@ -7,7 +7,7 @@
  * but tal hierarchies tends to get freed at exit, so we need something
  * more sophisticated).
  *
- * Memleak detection is only active if DEVELOPER is set.  It does several
+ * Memleak detection is only active if $LIGHTNINGD_DEV_MEMLEAK is set.  It does several
  * things:
  * 1. attaches a backtrace list to every allocation, so we can tell
  *    where it came from.
@@ -32,7 +32,6 @@
 
 struct backtrace_state *backtrace_state;
 
-#if DEVELOPER
 static bool memleak_track;
 
 struct memleak_helper {
@@ -324,9 +323,11 @@ struct htable *memleak_start(const tal_t *ctx)
 
 void memleak_init(void)
 {
-	memleak_track = true;
-	if (backtrace_state)
-		add_backtrace_notifiers(NULL);
+	if (getenv("LIGHTNINGD_DEV_MEMLEAK")) {
+		memleak_track = true;
+		if (backtrace_state)
+			add_backtrace_notifiers(NULL);
+	}
 }
 
 static int dump_syminfo(void *data, uintptr_t pc UNUSED,
@@ -381,9 +382,3 @@ bool dump_memleak(struct htable *memtable,
 
 	return found_leak;
 }
-#else /* !DEVELOPER */
-void *notleak_(void *ptr, bool plus_children UNNEEDED)
-{
-	return ptr;
-}
-#endif /* !DEVELOPER */

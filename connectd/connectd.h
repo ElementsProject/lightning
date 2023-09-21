@@ -126,6 +126,9 @@ struct daemon {
 	/* Who am I? */
 	struct node_id id;
 
+	/* --developer? */
+	bool developer;
+
 	/* pubkey equivalent. */
 	struct pubkey mykey;
 

@@ -44,6 +44,8 @@ struct plugin {
 	struct io_conn *stdin_conn;
 	struct io_conn *stdout_conn;
 
+	bool developer;
+
 	/* to append to all our command ids */
 	const char *id;
 
@@ -109,10 +111,8 @@ struct plugin {
 	const char **notif_topics;
 	size_t num_notif_topics;
 
-#if DEVELOPER
 	/* Lets them remove ptrs from leak detection. */
 	void (*mark_mem)(struct plugin *plugin, struct htable *memtable);
-#endif
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
@@ -947,14 +947,9 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		if (streq(p->notif_subs[i].name, "shutdown"))
 			has_shutdown_notif = true;
 	}
-#if DEVELOPER
 	/* For memleak detection, always get notified of shutdown. */
-	if (!has_shutdown_notif)
+	if (!has_shutdown_notif && p->developer)
 		json_add_string(params, NULL, "shutdown");
-#else
-	/* Don't care this is unused: compiler don't complain! */
-	(void)has_shutdown_notif;
-#endif
 	json_array_end(params);
 
 	json_array_start(params, "hooks");
@@ -1509,7 +1504,6 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
 	va_end(ap);
 }
 
-#if DEVELOPER
 /* Hack since we have no extra ptr to log_memleak */
 static struct plugin *memleak_plugin;
 static void PRINTF_FMT(1,2) log_memleak(const char *fmt, ...)
@@ -1551,9 +1545,9 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 				void (*mark_mem)(struct plugin *plugin,
 						 struct htable *memtable))
 {
-	plugin->mark_mem = mark_mem;
+	if (plugin->developer)
+		plugin->mark_mem = mark_mem;
 }
-#endif /* DEVELOPER */
 
 static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
@@ -1600,11 +1594,10 @@ static void ld_command_handle(struct plugin *plugin,
 
 	/* If that's a notification. */
 	if (!cmd->id) {
-#if DEVELOPER
 		bool is_shutdown = streq(cmd->methodname, "shutdown");
-		if (is_shutdown)
+		if (is_shutdown && plugin->developer)
 			memleak_check(plugin, cmd);
-#endif
+
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
 				  plugin->notif_subs[i].name)
@@ -1616,11 +1609,9 @@ static void ld_command_handle(struct plugin *plugin,
 			}
 		}
 
-#if DEVELOPER
 		/* We subscribe them to this always */
-		if (is_shutdown)
+		if (is_shutdown && plugin->developer)
 			plugin_exit(plugin, 0);
-#endif
 
 		plugin_err(plugin, "Unregistered notification %.*s",
 			   json_tok_full_len(methtok),
@@ -1810,6 +1801,7 @@ static struct io_plan *stdout_conn_init(struct io_conn *conn,
 
 static struct plugin *new_plugin(const tal_t *ctx,
 				 const char *argv0,
+				 bool developer,
 				 const char *(*init)(struct plugin *p,
 						     const char *buf,
 						     const jsmntok_t *),
@@ -1834,6 +1826,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	name = path_basename(p, argv0);
 	name[path_ext_off(name)] = '\0';
 	p->id = name;
+	p->developer = developer;
 	p->buffer = tal_arr(p, char, 64);
 	list_head_init(&p->js_list);
 	p->used = 0;
@@ -1895,9 +1888,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		tal_arr_expand(&p->opts, o);
 	}
 
-#if DEVELOPER
 	p->mark_mem = NULL;
-#endif
 	return p;
 }
 
@@ -1919,16 +1910,17 @@ void plugin_main(char *argv[],
 {
 	struct plugin *plugin;
 	va_list ap;
+	bool developer;
 
 	setup_locale();
 
-	daemon_maybe_debug(argv);
+	developer = daemon_developer_mode(argv);
 
 	/* Note this already prints to stderr, which is enough for now */
 	daemon_setup(argv[0], NULL, NULL);
 
 	va_start(ap, num_notif_topics);
-	plugin = new_plugin(NULL, argv[0],
+	plugin = new_plugin(NULL, argv[0], developer,
 			    init, restartability, init_rpc, features, commands,
 			    num_commands, notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, notif_topics, num_notif_topics, ap);
@@ -2131,4 +2123,9 @@ notification_handled(struct command *cmd)
 {
 	tal_free(cmd);
 	return &complete;
+}
+
+bool plugin_developer_mode(const struct plugin *plugin)
+{
+	return plugin->developer;
 }

@@ -227,7 +227,6 @@ static bool timestamp_reasonable(struct routing_state *rstate, u32 timestamp)
 	return true;
 }
 
-#if DEVELOPER
 static void memleak_help_routing_tables(struct htable *memtable,
 					struct routing_state *rstate)
 {
@@ -246,7 +245,6 @@ static void memleak_help_routing_tables(struct htable *memtable,
 			memleak_scan_htable(memtable, &n->chan_map->raw);
 	}
 }
-#endif /* DEVELOPER */
 
 /* Once an hour, or at 10000 entries, we expire old ones */
 static void txout_failure_age(struct routing_state *rstate)

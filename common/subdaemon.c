@@ -18,8 +18,10 @@ static void status_backtrace_exit(void)
 	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FATAL SIGNAL");
 }
 
-void subdaemon_setup(int argc, char *argv[])
+bool subdaemon_setup(int argc, char *argv[])
 {
+	bool developer;
+
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
 		exit(0);
@@ -30,7 +32,7 @@ void subdaemon_setup(int argc, char *argv[])
 			logging_io = true;
 	}
 
-	daemon_maybe_debug(argv);
-
+	developer = daemon_developer_mode(argv);
 	daemon_setup(argv[0], status_backtrace_print, status_backtrace_exit);
+	return developer;
 }

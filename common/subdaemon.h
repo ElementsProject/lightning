@@ -5,7 +5,7 @@
 
 struct htable;
 
-/* daemon_setup, but for subdaemons */
-void subdaemon_setup(int argc, char *argv[]);
+/* daemon_setup, but for subdaemons: returns true if --developer */
+bool subdaemon_setup(int argc, char *argv[]);
 
 #endif /* LIGHTNING_COMMON_SUBDAEMON_H */

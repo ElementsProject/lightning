@@ -70,9 +70,7 @@ void status_send_fatal(const u8 *msg TAKES) NORETURN;
 /* Only for sync status! */
 void status_send_fd(int fd);
 
-#if DEVELOPER
 /* Print BROKEN status: callback for dump_memleak. */
 void memleak_status_broken(const char *fmt, ...);
-#endif
 
 #endif /* LIGHTNING_COMMON_STATUS_H */
