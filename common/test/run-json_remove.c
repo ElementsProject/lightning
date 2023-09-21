@@ -50,6 +50,9 @@ bool command_check_only(const struct command *cmd UNNEEDED)
 /* Generated stub for command_deprecated_apis */
 bool command_deprecated_apis(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_deprecated_apis called!\n"); abort(); }
+/* Generated stub for command_dev_apis */
+bool command_dev_apis(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_dev_apis called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)

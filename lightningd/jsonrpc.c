@@ -1295,6 +1295,11 @@ bool command_deprecated_apis(const struct command *cmd)
 	return cmd->ld->deprecated_apis;
 }
 
+bool command_dev_apis(const struct command *cmd)
+{
+	return cmd->ld->developer;
+}
+
 void command_set_usage(struct command *cmd, const char *usage TAKES)
 {
 	usage = tal_strdup(cmd->ld, usage);
