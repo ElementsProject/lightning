@@ -338,7 +338,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			   "Cannot broadcast our commitment tx:"
 			   " it's invalid! (ancient channel?)");
 	} else {
-		struct bitcoin_tx *tx;
+		struct bitcoin_tx *tx COMPILER_WANTS_INIT("gcc 12.3.0");
 
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
