@@ -715,7 +715,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_pay(self, bolt11, amount_msat=None, label=None, riskfactor=None,
                 maxfeepercent=None, retry_for=None,
-                maxdelay=None, exemptfee=None, use_shadow=True, exclude=None):
+                maxdelay=None, exemptfee=None, dev_use_shadow=True, exclude=None):
         """
         A developer version of `pay`, with the possibility to deactivate
         shadow routing (used for testing).
@@ -729,7 +729,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "retry_for": retry_for,
             "maxdelay": maxdelay,
             "exemptfee": exemptfee,
-            "use_shadow": use_shadow,
+            "dev_use_shadow": dev_use_shadow,
             "exclude": exclude,
         }
         return self.call("pay", payload)

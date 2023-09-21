@@ -250,10 +250,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	unsigned int *retryfor;
 	struct route_info **hints;
 	struct tlv_field *extra_fields;
+	bool *dev_use_shadow;
 
-#if DEVELOPER
-	bool *use_shadow;
-#endif
 	if (!param(cmd, buf, params,
 		   p_req("destination", param_node_id, &destination),
 		   p_req("amount_msat|msatoshi", param_msat, &msat),
@@ -266,9 +264,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 		   p_opt("routehints", param_routehint_array, &hints),
-#if DEVELOPER
-		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
-#endif
+		   p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
 		   NULL))
 		return command_param_failed();
 
@@ -313,9 +309,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	    tal_steal(p, extra_fields);
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
-#if DEVELOPER
-	payment_mod_shadowroute_get_data(p)->use_shadow = *use_shadow;
-#endif
+	payment_mod_shadowroute_get_data(p)->use_shadow = *dev_use_shadow;
 	p->label = tal_steal(p, label);
 	payment_start(p);
 	/* We're keeping this around now */

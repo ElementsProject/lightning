@@ -920,6 +920,8 @@ handle_getmanifest(struct command *getmanifest_cmd,
 
 	json_array_start(params, "options");
 	for (size_t i = 0; i < tal_count(p->opts); i++) {
+		if (p->opts[i].dev_only && !p->developer)
+			continue;
 		json_object_start(params, NULL);
 		json_add_string(params, "name", p->opts[i].name);
 		json_add_string(params, "type", p->opts[i].type);
@@ -932,6 +934,8 @@ handle_getmanifest(struct command *getmanifest_cmd,
 
 	json_array_start(params, "rpcmethods");
 	for (size_t i = 0; i < p->num_commands; i++) {
+		if (p->commands[i].dev_only && !p->developer)
+			continue;
 		json_object_start(params, NULL);
 		json_add_string(params, "name", p->commands[i].name);
 		json_add_string(params, "usage",
@@ -1888,6 +1892,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.description = va_arg(ap, const char *);
 		o.handle = va_arg(ap, char *(*)(struct plugin *, const char *str, void *arg));
 		o.arg = va_arg(ap, void *);
+		o.dev_only = va_arg(ap, int); /* bool gets promoted! */
 		o.deprecated = va_arg(ap, int); /* bool gets promoted! */
 		o.dynamic = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);

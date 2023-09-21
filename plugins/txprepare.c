@@ -671,19 +671,15 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-#if DEVELOPER
 static void mark_unreleased_txs(struct plugin *plugin, struct htable *memtable)
 {
 	memleak_scan_list_head(memtable, &unreleased_txs);
 }
-#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
-#if DEVELOPER
 	plugin_set_memleak_handler(p, mark_unreleased_txs);
-#endif
 	return NULL;
 }
 

@@ -63,10 +63,8 @@ struct bitcoind {
 	/* Whether we fake fees (regtest) */
 	bool fake_fees;
 
-#if DEVELOPER
 	/* Override in case we're developer mode for testing*/
-	bool no_fake_fees;
-#endif
+	bool dev_no_fake_fees;
 };
 
 static struct bitcoind *bitcoind;
@@ -1012,12 +1010,10 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	tal_free(cmd);
 }
 
-#if DEVELOPER
 static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, bitcoind);
 }
-#endif
 
 static const char *init(struct plugin *p, const char *buffer UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -1026,13 +1022,11 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 
 	/* Usually we fake up fees in regtest */
 	if (streq(chainparams->network_name, "regtest"))
-		bitcoind->fake_fees = IFDEV(!bitcoind->no_fake_fees, true);
+		bitcoind->fake_fees = !bitcoind->dev_no_fake_fees;
 	else
 		bitcoind->fake_fees = false;
 
-#if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_bitcoind);
-#endif
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
 
@@ -1096,9 +1090,7 @@ static struct bitcoind *new_bitcoind(const tal_t *ctx)
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
-#if DEVELOPER
-	bitcoind->no_fake_fees = false;
-#endif
+	bitcoind->dev_no_fake_fees = false;
 
 	return bitcoind;
 }
@@ -1142,11 +1134,9 @@ int main(int argc, char *argv[])
 				  "how long to keep retrying to contact bitcoind"
 				  " before fatally exiting",
 				  u64_option, &bitcoind->retry_timeout),
-#if DEVELOPER
-		    plugin_option("dev-no-fake-fees",
-				  "bool",
-				  "Suppress fee faking for regtest",
-				  bool_option, &bitcoind->no_fake_fees),
-#endif /* DEVELOPER */
+		    plugin_option_dev("dev-no-fake-fees",
+				      "bool",
+				      "Suppress fee faking for regtest",
+				      bool_option, &bitcoind->dev_no_fake_fees),
 		    NULL);
 }

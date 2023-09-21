@@ -782,13 +782,11 @@ static struct command_result *json_commando_listrunes(struct command *cmd,
 	return forward_command(cmd, buffer, params, "showrunes");
 }
 
-#if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, outgoing_commands);
 	memleak_scan_obj(memtable, incoming_commands);
 }
-#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -796,9 +794,7 @@ static const char *init(struct plugin *p,
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
 	plugin = p;
-#if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_globals);
-#endif
 
 	return NULL;
 }
