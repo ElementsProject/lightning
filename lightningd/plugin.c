@@ -45,13 +45,11 @@ struct plugin_rpccall {
 	struct jsonrpc_request *request;
 };
 
-#if DEVELOPER
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugins *plugins)
 {
 	memleak_scan_strmap(memtable, &plugins->pending_requests);
 }
-#endif /* DEVELOPER */
 
 static const char *state_desc(const struct plugin *plugin)
 {

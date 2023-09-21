@@ -21,7 +21,8 @@ const char *backtrace_symname(const tal_t *ctx, const void *addr);
 /* Shutdown for a valgrind-clean exit (frees everything) */
 void daemon_shutdown(void);
 
-/* Kick in a debugger if they set --debugger */
-void daemon_maybe_debug(char *argv[]);
+/* If --developer is set, set up extra developer checks, kick in a
+ * debugger if they set --debugger, and return true.   */
+bool daemon_developer_mode(char *argv[]);
 
 #endif /* LIGHTNING_COMMON_DAEMON_H */

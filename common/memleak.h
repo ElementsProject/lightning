@@ -38,7 +38,6 @@ void memleak_init(void);
 
 void *notleak_(void *ptr, bool plus_children);
 
-#if DEVELOPER
 /**
  * memleak_add_helper: help memleak look inside this tal object
  * @p: the tal object
@@ -55,10 +54,6 @@ void *notleak_(void *ptr, bool plus_children);
 			    typesafe_cb_preargs(void, const tal_t *,	\
 						(cb), (p),		\
 						struct htable *))
-#else
-/* Don't refer to cb at all if !DEVELOPER */
-#define memleak_add_helper(p, cb)
-#endif
 
 /* For update-mock: memleak_add_helper_ mock empty */
 void memleak_add_helper_(const tal_t *p, void (*cb)(struct htable *memtable,
@@ -147,10 +142,7 @@ const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
 
 extern struct backtrace_state *backtrace_state;
 
-#if DEVELOPER
-/* Only defined if DEVELOPER */
 bool dump_memleak(struct htable *memtable,
 		  void PRINTF_FMT(1,2) (*print)(const char *fmt, ...));
-#endif
 
 #endif /* LIGHTNING_COMMON_MEMLEAK_H */

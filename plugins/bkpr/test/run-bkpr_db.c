@@ -24,9 +24,9 @@
 /* Generated stub for account_entry_tag_str */
 const char *account_entry_tag_str(enum account_entry_tag tag UNNEEDED)
 { fprintf(stderr, "account_entry_tag_str called!\n"); abort(); }
-/* Generated stub for daemon_maybe_debug */
-void daemon_maybe_debug(char *argv[])
-{ fprintf(stderr, "daemon_maybe_debug called!\n"); abort(); }
+/* Generated stub for daemon_developer_mode */
+bool daemon_developer_mode(char *argv[])
+{ fprintf(stderr, "daemon_developer_mode called!\n"); abort(); }
 /* Generated stub for daemon_setup */
 void daemon_setup(const char *argv0 UNNEEDED,
 		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,

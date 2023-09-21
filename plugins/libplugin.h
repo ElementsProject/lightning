@@ -20,6 +20,7 @@
 #include <stdarg.h>
 
 struct json_out;
+struct htable;
 struct plugin;
 struct rpc_conn;
 
@@ -404,6 +405,9 @@ static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
 	return set;
 }
 
+/* Is --developer enabled? */
+bool plugin_developer_mode(const struct plugin *plugin);
+
 /* Macro to define arguments */
 #define plugin_option_(name, type, description, set, arg, deprecated, dynamic)	\
 	(name),								\
@@ -489,12 +493,9 @@ struct route_hop *json_to_route(const tal_t *ctx, const char *buffer,
 /* Create a prefix (ending in /) for this cmd_id, if any. */
 const char *json_id_prefix(const tal_t *ctx, const struct command *cmd);
 
-#if DEVELOPER
-struct htable;
 void plugin_set_memleak_handler(struct plugin *plugin,
 				void (*mark_mem)(struct plugin *plugin,
 						 struct htable *memtable));
-#endif /* DEVELOPER */
 
 /* Synchronously call a JSON-RPC method and return its contents and
  * the parser token. */

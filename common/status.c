@@ -234,7 +234,6 @@ void master_badmsg(u32 type_expected, const u8 *msg)
 		     type_expected, tal_hex(tmpctx, msg));
 }
 
-#if DEVELOPER
 /* Print BROKEN status: callback for dump_memleak. */
 void memleak_status_broken(const char *fmt, ...)
 {
@@ -243,4 +242,3 @@ void memleak_status_broken(const char *fmt, ...)
 	status_vfmt(LOG_BROKEN, NULL, fmt, ap);
 	va_end(ap);
 }
-#endif

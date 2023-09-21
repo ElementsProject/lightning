@@ -1239,13 +1239,11 @@ static void destroy_jsonrpc(struct jsonrpc *jsonrpc)
 	strmap_clear(&jsonrpc->usagemap);
 }
 
-#if DEVELOPER
 static void memleak_help_jsonrpc(struct htable *memtable,
 				 struct jsonrpc *jsonrpc)
 {
 	memleak_scan_strmap(memtable, &jsonrpc->usagemap);
 }
-#endif /* DEVELOPER */
 
 void jsonrpc_setup(struct lightningd *ld)
 {

@@ -1862,7 +1862,6 @@ static void peer_final_msg(struct io_conn *conn,
 		multiplex_final_msg(peer, take(finalmsg));
 }
 
-#if DEVELOPER
 static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 {
 	struct htable *memtable;
@@ -1881,6 +1880,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 							      found_leak)));
 }
 
+#if DEVELOPER
 static void dev_suppress_gossip(struct daemon *daemon, const u8 *msg)
 {
 	daemon->dev_suppress_gossip = true;
@@ -2082,10 +2082,11 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		goto out;
 
 	case WIRE_CONNECTD_DEV_MEMLEAK:
-#if DEVELOPER
-		dev_connect_memleak(daemon, msg);
-		goto out;
-#endif
+		if (daemon->developer) {
+			dev_connect_memleak(daemon, msg);
+			goto out;
+		}
+		/* Fall thru */
 	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
 #if DEVELOPER
 		dev_suppress_gossip(daemon, msg);
@@ -2152,14 +2153,12 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }
 
-/*~ This is a hook used by the memleak code (if DEVELOPER=1): it can't see
- * pointers inside hash tables, so we give it a hint here. */
-#if DEVELOPER
+/*~ This is a hook used by the memleak code: it can't see pointers
+ * inside hash tables, so we give it a hint here. */
 static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 {
 	memleak_scan_htable(memtable, &daemon->peers->raw);
 }
-#endif /* DEVELOPER */
 
 static void gossipd_failed(struct daemon_conn *gossipd)
 {
@@ -2168,15 +2167,17 @@ static void gossipd_failed(struct daemon_conn *gossipd)
 
 int main(int argc, char *argv[])
 {
+	struct daemon *daemon;
+	bool developer;
+
 	setup_locale();
 
-	struct daemon *daemon;
-
 	/* Common subdaemon setup code. */
-	subdaemon_setup(argc, argv);
+	developer = subdaemon_setup(argc, argv);
 
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
+	daemon->developer = developer;
 	daemon->connection_counter = 1;
 	daemon->peers = tal(daemon, struct peer_htable);
 	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);

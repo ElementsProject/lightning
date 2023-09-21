@@ -18,13 +18,11 @@
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "full_channel_error_names_gen.h"
 
-#if DEVELOPER
 static void memleak_help_htlcmap(struct htable *memtable,
 				 struct htlc_map *htlcs)
 {
 	memleak_scan_htable(memtable, &htlcs->raw);
 }
-#endif /* DEVELOPER */
 
 /* This is a dangerous thing!  Because we apply HTLCs in many places
  * in bulk, we can temporarily go negative.  You must check balance_ok()

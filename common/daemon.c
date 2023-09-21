@@ -96,34 +96,7 @@ static void crashlog_activate(void)
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGBUS, &sa, NULL);
 }
-#else
-void send_backtrace(const char *why)
-{
-}
 
-const char *backtrace_symname(const tal_t *ctx, const void *addr)
-{
-	return "unknown (backtrace unsupported)";
-}
-#endif
-
-int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
-{
-	const char *t;
-
-	t = taken_any();
-	if (t)
-		errx(1, "Outstanding taken pointers: %s", t);
-
-	if (wally_tal_ctx)
-		errx(1, "Outstanding tal_wally_start!");
-
-	clean_tmpctx();
-
-	return poll(fds, nfds, timeout);
-}
-
-#if DEVELOPER && BACKTRACE_SUPPORTED
 static void steal_notify(tal_t *child, enum tal_notify_type n, tal_t *newparent)
 {
 	tal_t *p = newparent;
@@ -154,7 +127,32 @@ static void remove_steal_notifiers(void)
 	/* We remove this from root, assuming everything else freed. */
 	tal_del_notifier(NULL, add_steal_notifier);
 }
+#else
+void send_backtrace(const char *why)
+{
+}
+
+const char *backtrace_symname(const tal_t *ctx, const void *addr)
+{
+	return "unknown (backtrace unsupported)";
+}
 #endif
+
+int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	const char *t;
+
+	t = taken_any();
+	if (t)
+		errx(1, "Outstanding taken pointers: %s", t);
+
+	if (wally_tal_ctx)
+		errx(1, "Outstanding tal_wally_start!");
+
+	clean_tmpctx();
+
+	return poll(fds, nfds, timeout);
+}
 
 void daemon_setup(const char *argv0,
 		  void (*backtrace_print)(const char *fmt, ...),
@@ -164,22 +162,14 @@ void daemon_setup(const char *argv0,
 #if BACKTRACE_SUPPORTED
 	bt_print = backtrace_print;
 	bt_exit = backtrace_exit;
-#if DEVELOPER
+
 	/* Suppresses backtrace (breaks valgrind) */
 	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
 		backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
-	add_steal_notifiers(NULL);
-#else
-	backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
-#endif
 	crashlog_activate();
 #endif
 
-#if DEVELOPER
-	/* This has significant overhead, so we only enable it if told */
-	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
-		memleak_init();
-#endif
+	memleak_init();
 
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
@@ -191,18 +181,27 @@ void daemon_shutdown(void)
 {
 	common_shutdown();
 
-#if DEVELOPER && BACKTRACE_SUPPORTED
+#if BACKTRACE_SUPPORTED
+	/* Harmless if it wasn't applied */
 	remove_steal_notifiers();
 #endif
 }
 
-void daemon_maybe_debug(char *argv[])
+bool daemon_developer_mode(char *argv[])
 {
-#if DEVELOPER
-	for (int i = 1; argv[i]; i++) {
-		if (!streq(argv[i], "--debugger"))
-			continue;
+	bool developer = false, debug = false;
 
+	for (int i = 1; argv[i]; i++) {
+		if (streq(argv[i], "--debugger"))
+			debug = true;
+		else if (streq(argv[i], "--developer"))
+			developer = true;
+	}
+
+	if (!developer)
+		return false;
+
+	if (debug) {
 		/* Don't let this mess up stdout, so redir to /dev/null */
 		char *cmd = tal_fmt(NULL, "${DEBUG_TERM:-gnome-terminal --} gdb -ex 'attach %u' %s >/dev/null &", getpid(), argv[0]);
 		fprintf(stderr, "Running %s\n", cmd);
@@ -214,5 +213,9 @@ void daemon_maybe_debug(char *argv[])
 		/* Continue in the debugger. */
 		kill(getpid(), SIGSTOP);
 	}
-#endif /* DEVELOPER */
+
+	/* This checks for any tal_steal loops! */
+	add_steal_notifiers(NULL);
+
+	return true;
 }

@@ -194,7 +194,7 @@ void status_failed(enum status_failreason code UNNEEDED,
 void status_setup_sync(int fd UNNEEDED)
 { fprintf(stderr, "status_setup_sync called!\n"); abort(); }
 /* Generated stub for subdaemon_setup */
-void subdaemon_setup(int argc UNNEEDED, char *argv[])
+bool subdaemon_setup(int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "subdaemon_setup called!\n"); abort(); }
 /* Generated stub for to_self_wscript */
 u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
