@@ -2132,7 +2132,8 @@ static const struct json_command dev_feerate_command = {
 	"dev-feerate",
 	"developer",
 	json_dev_feerate,
-	"Set feerate for {id} to {feerate}"
+	"Set feerate for {id} to {feerate}",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_feerate_command);
 
@@ -2185,7 +2186,8 @@ static const struct json_command dev_quiesce_command = {
 	"dev-quiesce",
 	"developer",
 	json_dev_quiesce,
-	"Initiate quiscence protocol with peer"
+	"Initiate quiscence protocol with peer",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_quiesce_command);
 #endif /* DEVELOPER */

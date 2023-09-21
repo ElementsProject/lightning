@@ -2986,8 +2986,8 @@ static const struct json_command dev_ignore_htlcs = {
 	"dev-ignore-htlcs",
 	"developer",
 	json_dev_ignore_htlcs,
-	"Set ignoring incoming HTLCs for peer {id} to {ignore}", false,
-	"Set/unset ignoring of all incoming HTLCs.  For testing only."
+	"Set ignoring incoming HTLCs for peer {id} to {ignore}",
+	.dev_only = true,
 };
 
 AUTODATA(json_command, &dev_ignore_htlcs);

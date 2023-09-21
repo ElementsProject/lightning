@@ -1263,6 +1263,7 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	} else
 		cmd->deprecated = false;
 
+	cmd->dev_only = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		struct plugin *p =

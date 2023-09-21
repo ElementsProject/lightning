@@ -59,8 +59,9 @@ struct json_command {
 					   const jsmntok_t *obj,
 					   const jsmntok_t *params);
 	const char *description;
-	bool deprecated;
 	const char *verbose;
+	bool dev_only;
+	bool deprecated;
 };
 
 struct jsonrpc_notification {

@@ -3538,7 +3538,8 @@ static const struct json_command queryrates_command = {
 	"channels",
 	json_queryrates,
 	"Ask a peer what their contribution and liquidity rates are"
-	" for the given {amount} and {requested_amt}"
+	" for the given {amount} and {requested_amt}",
+	.dev_only = true,
 };
 
 AUTODATA(json_command, &queryrates_command);

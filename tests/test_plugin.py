@@ -1489,7 +1489,7 @@ def test_rpc_command_hook(node_factory):
     assert funds[0] == "Custom rpc_command_1 result"
 
     # Test command redirection to a plugin
-    l1.rpc.call('help', [0])
+    l1.rpc.call('help', ['developer'])
 
     # Check the 'already modified' warning is not logged on just 'continue'
     assert not l1.daemon.is_in_log("rpc_command hook 'listfunds' already modified, ignoring.")

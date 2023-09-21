@@ -560,7 +560,8 @@ static const struct json_command dev_set_max_scids_encode_size = {
 	"dev-set-max-scids-encode-size",
 	"developer",
 	json_dev_set_max_scids_encode_size,
-	"Set {max} bytes of short_channel_ids per reply_channel_range"
+	"Set {max} bytes of short_channel_ids per reply_channel_range",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
 
@@ -603,7 +604,8 @@ static const struct json_command dev_compact_gossip_store = {
 	"dev-compact-gossip-store",
 	"developer",
 	json_dev_compact_gossip_store,
-	"Ask gossipd to rewrite the gossip store."
+	"Ask gossipd to rewrite the gossip store.",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_compact_gossip_store);
 
@@ -630,7 +632,8 @@ static const struct json_command dev_gossip_set_time = {
 	"dev-gossip-set-time",
 	"developer",
 	json_dev_gossip_set_time,
-	"Ask gossipd to update the current time."
+	"Ask gossipd to update the current time.",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_gossip_set_time);
 #endif /* DEVELOPER */

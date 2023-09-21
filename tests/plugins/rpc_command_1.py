@@ -18,7 +18,7 @@ def on_rpc_command(plugin, rpc_command, **kwargs):
         # Return a custom result to the command
         return {"return": {"result": ["Custom rpc_command_1 result"]}}
     elif request["method"] == "help":
-        request["method"] = "autocleaninvoice"
+        request["method"] = "listconfigs"
         return {"replace": request}
     return {"result": "continue"}
 

@@ -183,8 +183,8 @@ static const struct json_command newaddr_command = {
 	"newaddr",
 	"bitcoin",
 	json_newaddr,
-	"Get a new {bech32} (or all) address to fund a channel", false,
-	"Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
+	"Get a new {bech32} (or all) address to fund a channel",
+	.verbose = "Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -266,8 +266,8 @@ static const struct json_command listaddrs_command = {
 	"developer",
 	json_listaddrs,
 	"Show addresses list up to derivation {index} (default is the last bip32 index)",
-	false,
-	"Show addresses of your internal wallet. Use `newaddr` to generate a new address."
+	.verbose = "Show addresses of your internal wallet. Use `newaddr` to generate a new address.",
+	.dev_only = true,
 };
 AUTODATA(json_command, &listaddrs_command);
 
@@ -419,8 +419,7 @@ static const struct json_command listfunds_command = {
 	"utility",
 	json_listfunds,
 	"Show available funds from the internal wallet",
-	false,
-	"Returns a list of funds (outputs) that can be used "
+	.verbose = "Returns a list of funds (outputs) that can be used "
 	"by the internal wallet to open new channels "
 	"or can be withdrawn, using the `withdraw` command, to another wallet. "
 	"Includes spent outputs if {spent} is set to true."
@@ -499,8 +498,8 @@ static const struct json_command dev_rescan_output_command = {
 	"developer",
 	json_dev_rescan_outputs,
 	"Synchronize the state of our funds with bitcoind",
-	false,
-	"For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
+	.verbose = "For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_rescan_output_command);
 
@@ -601,8 +600,7 @@ static const struct json_command listtransactions_command = {
     "payment",
     json_listtransactions,
     "List transactions that we stored in the wallet",
-    false,
-    "Returns transactions tracked in the wallet. This includes deposits, "
+    .verbose = "Returns transactions tracked in the wallet. This includes deposits, "
     "withdrawals and transactions related to channels. A transaction may have "
     "multiple types, e.g., a transaction may both be a close and a deposit if "
     "it closes the channel and returns funds to the wallet."

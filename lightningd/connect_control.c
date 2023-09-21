@@ -824,20 +824,6 @@ static const struct json_command sendcustommsg_command = {
 
 AUTODATA(json_command, &sendcustommsg_command);
 
-#ifdef COMPAT_V0100
-#ifdef DEVELOPER
-static const struct json_command dev_sendcustommsg_command = {
-    "dev-sendcustommsg",
-    "utility",
-    json_sendcustommsg,
-    "Send a custom message to the peer with the given {node_id}",
-    .verbose = "dev-sendcustommsg node_id hexcustommsg",
-};
-
-AUTODATA(json_command, &dev_sendcustommsg_command);
-#endif  /* DEVELOPER */
-#endif /* COMPAT_V0100 */
-
 #if DEVELOPER
 static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 						       const char *buffer,
@@ -857,7 +843,8 @@ static const struct json_command dev_suppress_gossip = {
 	"dev-suppress-gossip",
 	"developer",
 	json_dev_suppress_gossip,
-	"Stop this node from sending any more gossip."
+	"Stop this node from sending any more gossip.",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_suppress_gossip);
 
@@ -879,7 +866,8 @@ static const struct json_command dev_report_fds = {
 	"dev-report-fds",
 	"developer",
 	json_dev_report_fds,
-	"Ask connectd to report status of all its open files."
+	"Ask connectd to report status of all its open files.",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_report_fds);
 #endif /* DEVELOPER */
