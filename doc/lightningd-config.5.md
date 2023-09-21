@@ -45,10 +45,14 @@ OPTIONS
 
 ### General options
 
+* **developer**
+
+  This enables developer mode, allowing developer options and commands to be used.  It also disabled deprecated APIs; use `allow-deprecated-apis=true` to re-enable them.
+
 * **allow-deprecated-apis**=*BOOL*
 
   Enable deprecated options, JSONRPC commands, fields, etc. It defaults to
-*true*, but you should set it to *false* when testing to ensure that an
+*true* outside developer mode, but you should set it to *false* when testing to ensure that an
 upgrade won't break your configuration.
 
 * **help**

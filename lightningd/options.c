@@ -1717,6 +1717,11 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 		     list_features_and_exit,
 		     ld, "List the features configured, and exit immediately");
 
+	/*~ We need to know this super-early, as it controls other options */
+	clnopt_noarg("--developer", OPT_EARLY|OPT_SHOWBOOL,
+		     opt_set_bool, &ld->developer,
+		     "Enable developer commands/options, disable legacy APIs");
+
 	/*~ This does enough parsing to get us the base configuration options */
 	ld->configvars = initial_config_opts(ld, &argc, argv, true,
 					     &ld->config_filename,
@@ -1763,6 +1768,10 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 			      ld->config_netdir, strerror(errno));
 	}
 
+	/* --developer changes default for APIs */
+	if (ld->developer)
+		ld->deprecated_apis = false;
+
 	/*~ We move files from old locations on first upgrade. */
 	promote_missing_files(ld);
 
@@ -1772,7 +1781,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Now, first-pass of parsing.  But only handle the early
 	 * options (testnet, plugins etc), others may be added on-demand */
-	parse_configvars_early(ld->configvars);
+	parse_configvars_early(ld->configvars, ld->developer);
 
 	/* Finalize the logging subsystem now. */
 	logging_options_parsed(ld->log_book);
@@ -1782,7 +1791,7 @@ void handle_opts(struct lightningd *ld)
 {
 	/* Now we know all the options, finish parsing and finish
 	 * populating ld->configvars with cmdline. */
-	parse_configvars_final(ld->configvars, true);
+	parse_configvars_final(ld->configvars, true, ld->developer);
 
 	/* We keep a separate variable rather than overriding always_use_proxy,
 	 * so listconfigs shows the correct thing. */

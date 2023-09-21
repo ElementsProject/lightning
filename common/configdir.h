@@ -30,12 +30,12 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 				       char **rpc_filename);
 
 /* This is called before we know all the options. */
-void parse_configvars_early(struct configvar **cvs);
+void parse_configvars_early(struct configvar **cvs, bool developer);
 
 /* This is called once, after we know all the options (if full_knowledge
  * is false, ignore unknown non-cmdline options). */
 void parse_configvars_final(struct configvar **cvs,
-			    bool full_knowledge);
+			    bool full_knowledge, bool developer);
 
 /* For listconfigs to detect. */
 bool is_restricted_ignored(const void *fn);

@@ -32,6 +32,25 @@
             }
           }
         },
+        "developer": {
+          "type": "object",
+          "added": "v23.08",
+          "additionalProperties": false,
+          "required": [
+            "set",
+            "source"
+          ],
+          "properties": {
+            "set": {
+              "type": "boolean",
+              "description": "`true` if set in config or cmdline"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
+        },
         "clear-plugins": {
           "type": "object",
           "additionalProperties": false,
@@ -1730,6 +1749,11 @@
       "deprecated": "v23.08",
       "type": "boolean",
       "description": "Request peers to only send confirmed inputs (dual-fund only)"
+    },
+    "developer": {
+      "added": "v23.08",
+      "type": "boolean",
+      "description": "Whether developer mode is enabled"
     },
     "commit-fee": {
       "deprecated": "v23.08",

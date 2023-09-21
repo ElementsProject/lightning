@@ -13,7 +13,7 @@ get_cmd_opts()
     COLUMNS=1000 $1 --help | sed -n 's/^\(-.|\)\?\(--[^	]*\)\(  \|	\).*/\2/p' | while IFS=$'\n' read -r opt; do
 	case "$opt" in
 	    # We don't document dev options.
-	    --dev*)
+	    --dev-*)
 		;;
 	    --*=*|--*' <arg>'*)
 		echo "${opt%%[ =]*}=" | cut -c3-
