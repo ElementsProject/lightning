@@ -78,14 +78,7 @@ if ! bitcoin-cli -regtest ping >/dev/null 2>&1; then
     while ! bitcoin-cli -regtest ping >/dev/null 2>&1; do sleep 1; done
 fi
 
-DEVELOPER=$(grep '^DEVELOPER=' config.vars | cut -d= -f2-)
-
-if [ "$DEVELOPER" = 1 ]; then
-    LIGHTNINGD="./lightningd/lightningd --network=regtest --dev-gossip-time=1550513768"
-else
-    # Means we can't do the peer_read_all test properly, since it will time out.
-    LIGHTNINGD="./lightningd/lightningd --network=regtest"
-fi
+LIGHTNINGD="./lightningd/lightningd --developer --network=regtest --dev-gossip-time=1550513768"
 LCLI1="./cli/lightning-cli --lightning-dir=$DIR -R"
 
 if [ -z "$DIR" ]; then
@@ -119,7 +112,7 @@ if [ -z "${TARGETS##* vsz_kb *}" ]; then
 fi
 
 # How long does rewriting the store take?
-if [ -z "${TARGETS##* store_rewrite_sec *}" ] && [ "$DEVELOPER" = 1 ]; then
+if [ -z "${TARGETS##* store_rewrite_sec *}" ]; then
     # shellcheck disable=SC2086
     /usr/bin/time --append -f %e $LCLI1 dev-compact-gossip-store 2>&1 > /dev/null | print_stat store_rewrite_sec
 fi
@@ -155,9 +148,7 @@ if [ -z "${TARGETS##* peer_write_all_sec *}" ]; then
     /usr/bin/time --quiet --append -f %e devtools/gossipwith --initial-sync --max-messages=$((ENTRIES - 5)) "$ID"@"$DIR"/peer 2>&1 > /dev/null | print_stat peer_write_all_sec
 fi
 
-# Needs DEVELOPER otherwise timestamps will be more than 2 weeks old and it
-# will ignore gossip.
-if [ -z "${TARGETS##* peer_read_all_sec *}" ] && [ "$DEVELOPER" = 1 ]; then
+if [ -z "${TARGETS##* peer_read_all_sec *}" ]; then
     # shellcheck disable=SC2086
     $LCLI1 stop > /dev/null
     sleep 5

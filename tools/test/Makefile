@@ -14,12 +14,7 @@ TOOL_TEST_INCL_SRC := tools/test/enum.c
 TOOL_GEN_SRC := tools/test/test_gen.c tools/test/print_gen.c
 TOOL_GEN_OBJS := $(TOOL_GEN_SRC:.c=.o)
 TOOL_GEN_HEADER := tools/test/test_gen.h tools/test/print_gen.h
-# Don't require update-mocks hack unless developer mode.
-ifeq ($(DEVELOPER),1)
 TOOL_TEST_SRC := $(wildcard tools/test/run-*.c)
-else
-TOOL_TEST_SRC :=
-endif
 TOOL_TEST_OBJS := $(TOOL_TEST_SRC:.c=.o)
 TOOL_TEST_PROGRAMS := $(TOOL_TEST_OBJS:.o=)
 
