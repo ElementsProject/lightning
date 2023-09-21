@@ -309,16 +309,15 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
 
-#if DEVELOPER
 	if (dev_gossip_time) {
-		rstate->gossip_time = tal(rstate, struct timeabs);
-		rstate->gossip_time->ts.tv_sec = *dev_gossip_time;
-		rstate->gossip_time->ts.tv_nsec = 0;
+		assert(daemon->developer);
+		rstate->dev_gossip_time = tal(rstate, struct timeabs);
+		rstate->dev_gossip_time->ts.tv_sec = *dev_gossip_time;
+		rstate->dev_gossip_time->ts.tv_nsec = 0;
 	} else
-		rstate->gossip_time = NULL;
+		rstate->dev_gossip_time = NULL;
 	rstate->dev_fast_gossip = dev_fast_gossip;
 	rstate->dev_fast_gossip_prune = dev_fast_gossip_prune;
-#endif
 	tal_add_destructor(rstate, destroy_routing_state);
 	memleak_add_helper(rstate, memleak_help_routing_tables);
 
@@ -545,22 +544,19 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	}
 }
 
-#if DEVELOPER
-/* We make sure that free_chan is called on this chan! */
+/* With --developer, we make sure that free_chan is called on this chan! */
 static void destroy_chan_check(struct chan *chan)
 {
 	assert(chan->sat.satoshis == (unsigned long)chan); /* Raw: dev-hack */
 }
-#endif
 
 static void free_chans_from_node(struct routing_state *rstate, struct chan *chan)
 {
 	remove_chan_from_node(rstate, chan->nodes[0], chan);
 	remove_chan_from_node(rstate, chan->nodes[1], chan);
 
-#if DEVELOPER
-	chan->sat.satoshis = (unsigned long)chan; /* Raw: dev-hack */
-#endif
+	if (rstate->daemon->developer)
+		chan->sat.satoshis = (unsigned long)chan; /* Raw: dev-hack */
 }
 
 /* We used to make this a tal_add_destructor2, but that costs 40 bytes per
@@ -605,9 +601,9 @@ struct chan *new_chan(struct routing_state *rstate,
 	int n1idx = node_id_idx(id1, id2);
 	struct node *n1, *n2;
 
-#if DEVELOPER
-	tal_add_destructor(chan, destroy_chan_check);
-#endif
+	if (rstate->daemon->developer)
+		tal_add_destructor(chan, destroy_chan_check);
+
 	/* We should never add a channel twice */
 	assert(!uintmap_get(&rstate->chanmap, scid->u64));
 
@@ -2188,10 +2184,9 @@ bool routing_add_private_channel(struct routing_state *rstate,
 
 struct timeabs gossip_time_now(const struct routing_state *rstate)
 {
-#if DEVELOPER
-	if (rstate->gossip_time)
-		return *rstate->gossip_time;
-#endif
+	if (rstate->dev_gossip_time)
+		return *rstate->dev_gossip_time;
+
 	return time_now();
 }
 
@@ -2238,9 +2233,8 @@ void remove_all_gossip(struct routing_state *rstate)
 	/* Now free all the channels. */
 	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
 		uintmap_del(&rstate->chanmap, index);
-#if DEVELOPER
-		c->sat = amount_sat((unsigned long)c);
-#endif
+		if (rstate->daemon->developer)
+			c->sat = amount_sat((unsigned long)c);
 		tal_free(c);
 	}
 

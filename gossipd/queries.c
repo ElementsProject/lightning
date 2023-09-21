@@ -16,9 +16,7 @@
 #include <gossipd/routing.h>
 #include <zlib.h>
 
-#if DEVELOPER
 static u32 dev_max_encoding_bytes = -1U;
-#endif
 
 /* BOLT #7:
  *
@@ -59,10 +57,8 @@ static void encoding_add_query_flag(u8 **encoded, bigsize_t flag)
 
 static bool encoding_end(const u8 *encoded, size_t max_bytes)
 {
-#if DEVELOPER
 	if (tal_count(encoded) > dev_max_encoding_bytes)
 		return false;
-#endif
 	return tal_count(encoded) <= max_bytes;
 }
 
@@ -407,13 +403,11 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 		per_entry_size += sizeof(struct channel_update_checksums);
 	}
 
-#if DEVELOPER
 	if (max_encoded_bytes > dev_max_encoding_bytes)
 		max_encoded_bytes = dev_max_encoding_bytes;
 	/* Always let one through! */
 	if (max_encoded_bytes < per_entry_size)
 		max_encoded_bytes = per_entry_size;
-#endif
 
 	return max_encoded_bytes / per_entry_size;
 }
@@ -1103,15 +1097,14 @@ bool query_channel_range(struct daemon *daemon,
 	return true;
 }
 
-#if DEVELOPER
 /* This is a testing hack to allow us to artificially lower the maximum bytes
  * of short_channel_ids we'll encode, using dev_set_max_scids_encode_size. */
 void dev_set_max_scids_encode_size(struct daemon *daemon, const u8 *msg)
 {
+	assert(daemon->developer);
 	if (!fromwire_gossipd_dev_set_max_scids_encode_size(msg,
 							   &dev_max_encoding_bytes))
 		master_badmsg(WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
 	status_debug("Set max_scids_encode_bytes to %u", dev_max_encoding_bytes);
 }
-#endif /* DEVELOPER */

@@ -705,10 +705,8 @@ static void mark_zombie(struct gossip_store *gs,
 	assert(gs->writable);
 	assert(index);
 
-#if DEVELOPER
 	const u8 *msg = gossip_store_get(tmpctx, gs, index);
 	assert(fromwire_peektype(msg) == expected_type);
-#endif
 
 	if (pread(gs->fd, &beflags, sizeof(beflags), index) != sizeof(beflags))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

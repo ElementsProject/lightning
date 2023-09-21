@@ -37,10 +37,10 @@
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
-/* Gossip timing constants.  These can be overridden in --enable-developer
- * configurations with --dev-fast-gossip, otherwise the argument is ignored */
+/* Gossip timing constants.  These can be overridden using --developer
+ * with --dev-fast-gossip */
 #define DEV_FAST_GOSSIP(dev_fast_gossip_flag, fast, normal)	\
-	IFDEV((dev_fast_gossip_flag) ? (fast) : (normal), (normal))
+	((dev_fast_gossip_flag) ? (fast) : (normal))
 
 /* How close we can generate gossip msgs (5 minutes) */
 #define GOSSIP_MIN_INTERVAL(dev_fast_gossip_flag) \
