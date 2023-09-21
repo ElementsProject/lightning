@@ -23,7 +23,6 @@ def find_first_tag(evs, tag):
     return ev[0]
 
 
-@pytest.mark.developer("dev-ignore-htlcs")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2)
@@ -545,7 +544,6 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
-@pytest.mark.developer("wait for announce times out otherwise")
 def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     """
     Test for a channel that's closed, but whose close tx

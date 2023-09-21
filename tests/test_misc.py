@@ -5,7 +5,7 @@ from fixtures import LightningNode, TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
-    DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
+    TIMEOUT, VALGRIND, sync_blockheight, only_one,
     wait_for, TailableProc, env, mine_funding_to_announce
 )
 from utils import (
@@ -258,7 +258,6 @@ def test_ping(node_factory):
     ping_tests(l1, l2)
 
 
-@pytest.mark.developer("needs --dev-disconnect")
 def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
@@ -307,7 +306,6 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     assert len(l1.rpc.listfunds()['outputs']) == 3
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_htlc_out_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't time out HTLC"""
 
@@ -380,7 +378,6 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_htlc_in_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't accept fulfilled HTLC"""
 
@@ -442,7 +439,6 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'must be on bitcoin network')
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_bech32_funding(node_factory, chainparams):
     # Don't get any funds from previous runs.
     l1, l2 = node_factory.line_graph(2, opts={'random_hsm': True}, fundchannel=False)
@@ -689,19 +685,9 @@ def test_io_logging(node_factory, executor):
 
 
 def test_address(node_factory):
-    if DEVELOPER:
-        opts = {'dev-allow-localhost': None}
-    else:
-        opts = None
-    l1 = node_factory.get_node(options=opts)
+    l1 = node_factory.get_node()
     addr = l1.rpc.getinfo()['address']
-    if DEVELOPER:
-        assert len(addr) == 1
-        assert addr[0]['type'] == 'ipv4'
-        assert addr[0]['address'] == '127.0.0.1'
-        assert int(addr[0]['port']) == l1.port
-    else:
-        assert len(addr) == 0
+    assert len(addr) == 0
 
     bind = l1.rpc.getinfo()['binding']
     assert len(bind) == 1
@@ -709,12 +695,19 @@ def test_address(node_factory):
     assert bind[0]['address'] == '127.0.0.1'
     assert int(bind[0]['port']) == l1.port
 
-    # Now test UNIX domain binding.
+    # Now test UNIX domain binding
     l1.stop()
     l1.daemon.opts['bind-addr'] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
     l1.start()
 
-    l2 = node_factory.get_node()
+    # Test dev-allow-localhost
+    l2 = node_factory.get_node(options={'dev-allow-localhost': None})
+    addr = l2.rpc.getinfo()['address']
+    assert len(addr) == 1
+    assert addr[0]['type'] == 'ipv4'
+    assert addr[0]['address'] == '127.0.0.1'
+    assert int(addr[0]['port']) == l2.port
+
     ret = l2.rpc.connect(l1.info['id'], l1.daemon.opts['bind-addr'])
     assert ret['address'] == {'type': 'local socket', 'socket': l1.daemon.opts['bind-addr']}
 
@@ -787,7 +780,6 @@ def test_multirpc(node_factory):
     sock.close()
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_multiplexed_rpc(node_factory):
     """Test that we can do multiple RPCs which exit in different orders"""
     l1 = node_factory.get_node()
@@ -1199,7 +1191,6 @@ def test_cli_no_argument():
     assert "Usage: cli/lightning-cli <command> [<params>...]" in out.stdout.decode()
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
@@ -1250,7 +1241,6 @@ def chan_active(node, scid, is_active):
     return [c['active'] for c in chans] == [is_active, is_active]
 
 
-@pytest.mark.developer("needs DEVELOPER=1", "uses dev-fast-reconnect")
 @pytest.mark.openchannel('v2')
 @pytest.mark.openchannel('v1')
 def test_funding_reorg_private(node_factory, bitcoind):
@@ -1299,7 +1289,6 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Deleting channel')
 
 
-@pytest.mark.developer("needs DEVELOPER=1", "uses --dev-fast-reconnect")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_funding_reorg_remote_lags(node_factory, bitcoind):
@@ -1515,7 +1504,6 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("needs dev-no-reconnect")
 def test_reserve_enforcement(node_factory, executor):
     """Channeld should disallow you spending into your reserve"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
@@ -1568,10 +1556,6 @@ def test_ipv4_and_ipv6(node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
-@unittest.skipIf(
-    not DEVELOPER or DEPRECATED_APIS, "Without DEVELOPER=1 we snap to "
-    "FEERATE_FLOOR on testnets, and we test the new API."
-)
 @pytest.mark.parametrize("anchors", [False, True])
 def test_feerates(node_factory, anchors):
     opts = {'log-level': 'io',
@@ -1907,7 +1891,6 @@ def test_check_command(node_factory):
     sock.close()
 
 
-@pytest.mark.developer("FIXME: without DEVELOPER=1 we timeout")
 def test_bad_onion(node_factory, bitcoind):
     """Test that we get a reasonable error from sendpay when an onion is bad"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
@@ -1958,7 +1941,6 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
-@pytest.mark.developer("Needs DEVELOPER=1 to force onion fail")
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
@@ -2161,7 +2143,6 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
     }
 
 
-@pytest.mark.developer("needs --dev-force-bip32-seed")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
 def test_dev_force_bip32_seed(node_factory):
     l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
@@ -2178,7 +2159,6 @@ def test_dev_force_bip32_seed(node_factory):
     assert bech32 == "bcrt1q622lwmdzxxterumd746eu3d3t40pq53p62zhlz"
 
 
-@pytest.mark.developer("needs dev command")
 def test_dev_demux(node_factory):
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
 
@@ -2569,11 +2549,7 @@ def test_waitblockheight(node_factory, executor, bitcoind):
     node.rpc.waitblockheight(blockheight)
 
     # Developer mode polls bitcoind every second, so 60 seconds is plenty.
-    # But non-developer mode polls every 30 seconds, so try 120.
-    if DEVELOPER:
-        time = 60
-    else:
-        time = 120
+    time = 60
 
     # Should not succeed yet.
     fut2 = executor.submit(node.rpc.waitblockheight, blockheight + 2, time)
@@ -2674,7 +2650,6 @@ def test_sendcustommsg(node_factory):
     ])
 
 
-@pytest.mark.developer("needs --dev-force-privkey")
 def test_makesecret(node_factory):
     """
     Test makesecret command.
@@ -3031,7 +3006,7 @@ def test_version_reexec(node_factory, bitcoind):
 def test_notimestamp_logging(node_factory):
     l1 = node_factory.get_node(start=False)
     # Make sure this is specified *before* other options!
-    l1.daemon.early_opts = ['--log-timestamps=false']
+    l1.daemon.early_opts.insert(0, '--log-timestamps=false')
     l1.start()
     assert l1.daemon.logs[0].startswith("lightningd-1 DEBUG")
 

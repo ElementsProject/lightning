@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG
 from pyln.client import Millisatoshi
 from typing import Dict
 
@@ -546,8 +546,7 @@ def printCrashLog(node):
 
 
 def checkReconnect(node):
-    # Without DEVELOPER, we can't suppress reconnection.
-    if node.may_reconnect or not DEVELOPER:
+    if node.may_reconnect:
         return 0
     if node.daemon.is_in_log('Peer has reconnected'):
         return 1

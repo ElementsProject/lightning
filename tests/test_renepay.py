@@ -129,7 +129,6 @@ def test_errors(node_factory, bitcoind):
     assert 'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS' in err.value.error['message']
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_pay(node_factory):
@@ -196,7 +195,6 @@ def test_pay(node_factory):
     assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_amounts(node_factory):
     '''
     Check that the amount received matches the amount requested in the invoice.
@@ -217,7 +215,6 @@ def test_amounts(node_factory):
     assert invoice['amount_received_msat'] >= Millisatoshi(123456)
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_limits(node_factory):
     '''
     Topology:

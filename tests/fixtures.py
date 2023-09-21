@@ -1,4 +1,4 @@
-from utils import DEVELOPER, TEST_NETWORK, VALGRIND  # noqa: F401,F403
+from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
 from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
 from utils import COMPAT

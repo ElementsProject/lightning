@@ -151,7 +151,6 @@ def test_invoice_preimage(node_factory):
         l2.rpc.invoice(123456, 'inv2', '?', preimage=invoice_preimage)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Amounts too low, dominated by fees in elements")
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
@@ -215,7 +214,6 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_mpp' not in inv
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_invoice_routeboost_private(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice for private channels
     """
@@ -443,7 +441,6 @@ def test_invoice_expiry(node_factory, executor):
     assert expiry >= start + 1 and expiry <= end + 1
 
 
-@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_waitinvoice(node_factory, executor):
     """Test waiting for one invoice will not return if another invoice is paid.
     """
@@ -479,7 +476,6 @@ def test_waitinvoice(node_factory, executor):
     assert not f3.done()
 
 
-@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_waitanyinvoice(node_factory, executor):
     """Test various variants of waiting for the next invoice to complete.
     """

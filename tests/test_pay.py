@@ -6,8 +6,8 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
-    DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    VALGRIND, mine_funding_to_announce, first_scid
+    wait_for, only_one, sync_blockheight, TIMEOUT,
+    mine_funding_to_announce, first_scid
 )
 import copy
 import os
@@ -21,7 +21,6 @@ import time
 import unittest
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_pay(node_factory):
@@ -85,7 +84,6 @@ def test_pay(node_factory):
     assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_amounts(node_factory):
     l1, l2 = node_factory.line_graph(2)
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']
@@ -102,7 +100,6 @@ def test_pay_amounts(node_factory):
     assert invoice['amount_received_msat'] >= Millisatoshi(123000)
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_limits(node_factory):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -154,7 +151,6 @@ def test_pay_limits(node_factory):
     assert status[0]['strategy'] == "Initial attempt"
 
 
-@pytest.mark.developer("Gossip is too slow without developer")
 def test_pay_exclude_node(node_factory, bitcoind):
     """Test excluding the node if there's the NODE-level error in the failure_code
     """
@@ -251,7 +247,6 @@ def test_pay0(node_factory):
         l1.rpc.waitsendpay(rhash)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_pay_disconnect(node_factory, bitcoind):
     """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
@@ -304,7 +299,6 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log('ONCHAIN')
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_suppress_gossip")
 def test_pay_get_error_with_update(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
@@ -333,7 +327,6 @@ def test_pay_get_error_with_update(node_factory):
     wait_for(lambda: not l1.is_channel_active(chanid2))
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_suppress_gossip, dev-routes")
 def test_pay_error_update_fees(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
@@ -366,7 +359,6 @@ def test_pay_error_update_fees(node_factory):
     # assert attempts[0]['failure']['data']['failcode'] == 4108
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_optional_args(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
@@ -394,7 +386,6 @@ def test_pay_optional_args(node_factory):
     assert len(l1.rpc.listsendpays()['payments']) == 3
 
 
-@pytest.mark.developer("needs to deactivate shadow routing")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_payment_success_persistence(node_factory, bitcoind, executor):
@@ -449,7 +440,6 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_payment_failed_persistence(node_factory, executor):
@@ -502,7 +492,6 @@ def test_payment_failed_persistence(node_factory, executor):
         l1.rpc.pay(inv1['bolt11'])
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_payment_duplicate_uncommitted(node_factory, executor):
     # We want to test two payments at the same time, before we send commit
     l1 = node_factory.get_node(options={'dev-disable-commit-after': 0})
@@ -536,7 +525,6 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     fut2.result(TIMEOUT)
 
 
-@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_pay_maxfee_shadow(node_factory):
     """Test that we respect maxfeepercent for shadow routing."""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True,
@@ -1081,7 +1069,6 @@ def test_decodepay(node_factory):
         l1.rpc.decodepay('1111111')
 
 
-@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_forward(node_factory, bitcoind):
     # Connect 1 -> 2 -> 3.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -1147,7 +1134,6 @@ def test_forward(node_factory, bitcoind):
     assert only_one(re.findall(expected_line, str(koinly_csv)))
 
 
-@pytest.mark.developer("needs --dev-fast-gossip")
 def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # FIXME: Check BOLT quotes here too
     # BOLT #7:
@@ -1284,7 +1270,6 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
         assert c[1]['source'] == c[0]['destination']
 
 
-@pytest.mark.developer("too slow without --dev-fast-gossip")
 def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     """Test that we are allowed extra locktime delta, and fees"""
 
@@ -1354,7 +1339,6 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert inve['debit_msat'] == incomes[0]['debit_msat'] + incomes[1]['debit_msat']
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_forward_stats(node_factory, bitcoind):
     """Check that we track forwarded payments correctly.
 
@@ -1433,7 +1417,6 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
-@pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     """Check that we track forwarded payments correctly.
@@ -1663,7 +1646,6 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert [s.get('out_channel') for s in stats['forwards']] == [c23, c24, c25, None, c24]
 
 
-@pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
@@ -1741,7 +1723,6 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 @pytest.mark.slow_test
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
@@ -1824,7 +1805,6 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
         l1.dev_pay(inv, dev_use_shadow=False)
 
 
-@pytest.mark.developer("needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
 @pytest.mark.slow_test
 def test_pay_routeboost(node_factory, bitcoind):
     """Make sure we can use routeboost information. """
@@ -1880,64 +1860,62 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert('payment_preimage' in a['success'])
 
     # With dev-route option we can test longer routehints.
-    if DEVELOPER:
-        scid45 = l4.rpc.listpeerchannels(l5.info['id'])['channels'][0]['alias']['local']
-        routel3l4l5 = [{'id': l3.info['id'],
-                        'short_channel_id': scid34,
-                        'fee_base_msat': 1000,
-                        'fee_proportional_millionths': 10,
-                        'cltv_expiry_delta': 6},
-                       {'id': l4.info['id'],
-                        'short_channel_id': scid45,
-                        'fee_base_msat': 1000,
-                        'fee_proportional_millionths': 10,
-                        'cltv_expiry_delta': 6}]
-        inv = l5.dev_invoice(amount_msat=10**5,
-                             label='test_pay_routeboost2',
-                             description='test_pay_routeboost2',
-                             dev_routes=[routel3l4l5])
-        l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
-        status = l1.rpc.call('paystatus', [inv['bolt11']])
-        pay = only_one(status['pay'])
-        attempts = pay['attempts']
-        assert(len(attempts) == 1)
-        assert 'failure' not in attempts[0]
-        assert 'success' in attempts[0]
+    scid45 = l4.rpc.listpeerchannels(l5.info['id'])['channels'][0]['alias']['local']
+    routel3l4l5 = [{'id': l3.info['id'],
+                    'short_channel_id': scid34,
+                    'fee_base_msat': 1000,
+                    'fee_proportional_millionths': 10,
+                    'cltv_expiry_delta': 6},
+                   {'id': l4.info['id'],
+                    'short_channel_id': scid45,
+                    'fee_base_msat': 1000,
+                    'fee_proportional_millionths': 10,
+                    'cltv_expiry_delta': 6}]
+    inv = l5.dev_invoice(amount_msat=10**5,
+                         label='test_pay_routeboost2',
+                         description='test_pay_routeboost2',
+                         dev_routes=[routel3l4l5])
+    l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
+    status = l1.rpc.call('paystatus', [inv['bolt11']])
+    pay = only_one(status['pay'])
+    attempts = pay['attempts']
+    assert(len(attempts) == 1)
+    assert 'failure' not in attempts[0]
+    assert 'success' in attempts[0]
 
-        # Finally, it should fall back to second routehint if first fails.
-        # (Note, this is not public because it's not 6 deep)
-        l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
-        scid35, _ = l3.fundchannel(l5, 10**6)
-        l4.stop()
-        routel3l5 = [{'id': l3.info['id'],
-                      'short_channel_id': scid35,
-                      'fee_base_msat': 1000,
-                      'fee_proportional_millionths': 10,
-                      'cltv_expiry_delta': 6}]
-        inv = l5.dev_invoice(amount_msat=10**5,
-                             label='test_pay_routeboost5',
-                             description='test_pay_routeboost5',
-                             dev_routes=[routel3l4l5, routel3l5])
-        l1.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
-                   dev_use_shadow=False)
+    # Finally, it should fall back to second routehint if first fails.
+    # (Note, this is not public because it's not 6 deep)
+    l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    scid35, _ = l3.fundchannel(l5, 10**6)
+    l4.stop()
+    routel3l5 = [{'id': l3.info['id'],
+                  'short_channel_id': scid35,
+                  'fee_base_msat': 1000,
+                  'fee_proportional_millionths': 10,
+                  'cltv_expiry_delta': 6}]
+    inv = l5.dev_invoice(amount_msat=10**5,
+                         label='test_pay_routeboost5',
+                         description='test_pay_routeboost5',
+                         dev_routes=[routel3l4l5, routel3l5])
+    l1.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
+               dev_use_shadow=False)
 
-        status = l1.rpc.call('paystatus', [inv['bolt11']])
-        assert only_one(status['pay'])['bolt11'] == inv['bolt11']
-        assert only_one(status['pay'])['destination'] == l5.info['id']
-        assert only_one(status['pay'])['label'] == "paying test_pay_routeboost5"
-        assert 'routehint_modifications' not in only_one(status['pay'])
-        assert 'local_exclusions' not in only_one(status['pay'])
-        attempts = only_one(status['pay'])['attempts']
+    status = l1.rpc.call('paystatus', [inv['bolt11']])
+    assert only_one(status['pay'])['bolt11'] == inv['bolt11']
+    assert only_one(status['pay'])['destination'] == l5.info['id']
+    assert only_one(status['pay'])['label'] == "paying test_pay_routeboost5"
+    assert 'routehint_modifications' not in only_one(status['pay'])
+    assert 'local_exclusions' not in only_one(status['pay'])
+    attempts = only_one(status['pay'])['attempts']
 
-        # First one fails, second one succeeds, no routehint would come last.
-        assert len(attempts) == 2
-        assert 'success' not in attempts[0]
-        assert 'success' in attempts[1]
-        # TODO Add assertion on the routehint once we add them to the pay
-        # output
+    # First one fails, second one succeeds, no routehint would come last.
+    assert len(attempts) == 2
+    assert 'success' not in attempts[0]
+    assert 'success' in attempts[1]
+    # TODO Add assertion on the routehint once we add them to the pay
+    # output
 
 
-@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_setchannel_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2125,7 +2103,6 @@ def test_setchannel_usage(node_factory, bitcoind):
         })
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannel_state(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2180,7 +2157,6 @@ def test_setchannel_state(node_factory, bitcoind):
         l1.rpc.setchannel(l2.info['id'], 10, 1)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannel_routing(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2298,7 +2274,6 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert 'warning_capacity' in inv
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannel_zero(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2348,7 +2323,6 @@ def test_setchannel_zero(node_factory, bitcoind):
     assert only_one(ret['channels'])['maximum_htlc_out_msat'] == MAX_HTLC
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannel_restart(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2396,7 +2370,6 @@ def test_setchannel_restart(node_factory, bitcoind):
     assert result['amount_sent_msat'] == 501404
 
 
-@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_setchannel_all(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2442,7 +2415,6 @@ def test_setchannel_all(node_factory, bitcoind):
     assert result['channels'][1]['maximum_htlc_out_msat'] == 0xCAFE
 
 
-@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_setchannel_startup_opts(node_factory, bitcoind):
     """Tests that custom config/cmdline options are applied correctly when set
     """
@@ -2465,7 +2437,6 @@ def test_setchannel_startup_opts(node_factory, bitcoind):
     assert result[1]['htlc_maximum_msat'] == Millisatoshi(5)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
     sats = 10**6
@@ -2520,7 +2491,6 @@ def test_channel_spendable(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_receivable(node_factory, bitcoind):
     """Test that receivable_msat is accurate"""
     sats = 10**6
@@ -2576,7 +2546,6 @@ def test_channel_receivable(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_spendable_large(node_factory, bitcoind):
     """Test that spendable_msat is accurate for large channels"""
     # This is almost the max allowable spend.
@@ -2622,7 +2591,6 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
 
 
 @unittest.skipIf(True, "Test is extremely flaky")
-@unittest.skipIf(not DEVELOPER and VALGRIND, "Doesn't raise exception, needs better sync")
 def test_lockup_drain(node_factory, bitcoind):
     """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
@@ -2647,7 +2615,6 @@ def test_lockup_drain(node_factory, bitcoind):
         l2.pay(l1, total // 2)
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """
     feerate = 10000
@@ -2716,7 +2683,6 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
         l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_htlc_too_dusty_incoming(node_factory, bitcoind):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """
     feerate = 30000
@@ -2779,7 +2745,6 @@ def test_error_returns_blockheight(node_factory, bitcoind):
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
 
 
-@pytest.mark.developer('Needs dev-routes')
 def test_tlv_or_legacy(node_factory, bitcoind):
     # Ideally we'd test with l2 NOT var-onion, but then it can no longer connect
     # to us!
@@ -2895,7 +2860,6 @@ def test_createonion_rpc(node_factory):
     assert(res['onion'].endswith('9126aaefb627719f421e20'))
 
 
-@pytest.mark.developer("gossip propagation is slow without DEVELOPER=1")
 def test_sendonion_rpc(node_factory):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
     amt = 10**3
@@ -3031,7 +2995,6 @@ def test_sendonion_rpc(node_factory):
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
 
 
-@pytest.mark.developer("needs dev-disable-commit-after, dev-no-htlc-timeout")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
@@ -3293,7 +3256,6 @@ def test_partial_payment_restart(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
 
 
-@pytest.mark.developer("needs dev-disconnect")
 def test_partial_payment_htlc_loss(node_factory, bitcoind):
     """Test that we discard a set when the HTLC is lost"""
     # We want l2 to fail once it has completed first htlc.
@@ -3364,7 +3326,6 @@ def test_createonion_limits(node_factory):
     )
 
 
-@pytest.mark.developer("needs use_shadow")
 def test_blockheight_disagreement(node_factory, bitcoind, executor):
     """
     While a payment is in-transit from payer to payee, a block
@@ -3687,7 +3648,6 @@ def test_invalid_onion_channel_update(node_factory):
     assert l1.rpc.getinfo()['id'] == l1id
 
 
-@pytest.mark.developer("Requires use_shadow")
 def test_pay_exemptfee(node_factory):
     """Tiny payment, huge fee
 
@@ -3726,7 +3686,6 @@ def test_pay_exemptfee(node_factory):
     l1.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], dev_use_shadow=False)
 
 
-@pytest.mark.developer("Requires use_shadow flag")
 def test_pay_peer(node_factory, bitcoind):
     """If we have a direct channel to the destination we should use that.
 
@@ -3971,7 +3930,6 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     assert len(l2.rpc.listpays()['pays']) == 0
 
 
-@pytest.mark.developer("needs dev-no-reconnect, dev-routes to force failover")
 def test_delpay_mixed_status(node_factory, bitcoind):
     """
     One failure, one success; we only want to delete the failed one!
@@ -4034,7 +3992,6 @@ def test_listsendpays_and_listpays_order(node_factory):
     assert created_at == sorted(created_at)
 
 
-@pytest.mark.developer("needs use_shadow")
 def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor):
     '''
     We have a bug where a blockheight disagreement between us and
@@ -4081,7 +4038,6 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     fut.result(TIMEOUT)
 
 
-@pytest.mark.developer("channel setup very slow (~10 minutes) if not DEVELOPER")
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
@@ -4201,7 +4157,6 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     p3.result(TIMEOUT)
 
 
-@pytest.mark.developer("builds large network, which is slow if not DEVELOPER")
 @pytest.mark.slow_test
 def test_mpp_overload_payee(node_factory, bitcoind):
     """
@@ -4450,7 +4405,6 @@ def test_offer_deprecated_api(node_factory, bitcoind):
     l1.rpc.pay(inv['invoice'])
 
 
-@pytest.mark.developer("dev-no-modern-onion is DEVELOPER-only")
 def test_fetchinvoice_3hop(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
                                              opts={'experimental-offers': None,
@@ -4682,7 +4636,6 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                      'recurrence_label': 'test paywindow'})
 
 
-@pytest.mark.developer("Needs dev-allow-localhost for autoconnect, dev-force-features to avoid routing onionmsgs")
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
@@ -4743,7 +4696,6 @@ def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     assert len(status['pay'][0]['attempts']) == 1
 
 
-@pytest.mark.developer("dev-rawrequest is DEVELOPER-only")
 def test_dev_rawrequest(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'experimental-offers': None})
@@ -5112,7 +5064,6 @@ def test_pay_bolt11_metadata(node_factory, bitcoind):
     l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
 
 
-@pytest.mark.developer("needs to dev-disconnect")
 def test_pay_middle_fail(node_factory, bitcoind, executor):
     """Test the case where a HTLC is failed, but not on peer's side, then
     we go onchain"""
@@ -5177,7 +5128,6 @@ def test_sendpay_dual_amounts(node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
-@pytest.mark.developer("needs createinvoicerequest which allows unsigned invoice containing payerinfo")
 @pytest.mark.slow_test
 def test_payerkey(node_factory):
     """payerkey calculation should not change across releases!"""
@@ -5228,7 +5178,6 @@ def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
     l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
 
 
-@pytest.mark.developer("needs dev-no-reconnect, dev-routes to force failover")
 def test_delpay_works(node_factory, bitcoind):
     """
     One failure, one success; deleting the success works (groupid=1, partid=2)

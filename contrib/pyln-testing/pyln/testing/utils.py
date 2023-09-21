@@ -74,7 +74,6 @@ def env(name, default=None):
 
 VALGRIND = env("VALGRIND") == "1"
 TEST_NETWORK = env("TEST_NETWORK", 'regtest')
-DEVELOPER = env("DEVELOPER", "0") == "1"
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
@@ -629,15 +628,14 @@ class LightningD(TailableProc):
         if not random_hsm:
             with open(os.path.join(lightning_dir, TEST_NETWORK, 'hsm_secret'), 'wb') as f:
                 f.write(seed)
-        if DEVELOPER:
-            self.opts['dev-fast-gossip'] = None
-            self.opts['dev-bitcoind-poll'] = 1
+        self.opts['dev-fast-gossip'] = None
+        self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
         # Log to stdout so we see it in failure cases, and log file for TailableProc.
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
         self.opts['log-prefix'] = self.prefix + ' '
         # In case you want specific ordering!
-        self.early_opts = []
+        self.early_opts = ['--developer']
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -771,21 +769,22 @@ class LightningNode(object):
             with open(self.daemon.disconnect_file, "w") as f:
                 f.write("\n".join(disconnect))
             self.daemon.opts["dev-disconnect"] = "dev_disconnect"
-        if DEVELOPER:
-            self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
-            # Don't run --version on every subdaemon if we're valgrinding and slow.
-            if SLOW_MACHINE and VALGRIND:
-                self.daemon.opts["dev-no-version-checks"] = None
-            if os.getenv("DEBUG_SUBD"):
-                self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
-            if valgrind:
-                self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
-                self.daemon.opts["dev-no-plugin-checksum"] = None
-            else:
-                # Under valgrind, scanning can access uninitialized mem.
-                self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
-            if not may_reconnect:
-                self.daemon.opts["dev-no-reconnect"] = None
+
+        # Various developer options let us be more aggressive
+        self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
+        # Don't run --version on every subdaemon if we're valgrinding and slow.
+        if SLOW_MACHINE and VALGRIND:
+            self.daemon.opts["dev-no-version-checks"] = None
+        if os.getenv("DEBUG_SUBD"):
+            self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
+        if valgrind:
+            self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+            self.daemon.opts["dev-no-plugin-checksum"] = None
+        else:
+            # Under valgrind, scanning can access uninitialized mem.
+            self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
+        if not may_reconnect:
+            self.daemon.opts["dev-no-reconnect"] = None
         if EXPERIMENTAL_DUAL_FUND:
             self.daemon.opts["experimental-dual-fund"] = None
         if EXPERIMENTAL_SPLICING:
@@ -1641,7 +1640,7 @@ class NodeFactory(object):
             # leak detection upsets VALGRIND by reading uninitialized mem,
             # and valgrind adds extra fds.
             # If it's dead, we'll catch it below.
-            if not self.valgrind and DEVELOPER:
+            if not self.valgrind:
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']
