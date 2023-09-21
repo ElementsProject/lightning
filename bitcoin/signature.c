@@ -94,12 +94,7 @@ static bool sig_has_low_r(const secp256k1_ecdsa_signature* sig)
 	return compact_sig[0] < 0x80;
 }
 
-#if DEVELOPER
-/* Some of the spec test vectors assume no sig grinding. */
-extern bool dev_no_grind;
-
-bool dev_no_grind = false;
-#endif
+bool dev_no_signature_grind = false;
 
 void sign_hash(const struct privkey *privkey,
 	       const struct sha256_double *h,
@@ -114,11 +109,10 @@ void sign_hash(const struct privkey *privkey,
 					  s,
 					  h->sha.u.u8,
 					  privkey->secret.data, NULL,
-					  IFDEV(dev_no_grind ? NULL
-						: extra_entropy,
-						extra_entropy));
+					  dev_no_signature_grind ? NULL
+					  : extra_entropy);
 		((u32 *)extra_entropy)[0]++;
-		if (IFDEV(dev_no_grind, false))
+		if (dev_no_signature_grind)
 			break;
 	} while (!sig_has_low_r(s));
 

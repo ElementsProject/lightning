@@ -830,18 +830,6 @@ struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 	if (!psbt)
 		return fromwire_fail(cursor, max);
 
-#if DEVELOPER
-	/* Re-marshall for sanity check! */
-	u8 *tmpbuf = tal_arr(NULL, u8, psbt_byte_len);
-	size_t written;
-	if (wally_psbt_to_bytes(psbt, 0, tmpbuf, psbt_byte_len, &written) != WALLY_OK) {
-		tal_free(tmpbuf);
-		tal_free(psbt);
-		return fromwire_fail(cursor, max);
-	}
-	tal_free(tmpbuf);
-#endif
-
 	/* Internally we always operate on v2 */
 	psbt_set_version(psbt, 2);
 
