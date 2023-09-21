@@ -1823,10 +1823,13 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	    && strends(p->cmd, p->plugins->ld->dev_debug_subprocess))
 		debug = true;
 #endif
-	cmd = tal_arrz(tmpctx, char *, 2 + debug);
+	cmd = tal_arr(tmpctx, char *, 1);
 	cmd[0] = p->cmd;
 	if (debug)
-		cmd[1] = "--debugger";
+		tal_arr_expand(&cmd, "--debugger");
+	if (p->plugins->ld->developer)
+		tal_arr_expand(&cmd, "--developer");
+	tal_arr_expand(&cmd, NULL);
 	p->pid = pipecmdarr(&stdinfd, &stdoutfd, &pipecmd_preserve, cmd);
 	if (p->pid == -1)
 		return tal_fmt(p, "opening pipe: %s", strerror(errno));

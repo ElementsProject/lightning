@@ -203,6 +203,7 @@ static int subd(const char *path, const char *name,
 		const char *debug_subdaemon,
 		int *msgfd,
 		bool io_logging,
+		bool developer,
 		va_list *ap)
 {
 	int childmsg[2], execfail[2];
@@ -225,7 +226,7 @@ static int subd(const char *path, const char *name,
 
 	if (childpid == 0) {
 		size_t num_args;
-		char *args[] = { NULL, NULL, NULL, NULL };
+		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 		int **fds = tal_arr(tmpctx, int *, 3);
 		int stdoutfd = STDOUT_FILENO, stderrfd = STDERR_FILENO;
 
@@ -260,6 +261,8 @@ static int subd(const char *path, const char *name,
 		if (debug_subdaemon && strends(name, debug_subdaemon))
 			args[num_args++] = "--debugger";
 #endif
+		if (developer)
+			args[num_args++] = "--developer";
 		execv(args[0], args);
 
 	child_errno_fail:
@@ -743,6 +746,7 @@ static struct subd *new_subd(const tal_t *ctx,
 		       /* We only turn on subdaemon io logging if we're going
 			* to print it: too stressful otherwise! */
 		       log_has_io_logging(sd->log),
+		       ld->developer,
 		       ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
