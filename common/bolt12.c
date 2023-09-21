@@ -7,6 +7,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
 #include <common/features.h>
+#include <inttypes.h>
 #include <secp256k1_schnorrsig.h>
 #include <time.h>
 
@@ -189,6 +190,41 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 					 tal_count(offer->offer_chains));
 	if (*fail)
 		return tal_free(offer);
+
+	/* BOLT-offers #12:
+	 * A reader of an offer:
+	 * - if the offer contains any TLV fields greater or equal to 80:
+	 *   - MUST NOT respond to the offer.
+	 * - if `offer_features` contains unknown _odd_ bits that are non-zero:
+	 *     - MUST ignore the bit.
+	 * - if `offer_features` contains unknown _even_ bits that are non-zero:
+	 *   - MUST NOT respond to the offer.
+	 *   - SHOULD indicate the unknown bit to the user.
+	 */
+	for (size_t i = 0; i < tal_count(offer->fields); i++) {
+		if (offer->fields[i].numtype > 80) {
+			*fail = tal_fmt(ctx,
+					"Offer %"PRIu64" field >= 80",
+					offer->fields[i].numtype);
+			return tal_free(offer);
+		}
+	}
+
+	/* BOLT-offers #12:
+	 * - if `offer_description` is not set:
+	 *   - MUST NOT respond to the offer.
+	 * - if `offer_node_id` is not set:
+	 *   - MUST NOT respond to the offer.
+	 */
+	if (!offer->offer_description) {
+		*fail = tal_strdup(ctx, "Offer does not contain a description");
+		return tal_free(offer);
+	}
+
+	if (!offer->offer_node_id) {
+		*fail = tal_strdup(ctx, "Offer does not contain a node_id");
+		return tal_free(offer);
+	}
 
 	return offer;
 }
