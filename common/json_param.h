@@ -78,6 +78,7 @@ enum param_style {
 	PARAM_REQUIRED_ALLOW_DUPS,
 	PARAM_OPTIONAL,
 	PARAM_OPTIONAL_WITH_DEFAULT,
+	PARAM_OPTIONAL_DEV_WITH_DEFAULT,
 };
 
 /*
@@ -127,6 +128,21 @@ enum param_style {
 #define p_opt_def(name, cbx, arg, def)				    \
 		  name"",					    \
 		  PARAM_OPTIONAL_WITH_DEFAULT,			    \
+		  (param_cbx)(cbx),				    \
+		  ({ (*arg) = tal((cmd), typeof(**arg));            \
+		     (**arg) = (def);                               \
+		     (arg) + 0*sizeof((cbx)((struct command *)NULL, \
+				   (const char *)NULL,		    \
+				   (const char *)NULL,		    \
+				   (const jsmntok_t *)NULL,	    \
+				   (arg)) == (struct command_result *)NULL); })
+
+/*
+ * Add a dev-only parameter.  *arg is set to @def if it isn't found.
+ */
+#define p_opt_dev(name, cbx, arg, def)				    \
+		  name"",					    \
+		  PARAM_OPTIONAL_DEV_WITH_DEFAULT,		    \
 		  (param_cbx)(cbx),				    \
 		  ({ (*arg) = tal((cmd), typeof(**arg));            \
 		     (**arg) = (def);                               \

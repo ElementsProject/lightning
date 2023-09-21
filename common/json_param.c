@@ -65,7 +65,9 @@ static struct command_result *make_callback(struct command *cmd,
 					     const jsmntok_t *tok)
 {
 	/* If it had a default, free that now to avoid leak */
-	if (def->style == PARAM_OPTIONAL_WITH_DEFAULT && !def->is_set)
+	if ((def->style == PARAM_OPTIONAL_WITH_DEFAULT
+	     || def->style == PARAM_OPTIONAL_DEV_WITH_DEFAULT)
+	    && !def->is_set)
 		tal_free(*(void **)def->arg);
 
 	def->is_set = true;
@@ -115,6 +117,11 @@ static struct command_result *parse_by_position(struct command *cmd,
 		}
 
 		if (!json_tok_is_null(buffer, tok)) {
+			if (params[i].style == PARAM_OPTIONAL_DEV_WITH_DEFAULT
+			    && !command_dev_apis(cmd)) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Parameter %zu is developer-only", i);
+			}
 			res = make_callback(cmd, params+i, buffer, tok);
 			if (res)
 				return res;
@@ -176,6 +183,12 @@ static struct command_result *parse_by_name(struct command *cmd,
 						    p->name);
 			}
 
+			if (p->style == PARAM_OPTIONAL_DEV_WITH_DEFAULT
+			    && !command_dev_apis(cmd)) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Parameter '%s' is developer-only",
+						    p->name);
+			}
 			res = make_callback(cmd, p, buffer, t + 1);
 			if (res)
 				return res;

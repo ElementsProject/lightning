@@ -505,6 +505,11 @@ bool command_deprecated_apis(const struct command *cmd)
 	return deprecated_apis;
 }
 
+bool command_dev_apis(const struct command *cmd)
+{
+	return cmd->plugin->developer;
+}
+
 /* FIXME: would be good to support this! */
 bool command_check_only(const struct command *cmd)
 {

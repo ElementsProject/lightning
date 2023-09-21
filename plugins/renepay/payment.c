@@ -20,7 +20,7 @@ struct payment *payment_new(const tal_t *ctx,
 				    unsigned int maxdelay,
 				    u64 retryfor,
 				    u16 final_cltv,
-				    /* Tweakable in DEVELOPER mode */
+				    /* Tweakable in --developer mode */
 				    u64 base_fee_penalty,
 				    u64 prob_cost_factor,
 				    u64 riskfactor_millionths,
