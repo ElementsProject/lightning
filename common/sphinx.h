@@ -264,12 +264,10 @@ u8 *sphinx_compressed_onion_serialize(
 struct sphinx_compressed_onion *
 sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src);
 
-#if DEVELOPER
 /* Override to force us to reject valid onion packets */
 extern bool dev_fail_process_onionpacket;
 
 /* Override to set custom onion error lengths. */
 extern unsigned dev_onion_reply_length;
-#endif
 
 #endif /* LIGHTNING_COMMON_SPHINX_H */

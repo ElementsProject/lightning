@@ -37,13 +37,11 @@ void tal_wally_end(const tal_t *parent)
 	while ((p = tal_first(wally_tal_ctx)) != NULL) {
 		/* Refuse to make a loop! */
 		assert(p != parent);
-#if DEVELOPER
 		/* Don't steal backtrace from wally_tal_ctx! */
 		if (tal_name(p) && streq(tal_name(p), "backtrace")) {
 			tal_free(p);
 			continue;
 		}
-#endif /* DEVELOPER */
 		tal_steal(parent, p);
 	}
 	wally_tal_ctx = tal_free(wally_tal_ctx);

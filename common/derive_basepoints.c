@@ -3,7 +3,6 @@
 #include <common/derive_basepoints.h>
 #include <common/utils.h>
 
-#if DEVELOPER
 /* If they specify --dev-force-channel-secrets it ends up in here. */
 struct secrets *dev_force_channel_secrets;
 struct sha256 *dev_force_channel_secrets_shaseed;
@@ -25,18 +24,6 @@ void fromwire_secrets(const u8 **ptr, size_t *max, struct secrets *s)
 	fromwire_secret(ptr, max, &s->delayed_payment_basepoint_secret);
 	fromwire_secret(ptr, max, &s->htlc_basepoint_secret);
 }
-#else /* !DEVELOPER */
-/* Generate code refers to this, but should never be called! */
-void towire_secrets(u8 **pptr, const struct secrets *s)
-{
-	abort();
-}
-
-void fromwire_secrets(const u8 **ptr, size_t *max, struct secrets *s)
-{
-	abort();
-}
-#endif
 
 struct keys {
 	struct privkey f, r, h, p, d;
@@ -48,7 +35,6 @@ static void derive_keys(const struct secret *seed, struct keys *keys)
 	hkdf_sha256(keys, sizeof(*keys), NULL, 0, seed, sizeof(*seed),
 		    "c-lightning", strlen("c-lightning"));
 
-#if DEVELOPER
 	if (dev_force_channel_secrets) {
 		keys->f = dev_force_channel_secrets->funding_privkey;
 		keys->r.secret = dev_force_channel_secrets->revocation_basepoint_secret;
@@ -58,7 +44,6 @@ static void derive_keys(const struct secret *seed, struct keys *keys)
 	}
 	if (dev_force_channel_secrets_shaseed)
 		keys->shaseed = *dev_force_channel_secrets_shaseed;
-#endif
 }
 
 bool derive_basepoints(const struct secret *seed,

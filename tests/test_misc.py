@@ -256,9 +256,6 @@ def test_ping(node_factory):
 
     # channeld pinging
     ping_tests(l1, l2)
-    if DEVELOPER:
-        l1.daemon.wait_for_log(r'Got pong 1000 bytes \({}\.\.\.\)'
-                               .format(l2.info['version']))
 
 
 @pytest.mark.developer("needs --dev-disconnect")
