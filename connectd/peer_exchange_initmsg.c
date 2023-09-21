@@ -110,8 +110,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			case ADDR_TYPE_IPV6:
 				/* Drop non-public addresses when not testing */
 				if (!address_routable(remote_addr,
-						      IFDEV(peer->daemon->dev_allow_localhost,
-						      false)))
+						      peer->daemon->dev_allow_localhost))
 					remote_addr = tal_free(remote_addr);
 				break;
 			/* We are only interested in IP addresses */
@@ -172,21 +171,19 @@ static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer)
 		       peer_init_hdr_received, peer);
 }
 
-#if DEVELOPER
-static struct io_plan *peer_write_postclose(struct io_conn *conn,
-					    struct early_peer *peer)
+static struct io_plan *dev_peer_write_postclose(struct io_conn *conn,
+						struct early_peer *peer)
 {
 	dev_sabotage_fd(io_conn_fd(conn), true);
 	return read_init(conn, peer);
 }
 
-static struct io_plan *peer_write_post_sabotage(struct io_conn *conn,
-						struct early_peer *peer)
+static struct io_plan *dev_peer_write_post_sabotage(struct io_conn *conn,
+						    struct early_peer *peer)
 {
 	dev_sabotage_fd(io_conn_fd(conn), false);
 	return read_init(conn, peer);
 }
-#endif
 
 struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      struct daemon *daemon,
@@ -279,13 +276,12 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 
 	next = read_init;
-#if DEVELOPER
 	switch (dev_disconnect(&peer->id, WIRE_INIT)) {
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(io_conn_fd(conn), true);
 		break;
 	case DEV_DISCONNECT_AFTER:
-		next = peer_write_postclose;
+		next = dev_peer_write_postclose;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -294,10 +290,9 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	case DEV_DISCONNECT_NORMAL:
 		break;
 	case DEV_DISCONNECT_DISABLE_AFTER:
-		next = peer_write_post_sabotage;
+		next = dev_peer_write_post_sabotage;
 		break;
 	}
-#endif /* DEVELOPER */
 
 	return io_write(conn, peer->msg, tal_bytelen(peer->msg), next, peer);
 }
