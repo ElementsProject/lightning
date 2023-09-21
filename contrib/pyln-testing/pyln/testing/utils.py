@@ -1366,14 +1366,14 @@ class LightningNode(object):
 
     def dev_pay(self, bolt11, amount_msat=None, label=None, riskfactor=None,
                 maxfeepercent=None, retry_for=None,
-                maxdelay=None, exemptfee=None, use_shadow=True, exclude=[]):
+                maxdelay=None, exemptfee=None, dev_use_shadow=True, exclude=[]):
         """Wrapper for rpc.dev_pay which suppresses the request schema"""
         # FIXME? dev options are not in schema
         old_check = self.rpc.check_request_schemas
         self.rpc.check_request_schemas = False
         ret = self.rpc.dev_pay(bolt11, amount_msat, label, riskfactor,
                                maxfeepercent, retry_for,
-                               maxdelay, exemptfee, use_shadow, exclude)
+                               maxdelay, exemptfee, dev_use_shadow, exclude)
         self.rpc.check_request_schemas = old_check
         return ret
 

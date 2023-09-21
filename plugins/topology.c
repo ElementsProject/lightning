@@ -600,12 +600,10 @@ done:
 	return command_finished(cmd, js);
 }
 
-#if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, global_gossmap);
 }
-#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -628,9 +626,7 @@ static const char *init(struct plugin *p,
 		plugin_log(plugin, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_cupdates_rejected);
-#if DEVELOPER
-	plugin_set_memleak_handler(p, memleak_mark);
-#endif
+ 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;
 }
 

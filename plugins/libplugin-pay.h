@@ -398,9 +398,7 @@ struct exemptfee_data {
 };
 
 struct shadow_route_data {
-#if DEVELOPER
 	bool use_shadow;
-#endif
 	struct payment_constraints constraints;
 	struct node_id destination;
 	struct route_hop *route;

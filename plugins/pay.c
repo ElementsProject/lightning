@@ -77,10 +77,8 @@ struct pay_command {
 	/* Any remaining routehints to try. */
 	struct route_info **routehints;
 
-#if DEVELOPER
-	/* Disable the use of shadow route ? */
+	/* Disable the use of shadow route ?  (--developer allows this) */
 	double use_shadow;
-#endif
 
 	/* Current node during shadow route calculation. */
 	const char *shadow_dest;
@@ -567,12 +565,10 @@ static struct command_result *json_listpays(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-#if DEVELOPER
 static void memleak_mark_payments(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_list_head(memtable, &payments);
 }
-#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -588,9 +584,7 @@ static const char *init(struct plugin *p,
 		 JSON_SCAN(json_to_number, &maxdelay_default),
 		 JSON_SCAN(json_to_bool, &exp_offers));
 
-#if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_payments);
-#endif
 	return NULL;
 }
 
@@ -1036,9 +1030,7 @@ static struct command_result *json_pay(struct command *cmd,
 	const struct tlv_invoice *b12;
 	struct out_req *req;
 	struct route_exclusion **exclusions;
-#if DEVELOPER
-	bool *use_shadow;
-#endif
+	bool *dev_use_shadow;
 
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
@@ -1060,9 +1052,7 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt("description", param_escaped_string, &description),
-#if DEVELOPER
-		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
-#endif
+		   p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
 		      NULL))
 		return command_param_failed();
 
@@ -1262,10 +1252,9 @@ static struct command_result *json_pay(struct command *cmd,
 
 	/* This is an MPP enabled pay command, disable amount fuzzing. */
 	shadow_route->fuzz_amount = false;
-#if DEVELOPER
-	shadow_route->use_shadow = *use_shadow;
-	tal_free(use_shadow);
-#endif
+	shadow_route->use_shadow = *dev_use_shadow;
+	tal_free(dev_use_shadow);
+
 	p->label = tal_steal(p, label);
 	list_add_tail(&payments, &p->list);
 	tal_add_destructor(p, destroy_payment);

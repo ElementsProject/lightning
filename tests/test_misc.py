@@ -329,7 +329,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_out_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.dev_pay, inv, use_shadow=False)
+    executor.submit(l1.dev_pay, inv, dev_use_shadow=False)
 
     # l1 will disconnect, and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
@@ -402,7 +402,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_in_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.dev_pay, inv, use_shadow=False)
+    executor.submit(l1.dev_pay, inv, dev_use_shadow=False)
 
     # l1 will disconnect and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')

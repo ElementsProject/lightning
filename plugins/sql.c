@@ -1479,13 +1479,11 @@ static void init_indices(struct plugin *plugin)
 	}
 }
 
-#if DEVELOPER
 static void memleak_mark_tablemap(struct plugin *p, struct htable *memtable)
 {
 	memleak_ptr(memtable, dbfilename);
 	memleak_scan_strmap(memtable, &tablemap);
 }
-#endif
 
 static const char *init(struct plugin *plugin,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -1494,9 +1492,7 @@ static const char *init(struct plugin *plugin,
 	init_tablemap(plugin);
 	init_indices(plugin);
 
-#if DEVELOPER
 	plugin_set_memleak_handler(plugin, memleak_mark_tablemap);
-#endif
 	return NULL;
 }
 
