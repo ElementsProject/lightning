@@ -209,7 +209,7 @@ static u32 *shadow_additions(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(flows); i++)
 		final_cltvs[i] = p->final_cltv;
 
-	/* DEVELOPER can disable this */
+	/* --developer can disable this */
 	if (!p->use_shadow)
 		return final_cltvs;
 

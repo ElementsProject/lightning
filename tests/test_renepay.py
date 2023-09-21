@@ -137,7 +137,7 @@ def test_pay(node_factory):
 
     inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
     before = int(time.time())
-    details = l1.rpc.call('renepay', {'invstring': inv, 'use_shadow': False})
+    details = l1.rpc.call('renepay', {'invstring': inv, 'dev_use_shadow': False})
     after = time.time()
     preimage = details['payment_preimage']
     assert details['status'] == 'complete'
@@ -152,7 +152,7 @@ def test_pay(node_factory):
     assert invoice['status'] == 'paid' and invoice['paid_at'] >= before and invoice['paid_at'] <= after
 
     # Repeat payments are NOPs (if valid): we can hand null.
-    l1.rpc.call('renepay', {'invstring': inv, 'use_shadow': False})
+    l1.rpc.call('renepay', {'invstring': inv, 'dev_use_shadow': False})
     # This won't work: can't provide an amount (even if correct!)
     with pytest.raises(RpcError):
         l1.rpc.call('renepay', {'invstring': inv, 'amount_msat': 123000})
@@ -170,9 +170,9 @@ def test_pay(node_factory):
         inv2 = l2.rpc.invoice("any", label, 'description')['bolt11']
         # Must provide an amount!
         with pytest.raises(RpcError):
-            l1.rpc.call('renepay', {'invstring': inv2, 'use_shadow': False})
+            l1.rpc.call('renepay', {'invstring': inv2, 'dev_use_shadow': False})
 
-        l1.rpc.call('renepay', {'invstring': inv2, 'use_shadow': False,
+        l1.rpc.call('renepay', {'invstring': inv2, 'dev_use_shadow': False,
                     'amount_msat': random.randint(1000, 999999)})
 
     # Should see 6 completed payments
@@ -210,7 +210,7 @@ def test_amounts(node_factory):
     assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123456)
 
-    l1.rpc.call('renepay', {'invstring': inv, 'use_shadow': False})
+    l1.rpc.call('renepay', {'invstring': inv, 'dev_use_shadow': False})
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)

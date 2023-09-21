@@ -56,13 +56,11 @@ void amount_msat_reduce_(struct amount_msat *dst,
 }
 
 
-#if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, pay_plugin);
 	memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
 }
-#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -107,9 +105,7 @@ static const char *init(struct plugin *p,
 
 	uncertainty_network_update(pay_plugin->gossmap,
 				   pay_plugin->chan_extra_map);
-#if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark);
-#endif
 	return NULL;
 }
 
@@ -783,16 +779,14 @@ static struct command_result *json_pay(struct command *cmd,
  		   p_opt("localofferid", param_sha256, &local_offer_id),
  		   p_opt("description", param_string, &description),
  		   p_opt("label", param_string, &label),
-#if DEVELOPER
 		   // MCF parameters
 		   // TODO(eduardo): are these parameters read correctly?
-		   p_opt_def("base_fee_penalty", param_millionths, &base_fee_penalty,10),
- 		   p_opt_def("prob_cost_factor", param_millionths, &prob_cost_factor,10),
-		   p_opt_def("riskfactor", param_millionths,&riskfactor_millionths,1),
-		   p_opt_def("min_prob_success", param_millionths,
+		   p_opt_dev("dev_base_fee_penalty", param_millionths, &base_fee_penalty,10),
+ 		   p_opt_dev("dev_prob_cost_factor", param_millionths, &prob_cost_factor,10),
+		   p_opt_dev("dev_riskfactor", param_millionths,&riskfactor_millionths,1),
+		   p_opt_dev("dev_min_prob_success", param_millionths,
 		   	&min_prob_success_millionths,900000),// default is 90%
-		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
-#endif
+		   p_opt_dev("dev_use_shadow", param_bool, &use_shadow, true),
 		   NULL))
 		return command_param_failed();
 
@@ -944,21 +938,6 @@ static struct command_result *json_pay(struct command *cmd,
 	const u64 now_sec = time_now().ts.tv_sec;
 	if (now_sec > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
-
-#if !DEVELOPER
-	/* Please renepay try to give me a reliable payment 90% chances of
-	 * success, once you do, then minimize as much as possible those fees. */
-	base_fee_penalty = tal(tmpctx, u64);
-	*base_fee_penalty = 10;
-	prob_cost_factor = tal(tmpctx, u64);
-	*prob_cost_factor = 10;
-	riskfactor_millionths = tal(tmpctx, u64);
-	*riskfactor_millionths = 1;
-	min_prob_success_millionths = tal(tmpctx, u64);
-	*min_prob_success_millionths = 90;
-	use_shadow = tal(tmpctx, bool);
-	*use_shadow = 1;
-#endif
 
 	/* Payment is allocated off cmd to start, in case we fail cmd
 	 * (e.g. already in progress, already succeeded).  Once it's
