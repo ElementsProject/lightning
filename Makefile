@@ -385,7 +385,7 @@ $(GRPC_GEN)&: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
 	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=$(GRPC_PATH)/ --grpc_python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
-	find $(GRPC_DIR)/ -type f -name "*.py.bak" -delete
+	find $(GRPC_DIR)/ -type f -name "*.py.bak" -print0 | xargs rm -f
 endif
 
 # We make pretty much everything depend on these.
