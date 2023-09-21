@@ -107,7 +107,7 @@ struct payment {
 	// TODO(eduardo): this is not being used!
 	struct sha256 *local_offer_id;
 
-	/* DEVELOPER allows disabling shadow route */
+	/* --developer allows disabling shadow route */
 	bool use_shadow;
 
 	/* Groupid, so listpays() can group them back together */
@@ -130,7 +130,7 @@ struct payment *payment_new(const tal_t *ctx,
 			    unsigned int maxdelay,
 			    u64 retryfor,
 			    u16 final_cltv,
-			    /* Tweakable in DEVELOPER mode */
+			    /* Tweakable in --developer mode */
 			    u64 base_fee_penalty,
 			    u64 prob_cost_factor,
 			    u64 riskfactor_millionths,
