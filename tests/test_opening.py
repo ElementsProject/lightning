@@ -19,7 +19,6 @@ def find_next_feerate(node, peer):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-queryrates' + 'dev-force-features'")
 def test_queryrates(node_factory, bitcoind):
 
     opts = {'dev-no-reconnect': None,
@@ -57,7 +56,6 @@ def test_queryrates(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v1')  # Mixed v1 + v2, v2 manually turned on
 def test_multifunding_v2_best_effort(node_factory, bitcoind):
     '''
@@ -139,7 +137,6 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_v2_open_sigs_restart(node_factory, bitcoind):
     disconnects_1 = ['-WIRE_TX_SIGNATURES']
@@ -224,7 +221,6 @@ def test_v2_fail_second(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     # Same thing as above, except the transaction mines
@@ -617,7 +613,6 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-no-reconnect")
 @pytest.mark.openchannel('v2')
 def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
@@ -710,7 +705,6 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
     disconnects = ['-WIRE_TX_INIT_RBF',
@@ -760,7 +754,6 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
     disconnects = ['-WIRE_TX_ACK_RBF',
@@ -810,7 +803,6 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
@@ -877,7 +869,6 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_SIGNATURES',  # Initial funding succeeds
@@ -1019,7 +1010,6 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("uses dev-sign-last-tx")
 def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts={'allow_warning': True,
@@ -1403,7 +1393,6 @@ def test_funder_contribution_limits(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-disconnect'")
 def test_inflight_dbload(node_factory, bitcoind):
     """Bad db field access breaks Postgresql on startup with opening leases"""
     disconnects = ["@WIRE_COMMITMENT_SIGNED"]
@@ -1941,7 +1930,6 @@ def test_zeroconf_multichan_forward(node_factory):
                                .format(normal_scid, zeroconf_scid))
 
 
-@pytest.mark.developer("dev-allowdustreserve")
 def test_zeroreserve(node_factory, bitcoind):
     """Ensure we can set the reserves.
 
@@ -2021,7 +2009,6 @@ def test_zeroreserve(node_factory, bitcoind):
     assert len(decoded['vout']) == 1 if TEST_NETWORK == 'regtest' else 2
 
 
-@pytest.mark.developer("dev-allowdustreserve")
 def test_zeroreserve_mixed(node_factory, bitcoind):
     """l1 runs with zeroreserve, l2 and l3 without, should still work
 
@@ -2052,7 +2039,6 @@ def test_zeroreserve_mixed(node_factory, bitcoind):
     l3.rpc.fundchannel(l1.info['id'], 10**6)
 
 
-@pytest.mark.developer("dev-allowdustreserve")
 def test_zeroreserve_alldust(node_factory):
     """If we allow dust reserves we need larger fundings
 
@@ -2270,7 +2256,6 @@ def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
 
 
 @unittest.skip("anchors not available")
-@pytest.mark.developer("dev-queryrates required")
 @pytest.mark.openchannel('v2')
 def test_no_anchor_liquidity_ads(node_factory, bitcoind):
     """ Liquidity ads requires anchors, which are no longer a

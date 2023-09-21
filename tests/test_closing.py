@@ -21,7 +21,6 @@ import threading
 import unittest
 
 
-@pytest.mark.developer("Too slow without --dev-bitcoind-poll")
 def test_closing_simple(node_factory, bitcoind, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
@@ -254,7 +253,6 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_closing_negotiation_reconnect(node_factory, bitcoind):
     disconnects = ['-WIRE_CLOSING_SIGNED',
                    '+WIRE_CLOSING_SIGNED']
@@ -277,7 +275,6 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
         n.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     l1, l2, l3, l4 = node_factory.get_nodes(4)
 
@@ -484,7 +481,6 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@pytest.mark.developer("needs dev-disable-commit-after")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     """Test penalty transaction with an incoming HTLC"""
@@ -616,7 +612,6 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@pytest.mark.developer("needs dev-disable-commit-after")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     """Test penalty transaction with an outgoing HTLC"""
@@ -755,7 +750,6 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_falls_behind(node_factory, bitcoind):
     '''
     If our peer falls too far behind/doesn't send us an update for
@@ -796,7 +790,6 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-queryrates'")
 @pytest.mark.slow_test
 def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
@@ -899,7 +892,6 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     Check that channel leases work
@@ -1012,7 +1004,6 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessee can recover funds if lessor cheats
@@ -1089,7 +1080,6 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect")
 def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessor can recover funds if lessee cheats
@@ -1163,7 +1153,6 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
                              'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by'])
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @pytest.mark.slow_test
 @pytest.mark.parametrize("anchors", [False, True])
@@ -1348,7 +1337,6 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
         check_balance_snaps(l2, expected_bals_2)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @pytest.mark.slow_test
 @pytest.mark.parametrize("anchors", [False, True])
@@ -1578,7 +1566,6 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
                 assert acc['resolved_at_block'] > 0
 
 
-@pytest.mark.developer("uses dev_sign_last_tx")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, anchors):
     '''
@@ -1707,7 +1694,6 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     check_utxos_channel(l2, [channel_id], expected_2)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_first_commit(node_factory, bitcoind):
     """Onchain handling where opener immediately drops to chain"""
 
@@ -1751,7 +1737,6 @@ def test_onchain_first_commit(node_factory, bitcoind):
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_unwatch(node_factory, bitcoind):
     """Onchaind should not watch random spends"""
     # We track channel balances, to verify that accounting is ok.
@@ -1807,7 +1792,6 @@ def test_onchain_unwatch(node_factory, bitcoind):
     # any leaks!
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_onchaind_replay(node_factory, bitcoind):
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
@@ -1860,7 +1844,6 @@ def test_onchaind_replay(node_factory, bitcoind):
     l1.mine_txid_or_rbf(txid)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_dust_out(node_factory, bitcoind, executor):
     """Onchain handling of outgoing dust htlcs (they should fail)"""
     # We track channel balances, to verify that accounting is ok.
@@ -1934,7 +1917,6 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     assert account_balance(l2, channel_id) == 0
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_timeout(node_factory, bitcoind, executor, chainparams, anchors):
     """Onchain handling of outgoing failed htlcs"""
@@ -2062,7 +2044,6 @@ def test_onchain_timeout(node_factory, bitcoind, executor, chainparams, anchors)
         check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
     if chainparams['elements'] and anchors:
@@ -2194,7 +2175,6 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
         check_utxos_channel(l1, [channel_id, chan2_id], expected_1, tags)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainparams, anchors):
     """ This is the same as test_onchain_middleman, except that
@@ -2323,7 +2303,6 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainpara
     check_utxos_channel(l1, [channel_id, chan2_id], expected_1, tags)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, anchors):
     """ Very similar to the test_onchain_middleman, except there's no
@@ -2469,7 +2448,6 @@ Make sure we show the address.
     assert account_balance(l2, channel_id) == 0
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_feechange(node_factory, bitcoind, executor):
     """Onchain handling when we restart with different fees"""
     # HTLC 1->2, 2 fails just after they're both irrevocably committed
@@ -2547,7 +2525,6 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
     assert only_one(l2.rpc.listinvoices('onchain_timeout')['invoices'])['status'] == 'unpaid'
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev-set-fees")
 def test_onchain_all_dust(node_factory, bitcoind, executor):
     """Onchain handling when we reduce output to all dust"""
     # We track channel balances, to verify that accounting is ok.
@@ -2637,7 +2614,6 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     # check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_fail")
 def test_onchain_different_fees(node_factory, bitcoind, executor):
     """Onchain handling when we've had a range of fees"""
     l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=10**7,
@@ -2702,7 +2678,6 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_permfail_new_commit(node_factory, bitcoind, executor):
     # Test case where we have two possible commits: it will use new one.
     disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
@@ -2870,7 +2845,6 @@ def setup_multihtlc_test(node_factory, bitcoind):
     return h, l1, l2, l3, l4, l5, l6, l7
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 @pytest.mark.slow_test
 def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
@@ -2926,7 +2900,6 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
         assert only_one(n.rpc.listpeers()['peers'])['connected']
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 @pytest.mark.slow_test
 def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
@@ -2983,7 +2956,6 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
         assert only_one(n.rpc.listpeers()['peers'])['connected']
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_permfail_htlc_in(node_factory, bitcoind, executor):
     # Test case where we fail with unsettled incoming HTLC.
     disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
@@ -3031,7 +3003,6 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_permfail_htlc_out(node_factory, bitcoind, executor):
     # Test case where we fail with unsettled outgoing HTLC.
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
@@ -3093,7 +3064,6 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_permfail(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 
@@ -3182,7 +3152,6 @@ def test_permfail(node_factory, bitcoind):
     l1.rpc.withdraw(addr, "all")
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
 def test_shutdown(node_factory):
     # Fail, in that it will exit before cleanup.
     l1 = node_factory.get_node(may_fail=True)
@@ -3194,7 +3163,6 @@ def test_shutdown(node_factory):
     l1.rpc.stop()
 
 
-@pytest.mark.developer("needs to set upfront_shutdown_script")
 def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams):
     l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
@@ -3261,7 +3229,6 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainp
     wait_for(lambda: sorted([c['state'] for c in l1.rpc.listpeerchannels()['channels']]) == ['CLOSINGD_COMPLETE', 'ONCHAIN', 'ONCHAIN'])
 
 
-@pytest.mark.developer("needs to set upfront_shutdown_script")
 def test_invalid_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
@@ -3276,7 +3243,6 @@ def test_invalid_upfront_shutdown_script(node_factory, bitcoind, executor):
         l1.fundchannel(l2, 1000000, False)
 
 
-@pytest.mark.developer("needs to set upfront_shutdown_script")
 @pytest.mark.slow_test
 def test_segwit_shutdown_script(node_factory, bitcoind, executor):
     """
@@ -3393,7 +3359,6 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
 
 
 @unittest.skipIf(True, "Test is extremely flaky")
-@pytest.mark.developer("needs dev_disconnect")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
     # FIXME: This should be in lnprototest!  UNRELIABLE.
@@ -3439,7 +3404,6 @@ def test_htlc_rexmit_while_closing(node_factory, executor):
 
 
 @pytest.mark.openchannel('v1')
-@pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel(node_factory, executor):
     """Ideally you'd keep talking to us about closed channels: simple"""
     disconnects = ['xWIRE_CLOSING_SIGNED']
@@ -3464,7 +3428,6 @@ def test_you_forgot_closed_channel(node_factory, executor):
     fut.result(TIMEOUT)
 
 
-@pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     """Ideally you'd keep talking to us about closed channels: even if close is mined"""
     disconnects = ['xWIRE_CLOSING_SIGNED']
@@ -3501,7 +3464,6 @@ def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
-@pytest.mark.developer("too slow without fast polling for blocks")
 def test_segwit_anyshutdown(node_factory, bitcoind, executor):
     """Try a range of future segwit versions for shutdown"""
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
@@ -3532,7 +3494,6 @@ def test_segwit_anyshutdown(node_factory, bitcoind, executor):
         wait_for(lambda: all([c['state'] == 'ONCHAIN' for c in l1.rpc.listpeerchannels()['channels']]))
 
 
-@pytest.mark.developer("needs to manipulate features")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
 def test_anysegwit_close_needs_feature(node_factory, bitcoind):
     """Rather than have peer reject our shutdown, we should refuse to shutdown toa v1+ address if they don't support it"""
@@ -3643,7 +3604,6 @@ def test_close_weight_estimate(node_factory, bitcoind):
     assert signed_weight + 6 >= final_estimate  # 70byte signature
 
 
-@pytest.mark.developer("needs dev_disconnect")
 def test_onchain_close_upstream(node_factory, bitcoind):
     """https://github.com/ElementsProject/lightning/issues/4649
 
@@ -3737,7 +3697,6 @@ def test_onchain_rexmit_tx(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
-@pytest.mark.developer("needs dev_disconnect")
 def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
     # Set feerates to lowball for now.
@@ -3804,7 +3763,6 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     bitcoind.generate_block(1, needfeerate=4990)
 
 
-@pytest.mark.developer("needs dev_disconnect")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
@@ -3878,7 +3836,6 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     # FIXME: l2 should complain!
 
 
-@pytest.mark.developer("needs dev-no-reconnect")
 def test_closing_tx_valid(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
                                               'dev-no-reconnect': None})
