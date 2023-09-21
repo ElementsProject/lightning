@@ -188,15 +188,16 @@ bool check_config_bounds(const tal_t *ctx,
 }
 
 u8 *no_upfront_shutdown_script(const tal_t *ctx,
+			       bool developer,
 			       struct feature_set *our_features,
 			       const u8 *their_features)
 {
-#if DEVELOPER
-	/* This is a hack, for feature testing */
-	const char *e = getenv("DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT");
-	if (e)
-		return tal_hexdata(ctx, e, strlen(e));
-#endif
+	if (developer) {
+		/* This is a hack, for feature testing */
+		const char *e = getenv("DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT");
+		if (e)
+			return tal_hexdata(ctx, e, strlen(e));
+	}
 
 	/* BOLT #2:
 	 *

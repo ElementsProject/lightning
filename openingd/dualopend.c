@@ -152,6 +152,9 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 struct state {
 	struct per_peer_state *pps;
 
+	/* --developer? */
+	bool developer;
+
 	/* Features they offered */
 	u8 *their_features;
 
@@ -957,15 +960,8 @@ static void set_remote_upfront_shutdown(struct state *state,
 		peer_failed_err(state->pps, &state->channel_id, "%s", err);
 }
 
-/* Memory leak detection is DEVELOPER-only because we go to great lengths to
- * record the backtrace when allocations occur: without that, the leak
- * detection tends to be useless for diagnosing where the leak came from, but
- * it has significant overhead.
- *
- * FIXME: dualopend doesn't always listen to lightningd, so we call this
- * at closing time, rather than when it askes.
- */
-#if DEVELOPER
+/* FIXME: dualopend doesn't always listen to lightningd, so we call this
+ * at closing time, rather than when it asks. */
 static void handle_dev_memleak(struct state *state, const u8 *msg)
 {
 	struct htable *memtable;
@@ -985,7 +981,6 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 			take(towire_dualopend_dev_memleak_reply(NULL,
 							        found_leak)));
 }
-#endif /* DEVELOPER */
 
 static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 			       struct state *state,
@@ -1146,12 +1141,10 @@ fetch_psbt_changes(struct state *state,
 	wire_sync_write(REQ_FD, take(msg));
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
-#if DEVELOPER
-	while (fromwire_dualopend_dev_memleak(msg)) {
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
 		handle_dev_memleak(state, msg);
 		msg = wire_sync_read(tmpctx, REQ_FD);
 	}
-#endif
 
 	if (fromwire_dualopend_fail(msg, msg, &err)) {
 		open_abort(state, "%s", err);
@@ -2466,7 +2459,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct tlv_accept_tlvs *a_tlv = tlv_accept_tlvs_new(tmpctx);
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
-			= no_upfront_shutdown_script(state,
+			= no_upfront_shutdown_script(state, state->developer,
 						     state->our_features,
 						     state->their_features);
 
@@ -2942,7 +2935,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
-			= no_upfront_shutdown_script(state,
+			= no_upfront_shutdown_script(state, state->developer,
 						     state->our_features,
 						     state->their_features);
 
@@ -3389,12 +3382,10 @@ static void rbf_wrap_up(struct state *state,
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-#if DEVELOPER
-	while (fromwire_dualopend_dev_memleak(msg)) {
+	while (state->developer && fromwire_dualopend_dev_memleak(msg)) {
 		handle_dev_memleak(state, msg);
 		msg = wire_sync_read(tmpctx, REQ_FD);
 	}
-#endif
 
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
@@ -4034,10 +4025,11 @@ static u8 *handle_master_in(struct state *state)
 
 	switch (t) {
 	case WIRE_DUALOPEND_DEV_MEMLEAK:
-#if DEVELOPER
-		handle_dev_memleak(state, msg);
-#endif
-		return NULL;
+		if (state->developer) {
+			handle_dev_memleak(state, msg);
+			return NULL;
+		}
+		break;
 	case WIRE_DUALOPEND_OPENER_INIT:
 		opener_start(state, msg);
 		return NULL;
@@ -4230,7 +4222,7 @@ int main(int argc, char *argv[])
 	struct amount_msat our_msat;
 	bool from_abort;
 
-	subdaemon_setup(argc, argv);
+	state->developer = subdaemon_setup(argc, argv);
 
 	/* Init the holder for the funding transaction attempt */
 	state->tx_state = new_tx_state(state);
