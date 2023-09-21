@@ -200,7 +200,7 @@ struct db *db_setup(const tal_t *ctx, struct plugin *p,
 	bool migrated;
 	struct db *db;
 
-	db = db_open(ctx, db_dsn, db_error, p);
+	db = db_open(ctx, db_dsn, plugin_developer_mode(p), db_error, p);
 	db->report_changes_fn = NULL;
 
 	db_begin_transaction(db);

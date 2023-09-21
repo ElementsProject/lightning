@@ -31,9 +31,8 @@ size_t db_query_colnum(const struct db_stmt *stmt,
 		col = (col + 1) % stmt->query->num_colnames;
 	}
 
-#if DEVELOPER
-	strset_add(stmt->cols_used, colname);
-#endif
+	if (stmt->db->developer)
+		strset_add(stmt->cols_used, colname);
 
 	return stmt->query->colnames[col].val;
 }
@@ -43,9 +42,8 @@ static void db_stmt_free(struct db_stmt *stmt)
 	if (!stmt->executed)
 		db_fatal(stmt->db, "Freeing an un-executed statement from %s: %s",
 			 stmt->location, stmt->query->query);
-#if DEVELOPER
 	/* If they never got a db_step, we don't track */
-	if (stmt->cols_used) {
+	if (stmt->db->developer && stmt->cols_used) {
 		for (size_t i = 0; i < stmt->query->num_colnames; i++) {
 			if (!stmt->query->colnames[i].sqlname)
 				continue;
@@ -58,7 +56,7 @@ static void db_stmt_free(struct db_stmt *stmt)
 		}
 		strset_clear(stmt->cols_used);
 	}
-#endif
+
 	if (stmt->inner_stmt)
 		stmt->db->config->stmt_free_fn(stmt);
 	assert(stmt->inner_stmt == NULL);
@@ -81,15 +79,11 @@ static struct db_stmt *db_prepare_core(struct db *db,
 	stmt->query = db_query;
 	stmt->executed = false;
 	stmt->inner_stmt = NULL;
+	stmt->cols_used = NULL;
 	stmt->bind_pos = -1;
 
 	tal_add_destructor(stmt, db_stmt_free);
-
 	list_add(&db->pending_statements, &stmt->list);
-
-#if DEVELOPER
-	stmt->cols_used = NULL;
-#endif /* DEVELOPER */
 
 	return stmt;
 }
@@ -166,13 +160,12 @@ bool db_step(struct db_stmt *stmt)
 	assert(stmt->executed);
 	ret = stmt->db->config->step_fn(stmt);
 
-#if DEVELOPER
 	/* We only track cols_used if we return a result! */
-	if (ret && !stmt->cols_used) {
+	if (stmt->db->developer && ret && !stmt->cols_used) {
 		stmt->cols_used = tal(stmt, struct strset);
 		strset_init(stmt->cols_used);
 	}
-#endif
+
 	return ret;
 }
 
@@ -254,7 +247,6 @@ void db_changes_add(struct db_stmt *stmt, const char * expanded)
 	tal_arr_expand(&db->changes, tal_strdup(db->changes, expanded));
 }
 
-#if DEVELOPER
 void db_assert_no_outstanding_statements(struct db *db)
 {
 	struct db_stmt *stmt;
@@ -263,12 +255,6 @@ void db_assert_no_outstanding_statements(struct db *db)
 	if (stmt)
 		db_fatal(stmt->db, "Unfinalized statement %s", stmt->location);
 }
-#else
-void db_assert_no_outstanding_statements(struct db *db)
-{
-}
-#endif
-
 
 static void destroy_db(struct db *db)
 {
@@ -337,6 +323,7 @@ void db_warn(const struct db *db, const char *fmt, ...)
 }
 
 struct db *db_open_(const tal_t *ctx, const char *filename,
+		    bool developer,
 		    void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap),
 		    void *arg)
 {
@@ -344,6 +331,7 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 
 	db = tal(ctx, struct db);
 	db->filename = tal_strdup(db, filename);
+	db->developer = developer;
 	db->errorfn = errorfn;
 	db->errorfn_arg = arg;
 	list_head_init(&db->pending_statements);

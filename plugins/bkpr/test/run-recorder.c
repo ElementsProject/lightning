@@ -1376,6 +1376,7 @@ int main(int argc, char *argv[])
 	/* Dummy for migration hooks */
 	struct plugin *plugin = tal(NULL, struct plugin);
 	list_head_init(&plugin->js_list);
+	plugin->developer = true;
 
 	common_setup(argv[0]);
 
