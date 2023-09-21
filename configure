@@ -281,7 +281,7 @@ for opt in "$@"; do
 	--enable-address-sanitizer) ASAN=1;;
 	--disable-address-sanitizer) ASAN=0;;
 	--enable-ub-sanitizer) UBSAN=1;;
-	--disable-ub-sanitize) UBSAN=0;;
+	--disable-ub-sanitizer|--disable-ub-sanitize) UBSAN=0;;
 	--enable-fuzzing) FUZZING=1;;
 	--disable-fuzzing) FUZZING=0;;
 	--enable-rust) RUST=1;;
