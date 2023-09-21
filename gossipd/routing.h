@@ -232,16 +232,14 @@ struct routing_state {
 	/* Channels which are closed, but we're waiting 12 blocks */
 	struct dying_channel *dying_channels;
 
-#if DEVELOPER
 	/* Override local time for gossip messages */
-	struct timeabs *gossip_time;
+	struct timeabs *dev_gossip_time;
 
 	/* Speed up gossip. */
 	bool dev_fast_gossip;
 
 	/* Speed up pruning. */
 	bool dev_fast_gossip_prune;
-#endif
 };
 
 /* Which direction are we?  False if neither. */

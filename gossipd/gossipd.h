@@ -38,6 +38,9 @@ struct daemon {
 	/* Peers we are gossiping to: id is unique */
 	struct peer_node_id_map *peers;
 
+	/* --developer? */
+	bool developer;
+
 	/* Current blockheight: 0 means we're not up-to-date. */
 	u32 current_blockheight;
 

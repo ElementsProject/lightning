@@ -366,7 +366,7 @@ static void setup_force_nannounce_regen_timer(struct daemon *daemon)
 	struct timerel regen_time;
 
 	/* For developers we can force a regen every 24 seconds to test */
-	if (IFDEV(daemon->rstate->dev_fast_gossip_prune, false))
+	if (daemon->rstate->dev_fast_gossip_prune)
 		regen_time = time_from_sec(24);
 	else
 		regen_time = time_from_sec(24 * 3600);
