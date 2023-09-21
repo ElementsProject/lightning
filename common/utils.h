@@ -131,17 +131,6 @@ STRUCTEQ_DEF(ripemd160, 0, u);
  * complained on, so we can re-test as gcc evolves. */
 #define COMPILER_WANTS_INIT(compiler_versions) = 0
 
-/* For case where we want one thing if DEVELOPER, another if not, particularly
- * for function parameters.
- *
- * Usefully, you can refer to DEVELOPER-only fields here. */
-#if DEVELOPER
-/* Make sure that nondev is evaluated, and valid */
-#define IFDEV(dev, nondev) ((void)(nondev), (dev))
-#else
-#define IFDEV(dev, nondev) (nondev)
-#endif
-
 /* Context which all wally allocations use (see common/setup.c) */
 extern const tal_t *wally_tal_ctx;
 

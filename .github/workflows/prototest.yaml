@@ -28,7 +28,6 @@ jobs:
           -e NETWORK=${{ matrix.network }} \
           -e TARGET_HOST=${{ matrix.TARGET_HOST }} \
           -e VALGRIND=${{ matrix.valgrind }} \
-          -e DEVELOPER=1 \
           -e PYTEST_PAR=2 \
           -e PYTEST_OPTS="--timeout=300" \
           -e TEST_CMD="make check-protos" \

@@ -77,22 +77,18 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - CFG: gcc-dev1
-            DEVELOPER: 1
+          - CFG: compile-gcc
             VALGRIND: 1
             COMPILER: gcc
-          - CFG: gcc-dev0
-            DEVELOPER: 0
+          - CFG: compile-gcc-O3
             VALGRIND: 1
             COMPILER: gcc
             COPTFLAGS_VAR: COPTFLAGS="-O3 -Werror"
           # While we're at it let's try to compile with clang
-          - CFG: clang-dev1
-            DEVELOPER: 1
+          - CFG: compile-clang
             VALGRIND: 1
             COMPILER: clang
-          - CFG: clang-sanitizers
-            DEVELOPER: 1
+          - CFG: compile-clang-sanitizers
             COMPILER: clang
             ASAN: 1
             UBSAN: 1
@@ -112,7 +108,6 @@ jobs:
 
       - name: Build
         env:
-          DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
           ASAN: ${{ matrix.ASAN }}
           UBSAN: ${{ matrix.UBSAN }}
@@ -151,9 +146,9 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - CFG: gcc-dev1
+          - CFG: compile-gcc
             VALGRIND: 1
-          - CFG: clang-sanitizers
+          - CFG: compile-clang-sanitizers
             VALGRIND: 0
     steps:
       - name: Checkout
@@ -209,7 +204,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --enable-debugbuild --enable-fuzzing --enable-developer --disable-valgrind CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing --disable-valgrind CC=clang
           make -j $(nproc) check-fuzz
 
   integration:
@@ -227,55 +222,43 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - NAME: gcc-dev1
-            CFG: gcc-dev1
-            DEVELOPER: 1
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-          - NAME: gcc-dev0
-            CFG: gcc-dev0
-            DEVELOPER: 0
+          - NAME: gcc
+            CFG: compile-gcc
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
           # While we're at it let's try to compile with clang
-          - NAME: clang-dev1
-            CFG: clang-dev1
-            DEVELOPER: 1
+          - NAME: clang
+            CFG: compile-clang
             TEST_DB_PROVIDER: sqlite3
             COMPILER: clang
             TEST_NETWORK: regtest
           # And of course we want to test postgres too
           - NAME: postgres
-            CFG: gcc-dev1
-            DEVELOPER: 1
+            CFG: compile-gcc
             COMPILER: gcc
             TEST_DB_PROVIDER: postgres
             TEST_NETWORK: regtest
           # And don't forget about elements (like cdecker did when
           # reworking the CI...)
           - NAME: liquid
-            CFG: gcc-dev1
-            DEVELOPER: 1
+            CFG: compile-gcc
             COMPILER: gcc
             TEST_NETWORK: liquid-regtest
             TEST_DB_PROVIDER: sqlite3
           # And dual funding!
           - NAME: dual-fund
-            CFG: gcc-dev1
+            CFG: compile-gcc
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
-            DEVELOPER: 1
             EXPERIMENTAL_DUAL_FUND: 1
           # And splicing!
           - NAME: splicing
-            CFG: gcc-dev1
+            CFG: compile-gcc
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
-            DEVELOPER: 1
             EXPERIMENTAL_SPLICING: 1
     steps:
       - name: Checkout
@@ -301,7 +284,6 @@ jobs:
 
       - name: Test
         env:
-          DEVELOPER: ${{ matrix.DEVELOPER }}
           COMPILER: ${{ matrix.COMPILER }}
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
           EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
@@ -325,7 +307,7 @@ jobs:
       BITCOIN_VERSION: "25.0"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
-      CFG: gcc-dev1
+      CFG: compile-gcc
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
     needs:
       - compile
@@ -375,10 +357,10 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v3
         with:
-          name: cln-gcc-dev1.tar.bz2
+          name: cln-compile-gcc.tar.bz2
 
       - name: Unpack build
-        run: tar -xvjf cln-gcc-dev1.tar.bz2
+        run: tar -xvjf cln-compile-gcc.tar.bz2
 
       - name: Test
         env:
@@ -448,10 +430,10 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v3
         with:
-          name: cln-clang-sanitizers.tar.bz2
+          name: cln-compile-clang-sanitizers.tar.bz2
 
       - name: Unpack build
-        run: tar -xvjf cln-clang-sanitizers.tar.bz2
+        run: tar -xvjf cln-compile-clang-sanitizers.tar.bz2
 
       - name: Test
         run: |

@@ -55,5 +55,5 @@ jobs:
               slow_test: marks tests as slow (deselect with '-m "not slow_test"')
           EOF
 
-          python3.10 -m poetry run ./configure --enable-developer --disable-valgrind --disable-compat
+          python3.10 -m poetry run ./configure --disable-valgrind --disable-compat
           python3.10 -m poetry run make
