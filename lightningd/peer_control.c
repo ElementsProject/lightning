@@ -2978,7 +2978,8 @@ static const struct json_command dev_sign_last_tx = {
 	"dev-sign-last-tx",
 	"developer",
 	json_sign_last_tx,
-	"Sign and show the last commitment transaction with peer {id}"
+	"Sign and show the last commitment transaction with peer {id}",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_sign_last_tx);
 
@@ -3019,7 +3020,8 @@ static const struct json_command dev_fail_command = {
 	"dev-fail",
 	"developer",
 	json_dev_fail,
-	"Fail with peer {id}"
+	"Fail with peer {id}",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_fail_command);
 
@@ -3078,7 +3080,8 @@ static const struct json_command dev_reenable_commit = {
 	"dev-reenable-commit",
 	"developer",
 	json_dev_reenable_commit,
-	"Re-enable the commit timer on peer {id}"
+	"Re-enable the commit timer on peer {id}",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_reenable_commit);
 
@@ -3194,8 +3197,9 @@ static const struct json_command dev_forget_channel_command = {
 	"dev-forget-channel",
 	"developer",
 	json_dev_forget_channel,
-	"Forget the channel with peer {id}, ignore UTXO check with {force}='true'.", false,
-	"Forget the channel with peer {id}. Checks if the channel is still active by checking its funding transaction. Check can be ignored by setting {force} to 'true'"
+	"Forget the channel with peer {id}, ignore UTXO check with {force}='true'.",
+	.verbose = "Forget the channel with peer {id}. Checks if the channel is still active by checking its funding transaction. Check can be ignored by setting {force} to 'true'",
+	.dev_only = true,
 };
 AUTODATA(json_command, &dev_forget_channel_command);
 
