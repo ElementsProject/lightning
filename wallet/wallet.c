@@ -3207,24 +3207,25 @@ void wallet_payment_store(struct wallet *wallet,
 	struct db_stmt *stmt;
 	if (!find_unstored_payment(wallet, &payment->payment_hash, payment->partid)) {
 		/* Already stored on-disk */
-#if DEVELOPER
-		/* Double-check that it is indeed stored to disk
-		 * (catch bug, where we call this on a payment_hash
-		 * we never paid to) */
-		bool res;
-		stmt =
-		    db_prepare_v2(wallet->db, SQL("SELECT status FROM payments"
-						  " WHERE payment_hash=?"
-						  " AND partid = ? AND groupid = ?;"));
-		db_bind_sha256(stmt, &payment->payment_hash);
-		db_bind_u64(stmt, payment->partid);
-		db_bind_u64(stmt, payment->groupid);
-		db_query_prepared(stmt);
-		res = db_step(stmt);
-		assert(res);
-		db_col_ignore(stmt, "status");
-		tal_free(stmt);
-#endif
+		if (wallet->ld->developer) {
+			/* Double-check that it is indeed stored to disk
+			 * (catch bug, where we call this on a payment_hash
+			 * we never paid to) */
+			bool res;
+			stmt =
+				db_prepare_v2(wallet->db, SQL("SELECT status FROM payments"
+							      " WHERE payment_hash=?"
+							      " AND partid = ? AND groupid = ?;"));
+			db_bind_sha256(stmt, &payment->payment_hash);
+			db_bind_u64(stmt, payment->partid);
+			db_bind_u64(stmt, payment->groupid);
+			db_query_prepared(stmt);
+			res = db_step(stmt);
+			assert(res);
+			db_col_ignore(stmt, "status");
+			tal_free(stmt);
+		}
+
 		return;
 	}
 

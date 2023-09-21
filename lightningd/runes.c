@@ -66,13 +66,11 @@ const char *rune_is_ours(struct lightningd *ld, const struct rune *rune)
 	return rune_is_derived(ld->runes->master, rune);
 }
 
-#if DEVELOPER
 static void memleak_help_usage_table(struct htable *memtable,
 				     struct usage_table *usage_table)
 {
 	memleak_scan_htable(memtable, &usage_table->raw);
 }
-#endif /* DEVELOPER */
 
 /* Every minute we forget entries. */
 static void flush_usage_table(struct runes *runes)

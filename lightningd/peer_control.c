@@ -111,9 +111,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	else
 		peer->their_features = NULL;
 
-#if DEVELOPER
-	peer->ignore_htlcs = false;
-#endif
+	peer->dev_ignore_htlcs = false;
 
 	peer_node_id_map_add(ld->peers, peer);
 	if (dbid)
@@ -1266,7 +1264,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	/* Notify anyone who cares */
 	notify_connect(ld, &peer->id, payload->incoming, &addr);
 
-#if DEVELOPER
 	/* Developer hack to fail all channels on permfail line. */
 	if (dev_disconnect_permanent(ld)) {
 		list_for_each(&peer->channels, channel, list) {
@@ -1279,7 +1276,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		}
 		return;
 	}
-#endif
 
 	/* connect appropriate subds for all (active) channels! */
 	list_for_each(&peer->channels, channel, list) {
@@ -2918,7 +2914,6 @@ static const struct json_command setchannel_command = {
 };
 AUTODATA(json_command, &setchannel_command);
 
-#if DEVELOPER
 static struct command_result *json_sign_last_tx(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *obj UNNEEDED,
@@ -3294,4 +3289,3 @@ void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 		}
 	}
 }
-#endif /* DEVELOPER */

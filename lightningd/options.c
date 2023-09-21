@@ -656,7 +656,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	return NULL;
 }
 
-#if DEVELOPER
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -887,7 +886,6 @@ static void dev_register_opts(struct lightningd *ld)
 		       &ld->config.allowdustreserve,
 		       "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
 }
-#endif /* DEVELOPER */
 
 static const struct config testnet_config = {
 	/* 6 blocks to catch cheating attempts. */
@@ -1585,9 +1583,7 @@ static void register_opts(struct lightningd *ld)
 		       "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
 	opt_register_logging(ld);
 
-#if DEVELOPER
 	dev_register_opts(ld);
-#endif
 }
 
 /* We are in ld->config_netdir when this is run! */
@@ -1691,15 +1687,16 @@ void setup_color_and_alias(struct lightningd *ld)
 		name = tal_fmt(ld, "%s%s",
 			       codename_adjective[adjective],
 			       codename_noun[noun]);
-#if DEVELOPER
-		assert(strlen(name) < 32);
-		int taillen = 31 - strlen(name);
-		if (taillen > strlen(version()))
-			taillen = strlen(version());
-		/* Fit as much of end of version() as possible */
-		tal_append_fmt(&name, "-%s",
-			       version() + strlen(version()) - taillen);
-#endif
+
+		if (ld->developer) {
+			assert(strlen(name) < 32);
+			int taillen = 31 - strlen(name);
+			if (taillen > strlen(version()))
+				taillen = strlen(version());
+			/* Fit as much of end of version() as possible */
+			tal_append_fmt(&name, "-%s",
+				       version() + strlen(version()) - taillen);
+		}
 		assert(strlen(name) <= 32);
 		ld->alias = tal_arrz(ld, u8, 33);
 		strcpy((char*)ld->alias, name);
@@ -2041,10 +2038,6 @@ void add_config_deprecated(struct lightningd *ld,
 					tal_append_fmt(&answer, ",%"PRIu64,
 						       ld->accept_extra_tlv_types[i]);
 			}
-#if DEVELOPER
-		} else if (strstarts(name, "dev-")) {
-			/* Ignore dev settings */
-#endif
 		}
 		/* We ignore future additions, since these are deprecated anyway! */
 	}
@@ -2074,13 +2067,10 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)arg_log_to_file
 		|| cb_arg == (void *)opt_add_accept_htlc_tlv
 		|| cb_arg == (void *)opt_set_codex32
-#if DEVELOPER
 		|| cb_arg == (void *)opt_subd_dev_disconnect
 		|| cb_arg == (void *)opt_force_featureset
 		|| cb_arg == (void *)opt_force_privkey
 		|| cb_arg == (void *)opt_force_bip32_seed
 		|| cb_arg == (void *)opt_force_channel_secrets
-		|| cb_arg == (void *)opt_force_tmp_channel_id
-#endif
-		;
+		|| cb_arg == (void *)opt_force_tmp_channel_id;
 }

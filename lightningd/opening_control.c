@@ -978,7 +978,7 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				   &uc->local_funding_pubkey,
 				   uc->minimum_depth,
 				   minrate, maxrate,
-				   IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
+				   peer->ld->dev_force_tmp_channel_id,
 				   peer->ld->config.allowdustreserve);
 	subd_send_msg(uc->open_daemon, take(msg));
 	return true;

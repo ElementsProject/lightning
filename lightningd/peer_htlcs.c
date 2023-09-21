@@ -648,7 +648,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
-	if (!IFDEV(out->peer->ld->dev_no_htlc_timeout, 0)) {
+	if (!out->peer->ld->dev_no_htlc_timeout) {
 		(*houtp)->timeout = new_reltimer(out->peer->ld->timers,
 						 *houtp, time_from_sec(30),
 						 htlc_offer_timeout,
@@ -1338,13 +1338,12 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 	htlc_in_check(hin, __func__);
 
-#if DEVELOPER
-	if (channel->peer->ignore_htlcs) {
+	if (channel->peer->dev_ignore_htlcs) {
 		log_debug(channel->log, "their htlc %"PRIu64" dev_ignore_htlcs",
 			  id);
 		return true;
 	}
-#endif
+
 	/* BOLT #2:
 	 *
 	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
@@ -2956,7 +2955,6 @@ void htlcs_resubmit(struct lightningd *ld,
 	tal_free(unconnected_htlcs_in);
 }
 
-#if DEVELOPER
 static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *obj UNNEEDED,
@@ -2977,7 +2975,7 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not find channel with that peer");
 	}
-	peer->ignore_htlcs = *ignore;
+	peer->dev_ignore_htlcs = *ignore;
 
 	return command_success(cmd, json_stream_success(cmd));
 }
@@ -2991,7 +2989,6 @@ static const struct json_command dev_ignore_htlcs = {
 };
 
 AUTODATA(json_command, &dev_ignore_htlcs);
-#endif /* DEVELOPER */
 
 /* Warp this process to ensure the consistent json object structure
  * between 'listforwards' API and 'forward_event' notification. */

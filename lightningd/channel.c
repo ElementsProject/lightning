@@ -1011,12 +1011,11 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	}
 
 	/* Don't expose internal error causes to remove unless doing dev */
-#if DEVELOPER
-	channel_fail_permanent(channel,
-			       REASON_LOCAL, "Internal error: %s", why);
-#else
-	channel_fail_permanent(channel, REASON_LOCAL, "Internal error");
-#endif
+	if (channel->peer->ld->developer)
+		channel_fail_permanent(channel,
+				       REASON_LOCAL, "Internal error: %s", why);
+	else
+		channel_fail_permanent(channel, REASON_LOCAL, "Internal error");
 	tal_free(why);
 }
 
@@ -1046,14 +1045,13 @@ static void channel_err(struct channel *channel, const char *why)
 	log_info(channel->log, "Peer transient failure in %s: %s",
 		 channel_state_name(channel), why);
 
-#if DEVELOPER
 	if (dev_disconnect_permanent(channel->peer->ld)) {
 		channel_fail_permanent(channel,
 				       REASON_LOCAL,
 				       "dev_disconnect permfail");
 		return;
 	}
-#endif
+
 	channel_set_owner(channel, NULL);
 }
 

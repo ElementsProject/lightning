@@ -200,7 +200,7 @@ static void close_taken_fds(va_list *ap)
 
 /* We use sockets, not pipes, because fds are bidir. */
 static int subd(const char *path, const char *name,
-		const char *debug_subdaemon,
+		bool debugging,
 		int *msgfd,
 		bool io_logging,
 		bool developer,
@@ -257,10 +257,8 @@ static int subd(const char *path, const char *name,
 		args[num_args++] = tal_strdup(NULL, path);
 		if (io_logging)
 			args[num_args++] = "--log-io";
-#if DEVELOPER
-		if (debug_subdaemon && strends(name, debug_subdaemon))
+		if (debugging)
 			args[num_args++] = "--debugger";
-#endif
 		if (developer)
 			args[num_args++] = "--developer";
 		execv(args[0], args);
@@ -378,10 +376,8 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 		   fromwire_peektype(msg),
 		   tal_hex(msg, msg));
 
-#if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		exit(1);
-#endif
 }
 
 static bool log_status_fail(struct subd *sd, const u8 *msg)
@@ -413,10 +409,9 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 
 	log_broken(sd->log, "%s: %s", name, desc);
 
-#if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		exit(1);
-#endif
+
 	return true;
 }
 
@@ -595,7 +590,7 @@ static void destroy_subd(struct subd *sd)
 	int status;
 	bool fail_if_subd_fails;
 
-	fail_if_subd_fails = IFDEV(sd->ld->dev_subdaemon_fail, false);
+	fail_if_subd_fails = sd->ld->dev_subdaemon_fail;
 	list_del_from(&sd->ld->subds, &sd->list);
 
 	/* lightningd may have already done waitpid() */
@@ -694,6 +689,13 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 			 msg_send_next(conn, sd));
 }
 
+static bool debugging(struct lightningd *ld, const char *name)
+{
+	if (ld->dev_debug_subprocess == NULL)
+		return false;
+	return strends(name, ld->dev_debug_subprocess);
+}
+
 static struct subd *new_subd(const tal_t *ctx,
 			     struct lightningd *ld,
 			     const char *name,
@@ -717,7 +719,6 @@ static struct subd *new_subd(const tal_t *ctx,
 {
 	struct subd *sd = tal(ctx, struct subd);
 	int msg_fd;
-	const char *debug_subd = NULL;
 	const char *shortname;
 
 	assert(name != NULL);
@@ -735,13 +736,9 @@ static struct subd *new_subd(const tal_t *ctx,
 		sd->log = new_logger(sd, ld->log_book, node_id, "%s", shortname);
 	}
 
-#if DEVELOPER
-	debug_subd = ld->dev_debug_subprocess;
-#endif /* DEVELOPER */
-
 	const char *path = subdaemon_path(tmpctx, ld, name);
 
-	sd->pid = subd(path, name, debug_subd,
+	sd->pid = subd(path, name, debugging(ld, name),
 		       &msg_fd,
 		       /* We only turn on subdaemon io logging if we're going
 			* to print it: too stressful otherwise! */
@@ -933,7 +930,6 @@ void subd_release_channel(struct subd *owner, const void *channel)
 	}
 }
 
-#if DEVELOPER
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
 {
 	ld->dev_disconnect_fd = open(optarg, O_RDONLY);
@@ -965,7 +961,6 @@ bool dev_disconnect_permanent(struct lightningd *ld)
 	}
 	return false;
 }
-#endif /* DEVELOPER */
 
 /* Ugly helper to get full pathname of the current binary. */
 const char *find_my_abspath(const tal_t *ctx, const char *argv0)
