@@ -55,13 +55,6 @@ of the `startup_regtest.sh` file for details on how to use it.
 . contrib/startup_regtest.sh
 ```
 
-Note that your local nodeset will be much faster/more responsive if
-you've configured your node to expose the developer options, e.g.
-
-```bash
-./configure --enable-developer
-```
-
 #### Mainnet Option
 To test with real bitcoin,  you will need to have a local `bitcoind` node running:
 
@@ -211,7 +204,6 @@ If you encrypt your `hsm_secret`, you will have to pass the `--encrypted-hsm` st
 ### Developers
 
 Developers wishing to contribute should start with the developer guide [here](doc/contribute-to-core-lightning/coding-style-guidelines.md).
-You should also configure with `--enable-developer` to get additional checks and options.
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
 [std]: https://github.com/lightning/bolts

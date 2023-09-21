@@ -153,7 +153,7 @@ This will put you in a new shell to enter the following commands:
 
 ```shell
 poetry install
-./configure --enable-developer
+./configure
 make
 make check VALGRIND=0
 ```
@@ -480,7 +480,7 @@ Build with:
 
 ```shell
 BUILD=x86_64 MAKE_HOST=arm-linux-androideabi \
-  make PIE=1 DEVELOPER=0 \
+  make PIE=1 \
   CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
 ```
 

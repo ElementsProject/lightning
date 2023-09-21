@@ -68,7 +68,7 @@ jobs:
           git config --global --add safe.directory `pwd`
           git submodule update --init --recursive
 
-          ./configure CC="$CC" --enable-developer --disable-valgrind
+          ./configure CC="$CC" --disable-valgrind
 
           cat config.vars
 

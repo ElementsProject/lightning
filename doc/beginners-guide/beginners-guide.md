@@ -16,12 +16,6 @@ If you want to experiment with `lightningd`, there's a script to set up a `bitco
 . contrib/startup_regtest.sh
 ```
 
-Note that your local nodeset will be much faster/more responsive if you've configured your node to expose the developer options, e.g.
-
-```bash
-./configure --enable-developer
-```
-
 #### Mainnet Option
 
 To test with real bitcoin,  you will need to have a local `bitcoind` node running:

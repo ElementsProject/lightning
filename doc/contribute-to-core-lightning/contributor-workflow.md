@@ -18,20 +18,20 @@ sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
 Re-run `configure` and build using `make`:
 
 ```shell
-./configure --enable-developer
+./configure
 make -j$(nproc)
 ```
 
 ## Debugging
 
-You can build Core Lightning with `DEVELOPER=1` to use dev commands listed in `cli/lightning-cli help`. `./configure --enable-developer` will do that. You can log console messages with log_info() in lightningd and status_debug() in other subdaemons.
+There are various development options enabled by running with `--developer`.  You can log console messages with log_info() in lightningd and status_debug() in other subdaemons.
 
 You can debug crashing subdaemons with the argument `--dev-debugger=channeld`, where `channeld` is the subdaemon name.  It will run `gnome-terminal` by default with a gdb attached to the subdaemon when it starts.  You can change the terminal used by setting the `DEBUG_TERM` environment variable, such as `DEBUG_TERM="xterm -e"` or `DEBUG_TERM="konsole -e"`.
 
 It will also print out (to stderr) the gdb command for manual connection.  The subdaemon will be stopped (it sends itself a `SIGSTOP`); you'll need to `continue` in gdb.
 
 ```shell
-./configure --enable-developer
+./configure
 make -j$(nproc)
 ```
 

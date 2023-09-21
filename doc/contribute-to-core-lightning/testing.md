@@ -11,7 +11,6 @@ updatedAt: "2023-07-13T05:21:39.220Z"
 Tests are run with: `make check [flags]` where the pertinent flags are:
 
 ```shell
-DEVELOPER=[0|1] - developer mode increases test coverage
 VALGRIND=[0|1]  - detects memory leaks during test execution but adds a significant delay
 PYTEST_PAR=n    - runs pytests in parallel
 ```
@@ -19,7 +18,7 @@ PYTEST_PAR=n    - runs pytests in parallel
 A modern desktop can build and run through all the tests in a couple of minutes with:
 
 ```shell Shell
-make -j12 full-check PYTEST_PAR=24 DEVELOPER=1 VALGRIND=0
+make -j12 full-check PYTEST_PAR=24 VALGRIND=0
 ```
 
 Adjust `-j` and `PYTEST_PAR` accordingly for your hardware.
@@ -92,7 +91,7 @@ In order to build the Core Lightning binaries with code coverage you will need a
 Then you'll need to enable support at configuration time. You likely want to enable a few sanitizers for bug detections as well as experimental features for an extended coverage (not required though).
 
 ```shell
-./configure --enable-developer --enable-address-sanitizer --enable-ub-sanitizer --enable-fuzzing --disable-valgrind CC=clang && make
+./configure --enable-address-sanitizer --enable-ub-sanitizer --enable-fuzzing --disable-valgrind CC=clang && make
 ```
 
 The targets will be built in `tests/fuzz/` as `fuzz-` binaries, with their best known seed corpora stored in `tests/fuzz/corpora/`.

@@ -115,7 +115,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * should use 'const' on pointers if you can. */
 
 	/* They can turn this on with --developer */
-	ld->developer = IFDEV(true, false);
+	ld->developer = false;
 
 	/*~ We used to EXPLICITLY #if-wrap DEVELOPER code, but as our test
 	 * matrix grew, we turned them into a --developer runtime option.

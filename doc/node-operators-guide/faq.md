@@ -128,7 +128,7 @@ lightning-cli dev-forget-channel $NODEID
 
 
 
-This will perform additional checks on whether it is safe to forget the channel, and only then removes the channel from the DB. Notice that this command is only available if CLN was compiled with `DEVELOPER=1`.
+This will perform additional checks on whether it is safe to forget the channel, and only then removes the channel from the DB. Notice that this command is only available if CLN was started with `--developer`.
 
 ### My channel is stuck in state `CHANNELD_AWAITING_LOCKIN`
 
@@ -177,7 +177,7 @@ There are 3 types of 'rescans' you can make:
 - `rescanblockchain`: A `bitcoind` RPC call which rescans the blockchain starting at the given height. This does not have an effect on Core Lightning as `lightningd` tracks all block and wallet data independently.
 - `--rescan=depth`: A `lightningd` configuration flag. This flag is read at node startup and tells lightningd at what depth from current blockheight to rebuild its internal state.  
    (You can specify an exact block to start scanning from, instead of depth from current height, by using a negative number)
-- `dev-rescan-outputs`: A `lightningd` RPC call. Only available if your node has been configured and built in DEVELOPER mode (i.e. `./configure --enable-developer`) This will sync the state for known UTXOs in the `lightningd` wallet with `bitcoind`. As it only operates on outputs already seen on chain by the `lightningd` internal wallet, this will not find missing wallet funds.
+- `dev-rescan-outputs`: A `lightningd` RPC call. Only available if your node has been started in developer mode (i.e. `--developer`). This will sync the state for known UTXOs in the `lightningd` wallet with `bitcoind`. As it only operates on outputs already seen on chain by the `lightningd` internal wallet, this will not find missing wallet funds.
 
 ### Database corruption / channel state lost
 

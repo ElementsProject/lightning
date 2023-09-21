@@ -149,10 +149,7 @@ set_defaults()
     PREFIX=${PREFIX:-/usr/local}
     CC=${CC:-cc}
     CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
-    DEVELOPER=${DEVELOPER:-0}
     DEBUGBUILD=${DEBUGBUILD:-0}
-    # --enable-developer forces debug build
-    [ "$DEVELOPER" = 0 ] || DEBUGBUILD=1
     COMPAT=${COMPAT:-1}
     STATIC=${STATIC:-0}
     CLANG_COVERAGE=${CLANG_COVERAGE:-0}
@@ -208,8 +205,6 @@ usage()
     echo "Options include:"
     usage_with_default "--prefix=" "$PREFIX"
     echo "    Prefix for make install"
-    usage_with_default "--enable/disable-developer" "$DEVELOPER" "enable" "disable"
-    echo "    Developer mode, good for testing"
     usage_with_default "--enable/disable-debugbuild" "$DEBUGBUILD" "enable" "disable"
     echo "    Extra debug checks in the build, good for testing"
     usage_with_default "--enable/disable-compat" "$COMPAT" "enable" "disable"
@@ -273,8 +268,6 @@ for opt in "$@"; do
 	COPTFLAGS=*) COPTFLAGS="${opt#COPTFLAGS=}";;
 	PYTEST=*) PYTEST="${opt#PYTEST=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
-	--enable-developer) DEVELOPER=1;;
-	--disable-developer) DEVELOPER=0;;
 	--enable-debugbuild) DEBUGBUILD=1;;
 	--disable-debugbuild) DEBUGBUILD=0;;
 	--enable-compat) COMPAT=1;;
@@ -521,7 +514,6 @@ add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
 add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
 add_var VALGRIND "$VALGRIND"
-add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER.$$
 add_var DEBUGBUILD "$DEBUGBUILD"
 add_var COMPAT "$COMPAT" $CONFIG_HEADER.$$
 add_var PYTEST "$PYTEST"
