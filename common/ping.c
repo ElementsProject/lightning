@@ -31,10 +31,6 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 		 *     or portions of initialized memory.
 		 */
 		ignored = tal_arrz(ctx, u8, num_pong_bytes);
-#if DEVELOPER
-		/* Embed version */
-		strncpy((char *)ignored, version(), num_pong_bytes);
-#endif
 		*pong = towire_pong(ctx, ignored);
 		tal_free(ignored);
 	} else

@@ -67,7 +67,7 @@ const char *configvar_parse(struct configvar *cv,
 	}
 
 	if ((ot->type & OPT_DEV) && !developer)
-		return "requires DEVELOPER";
+		return "requires --developer";
 
 	/* If we're early and we want late, or vv, ignore. */
 	if (!!(ot->type & OPT_EARLY) != early)

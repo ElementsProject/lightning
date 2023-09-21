@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
-#if DEVELOPER
 /* We move the fd if and only if we do a disconnect. */
 static int dev_disconnect_fd = -1;
 static char dev_disconnect_line[200];
@@ -105,4 +104,3 @@ void dev_sabotage_fd(int fd, bool close_fd)
 	dup2(fds[1], fd);
 	close(fds[1]);
 }
-#endif

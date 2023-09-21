@@ -20,6 +20,11 @@
 #define paramcheck_assert assert
 #endif
 
+/* Overridden by run-param.c */
+#ifndef paramcheck_assert
+#define paramcheck_assert assert
+#endif
+
 struct param {
 	const char *name;
 	bool is_set;

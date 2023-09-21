@@ -588,9 +588,7 @@ struct onionpacket *create_onionpacket(
 	return packet;
 }
 
-#if DEVELOPER
 bool dev_fail_process_onionpacket;
-#endif
 
 /*
  * Given an onionpacket msg extract the information for the current
@@ -621,8 +619,7 @@ struct route_step *process_onionpacket(
 
 	compute_packet_hmac(msg, assocdata, assocdatalen, &keys.mu, &hmac);
 
-	if (!hmac_eq(&msg->hmac, &hmac)
-	    || IFDEV(dev_fail_process_onionpacket, false)) {
+	if (!hmac_eq(&msg->hmac, &hmac) || dev_fail_process_onionpacket) {
 		/* Computed MAC does not match expected MAC, the message was modified. */
 		return tal_free(step);
 	}
@@ -676,9 +673,7 @@ struct route_step *process_onionpacket(
 	return step;
 }
 
-#if DEVELOPER
 unsigned dev_onion_reply_length = 256;
-#endif
 
 struct onionreply *create_onionreply(const tal_t *ctx,
 				     const struct secret *shared_secret,
@@ -699,7 +694,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	 *     to 256. Deviating from this may cause older nodes to be unable to parse
 	 *     the return message.
 	 */
-	const u16 onion_reply_size = IFDEV(dev_onion_reply_length, 256);
+	const u16 onion_reply_size = dev_onion_reply_length;
 
 	/* We never do this currently, but could in future! */
 	if (msglen > onion_reply_size)

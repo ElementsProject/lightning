@@ -3,7 +3,6 @@
 #include "config.h"
 #include <stdbool.h>
 
-#if DEVELOPER
 struct node_id;
 
 enum dev_disconnect {
@@ -27,7 +26,5 @@ void dev_sabotage_fd(int fd, bool close_fd);
 
 /* For debug code to set in daemon. */
 void dev_disconnect_init(int fd);
-
-#endif /* DEVELOPER */
 
 #endif /* LIGHTNING_COMMON_DEV_DISCONNECT_H */
