@@ -159,4 +159,7 @@ void bip340_sighash_init(struct sha256_ctx *sctx,
 			 const char *tag2,
 			 const char *tag3);
 
+/* Some of the spec test vectors assume no sig grinding. */
+extern bool dev_no_signature_grind;
+
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */

@@ -552,12 +552,8 @@ int main(int argc, const char *argv[])
 	htlcs = setup_htlcs_0_to_4(tmpctx);
 	inv_htlcs = invert_htlcs(htlcs);
 
-#if DEVELOPER
 	/* This lets us match test vectors exactly. */
-	extern bool dev_no_grind;
-
-	dev_no_grind = true;
-#endif /* DEVELOPER */
+	dev_no_signature_grind = true;
 
 	/* BOLT #3:
 	 *
