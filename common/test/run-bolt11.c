@@ -48,7 +48,7 @@ static void test_b11(const char *b11str,
 		     const char *hashed_desc)
 {
 	struct bolt11 *b11;
-	char *fail;
+	char *fail, *reproduce;
 	struct bolt11_field *b11_extra, *expect_extra;
 
 	b11 = bolt11_decode(tmpctx, b11str, NULL, hashed_desc,
@@ -113,14 +113,6 @@ static void test_b11(const char *b11str,
 	}
 	assert(!expect_extra);
 
-	/* FIXME: Spec changed to require c fields, but test vectors don't! */
-
-#if DEVELOPER
-	char *reproduce;
-
-	dev_bolt11_no_c_generation = (b11->min_final_cltv_expiry == 18);
-
-	/* Also blockstream store example signature doesn't match? */
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	for (size_t i = 0; i < strlen(reproduce); i++) {
@@ -129,7 +121,6 @@ static void test_b11(const char *b11str,
 			abort();
 	}
 	assert(strlen(reproduce) == strlen(b11str));
-#endif
 }
 
 int main(int argc, char *argv[])
@@ -198,7 +189,9 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 8);
 	set_feature_bit(&b11->features, 14);
 
+	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq9qrsgq357wnc5r2ueh7ck6q93dj32dlqnls087fxdwk8qakdyafkq3yap9us6v52vjjsrvywa6rt52cm9r9zqt8r2t7mlcwspyetp5h2tztugp9lfyql", b11, NULL);
+	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *
@@ -241,7 +234,9 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 8);
 	set_feature_bit(&b11->features, 14);
 
+	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc2500u1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu9qrsgquk0rl77nj30yxdy8j9vdx85fkpmdla2087ne0xh8nhedh8w27kyke0lp53ut353s06fv3qfegext0eh0ymjpf39tuven09sam30g4vgpfna3rh", b11, NULL);
+	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *
@@ -279,7 +274,10 @@ int main(int argc, char *argv[])
 	b11->description_hash = tal(b11, struct sha256);
 	set_feature_bit(&b11->features, 8);
 	set_feature_bit(&b11->features, 14);
+
+	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc20m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs9qrsgq7ea976txfraylvgzuxs8kgcw23ezlrszfnh8r6qtfpr6cxga50aj6txm9rxrydzd06dfeawfk6swupvz4erwnyutnjq7x39ymw6j38gp7ynn44", b11, "One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon");
+	dev_bolt11_omit_c_value = false;
 
 	/* Malformed bolt11 strings (no '1'). */
 	badstr = "lnbc20mpvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq2yxxz7";
@@ -305,7 +303,9 @@ int main(int argc, char *argv[])
 	b11->description = "1 cup coffee";
 	b11->expiry = 60;
 
+ 	dev_bolt11_omit_c_value = true;
 	test_b11("LNBC2500U1PVJLUEZPP5QQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQYPQDQ5XYSXXATSYP3K7ENXV4JSXQZPUAZTRNWNGZN3KDZW5HYDLZF03QDGM2HDQ27CQV3AGM2AWHZ5SE903VRUATFHQ77W3LS4EVS3CH9ZW97J25EMUDUPQ63NYW24CG27H2RSPFJ9SRP", b11, NULL);
+	dev_bolt11_omit_c_value = false;
 
 	/* Unknown field handling */
 	if (!node_id_from_hexstr("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd", strlen("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd"), &node))
@@ -329,7 +329,9 @@ int main(int argc, char *argv[])
 		extra->data[i] = bech32_charset_rev[(u8)"dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g"[i]];
 	list_add(&b11->extra_fields, &extra->list);
 
+	dev_bolt11_omit_c_value = true;
 	test_b11("lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g4a3hx0v945csrmpm7yxyaamgt2xu7mu4xyt3vp7045n4k4czxf9kj0vw0m8dr5t3pjxuek04rtgyy8uzss5eet5gcyekd6m7u0mzv5sp7mdsag", b11, NULL);
+	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *
@@ -371,7 +373,11 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 14);
 	set_feature_bit(&b11->features, 99);
 
+	dev_bolt11_old_order = true;
+ 	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q5sqqqqqqqqqqqqqqqqsgq2a25dxl5hrntdtn6zvydt7d66hyzsyhqs4wdynavys42xgl6sgx9c4g7me86a27t07mdtfry458rtjr0v92cnmswpsjscgt2vcse3sgpz3uapa", b11, NULL);
+	dev_bolt11_old_order = false;
+ 	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11
 	 *
@@ -466,7 +472,11 @@ int main(int argc, char *argv[])
 	extra[9].data = tal_arrz(extra, u8, 54);
 	list_add_tail(&b11->extra_fields, &extra[9].list);
 
+	dev_bolt11_old_order = true;
+ 	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q5sqqqqqqqqqqqqqqqqsgq2qrqqqfppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhpnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqspnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnpkqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz599y53s3ujmcfjp5xrdap68qxymkqphwsexhmhr8wdz5usdzkzrse33chw6dlp3jhuhge9ley7j2ayx36kawe7kmgg8sv5ugdyusdcqzn8z9x", b11, NULL);
+	dev_bolt11_old_order = false;
+ 	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *
@@ -477,14 +487,18 @@ int main(int argc, char *argv[])
 	list_head_init(&b11->extra_fields);
 	/* This one can be encoded, but not decoded */
 	set_feature_bit(&b11->features, 100);
-	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 
-	/* Needs DEVELOPER to munge this into BOLT example order! */
-#if DEVELOPER
+	/* Needs developer option to munge this into BOLT example order! */
+	dev_bolt11_old_order = true;
+	dev_bolt11_omit_c_value = true;
+	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqqsgqtqyx5vggfcsll4wu246hz02kp85x4katwsk9639we5n5yngc3yhqkm35jnjw4len8vrnqnf5ejh0mzj9n3vz2px97evektfm2l6wqccp3y7372"));
-#else
-	assert(streq(badstr, "lnbc25m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeescqpj9q4psqqqqqqqqqqqqqqqqsgqf0nf0agw8xncpemlreh8wl0z5exhz3pky094lu7pf62nvcxq2vljzhhw69xfdftrgm0jklut3h25nlsfw5prz4c0pjy46xyer0k85hqpnathfq"));
-#endif
+	dev_bolt11_old_order = false;
+	dev_bolt11_omit_c_value = false;
+
+	/* Otherwise it does it normally */
+	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+	assert(streq(badstr, "lnbc25m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4psqqqqqqqqqqqqqqqqsgq8w9mkdh2n9pmrsg5natjffcgjpp5caamstsq5pm03v2c7ca5ej3plyrfe3vyzl76v6wex4r8rd6rdvys4a35983n6wrzegcwfl2gl4qqxh98vj"));
 
 	/* Empty set of allowed bits, ensures this fails! */
 	fset = tal(tmpctx, struct feature_set);
@@ -568,7 +582,9 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 14);
 	b11->payment_secret = tal(b11, struct secret);
 	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
+	dev_bolt11_old_order = true;
 	test_b11("lnbc9678785340p1pwmna7lpp5gc3xfm08u9qy06djf8dfflhugl6p7lgza6dsjxq454gxhj9t7a0sd8dgfkx7cmtwd68yetpd5s9xar0wfjn5gpc8qhrsdfq24f5ggrxdaezqsnvda3kkum5wfjkzmfqf3jkgem9wgsyuctwdus9xgrcyqcjcgpzgfskx6eqf9hzqnteypzxz7fzypfhg6trddjhygrcyqezcgpzfysywmm5ypxxjemgw3hxjmn8yptk7untd9hxwg3q2d6xjcmtv4ezq7pqxgsxzmnyyqcjqmt0wfjjq6t5v4khxsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsxqyjw5qcqp2rzjq0gxwkzc8w6323m55m4jyxcjwmy7stt9hwkwe2qxmy8zpsgg7jcuwz87fcqqeuqqqyqqqqlgqqqqn3qq9q9qrsgqrvgkpnmps664wgkp43l22qsgdw4ve24aca4nymnxddlnp8vh9v2sdxlu5ywdxefsfvm0fq3sesf08uf6q9a2ke0hc9j6z6wlxg5z5kqpu2v9wz", b11, NULL);
+	dev_bolt11_old_order = false;
 
 	/* BOLT #11:
 	 * > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
@@ -614,7 +630,11 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 48);
 	b11->payment_secret = tal(b11, struct secret);
 	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
+	dev_bolt11_old_order = true;
+	dev_bolt11_omit_c_value = true;
 	test_b11("lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc", b11, NULL);
+	dev_bolt11_old_order = false;
+	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *

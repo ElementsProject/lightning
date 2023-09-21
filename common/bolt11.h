@@ -131,9 +131,8 @@ char *bolt11_encode_(const tal_t *ctx,
  */
 const char *to_canonical_invstr(const tal_t *ctx, const char *invstring);
 
-#if DEVELOPER
-/* Flag for tests to suppress `min_final_cltv_expiry` field generation, to match test vectors */
-extern bool dev_bolt11_no_c_generation;
-#endif
+/* Flags to tweak generation to match test vectors */
+extern bool dev_bolt11_old_order;
+extern bool dev_bolt11_omit_c_value;
 
 #endif /* LIGHTNING_COMMON_BOLT11_H */
