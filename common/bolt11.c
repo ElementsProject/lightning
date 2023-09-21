@@ -12,24 +12,8 @@
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
 
-#if DEVELOPER
-bool dev_bolt11_no_c_generation;
-
-/* For test vectors, older ones put p before s. */
-static bool modern_order(const struct bolt11 *b11)
-{
-	if (!b11->description)
-		return true;
-	if (streq(b11->description,
-		  "Blockstream Store: 88.85 USD for Blockstream Ledger Nano S x 1, \"Back In My Day\" Sticker x 2, \"I Got Lightning Working\" Sticker x 2 and 1 more items"))
-		return false;
-	if (streq(b11->description, "coffee beans"))
-		return false;
-	if (streq(b11->description, "payment metadata inside"))
-		return false;
-	return true;
-}
-#endif
+bool dev_bolt11_old_order;
+bool dev_bolt11_omit_c_value;
 
 struct multiplier {
 	const char letter;
@@ -1110,7 +1094,7 @@ static void encode_x(u5 **data, u64 expiry)
 
 static void encode_c(u5 **data, u16 min_final_cltv_expiry)
 {
-	if (IFDEV(dev_bolt11_no_c_generation, false))
+	if (dev_bolt11_omit_c_value)
 		return;
 	push_varlen_field(data, 'c', min_final_cltv_expiry);
 }
@@ -1272,7 +1256,7 @@ char *bolt11_encode_(const tal_t *ctx,
 
 	/* This is a hack to match the test vectors, *some* of which
 	 * order differently! */
-	if (IFDEV(modern_order(b11), true)) {
+	if (!dev_bolt11_old_order) {
 		if (b11->payment_secret)
 			encode_s(&data, b11->payment_secret);
 	}
@@ -1303,7 +1287,7 @@ char *bolt11_encode_(const tal_t *ctx,
 	if (n_field)
 		encode_n(&data, &b11->receiver_id);
 
-	if (IFDEV(!modern_order(b11), false)) {
+	if (dev_bolt11_old_order) {
 		if (b11->payment_secret)
 			encode_s(&data, b11->payment_secret);
 	}
