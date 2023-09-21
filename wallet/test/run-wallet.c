@@ -1002,7 +1002,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	close(fd);
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
-	w->db = db_open(w, dsn, test_error, ld);
+	w->db = db_open(w, dsn, true, test_error, ld);
 	w->db->report_changes_fn = NULL;
 	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);

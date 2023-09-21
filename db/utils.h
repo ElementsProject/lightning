@@ -85,13 +85,13 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 /**
  * db_open - Open or create a database
  */
-#define db_open(ctx, filename, errfn, arg)				\
-	db_open_((ctx), (filename),					\
+#define db_open(ctx, filename, developer, errfn, arg)		\
+	db_open_((ctx), (filename), (developer),			\
 		 typesafe_cb_postargs(void, void *, (errfn), (arg),	\
 				      bool, const char *, va_list),		\
 		 (arg))
 
-struct db *db_open_(const tal_t *ctx, const char *filename,
+struct db *db_open_(const tal_t *ctx, const char *filename, bool developer,
 		    void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap),
 		    void *arg);
 

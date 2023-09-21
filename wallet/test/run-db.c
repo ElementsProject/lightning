@@ -288,7 +288,7 @@ static struct db *create_test_db(void)
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
 	tal_free(filename);
-	db = db_open(NULL, dsn, db_error, (struct lightningd *)NULL);
+	db = db_open(NULL, dsn, true, db_error, (struct lightningd *)NULL);
 	db->data_version = 0;
 	db->report_changes_fn = NULL;
 

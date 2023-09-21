@@ -240,7 +240,7 @@ static struct db *create_test_db(void)
 	char *dsn;
 
 	dsn = tmp_dsn(NULL);
-	db = db_open(NULL, dsn, db_error, (struct plugin *)NULL);
+	db = db_open(NULL, dsn, true, db_error, (struct plugin *)NULL);
 	db->data_version = 0;
 	db->report_changes_fn = NULL;
 
