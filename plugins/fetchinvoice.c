@@ -424,7 +424,6 @@ static struct command_result *param_offer(struct command *cmd,
 					  struct tlv_offer **offer)
 {
 	char *fail;
-	int badf;
 
 	*offer = offer_decode(cmd, buffer + tok->start, tok->end - tok->start,
 			      plugin_feature_set(cmd->plugin), chainparams,
@@ -434,64 +433,6 @@ static struct command_result *param_offer(struct command *cmd,
 					     tal_fmt(cmd,
 						     "Unparsable offer: %s",
 						     fail));
-	/* BOLT-offers #12:
-	 * A reader of an offer:
-	 * - if the offer contains any TLV fields greater or equal to 80:
-	 *   - MUST NOT respond to the offer.
-	 * - if `offer_features` contains unknown _odd_ bits that are non-zero:
-	 *     - MUST ignore the bit.
-	 * - if `offer_features` contains unknown _even_ bits that are non-zero:
-	 *   - MUST NOT respond to the offer.
-	 *   - SHOULD indicate the unknown bit to the user.
-	 */
-	for (size_t i = 0; i < tal_count((*offer)->fields); i++) {
-		if ((*offer)->fields[i].numtype > 80) {
-			return command_fail_badparam(cmd, name, buffer, tok,
-						     tal_fmt(tmpctx,
-							     "Offer %"PRIu64
-							     " field >= 80",
-							     (*offer)->fields[i].numtype));
-		}
-	}
-
-	badf = features_unsupported(plugin_feature_set(cmd->plugin),
-				    (*offer)->offer_features,
-				    BOLT12_OFFER_FEATURE);
-	if (badf != -1) {
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     tal_fmt(tmpctx,
-						     "unknown feature %i",
-						     badf));
-	}
-
-	/* BOLT-offers #12:
-	 * - if `offer_description` is not set:
-	 *   - MUST NOT respond to the offer.
-	 * - if `offer_node_id` is not set:
-	 *   - MUST NOT respond to the offer.
-	 */
-	if (!(*offer)->offer_description)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "Offer does not contain a description");
-	if (!(*offer)->offer_node_id)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "Offer does not contain a node_id");
-
-	/* BOLT-offers #12:
-	 * - if `offer_chains` is not set:
-	 *    - if the node does not accept bitcoin invoices:
-	 *      - MUST NOT respond to the offer
-	 * - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
-	 *      - MUST NOT respond to the offer
-	 */
-	if (!bolt12_chains_match((*offer)->offer_chains,
-				 tal_count((*offer)->offer_chains),
-				 chainparams)) {
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "Offer for wrong chains");
-	}
-
 	return NULL;
 }
 
