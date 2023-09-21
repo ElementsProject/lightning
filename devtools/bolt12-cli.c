@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
@@ -421,7 +422,7 @@ static u64 get_offer_type(const char *name)
 	struct name_map {
 		const char *name;
 		u64 val;
-	} map = {
+	} map[] = {
 		/* BOLT-offers #12:
 		 * 1. `tlv_stream`: `offer`
 		 * 2. types:
@@ -652,9 +653,9 @@ static u64 get_offer_type(const char *name)
 
 static u8 *get_tlv_val(const tal_t *ctx, const char *val)
 {
-	u8 *val = tal_hexdata(ctx, val, strlen(val));
-	if (val)
-		return val;
+	u8 *data = tal_hexdata(ctx, val, strlen(val));
+	if (data)
+		return data;
 	/* Literal string */
 	return tal_dup_arr(ctx, u8, (u8 *)val, strlen(val), 0);
 }
@@ -673,7 +674,7 @@ int main(int argc, char *argv[])
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "decode|decodehex <bolt12>\n"
-			   "encodehex <hrp> <hexstr>...",
+			   "encodehex <hrp> <hexstr>...\n"
 			   "encode <hrp> [<tlvname> <tlvval>]...",
 			   "Show this message");
 	opt_register_version();
