@@ -547,7 +547,6 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 	return result;
 }
 
-#if DEVELOPER
 /* FIXME: We should talk to lightningd anyway, rather than doing this */
 static void closing_dev_memleak(const tal_t *ctx,
 				u8 *scriptpubkey[NUM_SIDES],
@@ -562,7 +561,6 @@ static void closing_dev_memleak(const tal_t *ctx,
 
 	dump_memleak(memtable, memleak_status_broken);
 }
-#endif /* DEVELOPER */
 
 /* Figure out what weight we actually expect for this closing tx (using zero fees
  * gives the largest possible tx: larger values might omit outputs). */
@@ -868,8 +866,9 @@ int main(int argc, char *argv[])
 	bool use_quickclose;
 	struct tlv_closing_signed_tlvs_fee_range *our_feerange, **their_feerange;
 	struct bitcoin_outpoint *wrong_funding;
+	bool developer;
 
-	subdaemon_setup(argc, argv);
+	developer = subdaemon_setup(argc, argv);
 
 	status_setup_sync(REQ_FD);
 
@@ -1077,15 +1076,14 @@ int main(int argc, char *argv[])
 		       type_to_string(tmpctx, struct bitcoin_txid, &closing_txid));
 
 exit_thru_the_giftshop:
-#if DEVELOPER
 	/* We don't listen for master commands, so always check memleak here */
 	tal_free(wrong_funding);
 	tal_free(our_feerange);
 	tal_free(their_feerange);
 	tal_free(local_wallet_index);
 	tal_free(local_wallet_ext_key);
-	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
-#endif
+	if (developer)
+		closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
 
 	/* We're done! */
 
