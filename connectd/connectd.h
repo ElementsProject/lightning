@@ -90,11 +90,9 @@ struct peer {
 	/* Last time we received traffic */
 	struct timeabs last_recv_time;
 
-#if DEVELOPER
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
 	u32 *dev_writes_enabled;
-#endif
 };
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
@@ -155,8 +153,7 @@ struct daemon {
 	/* Any listening sockets we have. */
 	struct io_listener **listeners;
 
-	/* Allow localhost to be considered "public": DEVELOPER-only option,
-	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
+	/* Allow localhost to be considered "public", only with --developer */
 	bool dev_allow_localhost;
 
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
@@ -197,7 +194,6 @@ struct daemon {
 	/* Shutting down, don't send new stuff */
 	bool shutting_down;
 
-#if DEVELOPER
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
@@ -206,7 +202,6 @@ struct daemon {
 	bool dev_suppress_gossip;
 	/* dev_disconnect file */
 	int dev_disconnect_fd;
-#endif
 };
 
 /* Called by io_tor_connect once it has a connection out. */

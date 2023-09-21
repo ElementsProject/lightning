@@ -273,7 +273,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	}
 
 	peer->gs.gossip_timer = gossip_stream_timer(peer);
-	peer->gs.active = IFDEV(!peer->daemon->dev_suppress_gossip, true);
+	peer->gs.active = !peer->daemon->dev_suppress_gossip;
 	peer->gs.timestamp_min = 0;
 	peer->gs.timestamp_max = UINT32_MAX;
 
@@ -338,7 +338,7 @@ static void set_urgent_flag(struct peer *peer, bool urgent)
 	if (setsockopt(io_conn_fd(peer->to_peer),
 		       IPPROTO_TCP, opt, &val, sizeof(val)) != 0
 	    /* This actually happens in testing, where we blackhole the fd */
-	    && IFDEV(peer->daemon->dev_disconnect_fd == -1, true)) {
+	    && peer->daemon->dev_disconnect_fd == -1) {
 		status_broken("setsockopt %s=1 fd=%u: %s",
 			      optname, io_conn_fd(peer->to_peer),
 			      strerror(errno));
@@ -421,7 +421,6 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 {
 	int type = fromwire_peektype(msg);
 
-#if DEVELOPER
 	switch (dev_disconnect(&peer->id, type)) {
 	case DEV_DISCONNECT_BEFORE:
 		if (taken(msg))
@@ -445,7 +444,7 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 		*peer->dev_writes_enabled = 1;
 		break;
 	}
-#endif
+
 	set_urgent_flag(peer, is_urgent(type));
 
 	/* We are no longer required to do this, but we do disconnect
@@ -471,8 +470,6 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 static void wake_gossip(struct peer *peer)
 {
 	bool flush_gossip_filter = true;
-
-#if DEVELOPER
 	/* With dev-fast-gossip, we clean every 2 seconds, which is too
 	 * fast for our slow tests!  So we only call this one time in 5
 	 * actually twice that, as it's not per-peer! */
@@ -480,13 +477,12 @@ static void wake_gossip(struct peer *peer)
 
 	if (peer->daemon->dev_fast_gossip && gossip_age_count++ % 5 != 0)
 		flush_gossip_filter = false;
-#endif
 
 	/* Don't remember sent per-peer gossip forever. */
 	if (flush_gossip_filter)
 		gossip_rcvd_filter_age(peer->gs.grf);
 
-	peer->gs.active = IFDEV(!peer->daemon->dev_suppress_gossip, true);
+	peer->gs.active = !peer->daemon->dev_suppress_gossip;
 	io_wake(peer->peer_outq);
 
 	/* And go again in 60 seconds (from now, now when we finish!) */
@@ -499,7 +495,7 @@ static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 	u8 *msg;
 
 	/* dev-mode can suppress all gossip */
-	if (IFDEV(peer->daemon->dev_suppress_gossip, false))
+	if (peer->daemon->dev_suppress_gossip)
 		return NULL;
 
 	/* Not streaming right now? */
@@ -535,7 +531,7 @@ static void send_ping(struct peer *peer);
 
 static void set_ping_timer(struct peer *peer)
 {
-	if (IFDEV(peer->daemon->dev_no_ping_timer, false)) {
+	if (peer->daemon->dev_no_ping_timer) {
 		peer->ping_timer = NULL;
 		return;
 	}
@@ -963,7 +959,6 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	}
 
 	/* dev_disconnect can disable writes */
-#if DEVELOPER
 	if (peer->dev_writes_enabled) {
 		if (*peer->dev_writes_enabled == 0) {
 			tal_free(msg);
@@ -972,7 +967,6 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 		}
 		(*peer->dev_writes_enabled)--;
 	}
-#endif
 
 	return encrypt_and_send(peer, take(msg), write_to_peer);
 }
@@ -1083,7 +1077,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        tal_free(peer->peer_in);
 
        /* dev_disconnect can disable read */
-       if (!IFDEV(peer->dev_read_enabled, true))
+       if (!peer->dev_read_enabled)
 	       return read_hdr_from_peer(peer_conn, peer);
 
        /* We got something! */
