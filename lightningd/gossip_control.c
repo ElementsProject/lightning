@@ -290,9 +290,9 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    ld->rgb,
 	    ld->alias,
 	    ld->announceable,
-	    IFDEV(ld->dev_gossip_time ? &ld->dev_gossip_time: NULL, NULL),
-	    IFDEV(ld->dev_fast_gossip, false),
-	    IFDEV(ld->dev_fast_gossip_prune, false),
+	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
+	    ld->dev_fast_gossip,
+	    ld->dev_fast_gossip_prune,
 	    ld->config.ip_discovery);
 
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
@@ -535,7 +535,6 @@ static const struct json_command addgossip_command = {
 };
 AUTODATA(json_command, &addgossip_command);
 
-#if DEVELOPER
 static struct command_result *
 json_dev_set_max_scids_encode_size(struct command *cmd,
 				   const char *buffer,
@@ -636,4 +635,3 @@ static const struct json_command dev_gossip_set_time = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_gossip_set_time);
-#endif /* DEVELOPER */

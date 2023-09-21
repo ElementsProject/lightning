@@ -175,7 +175,6 @@ struct invoice_payment_hook_payload {
 	/* FIXME: Include raw payload! */
 };
 
-#ifdef DEVELOPER
 static void invoice_payment_add_tlvs(struct json_stream *stream,
 				     struct htlc_set *hset)
 {
@@ -203,7 +202,6 @@ static void invoice_payment_add_tlvs(struct json_stream *stream,
 	}
 	json_array_end(stream);
 }
-#endif
 
 static void
 invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
@@ -216,9 +214,9 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 	json_add_string(stream, "msat",
 			type_to_string(tmpctx, struct amount_msat,
 				       &payload->msat));
-#ifdef DEVELOPER
-	invoice_payment_add_tlvs(stream, payload->set);
-#endif
+
+	if (payload->ld->developer)
+		invoice_payment_add_tlvs(stream, payload->set);
 	json_object_end(stream); /* .payment */
 }
 
@@ -948,7 +946,6 @@ static void listincoming_done(const char *buffer,
 	db_commit_transaction(ld->wallet->db);
 }
 
-#if DEVELOPER
 /* Since this is a dev-only option, we will crash if dev-routes is not
  * an array-of-arrays-of-correct-items. */
 static struct route_info *unpack_route(const tal_t *ctx,
@@ -1002,7 +999,6 @@ static struct route_info **unpack_routes(const tal_t *ctx,
 
 	return routes;
 }
-#endif /* DEVELOPER */
 
 static struct command_result *param_positive_msat_or_any(struct command *cmd,
 							 const char *name,
@@ -1098,9 +1094,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	struct plugin *plugin;
 	bool *hashonly;
 	const size_t inv_max_label_len = 128;
-#if DEVELOPER
-	const jsmntok_t *routes;
-#endif
+	const jsmntok_t *dev_routes;
 
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
@@ -1117,11 +1111,13 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_opt_def("cltv", param_number, &cltv,
 			     cmd->ld->config.cltv_final),
 		   p_opt_def("deschashonly", param_bool, &hashonly, false),
-#if DEVELOPER
-		   p_opt("dev-routes", param_array, &routes),
-#endif
+		   p_opt("dev-routes", param_array, &dev_routes),
 		   NULL))
 		return command_param_failed();
+
+	if (dev_routes && !cmd->ld->developer)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "dev-routes requires --developer");
 
 	if (strlen(info->label->s) > inv_max_label_len) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1188,11 +1184,8 @@ static struct command_result *json_invoice(struct command *cmd,
 					     cmd->ld->our_features
 					     ->bits[BOLT11_FEATURE]);
 
-#if DEVELOPER
-	info->b11->routes = unpack_routes(info->b11, buffer, routes);
-#else
-	info->b11->routes = NULL;
-#endif
+	info->b11->routes = unpack_routes(info->b11, buffer, dev_routes);
+
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 

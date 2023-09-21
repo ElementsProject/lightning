@@ -1,6 +1,5 @@
 /* Only possible if we're in developer mode. */
 #include "config.h"
-#if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
@@ -313,4 +312,3 @@ static const struct json_command dev_memleak_command = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_memleak_command);
-#endif /* DEVELOPER */

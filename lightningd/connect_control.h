@@ -10,10 +10,6 @@ struct peer;
 struct pubkey;
 struct wireaddr_internal;
 
-/* Speedy reconnect timeout! */
-#define DEV_FAST_RECONNECT(dev_fast_reconnect_flag, fast, normal)	\
-	IFDEV((dev_fast_reconnect_flag) ? (fast) : (normal), (normal))
-
 /* Returns fd for gossipd to talk to connectd */
 int connectd_init(struct lightningd *ld);
 void connectd_activate(struct lightningd *ld);

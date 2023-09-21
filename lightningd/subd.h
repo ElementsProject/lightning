@@ -235,9 +235,7 @@ const char *find_my_abspath(const tal_t *ctx, const char *argv0);
 /* lightningd captures SIGCHLD and waits, but so does subd. */
 void maybe_subd_child(struct lightningd *ld, int childpid, int wstatus);
 
-#if DEVELOPER
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld);
 
 bool dev_disconnect_permanent(struct lightningd *ld);
-#endif /* DEVELOPER */
 #endif /* LIGHTNING_LIGHTNINGD_SUBD_H */

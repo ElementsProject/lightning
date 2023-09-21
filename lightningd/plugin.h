@@ -118,10 +118,8 @@ struct plugins {
 	/* Index to show what order they were added in */
 	u64 plugin_idx;
 
-#if DEVELOPER
 	/* Whether builtin plugins should be overridden as unimportant.  */
 	bool dev_builtin_plugins_unimportant;
-#endif /* DEVELOPER */
 };
 
 /**

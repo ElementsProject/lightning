@@ -117,11 +117,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/* They can turn this on with --developer */
 	ld->developer = IFDEV(true, false);
 
-	/*~ Note that we generally EXPLICITLY #if-wrap DEVELOPER code.  This
-	 * is a nod to keeping it minimal and explicit: we need this code for
-	 * testing, but its existence means we're not actually testing the
-	 * same exact code users will be running. */
-#if DEVELOPER
+	/*~ We used to EXPLICITLY #if-wrap DEVELOPER code, but as our test
+	 * matrix grew, we turned them into a --developer runtime option.
+	 * We still use the `dev` prefix everywhere to make the developer-
+	 * only variations explicit though. */
 	ld->dev_debug_subprocess = NULL;
 	ld->dev_no_plugin_checksum = false;
 	ld->dev_disconnect_fd = -1;
@@ -142,7 +141,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_ignore_modern_onion = false;
 	ld->dev_disable_commit = -1;
 	ld->dev_no_ping_timer = false;
-#endif
 
 	/*~ This is a CCAN list: an embedded double-linked list.  It's not
 	 * really typesafe, but relies on convention to access the contents.
@@ -1096,12 +1094,11 @@ int main(int argc, char *argv[])
 	pidfile_create(ld);
 
 	/*~ Make sure we can reach the subdaemons, and versions match.
-	 * This can be turned off in DEVELOPER builds with --dev-skip-version-checks,
-	 * but the `dev_no_version_checks` field of `ld` doesn't even exist
-	 * if DEVELOPER isn't defined, so we use IFDEV(devoption,non-devoption):
-	 */
+	 * This can be turned off with --dev-skip-version-checks,
+	 * which can only be set after --developer.
+ 	 */
 	trace_span_start("test_subdaemons", ld);
-	if (IFDEV(!ld->dev_no_version_checks, 1))
+	if (!ld->dev_no_version_checks)
 		test_subdaemons(ld);
 	trace_span_end(ld);
 

@@ -230,7 +230,6 @@ static const struct json_command stop_command = {
 };
 AUTODATA(json_command, &stop_command);
 
-#if DEVELOPER
 struct slowcmd {
 	struct command *cmd;
 	unsigned *msec;
@@ -314,7 +313,6 @@ static const struct json_command dev_command = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_command);
-#endif /* DEVELOPER */
 
 static size_t num_cmdlist;
 

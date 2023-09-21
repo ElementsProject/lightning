@@ -119,10 +119,8 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
-#if DEVELOPER
 	if (ld->dev_ignore_modern_onion)
 		return;
-#endif
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;

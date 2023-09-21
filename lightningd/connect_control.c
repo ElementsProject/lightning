@@ -390,8 +390,7 @@ void try_reconnect(const tal_t *ctx,
 	/* Did we last attempt to connect recently?  Enter backoff mode. */
 	if (time_less(time_between(time_now(), peer->last_connect_attempt),
 		      time_from_sec(MAX_WAIT_SECONDS * 2))) {
-		u32 max = DEV_FAST_RECONNECT(peer->ld->dev_fast_reconnect,
-					     3, MAX_WAIT_SECONDS);
+		u32 max = peer->ld->dev_fast_reconnect ? 3 : MAX_WAIT_SECONDS;
 		peer->reconnect_delay *= 2;
 		if (peer->reconnect_delay > max)
 			peer->reconnect_delay = max;
@@ -666,11 +665,9 @@ int connectd_init(struct lightningd *ld)
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
 				       connectd_wire_name, connectd_msg,
 				       take(&hsmfd), take(&fds[1]),
-#if DEVELOPER
 				       /* Not take(): we share it */
 				       ld->dev_disconnect_fd >= 0 ?
 				       &ld->dev_disconnect_fd : NULL,
-#endif
 				       NULL);
 	if (!ld->connectd)
 		err(1, "Could not subdaemon connectd");
@@ -694,15 +691,15 @@ int connectd_init(struct lightningd *ld)
 	    wireaddrs,
 	    listen_announce,
 	    ld->proxyaddr, ld->always_use_proxy || ld->pure_tor_setup,
-	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
+	    ld->dev_allow_localhost, ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "",
 	    ld->config.connection_timeout_secs,
 	    websocket_helper_path,
 	    ld->websocket_port,
 	    !ld->deprecated_apis,
-	    IFDEV(ld->dev_fast_gossip, false),
-	    IFDEV(ld->dev_disconnect_fd >= 0, false),
-	    IFDEV(ld->dev_no_ping_timer, false));
+	    ld->dev_fast_gossip,
+	    ld->dev_disconnect_fd >= 0,
+	    ld->dev_no_ping_timer);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
@@ -824,7 +821,6 @@ static const struct json_command sendcustommsg_command = {
 
 AUTODATA(json_command, &sendcustommsg_command);
 
-#if DEVELOPER
 static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 						       const char *buffer,
 						       const jsmntok_t *obj UNNEEDED,
@@ -870,4 +866,3 @@ static const struct json_command dev_report_fds = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_report_fds);
-#endif /* DEVELOPER */
