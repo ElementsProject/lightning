@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import subprocess
+import os
 
 from pyln.client import Plugin
 
@@ -8,8 +9,12 @@ from pyln.client import Plugin
 plugin = Plugin()
 
 
+network = os.environ.get("TEST_NETWORK", "regtest")
+cli = "bitcoin-cli" if network == "regtest" else "elements-cli"
+
+
 def bcli(plugin, cmd):
-    ret = subprocess.run(['bitcoin-cli',
+    ret = subprocess.run([cli,
                           '-datadir={}'.format(plugin.get_option("bitcoin-datadir")),
                           '-rpcuser={}'.format(plugin.get_option("bitcoin-rpcuser")),
                           '-rpcpassword={}'.format(plugin.get_option("bitcoin-rpcpassword")),
