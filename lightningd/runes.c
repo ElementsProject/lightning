@@ -19,27 +19,7 @@
 #include <lightningd/runes.h>
 #include <wallet/wallet.h>
 
-struct usage {
-	/* If you really issue more than 2^32 runes, they'll share ratelimit buckets */
-	u32 id;
-	u32 counter;
-};
-
-static u64 usage_id(const struct usage *u)
-{
-	return u->id;
-}
-
-static size_t id_hash(u64 id)
-{
-	return siphash24(siphash_seed(), &id, sizeof(id));
-}
-
-static bool usage_eq_id(const struct usage *u, u64 id)
-{
-	return u->id == id;
-}
-HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
+static const u64 sec_per_nsec = 1000000000;
 
 struct cond_info {
 	const struct runes *runes;
@@ -49,7 +29,6 @@ struct cond_info {
 	struct timeabs now;
 	const jsmntok_t *params;
 	STRMAP(const jsmntok_t *) cached_params;
-	struct usage *usage;
 };
 
 /* This is lightningd->runes */
@@ -58,29 +37,11 @@ struct runes {
 	struct rune *master;
 	u64 next_unique_id;
 	struct rune_blacklist *blacklist;
-	struct usage_table *usage_table;
 };
 
 const char *rune_is_ours(struct lightningd *ld, const struct rune *rune)
 {
 	return rune_is_derived(ld->runes->master, rune);
-}
-
-static void memleak_help_usage_table(struct htable *memtable,
-				     struct usage_table *usage_table)
-{
-	memleak_scan_htable(memtable, &usage_table->raw);
-}
-
-/* Every minute we forget entries. */
-static void flush_usage_table(struct runes *runes)
-{
-	tal_free(runes->usage_table);
-	runes->usage_table = tal(runes, struct usage_table);
-	usage_table_init(runes->usage_table);
-	memleak_add_helper(runes->usage_table, memleak_help_usage_table);
-
-	notleak(new_reltimer(runes->ld->timers, runes, time_from_sec(60), flush_usage_table, runes));
 }
 
 /* Convert unique_id string to u64.  We only expect this to fail when we're
@@ -114,16 +75,36 @@ u64 rune_unique_id(const struct rune *rune)
 	return num;
 }
 
-static const char *last_time_check(const tal_t *ctx,
+static const char *last_time_check(const struct rune *rune,
+				    struct cond_info *cinfo,
+					u64 n_sec)
+{
+	u64 diff;
+	struct timeabs last_used;
+
+	if (!wallet_get_rune(tmpctx, cinfo->runes->ld->wallet, atol(rune->unique_id), &last_used)) {
+		/* FIXME: If we do not know the rune, per does not work */
+		return NULL;
+	}
+	if (time_before(cinfo->now, last_used)) {
+		last_used = cinfo->now;
+	}
+
+	diff = time_to_nsec(time_between(cinfo->now, last_used));
+	if (diff < n_sec) {
+		return "too soon";
+	}
+	return NULL;
+}
+
+static const char *per_time_check(const tal_t *ctx,
 				    const struct runes *runes,
 				    const struct rune *rune,
 				    const struct rune_altern *alt,
 				    struct cond_info *cinfo)
 {
-	u64 r, multiplier, diff;
-	struct timeabs last_used;
+	u64 r, multiplier;
 	char *endp;
-	const u64 sec_per_nsec = 1000000000;
 
 	if (alt->condition != '=')
 		return "per operator must be =";
@@ -151,19 +132,7 @@ static const char *last_time_check(const tal_t *ctx,
 	if (mul_overflows_u64(r, multiplier)) {
 		return "per overflow";
 	}
-	if (!wallet_get_rune(tmpctx, cinfo->runes->ld->wallet, atol(rune->unique_id), &last_used)) {
-		/* FIXME: If we do not know the rune, per does not work */
-		return NULL;
-	}
-	if (time_before(cinfo->now, last_used)) {
-		last_used = cinfo->now;
-	}
-	diff = time_to_nsec(time_between(cinfo->now, last_used));
-
-	if (diff < (r * multiplier)) {
-		return "too soon";
-	}
-	return NULL;
+	return last_time_check(rune, cinfo, r * multiplier);
 }
 
 static const char *rate_limit_check(const tal_t *ctx,
@@ -174,8 +143,6 @@ static const char *rate_limit_check(const tal_t *ctx,
 {
 	unsigned long r;
 	char *endp;
-	u64 unique_id = rune_unique_id(rune);
-
 	if (alt->condition != '=')
 		return "rate operator must be =";
 
@@ -183,22 +150,7 @@ static const char *rate_limit_check(const tal_t *ctx,
 	if (endp == alt->value || *endp || r == 0 || r >= UINT32_MAX)
 		return "malformed rate";
 
-	/* We cache this: we only add usage counter if whole rune succeeds! */
-	if (!cinfo->usage) {
-		cinfo->usage = usage_table_get(runes->usage_table, unique_id);
-		if (!cinfo->usage) {
-			cinfo->usage = tal(runes->usage_table, struct usage);
-			cinfo->usage->id = unique_id;
-			cinfo->usage->counter = 0;
-			usage_table_add(runes->usage_table, cinfo->usage);
-		}
-	}
-
-	/* >= becuase if we allow this, counter will increment */
-	if (cinfo->usage->counter >= r)
-		return tal_fmt(ctx, "Rate of %lu per minute exceeded", r);
-
-	return NULL;
+	return last_time_check(rune, cinfo, 60 * sec_per_nsec / r);
 }
 
 /* We need to initialize master runes secret early, so db can use rune_is_ours */
@@ -227,10 +179,6 @@ void runes_finish_init(struct runes *runes)
 
 	runes->next_unique_id = db_get_intvar(ld->wallet->db, "runes_uniqueid", 0);
 	runes->blacklist = wallet_get_runes_blacklist(runes, ld->wallet);
-
-	/* Initialize usage table and start flush timer. */
-	runes->usage_table = NULL;
-	flush_usage_table(runes);
 }
 
 struct rune_and_string {
@@ -795,7 +743,7 @@ static const char *check_condition(const tal_t *ctx,
 	} else if (streq(alt->fieldname, "rate")) {
 		return rate_limit_check(ctx, cinfo->runes, rune, alt, cinfo);
 	} else if (streq(alt->fieldname, "per")) {
-		return last_time_check(ctx, cinfo->runes, rune, alt, cinfo);
+		return per_time_check(ctx, cinfo->runes, rune, alt, cinfo);
 	}
 
 	/* Rest are params looksup: generate this once! */
@@ -850,6 +798,7 @@ static const char *check_condition(const tal_t *ctx,
 static void update_rune_usage_time(struct runes *runes,
 						 struct rune *rune, struct timeabs now)
 {
+	/* FIXME: we could batch DB access if this is too slow */
 	wallet_rune_update_last_used(runes->ld->wallet, rune, now);
 }
 
@@ -882,8 +831,6 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.method = method;
 	cinfo.params = methodparams;
 	cinfo.now = time_now();
-	/* We will populate it in rate_limit_check if required. */
-	cinfo.usage = NULL;
 	strmap_init(&cinfo.cached_params);
 
 	err = rune_is_ours(cmd->ld, ras->rune);
@@ -900,9 +847,6 @@ static struct command_result *json_checkrune(struct command *cmd,
 		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
 	}
 
-	/* If it succeeded, *now* we increment any associated usage counter. */
-	if (cinfo.usage)
-		cinfo.usage->counter++;
 	update_rune_usage_time(cmd->ld->runes, ras->rune, cinfo.now);
 
 	js = json_stream_success(cmd);

@@ -35,8 +35,8 @@ being run:
 * time: the current UNIX time, e.g. "time<1656759180".
 * id: the node\_id of the peer, e.g. "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605".
 * method: the command being run, e.g. "method=withdraw".
-* rate: the rate limit, per minute, e.g. "rate=60".
 * per: how often the rune can be used, with suffix "sec" (default), "min", "hour", "day" or "msec", "usec" or "nsec". e.g. "per=5sec".
+* rate: the rate limit, per minute, e.g. "rate=60" is equivalent to "per=1sec".
 * pnum: the number of parameters. e.g. "pnum<2".
 * pnameX: the parameter named X (with any punctuation like `_` removed). e.g. "pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
 * parrN: the N'th parameter. e.g. "parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
