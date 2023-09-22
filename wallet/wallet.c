@@ -3865,7 +3865,7 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 		stmt = db_prepare_v2(w->db,
 				     SQL("INSERT INTO htlc_sigs (channelid,"
 					 " inflight_tx_id, inflight_tx_outnum,"
-					 " signature) VALUES (?, ?, ?)"));
+					 " signature) VALUES (?, ?, ?, ?)"));
 		db_bind_u64(stmt, channel_id);
 		db_bind_txid(stmt, &inflight_outpoint.txid);
 		db_bind_int(stmt, inflight_outpoint.n);
