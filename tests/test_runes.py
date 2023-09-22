@@ -124,10 +124,7 @@ def test_createrune(node_factory):
                  (rune2, "getinfo", {}),
                  (rune3, "getinfo", {}),
                  (rune7, "listpeers", []),
-                 (rune7, "getinfo", {}),
-                 (rune9, "getinfo", {}),
-                 (rune8, "getinfo", {}),
-                 (rune8, "getinfo", {}))
+                 (rune7, "getinfo", {}))
 
     failures = ((rune2, "withdraw", {}),
                 (rune2, "plugin", {'subcommand': 'list'}),
@@ -136,7 +133,10 @@ def test_createrune(node_factory):
                 (rune5, "listpeers", {'id': l1.info['id'], 'level': 'io'}),
                 (rune6, "listpeers", [l1.info['id'], 'io']),
                 (rune7, "listpeers", [l1.info['id']]),
-                (rune7, "listpeers", {'id': l1.info['id']}))
+                (rune7, "listpeers", {'id': l1.info['id']}),
+                # These are derived from rune7, so they have been recently used
+                (rune8, "getinfo", {}),
+                (rune9, "getinfo", {}))
 
     for rune, cmd, params in successes:
         l1.rpc.checkrune(nodeid=l1.info['id'],
@@ -156,38 +156,16 @@ def test_createrune(node_factory):
                              params=params)
         assert exc_info.value.error['code'] == 0x5de
 
-    # Now, this can flake if we cross a minute boundary!  So wait until
-    # It succeeds again.
-    while True:
-        try:
-            l1.rpc.checkrune(nodeid=l1.info['id'],
-                             rune=rune8['rune'],
-                             method='getinfo')
-            break
-        except RpcError as e:
-            assert e.error['code'] == 0x5de
-        time.sleep(1)
+    # Rune 7 succeeded, so we need to wait for 20 seconds
+    time.sleep(21)
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune8['rune'],
+                     method='getinfo')['valid'] is True
 
     # This fails immediately, since we've done one.
     with pytest.raises(RpcError, match='Not permitted:') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune9['rune'],
-                         method='getinfo',
-                         params={})
-    assert exc_info.value.error['code'] == 0x5de
-
-    # Two more succeed for rune8.
-    for _ in range(2):
-        l1.rpc.checkrune(nodeid=l1.info['id'],
-                         rune=rune8['rune'],
-                         method='getinfo',
-                         params={})
-    assert exc_info.value.error['code'] == 0x5de
-
-    # Now we've had 3 in one minute, this will fail.
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
-        l1.rpc.checkrune(nodeid=l1.info['id'],
-                         rune=rune8['rune'],
                          method='getinfo',
                          params={})
     assert exc_info.value.error['code'] == 0x5de
@@ -200,16 +178,22 @@ def test_createrune(node_factory):
                          params={})
     assert exc_info.value.error['code'] == 0x5de
 
-    # Now wait for ratelimit expiry, ratelimits should reset.
-    time.sleep(61)
+    # Rune8 has rate 3 per minute (20 seconds) and rune9 has rate 1 per minute (60 seconds)
+    time.sleep(21)
+    with pytest.raises(RpcError, match='Not permitted: too soon'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune9['rune'],
+                         method="getinfo")
 
-    for rune, cmd, params in ((rune9, "getinfo", {}),
-                              (rune8, "getinfo", {}),
-                              (rune8, "getinfo", {})):
-        assert l1.rpc.checkrune(nodeid=l1.info['id'],
-                                rune=rune['rune'],
-                                method=cmd,
-                                params=params)['valid'] is True
+    assert l1.rpc.checkrune(nodeid=l1.info['id'],
+                            rune=rune8['rune'],
+                            method="getinfo")['valid'] is True
+
+    # Rune8 uses the same unique_id as rune9, so we need to wait for full 1 minute
+    time.sleep(61)
+    assert l1.rpc.checkrune(nodeid=l1.info['id'],
+                            rune=rune9['rune'],
+                            method="getinfo")['valid'] is True
 
 
 def do_test_rune_per_restriction(l1, rune_to_test, per_sec):
