@@ -1622,6 +1622,13 @@ struct rune_blacklist {
 };
 
 /**
+ * Load the next unique id for rune from the db.
+ * @ctx: tal ctx for return to be tallocated from
+ * @wallet: the wallet
+ */
+u64 wallet_get_rune_next_unique_id(const tal_t *ctx, struct wallet *wallet);
+
+/**
  * Load the blacklist from the db.
  * @ctx: tal ctx for return to be tallocated from
  * @wallet: the wallet

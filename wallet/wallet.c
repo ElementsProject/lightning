@@ -5662,6 +5662,21 @@ struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
 	return iter;
 }
 
+u64 wallet_get_rune_next_unique_id(const tal_t *ctx, struct wallet *wallet)
+{
+	struct db_stmt *stmt;
+	u64 next_unique_id;
+
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT (COALESCE(MAX(id), -1) + 1) FROM runes"));
+	db_query_prepared(stmt);
+	db_step(stmt);
+
+	next_unique_id = db_col_u64(stmt, "(COALESCE(MAX(id), -1) + 1)");
+
+	tal_free(stmt);
+	return next_unique_id;
+}
+
 struct rune_blacklist *wallet_get_runes_blacklist(const tal_t *ctx, struct wallet *wallet)
 {
 	struct db_stmt *stmt;
