@@ -177,7 +177,7 @@ void runes_finish_init(struct runes *runes)
 {
 	struct lightningd *ld = runes->ld;
 
-	runes->next_unique_id = db_get_intvar(ld->wallet->db, "runes_uniqueid", 0);
+	runes->next_unique_id = wallet_get_rune_next_unique_id(runes, ld->wallet);
 	runes->blacklist = wallet_get_runes_blacklist(runes, ld->wallet);
 }
 
@@ -588,7 +588,6 @@ static struct command_result *json_createrune(struct command *cmd,
 	/* Insert into DB*/
 	wallet_rune_insert(cmd->ld->wallet, ras->rune);
 	cmd->ld->runes->next_unique_id = cmd->ld->runes->next_unique_id + 1;
-	db_set_intvar(cmd->ld->wallet->db, "runes_uniqueid", cmd->ld->runes->next_unique_id);
 	return reply_with_rune(cmd, NULL, NULL, ras->rune);
 }
 
