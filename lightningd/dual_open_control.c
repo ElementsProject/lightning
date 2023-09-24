@@ -3791,7 +3791,8 @@ bool peer_start_dualopend(struct peer *peer,
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
 				  HSM_PERM_COMMITMENT_POINT
 				  | HSM_PERM_SIGN_REMOTE_TX
-				  | HSM_PERM_SIGN_WILL_FUND_OFFER);
+				  | HSM_PERM_SIGN_WILL_FUND_OFFER
+				  | HSM_PERM_LOCK_OUTPOINT);
 
 	channel->owner = new_channel_subd(channel,
 					  peer->ld,
@@ -3863,7 +3864,8 @@ bool peer_restart_dualopend(struct peer *peer,
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
 				  HSM_PERM_COMMITMENT_POINT
 				  | HSM_PERM_SIGN_REMOTE_TX
-				  | HSM_PERM_SIGN_WILL_FUND_OFFER);
+				  | HSM_PERM_SIGN_WILL_FUND_OFFER
+				  | HSM_PERM_LOCK_OUTPOINT);
 
 	channel_set_owner(channel,
 			  new_channel_subd(channel, peer->ld,
