@@ -426,6 +426,51 @@ static void billboard_update(struct state *state)
 	peer_billboard(false, update);
 }
 
+static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
+{
+	const u8 *msg;
+	bool is_buried = false;
+
+
+	/* FIXME(vincenzopalazzo): Sleeping in a deamon of cln should be never fine
+	 * howerver the core deamon of cln will never trigger the sleep.
+	 *
+	 * I think that the correct solution for this is a timer base solution, but this
+	 * required to implement all the timers in the deamon.  */
+	do {
+		/* Make sure the hsmd agrees that this outpoint is
+		 * sufficiently buried. */
+		msg = towire_hsmd_check_outpoint(NULL, &outpoint->txid, outpoint->n);
+		wire_sync_write(HSM_FD, take(msg));
+		msg = wire_sync_read(tmpctx, HSM_FD);
+		if (!fromwire_hsmd_check_outpoint_reply(msg, &is_buried))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Bad hsmd_check_outpoint_reply: %s",
+				      tal_hex(tmpctx, msg));
+
+		/* the signer should have a shorter buried height requirement so
+		 * it almost always will be ready ahead of us.*/
+		if (!is_buried)
+			sleep(10);
+	} while (!is_buried);
+
+	/* tell the signer that we are now locked */
+	msg = towire_hsmd_lock_outpoint(NULL, &outpoint->txid, outpoint->n);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_lock_outpoint_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad hsmd_lock_outpoint_reply: %s",
+			      tal_hex(tmpctx, msg));
+}
+
+/* Call this method when channel_ready status are changed. */
+static void check_mutual_channel_ready(const struct state *state)
+{
+	if (state->channel_ready[LOCAL] && state->channel_ready[REMOTE])
+		lock_signer_outpoint(&state->channel->funding);
+}
+
 static void send_shutdown(struct state *state, const u8 *final_scriptpubkey)
 {
 	u8 *msg;
@@ -1265,6 +1310,7 @@ static u8 *handle_channel_ready(struct state *state, u8 *msg)
 	}
 
 	state->channel_ready[REMOTE] = true;
+	check_mutual_channel_ready(state);
 	billboard_update(state);
 
 	if (state->channel_ready[LOCAL])
@@ -3789,6 +3835,7 @@ static void send_channel_ready(struct state *state)
 	peer_write(state->pps, take(msg));
 
 	state->channel_ready[LOCAL] = true;
+	check_mutual_channel_ready(state);
 	billboard_update(state);
 }
 
