@@ -5378,7 +5378,8 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			peer_write(peer->pps, take(msg));
 
 			peer->channel_ready[LOCAL] = true;
-		} else if (splicing && !peer->splice_state->locked_ready[LOCAL]) {
+			check_mutual_channel_ready(peer);
+		} else if(splicing && !peer->splice_state->locked_ready[LOCAL]) {
 			assert(scid);
 
 			msg = towire_splice_locked(NULL, &peer->channel_id);
