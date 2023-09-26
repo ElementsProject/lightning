@@ -69,25 +69,25 @@ msgdata,hsmd_get_channel_basepoints_reply,funding_pubkey,pubkey,
 
 #include <common/channel_type.h>
 # Provide channel parameters.
-msgtype,hsmd_ready_channel,31
-msgdata,hsmd_ready_channel,is_outbound,bool,
-msgdata,hsmd_ready_channel,channel_value,amount_sat,
-msgdata,hsmd_ready_channel,push_value,amount_msat,
-msgdata,hsmd_ready_channel,funding_txid,bitcoin_txid,
-msgdata,hsmd_ready_channel,funding_txout,u16,
-msgdata,hsmd_ready_channel,local_to_self_delay,u16,
-msgdata,hsmd_ready_channel,local_shutdown_script_len,u16,
-msgdata,hsmd_ready_channel,local_shutdown_script,u8,local_shutdown_script_len
-msgdata,hsmd_ready_channel,local_shutdown_wallet_index,?u32,
-msgdata,hsmd_ready_channel,remote_basepoints,basepoints,
-msgdata,hsmd_ready_channel,remote_funding_pubkey,pubkey,
-msgdata,hsmd_ready_channel,remote_to_self_delay,u16,
-msgdata,hsmd_ready_channel,remote_shutdown_script_len,u16,
-msgdata,hsmd_ready_channel,remote_shutdown_script,u8,remote_shutdown_script_len
-msgdata,hsmd_ready_channel,channel_type,channel_type,
+msgtype,hsmd_setup_channel,31
+msgdata,hsmd_setup_channel,is_outbound,bool,
+msgdata,hsmd_setup_channel,channel_value,amount_sat,
+msgdata,hsmd_setup_channel,push_value,amount_msat,
+msgdata,hsmd_setup_channel,funding_txid,bitcoin_txid,
+msgdata,hsmd_setup_channel,funding_txout,u16,
+msgdata,hsmd_setup_channel,local_to_self_delay,u16,
+msgdata,hsmd_setup_channel,local_shutdown_script_len,u16,
+msgdata,hsmd_setup_channel,local_shutdown_script,u8,local_shutdown_script_len
+msgdata,hsmd_setup_channel,local_shutdown_wallet_index,?u32,
+msgdata,hsmd_setup_channel,remote_basepoints,basepoints,
+msgdata,hsmd_setup_channel,remote_funding_pubkey,pubkey,
+msgdata,hsmd_setup_channel,remote_to_self_delay,u16,
+msgdata,hsmd_setup_channel,remote_shutdown_script_len,u16,
+msgdata,hsmd_setup_channel,remote_shutdown_script,u8,remote_shutdown_script_len
+msgdata,hsmd_setup_channel,channel_type,channel_type,
 
-# No value returned.
-msgtype,hsmd_ready_channel_reply,131
+# No value returned.,
+msgtype,hsmd_setup_channel_reply,131
 
 # Return signature for a funding tx.
 #include <common/utxo.h>
