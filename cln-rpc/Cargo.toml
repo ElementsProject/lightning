@@ -1,6 +1,6 @@
 [package]
 name = "cln-rpc"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 description = "An async RPC client for Core Lightning."
@@ -14,7 +14,7 @@ path = "examples/getinfo.rs"
 
 [dependencies]
 anyhow = "1.0"
-bitcoin = { version = "0.29", features = [ "serde" ] }
+bitcoin = { version = "0.30", features = [ "serde" ] }
 bytes = "1"
 futures-util = { version = "0.3", features = [ "sink" ] }
 hex = "0.4.3"
