@@ -1,6 +1,6 @@
 [package]
 name = "cln-grpc"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 description = "The Core Lightning API as grpc primitives. Provides the bindings used to expose the API over the network."
@@ -19,10 +19,11 @@ cln-rpc = { path="../cln-rpc/", version = "^0.1", optional = true }
 tonic = { version = "0.8", features = ["tls", "transport"] }
 prost = "0.11"
 hex = "0.4.3"
-bitcoin = { version = "0.29", features = [ "serde" ] }
+bitcoin = { version = "0.30", features = [ "serde" ] }
 
 [dev-dependencies]
 serde_json = "1.0.72"
+cln-rpc = { path="../cln-rpc/", version = "^0.1" }
 
 [build-dependencies]
 tonic-build = "0.8"
