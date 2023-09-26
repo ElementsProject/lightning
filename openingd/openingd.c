@@ -606,7 +606,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
 	/*~ Channel is ready; Report the channel parameters to the signer. */
-	msg = towire_hsmd_ready_channel(NULL,
+	msg = towire_hsmd_setup_channel(NULL,
 				       true,	/* is_outbound */
 				       state->funding_sats,
 				       state->push_msat,
@@ -622,8 +622,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_ready_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+	if (!fromwire_hsmd_setup_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 
 	/*~ Now we can initialize the `struct channel`.  This represents
@@ -1196,7 +1196,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/*~ Channel is ready; Report the channel parameters to the signer. */
-	msg = towire_hsmd_ready_channel(NULL,
+	msg = towire_hsmd_setup_channel(NULL,
 				       false,	/* is_outbound */
 				       state->funding_sats,
 				       state->push_msat,
@@ -1212,8 +1212,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_ready_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+	if (!fromwire_hsmd_setup_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 
 	/* Now we can create the channel structure. */

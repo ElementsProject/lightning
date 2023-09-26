@@ -1908,7 +1908,7 @@ static u8 *accepter_commits(struct state *state,
 			      "to msats");
 
 	/*~ Report the channel parameters to the signer. */
-	msg = towire_hsmd_ready_channel(NULL,
+	msg = towire_hsmd_setup_channel(NULL,
 				       false,	/* is_outbound */
 				       total,
 				       our_msats,
@@ -1924,8 +1924,8 @@ static u8 *accepter_commits(struct state *state,
 				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_ready_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+	if (!fromwire_hsmd_setup_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 
 	tal_free(state->channel);
@@ -2642,7 +2642,7 @@ static u8 *opener_commits(struct state *state,
 	}
 
 	/*~ Report the channel parameters to the signer. */
-	msg = towire_hsmd_ready_channel(NULL,
+	msg = towire_hsmd_setup_channel(NULL,
 				       true,	/* is_outbound */
 				       total,
 				       their_msats,
@@ -2658,7 +2658,7 @@ static u8 *opener_commits(struct state *state,
 				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_ready_channel_reply(msg))
+	if (!fromwire_hsmd_setup_channel_reply(msg))
 		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 
