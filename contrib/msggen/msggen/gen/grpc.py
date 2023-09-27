@@ -280,7 +280,7 @@ class GrpcConverterGenerator(IGenerator):
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
                     'secret': f'i.to_vec()',
-                    'hash': f'i.to_vec()',
+                    'hash': f'<Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()',
                 }.get(typ, f'i.into()')
 
                 self.write(f"// Field: {f.path}\n", numindent=3)
@@ -314,8 +314,8 @@ class GrpcConverterGenerator(IGenerator):
                     'txid?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
                     'short_channel_id': f'c.{name}.to_string()',
                     'short_channel_id?': f'c.{name}.map(|v| v.to_string())',
-                    'hash': f'c.{name}.to_vec()',
-                    'hash?': f'c.{name}.map(|v| v.to_vec())',
+                    'hash': f'<Sha256 as AsRef<[u8]>>::as_ref(&c.{name}).to_vec()',
+                    'hash?': f'c.{name}.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec())',
                     'secret': f'c.{name}.to_vec()',
                     'secret?': f'c.{name}.map(|v| v.to_vec())',
 

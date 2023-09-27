@@ -145,7 +145,7 @@ impl From<responses::ListpeersPeersChannelsHtlcs> for pb::ListpeersPeersChannels
             id: c.id, // Rule #2 for type u64
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             expiry: c.expiry, // Rule #2 for type u32
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             local_trimmed: c.local_trimmed, // Rule #2 for type boolean?
             status: c.status, // Rule #2 for type string?
             state: c.state as i32,
@@ -162,7 +162,7 @@ impl From<responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             feerate: c.feerate.map(|v| v.into()),
             owner: c.owner, // Rule #2 for type string?
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
-            channel_id: c.channel_id.map(|v| v.to_vec()), // Rule #2 for type hash?
+            channel_id: c.channel_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             funding_txid: c.funding_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             funding_outnum: c.funding_outnum, // Rule #2 for type u32?
             initial_feerate: c.initial_feerate, // Rule #2 for type string?
@@ -271,7 +271,7 @@ impl From<responses::ListfundsChannels> for pb::ListfundsChannels {
             funding_output: c.funding_output, // Rule #2 for type u32
             connected: c.connected, // Rule #2 for type boolean
             state: c.state as i32,
-            channel_id: c.channel_id.map(|v| v.to_vec()), // Rule #2 for type hash?
+            channel_id: c.channel_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
@@ -295,7 +295,7 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
         Self {
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -417,7 +417,7 @@ impl From<responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
             label: c.label, // Rule #2 for type string
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             status: c.status as i32,
             description: c.description, // Rule #2 for type string
@@ -487,7 +487,7 @@ impl From<responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
             bolt12: c.bolt12, // Rule #2 for type string?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             description: c.description, // Rule #2 for type string?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             created_index: c.created_index, // Rule #2 for type u64?
             updated_index: c.updated_index, // Rule #2 for type u64?
             status: c.status as i32,
@@ -503,7 +503,7 @@ impl From<responses::InvoiceResponse> for pb::InvoiceResponse {
     fn from(c: responses::InvoiceResponse) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             payment_secret: c.payment_secret.to_vec(), // Rule #2 for type secret
             expires_at: c.expires_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
@@ -545,13 +545,13 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
         Self {
             label: c.label, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at, // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            local_offer_id: c.local_offer_id.map(|v| v.to_vec()), // Rule #2 for type hash?
+            local_offer_id: c.local_offer_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             created_index: c.created_index, // Rule #2 for type u64?
             updated_index: c.updated_index, // Rule #2 for type u64?
@@ -578,7 +578,7 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
     fn from(c: responses::SendonionResponse) -> Self {
         Self {
             id: c.id, // Rule #2 for type u64
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -601,7 +601,7 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64
             partid: c.partid, // Rule #2 for type u64?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -683,7 +683,7 @@ impl From<responses::PayResponse> for pb::PayResponse {
         Self {
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             created_at: c.created_at, // Rule #2 for type number
             parts: c.parts, // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
@@ -736,7 +736,7 @@ impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
         Self {
             label: c.label, // Rule #2 for type string
             description: c.description, // Rule #2 for type string
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at, // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -758,7 +758,7 @@ impl From<responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
         Self {
             label: c.label, // Rule #2 for type string
             description: c.description, // Rule #2 for type string
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at, // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -780,7 +780,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
         Self {
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -825,7 +825,7 @@ impl From<responses::KeysendResponse> for pb::KeysendResponse {
         Self {
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             created_at: c.created_at, // Rule #2 for type number
             parts: c.parts, // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
@@ -999,7 +999,7 @@ impl From<responses::ListpeerchannelsChannelsHtlcs> for pb::ListpeerchannelsChan
             id: c.id, // Rule #2 for type u64?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             expiry: c.expiry, // Rule #2 for type u32?
-            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             local_trimmed: c.local_trimmed, // Rule #2 for type boolean?
             status: c.status, // Rule #2 for type string?
             state: c.state.map(|v| v as i32),
@@ -1019,7 +1019,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             feerate: c.feerate.map(|v| v.into()),
             owner: c.owner, // Rule #2 for type string?
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
-            channel_id: c.channel_id.map(|v| v.to_vec()), // Rule #2 for type hash?
+            channel_id: c.channel_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             funding_txid: c.funding_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             funding_outnum: c.funding_outnum, // Rule #2 for type u32?
             initial_feerate: c.initial_feerate, // Rule #2 for type string?
@@ -1094,7 +1094,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
     fn from(c: responses::ListclosedchannelsClosedchannels) -> Self {
         Self {
             peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            channel_id: c.channel_id.to_vec(), // Rule #2 for type hash
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             alias: c.alias.map(|v| v.into()),
             opener: c.opener as i32,
@@ -1113,7 +1113,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             final_to_us_msat: Some(c.final_to_us_msat.into()), // Rule #2 for type msat
             min_to_us_msat: Some(c.min_to_us_msat.into()), // Rule #2 for type msat
             max_to_us_msat: Some(c.max_to_us_msat.into()), // Rule #2 for type msat
-            last_commitment_txid: c.last_commitment_txid.map(|v| v.to_vec()), // Rule #2 for type hash?
+            last_commitment_txid: c.last_commitment_txid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             close_cause: c.close_cause as i32,
         }
@@ -1160,12 +1160,12 @@ impl From<responses::DecodepayResponse> for pb::DecodepayResponse {
             expiry: c.expiry, // Rule #2 for type u64
             payee: c.payee.serialize().to_vec(), // Rule #2 for type pubkey
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             signature: c.signature, // Rule #2 for type signature
             description: c.description, // Rule #2 for type string?
-            description_hash: c.description_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            description_hash: c.description_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32
-            payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type hash?
+            payment_secret: c.payment_secret.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             features: c.features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             // Field: DecodePay.fallbacks[]
@@ -1235,7 +1235,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             valid: c.valid, // Rule #2 for type boolean
             offer_id: c.offer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             // Field: Decode.offer_chains[]
-            offer_chains: c.offer_chains.map(|arr| arr.into_iter().map(|i| i.to_vec()).collect()).unwrap_or(vec![]), // Rule #3
+            offer_chains: c.offer_chains.map(|arr| arr.into_iter().map(|i| <Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()).collect()).unwrap_or(vec![]), // Rule #3
             offer_metadata: c.offer_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             offer_currency: c.offer_currency, // Rule #2 for type string?
             warning_unknown_offer_currency: c.warning_unknown_offer_currency, // Rule #2 for type string?
@@ -1292,8 +1292,8 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             created_at: c.created_at, // Rule #2 for type u64?
             expiry: c.expiry, // Rule #2 for type u64?
             payee: c.payee.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
-            description_hash: c.description_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            description_hash: c.description_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32?
             payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type secret?
             payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -1480,7 +1480,7 @@ impl From<responses::ListforwardsResponse> for pb::ListforwardsResponse {
 impl From<responses::ListpaysPays> for pb::ListpaysPays {
     fn from(c: responses::ListpaysPays) -> Self {
         Self {
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at, // Rule #2 for type u64
@@ -1517,7 +1517,7 @@ impl From<responses::ListhtlcsHtlcs> for pb::ListhtlcsHtlcs {
             expiry: c.expiry, // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             direction: c.direction as i32,
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             state: c.state as i32,
         }
     }
@@ -1678,7 +1678,7 @@ impl From<requests::SendpayRequest> for pb::SendpayRequest {
         Self {
             // Field: SendPay.route[]
             route: c.route.into_iter().map(|i| i.into()).collect(), // Rule #3 for type SendpayRoute
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             label: c.label, // Rule #2 for type string?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
@@ -1896,7 +1896,7 @@ impl From<requests::SendonionRequest> for pb::SendonionRequest {
         Self {
             onion: hex::decode(&c.onion).unwrap(), // Rule #2 for type hex
             first_hop: Some(c.first_hop.into()),
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             label: c.label, // Rule #2 for type string?
             // Field: SendOnion.shared_secrets[]
             shared_secrets: c.shared_secrets.map(|arr| arr.into_iter().map(|i| i.to_vec()).collect()).unwrap_or(vec![]), // Rule #3
@@ -1904,7 +1904,7 @@ impl From<requests::SendonionRequest> for pb::SendonionRequest {
             bolt11: c.bolt11, // Rule #2 for type string?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            localinvreqid: c.localinvreqid.map(|v| v.to_vec()), // Rule #2 for type hash?
+            localinvreqid: c.localinvreqid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             groupid: c.groupid, // Rule #2 for type u64?
         }
     }
@@ -1915,7 +1915,7 @@ impl From<requests::ListsendpaysRequest> for pb::ListsendpaysRequest {
     fn from(c: requests::ListsendpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string?
-            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             status: c.status.map(|v| v as i32),
         }
     }
@@ -1982,7 +1982,7 @@ impl From<requests::WaitinvoiceRequest> for pb::WaitinvoiceRequest {
 impl From<requests::WaitsendpayRequest> for pb::WaitsendpayRequest {
     fn from(c: requests::WaitsendpayRequest) -> Self {
         Self {
-            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             timeout: c.timeout, // Rule #2 for type u32?
             partid: c.partid, // Rule #2 for type u64?
             groupid: c.groupid, // Rule #2 for type u64?
@@ -2230,7 +2230,7 @@ impl From<requests::ListpaysRequest> for pb::ListpaysRequest {
     fn from(c: requests::ListpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string?
-            payment_hash: c.payment_hash.map(|v| v.to_vec()), // Rule #2 for type hash?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             status: c.status.map(|v| v as i32),
         }
     }
