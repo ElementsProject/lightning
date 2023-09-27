@@ -767,14 +767,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 	billboard_update(peer);
 	send_channel_update(peer, 0);
 
-	/* valgrind complains last_tx is leaked so we explicitly free it
-	 * DTODO: investigate this more. */
-	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
-		inflight = peer->splice_state->inflights[i];
-		tal_free(inflight->last_tx);
-		tal_free(inflight);
-	}
-
 	peer->splice_state->inflights = tal_free(peer->splice_state->inflights);
 	peer->splice_state->count = 0;
 	peer->splice_state->revoked_count = 0;
@@ -3001,7 +2993,8 @@ static struct amount_sat check_balances(struct peer *peer,
 				 "Unable to add accepter funding to out amnt.");
 
 	if (amount_msat_less(in[TX_INITIATOR], out[TX_INITIATOR])) {
-		msg = towire_channeld_splice_funding_error(NULL, in[TX_INITIATOR],
+		msg = towire_channeld_splice_funding_error(NULL,
+							   in[TX_INITIATOR],
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -3018,7 +3011,8 @@ static struct amount_sat check_balances(struct peer *peer,
 			      "amount_sat_less / amount_sat_sub mismtach");
 
 	if (amount_msat_less(in[TX_ACCEPTER], out[TX_ACCEPTER])) {
-		msg = towire_channeld_splice_funding_error(NULL, in[TX_INITIATOR],
+		msg = towire_channeld_splice_funding_error(NULL,
+							   in[TX_INITIATOR],
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -3140,10 +3134,18 @@ static struct amount_sat check_balances(struct peer *peer,
 	 * New reserve req = 1010 * 0.01 = 10 (round down from 10.1)
 	 * */
 
-	if (!amount_msat_to_sat(&funding_amount_res, funding_amount))
+	if (!amount_msat_to_sat(&funding_amount_res, funding_amount)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "splice error: msat of boths sides should always"
-			      " add up to a full sat.");
+			      "splice error: msat of total funding %s should"
+			      " always add up to a full sat. original local bal"
+			      " %s, original remote bal %s,",
+			      type_to_string(tmpctx, struct amount_msat,
+			      		     &funding_amount),
+			      type_to_string(tmpctx, struct amount_msat,
+			      		     &peer->channel->view->owed[LOCAL]),
+			      type_to_string(tmpctx, struct amount_msat,
+			      		     &peer->channel->view->owed[REMOTE]));
+	}
 
 	return funding_amount_res;
 }
@@ -3191,7 +3193,7 @@ static void update_view_from_inflights(struct peer *peer)
 	}
 }
 
-/* Called to finish an ongoing splice OR one restart from chanenl_reestablish */
+/* Called to finish an ongoing splice OR on restart from chanenl_reestablish */
 static void resume_splice_negotiation(struct peer *peer,
 				      struct inflight *inflight,
 				      bool skip_commitments,
@@ -3409,8 +3411,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 	/* We let core validate our peer's signatures are correct. */
 
-	msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
-					      NULL);
+	msg = towire_channeld_update_inflight(NULL, current_psbt, NULL, NULL);
 	wire_sync_write(MASTER_FD, take(msg));
 
 	if (!do_i_sign_first(peer, current_psbt, our_role)) {
@@ -3420,7 +3421,8 @@ static void resume_splice_negotiation(struct peer *peer,
 
 	peer->splicing = tal_free(peer->splicing);
 
-	msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx, chan_output_index);
+	msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
+						      chan_output_index);
 	wire_sync_write(MASTER_FD, take(msg));
 
 	send_channel_update(peer, 0);
@@ -3428,7 +3430,8 @@ static void resume_splice_negotiation(struct peer *peer,
 
 static struct inflight *inflights_new(struct peer *peer)
 {
-	struct inflight *inf = tal(peer->splice_state->inflights, struct inflight);
+	struct inflight *inf = tal(peer->splice_state->inflights,
+				   struct inflight);
 	int i = tal_count(peer->splice_state->inflights);
 
 	if (i)
@@ -3483,7 +3486,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Must be in STFU mode before intiating splice");
 
-	if (!bitcoin_blkid_eq(&genesis_blockhash, &chainparams->genesis_blockhash))
+	if (!bitcoin_blkid_eq(&genesis_blockhash,
+			      &chainparams->genesis_blockhash))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad splice blockhash");
 
@@ -3618,9 +3622,6 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	u8 *scriptPubkey;
 	char *error;
 
-	status_debug("splice_initiator peer->stfu_wait_single_msg: %d",
-		     (int)peer->stfu_wait_single_msg);
-
 	ictx = new_interactivetx_context(tmpctx, TX_INITIATOR,
 					 peer->pps, peer->channel_id);
 
@@ -3630,9 +3631,11 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 				 &peer->splicing->accepter_relative,
 				 &splice_remote_pubkey))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad wire_splice_ack %s", tal_hex(tmpctx, inmsg));
+				 "Bad wire_splice_ack %s",
+				 tal_hex(tmpctx, inmsg));
 
-	if (!bitcoin_blkid_eq(&genesis_blockhash, &chainparams->genesis_blockhash))
+	if (!bitcoin_blkid_eq(&genesis_blockhash,
+			      &chainparams->genesis_blockhash))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad splice[ACK] blockhash");
 
@@ -3640,7 +3643,8 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] internal error: mismatched channelid");
 
-	if (!pubkey_eq(&splice_remote_pubkey, &peer->channel->funding_pubkey[REMOTE]))
+	if (!pubkey_eq(&splice_remote_pubkey,
+		       &peer->channel->funding_pubkey[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] doesnt support changing pubkeys");
 
@@ -3675,11 +3679,6 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	 */
 	psbt_append_input(ictx->desired_psbt, &peer->channel->funding, sequence,
 			  NULL, wit_script, NULL);
-
-	status_debug("just added funding w/ outpoint index set to %d, value in psbt input 1 is: %d, and value in psbt input 2 is: %d",
-		     (int)peer->channel->funding.n,
-		     (int)ictx->desired_psbt->inputs[0].index,
-		     (int)ictx->desired_psbt->inputs[1].index);
 
 	/* Segwit requires us to store the value of the outpoint being spent,
 	 * so let's do that */
@@ -3723,12 +3722,12 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 
 	if (peer->splicing->current_psbt != ictx->current_psbt)
 		tal_free(peer->splicing->current_psbt);
-	peer->splicing->current_psbt = tal_steal(peer->splicing, ictx->current_psbt);
+	peer->splicing->current_psbt = tal_steal(peer->splicing,
+						 ictx->current_psbt);
 
 	peer->splicing->mode = true;
 
-	/* Return the current PSBT to the channel_control to give to user.
-	 */
+	/* Return the current PSBT to the channel_control to give to user. */
 	outmsg = towire_channeld_splice_confirmed_init(NULL,
 						       ictx->current_psbt);
 	wire_sync_write(MASTER_FD, take(outmsg));
@@ -3764,7 +3763,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 					      &peer->splicing->received_tx_complete);
 	if (error)
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Splice finalize error: %s", error);
+				 "Splice interactivetx error: %s", error);
 
 	/* With pause_when_complete fase, this assert should never fail */
 	assert(peer->splicing->received_tx_complete);
@@ -3826,8 +3825,6 @@ static void splice_initiator_user_finalized(struct peer *peer)
 						 &their_commit->commit_signature);
 	wire_sync_write(MASTER_FD, take(outmsg));
 
-	status_debug("user_finalized peer->stfu_wait_single_msg: %d", (int)peer->stfu_wait_single_msg);
-
 	if (peer->splicing->current_psbt != ictx->current_psbt)
 		tal_free(peer->splicing->current_psbt);
 	peer->splicing->current_psbt = tal_steal(peer->splicing, ictx->current_psbt);
@@ -3883,10 +3880,6 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	 * ensure that for them here */
 	psbt_add_serials(ictx->desired_psbt, ictx->our_role);
 
-	status_debug("splice_update start with, current psbt version: %d,"
-		     " desired: %d.", ictx->current_psbt->version,
-		     ictx->desired_psbt->version);
-
 	/* If there no are no changes, we consider the splice 'user finalized' */
 	if (!interactivetx_has_changes(ictx, ictx->desired_psbt)) {
 		splice_initiator_user_finalized(peer);
@@ -3904,7 +3897,8 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 
 	if (peer->splicing->current_psbt != ictx->current_psbt)
 		tal_free(peer->splicing->current_psbt);
-	peer->splicing->current_psbt = tal_steal(peer->splicing, ictx->current_psbt);
+	peer->splicing->current_psbt = tal_steal(peer->splicing,
+						 ictx->current_psbt);
 
 	/* Peer may have modified our PSBT so we return it to the user here */
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
@@ -4028,7 +4022,8 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 
 	peer->splicing = splicing_new(peer);
 
-	if (!fromwire_channeld_splice_init(peer, inmsg, &peer->splicing->current_psbt,
+	if (!fromwire_channeld_splice_init(peer, inmsg,
+					   &peer->splicing->current_psbt,
 					   &peer->splicing->opener_relative,
 					   &peer->splicing->feerate_per_kw,
 					   &peer->splicing->force_feerate))
