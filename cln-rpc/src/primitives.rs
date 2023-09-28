@@ -468,7 +468,13 @@ impl TryFrom<&str> for Amount {
 
 impl From<Amount> for String {
     fn from(a: Amount) -> String {
-        format!("{}msat", a.msat)
+	// Best effort msat to sat conversion, for methods that accept
+	// sats but not msats
+	if a.msat % 1000 == 0 {
+	    format!("{}sat", a.msat / 1000)
+	} else {
+            format!("{}msat", a.msat)
+	}
     }
 }
 
@@ -559,14 +565,14 @@ mod test {
             (
                 "{\"amount\": \"42sat\"}",
                 Amount { msat: 42_000 },
-                "42000msat",
+                "42sat",
             ),
             (
                 "{\"amount\": \"31337btc\"}",
                 Amount {
                     msat: 3_133_700_000_000_000,
                 },
-                "3133700000000000msat",
+                "3133700000000sat",
             ),
         ];
 
