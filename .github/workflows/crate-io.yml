@@ -1,13 +1,13 @@
 ---
+name: "Release Rust 🦀"
 on:
   push:
     branches:
       - "master"
 
 jobs:
-  publish:
-    runs-on: ubuntu-20.04
-    name: Publish to crates.io
+  release_rust:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -16,6 +16,16 @@ jobs:
           override: true
       - uses: katyo/publish-crates@v2
         with:
+          path: './cln-rpc'
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           ignore-unpublished-changes: true
-          publish-delay: 5000
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './plugins'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './cln-grpc'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true
