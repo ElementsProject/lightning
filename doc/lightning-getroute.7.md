@@ -12,7 +12,11 @@ DESCRIPTION
 
 The **getroute** RPC command attempts to find the best route for the
 payment of *amount\_msat* to lightning node *id*, such that the payment will
-arrive at *id* with *cltv*-blocks to spare (default 9).
+arrive at *id* with *cltv*-blocks to spare (default 9). It should be
+noted that **getroute** does not inspect the local state of the channels,
+its decisions are based on the gossip messages stored in
+gossip\_store. Therefore it'll be unaware of the local channel's state
+and balances.
 
 *amount\_msat* is in millisatoshi precision; it can be a whole number, or a
 whole number ending in *msat* or *sat*, or a number with three decimal
