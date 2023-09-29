@@ -1722,6 +1722,38 @@ async fn sign_message(
 
 }
 
+async fn wait_block_height(
+    &self,
+    request: tonic::Request<pb::WaitblockheightRequest>,
+) -> Result<tonic::Response<pb::WaitblockheightResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::WaitblockheightRequest = req.into();
+    debug!("Client asked for wait_block_height");
+    trace!("wait_block_height request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::WaitBlockHeight(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method WaitBlockHeight: {:?}", e)))?;
+    match result {
+        Response::WaitBlockHeight(r) => {
+           trace!("wait_block_height response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call WaitBlockHeight",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn stop(
     &self,
     request: tonic::Request<pb::StopRequest>,

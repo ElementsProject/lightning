@@ -67,6 +67,7 @@ pub enum Request {
 	SetChannel(requests::SetchannelRequest),
 	SignInvoice(requests::SigninvoiceRequest),
 	SignMessage(requests::SignmessageRequest),
+	WaitBlockHeight(requests::WaitblockheightRequest),
 	Stop(requests::StopRequest),
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
@@ -130,6 +131,7 @@ pub enum Response {
 	SetChannel(responses::SetchannelResponse),
 	SignInvoice(responses::SigninvoiceResponse),
 	SignMessage(responses::SignmessageResponse),
+	WaitBlockHeight(responses::WaitblockheightResponse),
 	Stop(responses::StopResponse),
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
@@ -1505,6 +1507,23 @@ pub mod requests {
 
 	impl IntoRequest for SignmessageRequest {
 	    type Response = super::responses::SignmessageResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitblockheightRequest {
+	    pub blockheight: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timeout: Option<u32>,
+	}
+
+	impl From<WaitblockheightRequest> for Request {
+	    fn from(r: WaitblockheightRequest) -> Self {
+	        Request::WaitBlockHeight(r)
+	    }
+	}
+
+	impl IntoRequest for WaitblockheightRequest {
+	    type Response = super::responses::WaitblockheightResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4874,6 +4893,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SignMessage(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitblockheightResponse {
+	    pub blockheight: u32,
+	}
+
+	impl TryFrom<Response> for WaitblockheightResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::WaitBlockHeight(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

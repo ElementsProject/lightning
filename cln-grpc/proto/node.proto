@@ -61,6 +61,7 @@ service Node {
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
+	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
@@ -1725,6 +1726,15 @@ message SignmessageResponse {
 	bytes signature = 1;
 	bytes recid = 2;
 	string zbase = 3;
+}
+
+message WaitblockheightRequest {
+	uint32 blockheight = 1;
+	optional uint32 timeout = 2;
+}
+
+message WaitblockheightResponse {
+	uint32 blockheight = 1;
 }
 
 message StopRequest {
