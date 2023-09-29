@@ -1579,6 +1579,13 @@
             "WaitAnyInvoice.status": 4,
             "WaitAnyInvoice.updated_index": 14
         },
+        "WaitblockheightRequest": {
+            "WaitBlockHeight.blockheight": 1,
+            "WaitBlockHeight.timeout": 2
+        },
+        "WaitblockheightResponse": {
+            "WaitBlockHeight.blockheight": 1
+        },
         "WaitinvoiceRequest": {
             "WaitInvoice.label": 1
         },
@@ -5516,6 +5523,18 @@
         },
         "WaitAnyInvoice.updated_index": {
             "added": "v23.08",
+            "deprecated": false
+        },
+        "WaitBlockHeight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "WaitBlockHeight.blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitBlockHeight.timeout": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "WaitInvoice": {

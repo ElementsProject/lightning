@@ -1358,6 +1358,12 @@ def signmessage2py(m):
     })
 
 
+def waitblockheight2py(m):
+    return remove_default({
+        "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+    })
+
+
 def stop2py(m):
     return remove_default({
     })

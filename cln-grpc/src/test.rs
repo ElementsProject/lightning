@@ -1,3 +1,4 @@
+use crate::pb::*;
 use serde_json::json;
 
 #[test]
@@ -246,7 +247,8 @@ fn test_getinfo() {
 	    "network": "regtest",
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
-    let _u: cln_rpc::model::responses::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
+    let u: cln_rpc::model::responses::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
+    let _g: GetinfoResponse = u.into();
     //let u2: cln_rpc::model::GetinfoResponse = g.into();
     //let j2 = serde_json::to_value(u2).unwrap();
     //assert_eq!(j, j2);
@@ -254,6 +256,48 @@ fn test_getinfo() {
 
 #[test]
 fn test_keysend() {
+    let g =
+        KeysendRequest {
+            destination: hex::decode(
+                "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            )
+            .unwrap(),
+            amount_msat: Some(Amount { msat: 10000 }),
+
+            label: Some("hello".to_string()),
+            exemptfee: None,
+            maxdelay: None,
+            retry_for: None,
+            maxfeepercent: None,
+            routehints: Some(RoutehintList {
+                hints: vec![Routehint {
+                    hops: vec![RouteHop {
+                    id: hex::decode(
+                        "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+                    )
+                    .unwrap(),
+                    short_channel_id: "12345x678x90".to_string(),
+                    feebase: Some(Amount { msat: 123 }),
+                    feeprop: 1234,
+                    expirydelta: 9,
+                },RouteHop {
+                    id: hex::decode(
+                        "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+                    )
+                    .unwrap(),
+                    short_channel_id: "12345x678x90".to_string(),
+                    feebase: Some(Amount { msat: 123 }),
+                    feeprop: 1234,
+                    expirydelta: 9,
+                }],
+                }],
+            }),
+            extratlvs: None,
+        };
+
+    let u: cln_rpc::model::requests::KeysendRequest = g.into();
+    let _ser = serde_json::to_string(&u);
+
     let j = r#"{
 	"destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
 	"payment_hash": "e74b03a98453dcb5a7ed5406b97ec3566dde4be85ef71685110f4c0ebc600592",
@@ -267,6 +311,8 @@ fn test_keysend() {
 	"status": "complete"
     }"#;
     let u: cln_rpc::model::responses::KeysendResponse = serde_json::from_str(j).unwrap();
+    let g: KeysendResponse = u.clone().into();
+    println!("{:?}", g);
 
     let v: serde_json::Value = serde_json::to_value(u.clone()).unwrap();
     let g: cln_rpc::model::responses::KeysendResponse = u.into();

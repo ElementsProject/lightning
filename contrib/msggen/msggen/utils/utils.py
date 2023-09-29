@@ -103,7 +103,7 @@ def load_jsonrpc_service(schema_dir: str):
         "SignInvoice",
         "SignMessage",
         # "unreserveinputs",
-        # "waitblockheight",
+        "WaitBlockHeight",
         # "ListConfigs",
         # "check",  # No point in mapping this one
         "Stop",

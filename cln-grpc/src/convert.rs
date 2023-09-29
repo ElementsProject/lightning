@@ -1600,6 +1600,15 @@ impl From<responses::SignmessageResponse> for pb::SignmessageResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
+    fn from(c: responses::WaitblockheightResponse) -> Self {
+        Self {
+            blockheight: c.blockheight, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::StopResponse> for pb::StopResponse {
     fn from(c: responses::StopResponse) -> Self {
         Self {
@@ -2300,6 +2309,16 @@ impl From<requests::SignmessageRequest> for pb::SignmessageRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::WaitblockheightRequest> for pb::WaitblockheightRequest {
+    fn from(c: requests::WaitblockheightRequest) -> Self {
+        Self {
+            blockheight: c.blockheight, // Rule #2 for type u32
+            timeout: c.timeout, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::StopRequest> for pb::StopRequest {
     fn from(c: requests::StopRequest) -> Self {
         Self {
@@ -2982,6 +3001,16 @@ impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
     fn from(c: pb::SignmessageRequest) -> Self {
         Self {
             message: c.message, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::WaitblockheightRequest> for requests::WaitblockheightRequest {
+    fn from(c: pb::WaitblockheightRequest) -> Self {
+        Self {
+            blockheight: c.blockheight, // Rule #1 for type u32
+            timeout: c.timeout, // Rule #1 for type u32?
         }
     }
 }
