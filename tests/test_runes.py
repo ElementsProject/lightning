@@ -645,3 +645,6 @@ def test_id_migration(node_factory):
                  'YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz',
                  'enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA='):
         assert 'stored' not in only_one(l1.rpc.showrunes(rune)['runes'])
+
+    # Our migration should have removed this row now
+    assert l1.db_query("SELECT * FROM vars WHERE name = 'runes_uniqueid';") == []

@@ -977,6 +977,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD i_am_initiator INTEGER DEFAULT 0"), NULL},
     {SQL("ALTER TABLE runes ADD last_used_nsec BIGINT DEFAULT NULL"), NULL},
     {NULL, migrate_runes_idfix},
+    {SQL("DELETE FROM vars WHERE name = 'runes_uniqueid'"), NULL},
 };
 
 /**
