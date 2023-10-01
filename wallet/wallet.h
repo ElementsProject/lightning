@@ -303,8 +303,8 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 	case CLOSED:
 		BUILD_ASSERT(CLOSED == 10);
 		return s;
-	case DUALOPEND_OPEN_INIT:
-		BUILD_ASSERT(DUALOPEND_OPEN_INIT == 11);
+	case DUALOPEND_OPEN_COMMITTED:
+		BUILD_ASSERT(DUALOPEND_OPEN_COMMITTED == 11);
 		return s;
 	case DUALOPEND_AWAITING_LOCKIN:
 		BUILD_ASSERT(DUALOPEND_AWAITING_LOCKIN == 12);
@@ -312,6 +312,9 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 	case CHANNELD_AWAITING_SPLICE:
 		BUILD_ASSERT(CHANNELD_AWAITING_SPLICE == 13);
 		return s;
+	case DUALOPEND_OPEN_INIT:
+		/* Never appears in db! */
+		break;
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }

@@ -85,6 +85,7 @@ static bool report_chan_balance(const struct channel *chan)
 	switch (chan->state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 	case CLOSINGD_COMPLETE:
 	case AWAITING_UNILATERAL:
