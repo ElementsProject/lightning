@@ -141,7 +141,8 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED)
+			 const struct bitcoin_txid *txid UNNEEDED,
+			 const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for derive_channel_id */
 void derive_channel_id(struct channel_id *channel_id UNNEEDED,
