@@ -53,9 +53,6 @@ struct txowatch {
 struct txwatch {
 	struct chain_topology *topo;
 
-	/* Channel who owns us (or NULL, for wallet usage). */
-	struct channel *channel;
-
 	/* Transaction to watch. */
 	struct bitcoin_txid txid;
 
@@ -66,10 +63,11 @@ struct txwatch {
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
 	enum watch_result (*cb)(struct lightningd *ld,
-				struct channel *channel,
 				const struct bitcoin_txid *txid,
 				const struct bitcoin_tx *tx,
-				unsigned int depth);
+				unsigned int depth,
+				void *arg);
+	void *cbarg;
 };
 
 const struct bitcoin_outpoint *txowatch_keyof(const struct txowatch *w)
@@ -118,15 +116,15 @@ static void destroy_txwatch(struct txwatch *w)
 	txwatch_hash_del(w->topo->txwatches, w);
 }
 
-struct txwatch *watch_txid(const tal_t *ctx,
-			   struct chain_topology *topo,
-			   struct channel *channel,
-			   const struct bitcoin_txid *txid,
-			   enum watch_result (*cb)(struct lightningd *ld,
-						   struct channel *,
-						   const struct bitcoin_txid *,
-						   const struct bitcoin_tx *,
-						   unsigned int depth))
+struct txwatch *watch_txid_(const tal_t *ctx,
+			    struct chain_topology *topo,
+			    const struct bitcoin_txid *txid,
+			    enum watch_result (*cb)(struct lightningd *ld,
+						    const struct bitcoin_txid *,
+						    const struct bitcoin_tx *,
+						    unsigned int depth,
+						    void *arg),
+			    void *arg)
 {
 	struct txwatch *w;
 
@@ -135,8 +133,8 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	w->depth = 0;
 	w->txid = *txid;
 	w->tx = NULL;
-	w->channel = channel;
 	w->cb = cb;
+	w->cbarg = arg;
 
 	txwatch_hash_add(w->topo->txwatches, w);
 	tal_add_destructor(w, destroy_txwatch);
@@ -144,9 +142,14 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	return w;
 }
 
-struct txwatch *find_txwatch(struct chain_topology *topo,
-			     const struct bitcoin_txid *txid,
-			     const struct channel *channel)
+struct txwatch *find_txwatch_(struct chain_topology *topo,
+			      const struct bitcoin_txid *txid,
+			      enum watch_result (*cb)(struct lightningd *ld,
+						      const struct bitcoin_txid *,
+						      const struct bitcoin_tx *,
+						      unsigned int depth,
+						      void *arg),
+			    void *arg)
 {
 	struct txwatch_hash_iter i;
 	struct txwatch *w;
@@ -156,7 +159,7 @@ struct txwatch *find_txwatch(struct chain_topology *topo,
 	for (w = txwatch_hash_getfirst(topo->txwatches, txid, &i);
 	     w;
 	     w = txwatch_hash_getnext(topo->txwatches, txid, &i)) {
-		if (w->channel == channel)
+		if (w->cb == cb && w->cbarg == arg)
 			break;
 	}
 	return w;
@@ -196,24 +199,19 @@ static bool txw_fire(struct txwatch *txw,
 		     unsigned int depth)
 {
 	enum watch_result r;
-	struct logger *log;
 
 	if (depth == txw->depth)
 		return false;
-	if (txw->channel)
-		log = txw->channel->log;
-	else
-		log = txw->topo->log;
 
 	/* We assume zero depth signals a reorganization */
-	log_debug(log,
+	log_debug(txw->topo->log,
 		  "Got depth change %u->%u for %s%s",
 		  txw->depth, depth,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid),
 		  depth ? "" : " REORG");
 	txw->depth = depth;
-	r = txw->cb(txw->topo->bitcoind->ld, txw->channel, txid, txw->tx,
-		    txw->depth);
+	r = txw->cb(txw->topo->bitcoind->ld, txid, txw->tx, txw->depth,
+		    txw->cbarg);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txw);

@@ -30,15 +30,25 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 		   txwatch_hash);
 
 
-struct txwatch *watch_txid(const tal_t *ctx,
-			   struct chain_topology *topo,
-			   struct channel *channel,
-			   const struct bitcoin_txid *txid,
-			   enum watch_result (*cb)(struct lightningd *ld,
-						   struct channel *,
-						   const struct bitcoin_txid *,
-						   const struct bitcoin_tx *,
-						   unsigned int depth));
+struct txwatch *watch_txid_(const tal_t *ctx,
+			    struct chain_topology *topo,
+			    const struct bitcoin_txid *txid,
+			    enum watch_result (*cb)(struct lightningd *ld,
+						    const struct bitcoin_txid *,
+						    const struct bitcoin_tx *,
+						    unsigned int depth,
+						    void *arg),
+			    void *arg);
+
+#define watch_txid(ctx, topo, txid, cb, arg)				\
+	watch_txid_((ctx), (topo), (txid),				\
+		    typesafe_cb_preargs(enum watch_result, void *,	\
+					(cb), (arg),			\
+					struct lightningd *,		\
+					const struct bitcoin_txid *,	\
+					const struct bitcoin_tx *,	\
+					unsigned int depth),		\
+		    (arg))
 
 struct txowatch *watch_txo(const tal_t *ctx,
 			   struct chain_topology *topo,
@@ -49,9 +59,24 @@ struct txowatch *watch_txo(const tal_t *ctx,
 						   size_t input_num,
 						   const struct block *block));
 
-struct txwatch *find_txwatch(struct chain_topology *topo,
-			     const struct bitcoin_txid *txid,
-			     const struct channel *channel);
+struct txwatch *find_txwatch_(struct chain_topology *topo,
+			      const struct bitcoin_txid *txid,
+			      enum watch_result (*cb)(struct lightningd *ld,
+						      const struct bitcoin_txid *,
+						      const struct bitcoin_tx *,
+						      unsigned int depth,
+						      void *arg),
+			    void *arg);
+
+#define find_txwatch(topo, txid, cb, arg)			\
+	find_txwatch_((topo), (txid),				\
+		      typesafe_cb_preargs(enum watch_result, void *,	\
+					  (cb), (arg),			\
+					  struct lightningd *,		\
+					  const struct bitcoin_txid *,	\
+					  const struct bitcoin_tx *,	\
+					  unsigned int depth),		\
+		      (arg))
 
 void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_txid *txid,

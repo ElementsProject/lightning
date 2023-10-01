@@ -160,10 +160,10 @@ static void onchain_tx_depth(struct channel *channel,
  * Entrypoint for the txwatch callback, calls onchain_tx_depth.
  */
 static enum watch_result onchain_tx_watched(struct lightningd *ld,
-					    struct channel *channel,
 					    const struct bitcoin_txid *txid,
 					    const struct bitcoin_tx *tx,
-					    unsigned int depth)
+					    unsigned int depth,
+					    struct channel *channel)
 {
 	u32 blockheight = get_block_height(ld->topology);
 
@@ -255,9 +255,9 @@ static void watch_tx_and_outputs(struct channel *channel,
 	bitcoin_txid(tx, &outpoint.txid);
 
 	/* Make txwatch a parent of txo watches, so we can unwatch together. */
-	txw = watch_txid(channel->owner, ld->topology, channel,
+	txw = watch_txid(channel->owner, ld->topology,
 			 &outpoint.txid,
-			 onchain_tx_watched);
+			 onchain_tx_watched, channel);
 
 	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++)
 		watch_txo(txw, ld->topology, channel, &outpoint,
@@ -295,7 +295,8 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	}
 
 	/* Frees the txo watches, too: see watch_tx_and_outputs() */
-	txw = find_txwatch(channel->peer->ld->topology, &txid, channel);
+	txw = find_txwatch(channel->peer->ld->topology, &txid,
+			   onchain_tx_watched, channel);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
 			    type_to_string(tmpctx, struct bitcoin_txid, &txid));

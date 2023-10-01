@@ -306,10 +306,10 @@ void broadcast_tx_(struct chain_topology *topo,
 }
 
 static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
-						  struct channel *channel,
 						  const struct bitcoin_txid *txid,
 						  const struct bitcoin_tx *tx,
-						  unsigned int depth)
+						  unsigned int depth,
+						  void *unused)
 {
 	/* Sanity check. */
 	if (tx != NULL) {
@@ -317,14 +317,13 @@ static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
 
 		bitcoin_txid(tx, &txid2);
 		if (!bitcoin_txid_eq(txid, &txid2)) {
-			channel_internal_error(channel, "Txid for %s is not %s",
-					       type_to_string(tmpctx,
-							      struct bitcoin_tx,
-							      tx),
-					       type_to_string(tmpctx,
-							      struct bitcoin_txid,
-							      txid));
-			return DELETE_WATCH;
+			fatal("Txid for %s is not %s",
+			      type_to_string(tmpctx,
+					     struct bitcoin_tx,
+					     tx),
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     txid));
 		}
 	}
 
@@ -358,12 +357,13 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 		assert(unconfirmed[i]->close_info != NULL);
 		assert(unconfirmed[i]->blockheight == NULL);
 
-		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid, NULL))
+		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid,
+				 closeinfo_txid_confirmed, NULL))
 			continue;
 
-		watch_txid(topo, topo, NULL,
+		watch_txid(topo, topo,
 			   &unconfirmed[i]->outpoint.txid,
-			   closeinfo_txid_confirmed);
+			   closeinfo_txid_confirmed, NULL);
 	}
 }
 

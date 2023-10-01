@@ -898,17 +898,17 @@ const char *wait_index_name(enum wait_index index UNNEEDED)
 /* Generated stub for wait_subsystem_name */
 const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
 { fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
-/* Generated stub for watch_txid */
-struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
-			   struct chain_topology *topo UNNEEDED,
-			   struct channel *channel UNNEEDED,
-			   const struct bitcoin_txid *txid UNNEEDED,
-			   enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						   struct channel * UNNEEDED,
-						   const struct bitcoin_txid * UNNEEDED,
-						   const struct bitcoin_tx * UNNEEDED,
-						   unsigned int depth))
-{ fprintf(stderr, "watch_txid called!\n"); abort(); }
+/* Generated stub for watch_txid_ */
+struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
+			    struct chain_topology *topo UNNEEDED,
+			    const struct bitcoin_txid *txid UNNEEDED,
+			    enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
+						    const struct bitcoin_txid * UNNEEDED,
+						    const struct bitcoin_tx * UNNEEDED,
+						    unsigned int depth UNNEEDED,
+						    void *arg) UNNEEDED,
+			    void *arg UNNEEDED)
+{ fprintf(stderr, "watch_txid_ called!\n"); abort(); }
 /* Generated stub for watch_txo */
 struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
