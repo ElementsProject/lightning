@@ -155,6 +155,9 @@ struct channel {
 	struct bitcoin_outpoint funding;
 	struct amount_sat funding_sats;
 
+	/* Watch we have on funding output. */
+	struct txowatch *funding_spend_watch;
+
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;
 

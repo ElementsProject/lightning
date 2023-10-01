@@ -311,11 +311,27 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	return tx;
 }
 
+/* FIXME: reorder! */
+static enum watch_result funding_spent(struct channel *channel,
+				       const struct bitcoin_tx *tx,
+				       size_t inputnum UNUSED,
+				       const struct block *block);
+
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
 	struct channel_inflight *inflight;
 	const char *cmd_id;
+
+	/* If we're not already (e.g. close before channel fully open),
+	 * make sure we're watching for the funding spend */
+	if (!channel->funding_spend_watch) {
+		log_debug(channel->log, "Adding funding_spend_watch");
+		channel->funding_spend_watch = watch_txo(channel,
+							 ld->topology, channel,
+							 &channel->funding,
+							 funding_spent);
+	}
 
 	/* If this was triggered by a close command, get a copy of the cmd id */
 	cmd_id = cmd_id_from_close_command(tmpctx, ld, channel);
@@ -2070,9 +2086,11 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 		type_to_string(tmpctx, struct bitcoin_txid, &channel->funding.txid));
 	watch_txid(channel, ld->topology,
 		   &channel->funding.txid, funding_depth_cb, channel);
-	watch_txo(channel, ld->topology, channel,
-		  &channel->funding,
-		  funding_spent);
+
+	tal_free(channel->funding_spend_watch);
+	channel->funding_spend_watch = watch_txo(channel, ld->topology, channel,
+						 &channel->funding,
+						 funding_spent);
 	channel_watch_wrong_funding(ld, channel);
 }
 
