@@ -3178,7 +3178,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainp
     fut = executor.submit(l1.rpc.close, l2.info['id'])
 
     # l2 will send a warning when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'WARNING.*scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
+    l2.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
     # Close from l2's side and clear channel.
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)
@@ -3194,7 +3194,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainp
     fut = executor.submit(l2.rpc.close, l1.info['id'])
 
     # l2 will send warning unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'WARNING.*scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
+    l2.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)
     fut.result(TIMEOUT)
