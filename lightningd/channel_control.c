@@ -542,6 +542,94 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 	send_splice_tx(channel, tx, cc, output_index);
 }
 
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_txid *txid)
+{
+	struct txlocator *loc;
+	struct lightningd *ld = channel->peer->ld;
+	struct short_channel_id scid;
+
+	/* What scid is this giving us? */
+	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
+	if (!mk_short_channel_id(&scid,
+				 loc->blkheight, loc->index,
+				 channel->funding.n)) {
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       channel->funding.n);
+		return false;
+	}
+
+	if (!channel->scid) {
+		wallet_annotate_txout(ld->wallet, &channel->funding,
+				      TX_CHANNEL_FUNDING, channel->dbid);
+		channel->scid = tal_dup(channel, struct short_channel_id, &scid);
+
+		/* If we have a zeroconf channel, i.e., no scid yet
+		 * but have exchange `channel_ready` messages, then we
+		 * need to fire a second time, in order to trigger the
+		 * `coin_movement` event. This is a subset of the
+		 * `lockin_complete` function called from
+		 * AWAITING_LOCKIN->NORMAL otherwise. */
+		if (channel->minimum_depth == 0)
+			lockin_has_completed(channel, false);
+
+		wallet_channel_save(ld->wallet, channel);
+	} else if (!short_channel_id_eq(channel->scid, &scid)) {
+		/* We freaked out if required when original was
+		 * removed, so just update now */
+		log_info(channel->log, "Short channel id changed from %s->%s",
+			 type_to_string(tmpctx, struct short_channel_id, channel->scid),
+			 type_to_string(tmpctx, struct short_channel_id, &scid));
+		*channel->scid = scid;
+		wallet_channel_save(ld->wallet, channel);
+	}
+
+	return true;
+}
+
+static enum watch_result splice_depth_cb(struct lightningd *ld,
+					 const struct bitcoin_txid *txid,
+					 const struct bitcoin_tx *tx,
+					 unsigned int depth,
+					 struct channel_inflight *inflight)
+{
+	/* Usually, we're here because we're awaiting a splice, but
+	 * we could also mutual shutdown, or that weird splice_locked_memonly
+	 * hack... */
+	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE)
+		return DELETE_WATCH;
+
+	/* Reorged out?  OK, we're not committed yet. */
+	if (depth == 0)
+		return KEEP_WATCHING;
+
+	if (!depthcb_update_scid(inflight->channel, txid))
+		return DELETE_WATCH;
+
+	if (inflight->channel->owner) {
+		subd_send_msg(inflight->channel->owner,
+			      take(towire_channeld_funding_depth(
+					   NULL, inflight->channel->scid,
+					   inflight->channel->alias[LOCAL],
+					   depth, true, txid)));
+	}
+
+	/* channeld will tell us when splice is locked in: we'll clean
+	 * this watch up then. */
+	return KEEP_WATCHING;
+}
+
+void watch_splice_inflight(struct lightningd *ld,
+			   struct channel_inflight *inflight)
+{
+	watch_txid(inflight, ld->topology,
+		   &inflight->funding->outpoint.txid,
+		   splice_depth_cb, inflight);
+}
+
 static void handle_add_inflight(struct lightningd *ld,
 				struct channel *channel,
 				const u8 *msg)
@@ -596,7 +684,7 @@ static void handle_add_inflight(struct lightningd *ld,
 		  		 &inflight->funding->outpoint.txid));
 
 	wallet_inflight_add(ld->wallet, inflight);
-	channel_watch_inflight(ld, channel, inflight);
+	watch_splice_inflight(ld, inflight);
 
 	subd_send_msg(channel->owner, take(towire_channeld_got_inflight(NULL)));
 }
@@ -829,6 +917,9 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	list_del(&inflight->list);
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
+
+	/* That freed watchers in inflights: now watch funding tx */
+	channel_watch_funding(channel->peer->ld, channel);
 
 	/* Put the successful inflight back in as a memory-only object.
 	 * peer_control's funding_spent function will pick this up and clean up
