@@ -1585,6 +1585,9 @@ bool channel_tell_depth(struct lightningd *ld,
 
 	switch (channel->state) {
 	case CHANNELD_AWAITING_SPLICE:
+		/* Once we're waiting for splice, don't watch original any more */
+		if (bitcoin_txid_eq(txid, &channel->funding.txid))
+			return true;
 		if (depth >= channel->minimum_depth) {
 			if (!channel_splice_set_scid(channel, txid))
 				return false;
