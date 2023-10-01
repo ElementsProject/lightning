@@ -697,11 +697,11 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id);
  */
 void wallet_state_change_add(struct wallet *w,
 			     const u64 channel_id,
-			     struct timeabs *timestamp,
+			     struct timeabs timestamp,
 			     enum channel_state old_state,
 			     enum channel_state new_state,
 			     enum state_change cause,
-			     char *message);
+			     const char *message);
 
 /**
  * Gets all state change history entries for a channel from the database

@@ -2333,11 +2333,11 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 void wallet_state_change_add(struct wallet *w,
 			     const u64 channel_id,
-			     struct timeabs *timestamp,
+			     struct timeabs timestamp,
 			     enum channel_state old_state,
 			     enum channel_state new_state,
 			     enum state_change cause,
-			     char *message)
+			     const char *message)
 {
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(w->db,
@@ -2351,7 +2351,7 @@ void wallet_state_change_add(struct wallet *w,
 				 ") VALUES (?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, channel_id);
-	db_bind_timeabs(stmt, *timestamp);
+	db_bind_timeabs(stmt, timestamp);
 	db_bind_int(stmt, channel_state_in_db(old_state));
 	db_bind_int(stmt, channel_state_in_db(new_state));
 	db_bind_int(stmt, state_change_in_db(cause));

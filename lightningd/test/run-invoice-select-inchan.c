@@ -537,7 +537,7 @@ void json_add_stringn(struct json_stream *result UNNEEDED, const char *fieldname
 /* Generated stub for json_add_timeiso */
 void json_add_timeiso(struct json_stream *result UNNEEDED,
 		      const char *fieldname UNNEEDED,
-		      struct timeabs *time UNNEEDED)
+		      struct timeabs time UNNEEDED)
 { fprintf(stderr, "json_add_timeiso called!\n"); abort(); }
 /* Generated stub for json_add_tx */
 void json_add_tx(struct json_stream *result UNNEEDED,

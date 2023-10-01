@@ -261,7 +261,7 @@ void json_add_timestr(struct json_stream *result, const char *fieldname,
 /* Add ISO_8601 timestamp string, i.e. "2019-09-07T15:50+01:00" */
 void json_add_timeiso(struct json_stream *result,
 		      const char *fieldname,
-		      struct timeabs *time);
+		      struct timeabs time);
 
 /* Add any json token */
 void json_add_tok(struct json_stream *result, const char *fieldname,

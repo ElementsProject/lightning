@@ -51,14 +51,14 @@ void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   bool channel_ready);
 
 void notify_channel_state_changed(struct lightningd *ld,
-				  struct node_id *peer_id,
-				  struct channel_id *cid,
-				  struct short_channel_id *scid,
-				  struct timeabs *timestamp,
+				  const struct node_id *peer_id,
+				  const struct channel_id *cid,
+				  const struct short_channel_id *scid,
+				  struct timeabs timestamp,
 				  enum channel_state old_state,
 				  enum channel_state new_state,
 				  enum state_change cause,
-				  char *message);
+				  const char *message);
 
 void notify_forward_event(struct lightningd *ld,
 			  const struct htlc_in *in,
