@@ -611,26 +611,6 @@ struct channel *peer_any_channel(struct peer *peer,
 	return ret;
 }
 
-struct channel *peer_any_unsaved_channel(struct peer *peer, bool *others)
-{
-	struct channel *channel, *ret = NULL;
-
-	list_for_each(&peer->channels, channel, list) {
-		if (!channel_unsaved(channel))
-			continue;
-		/* Already found one? */
-		if (ret) {
-			if (others)
-				*others = true;
-		} else {
-			if (others)
-				*others = false;
-			ret = channel;
-		}
-	}
-	return ret;
-}
-
 struct channel_inflight *channel_inflight_find(struct channel *channel,
 					       const struct bitcoin_txid *txid)
 {
