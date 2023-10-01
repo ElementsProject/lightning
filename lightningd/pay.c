@@ -847,12 +847,12 @@ find_channel_for_htlc_add(struct lightningd *ld, const struct node_id *node,
 		return NULL;
 
 	channel = find_channel_by_scid(peer, scid_or_alias);
-	if (channel && channel_can_add_htlc(channel)) {
+	if (channel && channel_state_can_add_htlc(channel->state)) {
 		goto found;
 	}
 
 	channel = find_channel_by_alias(peer, scid_or_alias, LOCAL);
-	if (channel && channel_can_add_htlc(channel)) {
+	if (channel && channel_state_can_add_htlc(channel->state)) {
 		goto found;
 	}
 
@@ -860,7 +860,7 @@ find_channel_for_htlc_add(struct lightningd *ld, const struct node_id *node,
 	if (!channel && (ld->deprecated_apis ||
 			 memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
 		list_for_each(&peer->channels, channel, list) {
-			if (channel_can_add_htlc(channel) &&
+			if (channel_state_can_add_htlc(channel->state) &&
 			    amount_msat_greater(channel->our_msat, *amount)) {
 				goto found;
 			}

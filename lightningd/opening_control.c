@@ -112,7 +112,7 @@ wallet_commit_channel(struct lightningd *ld,
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 	struct short_channel_id *alias_local;
 	struct timeabs timestamp;
-	bool any_active = peer_any_channel(uc->peer, channel_wants_peercomms, NULL);
+	bool any_active = peer_any_channel(uc->peer, channel_state_wants_peercomms, NULL);
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
 	 * command running!

@@ -590,13 +590,13 @@ const char *channel_state_str(enum channel_state state)
 }
 
 struct channel *peer_any_channel(struct peer *peer,
-				 bool (*channel_state_filter)(const struct channel *),
+				 bool (*channel_state_filter)(enum channel_state),
 				 bool *others)
 {
 	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_filter && !channel_state_filter(channel))
+		if (channel_state_filter && !channel_state_filter(channel->state))
 			continue;
 		/* Already found one? */
 		if (ret) {
@@ -873,7 +873,7 @@ void channel_fail_permanent(struct channel *channel,
 	/* Drop non-cooperatively (unilateral) to chain. */
 	drop_to_chain(ld, channel, false);
 
-	if (channel_wants_onchain_fail(channel))
+	if (channel_state_wants_onchain_fail(channel->state))
 		channel_set_state(channel,
 				  channel->state,
 				  AWAITING_UNILATERAL,
@@ -969,7 +969,7 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	channel_cleanup_commands(channel, why);
 
 	/* Nothing ventured, nothing lost! */
-	if (channel_state_uncommitted(channel)) {
+	if (channel_state_uncommitted(channel->state)) {
 		channel_set_owner(channel, NULL);
 		delete_channel(channel);
 		tal_free(why);
