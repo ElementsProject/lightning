@@ -642,9 +642,6 @@ struct channel *peer_any_channel(struct peer *peer,
 				 bool (*channel_state_filter)(const struct channel *),
 				 bool *others);
 
-/* Find a channel which is not yet saved to disk */
-struct channel *peer_any_unsaved_channel(struct peer *peer, bool *others);
-
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
 /* Includes both real scids and aliases.  If !privacy_leak_ok, then private
