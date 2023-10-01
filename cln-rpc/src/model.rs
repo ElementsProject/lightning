@@ -1829,6 +1829,8 @@ pub mod responses {
 	    DUALOPEND_OPEN_INIT,
 	    #[serde(rename = "DUALOPEND_AWAITING_LOCKIN")]
 	    DUALOPEND_AWAITING_LOCKIN,
+	    #[serde(rename = "DUALOPEND_OPEN_COMMITTED")]
+	    DUALOPEND_OPEN_COMMITTED,
 	}
 
 	impl TryFrom<i32> for ListpeersPeersChannelsState {
@@ -1846,6 +1848,7 @@ pub mod responses {
 	    8 => Ok(ListpeersPeersChannelsState::ONCHAIN),
 	    9 => Ok(ListpeersPeersChannelsState::DUALOPEND_OPEN_INIT),
 	    10 => Ok(ListpeersPeersChannelsState::DUALOPEND_AWAITING_LOCKIN),
+	    11 => Ok(ListpeersPeersChannelsState::DUALOPEND_OPEN_COMMITTED),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersPeersChannelsState", o)),
 	        }
 	    }
@@ -1865,6 +1868,7 @@ pub mod responses {
 	            ListpeersPeersChannelsState::ONCHAIN => "ONCHAIN",
 	            ListpeersPeersChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
 	            ListpeersPeersChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
+	            ListpeersPeersChannelsState::DUALOPEND_OPEN_COMMITTED => "DUALOPEND_OPEN_COMMITTED",
 	        }.to_string()
 	    }
 	}
@@ -3649,6 +3653,8 @@ pub mod responses {
 	    DUALOPEND_AWAITING_LOCKIN,
 	    #[serde(rename = "CHANNELD_AWAITING_SPLICE")]
 	    CHANNELD_AWAITING_SPLICE,
+	    #[serde(rename = "DUALOPEND_OPEN_COMMITTED")]
+	    DUALOPEND_OPEN_COMMITTED,
 	}
 
 	impl TryFrom<i32> for ListpeerchannelsChannelsState {
@@ -3667,6 +3673,7 @@ pub mod responses {
 	    9 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT),
 	    10 => Ok(ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN),
 	    11 => Ok(ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE),
+	    12 => Ok(ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMITTED),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeerchannelsChannelsState", o)),
 	        }
 	    }
@@ -3687,6 +3694,7 @@ pub mod responses {
 	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
 	            ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
 	            ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE => "CHANNELD_AWAITING_SPLICE",
+	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_COMMITTED => "DUALOPEND_OPEN_COMMITTED",
 	        }.to_string()
 	    }
 	}

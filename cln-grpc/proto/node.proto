@@ -181,6 +181,7 @@ message ListpeersPeersChannels {
 		ONCHAIN = 8;
 		DUALOPEND_OPEN_INIT = 9;
 		DUALOPEND_AWAITING_LOCKIN = 10;
+		DUALOPEND_OPEN_COMMITTED = 11;
 	}
 	ListpeersPeersChannelsState state = 1;
 	optional bytes scratch_txid = 2;
@@ -1125,6 +1126,7 @@ message ListpeerchannelsChannels {
 		DUALOPEND_OPEN_INIT = 9;
 		DUALOPEND_AWAITING_LOCKIN = 10;
 		CHANNELD_AWAITING_SPLICE = 11;
+		DUALOPEND_OPEN_COMMITTED = 12;
 	}
 	optional bytes peer_id = 1;
 	optional bool peer_connected = 2;
