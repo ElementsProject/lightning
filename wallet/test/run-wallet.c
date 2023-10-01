@@ -151,11 +151,6 @@ void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
-/* Generated stub for dualopend_tell_depth */
-void dualopend_tell_depth(struct channel *channel UNNEEDED,
-			  const struct bitcoin_txid *txid UNNEEDED,
-			  u32 depth UNNEEDED)
-{ fprintf(stderr, "dualopend_tell_depth called!\n"); abort(); }
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }

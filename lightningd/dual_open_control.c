@@ -953,6 +953,48 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 	return true;
 }
 
+static void dualopend_tell_depth(struct channel *channel,
+				 const struct bitcoin_txid *txid,
+				 u32 depth)
+{
+	const u8 *msg;
+	u32 to_go;
+
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Funding tx %s confirmed, but peer disconnected",
+			  type_to_string(tmpctx, struct bitcoin_txid, txid));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Funding tx %s confirmed, telling peer",
+		  type_to_string(tmpctx, struct bitcoin_txid, txid));
+	if (depth < channel->minimum_depth) {
+		to_go = channel->minimum_depth - depth;
+	} else
+		to_go = 0;
+
+	/* Are we there yet? */
+	if (to_go == 0) {
+		assert(channel->scid);
+		assert(bitcoin_txid_eq(&channel->funding.txid, txid));
+
+		channel_set_billboard(channel, false,
+				      tal_fmt(tmpctx, "Funding depth reached"
+					      " %d confirmations, alerting peer"
+					      " we're locked-in.",
+					      to_go));
+
+		msg = towire_dualopend_depth_reached(NULL, depth);
+		subd_send_msg(channel->owner, take(msg));
+	} else
+		channel_set_billboard(channel, false,
+				      tal_fmt(tmpctx, "Funding needs %d more"
+					      " confirmations to be ready.",
+					      to_go));
+}
+
 static enum watch_result opening_depth_cb(struct lightningd *ld,
 					  const struct bitcoin_txid *txid,
 					  const struct bitcoin_tx *tx,
@@ -1903,48 +1945,6 @@ static void handle_channel_locked(struct subd *dualopend,
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, peer_fd, NULL, false, NULL);
 	return;
-}
-
-void dualopend_tell_depth(struct channel *channel,
-			  const struct bitcoin_txid *txid,
-			  u32 depth)
-{
-	const u8 *msg;
-	u32 to_go;
-
-	if (!channel->owner) {
-		log_debug(channel->log,
-			  "Funding tx %s confirmed, but peer disconnected",
-			  type_to_string(tmpctx, struct bitcoin_txid, txid));
-		return;
-	}
-
-	log_debug(channel->log,
-		  "Funding tx %s confirmed, telling peer",
-		  type_to_string(tmpctx, struct bitcoin_txid, txid));
-	if (depth < channel->minimum_depth) {
-		to_go = channel->minimum_depth - depth;
-	} else
-		to_go = 0;
-
-	/* Are we there yet? */
-	if (to_go == 0) {
-		assert(channel->scid);
-		assert(bitcoin_txid_eq(&channel->funding.txid, txid));
-
-		channel_set_billboard(channel, false,
-				      tal_fmt(tmpctx, "Funding depth reached"
-					      " %d confirmations, alerting peer"
-					      " we're locked-in.",
-					      to_go));
-
-		msg = towire_dualopend_depth_reached(NULL, depth);
-		subd_send_msg(channel->owner, take(msg));
-	} else
-		channel_set_billboard(channel, false,
-				      tal_fmt(tmpctx, "Funding needs %d more"
-					      " confirmations to be ready.",
-					      to_go));
 }
 
 static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
