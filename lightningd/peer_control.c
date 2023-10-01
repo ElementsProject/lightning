@@ -1950,7 +1950,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 	}
 
-	if (!depthcb_update_scid(channel, txid))
+	if (!depthcb_update_scid(channel, txid, &channel->funding))
 		return DELETE_WATCH;
 
 	/* Always tell owner about depth change */

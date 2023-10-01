@@ -543,7 +543,8 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 }
 
 bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid)
+			 const struct bitcoin_txid *txid,
+			 const struct bitcoin_outpoint *outpoint)
 {
 	struct txlocator *loc;
 	struct lightningd *ld = channel->peer->ld;
@@ -553,17 +554,17 @@ bool depthcb_update_scid(struct channel *channel,
 	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 	if (!mk_short_channel_id(&scid,
 				 loc->blkheight, loc->index,
-				 channel->funding.n)) {
+				 outpoint->n)) {
 		channel_fail_permanent(channel,
 				       REASON_LOCAL,
 				       "Invalid funding scid %u:%u:%u",
 				       loc->blkheight, loc->index,
-				       channel->funding.n);
+				       outpoint->n);
 		return false;
 	}
 
 	if (!channel->scid) {
-		wallet_annotate_txout(ld->wallet, &channel->funding,
+		wallet_annotate_txout(ld->wallet, outpoint,
 				      TX_CHANNEL_FUNDING, channel->dbid);
 		channel->scid = tal_dup(channel, struct short_channel_id, &scid);
 
@@ -606,7 +607,7 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	if (depth == 0)
 		return KEEP_WATCHING;
 
-	if (!depthcb_update_scid(inflight->channel, txid))
+	if (!depthcb_update_scid(inflight->channel, txid, &inflight->funding->outpoint))
 		return DELETE_WATCH;
 
 	if (inflight->channel->owner) {
