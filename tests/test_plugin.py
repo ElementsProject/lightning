@@ -799,25 +799,47 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert 'closer' not in l1.rpc.listpeerchannels()['channels'][0]
     assert 'closer' not in l2.rpc.listpeerchannels()['channels'][0]
 
-    event1 = wait_for_event(l1)
-    event2 = wait_for_event(l2)
-    assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
-    assert(event1['channel_id'] == cid)
-    assert(event1['short_channel_id'] is None)  # None until locked in
-    assert(event1['cause'] == "user")
+    if l1.config('experimental-dual-fund'):
+        # Dual funded channels go through two state transitions.
+        event1a, event1b = wait_for_event(l1), wait_for_event(l1)
+        event2a, event2b = wait_for_event(l2), wait_for_event(l2)
 
-    assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
-    assert(event2['channel_id'] == cid)
-    assert(event2['short_channel_id'] is None)  # None until locked in
-    assert(event2['cause'] == "remote")
+        for ev in [event1a, event1b]:
+            assert(ev['peer_id'] == l2_id)  # we only test these IDs the first time
+            assert(ev['channel_id'] == cid)
+            assert(ev['short_channel_id'] is None)  # None until locked in
+        assert(event1a['cause'] == "remote")
+        assert(event1b['cause'] == "user")
 
-    for ev in [event1, event2]:
-        # Dual funded channels
-        if l1.config('experimental-dual-fund'):
+        for ev in [event2a, event2b]:
+            assert(ev['peer_id'] == l1_id)  # we only test these IDs the first time
+            assert(ev['channel_id'] == cid)
+            assert(ev['short_channel_id'] is None)  # None until locked in
+            assert(ev['cause'] == "remote")
+
+        for ev in [event1a, event2a]:
             assert(ev['old_state'] == "DUALOPEND_OPEN_INIT")
+            assert(ev['new_state'] == "DUALOPEND_OPEN_COMMITTED")
+            assert(ev['message'] == "Commitment transaction committed")
+
+        for ev in [event1b, event2b]:
+            assert(ev['old_state'] == "DUALOPEND_OPEN_COMMITTED")
             assert(ev['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
             assert(ev['message'] == "Sigs exchanged, waiting for lock-in")
-        else:
+    else:
+        event1 = wait_for_event(l1)
+        event2 = wait_for_event(l2)
+        assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
+        assert(event1['channel_id'] == cid)
+        assert(event1['short_channel_id'] is None)  # None until locked in
+        assert(event1['cause'] == "user")
+
+        assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
+        assert(event2['channel_id'] == cid)
+        assert(event2['short_channel_id'] is None)  # None until locked in
+        assert(event2['cause'] == "remote")
+
+        for ev in [event1, event2]:
             assert(ev['old_state'] == "unknown")
             assert(ev['new_state'] == "CHANNELD_AWAITING_LOCKIN")
             assert(ev['message'] == "new channel opened")
@@ -942,8 +964,13 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
 
     if l2.config('experimental-dual-fund'):
         assert(event2['old_state'] == "DUALOPEND_OPEN_INIT")
-        assert(event2['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
-        assert(event2['message'] == "Sigs exchanged, waiting for lock-in")
+        assert(event2['new_state'] == "DUALOPEND_OPEN_COMMITTED")
+        assert(event2['message'] == "Commitment transaction committed")
+
+        event2 = wait_for_event(l2)
+        assert event2['old_state'] == "DUALOPEND_OPEN_COMMITTED"
+        assert event2['new_state'] == "DUALOPEND_AWAITING_LOCKIN"
+        assert event2['message'] == "Sigs exchanged, waiting for lock-in"
     else:
         assert(event2['old_state'] == "unknown")
         assert(event2['new_state'] == "CHANNELD_AWAITING_LOCKIN")
@@ -1037,7 +1064,7 @@ def test_channel_state_change_history(node_factory, bitcoind):
     history = l1.rpc.listpeerchannels()['channels'][0]['state_changes']
     if l1.config('experimental-dual-fund'):
         assert(history[0]['cause'] == "user")
-        assert(history[0]['old_state'] == "DUALOPEND_OPEN_INIT")
+        assert(history[0]['old_state'] == "DUALOPEND_OPEN_COMMITTED")
         assert(history[0]['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
         assert(history[1]['cause'] == "user")
         assert(history[1]['old_state'] == "DUALOPEND_AWAITING_LOCKIN")

@@ -367,6 +367,7 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CHANNELD_AWAITING_LOCKIN:
 			case CHANNELD_NORMAL:
 			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_OPEN_COMMITTED:
 			case DUALOPEND_AWAITING_LOCKIN:
 			case CHANNELD_AWAITING_SPLICE:
 			case CHANNELD_SHUTTING_DOWN:
@@ -1168,6 +1169,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 	case FUNDING_SPEND_SEEN:
 	case CLOSINGD_COMPLETE:
 	case CLOSED:
+	case DUALOPEND_OPEN_INIT:
 		/* Channel is active */
 		abort();
 	case AWAITING_UNILATERAL:
@@ -1177,7 +1179,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 					"Awaiting unilateral close");
 		goto send_error;
 
-	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		assert(!channel->owner);
 		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
@@ -1859,6 +1861,7 @@ static void subd_tell_depth(struct channel *channel,
 	case ONCHAIN:
 	case CLOSED:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
 		return;
 
 	case CHANNELD_NORMAL:
@@ -1911,6 +1914,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		case DUALOPEND_AWAITING_LOCKIN:
 		case CHANNELD_AWAITING_LOCKIN:
 		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_OPEN_COMMITTED:
 			log_debug(channel->log, "Funding tx %s reorganized out!",
 				  type_to_string(tmpctx, struct bitcoin_txid, txid));
 			channel->scid = tal_free(channel->scid);
@@ -2022,6 +2026,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
 		/* You cannot be watching yet */
 		abort();
 
@@ -2576,6 +2581,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 			switch (channel->state) {
 			case CHANNELD_AWAITING_LOCKIN:
 			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_OPEN_COMMITTED:
 			case DUALOPEND_AWAITING_LOCKIN:
 				pending_channels++;
 				continue;
@@ -2797,6 +2803,7 @@ static bool channel_state_can_setchannel(enum channel_state state)
 	case DUALOPEND_AWAITING_LOCKIN:
 		return true;
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
 	case CLOSINGD_SIGEXCHANGE:
 	case CHANNELD_SHUTTING_DOWN:
 	case CLOSINGD_COMPLETE:

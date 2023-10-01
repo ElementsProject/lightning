@@ -1248,6 +1248,22 @@ wallet_commit_channel(struct lightningd *ld,
 	assert(channel->unsaved_dbid != 0);
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
+	/* We can't call channel_set_state here: channel isn't in db, so
+	 * really this is a "channel creation" event. */
+	assert(channel->state == DUALOPEND_OPEN_INIT);
+	log_info(channel->log, "State changed from %s to %s",
+		 channel_state_name(channel),
+		 channel_state_str(DUALOPEND_OPEN_COMMITTED));
+	channel->state = DUALOPEND_OPEN_COMMITTED;
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &channel->cid,
+				     channel->scid,
+				     time_now(),
+				     DUALOPEND_OPEN_INIT,
+				     DUALOPEND_OPEN_COMMITTED,
+				     REASON_REMOTE,
+				     "Commitment transaction committed");
 
 	channel->funding = *funding;
 	channel->funding_sats = total_funding;
@@ -1675,7 +1691,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 		send_funding_tx(channel, take(wtx));
 
 		/* Must be in an "init" state */
-		assert(channel->state == DUALOPEND_OPEN_INIT
+		assert(channel->state == DUALOPEND_OPEN_COMMITTED
 		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
 
 		channel_set_state(channel, channel->state,
@@ -2060,7 +2076,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 
 		send_funding_tx(channel, take(wtx));
 
-		assert(channel->state == DUALOPEND_OPEN_INIT
+		assert(channel->state == DUALOPEND_OPEN_COMMITTED
 		       /* We might be reconnecting */
 		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
 		channel_set_state(channel, channel->state,

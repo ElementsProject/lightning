@@ -166,7 +166,7 @@ def test_v2_open_sigs_restart(node_factory, bitcoind):
     assert log
     psbt = re.search("psbt (.*)", log).group(1)
 
-    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_INIT')
+    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_COMMITTED')
     try:
         # FIXME: why do we need to retry signed?
         l1.rpc.openchannel_signed(chan_id, psbt)
@@ -254,7 +254,7 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     assert log
     psbt = re.search("psbt (.*)", log).group(1)
 
-    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_INIT')
+    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_COMMITTED')
     try:
         # FIXME: why do we need to retry signed?
         l1.rpc.openchannel_signed(chan_id, psbt)

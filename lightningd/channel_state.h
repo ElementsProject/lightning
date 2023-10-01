@@ -6,8 +6,12 @@
 
 /* These are in the database, so don't renumber them! */
 enum channel_state {
+	/* For dual-funded channels: goes to DUALOPEND_OPEN_COMMITTED
+	 * after sigs have been exchanged */
+	DUALOPEND_OPEN_INIT = 1,
+
 	/* In channeld, still waiting for lockin. */
-	CHANNELD_AWAITING_LOCKIN = 2,
+	CHANNELD_AWAITING_LOCKIN,
 
 	/* Normal operating state. */
 	CHANNELD_NORMAL,
@@ -33,16 +37,15 @@ enum channel_state {
 	/* Final state after we have fully settled on-chain */
 	CLOSED,
 
-	/* For dual-funded channels, we start at a different state.
-	 * We transition to 'awaiting lockin' after sigs have
-	 * been exchanged */
-	DUALOPEND_OPEN_INIT,
+	/* Dual-funded initialized and committed. */
+	DUALOPEND_OPEN_COMMITTED,
 
 	/* Dual-funded channel, waiting for lock-in */
 	DUALOPEND_AWAITING_LOCKIN,
 
 	/* Channel has started splice and is awaiting lock-in */
 	CHANNELD_AWAITING_SPLICE,
+
 };
 #define CHANNEL_STATE_MAX CHANNELD_AWAITING_SPLICE
 

@@ -682,7 +682,7 @@ def test_reconnect_signed(node_factory):
     # Technically, this is async to fundchannel (and could reconnect first)
     if EXPERIMENTAL_DUAL_FUND:
         l1.daemon.wait_for_logs(['sendrawtx exit 0',
-                                 'Peer has reconnected, state DUALOPEND_OPEN_INIT'])
+                                 'Peer has reconnected, state DUALOPEND_OPEN_COMMITTED'])
     else:
         l1.daemon.wait_for_logs(['sendrawtx exit 0',
                                  'Peer has reconnected, state CHANNELD_AWAITING_LOCKIN'])
