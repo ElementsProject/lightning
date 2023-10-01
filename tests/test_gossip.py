@@ -2344,7 +2344,6 @@ def test_dump_own_gossip(node_factory):
     assert expect == []
 
 
-@pytest.mark.developer("needs --dev-gossip-time")
 @unittest.skipIf(
     TEST_NETWORK != 'regtest',
     "Channel announcement contains genesis hash, receiving node discards on mismatch"

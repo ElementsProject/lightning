@@ -3319,7 +3319,6 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
             l1.rpc.fundchannel(l2.info['id'], 10**6)
 
 
-@pytest.mark.developer("needs to set dev-disconnect")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     """We can ask for a *higher* fee than the last commit tx"""
@@ -3863,7 +3862,6 @@ def test_closing_tx_valid(node_factory, bitcoind):
     assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
 
 
-@pytest.mark.developer("needs dev-no-reconnect")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd does not provide feerates on regtest')
 def test_closing_minfee(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'feerates': None})
