@@ -1601,7 +1601,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
 			   &wshachain,
-			   db_col_int(stmt, "state"),
+			   channel_state_in_db(db_col_int(stmt, "state")),
 			   db_col_int(stmt, "funder"),
 			   NULL, /* Set up fresh log */
 			   "Loaded from database",
@@ -2168,7 +2168,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_channel_id(stmt, &chan->cid);
-	db_bind_int(stmt, chan->state);
+	db_bind_int(stmt, channel_state_in_db(chan->state));
 	db_bind_int(stmt, chan->opener);
 	db_bind_int(stmt, chan->channel_flags);
 	db_bind_int(stmt, chan->minimum_depth);
@@ -2352,8 +2352,8 @@ void wallet_state_change_add(struct wallet *w,
 
 	db_bind_u64(stmt, channel_id);
 	db_bind_timeabs(stmt, *timestamp);
-	db_bind_int(stmt, old_state);
-	db_bind_int(stmt, new_state);
+	db_bind_int(stmt, channel_state_in_db(old_state));
+	db_bind_int(stmt, channel_state_in_db(new_state));
 	db_bind_int(stmt, state_change_in_db(cause));
 	db_bind_text(stmt, message);
 
@@ -2525,7 +2525,7 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels "
 					"SET state=? "
 					"WHERE channels.id=?"));
-	db_bind_u64(stmt, CLOSED);
+	db_bind_u64(stmt, channel_state_in_db(CLOSED));
 	db_bind_u64(stmt, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 }
