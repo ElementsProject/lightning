@@ -922,7 +922,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 								  &channel->peer->id,
 								  channel->peer->connectd_counter,
 								  warning)));
-		channel_fail_transient(channel, "Bad shutdown scriptpubkey %s",
+		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}

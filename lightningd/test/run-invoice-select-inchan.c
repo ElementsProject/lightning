@@ -80,6 +80,7 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 { fprintf(stderr, "channel_fail_permanent called!\n"); abort(); }
 /* Generated stub for channel_fail_transient */
 void channel_fail_transient(struct channel *channel UNNEEDED,
+			    bool disconnect UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */

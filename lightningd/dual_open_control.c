@@ -48,7 +48,7 @@ static void channel_disconnect(struct channel *channel,
 	log_(channel->log, level, NULL, false, "%s", desc);
 	channel_cleanup_commands(channel, desc);
 
-	channel_fail_transient(channel, "%s: %s",
+	channel_fail_transient(channel, true, "%s: %s",
 			       channel->owner ?
 			       channel->owner->name :
 			       "dualopend-dead",
@@ -1415,7 +1415,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 								  &channel->peer->id,
 								  channel->peer->connectd_counter,
 								  warning)));
-		channel_fail_transient(channel, "Bad shutdown scriptpubkey %s",
+		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
@@ -3607,7 +3607,7 @@ static void dualopen_errmsg(struct channel *channel,
 	/* No peer_fd means a subd crash or disconnection. */
 	if (!peer_fd) {
 		/* If the channel is unsaved, we forget it */
-		channel_fail_transient(channel, "%s: %s",
+		channel_fail_transient(channel, true, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -3621,7 +3621,8 @@ static void dualopen_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning || aborted) {
-		channel_fail_transient(channel, "%s %s: %s",
+		/* We *don't* hang up if they aborted: that's fine! */
+		channel_fail_transient(channel, !aborted, "%s %s: %s",
 				       channel->owner->name,
 				       warning ? "WARNING" : "ABORTED",
 				       desc);

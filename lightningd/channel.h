@@ -413,9 +413,10 @@ bool channel_state_closish(enum channel_state channel_state);
 
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
-/* Channel has failed, but can try again. */
+/* Channel has failed, but can try again.  Usually, set disconnect to true. */
 void channel_fail_transient(struct channel *channel,
-			    const char *fmt, ...) PRINTF_FMT(2,3);
+			    bool disconnect,
+			    const char *fmt, ...) PRINTF_FMT(3, 4);
 
 /* Channel has failed, give up on it. */
 void channel_fail_permanent(struct channel *channel,
