@@ -440,9 +440,11 @@ void channel_set_state(struct channel *channel,
 
 const char *channel_change_state_reason_str(enum state_change reason);
 
-/* Find a channel which is not onchain, if any: sets *others if there
+/* Find a channel which is passes filter, if any: sets *others if there
  * is more than one. */
-struct channel *peer_any_active_channel(struct peer *peer, bool *others);
+struct channel *peer_any_channel(struct peer *peer,
+				 bool (*channel_state_filter)(const struct channel *),
+				 bool *others);
 
 /* Find a channel which is not yet saved to disk */
 struct channel *peer_any_unsaved_channel(struct peer *peer, bool *others);
@@ -530,6 +532,31 @@ static inline bool channel_closed(const struct channel *channel)
 		|| channel->state == FUNDING_SPEND_SEEN
 		|| channel->state == ONCHAIN
 		|| channel->state == CLOSED;
+}
+
+/* Established enough, that we could reach out to peer to discuss */
+static inline bool channel_wants_peercomms(const struct channel *channel)
+{
+	if (channel_unsaved(channel))
+		return false;
+
+	switch (channel->state) {
+	case CHANNELD_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+		return true;
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		return false;
+	}
+	abort();
 }
 
 static inline bool channel_has(const struct channel *channel, int f)

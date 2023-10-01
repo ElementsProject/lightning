@@ -1220,7 +1220,7 @@ wallet_commit_channel(struct lightningd *ld,
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
-	bool any_active = peer_any_active_channel(channel->peer, NULL);
+	bool any_active = peer_any_channel(channel->peer, channel_wants_peercomms, NULL);
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");

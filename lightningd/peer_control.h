@@ -140,9 +140,10 @@ void waitblockheight_notify_new_block(struct lightningd *ld,
 				      u32 block_height);
 
 
-/* JSON parameter by channel_id or scid */
+/* JSON parameter by channel_id or scid (caller must check state!) */
 struct command_result *
 command_find_channel(struct command *cmd,
+		     const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 

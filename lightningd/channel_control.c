@@ -2013,7 +2013,7 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	if (!peer)
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
-	channel = peer_any_active_channel(peer, &more_than_one);
+	channel = peer_any_channel(peer, NULL, &more_than_one);
 	if (!channel || !channel->owner || !channel_state_normalish(channel))
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
@@ -2074,7 +2074,7 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
 	/* FIXME: If this becomes a real API, check for OPT_QUIESCE! */
-	channel = peer_any_active_channel(peer, &more_than_one);
+	channel = peer_any_channel(peer, NULL, &more_than_one);
 	if (!channel || !channel->owner || !channel_state_normalish(channel))
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
