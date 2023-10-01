@@ -58,7 +58,7 @@ static void channel_disconnect(struct channel *channel,
 void channel_unsaved_close_conn(struct channel *channel, const char *why)
 {
 	/* Gotta be unsaved */
-	assert(channel_unsaved(channel));
+	assert(channel_state_uncommitted(channel));
 	log_info(channel->log, "Unsaved peer failed."
 		 " Disconnecting and deleting channel. Reason: %s",
 		 why);
@@ -77,7 +77,7 @@ static void channel_saved_err_broken_reconn(struct channel *channel,
 	const char *errmsg;
 
 	/* We only reconnect to 'saved' channel peers */
-	assert(!channel_unsaved(channel));
+	assert(!channel_state_uncommitted(channel));
 
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
@@ -97,7 +97,7 @@ static void channel_err_broken(struct channel *channel,
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	if (channel_unsaved(channel)) {
+	if (channel_state_uncommitted(channel)) {
 		log_broken(channel->log, "%s", errmsg);
 		channel_unsaved_close_conn(channel, errmsg);
 	} else
@@ -1374,7 +1374,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	/* We shouldn't get this message while we're waiting to finish */
-	if (channel_unsaved(channel)) {
+	if (channel_state_uncommitted(channel)) {
 		log_broken(dualopend->ld->log, "Channel in wrong state for"
 		           " shutdown, still has uncommitted"
 		           " channel pending.");
@@ -3604,7 +3604,7 @@ static void dualopen_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
-	if (channel_unsaved(channel)) {
+	if (channel_state_uncommitted(channel)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
 		delete_channel(channel);
@@ -3769,7 +3769,7 @@ bool peer_restart_dualopend(struct peer *peer,
 	u32 *local_shutdown_script_wallet_index;
 	u8 *msg;
 
-	if (channel_unsaved(channel))
+	if (channel_state_uncommitted(channel))
 		return peer_start_dualopend(peer, peer_fd, channel);
 
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
