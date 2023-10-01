@@ -5340,7 +5340,6 @@ def test_listsendpays_crash(node_factory):
     l1.rpc.listsendpays('lightning:' + inv)
 
 
-@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_pay_routehint_minhtlc(node_factory, bitcoind):
     # l1 -> l2 -> l3 private -> l4
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
