@@ -242,7 +242,7 @@ wallet_commit_channel(struct lightningd *ld,
 	notify_channel_state_changed(ld, &channel->peer->id,
 				     &channel->cid,
 				     channel->scid, /* NULL */
-				     &timestamp,
+				     timestamp,
 				     0, /* No prior state */
 				     channel->state,
 				     channel->state_change_cause,

@@ -346,7 +346,7 @@ void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname
 /* Generated stub for json_add_timeiso */
 void json_add_timeiso(struct json_stream *result UNNEEDED,
 		      const char *fieldname UNNEEDED,
-		      struct timeabs *time UNNEEDED)
+		      struct timeabs time UNNEEDED)
 { fprintf(stderr, "json_add_timeiso called!\n"); abort(); }
 /* Generated stub for json_add_tx */
 void json_add_tx(struct json_stream *result UNNEEDED,
@@ -503,14 +503,14 @@ void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
 { fprintf(stderr, "notify_channel_open_failed called!\n"); abort(); }
 /* Generated stub for notify_channel_state_changed */
 void notify_channel_state_changed(struct lightningd *ld UNNEEDED,
-				  struct node_id *peer_id UNNEEDED,
-				  struct channel_id *cid UNNEEDED,
-				  struct short_channel_id *scid UNNEEDED,
-				  struct timeabs *timestamp UNNEEDED,
+				  const struct node_id *peer_id UNNEEDED,
+				  const struct channel_id *cid UNNEEDED,
+				  const struct short_channel_id *scid UNNEEDED,
+				  struct timeabs timestamp UNNEEDED,
 				  enum channel_state old_state UNNEEDED,
 				  enum channel_state new_state UNNEEDED,
 				  enum state_change cause UNNEEDED,
-				  char *message UNNEEDED)
+				  const char *message UNNEEDED)
 { fprintf(stderr, "notify_channel_state_changed called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED,

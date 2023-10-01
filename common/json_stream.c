@@ -387,15 +387,15 @@ void json_add_timestr(struct json_stream *result, const char *fieldname,
 
 void json_add_timeiso(struct json_stream *result,
 		      const char *fieldname,
-		      struct timeabs *time)
+		      struct timeabs time)
 {
 	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
 	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
 
 	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt),
-		 "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
+		 "%FT%T.%%03dZ", gmtime(&time.ts.tv_sec));
 	snprintf(iso8601_s, sizeof(iso8601_s),
-		 iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
+		 iso8601_msec_fmt, (int) time.ts.tv_nsec / 1000000);
 
 	json_add_string(result, fieldname, iso8601_s);
 }

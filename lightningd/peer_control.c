@@ -1070,7 +1070,7 @@ static void json_add_channel(struct lightningd *ld,
 	for (size_t i = 0; i < tal_count(state_changes); i++) {
 		json_object_start(response, NULL);
 		json_add_timeiso(response, "timestamp",
-				 &state_changes[i].timestamp);
+				 state_changes[i].timestamp);
 		json_add_string(response, "old_state",
 				channel_state_str(state_changes[i].old_state));
 		json_add_string(response, "new_state",
