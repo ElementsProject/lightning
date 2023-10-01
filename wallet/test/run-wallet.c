@@ -72,12 +72,6 @@ void broadcast_tx_(struct chain_topology *topo UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
-/* Generated stub for channel_tell_depth */
-bool channel_tell_depth(struct lightningd *ld UNNEEDED,
-				 struct channel *channel UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED,
-				 u32 depth UNNEEDED)
-{ fprintf(stderr, "channel_tell_depth called!\n"); abort(); }
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
@@ -89,6 +83,11 @@ void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct channel_config *their_config UNNEEDED,
 			    struct amount_sat funding_total UNNEEDED)
 { fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
+/* Generated stub for channeld_tell_depth */
+void channeld_tell_depth(struct channel *channel UNNEEDED,
+			 const struct bitcoin_txid *txid UNNEEDED,
+			 u32 depth UNNEEDED)
+{ fprintf(stderr, "channeld_tell_depth called!\n"); abort(); }
 /* Generated stub for cmd_id_from_close_command */
 const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
 				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
@@ -147,6 +146,11 @@ void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
+/* Generated stub for dualopend_tell_depth */
+void dualopend_tell_depth(struct channel *channel UNNEEDED,
+			  const struct bitcoin_txid *txid UNNEEDED,
+			  u32 depth UNNEEDED)
+{ fprintf(stderr, "dualopend_tell_depth called!\n"); abort(); }
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
@@ -434,6 +438,13 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for lockin_complete */
+void lockin_complete(struct channel *channel UNNEEDED,
+		     enum channel_state expected_state UNNEEDED)
+{ fprintf(stderr, "lockin_complete called!\n"); abort(); }
+/* Generated stub for lockin_has_completed */
+void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
+{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)

@@ -1829,18 +1829,50 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
+static void subd_tell_depth(struct channel *channel,
+			    const struct bitcoin_txid *txid,
+			    unsigned int depth)
+{
+	/* We always tell every owner who's interested about the depth */
+	switch (channel->state) {
+	case AWAITING_UNILATERAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+	case DUALOPEND_OPEN_INIT:
+		return;
+
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_LOCKIN:
+	case CHANNELD_AWAITING_SPLICE:
+		channeld_tell_depth(channel, txid, depth);
+		return;
+
+	case DUALOPEND_AWAITING_LOCKIN:
+		dualopend_tell_depth(channel, txid, depth);
+		return;
+	}
+	abort();
+}
+
 static enum watch_result funding_depth_cb(struct lightningd *ld,
 					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
 					   const struct bitcoin_tx *tx,
 					   unsigned int depth)
 {
-	const char *txidstr;
 	struct short_channel_id scid;
+	struct txlocator *loc;
 
-	/* Sanity check, but we'll have to make an exception
-	 * for stub channels(1x1x1) */
-	if (!check_funding_tx(tx, channel) && !is_stub_scid(channel->scid)) {
+	/* This is stub channel, we don't activate anything! */
+	if (is_stub_scid(channel->scid))
+		return DELETE_WATCH;
+
+	/* Sanity check */
+	if (!check_funding_tx(tx, channel)) {
 		channel_internal_error(channel, "Bad tx %s: %s",
 				       type_to_string(tmpctx,
 						      struct bitcoin_txid, txid),
@@ -1849,102 +1881,162 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 	}
 
-	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
+	channel->depth = depth;
+
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
-		  txidstr, depth, channel->minimum_depth);
-	tal_free(txidstr);
+		  type_to_string(tmpctx, struct bitcoin_txid, txid),
+		  depth, channel->minimum_depth);
 
-	bool min_depth_reached = depth >= channel->minimum_depth;
-	bool min_depth_no_scid = min_depth_reached && !channel->scid;
-	bool some_depth_has_scid = depth != 0 && channel->scid;
+	/* Reorged out? */
+	if (depth == 0) {
+		/* That's not entirely unexpected in early states */
+		switch (channel->state) {
+		case CHANNELD_AWAITING_SPLICE:
+		case DUALOPEND_AWAITING_LOCKIN:
+		case CHANNELD_AWAITING_LOCKIN:
+		case DUALOPEND_OPEN_INIT:
+			log_debug(channel->log, "Funding tx %s reorganized out!",
+				  type_to_string(tmpctx, struct bitcoin_txid, txid));
+			channel->scid = tal_free(channel->scid);
+			return KEEP_WATCHING;
 
-	/* Reorg can change scid, so always update/save scid when possible (depth=0
-	 * means the stale block with our funding tx was removed) */
-	if (min_depth_no_scid || some_depth_has_scid) {
-		struct txlocator *loc;
-		struct channel_inflight *inf;
+		/* But it's often Bad News in later states */
+		case CHANNELD_NORMAL:
+			/* If we opened, or it's zero-conf, we trust them anyway. */
+			if (channel->opener == LOCAL
+			    || channel->minimum_depth == 0) {
+				const char *str;
 
+				str = tal_fmt(tmpctx,
+					      "Funding tx %s reorganized out, but %s...",
+					      type_to_string(tmpctx, struct bitcoin_txid, txid),
+					      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
+
+				/* Log even if not connected! */
+				if (!channel->owner)
+					log_info(channel->log, "%s", str);
+				channel_fail_transient(channel, true, "%s", str);
+				return KEEP_WATCHING;
+			}
+			/* fall thru */
+		case AWAITING_UNILATERAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case CLOSINGD_SIGEXCHANGE:
+		case CLOSINGD_COMPLETE:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
+			break;
+		}
+		channel_internal_error(channel,
+				       "Funding transaction has been reorged out in state %s!",
+				       channel_state_name(channel));
+		return KEEP_WATCHING;
+	}
+
+	/* What scid is this giving us? */
+	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
+	if (!mk_short_channel_id(&scid,
+				 loc->blkheight, loc->index,
+				 channel->funding.n)) {
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       channel->funding.n);
+		return DELETE_WATCH;
+	}
+
+	if (!channel->scid) {
+		wallet_annotate_txout(ld->wallet, &channel->funding,
+				      TX_CHANNEL_FUNDING, channel->dbid);
+		channel->scid = tal_dup(channel, struct short_channel_id, &scid);
+
+		/* If we have a zeroconf channel, i.e., no scid yet
+		 * but have exchange `channel_ready` messages, then we
+		 * need to fire a second time, in order to trigger the
+		 * `coin_movement` event. This is a subset of the
+		 * `lockin_complete` function called from
+		 * AWAITING_LOCKIN->NORMAL otherwise. */
+		if (channel->minimum_depth == 0)
+			lockin_has_completed(channel, false);
+
+		wallet_channel_save(ld->wallet, channel);
+	} else if (!short_channel_id_eq(channel->scid, &scid)) {
+		/* We freaked out if required when original was
+		 * removed, so just update now */
+		log_info(channel->log, "Short channel id changed from %s->%s",
+			 type_to_string(tmpctx, struct short_channel_id, channel->scid),
+			 type_to_string(tmpctx, struct short_channel_id, &scid));
+		*channel->scid = scid;
+		wallet_channel_save(ld->wallet, channel);
+	}
+
+	/* Always tell owner about depth change */
+	subd_tell_depth(channel, txid, depth);
+
+	/* Have we not reached minimum depth? */
+	if (depth < channel->minimum_depth)
+		return KEEP_WATCHING;
+
+	switch (channel->state) {
+	case AWAITING_UNILATERAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		/* If not awaiting lockin/announce, it doesn't care any more */
+		log_debug(channel->log,
+			  "Funding tx %s confirmed, but peer in state %s",
+			  type_to_string(tmpctx, struct bitcoin_txid, txid),
+			  channel_state_name(channel));
+		return DELETE_WATCH;
+
+	case CHANNELD_AWAITING_LOCKIN:
+		if (channel->remote_channel_ready)
+			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
+		return KEEP_WATCHING;
+
+	case CHANNELD_NORMAL:
+		if (depth < ANNOUNCE_MIN_DEPTH)
+			return KEEP_WATCHING;
+		/* Normal state and past announce depth?  Stop bothering us! */
+		return DELETE_WATCH;
+
+	case DUALOPEND_OPEN_INIT:
+		/* You cannot be watching yet */
+		abort();
+
+	case DUALOPEND_AWAITING_LOCKIN:
 		/* Update the channel's info to the correct tx, if needed to
 		 * It's possible an 'inflight' has reached depth */
-		if (channel->state != CHANNELD_AWAITING_SPLICE
-		    && !list_empty(&channel->inflights)) {
+		if (!list_empty(&channel->inflights)) {
+			struct channel_inflight *inf;
+
 			inf = channel_inflight_find(channel, txid);
 			if (!inf) {
 				log_debug(channel->log,
-					"Ignoring event for txid %s for channel"
-					" not found in inflights. (peer %s)",
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       txid),
-					type_to_string(tmpctx,
-						       struct node_id,
-						       &channel->peer->id));
+					  "Ignoring event for txid %s for channel"
+					  " not found in inflights.",
+					  type_to_string(tmpctx,
+							 struct bitcoin_txid,
+							 txid));
 				return DELETE_WATCH;
 			}
 			update_channel_from_inflight(ld, channel, inf);
 		}
+		return KEEP_WATCHING;
 
-		wallet_annotate_txout(ld->wallet, &channel->funding,
-				      TX_CHANNEL_FUNDING, channel->dbid);
-		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-		if (!mk_short_channel_id(&scid,
-					 loc->blkheight, loc->index,
-					 channel->funding.n)) {
-			channel_fail_permanent(channel,
-					       REASON_LOCAL,
-					       "Invalid funding scid %u:%u:%u",
-					       loc->blkheight, loc->index,
-					       channel->funding.n);
-			return DELETE_WATCH;
-		}
-
-		/* If we restart, we could already have peer->scid from database,
-		 * we don't need to update scid for stub channels(1x1x1) */
-		if (!channel->scid || channel->state == CHANNELD_AWAITING_SPLICE) {
-			if(!channel->scid)
-				channel->scid = tal(channel, struct short_channel_id);
-			*channel->scid = scid;
-			wallet_channel_save(ld->wallet, channel);
-
-		} else if (!short_channel_id_eq(channel->scid, &scid) &&
-			   !is_stub_scid(channel->scid)) {
-			/* Send warning: that will make connectd disconnect, and then we'll
-			 * try to reconnect. */
-			u8 *warning = towire_warningfmt(tmpctx, &channel->cid,
-							"short_channel_id changed to %s (was %s)",
-							short_channel_id_to_str(tmpctx, &scid),
-							short_channel_id_to_str(tmpctx, channel->scid));
-			if (channel->peer->connected != PEER_DISCONNECTED)
-				subd_send_msg(ld->connectd,
-					      take(towire_connectd_peer_final_msg(NULL,
-										  &channel->peer->id,
-										  channel->peer->connectd_counter,
-										  warning)));
-			/* When we restart channeld, it will be initialized with updated scid
-			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_transient(channel, true,
-					       "short_channel_id changed to %s (was %s)",
-					       short_channel_id_to_str(tmpctx, &scid),
-					       short_channel_id_to_str(tmpctx, channel->scid));
-
-			*channel->scid = scid;
-			wallet_channel_save(ld->wallet, channel);
-			return KEEP_WATCHING;
-		}
+	case CHANNELD_AWAITING_SPLICE:
+		/* Once we're waiting for splice, don't watch original any more */
+		if (bitcoin_txid_eq(txid, &channel->funding.txid))
+			return true;
+		return KEEP_WATCHING;
 	}
 
-	/* Try to tell subdaemon */
-	if (!channel_tell_depth(ld, channel, txid, depth))
-		return KEEP_WATCHING;
-
-	if (!min_depth_reached)
-		return KEEP_WATCHING;
-
-	/* We keep telling it depth/scid until we get to announce depth. */
-	if (depth < ANNOUNCE_MIN_DEPTH)
-		return KEEP_WATCHING;
-
-	return DELETE_WATCH;
+	abort();
 }
 
 static enum watch_result funding_spent(struct channel *channel,

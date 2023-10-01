@@ -110,12 +110,6 @@ const char *channel_state_name(const struct channel *channel UNNEEDED)
 /* Generated stub for channel_state_str */
 const char *channel_state_str(enum channel_state state UNNEEDED)
 { fprintf(stderr, "channel_state_str called!\n"); abort(); }
-/* Generated stub for channel_tell_depth */
-bool channel_tell_depth(struct lightningd *ld UNNEEDED,
-				 struct channel *channel UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED,
-				 u32 depth UNNEEDED)
-{ fprintf(stderr, "channel_tell_depth called!\n"); abort(); }
 /* Generated stub for channel_type_has */
 bool channel_type_has(const struct channel_type *type UNNEEDED, int feature UNNEEDED)
 { fprintf(stderr, "channel_type_has called!\n"); abort(); }
@@ -133,6 +127,11 @@ void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct channel_config *their_config UNNEEDED,
 			    struct amount_sat funding_total UNNEEDED)
 { fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
+/* Generated stub for channeld_tell_depth */
+void channeld_tell_depth(struct channel *channel UNNEEDED,
+			 const struct bitcoin_txid *txid UNNEEDED,
+			 u32 depth UNNEEDED)
+{ fprintf(stderr, "channeld_tell_depth called!\n"); abort(); }
 /* Generated stub for cmd_id_from_close_command */
 const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
 				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
@@ -202,6 +201,11 @@ void delete_channel(struct channel *channel STEALS UNNEEDED)
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
+/* Generated stub for dualopend_tell_depth */
+void dualopend_tell_depth(struct channel *channel UNNEEDED,
+			  const struct bitcoin_txid *txid UNNEEDED,
+			  u32 depth UNNEEDED)
+{ fprintf(stderr, "dualopend_tell_depth called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
@@ -646,6 +650,13 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for lockin_complete */
+void lockin_complete(struct channel *channel UNNEEDED,
+		     enum channel_state expected_state UNNEEDED)
+{ fprintf(stderr, "lockin_complete called!\n"); abort(); }
+/* Generated stub for lockin_has_completed */
+void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
+{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
