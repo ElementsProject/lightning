@@ -1009,17 +1009,17 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_locate called!\n"); abort(); }
-/* Generated stub for watch_txid */
-struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
-			   struct chain_topology *topo UNNEEDED,
-			   struct channel *channel UNNEEDED,
-			   const struct bitcoin_txid *txid UNNEEDED,
-			   enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						   struct channel * UNNEEDED,
-						   const struct bitcoin_txid * UNNEEDED,
-						   const struct bitcoin_tx * UNNEEDED,
-						   unsigned int depth))
-{ fprintf(stderr, "watch_txid called!\n"); abort(); }
+/* Generated stub for watch_txid_ */
+struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
+			    struct chain_topology *topo UNNEEDED,
+			    const struct bitcoin_txid *txid UNNEEDED,
+			    enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
+						    const struct bitcoin_txid * UNNEEDED,
+						    const struct bitcoin_tx * UNNEEDED,
+						    unsigned int depth UNNEEDED,
+						    void *arg) UNNEEDED,
+			    void *arg UNNEEDED)
+{ fprintf(stderr, "watch_txid_ called!\n"); abort(); }
 /* Generated stub for watch_txo */
 struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

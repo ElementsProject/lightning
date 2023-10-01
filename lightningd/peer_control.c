@@ -1878,10 +1878,10 @@ static void subd_tell_depth(struct channel *channel,
 }
 
 static enum watch_result funding_depth_cb(struct lightningd *ld,
-					   struct channel *channel,
-					   const struct bitcoin_txid *txid,
-					   const struct bitcoin_tx *tx,
-					   unsigned int depth)
+					  const struct bitcoin_txid *txid,
+					  const struct bitcoin_tx *tx,
+					  unsigned int depth,
+					  struct channel *channel)
 {
 	struct short_channel_id scid;
 	struct txlocator *loc;
@@ -2097,7 +2097,6 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* Watch the "wrong" funding too, in case we spend it. */
 	if (channel->shutdown_wrong_funding) {
-		/* FIXME: Remove arg from cb? */
 		watch_txo(channel, ld->topology, channel,
 			  channel->shutdown_wrong_funding,
 			  funding_spent);
@@ -2106,11 +2105,10 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
-	/* FIXME: Remove arg from cb? */
 	log_debug(channel->log, "Watching for funding txid: %s",
 		type_to_string(tmpctx, struct bitcoin_txid, &channel->funding.txid));
-	watch_txid(channel, ld->topology, channel,
-		   &channel->funding.txid, funding_depth_cb);
+	watch_txid(channel, ld->topology,
+		   &channel->funding.txid, funding_depth_cb, channel);
 	watch_txo(channel, ld->topology, channel,
 		  &channel->funding,
 		  funding_spent);
@@ -2121,9 +2119,8 @@ void channel_watch_inflight(struct lightningd *ld,
 				   struct channel *channel,
 				   struct channel_inflight *inflight)
 {
-	/* FIXME: Remove arg from cb? */
-	watch_txid(channel, ld->topology, channel,
-		   &inflight->funding->outpoint.txid, funding_depth_cb);
+	watch_txid(channel, ld->topology,
+		   &inflight->funding->outpoint.txid, funding_depth_cb, channel);
 	watch_txo(channel, ld->topology, channel,
 		  &inflight->funding->outpoint,
 		  funding_spent);
