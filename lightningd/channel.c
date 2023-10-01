@@ -234,6 +234,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
+	channel->funding_spend_watch = NULL;
 	/* FIXME: remove push when v1 deprecated */
 	channel->push = AMOUNT_MSAT(0);
 	channel->closing_fee_negotiation_step = 50;
@@ -465,6 +466,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_htlc_id = next_htlc_id;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
+	channel->funding_spend_watch = NULL;
 	channel->push = push;
 	channel->our_funds = our_funds;
 	channel->remote_channel_ready = remote_channel_ready;
