@@ -196,7 +196,8 @@
                     "FUNDING_SPEND_SEEN",
                     "ONCHAIN",
                     "DUALOPEND_OPEN_INIT",
-                    "DUALOPEND_AWAITING_LOCKIN"
+                    "DUALOPEND_AWAITING_LOCKIN",
+                    "DUALOPEND_OPEN_COMMITTED"
                   ],
                   "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
                 },
@@ -493,7 +494,8 @@
                           "FUNDING_SPEND_SEEN",
                           "ONCHAIN",
                           "DUALOPEND_OPEN_INIT",
-                          "DUALOPEND_AWAITING_LOCKIN"
+                          "DUALOPEND_AWAITING_LOCKIN",
+                          "DUALOPEND_OPEN_COMMITTED"
                         ],
                         "description": "Previous state"
                       },
@@ -510,7 +512,8 @@
                           "FUNDING_SPEND_SEEN",
                           "ONCHAIN",
                           "DUALOPEND_OPEN_INIT",
-                          "DUALOPEND_AWAITING_LOCKIN"
+                          "DUALOPEND_AWAITING_LOCKIN",
+                          "DUALOPEND_OPEN_COMMITTED"
                         ],
                         "description": "New state"
                       },

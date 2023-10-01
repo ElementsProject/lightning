@@ -42,7 +42,8 @@
               "ONCHAIN",
               "DUALOPEND_OPEN_INIT",
               "DUALOPEND_AWAITING_LOCKIN",
-              "CHANNELD_AWAITING_SPLICE"
+              "CHANNELD_AWAITING_SPLICE",
+              "DUALOPEND_OPEN_COMMITTED"
             ],
             "description": "the channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
           },
@@ -379,6 +380,7 @@
                     "ONCHAIN",
                     "DUALOPEND_OPEN_INIT",
                     "DUALOPEND_AWAITING_LOCKIN",
+                    "DUALOPEND_OPEN_COMMITTED",
                     "CHANNELD_AWAITING_SPLICE"
                   ],
                   "description": "Previous state"
@@ -397,6 +399,7 @@
                     "ONCHAIN",
                     "DUALOPEND_OPEN_INIT",
                     "DUALOPEND_AWAITING_LOCKIN",
+                    "DUALOPEND_OPEN_COMMITTED",
                     "CHANNELD_AWAITING_SPLICE"
                   ],
                   "description": "New state"
