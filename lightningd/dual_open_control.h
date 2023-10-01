@@ -14,10 +14,9 @@ bool peer_restart_dualopend(struct peer *peer,
 			    struct channel *channel,
 			    bool from_abort);
 
-void dualopen_tell_depth(struct subd *dualopend,
-			 struct channel *channel,
-			 const struct bitcoin_txid *txid,
-			 u32 depth);
+void dualopend_tell_depth(struct channel *channel,
+			  const struct bitcoin_txid *txid,
+			  u32 depth);
 
 /* Close connection to an unsaved channel */
 void channel_unsaved_close_conn(struct channel *channel, const char *why);

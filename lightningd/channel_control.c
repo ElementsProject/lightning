@@ -1599,7 +1599,7 @@ bool channel_tell_depth(struct lightningd *ld,
 	case DUALOPEND_AWAITING_LOCKIN:
 		log_debug(channel->log,
 			  "Funding tx %s confirmed, telling peer", txidstr);
-		dualopen_tell_depth(channel->owner, channel,
+		dualopend_tell_depth(channel,
 				    txid, depth);
 		/* We're done, don't track depth any more. */
 		return true;

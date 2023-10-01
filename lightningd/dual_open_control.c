@@ -1824,16 +1824,23 @@ static void handle_channel_locked(struct subd *dualopend,
 	return;
 }
 
-
-
-void dualopen_tell_depth(struct subd *dualopend,
-			 struct channel *channel,
-			 const struct bitcoin_txid *txid,
-			 u32 depth)
+void dualopend_tell_depth(struct channel *channel,
+			  const struct bitcoin_txid *txid,
+			  u32 depth)
 {
 	const u8 *msg;
 	u32 to_go;
 
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Funding tx %s confirmed, but peer disconnected",
+			  type_to_string(tmpctx, struct bitcoin_txid, txid));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Funding tx %s confirmed, telling peer",
+		  type_to_string(tmpctx, struct bitcoin_txid, txid));
 	if (depth < channel->minimum_depth) {
 		to_go = channel->minimum_depth - depth;
 	} else
@@ -1851,7 +1858,7 @@ void dualopen_tell_depth(struct subd *dualopend,
 					      to_go));
 
 		msg = towire_dualopend_depth_reached(NULL, depth);
-		subd_send_msg(dualopend, take(msg));
+		subd_send_msg(channel->owner, take(msg));
 	} else
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding needs %d more"
