@@ -606,12 +606,14 @@ bool channel_state_closish(enum channel_state channel_state)
 	return channel_state > CHANNELD_NORMAL && channel_state <= CLOSED;
 }
 
-struct channel *peer_any_active_channel(struct peer *peer, bool *others)
+struct channel *peer_any_channel(struct peer *peer,
+				 bool (*channel_state_filter)(const struct channel *),
+				 bool *others)
 {
 	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (!channel_active(channel))
+		if (channel_state_filter && !channel_state_filter(channel))
 			continue;
 		/* Already found one? */
 		if (ret) {
