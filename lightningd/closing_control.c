@@ -620,7 +620,7 @@ static struct command_result *param_channel_or_peer(struct command *cmd,
 	if ((*sc)->uc)
 		return NULL;
 
-	(*sc)->unsaved_channel = peer_any_channel(peer, channel_unsaved, &more_than_one);
+	(*sc)->unsaved_channel = peer_any_channel(peer, channel_state_uncommitted, &more_than_one);
 	if ((*sc)->unsaved_channel) {
 		if (more_than_one)
 			goto more_than_one;

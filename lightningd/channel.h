@@ -551,16 +551,32 @@ static inline bool channel_state_closed(enum channel_state state)
 	abort();
 }
 
-static inline bool channel_unsaved(const struct channel *channel)
+/* Not even int the database yet? */
+static inline bool channel_state_uncommitted(const struct channel *channel)
 {
-	return channel->state == DUALOPEND_OPEN_INIT
-		&& channel->dbid == 0;
+	switch (channel->state) {
+ 	case DUALOPEND_OPEN_INIT:
+		return channel->dbid == 0;
+	case CHANNELD_AWAITING_LOCKIN:
+ 	case DUALOPEND_AWAITING_LOCKIN:
+ 	case CHANNELD_NORMAL:
+ 	case CHANNELD_AWAITING_SPLICE:
+ 	case CLOSINGD_SIGEXCHANGE:
+ 	case CHANNELD_SHUTTING_DOWN:
+ 	case CLOSINGD_COMPLETE:
+ 	case AWAITING_UNILATERAL:
+ 	case FUNDING_SPEND_SEEN:
+ 	case ONCHAIN:
+ 	case CLOSED:
+		return false;
+	}
+	abort();
 }
 
 /* Established enough, that we could reach out to peer to discuss */
 static inline bool channel_wants_peercomms(const struct channel *channel)
 {
-	if (channel_unsaved(channel))
+	if (channel_state_uncommitted(channel))
 		return false;
 
 	switch (channel->state) {
@@ -585,7 +601,7 @@ static inline bool channel_wants_peercomms(const struct channel *channel)
 /* Established enough, that we have to fail onto chain */
 static inline bool channel_wants_onchain_fail(const struct channel *channel)
 {
-	if (channel_unsaved(channel))
+	if (channel_state_uncommitted(channel))
 		return false;
 
 	switch (channel->state) {

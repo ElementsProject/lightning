@@ -1585,7 +1585,7 @@ void channel_notify_new_block(struct lightningd *ld,
 	     peer;
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&peer->channels, channel, list) {
-			if (channel_unsaved(channel))
+			if (channel_state_uncommitted(channel))
 				continue;
 			if (is_fundee_should_forget(ld, channel, block_height)) {
 				tal_arr_expand(&to_forget, channel);

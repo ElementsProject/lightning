@@ -179,7 +179,7 @@ static void peer_channels_cleanup(struct lightningd *ld,
 		if (channel_wants_peercomms(c)) {
 			channel_cleanup_commands(c, "Disconnected");
 			channel_fail_transient(c, true, "Disconnected");
-		} else if (channel_unsaved(c)) {
+		} else if (channel_state_uncommitted(c)) {
 			channel_unsaved_close_conn(c, "Disconnected");
 		}
 	}
@@ -397,7 +397,7 @@ void channel_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
-	if (channel_unsaved(channel)) {
+	if (channel_state_uncommitted(channel)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
 		delete_channel(channel);
@@ -2162,7 +2162,7 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
 
 		list_for_each(&p->channels, channel, list) {
-			if (channel_unsaved(channel))
+			if (channel_state_uncommitted(channel))
 				json_add_unsaved_channel(response, channel, NULL);
 			else
 				json_add_channel(ld, response, NULL, channel, NULL);
@@ -2281,7 +2281,7 @@ static void json_add_peerchannels(struct lightningd *ld,
 
 	json_add_uncommitted_channel(response, peer->uncommitted_channel, peer);
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_unsaved(channel))
+		if (channel_state_uncommitted(channel))
 			json_add_unsaved_channel(response, channel, peer);
 		else
 			json_add_channel(ld, response, NULL, channel, peer);
@@ -2379,7 +2379,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 	bool connect = false;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_unsaved(channel))
+		if (channel_state_uncommitted(channel))
 			continue;
 		/* Watching lockin may be unnecessary, but it's harmless. */
 		channel_watch_funding(ld, channel);
@@ -3300,7 +3300,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 				    "or `dev-fail` instead.");
 	}
 
-	if (!channel_unsaved(forget->channel))
+	if (!channel_state_uncommitted(forget->channel))
 		bitcoind_getutxout(cmd->ld->topology->bitcoind,
 				   &forget->channel->funding,
 				   process_dev_forget_channel, forget);
