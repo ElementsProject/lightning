@@ -562,9 +562,9 @@ struct some_channel {
 	struct uncommitted_channel *uc;
 };
 
-static bool channel_state_can_close(const struct channel *channel)
+static bool channel_state_can_close(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
 	case CHANNELD_NORMAL:
 	case CHANNELD_AWAITING_SPLICE:
 	case CHANNELD_AWAITING_LOCKIN:
@@ -609,7 +609,7 @@ static struct command_result *param_channel_or_peer(struct command *cmd,
 		if (res)
 			return res;
 		assert((*sc)->channel);
-		if (!channel_state_can_close((*sc)->channel))
+		if (!channel_state_can_close((*sc)->channel->state))
 			return command_fail_badparam(cmd, name, buffer, tok,
 						     tal_fmt(tmpctx, "Channel in state %s",
 							     channel_state_name((*sc)->channel)));

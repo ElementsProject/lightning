@@ -170,7 +170,7 @@ static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 		return;
 
 	/* onchaind doesn't care, it can't do anything but wait */
-	if (!channel_can_remove_htlc(hin->key.channel))
+	if (!channel_state_can_remove_htlc(hin->key.channel->state))
 		return;
 
 	subd_send_msg(hin->key.channel->owner,
@@ -584,7 +584,7 @@ static void htlc_offer_timeout(struct htlc_out *out)
 	assert(out->hstate == SENT_ADD_HTLC);
 
 	/* If owner died, we should already be taken care of. */
-	if (!channel->owner || !channel_can_add_htlc(channel))
+	if (!channel->owner || !channel_state_can_add_htlc(channel->state))
 		return;
 
 	log_unusual(channel->owner->log,
@@ -611,7 +611,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 
 	*houtp = NULL;
 
-	if (!channel_can_add_htlc(out)) {
+	if (!channel_state_can_add_htlc(out->state)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
 			 channel_state_name(out));
 		return towire_unknown_next_peer(ctx);
@@ -667,7 +667,7 @@ static struct channel *best_channel(struct lightningd *ld,
 	/* Seek channel with largest spendable! */
 	list_for_each(&next_peer->channels, channel, list) {
 		struct amount_msat spendable;
-		if (!channel_can_add_htlc(channel))
+		if (!channel_state_can_add_htlc(channel->state))
 			continue;
 		spendable = channel_amount_spendable(channel);
 		if (!amount_msat_greater(spendable, best_spendable))
@@ -716,7 +716,7 @@ static void forward_htlc(struct htlc_in *hin,
 		next = NULL;
 
 	/* Unknown peer, or peer not ready. */
-	if (!next || !channel_can_add_htlc(next)) {
+	if (!next || !channel_state_can_add_htlc(next->state)) {
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, FORWARD_STYLE_TLV,
@@ -1339,7 +1339,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 *
 	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
 	 */
-	if (!channel_can_add_htlc(channel)) {
+	if (!channel_state_can_add_htlc(channel->state)) {
 		*failmsg = towire_permanent_channel_failure(ctx);
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
@@ -2782,7 +2782,7 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Channel dying already? */
-			if (!channel_can_add_htlc(hout->key.channel)) {
+			if (!channel_state_can_add_htlc(hout->key.channel->state)) {
 				consider_failing_incoming(ld, height, hout);
 				continue;
 			}

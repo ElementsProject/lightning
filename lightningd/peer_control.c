@@ -176,10 +176,10 @@ static void peer_channels_cleanup(struct lightningd *ld,
 
 	for (size_t i = 0; i < tal_count(channels); i++) {
 		c = channels[i];
-		if (channel_wants_peercomms(c)) {
+		if (channel_state_wants_peercomms(c->state)) {
 			channel_cleanup_commands(c, "Disconnected");
 			channel_fail_transient(c, true, "Disconnected");
-		} else if (channel_state_uncommitted(c)) {
+		} else if (channel_state_uncommitted(c->state)) {
 			channel_unsaved_close_conn(c, "Disconnected");
 		}
 	}
@@ -398,7 +398,7 @@ void channel_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
-	if (channel_state_uncommitted(channel)) {
+	if (channel_state_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
 		delete_channel(channel);
@@ -1298,7 +1298,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	/* connect appropriate subds for all (active) channels! */
 	list_for_each(&peer->channels, channel, list) {
 		/* FIXME: It can race by opening a channel before this! */
-		if (channel_wants_peercomms(channel) && !channel->owner) {
+		if (channel_state_wants_peercomms(channel->state) && !channel->owner) {
 			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
@@ -1548,7 +1548,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 
 		/* If channel is active, we raced, so ignore this:
 		 * subd will get it soon. */
-		if (channel_wants_peercomms(channel)) {
+		if (channel_state_wants_peercomms(channel->state)) {
 			log_debug(channel->log,
 				  "channel already active");
 			if (!channel->owner &&
@@ -2167,7 +2167,7 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
 
 		list_for_each(&p->channels, channel, list) {
-			if (channel_state_uncommitted(channel))
+			if (channel_state_uncommitted(channel->state))
 				json_add_unsaved_channel(response, channel, NULL);
 			else
 				json_add_channel(ld, response, NULL, channel, NULL);
@@ -2286,7 +2286,7 @@ static void json_add_peerchannels(struct lightningd *ld,
 
 	json_add_uncommitted_channel(response, peer->uncommitted_channel, peer);
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_uncommitted(channel))
+		if (channel_state_uncommitted(channel->state))
 			json_add_unsaved_channel(response, channel, peer);
 		else
 			json_add_channel(ld, response, NULL, channel, peer);
@@ -2356,7 +2356,7 @@ command_find_channel(struct command *cmd,
 		     peer;
 		     peer = peer_node_id_map_next(ld->peers, &it)) {
 			list_for_each(&peer->channels, (*channel), list) {
-				if (!channel_wants_peercomms(*channel))
+				if (!channel_state_wants_peercomms((*channel)->state))
 					continue;
 				if (channel_id_eq(&(*channel)->cid, &cid))
 					return NULL;
@@ -2384,7 +2384,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 	bool connect = false;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_uncommitted(channel))
+		if (channel_state_uncommitted(channel->state))
 			continue;
 		/* Watching lockin may be unnecessary, but it's harmless. */
 		channel_watch_funding(ld, channel);
@@ -2399,7 +2399,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 
 			channel_watch_inflight(ld, channel, inflight);
 		}
-		if (channel_wants_peercomms(channel))
+		if (channel_state_wants_peercomms(channel->state))
 			connect = true;
 	}
 
@@ -2521,7 +2521,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 
-	channel = peer_any_channel(peer, channel_wants_peercomms, NULL);
+	channel = peer_any_channel(peer, channel_state_wants_peercomms, NULL);
 	if (channel && !*force) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has (at least one) channel in state %s",
@@ -3077,7 +3077,7 @@ static struct command_result *param_dev_channel(struct command *cmd,
 	if (res)
 		return res;
 
-	*channel = peer_any_channel(peer, channel_wants_peercomms, &more_than_one);
+	*channel = peer_any_channel(peer, channel_state_wants_peercomms, &more_than_one);
 	if (!*channel)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "No channel with that peer");
@@ -3307,7 +3307,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 				    "or `dev-fail` instead.");
 	}
 
-	if (!channel_state_uncommitted(forget->channel))
+	if (!channel_state_uncommitted(forget->channel->state))
 		bitcoind_getutxout(cmd->ld->topology->bitcoind,
 				   &forget->channel->funding,
 				   process_dev_forget_channel, forget);

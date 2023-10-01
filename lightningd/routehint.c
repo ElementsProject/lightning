@@ -126,7 +126,7 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
-		if (!channel_can_add_htlc(candidate.c)) {
+		if (!channel_state_can_add_htlc(candidate.c->state)) {
 			log_debug(ld->log, "%s: abnormal channel",
 				  type_to_string(tmpctx,
 						 struct short_channel_id,

@@ -815,7 +815,7 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 { fprintf(stderr, "param_u64 called!\n"); abort(); }
 /* Generated stub for peer_any_channel */
 struct channel *peer_any_channel(struct peer *peer UNNEEDED,
-				 bool (*channel_state_filter)(const struct channel *) UNNEEDED,
+				 bool (*channel_state_filter)(enum channel_state) UNNEEDED,
 				 bool *others UNNEEDED)
 { fprintf(stderr, "peer_any_channel called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */

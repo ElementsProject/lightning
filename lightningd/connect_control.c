@@ -355,7 +355,7 @@ static void try_connect(const tal_t *ctx,
 	if (peer) {
 		struct channel *channel;
 		list_for_each(&peer->channels, channel, list) {
-			if (!channel_wants_peercomms(channel))
+			if (!channel_state_wants_peercomms(channel->state))
 				continue;
 			channel_set_billboard(channel, false,
 					      tal_fmt(tmpctx,
@@ -425,7 +425,7 @@ static void connect_failed(struct lightningd *ld,
 
 	/* If we have an active channel, then reconnect. */
 	peer = peer_by_id(ld, id);
-	if (peer && peer_any_channel(peer, channel_wants_peercomms, NULL)) {
+	if (peer && peer_any_channel(peer, channel_state_wants_peercomms, NULL)) {
 		try_reconnect(peer, peer, addrhint);
 	} else
 		log_peer_debug(ld->log, id, "Not reconnecting: %s",

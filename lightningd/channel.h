@@ -403,9 +403,9 @@ const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
 
 /* Can this channel send an HTLC? */
-static inline bool channel_can_add_htlc(const struct channel *channel)
+static inline bool channel_state_can_add_htlc(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case CHANNELD_SHUTTING_DOWN:
 	case CLOSINGD_SIGEXCHANGE:
@@ -426,9 +426,9 @@ static inline bool channel_can_add_htlc(const struct channel *channel)
 }
 
 /* Can this channel remove an HTLC? */
-static inline bool channel_can_remove_htlc(const struct channel *channel)
+static inline bool channel_state_can_remove_htlc(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case CLOSINGD_SIGEXCHANGE:
 	case CLOSINGD_COMPLETE:
@@ -559,9 +559,9 @@ static inline bool channel_state_closed(enum channel_state state)
 }
 
 /* Not even int the database yet? */
-static inline bool channel_state_uncommitted(const struct channel *channel)
+static inline bool channel_state_uncommitted(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
  	case DUALOPEND_OPEN_INIT:
 		return true;
 	case DUALOPEND_OPEN_COMMITTED:
@@ -582,9 +582,9 @@ static inline bool channel_state_uncommitted(const struct channel *channel)
 }
 
 /* Established enough, that we could reach out to peer to discuss */
-static inline bool channel_wants_peercomms(const struct channel *channel)
+static inline bool channel_state_wants_peercomms(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_COMMITTED:
@@ -605,9 +605,9 @@ static inline bool channel_wants_peercomms(const struct channel *channel)
 }
 
 /* Established enough, that we have to fail onto chain */
-static inline bool channel_wants_onchain_fail(const struct channel *channel)
+static inline bool channel_state_wants_onchain_fail(enum channel_state state)
 {
-	switch (channel->state) {
+	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
@@ -659,7 +659,7 @@ const char *channel_change_state_reason_str(enum state_change reason);
 /* Find a channel which is passes filter, if any: sets *others if there
  * is more than one. */
 struct channel *peer_any_channel(struct peer *peer,
-				 bool (*channel_state_filter)(const struct channel *),
+				 bool (*channel_state_filter)(enum channel_state),
 				 bool *others);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
