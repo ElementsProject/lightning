@@ -303,7 +303,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	channel_set_billboard(channel, false, NULL);
 
 	/* Retransmission only, ignore closing. */
-	if (channel_closed(channel))
+	if (channel->state != CLOSINGD_SIGEXCHANGE)
 		return;
 
 	/* Channel gets dropped to chain cooperatively. */
@@ -896,7 +896,13 @@ static struct command_result *json_close(struct command *cmd,
 			break;
 		case CLOSINGD_SIGEXCHANGE:
 			break;
-		default:
+
+		case DUALOPEND_OPEN_INIT:
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
 			return command_fail(cmd, LIGHTNINGD, "Channel is in state %s",
 					    channel_state_name(channel));
 	}

@@ -589,23 +589,6 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
-bool channel_state_normalish(const struct channel *channel)
-{
-	return channel->state == CHANNELD_NORMAL
-		|| channel->state == CHANNELD_AWAITING_SPLICE;
-}
-
-bool channel_state_awaitish(const struct channel *channel)
-{
-	return channel->state == CHANNELD_AWAITING_LOCKIN
-		|| channel->state == CHANNELD_AWAITING_SPLICE;
-}
-
-bool channel_state_closish(enum channel_state channel_state)
-{
-	return channel_state > CHANNELD_NORMAL && channel_state <= CLOSED;
-}
-
 struct channel *peer_any_channel(struct peer *peer,
 				 bool (*channel_state_filter)(const struct channel *),
 				 bool *others)
@@ -821,7 +804,7 @@ void channel_set_state(struct channel *channel,
 	struct timeabs timestamp;
 
 	/* set closer, if known */
-	if (channel_state_closish(state) && channel->closer == NUM_SIDES) {
+	if (channel_state_closing(state) && channel->closer == NUM_SIDES) {
 		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
 		if (reason == REASON_USER)    channel->closer = LOCAL;
 		if (reason == REASON_REMOTE)  channel->closer = REMOTE;
@@ -910,7 +893,7 @@ void channel_fail_permanent(struct channel *channel,
 	/* Drop non-cooperatively (unilateral) to chain. */
 	drop_to_chain(ld, channel, false);
 
-	if (channel_active(channel))
+	if (channel_wants_onchain_fail(channel))
 		channel_set_state(channel,
 				  channel->state,
 				  AWAITING_UNILATERAL,

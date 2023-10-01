@@ -176,7 +176,7 @@ static void peer_channels_cleanup(struct lightningd *ld,
 
 	for (size_t i = 0; i < tal_count(channels); i++) {
 		c = channels[i];
-		if (channel_active(c)) {
+		if (channel_wants_peercomms(c)) {
 			channel_cleanup_commands(c, "Disconnected");
 			channel_fail_transient(c, true, "Disconnected");
 		} else if (channel_unsaved(c)) {
@@ -363,10 +363,26 @@ void resend_closing_transactions(struct lightningd *ld)
 	     peer;
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&peer->channels, channel, list) {
-			if (channel->state == CLOSINGD_COMPLETE)
+			switch (channel->state) {
+			case CHANNELD_AWAITING_LOCKIN:
+			case CHANNELD_NORMAL:
+			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_AWAITING_LOCKIN:
+			case CHANNELD_AWAITING_SPLICE:
+			case CHANNELD_SHUTTING_DOWN:
+			case CLOSINGD_SIGEXCHANGE:
+			case FUNDING_SPEND_SEEN:
+			case ONCHAIN:
+			case CLOSED:
+				continue;
+			case CLOSINGD_COMPLETE:
 				drop_to_chain(ld, channel, true);
-			else if (channel->state == AWAITING_UNILATERAL)
+				continue;
+			case AWAITING_UNILATERAL:
 				drop_to_chain(ld, channel, false);
+				continue;
+			}
+			abort();
 		}
 	}
 }
@@ -1280,7 +1296,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	/* connect appropriate subds for all (active) channels! */
 	list_for_each(&peer->channels, channel, list) {
 		/* FIXME: It can race by opening a channel before this! */
-		if (channel_active(channel) && !channel->owner) {
+		if (channel_wants_peercomms(channel) && !channel->owner) {
 			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
@@ -1530,7 +1546,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 
 		/* If channel is active, we raced, so ignore this:
 		 * subd will get it soon. */
-		if (channel_active(channel)) {
+		if (channel_wants_peercomms(channel)) {
 			log_debug(channel->log,
 				  "channel already active");
 			if (!channel->owner &&
@@ -2335,7 +2351,7 @@ command_find_channel(struct command *cmd,
 		     peer;
 		     peer = peer_node_id_map_next(ld->peers, &it)) {
 			list_for_each(&peer->channels, (*channel), list) {
-				if (!channel_active(*channel))
+				if (!channel_wants_peercomms(*channel))
 					continue;
 				if (channel_id_eq(&(*channel)->cid, &cid))
 					return NULL;
@@ -2378,7 +2394,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 
 			channel_watch_inflight(ld, channel, inflight);
 		}
-		if (channel_active(channel))
+		if (channel_wants_peercomms(channel))
 			connect = true;
 	}
 
@@ -2557,15 +2573,27 @@ static struct command_result *json_getinfo(struct command *cmd,
 		num_peers++;
 
 		list_for_each(&peer->channels, channel, list) {
-			if (channel->state == CHANNELD_AWAITING_LOCKIN
-					|| channel->state == DUALOPEND_AWAITING_LOCKIN
-					|| channel->state == DUALOPEND_OPEN_INIT) {
+			switch (channel->state) {
+			case CHANNELD_AWAITING_LOCKIN:
+			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_AWAITING_LOCKIN:
 				pending_channels++;
-			} else if (channel_active(channel)) {
+				continue;
+			case CHANNELD_AWAITING_SPLICE:
+			case CHANNELD_SHUTTING_DOWN:
+			case CHANNELD_NORMAL:
+			case CLOSINGD_SIGEXCHANGE:
 				active_channels++;
-			} else {
+				continue;
+			case CLOSINGD_COMPLETE:
+			case AWAITING_UNILATERAL:
+			case FUNDING_SPEND_SEEN:
+			case ONCHAIN:
+			case CLOSED:
 				inactive_channels++;
+				continue;
 			}
+			abort();
 		}
 	}
 	json_add_num(response, "num_peers", num_peers);
@@ -2992,9 +3020,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 			struct channel *channel;
 			list_for_each(&peer->channels, channel, list) {
-				if (channel->state != CHANNELD_NORMAL &&
-				    channel->state != CHANNELD_AWAITING_LOCKIN &&
-				    channel->state != DUALOPEND_AWAITING_LOCKIN)
+				if (!channel_state_can_setchannel(channel->state))
 					continue;
 				set_channel_config(cmd, channel, base, ppm,
 						   htlc_min, htlc_max,

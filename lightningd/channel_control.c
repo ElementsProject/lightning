@@ -77,7 +77,7 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 {
 	/* No point until funding locked in */
-	if (!channel_fees_can_change(channel))
+	if (!channel_state_fees_can_change(channel->state))
 		return;
 
 	/* Can't if no daemon listening. */
@@ -130,7 +130,7 @@ static void try_update_blockheight(struct lightningd *ld,
 	}
 
 	/* If we're not opened/locked in yet, don't send update */
-	if (!channel_fees_can_change(channel))
+	if (!channel_state_fees_can_change(channel->state))
 		return;
 
 	/* We don't update the blockheight for non-leased chans */
@@ -1006,8 +1006,7 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	peer_start_closingd(channel, peer_fd);
 
 	/* We might have reconnected, so already be here. */
-	if (!channel_closed(channel)
-	    && channel->state != CLOSINGD_SIGEXCHANGE)
+	if (channel->state == CHANNELD_SHUTTING_DOWN)
 		channel_set_state(channel,
 				  CHANNELD_SHUTTING_DOWN,
 				  CLOSINGD_SIGEXCHANGE,
@@ -1455,9 +1454,7 @@ bool peer_start_channeld(struct channel *channel,
 				       reconnected,
 				       /* Anything that indicates we are or have
 					* shut down */
-				       channel->state == CHANNELD_SHUTTING_DOWN
-				       || channel->state == CLOSINGD_SIGEXCHANGE
-				       || channel_closed(channel),
+				       channel_state_closing(channel->state),
 				       channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				       channel->final_key_idx,
 				       &final_ext_key,
@@ -2013,8 +2010,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	if (!peer)
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
-	channel = peer_any_channel(peer, NULL, &more_than_one);
-	if (!channel || !channel->owner || !channel_state_normalish(channel))
+	channel = peer_any_channel(peer, channel_can_add_htlc, &more_than_one);
+	if (!channel || !channel->owner)
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)
@@ -2074,8 +2071,8 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
 	/* FIXME: If this becomes a real API, check for OPT_QUIESCE! */
-	channel = peer_any_channel(peer, NULL, &more_than_one);
-	if (!channel || !channel->owner || !channel_state_normalish(channel))
+	channel = peer_any_channel(peer, channel_wants_peercomms, &more_than_one);
+	if (!channel || !channel->owner)
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)

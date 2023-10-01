@@ -82,9 +82,24 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 
 static bool report_chan_balance(const struct channel *chan)
 {
-	return (channel_active(chan)
-	       || chan->state == AWAITING_UNILATERAL)
-	       && !channel_pre_open(chan);
+	switch (chan->state) {
+	case CHANNELD_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case ONCHAIN:
+	case CLOSED:
+		return false;
+
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case FUNDING_SPEND_SEEN:
+		return true;
+	}
+	abort();
 }
 
 void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
