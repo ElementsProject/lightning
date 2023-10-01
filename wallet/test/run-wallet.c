@@ -139,6 +139,10 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
 				     const u8 *failure_msg UNNEEDED)
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
+/* Generated stub for depthcb_update_scid */
+bool depthcb_update_scid(struct channel *channel UNNEEDED,
+			 const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for derive_channel_id */
 void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 		       const struct bitcoin_outpoint *outpoint UNNEEDED)
@@ -442,9 +446,6 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)
 { fprintf(stderr, "lockin_complete called!\n"); abort(); }
-/* Generated stub for lockin_has_completed */
-void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
-{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
@@ -898,6 +899,14 @@ const char *wait_index_name(enum wait_index index UNNEEDED)
 /* Generated stub for wait_subsystem_name */
 const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
 { fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
+/* Generated stub for watch_opening_inflight */
+void watch_opening_inflight(struct lightningd *ld UNNEEDED,
+			    struct channel_inflight *inflight UNNEEDED)
+{ fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_splice_inflight */
+void watch_splice_inflight(struct lightningd *ld UNNEEDED,
+			   struct channel_inflight *inflight UNNEEDED)
+{ fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
 /* Generated stub for watch_txid_ */
 struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,

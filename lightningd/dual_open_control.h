@@ -18,6 +18,9 @@ void dualopend_tell_depth(struct channel *channel,
 			  const struct bitcoin_txid *txid,
 			  u32 depth);
 
+void watch_opening_inflight(struct lightningd *ld,
+			    struct channel_inflight *inflight);
+
 /* Close connection to an unsaved channel */
 void channel_unsaved_close_conn(struct channel *channel, const char *why);
 

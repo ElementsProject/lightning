@@ -953,6 +953,68 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 	return true;
 }
 
+static enum watch_result opening_depth_cb(struct lightningd *ld,
+					  const struct bitcoin_txid *txid,
+					  const struct bitcoin_tx *tx,
+					  unsigned int depth,
+					  struct channel_inflight *inflight)
+{
+	struct txlocator *loc;
+	struct short_channel_id scid;
+
+	/* Usually, we're here because we're awaiting a lockin, but
+	 * we could also mutual shutdown */
+	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
+		return DELETE_WATCH;
+
+	/* Reorged out?  OK, we're not committed yet. */
+	if (depth == 0)
+		return KEEP_WATCHING;
+
+	/* FIXME: Don't do this until we're actually locked in! */
+	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
+	if (!mk_short_channel_id(&scid,
+				 loc->blkheight, loc->index,
+				 inflight->funding->outpoint.n)) {
+		channel_fail_permanent(inflight->channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       inflight->funding->outpoint.n);
+		return DELETE_WATCH;
+	}
+
+	if (!inflight->channel->scid) {
+		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
+				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
+		inflight->channel->scid = tal_dup(inflight->channel, struct short_channel_id, &scid);
+		wallet_channel_save(ld->wallet, inflight->channel);
+	} else if (!short_channel_id_eq(inflight->channel->scid, &scid)) {
+		/* We freaked out if required when original was
+		 * removed, so just update now */
+		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
+			 type_to_string(tmpctx, struct short_channel_id, inflight->channel->scid),
+			 type_to_string(tmpctx, struct short_channel_id, &scid));
+		*inflight->channel->scid = scid;
+		wallet_channel_save(ld->wallet, inflight->channel);
+	}
+
+	dualopend_tell_depth(inflight->channel, txid, depth);
+
+	if (depth >= inflight->channel->minimum_depth)
+		update_channel_from_inflight(ld, inflight->channel, inflight);
+
+	return KEEP_WATCHING;
+}
+
+void watch_opening_inflight(struct lightningd *ld,
+			    struct channel_inflight *inflight)
+{
+	watch_txid(inflight, ld->topology,
+		   &inflight->funding->outpoint.txid,
+		   opening_depth_cb, inflight);
+}
+
 static void
 openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 {
@@ -1007,7 +1069,7 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 					   cast_const(struct wally_psbt *,
 						      payload->psbt));
 	wallet_inflight_save(payload->ld->wallet, inflight);
-	channel_watch_funding(payload->ld, channel);
+	watch_opening_inflight(payload->ld, inflight);
 	msg = towire_dualopend_send_tx_sigs(NULL, inflight->funding_psbt);
 
 send_msg:
@@ -1835,6 +1897,9 @@ static void handle_channel_locked(struct subd *dualopend,
 	/* Empty out the inflights */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
 
+	/* That freed watchers in inflights: now watch funding tx */
+	channel_watch_funding(dualopend->ld, channel);
+
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, peer_fd, NULL, false, NULL);
 	return;
@@ -2611,8 +2676,7 @@ json_openchannel_signed(struct command *cmd,
 
 	/* Update the PSBT on disk */
 	wallet_inflight_save(cmd->ld->wallet, inflight);
-	/* Uses the channel->funding_txid, which we verified above */
-	channel_watch_funding(cmd->ld, channel);
+	watch_opening_inflight(cmd->ld, inflight);
 
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,

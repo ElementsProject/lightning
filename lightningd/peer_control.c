@@ -350,7 +350,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 		resolve_close_command(ld, channel, cooperative, tx);
 	}
-
 }
 
 void resend_closing_transactions(struct lightningd *ld)
@@ -1883,9 +1882,6 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 					  unsigned int depth,
 					  struct channel *channel)
 {
-	struct short_channel_id scid;
-	struct txlocator *loc;
-
 	/* This is stub channel, we don't activate anything! */
 	if (is_stub_scid(channel->scid))
 		return DELETE_WATCH;
@@ -1954,43 +1950,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 	}
 
-	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 channel->funding.n)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       channel->funding.n);
+	if (!depthcb_update_scid(channel, txid))
 		return DELETE_WATCH;
-	}
-
-	if (!channel->scid) {
-		wallet_annotate_txout(ld->wallet, &channel->funding,
-				      TX_CHANNEL_FUNDING, channel->dbid);
-		channel->scid = tal_dup(channel, struct short_channel_id, &scid);
-
-		/* If we have a zeroconf channel, i.e., no scid yet
-		 * but have exchange `channel_ready` messages, then we
-		 * need to fire a second time, in order to trigger the
-		 * `coin_movement` event. This is a subset of the
-		 * `lockin_complete` function called from
-		 * AWAITING_LOCKIN->NORMAL otherwise. */
-		if (channel->minimum_depth == 0)
-			lockin_has_completed(channel, false);
-
-		wallet_channel_save(ld->wallet, channel);
-	} else if (!short_channel_id_eq(channel->scid, &scid)) {
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(channel->log, "Short channel id changed from %s->%s",
-			 type_to_string(tmpctx, struct short_channel_id, channel->scid),
-			 type_to_string(tmpctx, struct short_channel_id, &scid));
-		*channel->scid = scid;
-		wallet_channel_save(ld->wallet, channel);
-	}
 
 	/* Always tell owner about depth change */
 	subd_tell_depth(channel, txid, depth);
@@ -2113,17 +2074,6 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 		  &channel->funding,
 		  funding_spent);
 	channel_watch_wrong_funding(ld, channel);
-}
-
-void channel_watch_inflight(struct lightningd *ld,
-				   struct channel *channel,
-				   struct channel_inflight *inflight)
-{
-	watch_txid(channel, ld->topology,
-		   &inflight->funding->outpoint.txid, funding_depth_cb, channel);
-	watch_txo(channel, ld->topology, channel,
-		  &inflight->funding->outpoint,
-		  funding_spent);
 }
 
 static void json_add_peer(struct lightningd *ld,
@@ -2381,21 +2331,39 @@ static void setup_peer(struct peer *peer, u32 delay)
 	bool connect = false;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_state_uncommitted(channel->state))
+		switch (channel->state) {
+		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_OPEN_COMMITTED:
+			/* Nothing to watch */
 			continue;
-		/* Watching lockin may be unnecessary, but it's harmless. */
-		channel_watch_funding(ld, channel);
 
-		/* Also watch any inflight txs */
-		list_for_each(&channel->inflights, inflight, list) {
-			/* Don't double watch the txid that's also in
-			 * channel->funding_txid */
-			if (bitcoin_txid_eq(&channel->funding.txid,
-					    &inflight->funding->outpoint.txid))
-				continue;
+		/* Normal cases where we watch funding */
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case CLOSINGD_SIGEXCHANGE:
+		/* We still want to watch spend, to tell onchaind: */
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
+			channel_watch_funding(ld, channel);
+			break;
 
-			channel_watch_inflight(ld, channel, inflight);
+		/* We need to watch all inflights which may open channel */
+		case DUALOPEND_AWAITING_LOCKIN:
+			list_for_each(&channel->inflights, inflight, list)
+				watch_opening_inflight(ld, inflight);
+			break;
+
+		/* We need to watch all inflights which may splice */
+		case CHANNELD_AWAITING_SPLICE:
+			list_for_each(&channel->inflights, inflight, list)
+				watch_splice_inflight(ld, inflight);
+			break;
 		}
+
 		if (channel_state_wants_peercomms(channel->state))
 			connect = true;
 	}

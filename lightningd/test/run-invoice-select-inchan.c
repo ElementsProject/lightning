@@ -198,6 +198,10 @@ void db_commit_transaction(struct db *db UNNEEDED)
 /* Generated stub for delete_channel */
 void delete_channel(struct channel *channel STEALS UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
+/* Generated stub for depthcb_update_scid */
+bool depthcb_update_scid(struct channel *channel UNNEEDED,
+			 const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
@@ -654,9 +658,6 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)
 { fprintf(stderr, "lockin_complete called!\n"); abort(); }
-/* Generated stub for lockin_has_completed */
-void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
-{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
@@ -952,11 +953,6 @@ void try_reconnect(const tal_t *ctx UNNEEDED,
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
-/* Generated stub for wallet_annotate_txout */
-void wallet_annotate_txout(struct wallet *w UNNEEDED,
-			   const struct bitcoin_outpoint *outpoint UNNEEDED,
-			   enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
-{ fprintf(stderr, "wallet_annotate_txout called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
@@ -1005,10 +1001,14 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
 			    const u32 blockheight UNNEEDED, const u32 txindex UNNEEDED)
 { fprintf(stderr, "wallet_transaction_add called!\n"); abort(); }
-/* Generated stub for wallet_transaction_locate */
-struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
-					    const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "wallet_transaction_locate called!\n"); abort(); }
+/* Generated stub for watch_opening_inflight */
+void watch_opening_inflight(struct lightningd *ld UNNEEDED,
+			    struct channel_inflight *inflight UNNEEDED)
+{ fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_splice_inflight */
+void watch_splice_inflight(struct lightningd *ld UNNEEDED,
+			   struct channel_inflight *inflight UNNEEDED)
+{ fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
 /* Generated stub for watch_txid_ */
 struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,

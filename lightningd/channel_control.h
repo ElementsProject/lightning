@@ -53,4 +53,12 @@ void lockin_complete(struct channel *channel,
 
 /* Accessor for zeroconf to tell us we've actually got an scid */
 void lockin_has_completed(struct channel *channel, bool record_push);
+
+/* Watch this incoming splice */
+void watch_splice_inflight(struct lightningd *ld,
+			   struct channel_inflight *inflight);
+
+/* Update/set scid now this txid is mined. */
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_txid *txid);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */
