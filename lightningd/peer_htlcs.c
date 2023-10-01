@@ -170,7 +170,7 @@ static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 		return;
 
 	/* onchaind doesn't care, it can't do anything but wait */
-	if (!channel_active(hin->key.channel))
+	if (!channel_can_remove_htlc(hin->key.channel))
 		return;
 
 	subd_send_msg(hin->key.channel->owner,
@@ -584,7 +584,7 @@ static void htlc_offer_timeout(struct htlc_out *out)
 	assert(out->hstate == SENT_ADD_HTLC);
 
 	/* If owner died, we should already be taken care of. */
-	if (!channel->owner || !channel_state_normalish(channel))
+	if (!channel->owner || !channel_can_add_htlc(channel))
 		return;
 
 	log_unusual(channel->owner->log,
@@ -716,7 +716,7 @@ static void forward_htlc(struct htlc_in *hin,
 		next = NULL;
 
 	/* Unknown peer, or peer not ready. */
-	if (!next || !channel_active(next)) {
+	if (!next || !channel_can_add_htlc(next)) {
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, FORWARD_STYLE_TLV,
@@ -1339,7 +1339,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 *
 	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
 	 */
-	if (channel->state == CHANNELD_SHUTTING_DOWN) {
+	if (!channel_can_add_htlc(channel)) {
 		*failmsg = towire_permanent_channel_failure(ctx);
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
@@ -2781,8 +2781,8 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 			if (height < htlc_out_deadline(hout))
 				continue;
 
-			/* Peer on chain already? */
-			if (channel_on_chain(hout->key.channel)) {
+			/* Channel dying already? */
+			if (!channel_can_add_htlc(hout->key.channel)) {
 				consider_failing_incoming(ld, height, hout);
 				continue;
 			}
@@ -2834,7 +2834,7 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer on chain already? */
-			if (channel_on_chain(channel))
+			if (channel_state_failing_onchain(channel->state))
 				continue;
 
 			/* Peer already failed, or we hit it? */

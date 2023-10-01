@@ -355,7 +355,7 @@ static void try_connect(const tal_t *ctx,
 	if (peer) {
 		struct channel *channel;
 		list_for_each(&peer->channels, channel, list) {
-			if (!channel_active(channel))
+			if (!channel_wants_peercomms(channel))
 				continue;
 			channel_set_billboard(channel, false,
 					      tal_fmt(tmpctx,
