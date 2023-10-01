@@ -168,23 +168,6 @@ bool watching_txid(const struct chain_topology *topo,
 	return txwatch_hash_get(topo->txwatches, txid) != NULL;
 }
 
-struct txwatch *watch_tx(const tal_t *ctx,
-			 struct chain_topology *topo,
-			 struct channel *channel,
-			 const struct bitcoin_tx *tx,
-			 enum watch_result (*cb)(struct lightningd *ld,
-						 struct channel *channel,
-						 const struct bitcoin_txid *,
-						 const struct bitcoin_tx *,
-						 unsigned int depth))
-{
-	struct bitcoin_txid txid;
-
-	bitcoin_txid(tx, &txid);
-	/* FIXME: Save populate txwatch->tx here, too! */
-	return watch_txid(ctx, topo, channel, &txid, cb);
-}
-
 struct txowatch *watch_txo(const tal_t *ctx,
 			   struct chain_topology *topo,
 			   struct channel *channel,

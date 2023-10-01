@@ -255,8 +255,9 @@ static void watch_tx_and_outputs(struct channel *channel,
 	bitcoin_txid(tx, &outpoint.txid);
 
 	/* Make txwatch a parent of txo watches, so we can unwatch together. */
-	txw = watch_tx(channel->owner, ld->topology, channel, tx,
-		       onchain_tx_watched);
+	txw = watch_txid(channel->owner, ld->topology, channel,
+			 &outpoint.txid,
+			 onchain_tx_watched);
 
 	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++)
 		watch_txo(txw, ld->topology, channel, &outpoint,
