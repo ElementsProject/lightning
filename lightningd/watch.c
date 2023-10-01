@@ -59,7 +59,7 @@ struct txwatch {
 	/* May be NULL if we haven't seen it yet. */
 	const struct bitcoin_tx *tx;
 
-	unsigned int depth;
+	int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
 	enum watch_result (*cb)(struct lightningd *ld,
@@ -130,7 +130,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 
 	w = tal(ctx, struct txwatch);
 	w->topo = topo;
-	w->depth = 0;
+	w->depth = -1;
 	w->txid = *txid;
 	w->tx = NULL;
 	w->cb = cb;
@@ -203,12 +203,19 @@ static bool txw_fire(struct txwatch *txw,
 	if (depth == txw->depth)
 		return false;
 
-	/* We assume zero depth signals a reorganization */
-	log_debug(txw->topo->log,
-		  "Got depth change %u->%u for %s%s",
-		  txw->depth, depth,
-		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid),
-		  depth ? "" : " REORG");
+	if (txw->depth == -1) {
+		log_debug(txw->topo->log,
+			  "Got first depth change ->%u for %s",
+			  txw->depth,
+			  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid));
+	} else {
+		/* zero depth signals a reorganization */
+		log_debug(txw->topo->log,
+			  "Got depth change %u->%u for %s%s",
+			  txw->depth, depth,
+			  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid),
+			  depth ? "" : " REORG");
+	}
 	txw->depth = depth;
 	r = txw->cb(txw->topo->bitcoind->ld, txid, txw->tx, txw->depth,
 		    txw->cbarg);
