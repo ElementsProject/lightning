@@ -590,17 +590,8 @@ static void htlc_offer_timeout(struct htlc_out *out)
 	log_unusual(channel->owner->log,
 		    "Adding HTLC %"PRIu64" too slow: killing connection",
 		    out->key.id);
-	tal_free(channel->owner);
-	channel_set_billboard(channel, false,
+	channel_fail_transient(channel, true,
 			      "Adding HTLC timed out: killed connection");
-
-	/* Force a disconnect in case the issue is with TCP */
-	if (channel->peer->ld->connectd) {
-		const struct peer *peer = channel->peer;
-		subd_send_msg(peer->ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &peer->id,
-								peer->connectd_counter)));
-	}
 }
 
 /* Returns failmsg, or NULL on success. */

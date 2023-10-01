@@ -178,7 +178,7 @@ static void peer_channels_cleanup(struct lightningd *ld,
 		c = channels[i];
 		if (channel_active(c)) {
 			channel_cleanup_commands(c, "Disconnected");
-			channel_fail_transient(c, "Disconnected");
+			channel_fail_transient(c, true, "Disconnected");
 		} else if (channel_unsaved(c)) {
 			channel_unsaved_close_conn(c, "Disconnected");
 		}
@@ -391,7 +391,7 @@ void channel_errmsg(struct channel *channel,
 	/* No peer_fd means a subd crash or disconnection. */
 	if (!peer_fd) {
 		/* If the channel is unsaved, we forget it */
-		channel_fail_transient(channel, "%s: %s",
+		channel_fail_transient(channel, true, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -405,7 +405,7 @@ void channel_errmsg(struct channel *channel,
 	 * would recover after a reconnect.  So we downgrade, but snark
 	 * about it in the logs. */
 	if (!err_for_them && strends(desc, "internal error")) {
-		channel_fail_transient(channel, "%s: %s",
+		channel_fail_transient(channel, true, "%s: %s",
 				       channel->owner->name,
 				       "lnd sent 'internal error':"
 				       " let's give it some space");
@@ -414,7 +414,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* This is us, sending a warning.  */
 	if (warning) {
-		channel_fail_transient(channel, "%s sent %s",
+		channel_fail_transient(channel, true, "%s sent %s",
 				       channel->owner->name,
 				       desc);
 		return;
@@ -1922,7 +1922,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 										  warning)));
 			/* When we restart channeld, it will be initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_transient(channel,
+			channel_fail_transient(channel, true,
 					       "short_channel_id changed to %s (was %s)",
 					       short_channel_id_to_str(tmpctx, &scid),
 					       short_channel_id_to_str(tmpctx, channel->scid));

@@ -1036,7 +1036,7 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 	}
 }
 
-static void channel_err(struct channel *channel, const char *why)
+static void channel_err(struct channel *channel, bool disconnect, const char *why)
 {
 	/* Nothing to do if channel isn't actually owned! */
 	if (!channel->owner)
@@ -1053,14 +1053,22 @@ static void channel_err(struct channel *channel, const char *why)
 	}
 
 	channel_set_owner(channel, NULL);
+
+	/* Force a disconnect in case the issue is with TCP */
+	if (disconnect && channel->peer->ld->connectd) {
+		const struct peer *peer = channel->peer;
+		subd_send_msg(peer->ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &peer->id,
+								peer->connectd_counter)));
+	}
 }
 
-void channel_fail_transient(struct channel *channel, const char *fmt, ...)
+void channel_fail_transient(struct channel *channel, bool disconnect, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	channel_err(channel, tal_vfmt(tmpctx, fmt, ap));
+	channel_err(channel, disconnect, tal_vfmt(tmpctx, fmt, ap));
 	va_end(ap);
 }
 
