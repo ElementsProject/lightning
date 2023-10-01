@@ -89,10 +89,6 @@ struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 /* Generated stub for channel_has_htlc_out */
 struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_out called!\n"); abort(); }
-/* Generated stub for channel_inflight_find */
-struct channel_inflight *channel_inflight_find(struct channel *channel UNNEEDED,
-					       const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "channel_inflight_find called!\n"); abort(); }
 /* Generated stub for channel_internal_error */
 void channel_internal_error(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_internal_error called!\n"); abort(); }
@@ -206,11 +202,6 @@ bool depthcb_update_scid(struct channel *channel UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
-/* Generated stub for dualopend_tell_depth */
-void dualopend_tell_depth(struct channel *channel UNNEEDED,
-			  const struct bitcoin_txid *txid UNNEEDED,
-			  u32 depth UNNEEDED)
-{ fprintf(stderr, "dualopend_tell_depth called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,

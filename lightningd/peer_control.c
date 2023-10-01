@@ -1787,61 +1787,6 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 		maybe_delete_peer(p);
 }
 
-static bool check_funding_details(const struct bitcoin_tx *tx,
-				  const u8 *wscript,
-				  struct amount_sat funding,
-				  u32 funding_outnum)
-{
-	struct amount_asset asset;
-
-	if (funding_outnum >= tx->wtx->num_outputs)
-		return false;
-
-	asset = bitcoin_tx_output_get_amount(tx, funding_outnum);
-
-	if (!amount_asset_is_main(&asset))
-		return false;
-
-	if (!amount_sat_eq(amount_asset_to_sat(&asset), funding))
-		return false;
-
-	return scripteq(scriptpubkey_p2wsh(tmpctx, wscript),
-			bitcoin_tx_output_get_script(tmpctx, tx,
-						     funding_outnum));
-}
-
-
-/* FIXME: Unify our watch code so we get notified by txout, instead, like
- * the wallet code does. */
-static bool check_funding_tx(const struct bitcoin_tx *tx,
-			     const struct channel *channel)
-{
-	struct channel_inflight *inflight;
-	const u8 *wscript;
-	wscript = bitcoin_redeem_2of2(tmpctx,
-				      &channel->local_funding_pubkey,
-				      &channel->channel_info.remote_fundingkey);
-
-	/* Since we've enabled "RBF" for funding transactions,
-	 * it's possible that it's one of "inflights".
-	 * Worth noting that this check was added to prevent
-	 * a peer from sending us a 'bogus' transaction id (that didn't
-	 * actually contain the funding output). As of v2 (where
-	 * RBF is introduced), this isn't a problem so much as
-	 * both sides have full access to the funding transaction */
-	if (check_funding_details(tx, wscript, channel->funding_sats,
-				  channel->funding.n))
-		return true;
-
-	list_for_each(&channel->inflights, inflight, list) {
-		if (check_funding_details(tx, wscript,
-					  inflight->funding->total_funds,
-					  inflight->funding->outpoint.n))
-			return true;
-	}
-	return false;
-}
-
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
 				  const struct channel_inflight *inflight)
@@ -1897,36 +1842,6 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
-static void subd_tell_depth(struct channel *channel,
-			    const struct bitcoin_txid *txid,
-			    unsigned int depth)
-{
-	/* We always tell every owner who's interested about the depth */
-	switch (channel->state) {
-	case AWAITING_UNILATERAL:
-	case CHANNELD_SHUTTING_DOWN:
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIN:
-	case CLOSED:
-	case DUALOPEND_OPEN_INIT:
-	case DUALOPEND_OPEN_COMMITTED:
-		return;
-
-	case CHANNELD_NORMAL:
-	case CHANNELD_AWAITING_LOCKIN:
-	case CHANNELD_AWAITING_SPLICE:
-		channeld_tell_depth(channel, txid, depth);
-		return;
-
-	case DUALOPEND_AWAITING_LOCKIN:
-		dualopend_tell_depth(channel, txid, depth);
-		return;
-	}
-	abort();
-}
-
 static enum watch_result funding_depth_cb(struct lightningd *ld,
 					  const struct bitcoin_txid *txid,
 					  const struct bitcoin_tx *tx,
@@ -1937,15 +1852,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	if (is_stub_scid(channel->scid))
 		return DELETE_WATCH;
 
-	/* Sanity check */
-	if (!check_funding_tx(tx, channel)) {
-		channel_internal_error(channel, "Bad tx %s: %s",
-				       type_to_string(tmpctx,
-						      struct bitcoin_txid, txid),
-				       type_to_string(tmpctx,
-						      struct bitcoin_tx, tx));
-		return DELETE_WATCH;
-	}
+	/* We only use this to watch the current funding tx */
+	assert(bitcoin_txid_eq(txid, &channel->funding.txid));
 
 	channel->depth = depth;
 
@@ -1957,17 +1865,24 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	if (depth == 0) {
 		/* That's not entirely unexpected in early states */
 		switch (channel->state) {
-		case CHANNELD_AWAITING_SPLICE:
 		case DUALOPEND_AWAITING_LOCKIN:
-		case CHANNELD_AWAITING_LOCKIN:
 		case DUALOPEND_OPEN_INIT:
 		case DUALOPEND_OPEN_COMMITTED:
+			/* Shouldn't be here! */
+			channel_internal_error(channel,
+					       "Bad %s state: %s",
+					       __func__,
+					       channel_state_name(channel));
+			return DELETE_WATCH;
+		case CHANNELD_AWAITING_LOCKIN:
+			/* That's not entirely unexpected in early states */
 			log_debug(channel->log, "Funding tx %s reorganized out!",
 				  type_to_string(tmpctx, struct bitcoin_txid, txid));
 			channel->scid = tal_free(channel->scid);
 			return KEEP_WATCHING;
 
 		/* But it's often Bad News in later states */
+		case CHANNELD_AWAITING_SPLICE:
 		case CHANNELD_NORMAL:
 			/* If we opened, or it's zero-conf, we trust them anyway. */
 			if (channel->opener == LOCAL
@@ -2004,14 +1919,13 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	if (!depthcb_update_scid(channel, txid, &channel->funding))
 		return DELETE_WATCH;
 
-	/* Always tell owner about depth change */
-	subd_tell_depth(channel, txid, depth);
-
-	/* Have we not reached minimum depth? */
-	if (depth < channel->minimum_depth)
-		return KEEP_WATCHING;
-
 	switch (channel->state) {
+	/* We should not be in the callback! */
+	case DUALOPEND_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMITTED:
+		abort();
+
 	case AWAITING_UNILATERAL:
 	case CHANNELD_SHUTTING_DOWN:
 	case CLOSINGD_SIGEXCHANGE:
@@ -2027,48 +1941,19 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 
 	case CHANNELD_AWAITING_LOCKIN:
-		if (channel->remote_channel_ready)
+		if (depth >= channel->minimum_depth
+		    && channel->remote_channel_ready) {
 			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
-		return KEEP_WATCHING;
-
+		}
+		/* Fall thru */
 	case CHANNELD_NORMAL:
-		if (depth < ANNOUNCE_MIN_DEPTH)
+	case CHANNELD_AWAITING_SPLICE:
+		channeld_tell_depth(channel, txid, depth);
+		if (depth < ANNOUNCE_MIN_DEPTH || depth < channel->minimum_depth)
 			return KEEP_WATCHING;
 		/* Normal state and past announce depth?  Stop bothering us! */
 		return DELETE_WATCH;
-
-	case DUALOPEND_OPEN_INIT:
-	case DUALOPEND_OPEN_COMMITTED:
-		/* You cannot be watching yet */
-		abort();
-
-	case DUALOPEND_AWAITING_LOCKIN:
-		/* Update the channel's info to the correct tx, if needed to
-		 * It's possible an 'inflight' has reached depth */
-		if (!list_empty(&channel->inflights)) {
-			struct channel_inflight *inf;
-
-			inf = channel_inflight_find(channel, txid);
-			if (!inf) {
-				log_debug(channel->log,
-					  "Ignoring event for txid %s for channel"
-					  " not found in inflights.",
-					  type_to_string(tmpctx,
-							 struct bitcoin_txid,
-							 txid));
-				return DELETE_WATCH;
-			}
-			update_channel_from_inflight(ld, channel, inf);
-		}
-		return KEEP_WATCHING;
-
-	case CHANNELD_AWAITING_SPLICE:
-		/* Once we're waiting for splice, don't watch original any more */
-		if (bitcoin_txid_eq(txid, &channel->funding.txid))
-			return true;
-		return KEEP_WATCHING;
 	}
-
 	abort();
 }
 

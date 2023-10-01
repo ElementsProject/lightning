@@ -14,10 +14,6 @@ bool peer_restart_dualopend(struct peer *peer,
 			    struct channel *channel,
 			    bool from_abort);
 
-void dualopend_tell_depth(struct channel *channel,
-			  const struct bitcoin_txid *txid,
-			  u32 depth);
-
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight);
 
