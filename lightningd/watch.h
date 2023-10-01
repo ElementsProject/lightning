@@ -40,16 +40,6 @@ struct txwatch *watch_txid(const tal_t *ctx,
 						   const struct bitcoin_tx *,
 						   unsigned int depth));
 
-struct txwatch *watch_tx(const tal_t *ctx,
-			 struct chain_topology *topo,
-			 struct channel *channel,
-			 const struct bitcoin_tx *tx,
-			 enum watch_result (*cb)(struct lightningd *ld,
-						 struct channel *,
-						 const struct bitcoin_txid *,
-						 const struct bitcoin_tx *,
-						 unsigned int depth));
-
 struct txowatch *watch_txo(const tal_t *ctx,
 			   struct chain_topology *topo,
 			   struct channel *channel,
