@@ -378,7 +378,8 @@
                     "FUNDING_SPEND_SEEN",
                     "ONCHAIN",
                     "DUALOPEND_OPEN_INIT",
-                    "DUALOPEND_AWAITING_LOCKIN"
+                    "DUALOPEND_AWAITING_LOCKIN",
+                    "CHANNELD_AWAITING_SPLICE"
                   ],
                   "description": "Previous state"
                 },
@@ -395,7 +396,8 @@
                     "FUNDING_SPEND_SEEN",
                     "ONCHAIN",
                     "DUALOPEND_OPEN_INIT",
-                    "DUALOPEND_AWAITING_LOCKIN"
+                    "DUALOPEND_AWAITING_LOCKIN",
+                    "CHANNELD_AWAITING_SPLICE"
                   ],
                   "description": "New state"
                 },
