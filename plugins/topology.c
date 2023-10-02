@@ -28,30 +28,6 @@ static struct gossmap *get_gossmap(void)
 	return global_gossmap;
 }
 
-/* Convenience global since route_score_fuzz doesn't take args. 0 to 1. */
-static double fuzz;
-
-/* Prioritize costs over distance, but with fuzz.  Cost must be
- * the same when the same channel queried, so we base it on that. */
-static u64 route_score_fuzz(u32 distance,
-			    struct amount_msat cost,
-			    struct amount_msat risk,
-			    int dir UNUSED,
-			    const struct gossmap_chan *c)
-{
-	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
-	/* Use the literal pointer, since it's stable. */
-	u64 h = siphash24(siphash_seed(), &c, sizeof(c));
-
-	/* Use distance as the tiebreaker */
-	costs += distance;
-
-	/* h / (UINT64_MAX / 2.0) is between 0 and 2. */
-	costs *= (h / (double)(UINT64_MAX / 2) - 1) * fuzz;
-
-	return costs;
-}
-
 static bool can_carry(const struct gossmap *map,
 		      const struct gossmap_chan *c,
 		      int dir,
@@ -141,13 +117,6 @@ static struct command_result *json_getroute(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* Convert from percentage */
-	fuzz = *fuzz_millionths / 100.0 / 1000000.0;
-	if (fuzz > 1.0)
-		return command_fail_badparam(cmd, "fuzzpercent",
-					     buffer, params,
-					     "should be <= 100");
-
 	gossmap = get_gossmap();
 	src = gossmap_find_node(gossmap, source);
 	if (!src)
@@ -161,10 +130,9 @@ static struct command_result *json_getroute(struct command *cmd,
 				    "%s: unknown destination node_id (no public channels?)",
 				    type_to_string(tmpctx, struct node_id, destination));
 
-	fuzz = 0;
 	dij = dijkstra(tmpctx, gossmap, dst, *msat,
 		       *riskfactor_millionths / 1000000.0,
-		       can_carry, route_score_fuzz, excluded);
+		       can_carry, route_score_cheaper, excluded);
 	route = route_from_dijkstra(dij, gossmap, dij, src, *msat, *cltv);
 	if (!route)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Could not find a route");
@@ -637,7 +605,7 @@ static const struct plugin_command commands[] = {
 		"Primitive route command",
 		"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
 		"If specified search from {fromid} otherwise use this node as source. "
-		"Randomize the route with up to {fuzzpercent} (default 5.0). "
+		"Randomize the route with up to {fuzzpercent} (ignored)). "
 		"{exclude} an array of short-channel-id/direction (e.g. [ '564334x877x1/0', '564195x1292x0/1' ]) "
 		"or node-id from consideration. "
 		"Set the {maxhops} the route can take (default 20).",
