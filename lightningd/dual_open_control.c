@@ -1041,10 +1041,10 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 		wallet_channel_save(ld->wallet, inflight->channel);
 	}
 
-	dualopend_tell_depth(inflight->channel, txid, depth);
-
 	if (depth >= inflight->channel->minimum_depth)
 		update_channel_from_inflight(ld, inflight->channel, inflight);
+
+	dualopend_tell_depth(inflight->channel, txid, depth);
 
 	return KEEP_WATCHING;
 }
