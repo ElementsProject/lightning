@@ -3878,3 +3878,34 @@ def test_closing_minfee(node_factory, bitcoind):
 
     txid = l1.rpc.close(l2.info['id'])['txid']
     bitcoind.generate_block(1, wait_for_mempool=txid)
+
+
+@pytest.mark.xfail(strict=True)
+def test_closing_cpfp(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+
+    # We want to ignore l1's change output
+    change = only_one(l1.rpc.listfunds()['outputs'])
+
+    # Make sure both sides have some output
+    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+
+    # Mutual close
+    close_txid = l1.rpc.close(l2.info['id'])['txid']
+
+    l1out = only_one([o for o in l1.rpc.listfunds()['outputs'] if o != change])
+    assert l1out['txid'] == close_txid
+    l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l1out['txid'], l1out['output'])])
+
+    # l2 should be able to do this too!
+    l2out = only_one(l2.rpc.listfunds()['outputs'])
+    assert l2out['txid'] == close_txid
+    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l2out['txid'], l2out['output'])])
+
+    # There should be *three* transactions in mempool now!
+    bitcoind.generate_block(1, wait_for_mempool=3)
+
+    # They should now see a single additional output each
+    sync_blockheight(bitcoind, [l1, l2])
+    assert len(l1.rpc.listfunds()['outputs']) == 2
+    assert len(l2.rpc.listfunds()['outputs']) == 1
