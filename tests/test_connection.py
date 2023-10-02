@@ -2429,11 +2429,6 @@ def test_update_fee(node_factory, bitcoind):
     # Make l1 send out feechange.
     l1.set_feerates((14000, 11000, 7500, 3750))
 
-    # Now make sure an HTLC works.
-    # (First wait for route propagation.)
-    l1.wait_channel_active(chanid)
-    sync_blockheight(bitcoind, [l1, l2])
-
     # Make payments.
     l1.pay(l2, 200000000)
     # First payment causes fee update.
