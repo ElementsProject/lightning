@@ -86,66 +86,54 @@ static void json_add_route_hop(struct json_stream *js,
 	json_object_end(js);
 }
 
-static struct command_result *json_getroute(struct command *cmd,
-					    const char *buffer,
-					    const jsmntok_t *params)
-{
+struct getroute_info {
 	struct node_id *destination;
 	struct node_id *source;
 	struct amount_msat *msat;
 	u32 *cltv;
 	/* risk factor 12.345% -> riskfactor_millionths = 12345000 */
-	u64 *riskfactor_millionths, *fuzz_millionths;
+	u64 *riskfactor_millionths;
 	struct route_exclusion **excluded;
 	u32 *max_hops;
+};
+
+static struct command_result *try_route(struct command *cmd,
+					struct gossmap *gossmap,
+					struct getroute_info *info)
+{
 	const struct dijkstra *dij;
 	struct route_hop *route;
 	struct gossmap_node *src, *dst;
 	struct json_stream *js;
-	struct gossmap *gossmap;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &destination),
-		   p_req("amount_msat|msatoshi", param_msat, &msat),
-		   p_req("riskfactor", param_millionths, &riskfactor_millionths),
-		   p_opt_def("cltv", param_number, &cltv, 9),
-		   p_opt_def("fromid", param_node_id, &source, local_id),
-		   p_opt_def("fuzzpercent", param_millionths, &fuzz_millionths,
-			     5000000),
-		   p_opt("exclude", param_route_exclusion_array, &excluded),
-		   p_opt_def("maxhops", param_number, &max_hops, ROUTING_MAX_HOPS),
-		   NULL))
-		return command_param_failed();
-
-	gossmap = get_gossmap();
-	src = gossmap_find_node(gossmap, source);
+	src = gossmap_find_node(gossmap, info->source);
 	if (!src)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: unknown source node_id (no public channels?)",
-				    type_to_string(tmpctx, struct node_id, source));
+				    type_to_string(tmpctx, struct node_id, info->source));
 
-	dst = gossmap_find_node(gossmap, destination);
+	dst = gossmap_find_node(gossmap, info->destination);
 	if (!dst)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: unknown destination node_id (no public channels?)",
-				    type_to_string(tmpctx, struct node_id, destination));
+				    type_to_string(tmpctx, struct node_id, info->destination));
 
-	dij = dijkstra(tmpctx, gossmap, dst, *msat,
-		       *riskfactor_millionths / 1000000.0,
-		       can_carry, route_score_cheaper, excluded);
-	route = route_from_dijkstra(dij, gossmap, dij, src, *msat, *cltv);
+	dij = dijkstra(tmpctx, gossmap, dst, *info->msat,
+		       *info->riskfactor_millionths / 1000000.0,
+		       can_carry, route_score_cheaper, info->excluded);
+	route = route_from_dijkstra(dij, gossmap, dij, src,
+				    *info->msat, *info->cltv);
 	if (!route)
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Could not find a route");
 
 	/* If it's too far, fall back to using shortest path. */
-	if (tal_count(route) > *max_hops) {
-		plugin_notify_message(cmd, LOG_INFORM, "Cheapest route %zu hops: seeking shorter (no fuzz)",
+	if (tal_count(route) > *info->max_hops) {
+		plugin_notify_message(cmd, LOG_INFORM, "Cheapest route %zu hops: seeking shorter",
 				      tal_count(route));
-		dij = dijkstra(tmpctx, gossmap, dst, *msat,
-			       *riskfactor_millionths / 1000000.0,
-			       can_carry, route_score_shorter, excluded);
-		route = route_from_dijkstra(dij, gossmap, dij, src, *msat, *cltv);
-		if (tal_count(route) > *max_hops)
+		dij = dijkstra(tmpctx, gossmap, dst, *info->msat,
+			       *info->riskfactor_millionths / 1000000.0,
+			       can_carry, route_score_shorter, info->excluded);
+		route = route_from_dijkstra(dij, gossmap, dij, src, *info->msat, *info->cltv);
+		if (tal_count(route) > *info->max_hops)
 			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Shortest route was %zu",
 					    tal_count(route));
 	}
@@ -158,6 +146,30 @@ static struct command_result *json_getroute(struct command *cmd,
 	json_array_end(js);
 
 	return command_finished(cmd, js);
+}
+
+static struct command_result *json_getroute(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params)
+{
+	struct getroute_info *info = tal(cmd, struct getroute_info);
+	u64 *fuzz_ignored;
+	struct gossmap *gossmap;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &info->destination),
+		   p_req("amount_msat|msatoshi", param_msat, &info->msat),
+		   p_req("riskfactor", param_millionths, &info->riskfactor_millionths),
+		   p_opt_def("cltv", param_number, &info->cltv, 9),
+		   p_opt_def("fromid", param_node_id, &info->source, local_id),
+		   p_opt("fuzzpercent", param_millionths, &fuzz_ignored),
+		   p_opt("exclude", param_route_exclusion_array, &info->excluded),
+		   p_opt_def("maxhops", param_number, &info->max_hops, ROUTING_MAX_HOPS),
+		   NULL))
+		return command_param_failed();
+
+	gossmap = get_gossmap();
+	return try_route(cmd, gossmap, info);
 }
 
 HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
