@@ -23,7 +23,7 @@ class ListMethodsResource(Resource):
             return response
 
         except Exception as err:
-            plugin.log(f"Error: {err}", "error")
+            plugin.log(f"Error: {err}", "info")
             return json5.loads(str(err)), 500
 
 
@@ -37,25 +37,25 @@ class RpcMethodResource(Resource):
     def post(self, rpc_method):
         """Call any valid core lightning method (check list-methods response)"""
         try:
-            is_valid_rune = verify_rune(plugin, request)
+            rune = request.headers.get("rune", None)
+            rpc_method = request.view_args.get("rpc_method", None)
+            rpc_params = request.form.to_dict() if not request.is_json else request.get_json() if len(request.data) != 0 else {}
 
-            if "error" in is_valid_rune:
-                plugin.log(f"Error: {is_valid_rune}", "error")
-                raise Exception(is_valid_rune)
+            try:
+                is_valid_rune = verify_rune(plugin, rune, rpc_method, rpc_params)
+                if "error" in is_valid_rune:
+                    plugin.log(f"Error: {is_valid_rune}", "error")
+                    raise Exception(is_valid_rune)
+
+            except Exception as err:
+                return json5.loads(str(err)), 401
+
+            try:
+                return call_rpc_method(plugin, rpc_method, rpc_params), 201
+
+            except Exception as err:
+                plugin.log(f"Error: {err}", "info")
+                return json5.loads(str(err)), 500
 
         except Exception as err:
-            return json5.loads(str(err)), 401
-
-        try:
-            if request.is_json:
-                if len(request.data) != 0:
-                    payload = request.get_json()
-                else:
-                    payload = {}
-            else:
-                payload = request.form.to_dict()
-            return call_rpc_method(plugin, rpc_method, payload), 201
-
-        except Exception as err:
-            plugin.log(f"Error: {err}", "error")
-            return json5.loads(str(err)), 500
+            return f"Unable to parse request: {err}", 500

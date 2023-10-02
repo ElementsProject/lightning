@@ -60,7 +60,6 @@ def broadcast_from_message_queue():
             msg = msgq.get()
             if msg is None:
                 return
-            plugin.log(f"Emitting message: {msg}", "debug")
             socketio.emit("message", msg)
         # Wait for a second after processing all items in the queue
         time.sleep(1)
@@ -81,8 +80,8 @@ def handle_message(message):
 def ws_connect():
     try:
         plugin.log("Client Connecting...", "debug")
-        is_valid_rune = verify_rune(plugin, request)
-
+        rune = request.headers.get("rune", None)
+        is_valid_rune = verify_rune(plugin, rune, "listclnrest-notifications", None)
         if "error" in is_valid_rune:
             # Logging as error/warn emits the event for all clients
             plugin.log(f"Error: {is_valid_rune}", "info")
@@ -137,13 +136,14 @@ def set_application_options(plugin):
     else:
         cert_file = Path(f"{CERTS_PATH}/client.pem")
         key_file = Path(f"{CERTS_PATH}/client-key.pem")
-        if not cert_file.is_file() or not key_file.is_file():
-            plugin.log(f"Certificate not found at {CERTS_PATH}. Generating a new certificate!", "debug")
-            generate_certs(plugin, CERTS_PATH)
         try:
+            if not cert_file.is_file() or not key_file.is_file():
+                plugin.log(f"Certificate not found at {CERTS_PATH}. Generating a new certificate!", "debug")
+                generate_certs(plugin, REST_HOST, CERTS_PATH)
             plugin.log(f"Certs Path: {CERTS_PATH}", "debug")
         except Exception as err:
             raise Exception(f"{err}: Certificates do not exist at {CERTS_PATH}")
+
         # Assigning only one worker due to added complexity between gunicorn's multiple worker process forks
         # and websocket connection's persistance with a single worker.
         options = {
@@ -164,8 +164,8 @@ class CLNRestApplication(BaseApplication):
         from utilities.shared import REST_PROTOCOL, REST_HOST, REST_PORT
         self.application = app
         self.options = options or {}
-        plugin.log(f"REST server running at {REST_PROTOCOL}://{REST_HOST}:{REST_PORT}", "info")
         super().__init__()
+        plugin.log(f"REST server running at {REST_PROTOCOL}://{REST_HOST}:{REST_PORT}", "info")
 
     def load_config(self):
         config = {key: value for key, value in self.options.items()
@@ -216,7 +216,7 @@ def on_any_notification(request, **kwargs):
         # A plugin which subscribes to shutdown is expected to exit itself.
         sys.exit(0)
     else:
-        msgq.put(str(kwargs))
+        msgq.put(kwargs)
 
 
 try:
