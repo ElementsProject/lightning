@@ -305,22 +305,22 @@ bool uncertainty_network_update_from_listpeerchannels(
 			/* FIXME: features? */
 			gossmap_local_addchan(p->local_gossmods,
 					      &src, &dst, &scidd.scid, NULL);
-			gossmap_local_updatechan(p->local_gossmods,
-						 &scidd.scid,
-
-						 /* TODO(eduardo): does it
-						  * matter to consider HTLC
-						  * limits in our own channel? */
-						 AMOUNT_MSAT(0),capacity,
-
-						 /* fees = */0,0,
-
-						 /* TODO(eduardo): does it
-						  * matter to set this delay? */
-						 /*delay=*/0,
-						 true,
-						 scidd.dir);
 		}
+		gossmap_local_updatechan(p->local_gossmods,
+					 &scidd.scid,
+
+					 /* TODO(eduardo): does it
+					  * matter to consider HTLC
+					  * limits in our own channel? */
+					 AMOUNT_MSAT(0),capacity,
+
+					 /* fees = */0,0,
+
+					 /* TODO(eduardo): does it
+					  * matter to set this delay? */
+					 /*delay=*/0,
+					 true,
+					 scidd.dir);
 
 		/* FIXME: There is a bug with us trying to send more down a local
 		 * channel (after fees) than it has capacity.  For now, we reduce
