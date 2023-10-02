@@ -1,18 +1,56 @@
 import json5
 import re
 import json
+import ipaddress
+
 
 CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT, REST_CSP, REST_CORS_ORIGINS = "", "", "", "", "", []
+
+
+def validate_ip4(ip_str):
+    try:
+        # Create an IPv4 address object.
+        ipaddress.IPv4Address(ip_str)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
+def validate_ip6(ip_str):
+    try:
+        # Create an IPv6 address object.
+        ipaddress.IPv6Address(ip_str)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
+def validate_port(port):
+    try:
+        # Ports <= 1024 are reserved for system processes
+        return 1024 <= port <= 65535
+    except ValueError:
+        return False
 
 
 def set_config(options):
     if 'rest-port' not in options:
         return "`rest-port` option is not configured"
     global CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT, REST_CSP, REST_CORS_ORIGINS
-    CERTS_PATH = str(options["rest-certs"])
-    REST_PROTOCOL = str(options["rest-protocol"])
-    REST_HOST = str(options["rest-host"])
+
     REST_PORT = int(options["rest-port"])
+    if validate_port(REST_PORT) is False:
+        return f"`rest-port` {REST_PORT}, should be a valid available port between 1024 and 65535."
+
+    REST_HOST = str(options["rest-host"])
+    if REST_HOST != "localhost" and validate_ip4(REST_HOST) is False and validate_ip6(REST_HOST) is False:
+        return f"`rest-host` should be a valid IP."
+
+    REST_PROTOCOL = str(options["rest-protocol"])
+    if REST_PROTOCOL != "http" and REST_PROTOCOL != "https":
+        return f"`rest-protocol` can either be http or https."
+
+    CERTS_PATH = str(options["rest-certs"])
     REST_CSP = str(options["rest-csp"])
     cors_origins = options["rest-cors-origins"]
     REST_CORS_ORIGINS.clear()
@@ -30,13 +68,13 @@ def call_rpc_method(plugin, rpc_method, payload):
         else:
             plugin.log(f"{response}", "debug")
             if '"result":' in str(response).lower():
-                # Use json5.loads ONLY when necessary, as it increases processing time significantly
+                # Use json5.loads ONLY when necessary, as it increases processing time
                 return json.loads(response)["result"]
             else:
                 return response
 
     except Exception as err:
-        plugin.log(f"Error: {err}", "error")
+        plugin.log(f"Error: {err}", "info")
         if "error" in str(err).lower():
             match_err_obj = re.search(r'"error":\{.*?\}', str(err))
             if match_err_obj is not None:
@@ -48,22 +86,9 @@ def call_rpc_method(plugin, rpc_method, payload):
         raise Exception(err)
 
 
-def verify_rune(plugin, request):
-    rune = request.headers.get("rune", None)
-
+def verify_rune(plugin, rune, rpc_method, rpc_params):
     if rune is None:
         raise Exception('{ "error": {"code": 403, "message": "Not authorized: Missing rune"} }')
-
-    if request.is_json:
-        if len(request.data) != 0:
-            rpc_params = request.get_json()
-        else:
-            rpc_params = {}
-    else:
-        rpc_params = request.form.to_dict()
-
-    # None, if this isn't present.
-    rpc_method = request.view_args.get("rpc_method")
 
     return call_rpc_method(plugin, "checkrune",
                            {"rune": rune,
