@@ -315,16 +315,14 @@ Finally, build `c-lightning`:
 
 `gmake`
 
-## To Build on NixOS
+## To Build on NixOS or with Nix package manager
 
-Use nix-shell launch a shell with a full Core Lightning dev environment:
+Use nix-shell in the root of the cln directory to launch a shell with a full Core Lightning dev environment:
 
 ```shell
-nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
-autogen automake gmp zlib gettext libsodium poetry 'python3.withPackages (p: [p.bitcoinlib])' \
-valgrind --run "./configure && poetry shell"
-poetry install
-make
+$ nix-shell contrib/nix/default.nix
+$ poetry install
+$ make
 ```
 
 ## To Build on macOS
