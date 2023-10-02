@@ -2745,48 +2745,6 @@ def test_error_returns_blockheight(node_factory, bitcoind):
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
 
 
-def test_tlv_or_legacy(node_factory, bitcoind):
-    # Ideally we'd test with l2 NOT var-onion, but then it can no longer connect
-    # to us!
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
-
-    scid12 = l1.get_channel_scid(l2)
-    scid23 = l2.get_channel_scid(l3)
-
-    # We need to force l3 to provide route hint from l2 (it won't normally,
-    # since it sees l2 as a dead end).
-    inv = l3.dev_invoice(amount_msat=10000,
-                         label="test_tlv1",
-                         description="test_tlv1",
-                         dev_routes=[[{'id': l2.info['id'],
-                                       'short_channel_id': scid23,
-                                       'fee_base_msat': 1,
-                                       'fee_proportional_millionths': 10,
-                                       'cltv_expiry_delta': 6}]])['bolt11']
-    l1.rpc.pay(inv)
-
-    # Since L1 hasn't seen broadcast, it doesn't know L2 isn't TLV, but invoice tells it about L3
-    l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-    l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-
-    # We need 5 more blocks to announce l1->l2 channel.
-    mine_funding_to_announce(bitcoind, [l1, l2, l3])
-
-    # Make sure l1 knows about l2
-    wait_for(lambda: 'alias' in l1.rpc.listnodes(l2.info['id'])['nodes'][0])
-
-    # Make sure l3 knows about l1->l2, so it will add route hint now.
-    wait_for(lambda: len(l3.rpc.listchannels(scid12)['channels']) > 0)
-
-    # Now it should send TLV to l2.
-    inv = l3.rpc.invoice(10000, "test_tlv2", "test_tlv2")['bolt11']
-
-    l1.rpc.pay(inv)
-    l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-    l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
