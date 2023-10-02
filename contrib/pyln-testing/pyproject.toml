@@ -21,6 +21,7 @@ pyln-client = ">=23"
 Flask = "^2"
 cheroot = "^8"
 psutil = "^5.9"
+requests = "^2.31.0"
 
 grpcio = { version = "^1", optional = true }
 pyln-grpc-proto = { version = "^0.1", optional = true }
