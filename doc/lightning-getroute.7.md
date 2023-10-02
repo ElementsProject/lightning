@@ -34,12 +34,8 @@ If you didn't care about risk, *riskfactor* would be zero.
 
 *fromid* is the node to start the route from: default is this node.
 
-The *fuzzpercent* is a non-negative floating-point number, representing a
-percentage of the actual fee. The *fuzzpercent* is used to distort
-computed fees along each channel, to provide some randomization to the
-route generated. 0.0 means the exact fee of that channel is used, while
-100.0 means the fee used might be from 0 to twice the actual fee. The
-default is 5.0, or up to 5% fee distortion.
+*fuzzpercent* was used to distort fees to provide some randomization to the
+route generated, but it was not properly implemented and is ignored.
 
 *exclude* is a JSON array of short-channel-id/direction (e.g. [
 "564334x877x1/0", "564195x1292x0/1" ]) or node-id which should be excluded
