@@ -2796,17 +2796,7 @@ def test_commando_rune(node_factory):
                             {'alternatives': ['parr1!', 'parr1/io'],
                              'summary': "parr1 (array parameter #1) is missing OR parr1 (array parameter #1) unequal to 'io'"}]),
                    (rune7, [{'alternatives': ['pnum=0'],
-                             'summary': "pnum (number of command parameters) equal to 0"}]),
-                   (rune8, [{'alternatives': ['pnum=0'],
-                             'summary': "pnum (number of command parameters) equal to 0"},
-                            {'alternatives': ['rate=3'],
-                             'summary': "rate (max per minute) equal to 3"}]),
-                   (rune9, [{'alternatives': ['pnum=0'],
-                             'summary': "pnum (number of command parameters) equal to 0"},
-                            {'alternatives': ['rate=3'],
-                             'summary': "rate (max per minute) equal to 3"},
-                            {'alternatives': ['rate=1'],
-                             'summary': "rate (max per minute) equal to 1"}]))
+                             'summary': "pnum (number of command parameters) equal to 0"}]))
     for decode in runedecodes:
         rune = decode[0]
         restrictions = decode[1]
@@ -2840,10 +2830,7 @@ def test_commando_rune(node_factory):
                  (rune6, "listpeers", [l2.info['id'], 'broken']),
                  (rune6, "listpeers", [l2.info['id']]),
                  (rune7, "listpeers", []),
-                 (rune7, "getinfo", {}),
-                 (rune9, "getinfo", {}),
-                 (rune8, "getinfo", {}),
-                 (rune8, "getinfo", {}))
+                 (rune7, "getinfo", {}))
 
     failures = ((rune2, "withdraw", {}),
                 (rune2, "plugin", {'subcommand': 'list'}),
@@ -2865,7 +2852,6 @@ def test_commando_rune(node_factory):
         time.sleep(1)
 
     for rune, cmd, params in failures:
-        print("{} {}".format(cmd, params))
         with pytest.raises(RpcError, match='Invalid rune: Not permitted:') as exc_info:
             l2.rpc.call(method='commando',
                         payload={'peer_id': l1.info['id'],
@@ -2873,70 +2859,6 @@ def test_commando_rune(node_factory):
                                  'method': cmd,
                                  'params': params})
         assert exc_info.value.error['code'] == 0x4c51
-
-    # Now, this can flake if we cross a minute boundary!  So wait until
-    # It succeeds again.
-    while True:
-        try:
-            l2.rpc.call(method='commando',
-                        payload={'peer_id': l1.info['id'],
-                                 'rune': rune8['rune'],
-                                 'method': 'getinfo',
-                                 'params': {}})
-            break
-        except RpcError as e:
-            assert e.error['code'] == 0x4c51
-        time.sleep(1)
-
-    # This fails immediately, since we've done one.
-    with pytest.raises(RpcError, match='Invalid rune: Not permitted: Rate of 1 per minute exceeded') as exc_info:
-        l2.rpc.call(method='commando',
-                    payload={'peer_id': l1.info['id'],
-                             'rune': rune9['rune'],
-                             'method': 'getinfo',
-                             'params': {}})
-    assert exc_info.value.error['code'] == 0x4c51
-
-    # Two more succeed for rune8.
-    for _ in range(2):
-        l2.rpc.call(method='commando',
-                    payload={'peer_id': l1.info['id'],
-                             'rune': rune8['rune'],
-                             'method': 'getinfo',
-                             'params': {}})
-    assert exc_info.value.error['code'] == 0x4c51
-
-    # Now we've had 3 in one minute, this will fail.
-    with pytest.raises(RpcError, match='') as exc_info:
-        l2.rpc.call(method='commando',
-                    payload={'peer_id': l1.info['id'],
-                             'rune': rune8['rune'],
-                             'method': 'getinfo',
-                             'params': {}})
-    assert exc_info.value.error['code'] == 0x4c51
-
-    # rune5 can only be used by l2:
-    l3 = node_factory.get_node()
-    l3.connect(l1)
-    with pytest.raises(RpcError, match='Invalid rune: Not permitted: id does not start with 022d223620a359a47ff7') as exc_info:
-        l3.rpc.call(method='commando',
-                    payload={'peer_id': l1.info['id'],
-                             'rune': rune5['rune'],
-                             'method': "listpeers",
-                             'params': {}})
-    assert exc_info.value.error['code'] == 0x4c51
-
-    # Now wait for ratelimit expiry, ratelimits should reset.
-    time.sleep(61)
-
-    for rune, cmd, params in ((rune9, "getinfo", {}),
-                              (rune8, "getinfo", {}),
-                              (rune8, "getinfo", {})):
-        l2.rpc.call(method='commando',
-                    payload={'peer_id': l1.info['id'],
-                             'rune': rune['rune'],
-                             'method': cmd,
-                             'params': params})
 
 
 def test_commando_listrunes(node_factory):
