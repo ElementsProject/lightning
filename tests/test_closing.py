@@ -38,9 +38,9 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     assert billboard == ['CHANNELD_NORMAL:Channel ready for use.']
 
     bitcoind.generate_block(5)
+    l1.wait_channel_active(chan)
+    l2.wait_channel_active(chan)
 
-    wait_for(lambda: len(l1.getactivechannels()) == 2)
-    wait_for(lambda: len(l2.getactivechannels()) == 2)
     billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
     # This may either be from a local_update or an announce, so just
     # check for the substring
@@ -60,9 +60,9 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l2.daemon.wait_for_log('sendrawtx exit 0')
 
-    # Both nodes should have disabled the channel in their view
-    wait_for(lambda: len(l1.getactivechannels()) == 0)
-    wait_for(lambda: len(l2.getactivechannels()) == 0)
+    # Both nodes should have disabled the channel in gossip
+    wait_for(lambda: not any([c['active'] for c in l1.rpc.listchannels()['channels']]))
+    wait_for(lambda: not any([c['active'] for c in l2.rpc.listchannels()['channels']]))
 
     assert bitcoind.rpc.getmempoolinfo()['size'] == 1
 
@@ -304,8 +304,9 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
     l1.daemon.wait_for_logs([' to CLOSINGD_SIGEXCHANGE'] * 3)
 
-    # Both nodes should have disabled the channel in their view
-    wait_for(lambda: len(l1.getactivechannels()) == 0)
+    # Both nodes should have disabled the channel in gossip
+    wait_for(lambda: not any([c['active'] for c in l1.rpc.listchannels()['channels']]))
+    wait_for(lambda: not any([c['active'] for c in l2.rpc.listchannels()['channels']]))
 
     wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] == 3)
 
@@ -504,12 +505,13 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
                                               opts])
 
     channel_id = first_channel_id(l1, l2)
+    scid = first_scid(l1, l2)
 
     # Now, this will get stuck due to l1 commit being disabled..
     t = executor.submit(l1.pay, l2, 100000000)
 
-    assert len(l1.getactivechannels()) == 2
-    assert len(l2.getactivechannels()) == 2
+    assert l1.is_local_channel_active(scid)
+    assert l2.is_local_channel_active(scid)
 
     # They should both have commitments blocked now.
     l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
@@ -545,7 +547,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     # FIXME: l1 should try to stumble along!
-    wait_for(lambda: len(l2.getactivechannels()) == 0)
+    wait_for(lambda: l2.is_local_channel_active(scid) is False)
 
     # l2 should spend all of the outputs (except to-us).
     # Could happen in any order, depending on commitment tx.
@@ -1593,13 +1595,14 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
     channel_id = first_channel_id(l1, l2)
+    scid = first_scid(l1, l2)
 
     # Trigger an HTLC being added.
     t = executor.submit(l1.pay, l2, 1000000 * 1000)
 
     # Make sure the channel is still alive.
-    assert len(l1.getactivechannels()) == 2
-    assert len(l2.getactivechannels()) == 2
+    assert l1.is_local_channel_active(scid)
+    assert l2.is_local_channel_active(scid)
 
     # Wait for the disconnection.
     l1.daemon.wait_for_log('dev-disable-commit-after: disabling')

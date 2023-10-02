@@ -2102,6 +2102,8 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     # send a payment (originator)
     inv = l1.rpc.invoice(amount // 2, "second", "desc")
     payment_hash21 = inv['payment_hash']
+    # Make sure previous completely settled
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
     route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)

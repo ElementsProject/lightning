@@ -449,8 +449,8 @@ def test_gossip_jsonrpc(node_factory):
     needle = "Received node_announcement for node"
     l1.daemon.wait_for_log(needle)
     l2.daemon.wait_for_log(needle)
-    wait_for(lambda: len(l1.getactivechannels()) == 2)
-    wait_for(lambda: len(l2.getactivechannels()) == 2)
+    l1.wait_channel_active(only_one(channels1)['short_channel_id'])
+    l2.wait_channel_active(only_one(channels1)['short_channel_id'])
 
     nodes = l1.rpc.listnodes()['nodes']
     assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
@@ -1621,6 +1621,9 @@ def setup_gossip_store_test(node_factory, bitcoind):
     # Create another channel, which will stay private.
     scid12, _ = l1.fundchannel(l2, 10**6)
 
+    # FIXME: We assume that private announcements are in gossip_store!
+    l2.wait_channel_active(scid12)
+
     # Now insert channel_update for previous channel; now they're both past the
     # node announcements.
     l3.rpc.setchannel(l2.info['id'], feebase=20, feeppm=1000)
@@ -2031,8 +2034,8 @@ def test_tor_port_onions(node_factory):
 
 
 def test_routetool(node_factory):
-    """Test that route tool can see unpublished channels"""
-    l1, l2 = node_factory.line_graph(2)
+    """Test that route tool can see published channels"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     subprocess.run(['devtools/route',
                     os.path.join(l1.daemon.lightning_dir,

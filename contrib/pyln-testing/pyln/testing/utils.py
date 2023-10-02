@@ -956,9 +956,6 @@ class LightningNode(object):
 
         return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, res['outnum'])
 
-    def getactivechannels(self):
-        return [c for c in self.rpc.listchannels()['channels'] if c['active']]
-
     def db_query(self, query):
         return self.db.query(query)
 
@@ -1064,8 +1061,8 @@ class LightningNode(object):
                                  txnum, res['outnum'])
 
         if wait_for_active:
-            self.wait_channel_active(scid)
-            l2.wait_channel_active(scid)
+            self.wait_local_channel_active(scid)
+            l2.wait_local_channel_active(scid)
 
         return scid, res
 
@@ -1113,7 +1110,16 @@ class LightningNode(object):
             return None
         return channels[0]['channel_id']
 
+    def is_local_channel_active(self, scid):
+        """Is the local channel @scid usable?"""
+        channels = self.rpc.listpeerchannels()['channels']
+        return [c['state'] in ('CHANNELD_NORMAL', 'CHANNELD_AWAITING_SPLICE') for c in channels if c.get('short_channel_id') == scid] == [True]
+
+    def wait_local_channel_active(self, scid):
+        wait_for(lambda: self.is_local_channel_active(scid))
+
     def is_channel_active(self, chanid):
+        """Does gossip show this channel as enabled both ways?"""
         channels = self.rpc.listchannels(chanid)['channels']
         active = [(c['short_channel_id'], c['channel_flags']) for c in channels if c['active']]
         return (chanid, 0) in active and (chanid, 1) in active
@@ -1122,8 +1128,8 @@ class LightningNode(object):
         txid = only_one(self.rpc.listpeerchannels(peerid)['channels'])['scratch_txid']
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
 
-    def wait_channel_active(self, chanid):
-        wait_for(lambda: self.is_channel_active(chanid))
+    def wait_channel_active(self, scid):
+        wait_for(lambda: self.is_channel_active(scid))
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)
@@ -1605,8 +1611,8 @@ class NodeFactory(object):
 
         # Wait for all channels to be active (locally)
         for i, n in enumerate(scids):
-            nodes[i].wait_channel_active(scids[i])
-            nodes[i + 1].wait_channel_active(scids[i])
+            nodes[i].wait_local_channel_active(scids[i])
+            nodes[i + 1].wait_local_channel_active(scids[i])
 
         if not wait_for_announce:
             return

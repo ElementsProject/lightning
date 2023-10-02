@@ -3,6 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from pathlib import Path
 from pyln import grpc as clnpb
 from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT
+from utils import first_scid
 import grpc
 import pytest
 import subprocess
@@ -305,6 +306,9 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
             )
         ])
     ])
+
+    # FIXME: keysend needs (unannounced) channel in gossip_store
+    l1.wait_channel_active(first_scid(l1, l2))
 
     # And now we send a keysend with that routehint list
     call = clnpb.KeysendRequest(
