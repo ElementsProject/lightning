@@ -88,46 +88,17 @@ static const struct json_command dev_memdump_command = {
 };
 AUTODATA(json_command, &dev_memdump_command);
 
-static int json_add_syminfo(void *data, uintptr_t pc UNUSED,
-			    const char *filename, int lineno,
-			    const char *function)
+static void memleak_log(struct logger *log, const char *fmt, ...)
 {
-	struct json_stream *response = data;
-	char *str;
-
-	/* This can happen in backtraces. */
-	if (!filename || !function)
-		return 0;
-
-	str = tal_fmt(response, "%s:%u (%s)", filename, lineno, function);
-	json_add_string(response, NULL, str);
-	tal_free(str);
-	return 0;
-}
-
-static void json_add_backtrace(struct json_stream *response,
-			       const uintptr_t *bt)
-{
-	size_t i;
-
-	if (!bt)
-		return;
-
-	json_array_start(response, "backtrace");
-	/* First one serves as counter. */
-	for (i = 1; i < bt[0]; i++) {
-		backtrace_pcinfo(backtrace_state,
-				 bt[i], json_add_syminfo,
-				 NULL, response);
-	}
-	json_array_end(response);
+	va_list ap;
+	va_start(ap, fmt);
+	logv(log, LOG_BROKEN, NULL, true, fmt, ap);
+	va_end(ap);
 }
 
 static void finish_report(const struct leak_detect *leaks)
 {
 	struct htable *memtable;
-	const tal_t *i;
-	const uintptr_t *backtrace;
 	struct command *cmd;
 	struct lightningd *ld;
 	struct json_stream *response;
@@ -162,24 +133,11 @@ static void finish_report(const struct leak_detect *leaks)
 	/* Now delete ld and those which it has pointers to. */
 	memleak_scan_obj(memtable, ld);
 
+	if (dump_memleak(memtable, memleak_log, ld->log))
+		tal_arr_expand(&leaks->leakers, "lightningd");
+
 	response = json_stream_success(cmd);
 	json_array_start(response, "leaks");
-	while ((i = memleak_get(memtable, &backtrace)) != NULL) {
-		const tal_t *p;
-
-		json_object_start(response, NULL);
-		json_add_ptr(response, "value", i);
-		if (tal_name(i))
-			json_add_string(response, "label", tal_name(i));
-
-		json_add_backtrace(response, backtrace);
-		json_array_start(response, "parents");
-		for (p = tal_parent(i); p; p = tal_parent(p))
-			json_add_string(response, NULL, tal_name(p));
-		json_array_end(response);
-		json_object_end(response);
-	}
-
 	for (size_t num_leakers = 0;
 	     num_leakers < tal_count(leaks->leakers);
 	     num_leakers++) {

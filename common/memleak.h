@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <inttypes.h>
 
 struct htable;
@@ -131,18 +132,22 @@ void memleak_scan_strmap_(struct htable *memtable, const struct strmap *m);
 void memleak_ignore_children(struct htable *memtable, const void *p);
 
 /**
- * memleak_get: get (and remove) a leak from memtable, or NULL
+ * dump_memleak: use print function to dump memleak details
  * @memtable: the memtable after all known allocations removed.
- * @backtrace: the backtrace to set if there is one.
+ * @print: the printf-style function to use (takes @arg first)
+ * @arg: the arg for @print
  *
- * If this returns NULL, it means the @memtable was empty.  Otherwise
- * it return a pointer to a leak (and removes it from @memtable)
+ * Returns true if there was a leak.
  */
-const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
+#define dump_memleak(memtable, print, arg) \
+	dump_memleak_((memtable),					\
+		      typesafe_cb_postargs(void, void *, (print), (arg), const char *, ...), \
+		      (arg))
+
+bool dump_memleak_(struct htable *memtable,
+		   void PRINTF_FMT(2,3) (*print)(void *arg, const char *fmt, ...),
+		   void *arg);
 
 extern struct backtrace_state *backtrace_state;
-
-bool dump_memleak(struct htable *memtable,
-		  void PRINTF_FMT(1,2) (*print)(const char *fmt, ...));
 
 #endif /* LIGHTNING_COMMON_MEMLEAK_H */

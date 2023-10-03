@@ -199,7 +199,7 @@ static bool ptr_match(const void *candidate, void *ptr)
 	return candidate == ptr;
 }
 
-const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace)
+static const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace)
 {
 	struct htable_iter it;
 	const tal_t *i, *p;
@@ -330,51 +330,61 @@ void memleak_init(void)
 	}
 }
 
+struct print_and_arg {
+	void PRINTF_FMT(2,3) (*print)(void *arg, const char *fmt, ...);
+	void *arg;
+};
+
 static int dump_syminfo(void *data, uintptr_t pc UNUSED,
 			const char *filename, int lineno,
 			const char *function)
 {
-	void PRINTF_FMT(1,2) (*print)(const char *fmt, ...) = data;
+	struct print_and_arg *pag = data;
 	/* This can happen in backtraces. */
 	if (!filename || !function)
 		return 0;
 
-	print("    %s:%u (%s)", filename, lineno, function);
+	pag->print(pag->arg, "    %s:%u (%s)", filename, lineno, function);
 	return 0;
 }
 
 static void dump_leak_backtrace(const uintptr_t *bt,
-				void PRINTF_FMT(1,2)
-				(*print)(const char *fmt, ...))
+				void (*print)(void *arg, const char *fmt, ...),
+				void *arg)
 {
+	struct print_and_arg pag;
+
 	if (!bt)
 		return;
 
+	pag.print = print;
+	pag.arg = arg;
 	/* First one serves as counter. */
-	print("  backtrace:");
+	print(arg, "  backtrace:");
 	for (size_t i = 1; i < bt[0]; i++) {
 		backtrace_pcinfo(backtrace_state,
 				 bt[i], dump_syminfo,
-				 NULL, print);
+				 NULL, &pag);
 	}
 }
 
-bool dump_memleak(struct htable *memtable,
-		  void PRINTF_FMT(1,2) (*print)(const char *fmt, ...))
+bool dump_memleak_(struct htable *memtable,
+		   void PRINTF_FMT(2,3) (*print)(void *arg, const char *fmt, ...),
+		   void *arg)
 {
 	const tal_t *i;
 	const uintptr_t *backtrace;
 	bool found_leak = false;
 
 	while ((i = memleak_get(memtable, &backtrace)) != NULL) {
-		print("MEMLEAK: %p", i);
+		print(arg, "MEMLEAK: %p", i);
 		if (tal_name(i))
-			print("  label=%s", tal_name(i));
+			print(arg, "  label=%s", tal_name(i));
 
-		dump_leak_backtrace(backtrace, print);
-		print("  parents:");
+		dump_leak_backtrace(backtrace, print, arg);
+		print(arg, "  parents:");
 		for (tal_t *p = tal_parent(i); p; p = tal_parent(p)) {
-			print("    %s", tal_name(p));
+			print(arg, "    %s", tal_name(p));
 			p = tal_parent(p);
 		}
 		found_leak = true;
