@@ -3814,7 +3814,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	their_commit = interactive_send_commitments(peer, ictx->current_psbt,
 						    TX_INITIATOR);
 
-	new_inflight->last_tx = tal_steal(peer, their_commit->tx);
+	new_inflight->last_tx = tal_steal(new_inflight, their_commit->tx);
 	new_inflight->last_sig = their_commit->commit_signature;
 
 	outmsg = towire_channeld_update_inflight(NULL, ictx->current_psbt,
