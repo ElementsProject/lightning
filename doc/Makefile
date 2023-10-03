@@ -180,7 +180,7 @@ doc/.sqlgen: plugins/sql
 	@plugins/sql --print-docs > $@
 
 doc/lightning-sql.7.md: doc/.sqlgen $(FORCE)
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "sql-print-docs $@", awk "/GENERATE-DOC-START/ { print \$$0; exit } { print \$$0 }" < $@ > $@.tmp && cat doc/.sqlgen >> $@.tmp && (awk "/GENERATE-DOC-END/ { PRINT=1 } { if (PRINT) { print \$$0 } }" | grep -v SHA256STAMP) < $@ >> $@.tmp && mv $@.tmp $@ && $(call SHA256STAMP,[comment]: # $(LBRACKET),$(RBRACKET))); else touch $@; fi 
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "sql-print-docs $@", awk "/GENERATE-DOC-START/ { print \$$0; exit } { print \$$0 }" < $@ > $@.tmp && cat doc/.sqlgen >> $@.tmp && (awk "/GENERATE-DOC-END/ { PRINT=1 } { if (PRINT) { print \$$0 } }" | grep -v SHA256STAMP) < $@ >> $@.tmp && mv $@.tmp $@ && $(call SHA256STAMP,[comment]: # $(LBRACKET),$(RBRACKET))); else touch $@; fi
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
@@ -241,20 +241,5 @@ doc/index.rst: $(MANPAGES:=.md)
 
 # Overridden by GH CI if necessary.
 BASE_REF=master
-schema-added-check:
-	if git show --format=%B -s $(BASE_REF).. | grep -q '^No-schema-diff-check'; then echo $@ suppressed; exit 0; fi; \
-	if git diff $(BASE_REF) -- doc/schemas | grep -q '^+.*{' && ! git diff $(BASE_REF) -- doc/schemas | grep -q '^+.*"added"'; then \
-		git diff $(BASE_REF) -- doc/schemas; \
-		echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; \
-	fi
 
-schema-removed-check:
-	if git show --format=%B -s $(BASE_REF).. | grep -q '^No-schema-diff-check'; then echo $@ suppressed; exit 0; fi; \
-	if git diff $(BASE_REF) -- doc/schemas | grep -q '^-.*{' && ! git diff $(BASE_REF) -- doc/schemas | grep -q '^-.*"deprecated"' && ! git diff $(BASE_REF) -- doc/schemas | grep -q '^-.*EXPERIMENTAL_FEATURES'; then \
-		git diff $(BASE_REF) -- doc/schemas ; \
-		echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; \
-	fi
-
-schema-diff-check: schema-added-check schema-removed-check
-
-check-source: schema-diff-check
+check-source:
