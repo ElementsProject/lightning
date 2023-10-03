@@ -966,7 +966,7 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_scan_obj(memtable, daemon);
 	memleak_scan_htable(memtable, &daemon->peers->raw);
 
-	found_leak = dump_memleak(memtable, memleak_status_broken);
+	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));

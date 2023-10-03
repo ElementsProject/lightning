@@ -559,7 +559,7 @@ static void closing_dev_memleak(const tal_t *ctx,
 	memleak_ptr(memtable, scriptpubkey[REMOTE]);
 	memleak_ptr(memtable, funding_wscript);
 
-	dump_memleak(memtable, memleak_status_broken);
+	dump_memleak(memtable, memleak_status_broken, NULL);
 }
 
 /* Figure out what weight we actually expect for this closing tx (using zero fees

@@ -573,7 +573,7 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	memleak_ptr(memtable, dev_force_privkey);
 	memleak_ptr(memtable, dev_force_bip32_seed);
 
-	found_leak = dump_memleak(memtable, memleak_status_broken);
+	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
 	return req_reply(conn, c, take(reply));
 }

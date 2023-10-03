@@ -1419,7 +1419,7 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 	memleak_scan_obj(memtable, state);
 
 	/* If there's anything left, dump it to logs, and return true. */
-	found_leak = dump_memleak(memtable, memleak_status_broken);
+	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	wire_sync_write(REQ_FD,
 			take(towire_openingd_dev_memleak_reply(NULL,
 							      found_leak)));

@@ -235,7 +235,7 @@ void master_badmsg(u32 type_expected, const u8 *msg)
 }
 
 /* Print BROKEN status: callback for dump_memleak. */
-void memleak_status_broken(const char *fmt, ...)
+void memleak_status_broken(void *unused, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);

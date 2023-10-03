@@ -29,10 +29,11 @@ bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
 		   bool option_static_remotekey UNNEEDED,
 		   struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "derive_keyset called!\n"); abort(); }
-/* Generated stub for dump_memleak */
-bool dump_memleak(struct htable *memtable UNNEEDED,
-		  void  (*print)(const char *fmt UNNEEDED, ...))
-{ fprintf(stderr, "dump_memleak called!\n"); abort(); }
+/* Generated stub for dump_memleak_ */
+bool dump_memleak_(struct htable *memtable UNNEEDED,
+		   void  (*print)(void *arg UNNEEDED, const char *fmt UNNEEDED, ...) UNNEEDED,
+		   void *arg UNNEEDED)
+{ fprintf(stderr, "dump_memleak_ called!\n"); abort(); }
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
@@ -148,7 +149,7 @@ void memleak_scan_obj(struct htable *memtable UNNEEDED, const void *obj UNNEEDED
 struct htable *memleak_start(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "memleak_start called!\n"); abort(); }
 /* Generated stub for memleak_status_broken */
-void memleak_status_broken(const char *fmt UNNEEDED, ...)
+void memleak_status_broken(void *unused UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "memleak_status_broken called!\n"); abort(); }
 /* Generated stub for new_coin_channel_close */
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx UNNEEDED,

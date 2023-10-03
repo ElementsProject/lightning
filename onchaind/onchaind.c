@@ -1606,7 +1606,7 @@ static void handle_dev_memleak(struct tracked_output ***outs, const u8 *msg)
 	memleak_remove_globals(memtable, tal_parent(*outs));
 	memleak_scan_obj(memtable, *outs);
 
-	found_leak = dump_memleak(memtable, memleak_status_broken);
+	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	wire_sync_write(REQ_FD,
 			take(towire_onchaind_dev_memleak_reply(NULL,
 							      found_leak)));

@@ -1513,14 +1513,12 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
 	va_end(ap);
 }
 
-/* Hack since we have no extra ptr to log_memleak */
-static struct plugin *memleak_plugin;
-static void PRINTF_FMT(1,2) log_memleak(const char *fmt, ...)
+static void PRINTF_FMT(2,3) log_memleak(struct plugin *plugin, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	plugin_logv(memleak_plugin, LOG_BROKEN, fmt, ap);
+	plugin_logv(plugin, LOG_BROKEN, fmt, ap);
 	va_end(ap);
 }
 
@@ -1546,8 +1544,7 @@ static void memleak_check(struct plugin *plugin, struct command *cmd)
 	if (plugin->mark_mem)
 		plugin->mark_mem(plugin, memtable);
 
-	memleak_plugin = plugin;
-	dump_memleak(memtable, log_memleak);
+	dump_memleak(memtable, log_memleak, plugin);
 }
 
 void plugin_set_memleak_handler(struct plugin *plugin,

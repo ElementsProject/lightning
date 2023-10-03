@@ -71,6 +71,6 @@ void status_send_fatal(const u8 *msg TAKES) NORETURN;
 void status_send_fd(int fd);
 
 /* Print BROKEN status: callback for dump_memleak. */
-void memleak_status_broken(const char *fmt, ...);
+void memleak_status_broken(void *unused, const char *fmt, ...);
 
 #endif /* LIGHTNING_COMMON_STATUS_H */
