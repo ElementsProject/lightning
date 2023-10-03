@@ -29,7 +29,7 @@ pub async fn hold_invoice(
     let rpc_path = make_rpc_path(plugin.clone());
     let mut rpc = ClnRpc::new(&rpc_path).await?;
 
-    let valid_arg_keys = vec![
+    let valid_arg_keys = [
         "amount_msat",
         "label",
         "description",
@@ -395,7 +395,7 @@ fn parse_payment_hash(args: serde_json::Value) -> Result<String, serde_json::Val
             ))
         }
     } else if let serde_json::Value::Object(o) = args {
-        let valid_arg_keys = vec!["payment_hash"];
+        let valid_arg_keys = ["payment_hash"];
         for (k, _v) in o.iter() {
             if !valid_arg_keys.contains(&k.as_str()) {
                 return Err(invalid_argument_error(k));
