@@ -3,7 +3,10 @@ use std::{str::FromStr, time::Duration};
 use anyhow::{anyhow, Error};
 use cln_plugin::Plugin;
 use cln_rpc::{
-    model::{requests::InvoiceRequest, responses::ListinvoicesInvoicesStatus},
+    model::{
+        requests::InvoiceRequest,
+        responses::{ListinvoicesInvoicesStatus, ListpeerchannelsChannelsState},
+    },
     primitives::{Amount, AmountOrAny},
     ClnRpc, Request, Response,
 };
@@ -244,12 +247,32 @@ pub async fn hold_invoice_lookup(
                 };
 
                 for chan in channels {
-                    if let Some(htlcs) = chan.htlcs {
-                        for htlc in htlcs {
-                            if let Some(ph) = htlc.payment_hash {
-                                if ph.to_string() == pay_hash {
-                                    all_cancelled = false;
-                                }
+                    let connected = if let Some(c) = chan.peer_connected {
+                        c
+                    } else {
+                        continue;
+                    };
+                    let state = if let Some(s) = chan.state {
+                        s
+                    } else {
+                        continue;
+                    };
+                    if !connected
+                        || state != ListpeerchannelsChannelsState::CHANNELD_NORMAL
+                            && state != ListpeerchannelsChannelsState::CHANNELD_AWAITING_SPLICE
+                    {
+                        continue;
+                    }
+
+                    let htlcs = if let Some(h) = chan.htlcs {
+                        h
+                    } else {
+                        continue;
+                    };
+                    for htlc in htlcs {
+                        if let Some(ph) = htlc.payment_hash {
+                            if ph.to_string() == pay_hash {
+                                all_cancelled = false;
                             }
                         }
                     }
