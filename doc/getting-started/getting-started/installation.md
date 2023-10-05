@@ -27,7 +27,7 @@ You will need some Python packages if you want to use clnrest.  Unfortunately th
 
 ```
 sudo apt-get install python3-json5 python3-flask python3-gunicorn
-pip3 install --user flask_restx pyln-client
+pip3 install --user flask-cors flask_restx pyln-client flask-socketio gevent gevent-websocket
 ```
 
 If you're on a different distribution or OS, you can compile the source by following the instructions from [Installing from Source](<>).
