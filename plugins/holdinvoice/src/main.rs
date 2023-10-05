@@ -15,7 +15,7 @@ use holdinvoice::model::PluginState;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     debug!("Starting holdinvoice plugin");
-    std::env::set_var("CLN_PLUGIN_LOG", "debug");
+    std::env::set_var("CLN_PLUGIN_LOG", "cln_plugin=info,cln_rpc=info,debug");
 
     let state = PluginState {
         blockheight: Arc::new(Mutex::new(u32::default())),
