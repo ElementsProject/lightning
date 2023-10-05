@@ -164,8 +164,8 @@ def test_valid_hold_then_settle(node_factory, bitcoind):
     cl1, _ = l1.fundchannel(l2, 1_000_000)
     cl2, _ = l1.fundchannel(l2, 1_000_000)
 
-    l1.wait_local_channel_active(cl1)
-    l1.wait_local_channel_active(cl2)
+    l1.wait_channel_active(cl1)
+    l1.wait_channel_active(cl2)
 
     invoice = l2.rpc.call("holdinvoice", {
         "amount_msat": 1_000_100_000,
@@ -260,8 +260,8 @@ def test_valid_hold_then_cancel(node_factory, bitcoind):
     cl1, _ = l1.fundchannel(l2, 1_000_000)
     cl2, _ = l1.fundchannel(l2, 1_000_000)
 
-    l1.wait_local_channel_active(cl1)
-    l1.wait_local_channel_active(cl2)
+    l1.wait_channel_active(cl1)
+    l1.wait_channel_active(cl2)
 
     invoice = l2.rpc.call("holdinvoice", {
         "amount_msat": 1_000_100_000,
