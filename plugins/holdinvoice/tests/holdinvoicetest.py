@@ -160,15 +160,12 @@ def test_valid_hold_then_settle(node_factory, bitcoind):
                                         )
                                     }
                                     )
-    l1.fundwallet(10**7)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     cl1, _ = l1.fundchannel(l2, 1_000_000)
-    mine_funding_to_announce(bitcoind, [l1])
     cl2, _ = l1.fundchannel(l2, 1_000_000)
-    mine_funding_to_announce(bitcoind, [l1])
 
-    l1.wait_channel_active(cl1)
-    l1.wait_channel_active(cl2)
+    l1.wait_local_channel_active(cl1)
+    l1.wait_local_channel_active(cl2)
 
     invoice = l2.rpc.call("holdinvoice", {
         "amount_msat": 1_000_100_000,
@@ -259,15 +256,12 @@ def test_valid_hold_then_cancel(node_factory, bitcoind):
                                         )
                                     }
                                     )
-    l1.fundwallet(10**7)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     cl1, _ = l1.fundchannel(l2, 1_000_000)
-    mine_funding_to_announce(bitcoind, [l1])
     cl2, _ = l1.fundchannel(l2, 1_000_000)
-    mine_funding_to_announce(bitcoind, [l1])
 
-    l1.wait_channel_active(cl1)
-    l1.wait_channel_active(cl2)
+    l1.wait_local_channel_active(cl1)
+    l1.wait_local_channel_active(cl2)
 
     invoice = l2.rpc.call("holdinvoice", {
         "amount_msat": 1_000_100_000,
