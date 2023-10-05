@@ -2939,12 +2939,34 @@ static struct amount_sat check_balances(struct peer *peer,
 			  funding_amount_res, min_multiplied;
 	struct amount_msat funding_amount,
 			   initiator_fee, accepter_fee;
-	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES];
+	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES],
+			   pending_htlcs[NUM_TX_ROLES];
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
 	bool opener = our_role == TX_INITIATOR;
 	u8 *msg;
 
+	/* The channel funds less any pending htlcs */
 	in[TX_INITIATOR] = peer->channel->view->owed[opener ? LOCAL : REMOTE];
 	in[TX_ACCEPTER] = peer->channel->view->owed[opener ? REMOTE : LOCAL];
+
+	/* pending_htlcs holds the value of all pending htlcs for each side */
+	pending_htlcs[TX_INITIATOR] = AMOUNT_MSAT(0);
+	pending_htlcs[TX_ACCEPTER] = AMOUNT_MSAT(0);
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
+		struct amount_msat *itr;
+
+		if (htlc_owner(htlc) == opener ? LOCAL : REMOTE)
+			itr = &pending_htlcs[TX_INITIATOR];
+		else
+			itr = &pending_htlcs[TX_ACCEPTER];
+
+		if (!amount_msat_add(itr, *itr, htlc->amount))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add HTLC balance");
+	}
 
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (i != chan_input_index)
@@ -2963,10 +2985,20 @@ static struct amount_sat check_balances(struct peer *peer,
 					   psbt_output_get_amount(psbt, i),
 					   &psbt->outputs[i].unknowns);
 
-	/* Calculate total channel output amount */
+	/* Calculate original channel output amount */
 	if (!amount_msat_add(&funding_amount,
 			     peer->channel->view->owed[LOCAL],
 			     peer->channel->view->owed[REMOTE]))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to calculate starting channel amount");
+	if (!amount_msat_add(&funding_amount,
+			     funding_amount,
+			     pending_htlcs[TX_INITIATOR]))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Unable to calculate starting channel amount");
+	if (!amount_msat_add(&funding_amount,
+			     funding_amount,
+			     pending_htlcs[TX_ACCEPTER]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to calculate starting channel amount");
 
@@ -3011,9 +3043,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Initiator funding is less than commited"
 				 " amount. Initiator contributing %s but they"
-				 " committed to %s.",
+				 " committed to %s. Pending offered HTLC"
+				 " balance of %s is not available for this"
+				 " operation.",
 				 fmt_amount_msat(tmpctx, in[TX_INITIATOR]),
-				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]));
+				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]),
+				 fmt_amount_msat(tmpctx,
+				 		 pending_htlcs[TX_INITIATOR]));
 	}
 
 	if (!amount_msat_sub(&initiator_fee, in[TX_INITIATOR], out[TX_INITIATOR]))
@@ -3029,9 +3065,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Accepter funding is less than commited"
 				 " amount. Accepter contributing %s but they"
-				 " committed to %s.",
+				 " committed to %s. Pending offered HTLC"
+				 " balance of %s is not available for this"
+				 " operation.",
 				 fmt_amount_msat(tmpctx, in[TX_INITIATOR]),
-				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]));
+				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]),
+				 fmt_amount_msat(tmpctx,
+				 		 pending_htlcs[TX_INITIATOR]));
 	}
 
 	if (!amount_msat_sub(&accepter_fee, in[TX_ACCEPTER], out[TX_ACCEPTER]))
