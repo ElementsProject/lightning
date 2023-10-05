@@ -1,303 +1,334 @@
 #!/usr/bin/python
 
-from pyln.client import LightningRpc
-import unittest
+from pyln.testing.fixtures import *
+from pyln.testing.utils import only_one, mine_funding_to_announce
 import secrets
 import threading
 import time
+import os
 from util import generate_random_label
 from util import generate_random_number
 from util import pay_with_thread
 
-# need 2 nodes with sufficient liquidity on rpc1 side
-# this is the node with holdinvoice
-rpc2 = LightningRpc("/tmp/l2-regtest/regtest/lightning-rpc")
-# this node pays the invoices
-rpc1 = LightningRpc("/tmp/l1-regtest/regtest/lightning-rpc")
+
+def test_inputs(node_factory):
+    node = node_factory.get_node(
+        options={
+            'important-plugin': os.path.join(
+                os.getcwd(), '../../target/release/holdinvoice'
+            )
+        }
+    )
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1000000,
+        "description": "Valid invoice description",
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert "payment_hash" in result
+
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1000000,
+        "description": "",
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert "payment_hash" in result
+
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1000000,
+        "description": "Numbers only as label",
+        "label": generate_random_number()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert "payment_hash" in result
+
+    result = node.rpc.call("holdinvoice", {
+        "description": "Missing amount",
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("missing required parameter: amount_msat|msatoshi")
+    assert result["message"] == expected_message
+
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1000000,
+        "description": "Missing label", }
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert result["message"] == "missing required parameter: label"
+
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1000000,
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert result["message"] == "missing required parameter: description"
+
+    random_hex = secrets.token_hex(32)
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 2000000,
+        "description": "Invoice with optional fields",
+        "label": generate_random_label(),
+        "expiry": 3600,
+        "fallbacks": ["bcrt1qcpw242j4xsjth7ueq9dgmrqtxjyutuvmraeryr",
+                      "bcrt1qdwydlys0f8khnp87mx688vq4kskjyr68nrx58j"],
+        "preimage": random_hex,
+        "cltv": 144,
+        "deschashonly": True}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    assert "payment_hash" in result
+
+    # Negative amount_msat
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": -1000,
+        "description": "Invalid amount negative",
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("amount_msat|msatoshi: should be an unsigned "
+                        "64 bit integer: invalid token '-1000'")
+    assert result["message"] == expected_message
+
+    # 0 amount_msat
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 0,
+        "description": "Invalid amount 0",
+        "label": generate_random_label()}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("amount_msat|msatoshi: should be positive msat"
+                        " or 'any': invalid token '\"0msat\"'")
+    assert result["message"] == expected_message
+
+    # Negative expiry value
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 500000,
+        "description": "Invalid expiry",
+        "label": generate_random_label(),
+        "expiry": -3600}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("expiry: should be an unsigned "
+                        "64 bit integer: invalid token '-3600'")
+    assert result["message"] == expected_message
+
+    # Fallbacks not as a list of strings
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 800000,
+        "description": "Invalid fallbacks",
+        "label": generate_random_label(),
+        "fallbacks": "invalid_fallback"}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("fallbacks: should be an array: "
+                        "invalid token '\"invalid_fallback\"'")
+    assert result["message"] == expected_message
+
+    # Negative cltv value
+    result = node.rpc.call("holdinvoice", {
+        "amount_msat": 1200000,
+        "description": "Invalid cltv",
+        "label": generate_random_label(),
+        "cltv": -144}
+    )
+    assert result is not None
+    assert isinstance(result, dict) is True
+    expected_message = ("cltv: should be an integer: "
+                        "invalid token '-144'")
+    assert result["message"] == expected_message
 
 
-class TestStringMethods(unittest.TestCase):
+def test_valid_hold_then_settle(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={
+                                        'important-plugin': os.path.join(
+                                            os.getcwd(),
+                                            '../../target/release/holdinvoice'
+                                        )
+                                    }
+                                    )
+    l1.fundwallet(10**7)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    cl1, _ = l1.fundchannel(l2, 1_000_000)
+    mine_funding_to_announce(bitcoind, [l1])
+    cl2, _ = l1.fundchannel(l2, 1_000_000)
+    mine_funding_to_announce(bitcoind, [l1])
 
-    def test_valid_input(self):
-        result = rpc2.holdinvoice(
-            amount_msat=1000000,
-            description="Valid invoice description",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
+    l1.wait_channel_active(cl1)
+    l1.wait_channel_active(cl2)
 
-        result = rpc2.holdinvoice(
-            amount_msat=1000000,
-            description="",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
+    invoice = l2.rpc.call("holdinvoice", {
+        "amount_msat": 1_000_100_000,
+        "description": "test_valid_hold_then_settle",
+        "label": generate_random_label(),
+        "cltv": 144}
+    )
+    assert invoice is not None
+    assert isinstance(invoice, dict) is True
+    assert "payment_hash" in invoice
 
-        result = rpc2.holdinvoice(
-            amount_msat=1000000,
-            description="Numbers only as label",
-            label=generate_random_number()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
+    result_lookup = l2.rpc.call("holdinvoicelookup", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_lookup is not None
+    assert isinstance(result_lookup, dict) is True
+    assert "state" in result_lookup
+    assert result_lookup["state"] == "open"
+    assert "htlc_expiry" not in result_lookup
 
-    def test_missing_required_fields(self):
-        result = rpc2.holdinvoice(
-            description="Missing amount",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"],
-                         "missing required parameter: amount_msat|msatoshi")
+    # test that it won't settle if it's still open
+    result_settle = l2.rpc.call("holdinvoicesettle", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_settle is not None
+    assert isinstance(result_settle, dict) is True
+    expected_message = ("Holdinvoice is in wrong state: 'open'")
+    assert result_settle["message"] == expected_message
 
-        result = rpc2.holdinvoice(
-            amount_msat=1000000,
-            description="Missing label",
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"],
-                         "missing required parameter: label")
+    threading.Thread(target=pay_with_thread, args=(
+        l1.rpc, invoice["bolt11"])).start()
 
-        result = rpc2.holdinvoice(
-            amount_msat=1000000,
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"],
-                         "missing required parameter: description")
+    timeout = 10
+    start_time = time.time()
 
-    def test_optional_fields(self):
-        random_hex = secrets.token_hex(32)
-        result = rpc2.holdinvoice(
-            amount_msat=2000000,
-            description="Invoice with optional fields",
-            label=generate_random_label(),
-            expiry=3600,
-            fallbacks=["bcrt1qcpw242j4xsjth7ueq9dgmrqtxjyutuvmraeryr",
-                       "bcrt1qdwydlys0f8khnp87mx688vq4kskjyr68nrx58j"],
-            preimage=random_hex,
-            cltv=144,
-            deschashonly=True
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
+    while time.time() - start_time < timeout:
+        result_lookup = l2.rpc.call("holdinvoicelookup", {
+            "payment_hash": invoice["payment_hash"]})
+        assert result_lookup is not None
+        assert isinstance(result_lookup, dict) is True
 
-    def test_invalid_amount_msat(self):
-        # Negative amount_msat
-        result = rpc2.holdinvoice(
-            amount_msat=-1000,
-            description="Invalid amount negative",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(
-            result["message"], "amount_msat|msatoshi: should be an unsigned "
-            "64 bit integer: invalid token '-1000'")
+        if result_lookup["state"] == "accepted":
+            break
+        else:
+            time.sleep(1)
 
-        # 0 amount_msat
-        result = rpc2.holdinvoice(
-            amount_msat=0,
-            description="Invalid amount 0",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(
-            result["message"], "amount_msat|msatoshi: should be positive msat"
-            " or 'any': invalid token '\"0msat\"'")
+    assert result_lookup["state"] == "accepted"
+    assert "htlc_expiry" in result_lookup
 
-    def test_invalid_expiry(self):
-        # Negative expiry value
-        result = rpc2.holdinvoice(
-            amount_msat=500000,
-            description="Invalid expiry",
-            label=generate_random_label(),
-            expiry=-3600
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"], "expiry: should be an unsigned "
-                         "64 bit integer: invalid token '-3600'")
+    # test that it's actually holding the htlcs
+    # and not letting them through
+    doublecheck = only_one(l2.rpc.call("listinvoices", {
+        "payment_hash": invoice["payment_hash"]})["invoices"])
+    assert doublecheck["status"] == "unpaid"
 
-    def test_invalid_fallbacks(self):
-        # Fallbacks not as a list of strings
-        result = rpc2.holdinvoice(
-            amount_msat=800000,
-            description="Invalid fallbacks",
-            label=generate_random_label(),
-            fallbacks="invalid_fallback"
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"], "fallbacks: should be an array: "
-                         "invalid token '\"invalid_fallback\"'")
+    result_settle = l2.rpc.call("holdinvoicesettle", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_settle is not None
+    assert isinstance(result_settle, dict) is True
+    assert result_settle["state"] == "settled"
 
-    def test_invalid_cltv(self):
-        # Negative cltv value
-        result = rpc2.holdinvoice(
-            amount_msat=1200000,
-            description="Invalid cltv",
-            label=generate_random_label(),
-            cltv=-144
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertEqual(result["message"], "cltv: should be an integer: "
-                         "invalid token '-144'")
+    result_lookup = l2.rpc.call("holdinvoicelookup", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_lookup is not None
+    assert isinstance(result_lookup, dict) is True
+    assert result_lookup["state"] == "settled"
+    assert "htlc_expiry" not in result_lookup
 
-    def test_valid_hold_then_settle(self):
-        result = rpc2.holdinvoice(
-            amount_msat=1_000_100_000,
-            description="test_valid_hold_then_settle",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
+    # ask cln if the invoice is actually paid
+    # should not be necessary because lookup does this aswell
+    doublecheck = only_one(l2.rpc.call("listinvoices", {
+        "payment_hash": invoice["payment_hash"]})["invoices"])
+    assert doublecheck["status"] == "paid"
 
-        result_lookup = rpc2.holdinvoicelookup(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_lookup)
-        self.assertTrue(isinstance(result_lookup, dict))
-        self.assertIn("state", result_lookup)
-        self.assertEqual(result_lookup["state"], "open")
-        self.assertNotIn("htlc_expiry", result_lookup)
-
-        # test that it won't settle if it's still open
-        result_settle = rpc2.holdinvoicesettle(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_settle)
-        self.assertTrue(isinstance(result_settle, dict))
-        self.assertEqual(result_settle["message"],
-                         "Holdinvoice is in wrong state: 'open'")
-
-        threading.Thread(target=pay_with_thread, args=(
-            rpc1, result["bolt11"])).start()
-
-        timeout = 10
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            result_lookup = rpc2.holdinvoicelookup(
-                payment_hash=result["payment_hash"])
-            self.assertIsNotNone(result_lookup)
-            self.assertTrue(isinstance(result_lookup, dict))
-
-            if result_lookup["state"] == "accepted":
-                break
-            else:
-                time.sleep(1)
-
-        self.assertEqual(result_lookup["state"], "accepted")
-        self.assertIn("htlc_expiry", result_lookup)
-
-        # test that it's actually holding the htlcs
-        # and not letting them through
-        doublecheck = rpc2.listinvoices(
-            payment_hash=result["payment_hash"])["invoices"]
-        self.assertEqual(doublecheck[0]["status"], "unpaid")
-
-        result_settle = rpc2.holdinvoicesettle(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_settle)
-        self.assertTrue(isinstance(result_settle, dict))
-        self.assertEqual(result_settle["state"], "settled")
-
-        result_lookup = rpc2.holdinvoicelookup(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_lookup)
-        self.assertTrue(isinstance(result_lookup, dict))
-        self.assertEqual(result_lookup["state"], "settled")
-        self.assertNotIn("htlc_expiry", result_lookup)
-
-        # ask cln if the invoice is actually paid
-        # should not be necessary because lookup does this aswell
-        doublecheck = rpc2.listinvoices(
-            payment_hash=result["payment_hash"])["invoices"]
-        self.assertEqual(doublecheck[0]["status"], "paid")
-
-        result_cancel_settled = rpc2.holdinvoicecancel(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_cancel_settled)
-        self.assertTrue(isinstance(result_cancel_settled, dict))
-        self.assertEqual(
-            result_cancel_settled["message"], "Holdinvoice is in wrong "
-            "state: 'settled'")
-
-    def test_valid_hold_then_cancel(self):
-        result = rpc2.holdinvoice(
-            amount_msat=1_000_100_000,
-            description="test_valid_hold_then_cancel",
-            label=generate_random_label()
-        )
-        self.assertIsNotNone(result)
-        self.assertTrue(isinstance(result, dict))
-        self.assertIn("payment_hash", result)
-
-        result_lookup = rpc2.holdinvoicelookup(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_lookup)
-        self.assertTrue(isinstance(result_lookup, dict))
-        self.assertIn("state", result_lookup)
-        self.assertEqual(result_lookup["state"], "open")
-        self.assertNotIn("htlc_expiry", result_lookup)
-
-        threading.Thread(target=pay_with_thread, args=(
-            rpc1, result["bolt11"])).start()
-
-        timeout = 10
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            result_lookup = rpc2.holdinvoicelookup(
-                payment_hash=result["payment_hash"])
-            self.assertIsNotNone(result_lookup)
-            self.assertTrue(isinstance(result_lookup, dict))
-
-            if result_lookup["state"] == "accepted":
-                break
-            else:
-                time.sleep(1)
-
-        self.assertEqual(result_lookup["state"], "accepted")
-        self.assertIn("htlc_expiry", result_lookup)
-
-        result_cancel = rpc2.holdinvoicecancel(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_cancel)
-        self.assertTrue(isinstance(result_cancel, dict))
-        self.assertEqual(result_cancel["state"], "canceled")
-
-        result_lookup = rpc2.holdinvoicelookup(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_lookup)
-        self.assertTrue(isinstance(result_lookup, dict))
-        self.assertEqual(result_lookup["state"], "canceled")
-        self.assertNotIn("htlc_expiry", result_lookup)
-
-        doublecheck = rpc2.listinvoices(
-            payment_hash=result["payment_hash"])["invoices"]
-        self.assertEqual(doublecheck[0]["status"], "unpaid")
-
-        # if we cancel we cannot settle after
-        result_settle_canceled = rpc2.holdinvoicesettle(
-            payment_hash=result["payment_hash"])
-        self.assertIsNotNone(result_settle_canceled)
-        self.assertTrue(isinstance(result_settle_canceled, dict))
-        self.assertEqual(
-            result_settle_canceled["message"], "Holdinvoice is in wrong "
-            "state: 'canceled'")
+    result_cancel_settled = l2.rpc.call("holdinvoicecancel", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_cancel_settled is not None
+    assert isinstance(result_cancel_settled, dict) is True
+    expected_message = ("Holdinvoice is in wrong "
+                        "state: 'settled'")
+    assert result_cancel_settled["message"] == expected_message
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_valid_hold_then_cancel(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={
+                                        'important-plugin': os.path.join(
+                                            os.getcwd(),
+                                            '../../target/release/holdinvoice'
+                                        )
+                                    }
+                                    )
+    l1.fundwallet(10**7)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    cl1, _ = l1.fundchannel(l2, 1_000_000)
+    mine_funding_to_announce(bitcoind, [l1])
+    cl2, _ = l1.fundchannel(l2, 1_000_000)
+    mine_funding_to_announce(bitcoind, [l1])
+
+    l1.wait_channel_active(cl1)
+    l1.wait_channel_active(cl2)
+
+    invoice = l2.rpc.call("holdinvoice", {
+        "amount_msat": 1_000_100_000,
+        "description": "test_valid_hold_then_cancel",
+        "label": generate_random_label(),
+        "cltv": 144}
+    )
+    assert invoice is not None
+    assert isinstance(invoice, dict) is True
+    assert "payment_hash" in invoice
+
+    result_lookup = l2.rpc.call("holdinvoicelookup", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_lookup is not None
+    assert isinstance(result_lookup, dict) is True
+    assert "state" in result_lookup
+    assert result_lookup["state"] == "open"
+    assert "htlc_expiry" not in result_lookup
+
+    threading.Thread(target=pay_with_thread, args=(
+        l1.rpc, invoice["bolt11"])).start()
+
+    timeout = 10
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        result_lookup = l2.rpc.call("holdinvoicelookup", {
+            "payment_hash": invoice["payment_hash"]})
+        assert result_lookup is not None
+        assert isinstance(result_lookup, dict) is True
+
+        if result_lookup["state"] == "accepted":
+            break
+        else:
+            time.sleep(1)
+
+    assert result_lookup["state"] == "accepted"
+    assert "htlc_expiry" in result_lookup
+
+    result_cancel = l2.rpc.call("holdinvoicecancel", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_cancel is not None
+    assert isinstance(result_cancel, dict) is True
+    assert result_cancel["state"] == "canceled"
+
+    result_lookup = l2.rpc.call("holdinvoicelookup", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_lookup is not None
+    assert isinstance(result_lookup, dict) is True
+    assert result_lookup["state"] == "canceled"
+    assert "htlc_expiry" not in result_lookup
+
+    doublecheck = only_one(l2.rpc.call("listinvoices", {
+        "payment_hash": invoice["payment_hash"]})["invoices"])
+    assert doublecheck["status"] == "unpaid"
+
+    # if we cancel we cannot settle after
+    result_settle_canceled = l2.rpc.call("holdinvoicesettle", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_settle_canceled is not None
+    assert isinstance(result_settle_canceled, dict) is True
+    expected_message = ("Holdinvoice is in wrong "
+                        "state: 'canceled'")
+    result_settle_canceled["message"] == expected_message

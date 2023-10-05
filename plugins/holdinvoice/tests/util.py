@@ -16,6 +16,6 @@ def generate_random_number():
 def pay_with_thread(rpc, bolt11):
     try:
         rpc.pay(bolt11)
-    except Exception:
-        # print(f"Error paying payment hash {payment_hash}:", e)
+    except Exception as e:
+        print(f"holdinvoice: Error paying payment hash:{e}")
         pass
