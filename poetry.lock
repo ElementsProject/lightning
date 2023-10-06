@@ -74,9 +74,9 @@ lint = ["pre-commit"]
 test = ["hypothesis", "pytest", "pytest-benchmark[histogram]", "pytest-cov", "pytest-xdist", "sortedcollections", "sortedcontainers", "sphinx"]
 
 [[package]]
-name = "bitarray"
-version = "2.8.2"
-description = "efficient arrays of booleans -- C extension"
+name = "bitstring"
+version = "3.1.9"
+description = "Simple construction, analysis and modification of binary data."
 optional = false
 python-versions = "*"
 files = [
@@ -205,9 +205,15 @@ files = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "bitstring"
 version = "4.1.2"
 description = "Simple construction, analysis and modification of binary data."
+=======
+name = "blinker"
+version = "1.6.2"
+description = "Fast, simple object-to-object and broadcast signaling"
+>>>>>>> 690de03ac (docs: downgrade the gunicorn version)
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -452,7 +458,7 @@ flask-restx = "^1.1.0"
 flask-socketio = "^5.3.6"
 gevent = "^23.9.0.post1"
 gevent-websocket = "^0.10.1"
-gunicorn = "^21.2.0"
+gunicorn = "^20.1.0"
 json5 = "^0.9.14"
 pyln-client = "^23.8"
 
@@ -894,7 +900,11 @@ gevent = "*"
 
 [[package]]
 name = "greenlet"
+<<<<<<< HEAD
 version = "3.0.0"
+=======
+version = "3.0.0rc3"
+>>>>>>> 690de03ac (docs: downgrade the gunicorn version)
 description = "Lightweight in-process concurrent programming"
 optional = false
 python-versions = ">=3.7"
@@ -1103,17 +1113,17 @@ setuptools = "*"
 
 [[package]]
 name = "gunicorn"
-version = "21.2.0"
+version = "20.1.0"
 description = "WSGI HTTP Server for UNIX"
 optional = false
 python-versions = ">=3.5"
 files = [
-    {file = "gunicorn-21.2.0-py3-none-any.whl", hash = "sha256:3213aa5e8c24949e792bcacfc176fef362e7aac80b76c56f6b5122bf350722f0"},
-    {file = "gunicorn-21.2.0.tar.gz", hash = "sha256:88ec8bff1d634f98e61b9f65bc4bf3cd918a90806c6f5c48bc5603849ec81033"},
+    {file = "gunicorn-20.1.0-py3-none-any.whl", hash = "sha256:9dcc4547dbb1cb284accfb15ab5667a0e5d1881cc443e0677b4882a4067a807e"},
+    {file = "gunicorn-20.1.0.tar.gz", hash = "sha256:e0a968b5ba15f8a328fdfd7ab1fcb5af4470c28aaf7e55df02a99bc13138e6e8"},
 ]
 
 [package.dependencies]
-packaging = "*"
+setuptools = ">=3.0"
 
 [package.extras]
 eventlet = ["eventlet (>=0.24.1)"]
