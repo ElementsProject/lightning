@@ -1,5 +1,6 @@
 import string
 import random
+import logging
 
 
 def generate_random_label():
@@ -14,8 +15,9 @@ def generate_random_number():
 
 
 def pay_with_thread(rpc, bolt11):
+    LOGGER = logging.getLogger(__name__)
     try:
-        rpc.pay(bolt11)
+        rpc.dev_pay(bolt11, dev_use_shadow=False)
     except Exception as e:
-        print(f"holdinvoice: Error paying payment hash:{e}")
+        LOGGER.debug(f"holdinvoice: Error paying payment hash:{e}")
         pass

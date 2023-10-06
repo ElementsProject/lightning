@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 from pyln.testing.fixtures import *
-from pyln.testing.utils import only_one, mine_funding_to_announce
+from pyln.testing.utils import only_one, wait_for
+from pyln.client import Millisatoshi
 import secrets
 import threading
 import time
@@ -15,7 +16,7 @@ def test_inputs(node_factory):
     node = node_factory.get_node(
         options={
             'important-plugin': os.path.join(
-                os.getcwd(), '../../target/release/holdinvoice'
+                os.getcwd(), 'target/release/holdinvoice'
             )
         }
     )
@@ -156,7 +157,7 @@ def test_valid_hold_then_settle(node_factory, bitcoind):
                                     opts={
                                         'important-plugin': os.path.join(
                                             os.getcwd(),
-                                            '../../target/release/holdinvoice'
+                                            'target/release/holdinvoice'
                                         )
                                     }
                                     )
@@ -194,7 +195,7 @@ def test_valid_hold_then_settle(node_factory, bitcoind):
     assert result_settle["message"] == expected_message
 
     threading.Thread(target=pay_with_thread, args=(
-        l1.rpc, invoice["bolt11"])).start()
+        l1, invoice["bolt11"])).start()
 
     timeout = 10
     start_time = time.time()
@@ -247,12 +248,129 @@ def test_valid_hold_then_settle(node_factory, bitcoind):
     assert result_cancel_settled["message"] == expected_message
 
 
+def test_fc_hold_then_settle(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={
+                                        'important-plugin': os.path.join(
+                                            os.getcwd(),
+                                            'target/release/holdinvoice'
+                                        )
+                                    }
+                                    )
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    cl1, _ = l1.fundchannel(l2, 1_000_000)
+
+    l1.wait_channel_active(cl1)
+
+    fundsres = l2.rpc.call("listfunds")["outputs"]
+    total_funds = 0
+    for utxo in fundsres:
+        total_funds += utxo["amount_msat"]
+    assert total_funds == Millisatoshi(0)
+
+    invoice_amt = 10_000_000
+
+    invoice = l2.rpc.call("holdinvoice", {
+        "amount_msat": invoice_amt,
+        "description": "test_valid_hold_then_settle",
+        "label": generate_random_label(),
+        "cltv": 50}
+    )
+    assert invoice is not None
+    assert isinstance(invoice, dict) is True
+    assert "payment_hash" in invoice
+
+    threading.Thread(target=pay_with_thread, args=(
+        l1, invoice["bolt11"])).start()
+
+    timeout = 10
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        result_lookup = l2.rpc.call("holdinvoicelookup", {
+            "payment_hash": invoice["payment_hash"]})
+        assert result_lookup is not None
+        assert isinstance(result_lookup, dict) is True
+
+        if result_lookup["state"] == "accepted":
+            break
+        else:
+            time.sleep(1)
+
+    assert result_lookup["state"] == "accepted"
+    assert "htlc_expiry" in result_lookup
+
+    # test that it's actually holding the htlcs
+    # and not letting them through
+    doublecheck = only_one(l2.rpc.call("listinvoices", {
+        "payment_hash": invoice["payment_hash"]})["invoices"])
+    assert doublecheck["status"] == "unpaid"
+
+    fc = l1.rpc.close(cl1, 1)
+    bitcoind.generate_block(1, wait_for_mempool=fc['txid'])
+    wait_for(lambda: l1.rpc.listpeerchannels(l2.info['id'])[
+             'channels'][0]["state"] == 'ONCHAIN')
+    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])[
+             'channels'][0]["state"] == 'ONCHAIN')
+    assert l2.channel_state(l1) == 'ONCHAIN'
+
+    result_settle = l2.rpc.call("holdinvoicesettle", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_settle is not None
+    assert isinstance(result_settle, dict) is True
+    assert result_settle["state"] == "settled"
+
+    result_lookup = l2.rpc.call("holdinvoicelookup", {
+        "payment_hash": invoice["payment_hash"]})
+    assert result_lookup is not None
+    assert isinstance(result_lookup, dict) is True
+    assert result_lookup["state"] == "settled"
+    assert "htlc_expiry" not in result_lookup
+
+    # ask cln if the invoice is actually paid
+    # should not be necessary because lookup does this aswell
+    doublecheck = only_one(l2.rpc.call("listinvoices", {
+        "payment_hash": invoice["payment_hash"]})["invoices"])
+    assert doublecheck["status"] == "paid"
+
+    # payres = only_one(l1.rpc.call(
+    #     "listpays", {"payment_hash": invoice["payment_hash"]})["pays"])
+    # assert payres["status"] == "complete"
+
+    fundsres = l2.rpc.call("listfunds")["outputs"]
+    total_funds = 0
+    for utxo in fundsres:
+        total_funds += utxo["amount_msat"]
+    assert total_funds == Millisatoshi(0)
+
+    for _ in range(15):
+        bitcoind.generate_block(5)
+        time.sleep(0.2)
+
+    wait_for(lambda: any('ONCHAIN:All outputs resolved' in status_str
+                         for status_str in l1.rpc.listpeerchannels(
+                             l2.info['id'])['channels'][0]["status"]))
+    wait_for(lambda: any('ONCHAIN:All outputs resolved' in status_str
+                         for status_str in l2.rpc.listpeerchannels(
+                             l1.info['id'])['channels'][0]["status"]))
+
+    payres = only_one(l1.rpc.call(
+        "listpays", {"payment_hash": invoice["payment_hash"]})["pays"])
+    assert payres["status"] == "complete"
+
+    fundsres = l2.rpc.call("listfunds")["outputs"]
+    total_funds = 0
+    for utxo in fundsres:
+        total_funds += utxo["amount_msat"]
+    assert total_funds > Millisatoshi(0)
+
+
 def test_valid_hold_then_cancel(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2,
                                     opts={
                                         'important-plugin': os.path.join(
                                             os.getcwd(),
-                                            '../../target/release/holdinvoice'
+                                            'target/release/holdinvoice'
                                         )
                                     }
                                     )
@@ -282,7 +400,7 @@ def test_valid_hold_then_cancel(node_factory, bitcoind):
     assert "htlc_expiry" not in result_lookup
 
     threading.Thread(target=pay_with_thread, args=(
-        l1.rpc, invoice["bolt11"])).start()
+        l1, invoice["bolt11"])).start()
 
     timeout = 10
     start_time = time.time()

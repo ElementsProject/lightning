@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from pyln.testing.fixtures import *
-from pyln.testing.utils import only_one, mine_funding_to_announce
+from pyln.testing.utils import wait_for, mine_funding_to_announce
 import time
 import threading
 import os
@@ -10,9 +10,9 @@ from util import generate_random_label, pay_with_thread
 
 
 # number of invoices to create, pay, hold and then cancel
-num_iterations = 5
+num_iterations = 100
 # seconds to hold the invoices with inflight htlcs
-delay_seconds = 12
+delay_seconds = 120
 # amount to be used in msat
 amount_msat = 1_000_100_000
 
@@ -38,16 +38,14 @@ def test_stress(node_factory, bitcoind):
                                     opts={
                                         'important-plugin': os.path.join(
                                             os.getcwd(),
-                                            '../../target/release/holdinvoice'
+                                            'target/release/holdinvoice'
                                         )
                                     }
                                     )
-    LOGGER.info("holdinvoice: Nodes created")
     l1.fundwallet((amount_msat/1000)*num_iterations*20)
     LOGGER.info("holdinvoice: Funding secured")
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    LOGGER.info("holdinvoice: Nodes connected")
-    for _ in range(int(num_iterations/10)+1):
+    for _ in range(int(num_iterations/7)+1):
         for _ in range(10):
             res = l1.rpc.fundchannel(l2.info['id'], int(
                 (amount_msat*0.95)/1000), minconf=0)
@@ -63,6 +61,10 @@ def test_stress(node_factory, bitcoind):
         LOGGER.info("holdinvoice: Funded 10 channels")
 
     l1.wait_channel_active(scid)
+    wait_for(lambda: all(channel['state'] == 'CHANNELD_NORMAL'
+                         for channel in
+                         l1.rpc.listpeerchannels(l2.info['id'])['channels']))
+
     payment_hashes = []
 
     LOGGER.info(
@@ -83,14 +85,15 @@ def test_stress(node_factory, bitcoind):
 
             # Pay the invoice using a separate thread
             threading.Thread(target=pay_with_thread, args=(
-                l1.rpc, invoice["bolt11"])).start()
+                l1, invoice["bolt11"])).start()
             time.sleep(1)
         except Exception as e:
             LOGGER.error("holdinvoice: Error executing command:", e)
 
     LOGGER.info(f"holdinvoice: Done paying {num_iterations} invoices!")
     # wait a little more for payments to arrive
-    time.sleep(10)
+    wait_for(lambda: lookup_stats(l2.rpc, payment_hashes)
+             ["accepted"] == num_iterations)
 
     stats = lookup_stats(l2.rpc, payment_hashes)
     LOGGER.info(stats)
@@ -113,6 +116,9 @@ def test_stress(node_factory, bitcoind):
             LOGGER.error(
                 f"holdinvoice: holdinvoice:Error cancelling "
                 f"payment hash {payment_hash}:", e)
+
+    wait_for(lambda: lookup_stats(l2.rpc, payment_hashes)
+             ["canceled"] == num_iterations)
 
     stats = lookup_stats(l2.rpc, payment_hashes)
     LOGGER.info(stats)
