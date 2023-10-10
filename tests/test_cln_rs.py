@@ -8,6 +8,7 @@ import grpc
 import pytest
 import subprocess
 import os
+import re
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
@@ -178,11 +179,16 @@ def test_grpc_generate_certificate(node_factory):
 
 def test_grpc_no_auto_start(node_factory):
     """Ensure that we do not start cln-grpc unless a port is configured.
+    Also check that we do not generate certificates.
     """
     l1 = node_factory.get_node()
 
     wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
     assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: disabled itself at init')
+    p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
+    files = os.listdir(p)
+    pem_files = [f for f in files if re.match(r".*\.pem$", f)]
+    assert pem_files == []
 
 
 def test_grpc_wrong_auth(node_factory):
