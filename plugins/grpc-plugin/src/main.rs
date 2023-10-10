@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
     let path = Path::new("lightning-rpc");
 
     let directory = std::env::current_dir()?;
-    let (identity, ca_cert) = tls::init(&directory)?;
 
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
@@ -47,6 +46,8 @@ async fn main() -> Result<()> {
         None => return Err(anyhow!("Missing 'grpc-port' option")),
         Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
     };
+
+    let (identity, ca_cert) = tls::init(&directory)?;
 
     let state = PluginState {
         rpc_path: path.into(),
