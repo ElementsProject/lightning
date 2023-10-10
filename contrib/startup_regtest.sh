@@ -97,6 +97,7 @@ start_nodes() {
 		# If we've configured to use developer, add dev options
 		if $LIGHTNINGD --help | grep -q dev-fast-gossip; then
 			cat <<- EOF >> "/tmp/l$i-$network/config"
+			developer
 			dev-fast-gossip
 			dev-bitcoind-poll=5
 			experimental-dual-fund
