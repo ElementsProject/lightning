@@ -22,6 +22,8 @@ static struct gossmap *global_gossmap;
 static struct node_id local_id;
 static struct plugin *plugin;
 
+extern bool deprecated_apis;
+
 /* We load this on demand, since we can start before gossipd. */
 static struct gossmap *get_gossmap(void)
 {
@@ -439,6 +441,10 @@ static void json_add_halfchan(struct json_stream *response,
 	const u8 *chanfeatures;
 	struct amount_sat capacity;
 	bool local_disable;
+
+	/* FIXME: deprecate private channels in listchannels result in 24.08 */
+	if (deprecated_apis)
+		return;
 
 	/* These are channel (not per-direction) properties */
 	chanfeatures = gossmap_chan_get_features(tmpctx, gossmap, c);
