@@ -48,7 +48,7 @@ struct wally_psbt *new_psbt(const tal_t *ctx,
  * @ctx - allocation context
  * @psbt - psbt to be cloned
  */
-struct wally_psbt *clone_psbt(const tal_t *ctx, struct wally_psbt *psbt);
+struct wally_psbt *clone_psbt(const tal_t *ctx, const struct wally_psbt *psbt);
 
 /**
  * psbt_is_finalized - Check if tx is ready to be extracted

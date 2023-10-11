@@ -933,12 +933,19 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
 		      type_to_string(tmpctx, struct wally_psbt, psbt));
 
+	/* NOTE - The psbt_contribs_changed function nulls lots of
+	 * fields in place to compare the PSBTs. This removes the
+	 * witness stack held in final_witness.  Give it a clone of
+	 * the PSBT to hack on instead ... */
+	struct wally_psbt *psbt_clone;
+	psbt_clone = clone_psbt(tmpctx, psbt);
+
 	/* Verify that inputs/outputs are the same. Note that this is a
 	 * 'de minimus' check -- we just look at serial_ids. If you've
 	 * totally managled the data here but left the serial_ids intact,
 	 * you'll get a failure back from the peer when you send
 	 * commitment sigs */
-	if (psbt_contribs_changed(payload->psbt, psbt))
+	if (psbt_contribs_changed(payload->psbt, psbt_clone))
 		fatal("Plugin must not change psbt input/output set. "
 		      "orig: %s. updated: %s",
 		      type_to_string(tmpctx, struct wally_psbt,
