@@ -36,7 +36,7 @@ struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_o
 	return psbt;
 }
 
-struct wally_psbt *clone_psbt(const tal_t *ctx, struct wally_psbt *psbt)
+struct wally_psbt *clone_psbt(const tal_t *ctx, const struct wally_psbt *psbt)
 {
 	struct wally_psbt *clone;
 	tal_wally_start();

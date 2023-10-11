@@ -45,7 +45,7 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
 /* Generated stub for clone_psbt */
-struct wally_psbt *clone_psbt(const tal_t *ctx UNNEEDED, struct wally_psbt *psbt UNNEEDED)
+struct wally_psbt *clone_psbt(const tal_t *ctx UNNEEDED, const struct wally_psbt *psbt UNNEEDED)
 { fprintf(stderr, "clone_psbt called!\n"); abort(); }
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)

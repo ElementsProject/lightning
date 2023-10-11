@@ -494,20 +494,21 @@ bool psbt_output_to_external(const struct wally_psbt_output *output)
 	return !(!result);
 }
 
+/* FIXME: both PSBT should be const */
 bool psbt_contribs_changed(struct wally_psbt *orig,
 			   struct wally_psbt *new)
 {
-	assert(orig->version == 2 && new->version == 2);
-
 	struct psbt_changeset *cs;
 	bool ok;
+
+	assert(orig->version == 2 && new->version == 2);
+
 	cs = psbt_get_changeset(NULL, orig, new);
 
 	ok = tal_count(cs->added_ins) > 0 ||
 	    tal_count(cs->rm_ins) > 0 ||
 	    tal_count(cs->added_outs) > 0 ||
 	    tal_count(cs->rm_outs) > 0;
-
 	tal_free(cs);
 	return ok;
 }
