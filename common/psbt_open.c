@@ -389,18 +389,24 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 		if (!psbt_get_serial_id(&input->unknowns, &serial_id))
 			return false;
 
-		/* Required because we send the full tx over the wire now */
-		if (!input->utxo)
-			return false;
+		/* Only insist on PSBT_IN_NON_WITNESS_UTXO (.utxo) if
+		 * PSBT_IN_WITNESS_UTXO (.witness_utxo) is not present
+		 * because PSBT_IN_NON_WITNESS_UTXO uses a lot of
+		 * memory */
+		if (!input->witness_utxo) {
+			/* Required because we send the full tx over the wire now */
+			if (!input->utxo)
+				return false;
 
-		/* If is P2SH, redeemscript must be present */
-		assert(psbt->inputs[i].index < input->utxo->num_outputs);
-		const u8 *outscript =
-			wally_tx_output_get_script(tmpctx,
-				&input->utxo->outputs[psbt->inputs[i].index]);
-		redeem_script = wally_map_get_integer(&psbt->inputs[i].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
-		if (is_p2sh(outscript, NULL) && (!redeem_script || redeem_script->value_len == 0))
-			return false;
+			/* If is P2SH, redeemscript must be present */
+			assert(psbt->inputs[i].index < input->utxo->num_outputs);
+			const u8 *outscript =
+				wally_tx_output_get_script(tmpctx,
+							   &input->utxo->outputs[psbt->inputs[i].index]);
+			redeem_script = wally_map_get_integer(&psbt->inputs[i].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
+			if (is_p2sh(outscript, NULL) && (!redeem_script || redeem_script->value_len == 0))
+				return false;
+		}
 	}
 
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
