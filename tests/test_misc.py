@@ -3014,7 +3014,7 @@ def test_notimestamp_logging(node_factory):
     # Make sure this is specified *before* other options!
     l1.daemon.early_opts.insert(0, '--log-timestamps=false')
     l1.start()
-    assert l1.daemon.logs[0].startswith("lightningd-1 DEBUG")
+    assert l1.daemon.logs[0].startswith("lightningd-1 INFO")
 
     assert l1.rpc.listconfigs()['configs']['log-timestamps']['value_bool'] is False
 
