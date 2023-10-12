@@ -51,6 +51,17 @@ struct wally_psbt *new_psbt(const tal_t *ctx,
 struct wally_psbt *clone_psbt(const tal_t *ctx, struct wally_psbt *psbt);
 
 /**
+ * combine_psbt - Combine two PSBT into a cloned copy
+ *
+ * @ctx - allocation context
+ * @psbt0 - one psbt
+ * @psbt1 - other psbt
+ */
+struct wally_psbt *combine_psbt(const tal_t *ctx,
+				const struct wally_psbt *psbt0,
+				const struct wally_psbt *psbt1);
+
+/**
  * psbt_is_finalized - Check if tx is ready to be extracted
  *
  * The libwally library requires a transaction be *ready* for
