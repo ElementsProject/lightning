@@ -1038,6 +1038,7 @@ int main(int argc, char *argv[])
 	 * variables. */
 	ld = new_lightningd(NULL);
 	ld->state = LD_STATE_INITIALIZING;
+	log_info(ld->log, "%s", version());
 
 	/*~ We store an copy of our arguments before parsing mangles them, so
 	 * we can re-exec if versions of subdaemons change.  Note the use of
