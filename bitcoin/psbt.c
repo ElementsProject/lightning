@@ -86,6 +86,22 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 	return psbt;
 }
 
+struct wally_psbt *combine_psbt(const tal_t *ctx,
+				const struct wally_psbt *psbt0,
+				const struct wally_psbt *psbt1)
+{
+	struct wally_psbt *combined_psbt;
+	tal_wally_start();
+	if (wally_psbt_clone_alloc(psbt0, 0, &combined_psbt) != WALLY_OK)
+		abort();
+	if (wally_psbt_combine(combined_psbt, psbt1) != WALLY_OK) {
+		tal_wally_end_onto(ctx, combined_psbt, struct wally_psbt);
+		return tal_free(combined_psbt);
+	}
+	tal_wally_end_onto(ctx, combined_psbt, struct wally_psbt);
+	return combined_psbt;
+}
+
 bool psbt_is_finalized(const struct wally_psbt *psbt)
 {
 	size_t is_finalized;

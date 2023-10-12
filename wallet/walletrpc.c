@@ -799,15 +799,28 @@ static struct command_result *json_signpsbt(struct command *cmd,
 				    "HSM gave bad sign_withdrawal_reply %s",
 				    tal_hex(tmpctx, msg));
 
-	if (!psbt_set_version(signed_psbt, psbt_version)) {
+	/* Some signers (VLS) prune the input.utxo data as it's used
+	 * because it is too large to store in the signer. We can
+	 * restore this metadata by combining the signed psbt back
+	 * into a clone of the original psbt. */
+	struct wally_psbt *combined_psbt;
+	combined_psbt = combine_psbt(cmd, psbt, signed_psbt);
+	if (!combined_psbt) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unable to combine signed psbt: %s",
+				    type_to_string(tmpctx, struct wally_psbt,
+						   signed_psbt));
+	}
+
+	if (!psbt_set_version(combined_psbt, psbt_version)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Signed PSBT unable to have version set: %s",
 					 type_to_string(tmpctx, struct wally_psbt,
-					 	psbt));
+					 	combined_psbt));
 	}
 
 	response = json_stream_success(cmd);
-	json_add_psbt(response, "signed_psbt", signed_psbt);
+	json_add_psbt(response, "signed_psbt", combined_psbt);
 	return command_success(cmd, response);
 }
 
