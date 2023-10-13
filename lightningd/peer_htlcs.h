@@ -37,7 +37,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
-			struct htlc_out **houtp);
+			struct htlc_out **houtp,
+	                const bool *endorsed);
 
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,

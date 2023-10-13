@@ -5629,7 +5629,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
-	bool endorsed;
+	bool *endorsed;
 	u32 cltv_expiry;
 	struct amount_msat amount;
 	struct sha256 payment_hash;
@@ -5646,26 +5646,27 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 			      "funding not locked for offer_htlc");
 
 	if (!fromwire_channeld_offer_htlc(tmpctx, inmsg, &amount,
-					 &cltv_expiry, &payment_hash,
-					 onion_routing_packet, &blinding))
+					  &cltv_expiry, &payment_hash,
+					  onion_routing_packet, &blinding,
+					  &endorsed))
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 	if (blinding) {
 		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
 		tlvs->blinding_point = tal_dup(tlvs, struct pubkey, blinding);
+		tlvs->endorsed = (u8 *) endorsed;
 	} else
 		tlvs = NULL;
 
-	endorsed = false;
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, take(blinding), NULL,
 			     &htlc_fee, endorsed, true);
-	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s endorsed=%d",
+	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s endorsed=%u",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),
 		     cltv_expiry,
 		     channel_add_err_name(e),
-		     endorsed);
+		     endorsed ? *endorsed : 0);
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:

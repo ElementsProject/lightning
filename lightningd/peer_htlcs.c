@@ -610,7 +610,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
-			struct htlc_out **houtp)
+			struct htlc_out **houtp,
+	                const bool *endorsed)
 {
 	u8 *msg;
 
@@ -652,7 +653,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	}
 
 	msg = towire_channeld_offer_htlc(out, amount, cltv, payment_hash,
-					onion_routing_packet, blinding);
+					 onion_routing_packet, blinding,
+					 (bool *)endorsed);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
@@ -705,7 +707,8 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct short_channel_id *forward_scid,
 			 const struct channel_id *forward_to,
 			 const u8 next_onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
-			 const struct pubkey *next_blinding)
+			 const struct pubkey *next_blinding,
+	                 const bool *endorsed)
 {
 	const u8 *failmsg;
 	struct lightningd *ld = hin->key.channel->peer->ld;
@@ -816,7 +819,7 @@ static void forward_htlc(struct htlc_in *hin,
 				outgoing_cltv_value, AMOUNT_MSAT(0),
 				&hin->payment_hash,
 				next_blinding, 0 /* partid */, 0 /* groupid */,
-				next_onion, hin, &hout);
+				next_onion, hin, &hout, endorsed);
 	if (!failmsg)
 		return;
 
@@ -844,6 +847,11 @@ struct htlc_accepted_hook_payload {
 	u8 *next_onion;
 	u64 failtlvtype;
 	size_t failtlvpos;
+	/* NULL if the jamming mitigation it is not
+	 * supported */
+	bool *endorsed;
+	/* FIXME: add the possibility to encode
+	 * and decode the raw tlvs */
 };
 
 /* We only handle the simplest cases here */
@@ -929,7 +937,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok;
+	const jsmntok_t *resulttok, *paykeytok,
+		*payloadtok, *fwdtok, *endorse_tok;
 	u8 *failonion;
 
 	if (!toks || !buffer)
@@ -979,6 +988,19 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 			      fwdtok->end - fwdtok->start,
 			      buffer + fwdtok->start);
 		}
+	}
+
+	endorse_tok = json_get_member(buffer, toks, "endorsed");
+	if (endorse_tok) {
+		bool internal_endorsed;
+		tal_free(request->endorsed);
+		request->endorsed = tal(request, bool);
+		if (json_to_bool(buffer, endorse_tok, &internal_endorsed))
+			fatal("Bad endorsed for htlc_accepted"
+			      " hook: %.*s",
+			      endorse_tok->end - endorse_tok->start,
+			      buffer + endorse_tok->start);
+		*request->endorsed = internal_endorsed ? 1 : 0;
 	}
 
 	if (json_tok_streq(buffer, resulttok, "continue")) {
@@ -1103,6 +1125,8 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	}
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
 	json_add_secret(s, "shared_secret", hin->shared_secret);
+	if (p->endorsed != NULL)
+		json_add_bool(s, "endorsed", *p->endorsed == 1);
 	json_object_end(s);
 
 	if (p->fwd_channel_id)
@@ -1151,7 +1175,7 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 			     request->payload->forward_channel,
 			     request->fwd_channel_id,
 			     serialize_onionpacket(tmpctx, rs->next),
-			     request->next_blinding);
+			     request->next_blinding, request->endorsed);
 	} else
 		handle_localpay(hin,
 				request->payload->amt_to_forward,

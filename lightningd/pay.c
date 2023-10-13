@@ -17,6 +17,7 @@
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <stdbool.h>
 #include <wallet/invoices.h>
 
 /* Routing failure object */
@@ -730,7 +731,8 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 			    u64 partid,
 			    u64 groupid,
 			    struct channel *channel,
-			    struct htlc_out **hout)
+			    struct htlc_out **hout,
+	                    const bool *endorsed)
 {
 	const u8 *onion;
 	unsigned int base_expiry;
@@ -740,7 +742,8 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     final_amount, payment_hash,
-			     blinding, partid, groupid, onion, NULL, hout);
+			     blinding, partid, groupid, onion, NULL, hout,
+			     endorsed);
 }
 
 static struct command_result *check_invoice_request_usage(struct command *cmd,
@@ -1106,7 +1109,7 @@ send_payment_core(struct lightningd *ld,
 			 fmt_amount_msat(tmpctx, first_hop->amount),
 			 fmt_amount_msat(tmpctx, msat));
 
-	/* BOLT 2 (0539ad868a263040087d2790684f69fb28d3fa97):
+	/* BLIP-jamming #04:
 	 * A sending node:
 	 * - if it is the original source of the HTLC:
 	 *    - if it does not expect immediate fulfillment upon receipt by the
