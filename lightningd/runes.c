@@ -827,10 +827,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.runes = cmd->ld->runes;
 	cinfo.peer = nodeid;
 	cinfo.buf = buffer;
-	if (method != NULL && streq(method, ""))
-		cinfo.method = NULL;
-	else
-		cinfo.method = method;
+	cinfo.method = method;
 	cinfo.params = methodparams;
 	cinfo.now = time_now();
 	strmap_init(&cinfo.cached_params);
