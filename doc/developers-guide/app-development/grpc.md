@@ -5,11 +5,11 @@ hidden: false
 createdAt: "2023-02-07T12:52:39.665Z"
 updatedAt: "2023-02-08T09:56:41.158Z"
 ---
-> 📘 
-> 
+> 📘
+>
 > Used for applications that want to connect to CLN over the network in a secure manner.
 
-Since v0.11.0, Core Lightning provides a new interface: `cln-grpc`, a Rust-based plugin that provides a standardized API that apps, plugins, and other tools could use to interact with Core Lightning securely. 
+Since v0.11.0, Core Lightning provides a new interface: `cln-grpc`, a Rust-based plugin that provides a standardized API that apps, plugins, and other tools could use to interact with Core Lightning securely.
 
 We always had a JSON-RPC, with a very exhaustive API, but it was exposed only locally over a Unix-domain socket. Some plugins chose to re-expose the API over a variety of protocols, ranging from REST to gRPC, but it was additional work to install them. The gRPC API is automatically generated from our existing JSON-RPC API, so it has the same low-level and high-level access that app devs are accustomed to but uses a more efficient binary encoding where possible and is secured via mutual TLS authentication.
 
@@ -54,12 +54,22 @@ python -m grpc_tools.protoc \
   --experimental_allow_proto3_optional
 ```
 
-
-
 This will generate two files in the current directory:
 
 - `node_pb2.py`: the description of the protobuf messages we'll be exchanging with the server.
 - `node_pb2_grpc.py`: the service and method stubs representing the server-side methods as local objects and associated methods.
+
+Finally, we generate the file `primitives_pb2.py` that contains
+protobuf messages imported in `node_pb2.py` file by running the
+following command:
+
+```bash
+python -m grpc_tools.protoc \
+  -I lightning/cln-grpc/proto \
+  path/to/cln-grpc/proto/primitives.proto \
+  --python_out=. \
+  --experimental_allow_proto3_optional
+```
 
 ### Connecting to the node
 
@@ -69,6 +79,7 @@ Finally we can use the generated stubs and mTLS identity to connect to the node:
 from pathlib import Path
 from node_pb2_grpc import NodeStub
 import node_pb2
+import grpc
 
 p = Path(".")
 cert_path = p / "client.pem"
@@ -82,7 +93,7 @@ creds = grpc.ssl_channel_credentials(
 )
 
 channel = grpc.secure_channel(
-	f"localhost:{grpc_port}",
+	"localhost:<GRPC-PORT>",
 	creds,
 	options=(('grpc.ssl_target_name_override', 'cln'),)
 )
@@ -91,7 +102,8 @@ stub = NodeStub(channel)
 print(stub.Getinfo(node_pb2.GetinfoRequest()))
 ```
 
-
+Note that we must replace `<GRPC-PORT>` by the corresponding port we
+used as `--grpc-port` option when we started our node.
 
 In this example, we first load the client identity as well as the CA certificate so we can verify the server's identity against it. We then create a `creds` instance using those details. Next we open a secure channel, i.e., a channel over TLS with verification of identities.
 
