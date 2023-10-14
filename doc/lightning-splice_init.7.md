@@ -38,6 +38,7 @@ lightning-cli splice_init -- $CHANNEL_ID -100000
 Here is an example set of splice commands that will splice in 100,000 sats to
 the first channel that comes out of `listpeerchannels`. The example assumes
 you already have at least one confirmed channel.
+
 ```shell
 RESULT=$(lightning-cli listpeerchannels);
 CHANNEL_ID=$(echo $RESULT| jq -r ".channels[0].channel_id");
@@ -65,6 +66,7 @@ lightning-cli splice_signed $CHANNEL_ID $PSBT
 Here is an example set of splice commands that will splice out 100,000 sats from
  first channel that comes out of `listpeerchannels`. The example assumes
 you already have at least one confirmed channel.
+
 ```shell
 RESULT=$(lightning-cli listpeerchannels);
 CHANNEL_ID=$(echo $RESULT| jq -r ".channels[0].channel_id");

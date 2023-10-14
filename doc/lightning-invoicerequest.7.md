@@ -65,6 +65,7 @@ should use lightning-listinvoicerequests(7) to query whether it was
 created or not.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 
 AUTHOR

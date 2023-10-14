@@ -35,6 +35,7 @@ perform additional validation or strategy adjustment.
 Typically, `splice_update` will return `commitments_secured` true after one call
 but you should assume it will need multiple calls. Here is an example way to
 call `splice_update`
+
 ```shell
 RESULT="{\"commitments_secured\":false}"
 while [[ $(echo $RESULT | jq -r ".commitments_secured") == "false" ]]
@@ -51,6 +52,7 @@ to make additional changes.
 Here is a full example set of splice commands that will splice in 100,000 sats
 to the first channel that comes out of `listpeerchannels`. The example assumes
 you already have at least one confirmed channel.
+
 ```shell
 RESULT=$(lightning-cli listpeerchannels)
 CHANNEL_ID=$(echo $RESULT| jq -r ".channels[0].channel_id")

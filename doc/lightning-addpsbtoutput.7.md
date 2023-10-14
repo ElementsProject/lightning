@@ -31,6 +31,7 @@ EXAMPLE USAGE
 
 Here is a command to make a PSBT with a 100,000 sat output that leads
 to the on-chain wallet.
+
 ```shell
 lightning-cli addpsbtoutput 100000sat
 ```

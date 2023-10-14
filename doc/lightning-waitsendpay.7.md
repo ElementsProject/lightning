@@ -61,6 +61,7 @@ final destination, the route table will no longer be updated. Use the
 route.
 
 The following error codes may occur:
+
 -   -1: Catchall nonspecific error.
 -   200: Timed out before the payment could complete.
 -   202: Unparseable onion reply. The *data* field of the error will
@@ -77,6 +78,7 @@ The following error codes may occur:
     old databases.
 
 A routing failure object has the fields below:
+
 -   *erring\_index*: The index of the node along the route that reported
     the error. 0 for the local node, 1 for the first hop, and so on.
 -   *erring\_node*: The hex string of the pubkey id of the node that

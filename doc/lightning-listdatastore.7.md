@@ -30,6 +30,7 @@ On success, an object containing **datastore** is returned.  It is an array of o
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
+
 - -32602: invalid parameters.
 
 AUTHOR

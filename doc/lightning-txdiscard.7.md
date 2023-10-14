@@ -28,6 +28,7 @@ happen due to incorrect usage, such as **txdiscard** or **txsend**
 already being called for *txid*.
 
 The following error codes may occur:
+
 - -1: An unknown *txid*.
 
 AUTHOR

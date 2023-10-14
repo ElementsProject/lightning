@@ -116,22 +116,15 @@ lightning-renepaystatus(7) command.
 
 The following error codes may occur:
 
--1: Catchall nonspecific error.
-
-200: Other payment attempts are in progress.
-
-203: Permanent failure at destination.
-
-205: Unable to find a route.
-
-206: Payment routes are too expensive.
-
-207: Invoice expired. Payment took too long before expiration, or
+- -1: Catchall nonspecific error.
+- 200: Other payment attempts are in progress.
+- 203: Permanent failure at destination.
+- 205: Unable to find a route.
+- 206: Payment routes are too expensive.
+- 207: Invoice expired. Payment took too long before expiration, or
 already expired at the time you initiated payment.
-
-210: Payment timed out without a payment in progress.
-
-212: Invoice is invalid.
+- 210: Payment timed out without a payment in progress.
+- 212: Invoice is invalid.
 
 AUTHOR
 ------

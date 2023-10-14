@@ -29,9 +29,14 @@ killed and restarted except if its an important (or builtin) plugin.
 If the plugin doesn't complete the "getmanifest" and "init" handshakes within 60 seconds,
 the command will timeout and kill the plugin.
 Additional *options* may be passed to the plugin, but requires all parameters to
-be passed as keyword=value pairs, for example:
- `lightning-cli -k plugin subcommand=start plugin=helloworld.py greeting='A crazy'`
-(using the `-k|--keyword` option is recommended)
+be passed as keyword=value pairs using the  `-k|--keyword` option which
+is recommended. For example the following command starts the plugin
+helloworld.py (present in the plugin directory) with the option
+greeting set to 'A crazy':
+
+```
+lightning-cli -k plugin subcommand=start plugin=helloworld.py greeting='A crazy'
+```
 
 *subcommand* **stop** takes a plugin executable *path* or *name* as argument and stops the plugin.
 If the plugin subscribed to "shutdown", it may take up to 30 seconds before this

@@ -27,6 +27,7 @@ to it or it will fail.
 
 In this example we funded the psbt from our lightning node, so we can use the
 lightning node to sign for its funds.
+
 ```shell
 RESULT=$(lightning-cli signpsbt $PSBT)
 PSBT=$(echo $RESULT | jq -r ".signed_psbt")
@@ -38,6 +39,7 @@ lightning-cli splice_signed $CHANNEL_ID $PSBT
 Here is a full example set of splice commands that will splice in 100,000 sats
 to the first channel that comes out of `listpeerchannels`. The example assumes
 you already have at least one confirmed channel.
+
 ```shell
 RESULT=$(lightning-cli listpeerchannels)
 CHANNEL_ID=$(echo $RESULT| jq -r ".channels[0].channel_id")

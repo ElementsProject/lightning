@@ -28,6 +28,7 @@ On failure, an error is reported (from bitcoind), and the inputs from
 the transaction are unreserved.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 
 AUTHOR

@@ -38,6 +38,7 @@ If **reserved** is *true*:
 On failure, an error is reported and no UTXOs are unreserved.
 
 The following error codes may occur:
+
 - -32602: Invalid parameter, i.e. an unparseable PSBT.
 
 AUTHOR

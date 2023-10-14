@@ -30,7 +30,7 @@ of this invoice.
 The *description* is a short description of purpose of payment, e.g. *1
 cup of coffee*. This value is encoded into the BOLT11 invoice and is
 viewable by any node you send this invoice to (unless *deschashonly* is
-true as described below). It must be UTF-8, and cannot use *\\u* JSON 
+true as described below). It must be UTF-8, and cannot use *\\u* JSON
 escape codes.
 
 The *expiry* is optionally the time the invoice is valid for, in seconds.
@@ -100,6 +100,7 @@ lightning-listinvoices(7) to query whether this invoice was created or
 not.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 900: An invoice with the given *label* already exists.
 - 901: An invoice with the given *preimage* already exists.

@@ -47,6 +47,7 @@ which was reserved:
 On failure, an error is reported and no UTXOs are reserved.
 
 The following error codes may occur:
+
 - -32602: Invalid parameter, such as specifying a spent/reserved input in *psbt*.
 
 AUTHOR

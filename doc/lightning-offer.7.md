@@ -112,6 +112,7 @@ If the offer already existed, and is still active, that is returned;
 if it's not active then this call fails.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 1000: Offer with this offer\_id already exists (but is not active).
 

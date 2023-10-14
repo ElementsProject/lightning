@@ -23,6 +23,7 @@ RETURN VALUE
 ------------
 
 On success, an object is returned, containing:
+
 - **stubs** (array of hexs):
   - Each item is the channel ID of the channel successfully inserted
 

@@ -93,6 +93,7 @@ ERRORS
 ------
 
 The following error codes may occur:
+
 - -1: Channel is in incorrect state, i.e. Catchall nonspecific error.
 - -32602: JSONRPC2\_INVALID\_PARAMS, i.e. Given id is not a channel ID
 or short channel ID.
