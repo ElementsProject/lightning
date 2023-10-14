@@ -19,6 +19,7 @@ be of the form *id@host* or *id@host:port*. In this case, the *host* and
 *host* is the peer's hostname or IP address.
 
 If not specified, the *port* depends on the current network:
+
 - bitcoin **mainnet**: 9735.
 - bitcoin **testnet**: 19735.
 - bitcoin **signet**: 39735.

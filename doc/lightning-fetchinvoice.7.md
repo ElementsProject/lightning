@@ -68,6 +68,7 @@ On success, an object is returned, containing:
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 1002: Offer has expired.
 - 1003: Cannot find a route to the node making the offer.

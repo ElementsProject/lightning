@@ -48,6 +48,7 @@ On failure, an error is reported and the withdrawal transaction is not
 created.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 301: There are not enough funds in the internal wallet (including
 fees) to create the transaction.

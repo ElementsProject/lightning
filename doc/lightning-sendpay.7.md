@@ -99,6 +99,7 @@ error from the final destination implies the payment should not be
 retried.
 
 The following error codes may occur:
+
 -   -1: Catchall nonspecific error.
 -   201: Already paid with this *hash* using different amount or
     destination.
@@ -112,6 +113,7 @@ The following error codes may occur:
 -   212: *localinvreqid* refers to an invalid, or used, local invoice\_request.
 
 A routing failure object has the fields below:
+
 -   *erring\_index*. The index of the node along the route that reported
     the error. 0 for the local node, 1 for the first hop, and so on.
 -   *erring\_node*. The hex string of the pubkey id of the node that

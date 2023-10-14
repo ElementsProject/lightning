@@ -15,11 +15,13 @@ events have happened (**wait** with a *nextvalue* of 0 is a way of getting
 the current index, though naturally this is racy!).
 
 *indexname* is one of `created`, `updated` or `deleted`:
+
 - `created` is incremented by one for every new object.
 - `updated` is incremented by one every time an object is changed.
 - `deleted` is incremented by one every time an object is deleted.
 
 *subsystem* is one of:
+
 - `invoices`: corresponding to `listinvoices`.
 
 

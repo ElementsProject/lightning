@@ -88,6 +88,7 @@ The following warnings may also be returned:
 You can monitor the progress and retries of a payment using the lightning-paystatus(7) command.
 
 The following error codes may occur:
+
 - `-1`: Catchall nonspecific error.
 - `203`: Permanent failure at destination. The *data* field of the error will be routing failure object.
 - `205`: Unable to find a route.
@@ -95,6 +96,7 @@ The following error codes may occur:
 - `210`: Payment timed out without a payment in progress.
 
 A routing failure object has the fields below:
+
 - `erring_index`: The index of the node along the route that reported the error. 0 for the local node, 1 for the first hop, and so on.
 - `erring_node`: The hex string of the pubkey id of the node that reported the error.
 - `erring_channel`: The short channel ID of the channel that has the error, or *0:0:0* if the destination node raised the error.

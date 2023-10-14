@@ -117,6 +117,7 @@ On success, an object is returned, containing:
 On failure, none of the channels are created.
 
 The following error codes may occur:
+
 * -1: Catchall nonspecific error.
 - 300: The maximum allowed funding amount is exceeded.
 - 301: There are not enough funds in the internal wallet (including fees) to create the transaction.

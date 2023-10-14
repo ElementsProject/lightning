@@ -17,6 +17,7 @@ lightningd config file. Reckless does all of these by invoking:
 **reckless** **install** *plugin\_name*
 
 reckless will exit early in the event that:
+
 - the plugin is not found in any available source repositories
 - dependencies are not sucessfully installed
 - the plugin fails to execute
@@ -99,6 +100,7 @@ permanent alias in this case.
 For Plugin Developers:
 
 To make your plugin compatible with reckless install:
+
 - Choose a unique plugin name.
 - The plugin entrypoint is inferred.  Naming your plugin executable
     the same as your plugin name will allow reckless to identify it
@@ -139,4 +141,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-

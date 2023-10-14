@@ -26,6 +26,7 @@ On success, an object is returned, containing:
 
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 
 AUTHOR

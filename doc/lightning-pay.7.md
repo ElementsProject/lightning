@@ -115,6 +115,7 @@ You can monitor the progress and retries of a payment using the
 lightning-paystatus(7) command.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 201: Already paid with this *hash* using different amount or
 destination.
@@ -137,6 +138,7 @@ Error codes 202 and 204 will only get reported at **sendpay**; in
 **pay** we will keep retrying if we would have gotten those errors.
 
 A routing failure object has the fields below:
+
 - *erring\_index*: The index of the node along the route that reported
 the error. 0 for the local node, 1 for the first hop, and so on.
 - *erring\_node*: The hex string of the pubkey id of the node that

@@ -57,6 +57,7 @@ lightning-listinvoices(7) to query whether this invoice was created or
 not.
 
 The following error codes may occur:
+
 - -1: Catchall nonspecific error.
 - 900: An invoice with the given *label* already exists.
 

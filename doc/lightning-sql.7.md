@@ -88,6 +88,7 @@ a foreign key.
 
 [comment]: # (GENERATE-DOC-START)
 The following tables are currently supported:
+
 - `bkpr_accountevents` (see lightning-bkpr-listaccountevents(7))
   - `account` (type `string`, sqltype `TEXT`)
   - `type` (type `string`, sqltype `TEXT`)

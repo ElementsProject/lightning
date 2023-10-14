@@ -185,6 +185,7 @@ On success, an object with a "peers" key is returned containing a list
 of 0 or more objects.
 
 Each object in the list contains the following data:
+
 - *id* : The unique id of the peer
 - *connected* : A boolean value showing the connection status
 - *netaddr* : A list of network addresses the node is listening on

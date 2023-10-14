@@ -41,12 +41,15 @@ On success, an object is returned, containing:
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *commitments\_secured* is true, will also return:
+
 - The derived *channel\_id*.
 - A *close\_to* script, iff a `close_to` address was provided to
   `openchannel_init` and the peer supports `option_upfront_shutdownscript`.
 - The *funding\_outnum*, the index of the funding output for this channel
   in the funding transaction.
 
+On error, the returned object will contain `code` and `message` properties,
+with `code` being one of the following:
 
 - -32602: If the given parameters are wrong.
 - -1: Catchall nonspecific error.

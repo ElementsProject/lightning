@@ -26,6 +26,7 @@ On success, an object is returned, containing:
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
+
 - RUNE\_NOT\_AUTHORIZED (1501): rune is not for this node (or perhaps completely invalid)
 - RUNE\_NOT\_PERMITTED (1502): rune does not allow this usage (includes a detailed reason why)
 - RUNE\_BLACKLISTED (1503): rune has been explicitly blacklisted.
@@ -33,7 +34,7 @@ The following error codes may occur:
 AUTHOR
 ------
 
-Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible 
+Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible
 for consolidating logic from commando.
 
 SEE ALSO

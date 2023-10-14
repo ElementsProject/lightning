@@ -38,6 +38,7 @@ ERRORS
 ------
 
 The following error codes may occur:
+
 - -32602: JSONRPC2\_INVALID\_PARAMS, i.e. the parameter is not dynamic, or the val was invalid.
 
 AUTHOR
