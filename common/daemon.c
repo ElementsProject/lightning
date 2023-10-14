@@ -136,6 +136,10 @@ const char *backtrace_symname(const tal_t *ctx, const void *addr)
 {
 	return "unknown (backtrace unsupported)";
 }
+
+static void add_steal_notifiers(const tal_t *root)
+{
+}
 #endif
 
 int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
