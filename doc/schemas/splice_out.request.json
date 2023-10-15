@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "amount"
+  ],
+  "added": "v23.11",
+  "properties": {
+    "channel_id": {
+      "type": "string",
+      "description": "the channel id of the channel to take funds from"
+    },
+    "amount": {
+      "type": "msat",
+      "description": "a positive amount of satoshis to be taken from the channel"
+    },
+    "initialpsbt": {
+      "type": "string",
+      "description": "the (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically"
+    },
+    "feerate_per_kw": {
+      "type": "u32",
+      "description": "the miner fee we will pay from our channel funds. It is calculated by `feerate_per_kw` * our_bytes_in_splice_tx / 1000"
+    },
+    "force_feerate": {
+      "type": "boolean",
+      "description": "by default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check"
+    },
+    "locktime": {
+      "type": "u32",
+      "description": "the locktime to use if initialpsbt is not specified."
+    },
+    "sign_first": {
+      "type": "bool",
+      "description": "offer to our peer to sign the splice first."
+    }
+  }
+}

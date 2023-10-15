@@ -483,6 +483,20 @@ u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx)
 	return arr;
 }
 
+size_t wally_psbt_weight(const struct wally_psbt *psbt)
+{
+	size_t weight = bitcoin_tx_core_weight(psbt->num_inputs,
+					       psbt->num_outputs);
+
+	for (size_t i = 0; i < psbt->num_inputs; i++)
+		weight += psbt_input_get_weight(psbt, i);
+
+	for (size_t i = 0; i < psbt->num_outputs; i++)
+		weight += psbt_output_get_weight(psbt, i);
+
+	return weight;
+}
+
 size_t wally_tx_weight(const struct wally_tx *wtx)
 {
 	size_t weight;

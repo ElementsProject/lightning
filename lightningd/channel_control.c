@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -27,6 +28,7 @@
 #include <lightningd/peer_fd.h>
 #include <wally_bip32.h>
 #include <wally_psbt.h>
+#include <wallet/txfilter.h>
 
 struct splice_command {
 	/* Inside struct lightningd splice_commands. */
@@ -35,7 +37,37 @@ struct splice_command {
 	struct command *cmd;
 	/* Channel being spliced. */
 	struct channel *channel;
+	/* Should the command be completed automatically */
+	bool auto_complete;
+	/* Should we sign first when completing automatically */
+	bool sign_first;
+	/* When in auto_complete mode, sign_splice_cb will be called when
+	 * signing is needed */
+	struct wally_psbt *(*sign_splice_cb)(struct splice_command *cc,
+					     struct wally_psbt *psbt);
 };
+
+static void destroy_splice_command(struct splice_command *cc)
+{
+	list_del(&cc->list);
+}
+
+static struct splice_command *splice_command_new(struct command *cmd,
+						 struct channel *channel)
+{
+	struct splice_command *cc = tal(cmd, struct splice_command);
+
+	list_add_tail(&cmd->ld->splice_commands, &cc->list);
+	tal_add_destructor(cc, destroy_splice_command);
+
+	cc->cmd = cmd;
+	cc->channel = channel;
+	cc->auto_complete = false;
+	cc->sign_first = false;
+	cc->sign_splice_cb = NULL;
+
+	return cc;
+}
 
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
@@ -293,10 +325,16 @@ static void handle_splice_confirmed_init(struct lightningd *ld,
 		return;
 	}
 
-	struct json_stream *response = json_stream_success(cc->cmd);
-	json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
+	if (cc->auto_complete) {
+		subd_send_msg(channel->owner,
+			      take(towire_channeld_splice_update(NULL, psbt)));
+	}
+	else {
+		struct json_stream *response = json_stream_success(cc->cmd);
+		json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
 
-	was_pending(command_success(cc->cmd, response));
+		was_pending(command_success(cc->cmd, response));
+	}
 }
 
 /* Channeld sends us this in response to a user's `splice_update` request */
@@ -307,6 +345,7 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 	struct splice_command *cc;
 	struct wally_psbt *psbt;
 	bool commitments_secured;
+	u8 *outmsg;
 
 	if (!fromwire_channeld_splice_confirmed_update(tmpctx,
 						      msg,
@@ -326,11 +365,23 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 		return;
 	}
 
-	struct json_stream *response = json_stream_success(cc->cmd);
-	json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
-	json_add_bool(response, "commitments_secured", commitments_secured);
+	if (cc->auto_complete) {
+		if (cc->sign_splice_cb)
+			psbt = cc->sign_splice_cb(cc, psbt);
 
-	was_pending(command_success(cc->cmd, response));
+		assert(commitments_secured);
+
+		outmsg = towire_channeld_splice_signed(NULL, psbt,
+						       cc->sign_first);
+		subd_send_msg(channel->owner, take(outmsg));
+	}
+	else {
+		struct json_stream *response = json_stream_success(cc->cmd);
+		json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
+		json_add_bool(response, "commitments_secured", commitments_secured);
+
+		was_pending(command_success(cc->cmd, response));
+	}
 }
 
 /* Channeld uses this to request the funding transaction for help building the
@@ -1901,18 +1952,12 @@ static struct command_result *param_channel_for_splice(struct command *cmd,
 	return NULL;
 }
 
-static void destroy_splice_command(struct splice_command *cc)
-{
-	list_del(&cc->list);
-}
-
 static struct command_result *json_splice_init(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *obj UNNEEDED,
 					       const jsmntok_t *params)
 {
 	struct channel *channel;
-	struct splice_command *cc;
 	struct wally_psbt *initialpsbt;
 	s64 *relative_amount;
 	u32 *feerate_per_kw;
@@ -1949,13 +1994,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 	log_debug(cmd->ld->log, "splice_init input PSBT version %d",
 		  initialpsbt->version);
 
-	cc = tal(cmd, struct splice_command);
-
-	list_add_tail(&cmd->ld->splice_commands, &cc->list);
-	tal_add_destructor(cc, destroy_splice_command);
-
-	cc->cmd = cmd;
-	cc->channel = channel;
+	splice_command_new(cmd, channel);
 
 	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
 					  *feerate_per_kw, *force_feerate);
@@ -1970,7 +2009,6 @@ static struct command_result *json_splice_update(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	struct channel *channel;
-	struct splice_command *cc;
 	struct wally_psbt *psbt;
 
 	if (!param(cmd, buffer, params,
@@ -1992,13 +2030,7 @@ static struct command_result *json_splice_update(struct command *cmd,
 	log_debug(cmd->ld->log, "splice_update input PSBT version %d",
 		  psbt->version);
 
-	cc = tal(cmd, struct splice_command);
-
-	list_add_tail(&cmd->ld->splice_commands, &cc->list);
-	tal_add_destructor(cc, destroy_splice_command);
-
-	cc->cmd = cmd;
-	cc->channel = channel;
+	splice_command_new(cmd, channel);
 
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_splice_update(NULL, psbt)));
@@ -2012,7 +2044,6 @@ static struct command_result *json_splice_signed(struct command *cmd,
 {
 	u8 *msg;
 	struct channel *channel;
-	struct splice_command *cc;
 	struct wally_psbt *psbt;
 	bool *sign_first;
 
@@ -2036,13 +2067,7 @@ static struct command_result *json_splice_signed(struct command *cmd,
 	log_debug(cmd->ld->log, "splice_signed input PSBT version %d",
 		  psbt->version);
 
-	cc = tal(cmd, struct splice_command);
-
-	list_add_tail(&cmd->ld->splice_commands, &cc->list);
-	tal_add_destructor(cc, destroy_splice_command);
-
-	cc->cmd = cmd;
-	cc->channel = channel;
+	splice_command_new(cmd, channel);
 
 	msg = towire_channeld_splice_signed(tmpctx, psbt, *sign_first);
 	subd_send_msg(channel->owner, take(msg));
@@ -2078,6 +2103,122 @@ static const struct json_command splice_signed_command = {
 	"Send our {signed_psbt}'s tx sigs for {channel_id}."
 };
 AUTODATA(json_command, &splice_signed_command);
+
+static struct command_result *json_splice_out(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	u8 *msg;
+	struct splice_command *cc;
+	struct channel *channel;
+	struct amount_sat *amount;
+	s64 relative_amount;
+	u32 *feerate_per_kw;
+	bool *force_feerate;
+	struct wally_psbt *psbt;
+	u32 *locktime;
+	struct pubkey pubkey;
+	s64 keyidx;
+	u8 *b32script;
+	size_t weight;
+	bool *sign_first;
+
+	if (!param(cmd, buffer, params,
+		  p_req("channel_id", param_channel_for_splice, &channel),
+		  p_req("amount", param_sat_or_all, &amount),
+		  p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
+		  p_opt_def("force_feerate", param_bool, &force_feerate, false),
+		  p_opt("initialpsbt", param_psbt, &psbt),
+		  p_opt("locktime", param_number, &locktime),
+		  p_opt_def("sign_first", param_bool, &sign_first, false),
+		  NULL))
+		return command_param_failed();
+
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+	}
+
+	if (!psbt) {
+		if (!locktime) {
+			locktime = tal(cmd, u32);
+			*locktime = default_locktime(cmd->ld->topology);
+		}
+		psbt = create_psbt(cmd, 0, 0, *locktime);
+	}
+	else if(locktime) {
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Can't set locktime of an existing"
+				    " {initialpsbt}");
+	}
+
+	if (!validate_psbt(psbt))
+		return command_fail(cmd,
+				    FUNDING_PSBT_INVALID,
+				    "PSBT failed to validate.");
+
+	if (amount_sat_less(*amount, chainparams->dust_limit))
+		return command_fail(cmd, FUND_OUTPUT_IS_DUST,
+				    "amount is below dust limit (%s)",
+				    type_to_string(tmpctx,
+				    		   struct amount_sat,
+				    		   &chainparams->dust_limit));
+
+	if (splice_command_for_chan(cmd->ld, channel))
+		return command_fail(cmd,
+				    SPLICE_BUSY_ERROR,
+				    "Currently waiting on previous splice"
+				    " command to finish.");
+
+	/* Get a change adddress */
+	keyidx = wallet_get_newindex(cmd->ld);
+	if (keyidx < 0)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to generate change address."
+				    " Keys exhausted.");
+
+	b32script = NULL;
+	if (chainparams->is_elements) {
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
+		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+	} else {
+		b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+	}
+	if (!b32script) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to generate change address."
+				    " Keys generation failure");
+	}
+	txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+
+	psbt_append_output(psbt, b32script, *amount);
+
+	weight = wally_psbt_weight(psbt);
+	weight += bitcoin_tx_input_weight(true, bitcoin_tx_2of2_input_witness_weight());
+	weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+
+	relative_amount = -amount_tx_fee(*feerate_per_kw, weight).satoshis; /* Raw: splice-out to splice_init */
+	relative_amount -= amount->satoshis; /* Raw: splice-out to splice_init */
+
+	cc = splice_command_new(cmd, channel);
+	cc->auto_complete = true;
+	cc->sign_first = *sign_first;
+
+	msg = towire_channeld_splice_init(NULL, psbt, relative_amount,
+					  *feerate_per_kw, *force_feerate);
+
+	subd_send_msg(channel->owner, take(msg));
+	return command_still_pending(cmd);
+}
+
+static const struct json_command splice_out_command = {
+	"splice_out",
+	"channels",
+	json_splice_out,
+	"Splice {amount} satoshis out of {channel_id} into the onchain wallet."
+};
+AUTODATA(json_command, &splice_out_command);
 
 static struct command_result *json_dev_feerate(struct command *cmd,
 					       const char *buffer,

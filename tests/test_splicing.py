@@ -174,6 +174,30 @@ def test_splice_out(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_out_ez(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    l1.rpc.splice_out(l1.get_channel_id(l2), 100000)
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '3', 'no_3')
+    l1.rpc.pay(inv['bolt11'])
+
+    # Check that the splice doesn't generate a unilateral close transaction
+    time.sleep(5)
+    assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_invalid_splice(node_factory, bitcoind):
     # Here we do a splice but underfund it purposefully
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None,

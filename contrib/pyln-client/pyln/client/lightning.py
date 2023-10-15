@@ -1212,6 +1212,19 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_abort", payload)
 
+    def splice_out(self, chan_id, amount, feerate_per_kw=None, force_feerate=None, initialpsbt=None, locktime=None, sign_first=None):
+        """ Initiate a splice """
+        payload = {
+            "channel_id": chan_id,
+            "amount": amount,
+            "feerate_per_kw": feerate_per_kw,
+            "force_feerate": force_feerate,
+            "initialpsbt": initialpsbt,
+            "locktime": locktime,
+            "sign_first": sign_first,
+        }
+        return self.call("splice_out", payload)
+
     def splice_init(self, chan_id, amount, initialpsbt=None, feerate_per_kw=None):
         """ Initiate a splice """
         payload = {
