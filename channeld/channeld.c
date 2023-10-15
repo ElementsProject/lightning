@@ -164,7 +164,7 @@ struct peer {
 	enum side stfu_initiator;
 	/* Has stfu been sent by each side? */
 	bool stfu_sent[NUM_SIDES];
-	/* After STFU mode is enabled, wait for a signle message flag */
+	/* After STFU mode is enabled, wait for a single message flag */
 	bool stfu_wait_single_msg;
 	/* Updates master asked, which we've deferred while quiescing */
 	struct msg_queue *update_queue;
