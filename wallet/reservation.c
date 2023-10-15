@@ -707,6 +707,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 				    "Failed to generate change address."
 				    " Keys exhausted.");
 
+	b32script = NULL;
 	if (chainparams->is_elements) {
 		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
