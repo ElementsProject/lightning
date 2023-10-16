@@ -5727,14 +5727,31 @@ const char *wallet_get_rune(const tal_t *ctx, struct wallet *wallet, u64 unique_
 	return runestr;
 }
 
-/* Migration code needs db, not wallet access */
-static const char **db_get_runes(const tal_t *ctx, struct db *db, struct timeabs **last_used)
+/* Migration code needs db, and db does not have last_used_nsec yet */
+static const char **db_get_runes(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+	const char **strs = tal_arr(ctx, const char *, 0);
+
+	stmt = db_prepare_v2(db, SQL("SELECT rune FROM runes"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		const char *str = db_col_strdup(strs, stmt, "rune");
+		tal_arr_expand(&strs, str);
+	}
+	tal_free(stmt);
+	return strs;
+}
+
+/* Wallet has last_used_nsec by now */
+const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet, struct timeabs **last_used)
 {
 	struct db_stmt *stmt;
 	const char **strs = tal_arr(ctx, const char *, 0);
 
 	*last_used = tal_arr(ctx, struct timeabs, 0);
-	stmt = db_prepare_v2(db, SQL("SELECT rune, last_used_nsec FROM runes"));
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT rune, last_used_nsec FROM runes"));
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -5744,11 +5761,6 @@ static const char **db_get_runes(const tal_t *ctx, struct db *db, struct timeabs
 	}
 	tal_free(stmt);
 	return strs;
-}
-
-const char **wallet_get_runes(const tal_t *ctx, struct wallet *wallet, struct timeabs **last_used)
-{
-	return db_get_runes(ctx, wallet->db, last_used);
 }
 
 static void db_rune_insert(struct db *db,
@@ -5882,8 +5894,7 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 void migrate_runes_idfix(struct lightningd *ld, struct db *db)
 {
 	/* ID fields were wrong.  Pull them all out and put them back */
-	struct timeabs *last_used;
-	const char **runes = db_get_runes(tmpctx, db, &last_used);
+	const char **runes = db_get_runes(tmpctx, db);
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("DELETE FROM runes;"));
