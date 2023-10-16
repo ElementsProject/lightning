@@ -389,13 +389,9 @@ use the RPC call lightning-setchannel(7).
 
 ### Lightning channel and HTLC options
 
-* **large-channels**
+* **large-channels** (deprecated in v23.11)
 
-  Removes capacity limits for channel creation.  Version 1.0 of the specification
-limited channel sizes to 16777215 satoshi.  With this option (which your
-node will advertize to peers), your node will accept larger incoming channels
-and if the peer supports it, will open larger channels.  Note: this option
-is spelled **large-channels** but it's pronounced **wumbo**.
+  As of v23.11, this is the default (and thus, the option is ignored).  Previously if you didn't specify this, channel sizes were limited to 16777215 satoshi.  Note: this option is spelled **large-channels** but it's pronounced **wumbo**.
 
 * **watchtime-blocks**=*BLOCKS*
 

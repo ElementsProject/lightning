@@ -726,7 +726,7 @@ def test_listconfigs(node_factory, bitcoind, chainparams):
             assert c[valfield] == val
             assert 'plugin' not in c
 
-        # These are aliases, but we don't print the (unofficial!) wumbo.
+        # We don't print the (unofficial!) wumbo
         assert 'wumbo' not in configs
         assert configs['large-channels']['set'] is True
         assert configs['large-channels']['source'] == 'cmdline'
@@ -2228,6 +2228,7 @@ def test_list_features_only(node_factory):
                 'option_static_remotekey/odd',
                 'option_payment_secret/even',
                 'option_basic_mpp/odd',
+                'option_support_large_channel/odd',
                 'option_route_blinding/odd',
                 'option_shutdown_anysegwit/odd',
                 'option_channel_type/odd',

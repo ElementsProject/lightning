@@ -673,7 +673,7 @@ def test_openchannel_hook(node_factory, bitcoind):
         # openchannel2 var checks
         expected.update({
             'channel_id': '.*',
-            'channel_max_msat': 16777215000,
+            'channel_max_msat': 2100000000000000000,
             'commitment_feerate_per_kw': '7500',
             'funding_feerate_per_kw': '7500',
             'feerate_our_max': '150000',
@@ -1771,8 +1771,7 @@ def test_bitcoin_bad_estimatefee(node_factory, bitcoind):
     plugin = os.path.join(os.getcwd(), "tests/plugins/badestimate.py")
     l1 = node_factory.get_node(options={"disable-plugin": "bcli",
                                         "plugin": plugin,
-                                        "badestimate-badorder": True,
-                                        "wumbo": None},
+                                        "badestimate-badorder": True},
                                start=False,
                                may_fail=True, allow_broken_log=True)
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
@@ -1783,8 +1782,7 @@ def test_bitcoin_bad_estimatefee(node_factory, bitcoind):
     l1.start()
 
     l2 = node_factory.get_node(options={"disable-plugin": "bcli",
-                                        "plugin": plugin,
-                                        "wumbo": None})
+                                        "plugin": plugin})
     # Give me some funds.
     bitcoind.generate_block(5)
     l1.fundwallet(100 * 10**8)

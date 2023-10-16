@@ -34,11 +34,9 @@ def hex_bits(features):
     return res.hex
 
 
-def expected_peer_features(wumbo_channels=False, extra=[]):
+def expected_peer_features(extra=[]):
     """Return the expected peer features hexstring for this configuration"""
-    features = [1, 5, 7, 8, 11, 13, 14, 17, 25, 27, 45, 47, 51]
-    if wumbo_channels:
-        features += [19]
+    features = [1, 5, 7, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
@@ -50,11 +48,9 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
 
 # With the addition of the keysend plugin, we now send a different set of
 # features for the 'node' and the 'peer' feature sets
-def expected_node_features(wumbo_channels=False, extra=[]):
+def expected_node_features(extra=[]):
     """Return the expected node features hexstring for this configuration"""
-    features = [1, 5, 7, 8, 11, 13, 14, 17, 25, 27, 45, 47, 51, 55]
-    if wumbo_channels:
-        features += [19]
+    features = [1, 5, 7, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51, 55]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
@@ -64,7 +60,7 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     return hex_bits(features + extra)
 
 
-def expected_channel_features(wumbo_channels=False, extra=[]):
+def expected_channel_features(extra=[]):
     """Return the expected channel features hexstring for this configuration"""
     features = []
     return hex_bits(features + extra)

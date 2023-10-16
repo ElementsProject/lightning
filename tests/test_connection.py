@@ -1090,7 +1090,8 @@ def test_funding_all(node_factory, bitcoind):
 def test_funding_all_too_much(node_factory):
     """Add more than max possible funds, fund a channel using all funds we can.
     """
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    # l2 isn't wumbo, so channel should not be!
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=[{}, {'dev-force-features': '-19'}])
 
     addr, txid = l1.fundwallet(2**24 + 10000)
     l1.rpc.fundchannel(l2.info['id'], "all")
@@ -1162,7 +1163,7 @@ def test_funding_fail(node_factory, bitcoind):
 def test_funding_toolarge(node_factory, bitcoind):
     """Try to create a giant channel"""
     l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'dev-force-features': '-19'})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Send funds.
@@ -1301,10 +1302,9 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2, opts={'may_reconnect': True,
                                              'dev-no-reconnect': None})
 
+    # We have Wumbo, it's ok!
     amount = 2**24
     l1.fundwallet(amount + 10000000)
-
-    amount = amount - 1
 
     # make sure we can generate PSBTs.
     addr = l1.rpc.newaddr()['bech32']
@@ -1325,10 +1325,6 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
         l1.rpc.fundchannel_complete(l2.info['id'], psbt)
-
-    # Fail to open (too large)
-    with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
-        l1.rpc.fundchannel_start(l2.info['id'], amount + 1)
 
     start = l1.rpc.fundchannel_start(l2.info['id'], amount)
     with pytest.raises(RpcError, match=r'Already funding channel'):
@@ -1423,10 +1419,9 @@ def test_funding_v2_corners(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
 
+    # We have wumbo, it's OK
     amount = 2**24
     l1.fundwallet(amount + 10000000)
-
-    amount = amount - 1
 
     # make sure we can generate PSBTs.
     addr = l1.rpc.newaddr()['bech32']
@@ -1448,10 +1443,6 @@ def test_funding_v2_corners(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'Unknown channel'):
         l1.rpc.openchannel_signed(nonexist_chanid, psbt)
-
-    # Fail to open (too large)
-    with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
-        l1.rpc.openchannel_init(l2.info['id'], amount + 1, psbt)
 
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
     # We can abort a channel
@@ -2030,12 +2021,10 @@ def test_multifunding_disconnect(node_factory):
 @pytest.mark.openchannel('v2')
 def test_multifunding_wumbo(node_factory):
     '''
-    Test wumbo channel imposition in multifundchannel.
+    Test wumbo channel imposition in multifundchannel.  l3 not wumbo :(
     '''
-    l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{'large-channels': None},
-                                              {'large-channels': None},
-                                              {}])
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{}, {},
+                                                 {'dev-force-features': '-19'}])
 
     l1.fundwallet(1 << 26)
 
@@ -3473,13 +3462,11 @@ def test_pay_disconnect_stress(node_factory, executor):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_wumbo_channels(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{'large-channels': None},
-                                              {'large-channels': None},
-                                              {}])
+    # l3 is not wumbo.
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{}, {}, {'dev-force-features': '-19'}])
     conn = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
 
-    expected_features = expected_peer_features(wumbo_channels=True)
+    expected_features = expected_peer_features()
     assert conn['features'] == expected_features
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == expected_features
 
@@ -3500,7 +3487,7 @@ def test_wumbo_channels(node_factory, bitcoind):
 
     # Make sure channel features are right from channel_announcement
     assert ([c['features'] for c in l3.rpc.listchannels()['channels']]
-            == [expected_channel_features(wumbo_channels=True)] * 2)
+            == [expected_channel_features()] * 2)
 
     # Make sure we can't open a wumbo channel if we don't agree.
     with pytest.raises(RpcError, match='Amount exceeded'):

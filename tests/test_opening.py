@@ -278,7 +278,7 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_v2_rbf_single(node_factory, bitcoind, chainparams):
-    l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None})
+    l1, l2 = node_factory.get_nodes(2)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -377,8 +377,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
-    l1, l2 = node_factory.get_nodes(2, opts={'wumbo': None,
-                                             'allow_warning': True})
+    l1, l2 = node_factory.get_nodes(2, opts={'allow_warning': True})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
