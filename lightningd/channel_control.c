@@ -130,7 +130,7 @@ static void try_update_blockheight(struct lightningd *ld,
 	}
 
 	/* If we're not opened/locked in yet, don't send update */
-	if (!channel_state_fees_can_change(channel->state))
+	if (!channel_state_can_add_htlc(channel->state))
 		return;
 
 	/* We don't update the blockheight for non-leased chans */
