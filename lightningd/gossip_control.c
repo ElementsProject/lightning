@@ -623,9 +623,7 @@ static struct command_result *json_listprivateinbound(struct command *cmd,
 						      const jsmntok_t *obj UNNEEDED,
 						      const jsmntok_t *params)
 {
-	/* struct node_id *peer_id; */
 	struct peer *peer;
-	/* struct channel *c, **channels; */
 	struct channel *c;
 	struct json_stream *response;
 
@@ -635,13 +633,11 @@ static struct command_result *json_listprivateinbound(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_array_start(response, "private_channels");
 
-	/* channels = tal_arr(tmpctx, struct channel *, 0); */
 	struct peer_node_id_map_iter it;
 
 	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
 	     peer;
 	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
-		/* json_add_peerchannels(cmd->ld, response, peer); */
 		list_for_each(&peer->channels, c, list) {
 			if (c->state != CHANNELD_NORMAL &&
 			    c->state != CHANNELD_AWAITING_SPLICE)
