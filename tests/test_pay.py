@@ -2641,7 +2641,8 @@ def test_channel_spendable_large(node_factory, bitcoind):
 def test_channel_spendable_receivable_capped(node_factory, bitcoind):
     """Test that spendable_msat and receivable_msat is capped at 2^32-1"""
     sats = 16777215
-    l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=False)
+    l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=False,
+                                     opts={'dev-force-features': '-19'})
     assert l1.rpc.listpeerchannels()['channels'][0]['spendable_msat'] == Millisatoshi(0xFFFFFFFF)
     assert l2.rpc.listpeerchannels()['channels'][0]['receivable_msat'] == Millisatoshi(0xFFFFFFFF)
 

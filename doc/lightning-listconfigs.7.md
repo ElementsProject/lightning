@@ -432,7 +432,7 @@ EXAMPLE JSON RESPONSE
    "always-use-proxy": false,
    "daemon": "false",
    "wallet": "sqlite3:///media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/testnet/lightningd.sqlite3",
-   "wumbo": false,
+   "wumbo": true,
    "rgb": "03ad98",
    "alias": "BRUCEWAYN-TES-DEV",
    "pid-file": "/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/lightningd-testne...",
