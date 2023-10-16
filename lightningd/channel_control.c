@@ -93,6 +93,10 @@ static void try_update_blockheight(struct lightningd *ld,
 {
 	u8 *msg;
 
+	/* We don't update the blockheight for non-leased chans */
+	if (channel->lease_expiry == 0)
+		return;
+
 	log_debug(channel->log, "attempting update blockheight %s",
 		  type_to_string(tmpctx, struct channel_id, &channel->cid));
 
@@ -104,8 +108,7 @@ static void try_update_blockheight(struct lightningd *ld,
 
 	/* If they're offline, check that we're not too far behind anyway */
 	if (!channel->owner) {
-		if (channel->opener == REMOTE
-		    && channel->lease_expiry > 0) {
+		if (channel->opener == REMOTE) {
 			u32 peer_height
 				= get_blockheight(channel->blockheight_states,
 						  channel->opener, REMOTE);
@@ -131,10 +134,6 @@ static void try_update_blockheight(struct lightningd *ld,
 
 	/* If we're not opened/locked in yet, don't send update */
 	if (!channel_state_can_add_htlc(channel->state))
-		return;
-
-	/* We don't update the blockheight for non-leased chans */
-	if (channel->lease_expiry == 0)
 		return;
 
 	log_debug(ld->log, "update_blockheight: height = %u", blockheight);
