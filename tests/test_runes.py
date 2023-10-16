@@ -594,8 +594,8 @@ def test_missing_method_or_nodeid(node_factory):
         l1.rpc.checkrune(rune=rune4, nodeid=l1.info['id'])
 
 
-def test_rune_method_not_equal_and_method_empty(node_factory):
-    """Test `checkrune` when `method` parameter is the empty string and a `method` is negated in the rune."""
+def test_rune_method_missing(node_factory):
+    """Test `checkrune` when `method` parameter not set `method` is negated in the rune."""
     l1 = node_factory.get_node()
     rune = l1.rpc.createrune(restrictions=[["method/getinfo"]])['rune']
 
@@ -603,7 +603,18 @@ def test_rune_method_not_equal_and_method_empty(node_factory):
         l1.rpc.checkrune(rune=rune, method='getinfo')
     assert l1.rpc.checkrune(rune=rune, method='invoice')['valid'] is True
     with pytest.raises(RpcError, match='Not permitted: method not present'):
-        l1.rpc.checkrune(rune=rune, method='')
+        l1.rpc.checkrune(rune=rune, method=None)
+
+    rune2 = l1.rpc.createrune(restrictions=[["method!"]])['rune']
+    with pytest.raises(RpcError, match='Not permitted: method is present'):
+        l1.rpc.checkrune(rune=rune2, method='getinfo')
+
+    with pytest.raises(RpcError, match='Not permitted: method is present'):
+        l1.rpc.checkrune(rune=rune2, method='')
+
+    # These two are equivalent (our Python wrapper removes None params)
+    l1.rpc.checkrune(rune=rune2)
+    l1.rpc.checkrune(rune=rune2, method=None)
 
 
 def test_invalid_restrictions(node_factory):
