@@ -62,10 +62,8 @@ def verify_rune(plugin, request):
     else:
         rpc_params = request.form.to_dict()
 
-    try:
-        rpc_method = request.view_args["rpc_method"]
-    except Exception:
-        rpc_method = ""
+    # None, if this isn't present.
+    rpc_method = request.view_args.get("rpc_method")
 
     return call_rpc_method(plugin, "checkrune",
                            {"rune": rune,
