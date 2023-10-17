@@ -923,6 +923,8 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	return b11;
 }
 
+static bool valid_recovery_id(u8 recid) { return recid <= 3; }
+
 /* Decodes and checks signature; returns NULL on error. */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct feature_set *our_features,
@@ -962,6 +964,10 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 				   err);
 
 	assert(data_len == 0);
+
+	if (!valid_recovery_id(sig_and_recid[64]))
+		return decode_fail(b11, fail, "invalid recovery ID: %u",
+				   sig_and_recid[64]);
 
 	if (!secp256k1_ecdsa_recoverable_signature_parse_compact
 	    (secp256k1_ctx, &sig, sig_and_recid, sig_and_recid[64]))
