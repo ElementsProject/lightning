@@ -18,11 +18,7 @@ size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t max_size);
 size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 			       unsigned int seed);
 
-void init(int *argc, char ***argv)
-{
-	chainparams = chainparams_for_network("bitcoin");
-	common_setup("fuzzer");
-}
+void init(int *argc, char ***argv) { common_setup("fuzzer"); }
 
 // Encodes a dummy bolt11 invoice into `fuzz_data` and returns the size of the
 // encoded string.
@@ -115,13 +111,9 @@ size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 void run(const uint8_t *data, size_t size)
 {
 	char *invoice_str = to_string(tmpctx, data, size);
-
-	struct sha256 hash;
-	const u5 *sigdata;
-	bool have_n = false;
 	char *fail;
-	bolt11_decode_nosig(tmpctx, invoice_str, NULL, NULL, chainparams, &hash,
-			    &sigdata, &have_n, &fail);
+
+	bolt11_decode(tmpctx, invoice_str, NULL, NULL, NULL, &fail);
 
 	clean_tmpctx();
 }
