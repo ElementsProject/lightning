@@ -26,4 +26,4 @@ env_logger = "0.10"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", ] }
-cln-grpc = { path = "../cln-grpc" }
+cln-grpc = { version = "0.1", path = "../cln-grpc" }

@@ -12,16 +12,9 @@ anyhow = "1.0"
 log = "0.4"
 prost = "0.11"
 rcgen = { version = "0.10", features = ["pem", "x509-parser"] }
-
-[dependencies.cln-grpc]
-path = "../../cln-grpc"
-features = ["server"]
-
-[dependencies.cln-plugin]
-path = "../../plugins"
-
-[dependencies.cln-rpc]
-path = "../../cln-rpc"
+cln-grpc = { version = "0.1", features = ["server"], path = "../../cln-grpc"}
+cln-plugin = { version = "0.1", path = "../../plugins" }
+cln-rpc = { version = "0.1", path = "../../cln-rpc" }
 
 [dependencies.tokio]
 features = ["net", "rt-multi-thread"]
