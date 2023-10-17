@@ -102,12 +102,6 @@ size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 		return initial_input(fuzz_data, size, max_size);
 	}
 
-	// Strip (repeated) "lightning:" prefixes
-	while (strstarts(output, "lightning:") ||
-	       strstarts(output, "LIGHTNING:")) {
-		output = (char *)to_canonical_invstr(tmpctx, output);
-	}
-
 	// Write the result into `fuzz_data`.
 	size_t output_len = strlen(output);
 	if (output_len > max_size)
