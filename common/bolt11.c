@@ -76,7 +76,11 @@ static const char *pull_uint(struct hash_u5 *hu5,
 	err = pull_bits(hu5, data, data_len, &be_val, databits, true);
 	if (err)
 		return err;
-	*val = be64_to_cpu(be_val) >> (sizeof(be_val) * CHAR_BIT - databits);
+	if (databits == 0)
+		*val = 0;
+	else
+		*val = be64_to_cpu(be_val) >>
+		       (sizeof(be_val) * CHAR_BIT - databits);
 	return NULL;
 }
 
