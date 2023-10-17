@@ -390,6 +390,8 @@ static const char *decode_f(struct bolt11 *b11,
 		fallback = scriptpubkey_p2sh_hash(b11, shash);
 	} else if (version < 17) {
 		u8 *f = pull_all(tmpctx, hu5, data, field_len, false, &err);
+		if (!f)
+			return err;
 		if (version == 0) {
 			if (tal_count(f) != 20 && tal_count(f) != 32)
 				return tal_fmt(b11,
