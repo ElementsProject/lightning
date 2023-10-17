@@ -46,6 +46,7 @@ def test_gossip_pruning(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
 
     # Also check that it sends a redundant node_announcement.
+    wait_for(lambda: 'last_timestamp' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
     ts1 = only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['last_timestamp']
     wait_for(lambda: only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['last_timestamp'] != ts1)
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['last_timestamp'] >= ts1 + 24
