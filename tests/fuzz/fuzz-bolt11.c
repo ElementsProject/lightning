@@ -126,6 +126,8 @@ void run(const uint8_t *data, size_t size)
 	const u5 *sigdata;
 	bool have_n = false;
 	char *fail;
+
+	dev_bech32_nocsum = true;
 	bolt11_decode_nosig(tmpctx, invoice_str, NULL, NULL, chainparams, &hash,
 			    &sigdata, &have_n, &fail);
 

@@ -26,6 +26,7 @@
 #define LIGHTNING_COMMON_BECH32_H
 #include "config.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -129,6 +130,11 @@ int bech32_convert_bits(uint8_t* out, size_t* outlen, int outbits,
 /* The charset, and reverse mapping */
 extern const char bech32_charset[32];
 extern const int8_t bech32_charset_rev[128];
+
+/* Global to weaken csum checks for fuzzing. */
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+extern bool dev_bech32_nocsum;
+#endif
 
 #endif /* LIGHTNING_COMMON_BECH32_H */
 

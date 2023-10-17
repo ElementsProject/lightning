@@ -26,6 +26,10 @@
 #include <common/bech32.h>
 #include <string.h>
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+bool dev_bech32_nocsum;
+#endif
+
 static uint32_t bech32_polymod_step(uint32_t pre) {
     uint8_t b = pre >> 25;
     return ((pre & 0x1FFFFFF) << 5) ^
@@ -142,6 +146,13 @@ bech32_encoding bech32_decode(char* hrp, uint8_t *data, size_t *data_len, const 
         }
         ++i;
     }
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    if (dev_bech32_nocsum)
+	    /* Skip checksum and upper/lowercase checks when fuzzing. */
+	    return BECH32_ENCODING_BECH32;
+#endif
+
     if (have_lower && have_upper) {
         return BECH32_ENCODING_NONE;
     }
