@@ -306,14 +306,27 @@ static const char *decode_n(struct bolt11 *b11,
 			    const u5 **data, size_t *field_len,
 			    bool *have_n)
 {
+	const char *err;
+
 	assert(!*have_n);
 	/* BOLT #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
 	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
 	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
-	return pull_expected_length(b11, hu5, data, field_len, 53, 'n',
-				    have_n, &b11->receiver_id.k);
+	err = pull_expected_length(b11, hu5, data, field_len, 53, 'n', have_n,
+				   &b11->receiver_id.k);
+
+	/* If that gave us a node ID, check it. */
+	if (*have_n) {
+		struct pubkey k;
+		if (!pubkey_from_node_id(&k, &b11->receiver_id))
+			return tal_fmt(
+			    b11, "invalid public key %s",
+			    node_id_to_hexstr(tmpctx, &b11->receiver_id));
+	}
+
+	return err;
 }
 
 /* BOLT #11:
