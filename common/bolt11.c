@@ -715,7 +715,6 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	memset(have_field, 0, sizeof(have_field));
 	b11->routes = tal_arr(b11, struct route_info *, 0);
 
-	assert(!has_lightning_prefix(str));
 	if (strlen(str) < 8)
 		return decode_fail(b11, fail, "Bad bech32 string");
 
