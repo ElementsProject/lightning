@@ -1,28 +1,21 @@
 ---
 on:
   push:
-    workflow_run:
-      branches: [master]
+    branches:
+      - "master"
 
-steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
+jobs:
+  publish:
+    runs-on: ubuntu-20.04
+    name: Publish to crates.io
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
           toolchain: stable
           override: true
-    - uses: katyo/publish-crates@v2
-      with:
-          path: './cln-rpc'
+      - uses: katyo/publish-crates@v2
+        with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           ignore-unpublished-changes: true
-    - uses: katyo/publish-crates@v2
-      with:
-          path: './plugins'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-    - uses: katyo/publish-crates@v2
-      with:
-          path: './cln-grpc'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-
+          publish-delay: 5000
