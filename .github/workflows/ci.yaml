@@ -203,7 +203,7 @@ jobs:
 
       - name: Build
         run: |
-          ./configure --enable-debugbuild --enable-fuzzing --disable-valgrind CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
           make -j $(nproc) check-fuzz
 
   integration:
