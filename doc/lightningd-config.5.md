@@ -803,6 +803,11 @@ don't have to use a worst-case fee, but can bump the commitment transaction
 if it's needed.  Note that this means that we need to keep
 some funds aside: see `min-emergency-msat`.
 
+* **experimental-jamming-endorsement**
+
+  Specifying this option turn on part of the Channel Jamming mitigation
+to forward the `endorsed` inside `update_add_htl` lightning message.
+
 BUGS
 ----
 

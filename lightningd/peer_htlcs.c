@@ -1456,7 +1456,10 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 * we're in hook */
 	hook_payload->fwd_channel_id
 		= calc_forwarding_channel(ld, hook_payload);
-
+	// FIXME(vincenzopalazzo): ok this do not looks right, the value of
+	// hook_payload->endorsed should came from the prious pear of from us
+	// if we are the sender.
+	hook_payload->endorsed = ld->experimental_jamming_endorsement ? false : NULL;
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */

@@ -388,6 +388,9 @@ struct lightningd {
 	/* --invoices-onchain-fallback */
 	bool unified_invoices;
 
+	/* --experimental-jamming */
+	bool experimental_jamming_endorsement;
+
 	/* For anchors: how much do we keep for spending close txs? */
 	struct amount_sat emergency_sat;
 
