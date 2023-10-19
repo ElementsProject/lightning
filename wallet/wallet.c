@@ -140,7 +140,8 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
  *
  * This can fail if we've already seen UTXO.
  */
-static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
+static bool wallet_add_utxo(struct wallet *w,
+			    const struct utxo *utxo,
 			    enum wallet_output_type type)
 {
 	struct db_stmt *stmt;
@@ -2573,7 +2574,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 {
 	int num_utxos = 0;
 
-	*total = AMOUNT_SAT(0);
+	if (total)
+		*total = AMOUNT_SAT(0);
 	for (size_t output = 0; output < wtx->num_outputs; output++) {
 		struct utxo *utxo;
 		u32 index;
@@ -2646,7 +2648,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 
 		outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
-		if (!amount_sat_add(total, *total, utxo->amount))
+		if (total && !amount_sat_add(total, *total, utxo->amount))
 			fatal("Cannot add utxo output %zu/%zu %s + %s",
 			      output, wtx->num_outputs,
 			      type_to_string(tmpctx, struct amount_sat, total),

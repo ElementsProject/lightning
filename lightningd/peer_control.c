@@ -300,6 +300,7 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	tx = sign_last_tx(ctx, channel, last_tx, last_sig);
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
+	wallet_extract_owned_outputs(ld->wallet, tx->wtx, false, NULL, NULL);
 
 	/* Remember anchor information for commit_tx_boost */
 	adet = create_anchor_details(NULL, channel, tx);
