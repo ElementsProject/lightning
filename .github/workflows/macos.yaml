@@ -17,7 +17,7 @@ jobs:
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
 
-          export BITCOIN_VERSION=25.0
+          export BITCOIN_VERSION=25.1
           brew install wget autoconf automake libtool python@3.10 gnu-sed gettext libsodium
 
           (
