@@ -47,6 +47,8 @@ where
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     dynamic: bool,
+    // Do we want the plugin framework to automatically register a logging handler?
+    logging: bool,
 }
 
 /// A plugin that has registered with the lightning daemon, and gotten
@@ -116,6 +118,7 @@ where
             options: vec![],
             rpcmethods: HashMap::new(),
             dynamic: false,
+            logging: true,
         }
     }
 
@@ -198,6 +201,17 @@ where
         self
     }
 
+    /// Should the plugin automatically register a logging handler? If
+    /// not you may need to register a logging handler yourself. Be
+    /// careful not to print raw lines to `stdout` if you do, since
+    /// that'll interfere with the plugin communication. See the CLN
+    /// documentation on logging to see what logging events should
+    /// look like.
+    pub fn with_logging(mut self, log: bool) -> Builder<S, I, O> {
+        self.logging = log;
+        self
+    }
+
     /// Communicate with `lightningd` to tell it about our options,
     /// RPC methods and subscribe to hooks, and then process the
     /// initialization, configuring the plugin.
@@ -220,8 +234,10 @@ where
 
         // Now configure the logging, so any `log` call is wrapped
         // in a JSON-RPC notification and sent to Core Lightning
-        crate::logging::init(output.clone()).await?;
-        trace!("Plugin logging initialized");
+        if self.logging {
+            crate::logging::init(output.clone()).await?;
+            trace!("Plugin logging initialized");
+        }
 
         // Read the `getmanifest` message:
         match input.next().await {
