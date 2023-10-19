@@ -569,6 +569,7 @@ bool wallet_has_funds(struct wallet *wallet,
 		      const struct utxo **excludes,
 		      u32 current_blockheight,
 		      struct amount_sat sats);
+
 /**
  * wallet_add_onchaind_utxo - Add a UTXO with spending info from onchaind.
  *

@@ -3853,7 +3853,7 @@ def test_closing_tx_valid(node_factory, bitcoind):
     assert bitcoind.rpc.getrawtransaction(close['txid']) == close['tx']
     bitcoind.generate_block(1)
     # Change output and the closed channel output.
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 2)
 
     # Now, unilateral close.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3880,7 +3880,6 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
-@pytest.mark.xfail(strict=True)
 def test_closing_cpfp(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 

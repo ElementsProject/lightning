@@ -964,6 +964,12 @@ void wallet_channeltxs_add(struct wallet *w UNNEEDED, struct channel *chan UNNEE
 /* Generated stub for wallet_delete_peer_if_unused */
 void wallet_delete_peer_if_unused(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_delete_peer_if_unused called!\n"); abort(); }
+/* Generated stub for wallet_extract_owned_outputs */
+int wallet_extract_owned_outputs(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
+				 bool is_coinbase UNNEEDED,
+				 const u32 *blockheight UNNEEDED,
+				 struct amount_sat *total UNNEEDED)
+{ fprintf(stderr, "wallet_extract_owned_outputs called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_in_for_channel */
 bool wallet_htlcs_load_in_for_channel(struct wallet *wallet UNNEEDED,
 				      struct channel *chan UNNEEDED,
