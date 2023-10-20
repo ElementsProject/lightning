@@ -2,8 +2,8 @@ tonic::include_proto!("cln");
 
 #[cfg(feature = "server")]
 pub use crate::pb::convert::*;
+#[cfg(feature = "server")]
 pub use cln_rpc::primitives::Sha256;
-
 #[cfg(feature = "server")]
 mod convert {
     use super::*;
