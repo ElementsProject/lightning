@@ -369,7 +369,6 @@ static u8 *handle_setup_channel(struct hsmd_client *c, const u8 *msg_in)
 	/* Fail fast if any values are uninitialized or obviously wrong. */
 	assert(amount_sat_greater(channel_value, AMOUNT_SAT(0)));
 	assert(amount_sat_to_msat(&value_msat, channel_value));
-	assert(amount_msat_less_eq(push_value, value_msat));
 	assert(!mem_is_zero(&funding_txid, sizeof(funding_txid)));
 	assert(local_to_self_delay > 0);
 	assert(remote_to_self_delay > 0);
