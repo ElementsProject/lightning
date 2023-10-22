@@ -441,9 +441,9 @@ void resend_closing_transactions(struct lightningd *ld)
 void channel_errmsg(struct channel *channel,
 		    struct peer_fd *peer_fd,
 		    const char *desc,
-		    bool warning,
-		    bool aborted UNUSED,
-		    const u8 *err_for_them)
+		    const u8 *err_for_them,
+		    bool disconnect,
+		    bool warning)
 {
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
@@ -458,7 +458,7 @@ void channel_errmsg(struct channel *channel,
 	/* No peer_fd means a subd crash or disconnection. */
 	if (!peer_fd) {
 		/* If the channel is unsaved, we forget it */
-		channel_fail_transient(channel, true, "%s: %s",
+		channel_fail_transient(channel, disconnect, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -472,7 +472,7 @@ void channel_errmsg(struct channel *channel,
 	 * would recover after a reconnect.  So we downgrade, but snark
 	 * about it in the logs. */
 	if (!err_for_them && strends(desc, "internal error")) {
-		channel_fail_transient(channel, true, "%s: %s",
+		channel_fail_transient(channel, disconnect, "%s: %s",
 				       channel->owner->name,
 				       "lnd sent 'internal error':"
 				       " let's give it some space");
@@ -481,7 +481,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* This is us, sending a warning.  */
 	if (warning) {
-		channel_fail_transient(channel, true, "%s sent %s",
+		channel_fail_transient(channel, disconnect, "%s sent %s",
 				       channel->owner->name,
 				       desc);
 		return;

@@ -94,9 +94,9 @@ new_uncommitted_channel(struct peer *peer)
 void opend_channel_errmsg(struct uncommitted_channel *uc,
 			  struct peer_fd *peer_fd,
 			  const char *desc,
-			  bool warning UNUSED,
-			  bool aborted UNUSED,
-			  const u8 *err_for_them UNUSED)
+			  const u8 *err_for_them UNUSED,
+			  bool disconnect UNUSED,
+			  bool warning UNUSED)
 {
 	/* Close fds, if any. */
 	tal_free(peer_fd);

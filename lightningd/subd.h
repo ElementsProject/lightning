@@ -52,9 +52,9 @@ struct subd {
 	void (*errcb)(void *channel,
 		      struct peer_fd *peer_fd,
 		      const char *desc,
-		      bool warning,
-		      bool aborted,
-		      const u8 *err_for_them);
+		      const u8 *err_for_them,
+		      bool disconnect,
+		      bool warning);
 
 	/* Callback to display information for listpeers RPC */
 	void (*billboardcb)(void *channel, bool perm, const char *happenings);
@@ -134,9 +134,9 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 			       void (*errcb)(void *channel,
 					     struct peer_fd *peer_fd,
 					     const char *desc,
-					     bool warning,
-					     bool aborted,
-					     const u8 *err_for_them),
+					     const u8 *err_for_them,
+					     bool disconnect,
+					     bool warning),
 			       void (*billboardcb)(void *channel, bool perm,
 						   const char *happenings),
 			       ...);
@@ -150,7 +150,7 @@ struct subd *new_channel_subd_(const tal_t *ctx,
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel),		\
 					       struct peer_fd *,	\
-					       const char *, bool, bool, const u8 *), \
+					       const char *, const u8 *, bool, bool), \
 			  typesafe_cb_postargs(void, void *, (billboardcb), \
 					       (channel), bool,		\
 					       const char *),		\
