@@ -418,7 +418,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
 
     # Restart l1, without disconnect stuff.
     del l1.daemon.opts['dev-no-reconnect']
-    del l1.daemon.opts['dev-disconnect']
+    l1.daemon.disconnect = None
 
     # Should reconnect, and sort the payment out.
     l1.start()
@@ -472,7 +472,7 @@ def test_payment_failed_persistence(node_factory, executor):
 
     # Restart l1, without disconnect stuff.
     del l1.daemon.opts['dev-no-reconnect']
-    del l1.daemon.opts['dev-disconnect']
+    l1.daemon.disconnect = None
 
     # Make sure invoice has expired.
     time.sleep(5 + 1)

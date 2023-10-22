@@ -594,7 +594,6 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
-        self.disconnect_file = None
 
         self.rpcproxy = bitcoindproxy
         self.env['CLN_PLUGIN_LOG'] = "cln_plugin=trace,cln_rpc=trace,cln_grpc=trace,debug"
@@ -639,8 +638,8 @@ class LightningD(TailableProc):
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
-        if self.disconnect_file:
-            with open(self.disconnect_file, "w") as f:
+        if 'dev-disconnect' in self.opts:
+            with open(self.opts['dev-disconnect'], "w") as f:
                 f.truncate()
 
     @property
@@ -763,12 +762,10 @@ class LightningNode(object):
             grpc_port=self.grpc_port,
         )
 
-        # If we have a disconnect string, dump it to a file for daemon.
-        if disconnect:
-            self.daemon.disconnect_file = os.path.join(lightning_dir, TEST_NETWORK, "dev_disconnect")
-            with open(self.daemon.disconnect_file, "w") as f:
-                f.write("\n".join(disconnect))
-            self.daemon.opts["dev-disconnect"] = "dev_disconnect"
+        self.disconnect = disconnect
+        if self.disconnect:
+            self.daemon.opts["dev-disconnect"] = os.path.join(lightning_dir, TEST_NETWORK, "dev-disconnect")
+            # Actual population of that file occurs at start.
 
         # Various developer options let us be more aggressive
         self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
@@ -975,6 +972,12 @@ class LightningNode(object):
         return 'warning_bitcoind_sync' not in info and 'warning_lightningd_sync' not in info
 
     def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+        # If we have a disconnect string, dump it to a file for daemon.
+        if 'dev-disconnect' in self.daemon.opts:
+            with open(self.daemon.opts['dev-disconnect'], "w") as f:
+                if self.disconnect is not None:
+                    f.write("\n".join(self.disconnect))
+
         self.daemon.start(stderr_redir=stderr_redir)
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
