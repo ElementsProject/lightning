@@ -1023,11 +1023,9 @@ static void channel_err(struct channel *channel, bool disconnect, const char *wh
 	channel_set_owner(channel, NULL);
 
 	/* Force a disconnect in case the issue is with TCP */
-	if (disconnect && channel->peer->ld->connectd) {
-		const struct peer *peer = channel->peer;
-		subd_send_msg(peer->ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &peer->id,
-								peer->connectd_counter)));
+	if (disconnect) {
+		force_peer_disconnect(channel->peer->ld, channel->peer,
+				      "One channel had an error");
 	}
 }
 

@@ -3873,9 +3873,8 @@ bool peer_restart_dualopend(struct peer *peer,
 		log_broken(channel->log, "Could not subdaemon channel: %s",
 			   strerror(errno));
 		/* Disconnect it. */
-		subd_send_msg(peer->ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
-								channel->peer->connectd_counter)));
+		force_peer_disconnect(peer->ld, peer,
+				      "Failed to create dualopend");
 		return false;
 	}
 

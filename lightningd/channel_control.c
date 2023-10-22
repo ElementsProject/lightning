@@ -19,6 +19,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
@@ -1371,10 +1372,8 @@ bool peer_start_channeld(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",
 			   strerror(errno));
-		/* Disconnect it. */
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
-								channel->peer->connectd_counter)));
+		force_peer_disconnect(ld, channel->peer,
+				      "Failed to create channeld");
 		return false;
 	}
 
