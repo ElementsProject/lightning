@@ -1120,7 +1120,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 				take(towire_connectd_peer_spoke(NULL, &peer->id,
 								peer->counter,
 								t,
-								&channel_id)));
+								&channel_id,
+								is_peer_error(tmpctx, decrypted))));
        }
 
        /* Even if we just created it, call this to catch open_channel2 */
