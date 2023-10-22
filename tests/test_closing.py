@@ -3344,6 +3344,9 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     # Now adjust fees so l1 asks for more on reconnect.
     l1.set_feerates((30000,) * 4, False)
     l2.set_feerates((30000,) * 4, False)
+
+    # Allow l1 to complete next time
+    l1.disconnect = None
     l1.restart()
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
