@@ -759,11 +759,7 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     # the third plugin must now not be called anymore
     assert not l2.daemon.is_in_log("reject on principle")
 
-    if not EXPERIMENTAL_DUAL_FUND:
-        wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    else:
-        assert only_one(l1.rpc.listpeers()['peers'])['connected']
+    assert only_one(l1.rpc.listpeers()['peers'])['connected']
     # 100000sat is good for hook_accepter, so it should fail 'on principle'
     # at third hook openchannel_reject.py
     with pytest.raises(RpcError, match=r'reject on principle'):
