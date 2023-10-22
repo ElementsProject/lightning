@@ -18,11 +18,11 @@
 #include <common/peer_io.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
-#include <common/read_peer_msg.h>
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
+#include <common/wire_error.h>
 
 /*
  * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
