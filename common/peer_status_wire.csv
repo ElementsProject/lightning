@@ -3,11 +3,13 @@
 
 # An error occurred: if error_for_them, that to go to them.
 msgtype,status_peer_error,0xFFF4
+# Do we force a disconnect from the peer?
+msgdata,status_peer_error,disconnect,bool,
+# The error string
 msgdata,status_peer_error,desc,wirestring,
-# Take a deep breath, then try reconnecting to the precious little snowflake.
-# (Means we sent it, since we don't hang up if they send one)
+# Actually a warning, not a (fatal!) error.
 msgdata,status_peer_error,warning,bool,
-# From an abort, no reconnect but restart daemon
-msgdata,status_peer_error,abort_do_restart,bool,
+# The error to send to them in future if they try to talk to us about
+# this channel.
 msgdata,status_peer_error,len,u16,
 msgdata,status_peer_error,error_for_them,u8,len

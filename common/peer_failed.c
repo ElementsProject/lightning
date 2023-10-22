@@ -25,6 +25,7 @@ peer_fatal_continue(const u8 *msg TAKES, const struct per_peer_state *pps)
 /* We only support one channel per peer anyway */
 static void NORETURN
 peer_failed(struct per_peer_state *pps,
+	    bool disconnect,
 	    bool warn,
 	    const struct channel_id *channel_id,
 	    const char *desc)
@@ -40,9 +41,9 @@ peer_failed(struct per_peer_state *pps,
 
 	/* Tell master the error so it can re-xmit. */
 	msg = towire_status_peer_error(NULL,
+				       disconnect,
 				       desc,
 				       warn,
-				       false,
 				       msg);
 	peer_billboard(true, desc);
 	peer_fatal_continue(take(msg), pps);
@@ -59,7 +60,21 @@ void peer_failed_warn(struct per_peer_state *pps,
 	desc = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	peer_failed(pps, true, channel_id, desc);
+	peer_failed(pps, true, true, channel_id, desc);
+}
+
+void peer_failed_warn_nodisconnect(struct per_peer_state *pps,
+				   const struct channel_id *channel_id,
+				   const char *fmt, ...)
+{
+	va_list ap;
+	const char *desc;
+
+ 	va_start(ap, fmt);
+	desc = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	peer_failed(pps, false, true, channel_id, desc);
 }
 
 void peer_failed_err(struct per_peer_state *pps,
@@ -74,17 +89,17 @@ void peer_failed_err(struct per_peer_state *pps,
 	desc = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	peer_failed(pps, false, channel_id, desc);
+	peer_failed(pps, true, false, channel_id, desc);
 }
 
 /* We're failing because peer sent us an error/warning message */
 void peer_failed_received_errmsg(struct per_peer_state *pps,
-				 const char *desc,
-				 bool abort_restart)
+				 bool disconnect,
+				 const char *desc)
 {
 	u8 *msg;
 
-	msg = towire_status_peer_error(NULL, desc, false, abort_restart, NULL);
+	msg = towire_status_peer_error(NULL, disconnect, desc, false, NULL);
 	peer_billboard(true, "Received %s", desc);
 	peer_fatal_continue(take(msg), pps);
 }

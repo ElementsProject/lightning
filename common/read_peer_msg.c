@@ -35,7 +35,7 @@ bool handle_peer_error_or_warning(struct per_peer_state *pps,
 
 	err = is_peer_error(tmpctx, msg);
 	if (err)
-		peer_failed_received_errmsg(pps, err, false);
+		peer_failed_received_errmsg(pps, true, err);
 
 	/* Simply log incoming warnings */
 	err = is_peer_warning(tmpctx, msg);
