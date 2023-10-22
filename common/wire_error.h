@@ -74,4 +74,23 @@ bool channel_id_is_all(const struct channel_id *channel_id);
 char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		     struct channel_id *channel_id);
 
+/**
+ * is_peer_error - if it's an error, describe it.
+ * @ctx: context to allocate return from.
+ * @msg: the peer message.
+ *
+ * If this returns non-NULL, it's usually passed to
+ * peer_failed_received_errmsg().
+ */
+const char *is_peer_error(const tal_t *ctx, const u8 *msg);
+
+/**
+ * is_peer_warning - if it's a warning, describe it.
+ * @ctx: context to allocate return from.
+ * @msg: the peer message.
+ *
+ * If this returns non-NULL, it's usually logged.
+ */
+const char *is_peer_warning(const tal_t *ctx, const u8 *msg);
+
 #endif /* LIGHTNING_COMMON_WIRE_ERROR_H */

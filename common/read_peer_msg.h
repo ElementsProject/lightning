@@ -9,25 +9,6 @@ struct channel_id;
 struct per_peer_state;
 
 /**
- * is_peer_error - if it's an error, describe it.
- * @ctx: context to allocate return from.
- * @msg: the peer message.
- *
- * If this returns non-NULL, it's usually passed to
- * peer_failed_received_errmsg().
- */
-const char *is_peer_error(const tal_t *ctx, const u8 *msg);
-
-/**
- * is_peer_warning - if it's a warning, describe it.
- * @ctx: context to allocate return from.
- * @msg: the peer message.
- *
- * If this returns non-NULL, it's usually logged.
- */
-const char *is_peer_warning(const tal_t *ctx, const u8 *msg);
-
-/**
  * handle_peer_error_or_warning - simple handler for errors / warnings
  * @pps: per-peer state.
  * @channel_id: the channel id of the current channel.
