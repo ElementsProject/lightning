@@ -734,7 +734,7 @@ update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 
 $(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) libccan.a ccan/ccan/cdump/tools/cdump-enumstr config.vars
 
-update-mocks/%: %
+update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	@MAKE=$(MAKE) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
 
 unittest/%: %
