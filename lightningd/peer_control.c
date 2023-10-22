@@ -1578,8 +1578,9 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	bool dual_fund;
 	u8 *error;
 	int fds[2];
+	char *errmsg;
 
-	if (!fromwire_connectd_peer_spoke(msg, &id, &connectd_counter, &msgtype, &channel_id))
+	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &msgtype, &channel_id, &errmsg))
 		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
 		      tal_hex(msg, msg));
 
@@ -1596,13 +1597,25 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 			goto send_error;
 		}
 
-		/* If channel is active, we raced, so ignore this:
-		 * subd will get it soon. */
 		if (channel_state_wants_peercomms(channel->state)) {
-			log_debug(channel->log,
-				  "channel already active");
-			if (!channel->owner &&
-			    channel->state == DUALOPEND_AWAITING_LOCKIN) {
+			/* If they send an error, handle it immediately. */
+			if (errmsg) {
+				channel_fail_permanent(channel, REASON_REMOTE,
+						       "They sent %s", errmsg);
+				return;
+			}
+
+			/* If channel is active there are two possibilities:
+			 * 1. We have started subd, but channeld hasn't processed
+			 *    the connectd_peer_connect_subd message yet.
+			 * 2. subd exited */
+			if (channel->owner) {
+				/* We raced... */
+				return;
+			}
+
+			log_debug(channel->log, "channel already active");
+			if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
 				if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 					log_broken(ld->log,
 						   "Failed to create socketpair: %s",

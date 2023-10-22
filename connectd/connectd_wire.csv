@@ -86,6 +86,8 @@ msgdata,connectd_peer_spoke,id,node_id,
 msgdata,connectd_peer_spoke,counter,u64,
 msgdata,connectd_peer_spoke,msgtype,u16,
 msgdata,connectd_peer_spoke,channel_id,channel_id,
+# If msgtype == WIRE_ERROR, this is the string.
+msgdata,connectd_peer_spoke,error,?wirestring,
 
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015

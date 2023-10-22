@@ -277,7 +277,7 @@ bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p U
 bool fromwire_connectd_peer_disconnect_done(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_disconnect_done called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_spoke */
-bool fromwire_connectd_peer_spoke(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED)
+bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED, wirestring **error UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_spoke called!\n"); abort(); }
 /* Generated stub for fromwire_dualopend_dev_memleak_reply */
 bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
