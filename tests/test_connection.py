@@ -3048,7 +3048,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2.start()
 
     # l2 should freak out!
-    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close")
+    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL:.*Awaiting unilateral close")
 
     # l2 must NOT drop to chain.
     l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
@@ -3120,7 +3120,7 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l2 should freak out!  But fail when trying to send error
-    l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close",
+    l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL:.* Awaiting unilateral close",
                              'dev_disconnect: -WIRE_ERROR'])
 
     # l1 should NOT drop to chain, since it didn't receive an error.

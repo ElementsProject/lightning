@@ -1059,11 +1059,6 @@ void channel_fallen_behind(struct channel *channel, const u8 *msg)
 			fatal("Our own id invalid?");
 		channel->future_per_commitment_point = any;
 	}
-
-	/* Peer sees this, so send a generic msg about unilateral close. */
-	channel_fail_permanent(channel,
-			       REASON_LOCAL,
-			       "Awaiting unilateral close");
 }
 
 static void
