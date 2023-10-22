@@ -108,7 +108,7 @@ static void close_subd_timeout(struct subd *subd)
 	io_close(subd->conn);
 }
 
-static void drain_peer(struct peer *peer)
+void drain_peer(struct peer *peer)
 {
 	status_debug("drain_peer");
 	assert(!peer->draining);

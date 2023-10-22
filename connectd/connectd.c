@@ -1812,8 +1812,10 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 	/* If it's reconnected already, it will learn soon. */
 	if (peer->counter != counter)
 		return;
+
+	/* We make sure any final messages from the subds are sent! */
 	status_peer_debug(&id, "discard_peer");
-	tal_free(peer);
+	drain_peer(peer);
 }
 
 static void start_shutdown(struct daemon *daemon, const u8 *msg)
