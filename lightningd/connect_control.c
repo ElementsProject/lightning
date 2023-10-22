@@ -614,6 +614,37 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	return 0;
 }
 
+void force_peer_disconnect(struct lightningd *ld,
+			   const struct peer *peer,
+			   const char *why)
+{
+	struct channel *c, *next;
+
+	/* Don't bother on shutting down */
+	if (!ld->connectd)
+		return;
+
+	/* Disconnect subds */
+	if (peer->uncommitted_channel)
+		kill_uncommitted_channel(peer->uncommitted_channel, why);
+
+	list_for_each_safe(&peer->channels, c, next, list) {
+		if (!c->owner)
+			continue;
+
+		log_debug(c->log, "Forcing disconnect due to %s", why);
+		/* This frees c! */
+		if (channel_state_uncommitted(c->state))
+			channel_unsaved_close_conn(c, why);
+		else
+			channel_set_owner(c, NULL);
+	}
+
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_discard_peer(NULL, &peer->id,
+							peer->connectd_counter)));
+}
+
 static void connect_init_done(struct subd *connectd,
 			      const u8 *reply,
 			      const int *fds UNUSED,

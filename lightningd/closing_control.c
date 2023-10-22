@@ -26,6 +26,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
@@ -397,9 +398,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 		log_broken(channel->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
 		/* Disconnect it. */
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
-								channel->peer->connectd_counter)));
+		force_peer_disconnect(ld, channel->peer,
+				      "Failed to create closingd");
 		return;
 	}
 

@@ -15,6 +15,11 @@ int connectd_init(struct lightningd *ld);
 void connectd_activate(struct lightningd *ld);
 void connectd_start_shutdown(struct subd *connectd);
 
+/* Kill subds, tell connectd to disconnect once they're drained. */
+void force_peer_disconnect(struct lightningd *ld,
+			   const struct peer *peer,
+			   const char *why);
+
 void try_reconnect(const tal_t *ctx,
 		   struct peer *peer,
 		   const struct wireaddr_internal *addrhint);
