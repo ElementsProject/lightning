@@ -333,8 +333,8 @@ static void negotiation_aborted(struct state *state, const char *why, bool abort
 {
 	status_debug("aborted opening negotiation: %s", why);
 
-	/* Tell master that funding failed. */
-	peer_failed_received_errmsg(state->pps, why, aborted);
+	/* Tell master that funding failed (don't disconnect if we aborted) */
+	peer_failed_received_errmsg(state->pps, !aborted, why);
 }
 
 /* Softer version of 'warning' (we don't disconnect)

@@ -22,6 +22,17 @@ void peer_failed_warn(struct per_peer_state *pps,
 	PRINTF_FMT(3,4) NORETURN;
 
 /**
+ * peer_failed_warn_nodisconnect - Send a warning msg, don't close.
+ * @pps: the per-peer state.
+ * @channel_id: channel with error, or NULL for no particular channel.
+ * @fmt...: format as per status_failed(STATUS_FAIL_PEER_BAD)
+ */
+void peer_failed_warn_nodisconnect(struct per_peer_state *pps,
+				   const struct channel_id *channel_id,
+				   const char *fmt, ...)
+	PRINTF_FMT(3,4) NORETURN;
+
+/**
  * peer_failed_err - Send a warning msg and close the channel.
  * @pps: the per-peer state.
  * @channel_id: channel with error.
@@ -35,8 +46,8 @@ void peer_failed_err(struct per_peer_state *pps,
 /* We're failing because peer sent us an error message: NULL
  * channel_id means all channels. */
 void peer_failed_received_errmsg(struct per_peer_state *pps,
-				 const char *desc,
-				 bool abort_restart)
+				 bool disconnect,
+				 const char *desc)
 	NORETURN;
 
 /* I/O error */
