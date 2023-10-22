@@ -110,9 +110,9 @@ struct uncommitted_channel *new_uncommitted_channel(struct peer *peer);
 void opend_channel_errmsg(struct uncommitted_channel *uc,
 			  struct peer_fd *peer_fd,
 			  const char *desc,
-			  bool warning UNUSED,
-			  bool aborted UNUSED,
-			  const u8 *err_for_them UNUSED);
+			  const u8 *err_for_them UNUSED,
+			  bool disconnect UNUSED,
+			  bool warning UNUSED);
 
 void opend_channel_set_billboard(struct uncommitted_channel *uc,
 				 bool perm UNUSED,

@@ -3677,9 +3677,9 @@ AUTODATA(json_command, &openchannel_abort_command);
 static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
 			    const char *desc,
-			    bool warning,
-			    bool aborted,
-			    const u8 *err_for_them)
+			    const u8 *err_for_them,
+			    bool disconnect,
+			    bool warning)
 {
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
@@ -3694,7 +3694,7 @@ static void dualopen_errmsg(struct channel *channel,
 	/* No peer_fd means a subd crash or disconnection. */
 	if (!peer_fd) {
 		/* If the channel is unsaved, we forget it */
-		channel_fail_transient(channel, true, "%s: %s",
+		channel_fail_transient(channel, disconnect, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -3707,14 +3707,14 @@ static void dualopen_errmsg(struct channel *channel,
 	 * surprisingly, they now spew out spurious errors frequently,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
-	if (warning || aborted) {
+	if (warning || !disconnect) {
 		/* We *don't* hang up if they aborted: that's fine! */
-		channel_fail_transient(channel, !aborted, "%s %s: %s",
+		channel_fail_transient(channel, disconnect, "%s %s: %s",
 				       channel->owner->name,
 				       warning ? "WARNING" : "ABORTED",
 				       desc);
 
-		if (aborted) {
+		if (!disconnect) {
 			char *err = restart_dualopend(tmpctx,
 						      channel->peer->ld,
 						      channel, true);
