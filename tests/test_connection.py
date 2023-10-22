@@ -3055,9 +3055,8 @@ def test_dataloss_protection(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('sendrawtx exit 0',
                                    start=l2.daemon.logsearch_start)
 
-    # l1 should drop to chain, but doesn't always receive ERROR before it sends warning.
-    # We have to reconnect once
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 should receive error and drop to chain
+    l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close")
     l1.wait_for_channel_onchain(l2.info['id'])
 
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))

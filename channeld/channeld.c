@@ -4437,6 +4437,7 @@ static void check_future_dataloss_fields(struct peer *peer,
 			take(towire_channeld_fail_fallen_behind(NULL,
 				       remote_current_per_commitment_point)));
 
+	sleep(1);
 	/* We have to send them an error to trigger dropping to chain. */
 	peer_failed_err(peer->pps, &peer->channel_id,
 			"Awaiting unilateral close");
