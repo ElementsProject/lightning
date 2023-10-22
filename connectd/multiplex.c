@@ -407,12 +407,6 @@ static bool is_urgent(enum peer_wire type)
 	return false;
 }
 
-/* io_sock_shutdown, but in format suitable for an io_plan callback */
-static struct io_plan *io_sock_shutdown_cb(struct io_conn *conn, struct peer *unused)
-{
-	return io_sock_shutdown(conn);
-}
-
 static struct io_plan *encrypt_and_send(struct peer *peer,
 					const u8 *msg TAKES,
 					struct io_plan *(*next)
@@ -446,17 +440,6 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 	}
 
 	set_urgent_flag(peer, is_urgent(type));
-
-	/* We are no longer required to do this, but we do disconnect
-	 * after sending an error or warning. */
-	if (type == WIRE_ERROR || type == WIRE_WARNING) {
-		/* Might already be draining... */
-		if (!peer->draining)
-			drain_peer(peer);
-
-		/* Close as soon as we've sent this. */
-		next = io_sock_shutdown_cb;
-	}
 
 	/* We free this and the encrypted version in next write_to_peer */
 	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
