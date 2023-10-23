@@ -91,6 +91,9 @@ struct plugin {
 	/* Notification topics that this plugin has registered with us
 	 * and that other plugins may subscribe to. */
 	const char **notification_topics;
+
+	/* Custom message types we want to allow incoming */
+	u16 *custom_msgs;
 };
 
 /**
