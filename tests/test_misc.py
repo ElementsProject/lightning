@@ -2862,6 +2862,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     # Wait until channels are active
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     l1.wait_channel_active(c23)
+    l1.wait_channel_active(c24)
 
     # successful payments
     i31 = l3.rpc.invoice(1000, 'i31', 'desc')
