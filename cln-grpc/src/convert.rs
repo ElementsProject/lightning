@@ -447,6 +447,25 @@ impl From<responses::DatastoreResponse> for pb::DatastoreResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::DatastoreusageDatastoreusage> for pb::DatastoreusageDatastoreusage {
+    fn from(c: responses::DatastoreusageDatastoreusage) -> Self {
+        Self {
+            key: c.key, // Rule #2 for type string?
+            total_bytes: c.total_bytes, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::DatastoreusageResponse> for pb::DatastoreusageResponse {
+    fn from(c: responses::DatastoreusageResponse) -> Self {
+        Self {
+            datastoreusage: c.datastoreusage.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::CreateonionResponse> for pb::CreateonionResponse {
     fn from(c: responses::CreateonionResponse) -> Self {
         Self {
@@ -1793,6 +1812,14 @@ impl From<requests::DatastoreRequest> for pb::DatastoreRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DatastoreusageRequest> for pb::DatastoreusageRequest {
+    fn from(c: requests::DatastoreusageRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::CreateonionHops> for pb::CreateonionHops {
     fn from(c: requests::CreateonionHops) -> Self {
         Self {
@@ -2498,6 +2525,14 @@ impl From<pb::DatastoreRequest> for requests::DatastoreRequest {
             hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
             mode: c.mode.map(|v| v.try_into().unwrap()),
             generation: c.generation, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DatastoreusageRequest> for requests::DatastoreusageRequest {
+    fn from(c: pb::DatastoreusageRequest) -> Self {
+        Self {
         }
     }
 }

@@ -352,6 +352,18 @@ def datastore2py(m):
     })
 
 
+def datastoreusage_datastoreusage2py(m):
+    return remove_default({
+        "key": m.key,  # PrimitiveField in generate_composite
+        "total_bytes": m.total_bytes,  # PrimitiveField in generate_composite
+    })
+
+
+def datastoreusage2py(m):
+    return remove_default({
+    })
+
+
 def createonion2py(m):
     return remove_default({
         "onion": hexlify(m.onion),  # PrimitiveField in generate_composite
