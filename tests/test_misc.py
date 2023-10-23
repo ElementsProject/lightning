@@ -3316,6 +3316,37 @@ def test_datastore_keylist(node_factory):
                                                                          'hex': b'ab2val2'.hex()}]}
 
 
+def test_datastoreusage(node_factory):
+    l1: LightningNode = node_factory.get_node()
+    assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': 0}}
+
+    data = 'somedatatostoreinthedatastore'  # len 29
+    l1.rpc.datastore(key=["a", "b"], string=data)
+    assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': (29 + 1 + 1 + 1)}}
+    assert l1.rpc.datastoreusage(key="a") == {'datastoreusage': {'key': '[a]', 'total_bytes': (29 + 1 + 1 + 1)}}
+    assert l1.rpc.datastoreusage(key=["a", "b"]) == {'datastoreusage': {'key': '[a,b]', 'total_bytes': (29 + 1 + 1 + 1)}}
+
+    # add second leaf
+    l1.rpc.datastore(key=["a", "c"], string=data)
+    assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': (29 + 1 + 1 + 1 + 29 + 1 + 1 + 1)}}
+    assert l1.rpc.datastoreusage(key=["a", "b"]) == {'datastoreusage': {'key': '[a,b]', 'total_bytes': (29 + 1 + 1 + 1)}}
+    assert l1.rpc.datastoreusage(key=["a", "c"]) == {'datastoreusage': {'key': '[a,c]', 'total_bytes': (29 + 1 + 1 + 1)}}
+
+    # check that the key is also counted as stored data
+    l1.rpc.datastore(key=["a", "thisissomelongkeythattriestostore46bytesofdata"], string=data)
+    assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': (29 + 1 + 1 + 46 + 64)}}
+    assert l1.rpc.datastoreusage(key=["a", "thisissomelongkeythattriestostore46bytesofdata"]) == {'datastoreusage': {'key': '[a,thisissomelongkeythattriestostore46bytesofdata]', 'total_bytes': (29 + 1 + 1 + 46)}}
+
+    # check that the root is also counted
+    l1.rpc.datastore(key=["thisissomelongkeythattriestostore46bytesofdata", "a"], string=data)
+    assert l1.rpc.datastoreusage(key=["thisissomelongkeythattriestostore46bytesofdata", "a"]) == {'datastoreusage': {'key': '[thisissomelongkeythattriestostore46bytesofdata,a]', 'total_bytes': (29 + 1 + 1 + 46)}}
+
+    # check really deep data
+    l1.rpc.datastore(key=["a", "d", "e", "f", "g"], string=data)
+    assert l1.rpc.datastoreusage(key=["a", "d", "e", "f", "g"]) == {'datastoreusage': {'key': '[a,d,e,f,g]', 'total_bytes': (29 + 1 + 1 + 1 + 1 + 1 + 4)}}
+    assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': (29 + 1 + 1 + 1 + 1 + 1 + 4 + 218)}}
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
                  "This test requires sqlite3")
 def test_torv2_in_db(node_factory):
