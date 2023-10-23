@@ -17,6 +17,9 @@
 size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t max_size);
 size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 			       unsigned int seed);
+size_t LLVMFuzzerCustomCrossOver(const u8 *in1, size_t in1_size, const u8 *in2,
+				 size_t in2_size, u8 *out, size_t max_out_size,
+				 unsigned seed);
 
 void init(int *argc, char ***argv) { common_setup("fuzzer"); }
 
@@ -107,6 +110,78 @@ size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 	memcpy(fuzz_data, output, output_len);
 	clean_tmpctx();
 	return output_len;
+}
+
+size_t LLVMFuzzerCustomCrossOver(const u8 *in1, size_t in1_size, const u8 *in2,
+				 size_t in2_size, u8 *out, size_t max_out_size,
+				 unsigned seed)
+{
+	if (in1_size < 9 || in2_size < 9)
+		return 0;
+
+	// Interpret fuzz inputs as string (ensure it's null terminated).
+	char *input1 = to_string(tmpctx, in1, in1_size);
+	char *input2 = to_string(tmpctx, in2, in2_size);
+
+	const size_t max_hrp1 = strlen(input1) - 6;
+	const size_t max_hrp2 = strlen(input2) - 6;
+	const size_t max_data1 = max_hrp1 - 2;
+	const size_t max_data2 = max_hrp2 - 2;
+
+	// Attempt to bech32 decode the inputs.
+	char *hrp1 = tal_arr(tmpctx, char, max_hrp1);
+	char *hrp2 = tal_arr(tmpctx, char, max_hrp2);
+	u5 *data1 = tal_arr(tmpctx, u5, max_data1);
+	u5 *data2 = tal_arr(tmpctx, u5, max_data2);
+
+	size_t data1_len = 0;
+	if (bech32_decode(hrp1, data1, &data1_len, input1, (size_t)-1) !=
+	    BECH32_ENCODING_BECH32)
+		// Decoding failed, this should only happen when starting from
+		// an empty corpus.
+		return 0;
+	size_t data2_len = 0;
+	if (bech32_decode(hrp2, data2, &data2_len, input2, (size_t)-1) !=
+	    BECH32_ENCODING_BECH32)
+		// Decoding failed, this should only happen when starting from
+		// an empty corpus.
+		return 0;
+
+	srand(seed);
+	char *out_hrp;
+	u5 *out_data;
+	size_t out_data_len;
+	if (rand() % 2) {
+		// Cross-over the HRP.
+		out_data = data1;
+		out_data_len = data1_len;
+
+		size_t max_out_hrp_size = max_out_size - data1_len - 8;
+		out_hrp = tal_arr(tmpctx, char, max_out_hrp_size + 1);
+
+		size_t out_hrp_size = cross_over(
+		    (u8 *)hrp1, strlen(hrp1), (u8 *)hrp2, strlen(hrp2),
+		    (u8 *)out_hrp, max_out_hrp_size, (unsigned)rand());
+		out_hrp[out_hrp_size] = '\0';
+	} else {
+		// Cross-over the data part.
+		out_hrp = hrp1;
+
+		size_t max_out_data_size = max_out_size - strlen(hrp1) - 8;
+		out_data = tal_arr(tmpctx, u5, max_out_data_size);
+
+		out_data_len =
+		    cross_over(data1, data1_len, data2, data2_len, out_data,
+			       max_out_data_size, (unsigned)rand());
+	}
+
+	// Encode the output.
+	if (!bech32_encode((char *)out, out_hrp, out_data, out_data_len,
+			   max_out_size, BECH32_ENCODING_BECH32))
+		return 0;
+
+	clean_tmpctx();
+	return strlen((char *)out);
 }
 
 void run(const uint8_t *data, size_t size)
