@@ -407,6 +407,12 @@ static bool is_urgent(enum peer_wire type)
 	return false;
 }
 
+/* io_sock_shutdown, but in format suitable for an io_plan callback */
+static struct io_plan *io_sock_shutdown_cb(struct io_conn *conn, struct peer *unused)
+{
+	return io_sock_shutdown(conn);
+}
+
 static struct io_plan *encrypt_and_send(struct peer *peer,
 					const u8 *msg TAKES,
 					struct io_plan *(*next)
@@ -423,7 +429,8 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 	case DEV_DISCONNECT_AFTER:
 		/* Disallow reads from now on */
 		peer->dev_read_enabled = false;
-		next = (void *)io_close_cb;
+		/* Using io_close here can lose the data we're about to send! */
+		next = io_sock_shutdown_cb;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
 		/* Disable both reads and writes from now on */
