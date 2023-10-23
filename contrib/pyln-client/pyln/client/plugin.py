@@ -217,13 +217,15 @@ class Plugin(object):
                  dynamic: bool = True,
                  init_features: Optional[Union[int, str, bytes]] = None,
                  node_features: Optional[Union[int, str, bytes]] = None,
-                 invoice_features: Optional[Union[int, str, bytes]] = None):
+                 invoice_features: Optional[Union[int, str, bytes]] = None,
+                 custom_msgs: Optional[List[int]] = None):
         self.methods = {
             'init': Method('init', self._init, MethodType.RPCMETHOD)
         }
 
         self.options: Dict[str, Dict[str, Any]] = {}
         self.notification_topics: List[str] = []
+        self.custom_msgs = custom_msgs
 
         def convert_featurebits(
                 bits: Optional[Union[int, str, bytes]]) -> Optional[str]:
@@ -930,6 +932,9 @@ class Plugin(object):
         features = {k: v for k, v in self.featurebits.items() if v is not None}
         if features is not None:
             manifest['featurebits'] = features
+
+        if self.custom_msgs is not None:
+            manifest['custommessages'] = self.custom_msgs
 
         return manifest
 
