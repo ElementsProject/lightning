@@ -58,6 +58,9 @@ struct subd {
 
 	/* Output buffer */
 	struct msg_queue *outq;
+
+	/* After we've told it to tx_abort, we don't send anything else. */
+	bool rcvd_tx_abort;
 };
 
 static struct subd *find_subd(struct peer *peer,
@@ -65,6 +68,10 @@ static struct subd *find_subd(struct peer *peer,
 {
 	for (size_t i = 0; i < tal_count(peer->subds); i++) {
 		struct subd *subd = peer->subds[i];
+
+		/* Once we sent it tx_abort, we pretend it doesn't exist */
+		if (subd->rcvd_tx_abort)
+			continue;
 
 		/* Once we see a message using the real channel_id, we
 		 * clear the temporary_channel_id */
@@ -1040,6 +1047,7 @@ static struct subd *new_subd(struct peer *peer,
 	subd->temporary_channel_id = NULL;
 	subd->opener_revocation_basepoint = NULL;
 	subd->conn = NULL;
+	subd->rcvd_tx_abort = false;
 
 	/* Connect it to the peer */
 	tal_arr_expand(&peer->subds, subd);
@@ -1056,6 +1064,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        u8 *decrypted;
        struct channel_id channel_id;
        struct subd *subd;
+       enum peer_wire type;
+
 
        decrypted = cryptomsg_decrypt_body(tmpctx, &peer->cs,
 					  peer->peer_in);
@@ -1065,6 +1075,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
                return io_close(peer_conn);
        }
        tal_free(peer->peer_in);
+
+       type = fromwire_peektype(decrypted);
 
        /* dev_disconnect can disable read */
        if (!peer->dev_read_enabled)
@@ -1083,8 +1095,6 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        /* After this we should be able to match to subd by channel_id */
        if (!extract_channel_id(decrypted, &channel_id)) {
-	       enum peer_wire type = fromwire_peektype(decrypted);
-
 	       /* We won't log this anywhere else, so do it here. */
 	       status_peer_io(LOG_IO_IN, &peer->id, decrypted);
 
@@ -1136,6 +1146,15 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        /* Tell them to write. */
        msg_enqueue(subd->outq, take(decrypted));
+
+       /* Is this a tx_abort?  Ignore from now on, and close after sending! */
+       if (type == WIRE_TX_ABORT) {
+	       subd->rcvd_tx_abort = true;
+	       /* In case it doesn't close by itself */
+	       notleak(new_reltimer(&peer->daemon->timers, subd,
+				    time_from_sec(5),
+				    close_subd_timeout, subd));
+       }
 
        /* Wait for them to wake us */
        return io_wait(peer_conn, &peer->peer_in, read_hdr_from_peer, peer);
