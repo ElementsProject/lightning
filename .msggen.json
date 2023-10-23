@@ -439,6 +439,13 @@
             "Datastore.key[]": 1,
             "Datastore.string": 4
         },
+        "DatastoreusageDatastoreusage": {
+            "DatastoreUsage.datastoreusage.key": 1,
+            "DatastoreUsage.datastoreusage.total_bytes": 2
+        },
+        "DatastoreusageResponse": {
+            "DatastoreUsage.datastoreusage": 1
+        },
         "DecodeExtra": {
             "Decode.extra[].data": 2,
             "Decode.extra[].tag": 1
@@ -1903,6 +1910,22 @@
         },
         "Datastore.string": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "DatastoreUsage": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DatastoreUsage.datastoreusage": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DatastoreUsage.datastoreusage.key": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DatastoreUsage.datastoreusage.total_bytes": {
+            "added": "v23.11",
             "deprecated": false
         },
         "Decode": {

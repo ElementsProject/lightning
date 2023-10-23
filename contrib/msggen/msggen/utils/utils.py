@@ -39,6 +39,7 @@ def load_jsonrpc_service(schema_dir: str):
         "Connect",
         "CreateInvoice",
         "Datastore",
+        "DatastoreUsage",
         "CreateOnion",
         "DelDatastore",
         "DelExpiredInvoice",
