@@ -579,6 +579,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
 	case WIRE_CONNECTD_START_SHUTDOWN:
+	case WIRE_CONNECTD_SET_CUSTOMMSGS:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:

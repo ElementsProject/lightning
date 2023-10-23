@@ -16,6 +16,7 @@
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/version.h>
+#include <connectd/connectd_wiregen.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -23,6 +24,7 @@
 #include <lightningd/plugin.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/subd.h>
 #include <sys/stat.h>
 
 /* Only this file can include this generated header! */
@@ -192,6 +194,32 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
 	return NULL;
 }
 
+static void tell_connectd_custommsgs(struct plugins *plugins)
+{
+	struct plugin *p;
+	size_t n = 0;
+	u16 *all_msgs = tal_arr(tmpctx, u16, n);
+
+	/* Not when shutting down */
+	if (!plugins->ld->connectd)
+		return;
+
+	/* Gather from all plugins. */
+	list_for_each(&plugins->plugins, p, list) {
+		size_t num = tal_count(p->custom_msgs);
+		/* Blah blah blah memcpy NULL blah blah */
+		if (num == 0)
+			continue;
+		tal_resize(&all_msgs, n + num);
+		memcpy(all_msgs + n, p->custom_msgs, num * sizeof(*p->custom_msgs));
+		n += num;
+	}
+
+	/* Don't bother sorting or uniquifying.  If plugins are dumb, they deserve it. */
+	subd_send_msg(plugins->ld->connectd,
+		      take(towire_connectd_set_custommsgs(NULL, all_msgs)));
+}
+
 static void destroy_plugin(struct plugin *p)
 {
 	struct plugin_rpccall *call;
@@ -232,6 +260,9 @@ static void destroy_plugin(struct plugin *p)
 			   "shutting down lightningd!");
 		lightningd_exit(p->plugins->ld, 1);
 	}
+
+	if (tal_count(p->custom_msgs))
+		tell_connectd_custommsgs(p->plugins);
 }
 
 static u32 file_checksum(struct lightningd *ld, const char *path)
@@ -1950,6 +1981,8 @@ static void plugin_config_cb(const char *buffer,
 		plugin_cmd_succeeded(plugin->start_cmd, plugin);
 		plugin->start_cmd = NULL;
 	}
+	if (tal_count(plugin->custom_msgs))
+		tell_connectd_custommsgs(plugin->plugins);
 	check_plugins_initted(plugin->plugins);
 }
 
