@@ -3482,7 +3482,7 @@ static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight
 	/* local_upfront_shutdown_script, local_upfront_shutdown_wallet_index,
 	 * remote_upfront_shutdown_script aren't allowed to change, so we
 	 * don't need to gather them */
-	msg = towire_hsmd_ready_channel(
+	msg = towire_hsmd_setup_channel(
 		NULL,
 		peer->channel->opener == LOCAL,
 		inflight->amnt,
@@ -3500,7 +3500,7 @@ static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_ready_channel_reply(msg))
+	if (!fromwire_hsmd_setup_channel_reply(msg))
 		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
 			      tal_hex(tmpctx, msg));
 }
