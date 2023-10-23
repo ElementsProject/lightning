@@ -56,7 +56,8 @@ static size_t initial_input(uint8_t *fuzz_data, size_t size, size_t max_size)
 size_t LLVMFuzzerCustomMutator(uint8_t *fuzz_data, size_t size, size_t max_size,
 			       unsigned int seed)
 {
-	if (size < 8)
+	// A minimum size of 9 prevents hrp_maxlen <= 0 and data_maxlen <= 0.
+	if (size < 9)
 		return initial_input(fuzz_data, size, max_size);
 
 	// Interpret fuzz input as string (ensure it's null terminated).
