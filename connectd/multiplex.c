@@ -559,6 +559,13 @@ static void send_ping(struct peer *peer)
 	set_ping_timer(peer);
 }
 
+void set_custommsgs(struct daemon *daemon, const u8 *msg)
+{
+	tal_free(daemon->custom_msgs);
+	if (!fromwire_connectd_set_custommsgs(daemon, msg, &daemon->custom_msgs))
+		master_badmsg(WIRE_CONNECTD_SET_CUSTOMMSGS, msg);
+}
+
 void send_custommsg(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
@@ -701,24 +708,44 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 		wake_gossip(peer);
 }
 
+static bool find_custom_msg(const u16 *custom_msgs, u16 type)
+{
+	for (size_t i = 0; i < tal_count(custom_msgs); i++) {
+		if (custom_msgs[i] == type)
+			return true;
+	}
+	return false;
+}
+
 static bool handle_custommsg(struct daemon *daemon,
 			     struct peer *peer,
 			     const u8 *msg)
 {
 	enum peer_wire type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !peer_wire_is_internal(type)) {
-		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just forward it to the
-		 * master. */
-		status_peer_io(LOG_IO_IN, &peer->id, msg);
-		daemon_conn_send(daemon->master,
-				 take(towire_connectd_custommsg_in(NULL,
-								   &peer->id,
-								   msg)));
-		return true;
-	} else {
+
+	/* Messages we expect to handle ourselves. */
+	if (peer_wire_is_internal(type))
 		return false;
+
+	/* We log it, since it's not going to a subdaemon */
+	status_peer_io(LOG_IO_IN, &peer->id, msg);
+
+	/* Even unknown messages must be explicitly allowed */
+	if (type % 2 == 0 && !find_custom_msg(daemon->custom_msgs, type)) {
+		send_warning(peer, "Invalid unknown even msg %s",
+			     tal_hex(msg, msg));
+		/* We "handled" it... */
+		return true;
 	}
+
+	/* The message is not part of the messages we know how to
+	 * handle. Assuming this is a custommsg, we just forward it to the
+	 * master. */
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_custommsg_in(NULL,
+							   &peer->id,
+							   msg)));
+	return true;
 }
 
 /* We handle pings and gossip messages. */

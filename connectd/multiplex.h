@@ -32,6 +32,9 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg);
 /* When lightningd says to send a custom message (from a plugin) */
 void send_custommsg(struct daemon *daemon, const u8 *msg);
 
+/* When lightningd says what custom messages we can recv */
+void set_custommsgs(struct daemon *daemon, const u8 *msg);
+
 /* Lightningd wants to talk to you. */
 void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd);
 

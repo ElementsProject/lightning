@@ -40,6 +40,11 @@ msgtype,connectd_activate,2025
 # Do we listen?
 msgdata,connectd_activate,listen,bool,
 
+# Set the allowed (i.e. don't hang up on!) unknown messages.
+msgtype,connectd_set_custommsgs,2007
+msgdata,connectd_set_custommsgs,len,u32,
+msgdata,connectd_set_custommsgs,msgnums,u16,len
+
 # Connectd->master, I am ready.
 msgtype,connectd_activate_reply,2125
 msgdata,connectd_activate_reply,failmsg,?wirestring,

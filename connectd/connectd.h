@@ -194,6 +194,9 @@ struct daemon {
 	/* Shutting down, don't send new stuff */
 	bool shutting_down;
 
+	/* What (even) custom messages we accept */
+	u16 *custom_msgs;
+
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
