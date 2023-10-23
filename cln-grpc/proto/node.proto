@@ -20,6 +20,7 @@ service Node {
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
 	rpc CreateInvoice(CreateinvoiceRequest) returns (CreateinvoiceResponse) {}
 	rpc Datastore(DatastoreRequest) returns (DatastoreResponse) {}
+	rpc DatastoreUsage(DatastoreusageRequest) returns (DatastoreusageResponse) {}
 	rpc CreateOnion(CreateonionRequest) returns (CreateonionResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
 	rpc DelExpiredInvoice(DelexpiredinvoiceRequest) returns (DelexpiredinvoiceResponse) {}
@@ -525,6 +526,18 @@ message DatastoreResponse {
 	optional uint64 generation = 2;
 	optional bytes hex = 3;
 	optional string string = 4;
+}
+
+message DatastoreusageRequest {
+}
+
+message DatastoreusageResponse {
+	optional DatastoreusageDatastoreusage datastoreusage = 1;
+}
+
+message DatastoreusageDatastoreusage {
+	optional string key = 1;
+	optional uint64 total_bytes = 2;
 }
 
 message CreateonionRequest {

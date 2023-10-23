@@ -410,6 +410,38 @@ async fn datastore(
 
 }
 
+async fn datastore_usage(
+    &self,
+    request: tonic::Request<pb::DatastoreusageRequest>,
+) -> Result<tonic::Response<pb::DatastoreusageResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DatastoreusageRequest = req.into();
+    debug!("Client asked for datastore_usage");
+    trace!("datastore_usage request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DatastoreUsage(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DatastoreUsage: {:?}", e)))?;
+    match result {
+        Response::DatastoreUsage(r) => {
+           trace!("datastore_usage response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DatastoreUsage",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn create_onion(
     &self,
     request: tonic::Request<pb::CreateonionRequest>,
