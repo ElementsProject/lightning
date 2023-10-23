@@ -633,6 +633,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("datastore", payload)
 
+    def datastoreusage(self, key=None):
+        """
+        Returns the total bytes that are stored for under the given key or the
+        root of the datastore. All descendants of the given key (or root) are
+        taken into account.
+        {key} can be a single string or a sequence of strings.
+        """
+        payload = {
+            "key": key,
+        }
+        return self.call("datastoreusage", payload)
+
     def decodepay(self, bolt11, description=None):
         """
         Decode {bolt11}, using {description} if necessary.
