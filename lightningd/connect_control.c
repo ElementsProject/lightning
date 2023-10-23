@@ -811,13 +811,12 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 	}
 
 	if (type % 2 == 0) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_REQUEST,
-		    "Cannot send even-typed %d custom message. Currently "
-		    "custom messages are limited to odd-numbered message "
-		    "types, as even-numbered types might result in "
-		    "disconnections.",
-		    type);
+		/* INFO the first time, then DEBUG */
+		static enum log_level level = LOG_INFORM;
+		log_(cmd->ld->log, level, dest, false,
+		     "sendcustommsg id=%s sending a custom even message (%u)",
+		     cmd->id, type);
+		level = LOG_DBG;
 	}
 
 	peer = peer_by_id(cmd->ld, dest);

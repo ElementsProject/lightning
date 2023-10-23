@@ -2619,12 +2619,6 @@ def test_sendcustommsg(node_factory):
     with pytest.raises(RpcError, match=r'Cannot send messages of type 18 .WIRE_PING.'):
         l2.rpc.sendcustommsg(l2.info['id'], r'0012')
 
-    # The sendcustommsg RPC call is currently limited to odd-typed messages,
-    # since they will not result in disconnections or even worse channel
-    # failures.
-    with pytest.raises(RpcError, match=r'Cannot send even-typed [0-9]+ custom message'):
-        l2.rpc.sendcustommsg(l2.info['id'], r'00FE')
-
     # This should work since the peer is currently owned by `channeld`
     l2.rpc.sendcustommsg(l1.info['id'], msg)
     l2.daemon.wait_for_log(

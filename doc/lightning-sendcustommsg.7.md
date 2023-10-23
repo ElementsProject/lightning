@@ -16,11 +16,9 @@ top, not for direct use by end-users.
 
 The message must be a hex encoded well-formed message, including the 2-byte
 type prefix, but excluding the length prefix which will be added by the RPC
-method. The messages must not use even-numbered types, since these may require
-synchronous handling on the receiving side, and can cause the connection to be
-dropped. The message types may also not use one of the internally handled
+method. The message types may not be one of the internally handled
 types, since that may cause issues with the internal state tracking of
-Core Lightning.
+Core Lightning. We do (as of *v23.11*) allow sending of even types, but note that peers (as per the spec) will disconnect on receiving unknown even types.
 
 The node specified by `node_id` must be a peer, i.e., it must have a direct
 connection with the node receiving the RPC call, and the connection must be
@@ -33,7 +31,7 @@ not have a connection, or are synchronous daemons that do not handle
 spontaneous messages.
 
 On the reveiving end a plugin may implement the `custommsg` plugin hook and
-get notified about incoming messages.
+get notified about incoming messages, and allow additional unknown even types in their getmanifest response.
 
 RETURN VALUE
 ------------
