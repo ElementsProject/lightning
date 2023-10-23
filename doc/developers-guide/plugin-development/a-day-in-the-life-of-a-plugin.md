@@ -81,6 +81,9 @@ The `getmanifest` method is required for all plugins and will be called on start
 	  "method": "mycustomnotification"
 	}
   ],
+  "custommessages": [
+    11008, 11010
+  ],
   "nonnumericids": true,
   "dynamic": true
 }
@@ -102,6 +105,8 @@ If a `disable` member exists, the plugin will be disabled and the contents of th
 The `featurebits` object allows the plugin to register featurebits that should be announced in a number of places in [the protocol](https://github.com/lightning/bolts/blob/master/09-features). They can be used to signal support for custom protocol extensions to direct peers, remote nodes and in invoices. Custom protocol extensions can be implemented for example using the `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for features that should be announced via the `node_announcement` to all nodes in the network, `init` for features that should be announced to direct peers during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be announced to a potential sender of a payment in the invoice. The low range of featurebits is reserved for standardize features, so please pick random, high position bits for experiments. If you'd like to standardize your extension please reach out to the [specification repository][spec] to get a featurebit assigned.
 
 The `notifications` array allows plugins to announce which custom notifications they intend to send to `lightningd`. These custom notifications can then be subscribed to by other plugins, allowing them to communicate with each other via the existing publish-subscribe mechanism and react to events that happen in other plugins, or collect information based on the notification topics.
+
+The `custommessages` array allows the plugin to tell `lightningd` to explicity allow these (unknown) custom messages: we normally disconnect with an error if we receive these.  This only makes sense if you also subscribe to the `custommsg` hook.
 
 Plugins are free to register any `name` for their `rpcmethod` as long as the name was not previously registered. This includes both built-in methods, such as `help` and `getinfo`, as well as methods registered by other plugins. If there is a conflict then `lightningd` will report an error and kill the plugin, this aborts startup if the plugin is _important_.
 

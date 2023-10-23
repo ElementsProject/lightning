@@ -305,6 +305,8 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->important = important;
 	p->parambuf = tal_steal(p, parambuf);
 	p->params = tal_steal(p, params);
+	p->custom_msgs = NULL;
+
 	return p;
 }
 
@@ -1545,7 +1547,7 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 						     struct plugin *plugin,
 	const char **disabled)
 {
-	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
+	const jsmntok_t *resulttok, *dynamictok, *featurestok, *custommsgtok, *tok;
 	const char *err;
 
 	*disabled = NULL;
@@ -1616,6 +1618,25 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		if (!feature_set_or(plugin->plugins->ld->our_features, fset)) {
 			return tal_fmt(plugin,
 				    "Custom featurebits already present");
+		}
+	}
+
+	custommsgtok = json_get_member(buffer, resulttok, "custommessages");
+	if (custommsgtok) {
+		size_t i;
+		const jsmntok_t *t;
+
+		if (custommsgtok->type != JSMN_ARRAY)
+			return tal_fmt(plugin, "custommessages must be array, not '%.*s'",
+				       json_tok_full_len(custommsgtok),
+				       json_tok_full(buffer, custommsgtok));
+		plugin->custom_msgs = tal_arr(plugin, u16, custommsgtok->size);
+		json_for_each_arr(i, t, custommsgtok) {
+			if (!json_to_u16(buffer, t, &plugin->custom_msgs[i]))
+				return tal_fmt(plugin, "custommessages %zu not a u16: '%.*s'",
+					       i,
+					       json_tok_full_len(t),
+					       json_tok_full(buffer, t));
 		}
 	}
 
