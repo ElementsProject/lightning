@@ -527,6 +527,11 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	}
 
 	if (tal_count(failmsg)) {
+		/* It's our job to append the channel_update */
+		if (fromwire_peektype(failmsg) & UPDATE) {
+			const u8 *update = get_channel_update(hout->key.channel);
+			towire(&failmsg, update, tal_bytelen(update));
+		}
 		hout->failmsg = tal_steal(hout, failmsg);
 		if (hout->am_origin) {
 			char *localfail = tal_fmt(msg, "%s: %s",
