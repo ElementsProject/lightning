@@ -10,14 +10,30 @@
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */
 struct plugin_hook_request {
-	struct list_head call_chain;
-	struct plugin *plugin;
 	const char *cmd_id;
 	const struct plugin_hook *hook;
 	void *cb_arg;
+	/* db_hook doesn't have ld yet */
 	struct db *db;
 	struct lightningd *ld;
+
+	/* Where are we up to in the hooks[] array below */
+	size_t hook_index;
+	/* A snapshot taken at the start: destructors may NULL some out! */
+	struct hook_instance **hooks;
 };
+
+static void destroy_hook_in_ph_req(struct hook_instance *hook,
+				   struct plugin_hook_request *ph_req)
+{
+	for (size_t i = 0; i < tal_count(ph_req->hooks); i++) {
+		if (ph_req->hooks[i] == hook) {
+			ph_req->hooks[i] = NULL;
+			return;
+		}
+	}
+	abort();
+}
 
 struct hook_instance {
 	/* What plugin registered */
@@ -25,18 +41,6 @@ struct hook_instance {
 
 	/* Dependencies it asked for. */
 	const char **before, **after;
-};
-
-/* A link in the plugin_hook call chain (there's a joke in there about
- * computer scientists and naming...). The purpose is to act both as a list
- * from which elements can be popped off as we progress along the chain as
- * well as have a way for plugins to notify about their untimely demise during
- * a hook call.
- */
-struct plugin_hook_call_link {
-	struct list_node list;
-	struct plugin *plugin;
-	struct plugin_hook_request *req;
 };
 
 static struct plugin_hook **get_hooks(size_t *num)
@@ -109,42 +113,6 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
 				 struct plugin_hook_request *r);
 
-/* We get notified if a plugin was killed while it was part of a call
- * chain. If it was still to be called we just remove it from the list,
- * otherwise it was the plugin that was currently handling the hook call, and
- * we need to fail over to the next plugin.
-*/
-static void plugin_hook_killed(struct plugin_hook_call_link *link)
-{
-	struct plugin_hook_call_link *head;
-
-	head = list_top(&link->req->call_chain, struct plugin_hook_call_link,
-			list);
-
-	/* If we are the head of the call chain, then the plugin died while it
-	 * was handling the hook call. Pretend it didn't get the memo by
-	 * calling the next one instead. This is correct since it is
-	 * equivalent to the plugin dying before the hook invokation, assuming
-	 * the plugin has not commmitted any changes internally. This is the
-	 * weakest assumption we can make short of restarting the plugin and
-	 * calling the hook again (potentially crashing the plugin the same
-	 * way again.
-	 */
-	if (link == head) {
-		/* Call next will unlink, so we don't need to. This is treated
-		 * equivalent to the plugin returning a continue-result.
-		 */
-		struct db *db = link->plugin->plugins->ld->wallet->db;
-		db_begin_transaction(db);
-		plugin_hook_callback(NULL, NULL, NULL, link->req);
-		db_commit_transaction(db);
-	} else {
-		/* The plugin is in the list waiting to be called, just remove
-		 * it from the list. */
-		list_del(&link->list);
-	}
-}
-
 bool plugin_hook_continue(void *unused, const char *buffer, const jsmntok_t *toks)
 {
 	const jsmntok_t *resrestok = json_get_member(buffer, toks, "result");
@@ -159,113 +127,115 @@ bool plugin_hook_continue(void *unused, const char *buffer, const jsmntok_t *tok
  */
 static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
-				 struct plugin_hook_request *r)
+				 struct plugin_hook_request *ph_req)
 {
 	const jsmntok_t *resulttok;
-	struct plugin_hook_call_link *last, *it;
+	const struct hook_instance *h;
+	enum jsonrpc_errcode ecode;
 
-	/* Pop the head off the call chain and continue with the next */
-	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
-	assert(last != NULL);
-	tal_del_destructor(last, plugin_hook_killed);
-	tal_free(last);
+	assert(ph_req->hook_index < tal_count(ph_req->hooks));
+	h = ph_req->hooks[ph_req->hook_index];
 
-	/* Actually, if it dies during shutdown, *don't* process result! */
-	if (!buffer && r->ld->state == LD_STATE_SHUTDOWN) {
-		log_debug(r->ld->log,
-			  "Abandoning plugin hook call due to shutdown");
-		return;
-	}
+	/* destructor NULLs out hooks[], but we get called first at the moment.
+	 * We handle either */
+	ecode = 0;
+	json_scan(tmpctx, buffer, toks, "{error:{code:%}}",
+		  JSON_SCAN(json_to_jsonrpc_errcode, &ecode));
+	if (ecode == PLUGIN_TERMINATED)
+		h = NULL;
 
-	log_debug(r->ld->log, "Plugin %s returned from %s hook call",
-		  r->plugin->shortname, r->hook->name);
-
-	if (buffer) {
+	/* We really only handle plugins dying: other errors are fatal. */
+	if (h) {
+		log_debug(ph_req->ld->log,
+			  "Plugin %s returned from %s hook call",
+			  h->plugin->shortname, ph_req->hook->name);
 		resulttok = json_get_member(buffer, toks, "result");
-
 		if (!resulttok)
-			fatal("Plugin for %s returned non-result response %.*s",
-			      r->hook->name, toks->end - toks->start,
+			fatal("Plugin %s for %s returned non-result response %.*s",
+			      h->plugin->shortname,
+			      ph_req->hook->name, toks->end - toks->start,
 			      buffer + toks->start);
 
-		if (!r->hook->deserialize_cb(r->cb_arg, buffer,
-					     resulttok)) {
-			tal_free(r->cb_arg);
+		if (!ph_req->hook->deserialize_cb(ph_req->cb_arg,
+						  buffer, resulttok)) {
+			tal_free(ph_req->cb_arg);
 			goto cleanup;
 		}
 	} else {
-		/* plugin died */
-		resulttok = NULL;
+		log_debug(ph_req->ld->log, "Plugin died from %s hook call",
+			  ph_req->hook->name);
 	}
 
-	if (!list_empty(&r->call_chain)) {
-		plugin_hook_call_next(r);
-		return;
-	}
-
-	r->hook->final_cb(r->cb_arg);
+	plugin_hook_call_next(ph_req);
+	return;
 
 cleanup:
 	/* We need to remove the destructors from the remaining
 	 * call-chain, otherwise they'd still be called when the
 	 * plugin dies or we shut down. */
-	list_for_each(&r->call_chain, it, list) {
-		tal_del_destructor(it, plugin_hook_killed);
-		tal_steal(r, it);
+	for (size_t i=0; i<tal_count(ph_req->hooks); i++) {
+		tal_del_destructor2(ph_req->hooks[i],
+				    destroy_hook_in_ph_req, ph_req);
 	}
 
-	tal_free(r);
+	tal_free(ph_req);
 }
 
 static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 {
 	struct jsonrpc_request *req;
 	const struct plugin_hook *hook = ph_req->hook;
-	assert(!list_empty(&ph_req->call_chain));
-	ph_req->plugin = list_top(&ph_req->call_chain, struct plugin_hook_call_link, list)->plugin;
+	struct plugin *plugin;
 
+	/* Find next non-NULL hook: call final if we're done */
+	do {
+		ph_req->hook_index++;
+		if (ph_req->hook_index >= tal_count(ph_req->hooks)) {
+			ph_req->hook->final_cb(ph_req->cb_arg);
+			return;
+		}
+	} while (ph_req->hooks[ph_req->hook_index] == NULL);
+
+	plugin = ph_req->hooks[ph_req->hook_index]->plugin;
 	log_debug(ph_req->ld->log, "Calling %s hook of plugin %s",
-		  ph_req->hook->name, ph_req->plugin->shortname);
+		  ph_req->hook->name, plugin->shortname);
 	req = jsonrpc_request_start(NULL, hook->name, ph_req->cmd_id,
-				    ph_req->plugin->non_numeric_ids,
-				    plugin_get_logger(ph_req->plugin),
+				    plugin->non_numeric_ids,
+				    plugin_get_logger(plugin),
 				    NULL,
 				    plugin_hook_callback, ph_req);
 
-	hook->serialize_payload(ph_req->cb_arg, req->stream, ph_req->plugin);
+	hook->serialize_payload(ph_req->cb_arg, req->stream, plugin);
 	jsonrpc_request_end(req);
-	plugin_request_send(ph_req->plugin, req);
+	plugin_request_send(plugin, req);
 }
 
 bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS)
 {
-	struct plugin_hook_request *ph_req;
-	struct plugin_hook_call_link *link;
 	if (tal_count(hook->hooks)) {
 		/* If we have a plugin that has registered for this
 		 * hook, serialize and call it */
 		/* FIXME: technically this is a leak, but we don't
 		 * currently have a list to store these. We might want
 		 * to eventually to inspect in-flight requests. */
+		struct plugin_hook_request *ph_req;
+
 		ph_req = notleak(tal(hook->hooks, struct plugin_hook_request));
 		ph_req->hook = hook;
 		ph_req->cb_arg = tal_steal(ph_req, cb_arg);
 		ph_req->db = ld->wallet->db;
 		ph_req->ld = ld;
 		ph_req->cmd_id = tal_strdup_or_null(ph_req, cmd_id);
-
-		list_head_init(&ph_req->call_chain);
-		for (size_t i=0; i<tal_count(hook->hooks); i++) {
-			/* We allocate this off of the plugin so we get notified if the plugin dies. */
-			link = tal(hook->hooks[i]->plugin,
-				   struct plugin_hook_call_link);
-			link->plugin = hook->hooks[i]->plugin;
-			link->req = ph_req;
-			tal_add_destructor(link, plugin_hook_killed);
-			list_add_tail(&ph_req->call_chain, &link->list);
-		}
+		ph_req->hooks = tal_dup_talarr(ph_req,
+					       struct hook_instance *,
+					       hook->hooks);
+		/* If hook goes away, NULL out our snapshot */
+		for (size_t i=0; i<tal_count(ph_req->hooks); i++)
+			tal_add_destructor2(ph_req->hooks[i],
+					    destroy_hook_in_ph_req, ph_req);
+		ph_req->hook_index = -1;
 		plugin_hook_call_next(ph_req);
 		return false;
 	} else {

@@ -259,6 +259,10 @@ static void destroy_plugin(struct plugin *p)
 
 	list_del(&p->list);
 
+	/* Don't have p->conn destructor run. */
+	if (p->stdout_conn)
+		io_set_finish(p->stdout_conn, NULL, NULL);
+
 	/* Gather all pending RPC calls (we can't iterate as we delete!) */
 	reqs = tal_arr(NULL, struct jsonrpc_request *, 0);
 	strmap_iterate(&p->pending_requests, request_add, &reqs);
@@ -360,6 +364,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->dynamic = false;
 	p->non_numeric_ids = false;
 	p->index = plugins->plugin_idx++;
+	p->stdout_conn = NULL;
 
 	p->log = new_logger(p, plugins->ld->log_book, NULL, "plugin-%s", p->shortname);
 	p->methods = tal_arr(p, const char *, 0);
@@ -448,8 +453,6 @@ void plugin_kill(struct plugin *plugin, enum log_level loglevel,
 		plugin->start_cmd = NULL;
 	}
 
-	/* Don't come back when we free stdout_conn! */
-	io_set_finish(plugin->stdout_conn, NULL, NULL);
 	tal_free(plugin);
 }
 
@@ -877,11 +880,14 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 /* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
+	struct db *db = plugin->plugins->ld->wallet->db;
+	db_begin_transaction(db);
 	/* This is expected at shutdown of course. */
 	plugin_kill(plugin,
 		    plugin->plugins->ld->state == LD_STATE_SHUTDOWN
 		    ? LOG_DBG : LOG_INFORM,
 		    "exited %s", state_desc(plugin));
+	db_commit_transaction(db);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
