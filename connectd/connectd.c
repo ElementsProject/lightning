@@ -1543,6 +1543,9 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 								 ->is_websocket),
 						       daemon));
 		}
+	} else {
+		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++)
+			close(daemon->listen_fds[i]->fd);
 	}
 
 	/* Free, with NULL assignment just as an extra sanity check. */
