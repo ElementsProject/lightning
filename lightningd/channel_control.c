@@ -484,6 +484,7 @@ static void send_splice_tx(struct channel *channel,
 	info->err_msg = NULL;
 
 	bitcoind_sendrawtx(ld->topology->bitcoind,
+			   ld->topology->bitcoind,
 			   cc ? cc->cmd->id : NULL,
 			   tal_hex(tmpctx, tx_bytes),
 			   false,
