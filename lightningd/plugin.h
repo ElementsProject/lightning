@@ -76,10 +76,6 @@ struct plugin {
 	/* Currently pending requests by their request ID */
 	STRMAP(struct jsonrpc_request *) pending_requests;
 
-	/* An array of currently pending RPC method calls, to be killed if the
-	 * plugin exits. */
-	struct list_head pending_rpccalls;
-
 	/* If set, the plugin is so important that if it terminates early,
 	 * C-lightning should terminate as well.  */
 	bool important;
