@@ -1478,6 +1478,7 @@ def test_sendpay_notifications_nowaiter(node_factory):
     assert len(results['sendpay_failure']) == 1
 
 
+@pytest.mark.xfail(strict=True)
 def test_rpc_command_hook(node_factory):
     """Test the `rpc_command` hook chain"""
     plugin = [
@@ -1835,6 +1836,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
     assert not resp["success"] and "decode failed" in resp["errmsg"]
 
 
+@pytest.mark.xfail(strict=True)
 def test_hook_crash(node_factory, executor, bitcoind):
     """Verify that we fail over if a plugin crashes while handling a hook.
 

@@ -39,15 +39,6 @@
  * `getmanifest` call anyway, that's what `init` is for. */
 #define PLUGIN_MANIFEST_TIMEOUT 60
 
-/* A simple struct associating an incoming RPC method call with the plugin
- * that is handling it and the downstream jsonrpc_request. */
-struct plugin_rpccall {
-	struct list_node list;
-	struct command *cmd;
-	struct plugin *plugin;
-	struct jsonrpc_request *request;
-};
-
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugin *plugin)
 {
@@ -220,20 +211,65 @@ static void tell_connectd_custommsgs(struct plugins *plugins)
 		      take(towire_connectd_set_custommsgs(NULL, all_msgs)));
 }
 
+/* Steal req onto reqs. */
+static bool request_add(const char *reqid, struct jsonrpc_request *req,
+			struct jsonrpc_request ***reqs)
+{
+	tal_arr_expand(reqs, tal_steal(*reqs, req));
+	/* Keep iterating */
+	return true;
+}
+
+/* FIXME: reorder */
+static const char *plugin_read_json_one(struct plugin *plugin,
+					bool want_transaction,
+					bool *complete,
+					bool *destroyed);
+
+/* We act as if the plugin itself said "I'm dead!" */
+static void plugin_terminated_fail_req(struct plugin *plugin,
+				       struct jsonrpc_request *req)
+{
+	bool complete, destroyed;
+	const char *err;
+
+	jsmn_init(&plugin->parser);
+	toks_reset(plugin->toks);
+	tal_free(plugin->buffer);
+	plugin->buffer = tal_fmt(plugin,
+				 "{\"jsonrpc\": \"2.0\","
+				 "\"id\": %s,"
+				 "\"error\":"
+				 " {\"code\":%i, \"message\":\"%s\"}"
+				 "}\n\n",
+				 req->id,
+				 PLUGIN_TERMINATED,
+				 "Plugin terminated before replying to RPC call.");
+	plugin->used = strlen(plugin->buffer);
+
+	/* We're already in a transaction, don't do it again! */
+	err = plugin_read_json_one(plugin, false, &complete, &destroyed);
+	assert(!err);
+	assert(complete);
+}
+
 static void destroy_plugin(struct plugin *p)
 {
-	struct plugin_rpccall *call;
+	struct jsonrpc_request **reqs;
 
 	list_del(&p->list);
 
-	/* Terminate all pending RPC calls with an error. */
-	list_for_each(&p->pending_rpccalls, call, list) {
-		was_pending(command_fail(
-		    call->cmd, PLUGIN_TERMINATED,
-		    "Plugin terminated before replying to RPC call."));
+	/* Gather all pending RPC calls (we can't iterate as we delete!) */
+	reqs = tal_arr(NULL, struct jsonrpc_request *, 0);
+	strmap_iterate(&p->pending_requests, request_add, &reqs);
+
+	/* Don't fail requests if we're exiting anyway! */
+	if (p->plugins->ld->state != LD_STATE_SHUTDOWN) {
+		for (size_t i = 0; i < tal_count(reqs); i++)
+			plugin_terminated_fail_req(p, reqs[i]);
 	}
-	/* Reset, so calls below don't try to fail it again! */
-	list_head_init(&p->pending_rpccalls);
+	/* Now free all the requests */
+	tal_free(reqs);
 
 	/* If this was last one manifests were waiting for, handle deps */
 	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
@@ -331,7 +367,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 
 	list_add_tail(&plugins->plugins, &p->list);
 	tal_add_destructor(p, destroy_plugin);
-	list_head_init(&p->pending_rpccalls);
 	strmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
@@ -1145,27 +1180,22 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 static void plugin_rpcmethod_cb(const char *buffer,
 				const jsmntok_t *toks,
 				const jsmntok_t *idtok,
-				struct plugin_rpccall *call)
+				struct command *cmd)
 {
-	struct command *cmd = call->cmd;
 	struct json_stream *response;
 
 	response = json_stream_raw_for_cmd(cmd);
 	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
-
-	list_del(&call->list);
-	tal_free(call);
 }
 
 static void plugin_notify_cb(const char *buffer,
 			     const jsmntok_t *methodtok,
 			     const jsmntok_t *paramtoks,
 			     const jsmntok_t *idtok,
-			     struct plugin_rpccall *call)
+			     struct command *cmd)
 {
-	struct command *cmd = call->cmd;
 	struct json_stream *response;
 
 	if (!cmd->jcon || !cmd->send_notifications)
@@ -1209,7 +1239,6 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct plugin *plugin;
 	struct jsonrpc_request *req;
-	struct plugin_rpccall *call;
 
 	if (cmd->mode == CMD_CHECK)
 		return command_param_failed();
@@ -1222,17 +1251,11 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	idtok = json_get_member(buffer, toks, "id");
 	assert(idtok != NULL);
 
-	call = tal(plugin, struct plugin_rpccall);
-	call->cmd = cmd;
-
 	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name,
 					cmd->id, plugin->non_numeric_ids,
 					plugin->log,
 					plugin_notify_cb,
-					plugin_rpcmethod_cb, call);
-	call->request = req;
-	call->plugin = plugin;
-	list_add_tail(&plugin->pending_rpccalls, &call->list);
+					plugin_rpcmethod_cb, cmd);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id);
 	json_stream_double_cr(req->stream);
