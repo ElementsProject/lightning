@@ -60,7 +60,8 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
 /* Generated stub for broadcast_tx_ */
-void broadcast_tx_(struct chain_topology *topo UNNEEDED,
+void broadcast_tx_(const tal_t *ctx UNNEEDED,
+		   struct chain_topology *topo UNNEEDED,
 		   struct channel *channel UNNEEDED,
 		   const struct bitcoin_tx *tx TAKES UNNEEDED,
 		   const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED, u32 minblock UNNEEDED,
