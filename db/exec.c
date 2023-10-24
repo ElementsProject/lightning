@@ -142,6 +142,11 @@ bool db_in_transaction(struct db *db)
 	return db->in_transaction;
 }
 
+void db_set_readonly(struct db *db, bool readonly)
+{
+	db->readonly = readonly;
+}
+
 void db_commit_transaction(struct db *db)
 {
 	bool ok;

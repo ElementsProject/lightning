@@ -64,6 +64,9 @@ struct db {
 
 	/* Set by --developer */
 	bool developer;
+
+	/* Fatal if we try to write to db */
+	bool readonly;
 };
 
 struct db_query {

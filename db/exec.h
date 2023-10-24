@@ -48,5 +48,9 @@ bool db_in_transaction(struct db *db);
  */
 void db_commit_transaction(struct db *db);
 
+/**
+ * db_set_readonly - make writes fatal or allowed.
+ */
+void db_set_readonly(struct db *db, bool readonly);
 
 #endif /* LIGHTNING_DB_EXEC_H */

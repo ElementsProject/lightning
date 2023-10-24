@@ -173,6 +173,9 @@ void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
 	bool ret = stmt->db->config->exec_fn(stmt);
 
+	if (stmt->db->readonly)
+		assert(stmt->query->readonly);
+
 	/* If this was a write we need to bump the data_version upon commit. */
 	stmt->db->dirty = stmt->db->dirty || !stmt->query->readonly;
 
@@ -334,6 +337,7 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 	db->developer = developer;
 	db->errorfn = errorfn;
 	db->errorfn_arg = arg;
+	db->readonly = false;
 	list_head_init(&db->pending_statements);
 	if (!strstr(db->filename, "://"))
 		db_fatal(db, "Could not extract driver name from \"%s\"", db->filename);

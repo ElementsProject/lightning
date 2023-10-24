@@ -1522,7 +1522,10 @@ static struct command_result *json_check(struct command *cmd,
 	json_tok_remove(&mod_params, mod_params, name_tok, 1);
 
 	cmd->mode = CMD_CHECK;
+	/* Make *sure* it doesn't try to manip db! */
+	db_set_readonly(cmd->ld->wallet->db, true);
 	res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
+	db_set_readonly(cmd->ld->wallet->db, false);
 
 	/* CMD_CHECK always makes it "fail" parameter parsing. */
 	assert(res == &param_failed);
