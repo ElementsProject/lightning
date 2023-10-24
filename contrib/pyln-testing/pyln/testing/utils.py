@@ -903,7 +903,7 @@ class LightningNode(object):
 
         if wait_for_announce:
             self.bitcoin.generate_block(5)
-            wait_for(lambda: ['alias' in e for e in self.rpc.listnodes(remote_node.info['id'])['nodes']])
+            wait_for(lambda: ['alias' in e for e in self.rpc.listnodes(remote_node.info['id'])['nodes']] == [True])
 
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': res['tx']}
 
