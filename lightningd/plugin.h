@@ -73,6 +73,9 @@ struct plugin {
 	/* An array of subscribed topics */
 	char **subscriptions;
 
+	/* Currently pending requests by their request ID */
+	STRMAP(struct jsonrpc_request *) pending_requests;
+
 	/* An array of currently pending RPC method calls, to be killed if the
 	 * plugin exits. */
 	struct list_head pending_rpccalls;
@@ -105,8 +108,6 @@ struct plugins {
 	struct list_head plugins;
 	bool startup;
 
-	/* Currently pending requests by their request ID */
-	STRMAP(struct jsonrpc_request *) pending_requests;
 	struct logger *log;
 
 	struct lightningd *ld;
