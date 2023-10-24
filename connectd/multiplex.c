@@ -564,6 +564,8 @@ void set_custommsgs(struct daemon *daemon, const u8 *msg)
 	tal_free(daemon->custom_msgs);
 	if (!fromwire_connectd_set_custommsgs(daemon, msg, &daemon->custom_msgs))
 		master_badmsg(WIRE_CONNECTD_SET_CUSTOMMSGS, msg);
+	status_debug("Now allowing %zu custom message types",
+		     tal_count(daemon->custom_msgs));
 }
 
 void send_custommsg(struct daemon *daemon, const u8 *msg)
