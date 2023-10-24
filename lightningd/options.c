@@ -771,7 +771,7 @@ static void dev_register_opts(struct lightningd *ld)
 	/* We might want to debug plugins, which are started before normal
 	 * option parsing */
 	clnopt_witharg("--dev-debugger=<subprocess>", OPT_EARLY|OPT_DEV,
-		       opt_set_charp, NULL,
+		       opt_set_charp, opt_show_charp,
 		       &ld->dev_debug_subprocess,
 		       "Invoke gdb at start of <subprocess>");
 	clnopt_noarg("--dev-no-plugin-checksum", OPT_EARLY|OPT_DEV,
