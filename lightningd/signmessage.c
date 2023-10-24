@@ -69,14 +69,17 @@ static struct command_result *json_signmessage(struct command *cmd,
 	const u8 *msg;
 	int recid;
 
-	if (!param(cmd, buffer, params,
-		   p_req("message", param_string, &message),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("message", param_string, &message),
+			 NULL))
 		return command_param_failed();
 
 	if (strlen(message) > 65535)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Message must be < 64k");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	msg = towire_hsmd_sign_message(NULL,
 				      tal_dup_arr(tmpctx, u8, (u8 *)message,
@@ -160,10 +163,10 @@ static struct command_result *json_checkmessage(struct command *cmd,
 	struct sha256_double shad;
 	struct json_stream *response;
 
-	if (!param(cmd, buffer, params,
-		   p_req("message", param_string, &message),
-		   p_req("zbase", param_string, &zb),
-		   p_opt("pubkey", param_pubkey, &pubkey),
+	if (!param_check(cmd, buffer, params,
+			 p_req("message", param_string, &message),
+			 p_req("zbase", param_string, &zb),
+			 p_opt("pubkey", param_pubkey, &pubkey),
 		   NULL))
 		return command_param_failed();
 
@@ -183,6 +186,9 @@ static struct command_result *json_checkmessage(struct command *cmd,
 								 u8sig[0] - 31))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "cannot parse zbase signature");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	sha256_update(&sctx, "Lightning Signed Message:",
 		      strlen("Lightning Signed Message:"));

@@ -1325,21 +1325,21 @@ static struct command_result *json_sendonion(struct command *cmd,
 	u64 *partid, *group;
 	struct sha256 *local_invreq_id = NULL;
 
-	if (!param(cmd, buffer, params,
-		   p_req("onion", param_bin_from_hex, &onion),
-		   p_req("first_hop", param_route_hop, &first_hop),
-		   p_req("payment_hash", param_sha256, &payment_hash),
-		   p_opt("label", param_escaped_string, &label),
-		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
-		   p_opt_def("partid", param_u64, &partid, 0),
-		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_invstring, &invstring),
-		   p_opt_def("amount_msat|msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
-		   p_opt("destination", param_node_id, &destination),
-		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
-		   p_opt("groupid", param_u64, &group),
-		   p_opt("description", param_string, &description),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("onion", param_bin_from_hex, &onion),
+			 p_req("first_hop", param_route_hop, &first_hop),
+			 p_req("payment_hash", param_sha256, &payment_hash),
+			 p_opt("label", param_escaped_string, &label),
+			 p_opt("shared_secrets", param_secrets_array, &path_secrets),
+			 p_opt_def("partid", param_u64, &partid, 0),
+			 /* FIXME: parameter should be invstring now */
+			 p_opt("bolt11", param_invstring, &invstring),
+			 p_opt_def("amount_msat|msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
+			 p_opt("destination", param_node_id, &destination),
+			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
+			 p_opt("groupid", param_u64, &group),
+			 p_opt("description", param_string, &description),
+			 NULL))
 		return command_param_failed();
 
 	/* If groupid was not provided default to incrementing from the previous one. */
@@ -1357,6 +1357,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
 				    failcode);
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	return send_payment_core(ld, cmd, payment_hash, *partid, *group,
 				 first_hop, *msat, AMOUNT_MSAT(0),
@@ -1548,20 +1551,19 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *local_invreq_id;
 	u8 *payment_metadata;
 
-	/* For generating help, give new-style. */
-	if (!param(cmd, buffer, params,
-		   p_req("route", param_route_hops, &route),
-		   p_req("payment_hash", param_sha256, &rhash),
-		   p_opt("label", param_escaped_string, &label),
-		   p_opt("amount_msat|msatoshi", param_msat, &msat),
-		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_invstring, &invstring),
-		   p_opt("payment_secret", param_secret, &payment_secret),
-		   p_opt_def("partid", param_u64, &partid, 0),
-		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
-		   p_opt("groupid", param_u64, &group),
-		   p_opt("payment_metadata", param_bin_from_hex, &payment_metadata),
-		   p_opt("description", param_string, &description),
+	if (!param_check(cmd, buffer, params,
+			 p_req("route", param_route_hops, &route),
+			 p_req("payment_hash", param_sha256, &rhash),
+			 p_opt("label", param_escaped_string, &label),
+			 p_opt("amount_msat|msatoshi", param_msat, &msat),
+			 /* FIXME: parameter should be invstring now */
+			 p_opt("bolt11", param_invstring, &invstring),
+			 p_opt("payment_secret", param_secret, &payment_secret),
+			 p_opt_def("partid", param_u64, &partid, 0),
+			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
+			 p_opt("groupid", param_u64, &group),
+			 p_opt("payment_metadata", param_bin_from_hex, &payment_metadata),
+			 p_opt("description", param_string, &description),
 		   NULL))
 		return command_param_failed();
 
@@ -1582,6 +1584,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 		if (*partid)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Self-payment does not allow (non-zero) partid");
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		return self_payment(cmd->ld, cmd, rhash, *partid, *group, *msat,
 				    label, invstring, description, local_invreq_id,
 				    payment_secret, payment_metadata);
@@ -1618,6 +1623,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 	if (*partid && !payment_secret)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "partid requires payment_secret");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	return send_payment(cmd->ld, cmd, rhash, *partid, *group,
 			    route,
@@ -1709,12 +1717,12 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	const char *invstring;
 	enum payment_status *status;
 
-	if (!param(cmd, buffer, params,
-		   /* FIXME: parameter should be invstring now */
-		   p_opt("bolt11", param_invstring, &invstring),
-		   p_opt("payment_hash", param_sha256, &rhash),
-		   p_opt("status", param_payment_status, &status),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 /* FIXME: parameter should be invstring now */
+			 p_opt("bolt11", param_invstring, &invstring),
+			 p_opt("payment_hash", param_sha256, &rhash),
+			 p_opt("status", param_payment_status, &status),
+			 NULL))
 		return command_param_failed();
 
 	if (rhash && invstring) {
@@ -1744,6 +1752,9 @@ static struct command_result *json_listsendpays(struct command *cmd,
 						    "Invalid invstring: %s", fail);
 		}
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 	response = json_stream_success(cmd);
@@ -1806,12 +1817,12 @@ static struct command_result *json_delpay(struct command *cmd,
 	u64 *groupid, *partid;
 	bool found;
 
-	if (!param(cmd, buffer, params,
-		   p_req("payment_hash", param_sha256, &payment_hash),
-		   p_req("status", param_payment_status_nopending, &status),
-		   p_opt("partid", param_u64, &partid),
-		   p_opt("groupid", param_u64, &groupid),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("payment_hash", param_sha256, &payment_hash),
+			 p_req("status", param_payment_status_nopending, &status),
+			 p_opt("partid", param_u64, &partid),
+			 p_opt("groupid", param_u64, &groupid),
+			 NULL))
 		return command_param_failed();
 
 	if ((partid != NULL) != (groupid != NULL))
@@ -1849,6 +1860,9 @@ static struct command_result *json_delpay(struct command *cmd,
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
 				    "No payment for that payment_hash with that partid and groupid");
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	wallet_payment_delete(cmd->ld->wallet, payment_hash, groupid, partid, status);
 
@@ -1890,12 +1904,12 @@ static struct command_result *json_createonion(struct command *cmd,
 	struct onionpacket *packet;
 	struct sphinx_hop *hops;
 
-	if (!param(cmd, buffer, params,
-		   p_req("hops", param_hops_array, &hops),
-		   p_req("assocdata", param_bin_from_hex, &assocdata),
-		   p_opt("session_key", param_secret, &session_key),
-		   p_opt_def("onion_size", param_number, &packet_size, ROUTING_INFO_SIZE),
-		   NULL)) {
+	if (!param_check(cmd, buffer, params,
+			 p_req("hops", param_hops_array, &hops),
+			 p_req("assocdata", param_bin_from_hex, &assocdata),
+			 p_opt("session_key", param_secret, &session_key),
+			 p_opt_def("onion_size", param_number, &packet_size, ROUTING_INFO_SIZE),
+			 NULL)) {
 		return command_param_failed();
 	}
 
@@ -1920,6 +1934,9 @@ static struct command_result *json_createonion(struct command *cmd,
 	if (!packet)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not create onion packet");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	serialized = serialize_onionpacket(cmd, packet);
 

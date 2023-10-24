@@ -236,11 +236,11 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		const char *plugin_path;
 		jsmntok_t *mod_params;
 
-		if (!param(cmd, buffer, params,
-			   p_req("subcommand", param_ignore, cmd),
-			   p_req("plugin", param_string, &plugin_path),
-			   p_opt_any(),
-			   NULL))
+		if (!param_check(cmd, buffer, params,
+				 p_req("subcommand", param_ignore, cmd),
+				 p_req("plugin", param_string, &plugin_path),
+				 p_opt_any(),
+				 NULL))
 			return command_param_failed();
 
 		/* Manually parse any remaining options (only for objects,
@@ -263,27 +263,29 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		if (access(plugin_path, X_OK) != 0)
 			plugin_path = path_join(cmd,
 					cmd->ld->plugins->default_dir, plugin_path);
-		if (access(plugin_path, X_OK) == 0)
-			return plugin_dynamic_start(pcmd, plugin_path,
-						    buffer, mod_params);
-		else
+		if (access(plugin_path, X_OK) != 0)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						   "%s is not executable: %s",
 						   plugin_path, strerror(errno));
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
+		return plugin_dynamic_start(pcmd, plugin_path, buffer, mod_params);
 	} else if (streq(subcmd, "startdir")) {
 		const char *dir_path;
 
-		if (!param(cmd, buffer, params,
+		if (!param_check(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),
 			   p_req("directory", param_string, &dir_path),
 			   NULL))
 			return command_param_failed();
 
-		if (access(dir_path, F_OK) == 0)
-			return plugin_dynamic_startdir(pcmd, dir_path);
-		else
+		if (access(dir_path, F_OK) != 0)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						   "Could not open %s", dir_path);
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+		return plugin_dynamic_startdir(pcmd, dir_path);
 	} else if (streq(subcmd, "rescan")) {
 		if (!param(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),

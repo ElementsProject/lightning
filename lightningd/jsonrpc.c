@@ -396,9 +396,9 @@ static struct command_result *json_help(struct command *cmd,
 	struct json_command **commands;
 	const struct json_command *one_cmd;
 
-	if (!param(cmd, buffer, params,
-		   p_opt("command", param_string, &cmdname),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_opt("command", param_string, &cmdname),
+			 NULL))
 		return command_param_failed();
 
 	commands = cmd->ld->jsonrpc->commands;
@@ -418,6 +418,9 @@ static struct command_result *json_help(struct command *cmd,
 					    cmdname);
 	} else
 		one_cmd = NULL;
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	asort(commands, tal_count(commands), compare_commands_name, NULL);
 

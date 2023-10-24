@@ -647,13 +647,17 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 	u64 *start, *end;
 	struct rune_blacklist *entry, *newblacklist;
 
-	if (!param(cmd, buffer, params,
-		   p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_opt("start", param_u64, &start), p_opt("end", param_u64, &end), NULL))
 		return command_param_failed();
 
 	if (end && !start) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end without start");
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	if (!start) {
 		return list_blacklist(cmd);
 	}

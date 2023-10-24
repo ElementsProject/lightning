@@ -113,13 +113,13 @@ static struct command_result *json_datastore(struct command *cmd,
 	u64 *generation, actual_gen;
 	struct db_stmt *stmt;
 
-	if (!param(cmd, buffer, params,
-		   p_req("key", param_list_or_string, &key),
-		   p_opt("string", param_escaped_string, &strdata),
-		   p_opt("hex", param_bin_from_hex, &data),
-		   p_opt_def("mode", param_mode, &mode, DS_MUST_NOT_EXIST),
-		   p_opt("generation", param_u64, &generation),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("key", param_list_or_string, &key),
+			 p_opt("string", param_escaped_string, &strdata),
+			 p_opt("hex", param_bin_from_hex, &data),
+			 p_opt_def("mode", param_mode, &mode, DS_MUST_NOT_EXIST),
+			 p_opt("generation", param_u64, &generation),
+			 NULL))
 		return command_param_failed();
 
 	if (strdata) {
@@ -181,6 +181,9 @@ static struct command_result *json_datastore(struct command *cmd,
 	if (generation && actual_gen != *generation)
 		return command_fail(cmd, DATASTORE_UPDATE_WRONG_GENERATION,
 				    "generation is different");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	if ((*mode & DS_APPEND) && prevdata) {
 		size_t prevlen = tal_bytelen(prevdata);
@@ -267,10 +270,10 @@ static struct command_result *json_deldatastore(struct command *cmd,
 	u64 *generation;
 	u64 actual_gen;
 
-	if (!param(cmd, buffer, params,
-		   p_req("key", param_list_or_string, &key),
-		   p_opt("generation", param_u64, &generation),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("key", param_list_or_string, &key),
+			 p_opt("generation", param_u64, &generation),
+			 NULL))
 		return command_param_failed();
 
 	data = wallet_datastore_get(cmd, cmd->ld->wallet, key, &actual_gen);
@@ -281,6 +284,9 @@ static struct command_result *json_deldatastore(struct command *cmd,
 	if (generation && actual_gen != *generation)
 		return command_fail(cmd, DATASTORE_DEL_WRONG_GENERATION,
 				    "generation is different");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	wallet_datastore_remove(cmd->ld->wallet, key);
 

@@ -2368,9 +2368,9 @@ json_openchannel_abort(struct command *cmd,
 	struct channel *channel;
 	u8 *msg;
 
-	if (!param(cmd, buffer, params,
-		   p_req("channel_id", param_channel_id, &cid),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_id, &cid),
+			 NULL))
 		return command_param_failed();
 
 	channel = channel_by_cid(cmd->ld, cid);
@@ -2400,6 +2400,9 @@ json_openchannel_abort(struct command *cmd,
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Already sent sigs, waiting for peer's");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Mark it as aborted so when we clean-up, we send the
 	 * correct response */
@@ -2453,13 +2456,13 @@ json_openchannel_bump(struct command *cmd,
 	u32 last_feerate_perkw, next_feerate_min, *feerate_per_kw_funding;
 	struct open_attempt *oa;
 
-	if (!param(cmd, buffer, params,
-		   p_req("channel_id", param_channel_id, &cid),
-		   p_req("amount", param_sat, &amount),
-		   p_req("initialpsbt", param_psbt, &psbt),
-		   p_opt("funding_feerate", param_feerate,
-			 &feerate_per_kw_funding),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_id, &cid),
+			 p_req("amount", param_sat, &amount),
+			 p_req("initialpsbt", param_psbt, &psbt),
+			 p_opt("funding_feerate", param_feerate,
+			       &feerate_per_kw_funding),
+			 NULL))
 		return command_param_failed();
 
 	psbt_val = AMOUNT_SAT(0);
@@ -2554,6 +2557,9 @@ json_openchannel_bump(struct command *cmd,
 				    "Only the channel opener can initiate an"
 				    " RBF attempt");
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	/* Ok, we're kosher to start */
 	channel->open_attempt = oa = new_channel_open_attempt(channel);
 	oa->funding = *amount;
@@ -2596,10 +2602,10 @@ json_openchannel_signed(struct command *cmd,
 	struct bitcoin_txid txid;
 	struct channel_inflight *inflight;
 
-	if (!param(cmd, buffer, params,
-		   p_req("channel_id", param_channel_id, &cid),
-		   p_req("signed_psbt", param_psbt, &psbt),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_id, &cid),
+			 p_req("signed_psbt", param_psbt, &psbt),
+			 NULL))
 		return command_param_failed();
 
 	channel = channel_by_cid(cmd->ld, cid);
@@ -2666,6 +2672,9 @@ json_openchannel_signed(struct command *cmd,
 					TX_INITIATOR : TX_ACCEPTER))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Local PSBT input(s) not finalized");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Now that we've got the signed PSBT, save it */
 	tal_wally_start();
@@ -2792,10 +2801,10 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct psbt_validator *pv;
 	struct command_result *ret;
 
-	if (!param(cmd, buffer, params,
-		   p_req("channel_id", param_channel_id, &cid),
-		   p_req("psbt", param_psbt, &psbt),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_id, &cid),
+			 p_req("psbt", param_psbt, &psbt),
+			 NULL))
 		return command_param_failed();
 
 	channel = channel_by_cid(cmd->ld, cid);
@@ -2832,6 +2841,9 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    "PSBT is missing required fields %s",
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Set up the psbt-validator, we only validate in the
 	 * case of requiring confirmations */
@@ -2898,17 +2910,17 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct command_result *res;
 	int fds[2];
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("amount", param_sat, &amount),
-		   p_req("initialpsbt", param_psbt, &psbt),
-		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
-		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
-		   p_opt_def("announce", param_bool, &announce_channel, true),
-		   p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
-		   p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
-		   p_opt("compact_lease", param_lease_hex, &rates),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 p_req("amount", param_sat, &amount),
+			 p_req("initialpsbt", param_psbt, &psbt),
+			 p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
+			 p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
+			 p_opt_def("announce", param_bool, &announce_channel, true),
+			 p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
+			 p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
+			 p_opt("compact_lease", param_lease_hex, &rates),
+			 NULL))
 		return command_param_failed();
 
 	/* We only deal in v2 */
@@ -3003,6 +3015,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "Failed to create socketpair: %s",
 				    strerror(errno));
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Now we can't fail, create channel */
 	channel = new_unsaved_channel(peer,
@@ -3508,13 +3523,13 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct command_result *res;
 	int fds[2];
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("amount", param_sat, &amount),
-		   p_req("request_amt", param_sat, &request_amt),
-		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
-		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 p_req("amount", param_sat, &amount),
+			 p_req("request_amt", param_sat, &request_amt),
+			 p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
+			 p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
+			 NULL))
 		return command_param_failed();
 
 	res = init_set_feerate(cmd, &feerate_per_kw, &feerate_per_kw_funding);
@@ -3531,15 +3546,6 @@ static struct command_result *json_queryrates(struct command *cmd,
 				    "Peer %s",
 				    peer->connected == PEER_DISCONNECTED
 				    ? "not connected" : "still connecting");
-
-	channel = new_unsaved_channel(peer,
-				      peer->ld->config.fee_base,
-				      peer->ld->config.fee_per_satoshi);
-
-	/* We derive initial channel_id *now*, so we can tell it to
-	 * connectd. */
-	derive_tmp_channel_id(&channel->cid,
-			      &channel->local_basepoints.revocation);
 
 	if (!feature_negotiated(cmd->ld->our_features,
 			        peer->their_features,
@@ -3562,6 +3568,18 @@ static struct command_result *json_queryrates(struct command *cmd,
 				    "Amount exceeded %s",
 				    type_to_string(tmpctx, struct amount_sat,
 						   &chainparams->max_funding));
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	channel = new_unsaved_channel(peer,
+				      peer->ld->config.fee_base,
+				      peer->ld->config.fee_per_satoshi);
+
+	/* We derive initial channel_id *now*, so we can tell it to
+	 * connectd. */
+	derive_tmp_channel_id(&channel->cid,
+			      &channel->local_basepoints.revocation);
 
 	/* Get a new open_attempt going, keeps us from re-initing
 	 * while looking */

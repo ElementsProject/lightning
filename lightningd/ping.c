@@ -45,11 +45,11 @@ static struct command_result *json_ping(struct command *cmd,
 	struct node_id *id;
 	u8 *msg;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_opt_def("len", param_number, &len, 128),
-		   p_opt_def("pongbytes", param_number, &pongbytes, 128),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 p_opt_def("len", param_number, &len, 128),
+			 p_opt_def("pongbytes", param_number, &pongbytes, 128),
+			 NULL))
 		return command_param_failed();
 
 	/* BOLT #1:
@@ -79,6 +79,9 @@ static struct command_result *json_ping(struct command *cmd,
 
 	if (!peer_by_id(cmd->ld, id))
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	msg = towire_connectd_ping(NULL, id, *pongbytes, *len);
 	subd_req(cmd, cmd->ld->connectd, take(msg), -1, 0, ping_reply, cmd);

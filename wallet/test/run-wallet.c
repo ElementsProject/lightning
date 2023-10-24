@@ -92,6 +92,13 @@ void channeld_tell_depth(struct channel *channel UNNEEDED,
 const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
 				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
 { fprintf(stderr, "cmd_id_from_close_command called!\n"); abort(); }
+/* Generated stub for command_check_done */
+struct command_result *command_check_done(struct command *cmd)
+
+{ fprintf(stderr, "command_check_done called!\n"); abort(); }
+/* Generated stub for command_check_only */
+bool command_check_only(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_check_only called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
@@ -590,6 +597,11 @@ struct command_result *param_channel_id(struct command *cmd UNNEEDED,
 					const jsmntok_t *tok UNNEEDED,
 					struct channel_id **cid UNNEEDED)
 { fprintf(stderr, "param_channel_id called!\n"); abort(); }
+/* Generated stub for param_check */
+bool param_check(struct command *cmd UNNEEDED,
+		 const char *buffer UNNEEDED,
+		 const jsmntok_t tokens[] UNNEEDED, ...)
+{ fprintf(stderr, "param_check called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const char *name UNNEEDED,

@@ -429,15 +429,15 @@ static struct command_result *json_setleaserates(struct command *cmd,
 	struct amount_msat *channel_fee_base_msat, *lease_base_msat;
 	u32 *lease_basis, *channel_fee_max_ppt, *funding_weight;
 
-	if (!param(cmd, buffer, params,
-		   p_req("lease_fee_base_msat", param_msat, &lease_base_msat),
-		   p_req("lease_fee_basis", param_number, &lease_basis),
-		   p_req("funding_weight", param_number, &funding_weight),
-		   p_req("channel_fee_max_base_msat", param_msat,
-			 &channel_fee_base_msat),
-		   p_req("channel_fee_max_proportional_thousandths",
-			 param_number, &channel_fee_max_ppt),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("lease_fee_base_msat", param_msat, &lease_base_msat),
+			 p_req("lease_fee_basis", param_number, &lease_basis),
+			 p_req("funding_weight", param_number, &funding_weight),
+			 p_req("channel_fee_max_base_msat", param_msat,
+			       &channel_fee_base_msat),
+			 p_req("channel_fee_max_proportional_thousandths",
+			       param_number, &channel_fee_max_ppt),
+			 NULL))
 		return command_param_failed();
 
 	rates = tal(tmpctx, struct lease_rates);
@@ -457,6 +457,9 @@ static struct command_result *json_setleaserates(struct command *cmd,
 	if (channel_fee_base_msat->millisatoshis > rates->channel_fee_max_base_msat) /* Raw: comparison */
 		return command_fail_badparam(cmd, "channel_fee_max_base_msat",
 					     buffer, params, "Overflow");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Call gossipd, let them know we've got new rates */
 	subd_send_msg(cmd->ld->gossip,

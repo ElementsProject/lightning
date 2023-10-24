@@ -1912,25 +1912,28 @@ static struct command_result *json_splice_init(struct command *cmd,
 	bool *force_feerate;
 	u8 *msg;
 
-	if (!param(cmd, buffer, params,
-		  p_req("channel_id", param_channel_for_splice, &channel),
-		  p_req("relative_amount", param_s64, &relative_amount),
-		  p_opt("initialpsbt", param_psbt, &initialpsbt),
-		  p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
-		  p_opt_def("force_feerate", param_bool, &force_feerate, false),
-		  NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_for_splice, &channel),
+			 p_req("relative_amount", param_s64, &relative_amount),
+			 p_opt("initialpsbt", param_psbt, &initialpsbt),
+			 p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
+			 p_opt_def("force_feerate", param_bool, &force_feerate, false),
+			 NULL))
 		return command_param_failed();
-
-	if (!feerate_per_kw) {
-		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = opening_feerate(cmd->ld->topology);
-	}
 
 	if (splice_command_for_chan(cmd->ld, channel))
 		return command_fail(cmd,
 				    SPLICE_BUSY_ERROR,
 				    "Currently waiting on previous splice"
 				    " command to finish.");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+	}
 
 	if (!initialpsbt)
 		initialpsbt = create_psbt(cmd, 0, 0, 0);
@@ -2009,11 +2012,11 @@ static struct command_result *json_splice_signed(struct command *cmd,
 	struct wally_psbt *psbt;
 	bool *sign_first;
 
-	if (!param(cmd, buffer, params,
-		  p_req("channel_id", param_channel_for_splice, &channel),
-		  p_req("psbt", param_psbt, &psbt),
-		  p_opt_def("sign_first", param_bool, &sign_first, false),
-		  NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("channel_id", param_channel_for_splice, &channel),
+			 p_req("psbt", param_psbt, &psbt),
+			 p_opt_def("sign_first", param_bool, &sign_first, false),
+			 NULL))
 		return command_param_failed();
 
 	if (splice_command_for_chan(cmd->ld, channel))
@@ -2025,6 +2028,9 @@ static struct command_result *json_splice_signed(struct command *cmd,
 		return command_fail(cmd,
 				    SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	log_debug(cmd->ld->log, "splice_signed input PSBT version %d",
 		  psbt->version);
@@ -2085,10 +2091,10 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	const u8 *msg;
 	bool more_than_one;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("feerate", param_number, &feerate),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 p_req("feerate", param_number, &feerate),
+			 NULL))
 		return command_param_failed();
 
 	peer = peer_by_id(cmd->ld, id);
@@ -2101,6 +2107,9 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)
 		return command_fail(cmd, LIGHTNINGD, "More than one channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
@@ -2146,9 +2155,9 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 	const u8 *msg;
 	bool more_than_one;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &id),
+			 NULL))
 		return command_param_failed();
 
 	peer = peer_by_id(cmd->ld, id);
@@ -2162,6 +2171,9 @@ static struct command_result *json_dev_quiesce(struct command *cmd,
 	/* This is a dev command: fix the api if you need this! */
 	if (more_than_one)
 		return command_fail(cmd, LIGHTNINGD, "More than one channel");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	msg = towire_channeld_dev_quiesce(NULL);
 	subd_req(channel->owner, channel->owner, take(msg), -1, 0,

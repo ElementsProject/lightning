@@ -203,9 +203,9 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	const struct json_escape *label;
 	enum offer_status status;
 
-	if (!param(cmd, buffer, params,
-		   p_req("offer_id", param_sha256, &offer_id),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("offer_id", param_sha256, &offer_id),
+			 NULL))
 		return command_param_failed();
 
 	b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label, &status);
@@ -215,6 +215,10 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	if (!offer_status_active(status))
 		return command_fail(cmd, OFFER_ALREADY_DISABLED,
 				    "offer is not active");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	status = wallet_offer_disable(wallet, offer_id, status);
 
 	response = json_stream_success(cmd);
@@ -398,13 +402,13 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	struct sha256 invreq_id;
 	const char *b12str;
 
-	if (!param(cmd, buffer, params,
-		   p_req("bolt12", param_b12_invreq, &invreq),
-		   p_req("savetodb", param_bool, &save),
-		   p_opt_def("exposeid", param_bool, &exposeid, false),
-		   p_opt("recurrence_label", param_label, &label),
-		   p_opt_def("single_use", param_bool, &single_use, true),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("bolt12", param_b12_invreq, &invreq),
+			 p_req("savetodb", param_bool, &save),
+			 p_opt_def("exposeid", param_bool, &exposeid, false),
+			 p_opt("recurrence_label", param_label, &label),
+			 p_opt_def("single_use", param_bool, &single_use, true),
+			 NULL))
 		return command_param_failed();
 
 	if (*single_use)
@@ -458,6 +462,9 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid tweak");
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* BOLT-offers #12:
 	 *  - MUST set `signature`.`sig` as detailed in
@@ -610,9 +617,9 @@ static struct command_result *json_disableinvoicerequest(struct command *cmd,
 	const struct json_escape *label;
 	enum offer_status status;
 
-	if (!param(cmd, buffer, params,
-		   p_req("invreq_id", param_sha256, &invreq_id),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("invreq_id", param_sha256, &invreq_id),
+			 NULL))
 		return command_param_failed();
 
 	b12 = wallet_invoice_request_find(tmpctx, wallet, invreq_id,
@@ -623,6 +630,10 @@ static struct command_result *json_disableinvoicerequest(struct command *cmd,
 	if (!offer_status_active(status))
 		return command_fail(cmd, OFFER_ALREADY_DISABLED,
 				    "invoice_request is not active");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	status = wallet_invoice_request_disable(wallet, invreq_id, status);
 
 	response = json_stream_success(cmd);

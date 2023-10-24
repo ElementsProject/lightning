@@ -1835,8 +1835,9 @@ def test_check_command(node_factory):
 
     l1.rpc.check(command_to_check='help')
     l1.rpc.check(command_to_check='help', command='check')
-    # Note: this just checks form, not whether it's valid!
-    l1.rpc.check(command_to_check='help', command='badcommand')
+    # Actually checks that command is there!
+    with pytest.raises(RpcError, match=r'Unknown command'):
+        l1.rpc.check(command_to_check='help', command='badcommand')
     with pytest.raises(RpcError, match=r'Unknown command'):
         l1.rpc.check(command_to_check='badcommand')
     with pytest.raises(RpcError, match=r'unknown parameter'):
