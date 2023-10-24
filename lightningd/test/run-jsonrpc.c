@@ -13,6 +13,9 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
+/* Generated stub for db_get_intvar */
+s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defval UNNEEDED)
+{ fprintf(stderr, "db_get_intvar called!\n"); abort(); }
 /* Generated stub for db_set_readonly */
 void db_set_readonly(struct db *db UNNEEDED, bool readonly UNNEEDED)
 { fprintf(stderr, "db_set_readonly called!\n"); abort(); }
@@ -44,6 +47,11 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for get_feerate_floor */
 u32 get_feerate_floor(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_feerate_floor called!\n"); abort(); }
+/* Generated stub for hsm_secret_arg */
+char *hsm_secret_arg(const tal_t *ctx UNNEEDED,
+		     const char *arg UNNEEDED,
+		     const u8 **hsm_secret UNNEEDED)
+{ fprintf(stderr, "hsm_secret_arg called!\n"); abort(); }
 /* Generated stub for htlc_resolution_feerate */
 u32 htlc_resolution_feerate(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "htlc_resolution_feerate called!\n"); abort(); }

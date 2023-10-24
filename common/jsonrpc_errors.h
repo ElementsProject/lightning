@@ -129,6 +129,9 @@ enum jsonrpc_errcode {
 	RUNE_NOT_PERMITTED = 1502,
 	RUNE_BLACKLISTED = 1503,
 
+	/* Errors from recover command */
+	RECOVER_NODE_IN_USE = 1600,
+
 	/* Errors from wait* commands */
 	WAIT_TIMEOUT = 2000,
 };

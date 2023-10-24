@@ -371,6 +371,8 @@ struct lightningd {
 
 	/* Should we re-exec ourselves instead of just exiting? */
 	bool try_reexec;
+	/* If set, we are to restart with --recover=... */
+	const char *recover_secret;
 
 	/* Array of (even) TLV types that we should allow. This is required
 	 * since we otherwise would outright reject them. */
