@@ -18,7 +18,7 @@ grpcio = "^1"
 protobuf = "4.21.12"
 cryptography = "^41.0.2"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 # Test dependencies and inherited dependencies belong here
 crc32c = "^2.2.post0"  # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
@@ -28,6 +28,7 @@ flake8 = "^4.0.1"
 mypy = "^0.931"
 pytest-custom-exit-code = "0.3.0"
 pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
+flaky = "^3.7.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
