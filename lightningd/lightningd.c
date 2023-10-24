@@ -240,6 +240,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->autolisten = true;
 	ld->reconnect = true;
 	ld->try_reexec = false;
+	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
 
 	/* --experimental-upgrade-protocol */
@@ -1390,8 +1391,15 @@ stop:
 
 	/* Gather these before we free ld! */
 	try_reexec = ld->try_reexec;
-	if (try_reexec)
+	if (try_reexec) {
+		/* Maybe we reexec with --recover, due to recover command */
+		if (ld->recover_secret) {
+			tal_arr_insert(&orig_argv, argc,
+				       tal_fmt(orig_argv, "--recover=%s",
+					       ld->recover_secret));
+		}
 		tal_steal(NULL, orig_argv);
+	}
 
 	/* Free this last: other things may clean up timers. */
 	timers = tal_steal(NULL, ld->timers);
@@ -1418,7 +1426,7 @@ stop:
 		/* Close all filedescriptors except stdin/stdout/stderr */
 		closefrom(STDERR_FILENO + 1);
 		execv(orig_argv[0], orig_argv);
-		err(1, "Failed to re-exec ourselves after version change");
+		err(1, "Failed to re-exec ourselves after version change/recover");
 	}
 
 	/*~ Farewell.  Next stop: hsmd/hsmd.c. */

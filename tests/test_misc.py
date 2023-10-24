@@ -3607,6 +3607,62 @@ def test_setconfig(node_factory, bitcoind):
         assert len(lines) == 3
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_recover_command(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1oldid = l1.info['id']
+
+    def get_hsm_secret(n):
+        """Returns codex32 and hex"""
+        hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+        codex32 = subprocess.check_output(["tools/hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        with open(hsmfile, "rb") as f:
+            hexhsm = f.read().hex()
+        return codex32, hexhsm
+
+    l1codex32, l1hex = get_hsm_secret(l1)
+    l2codex32, l2hex = get_hsm_secret(l2)
+
+    # Get the PID for later
+    with open(os.path.join(l1.daemon.lightning_dir,
+                           f"lightningd-{TEST_NETWORK}.pid"), "r") as f:
+        pid = f.read().strip()
+
+    assert l1.rpc.check('recover', hsmsecret=l2codex32) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l2codex32)
+    l1.daemon.wait_for_log("Server started with public key")
+    # l1.info is cached on start, so won't reflect current reality!
+    assert l1.rpc.getinfo()['id'] == l2.info['id']
+
+    # Won't work if we issue an address...
+    l2.rpc.newaddr()
+
+    with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
+        l2.rpc.recover(hsmsecret=l1codex32)
+
+    with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
+        l2.rpc.check('recover', hsmsecret=l1codex32)
+
+    # Now try recovering using hex secret (remove old prerecover!)
+    shutil.rmtree(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
+                               f"lightning.pre-recover.{pid}"))
+
+    # l1 already has --recover in cmdline: recovering again would add it
+    # twice!
+    with pytest.raises(RpcError, match='Already doing recover'):
+        l1.rpc.check('recover', hsmsecret=l1hex)
+
+    with pytest.raises(RpcError, match='Already doing recover'):
+        l1.rpc.recover(hsmsecret=l1hex)
+
+    l1.restart()
+    assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l1hex)
+    l1.daemon.wait_for_log("Server started with public key")
+    assert l1.rpc.getinfo()['id'] == l1oldid
+
+
 def test_even_sendcustommsg(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts={'log-level': 'io',
                                              'allow_warning': True})
