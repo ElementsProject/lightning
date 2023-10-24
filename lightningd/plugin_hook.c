@@ -360,10 +360,7 @@ void plugin_hook_db_sync(struct db *db)
 		plugin_request_send(plugin_arr[i], req);
 	}
 
-	/* We don't want to try to open another transaction: we're in one! */
-	plugins->want_db_transaction = false;
 	ret = plugins_exclusive_loop(plugin_arr);
-	plugins->want_db_transaction = true;
 
 	/* We can be called on way out of an io_loop, which is already breaking.
 	 * That will make this immediately return; save the break value and call
