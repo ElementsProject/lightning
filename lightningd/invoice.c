@@ -921,7 +921,6 @@ static void listincoming_done(const char *buffer,
 			      const jsmntok_t *idtok UNUSED,
 			      struct invoice_info *info)
 {
-	struct lightningd *ld = info->cmd->ld;
 	struct command_result *ret;
 	bool warning_mpp, warning_capacity, warning_deadends, warning_offline, warning_private_unused;
 
@@ -934,8 +933,6 @@ static void listincoming_done(const char *buffer,
 	if (ret)
 		return;
 
-	/* We're actually outside a db transaction here: spooky! */
-	db_begin_transaction(ld->wallet->db);
 	invoice_complete(info,
 			 false,
 			 warning_mpp,
@@ -943,7 +940,6 @@ static void listincoming_done(const char *buffer,
 			 warning_deadends,
 			 warning_offline,
 			 warning_private_unused);
-	db_commit_transaction(ld->wallet->db);
 }
 
 /* Since this is a dev-only option, we will crash if dev-routes is not

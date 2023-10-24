@@ -108,6 +108,10 @@ struct plugins {
 	struct list_head plugins;
 	bool startup;
 
+	/* Normally we want to wrap callbacks in a db transaction, but
+	 * not for the db hook servicing */
+	bool want_db_transaction;
+
 	struct logger *log;
 
 	struct lightningd *ld;

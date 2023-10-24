@@ -134,7 +134,10 @@ static void plugin_hook_killed(struct plugin_hook_call_link *link)
 		/* Call next will unlink, so we don't need to. This is treated
 		 * equivalent to the plugin returning a continue-result.
 		 */
+		struct db *db = link->plugin->plugins->ld->wallet->db;
+		db_begin_transaction(db);
 		plugin_hook_callback(NULL, NULL, NULL, link->req);
+		db_commit_transaction(db);
 	} else {
 		/* The plugin is in the list waiting to be called, just remove
 		 * it from the list. */
@@ -159,9 +162,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 struct plugin_hook_request *r)
 {
 	const jsmntok_t *resulttok;
-	struct db *db = r->db;
 	struct plugin_hook_call_link *last, *it;
-	bool in_transaction = false;
 
 	/* Pop the head off the call chain and continue with the next */
 	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
@@ -187,31 +188,22 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 			      r->hook->name, toks->end - toks->start,
 			      buffer + toks->start);
 
-		db_begin_transaction(db);
 		if (!r->hook->deserialize_cb(r->cb_arg, buffer,
 					     resulttok)) {
 			tal_free(r->cb_arg);
-			db_commit_transaction(db);
 			goto cleanup;
 		}
-		in_transaction = true;
 	} else {
 		/* plugin died */
 		resulttok = NULL;
 	}
 
 	if (!list_empty(&r->call_chain)) {
-		if (in_transaction)
-			db_commit_transaction(db);
 		plugin_hook_call_next(r);
 		return;
 	}
 
-	/* We optimize for the case where we already called deserialize_cb */
-	if (!in_transaction)
-		db_begin_transaction(db);
 	r->hook->final_cb(r->cb_arg);
-	db_commit_transaction(db);
 
 cleanup:
 	/* We need to remove the destructors from the remaining
@@ -349,7 +341,8 @@ void plugin_hook_db_sync(struct db *db)
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	void *ret;
-	struct plugin **plugins;
+	struct plugin **plugin_arr;
+	struct plugins *plugins;
 	size_t i;
 	size_t num_hooks;
 
@@ -358,11 +351,12 @@ void plugin_hook_db_sync(struct db *db)
 	if (num_hooks == 0)
 		return;
 
-	plugins = notleak(tal_arr(NULL, struct plugin *,
+	plugin_arr = notleak(tal_arr(NULL, struct plugin *,
 				  num_hooks));
 	for (i = 0; i < num_hooks; ++i)
-		plugins[i] = hook->hooks[i]->plugin;
+		plugin_arr[i] = hook->hooks[i]->plugin;
 
+	plugins = plugin_arr[0]->plugins;
 	ph_req = notleak(tal(hook->hooks, struct plugin_hook_request));
 	ph_req->hook = hook;
 	ph_req->db = db;
@@ -372,7 +366,7 @@ void plugin_hook_db_sync(struct db *db)
 		/* Create an object for this plugin.  */
 		struct db_write_hook_req *dwh_req;
 		dwh_req = tal(ph_req, struct db_write_hook_req);
-		dwh_req->plugin = plugins[i];
+		dwh_req->plugin = plugin_arr[i];
 		dwh_req->ph_req = ph_req;
 		dwh_req->num_hooks = &num_hooks;
 
@@ -393,21 +387,25 @@ void plugin_hook_db_sync(struct db *db)
 		json_array_end(req->stream);
 		jsonrpc_request_end(req);
 
-		plugin_request_send(plugins[i], req);
+		plugin_request_send(plugin_arr[i], req);
 	}
+
+	/* We don't want to try to open another transaction: we're in one! */
+	plugins->want_db_transaction = false;
+	ret = plugins_exclusive_loop(plugin_arr);
+	plugins->want_db_transaction = true;
 
 	/* We can be called on way out of an io_loop, which is already breaking.
 	 * That will make this immediately return; save the break value and call
 	 * again, then hand it onwards. */
-	ret = plugins_exclusive_loop(plugins);
 	if (ret != ph_req) {
-		void *ret2 = plugins_exclusive_loop(plugins);
+		void *ret2 = plugins_exclusive_loop(plugin_arr);
 		assert(ret2 == ph_req);
-		log_debug(plugins[0]->plugins->ld->log, "io_break: %s", __func__);
+		log_debug(plugins->ld->log, "io_break: %s", __func__);
 		io_break(ret);
 	}
 	assert(num_hooks == 0);
-	tal_free(plugins);
+	tal_free(plugin_arr);
 	tal_free(ph_req);
 }
 

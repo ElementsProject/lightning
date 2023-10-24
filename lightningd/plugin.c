@@ -17,6 +17,7 @@
 #include <common/timeout.h>
 #include <common/version.h>
 #include <connectd/connectd_wiregen.h>
+#include <db/exec.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -84,6 +85,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->blacklist = tal_arr(p, const char *, 0);
 	p->plugin_idx = 0;
 	p->dev_builtin_plugins_unimportant = false;
+	p->want_db_transaction = true;
 
 	return p;
 }
@@ -619,6 +621,7 @@ static const char *plugin_response_handle(struct plugin *plugin,
 
 	/* We expect the request->cb to copy if needed */
 	pd = plugin_detect_destruction(plugin);
+
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
 
 	/* Note that in the case of 'plugin stop' this can free request (since
@@ -639,12 +642,14 @@ static const char *plugin_response_handle(struct plugin *plugin,
  * If @destroyed was set, it means the plugin called plugin stop on itself.
  */
 static const char *plugin_read_json_one(struct plugin *plugin,
+					bool want_transaction,
 					bool *complete,
 					bool *destroyed)
 {
 	const jsmntok_t *jrtok, *idtok;
 	struct plugin_destroyed *pd;
 	const char *err;
+	struct wallet *wallet = plugin->plugins->ld->wallet;
 
 	*destroyed = false;
 	/* Note that in the case of 'plugin stop' this can free request (since
@@ -686,6 +691,11 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		    plugin,
 		    "JSON-RPC message does not contain \"jsonrpc\" field");
 	}
+
+	/* We can be called extremely early, or as db hook, or for
+	 * fake "terminated" request. */
+	if (want_transaction)
+		db_begin_transaction(wallet->db);
 
 	pd = plugin_detect_destruction(plugin);
 	if (!idtok) {
@@ -732,6 +742,8 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 */
 		err = plugin_response_handle(plugin, plugin->toks, idtok);
 	}
+	if (want_transaction)
+		db_commit_transaction(wallet->db);
 
 	/* Corner case: rpc_command hook can destroy plugin for 'plugin
 	 * stop'! */
@@ -753,6 +765,9 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 {
 	bool success;
 	bool have_full;
+	/* wallet is NULL in really early code */
+	bool want_transaction = (plugin->plugins->want_db_transaction
+				 && plugin->plugins->ld->wallet != NULL);
 
 	log_io(plugin->log, LOG_IO_IN, NULL, "",
 	       plugin->buffer + plugin->used, plugin->len_read);
@@ -774,8 +789,9 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 		do {
 			bool destroyed;
 			const char *err;
-			err =
-			    plugin_read_json_one(plugin, &success, &destroyed);
+
+			err = plugin_read_json_one(plugin, want_transaction,
+						   &success, &destroyed);
 
 			/* If it's destroyed, conn is already freed! */
 			if (destroyed)
