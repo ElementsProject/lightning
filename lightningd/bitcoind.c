@@ -404,10 +404,7 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 					     err);
 	}
 
-	db_begin_transaction(call->bitcoind->ld->wallet->db);
 	call->cb(call->bitcoind, success, errmsg, call->cb_arg);
-	db_commit_transaction(call->bitcoind->ld->wallet->db);
-
 	tal_free(call);
 }
 
@@ -472,9 +469,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	 * with NULL values. */
 	err = json_scan(tmpctx, buf, toks, "{result:{blockhash:null}}");
 	if (!err) {
-		db_begin_transaction(call->bitcoind->ld->wallet->db);
 		call->cb(call->bitcoind, NULL, NULL, call->cb_arg);
-		db_commit_transaction(call->bitcoind->ld->wallet->db);
 		goto clean;
 	}
 
@@ -493,9 +488,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 				     "getrawblockbyheight",
 				     "bad block");
 
-	db_begin_transaction(call->bitcoind->ld->wallet->db);
 	call->cb(call->bitcoind, &blkid, blk, call->cb_arg);
-	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
 clean:
 	tal_free(call);
@@ -574,10 +567,8 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
 				     "bad 'result' field: %s", err);
 
-	db_begin_transaction(call->bitcoind->ld->wallet->db);
 	call->cb(call->bitcoind, chain, headers, blocks, ibd,
 		 call->first_call, call->cb_arg);
-	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
 	tal_free(call);
 }
@@ -640,9 +631,7 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 
 	err = json_scan(tmpctx, buf, toks, "{result:{script:null}}");
 	if (!err) {
-		db_begin_transaction(call->bitcoind->ld->wallet->db);
 		call->cb(call->bitcoind, NULL, call->cb_arg);
-		db_commit_transaction(call->bitcoind->ld->wallet->db);
 		goto clean;
 	}
 
@@ -654,9 +643,7 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
 				     "bad 'result' field: %s", err);
 
-	db_begin_transaction(call->bitcoind->ld->wallet->db);
 	call->cb(call->bitcoind, &txout, call->cb_arg);
-	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
 clean:
 	tal_free(call);
