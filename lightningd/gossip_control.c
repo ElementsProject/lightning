@@ -343,18 +343,25 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 	if (!ld->gossip)
 		return;
 
+	assert(short_channel_id_eq(channel->scid ? channel->scid : channel->alias[LOCAL], &scid));
+	assert(cltv_expiry_delta == ld->config.cltv_expiry_delta);
+	assert(amount_msat_eq(htlc_minimum_msat, channel->htlc_minimum_msat));
+	assert(fee_base_msat == channel->feerate_base);
+	assert(fee_proportional_millionths == channel->feerate_ppm);
+	assert(amount_msat_eq(htlc_maximum_msat, channel->htlc_maximum_msat));
+
 	subd_send_msg(ld->gossip,
 		      take(towire_gossipd_local_channel_update
 			   (NULL,
 			    &channel->peer->id,
-			    &scid,
+			    channel->scid ? channel->scid : channel->alias[LOCAL],
 			    disable,
-			    cltv_expiry_delta,
-			    htlc_minimum_msat,
-			    fee_base_msat,
-			    fee_proportional_millionths,
-			    htlc_maximum_msat,
-			    public)));
+			    ld->config.cltv_expiry_delta,
+			    channel->htlc_minimum_msat,
+			    channel->feerate_base,
+			    channel->feerate_ppm,
+			    channel->htlc_maximum_msat,
+			    channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)));
 }
 
 void tell_gossipd_local_channel_announce(struct lightningd *ld,
