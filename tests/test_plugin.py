@@ -1478,7 +1478,6 @@ def test_sendpay_notifications_nowaiter(node_factory):
     assert len(results['sendpay_failure']) == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_rpc_command_hook(node_factory):
     """Test the `rpc_command` hook chain"""
     plugin = [

@@ -629,6 +629,12 @@ static bool was_plugin_destroyed(struct plugin_destroyed *pd)
 	return true;
 }
 
+static void destroy_request(struct jsonrpc_request *req,
+                            struct plugin *plugin)
+{
+	strmap_del(&plugin->pending_requests, req->id, NULL);
+}
+
 static void plugin_response_handle(struct plugin *plugin,
 				   const jsmntok_t *toks,
 				   const jsmntok_t *idtok)
@@ -648,6 +654,9 @@ static void plugin_response_handle(struct plugin *plugin,
 	/* Request callback often frees request: if not, we do. */
 	ctx = tal(NULL, char);
 	tal_steal(ctx, request);
+	/* Don't keep track of this request; we will terminate it */
+	tal_del_destructor2(request, destroy_request, plugin);
+	destroy_request(request, plugin);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
 	tal_free(ctx);
 }
@@ -2354,12 +2363,6 @@ void plugins_notify(struct plugins *plugins,
 			plugin_single_notify(p, n);
 		}
 	}
-}
-
-static void destroy_request(struct jsonrpc_request *req,
-                            struct plugin *plugin)
-{
-	strmap_del(&plugin->pending_requests, req->id, NULL);
 }
 
 void plugin_request_send(struct plugin *plugin,
