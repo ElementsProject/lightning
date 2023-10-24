@@ -525,11 +525,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 			      json_tok_full(plugin->buffer, idtok),
 			      json_tok_full_len(idtok));
 	if (!request) {
-		return tal_fmt(
-			plugin,
-			"Received a JSON-RPC notify for non-existent request '%.*s'",
-			json_tok_full_len(idtok),
-			json_tok_full(plugin->buffer, idtok));
+		return NULL;
 	}
 
 	/* Ignore if they don't have a callback */
@@ -633,41 +629,27 @@ static bool was_plugin_destroyed(struct plugin_destroyed *pd)
 	return true;
 }
 
-/* Returns the error string, or NULL */
-static const char *plugin_response_handle(struct plugin *plugin,
-					  const jsmntok_t *toks,
-					  const jsmntok_t *idtok)
-	WARN_UNUSED_RESULT;
-
-static const char *plugin_response_handle(struct plugin *plugin,
-					  const jsmntok_t *toks,
-					  const jsmntok_t *idtok)
+static void plugin_response_handle(struct plugin *plugin,
+				   const jsmntok_t *toks,
+				   const jsmntok_t *idtok)
 {
-	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
+	const tal_t *ctx;
 
 	request = strmap_getn(&plugin->pending_requests,
 			      json_tok_full(plugin->buffer, idtok),
 			      json_tok_full_len(idtok));
+	/* Can happen if request was freed before plugin responded */
 	if (!request) {
-		return tal_fmt(
-			plugin,
-			"Received a JSON-RPC response for non-existent request '%.*s'",
-			json_tok_full_len(idtok),
-			json_tok_full(plugin->buffer, idtok));
+		return;
 	}
 
-	/* We expect the request->cb to copy if needed */
-	pd = plugin_detect_destruction(plugin);
 
+	/* Request callback often frees request: if not, we do. */
+	ctx = tal(NULL, char);
+	tal_steal(ctx, request);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
-
-	/* Note that in the case of 'plugin stop' this can free request (since
-	 * plugin is parent), so detect that case */
-	if (!was_plugin_destroyed(pd))
-		tal_free(request);
-
-	return NULL;
+	tal_free(ctx);
 }
 
 /**
@@ -778,7 +760,8 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 *
 		 * https://www.jsonrpc.org/specification#response_object
 		 */
-		err = plugin_response_handle(plugin, plugin->toks, idtok);
+		plugin_response_handle(plugin, plugin->toks, idtok);
+		err = NULL;
 	}
 	if (want_transaction)
 		db_commit_transaction(wallet->db);
@@ -2380,13 +2363,13 @@ static void destroy_request(struct jsonrpc_request *req,
 }
 
 void plugin_request_send(struct plugin *plugin,
-			 struct jsonrpc_request *req TAKES)
+			 struct jsonrpc_request *req)
 {
 	/* Add to map so we can find it later when routing the response */
-	tal_steal(plugin, req);
 	strmap_add(&plugin->pending_requests, req->id, req);
-	/* Add destructor in case plugin dies. */
+	/* Add destructor in case request is freed. */
 	tal_add_destructor2(req, destroy_request, plugin);
+
 	plugin_send(plugin, req->stream);
 	/* plugin_send steals the stream, so remove the dangling
 	 * pointer here */
