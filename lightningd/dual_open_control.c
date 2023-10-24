@@ -1742,6 +1742,7 @@ static void send_funding_tx(struct channel *channel,
 		  type_to_string(tmpctx, struct wally_tx, cs->wtx));
 
 	bitcoind_sendrawtx(ld->topology->bitcoind,
+			   ld->topology->bitcoind,
 			   channel->open_attempt
 			   ? (channel->open_attempt->cmd
 			      ? channel->open_attempt->cmd->id

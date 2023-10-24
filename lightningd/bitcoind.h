@@ -63,15 +63,17 @@ void bitcoind_estimate_fees(struct bitcoind *bitcoind,
 				       u32 feerate_floor,
 				       const struct feerate_est *feerates));
 
-void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+/* If ctx is freed, cb won't be called! */
+void bitcoind_sendrawtx_(const tal_t *ctx,
+			 struct bitcoind *bitcoind,
 			 const char *id_prefix TAKES,
 			 const char *hextx,
 			 bool allowhighfees,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    bool success, const char *msg, void *),
 			 void *arg);
-#define bitcoind_sendrawtx(bitcoind_, id_prefix, hextx, allowhighfees, cb, arg)	\
-	bitcoind_sendrawtx_((bitcoind_), (id_prefix), (hextx),		\
+#define bitcoind_sendrawtx(ctx, bitcoind_, id_prefix, hextx, allowhighfees, cb, arg) \
+	bitcoind_sendrawtx_((ctx), (bitcoind_), (id_prefix), (hextx),	\
 			    (allowhighfees),				\
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\

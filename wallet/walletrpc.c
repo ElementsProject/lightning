@@ -1000,7 +1000,7 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	}
 
 	/* Now broadcast the transaction */
-	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
+	bitcoind_sendrawtx(sending, cmd->ld->topology->bitcoind,
 			   cmd->id,
 			   tal_hex(tmpctx,
 				   linearize_wtx(tmpctx, sending->wtx)),

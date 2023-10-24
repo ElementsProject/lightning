@@ -404,11 +404,13 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 					     err);
 	}
 
+	/* In case they don't free it, we will. */
+	tal_steal(tmpctx, call);
 	call->cb(call->bitcoind, success, errmsg, call->cb_arg);
-	tal_free(call);
 }
 
-void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+void bitcoind_sendrawtx_(const tal_t *ctx,
+			 struct bitcoind *bitcoind,
 			 const char *id_prefix,
 			 const char *hextx,
 			 bool allowhighfees,
@@ -417,14 +419,14 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 void *cb_arg)
 {
 	struct jsonrpc_request *req;
-	struct sendrawtx_call *call = tal(bitcoind, struct sendrawtx_call);
+	struct sendrawtx_call *call = tal(ctx, struct sendrawtx_call);
 
 	call->bitcoind = bitcoind;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
-	req = jsonrpc_request_start(bitcoind, "sendrawtransaction",
+	req = jsonrpc_request_start(call, "sendrawtransaction",
 				    id_prefix, true,
 				    bitcoind->log,
 				    NULL, sendrawtx_callback,
