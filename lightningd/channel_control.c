@@ -1239,10 +1239,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
-	case WIRE_CHANNELD_USED_CHANNEL_UPDATE:
-		/* This tells gossipd we used it. */
-		get_channel_update(sd->channel);
-		break;
 	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
 		tell_gossipd_local_channel_update(sd->ld, sd->channel, msg);
 		break;
@@ -1299,7 +1295,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_FEERATES:
 	case WIRE_CHANNELD_BLOCKHEIGHT:
 	case WIRE_CHANNELD_CONFIG_CHANNEL:
-	case WIRE_CHANNELD_CHANNEL_UPDATE:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
@@ -1559,7 +1554,6 @@ bool peer_start_channeld(struct channel *channel,
 					     : (u32 *)&ld->dev_disable_commit,
 				       pbases,
 				       reestablish_only,
-				       channel->channel_update,
 				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
 						   inflights));
@@ -1836,14 +1830,6 @@ void channel_replace_update(struct channel *channel, u8 *update TAKES)
 {
 	tal_free(channel->channel_update);
 	channel->channel_update = tal_dup_talarr(channel, u8, update);
-
-	/* Keep channeld up-to-date */
-	if (!channel->owner || !streq(channel->owner->name, "channeld"))
-		return;
-
-	subd_send_msg(channel->owner,
-		      take(towire_channeld_channel_update(NULL,
-							  channel->channel_update)));
 }
 
 static struct command_result *param_channel_for_splice(struct command *cmd,

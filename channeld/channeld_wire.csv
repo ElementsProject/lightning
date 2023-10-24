@@ -81,8 +81,6 @@ msgdata,channeld_init,dev_disable_commit,?u32,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,reestablish_only,bool,
-msgdata,channeld_init,channel_update_len,u16,
-msgdata,channeld_init,channel_update,u8,channel_update_len
 msgdata,channeld_init,experimental_upgrade,bool,
 msgdata,channeld_init,num_inflights,u16,
 msgdata,channeld_init,inflights,inflight,num_inflights
@@ -330,14 +328,6 @@ msgdata,channeld_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channeld_send_error_reply,1108
-
-# Tell channeld about the latest channel_update
-msgtype,channeld_channel_update,1001
-msgdata,channeld_channel_update,len,u16,
-msgdata,channeld_channel_update,msg,u8,len
-
-# Tell lightningd we used the latest channel_update for an error.
-msgtype,channeld_used_channel_update,1102
 
 # Channeld: tell gossipd to make this channel_update.
 msgtype,channeld_local_channel_update,1013
