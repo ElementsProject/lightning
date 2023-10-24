@@ -3411,10 +3411,10 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3)
 
     # We'll be forced to use routehint, since we don't know about l3.
-    wait_for(lambda: len(l3.rpc.listchannels(source=l2.info['id'])['channels']) == 1)
+    l3.wait_channel_active(l3.get_channel_scid(l2))
     inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
 
-    wait_for(lambda: len(l1.rpc.listchannels(source=l2.info['id'])['channels']) == 1)
+    l1.wait_channel_active(l1.get_channel_scid(l2))
     # This will make it reject the routehint.
     err = r'Fee exceeds our fee budget: 1msat > 0msat, discarding route'
     with pytest.raises(RpcError, match=err):
