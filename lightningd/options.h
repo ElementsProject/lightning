@@ -15,6 +15,18 @@ void handle_opts(struct lightningd *ld);
 /* Derive default color and alias from the pubkey. */
 void setup_color_and_alias(struct lightningd *ld);
 
+/**
+ * hsm_secret_arg - parse an hsm_secret as hex or codex32
+ * @ctx: context to allocate @hsm_secret from
+ * @arg: string to parse
+ * @hsm_secret: set on success.
+ *
+ * Returns NULL on success (and sets hsm_secret) otherwise, error msg
+ */
+char *hsm_secret_arg(const tal_t *ctx,
+		     const char *arg,
+		     const u8 **hsm_secret);
+
 enum opt_autobool {
 	OPT_AUTOBOOL_FALSE = 0,
 	OPT_AUTOBOOL_TRUE = 1,

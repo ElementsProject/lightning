@@ -1399,8 +1399,14 @@ def test_recover(node_factory, bitcoind):
     l1.daemon.opts.update({"recover": "CL10LEETSLLHDMN9M42VCSAMX24ZRXGS3QQAT3LTDVAKMT73"})
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert l1.daemon.wait() == 1
-    assert l1.daemon.is_in_stderr(r"Expected 32 Byte secret: ffeeddccbbaa99887766554433221100")
+    assert l1.daemon.is_in_stderr(r"Invalid length: must be 32 bytes")
 
+    # Can do HSM secret in hex, too!
+    l1.daemon.opts["recover"] = "6c696768746e696e672d31000000000000000000000000000000000000000000"
+    l1.daemon.start()
+    l1.stop()
+
+    # And can start without recovery, of course!
     l1.daemon.opts.pop("recover")
     l1.start()
 
