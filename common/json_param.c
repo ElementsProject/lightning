@@ -346,15 +346,15 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 	return NULL;
 }
 
-bool param(struct command *cmd, const char *buffer,
-	   const jsmntok_t tokens[], ...)
+static bool param_core(struct command *cmd,
+		       const char *buffer,
+		       const jsmntok_t tokens[],
+		       va_list ap)
 {
 	struct param *params = tal_arr(tmpctx, struct param, 0);
 	const char *name;
-	va_list ap;
 	bool allow_extra = false;
 
-	va_start(ap, tokens);
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		enum param_style style = va_arg(ap, enum param_style);
 		param_cbx cbx = va_arg(ap, param_cbx);
@@ -365,7 +365,6 @@ bool param(struct command *cmd, const char *buffer,
 		}
 		param_add(&params, name, style, cbx, arg);
 	}
-	va_end(ap);
 
 	if (command_usage_only(cmd)) {
 		check_params(params);
@@ -373,10 +372,38 @@ bool param(struct command *cmd, const char *buffer,
 		return false;
 	}
 
-	/* Always return false if we're simply checking command parameters;
-	 * normally this returns true if all parameters are valid. */
-	return param_arr(cmd, buffer, tokens, params, allow_extra) == NULL
-		&& !command_check_only(cmd);
+	return param_arr(cmd, buffer, tokens, params, allow_extra) == NULL;
+}
+
+bool param(struct command *cmd,
+	   const char *buffer,
+	   const jsmntok_t tokens[], ...)
+{
+	bool ret;
+	va_list ap;
+
+	va_start(ap, tokens);
+	ret = param_core(cmd, buffer, tokens, ap);
+	va_end(ap);
+
+	/* Always fail if we're just checking! */
+	if (ret && command_check_only(cmd))
+		ret = false;
+	return ret;
+}
+
+bool param_check(struct command *cmd,
+		 const char *buffer,
+		 const jsmntok_t tokens[], ...)
+{
+	bool ret;
+	va_list ap;
+
+	va_start(ap, tokens);
+	ret = param_core(cmd, buffer, tokens, ap);
+	va_end(ap);
+
+	return ret;
 }
 
 struct command_result *param_array(struct command *cmd, const char *name,

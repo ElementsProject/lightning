@@ -43,11 +43,19 @@ struct command;
 struct command_result;
 
 /*
- * Parse the json tokens.  @params can be an array of values or an object
- * of named values.
+ * All-in-one: parse the json tokens.  @params can be an array of
+ * values or an object of named values.
  */
 bool param(struct command *cmd, const char *buffer,
 	   const jsmntok_t params[], ...) LAST_ARG_NULL;
+
+/*
+ * Version which *doesn't* fail if command_check_only(cmd) is true:
+ * allows you can do extra checks after, but MUST still fail with
+ * command_param_failed(); if command_check_only(cmd) is true! */
+bool param_check(struct command *cmd,
+		 const char *buffer,
+		 const jsmntok_t tokens[], ...) LAST_ARG_NULL;
 
 /*
  * The callback signature.

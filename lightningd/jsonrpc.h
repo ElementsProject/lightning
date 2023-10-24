@@ -15,7 +15,9 @@ enum command_mode {
 	/* Create command usage string, nothing else. */
 	CMD_USAGE,
 	/* Check parameters, nothing else. */
-	CMD_CHECK
+	CMD_CHECK,
+	/* Check parameters, and one failed. */
+	CMD_CHECK_FAILED,
 };
 
 /* Context for a command (from JSON, but might outlive the connection!). */
@@ -147,6 +149,11 @@ struct logger *command_log(struct command *cmd);
 
 /* To return if param() fails. */
 extern struct command_result *command_param_failed(void)
+	 WARN_UNUSED_RESULT;
+
+/* To return after param_check() succeeds but we're still
+ * command_check_only(cmd). */
+struct command_result *command_check_done(struct command *cmd)
 	 WARN_UNUSED_RESULT;
 
 /* Wrapper for pending commands (ignores return) */
