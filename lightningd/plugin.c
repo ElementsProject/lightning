@@ -48,9 +48,9 @@ struct plugin_rpccall {
 };
 
 static void memleak_help_pending_requests(struct htable *memtable,
-					  struct plugins *plugins)
+					  struct plugin *plugin)
 {
-	memleak_scan_strmap(memtable, &plugins->pending_requests);
+	memleak_scan_strmap(memtable, &plugin->pending_requests);
 }
 
 static const char *state_desc(const struct plugin *plugin)
@@ -84,8 +84,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->blacklist = tal_arr(p, const char *, 0);
 	p->plugin_idx = 0;
 	p->dev_builtin_plugins_unimportant = false;
-	strmap_init(&p->pending_requests);
-	memleak_add_helper(p, memleak_help_pending_requests);
 
 	return p;
 }
@@ -332,6 +330,8 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	list_add_tail(&plugins->plugins, &p->list);
 	tal_add_destructor(p, destroy_plugin);
 	list_head_init(&p->pending_rpccalls);
+	strmap_init(&p->pending_requests);
+	memleak_add_helper(p, memleak_help_pending_requests);
 
 	p->important = important;
 	p->parambuf = tal_steal(p, parambuf);
@@ -481,7 +481,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 	}
 
 	/* Include any "" in id */
-	request = strmap_getn(&plugin->plugins->pending_requests,
+	request = strmap_getn(&plugin->pending_requests,
 			      json_tok_full(plugin->buffer, idtok),
 			      json_tok_full_len(idtok));
 	if (!request) {
@@ -606,7 +606,7 @@ static const char *plugin_response_handle(struct plugin *plugin,
 	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
 
-	request = strmap_getn(&plugin->plugins->pending_requests,
+	request = strmap_getn(&plugin->pending_requests,
 			      json_tok_full(plugin->buffer, idtok),
 			      json_tok_full_len(idtok));
 	if (!request) {
@@ -2331,7 +2331,7 @@ void plugins_notify(struct plugins *plugins,
 static void destroy_request(struct jsonrpc_request *req,
                             struct plugin *plugin)
 {
-	strmap_del(&plugin->plugins->pending_requests, req->id, NULL);
+	strmap_del(&plugin->pending_requests, req->id, NULL);
 }
 
 void plugin_request_send(struct plugin *plugin,
@@ -2339,7 +2339,7 @@ void plugin_request_send(struct plugin *plugin,
 {
 	/* Add to map so we can find it later when routing the response */
 	tal_steal(plugin, req);
-	strmap_add(&plugin->plugins->pending_requests, req->id, req);
+	strmap_add(&plugin->pending_requests, req->id, req);
 	/* Add destructor in case plugin dies. */
 	tal_add_destructor2(req, destroy_request, plugin);
 	plugin_send(plugin, req->stream);
