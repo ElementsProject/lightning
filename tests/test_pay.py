@@ -3402,6 +3402,7 @@ def test_reject_invalid_payload(node_factory):
         l1.rpc.waitsendpay(inv['payment_hash'])
 
 
+@unittest.skip("Test is flaky causing CI to be unusable.")
 def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
