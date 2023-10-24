@@ -73,7 +73,7 @@ struct plugin {
 	/* An array of subscribed topics */
 	char **subscriptions;
 
-	/* Currently pending requests by their request ID */
+	/* Our pending requests by their request ID */
 	STRMAP(struct jsonrpc_request *) pending_requests;
 
 	/* If set, the plugin is so important that if it terminates early,
@@ -322,9 +322,13 @@ void plugins_notify(struct plugins *plugins,
 
 /**
  * Send a jsonrpc_request to the specified plugin
+ * @plugin: the plugin to send the request to
+ * @req: the request.
+ *
+ * If @req is freed, any response from the plugin is ignored.
  */
 void plugin_request_send(struct plugin *plugin,
-			 struct jsonrpc_request *req TAKES);
+			 struct jsonrpc_request *req);
 
 /**
  * Callback called when parsing options. It just stores the value in
