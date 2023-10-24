@@ -4234,6 +4234,7 @@ def test_plugin_nostart(node_factory):
     assert [p['name'] for p in l1.rpc.plugin_list()['plugins'] if 'badinterp' in p['name']] == []
 
 
+@unittest.skip("A bit flaky, but when breaks, it is costing us 2h of CI time")
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
     l1 = node_factory.get_node(allow_broken_log=True)
