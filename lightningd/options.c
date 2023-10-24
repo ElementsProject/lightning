@@ -1268,25 +1268,45 @@ static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 	return opt_set_bool_arg(optarg, &ld->announce_dns);
 }
 
-static char *opt_set_codex32(const char *arg, struct lightningd *ld)
+char *hsm_secret_arg(const tal_t *ctx,
+		     const char *arg,
+		     const u8 **hsm_secret)
+{
+	char *codex32_fail;
+	struct codex32 *codex32;
+
+	/* We accept hex, or codex32.  hex is very very very unlikely to
+	 * give a valid codex32, so try that first */
+	codex32 = codex32_decode(tmpctx, "cl", arg, &codex32_fail);
+	if (codex32) {
+		*hsm_secret = tal_steal(ctx, codex32->payload);
+		if (codex32->threshold != 0
+		    || codex32->type != CODEX32_ENCODING_SECRET) {
+			return "This is only one share of codex32!";
+		}
+	} else {
+		/* Not codex32, was it hex? */
+		*hsm_secret = tal_hexdata(ctx, arg, strlen(arg));
+		if (!*hsm_secret) {
+			/* It's not hex!  So give codex32 error */
+ 			return codex32_fail;
+		}
+	}
+
+	if (tal_count(*hsm_secret) != 32)
+		return "Invalid length: must be 32 bytes";
+
+	return NULL;
+}
+
+static char *opt_set_codex32_or_hex(const char *arg, struct lightningd *ld)
 {
 	char *err;
-	struct codex32 *parts = codex32_decode(tmpctx, "cl", arg, &err);
+	const u8 *payload;
 
-	if (!parts) {
+	err = hsm_secret_arg(tmpctx, arg, &payload);
+	if (err)
 		return err;
-	}
-
-	if (parts->type != CODEX32_ENCODING_SECRET) {
-		return tal_fmt(tmpctx, "Not a valid codex32 secret!");
-	}
-
-	if (tal_bytelen(parts->payload) != 32) {
-		return tal_fmt(tmpctx, "Expected 32 Byte secret: %s",
-					tal_hexstr(tmpctx,
-						   parts->payload,
-						   tal_bytelen(parts->payload)));
-	}
 
 	/* Checks if hsm_secret exists */
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
@@ -1299,7 +1319,7 @@ static char *opt_set_codex32(const char *arg, struct lightningd *ld)
 			       strerror(errno));
 	}
 
-	if (!write_all(fd, parts->payload, tal_count(parts->payload))) {
+	if (!write_all(fd, payload, tal_count(payload))) {
 		unlink_noerr("hsm_secret");
 		return tal_fmt(tmpctx, "Writing HSM: %s",
 			   strerror(errno));
@@ -1384,7 +1404,7 @@ static void register_opts(struct lightningd *ld)
 			       &ld->wallet_dsn,
 			       "Location of the wallet database.");
 
-	opt_register_early_arg("--recover", opt_set_codex32, NULL,
+	opt_register_early_arg("--recover", opt_set_codex32_or_hex, NULL,
 				ld,
 				"Populate hsm_secret with the given codex32 secret"
 				" and starts the node in `offline` mode.");
@@ -2066,7 +2086,7 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_set_db_upgrade
 		|| cb_arg == (void *)arg_log_to_file
 		|| cb_arg == (void *)opt_add_accept_htlc_tlv
-		|| cb_arg == (void *)opt_set_codex32
+		|| cb_arg == (void *)opt_set_codex32_or_hex
 		|| cb_arg == (void *)opt_subd_dev_disconnect
 		|| cb_arg == (void *)opt_force_featureset
 		|| cb_arg == (void *)opt_force_privkey
