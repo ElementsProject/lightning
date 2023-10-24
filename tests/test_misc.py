@@ -3617,6 +3617,7 @@ def test_even_sendcustommsg(node_factory):
     # Now with a plugin which allows it
     l1.connect(l2)
     l2.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/allow_even_msgs.py"))
+    l2.daemon.wait_for_log("connectd.*Now allowing 1 custom message types")
 
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
