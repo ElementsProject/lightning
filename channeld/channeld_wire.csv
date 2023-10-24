@@ -332,7 +332,7 @@ msgtype,channeld_send_error_reply,1108
 # Channeld: tell gossipd to make this channel_update.
 msgtype,channeld_local_channel_update,1013
 msgdata,channeld_local_channel_update,short_channel_id,short_channel_id,
-msgdata,channeld_local_channel_update,disable,bool,
+msgdata,channeld_local_channel_update,enable,bool,
 msgdata,channeld_local_channel_update,cltv_expiry_delta,u16,
 msgdata,channeld_local_channel_update,htlc_minimum_msat,amount_msat,
 msgdata,channeld_local_channel_update,fee_base_msat,u32,

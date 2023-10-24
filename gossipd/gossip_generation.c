@@ -520,7 +520,7 @@ static u8 *sign_and_timestamp_update(const tal_t *ctx,
 static u8 *create_unsigned_update(const tal_t *ctx,
 				  const struct short_channel_id *scid,
 				  int direction,
-				  bool disable,
+				  bool enable,
 				  u16 cltv_expiry_delta,
 				  struct amount_msat htlc_minimum,
 				  struct amount_msat htlc_maximum,
@@ -547,7 +547,7 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 	 * | 1             | `disable`   | Disable the channel.             |
 	 */
 	channel_flags = direction;
-	if (disable)
+	if (!enable)
 		channel_flags |= ROUTING_FLAGS_DISABLED;
 
 	/* BOLT #7:
@@ -796,7 +796,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	struct short_channel_id scid;
-	bool disable;
+	bool enable;
 	u16 cltv_expiry_delta;
 	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat, fee_proportional_millionths;
@@ -809,7 +809,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 	if (!fromwire_gossipd_local_channel_update(msg,
 						   &id,
 						   &scid,
-						   &disable,
+						   &enable,
 						   &cltv_expiry_delta,
 						   &htlc_minimum,
 						   &fee_base_msat,
@@ -837,7 +837,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 	}
 
 	unsigned_update = create_unsigned_update(tmpctx, &scid, direction,
-						 disable, cltv_expiry_delta,
+						 enable, cltv_expiry_delta,
 						 htlc_minimum, htlc_maximum,
 						 fee_base_msat,
 						 fee_proportional_millionths,
