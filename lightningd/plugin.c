@@ -2391,8 +2391,11 @@ void *plugins_exclusive_loop(struct plugin **plugins)
 		io_conn_exclusive(plugins[i]->stdout_conn, true);
 	}
 
+	/* We don't want to try to open another transaction: we're in one! */
+	plugins[0]->plugins->want_db_transaction = false;
 	/* We don't service timers here, either! */
 	ret = io_loop(NULL, NULL);
+	plugins[0]->plugins->want_db_transaction = true;
 	log_debug(plugins[0]->plugins->ld->log, "io_loop: %s", __func__);
 
 	for (i = 0; i < tal_count(plugins); ++i) {
