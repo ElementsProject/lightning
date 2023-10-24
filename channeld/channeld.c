@@ -133,17 +133,6 @@ struct peer {
 	/* Which direction of the channel do we control? */
 	u16 channel_direction;
 
-	/* CLTV delta to announce to peers */
-	u16 cltv_delta;
-
-	/* We only really know these because we're the ones who create
-	 * the channel_updates. */
-	u32 fee_base;
-	u32 fee_per_satoshi;
-	/* Note: the real min constraint is channel->config[REMOTE].htlc_minimum:
-	 * they could kill the channel if we violate that! */
-	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
-
 	/* The scriptpubkey to use for shutting down. */
 	u32 *final_index;
 	struct ext_key *final_ext_key;
@@ -422,16 +411,7 @@ static void send_channel_update(struct peer *peer, bool enable)
 
 	assert(peer->short_channel_ids[LOCAL].u64);
 
-	msg = towire_channeld_local_channel_update(NULL,
-						   &peer->short_channel_ids[LOCAL],
-						   enable,
-						   peer->cltv_delta,
-						   peer->htlc_minimum_msat,
-						   peer->fee_base,
-						   peer->fee_per_satoshi,
-						   peer->htlc_maximum_msat,
-						   peer->channel_flags
-						   & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
+	msg = towire_channeld_local_channel_update(NULL, enable);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 
@@ -5473,42 +5453,6 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 	}
 }
 
-static void handle_config_channel(struct peer *peer, const u8 *inmsg)
-{
-	u32 *base, *ppm;
-	struct amount_msat *htlc_min, *htlc_max;
-	bool changed;
-
-	if (!fromwire_channeld_config_channel(inmsg, inmsg,
-					      &base, &ppm,
-					      &htlc_min,
-					      &htlc_max))
-		master_badmsg(WIRE_CHANNELD_CONFIG_CHANNEL, inmsg);
-
-	/* only send channel updates if values actually changed */
-	changed = false;
-	if (base && *base != peer->fee_base) {
-		peer->fee_base = *base;
-		changed = true;
-	}
-	if (ppm && *ppm != peer->fee_per_satoshi) {
-		peer->fee_per_satoshi = *ppm;
-		changed = true;
-	}
-	if (htlc_min && !amount_msat_eq(*htlc_min, peer->htlc_minimum_msat)) {
-		peer->htlc_minimum_msat = *htlc_min;
-		changed = true;
-	}
-	if (htlc_max && !amount_msat_eq(*htlc_max, peer->htlc_maximum_msat)) {
-		peer->htlc_maximum_msat = *htlc_max;
-		changed = true;
-	}
-
-	if (changed)
-		send_channel_update(peer, true);
-}
-
-
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
 	struct fulfilled_htlc fulfilled_htlc;
@@ -5684,11 +5628,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 			return;
 		handle_fail(peer, msg);
 		return;
-	case WIRE_CHANNELD_CONFIG_CHANNEL:
-		if (handle_master_request_later(peer, msg))
-			return;
-		handle_config_channel(peer, msg);
-		return;
 	case WIRE_CHANNELD_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
 		return;
@@ -5811,17 +5750,12 @@ static void init_channel(struct peer *peer)
 				    &peer->remote_per_commit,
 				    &peer->old_remote_per_commit,
 				    &opener,
-				    &peer->fee_base,
-				    &peer->fee_per_satoshi,
-				    &peer->htlc_minimum_msat,
-				    &peer->htlc_maximum_msat,
 				    &local_msat,
 				    &points[LOCAL],
 				    &funding_pubkey[LOCAL],
 				    &peer->node_ids[LOCAL],
 				    &peer->node_ids[REMOTE],
 				    &peer->commit_msec,
-				    &peer->cltv_delta,
 				    &peer->last_was_revoke,
 				    &peer->last_sent_commit,
 				    &peer->next_index[LOCAL],

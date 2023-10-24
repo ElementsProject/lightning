@@ -875,15 +875,17 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for tell_gossipd_local_channel_update */
+void tell_gossipd_local_channel_update(struct lightningd *ld UNNEEDED,
+				       struct channel *channel UNNEEDED,
+				       bool enabled UNNEEDED)
+{ fprintf(stderr, "tell_gossipd_local_channel_update called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }
 /* Generated stub for towire_channel_id */
 void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_id called!\n"); abort(); }
-/* Generated stub for towire_channeld_config_channel */
-u8 *towire_channeld_config_channel(const tal_t *ctx UNNEEDED, u32 *feerate_base UNNEEDED, u32 *feerate_ppm UNNEEDED, struct amount_msat *htlc_minimum UNNEEDED, struct amount_msat *htlc_maximum UNNEEDED)
-{ fprintf(stderr, "towire_channeld_config_channel called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }

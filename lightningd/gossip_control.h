@@ -19,7 +19,7 @@ void gossip_notify_new_block(struct lightningd *ld, u32 blockheight);
 /* channeld tells us stuff, we tell gossipd. */
 void tell_gossipd_local_channel_update(struct lightningd *ld,
 				       struct channel *channel,
-				       const u8 *msg);
+				       bool enabled);
 void tell_gossipd_local_channel_announce(struct lightningd *ld,
 					 struct channel *channel,
 					 const u8 *msg);
