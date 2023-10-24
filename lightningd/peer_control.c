@@ -45,6 +45,7 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -2856,15 +2857,16 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	if (ignore_fee_limits)
 		channel->ignore_fee_limits = *ignore_fee_limits;
 
-	/* tell channeld to make a send_channel_update */
-	if (channel->owner && streq(channel->owner->name, "channeld")) {
-		subd_send_msg(channel->owner,
-			      take(towire_channeld_config_channel(NULL, base, ppm,
-								  htlc_min, htlc_max)));
-		/* Tell it about the new acceptable feerates */
-		if (ignore_fee_limits)
-			channel_update_feerates(cmd->ld, channel);
+	/* Tell channeld about the new acceptable feerates */
+	if (channel->owner
+	    && streq(channel->owner->name, "channeld")
+	    && ignore_fee_limits) {
+		channel_update_feerates(cmd->ld, channel);
 	}
+
+	/* Tell gossipd */
+	/* FIXME: this always enables channel, even if not enabled! */
+	tell_gossipd_local_channel_update(cmd->ld, channel, true);
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);

@@ -738,6 +738,11 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,
 		      struct secret *key UNNEEDED)
 { fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
+/* Generated stub for tell_gossipd_local_channel_update */
+void tell_gossipd_local_channel_update(struct lightningd *ld UNNEEDED,
+				       struct channel *channel UNNEEDED,
+				       bool enabled UNNEEDED)
+{ fprintf(stderr, "tell_gossipd_local_channel_update called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
@@ -748,9 +753,6 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 					  void *) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
-/* Generated stub for towire_channeld_config_channel */
-u8 *towire_channeld_config_channel(const tal_t *ctx UNNEEDED, u32 *feerate_base UNNEEDED, u32 *feerate_ppm UNNEEDED, struct amount_msat *htlc_minimum UNNEEDED, struct amount_msat *htlc_maximum UNNEEDED)
-{ fprintf(stderr, "towire_channeld_config_channel called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }

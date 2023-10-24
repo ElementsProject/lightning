@@ -34,17 +34,12 @@ msgdata,channeld_init,remote_basepoints,basepoints,
 msgdata,channeld_init,remote_per_commit,pubkey,
 msgdata,channeld_init,old_remote_per_commit,pubkey,
 msgdata,channeld_init,opener,enum side,
-msgdata,channeld_init,fee_base,u32,
-msgdata,channeld_init,fee_proportional,u32,
-msgdata,channeld_init,htlc_minimum_msat,amount_msat,
-msgdata,channeld_init,htlc_maximum_msat,amount_msat,
 msgdata,channeld_init,local_msatoshi,amount_msat,
 msgdata,channeld_init,our_basepoints,basepoints,
 msgdata,channeld_init,our_funding_pubkey,pubkey,
 msgdata,channeld_init,local_node_id,node_id,
 msgdata,channeld_init,remote_node_id,node_id,
 msgdata,channeld_init,commit_msec,u32,
-msgdata,channeld_init,cltv_delta,u16,
 msgdata,channeld_init,last_was_revoke,bool,
 msgdata,channeld_init,num_last_sent_commit,u16,
 msgdata,channeld_init,last_sent_commit,changed_htlc,num_last_sent_commit
@@ -310,13 +305,6 @@ msgtype,channeld_fail_fallen_behind,1028
 # This is NULL if option_static_remotekey.
 msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
 
-# Handle a channel-specific configuration change
-msgtype,channeld_config_channel,1029
-msgdata,channeld_config_channel,feerate_base,?u32,
-msgdata,channeld_config_channel,feerate_ppm,?u32,
-msgdata,channeld_config_channel,htlc_minimum,?amount_msat,
-msgdata,channeld_config_channel,htlc_maximum,?amount_msat,
-
 # When we receive announcement_signatures for channel announce
 msgtype,channeld_got_announcement,1017
 msgdata,channeld_got_announcement,remote_ann_node_sig,secp256k1_ecdsa_signature,
@@ -329,16 +317,9 @@ msgdata,channeld_send_error,reason,wirestring,
 # Tell master channeld has sent the error message.
 msgtype,channeld_send_error_reply,1108
 
-# Channeld: tell gossipd to make this channel_update.
+# Channeld: tell gossipd to make channel_update to enable/disable.
 msgtype,channeld_local_channel_update,1013
-msgdata,channeld_local_channel_update,short_channel_id,short_channel_id,
 msgdata,channeld_local_channel_update,enable,bool,
-msgdata,channeld_local_channel_update,cltv_expiry_delta,u16,
-msgdata,channeld_local_channel_update,htlc_minimum_msat,amount_msat,
-msgdata,channeld_local_channel_update,fee_base_msat,u32,
-msgdata,channeld_local_channel_update,fee_proportional_millionths,u32,
-msgdata,channeld_local_channel_update,htlc_maximum_msat,amount_msat,
-msgdata,channeld_local_channel_update,public,bool,
 
 # Channeld: tell gossipd about our channel_announcement
 msgtype,channeld_local_channel_announcement,1014

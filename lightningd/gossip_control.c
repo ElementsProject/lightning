@@ -315,40 +315,14 @@ void gossipd_notify_spends(struct lightningd *ld,
 							  scids)));
 }
 
-/* We unwrap, add the peer id, and send to gossipd. */
+/* Tell gossipd about latest channel_update. */
 void tell_gossipd_local_channel_update(struct lightningd *ld,
 				       struct channel *channel,
-				       const u8 *msg)
+				       bool enable)
 {
-	struct short_channel_id scid;
-	bool enable, public;
-	u16 cltv_expiry_delta;
-	struct amount_msat htlc_minimum_msat;
-	u32 fee_base_msat, fee_proportional_millionths;
-	struct amount_msat htlc_maximum_msat;
-
-	if (!fromwire_channeld_local_channel_update(msg, &scid, &enable,
-						    &cltv_expiry_delta,
-						    &htlc_minimum_msat,
-						    &fee_base_msat,
-						    &fee_proportional_millionths,
-						    &htlc_maximum_msat, &public)) {
-		channel_internal_error(channel,
-				       "bad channeld_local_channel_update %s",
-				       tal_hex(channel, msg));
-		return;
-	}
-
 	/* As we're shutting down, ignore */
 	if (!ld->gossip)
 		return;
-
-	assert(short_channel_id_eq(channel->scid ? channel->scid : channel->alias[LOCAL], &scid));
-	assert(cltv_expiry_delta == ld->config.cltv_expiry_delta);
-	assert(amount_msat_eq(htlc_minimum_msat, channel->htlc_minimum_msat));
-	assert(fee_base_msat == channel->feerate_base);
-	assert(fee_proportional_millionths == channel->feerate_ppm);
-	assert(amount_msat_eq(htlc_maximum_msat, channel->htlc_maximum_msat));
 
 	subd_send_msg(ld->gossip,
 		      take(towire_gossipd_local_channel_update

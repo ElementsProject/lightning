@@ -1205,6 +1205,21 @@ static void handle_channel_upgrade(struct channel *channel,
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 }
 
+static void handle_local_channel_update(struct channel *channel,
+					const u8 *msg)
+{
+	bool enable;
+
+	if (!fromwire_channeld_local_channel_update(msg, &enable)) {
+		channel_internal_error(channel,
+				       "bad channeld_local_channel_update %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	tell_gossipd_local_channel_update(channel->peer->ld, channel, enable);
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -1241,7 +1256,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		handle_error_channel(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
-		tell_gossipd_local_channel_update(sd->ld, sd->channel, msg);
+		handle_local_channel_update(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
 		tell_gossipd_local_channel_announce(sd->ld, sd->channel, msg);
@@ -1295,7 +1310,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 	case WIRE_CHANNELD_FEERATES:
 	case WIRE_CHANNELD_BLOCKHEIGHT:
-	case WIRE_CHANNELD_CONFIG_CHANNEL:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
@@ -1511,17 +1525,12 @@ bool peer_start_channeld(struct channel *channel,
 				       &channel->channel_info.remote_per_commit,
 				       &channel->channel_info.old_remote_per_commit,
 				       channel->opener,
-				       channel->feerate_base,
-				       channel->feerate_ppm,
-				       channel->htlc_minimum_msat,
-				       channel->htlc_maximum_msat,
 				       channel->our_msat,
 				       &channel->local_basepoints,
 				       &channel->local_funding_pubkey,
 				       &ld->id,
 				       &channel->peer->id,
 				       cfg->commit_time_ms,
-				       cfg->cltv_expiry_delta,
 				       channel->last_was_revoke,
 				       channel->last_sent_commit,
 				       channel->next_index[LOCAL],
