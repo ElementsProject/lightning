@@ -1849,11 +1849,6 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* Strip optional URI preamble. */
-	if (strncmp(invstring, "lightning:", 10) == 0 ||
-	    strncmp(invstring, "LIGHTNING:", 10) == 0)
-		invstring += 10;
-
 	msg = hsm_sync_req(tmpctx, cmd->ld,
 			   take(towire_hsmd_preapprove_invoice(NULL, invstring)));
         if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved))
