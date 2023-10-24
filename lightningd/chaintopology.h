@@ -212,7 +212,7 @@ u32 default_locktime(const struct chain_topology *topo);
  * @cmd_id: the JSON command id which triggered this (or NULL).
  * @allowhighfees: set to true to override the high-fee checks in the backend.
  * @minblock: minimum block we can send it at (or 0).
- * @finished: if non-NULL, call that when sendrawtransaction returns; if it returns true, don't rebroadcast.
+ * @finished: if non-NULL, call every time sendrawtransaction returns; if it returns true, don't rebroadcast.
  * @refresh: if non-NULL, callback before re-broadcasting (can replace tx):
  *           if returns false, delete.
  * @cbarg: argument for @finished and @refresh

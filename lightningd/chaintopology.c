@@ -9,6 +9,7 @@
 #include <common/htlc_tx.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
+#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
 #include <common/type_to_string.h>
@@ -115,40 +116,44 @@ size_t get_tx_depth(const struct chain_topology *topo,
 	return topo->tip->height - blockheight + 1;
 }
 
-struct txs_to_broadcast {
-	/* We just sent txs[cursor] */
-	size_t cursor;
-	/* These are hex encoded already, for bitcoind_sendrawtx */
-	const char **txs;
+struct tx_rebroadcast {
+	/* otx destructor sets this to NULL if it's been freed */
+	struct outgoing_tx *otx;
 
-	/* IDs to attach to each tx (could be NULL!) */
-	const char **cmd_id;
-
-	/* allowhighfees flags for each tx */
-	bool *allowhighfees;
+	/* Pointer to how many are remaining: last one frees! */
+	size_t *num_rebroadcast_remaining;
 };
 
-/* We just sent the last entry in txs[].  Shrink and send the next last. */
-static void broadcast_remainder(struct bitcoind *bitcoind,
-				bool success, const char *msg,
-				struct txs_to_broadcast *txs)
+/* Timer recursion: declare now. */
+static void rebroadcast_txs(struct chain_topology *topo);
+
+/* We are last.  Refresh timer, and free refcnt */
+static void rebroadcasts_complete(struct chain_topology *topo,
+				  size_t *num_rebroadcast_remaining)
+{
+	tal_free(num_rebroadcast_remaining);
+	topo->rebroadcast_timer = new_reltimer(topo->ld->timers, topo,
+					       time_from_sec(30 + pseudorand(30)),
+					       rebroadcast_txs, topo);
+}
+
+static void destroy_tx_broadcast(struct tx_rebroadcast *txrb, struct chain_topology *topo)
+{
+	if (--*txrb->num_rebroadcast_remaining == 0)
+		rebroadcasts_complete(topo, txrb->num_rebroadcast_remaining);
+}
+
+static void rebroadcast_done(struct bitcoind *bitcoind,
+			     bool success, const char *msg,
+			     struct tx_rebroadcast *txrb)
 {
 	if (!success)
 		log_debug(bitcoind->log,
 			  "Expected error broadcasting tx %s: %s",
-			  txs->txs[txs->cursor], msg);
+			  fmt_bitcoin_tx(tmpctx, txrb->otx->tx), msg);
 
-	txs->cursor++;
-	if (txs->cursor == tal_count(txs->txs)) {
-		tal_free(txs);
-		return;
-	}
-
-	/* Broadcast next one. */
-	bitcoind_sendrawtx(bitcoind, bitcoind,
-			   txs->cmd_id[txs->cursor], txs->txs[txs->cursor],
-			   txs->allowhighfees[txs->cursor],
-			   broadcast_remainder, txs);
+	/* Last one freed calls rebroadcasts_complete */
+	tal_free(txrb);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
@@ -156,20 +161,16 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 static void rebroadcast_txs(struct chain_topology *topo)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
-	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 	struct outgoing_tx_map_iter it;
 	tal_t *cleanup_ctx = tal(NULL, char);
+	size_t *num_rebroadcast_remaining = notleak(tal(topo, size_t));
 
-	txs = tal(topo, struct txs_to_broadcast);
-	txs->cmd_id = tal_arr(txs, const char *, 0);
-
-	/* Put any txs we want to broadcast in ->txs. */
-	txs->txs = tal_arr(txs, const char *, 0);
-	txs->allowhighfees = tal_arr(txs, bool, 0);
-
+	*num_rebroadcast_remaining = 0;
 	for (otx = outgoing_tx_map_first(topo->outgoing_txs, &it); otx;
 	     otx = outgoing_tx_map_next(topo->outgoing_txs, &it)) {
+		struct tx_rebroadcast *txrb;
+		/* Already sent? */
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
@@ -185,22 +186,26 @@ static void rebroadcast_txs(struct chain_topology *topo)
 			continue;
 		}
 
-		tal_arr_expand(&txs->txs, fmt_bitcoin_tx(txs->txs, otx->tx));
-		tal_arr_expand(&txs->allowhighfees, otx->allowhighfees);
-		tal_arr_expand(&txs->cmd_id, tal_strdup_or_null(txs, otx->cmd_id));
+		txrb = tal(otx, struct tx_rebroadcast);
+		txrb->otx = otx;
+		txrb->num_rebroadcast_remaining = num_rebroadcast_remaining;
+		(*num_rebroadcast_remaining)++;
+		tal_add_destructor2(txrb, destroy_tx_broadcast, topo);
+		bitcoind_sendrawtx(txrb, topo->bitcoind,
+				   tal_strdup_or_null(tmpctx, otx->cmd_id),
+				   fmt_bitcoin_tx(tmpctx, otx->tx),
+				   otx->allowhighfees,
+				   rebroadcast_done,
+				   txrb);
 	}
 	tal_free(cleanup_ctx);
 
-	/* Free explicitly in case we were called because a block came in.
-	 * Then set a new timer 30-60 seconds away */
+	/* Free explicitly in case we were called because a block came in. */
 	tal_free(topo->rebroadcast_timer);
-	topo->rebroadcast_timer = new_reltimer(topo->ld->timers, topo,
-					       time_from_sec(30 + pseudorand(30)),
-					       rebroadcast_txs, topo);
 
-	/* Let this do the dirty work. */
-	txs->cursor = (size_t)-1;
-	broadcast_remainder(topo->bitcoind, true, "", txs);
+	/* Nothing to broadcast?  Reset timer immediately */
+	if (*num_rebroadcast_remaining == 0)
+		rebroadcasts_complete(topo, num_rebroadcast_remaining);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx, struct chain_topology *topo)
