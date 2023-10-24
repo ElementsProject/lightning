@@ -321,13 +321,13 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 				       const u8 *msg)
 {
 	struct short_channel_id scid;
-	bool disable, public;
+	bool enable, public;
 	u16 cltv_expiry_delta;
 	struct amount_msat htlc_minimum_msat;
 	u32 fee_base_msat, fee_proportional_millionths;
 	struct amount_msat htlc_maximum_msat;
 
-	if (!fromwire_channeld_local_channel_update(msg, &scid, &disable,
+	if (!fromwire_channeld_local_channel_update(msg, &scid, &enable,
 						    &cltv_expiry_delta,
 						    &htlc_minimum_msat,
 						    &fee_base_msat,
@@ -355,7 +355,7 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 			   (NULL,
 			    &channel->peer->id,
 			    channel->scid ? channel->scid : channel->alias[LOCAL],
-			    disable,
+			    enable,
 			    ld->config.cltv_expiry_delta,
 			    channel->htlc_minimum_msat,
 			    channel->feerate_base,

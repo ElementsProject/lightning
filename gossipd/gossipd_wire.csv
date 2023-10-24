@@ -106,7 +106,7 @@ msgdata,gossipd_got_local_channel_update,channel_update,u8,len
 msgtype,gossipd_local_channel_update,3004
 msgdata,gossipd_local_channel_update,id,node_id,
 msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,
-msgdata,gossipd_local_channel_update,disable,bool,
+msgdata,gossipd_local_channel_update,enable,bool,
 msgdata,gossipd_local_channel_update,cltv_expiry_delta,u16,
 msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
 msgdata,gossipd_local_channel_update,fee_base_msat,u32,

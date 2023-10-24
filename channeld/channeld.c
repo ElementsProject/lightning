@@ -412,13 +412,9 @@ static void set_channel_type(struct channel *channel, const u8 *type)
 /* Tell gossipd to create channel_update (then it goes into
  * gossip_store, then streams out to peers, or sends it directly if
  * it's a private channel) */
-static void send_channel_update(struct peer *peer, int disable_flag)
+static void send_channel_update(struct peer *peer, bool enable)
 {
-	status_debug("send_channel_update %d", disable_flag);
-
 	u8 *msg;
-
-	assert(disable_flag == 0 || disable_flag == ROUTING_FLAGS_DISABLED);
 
 	/* Only send an update if we told gossipd */
 	if (!peer->channel_local_active)
@@ -428,8 +424,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 
 	msg = towire_channeld_local_channel_update(NULL,
 						   &peer->short_channel_ids[LOCAL],
-						   disable_flag
-						   == ROUTING_FLAGS_DISABLED,
+						   enable,
 						   peer->cltv_delta,
 						   peer->htlc_minimum_msat,
 						   peer->fee_base,
@@ -448,7 +443,7 @@ static void send_channel_initial_update(struct peer *peer)
 	 * after creation. These mutations (ie. splice) must announce the
 	 * channel when they finish anyway, so it is safe to skip it here */
 	if (!is_stfu_active(peer) && !peer->want_stfu)
-		send_channel_update(peer, 0);
+		send_channel_update(peer, true);
 }
 
 /**
@@ -593,7 +588,7 @@ static void announce_channel(struct peer *peer)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_local_channel_announcement(NULL,
 									cannounce)));
-	send_channel_update(peer, 0);
+	send_channel_update(peer, true);
 }
 
 static void announce_channel_if_not_stfu(struct peer *peer)
@@ -762,7 +757,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 
 	channel_announcement_negotiate(peer);
 	billboard_update(peer);
-	send_channel_update(peer, 0);
+	send_channel_update(peer, true);
 
 	peer->splice_state->inflights = tal_free(peer->splice_state->inflights);
 	peer->splice_state->count = 0;
@@ -1191,7 +1186,7 @@ static void maybe_send_shutdown(struct peer *peer)
 
 	/* Send a disable channel_update so others don't try to route
 	 * over us */
-	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
+	send_channel_update(peer, false);
 
 	if (peer->shutdown_wrong_funding) {
 		tlvs = tlv_shutdown_tlvs_new(tmpctx);
@@ -2506,7 +2501,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	 * completed in the spec */
 
 	/* Disable the channel. */
-	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
+	send_channel_update(peer, false);
 
 	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey,
 			       &tlvs))
@@ -3454,7 +3449,7 @@ static void resume_splice_negotiation(struct peer *peer,
 						      chan_output_index);
 	wire_sync_write(MASTER_FD, take(msg));
 
-	send_channel_update(peer, 0);
+	send_channel_update(peer, true);
 }
 
 static struct inflight *inflights_new(struct peer *peer)
@@ -5510,7 +5505,7 @@ static void handle_config_channel(struct peer *peer, const u8 *inmsg)
 	}
 
 	if (changed)
-		send_channel_update(peer, 0);
+		send_channel_update(peer, true);
 }
 
 
