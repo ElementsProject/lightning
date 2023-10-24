@@ -205,6 +205,7 @@ u32 default_locktime(const struct chain_topology *topo);
 
 /**
  * broadcast_tx - Broadcast a single tx, and rebroadcast as reqd (copies tx).
+ * @ctx: context: when this is freed, callback/retransmission don't happen.
  * @topo: topology
  * @channel: the channel responsible for this (stop broadcasting if freed).
  * @tx: the transaction
@@ -216,9 +217,9 @@ u32 default_locktime(const struct chain_topology *topo);
  *           if returns false, delete.
  * @cbarg: argument for @finished and @refresh
  */
-#define broadcast_tx(topo, channel, tx, cmd_id, allowhighfees,		\
+#define broadcast_tx(ctx, topo, channel, tx, cmd_id, allowhighfees,	\
 		     minblock, finished, refresh, cbarg)		\
-	broadcast_tx_((topo), (channel), (tx), (cmd_id), (allowhighfees), \
+	broadcast_tx_((ctx), (topo), (channel), (tx), (cmd_id), (allowhighfees), \
 		      (minblock),					\
 		      typesafe_cb_preargs(bool, void *,			\
 					  (finished), (cbarg),		\
@@ -231,7 +232,8 @@ u32 default_locktime(const struct chain_topology *topo);
 					  const struct bitcoin_tx **),	\
 		      (cbarg))
 
-void broadcast_tx_(struct chain_topology *topo,
+void broadcast_tx_(const tal_t *ctx,
+		   struct chain_topology *topo,
 		   struct channel *channel,
 		   const struct bitcoin_tx *tx TAKES,
 		   const char *cmd_id, bool allowhighfees, u32 minblock,

@@ -208,26 +208,10 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx, struct chain_topology *
 	outgoing_tx_map_del(topo->outgoing_txs, otx);
 }
 
-static void clear_otx_channel(struct channel *channel, struct outgoing_tx *otx)
-{
-	if (otx->channel != channel)
-		fatal("channel %p, otx %p has channel %p", channel, otx, otx->channel);
-	otx->channel = NULL;
-}
-
 static void broadcast_done(struct bitcoind *bitcoind,
 			   bool success, const char *msg,
 			   struct outgoing_tx *otx)
 {
-	/* Channel gone?  Stop. */
-	if (!otx->channel) {
-		tal_free(otx);
-		return;
-	}
-
-	/* No longer needs to be disconnected if channel dies. */
-	tal_del_destructor2(otx->channel, clear_otx_channel, otx);
-
 	if (otx->finished) {
 		if (otx->finished(otx->channel, otx->tx, success, msg, otx->cbarg)) {
 			tal_free(otx);
@@ -245,13 +229,13 @@ static void broadcast_done(struct bitcoind *bitcoind,
 		return;
 	}
 
-	/* For continual rebroadcasting, until channel freed. */
-	tal_steal(otx->channel, otx);
+	/* For continual rebroadcasting, until context freed. */
 	outgoing_tx_map_add(bitcoind->ld->topology->outgoing_txs, otx);
 	tal_add_destructor2(otx, destroy_outgoing_tx, bitcoind->ld->topology);
 }
 
-void broadcast_tx_(struct chain_topology *topo,
+void broadcast_tx_(const tal_t *ctx,
+		   struct chain_topology *topo,
 		   struct channel *channel, const struct bitcoin_tx *tx,
 		   const char *cmd_id, bool allowhighfees, u32 minblock,
 		   bool (*finished)(struct channel *channel,
@@ -264,8 +248,7 @@ void broadcast_tx_(struct chain_topology *topo,
 				   void *cbarg),
 		   void *cbarg)
 {
-	/* Channel might vanish: topo owns it to start with. */
-	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
+	struct outgoing_tx *otx = tal(ctx, struct outgoing_tx);
 
 	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
@@ -293,13 +276,12 @@ void broadcast_tx_(struct chain_topology *topo,
 		return;
 	}
 
-	tal_add_destructor2(channel, clear_otx_channel, otx);
 	log_debug(topo->log, "Broadcasting txid %s%s%s",
 		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid),
 		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
 
 	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx(topo->bitcoind, topo->bitcoind, otx->cmd_id,
+	bitcoind_sendrawtx(ctx, topo->bitcoind, otx->cmd_id,
 			   fmt_bitcoin_tx(tmpctx, otx->tx),
 			   allowhighfees,
 			   broadcast_done, otx);

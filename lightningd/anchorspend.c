@@ -386,7 +386,7 @@ bool commit_tx_boost(struct channel *channel,
 		 fmt_amount_sat(tmpctx, adet->anchor_spend_fee));
 
 	/* Send it! */
-	broadcast_tx(ld->topology, channel, take(newtx), NULL, true, 0, NULL,
+	broadcast_tx(adet, ld->topology, channel, take(newtx), NULL, true, 0, NULL,
 		     refresh_anchor_spend, adet);
 	return true;
 }
