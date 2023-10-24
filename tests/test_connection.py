@@ -4409,3 +4409,9 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
 
     # We should not see a "Peer transient failure" after restart of l1
     assert not l1.daemon.is_in_log(f"{l2id}-chan#1: Peer transient failure in CHANNELD_NORMAL: Disconnected", start=offset1)
+
+
+def test_offline_fd_check(node_factory):
+    # if get_node starts it, it'll expect an address, so do it manually.
+    l1 = node_factory.get_node(options={"offline": None}, start=False)
+    l1.daemon.start()
