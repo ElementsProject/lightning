@@ -100,6 +100,7 @@ Core Lightning Documentation
    lightning-plugin <lightning-plugin.7.md>
    lightning-preapproveinvoice <lightning-preapproveinvoice.7.md>
    lightning-preapprovekeysend <lightning-preapprovekeysend.7.md>
+   lightning-recover <lightning-recover.7.md>
    lightning-recoverchannel <lightning-recoverchannel.7.md>
    lightning-renepay <lightning-renepay.7.md>
    lightning-renepaystatus <lightning-renepaystatus.7.md>
