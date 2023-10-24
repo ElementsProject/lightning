@@ -90,12 +90,12 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	bool *exclusive;
 	u32 *reserve, current_height;
 
-	if (!param(cmd, buffer, params,
-		   p_req("psbt", param_psbt, &psbt),
-		   p_opt_def("exclusive", param_bool, &exclusive, true),
-		   p_opt_def("reserve", param_number, &reserve,
-			     RESERVATION_DEFAULT),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("psbt", param_psbt, &psbt),
+			 p_opt_def("exclusive", param_bool, &exclusive, true),
+			 p_opt_def("reserve", param_number, &reserve,
+				   RESERVATION_DEFAULT),
+			 NULL))
 		return command_param_failed();
 
 	/* We only deal with V2 internally */
@@ -132,6 +132,9 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 		tal_arr_expand(&utxos, utxo);
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	response = json_stream_success(cmd);
 	reserve_and_report(response, cmd->ld->wallet, current_height, *reserve, utxos);
 	return command_success(cmd, response);
@@ -155,11 +158,11 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 	struct wally_psbt *psbt;
 	u32 *reserve;
 
-	if (!param(cmd, buffer, params,
-		   p_req("psbt", param_psbt, &psbt),
-		   p_opt_def("reserve", param_number, &reserve,
-			     RESERVATION_DEFAULT),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("psbt", param_psbt, &psbt),
+			 p_opt_def("reserve", param_number, &reserve,
+				   RESERVATION_DEFAULT),
+			 NULL))
 		return command_param_failed();
 
 	/* We only deal with V2 internally */
@@ -191,6 +194,9 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 				   type_to_string(tmpctx, struct bitcoin_txid,
 						  &txid));
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "reservations");
@@ -506,23 +512,23 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *locktime, *reserve, maxheight;
 	u32 current_height;
 
-	if (!param(cmd, buffer, params,
-		   p_req("satoshi", param_sat_or_all, &amount),
-		   p_req("feerate", param_feerate, &feerate_per_kw),
-		   p_req("startweight", param_number, &weight),
-		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt_def("reserve", param_number, &reserve,
-			     RESERVATION_DEFAULT),
-		   p_opt("locktime", param_number, &locktime),
-		   p_opt_def("min_witness_weight", param_number,
-			     &min_witness_weight, 0),
-		   p_opt_def("excess_as_change", param_bool,
-			     &excess_as_change, false),
-		   p_opt_def("nonwrapped", param_bool,
-			     &nonwrapped, false),
-		   p_opt_def("opening_anchor_channel", param_bool,
-			     &keep_emergency_funds, false),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("satoshi", param_sat_or_all, &amount),
+			 p_req("feerate", param_feerate, &feerate_per_kw),
+			 p_req("startweight", param_number, &weight),
+			 p_opt_def("minconf", param_number, &minconf, 1),
+			 p_opt_def("reserve", param_number, &reserve,
+				   RESERVATION_DEFAULT),
+			 p_opt("locktime", param_number, &locktime),
+			 p_opt_def("min_witness_weight", param_number,
+				   &min_witness_weight, 0),
+			 p_opt_def("excess_as_change", param_bool,
+				   &excess_as_change, false),
+			 p_opt_def("nonwrapped", param_bool,
+				   &nonwrapped, false),
+			 p_opt_def("opening_anchor_channel", param_bool,
+				   &keep_emergency_funds, false),
+			 NULL))
 		return command_param_failed();
 
 	/* If we have anchor channels, we definitely need to keep
@@ -641,6 +647,9 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						   cmd->ld->emergency_sat));
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,
 			   locktime, change);
 }
@@ -669,11 +678,11 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	s64 keyidx;
 	u8 *b32script;
 
-	if (!param(cmd, buffer, params,
-		   p_req("satoshi", param_sat, &amount),
-		   p_opt("initialpsbt", param_psbt, &psbt),
-		   p_opt("locktime", param_number, &locktime),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("satoshi", param_sat, &amount),
+			 p_opt("initialpsbt", param_psbt, &psbt),
+			 p_opt("locktime", param_number, &locktime),
+			 NULL))
 		return command_param_failed();
 
 	if (!psbt) {
@@ -699,6 +708,9 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 				    type_to_string(tmpctx,
 				    		   struct amount_sat,
 				    		   &chainparams->dust_limit));
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* Get a change adddress */
 	keyidx = wallet_get_newindex(cmd->ld);
@@ -815,22 +827,22 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	struct amount_sat *amount, input, excess, change;
 	u32 current_height, *locktime, *reserve;
 
-	if (!param(cmd, buffer, params,
-		   p_req("satoshi", param_sat_or_all, &amount),
-		   p_req("feerate", param_feerate, &feerate_per_kw),
-		   p_req("startweight", param_number, &weight),
-		   p_req("utxos", param_txout, &utxos),
-		   p_opt_def("reserve", param_number, &reserve,
-			     RESERVATION_DEFAULT),
-		   p_opt_def("reservedok", param_bool, &reserved_ok, false),
-		   p_opt("locktime", param_number, &locktime),
-		   p_opt_def("min_witness_weight", param_number,
-			     &min_witness_weight, 0),
-		   p_opt_def("excess_as_change", param_bool,
-			     &excess_as_change, false),
-		   p_opt_def("opening_anchor_channel", param_bool,
-			     &keep_emergency_funds, false),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("satoshi", param_sat_or_all, &amount),
+			 p_req("feerate", param_feerate, &feerate_per_kw),
+			 p_req("startweight", param_number, &weight),
+			 p_req("utxos", param_txout, &utxos),
+			 p_opt_def("reserve", param_number, &reserve,
+				   RESERVATION_DEFAULT),
+			 p_opt_def("reservedok", param_bool, &reserved_ok, false),
+			 p_opt("locktime", param_number, &locktime),
+			 p_opt_def("min_witness_weight", param_number,
+				   &min_witness_weight, 0),
+			 p_opt_def("excess_as_change", param_bool,
+				   &excess_as_change, false),
+			 p_opt_def("opening_anchor_channel", param_bool,
+				   &keep_emergency_funds, false),
+			 NULL))
 		return command_param_failed();
 
 	/* If we have anchor channels, we definitely need to keep
@@ -914,6 +926,9 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 				    fmt_amount_sat(tmpctx,
 						   cmd->ld->emergency_sat));
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
 			   *reserve, locktime, change);

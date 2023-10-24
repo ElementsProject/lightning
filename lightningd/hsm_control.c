@@ -239,10 +239,10 @@ static struct command_result *json_makesecret(struct command *cmd,
 	struct json_stream *response;
 	struct secret secret;
 
-	if (!param(cmd, buffer, params,
-		   p_opt("hex", param_bin_from_hex, &data),
-		   p_opt("string", param_string, &strdata),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_opt("hex", param_bin_from_hex, &data),
+			 p_opt("string", param_string, &strdata),
+			 NULL))
 		return command_param_failed();
 
 	if (strdata) {
@@ -256,6 +256,8 @@ static struct command_result *json_makesecret(struct command *cmd,
 					    "Must have either hex or string");
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	u8 *msg = towire_hsmd_derive_secret(cmd, data);
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))

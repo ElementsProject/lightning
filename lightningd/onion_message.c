@@ -191,11 +191,11 @@ static struct command_result *json_sendonionmessage(struct command *cmd,
 	struct secret *path_secrets;
 	size_t onion_size;
 
-	if (!param(cmd, buffer, params,
-		   p_req("first_id", param_node_id, &first_id),
-		   p_req("blinding", param_pubkey, &blinding),
-		   p_req("hops", param_onion_hops, &hops),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("first_id", param_node_id, &first_id),
+			 p_req("blinding", param_pubkey, &blinding),
+			 p_req("hops", param_onion_hops, &hops),
+			 NULL))
 		return command_param_failed();
 
 	if (!feature_offered(cmd->ld->our_features->bits[NODE_ANNOUNCE_FEATURE],
@@ -225,6 +225,9 @@ static struct command_result *json_sendonionmessage(struct command *cmd,
 	if (!op)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Creating onion failed (tlvs too long?)");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_send_onionmsg(NULL, first_id,
@@ -278,10 +281,10 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	struct tlv_encrypted_data_tlv *tlv;
 	struct secret *pathsecret;
 
-	if (!param(cmd, buffer, params,
-		   p_req("ids", param_pubkeys, &ids),
-		   p_req("pathsecret", param_secret, &pathsecret),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("ids", param_pubkeys, &ids),
+			 p_req("pathsecret", param_secret, &pathsecret),
+			 NULL))
 		return command_param_failed();
 
 	path = tal(cmd, struct blinded_path);
@@ -305,6 +308,9 @@ static struct command_result *json_blindedpath(struct command *cmd,
 		/* Should not happen! */
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not convert blinding to pubkey!");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* We convert ids into aliases as we go. */
 	path->path = tal_arr(cmd, struct onionmsg_hop *, nhops);

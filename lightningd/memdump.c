@@ -222,13 +222,16 @@ static struct command_result *json_memleak(struct command *cmd,
 	bool found_leak;
 	struct leak_detect *leaks;
 
-	if (!param(cmd, buffer, params, NULL))
+	if (!param_check(cmd, buffer, params, NULL))
 		return command_param_failed();
 
 	if (!getenv("LIGHTNINGD_DEV_MEMLEAK")) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	leaks = tal(cmd, struct leak_detect);
 	leaks->cmd = cmd;

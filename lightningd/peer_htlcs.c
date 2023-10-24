@@ -2960,10 +2960,10 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 	struct peer *peer;
 	bool *ignore;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &peerid),
-		   p_req("ignore", param_bool, &ignore),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("id", param_node_id, &peerid),
+			 p_req("ignore", param_bool, &ignore),
+			 NULL))
 		return command_param_failed();
 
 	peer = peer_by_id(cmd->ld, peerid);
@@ -2971,6 +2971,9 @@ static struct command_result *json_dev_ignore_htlcs(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not find channel with that peer");
 	}
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	peer->dev_ignore_htlcs = *ignore;
 
 	return command_success(cmd, json_stream_success(cmd));

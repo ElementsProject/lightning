@@ -1095,20 +1095,20 @@ static struct command_result *json_invoice(struct command *cmd,
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
 
-	if (!param(cmd, buffer, params,
-		   p_req("amount_msat|msatoshi", param_positive_msat_or_any, &msatoshi_val),
-		   p_req("label", param_label, &info->label),
-		   p_req("description", param_escaped_string, &desc_val),
-		   p_opt_def("expiry", param_u64, &expiry, 3600*24*7),
-		   p_opt("fallbacks", param_array, &fallbacks),
-		   p_opt("preimage", param_preimage, &preimage),
-		   p_opt("exposeprivatechannels", param_chanhints,
-			 &info->chanhints),
-		   p_opt_def("cltv", param_number, &cltv,
-			     cmd->ld->config.cltv_final),
-		   p_opt_def("deschashonly", param_bool, &hashonly, false),
-		   p_opt("dev-routes", param_array, &dev_routes),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("amount_msat|msatoshi", param_positive_msat_or_any, &msatoshi_val),
+			 p_req("label", param_label, &info->label),
+			 p_req("description", param_escaped_string, &desc_val),
+			 p_opt_def("expiry", param_u64, &expiry, 3600*24*7),
+			 p_opt("fallbacks", param_array, &fallbacks),
+			 p_opt("preimage", param_preimage, &preimage),
+			 p_opt("exposeprivatechannels", param_chanhints,
+			       &info->chanhints),
+			 p_opt_def("cltv", param_number, &cltv,
+				   cmd->ld->config.cltv_final),
+			 p_opt_def("deschashonly", param_bool, &hashonly, false),
+			 p_opt("dev-routes", param_array, &dev_routes),
+			 NULL))
 		return command_param_failed();
 
 	if (dev_routes && !cmd->ld->developer)
@@ -1128,6 +1128,9 @@ static struct command_result *json_invoice(struct command *cmd,
 				    BOLT11_FIELD_BYTE_LIMIT,
 				    strlen(desc_val));
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	if (fallbacks) {
 		size_t i;
@@ -1276,15 +1279,15 @@ static struct command_result *json_listinvoices(struct command *cmd,
 	u32 *listlimit;
 	char *fail;
 
-	if (!param(cmd, buffer, params,
-		   p_opt("label", param_label, &label),
-		   p_opt("invstring", param_invstring, &invstring),
-		   p_opt("payment_hash", param_sha256, &payment_hash),
-		   p_opt("offer_id", param_sha256, &offer_id),
-		   p_opt("index", param_index, &listindex),
-		   p_opt_def("start", param_u64, &liststart, 0),
-		   p_opt("limit", param_u32, &listlimit),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_opt("label", param_label, &label),
+			 p_opt("invstring", param_invstring, &invstring),
+			 p_opt("payment_hash", param_sha256, &payment_hash),
+			 p_opt("offer_id", param_sha256, &offer_id),
+			 p_opt("index", param_index, &listindex),
+			 p_opt_def("start", param_u64, &liststart, 0),
+			 p_opt("limit", param_u32, &listlimit),
+			 NULL))
 		return command_param_failed();
 
 	/* Yeah, I wasn't sure about this style either.  It's curt though! */
@@ -1324,6 +1327,9 @@ static struct command_result *json_listinvoices(struct command *cmd,
 		}
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	response = json_stream_success(cmd);
 	json_array_start(response, "invoices");
 	json_add_invoices(response, wallet, label, payment_hash, offer_id,
@@ -1354,11 +1360,11 @@ static struct command_result *json_delinvoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 	bool *deldesc;
 
-	if (!param(cmd, buffer, params,
-		   p_req("label", param_label, &label),
-		   p_req("status", param_string, &status),
-		   p_opt_def("desconly", param_bool, &deldesc, false),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("label", param_label, &label),
+			 p_req("status", param_string, &status),
+			 p_opt_def("desconly", param_bool, &deldesc, false),
+			 NULL))
 		return command_param_failed();
 
 	if (!invoices_find_by_label(wallet->invoices, &inv_dbid, label)) {
@@ -1387,6 +1393,9 @@ static struct command_result *json_delinvoice(struct command *cmd,
 			return command_fail(cmd, INVOICE_NO_DESCRIPTION,
 					    "Invoice description already removed");
 
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		if (!invoices_delete_description(wallet->invoices, inv_dbid,
 						 details->label, details->description)) {
 			log_broken(cmd->ld->log,
@@ -1397,6 +1406,9 @@ static struct command_result *json_delinvoice(struct command *cmd,
 		}
 		details->description = tal_free(details->description);
 	} else {
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		if (!invoices_delete(wallet->invoices, inv_dbid,
 				     details->state,
 				     details->label,
@@ -1513,14 +1525,17 @@ static struct command_result *json_waitinvoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 	struct json_escape *label;
 
-	if (!param(cmd, buffer, params,
-		   p_req("label", param_label, &label),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("label", param_label, &label),
+			 NULL))
 		return command_param_failed();
 
 	if (!invoices_find_by_label(wallet->invoices, &inv_dbid, label)) {
 		return command_fail(cmd, LIGHTNINGD, "Label not found");
 	}
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	details = invoices_get_details(cmd, cmd->ld->wallet->invoices, inv_dbid);
 
 	/* If paid or expired return immediately */
@@ -1554,10 +1569,10 @@ static struct command_result *json_decodepay(struct command *cmd,
 	const char *str, *desc;
 	char *fail;
 
-	if (!param(cmd, buffer, params,
-		   p_req("bolt11", param_invstring, &str),
-		   p_opt("description", param_escaped_string, &desc),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("bolt11", param_invstring, &str),
+			 p_opt("description", param_escaped_string, &desc),
+			 NULL))
 		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, NULL,
@@ -1566,6 +1581,9 @@ static struct command_result *json_decodepay(struct command *cmd,
 	if (!b11) {
 		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	response = json_stream_success(cmd);
 	json_add_bolt11(response, b11);
@@ -1675,11 +1693,11 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	bool have_n;
 	char *fail;
 
-	if (!param(cmd, buffer, params,
-		   p_req("invstring", param_invstring, &invstring),
-		   p_req("label", param_label, &label),
-		   p_req("preimage", param_preimage, &preimage),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("invstring", param_invstring, &invstring),
+			 p_req("label", param_label, &label),
+			 p_req("preimage", param_preimage, &preimage),
+			 NULL))
 		return command_param_failed();
 
 	sha256(&payment_hash, preimage, sizeof(*preimage));
@@ -1702,6 +1720,9 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		if (!sha256_eq(&payment_hash, &b11->payment_hash))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Incorrect preimage");
+
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 
 		if (!invoices_create(cmd->ld->wallet->invoices,
 				     &inv_dbid,
@@ -1793,6 +1814,10 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		if (!inv->offer_description)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Missing description in invoice");
+
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		desc = tal_strndup(cmd,
 				   inv->offer_description,
 				   tal_bytelen(inv->offer_description));
@@ -1920,9 +1945,9 @@ static struct command_result *json_signinvoice(struct command *cmd,
 	bool have_n;
 	char *fail;
 
-	if (!param(cmd, buffer, params,
-		   p_req("invstring", param_invstring, &invstring),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("invstring", param_invstring, &invstring),
+			 NULL))
 		return command_param_failed();
 
 	b11 = bolt11_decode_nosig(cmd, invstring, cmd->ld->our_features,
@@ -1946,6 +1971,9 @@ static struct command_result *json_signinvoice(struct command *cmd,
 	if (!b11->description && !b11->description_hash)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Missing description in invoice");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	response = json_stream_success(cmd);
 	json_add_invstring(response, b11enc);
