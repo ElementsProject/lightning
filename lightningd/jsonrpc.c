@@ -48,6 +48,14 @@ struct command_result *command_param_failed(void)
 	return &param_failed;
 }
 
+/* For our purposes, the same as command_param_failed: we examine
+ * cmd->mode to see if it's really done. */
+struct command_result *command_check_done(struct command *cmd)
+{
+	assert(cmd->mode == CMD_CHECK);
+	return &param_failed;
+}
+
 struct command_result *command_its_complicated(const char *relationship_details
 					       UNNEEDED)
 {
@@ -458,6 +466,12 @@ struct command_result *command_raw_complete(struct command *cmd,
 	/* If we have a jcon, it will free result for us. */
 	if (cmd->jcon)
 		tal_steal(cmd->jcon, result);
+
+	/* Don't free it here if we're doing `check` */
+	if (command_check_only(cmd)) {
+		cmd->mode = CMD_CHECK_FAILED;
+		return command_param_failed();
+	}
 
 	tal_free(cmd);
 	return &complete;
@@ -1307,7 +1321,7 @@ void command_set_usage(struct command *cmd, const char *usage TAKES)
 
 bool command_check_only(const struct command *cmd)
 {
-	return cmd->mode == CMD_CHECK;
+	return cmd->mode == CMD_CHECK || cmd->mode == CMD_CHECK_FAILED;
 }
 
 void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
@@ -1479,12 +1493,6 @@ void jsonrpc_request_end(struct jsonrpc_request *r)
 	json_stream_append(r->stream, "\n\n", strlen("\n\n"));
 }
 
-/* We add this destructor as a canary to detect cmd failing. */
-static void destroy_command_canary(struct command *cmd, bool *failed)
-{
-	*failed = true;
-}
-
 static struct command_result *json_check(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *obj UNNEEDED,
@@ -1492,7 +1500,6 @@ static struct command_result *json_check(struct command *cmd,
 {
 	jsmntok_t *mod_params;
 	const jsmntok_t *name_tok;
-	bool failed;
 	struct json_stream *response;
 	struct command_result *res;
 
@@ -1515,19 +1522,21 @@ static struct command_result *json_check(struct command *cmd,
 	json_tok_remove(&mod_params, mod_params, name_tok, 1);
 
 	cmd->mode = CMD_CHECK;
-	failed = false;
-	tal_add_destructor2(cmd, destroy_command_canary, &failed);
 	res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
 
 	/* CMD_CHECK always makes it "fail" parameter parsing. */
 	assert(res == &param_failed);
-
-	if (failed)
+	if (cmd->mode == CMD_CHECK_FAILED) {
+		tal_free(cmd);
 		return res;
+	}
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "command_to_check", cmd->json_cmd->name);
-	return command_success(cmd, response);
+	res = command_success(cmd, response);
+	/* CMD_CHECK means we don't get freed! */
+	tal_free(cmd);
+	return res;
 }
 
 static const struct json_command check_command = {
