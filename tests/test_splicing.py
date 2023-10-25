@@ -37,6 +37,7 @@ def test_splice(node_factory, bitcoind):
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.pay(inv['bolt11'])
@@ -131,6 +132,7 @@ def test_splice_listnodes(node_factory, bitcoind):
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     bitcoind.generate_block(7)
 
@@ -164,6 +166,7 @@ def test_splice_out(node_factory, bitcoind):
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.pay(inv['bolt11'])
@@ -219,6 +222,7 @@ def test_invalid_splice(node_factory, bitcoind):
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.pay(inv['bolt11'])
@@ -268,6 +272,7 @@ def test_commit_crash_splice(node_factory, bitcoind):
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     time.sleep(1)
 
