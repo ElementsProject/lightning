@@ -201,7 +201,7 @@ static void rebroadcast_txs(struct chain_topology *topo)
 	tal_free(cleanup_ctx);
 
 	/* Free explicitly in case we were called because a block came in. */
-	tal_free(topo->rebroadcast_timer);
+	topo->rebroadcast_timer = tal_free(topo->rebroadcast_timer);
 
 	/* Nothing to broadcast?  Reset timer immediately */
 	if (*num_rebroadcast_remaining == 0)
