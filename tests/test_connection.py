@@ -236,11 +236,11 @@ def test_remote_addr_port(node_factory, bitcoind):
     l2.daemon.wait_for_log("Already have funding locked in")
     l3.restart()
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.daemon.wait_for_log("Already have funding locked in")
 
     # if ip discovery would have been enabled, we would have send an updated
     # node_annoucement by now. Check we didn't...
-    assert l2.daemon.wait_for_log("Update our node_announcement for discovered address")
+    l2.daemon.wait_for_logs(["Already have funding locked in",
+                             "Update our node_announcement for discovered address"])
     info = l2.rpc.getinfo()
     assert len(info['address']) == 1
     assert info['address'][0]['type'] == 'ipv4'
