@@ -563,6 +563,12 @@ static void announce_channel(struct peer *peer)
 {
 	u8 *cannounce;
 
+	/* If we splice quickly enough, the initial channel announcement may
+	 * still be pending. This old announcement is made stale by splicing,
+	 * so we ommit it. */
+	if (!peer->have_sigs[LOCAL] || !peer->have_sigs[REMOTE])
+		return;
+
 	cannounce = create_channel_announcement(tmpctx, peer);
 
 	wire_sync_write(MASTER_FD,
