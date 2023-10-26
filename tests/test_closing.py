@@ -3880,6 +3880,56 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
+    """Test that we use anchor on peer's commit to CPFP tx"""
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+                                                  {'experimental-anchors': None},
+                                                  {'experimental-anchors': None,
+                                                   'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
+                                         wait_for_announce=True)
+
+    # Get HTLC stuck, so l2 has reason to push commitment tx.
+    amt = 100_000_000
+    sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
+    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
+    l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+
+    # l3 drops to chain, but make sure it doesn't CPFP its own anchor.
+    wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] != [])
+    closetx = l3.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+    l3.stop()
+    # We don't care about l1 any more, either
+    l1.stop()
+
+    # We put l3's tx in the mempool, but won't mine it.
+    bitcoind.rpc.sendrawtransaction(closetx)
+
+    # We aim for feerate ~3750, so this won't mine it.
+    # HTLC's going to time out at block 119
+    for block in range(108, 119):
+        bitcoind.generate_block(1, needfeerate=5000)
+        sync_blockheight(bitcoind, [l2])
+
+    # Drops to chain
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+    # But, l3's tx already there, and identical feerate will not RBF
+    l2.daemon.wait_for_log("rejecting replacement")
+    assert bitcoind.rpc.getrawmempool() != []
+
+    # As blocks pass, we will use anchor to boost l3's tx.
+    for block in range(119, 124):
+        bitcoind.generate_block(1, needfeerate=5000)
+        sync_blockheight(bitcoind, [l2])
+
+    # mempool should be empty, but our 'needfeerate' logic is bogus and leaves
+    # the anchor spend tx!  So just check that l2 did see the commitment tx
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'FUNDING_SPEND_SEEN')
+
+
 def test_closing_cpfp(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
 
