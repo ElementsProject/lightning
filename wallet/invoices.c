@@ -81,6 +81,7 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 							   struct db_stmt *stmt)
 {
 	struct invoice_details *dtl = tal(ctx, struct invoice_details);
+	struct bitcoin_outpoint *paid_outpoint;
 	dtl->state = db_col_int(stmt, "state");
 
 	db_col_preimage(stmt, "payment_key", &dtl->r);
@@ -101,10 +102,23 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->pay_index = db_col_u64(stmt, "pay_index");
 		dtl->received = db_col_amount_msat(stmt, "msatoshi_received");
 		dtl->paid_timestamp = db_col_u64(stmt, "paid_timestamp");
+		if (!db_col_is_null(stmt, "paid_txid")) {
+			paid_outpoint = tal(ctx, struct bitcoin_outpoint);
+			db_col_txid(stmt, "paid_txid",
+					&paid_outpoint->txid);
+			paid_outpoint->n
+				= db_col_int(stmt, "paid_outnum");
+			dtl->paid_outpoint = paid_outpoint;
+		} else {
+			db_col_ignore(stmt, "paid_outnum");
+			dtl->paid_outpoint = NULL;
+		}
 	} else {
 		db_col_ignore(stmt, "pay_index");
 		db_col_ignore(stmt, "msatoshi_received");
 		db_col_ignore(stmt, "paid_timestamp");
+		db_col_ignore(stmt, "paid_txid");
+		db_col_ignore(stmt, "paid_outnum");
 	}
 
 	dtl->invstring = db_col_strdup(dtl, stmt, "bolt11");
@@ -606,7 +620,8 @@ static void maybe_mark_offer_used(struct db *db, u64 inv_dbid)
 bool invoices_resolve(struct invoices *invoices,
 		      u64 inv_dbid,
 		      struct amount_msat received,
-		      const struct json_escape *label)
+		      const struct json_escape *label,
+		      const struct bitcoin_outpoint *outpoint)
 {
 	struct db_stmt *stmt;
 	s64 pay_index;
@@ -626,12 +641,21 @@ bool invoices_resolve(struct invoices *invoices,
 					       "     , pay_index=?"
 					       "     , msatoshi_received=?"
 					       "     , paid_timestamp=?"
+					       "     , paid_txid=?"
+					       "     , paid_outnum=?"
 					       "     , updated_index=?"
 					       " WHERE id=?;"));
 	db_bind_int(stmt, PAID);
 	db_bind_u64(stmt, pay_index);
 	db_bind_amount_msat(stmt, &received);
 	db_bind_u64(stmt, paid_timestamp);
+	if (outpoint) {
+		db_bind_txid(stmt, &outpoint->txid);
+		db_bind_int(stmt, outpoint->n);
+	} else {
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
 	db_bind_u64(stmt,
 		    invoice_index_update_status(invoices->wallet->ld,
 						label, PAID));
@@ -742,6 +766,8 @@ struct invoice_details *invoices_get_details(const tal_t *ctx,
 					       ", pay_index"
 					       ", msatoshi_received"
 					       ", paid_timestamp"
+					       ", paid_txid"
+					       ", paid_outnum"
 					       ", bolt11"
 					       ", description"
 					       ", features"

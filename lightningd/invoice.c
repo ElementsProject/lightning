@@ -60,6 +60,12 @@ static void json_add_invoice_fields(struct json_stream *response,
 		json_add_amount_msat(response,
 				     "amount_received_msat", inv->received);
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
+		if (inv->paid_outpoint) {
+			json_object_start(response, "paid_outpoint");
+			json_add_txid(response, "txid", &inv->paid_outpoint->txid);
+			json_add_num(response, "outnum", inv->paid_outpoint->n);
+			json_object_end(response);
+		}
 		json_add_preimage(response, "payment_preimage", &inv->r);
 	}
 	if (inv->description)
@@ -322,7 +328,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 
 	/* Paid or expired in the meantime. */
 	if (!invoices_resolve(ld->wallet->invoices, inv_dbid, payload->msat,
-			      payload->label)) {
+			      payload->label, payload->outpoint)) {
 		if (payload->set)
 			htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
 								NULL, ld, payload->set->htlcs[0])));
