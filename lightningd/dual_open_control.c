@@ -1297,6 +1297,44 @@ wallet_update_channel(struct lightningd *ld,
 	return inflight;
 }
 
+static void
+wallet_update_channel_commit(struct lightningd *ld,
+			     struct channel *channel,
+			     struct channel_inflight *inflight,
+			     struct bitcoin_tx *remote_commit,
+			     struct bitcoin_signature *remote_commit_sig)
+{
+	channel_set_last_tx(channel,
+			    tal_steal(channel, remote_commit),
+			    remote_commit_sig);
+
+	/* We can't call channel_set_state here: channel isn't in db, so
+	 * really this is a "channel creation" event. */
+	if (channel->state == DUALOPEND_OPEN_COMMIT_READY) {
+		log_info(channel->log, "State changed from %s to %s",
+			 channel_state_name(channel),
+			 channel_state_str(DUALOPEND_OPEN_COMMITTED));
+		channel->state = DUALOPEND_OPEN_COMMITTED;
+		notify_channel_state_changed(channel->peer->ld,
+					     &channel->peer->id,
+					     &channel->cid,
+					     channel->scid,
+					     time_now(),
+					     DUALOPEND_OPEN_COMMIT_READY,
+					     DUALOPEND_OPEN_COMMITTED,
+					     REASON_REMOTE,
+					     "Commitment transaction committed");
+	}
+
+	/* Update in database */
+	wallet_channel_save(ld->wallet, channel);
+
+	/* Set inflight data & update */
+	inflight_set_last_tx(inflight, remote_commit, *remote_commit_sig);
+	wallet_inflight_save(ld->wallet, inflight);
+}
+
+
 /* Returns NULL if can't generate a key for this channel (Shouldn't happen) */
 static struct channel_inflight *
 wallet_commit_channel(struct lightningd *ld,
@@ -1340,6 +1378,21 @@ wallet_commit_channel(struct lightningd *ld,
 		return NULL;
 	}
 
+	assert(channel->state == DUALOPEND_OPEN_INIT);
+	log_info(channel->log, "State changed from %s to %s",
+		 channel_state_name(channel),
+		 channel_state_str(DUALOPEND_OPEN_COMMIT_READY));
+	channel->state = DUALOPEND_OPEN_COMMIT_READY;
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &channel->cid,
+				     channel->scid,
+				     time_now(),
+				     DUALOPEND_OPEN_INIT,
+				     DUALOPEND_OPEN_COMMIT_READY,
+				     REASON_REMOTE,
+				     "Ready to send our commitment sigs");
+
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info->their_config.id = 0;
 	/* old_remote_per_commit not valid yet, copy valid one. */
@@ -1347,7 +1400,6 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Promote the unsaved_dbid to the dbid */
 	assert(channel->unsaved_dbid != 0);
-	assert(channel->state == DUALOPEND_OPEN_INIT);
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
 	channel->funding = *funding;
@@ -3202,15 +3254,13 @@ static void handle_psbt_changed(struct subd *dualopend,
 	abort();
 }
 
-static void handle_commit_received(struct subd *dualopend,
-				   struct channel *channel,
-				   const u8 *msg)
+static void handle_commit_ready(struct subd *dualopend,
+				struct channel *channel,
+				const u8 *msg)
 {
 	struct lightningd *ld = dualopend->ld;
 	struct open_attempt *oa = channel->open_attempt;
 	struct channel_info channel_info;
-	struct bitcoin_tx *remote_commit;
-	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_outpoint funding;
 	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
@@ -3218,45 +3268,38 @@ static void handle_commit_received(struct subd *dualopend,
 	struct amount_sat total_funding, funding_ours, lease_fee, lease_amt;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
-	struct penalty_base *pbase;
 	struct wally_psbt *psbt;
-	struct json_stream *response;
-	struct openchannel2_psbt_payload *payload;
 	struct channel_inflight *inflight;
-	struct command *cmd = oa->cmd;
 	struct channel_type *channel_type;
 	secp256k1_ecdsa_signature *lease_commit_sig;
 
-	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
-					    &channel_info.their_config,
-					    &remote_commit,
-					    &pbase,
-					    &remote_commit_sig,
-					    &psbt,
-					    &channel_info.theirbase.revocation,
-					    &channel_info.theirbase.payment,
-					    &channel_info.theirbase.htlc,
-					    &channel_info.theirbase.delayed_payment,
-					    &channel_info.remote_per_commit,
-					    &channel_info.remote_fundingkey,
-					    &funding,
-					    &total_funding,
-					    &funding_ours,
-					    &channel->channel_flags,
-					    &feerate_funding,
-					    &feerate_commitment,
-					    &local_upfront_shutdown_script,
-					    &remote_upfront_shutdown_script,
-					    &lease_amt,
-					    &lease_blockheight_start,
-					    &lease_expiry,
-					    &lease_fee,
-					    &lease_commit_sig,
-					    &lease_chan_max_msat,
-					    &lease_chan_max_ppt,
-					    &channel_type)) {
+	if (!fromwire_dualopend_commit_ready(tmpctx, msg,
+					     &channel_info.their_config,
+					     &psbt,
+					     &channel_info.theirbase.revocation,
+					     &channel_info.theirbase.payment,
+					     &channel_info.theirbase.htlc,
+					     &channel_info.theirbase.delayed_payment,
+					     &channel_info.remote_per_commit,
+					     &channel_info.remote_fundingkey,
+					     &funding,
+					     &total_funding,
+					     &funding_ours,
+					     &channel->channel_flags,
+					     &feerate_funding,
+					     &feerate_commitment,
+					     &local_upfront_shutdown_script,
+					     &remote_upfront_shutdown_script,
+					     &lease_amt,
+					     &lease_blockheight_start,
+					     &lease_expiry,
+					     &lease_fee,
+					     &lease_commit_sig,
+					     &lease_chan_max_msat,
+					     &lease_chan_max_ppt,
+					     &channel_type)) {
 		channel_internal_error(channel,
-				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
+				       "Bad WIRE_DUALOPEND_COMMIT_READY: %s",
 				       tal_hex(msg, msg));
 		channel->open_attempt = tal_free(channel->open_attempt);
 		notify_channel_open_failed(channel->peer->ld, &channel->cid);
@@ -3331,6 +3374,58 @@ static void handle_commit_received(struct subd *dualopend,
 
 	}
 
+	/* Send back ack! */
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_commit_send_ack(NULL)));
+
+}
+
+static void handle_commit_received(struct subd *dualopend,
+				   struct channel *channel,
+				   const u8 *msg)
+{
+	struct lightningd *ld = dualopend->ld;
+	struct open_attempt *oa = channel->open_attempt;
+	struct bitcoin_tx *remote_commit;
+	struct bitcoin_signature remote_commit_sig;
+	struct penalty_base *pbase;
+	struct json_stream *response;
+	struct openchannel2_psbt_payload *payload;
+	struct channel_inflight *inflight;
+	struct command *cmd = oa->cmd;
+
+	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
+					    &remote_commit,
+					    &remote_commit_sig,
+					    &pbase)) {
+		channel_internal_error(channel,
+				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
+				       tal_hex(msg, msg));
+		channel->open_attempt = tal_free(channel->open_attempt);
+		notify_channel_open_failed(channel->peer->ld, &channel->cid);
+		return;
+	}
+
+	inflight = channel_current_inflight(channel);
+	if (!inflight) {
+		channel_internal_error(channel,
+				       "No inflight found for channel %s",
+				       type_to_string(tmpctx, struct channel,
+						      channel));
+		return;
+	}
+
+	wallet_update_channel_commit(ld, channel, inflight,
+				     remote_commit,
+				     &remote_commit_sig);
+
+	/* FIXME: handle RBF pbases */
+	if (pbase && channel->state != DUALOPEND_AWAITING_LOCKIN) {
+		wallet_penalty_base_add(ld->wallet,
+					channel->dbid,
+					pbase);
+	}
+
 	switch (oa->role) {
 	case TX_INITIATOR:
 		if (!oa->cmd) {
@@ -3401,6 +3496,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_PSBT_CHANGED:
 			handle_psbt_changed(dualopend, channel, msg);
 			return 0;
+		case WIRE_DUALOPEND_COMMIT_READY:
+			handle_commit_ready(dualopend, channel, msg);
+			return 0;
 		case WIRE_DUALOPEND_COMMIT_RCVD:
 			handle_commit_received(dualopend, channel, msg);
 			return 0;
@@ -3448,6 +3546,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
 		case WIRE_DUALOPEND_OPENER_INIT:
+		case WIRE_DUALOPEND_COMMIT_SEND_ACK:
 		case WIRE_DUALOPEND_RBF_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:

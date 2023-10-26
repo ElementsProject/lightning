@@ -796,16 +796,15 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert 'closer' not in l2.rpc.listpeerchannels()['channels'][0]
 
     if l1.config('experimental-dual-fund'):
-        # Dual funded channels go through two state transitions.
-        event1a, event1b = wait_for_event(l1), wait_for_event(l1)
-        event2a, event2b = wait_for_event(l2), wait_for_event(l2)
+        # Dual funded channels go through three state transitions.
+        event1a, event1b, event1c = wait_for_event(l1), wait_for_event(l1), wait_for_event(l1)
+        event2a, event2b, event2c = wait_for_event(l2), wait_for_event(l2), wait_for_event(l2)
 
         for ev in [event1a, event1b]:
             assert(ev['peer_id'] == l2_id)  # we only test these IDs the first time
             assert(ev['channel_id'] == cid)
             assert(ev['short_channel_id'] is None)  # None until locked in
-        assert(event1a['cause'] == "remote")
-        assert(event1b['cause'] == "user")
+            assert(ev['cause'] == "remote")
 
         for ev in [event2a, event2b]:
             assert(ev['peer_id'] == l1_id)  # we only test these IDs the first time
@@ -815,10 +814,15 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
 
         for ev in [event1a, event2a]:
             assert(ev['old_state'] == "DUALOPEND_OPEN_INIT")
+            assert(ev['new_state'] == "DUALOPEND_OPEN_COMMIT_READY")
+            assert(ev['message'] == "Ready to send our commitment sigs")
+
+        for ev in [event1b, event2b]:
+            assert(ev['old_state'] == "DUALOPEND_OPEN_COMMIT_READY")
             assert(ev['new_state'] == "DUALOPEND_OPEN_COMMITTED")
             assert(ev['message'] == "Commitment transaction committed")
 
-        for ev in [event1b, event2b]:
+        for ev in [event1c, event2c]:
             assert(ev['old_state'] == "DUALOPEND_OPEN_COMMITTED")
             assert(ev['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
             assert(ev['message'] == "Sigs exchanged, waiting for lock-in")
@@ -960,8 +964,13 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
 
     if l2.config('experimental-dual-fund'):
         assert(event2['old_state'] == "DUALOPEND_OPEN_INIT")
-        assert(event2['new_state'] == "DUALOPEND_OPEN_COMMITTED")
-        assert(event2['message'] == "Commitment transaction committed")
+        assert(event2['new_state'] == "DUALOPEND_OPEN_COMMIT_READY")
+        assert(event2['message'] == "Ready to send our commitment sigs")
+
+        event2 = wait_for_event(l2)
+        assert event2['old_state'] == "DUALOPEND_OPEN_COMMIT_READY"
+        assert event2['new_state'] == "DUALOPEND_OPEN_COMMITTED"
+        assert event2['message'] == "Commitment transaction committed"
 
         event2 = wait_for_event(l2)
         assert event2['old_state'] == "DUALOPEND_OPEN_COMMITTED"
