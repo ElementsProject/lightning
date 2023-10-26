@@ -1343,6 +1343,22 @@ def test_funding_reorg_get_upset(node_factory, bitcoind):
     assert only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL'
 
 
+def test_decode(node_factory, bitcoind):
+    """Test the decode option to decode the contents of emergency recovery.
+    """
+    l1 = node_factory.get_node(allow_broken_log=True)
+    cmd_line = ["tools/hsmtool", "getemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
+    out = subprocess.check_output(cmd_line).decode('utf-8')
+    bech32_out = out.strip('\n')
+    assert bech32_out.startswith('clnemerg1')
+
+    x = l1.rpc.decode(bech32_out)
+
+    assert x["valid"]
+    assert x["type"] == "emergency recover"
+    assert x["decrypted"].startswith('17')
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover(node_factory, bitcoind):
     """Test the recover option
