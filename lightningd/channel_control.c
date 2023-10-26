@@ -643,7 +643,6 @@ static void handle_add_inflight(struct lightningd *ld,
 	s64 splice_amnt;
 	struct wally_psbt *psbt;
 	struct channel_inflight *inflight;
-	struct bitcoin_signature last_sig;
 	bool i_am_initiator;
 
 	if (!fromwire_channeld_add_inflight(tmpctx,
@@ -661,17 +660,12 @@ static void handle_add_inflight(struct lightningd *ld,
 		return;
 	}
 
-	/* FIXME: DTODO: Use a pointer to a sig instead of zero'ing one out. */
-	memset(&last_sig, 0, sizeof(last_sig));
-
 	inflight = new_inflight(channel,
 				&outpoint,
 				feerate,
 				satoshis,
 				channel->our_funds,
 				psbt,
-				NULL,
-				last_sig,
 				channel->lease_expiry,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,

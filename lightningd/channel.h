@@ -389,8 +389,6 @@ struct channel_inflight *new_inflight(struct channel *channel,
 	     struct amount_sat funding_sat,
 	     struct amount_sat our_funds,
 	     struct wally_psbt *funding_psbt STEALS,
-	     struct bitcoin_tx *last_tx STEALS,
-	     const struct bitcoin_signature last_sig,
 	     const u32 lease_expiry,
 	     const secp256k1_ecdsa_signature *lease_commit_sig,
 	     const u32 lease_chan_max_msat,
@@ -400,6 +398,11 @@ struct channel_inflight *new_inflight(struct channel *channel,
 	     const struct amount_sat lease_amt,
 	     s64 splice_amnt,
 	     bool i_am_initiator);
+
+/* Add a last_tx and sig to an inflight */
+void inflight_set_last_tx(struct channel_inflight *inflight,
+		          struct bitcoin_tx *last_tx STEALS,
+		          const struct bitcoin_signature last_sig);
 
 /* Given a txid, find an inflight channel stub. Returns NULL if none found */
 struct channel_inflight *channel_inflight_find(struct channel *channel,

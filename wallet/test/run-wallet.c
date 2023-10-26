@@ -1919,13 +1919,13 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				funding_sats,
 				our_sats,
 				funding_psbt,
-				last_tx,
-				sig,
 				1, lease_commit_sig, 2, 4, 22,
 				AMOUNT_MSAT(10),
 				AMOUNT_SAT(1111),
 				0,
 				false);
+
+	inflight_set_last_tx(inflight, last_tx, sig);
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
@@ -1945,13 +1945,12 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				funding_sats,
 				our_sats,
 				funding_psbt,
-				last_tx,
-				sig,
 				0, NULL, 0, 0, 0,
 				AMOUNT_MSAT(0),
 				AMOUNT_SAT(0),
 				0,
 				false);
+	inflight_set_last_tx(inflight, last_tx, sig);
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
 		  tal_fmt(w, "Load from DB"));
