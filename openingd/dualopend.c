@@ -2096,38 +2096,53 @@ static u8 *accepter_commits(struct state *state,
 	else
 		pbase = NULL;
 
-	/* Send the commitment_signed controller; will save to db,
-	 * then wait to get our sigs back */
-	msg = towire_dualopend_commit_rcvd(state,
-					   &tx_state->remoteconf,
-					   local_commit,
-					   pbase,
-					   &remote_sig,
-					   tx_state->psbt,
-					   &state->their_points.revocation,
-					   &state->their_points.payment,
-					   &state->their_points.htlc,
-					   &state->their_points.delayed_payment,
-					   &state->first_per_commitment_point[REMOTE],
-					   &state->their_funding_pubkey,
-					   &tx_state->funding,
-					   total,
-					   tx_state->accepter_funding,
-					   state->channel_flags,
-					   tx_state->feerate_per_kw_funding,
-					   state->feerate_per_kw_commitment,
-					   state->upfront_shutdown_script[LOCAL],
-					   state->upfront_shutdown_script[REMOTE],
-					   state->requested_lease ?
+	/* Let lightningd know we're about to send our commitment sigs */
+	peer_billboard(false, "channel open: commitment ready to send, "
+		       "sending channel to lightningd to save");
+
+	msg = towire_dualopend_commit_ready(state,
+					    &tx_state->remoteconf,
+					    tx_state->psbt,
+					    &state->their_points.revocation,
+					    &state->their_points.payment,
+					    &state->their_points.htlc,
+					    &state->their_points.delayed_payment,
+					    &state->first_per_commitment_point[REMOTE],
+					    &state->their_funding_pubkey,
+					    &tx_state->funding,
+					    total,
+					    tx_state->accepter_funding,
+					    state->channel_flags,
+					    tx_state->feerate_per_kw_funding,
+					    state->feerate_per_kw_commitment,
+					    state->upfront_shutdown_script[LOCAL],
+					    state->upfront_shutdown_script[REMOTE],
+					    state->requested_lease ?
 						   *state->requested_lease :
 						   AMOUNT_SAT(0),
-					   tx_state->blockheight,
-					   tx_state->lease_expiry,
-					   tx_state->lease_fee,
-					   tx_state->lease_commit_sig,
-					   tx_state->lease_chan_max_msat,
-					   tx_state->lease_chan_max_ppt,
-					   state->channel_type);
+					    tx_state->blockheight,
+					    tx_state->lease_expiry,
+					    tx_state->lease_fee,
+					    tx_state->lease_commit_sig,
+					    tx_state->lease_chan_max_msat,
+					    tx_state->lease_chan_max_ppt,
+					    state->channel_type);
+
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
+		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
+
+	/* Send the commitment_signed to lightningd; will save to db,
+	 * then wait to get our sigs back */
+	peer_billboard(false, "channel open: commitment received, "
+		       "sending to lightningd to save");
+
+	msg = towire_dualopend_commit_rcvd(state,
+					   local_commit,
+					   &remote_sig,
+					   pbase);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2779,6 +2794,46 @@ static u8 *opener_commits(struct state *state,
 				    &state->our_funding_pubkey));
 
 	assert(local_sig.sighash_type == SIGHASH_ALL);
+
+	peer_billboard(false, "channel open: commitment ready to send, "
+		       "sending channel to lightningd to save");
+
+	/* We're about to send our commitment_signed, let master know */
+	msg = towire_dualopend_commit_ready(state,
+					    &tx_state->remoteconf,
+					    tx_state->psbt,
+					    &state->their_points.revocation,
+					    &state->their_points.payment,
+					    &state->their_points.htlc,
+					    &state->their_points.delayed_payment,
+					    &state->first_per_commitment_point[REMOTE],
+					    &state->their_funding_pubkey,
+					    &tx_state->funding,
+					    total,
+					    tx_state->opener_funding,
+					    state->channel_flags,
+					    tx_state->feerate_per_kw_funding,
+					    state->feerate_per_kw_commitment,
+					    state->upfront_shutdown_script[LOCAL],
+					    state->upfront_shutdown_script[REMOTE],
+					    state->requested_lease ?
+						    *state->requested_lease :
+						    AMOUNT_SAT(0),
+					    tx_state->blockheight,
+					    tx_state->lease_expiry,
+					    tx_state->lease_fee,
+					    tx_state->lease_commit_sig,
+					    tx_state->lease_chan_max_msat,
+					    tx_state->lease_chan_max_ppt,
+					    state->channel_type);
+
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
+		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
+
+	/* Ok, now send the commitment signed! */
 	msg = towire_commitment_signed(tmpctx, &state->channel_id,
 				       &local_sig.s,
 				       NULL, NULL);
@@ -2884,35 +2939,9 @@ static u8 *opener_commits(struct state *state,
 		       "sending to lightningd to save");
 
 	return towire_dualopend_commit_rcvd(state,
-					    &tx_state->remoteconf,
 					    local_commit,
-					    pbase,
 					    &remote_sig,
-					    tx_state->psbt,
-					    &state->their_points.revocation,
-					    &state->their_points.payment,
-					    &state->their_points.htlc,
-					    &state->their_points.delayed_payment,
-					    &state->first_per_commitment_point[REMOTE],
-					    &state->their_funding_pubkey,
-					    &tx_state->funding,
-					    total,
-					    tx_state->opener_funding,
-					    state->channel_flags,
-					    tx_state->feerate_per_kw_funding,
-					    state->feerate_per_kw_commitment,
-					    state->upfront_shutdown_script[LOCAL],
-					    state->upfront_shutdown_script[REMOTE],
-					    state->requested_lease ?
-						    *state->requested_lease :
-						    AMOUNT_SAT(0),
-					    tx_state->blockheight,
-					    tx_state->lease_expiry,
-					    tx_state->lease_fee,
-					    tx_state->lease_commit_sig,
-					    tx_state->lease_chan_max_msat,
-					    tx_state->lease_chan_max_ppt,
-					    state->channel_type);
+					    pbase);
 }
 
 static void opener_start(struct state *state, u8 *msg)
@@ -4098,6 +4127,7 @@ static u8 *handle_master_in(struct state *state)
 	/* Handled inline */
 	case WIRE_DUALOPEND_INIT:
 	case WIRE_DUALOPEND_REINIT:
+	case WIRE_DUALOPEND_COMMIT_SEND_ACK:
 	case WIRE_DUALOPEND_PSBT_UPDATED:
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
@@ -4107,6 +4137,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 
 	/* Messages we send */
+	case WIRE_DUALOPEND_COMMIT_READY:
 	case WIRE_DUALOPEND_GOT_OFFER:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER:
 	case WIRE_DUALOPEND_RBF_VALIDATE:

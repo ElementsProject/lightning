@@ -133,38 +133,44 @@ msgdata,dualopend_rbf_init,our_funding,amount_sat,
 msgdata,dualopend_rbf_init,funding_feerate_perkw,u32,
 msgdata,dualopend_rbf_init,psbt,wally_psbt,
 
-# dualopend->master: ready to commit channel open to database and
+# dualopend->master: about to send first commitment_signed
+msgtype,dualopend_commit_ready,7009
+msgdata,dualopend_commit_ready,their_config,channel_config,
+msgdata,dualopend_commit_ready,psbt,wally_psbt,
+msgdata,dualopend_commit_ready,revocation_basepoint,pubkey,
+msgdata,dualopend_commit_ready,payment_basepoint,pubkey,
+msgdata,dualopend_commit_ready,htlc_basepoint,pubkey,
+msgdata,dualopend_commit_ready,delayed_payment_basepoint,pubkey,
+msgdata,dualopend_commit_ready,their_per_commit_point,pubkey,
+msgdata,dualopend_commit_ready,remote_fundingkey,pubkey,
+msgdata,dualopend_commit_ready,funding,bitcoin_outpoint,
+msgdata,dualopend_commit_ready,funding_satoshis,amount_sat,
+msgdata,dualopend_commit_ready,our_funding_sats,amount_sat,
+msgdata,dualopend_commit_ready,channel_flags,u8,
+msgdata,dualopend_commit_ready,feerate_per_kw_funding,u32,
+msgdata,dualopend_commit_ready,feerate_per_kw_commitment,u32,
+msgdata,dualopend_commit_ready,local_shutdown_len,u16,
+msgdata,dualopend_commit_ready,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_commit_ready,remote_shutdown_len,u16,
+msgdata,dualopend_commit_ready,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_ready,lease_amt,amount_sat,
+msgdata,dualopend_commit_ready,lease_start_blockheight,u32,
+msgdata,dualopend_commit_ready,lease_expiry,u32,
+msgdata,dualopend_commit_ready,lease_fee,amount_sat,
+msgdata,dualopend_commit_ready,lease_commit_sig,?secp256k1_ecdsa_signature,
+msgdata,dualopend_commit_ready,lease_chan_max_msat,u32,
+msgdata,dualopend_commit_ready,lease_chan_max_ppt,u16,
+msgdata,dualopend_commit_ready,channel_type,channel_type,
+
+# master->dualopend: channel saved to disk
+msgtype,dualopend_commit_send_ack,7109
+
+# dualopend->master: received commitment signed from peer,
 #                    get some signatures for the funding_tx.
 msgtype,dualopend_commit_rcvd,7007
-msgdata,dualopend_commit_rcvd,their_config,channel_config,
 msgdata,dualopend_commit_rcvd,remote_first_commit,bitcoin_tx,
-msgdata,dualopend_commit_rcvd,pbase,?penalty_base,
 msgdata,dualopend_commit_rcvd,first_commit_sig,bitcoin_signature,
-msgdata,dualopend_commit_rcvd,psbt,wally_psbt,
-msgdata,dualopend_commit_rcvd,revocation_basepoint,pubkey,
-msgdata,dualopend_commit_rcvd,payment_basepoint,pubkey,
-msgdata,dualopend_commit_rcvd,htlc_basepoint,pubkey,
-msgdata,dualopend_commit_rcvd,delayed_payment_basepoint,pubkey,
-msgdata,dualopend_commit_rcvd,their_per_commit_point,pubkey,
-msgdata,dualopend_commit_rcvd,remote_fundingkey,pubkey,
-msgdata,dualopend_commit_rcvd,funding,bitcoin_outpoint,
-msgdata,dualopend_commit_rcvd,funding_satoshis,amount_sat,
-msgdata,dualopend_commit_rcvd,our_funding_sats,amount_sat,
-msgdata,dualopend_commit_rcvd,channel_flags,u8,
-msgdata,dualopend_commit_rcvd,feerate_per_kw_funding,u32,
-msgdata,dualopend_commit_rcvd,feerate_per_kw_commitment,u32,
-msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
-msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
-msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
-msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
-msgdata,dualopend_commit_rcvd,lease_amt,amount_sat,
-msgdata,dualopend_commit_rcvd,lease_start_blockheight,u32,
-msgdata,dualopend_commit_rcvd,lease_expiry,u32,
-msgdata,dualopend_commit_rcvd,lease_fee,amount_sat,
-msgdata,dualopend_commit_rcvd,lease_commit_sig,?secp256k1_ecdsa_signature,
-msgdata,dualopend_commit_rcvd,lease_chan_max_msat,u32,
-msgdata,dualopend_commit_rcvd,lease_chan_max_ppt,u16,
-msgdata,dualopend_commit_rcvd,channel_type,channel_type,
+msgdata,dualopend_commit_rcvd,pbase,?penalty_base,
 
 # dualopend->master: peer updated the psbt
 msgtype,dualopend_psbt_changed,7107
