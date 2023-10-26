@@ -27,14 +27,6 @@
 #include <wally_psbt.h>
 #include <wire/wire_sync.h>
 
-enum addrtype {
-	/* Deprecated! */
-	ADDR_P2SH_SEGWIT = 1,
-	ADDR_BECH32 = 2,
-	ADDR_P2TR = 4,
-	ADDR_ALL = (ADDR_P2SH_SEGWIT + ADDR_BECH32 + ADDR_P2TR)
-};
-
 /* May return NULL if encoding error occurs. */
 static char *
 encode_pubkey_to_addr(const tal_t *ctx,
@@ -126,6 +118,33 @@ static struct command_result *param_newaddr(struct command *cmd,
 	return NULL;
 }
 
+bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey, enum addrtype addrtype)
+{
+	s64 keyidx;
+	u8 *b32script;
+	u8 *p2tr_script;
+
+	keyidx = wallet_get_newindex(cmd->ld);
+	if (keyidx < 0) {
+		// return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
+		return false;
+	}
+
+	bip32_pubkey(cmd->ld, pubkey, keyidx);
+
+	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
+	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
+	if (addrtype & ADDR_BECH32)
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+	if (addrtype & ADDR_P2TR)
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
+	if (cmd->ld->deprecated_apis && (addrtype & ADDR_P2SH_SEGWIT))
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
+					  scriptpubkey_p2sh(tmpctx, b32script));
+	return true;
+}
+
+
 static struct command_result *json_newaddr(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -134,32 +153,16 @@ static struct command_result *json_newaddr(struct command *cmd,
 	struct json_stream *response;
 	struct pubkey pubkey;
 	enum addrtype *addrtype;
-	s64 keyidx;
 	char *p2sh, *bech32, *p2tr;
-	u8 *b32script;
-	u8 *p2tr_script;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("addresstype", param_newaddr, &addrtype, ADDR_BECH32),
 		   NULL))
 		return command_param_failed();
 
-	keyidx = wallet_get_newindex(cmd->ld);
-	if (keyidx < 0) {
+	if (!newaddr_inner(cmd, &pubkey, *addrtype)) {
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
-	}
-
-	bip32_pubkey(cmd->ld, &pubkey, keyidx);
-
-	b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-	p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-	if (*addrtype & ADDR_BECH32)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
-	if (*addrtype & ADDR_P2TR)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
-	if (cmd->ld->deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
-					  scriptpubkey_p2sh(tmpctx, b32script));
+	};
 
 	p2sh = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2SH_SEGWIT, NULL);
 	bech32 = encode_pubkey_to_addr(cmd, &pubkey, ADDR_BECH32, NULL);
