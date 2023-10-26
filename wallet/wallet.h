@@ -24,6 +24,7 @@ struct node_id;
 struct oneshot;
 struct peer;
 struct timers;
+struct local_anchor_info;
 
 struct wallet {
 	struct lightningd *ld;
@@ -1698,4 +1699,38 @@ void wallet_insert_blacklist(struct wallet *wallet, const struct rune_blacklist 
  */
 void wallet_delete_blacklist(struct wallet *wallet, const struct rune_blacklist *entry);
 
+/**
+ * wallet_set_local_anchor -- Set local anchor point for a remote commitment tx
+ * @w: wallet containing the channel
+ * @channel_id: channel database id
+ * @anchor: the local_anchor_info describing the remote commitment tx.
+ * @remote_index: the (remote) commitment index
+ */
+void wallet_set_local_anchor(struct wallet *w,
+			     u64 channel_id,
+			     const struct local_anchor_info *anchor,
+			     u64 remote_index);
+
+/**
+ * wallet_remove_local_anchors -- Remove old local anchor points
+ * @w: wallet containing the channel
+ * @channel_id: channel database id
+ * @old_remote_index: the (remote) commitment index to remove
+ *
+ * Since we only have to keep the last two, we use this to remove the
+ * old entries for the channel.
+ */
+void wallet_remove_local_anchors(struct wallet *w,
+				 u64 channel_id,
+				 u64 old_remote_index);
+
+/**
+ * wallet_get_local_anchors -- Get all local anchor points for remote commitment txs
+ * @ctx: tal context for returned array
+ * @w: wallet containing the channel
+ * @channel_id: channel database id
+ */
+struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
+						   struct wallet *w,
+						   u64 channel_id);
 #endif /* LIGHTNING_WALLET_WALLET_H */

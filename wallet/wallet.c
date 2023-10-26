@@ -4,6 +4,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/blockheight_states.h>
 #include <common/fee_states.h>
 #include <common/onionreply.h>
@@ -5912,4 +5913,69 @@ void migrate_runes_idfix(struct lightningd *ld, struct db *db)
 
 		db_rune_insert(db, r);
 	}
+}
+
+void wallet_set_local_anchor(struct wallet *w,
+			     u64 channel_id,
+			     const struct local_anchor_info *anchor,
+			     u64 remote_index)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO local_anchors VALUES (?,?,?,?,?,?)"));
+	db_bind_u64(stmt, channel_id);
+	db_bind_u64(stmt, remote_index);
+	db_bind_txid(stmt, &anchor->anchor_point.txid);
+	db_bind_int(stmt, anchor->anchor_point.n);
+	db_bind_amount_sat(stmt, &anchor->commitment_fee);
+	db_bind_int(stmt, anchor->commitment_weight);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
+void wallet_remove_local_anchors(struct wallet *w,
+				 u64 channel_id,
+				 u64 old_remote_index)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("DELETE FROM local_anchors "
+				 "WHERE channel_id = ? and commitment_index <= ?;"));
+	db_bind_u64(stmt, channel_id);
+	db_bind_u64(stmt, old_remote_index);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
+struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
+						   struct wallet *w,
+						   u64 channel_id)
+{
+	struct db_stmt *stmt;
+	struct local_anchor_info *anchors;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  commitment_txid "
+					", commitment_anchor_outnum "
+					", commitment_fee "
+					", commitment_weight "
+					"FROM local_anchors"
+					" WHERE channel_id = ?;"));
+	db_bind_u64(stmt, channel_id);
+	db_query_prepared(stmt);
+
+	anchors = tal_arr(ctx, struct local_anchor_info, 0);
+	while (db_step(stmt)) {
+		struct local_anchor_info a;
+		a.commitment_fee = db_col_amount_sat(stmt, "commitment_fee");
+		a.commitment_weight = db_col_int(stmt, "commitment_weight");
+		db_col_txid(stmt, "commitment_txid", &a.anchor_point.txid);
+		a.anchor_point.n = db_col_int(stmt, "commitment_anchor_outnum");
+		tal_arr_expand(&anchors, a);
+	}
+	tal_free(stmt);
+
+	return anchors;
 }
