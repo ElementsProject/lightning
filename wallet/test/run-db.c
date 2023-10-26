@@ -95,6 +95,11 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin UNNEEDED, const char *ab
 /* Generated stub for htlc_out_connect_htlc_in */
 void htlc_out_connect_htlc_in(struct htlc_out *hout UNNEEDED, struct htlc_in *hin UNNEEDED)
 { fprintf(stderr, "htlc_out_connect_htlc_in called!\n"); abort(); }
+/* Generated stub for inflight_set_last_tx */
+void inflight_set_last_tx(struct channel_inflight *inflight UNNEEDED,
+		          struct bitcoin_tx *last_tx STEALS UNNEEDED,
+		          const struct bitcoin_signature last_sig UNNEEDED)
+{ fprintf(stderr, "inflight_set_last_tx called!\n"); abort(); }
 /* Generated stub for invoices_new */
 struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct wallet *wallet UNNEEDED,
