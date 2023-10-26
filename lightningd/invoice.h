@@ -77,14 +77,18 @@ void invoice_check_onchain_payment(struct lightningd *ld,
 /**
  * invoice_try_pay - process payment for these incoming payments.
  * @ld: lightningd
- * @set: the htlc_set used to pay this.
+ * @set: the htlc_set used to pay this (NULL if onchain)
  * @details: returned from successful invoice_check_payment.
+ * @msat: the amount of the output or htlc_set
+ * @outpoint: the onchain outpoint (iff onchain).
  *
- * Either calls fulfill_htlc_set() or fail_htlc_set().
+ * If @set is not NULL, either calls fulfill_htlc_set() or fail_htlc_set().
  */
 void invoice_try_pay(struct lightningd *ld,
 		     struct htlc_set *set,
-		     const struct invoice_details *details);
+		     const struct invoice_details *details,
+		     struct amount_msat msat,
+		     const struct bitcoin_outpoint *outpoint);
 
 /* Simple enum -> string converter for JSON fields */
 const char *invoice_status_str(enum invoice_status state);

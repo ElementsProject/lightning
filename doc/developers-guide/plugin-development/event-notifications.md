@@ -120,6 +120,10 @@ A notification for topic `invoice_payment` is sent every time an invoice is paid
 
 ```
 
+Note that there will be a string member "outpoint" ("txid:outnum") if
+the payment was onchain (possible with the *invoices-onchain-fallback*
+config option).
+
 ### `invoice_creation`
 
 A notification for topic `invoice_creation` is sent every time an invoice is created.
