@@ -986,6 +986,14 @@ static struct migration dbmigrations[] = {
      NULL},
     {SQL("ALTER TABLE invoices ADD paid_txid BLOB DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE invoices ADD paid_outnum INTEGER DEFAULT NULL"), NULL},
+    {SQL("CREATE TABLE local_anchors ("
+	 "  channel_id BIGSERIAL REFERENCES channels(id),"
+	 "  commitment_index BIGINT,"
+	 "  commitment_txid BLOB,"
+	 "  commitment_anchor_outnum INTEGER,"
+	 "  commitment_fee BIGINT,"
+	 "  commitment_weight INTEGER)"), NULL},
+    {SQL("CREATE INDEX local_anchors_idx ON local_anchors (channel_id)"), NULL},
 };
 
 /**
