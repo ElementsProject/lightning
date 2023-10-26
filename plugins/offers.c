@@ -6,6 +6,7 @@
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
 #include <common/bolt12_merkle.h>
@@ -17,6 +18,10 @@
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
+#include <sodium.h>
+
+#define HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
+#define ABYTES crypto_secretstream_xchacha20poly1305_ABYTES
 
 struct pubkey id;
 u32 blockheight;
@@ -159,7 +164,40 @@ struct decodable {
 	struct tlv_invoice *invoice;
 	struct tlv_invoice_request *invreq;
 	struct rune *rune;
+	u8 *emergency_recover;
 };
+
+static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
+	if (strlen(str) < 8) {
+		*fail = tal_fmt(ctx, "invalid payload");
+		return NULL;
+	}
+
+	size_t hrp_maxlen = strlen(str) - 6;
+	char *hrp = tal_arr(ctx, char, hrp_maxlen);
+
+	size_t data_maxlen = strlen(str) - 8;
+	u5 *data = tal_arr(ctx, u5, data_maxlen);
+	size_t datalen = 0;
+
+	if (bech32_decode(hrp, data, &datalen, str, (size_t)-1)
+		== BECH32_ENCODING_NONE) {
+		*fail = tal_fmt(ctx, "invalid bech32 encoding");
+		goto fail;
+	}
+
+	if (!streq(hrp, "clnemerg")) {
+		*fail = tal_fmt(ctx, "hrp should be `clnemerg`");
+		goto fail;
+	}
+	u8 *data8bit = tal_arr(data, u8, 0);
+	bech32_pull_bits(&data8bit, data, datalen*5);
+
+	return data8bit;
+fail:
+	tal_free(data);
+	return NULL;
+}
 
 static struct command_result *param_decodable(struct command *cmd,
 					      const char *name,
@@ -211,6 +249,17 @@ static struct command_result *param_decodable(struct command *cmd,
 					      ? &likely_fail : &fail);
 	if (decodable->invreq) {
 		decodable->type = "bolt12 invoice_request";
+		return NULL;
+	}
+
+	decodable->emergency_recover = encrypted_decode(cmd, tal_strndup(tmpctx, buffer + tok.start,
+						     tok.end - tok.start),
+						     json_tok_startswith(buffer, &tok,
+									"clnemerg1")
+						     ? &likely_fail : &fail);
+
+	if (decodable->emergency_recover) {
+		decodable->type = "emergency recover";
 		return NULL;
 	}
 
@@ -1009,6 +1058,55 @@ static void json_add_rune(struct command *cmd, struct json_stream *js, const str
 	json_add_bool(js, "valid", true);
 }
 
+static struct command_result *after_makesecret(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct decodable *decodable)
+{
+	struct secret secret;
+	struct json_stream *response;
+	const jsmntok_t *secrettok;
+
+	secrettok = json_get_member(buf, result, "secret");
+	json_to_secret(buf, secrettok, &secret);
+
+	crypto_secretstream_xchacha20poly1305_state crypto_state;
+
+	if (tal_bytelen(decodable->emergency_recover) < ABYTES +
+	    HEADER_LEN)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Can't decrypt, hex is too short!");
+
+	u8 *decrypt_blob = tal_arr(tmpctx, u8,
+				   tal_bytelen(decodable->emergency_recover) -
+				   ABYTES -
+				   HEADER_LEN);
+	/* The header part */
+	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state,
+							    decodable->emergency_recover,
+							    secret.data) != 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can't decrypt!");
+	}
+
+	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, decrypt_blob,
+						       NULL, 0,
+						       decodable->emergency_recover +
+						       HEADER_LEN,
+						       tal_bytelen(decodable->emergency_recover) -
+						       HEADER_LEN,
+						       NULL, 0) != 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can't decrypt!");
+	}
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_bool(response, "valid", true);
+	json_add_string(response, "type", decodable->type);
+	json_add_hex(response, "decrypted", decrypt_blob,
+		     tal_bytelen(decrypt_blob));
+
+	return command_finished(cmd, response);
+}
+
 static struct command_result *json_decode(struct command *cmd,
 					  const char *buffer,
 					  const jsmntok_t *params)
@@ -1036,6 +1134,17 @@ static struct command_result *json_decode(struct command *cmd,
 	}
 	if (decodable->rune)
 		json_add_rune(cmd, response, decodable->rune);
+	if (decodable->emergency_recover) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, cmd, "makesecret",
+					    after_makesecret, &forward_error,
+					    decodable);
+
+		json_add_string(req->js, "string", "scb secret");
+		return send_outreq(cmd->plugin, req);
+	}
+
 	return command_finished(cmd, response);
 }
 
