@@ -978,6 +978,14 @@ static struct migration dbmigrations[] = {
     {NULL, migrate_runes_idfix},
     {SQL("ALTER TABLE runes ADD last_used_nsec BIGINT DEFAULT NULL"), NULL},
     {SQL("DELETE FROM vars WHERE name = 'runes_uniqueid'"), NULL},
+    {SQL("CREATE TABLE invoice_fallbacks ("
+     "  scriptpubkey BLOB,"
+     "  invoice_id BIGINT REFERENCES invoices(id) ON DELETE CASCADE,"
+     "  PRIMARY KEY (scriptpubkey)"
+     ");"),
+     NULL},
+    {SQL("ALTER TABLE invoices ADD paid_txid BLOB DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE invoices ADD paid_outnum INTEGER DEFAULT NULL"), NULL},
 };
 
 /**
