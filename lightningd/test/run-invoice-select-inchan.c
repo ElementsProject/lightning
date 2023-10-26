@@ -386,6 +386,11 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 		     const struct sha256 *rhash UNNEEDED,
 		     const struct sha256 *local_offer_id UNNEEDED)
 { fprintf(stderr, "invoices_create called!\n"); abort(); }
+/* Generated stub for invoices_create_fallback */
+void invoices_create_fallback(struct invoices *invoices UNNEEDED,
+			      u64 inv_dbid UNNEEDED,
+			      const u8 *scriptPubkey UNNEEDED)
+{ fprintf(stderr, "invoices_create_fallback called!\n"); abort(); }
 /* Generated stub for invoices_delete */
 bool invoices_delete(struct invoices *invoices UNNEEDED,
 		     u64 inv_dbid UNNEEDED,

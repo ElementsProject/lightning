@@ -695,6 +695,7 @@ struct invoice_info {
 	struct bolt11 *b11;
 	struct json_escape *label;
 	struct chanhints *chanhints;
+	bool custom_fallbacks;
 };
 
 /* Add routehints based on listincoming results: NULL means success. */
@@ -879,6 +880,13 @@ invoice_complete(struct invoice_info *info,
 				    info->label->s);
 	}
 
+	if (info->cmd->ld->unified_invoices && info->b11->fallbacks && !info->custom_fallbacks) {
+		for (size_t i = 0; i < tal_count(info->b11->fallbacks); i++) {
+			const u8 *fallback_script = info->b11->fallbacks[i];
+			invoices_create_fallback(wallet->invoices, inv_dbid, fallback_script);
+		}
+	}
+
 	/* Get details */
 	details = invoices_get_details(info, wallet->invoices, inv_dbid);
 
@@ -914,6 +922,10 @@ invoice_complete(struct invoice_info *info,
 	if (warning_private_unused)
 		json_add_string(response, "warning_private_unused",
 				"Insufficient incoming capacity, once private channels were excluded (try exposeprivatechannels=true?)");
+
+	if (info->cmd->ld->unified_invoices && info->custom_fallbacks)
+		json_add_string(response, "warning_custom_fallbacks",
+				"WARNING: Not tracking on-chain payments for custom fallback addresses");
 
 	return command_success(info->cmd, response);
 }
@@ -1160,7 +1172,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	info->custom_fallbacks = false;
 	if (fallbacks) {
+		info->custom_fallbacks = true;
 		if (cmd->ld->unified_invoices) {
 			log_info(cmd->ld->log,
 				 "WARNING: Not tracking on-chain payments "
