@@ -90,6 +90,17 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 			    u64 *inv_dbid,
 			    const struct sha256 *rhash);
 /**
+ * invoices_create_fallback - Add scriptpubkey into invoice_fallbacks for this inv
+ *
+ * @param invoices - the invoice handler.
+ * @param inv_dbid - invoice id
+ * @param scriptPubKey - the fallback scriptpubkey associated with
+ * the above invoice id
+ */
+void invoices_create_fallback(struct invoices *invoices,
+			      u64 inv_dbid,
+			      const u8 *scriptPubkey);
+/**
  * invoices_find_by_fallback_script - Search for an invoice by
  * scriptpubkey in invoice_fallbacks child table
  *

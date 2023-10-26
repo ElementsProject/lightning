@@ -371,6 +371,26 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 	}
 }
 
+void invoices_create_fallback(struct invoices *invoices,
+			      u64 inv_dbid,
+			      const u8 *scriptPubkey)
+{
+	struct db_stmt *stmt;
+
+	/* Save to database. */
+	stmt = db_prepare_v2(
+	    invoices->wallet->db,
+	    SQL("INSERT INTO invoice_fallbacks"
+		"            ( invoice_id, scriptpubkey )"
+		"     VALUES ( ?, ?);"));
+
+	db_bind_u64(stmt, inv_dbid);
+	db_bind_blob(stmt, scriptPubkey,
+			  tal_bytelen(scriptPubkey));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+}
+
 bool invoices_find_by_fallback_script(struct invoices *invoices,
 			    u64 *inv_dbid,
 			    const u8 *scriptPubkey)
