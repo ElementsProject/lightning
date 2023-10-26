@@ -742,7 +742,7 @@ char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return s;
 }
 
-static char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
+char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
 {
 	char *hexstr = tal_arr(ctx, char, hex_str_size(sizeof(*txid)));
 
