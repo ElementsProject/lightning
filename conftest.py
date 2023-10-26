@@ -4,21 +4,19 @@ from urllib import request
 import os
 import json
 from time import time
+import unittest
 
 server = os.environ.get("CI_SERVER", None)
 
-github_sha = subprocess.check_output([
-    "git",
-    "rev-parse",
-    "HEAD"
-]).decode('ASCII').strip()
+github_sha = (
+    subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ASCII").strip()
+)
 
-github_ref_name = subprocess.check_output([
-    "git",
-    "rev-parse",
-    "--abbrev-ref",
-    "HEAD"
-]).decode('ASCII').strip()
+github_ref_name = (
+    subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    .decode("ASCII")
+    .strip()
+)
 
 run_id = os.environ.get("GITHUB_RUN_ID", None)
 run_number = os.environ.get("GITHUB_RUN_NUMBER", None)
@@ -40,16 +38,18 @@ result = {
 def pytest_pyfunc_call(pyfuncitem):
     global result
     result = result.copy()
-    result['testname'] = pyfuncitem.name
-    result['start_time'] = int(time())
+    result["testname"] = pyfuncitem.name
+    result["start_time"] = int(time())
     outcome = yield
-    result['end_time'] = int(time())
+    result["end_time"] = int(time())
     # outcome.excinfo may be None or a (cls, val, tb) tuple
 
     if outcome.excinfo is None:
-        result['outcome'] = "success"
+        result["outcome"] = "success"
+    elif outcome.excinfo[0] == unittest.case.SkipTest:
+        result["outcome"] = "skip"
     else:
-        result['outcome'] = "fail"
+        result["outcome"] = "fail"
 
     print(result)
 
@@ -57,18 +57,16 @@ def pytest_pyfunc_call(pyfuncitem):
         return
 
     try:
-        req = request.Request(
-            f"{server}/hook/test",
-            method="POST"
-        )
+        req = request.Request(f"{server}/hook/test", method="POST")
         req.add_header("Content-Type", "application/json")
 
         request.urlopen(
             req,
-            data=json.dumps(result).encode('ASCII'),
+            data=json.dumps(result).encode("ASCII"),
         )
     except ConnectionError as e:
         print(f"Could not report testrun: {e}")
     except Exception as e:
         import warnings
+
         warnings.warn(f"Error reporting testrun: {e}: {e.read()}")
