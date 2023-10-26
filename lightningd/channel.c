@@ -886,6 +886,9 @@ void channel_fail_permanent(struct channel *channel,
 				  reason,
 				  why);
 
+	if (channel_state_open_uncommitted(channel->state))
+		delete_channel(channel);
+
 	tal_free(why);
 }
 

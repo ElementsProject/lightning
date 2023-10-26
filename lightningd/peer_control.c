@@ -375,6 +375,12 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"
 			   " they have a future one");
+	} else if (channel_state_open_uncommitted(channel->state)) {
+		/* There's no commitment transaction, we can
+		 * safely forget this channel */
+		log_info(channel->log,
+			 "Initialized channel (v2) received error"
+			 ", we're deleting the channel");
 	} else if (invalid_last_tx(channel->last_tx)) {
 		log_broken(channel->log,
 			   "Cannot broadcast our commitment tx:"

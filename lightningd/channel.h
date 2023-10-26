@@ -655,6 +655,31 @@ static inline bool channel_state_wants_onchain_fail(enum channel_state state)
 	abort();
 }
 
+static inline bool channel_state_open_uncommitted(enum channel_state state)
+{
+	switch (state) {
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+		return true;
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+	case CHANNELD_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_COMMITTED:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+		return false;
+	}
+
+	abort();
+}
+
+
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
 /* Channel has failed, but can try again.  Usually, set disconnect to true. */
