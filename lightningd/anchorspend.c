@@ -5,6 +5,8 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -18,6 +20,22 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 
+/* This is attached to each anchor tx retransmission */
+struct one_anchor {
+	/* We are in adet->anchors */
+	struct anchor_details *adet;
+
+	/* Is this for our own commit tx? */
+	enum side commit_side;
+
+	/* Where the anchors are */
+	struct local_anchor_info info;
+
+	/* If we made an anchor-spend tx, what was its fee? */
+	struct amount_sat anchor_spend_fee;
+};
+
+/* This is attached to the *commitment* tx retransmission */
 struct anchor_details {
 	/* Sorted amounts for how much we risk at each blockheight. */
 	struct deadline_value *vals;
@@ -25,16 +43,8 @@ struct anchor_details {
 	/* Witnesscript for anchor */
 	const u8 *anchor_wscript;
 
-	/* Where the anchor is */
-	struct bitcoin_outpoint anchor_out;
-
-	/* If we made an anchor-spend tx, what was its fee? */
-	struct amount_sat anchor_spend_fee;
-
-	/* Weight and fee of the commitment_tx */
-	size_t commit_tx_weight;
-	struct amount_sat commit_tx_fee;
-	u32 commit_tx_feerate;
+	/* A callback for each of these */
+	struct one_anchor *anchors;
 };
 
 struct deadline_value {
@@ -94,6 +104,19 @@ static bool merge_deadlines(struct channel *channel, struct anchor_details *adet
 	return true;
 }
 
+static void add_one_anchor(struct anchor_details *adet,
+			   const struct local_anchor_info *info,
+			   enum side commit_side)
+{
+	struct one_anchor one;
+
+	one.info = *info;
+	one.adet = adet;
+	one.commit_side = commit_side;
+	one.anchor_spend_fee = AMOUNT_SAT(0);
+	tal_arr_expand(&adet->anchors, one);
+}
+
 struct anchor_details *create_anchor_details(const tal_t *ctx,
 					     struct channel *channel,
 					     const struct bitcoin_tx *tx)
@@ -104,6 +127,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
 	struct anchor_details *adet = tal(ctx, struct anchor_details);
+	struct local_anchor_info *infos, local_anchor;
 
 	/* If we don't have an anchor, we can't do anything. */
 	if (!channel_type_has_anchors(channel->type))
@@ -114,17 +138,29 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 		return tal_free(adet);
 	}
 
-	adet->commit_tx_weight = bitcoin_tx_weight(tx);
-	adet->commit_tx_fee = bitcoin_tx_compute_fee(tx);
-	adet->commit_tx_feerate = tx_feerate(tx);
 	adet->anchor_wscript
 		= bitcoin_wscript_anchor(adet, &channel->local_funding_pubkey);
+	adet->anchors = tal_arr(adet, struct one_anchor, 0);
+
+	/* Look for any remote commitment tx anchors we might use */
+	infos = wallet_get_local_anchors(tmpctx,
+					 channel->peer->ld->wallet,
+					 channel->dbid);
+	for (size_t i = 0; i < tal_count(infos); i++)
+		add_one_anchor(adet, &infos[i], REMOTE);
+
+	/* Now append our own, if we have one. */
+	if (find_anchor_output(channel, tx, adet->anchor_wscript,
+			       &local_anchor.anchor_point)) {
+		local_anchor.commitment_weight = bitcoin_tx_weight(tx);
+		local_anchor.commitment_fee = bitcoin_tx_compute_fee(tx);
+		add_one_anchor(adet, &local_anchor, LOCAL);
+	}
 
 	/* This happens in several cases:
 	 * 1. Mutual close tx.
 	 * 2. There's no to-us output and no HTLCs */
-	if (!find_anchor_output(channel, tx, adet->anchor_wscript,
-				&adet->anchor_out)) {
+	if (tal_count(adet->anchors) == 0) {
 		return tal_free(adet);
 	}
 
@@ -168,14 +204,26 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	if (!merge_deadlines(channel, adet))
 		return tal_free(adet);
 
-	adet->anchor_spend_fee = AMOUNT_SAT(0);
+	log_debug(channel->log, "We have %zu anchor points to use",
+		  tal_count(adet->anchors));
 	return adet;
+}
+
+static u32 commit_feerate(const struct local_anchor_info *info)
+{
+	struct amount_sat fee;
+
+	/* Fee should not overflow! */
+	if (!amount_sat_mul(&fee, info->commitment_fee, 1000))
+		abort();
+
+	return amount_sat_div(fee, info->commitment_weight).satoshis; /* Raw: feerate */
 }
 
 /* If it's possible and worth it, return signed tx.  Otherwise NULL. */
 static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				       struct channel *channel,
-				       struct anchor_details *adet)
+				       struct one_anchor *anch)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct utxo **utxos;
@@ -193,14 +241,14 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		+ bitcoin_tx_input_weight(false, bitcoin_tx_simple_input_witness_weight())
 		+ bitcoin_tx_input_weight(false,
 					  bitcoin_tx_input_sig_weight()
-					  + 1 + tal_bytelen(adet->anchor_wscript))
+					  + 1 + tal_bytelen(anch->adet->anchor_wscript))
 		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN)
-		+ adet->commit_tx_weight;
+		+ anch->info.commitment_weight;
 
 	worthwhile = false;
 	total_value = AMOUNT_MSAT(0);
-	for (int i = tal_count(adet->vals) - 1; i >= 0 && !worthwhile; --i) {
-		const struct deadline_value *val = &adet->vals[i];
+	for (int i = tal_count(anch->adet->vals) - 1; i >= 0 && !worthwhile; --i) {
+		const struct deadline_value *val = &anch->adet->vals[i];
 		u32 feerate;
 
 		/* Calculate the total value for the current deadline
@@ -210,21 +258,22 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 		feerate = feerate_for_target(ld->topology, val->block);
 		/* Would the commit tx make that feerate by itself? */
-		if (adet->commit_tx_feerate >= feerate)
+		if (commit_feerate(&anch->info) >= feerate)
 			continue;
 
 		/* Get the fee required to meet the current block */
 		fee = amount_tx_fee(feerate, weight);
 
 		/* We already have part of the fee in commitment_tx. */
-		if (amount_sat_sub(&fee, fee, adet->commit_tx_fee)
+		if (amount_sat_sub(&fee, fee, anch->info.commitment_fee)
 		    && amount_msat_greater_sat(total_value, fee)) {
 			worthwhile = true;
 		}
 
-		log_debug(channel->log, "%s fee %s to get %s in %u blocks at feerate %uperkw",
+		log_debug(channel->log, "%s fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
 			  worthwhile ? "Worth" : "Not worth",
 			  fmt_amount_sat(tmpctx, fee),
+			  anch->commit_side == LOCAL ? "local" : "remote",
 			  fmt_amount_msat(tmpctx, val->msat),
 			  val->block, feerate);
 	}
@@ -235,18 +284,19 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 	/* Higher enough than previous to be valid RBF?
 	 * We assume 1 sat per vbyte as minrelayfee */
-	if (!amount_sat_sub(&diff, fee, adet->anchor_spend_fee)
+	if (!amount_sat_sub(&diff, fee, anch->anchor_spend_fee)
 	    || amount_sat_less(diff, amount_sat(weight / 4)))
 		return NULL;
 
 	log_debug(channel->log,
-		  "Anchorspend fee %s (w=%zu), commit_tx fee %s (w=%zu):"
+		  "Anchorspend for %s commit tx fee %s (w=%zu), commit_tx fee %s (w=%u):"
 		  " package feerate %"PRIu64" perkw",
+		  anch->commit_side == LOCAL ? "local" : "remote",
 		  fmt_amount_sat(tmpctx, fee),
-		  weight - adet->commit_tx_weight,
-		  fmt_amount_sat(tmpctx, adet->commit_tx_fee),
-		  adet->commit_tx_weight,
-		  (fee.satoshis + adet->commit_tx_fee.satoshis) /* Raw: debug log */
+		  weight - anch->info.commitment_weight,
+		  fmt_amount_sat(tmpctx, anch->info.commitment_fee),
+		  anch->info.commitment_weight,
+		  (fee.satoshis + anch->info.commitment_fee.satoshis) /* Raw: debug log */
 		  * 1000 / weight);
 
 	/* FIXME: Use more than one utxo! */
@@ -285,10 +335,10 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	 * The amount of the output is fixed at 330 sats, the default
 	 * dust limit for P2WSH.
 	 */
-	psbt_append_input(psbt, &adet->anchor_out, BITCOIN_TX_RBF_SEQUENCE,
-			  NULL, adet->anchor_wscript, NULL);
+	psbt_append_input(psbt, &anch->info.anchor_point, BITCOIN_TX_RBF_SEQUENCE,
+			  NULL, anch->adet->anchor_wscript, NULL);
 	psbt_input_set_wit_utxo(psbt, 1,
-				scriptpubkey_p2wsh(tmpctx, adet->anchor_wscript),
+				scriptpubkey_p2wsh(tmpctx, anch->adet->anchor_wscript),
 				AMOUNT_SAT(330));
 	psbt_input_add_pubkey(psbt, 1, &channel->local_funding_pubkey, false);
 
@@ -322,7 +372,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		      type_to_string(tmpctx, struct wally_psbt, psbt));
 
 	/* Update fee so we know for next time */
-	adet->anchor_spend_fee = fee;
+	anch->anchor_spend_fee = fee;
 
 	tx = tal(ctx, struct bitcoin_tx);
 	tx->chainparams = chainparams;
@@ -335,20 +385,21 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 static bool refresh_anchor_spend(struct channel *channel,
 				 const struct bitcoin_tx **tx,
-				 struct anchor_details *adet)
+				 struct one_anchor *anch)
 {
 	struct bitcoin_tx *replace;
-	struct amount_sat old_fee = adet->anchor_spend_fee;
+	struct amount_sat old_fee = anch->anchor_spend_fee;
 
-	replace = spend_anchor(tal_parent(*tx), channel, adet);
+	replace = spend_anchor(tal_parent(*tx), channel, anch);
 	if (replace) {
 		struct bitcoin_txid txid;
 
 		bitcoin_txid(replace, &txid);
-		log_info(channel->log, "RBF anchor spend %s: fee was %s now %s",
+		log_info(channel->log, "RBF anchor %s commit tx spend %s: fee was %s now %s",
+			 anch->commit_side == LOCAL ? "local" : "remote",
 			 type_to_string(tmpctx, struct bitcoin_txid, &txid),
 			 fmt_amount_sat(tmpctx, old_fee),
-			 fmt_amount_sat(tmpctx, adet->anchor_spend_fee));
+			 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 		log_debug(channel->log, "RBF anchor spend: Old tx %s new %s",
 			  type_to_string(tmpctx, struct bitcoin_tx, *tx),
 			  type_to_string(tmpctx, struct bitcoin_tx, replace));
@@ -358,36 +409,53 @@ static bool refresh_anchor_spend(struct channel *channel,
 	return true;
 }
 
-bool commit_tx_boost(struct channel *channel,
-		     const struct bitcoin_tx **tx,
-		     struct anchor_details *adet)
+static void create_and_broadcast_anchor(struct channel *channel,
+					struct one_anchor *anch)
 {
 	struct bitcoin_tx *newtx;
 	struct bitcoin_txid txid;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!adet)
-		return true;
-
-	/* Have we already spent anchor?  If so, we'll use refresh_anchor_spend! */
-	if (!amount_sat_eq(adet->anchor_spend_fee, AMOUNT_SAT(0)))
-		return true;
-
-	/* Do we want to spend the anchor to boost channel?
-	 * We allocate it off adet, which is tied to lifetime of commit_tx
-	 * rexmit. */
-	newtx = spend_anchor(adet, channel, adet);
-	if (!newtx)
-		return true;
+	/* Do we want to spend the anchor to boost channel? */
+	newtx = spend_anchor(tmpctx, channel, anch);
+	if (!newtx) {
+		return;
+	}
 
 	bitcoin_txid(newtx, &txid);
-	log_info(channel->log, "Creating anchor spend for CPFP %s: we're paying fee %s",
+	log_info(channel->log, "Creating anchor spend for %s commit tx %s: we're paying fee %s",
+		 anch->commit_side == LOCAL ? "local" : "remote",
 		 type_to_string(tmpctx, struct bitcoin_txid, &txid),
-		 fmt_amount_sat(tmpctx, adet->anchor_spend_fee));
+		 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 
 	/* Send it! */
-	broadcast_tx(adet, ld->topology, channel, take(newtx), NULL, true, 0, NULL,
-		     refresh_anchor_spend, adet);
-	return true;
+	broadcast_tx(anch->adet, ld->topology, channel, take(newtx), NULL, true, 0, NULL,
+		     refresh_anchor_spend, anch);
 }
 
+void commit_tx_boost(struct channel *channel,
+		     struct anchor_details *adet,
+		     bool success)
+{
+	enum side side;
+
+	if (!adet)
+		return;
+
+	/* If it's in our mempool, we should consider boosting it.
+	 * Otherwise, try boosting peers' commitment txs. */
+	if (success)
+		side = LOCAL;
+	else
+		side = REMOTE;
+
+	/* Ones we've already launched will use refresh_anchor_spend */
+	for (size_t i = 0; i < tal_count(adet->anchors); i++) {
+		if (adet->anchors[i].commit_side != side)
+			continue;
+		if (amount_sat_eq(adet->anchors[i].anchor_spend_fee,
+				   AMOUNT_SAT(0))) {
+			create_and_broadcast_anchor(channel, &adet->anchors[i]);
+		}
+	}
+}

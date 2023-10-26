@@ -278,11 +278,18 @@ static bool commit_tx_send_finished(struct channel *channel,
 				    const char *err,
 				    struct anchor_details *adet)
 {
-	/* We might want to boost immediately! */
-	if (success)
-		commit_tx_boost(channel, &tx, adet);
+	struct bitcoin_txid txid;
 
-	/* Keep trying! */
+	bitcoin_txid(tx, &txid);
+
+	/* If it's already mined, stop retransmitting, stop boosting. */
+	if (wallet_transaction_height(channel->peer->ld->wallet, &txid) != 0) {
+		tal_free(adet);
+		return true;
+	}
+
+	/* Boost (if possible), and keep trying! */
+	commit_tx_boost(channel, adet, success);
 	return false;
 }
 
@@ -308,7 +315,7 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(channel, ld->topology, channel, tx, cmd_id, false, 0,
-		     commit_tx_send_finished, commit_tx_boost, take(adet));
+		     commit_tx_send_finished, NULL, take(adet));
 
 	return tx;
 }

@@ -170,9 +170,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for commit_tx_boost */
-bool commit_tx_boost(struct channel *channel UNNEEDED,
-		     const struct bitcoin_tx **tx UNNEEDED,
-		     struct anchor_details *adet UNNEEDED)
+void commit_tx_boost(struct channel *channel UNNEEDED,
+		     struct anchor_details *adet UNNEEDED,
+		     bool success UNNEEDED)
 { fprintf(stderr, "commit_tx_boost called!\n"); abort(); }
 /* Generated stub for connect_any_cmd_id */
 const char *connect_any_cmd_id(const tal_t *ctx UNNEEDED,
@@ -1032,6 +1032,9 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
 			    const u32 blockheight UNNEEDED, const u32 txindex UNNEEDED)
 { fprintf(stderr, "wallet_transaction_add called!\n"); abort(); }
+/* Generated stub for wallet_transaction_height */
+u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
