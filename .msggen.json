@@ -33,6 +33,7 @@
             "bolt12 invoice": 1,
             "bolt12 invoice_request": 2,
             "bolt12 offer": 0,
+            "emergency recover": 5,
             "rune": 4
         },
         "DecodepayFallbacksType": {
@@ -484,6 +485,7 @@
         "DecodeResponse": {
             "Decode.created_at": 60,
             "Decode.currency_minor_unit": 8,
+            "Decode.decrypted": 76,
             "Decode.description_hash": 64,
             "Decode.expiry": 61,
             "Decode.extra[]": 69,
@@ -1971,6 +1973,10 @@
         },
         "Decode.currency_minor_unit": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Decode.decrypted": {
+            "added": "v23.11",
             "deprecated": false
         },
         "Decode.description_hash": {

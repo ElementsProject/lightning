@@ -1186,6 +1186,7 @@ def decode2py(m):
         "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
         "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
         "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
+        "decrypted": hexlify(m.decrypted),  # PrimitiveField in generate_composite
     })
 
 

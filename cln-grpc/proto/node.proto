@@ -1365,6 +1365,7 @@ message DecodeResponse {
 		BOLT12_INVOICE_REQUEST = 2;
 		BOLT11_INVOICE = 3;
 		RUNE = 4;
+		EMERGENCY_RECOVER = 5;
 	}
 	DecodeType item_type = 1;
 	bool valid = 2;
@@ -1435,6 +1436,7 @@ message DecodeResponse {
 	repeated DecodeRestrictions restrictions = 73;
 	optional string warning_rune_invalid_utf8 = 74;
 	optional bytes hex = 75;
+	optional bytes decrypted = 76;
 }
 
 message DecodeOffer_paths {
