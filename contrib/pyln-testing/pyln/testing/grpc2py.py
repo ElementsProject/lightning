@@ -323,6 +323,13 @@ def connect2py(m):
     })
 
 
+def createinvoice_paid_outpoint2py(m):
+    return remove_default({
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
+    })
+
+
 def createinvoice2py(m):
     return remove_default({
         "label": m.label,  # PrimitiveField in generate_composite
@@ -429,6 +436,13 @@ def listdatastore_datastore2py(m):
 def listdatastore2py(m):
     return remove_default({
         "datastore": [listdatastore_datastore2py(i) for i in m.datastore],  # ArrayField[composite] in generate_composite
+    })
+
+
+def listinvoices_invoices_paid_outpoint2py(m):
+    return remove_default({
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
     })
 
 
@@ -577,6 +591,13 @@ def listnodes2py(m):
     })
 
 
+def waitanyinvoice_paid_outpoint2py(m):
+    return remove_default({
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
+    })
+
+
 def waitanyinvoice2py(m):
     return remove_default({
         "label": m.label,  # PrimitiveField in generate_composite
@@ -593,6 +614,13 @@ def waitanyinvoice2py(m):
         "amount_received_msat": amount2msat(m.amount_received_msat),  # PrimitiveField in generate_composite
         "paid_at": m.paid_at,  # PrimitiveField in generate_composite
         "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+    })
+
+
+def waitinvoice_paid_outpoint2py(m):
+    return remove_default({
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
     })
 
 

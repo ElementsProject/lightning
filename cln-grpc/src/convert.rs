@@ -411,6 +411,16 @@ impl From<responses::ConnectResponse> for pb::ConnectResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CreateinvoicePaid_outpoint> for pb::CreateinvoicePaidOutpoint {
+    fn from(c: responses::CreateinvoicePaid_outpoint) -> Self {
+        Self {
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            outnum: c.outnum, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
     fn from(c: responses::CreateinvoiceResponse) -> Self {
         Self {
@@ -426,6 +436,7 @@ impl From<responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
+            paid_outpoint: c.paid_outpoint.map(|v| v.into()),
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             local_offer_id: c.local_offer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
@@ -559,6 +570,16 @@ impl From<responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListinvoicesInvoicesPaid_outpoint> for pb::ListinvoicesInvoicesPaidOutpoint {
+    fn from(c: responses::ListinvoicesInvoicesPaid_outpoint) -> Self {
+        Self {
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            outnum: c.outnum, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
     fn from(c: responses::ListinvoicesInvoices) -> Self {
         Self {
@@ -577,6 +598,7 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
+            paid_outpoint: c.paid_outpoint.map(|v| v.into()),
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }
@@ -750,6 +772,16 @@ impl From<responses::ListnodesResponse> for pb::ListnodesResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitanyinvoicePaid_outpoint> for pb::WaitanyinvoicePaidOutpoint {
+    fn from(c: responses::WaitanyinvoicePaid_outpoint) -> Self {
+        Self {
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            outnum: c.outnum, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
     fn from(c: responses::WaitanyinvoiceResponse) -> Self {
         Self {
@@ -766,7 +798,18 @@ impl From<responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
+            paid_outpoint: c.paid_outpoint.map(|v| v.into()),
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitinvoicePaid_outpoint> for pb::WaitinvoicePaidOutpoint {
+    fn from(c: responses::WaitinvoicePaid_outpoint) -> Self {
+        Self {
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            outnum: c.outnum, // Rule #2 for type u32?
         }
     }
 }
@@ -788,6 +831,7 @@ impl From<responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
             pay_index: c.pay_index, // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at, // Rule #2 for type u64?
+            paid_outpoint: c.paid_outpoint.map(|v| v.into()),
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }

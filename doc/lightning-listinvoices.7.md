@@ -47,6 +47,9 @@ If **status** is "paid":
   - **amount\_received\_msat** (msat): the amount actually received (could be slightly greater than *amount\_msat*, since clients may overpay)
   - **paid\_at** (u64): UNIX timestamp of when it was paid
   - **payment\_preimage** (secret): proof of payment
+  - **paid\_outpoint** (object, optional): Outpoint this invoice was paid with *(added v23.11)*:
+    - **txid** (txid): ID of the transaction that paid the invoice *(added v23.11)*
+    - **outnum** (u32): The 0-based output number of the transaction that paid the invoice *(added v23.11)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -65,4 +68,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e698b0e345ed4912b7699b43f2571a4cc3bb4ae909efeb631b02dd94a87e765c)
+[comment]: # ( SHA256STAMP:7e4b1182ba879bea892d143b53cdc31350a9668c734c6bb8f86ab9b6e3f0b06e)

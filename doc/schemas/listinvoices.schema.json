@@ -121,6 +121,28 @@
                   "type": "u64",
                   "description": "UNIX timestamp of when it was paid"
                 },
+                "paid_outpoint": {
+                  "type": "object",
+                  "description": "Outpoint this invoice was paid with",
+                  "added": "v23.11",
+                  "additionalProperties": false,
+                  "required": [
+                    "txid",
+                    "outnum"
+                  ],
+                  "properties": {
+                    "txid": {
+                      "added": "v23.11",
+                      "type": "txid",
+                      "description": "ID of the transaction that paid the invoice"
+                    },
+                    "outnum": {
+                      "added": "v23.11",
+                      "type": "u32",
+                      "description": "The 0-based output number of the transaction that paid the invoice"
+                    }
+                  }
+                },
                 "payment_preimage": {
                   "type": "secret",
                   "description": "proof of payment"

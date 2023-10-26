@@ -388,6 +388,10 @@
             "Connect.features": 2,
             "Connect.id": 1
         },
+        "CreateinvoicePaid_outpoint": {
+            "CreateInvoice.paid_outpoint.outnum": 2,
+            "CreateInvoice.paid_outpoint.txid": 1
+        },
         "CreateinvoiceRequest": {
             "CreateInvoice.invstring": 1,
             "CreateInvoice.label": 2,
@@ -405,6 +409,7 @@
             "CreateInvoice.label": 1,
             "CreateInvoice.local_offer_id": 13,
             "CreateInvoice.paid_at": 11,
+            "CreateInvoice.paid_outpoint": 17,
             "CreateInvoice.pay_index": 9,
             "CreateInvoice.payer_note": 14,
             "CreateInvoice.payment_hash": 4,
@@ -989,12 +994,17 @@
             "ListInvoices.invoices[].label": 1,
             "ListInvoices.invoices[].local_offer_id": 9,
             "ListInvoices.invoices[].paid_at": 13,
+            "ListInvoices.invoices[].paid_outpoint": 18,
             "ListInvoices.invoices[].pay_index": 11,
             "ListInvoices.invoices[].payer_note": 10,
             "ListInvoices.invoices[].payment_hash": 3,
             "ListInvoices.invoices[].payment_preimage": 14,
             "ListInvoices.invoices[].status": 4,
             "ListInvoices.invoices[].updated_index": 17
+        },
+        "ListinvoicesInvoicesPaid_outpoint": {
+            "ListInvoices.invoices[].paid_outpoint.outnum": 2,
+            "ListInvoices.invoices[].paid_outpoint.txid": 1
         },
         "ListinvoicesRequest": {
             "ListInvoices.index": 5,
@@ -1567,6 +1577,10 @@
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
         },
+        "WaitanyinvoicePaid_outpoint": {
+            "WaitAnyInvoice.paid_outpoint.outnum": 2,
+            "WaitAnyInvoice.paid_outpoint.txid": 1
+        },
         "WaitanyinvoiceRequest": {
             "WaitAnyInvoice.lastpay_index": 1,
             "WaitAnyInvoice.timeout": 2
@@ -1581,6 +1595,7 @@
             "WaitAnyInvoice.expires_at": 5,
             "WaitAnyInvoice.label": 1,
             "WaitAnyInvoice.paid_at": 11,
+            "WaitAnyInvoice.paid_outpoint": 15,
             "WaitAnyInvoice.pay_index": 9,
             "WaitAnyInvoice.payment_hash": 3,
             "WaitAnyInvoice.payment_preimage": 12,
@@ -1593,6 +1608,10 @@
         },
         "WaitblockheightResponse": {
             "WaitBlockHeight.blockheight": 1
+        },
+        "WaitinvoicePaid_outpoint": {
+            "WaitInvoice.paid_outpoint.outnum": 2,
+            "WaitInvoice.paid_outpoint.txid": 1
         },
         "WaitinvoiceRequest": {
             "WaitInvoice.label": 1
@@ -1607,6 +1626,7 @@
             "WaitInvoice.expires_at": 5,
             "WaitInvoice.label": 1,
             "WaitInvoice.paid_at": 11,
+            "WaitInvoice.paid_outpoint": 15,
             "WaitInvoice.pay_index": 9,
             "WaitInvoice.payment_hash": 3,
             "WaitInvoice.payment_preimage": 12,
@@ -1831,6 +1851,18 @@
         },
         "CreateInvoice.paid_at": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "CreateInvoice.paid_outpoint": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "CreateInvoice.paid_outpoint.outnum": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "CreateInvoice.paid_outpoint.txid": {
+            "added": "v23.11",
             "deprecated": false
         },
         "CreateInvoice.pay_index": {
@@ -3753,6 +3785,18 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListInvoices.invoices[].paid_outpoint": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListInvoices.invoices[].paid_outpoint.outnum": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListInvoices.invoices[].paid_outpoint.txid": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "ListInvoices.invoices[].pay_index": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5525,6 +5569,18 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "WaitAnyInvoice.paid_outpoint": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.paid_outpoint.outnum": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "WaitAnyInvoice.paid_outpoint.txid": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "WaitAnyInvoice.pay_index": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5599,6 +5655,18 @@
         },
         "WaitInvoice.paid_at": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitInvoice.paid_outpoint": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "WaitInvoice.paid_outpoint.outnum": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "WaitInvoice.paid_outpoint.txid": {
+            "added": "v23.11",
             "deprecated": false
         },
         "WaitInvoice.pay_index": {

@@ -3608,6 +3608,10 @@ def test_sql(node_factory, bitcoind):
                          'type': 'msat'},
                         {'name': 'paid_at',
                          'type': 'u64'},
+                        {'name': 'paid_outpoint_txid',
+                         'type': 'txid'},
+                        {'name': 'paid_outpoint_outnum',
+                         'type': 'u32'},
                         {'name': 'payment_preimage',
                          'type': 'secret'}]},
         'offers': {
