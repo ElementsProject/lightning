@@ -15,6 +15,7 @@ The **decode** RPC command checks and parses:
   or `LIGHTNING:`) as specified by the BOLT 11 and BOLT 12
   specifications.
 - a *rune* as created by lightning-commando-rune(7).
+- a *emergency\_recover* starting with clnemerg1 which contains the content of emergency.recover file.
 
 It may decode other formats in future.
 
@@ -24,7 +25,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice\_request", "bolt11 invoice", "rune")
+- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice\_request", "bolt11 invoice", "rune", "emergency recover")
 - **valid** (boolean): if this is false, you *MUST* not use the result except for diagnostics!
 
 If **type** is "bolt12 offer", and **valid** is *true*:
@@ -281,6 +282,10 @@ If **type** is "rune", and **valid** is *false*:
   - the following warnings are possible:
     - **warning\_rune\_invalid\_utf8**: the rune contains invalid UTF-8 strings
 
+If **type** is "emergency recover", and **valid** is *true*:
+
+  - **decrypted** (hex): The decrypted value of the provided bech32 of emergency.recover *(added v23.11)*
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -303,4 +308,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ee1667eb4bf5eda980615dbcee334f618991e4b648a07ded8868ecde09bb2554)
+[comment]: # ( SHA256STAMP:d62327dbe56d27e5e82d5ad2599d3d88495cc8360d84ff02fca59d08ab7fa14e)

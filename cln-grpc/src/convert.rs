@@ -1369,6 +1369,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             warning_rune_invalid_utf8: c.warning_rune_invalid_utf8, // Rule #2 for type string?
             hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            decrypted: c.decrypted.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }
     }
 }

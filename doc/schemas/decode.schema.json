@@ -13,7 +13,8 @@
         "bolt12 invoice",
         "bolt12 invoice_request",
         "bolt11 invoice",
-        "rune"
+        "rune",
+        "emergency recover"
       ],
       "description": "what kind of object it decoded to"
     },
@@ -1506,6 +1507,39 @@
           "hex": {
             "type": "hex",
             "description": "the raw rune in hex"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "emergency recover"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "decrypted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "decrypted": {
+            "type": "hex",
+            "description": "The decrypted value of the provided bech32 of emergency.recover",
+            "added": "v23.11"
           }
         }
       }
