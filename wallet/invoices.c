@@ -371,6 +371,28 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 	}
 }
 
+bool invoices_find_by_fallback_script(struct invoices *invoices,
+			    u64 *inv_dbid,
+			    const u8 *scriptPubkey)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(invoices->wallet->db, SQL("SELECT invoice_id"
+					       "  FROM invoice_fallbacks"
+					       " WHERE scriptpubkey = ?;"));
+	db_bind_talarr(stmt, scriptPubkey);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return false;
+	} else {
+		*inv_dbid = db_col_u64(stmt, "invoice_id");
+		tal_free(stmt);
+		return true;
+	}
+}
+
 bool invoices_find_unpaid(struct invoices *invoices,
 			  u64 *inv_dbid,
 			  const struct sha256 *rhash)

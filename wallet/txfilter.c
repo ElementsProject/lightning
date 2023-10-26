@@ -95,6 +95,11 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 	return false;
 }
 
+bool txfilter_scriptpubkey_matches(const struct txfilter *filter, const u8 *scriptPubKey)
+{
+	return scriptpubkeyset_get(&filter->scriptpubkeyset, scriptPubKey) != NULL;
+}
+
 void outpointfilter_add(struct outpointfilter *of,
 			const struct bitcoin_outpoint *outpoint)
 {

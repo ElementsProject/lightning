@@ -63,6 +63,18 @@ invoice_check_payment(const tal_t *ctx,
 		      const char **err);
 
 /**
+ * invoice_check_onchain_payment - check if this on-chain payment would be valid
+ * @ld: the lightning context
+ * @scriptPubKey: fallback script with which to search for invoices
+ * @sat: output amount
+ * @outpoint: the outpoint which paid it.
+ */
+void invoice_check_onchain_payment(struct lightningd *ld,
+				   const u8 *scriptPubKey,
+				   struct amount_sat sat,
+				   const struct bitcoin_outpoint *outpoint);
+
+/**
  * invoice_try_pay - process payment for these incoming payments.
  * @ld: lightningd
  * @set: the htlc_set used to pay this.
