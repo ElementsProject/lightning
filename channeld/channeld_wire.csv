@@ -128,6 +128,18 @@ msgdata,channeld_got_splice_locked,locked_txid,bitcoin_txid,
 
 #include <common/penalty_base.h>
 
+subtype,local_anchor_info
+subtypedata,local_anchor_info,commitment_weight,u32,
+subtypedata,local_anchor_info,commitment_fee,amount_sat,
+subtypedata,local_anchor_info,anchor_point,bitcoin_outpoint,
+
+# lightningd needs to track our anchor outputs on remote txs.
+# This includes splices, so there could be more than one!
+msgtype,channeld_local_anchor_info,1003
+msgdata,channeld_local_anchor_info,remote_commitnum,u64,
+msgdata,channeld_local_anchor_info,num_anchors,u16,
+msgdata,channeld_local_anchor_info,anchors,local_anchor_info,num_anchors
+
 # When we send a commitment_signed message, tell master.
 msgtype,channeld_sending_commitsig,1020
 msgdata,channeld_sending_commitsig,commitnum,u64,
@@ -137,6 +149,7 @@ msgdata,channeld_sending_commitsig,blockheight_states,height_states,
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 msgdata,channeld_sending_commitsig,num_changed,u16,
 msgdata,channeld_sending_commitsig,changed,changed_htlc,num_changed
+
 
 # Wait for reply, to make sure it's on disk before we send commit.
 msgtype,channeld_sending_commitsig_reply,1120

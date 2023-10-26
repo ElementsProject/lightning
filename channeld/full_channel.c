@@ -309,13 +309,13 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				u64 commitment_number,
 				enum side side,
 				s64 splice_amnt,
-				s64 remote_splice_amnt)
+				s64 remote_splice_amnt,
+				int *other_anchor_outnum)
 {
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	struct keyset keyset;
 	struct amount_msat side_pay, other_side_pay;
-	int local_anchor;
 
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
@@ -364,7 +364,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    commitment_number ^ channel->commitment_number_obscurer,
 	    channel_has(channel, OPT_ANCHOR_OUTPUTS),
 	    channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
-	    side, &local_anchor);
+	    side, other_anchor_outnum);
 
 	/* Set the remote/local pubkeys on the commitment tx psbt */
 	psbt_input_add_pubkey(txs[0]->psbt, 0,

@@ -1228,6 +1228,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SENDING_COMMITSIG:
 		peer_sending_commitsig(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_LOCAL_ANCHOR_INFO:
+		/* FIXME */
+		break;
 	case WIRE_CHANNELD_GOT_COMMITSIG:
 		peer_got_commitsig(sd->channel, msg);
 		break;
