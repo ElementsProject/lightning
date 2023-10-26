@@ -364,6 +364,7 @@ int main(int argc, const char *argv[])
 	bool option_anchor_outputs = false;
 	bool option_anchors_zero_fee_htlc_tx = false;
 	u32 blockheight = 0;
+	int local_anchor;
 	size_t i;
 
 	chainparams = chainparams_for_network("bitcoin");
@@ -535,7 +536,8 @@ int main(int argc, const char *argv[])
 			   to_local,
 			   to_remote,
 			   NULL, &htlc_map, NULL, 0x2bb038521914 ^ 42,
-			   option_anchor_outputs, option_anchors_zero_fee_htlc_tx, LOCAL);
+			   option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
+			   LOCAL, &local_anchor);
 
 	txs = channel_txs(tmpctx, &funding, funding_amount,
 			  &htlc_map, NULL, &funding_wscript_alt,
@@ -667,7 +669,8 @@ int main(int argc, const char *argv[])
 		    &keyset, feerate_per_kw[LOCAL], local_config->dust_limit,
 		    to_local, to_remote, htlcs, &htlc_map, NULL,
 		    0x2bb038521914 ^ 42,
-		    option_anchor_outputs, option_anchors_zero_fee_htlc_tx, LOCAL);
+		    option_anchor_outputs, option_anchors_zero_fee_htlc_tx,
+		    LOCAL, &local_anchor);
 
 		txs = channel_txs(tmpctx, &funding, funding_amount,
 				  &htlc_map, NULL, &funding_wscript,
