@@ -1597,6 +1597,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_noarg("--experimental-upgrade-protocol",
 			   opt_set_bool, &ld->experimental_upgrade_protocol,
 			   "experimental: allow channel types to be upgraded on reconnect");
+	opt_register_noarg("--invoices-onchain-fallback",
+			   opt_set_bool, &ld->unified_invoices,
+			   "Include an onchain address in invoices and mark them as paid if payment is received on-chain");
 	clnopt_witharg("--database-upgrade", OPT_SHOWBOOL,
 		       opt_set_db_upgrade, NULL,
 		       ld,

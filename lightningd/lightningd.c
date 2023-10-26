@@ -246,6 +246,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/* --experimental-upgrade-protocol */
 	ld->experimental_upgrade_protocol = false;
 
+	/* --invoices-onchain-fallback */
+	ld->unified_invoices = false;
+
 	/*~ This is from ccan/timer: it is efficient for the case where timers
 	 * are deleted before expiry (as is common with timeouts) using an
 	 * ingenious bucket system which more precisely sorts timers as they

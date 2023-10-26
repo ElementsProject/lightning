@@ -312,6 +312,7 @@ On success, an object is returned, containing:
 - **experimental-peer-storage** (boolean, optional): `experimental-peer-storage` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.02)*
 - **experimental-quiesce** (boolean, optional): `experimental-quiesce` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.08)*
 - **experimental-upgrade-protocol** (boolean, optional): `experimental-upgrade-protocol` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.08)*
+- **invoices-onchain-fallback** (boolean, optional): `invoices-onchain-fallback` field from config or cmdline, or default *(added v23.11)*
 - **database-upgrade** (boolean, optional): `database-upgrade` field from config or cmdline **deprecated, removal in v24.05**
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters) **deprecated, removal in v24.05**
 - **alias** (string, optional): `alias` field from config or cmdline, or default **deprecated, removal in v24.05**
@@ -475,4 +476,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2ff237b19ffed3d97eabf67ff256df66d8c5063ad5086bb6a3d77e64f53f64db)
+[comment]: # ( SHA256STAMP:cc7b6d10f93b9efb34ad76d0cc2273d29189a8dd7ef4acef2e5227755c279ea8)

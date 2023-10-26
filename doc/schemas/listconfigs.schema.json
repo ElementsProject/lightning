@@ -1530,6 +1530,11 @@
       "deprecated": "v23.08",
       "description": "`experimental-upgrade-protocol` field from config or cmdline, or default"
     },
+    "invoices-onchain-fallback": {
+      "type": "boolean",
+      "added": "v23.11",
+      "description": "`invoices-onchain-fallback` field from config or cmdline, or default"
+    },
     "database-upgrade": {
       "deprecated": "v23.08",
       "type": "boolean",
