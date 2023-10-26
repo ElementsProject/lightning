@@ -990,7 +990,7 @@ void invoice_check_onchain_payment(struct lightningd *ld,
 		return;
 	}
 
-	// invoice_try_pay(...);
+	invoice_try_pay(ld, NULL, details, msat, outpoint);
 }
 
 /* Since this is a dev-only option, we will crash if dev-routes is not
