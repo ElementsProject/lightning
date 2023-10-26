@@ -119,9 +119,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for commit_tx_boost */
-bool commit_tx_boost(struct channel *channel UNNEEDED,
-		     const struct bitcoin_tx **tx UNNEEDED,
-		     struct anchor_details *adet UNNEEDED)
+void commit_tx_boost(struct channel *channel UNNEEDED,
+		     struct anchor_details *adet UNNEEDED,
+		     bool success UNNEEDED)
 { fprintf(stderr, "commit_tx_boost called!\n"); abort(); }
 /* Generated stub for connect_any_cmd_id */
 const char *connect_any_cmd_id(const tal_t *ctx UNNEEDED,

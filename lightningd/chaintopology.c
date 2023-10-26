@@ -300,7 +300,7 @@ void broadcast_tx_(const tal_t *ctx,
 		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
 
 	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx(ctx, topo->bitcoind, otx->cmd_id,
+	bitcoind_sendrawtx(otx, topo->bitcoind, otx->cmd_id,
 			   fmt_bitcoin_tx(tmpctx, otx->tx),
 			   allowhighfees,
 			   broadcast_done, otx);
