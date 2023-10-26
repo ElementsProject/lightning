@@ -9,6 +9,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/bech32_util.h>
 #include <common/codex32.h>
 #include <common/configdir.h>
 #include <common/derive_basepoints.h>
@@ -46,6 +47,7 @@ static void show_usage(const char *progname)
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
 	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
+	printf("        - getemergencyrecover <path/to/emergency.recover>\n");
 	exit(0);
 }
 
@@ -259,6 +261,28 @@ static int make_codexsecret(const char *hsm_secret_path,
 		errx(ERROR_USAGE, "%s", err);
 
 	printf("%s\n", bip93);
+	return 0;
+}
+
+static int getemergencyrecover(const char *emer_rec_path)
+{
+	u8 *scb = grab_file(tmpctx, emer_rec_path);
+	char *output, *hrp = "clnemerg";
+	if (!scb) {
+		errx(EXITCODE_ERROR_HSM_FILE, "Reading emergency.recover");
+	} else {
+		/* grab_file adds nul term */
+		tal_resize(&scb, tal_bytelen(scb) - 1);
+	}
+	u5 *data = tal_arr(tmpctx, u5, 0);
+
+	bech32_push_bits(&data, scb, tal_bytelen(scb) * 8);
+	output = tal_arr(tmpctx, char, strlen(hrp) + tal_count(data) + 8);
+
+	bech32_encode(output, hrp, data, tal_count(data), (size_t)-1,
+			   BECH32_ENCODING_BECH32);
+
+	printf("%s\n", output);
 	return 0;
 }
 
@@ -768,5 +792,12 @@ int main(int argc, char *argv[])
 			show_usage(argv[0]);
 		return make_codexsecret(argv[2], argv[3]);
 	}
+
+	if(streq(method, "getemergencyrecover")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		return getemergencyrecover(argv[2]);
+	}
+
 	show_usage(argv[0]);
 }

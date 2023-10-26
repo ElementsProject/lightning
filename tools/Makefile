@@ -18,7 +18,7 @@ tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 tools/headerversions.o: ccan/config.h
 tools/check-bolt: tools/check-bolt.o $(TOOLS_COMMON_OBJS)
 
-tools/hsmtool: tools/hsmtool.o $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/autodata.o common/bech32.o common/bigsize.o common/codex32.o common/configdir.o common/configvar.o common/derive_basepoints.o common/descriptor_checksum.o common/hsm_encryption.o common/node_id.o common/type_to_string.o common/version.o wire/fromwire.o wire/towire.o
+tools/hsmtool: tools/hsmtool.o $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/autodata.o common/bech32.o common/bech32_util.o common/bigsize.o common/codex32.o common/configdir.o common/configvar.o common/derive_basepoints.o common/descriptor_checksum.o common/hsm_encryption.o common/node_id.o common/type_to_string.o common/version.o wire/fromwire.o wire/towire.o
 
 tools/lightning-hsmtool: tools/hsmtool
 	cp $< $@
