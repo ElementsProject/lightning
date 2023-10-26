@@ -1223,8 +1223,6 @@ void channel_update_reserve(struct channel *channel,
 static struct channel_inflight *
 wallet_update_channel(struct lightningd *ld,
 		      struct channel *channel,
-		      struct bitcoin_tx *remote_commit STEALS,
-		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
@@ -1275,10 +1273,6 @@ wallet_update_channel(struct lightningd *ld,
 							channel->opener,
 							&lease_blockheight_start);
 
-	channel_set_last_tx(channel,
-			    tal_steal(channel, remote_commit),
-			    remote_commit_sig);
-
 	/* Update in database */
 	wallet_channel_save(ld->wallet, channel);
 
@@ -1289,8 +1283,6 @@ wallet_update_channel(struct lightningd *ld,
 				channel->funding_sats,
 				channel->our_funds,
 				psbt,
-				channel->last_tx,
-				channel->last_sig,
 				channel->lease_expiry,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
@@ -1309,8 +1301,6 @@ wallet_update_channel(struct lightningd *ld,
 static struct channel_inflight *
 wallet_commit_channel(struct lightningd *ld,
 		      struct channel *channel,
-		      struct bitcoin_tx *remote_commit,
-		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
@@ -1357,25 +1347,9 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Promote the unsaved_dbid to the dbid */
 	assert(channel->unsaved_dbid != 0);
+	assert(channel->state == DUALOPEND_OPEN_INIT);
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
-	/* We can't call channel_set_state here: channel isn't in db, so
-	 * really this is a "channel creation" event. */
-	assert(channel->state == DUALOPEND_OPEN_INIT);
-	log_info(channel->log, "State changed from %s to %s",
-		 channel_state_name(channel),
-		 channel_state_str(DUALOPEND_OPEN_COMMITTED));
-	channel->state = DUALOPEND_OPEN_COMMITTED;
-	notify_channel_state_changed(channel->peer->ld,
-				     &channel->peer->id,
-				     &channel->cid,
-				     channel->scid,
-				     time_now(),
-				     DUALOPEND_OPEN_INIT,
-				     DUALOPEND_OPEN_COMMITTED,
-				     REASON_REMOTE,
-				     "Commitment transaction committed");
-
 	channel->funding = *funding;
 	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
@@ -1386,9 +1360,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->req_confirmed_ins[LOCAL] =
 		ld->config.require_confirmed_inputs;
 
-	channel->last_tx = tal_steal(channel, remote_commit);
-	channel->last_sig = *remote_commit_sig;
-
+	channel->last_tx = NULL;
 	channel->channel_info = *channel_info;
 	channel->fee_states = new_fee_states(channel,
 					     channel->opener,
@@ -1459,8 +1431,6 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->funding_sats,
 				channel->our_funds,
 				psbt,
-				channel->last_tx,
-				channel->last_sig,
 				channel->lease_expiry,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
@@ -3298,10 +3268,9 @@ static void handle_commit_received(struct subd *dualopend,
 			       &channel_info.their_config,
 			       total_funding);
 
+	/* First time (not an RBF) */
 	if (channel->state == DUALOPEND_OPEN_INIT) {
 		if (!(inflight = wallet_commit_channel(ld, channel,
-						       remote_commit,
-						       &remote_commit_sig,
 						       &funding,
 						       total_funding,
 						       funding_ours,
@@ -3332,18 +3301,11 @@ static void handle_commit_received(struct subd *dualopend,
 			return;
 		}
 
-		/* FIXME: handle RBF pbases */
-		if (pbase)
-			wallet_penalty_base_add(ld->wallet,
-						channel->dbid,
-						pbase);
-
 	} else {
+		/* We're doing an RBF */
 		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
 
 		if (!(inflight = wallet_update_channel(ld, channel,
-						       remote_commit,
-						       &remote_commit_sig,
 						       &funding,
 						       total_funding,
 						       funding_ours,
@@ -3384,10 +3346,11 @@ static void handle_commit_received(struct subd *dualopend,
 				type_to_string(tmpctx,
 					       struct channel_id,
 					       &channel->cid));
-		json_add_psbt(response, "psbt", psbt);
+		json_add_psbt(response, "psbt", inflight->funding_psbt);
 		json_add_bool(response, "commitments_secured", true);
 		/* For convenience sake, we include the funding outnum */
-		json_add_num(response, "funding_outnum", funding.n);
+		assert(inflight->funding);
+		json_add_num(response, "funding_outnum", inflight->funding->outpoint.n);
 		if (oa->our_upfront_shutdown_script) {
 			json_add_hex_talarr(response, "close_to",
 					    oa->our_upfront_shutdown_script);
