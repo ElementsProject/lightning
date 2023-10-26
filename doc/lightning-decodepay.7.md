@@ -32,7 +32,7 @@ On success, an object is returned, containing:
 - **features** (hex, optional): the features bitmap for this invoice
 - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
 - **fallbacks** (array of objects, optional): onchain addresses:
-  - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
+  - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH", "P2TR")
   - **hex** (hex): Raw encoded address
   - **addr** (string, optional): the address in appropriate format for *type*
 - **routes** (array of arrays, optional): Route hints to the *payee*:
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e20f638716d74697afbea9cb4dd5afa380505dda65dcd3bba1579d2ed79bdc6b)
+[comment]: # ( SHA256STAMP:14c7dd565178078d7073e2837ad283a1e811affb5017e72c69e69d9f8c2baabd)

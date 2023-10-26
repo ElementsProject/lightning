@@ -249,7 +249,7 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **features** (hex, optional): the features bitmap for this invoice
   - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
   - **fallbacks** (array of objects, optional): onchain addresses:
-    - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
+    - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH", "P2TR")
     - **hex** (hex): Raw encoded address
     - **addr** (string, optional): the address in appropriate format for *type*
   - **routes** (array of arrays, optional): Route hints to the *payee*:
@@ -303,4 +303,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2f77622e54345ebdffbbc0823f73c8f709a29de536be0c84290aac65e5405d3a)
+[comment]: # ( SHA256STAMP:ee1667eb4bf5eda980615dbcee334f618991e4b648a07ded8868ecde09bb2554)
