@@ -88,7 +88,6 @@ a foreign key.
 
 [comment]: # (GENERATE-DOC-START)
 The following tables are currently supported:
-
 - `bkpr_accountevents` (see lightning-bkpr-listaccountevents(7))
   - `account` (type `string`, sqltype `TEXT`)
   - `type` (type `string`, sqltype `TEXT`)
@@ -211,6 +210,8 @@ The following tables are currently supported:
   - `pay_index` (type `u64`, sqltype `INTEGER`)
   - `amount_received_msat` (type `msat`, sqltype `INTEGER`)
   - `paid_at` (type `u64`, sqltype `INTEGER`)
+  - `paid_outpoint_txid` (type `txid`, sqltype `BLOB`, from JSON object `paid_outpoint`)
+  - `paid_outpoint_outnum` (type `u32`, sqltype `INTEGER`, from JSON object `paid_outpoint`)
   - `payment_preimage` (type `secret`, sqltype `BLOB`)
 
 - `nodes` indexed by `nodeid` (see lightning-listnodes(7))
@@ -515,4 +516,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:2f77078555f16a9dbee5f068d4d0ba18727aeb378be674cd96bf7c1554a74ce5)
+[comment]: # ( SHA256STAMP:b14fce571cf85639c460c59ddec117ce1cb23bd219618730b164ea3cc979b1aa)

@@ -45,6 +45,9 @@ On success, an object is returned, containing:
 - **pay\_index** (u64, optional): Incrementing id for when this was paid (**status** *paid* only)
 - **amount\_received\_msat** (msat, optional): Amount actually received (**status** *paid* only)
 - **paid\_at** (u64, optional): UNIX timestamp of when invoice was paid (**status** *paid* only)
+- **paid\_outpoint** (object, optional): Outpoint this invoice was paid with (**status** *paid* only) *(added v23.11)*:
+  - **txid** (txid): ID of the transaction that paid the invoice (**status** *paid* only) *(added v23.11)*
+  - **outnum** (u32): The 0-based output number of the transaction that paid the invoice (**status** *paid* only) *(added v23.11)*
 - **payment\_preimage** (secret, optional): the proof of payment: SHA256 of this **payment\_hash**
 - **local\_offer\_id** (hex, optional): the *id* of our offer which created this invoice (**experimental-offers** only). (always 64 characters)
 - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice (**experimental-offers** only).
@@ -77,4 +80,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2d2180c9e903e2b79d5ddb2b0cf995b1f7aa27b0f9bb1f6e19252b94dcd46ef1)
+[comment]: # ( SHA256STAMP:51966a70e3eaa77c703fbd8d00cfb3f7f7602b50149ba6cb8fa0fc115cf05450)

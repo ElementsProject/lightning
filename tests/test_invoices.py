@@ -909,6 +909,28 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
+def test_unified_invoices(node_factory, executor, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'invoices-onchain-fallback': None})
+    amount_sat = 1000
+    inv = l1.rpc.invoice(amount_sat * 1000, "inv1", "test_unified_invoices")
+    b11 = l1.rpc.decodepay(inv['bolt11'])
+
+    assert len(b11['fallbacks']) == 1
+
+    # Pay invoice on-chain
+    addr = b11['fallbacks'][0]['addr']
+
+    # save txid
+    txid = bitcoind.rpc.sendtoaddress(addr, amount_sat / 10**8)
+
+    # confirm spend
+    bitcoind.generate_block(1)
+
+    res = l1.rpc.waitinvoice('inv1')
+
+    assert(txid == res['paid_outpoint']['txid'])
+
+
 def test_expiry_startup_crash(node_factory, bitcoind):
     """We crash trying to expire invoice on startup"""
     l1 = node_factory.get_node()
