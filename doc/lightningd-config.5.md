@@ -489,7 +489,7 @@ not easily distinguishable.  As a result, autoclean may delete more
 than one of these at once, and then suffer failures when it fails to
 delete the others.
 
-### Payment control options:
+### Payment and invoice control options:
 
 * **disable-mpp** [plugin `pay`]
 
@@ -497,6 +497,11 @@ delete the others.
 the MPP support is enabled, but it can be desirable to disable in situations
 in which each payment should result in a single HTLC being forwarded in the
 network.
+
+* **invoices-onchain-fallback**
+
+  Add a (taproot) fallback address to invoices produced by the `invoice`
+command, so they invoices can also be paid onchain.
 
 ### Networking options
 

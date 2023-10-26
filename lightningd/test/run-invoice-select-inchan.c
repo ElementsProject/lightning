@@ -699,6 +699,10 @@ struct channel *new_unsaved_channel(struct peer *peer UNNEEDED,
 				    u32 feerate_base UNNEEDED,
 				    u32 feerate_ppm UNNEEDED)
 { fprintf(stderr, "new_unsaved_channel called!\n"); abort(); }
+/* Generated stub for newaddr_inner */
+bool  newaddr_inner(struct command *cmd UNNEEDED, struct pubkey *pubkey UNNEEDED,
+				      enum addrtype addrtype UNNEEDED)
+{ fprintf(stderr, "newaddr_inner called!\n"); abort(); }
 /* Generated stub for node_id_cmp */
 int node_id_cmp(const struct node_id *a UNNEEDED, const struct node_id *b UNNEEDED)
 { fprintf(stderr, "node_id_cmp called!\n"); abort(); }

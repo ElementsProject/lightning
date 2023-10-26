@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
@@ -26,7 +27,9 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/routehint.h>
 #include <sodium/randombytes.h>
+#include <stdio.h>
 #include <wallet/invoices.h>
+#include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
 
 const char *invoice_status_str(enum invoice_status state)
@@ -1133,6 +1136,11 @@ static struct command_result *json_invoice(struct command *cmd,
 		return command_check_done(cmd);
 
 	if (fallbacks) {
+		if (cmd->ld->unified_invoices) {
+			log_info(cmd->ld->log,
+				 "WARNING: Not tracking on-chain payments "
+				 "for custom fallback addresses");
+		}
 		size_t i;
 		const jsmntok_t *t;
 
@@ -1144,6 +1152,17 @@ static struct command_result *json_invoice(struct command *cmd,
 			if (r)
 				return r;
 		}
+	} else if (cmd->ld->unified_invoices) {
+		struct pubkey pubkey;
+		const u8 *p2tr;
+
+		fallback_scripts = tal_arr(cmd, const u8 *, 1);
+
+		if (!newaddr_inner(cmd, &pubkey, ADDR_P2TR))
+			return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
+
+		p2tr = scriptpubkey_p2tr(fallback_scripts, &pubkey);
+		fallback_scripts[0] = p2tr;
 	}
 
 	if (preimage)
