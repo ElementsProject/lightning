@@ -89,6 +89,20 @@ bool invoices_find_by_label(struct invoices *invoices,
 bool invoices_find_by_rhash(struct invoices *invoices,
 			    u64 *inv_dbid,
 			    const struct sha256 *rhash);
+/**
+ * invoices_find_by_fallback_script - Search for an invoice by
+ * scriptpubkey in invoice_fallbacks child table
+ *
+ * @invoices - the invoice handler.
+ * @inv_dbid - pointer to location to put the found dbid in
+ * @scriptPubKey - the scriptpubkey to search for.
+ *
+ * Returns false if no invoice with that scriptpubkey exists.
+ * Returns true if found.
+ */
+bool invoices_find_by_fallback_script(struct invoices *invoices,
+			    u64 *inv_dbid,
+			    const u8 *scriptPubkey);
 
 /**
  * invoices_find_unpaid - Search for an unpaid, unexpired invoice by

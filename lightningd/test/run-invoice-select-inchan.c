@@ -403,6 +403,11 @@ bool invoices_delete_description(struct invoices *invoices UNNEEDED,
 void invoices_delete_expired(struct invoices *invoices UNNEEDED,
 			     u64 max_expiry_time UNNEEDED)
 { fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
+/* Generated stub for invoices_find_by_fallback_script */
+bool invoices_find_by_fallback_script(struct invoices *invoices UNNEEDED,
+			    u64 *inv_dbid UNNEEDED,
+			    const u8 *scriptPubkey UNNEEDED)
+{ fprintf(stderr, "invoices_find_by_fallback_script called!\n"); abort(); }
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    u64 *inv_dbid UNNEEDED,

@@ -33,6 +33,11 @@ void txfilter_add_derkey(struct txfilter *filter,
 bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx);
 
 /**
+ * txfilter_matches -- Check whether the scriptpubkey matches the filter
+ */
+bool txfilter_scriptpubkey_matches(const struct txfilter *filter, const u8 *scriptPubKey);
+
+/**
  * txfilter_add_scriptpubkey -- Add a serialized scriptpubkey to the filter
  */
 void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES);

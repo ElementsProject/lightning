@@ -945,6 +945,31 @@ static void listincoming_done(const char *buffer,
 			 warning_private_unused);
 }
 
+void invoice_check_onchain_payment(struct lightningd *ld,
+				   const u8 *scriptPubKey,
+				   struct amount_sat sat,
+				   const struct bitcoin_outpoint *outpoint)
+{
+	u64 inv_dbid;
+	const struct invoice_details *details;
+	struct amount_msat msat;
+	if (!amount_sat_to_msat(&msat, sat))
+		abort();
+	/* Does this onchain payment fulfill an invoice? */
+	if(!invoices_find_by_fallback_script(ld->wallet->invoices, &inv_dbid, scriptPubKey)) {
+		return;
+	}
+
+	details = invoices_get_details(tmpctx, ld->wallet->invoices, inv_dbid);
+
+	if (amount_msat_less(msat, *details->msat)) {
+		// notify_underpaid_onchain_invoice();
+		return;
+	}
+
+	// invoice_try_pay(...);
+}
+
 /* Since this is a dev-only option, we will crash if dev-routes is not
  * an array-of-arrays-of-correct-items. */
 static struct route_info *unpack_route(const tal_t *ctx,
