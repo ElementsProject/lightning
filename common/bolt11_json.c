@@ -3,6 +3,7 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/addr.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
@@ -13,32 +14,24 @@ static void json_add_fallback(struct json_stream *response,
 			      const u8 *fallback,
 			      const struct chainparams *chain)
 {
-	struct bitcoin_address pkh;
-	struct ripemd160 sh;
-	struct sha256 wsh;
+	char *addr;
 
 	json_object_start(response, fieldname);
-	if (is_p2pkh(fallback, &pkh)) {
+	if (is_p2pkh(fallback, NULL)) {
 		json_add_string(response, "type", "P2PKH");
-		json_add_string(response, "addr",
-				bitcoin_to_base58(tmpctx, chain, &pkh));
-	} else if (is_p2sh(fallback, &sh)) {
+	} else if (is_p2sh(fallback, NULL)) {
 		json_add_string(response, "type", "P2SH");
-		json_add_string(response, "addr",
-				p2sh_to_base58(tmpctx, chain, &sh));
-	} else if (is_p2wpkh(fallback, &pkh)) {
-		char out[73 + strlen(chain->onchain_hrp)];
+	} else if (is_p2wpkh(fallback, NULL)) {
 		json_add_string(response, "type", "P2WPKH");
-		if (segwit_addr_encode(out, chain->onchain_hrp, 0,
-				       (const u8 *)&pkh, sizeof(pkh)))
-			json_add_string(response, "addr", out);
-	} else if (is_p2wsh(fallback, &wsh)) {
-		char out[73 + strlen(chain->onchain_hrp)];
+	} else if (is_p2wsh(fallback, NULL)) {
 		json_add_string(response, "type", "P2WSH");
-		if (segwit_addr_encode(out, chain->onchain_hrp, 0,
-				       (const u8 *)&wsh, sizeof(wsh)))
-			json_add_string(response, "addr", out);
+	} else if (is_p2tr(fallback, NULL)) {
+		json_add_string(response, "type", "P2TR");
 	}
+
+	addr = encode_scriptpubkey_to_addr(tmpctx, chain, fallback);
+	if (addr)
+		json_add_string(response, "addr", addr);
 	json_add_hex_talarr(response, "hex", fallback);
 	json_object_end(response);
 }

@@ -38,6 +38,7 @@
         "DecodepayFallbacksType": {
             "P2PKH": 0,
             "P2SH": 1,
+            "P2TR": 4,
             "P2WPKH": 2,
             "P2WSH": 3
         },

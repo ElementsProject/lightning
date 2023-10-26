@@ -1317,6 +1317,7 @@ message DecodepayFallbacks {
 		P2SH = 1;
 		P2WPKH = 2;
 		P2WSH = 3;
+		P2TR = 4;
 	}
 	DecodepayFallbacksType item_type = 1;
 	optional string addr = 2;
