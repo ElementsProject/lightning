@@ -1501,14 +1501,17 @@ static bool want_blockheight_update(const struct peer *peer, u32 *height)
 	return true;
 }
 
-static u8 *send_commit_part(struct peer *peer,
-			     const struct bitcoin_outpoint *funding,
-			     struct amount_sat funding_sats,
-			     const struct htlc **changed_htlcs,
-			     bool notify_master,
-			     s64 splice_amnt,
-			     s64 remote_splice_amnt,
-			     u64 remote_index)
+/* Returns commitment_signed msg, sets @local_anchor */
+static u8 *send_commit_part(const tal_t *ctx,
+			    struct peer *peer,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
+			    const struct htlc **changed_htlcs,
+			    bool notify_master,
+			    s64 splice_amnt,
+			    s64 remote_splice_amnt,
+			    u64 remote_index,
+			    struct local_anchor_info **anchor)
 {
 	u8 *msg;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
@@ -1517,6 +1520,7 @@ static u8 *send_commit_part(struct peer *peer,
 	const struct htlc **htlc_map;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
+	int local_anchor_outnum;
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
 
@@ -1537,7 +1541,7 @@ static u8 *send_commit_part(struct peer *peer,
 			  direct_outputs, &funding_wscript,
 			  peer->channel, &peer->remote_per_commit,
 			  remote_index, REMOTE,
-			  splice_amnt, remote_splice_amnt);
+			  splice_amnt, remote_splice_amnt, &local_anchor_outnum);
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, &commit_sig);
@@ -1551,6 +1555,16 @@ static u8 *send_commit_part(struct peer *peer,
 		tal_arr_expand(&peer->pbases, tal_steal(peer, pbase));
 	}  else
 		pbase = NULL;
+
+	if (local_anchor_outnum == -1) {
+		*anchor = NULL;
+	} else {
+		*anchor = tal(ctx, struct local_anchor_info);
+		bitcoin_txid(txs[0], &(*anchor)->anchor_point.txid);
+		(*anchor)->anchor_point.n = local_anchor_outnum;
+		(*anchor)->commitment_weight = bitcoin_tx_weight(txs[0]);
+		(*anchor)->commitment_fee = bitcoin_tx_compute_fee(txs[0]);
+	}
 
 	if (peer->dev_disable_commit) {
 		(*peer->dev_disable_commit)--;
@@ -1574,7 +1588,7 @@ static u8 *send_commit_part(struct peer *peer,
 			     tal_count(htlc_sigs));
 	}
 
-	msg = towire_commitment_signed(NULL, &peer->channel_id,
+	msg = towire_commitment_signed(ctx, &peer->channel_id,
 				       &commit_sig.s,
 				       raw_sigs(tmpctx, htlc_sigs),
 				       cs_tlv);
@@ -1594,6 +1608,7 @@ static void send_commit(struct peer *peer)
 	u32 feerate_target;
 	u8 **msgs = tal_arr(tmpctx, u8*, 1);
 	u8 *msg;
+	struct local_anchor_info *local_anchor, *anchors_info;
 
 	if (peer->dev_disable_commit && !*peer->dev_disable_commit) {
 		peer->commit_timer = NULL;
@@ -1705,9 +1720,13 @@ static void send_commit(struct peer *peer)
 		return;
 	}
 
-	msgs[0] = send_commit_part(peer, &peer->channel->funding,
+	anchors_info = tal_arr(tmpctx, struct local_anchor_info, 0);
+	msgs[0] = send_commit_part(msgs, peer, &peer->channel->funding,
 				   peer->channel->funding_sats, changed_htlcs,
-				   true, 0, 0, peer->next_index[REMOTE]);
+				   true, 0, 0, peer->next_index[REMOTE],
+				   &local_anchor);
+	if (local_anchor)
+		tal_arr_expand(&anchors_info, *local_anchor);
 
 	/* Loop over current inflights
 	 * BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
@@ -1725,14 +1744,22 @@ static void send_commit(struct peer *peer)
 					- peer->splice_state->inflights[i]->splice_amnt;
 
 		tal_arr_expand(&msgs,
-			       send_commit_part(peer,
+			       send_commit_part(msgs, peer,
 						&peer->splice_state->inflights[i]->outpoint,
 						peer->splice_state->inflights[i]->amnt,
 						changed_htlcs, false,
 						peer->splice_state->inflights[i]->splice_amnt,
 						remote_splice_amnt,
-						peer->next_index[REMOTE]));
+						peer->next_index[REMOTE],
+						&local_anchor));
+		if (local_anchor)
+			tal_arr_expand(&anchors_info, *local_anchor);
 	}
+
+	/* Now, tell master about the anchor on each of their commitments */
+	msg = towire_channeld_local_anchor_info(NULL, peer->next_index[REMOTE],
+						anchors_info);
+	wire_sync_write(MASTER_FD, take(msg));
 
 	peer->next_index[REMOTE]++;
 
@@ -1967,6 +1994,7 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 	struct amount_sat funding_sats;
 	struct channel_id active_id;
 	const struct commitsig **commitsigs;
+	int remote_anchor_outnum;
 
 	status_debug("handle_peer_commit_sig(splice: %d, remote_splice: %d)",
 		     (int)splice_amnt, (int)remote_splice_amnt);
@@ -2051,7 +2079,7 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 			  NULL, &funding_wscript, peer->channel,
 			  &peer->next_local_per_commit,
 			  peer->next_index[LOCAL], LOCAL, splice_amnt,
-			  remote_splice_amnt);
+			  remote_splice_amnt, &remote_anchor_outnum);
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
@@ -4382,6 +4410,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 	size_t i;
 	u8 *msg;
 	u8 **msgs = tal_arr(tmpctx, u8*, 1);
+	struct local_anchor_info *local_anchor;
 
 	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u,"
 		     " blockheight LOCAL=%u REMOTE=%u",
@@ -4472,9 +4501,10 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 		}
 	}
 
-	msgs[0] = send_commit_part(peer, &peer->channel->funding,
+	msgs[0] = send_commit_part(msgs, peer, &peer->channel->funding,
 				   peer->channel->funding_sats, NULL,
-				   false, 0, 0, peer->next_index[REMOTE] - 1);
+				   false, 0, 0, peer->next_index[REMOTE] - 1,
+				   &local_anchor);
 
 	/* Loop over current inflights
 	 * BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
@@ -4492,13 +4522,14 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 					- peer->splice_state->inflights[i]->splice_amnt;
 
 		tal_arr_expand(&msgs,
-			       send_commit_part(peer,
+			       send_commit_part(msgs, peer,
 						&peer->splice_state->inflights[i]->outpoint,
 						peer->splice_state->inflights[i]->amnt,
 						NULL, false,
 						peer->splice_state->inflights[i]->splice_amnt,
 						remote_splice_amnt,
-						peer->next_index[REMOTE] - 1));
+						peer->next_index[REMOTE] - 1,
+						&local_anchor));
 	}
 
 	for(i = 0; i < tal_count(msgs); i++)
@@ -5782,6 +5813,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_UPDATE_INFLIGHT:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
 	case WIRE_CHANNELD_SPLICE_STATE_ERROR:
+	case WIRE_CHANNELD_LOCAL_ANCHOR_INFO:
 		break;
 	}
 	master_badmsg(-1, msg);

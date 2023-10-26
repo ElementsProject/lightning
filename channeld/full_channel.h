@@ -66,6 +66,7 @@ struct channel *new_full_channel(const tal_t *ctx,
  * @side: which side to get the commitment transaction for
  * @local_splice_amnt: how much is being spliced in (or out, if -ve) of local side.
  * @remote_splice_amnt: how much is being spliced in (or out, if -ve) of remote side.
+ * @other_anchor_outnum: which output (-1 if none) is the !!side anchor
  *
  * Returns the unsigned commitment transaction for the committed state
  * for @side, followed by the htlc transactions in output order and
@@ -82,7 +83,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				u64 commitment_number,
 				enum side side,
 				s64 local_splice_amnt,
-				s64 remote_splice_amnt);
+				s64 remote_splice_amnt,
+				int *local_anchor_outnum);
 
 /**
  * actual_feerate: what is the actual feerate for the local side.
