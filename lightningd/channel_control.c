@@ -1220,6 +1220,34 @@ static void handle_local_channel_update(struct channel *channel,
 	tell_gossipd_local_channel_update(channel->peer->ld, channel, enable);
 }
 
+static void handle_local_anchors(struct channel *channel, const u8 *msg)
+{
+	u64 remote_commitnum;
+	struct local_anchor_info *anchors;
+
+	if (!fromwire_channeld_local_anchor_info(msg, msg, &remote_commitnum,
+						 &anchors)) {
+		channel_internal_error(channel,
+				       "bad channeld_local_anchor_info %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	/* Update all these anchors */
+	for (size_t i = 0; i < tal_count(anchors); i++) {
+		wallet_set_local_anchor(channel->peer->ld->wallet,
+					channel->dbid,
+					anchors + i,
+					remote_commitnum);
+	}
+	/* Now safe to forget old ones */
+	if (remote_commitnum > 2) {
+		wallet_remove_local_anchors(channel->peer->ld->wallet,
+					    channel->dbid,
+					    remote_commitnum - 2);
+	}
+}
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -1229,7 +1257,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_sending_commitsig(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_LOCAL_ANCHOR_INFO:
-		/* FIXME */
+		handle_local_anchors(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_GOT_COMMITSIG:
 		peer_got_commitsig(sd->channel, msg);
