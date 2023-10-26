@@ -449,7 +449,8 @@ struct db_stmt *invoices_next(struct invoices *invoices UNNEEDED,
 bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      u64 inv_dbid UNNEEDED,
 		      struct amount_msat received UNNEEDED,
-		      const struct json_escape *label UNNEEDED)
+		      const struct json_escape *label UNNEEDED,
+		      const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
 /* Generated stub for invoices_waitany */
 void invoices_waitany(const tal_t *ctx UNNEEDED,

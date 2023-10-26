@@ -1518,7 +1518,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 
 	/* These should not fail, given the above succeded! */
 	if (!invoices_find_by_rhash(ld->wallet->invoices, &inv_dbid, rhash)
-	    || !invoices_resolve(ld->wallet->invoices, inv_dbid, msat, NULL)) {
+	    || !invoices_resolve(ld->wallet->invoices, inv_dbid, msat, inv->label, NULL)) {
 		log_broken(ld->log, "Could not resolve invoice %"PRIu64"!?!", inv_dbid);
 		return sendpay_fail(cmd, payment, PAY_DESTINATION_PERM_FAIL, NULL, NULL, "broken");
 	}
