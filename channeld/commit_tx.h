@@ -63,8 +63,9 @@ bool commit_tx_amount_trimmed(const struct htlc **htlcs,
  * @obscured_commitment_number: number to encode in commitment transaction
  * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
+ * @option_anchors_zero_fee_htlc_tx: does option_anchors_zero_fee_htlc_tx apply to this channel?
  * @side: side to generate commitment transaction for.
- * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
+ * @anchor_outnum: set to index of local anchor, or -1 if none.
  *
  * We need to be able to generate the remote side's tx to create signatures,
  * but the BOLT is expressed in terms of generating our local commitment
@@ -90,6 +91,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 obscured_commitment_number,
 			     bool option_anchor_outputs,
 			     bool option_anchors_zero_fee_htlc_tx,
-			     enum side side);
+			     enum side side,
+			     int *anchor_outnum);
 
 #endif /* LIGHTNING_CHANNELD_COMMIT_TX_H */

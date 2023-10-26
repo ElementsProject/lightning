@@ -128,7 +128,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 obscured_commitment_number,
 			     bool option_anchor_outputs,
 			     bool option_anchors_zero_fee_htlc_tx,
-			     enum side side)
+			     enum side side,
+			     int *anchor_outnum)
 {
 	struct amount_sat base_fee;
 	struct amount_msat total_pay;
@@ -139,7 +140,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	u32 *cltvs;
 	bool to_local, to_remote;
 	struct htlc *dummy_to_local = (struct htlc *)0x01,
-		*dummy_to_remote = (struct htlc *)0x02;
+		*dummy_to_remote = (struct htlc *)0x02,
+		*dummy_other_anchor = (struct htlc *)0x03;
 	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 							local_funding_key,
 							remote_funding_key);
@@ -379,9 +381,11 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			n++;
 		}
 
+		/* With anchors, the caller really wants to know what
+		 * is the LOCAL anchor for the REMOTE side. */
 		if (to_remote || untrimmed != 0) {
 			tx_add_anchor_output(tx, remote_funding_key);
-			(*htlcmap)[n] = NULL;
+			(*htlcmap)[n] = dummy_other_anchor;
 			n++;
 		}
 	}
@@ -433,17 +437,21 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, funding,
 			     sequence, NULL, funding_sats, NULL, funding_wscript);
 
-	/* Identify the direct outputs (to_us, to_them). */
-	if (direct_outputs != NULL) {
+	/* Identify the direct outputs (to_us, to_them), and the local anchor */
+	if (direct_outputs != NULL)
 		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;
-		for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
-			if ((*htlcmap)[i] == dummy_to_local) {
-				(*htlcmap)[i] = NULL;
-				direct_outputs[LOCAL] = tx->wtx->outputs + i;
-			} else if ((*htlcmap)[i] == dummy_to_remote) {
-				(*htlcmap)[i] = NULL;
-				direct_outputs[REMOTE] = tx->wtx->outputs + i;
-			}
+
+	*anchor_outnum = -1;
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		if ((*htlcmap)[i] == dummy_to_local) {
+			(*htlcmap)[i] = NULL;
+			direct_outputs[LOCAL] = tx->wtx->outputs + i;
+		} else if ((*htlcmap)[i] == dummy_to_remote) {
+			(*htlcmap)[i] = NULL;
+			direct_outputs[REMOTE] = tx->wtx->outputs + i;
+		} else if ((*htlcmap)[i] == dummy_other_anchor) {
+			(*htlcmap)[i] = NULL;
+			*anchor_outnum = i;
 		}
 	}
 
