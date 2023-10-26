@@ -137,9 +137,6 @@ msgdata,channeld_sending_commitsig,blockheight_states,height_states,
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 msgdata,channeld_sending_commitsig,num_changed,u16,
 msgdata,channeld_sending_commitsig,changed,changed_htlc,num_changed
-msgdata,channeld_sending_commitsig,commit_sig,bitcoin_signature,
-msgdata,channeld_sending_commitsig,num_htlc_sigs,u16,
-msgdata,channeld_sending_commitsig,htlc_sigs,bitcoin_signature,num_htlc_sigs
 
 # Wait for reply, to make sure it's on disk before we send commit.
 msgtype,channeld_sending_commitsig_reply,1120

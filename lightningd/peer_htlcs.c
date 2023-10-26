@@ -2059,8 +2059,6 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct height_states *blockheight_states;
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
-	struct bitcoin_signature commit_sig;
-	struct bitcoin_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
 	struct penalty_base *pbase;
 
@@ -2069,8 +2067,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 						&pbase,
 						&fee_states,
 						&blockheight_states,
-						&changed_htlcs,
-						&commit_sig, &htlc_sigs)
+						&changed_htlcs)
 	    || !fee_states_valid(fee_states, channel->opener)
 	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel, "bad channel_sending_commitsig %s",
