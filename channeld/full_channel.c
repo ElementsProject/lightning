@@ -299,32 +299,17 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 
 /* FIXME: We could cache these. */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
+				const struct bitcoin_outpoint *funding,
+				struct amount_sat funding_sats,
 				const struct htlc ***htlcmap,
 				struct wally_tx_output *direct_outputs[NUM_SIDES],
 				const u8 **funding_wscript,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
 				u64 commitment_number,
-				enum side side)
-{
-	return channel_splice_txs(ctx, &channel->funding, channel->funding_sats,
-				  htlcmap, direct_outputs, funding_wscript,
-				  channel, per_commitment_point,
-				  commitment_number, side, 0, 0);
-}
-
-struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
-				       const struct bitcoin_outpoint *funding,
-				       struct amount_sat funding_sats,
-				       const struct htlc ***htlcmap,
-				       struct wally_tx_output *direct_outputs[NUM_SIDES],
-				       const u8 **funding_wscript,
-				       const struct channel *channel,
-				       const struct pubkey *per_commitment_point,
-				       u64 commitment_number,
-				       enum side side,
-				       s64 splice_amnt,
-				       s64 remote_splice_amnt)
+				enum side side,
+				s64 splice_amnt,
+				s64 remote_splice_amnt)
 {
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;

@@ -55,42 +55,34 @@ struct channel *new_full_channel(const tal_t *ctx,
 /**
  * channel_txs: Get the current commitment and htlc txs for the channel.
  * @ctx: tal context to allocate return value from.
- * @channel: The channel to evaluate
+ * @funding: the outpoint we're spending
+ * @funding_sats: the amount of @funding
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx).
  * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @funding_wscript: Pointer to wscript for the funding tx output
+ * @channel: The channel to evaluate
  * @per_commitment_point: Per-commitment point to determine keys
  * @commitment_number: The index of this commitment.
  * @side: which side to get the commitment transaction for
+ * @local_splice_amnt: how much is being spliced in (or out, if -ve) of local side.
+ * @remote_splice_amnt: how much is being spliced in (or out, if -ve) of remote side.
  *
  * Returns the unsigned commitment transaction for the committed state
  * for @side, followed by the htlc transactions in output order and
  * fills in @htlc_map, or NULL on key derivation failure.
  */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
+				const struct bitcoin_outpoint *funding,
+				struct amount_sat funding_sats,
 				const struct htlc ***htlcmap,
 				struct wally_tx_output *direct_outputs[NUM_SIDES],
 				const u8 **funding_wscript,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
 				u64 commitment_number,
-				enum side side);
-
-/* Version of `channel_txs` that lets you specify a custom funding outpoint
- * and funding_sats.
- */
-struct bitcoin_tx **channel_splice_txs(const tal_t *ctx,
-				       const struct bitcoin_outpoint *funding,
-				       struct amount_sat funding_sats,
-				       const struct htlc ***htlcmap,
-				       struct wally_tx_output *direct_outputs[NUM_SIDES],
-				       const u8 **funding_wscript,
-				       const struct channel *channel,
-				       const struct pubkey *per_commitment_point,
-				       u64 commitment_number,
-				       enum side side,
-				       s64 splice_amnt,
-				       s64 remote_splice_amnt);
+				enum side side,
+				s64 local_splice_amnt,
+				s64 remote_splice_amnt);
 
 /**
  * actual_feerate: what is the actual feerate for the local side.

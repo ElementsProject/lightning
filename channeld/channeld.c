@@ -1533,11 +1533,11 @@ static u8 *send_commit_part(struct peer *peer,
 		derive_channel_id(cs_tlv->splice_info, funding);
 	}
 
-	txs = channel_splice_txs(tmpctx, funding, funding_sats, &htlc_map,
-				 direct_outputs, &funding_wscript,
-				 peer->channel, &peer->remote_per_commit,
-				 remote_index, REMOTE,
-				 splice_amnt, remote_splice_amnt);
+	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
+			  direct_outputs, &funding_wscript,
+			  peer->channel, &peer->remote_per_commit,
+			  remote_index, REMOTE,
+			  splice_amnt, remote_splice_amnt);
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, &commit_sig);
@@ -2047,11 +2047,11 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 		funding_sats = peer->channel->funding_sats;
 	}
 
-	txs = channel_splice_txs(tmpctx, &outpoint, funding_sats, &htlc_map,
-				 NULL, &funding_wscript, peer->channel,
-				 &peer->next_local_per_commit,
-				 peer->next_index[LOCAL], LOCAL, splice_amnt,
-				 remote_splice_amnt);
+	txs = channel_txs(tmpctx, &outpoint, funding_sats, &htlc_map,
+			  NULL, &funding_wscript, peer->channel,
+			  &peer->next_local_per_commit,
+			  peer->next_index[LOCAL], LOCAL, splice_amnt,
+			  remote_splice_amnt);
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
