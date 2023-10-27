@@ -404,6 +404,9 @@ void inflight_set_last_tx(struct channel_inflight *inflight,
 		          struct bitcoin_tx *last_tx STEALS,
 		          const struct bitcoin_signature last_sig);
 
+/* If the last inflight has no commitment tx, remove it */
+bool maybe_cleanup_last_inflight(struct channel *channel);
+
 /* Given a txid, find an inflight channel stub. Returns NULL if none found */
 struct channel_inflight *channel_inflight_find(struct channel *channel,
 					       const struct bitcoin_txid *txid);

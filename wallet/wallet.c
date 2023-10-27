@@ -2606,6 +2606,18 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	db_exec_prepared_v2(take(stmt));
 }
 
+void wallet_channel_inflight_cleanup_incomplete(struct wallet *w, u64 wallet_id)
+{
+	struct db_stmt *stmt;
+
+	/* Delete any incomplete entries from 'inflights' */
+	stmt = db_prepare_v2(w->db,
+			     SQL("DELETE FROM channel_funding_inflights "
+				 " WHERE channel_id=? AND last_tx IS NULL"));
+	db_bind_u64(stmt, wallet_id);
+	db_exec_prepared_v2(take(stmt));
+}
+
 void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid)
 {
 	struct db_stmt *stmt;
