@@ -1963,20 +1963,25 @@ static void send_revocation(struct peer *peer,
 	peer_write(peer->pps, take(msg));
 }
 
+struct commitsig_info {
+	struct commitsig *commitsig;
+	struct secret *old_secret;
+};
+
 /* Calling `handle_peer_commit_sig` with a `commit_index` of 0 and
  * `changed_htlcs` of NULL will process the message, then read & process coming
  * consecutive commitment messages equal to the number of inflight splices.
  *
  * Returns the last commitsig received. When splicing this is the
  * newest splice commit sig. */
-static struct commitsig *handle_peer_commit_sig(struct peer *peer,
+static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 						const u8 *msg,
 						u32 commit_index,
 						const struct htlc **changed_htlcs,
 						s64 splice_amnt,
 						s64 remote_splice_amnt)
 {
-	struct commitsig *result;
+	struct commitsig_info *result;
 	struct channel_id channel_id;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *raw_sigs;
@@ -2206,11 +2211,15 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 			      "Reading validate_commitment_tx reply: %s",
 			      tal_hex(tmpctx, msg2));
 
-	result = tal(tmpctx, struct commitsig);
-	result->tx = clone_bitcoin_tx(result, txs[0]);
-	result->commit_signature = commit_sig;
-	result->htlc_signatures = htlc_sigs;
+	struct commitsig *commitsig;
+	commitsig = tal(tmpctx, struct commitsig);
+	commitsig->tx = clone_bitcoin_tx(tmpctx, txs[0]);
+	commitsig->commit_signature = commit_sig;
+	commitsig->htlc_signatures = htlc_sigs;
 
+	result = tal(tmpctx, struct commitsig_info);
+	result->commitsig = commitsig;
+	result->old_secret = old_secret;
 	/* Only the parent call continues from here.
 	 * Return for all child calls. */
 	if(commit_index)
@@ -2238,10 +2247,12 @@ static struct commitsig *handle_peer_commit_sig(struct peer *peer,
 		result = handle_peer_commit_sig(peer, splice_msg, i + 1,
 						changed_htlcs, sub_splice_amnt,
 						funding_diff - sub_splice_amnt);
-		tal_arr_expand(&commitsigs, result);
+		old_secret = result->old_secret;
+		tal_arr_expand(&commitsigs, result->commitsig);
 		tal_steal(commitsigs, result);
 	}
 
+	assert(old_secret);
 	peer->splice_state->revoked_count = peer->splice_state->count;
 
 	send_revocation(peer, &commit_sig, htlc_sigs, changed_htlcs, txs[0],
@@ -2841,7 +2852,7 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						      struct wally_psbt *psbt,
 						      enum tx_role our_role)
 {
-	struct commitsig *result;
+	struct commitsig_info *result;
 	const u8 *msg, *commit_msg;
 
 	commit_msg = NULL;
@@ -2892,7 +2903,7 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 		handle_peer_revoke_and_ack(peer, msg);
 	}
 
-	return result;
+	return result->commitsig;
 }
 
 static struct wally_psbt_output *find_channel_output(struct peer *peer,
