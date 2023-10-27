@@ -390,10 +390,13 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
-			list_for_each(&channel->inflights, inflight, list)
+			list_for_each(&channel->inflights, inflight, list) {
+				if (!inflight->last_tx)
+					continue;
 				tx = sign_and_send_last(tmpctx, ld, channel, cmd_id,
 							inflight->last_tx,
 							&inflight->last_sig);
+			}
 		} else
 			tx = sign_and_send_last(tmpctx, ld, channel, cmd_id, channel->last_tx,
 						&channel->last_sig);
