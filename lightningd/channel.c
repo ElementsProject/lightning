@@ -97,6 +97,23 @@ void delete_channel(struct channel *channel STEALS)
 	maybe_delete_peer(peer);
 }
 
+bool maybe_cleanup_last_inflight(struct channel *channel)
+{
+	struct channel_inflight *inflight;
+	inflight = channel_current_inflight(channel);
+	if (!inflight)
+		return false;
+
+	if (inflight->last_tx)
+		return false;
+
+	/* Remove from database */
+	wallet_channel_inflight_cleanup_incomplete(
+			channel->peer->ld->wallet, channel->dbid);
+	tal_free(inflight);
+	return true;
+}
+
 void get_channel_basepoints(struct lightningd *ld,
 			    const struct node_id *peer_id,
 			    const u64 dbid,

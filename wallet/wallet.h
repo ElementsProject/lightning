@@ -627,6 +627,12 @@ void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight);
 
 /**
+ * Remove any channel inflights that are incomplete.
+ */
+void wallet_channel_inflight_cleanup_incomplete(struct wallet *w,
+						u64 wallet_id);
+
+/**
  * Remove all the inflights from a channel. Also cleans up
  * the channel's inflight list
  */
