@@ -1043,6 +1043,43 @@ static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 				    NULL);
 }
 
+static void report_channel_hsmd(const struct state *state,
+			        const struct tx_state *tx_state)
+{
+	u8 *msg;
+	struct amount_msat accepter_msats;
+	struct amount_sat total;
+
+	if (!amount_sat_add(&total, tx_state->opener_funding,
+			    tx_state->accepter_funding))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow converting adding funding");
+
+	if (!amount_sat_to_msat(&accepter_msats, tx_state->accepter_funding))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow converting accepter_funding "
+			      "to msats");
+
+	msg = towire_hsmd_setup_channel(NULL, state->our_role == TX_INITIATOR,
+				       total,
+				       accepter_msats,
+				       &tx_state->funding.txid,
+				       tx_state->funding.n,
+				       tx_state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       tx_state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       state->channel_type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_setup_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+}
+
 static void handle_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct channel_id cid;
@@ -1957,26 +1994,7 @@ static u8 *accepter_commits(struct state *state,
 			      "to msats");
 
 	/*~ Report the channel parameters to the signer. */
-	msg = towire_hsmd_setup_channel(NULL,
-				       false,	/* is_outbound */
-				       total,
-				       our_msats,
-				       &tx_state->funding.txid,
-				       tx_state->funding.n,
-				       tx_state->localconf.to_self_delay,
-				       state->upfront_shutdown_script[LOCAL],
-				       state->local_upfront_shutdown_wallet_index,
-				       &state->their_points,
-				       &state->their_funding_pubkey,
-				       tx_state->remoteconf.to_self_delay,
-				       state->upfront_shutdown_script[REMOTE],
-				       state->channel_type);
-	wire_sync_write(HSM_FD, take(msg));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_setup_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad setup_channel_reply %s",
-			      tal_hex(tmpctx, msg));
-
+	report_channel_hsmd(state, tx_state);
 	tal_free(state->channel);
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
@@ -2706,25 +2724,7 @@ static u8 *opener_commits(struct state *state,
 	}
 
 	/*~ Report the channel parameters to the signer. */
-	msg = towire_hsmd_setup_channel(NULL,
-				       true,	/* is_outbound */
-				       total,
-				       their_msats,
-				       &tx_state->funding.txid,
-				       tx_state->funding.n,
-				       tx_state->localconf.to_self_delay,
-				       state->upfront_shutdown_script[LOCAL],
-				       state->local_upfront_shutdown_wallet_index,
-				       &state->their_points,
-				       &state->their_funding_pubkey,
-				       tx_state->remoteconf.to_self_delay,
-				       state->upfront_shutdown_script[REMOTE],
-				       state->channel_type);
-	wire_sync_write(HSM_FD, take(msg));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_setup_channel_reply(msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
-			      tal_hex(tmpctx, msg));
+	report_channel_hsmd(state, tx_state);
 
 	tal_free(state->channel);
 	state->channel = new_initial_channel(state,
