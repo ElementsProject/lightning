@@ -56,7 +56,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **total\_funding\_msat** (msat): total amount in the channel
   - **splice\_amount** (integer): The amouont of sats we're splicing in or out *(added v23.08)*
   - **our\_funding\_msat** (msat): amount we have in the channel
-  - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
+  - **scratch\_txid** (txid, optional): The commitment transaction txid we would use if we went onchain now
 - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
 - **private** (boolean, optional): if True, we will not announce this channel
 - **closer** (string, optional): Who initiated the channel close (only present if closing) (one of "local", "remote")
@@ -202,4 +202,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:d8f5d19a70fa3e8718e96369510ab8c9b28a0c0b626eb10321bfccb1cd7dbc0b)
+[comment]: # ( SHA256STAMP:c4507febb0d592ac386f2e8bedbc88ab77d93f780e2d534d6c8d8064afbd6ee6)

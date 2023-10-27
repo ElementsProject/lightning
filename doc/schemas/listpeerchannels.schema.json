@@ -159,8 +159,7 @@
                 "feerate",
                 "total_funding_msat",
                 "splice_amount",
-                "our_funding_msat",
-                "scratch_txid"
+                "our_funding_msat"
               ],
               "properties": {
                 "funding_txid": {
