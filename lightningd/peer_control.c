@@ -939,8 +939,10 @@ static void json_add_channel(struct lightningd *ld,
 				     "splice_amount",
 				     inflight->funding->splice_amnt);
 			/* Add the expected commitment tx id also */
-			bitcoin_txid(inflight->last_tx, &txid);
-			json_add_txid(response, "scratch_txid", &txid);
+			if (inflight->last_tx) {
+				bitcoin_txid(inflight->last_tx, &txid);
+				json_add_txid(response, "scratch_txid", &txid);
+			}
 			json_object_end(response);
 		}
 		json_array_end(response);
