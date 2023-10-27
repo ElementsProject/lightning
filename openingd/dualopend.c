@@ -1144,6 +1144,12 @@ static u8 *msg_for_remote_commit(const tal_t *ctx,
 				       NULL, NULL);
 }
 
+static enum tx_role their_role(const struct state *state)
+{
+	return state->our_role == TX_INITIATOR ?
+		TX_ACCEPTER : TX_INITIATOR;
+}
+
 static char *do_commit_signed_received(const tal_t *ctx,
 				       const u8 *msg,
 				       struct state *state,
@@ -1235,8 +1241,6 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 	struct bitcoin_txid txid;
 	const struct witness **witnesses;
 	struct tx_state *tx_state = state->tx_state;
-	enum tx_role their_role = state->our_role == TX_INITIATOR ?
-		TX_ACCEPTER : TX_INITIATOR;
 
 	struct tlv_txsigs_tlvs *txsig_tlvs = tlv_txsigs_tlvs_new(tmpctx);
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
@@ -1297,7 +1301,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 							tx_state->psbt));
 			return;
 		}
-		if (in_serial % 2 != their_role)
+		if (in_serial % 2 != their_role(state))
 			continue;
 
 		if (j == tal_count(witnesses))
