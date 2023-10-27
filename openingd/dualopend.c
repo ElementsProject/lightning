@@ -1080,6 +1080,70 @@ static void report_channel_hsmd(const struct state *state,
 			      tal_hex(tmpctx, msg));
 }
 
+static u8 *msg_for_remote_commit(const tal_t *ctx,
+				 const struct state *state,
+				 struct penalty_base **pbase,
+				 char **error)
+{
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct bitcoin_tx *remote_commit;
+	struct bitcoin_signature local_sig;
+	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
+	u32 feerate = 0; // unused since there are no htlcs
+	u64 commit_num = 0;
+        u8 *msg;
+
+	/* Create commitment tx signatures for remote */
+	remote_commit = initial_channel_tx(NULL, NULL, state->channel,
+					   &state->first_per_commitment_point[REMOTE],
+					   REMOTE, direct_outputs, error);
+
+	if (!remote_commit) {
+		return NULL;
+	}
+
+	/* We ask the HSM to sign their commitment transaction for us: it knows
+	 * our funding key, it just needs the remote funding key to create the
+	 * witness script.  It also needs the amount of the funding output,
+	 * as segwit signatures commit to that as well, even though it doesn't
+	 * explicitly appear in the transaction itself. */
+	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
+						    remote_commit,
+						    &state->channel->funding_pubkey[REMOTE],
+						    &state->first_per_commitment_point[REMOTE],
+						    true,
+						    commit_num,
+						    (const struct simple_htlc **) htlcs,
+						    feerate);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
+
+	/* You can tell this has been a problem before, since there's a debug
+	 * message here: */
+	status_debug("signature %s on tx %s using key %s",
+		     type_to_string(tmpctx, struct bitcoin_signature, &local_sig),
+		     type_to_string(tmpctx, struct bitcoin_tx, remote_commit),
+		     type_to_string(tmpctx, struct pubkey,
+				    &state->our_funding_pubkey));
+
+
+	assert(local_sig.sighash_type == SIGHASH_ALL);
+
+	if (pbase && direct_outputs[LOCAL])
+		*pbase = penalty_base_new(ctx, 0, remote_commit,
+					  direct_outputs[LOCAL]);
+	else if (pbase)
+		*pbase = NULL;
+
+	tal_free(remote_commit);
+	return towire_commitment_signed(ctx, &state->channel_id,
+				       &local_sig.s,
+				       NULL, NULL);
+}
+
 static void handle_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct channel_id cid;
@@ -1927,9 +1991,8 @@ static u8 *accepter_commits(struct state *state,
 			    struct amount_sat total,
 			    char **err_reason)
 {
-	struct wally_tx_output *direct_outputs[NUM_SIDES];
-	struct bitcoin_tx *remote_commit, *local_commit;
-	struct bitcoin_signature remote_sig, local_sig;
+	struct bitcoin_tx *local_commit;
+	struct bitcoin_signature remote_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct penalty_base *pbase;
 	struct amount_msat our_msats;
@@ -2080,43 +2143,6 @@ static u8 *accepter_commits(struct state *state,
 		return NULL;
 	}
 
-	/* Create commitment tx signatures for remote */
-	remote_commit = initial_channel_tx(tmpctx, &wscript, state->channel,
-					   &state->first_per_commitment_point[REMOTE],
-					   REMOTE, direct_outputs, &error);
-
-	if (!remote_commit) {
-		*err_reason = tal_fmt(tmpctx, "Could not meet their fees"
-				      " and reserve: %s", error);
-		revert_channel_state(state);
-		return NULL;
-	}
-
-	/* Make HSM sign it */
-	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
-	u32 feerate = 0; // unused since there are no htlcs
-	u64 commit_num = 0;
-	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
-						    remote_commit,
-						    &state->channel->funding_pubkey[REMOTE],
-						    &state->first_per_commitment_point[REMOTE],
-						    true,
-						    commit_num,
-						    (const struct simple_htlc **) htlcs,
-						    feerate);
-	wire_sync_write(HSM_FD, take(msg));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
-
-	assert(local_sig.sighash_type == SIGHASH_ALL);
-	if (direct_outputs[LOCAL])
-		pbase = penalty_base_new(tmpctx, 0, remote_commit,
-					 direct_outputs[LOCAL]);
-	else
-		pbase = NULL;
-
 	/* Let lightningd know we're about to send our commitment sigs */
 	peer_billboard(false, "channel open: commitment ready to send, "
 		       "sending channel to lightningd to save");
@@ -2155,6 +2181,14 @@ static u8 *accepter_commits(struct state *state,
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
 		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
 
+	commit_msg = msg_for_remote_commit(local_commit, state, &pbase, &error);
+	if (!commit_msg) {
+		*err_reason = tal_fmt(tmpctx, "Failed building remote commit %s",
+				      error);
+		revert_channel_state(state);
+		return NULL;
+	}
+
 	/* Send the commitment_signed to lightningd; will save to db,
 	 * then wait to get our sigs back */
 	peer_billboard(false, "channel open: commitment received, "
@@ -2172,9 +2206,6 @@ static u8 *accepter_commits(struct state *state,
 		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
 
 	/* Send our commitment sigs over now */
-	commit_msg = towire_commitment_signed(NULL, &state->channel_id,
-					      &local_sig.s, NULL, NULL);
-
 	peer_write(state->pps, take(commit_msg));
 	tal_free(local_commit);
 	return msg;
@@ -2665,13 +2696,12 @@ static u8 *opener_commits(struct state *state,
 {
 	struct channel_id cid;
 	struct amount_msat our_msats;
-	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
-	struct bitcoin_tx *remote_commit, *local_commit;
-	struct bitcoin_signature remote_sig, local_sig;
+	struct bitcoin_tx *local_commit;
+	struct bitcoin_signature remote_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	const u8 *wscript;
-	u8 *msg;
+	u8 *msg, *commit_msg;
 	char *error;
 	struct amount_msat their_msats;
 
@@ -2750,53 +2780,12 @@ static u8 *opener_commits(struct state *state,
 					     /* Opener is local */
 					     LOCAL);
 
-	remote_commit = initial_channel_tx(state->channel, &wscript,
-					   state->channel,
-					   &state->first_per_commitment_point[REMOTE],
-					   REMOTE, direct_outputs, &error);
-
-	if (!remote_commit) {
-		*err_reason = tal_fmt(tmpctx, "Could not meet their fees"
-				      " and reserve: %s", error);
+	commit_msg = msg_for_remote_commit(state, state, &pbase, &error);
+	if (!commit_msg) {
+		*err_reason = tal_fmt(tmpctx, "%s", error);
 		revert_channel_state(state);
 		return NULL;
 	}
-	/* These can look like a leak, but we free them in revert_channel_state
-	 * or manually below */
-	notleak_with_children(remote_commit);
-	tal_steal(remote_commit, wscript);
-
-	/* We ask the HSM to sign their commitment transaction for us: it knows
-	 * our funding key, it just needs the remote funding key to create the
-	 * witness script.  It also needs the amount of the funding output,
-	 * as segwit signatures commit to that as well, even though it doesn't
-	 * explicitly appear in the transaction itself. */
-	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
-	u32 feerate = 0; // unused since there are no htlcs
-	u64 commit_num = 0;
-	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
-						   remote_commit,
-						   &state->channel->funding_pubkey[REMOTE],
-						   &state->first_per_commitment_point[REMOTE],
-						    true,
-						    commit_num,
-						    (const struct simple_htlc **) htlcs,
-						    feerate);
-	wire_sync_write(HSM_FD, take(msg));
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
-		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
-			      tal_hex(tmpctx, msg));
-
-	/* You can tell this has been a problem before, since there's a debug
-	 * message here: */
-	status_debug("signature %s on tx %s using key %s",
-		     type_to_string(tmpctx, struct bitcoin_signature, &local_sig),
-		     type_to_string(tmpctx, struct bitcoin_tx, remote_commit),
-		     type_to_string(tmpctx, struct pubkey,
-				    &state->our_funding_pubkey));
-
-	assert(local_sig.sighash_type == SIGHASH_ALL);
 
 	peer_billboard(false, "channel open: commitment ready to send, "
 		       "sending channel to lightningd to save");
@@ -2837,10 +2826,7 @@ static u8 *opener_commits(struct state *state,
 		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
 
 	/* Ok, now send the commitment signed! */
-	msg = towire_commitment_signed(tmpctx, &state->channel_id,
-				       &local_sig.s,
-				       NULL, NULL);
-	peer_write(state->pps, msg);
+	peer_write(state->pps, take(commit_msg));
 	peer_billboard(false, "channel open: commitment sent, waiting for reply");
 
 	/* Wait for the peer to send us our commitment tx signature */
@@ -2930,21 +2916,15 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
-	if (direct_outputs[LOCAL])
-		pbase = penalty_base_new(tmpctx, 0, remote_commit,
-					 direct_outputs[LOCAL]);
-	else
-		pbase = NULL;
-
-	tal_free(remote_commit);
-
 	peer_billboard(false, "channel open: commitment received, "
 		       "sending to lightningd to save");
 
-	return towire_dualopend_commit_rcvd(state,
-					    local_commit,
-					    &remote_sig,
-					    pbase);
+	msg = towire_dualopend_commit_rcvd(state,
+					   local_commit,
+					   &remote_sig,
+					   pbase);
+	tal_free(pbase);
+	return msg;
 }
 
 static void opener_start(struct state *state, u8 *msg)
