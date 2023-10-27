@@ -68,6 +68,7 @@ where
     rpcmethods: HashMap<String, AsyncCallback<S>>,
     hooks: HashMap<String, AsyncCallback<S>>,
     subscriptions: HashMap<String, AsyncNotificationCallback<S>>,
+    #[allow(dead_code)] // unsure why rust thinks this field isn't used
     notifications: Vec<NotificationTopic>,
 }
 
@@ -682,7 +683,7 @@ where
             .send(json!({
                 "jsonrpc": "2.0",
                 "method": method,
-                "params": {method: v},
+                "params": v,
             }))
             .await
             .context("sending custom notification")?;
