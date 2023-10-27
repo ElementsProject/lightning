@@ -1144,6 +1144,91 @@ static u8 *msg_for_remote_commit(const tal_t *ctx,
 				       NULL, NULL);
 }
 
+static char *do_commit_signed_received(const tal_t *ctx,
+				       const u8 *msg,
+				       struct state *state,
+				       struct tx_state *tx_state,
+				       struct bitcoin_tx **local_commit,
+				       struct bitcoin_signature *remote_sig)
+{
+	const u8 *wscript;
+	char *error;
+	struct channel_id cid;
+	secp256k1_ecdsa_signature *htlc_sigs;
+	struct tlv_commitment_signed_tlvs *cs_tlv
+		= tlv_commitment_signed_tlvs_new(tmpctx);
+
+	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
+					&remote_sig->s,
+					&htlc_sigs, &cs_tlv))
+		open_err_fatal(state, "Parsing commitment signed %s",
+			       tal_hex(tmpctx, msg));
+
+	remote_sig->sighash_type = SIGHASH_ALL;
+	check_channel_id(state, &cid, &state->channel_id);
+
+	if (htlc_sigs != NULL)
+		open_err_fatal(state, "Must not send HTLCs with first"
+			       " commitment. %s", tal_hex(tmpctx, msg));
+
+	*local_commit = initial_channel_tx(ctx, &wscript, state->channel,
+					  &state->first_per_commitment_point[LOCAL],
+					  LOCAL, NULL, &error);
+
+	/* This shouldn't happen either, AFAICT. */
+	if (!*local_commit)
+		return tal_fmt(ctx, "Could not meet our fees"
+				      " and reserve: %s", error);
+
+	validate_initial_commitment_signature(HSM_FD, *local_commit, remote_sig);
+
+	/* BOLT #2:
+	 *
+	 * The recipient:
+	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
+	 *       rule...:
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
+	 */
+	if (!check_tx_sig(*local_commit, 0, NULL, wscript,
+			  &state->their_funding_pubkey, remote_sig)) {
+		/* BOLT #1:
+		 *
+		 * ### The `error` and `warning` Messages
+		 *...
+		 * - when failure was caused by an invalid signature check:
+		 *    - SHOULD include the raw, hex-encoded transaction in reply
+		 *      to a `funding_created`, `funding_signed`,
+		 *      `closing_signed`, or `commitment_signed` message.
+		 */
+		/*~ This verbosity is not only useful for our own testing, but
+		 * a courtesy to other implementaters whose brains may be so
+		 * twisted by coding in Go, Scala and Rust that they can no
+		 * longer read C code. */
+		return tal_fmt(ctx,
+			      "Bad signature %s on tx %s using key %s"
+			      " (funding txid %s, psbt %s)",
+			      type_to_string(tmpctx,
+					     struct bitcoin_signature,
+					     remote_sig),
+			      type_to_string(tmpctx,
+					     struct bitcoin_tx,
+					     *local_commit),
+			      type_to_string(tmpctx, struct pubkey,
+					     &state->their_funding_pubkey),
+			    /* This is the first place we'd discover
+			     * the funding tx doesn't match up */
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     &tx_state->funding.txid),
+			      type_to_string(tmpctx,
+					     struct wally_psbt,
+					     tx_state->psbt));
+	}
+
+	return NULL;
+}
+
 static void handle_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct channel_id cid;
@@ -1993,10 +2078,8 @@ static u8 *accepter_commits(struct state *state,
 {
 	struct bitcoin_tx *local_commit;
 	struct bitcoin_signature remote_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
 	struct penalty_base *pbase;
 	struct amount_msat our_msats;
-	struct channel_id cid;
 	const u8 *wscript;
 	u8 *msg, *commit_msg;
 	char *error;
@@ -2027,29 +2110,6 @@ static u8 *accepter_commits(struct state *state,
 			       tx_state->feerate_per_kw_funding);
 	if (*err_reason)
 		return NULL;
-
-	/* Wait for the peer to send us our commitment tx signature */
-	msg = opening_negotiate_msg(tmpctx, state);
-	if (!msg) {
-		*err_reason = NULL;
-		return NULL;
-	}
-
-	remote_sig.sighash_type = SIGHASH_ALL;
-
-	struct tlv_commitment_signed_tlvs *cs_tlv
-		= tlv_commitment_signed_tlvs_new(tmpctx);
-	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
-					&remote_sig.s,
-					&htlc_sigs, &cs_tlv))
-		open_err_fatal(state, "Parsing commitment signed %s",
-			       tal_hex(tmpctx, msg));
-
-	check_channel_id(state, &cid, &state->channel_id);
-
-	if (htlc_sigs != NULL)
-		open_err_fatal(state, "Must not send HTLCs with first"
-			       " commitment. %s", tal_hex(tmpctx, msg));
 
 	if (!amount_sat_to_msat(&our_msats, tx_state->accepter_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2083,62 +2143,16 @@ static u8 *accepter_commits(struct state *state,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
 
-	local_commit = initial_channel_tx(tmpctx, &wscript, state->channel,
-					  &state->first_per_commitment_point[LOCAL],
-					  LOCAL, NULL, &error);
-
-	/* This shouldn't happen either, AFAICT. */
-	if (!local_commit) {
-		*err_reason = tal_fmt(tmpctx, "Could not meet our fees"
-				      " and reserve: %s", error);
-		revert_channel_state(state);
+	/* Wait for the peer to send us our commitment tx signature */
+	msg = opening_negotiate_msg(tmpctx, state);
+	if (!msg) {
+		*err_reason = NULL;
 		return NULL;
 	}
 
-	validate_initial_commitment_signature(HSM_FD, local_commit, &remote_sig);
-
-	/* BOLT #2:
-	 *
-	 * The recipient:
-	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
-	 *       rule...:
-	 *     - MUST send a `warning` and close the connection, or send an
-	 *       `error` and fail the channel.
-	 */
-	if (!check_tx_sig(local_commit, 0, NULL, wscript,
-			  &state->their_funding_pubkey, &remote_sig)) {
-		/* BOLT #1:
-		 *
-		 * ### The `error` and `warning` Messages
-		 *...
-		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
-		 */
-		/*~ This verbosity is not only useful for our own testing, but
-		 * a courtesy to other implementaters whose brains may be so
-		 * twisted by coding in Go, Scala and Rust that they can no
-		 * longer read C code. */
-		*err_reason = tal_fmt(tmpctx,
-				      "Bad signature %s on tx %s using key %s"
-				      " (funding txid %s, psbt %s)",
-				      type_to_string(tmpctx,
-						     struct bitcoin_signature,
-						     &remote_sig),
-				      type_to_string(tmpctx,
-						     struct bitcoin_tx,
-						     local_commit),
-				      type_to_string(tmpctx, struct pubkey,
-						     &state->their_funding_pubkey),
-				    /* This is the first place we'd discover
-				     * the funding tx doesn't match up */
-				      type_to_string(tmpctx,
-						     struct bitcoin_txid,
-						     &tx_state->funding.txid),
-				      type_to_string(tmpctx,
-						     struct wally_psbt,
-						     tx_state->psbt));
+	*err_reason = do_commit_signed_received(tmpctx, msg, state, tx_state,
+						&local_commit, &remote_sig);
+	if (*err_reason) {
 		revert_channel_state(state);
 		return NULL;
 	}
@@ -2147,6 +2161,7 @@ static u8 *accepter_commits(struct state *state,
 	peer_billboard(false, "channel open: commitment ready to send, "
 		       "sending channel to lightningd to save");
 
+	notleak(tal_steal(NULL, local_commit));
 	msg = towire_dualopend_commit_ready(state,
 					    &tx_state->remoteconf,
 					    tx_state->psbt,
@@ -2181,7 +2196,7 @@ static u8 *accepter_commits(struct state *state,
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_COMMIT_SEND_ACK)
 		master_badmsg(WIRE_DUALOPEND_COMMIT_SEND_ACK, msg);
 
-	commit_msg = msg_for_remote_commit(local_commit, state, &pbase, &error);
+	commit_msg = msg_for_remote_commit(tmpctx, state, &pbase, &error);
 	if (!commit_msg) {
 		*err_reason = tal_fmt(tmpctx, "Failed building remote commit %s",
 				      error);
@@ -2194,6 +2209,8 @@ static u8 *accepter_commits(struct state *state,
 	peer_billboard(false, "channel open: commitment received, "
 		       "sending to lightningd to save");
 
+	/* We have to hang onto the `commit_msg` until after this call */
+	tal_steal(NULL, commit_msg);
 	msg = towire_dualopend_commit_rcvd(state,
 					   local_commit,
 					   &remote_sig,
@@ -2699,7 +2716,6 @@ static u8 *opener_commits(struct state *state,
 	struct penalty_base *pbase;
 	struct bitcoin_tx *local_commit;
 	struct bitcoin_signature remote_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
 	const u8 *wscript;
 	u8 *msg, *commit_msg;
 	char *error;
@@ -2837,81 +2853,11 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
-	remote_sig.sighash_type = SIGHASH_ALL;
-
-	struct tlv_commitment_signed_tlvs *cs_tlv
-		= tlv_commitment_signed_tlvs_new(tmpctx);
-	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
-					&remote_sig.s,
-					&htlc_sigs, &cs_tlv))
-		open_err_fatal(state, "Parsing commitment signed %s",
-			       tal_hex(tmpctx, msg));
-
-	if (htlc_sigs != NULL) {
-		*err_reason = tal_fmt(tmpctx, "Must not send HTLCs with first"
-				      " commitment. %s", tal_hex(tmpctx, msg));
-		revert_channel_state(state);
-		return NULL;
-	}
-
-	local_commit = initial_channel_tx(tmpctx, &wscript, state->channel,
-					  &state->first_per_commitment_point[LOCAL],
-					  LOCAL, NULL, &error);
-
-
-	/* This shouldn't happen either, AFAICT. */
-	if (!local_commit) {
-		*err_reason = tal_fmt(tmpctx, "Could not meet our fees"
-				      " and reserve: %s", error);
-		revert_channel_state(state);
-		return NULL;
-	}
-
-	validate_initial_commitment_signature(HSM_FD, local_commit, &remote_sig);
-
-	/* BOLT #2:
-	 *
-	 * The recipient:
-	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
-	 *     rule...:
-	 *     - MUST send a `warning` and close the connection, or send an
-	 *       `error` and fail the channel.
-	 */
-	if (!check_tx_sig(local_commit, 0, NULL, wscript,
-			  &state->their_funding_pubkey,
-			  &remote_sig)) {
-		/* BOLT #1:
-		 *
-		 * ### The `error` and `warning` Messages
-		 *...
-		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
-		 */
-		/*~ This verbosity is not only useful for our own testing, but
-		 * a courtesy to other implementaters whose brains may be so
-		 * twisted by coding in Go, Scala and Rust that they can no
-		 * longer read C code. */
-		*err_reason = tal_fmt(tmpctx,
-				      "Bad signature %s on tx %s using key %s "
-				      "(funding txid %s, psbt %s)",
-				      type_to_string(tmpctx,
-						     struct bitcoin_signature,
-						     &remote_sig),
-				      type_to_string(tmpctx,
-						     struct bitcoin_tx,
-						     local_commit),
-				      type_to_string(tmpctx, struct pubkey,
-						     &state->their_funding_pubkey),
-				    /* This is the first place we'd discover the
-				     * funding tx doesn't match up */
-				      type_to_string(tmpctx,
-						     struct bitcoin_txid,
-						     &tx_state->funding.txid),
-				      type_to_string(tmpctx,
-						     struct wally_psbt,
-						     tx_state->psbt));
+	error = do_commit_signed_received(tmpctx, msg, state, tx_state,
+					  &local_commit,
+					  &remote_sig);
+	if (error) {
+		*err_reason = tal_fmt(tmpctx, "Commit sig error: %s", error);
 		revert_channel_state(state);
 		return NULL;
 	}
