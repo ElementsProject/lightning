@@ -2834,6 +2834,37 @@ static void openchannel_invalid_psbt(struct psbt_validator *pv, const char *err_
 				 "%s", err_msg));
 }
 
+static struct json_stream *build_commit_response(struct command *cmd,
+						 struct channel *channel,
+						 struct channel_inflight *inflight)
+{
+	struct json_stream *response;
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx,
+				       struct channel_id,
+				       &channel->cid));
+	json_add_psbt(response, "psbt", inflight->funding_psbt);
+	json_add_bool(response, "commitments_secured", inflight->last_tx != NULL);
+	/* For convenience sake, we include the funding outnum */
+	assert(inflight->funding);
+	json_add_num(response, "funding_outnum", inflight->funding->outpoint.n);
+	/* This is *sort of* dicey, since there's a small chance the channel
+	 * might disconnect/reconnect and we lose the open-attempt data */
+	if (channel->open_attempt && channel->open_attempt->our_upfront_shutdown_script) {
+		/* FIXME: also include the output as address */
+		json_add_hex_talarr(response, "close_to",
+				    channel->open_attempt->our_upfront_shutdown_script);
+	/* Worse case is that we accidentally report what we're 'closing-to' even if you
+	 * didn't request it? We *could* just announce it every time... */
+	} else if (!channel->open_attempt && channel->shutdown_scriptpubkey[LOCAL]) {
+		json_add_hex_talarr(response, "close_to",
+				    channel->shutdown_scriptpubkey[LOCAL]);
+		/* FIXME: also include the output as address */
+	}
+	return response;
+}
 
 static struct command_result *json_openchannel_update(struct command *cmd,
 						       const char *buffer,
@@ -3281,7 +3312,6 @@ static void handle_commit_ready(struct subd *dualopend,
 				const u8 *msg)
 {
 	struct lightningd *ld = dualopend->ld;
-	struct open_attempt *oa = channel->open_attempt;
 	struct channel_info channel_info;
 	struct bitcoin_outpoint funding;
 	u16 lease_chan_max_ppt;
@@ -3342,9 +3372,7 @@ static void handle_commit_ready(struct subd *dualopend,
 						       &channel_info,
 						       feerate_funding,
 						       feerate_commitment,
-						       oa->role == TX_INITIATOR ?
-								oa->our_upfront_shutdown_script :
-								local_upfront_shutdown_script,
+						       local_upfront_shutdown_script,
 						       remote_upfront_shutdown_script,
 						       psbt,
 						       lease_amt,
@@ -3407,14 +3435,13 @@ static void handle_commit_received(struct subd *dualopend,
 				   const u8 *msg)
 {
 	struct lightningd *ld = dualopend->ld;
-	struct open_attempt *oa = channel->open_attempt;
 	struct bitcoin_tx *remote_commit;
 	struct bitcoin_signature remote_commit_sig;
 	struct penalty_base *pbase;
 	struct json_stream *response;
 	struct openchannel2_psbt_payload *payload;
 	struct channel_inflight *inflight;
-	struct command *cmd = oa->cmd;
+	struct command *cmd;
 
 	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &remote_commit,
@@ -3448,37 +3475,21 @@ static void handle_commit_received(struct subd *dualopend,
 					pbase);
 	}
 
-	switch (oa->role) {
-	case TX_INITIATOR:
-		if (!oa->cmd) {
-			channel_err_broken(channel,
-					   "Unexpected COMMIT_RCVD %s",
-					   tal_hex(msg, msg));
+	switch (channel->opener) {
+	case LOCAL:
+		if (!channel->open_attempt || !channel->open_attempt->cmd) {
+			log_info(channel->log, "No channel open attempt/command!");
 			channel->open_attempt
 				= tal_free(channel->open_attempt);
 			return;
 		}
-		response = json_stream_success(oa->cmd);
-		json_add_string(response, "channel_id",
-				type_to_string(tmpctx,
-					       struct channel_id,
-					       &channel->cid));
-		json_add_psbt(response, "psbt", inflight->funding_psbt);
-		json_add_bool(response, "commitments_secured", true);
-		/* For convenience sake, we include the funding outnum */
-		assert(inflight->funding);
-		json_add_num(response, "funding_outnum", inflight->funding->outpoint.n);
-		if (oa->our_upfront_shutdown_script) {
-			json_add_hex_talarr(response, "close_to",
-					    oa->our_upfront_shutdown_script);
-			/* FIXME: also include the output as address */
-		}
-
+		cmd = channel->open_attempt->cmd;
+		response = build_commit_response(cmd, channel, inflight);
 		channel->open_attempt
 			= tal_free(channel->open_attempt);
 		was_pending(command_success(cmd, response));
 		return;
-	case TX_ACCEPTER:
+	case REMOTE:
 		payload = tal(dualopend, struct openchannel2_psbt_payload);
 		payload->ld = ld;
 		payload->dualopend = dualopend;
@@ -3488,8 +3499,9 @@ static void handle_commit_received(struct subd *dualopend,
 		payload->channel = channel;
 		payload->psbt = clone_psbt(payload, inflight->funding_psbt);
 
-		channel->open_attempt
-			= tal_free(channel->open_attempt);
+		if (channel->open_attempt)
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
 
 		/* We don't have a command, so set to NULL here */
 		payload->channel->openchannel_signed_cmd = NULL;
