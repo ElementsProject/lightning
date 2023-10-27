@@ -586,7 +586,7 @@ static inline bool channel_state_closed(enum channel_state state)
 	abort();
 }
 
-/* Not even int the database yet? */
+/* Not even in the database yet? */
 static inline bool channel_state_uncommitted(enum channel_state state)
 {
 	switch (state) {
