@@ -344,8 +344,11 @@ openchannel_finished(struct multifundchannel_command *mfc)
 			struct json_stream *out;
 
 			plugin_log(mfc->cmd->plugin, LOG_DBG,
-				   "mfc %"PRIu64": %u failed, failing.",
-				   mfc->id, dest->index);
+				   "mfc %"PRIu64": %u failed, failing."
+				  " (%d) %s",
+				   mfc->id, dest->index,
+				   dest->error_code,
+				   dest->error_message);
 
 			out = jsonrpc_stream_fail_data(mfc->cmd,
 						       dest->error_code,
