@@ -1489,12 +1489,6 @@ static void handle_tx_abort(struct state *state, u8 *msg)
 {
 	const char *desc;
 
-	/* If they sent this after tx-sigs, it's a
-	 * protocol error */
-	if (state->tx_state->remote_funding_sigs_rcvd)
-		open_err_fatal(state, "tx-abort rcvd after"
-			       " tx-sigs");
-
 	/*
 	 * BOLT-07cc0edc791aff78398a48fc31ee23b45374d8d9 #2:
 	 *
@@ -1504,6 +1498,12 @@ static void handle_tx_abort(struct state *state, u8 *msg)
 	 * process without worrying about stale messages.
 	 */
 	if (!state->aborted_err) {
+		/* If they sent this after tx-sigs, it's a
+		 * protocol error */
+		if (state->tx_state->remote_funding_sigs_rcvd)
+			open_err_fatal(state, "tx-abort rcvd after"
+				       " tx-sigs");
+
 		open_abort(state, "%s", "Rcvd tx-abort");
 		desc = tal_fmt(tmpctx, "They sent %s",
 			       sanitize_error(tmpctx, msg, NULL));
