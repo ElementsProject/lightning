@@ -3863,6 +3863,12 @@ static void dualopen_errmsg(struct channel *channel,
 				       warning ? "WARNING" : "ABORTED",
 				       desc);
 
+		/* If it was an abort AND the last infight has no last_tx,
+		 * clean up the inflight. only hits for RBF cases */
+		if (maybe_cleanup_last_inflight(channel))
+			log_debug(channel->log, "Cleaned up incomplete inflight");
+
+
 		if (!disconnect) {
 			char *err = restart_dualopend(tmpctx,
 						      channel->peer->ld,
