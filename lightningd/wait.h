@@ -7,7 +7,8 @@ struct lightningd;
 
 /* This WAIT_SUBSYSTEM_X corresponds to listX */
 enum wait_subsystem {
-	WAIT_SUBSYSTEM_INVOICE
+	WAIT_SUBSYSTEM_SENDPAY,
+	WAIT_SUBSYSTEM_INVOICE,
 };
 #define NUM_WAIT_SUBSYSTEM (WAIT_SUBSYSTEM_INVOICE+1)
 

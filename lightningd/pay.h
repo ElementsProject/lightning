@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_PAY_H
 #include "config.h"
 #include <common/errcode.h>
+#include <wallet/wallet.h>
 
 struct htlc_out;
 struct lightningd;
@@ -35,4 +36,20 @@ void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail);
 
+/* wait() hooks in here */
+void sendpay_index_deleted(struct lightningd *ld,
+			   const struct sha256 *payment_hash,
+			   u64 partid,
+			   u64 groupid,
+			   enum payment_status status);
+u64 sendpay_index_created(struct lightningd *ld,
+			  const struct sha256 *payment_hash,
+			  u64 partid,
+			  u64 groupid,
+			  enum payment_status status);
+u64 sendpay_index_update_status(struct lightningd *ld,
+				const struct sha256 *payment_hash,
+				u64 partid,
+				u64 groupid,
+				enum payment_status status);
 #endif /* LIGHTNING_LIGHTNINGD_PAY_H */

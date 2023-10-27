@@ -994,6 +994,8 @@ static struct migration dbmigrations[] = {
 	 "  commitment_fee BIGINT,"
 	 "  commitment_weight INTEGER)"), NULL},
     {SQL("CREATE INDEX local_anchors_idx ON local_anchors (channel_id)"), NULL},
+    {SQL("ALTER TABLE payments ADD updated_index BIGINT DEFAULT 0"), NULL},
+    {SQL("CREATE INDEX payments_update_idx ON payments (updated_index)"), NULL},
 };
 
 /**
