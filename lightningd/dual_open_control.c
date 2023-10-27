@@ -1330,8 +1330,23 @@ wallet_update_channel_commit(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 
 	/* Set inflight data & update */
-	inflight_set_last_tx(inflight, remote_commit, *remote_commit_sig);
-	wallet_inflight_save(ld->wallet, inflight);
+	if (inflight->last_tx) {
+		struct bitcoin_txid txid, inflight_txid;
+		/* confirm they're the same tx! */
+		bitcoin_txid(remote_commit, &txid);
+		bitcoin_txid(inflight->last_tx, &inflight_txid);
+		if (!bitcoin_txid_eq(&txid, &inflight_txid)) {
+			channel_fail_permanent(channel,
+					       REASON_LOCAL,
+					       "Invalid commitment txid."
+					       " expected (inflight's) %s, got %s",
+					       type_to_string(tmpctx, struct bitcoin_txid, &inflight_txid),
+					       type_to_string(tmpctx, struct bitcoin_txid, &txid));
+		}
+	} else {
+		inflight_set_last_tx(inflight, remote_commit, *remote_commit_sig);
+		wallet_inflight_save(ld->wallet, inflight);
+	}
 }
 
 
