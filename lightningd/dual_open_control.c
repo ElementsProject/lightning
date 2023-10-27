@@ -2693,6 +2693,11 @@ json_openchannel_signed(struct command *cmd,
 						   &inflight->funding
 						   ->outpoint.txid));
 
+	if (!inflight->last_tx)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Commitments for this channel not "
+				    "yet secured, see `openchannel_update`");
+
 	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Already have a finalized PSBT for "
