@@ -1282,18 +1282,25 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			       tal_hex(msg, msg));
 
 	/* Maybe they didn't get our channel_ready message ? */
-	if (state->channel_ready[LOCAL] && !state->reconnected) {
-		status_broken("Got WIRE_TX_SIGNATURES after channel_ready "
-			       "for channel %s, ignoring: %s",
-			       type_to_string(tmpctx, struct channel_id,
-					      &state->channel_id),
-			       tal_hex(tmpctx, msg));
+	if (state->channel_ready[LOCAL]) {
+		if (!state->tx_state->remote_funding_sigs_rcvd) {
+			state->tx_state->remote_funding_sigs_rcvd = true;
+			status_info("Got WIRE_TX_SIGNATURES after channel_ready "
+				    "for channel %s, ignoring: %s",
+				     type_to_string(tmpctx, struct channel_id,
+						    &state->channel_id),
+				     tal_hex(tmpctx, msg));
+		} else {
+			status_broken("Got WIRE_TX_SIGNATURES after channel_ready "
+				       "for channel %s, ignoring: %s",
+				       type_to_string(tmpctx, struct channel_id,
+						      &state->channel_id),
+				       tal_hex(tmpctx, msg));
+		}
 		return;
 	}
 
-	/* On reconnect, we expect them to resend tx_sigs if they haven't
-	 * gotten our channel_ready yet */
-	if (state->channel_ready[REMOTE] && !state->reconnected)
+	if (state->channel_ready[REMOTE])
 		open_err_warn(state,
 			      "tx_signatures sent after channel_ready %s",
 			      tal_hex(msg, msg));
