@@ -1690,6 +1690,52 @@ static const struct json_command waitsendpay_command = {
 };
 AUTODATA(json_command, &waitsendpay_command);
 
+static u64 sendpay_index_inc(struct lightningd *ld,
+			     const struct sha256 *payment_hash,
+			     u64 partid,
+			     u64 groupid,
+			     enum payment_status status,
+			     enum wait_index idx)
+{
+	return wait_index_increment(ld, WAIT_SUBSYSTEM_SENDPAY, idx,
+				    "status", payment_status_to_string(status),
+				    "=partid", tal_fmt(tmpctx, "%"PRIu64, partid),
+				    "=groupid", tal_fmt(tmpctx, "%"PRIu64, groupid),
+				    "payment_hash",
+				    type_to_string(tmpctx, struct sha256, payment_hash),
+				    NULL);
+}
+
+void sendpay_index_deleted(struct lightningd *ld,
+			   const struct sha256 *payment_hash,
+			   u64 partid,
+			   u64 groupid,
+			   enum payment_status status)
+{
+	sendpay_index_inc(ld, payment_hash, partid, groupid, status, WAIT_INDEX_DELETED);
+}
+
+/* Fortuntely, dbids start at 1, not 0! */
+u64 sendpay_index_created(struct lightningd *ld,
+			  const struct sha256 *payment_hash,
+			  u64 partid,
+			  u64 groupid,
+			  enum payment_status status)
+{
+	return sendpay_index_inc(ld, payment_hash, partid, groupid, status,
+				 WAIT_INDEX_CREATED);
+}
+
+u64 sendpay_index_update_status(struct lightningd *ld,
+				const struct sha256 *payment_hash,
+				u64 partid,
+				u64 groupid,
+				enum payment_status status)
+{
+	return sendpay_index_inc(ld, payment_hash, partid, groupid, status,
+				 WAIT_INDEX_UPDATED);
+}
+
 static struct command_result *param_payment_status(struct command *cmd,
 						   const char *name,
 						   const char *buffer,
