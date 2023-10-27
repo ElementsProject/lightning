@@ -1150,6 +1150,26 @@ static enum tx_role their_role(const struct state *state)
 		TX_ACCEPTER : TX_INITIATOR;
 }
 
+static char *do_reconnect_commit_sigs(const tal_t *ctx,
+				      const struct state *state,
+				      const struct tx_state *tx_state)
+{
+	char *error;
+	u8 *msg;
+
+	/* Setup HSMD for this channel */
+	report_channel_hsmd(state, tx_state);
+
+	/* Build the commitment_signed message */
+	msg = msg_for_remote_commit(ctx, state, NULL, &error);
+	if (!msg) {
+		return error;
+	}
+
+	peer_write(state->pps, take(msg));
+	return NULL;
+}
+
 static char *do_commit_signed_received(const tal_t *ctx,
 				       const u8 *msg,
 				       struct state *state,
@@ -4043,12 +4063,57 @@ static void do_reconnect_dance(struct state *state)
 		open_err_fatal(state, "Bad reestablish commitment_number:"
 			       "%"PRIu64" vs %d", next_commitment_number, 1);
 
-	/* It's possible we sent our sigs, but they didn't get them.
-	 * Resend our signatures, just in case */
-	if (psbt_side_finalized(tx_state->psbt, state->our_role)
-	    && !state->channel_ready[REMOTE]) {
-		msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
-		peer_write(state->pps, take(msg));
+	/* BOLT-e299850cb5ebd8bd9c55763bbc498fcdf94a9567 #2:
+	 * A receiving node:
+	 * - if `next_funding_txid` is set:
+	 *      - if `next_funding_txid` matches the latest interactive funding transaction:
+	 *        - if it has not received `tx_signatures` for that funding transaction:
+	 *          - MUST retransmit its `commitment_signed` for that funding transaction.
+	 *          - if it has already received `commitment_signed` and it should sign first,
+	 *          as specified in the [`tx_signatures` requirements](#the-tx_signatures-message):
+	 *            - MUST send its `tx_signatures` for that funding transaction.
+	 *        - if it has already received `tx_signatures` for that funding transaction:
+	 *          - MUST send its `tx_signatures` for that funding transaction.
+	 *       - otherwise:
+	 *       - MUST send `tx_abort` to let the sending node know that they can forget
+	 *         this funding transaction.
+	 */
+	if (tlvs->next_funding) {
+		/* Does this match ours? */
+		if (bitcoin_txid_eq(tlvs->next_funding, &tx_state->funding.txid)) {
+			bool send_our_sigs = true;
+			char *err;
+			/* We haven't gotten their tx_sigs */
+			if (!tx_state->remote_funding_sigs_rcvd) {
+				err = do_reconnect_commit_sigs(tmpctx, state, tx_state);
+				if (err) {
+					open_abort(state, "Reconnect failed: %s", err);
+					return;
+				}
+
+				if (!tx_state->has_commitments)
+					send_our_sigs = false;
+			}
+			if (send_our_sigs && psbt_side_finalized(tx_state->psbt, state->our_role)) {
+				msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
+				peer_write(state->pps, take(msg));
+
+				/* Notify lightningd that we've (re)sent sigs */
+				wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
+			} else if (send_our_sigs) {
+				status_debug("Unable to send our sigs, our psbt isn't signed");
+			} else
+				status_debug("No commitment, not sending our sigs (reconnected)");
+		} else {
+			peer_billboard(true, "Non-matching next_funding on reconnect. Aborting.");
+			open_abort(state, "Sent next_funding_txid %s doesn't match ours %s",
+
+				   type_to_string(tmpctx, struct bitcoin_txid,
+						  tlvs->next_funding),
+				   type_to_string(tmpctx, struct bitcoin_txid,
+						  &tx_state->funding.txid));
+			return;
+		}
 	}
 
 	if (state->channel_ready[LOCAL]) {
