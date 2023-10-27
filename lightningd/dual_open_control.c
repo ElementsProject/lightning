@@ -2650,10 +2650,6 @@ json_openchannel_signed(struct command *cmd,
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
-	if (!channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
-
 	if (channel->open_attempt)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Commitments for this channel not "
@@ -2731,6 +2727,12 @@ json_openchannel_signed(struct command *cmd,
 	/* Update the PSBT on disk */
 	wallet_inflight_save(cmd->ld->wallet, inflight);
 	watch_opening_inflight(cmd->ld, inflight);
+
+	/* Only after we've updated/saved our psbt do we check
+	 * for peer connected */
+	if (!channel->owner)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
 
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
