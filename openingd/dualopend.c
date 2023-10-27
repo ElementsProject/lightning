@@ -1235,6 +1235,36 @@ static char *do_commit_signed_received(const tal_t *ctx,
 	return NULL;
 }
 
+static void handle_commit_signed(struct state *state, const u8 *msg)
+{
+	struct bitcoin_tx *local_commit;
+	struct bitcoin_signature remote_sig;
+	struct tx_state *tx_state = state->tx_state;
+	char *err;
+
+	if (!state->reconnected)
+		open_err_fatal(state, "Sent commit signed out of turn (not reconnect)"
+			       ": %s", tal_hex(msg, msg));
+
+	report_channel_hsmd(state, tx_state);
+	err = do_commit_signed_received(tmpctx, msg, state, tx_state,
+					&local_commit, &remote_sig);
+	if (err)
+		open_err_fatal(state,
+			      "They sent invalid commitment sig: %s", err);
+
+	/* Send the commitment_signed to lightningd; will save to db */
+	peer_billboard(false, "channel open: commitment received, "
+		       "sending to lightningd to save");
+
+	/* FIXME: add pbase for first time commits? */
+	msg = towire_dualopend_commit_rcvd(state,
+					   local_commit,
+					   &remote_sig,
+					   NULL);
+	wire_sync_write(REQ_FD, take(msg));
+}
+
 static void handle_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct channel_id cid;
@@ -4119,6 +4149,9 @@ static u8 *handle_peer_in(struct state *state)
 		}
 		accepter_start(state, msg);
 		return NULL;
+	case WIRE_COMMITMENT_SIGNED:
+		handle_commit_signed(state, msg);
+		return NULL;
 	case WIRE_TX_SIGNATURES:
 		handle_tx_sigs(state, msg);
 		return NULL;
@@ -4145,7 +4178,6 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
 	case WIRE_UPDATE_BLOCKHEIGHT:
