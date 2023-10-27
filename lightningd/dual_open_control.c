@@ -2834,6 +2834,24 @@ static void openchannel_invalid_psbt(struct psbt_validator *pv, const char *err_
 				 "%s", err_msg));
 }
 
+static struct channel_inflight *find_inprogress_inflight(struct channel *channel,
+							 struct wally_psbt *psbt)
+{
+	struct channel_inflight *inflight;
+	struct bitcoin_txid txid;
+
+	inflight = channel_current_inflight(channel);
+	if (!inflight)
+		return NULL;
+
+	/* check if psbt txid matches? */
+	psbt_txid(NULL, psbt, &txid, NULL);
+	if (!bitcoin_txid_eq(&inflight->funding->outpoint.txid, &txid))
+		return NULL;
+
+	return inflight;
+}
+
 static struct json_stream *build_commit_response(struct command *cmd,
 						 struct channel *channel,
 						 struct channel_inflight *inflight)
@@ -2876,6 +2894,7 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct channel *channel;
 	struct psbt_validator *pv;
 	struct command_result *ret;
+	struct channel_inflight *inflight;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
@@ -2893,9 +2912,17 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	if (!channel->open_attempt)
+
+	if (!channel->open_attempt) {
+		/* Check if the last inflight for this matches? */
+		inflight = find_inprogress_inflight(channel, psbt);
+		if (inflight) {
+			return command_success(cmd,
+				       build_commit_response(cmd, channel, inflight));
+		}
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Channel open not in progress");
+	}
 
 	if (channel->open_attempt->cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
