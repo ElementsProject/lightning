@@ -104,6 +104,9 @@ struct tx_state {
 	/* Have we gotten the peer's tx-sigs yet? */
 	bool remote_funding_sigs_rcvd;
 
+	/* Have we gotten the peer's commitments yet? */
+	bool has_commitments;
+
 	/* Rates that we're using for this open... */
 	struct lease_rates *rates;
 
@@ -4377,6 +4380,7 @@ int main(int argc, char *argv[])
 					     &state->upfront_shutdown_script[REMOTE],
 					     &state->local_upfront_shutdown_wallet_index,
 					     &state->tx_state->remote_funding_sigs_rcvd,
+					     &state->tx_state->has_commitments,
 					     &fee_states,
 					     &state->channel_flags,
 					     &state->tx_state->blockheight,

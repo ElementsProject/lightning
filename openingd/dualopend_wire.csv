@@ -64,6 +64,7 @@ msgdata,dualopend_reinit,remote_shutdown_len,u16,
 msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 msgdata,dualopend_reinit,local_shutdown_wallet_index,?u32,
 msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
+msgdata,dualopend_reinit,remote_commit_received,bool,
 msgdata,dualopend_reinit,fee_states,fee_states,
 msgdata,dualopend_reinit,channel_flags,u8,
 msgdata,dualopend_reinit,lease_start_blockheight,u32,
