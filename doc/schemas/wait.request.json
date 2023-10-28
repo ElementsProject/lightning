@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "added": "v23.08",
+  "additionalProperties": false,
+  "required": [
+    "subsystem",
+    "indexname",
+    "nextvalue"
+  ],
+  "properties": {
+    "subsystem": {
+      "type": "string",
+      "enum": [
+        "invoices",
+        "forwards",
+        "sendpays"
+      ]
+    },
+    "indexname": {
+      "type": "string",
+      "enum": [
+        "created",
+        "updated",
+        "deleted"
+      ]
+    },
+    "nextvalue": {
+      "type": "u64"
+    }
+  }
+}
