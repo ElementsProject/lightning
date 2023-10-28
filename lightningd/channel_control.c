@@ -26,6 +26,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
+#include <lightningd/peer_htlcs.h>
 #include <wally_bip32.h>
 #include <wally_psbt.h>
 

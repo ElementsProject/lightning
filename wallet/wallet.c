@@ -4806,26 +4806,6 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	return total;
 }
 
-bool string_to_forward_status(const char *status_str,
-			      size_t len,
-			      enum forward_status *status)
-{
-	if (memeqstr(status_str, len, "offered")) {
-		*status = FORWARD_OFFERED;
-		return true;
-	} else if (memeqstr(status_str, len, "settled")) {
-		*status = FORWARD_SETTLED;
-		return true;
-	} else if (memeqstr(status_str, len, "failed")) {
-		*status = FORWARD_FAILED;
-		return true;
-	} else if (memeqstr(status_str, len, "local_failed")) {
-		*status = FORWARD_LOCAL_FAILED;
-		return true;
-	}
-	return false;
-}
-
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 						       const tal_t *ctx,
 						       enum forward_status status,

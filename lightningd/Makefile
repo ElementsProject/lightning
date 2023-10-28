@@ -13,6 +13,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/connect_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/feerate.c			\
+	lightningd/forwards.c			\
 	lightningd/gossip_control.c		\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\

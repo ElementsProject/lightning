@@ -72,6 +72,7 @@
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
+#include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>

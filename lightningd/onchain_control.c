@@ -19,6 +19,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
