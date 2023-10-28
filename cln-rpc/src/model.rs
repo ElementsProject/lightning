@@ -4767,6 +4767,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsForwards {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    pub in_channel: ShortChannelId,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub in_htlc_id: Option<u64>,
@@ -4778,6 +4780,8 @@ pub mod responses {
 	    pub out_channel: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_htlc_id: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub style: Option<ListforwardsForwardsStyle>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

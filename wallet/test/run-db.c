@@ -222,7 +222,9 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  enum forward_status state UNNEEDED,
 			  enum onion_wire failcode UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED,
-			  enum forward_style forward_style UNNEEDED)
+			  enum forward_style forward_style UNNEEDED,
+			  u64 created_index UNNEEDED,
+			  u64 updated_index UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
 /* Generated stub for onion_wire_name */
 const char *onion_wire_name(int e UNNEEDED)

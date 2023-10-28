@@ -86,6 +86,12 @@ void json_add_forwarding_object(struct json_stream *response,
 {
 	json_object_start(response, fieldname);
 
+	/* We don't bother grabbing id from db on update. */
+	if (cur->created_index)
+		json_add_u64(response, "created_index", cur->created_index);
+	if (cur->updated_index)
+		json_add_u64(response, "updated_index", cur->updated_index);
+
 	/* Only for forward_event */
 	if (payment_hash)
 		json_add_sha256(response, "payment_hash", payment_hash);

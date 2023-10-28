@@ -4651,12 +4651,8 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 				 ", failcode=?"
 				 ", forward_style=?"
 				 " WHERE in_htlc_id=? AND in_channel_scid=?"));
-	db_bind_u64(stmt,
-		    forward_index_update_status(w->ld,
-						state,
-						*channel_scid_or_local_alias(in->key.channel),
-						in->msat,
-						out ? channel_scid_or_local_alias(out->key.channel) : NULL));
+	/* This may not work so don't increment index yet! */
+	db_bind_u64(stmt, w->ld->indexes[WAIT_SUBSYSTEM_FORWARD].i[WAIT_INDEX_UPDATED] + 1);
 	db_bind_amount_msat(stmt, &in->msat);
 
 	if (out) {
@@ -4703,7 +4699,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;
-	u64 id;
+	u64 id, updated_index;
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
@@ -4712,9 +4708,18 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		resolved_time = NULL;
 	}
 
-	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time, forward_style))
+	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time, forward_style)) {
+		updated_index =
+			forward_index_update_status(w->ld,
+						    state,
+						    *channel_scid_or_local_alias(in->key.channel),
+						    in->msat,
+						    out ? channel_scid_or_local_alias(out->key.channel) : NULL);
+		id = 0;
 		goto notify;
+	}
 
+	updated_index = 0;
 	stmt = db_prepare_v2(w->db,
 			     SQL("INSERT INTO forwards ("
 				 "  rowid"
@@ -4791,7 +4796,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 notify:
 	notify_forward_event(w->ld, in, scid_out, out ? &out->msat : NULL,
-			     state, failcode, resolved_time, forward_style);
+			     state, failcode, resolved_time, forward_style,
+			     id, updated_index);
 }
 
 struct amount_msat wallet_total_forward_fees(struct wallet *w)
@@ -4849,6 +4855,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		", resolved_time"
 		", failcode "
 		", forward_style "
+		", rowid "
+		", updated_index "
 		"FROM forwards "
 		"WHERE (1 = ? OR state = ?) AND "
 		"(1 = ? OR in_channel_scid = ?) AND "
@@ -4891,6 +4899,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		struct forwarding *cur = &results[count];
 		cur->status = db_col_int(stmt, "state");
 		cur->msat_in = db_col_amount_msat(stmt, "in_msatoshi");
+		cur->created_index = db_col_u64(stmt, "rowid");
+		cur->updated_index = db_col_u64(stmt, "updated_index");
 
 		if (!db_col_is_null(stmt, "out_msatoshi")) {
 			cur->msat_out = db_col_amount_msat(stmt, "out_msatoshi");

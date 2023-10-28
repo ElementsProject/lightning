@@ -1524,6 +1524,7 @@ impl From<responses::GetrouteResponse> for pb::GetrouteResponse {
 impl From<responses::ListforwardsForwards> for pb::ListforwardsForwards {
     fn from(c: responses::ListforwardsForwards) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
             in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
@@ -1531,6 +1532,7 @@ impl From<responses::ListforwardsForwards> for pb::ListforwardsForwards {
             received_time: c.received_time, // Rule #2 for type number
             out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             out_htlc_id: c.out_htlc_id, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             style: c.style.map(|v| v as i32),
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_msat: c.out_msat.map(|f| f.into()), // Rule #2 for type msat?

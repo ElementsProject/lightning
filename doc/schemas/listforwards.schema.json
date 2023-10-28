@@ -12,12 +12,18 @@
         "type": "object",
         "additionalProperties": true,
         "required": [
+          "created_index",
           "in_channel",
           "in_msat",
           "status",
           "received_time"
         ],
         "properties": {
+          "created_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": "1-based index indicating order this forward was created in"
+          },
           "in_channel": {
             "type": "short_channel_id",
             "description": "the channel that received the HTLC"
@@ -52,6 +58,11 @@
             "type": "u64",
             "description": "the unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)"
           },
+          "updated_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": "1-based index indicating order this forward was changed (only present if it has changed since creation)"
+          },
           "style": {
             "type": "string",
             "enum": [
@@ -76,6 +87,8 @@
                 "out_channel"
               ],
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},
@@ -102,6 +115,8 @@
               "additionalProperties": false,
               "required": [],
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},
@@ -134,6 +149,8 @@
                 "resolved_time"
               ],
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},
@@ -158,6 +175,8 @@
             "else": {
               "additionalProperties": false,
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},
@@ -192,6 +211,8 @@
               "additionalProperties": false,
               "required": [],
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},
@@ -220,6 +241,8 @@
               "additionalProperties": false,
               "required": [],
               "properties": {
+                "created_index": {},
+                "updated_index": {},
                 "in_channel": {},
                 "in_htlc_id": {},
                 "in_msatoshi": {},

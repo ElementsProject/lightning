@@ -34,6 +34,9 @@ enum forward_status {
 };
 
 struct forwarding {
+	u64 created_index;
+	/* zero means never updated */
+	u64 updated_index;
 	/* channel_out is all-zero if unknown. */
 	struct short_channel_id channel_in, channel_out;
 	/* htlc_id_out is NULL if unknown. */
