@@ -25,13 +25,15 @@ Note that the returned array is ordered by increasing *id*.
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
 
-- **id** (u64): unique ID for this payment attempt
+- **created\_index** (u64): 1-based index indicating order this payment was created in *(added v23.11)*
+- **id** (u64): old synonym for created\_index
 - **groupid** (u64): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount\_sent\_msat** (msat): The amount sent
 - **partid** (u64, optional): Part number (for multiple parts to a single payment)
+- **updated\_index** (u64, optional): 1-based index indicating order this payment was changed (only present if it has changed since creation) *(added v23.11)*
 - **amount\_msat** (msat, optional): The amount delivered to destination (if known)
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **label** (string, optional): the label, if given to sendpay
@@ -65,4 +67,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:635a4026d5472207c545391db99c4f5569ad5388ada009de028a0b4063c594a4)
+[comment]: # ( SHA256STAMP:d2c1dbc5953bb86579edf048ee02752d776e763d90729d46339d9a27412d2021)

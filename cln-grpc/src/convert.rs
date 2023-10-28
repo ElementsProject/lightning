@@ -293,6 +293,8 @@ impl From<responses::ListfundsResponse> for pb::ListfundsResponse {
 impl From<responses::SendpayResponse> for pb::SendpayResponse {
     fn from(c: responses::SendpayResponse) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
@@ -618,6 +620,7 @@ impl From<responses::ListinvoicesResponse> for pb::ListinvoicesResponse {
 impl From<responses::SendonionResponse> for pb::SendonionResponse {
     fn from(c: responses::SendonionResponse) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             status: c.status as i32,
@@ -629,6 +632,7 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
+            updated_index: c.updated_index, // Rule #2 for type u64?
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             message: c.message, // Rule #2 for type string?
         }
@@ -639,10 +643,12 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
 impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
     fn from(c: responses::ListsendpaysPayments) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64
             partid: c.partid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            updated_index: c.updated_index, // Rule #2 for type u64?
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -841,6 +847,7 @@ impl From<responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
 impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
     fn from(c: responses::WaitsendpayResponse) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
@@ -848,6 +855,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at, // Rule #2 for type u64
+            updated_index: c.updated_index, // Rule #2 for type u64?
             completed_at: c.completed_at, // Rule #2 for type number?
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label, // Rule #2 for type string?

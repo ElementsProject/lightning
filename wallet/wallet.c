@@ -3178,6 +3178,7 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 static
 struct wallet_payment *wallet_payment_new(const tal_t *ctx,
 					  u64 dbid,
+					  u64 updated_index,
 					  u32 timestamp,
 					  const u32 *completed_at,
 					  const struct sha256 *payment_hash,
@@ -3232,7 +3233,7 @@ struct wallet_payment *wallet_add_payment(const tal_t *ctx,
 				   payment_hash,
 				   partid, groupid, status);
 
-	payment = wallet_payment_new(ctx, id,
+	payment = wallet_payment_new(ctx, id, 0,
 				     timestamp,
 				     completed_at,
 				     payment_hash,
@@ -3390,6 +3391,7 @@ void wallet_payment_delete(struct wallet *wallet,
 static
 struct wallet_payment *wallet_payment_new(const tal_t *ctx,
 					  u64 dbid,
+					  u64 updated_index,
 					  u32 timestamp,
 					  const u32 *completed_at,
 					  const struct sha256 *payment_hash,
@@ -3415,6 +3417,7 @@ struct wallet_payment *wallet_payment_new(const tal_t *ctx,
 	struct wallet_payment *payment = tal(ctx, struct wallet_payment);
 
 	payment->id = dbid;
+	payment->updated_index = updated_index;
 	payment->status = status;
 	payment->timestamp = timestamp;
 	payment->payment_hash = *payment_hash;
@@ -3458,6 +3461,7 @@ struct wallet_payment *payment_get_details(const tal_t *ctx,
 
 	payment = wallet_payment_new(ctx,
 				     db_col_u64(stmt, "id"),
+				     db_col_u64(stmt, "updated_index"),
 				     db_col_int(stmt, "timestamp"),
 				     completed_at,
 				     &payment_hash,
@@ -3494,6 +3498,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"
@@ -3713,6 +3718,7 @@ struct db_stmt *payments_first(struct wallet *wallet)
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"
@@ -3744,6 +3750,7 @@ struct db_stmt *payments_by_hash(struct wallet *wallet,
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"
@@ -3778,6 +3785,7 @@ struct db_stmt *payments_by_label(struct wallet *wallet,
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"
@@ -3812,6 +3820,7 @@ struct db_stmt *payments_by_status(struct wallet *wallet,
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"
@@ -3846,6 +3855,7 @@ struct db_stmt *payments_by_invoice_request(struct wallet *wallet,
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
+					     ", updated_index"
 					     ", status"
 					     ", destination"
 					     ", msatoshi"

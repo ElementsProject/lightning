@@ -97,9 +97,12 @@ add_waitsendpay_waiter(struct lightningd *ld,
 void json_add_payment_fields(struct json_stream *response,
 			     const struct wallet_payment *t)
 {
+	json_add_u64(response, "created_index", t->id);
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
 	json_add_u64(response, "groupid", t->groupid);
+	if (t->updated_index)
+		json_add_u64(response, "updated_index", t->updated_index);
 	if (t->partid)
 		json_add_u64(response, "partid", t->partid);
 	if (t->destination != NULL)

@@ -35,7 +35,8 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **id** (u64): unique ID for this payment attempt
+- **created\_index** (u64): 1-based index indicating order this payment was created in *(added v23.11)*
+- **id** (u64): old synonym for created\_index
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (always "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
@@ -43,6 +44,7 @@ On success, an object is returned, containing:
 - **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
 - **amount\_msat** (msat, optional): The amount delivered to destination (if known)
 - **destination** (pubkey, optional): the final destination of the payment if known
+- **updated\_index** (u64, optional): 1-based index indicating order this payment was changed (only present if it has changed since creation) *(added v23.11)*
 - **completed\_at** (number, optional): the UNIX timestamp showing when this payment was completed
 - **label** (string, optional): the label, if given to sendpay
 - **partid** (u64, optional): the *partid*, if given to sendpay
@@ -106,4 +108,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d9ed7646579daf789b74686b18a09145ece3f1a0ebfc5dc579f91652ae187276)
+[comment]: # ( SHA256STAMP:8c21e521564a508d3fdc4ebd26dcc138a68181eda6728494fe58ac8a8f010e62)

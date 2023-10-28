@@ -713,6 +713,40 @@ def test_repay(node_factory):
     assert l1.daemon.is_in_log("Sending 200000000msat over 1 hops to deliver 200000000msat", start=l1.daemon.logsearch_start) is None
 
 
+def test_wait_sendpay(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
+
+    assert l1.rpc.wait(subsystem='sendpays', indexname='created', nextvalue=0) == {'subsystem': 'sendpays', 'created': 0}
+
+    wait_created = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'created', 'nextvalue': 1})
+    wait_updated = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'updated', 'nextvalue': 1})
+
+    time.sleep(1)
+    amt = 200000000
+    inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
+    routestep = {
+        'amount_msat': amt,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': first_scid(l1, l2)
+    }
+    l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
+    assert wait_created.result(TIMEOUT) == {'subsystem': 'sendpays',
+                                            'created': 1,
+                                            'details': {'groupid': 1,
+                                                        'partid': 0,
+                                                        'payment_hash': inv['payment_hash'],
+                                                        'status': 'pending'}}
+    assert wait_updated.result(TIMEOUT) == {'subsystem': 'sendpays',
+                                            'updated': 1,
+                                            'details': {'groupid': 1,
+                                                        'partid': 0,
+                                                        'payment_hash': inv['payment_hash'],
+                                                        'status': 'complete'}}
+
+    l1.rpc.waitsendpay(inv['payment_hash'])['payment_preimage']
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_sendpay_cant_afford(node_factory, anchors):

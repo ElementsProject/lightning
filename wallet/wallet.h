@@ -391,6 +391,7 @@ struct wallet_payment {
 
 	enum payment_status status;
 
+	u64 updated_index;
 	/* The destination may not be known if we used `sendonion` */
 	struct node_id *destination;
 	struct amount_msat msatoshi;

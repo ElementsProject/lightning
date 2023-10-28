@@ -2244,6 +2244,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    pub id: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
@@ -2965,6 +2969,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    pub id: u64,
 	    pub payment_hash: Sha256,
 	    // Path `SendOnion.status`
@@ -2983,6 +2989,8 @@ pub mod responses {
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3035,11 +3043,15 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysPayments {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    pub id: u64,
 	    pub groupid: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partid: Option<u64>,
 	    pub payment_hash: Sha256,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    // Path `ListSendPays.payments[].status`
 	    pub status: ListsendpaysPaymentsStatus,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3446,6 +3458,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitsendpayResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
 	    pub id: u64,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
@@ -3457,6 +3471,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    pub created_at: u64,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updated_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub completed_at: Option<f64>,
 	    pub amount_sent_msat: Amount,

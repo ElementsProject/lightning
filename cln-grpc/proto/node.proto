@@ -338,6 +338,8 @@ message SendpayResponse {
 		PENDING = 0;
 		COMPLETE = 1;
 	}
+	optional uint64 created_index = 16;
+	optional uint64 updated_index = 17;
 	uint64 id = 1;
 	optional uint64 groupid = 2;
 	bytes payment_hash = 3;
@@ -724,6 +726,7 @@ message SendonionResponse {
 		PENDING = 0;
 		COMPLETE = 1;
 	}
+	optional uint64 created_index = 14;
 	uint64 id = 1;
 	bytes payment_hash = 2;
 	SendonionStatus status = 3;
@@ -735,6 +738,7 @@ message SendonionResponse {
 	optional string bolt11 = 9;
 	optional string bolt12 = 10;
 	optional uint64 partid = 13;
+	optional uint64 updated_index = 15;
 	optional bytes payment_preimage = 11;
 	optional string message = 12;
 }
@@ -768,10 +772,12 @@ message ListsendpaysPayments {
 		FAILED = 1;
 		COMPLETE = 2;
 	}
+	optional uint64 created_index = 16;
 	uint64 id = 1;
 	uint64 groupid = 2;
 	optional uint64 partid = 15;
 	bytes payment_hash = 3;
+	optional uint64 updated_index = 17;
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
@@ -956,6 +962,7 @@ message WaitsendpayResponse {
 	enum WaitsendpayStatus {
 		COMPLETE = 0;
 	}
+	optional uint64 created_index = 15;
 	uint64 id = 1;
 	optional uint64 groupid = 2;
 	bytes payment_hash = 3;
@@ -963,6 +970,7 @@ message WaitsendpayResponse {
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
 	uint64 created_at = 7;
+	optional uint64 updated_index = 16;
 	optional double completed_at = 14;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;

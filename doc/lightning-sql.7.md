@@ -356,10 +356,12 @@ The following tables are currently supported:
   - `features` (type `hex`, sqltype `BLOB`)
 
 - `sendpays` indexed by `payment_hash` (see lightning-listsendpays(7))
+  - `created_index` (type `u64`, sqltype `INTEGER`)
   - `id` (type `u64`, sqltype `INTEGER`)
   - `groupid` (type `u64`, sqltype `INTEGER`)
   - `partid` (type `u64`, sqltype `INTEGER`)
   - `payment_hash` (type `hash`, sqltype `BLOB`)
+  - `updated_index` (type `u64`, sqltype `INTEGER`)
   - `status` (type `string`, sqltype `TEXT`)
   - `amount_msat` (type `msat`, sqltype `INTEGER`)
   - `destination` (type `pubkey`, sqltype `BLOB`)
@@ -516,4 +518,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:b14fce571cf85639c460c59ddec117ce1cb23bd219618730b164ea3cc979b1aa)
+[comment]: # ( SHA256STAMP:51935a8b2807867e97ecb077194090e55ce610a32120825c093c766d0292a6cb)

@@ -233,6 +233,8 @@ def listfunds2py(m):
 
 def sendpay2py(m):
     return remove_default({
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -475,6 +477,7 @@ def listinvoices2py(m):
 
 def sendonion2py(m):
     return remove_default({
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
@@ -486,6 +489,7 @@ def sendonion2py(m):
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
         "message": m.message,  # PrimitiveField in generate_composite
     })
@@ -493,10 +497,12 @@ def sendonion2py(m):
 
 def listsendpays_payments2py(m):
     return remove_default({
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
@@ -645,6 +651,7 @@ def waitinvoice2py(m):
 
 def waitsendpay2py(m):
     return remove_default({
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -652,6 +659,7 @@ def waitsendpay2py(m):
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
