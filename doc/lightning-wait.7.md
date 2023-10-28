@@ -22,7 +22,9 @@ the current index, though naturally this is racy!).
 
 *subsystem* is one of:
 
-- `invoices`: corresponding to `listinvoices`.
+- `invoices`: corresponding to `listinvoices` (added in *v23.08*)
+- `sendpays`: corresponding to `listsendpays` (added in *v23.11*)
+- `forwards`: corresponding to `listforwards` (added in *v23.11*)
 
 
 RELIABILITY
@@ -57,7 +59,41 @@ This is obviously inefficient, so there are two optimizations:
 
 RETURN VALUE
 ------------
-FIXME
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+
+- **subsystem** (string) (one of "invoices", "forwards", "sendpays")
+- **created** (u64, optional): 1-based index indicating order entry was created
+- **updated** (u64, optional): 1-based index indicating order entry was updated
+- **deleted** (u64, optional): 1-based index indicating order entry was deleted
+
+If **subsystem** is "invoices":
+
+  - **details** (object, optional):
+    - **status** (string, optional): Whether it's paid, unpaid or unpayable (one of "unpaid", "paid", "expired")
+    - **label** (string, optional): unique label supplied at invoice creation
+    - **description** (string, optional): description used in the invoice
+    - **bolt11** (string, optional): the BOLT11 string
+    - **bolt12** (string, optional): the BOLT12 string
+
+If **subsystem** is "forwards":
+
+  - **details** (object, optional):
+    - **status** (string, optional): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "failed", "local\_failed")
+    - **in\_channel** (short\_channel\_id, optional): unique label supplied at invoice creation
+    - **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
+    - **in\_msat** (msat, optional): the value of the incoming HTLC
+    - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
+
+If **subsystem** is "sendpays":
+
+  - **details** (object, optional):
+    - **status** (string, optional): status of the payment (one of "pending", "failed", "complete")
+    - **partid** (u64, optional): Part number (for multiple parts to a single payment)
+    - **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
+    - **payment\_hash** (hash, optional): the hash of the *payment\_preimage* which will prove payment
+
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -73,9 +109,10 @@ responsible.
 SEE ALSO
 --------
 
-lightning-listinvoice(7)
+lightning-listinvoice(7), lightning-listforwards(7), lightning-listsendpays(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:a3c55b5c6ee055fedc65954c784e72f0a7fbd14cef74b0e69bb254d64b3f0e77)
