@@ -3013,6 +3013,7 @@ def test_listforwards_wait(node_factory, executor):
     assert waitres == {'subsystem': 'forwards',
                        'created': 1,
                        'details': {'in_channel': scid12,
+                                   'in_htlc_id': 0,
                                    'in_msat': Millisatoshi(amt1 + 1),
                                    'out_channel': scid23,
                                    'status': 'offered'}}
@@ -3020,6 +3021,7 @@ def test_listforwards_wait(node_factory, executor):
     assert waitres == {'subsystem': 'forwards',
                        'updated': 1,
                        'details': {'in_channel': scid12,
+                                   'in_htlc_id': 0,
                                    'in_msat': Millisatoshi(amt1 + 1),
                                    'out_channel': scid23,
                                    'status': 'settled'}}
@@ -3040,6 +3042,7 @@ def test_listforwards_wait(node_factory, executor):
     assert waitres == {'subsystem': 'forwards',
                        'created': 2,
                        'details': {'in_channel': scid12,
+                                   'in_htlc_id': 1,
                                    'in_msat': Millisatoshi(amt2 + 1),
                                    'out_channel': scid23,
                                    'status': 'offered'}}
@@ -3047,6 +3050,7 @@ def test_listforwards_wait(node_factory, executor):
     assert waitres == {'subsystem': 'forwards',
                        'updated': 2,
                        'details': {'in_channel': scid12,
+                                   'in_htlc_id': 1,
                                    'in_msat': Millisatoshi(amt2 + 1),
                                    'out_channel': scid23,
                                    'status': 'failed'}}
@@ -3071,6 +3075,7 @@ def test_listforwards_wait(node_factory, executor):
     assert waitres == {'subsystem': 'forwards',
                        'deleted': 1,
                        'details': {'in_channel': scid12,
+                                   'in_htlc_id': 1,
                                    'status': 'failed'}}
 
 

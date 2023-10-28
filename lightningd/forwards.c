@@ -14,6 +14,7 @@
 static u64 forward_index_inc(struct lightningd *ld,
 			     enum forward_status status,
 			     struct short_channel_id in_channel,
+			     u64 in_htlc_id,
 			     const struct amount_msat *in_amount,
 			     const struct short_channel_id *out_channel,
 			     enum wait_index idx)
@@ -21,6 +22,7 @@ static u64 forward_index_inc(struct lightningd *ld,
 	return wait_index_increment(ld, WAIT_SUBSYSTEM_FORWARD, idx,
 				    "status", forward_status_name(status),
 				    "in_channel", short_channel_id_to_str(tmpctx, &in_channel),
+				    "=in_htlc_id", tal_fmt(tmpctx, "%"PRIu64, in_htlc_id),
 				    "=in_msat", in_amount ? tal_fmt(tmpctx, "%"PRIu64, in_amount->millisatoshis) : NULL, /* Raw: JSON output */
 				    "out_channel", out_channel ? short_channel_id_to_str(tmpctx, out_channel): NULL,
 				    NULL);
@@ -29,10 +31,12 @@ static u64 forward_index_inc(struct lightningd *ld,
 void forward_index_deleted(struct lightningd *ld,
 			   enum forward_status status,
 			   struct short_channel_id in_channel,
+			   u64 in_htlc_id,
 			   const struct amount_msat *in_amount,
 			   const struct short_channel_id *out_channel)
 {
-	forward_index_inc(ld, status, in_channel, in_amount, out_channel,
+	forward_index_inc(ld, status, in_channel, in_htlc_id,
+			  in_amount, out_channel,
 			  WAIT_INDEX_DELETED);
 }
 
@@ -40,20 +44,24 @@ void forward_index_deleted(struct lightningd *ld,
 u64 forward_index_created(struct lightningd *ld,
 			  enum forward_status status,
 			  struct short_channel_id in_channel,
+			  u64 in_htlc_id,
 			  struct amount_msat in_amount,
 			  const struct short_channel_id *out_channel)
 {
-	return forward_index_inc(ld, status, in_channel, &in_amount, out_channel,
+	return forward_index_inc(ld, status, in_channel, in_htlc_id,
+				 &in_amount, out_channel,
 				 WAIT_INDEX_CREATED);
 }
 
 u64 forward_index_update_status(struct lightningd *ld,
 				enum forward_status status,
 				struct short_channel_id in_channel,
+				u64 in_htlc_id,
 				struct amount_msat in_amount,
 				const struct short_channel_id *out_channel)
 {
-	return forward_index_inc(ld, status, in_channel, &in_amount, out_channel,
+	return forward_index_inc(ld, status, in_channel, in_htlc_id,
+				 &in_amount, out_channel,
 				 WAIT_INDEX_UPDATED);
 }
 

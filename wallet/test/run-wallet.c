@@ -204,6 +204,7 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 u64 forward_index_created(struct lightningd *ld UNNEEDED,
 			  enum forward_status status UNNEEDED,
 			  struct short_channel_id in_channel UNNEEDED,
+			  u64 in_htlc_id UNNEEDED,
 			  struct amount_msat in_amount UNNEEDED,
 			  const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_created called!\n"); abort(); }
@@ -211,6 +212,7 @@ u64 forward_index_created(struct lightningd *ld UNNEEDED,
 void forward_index_deleted(struct lightningd *ld UNNEEDED,
 			   enum forward_status status UNNEEDED,
 			   struct short_channel_id in_channel UNNEEDED,
+			   u64 in_htlc_id UNNEEDED,
 			   const struct amount_msat *in_amount UNNEEDED,
 			   const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_deleted called!\n"); abort(); }
@@ -218,6 +220,7 @@ void forward_index_deleted(struct lightningd *ld UNNEEDED,
 u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				enum forward_status status UNNEEDED,
 				struct short_channel_id in_channel UNNEEDED,
+				u64 in_htlc_id UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }

@@ -4713,6 +4713,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 			forward_index_update_status(w->ld,
 						    state,
 						    *channel_scid_or_local_alias(in->key.channel),
+						    in->key.id,
 						    in->msat,
 						    out ? channel_scid_or_local_alias(out->key.channel) : NULL);
 		id = 0;
@@ -4738,6 +4739,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	id = forward_index_created(w->ld,
 				   state,
 				   *channel_scid_or_local_alias(in->key.channel),
+				   in->key.id,
 				   in->msat,
 				   out ? channel_scid_or_local_alias(out->key.channel) : NULL);
 
@@ -5127,6 +5129,7 @@ bool wallet_forward_delete(struct wallet *w,
 		forward_index_deleted(w->ld,
 				      state,
 				      *chan_in,
+				      htlc_id ? *htlc_id : HTLC_INVALID_ID,
 				      NULL, NULL);
 	}
 
