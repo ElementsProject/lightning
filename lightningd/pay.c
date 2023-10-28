@@ -1732,12 +1732,18 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	const char *invstring;
 	enum payment_status *status;
 	struct db_stmt *stmt;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
 
 	if (!param_check(cmd, buffer, params,
 			 /* FIXME: parameter should be invstring now */
 			 p_opt("bolt11", param_invstring, &invstring),
 			 p_opt("payment_hash", param_sha256, &rhash),
 			 p_opt("status", param_payment_status, &status),
+			 p_opt("index", param_index, &listindex),
+			 p_opt_def("start", param_u64, &liststart, 0),
+			 p_opt("limit", param_u32, &listlimit),
 			 NULL))
 		return command_param_failed();
 
@@ -1745,6 +1751,20 @@ static struct command_result *json_listsendpays(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Can only specify one of"
 				    " {bolt11} or {payment_hash}");
+	}
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+
+	if ((rhash || invstring) && *liststart != 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot use start with bolt11 or payment_hash");
 	}
 
 	if (invstring) {
@@ -1778,9 +1798,11 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	if (rhash)
 		stmt = payments_by_hash(cmd->ld->wallet, rhash);
 	else if (status)
-		stmt = payments_by_status(cmd->ld->wallet, *status);
+		stmt = payments_by_status(cmd->ld->wallet, *status,
+					  listindex, *liststart, listlimit);
 	else
-		stmt = payments_first(cmd->ld->wallet);
+		stmt = payments_first(cmd->ld->wallet,
+				      listindex, *liststart, listlimit);
 
 	for (; stmt; stmt = payments_next(cmd->ld->wallet, stmt)) {
 		json_object_start(response, NULL);

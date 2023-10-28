@@ -2006,6 +2006,9 @@ impl From<requests::ListsendpaysRequest> for pb::ListsendpaysRequest {
             bolt11: c.bolt11, // Rule #2 for type string?
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             status: c.status.map(|v| v as i32),
+            index: c.index.map(|v| v as i32),
+            start: c.start, // Rule #2 for type u64?
+            limit: c.limit, // Rule #2 for type u32?
         }
     }
 }
@@ -2719,6 +2722,9 @@ impl From<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
             bolt11: c.bolt11, // Rule #1 for type string?
             payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             status: c.status.map(|v| v.try_into().unwrap()),
+            index: c.index.map(|v| v.try_into().unwrap()),
+            start: c.start, // Rule #1 for type u64?
+            limit: c.limit, // Rule #1 for type u32?
         }
     }
 }

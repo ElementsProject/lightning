@@ -3713,33 +3713,74 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
-struct db_stmt *payments_first(struct wallet *wallet)
+struct db_stmt *payments_first(struct wallet *wallet,
+			       const enum wait_index *listindex,
+			       u64 liststart,
+			       const u32 *listlimit)
 {
 	struct db_stmt *stmt;
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-					     "  id"
-					     ", updated_index"
-					     ", status"
-					     ", destination"
-					     ", msatoshi"
-					     ", payment_hash"
-					     ", timestamp"
-					     ", payment_preimage"
-					     ", path_secrets"
-					     ", route_nodes"
-					     ", route_channels"
-					     ", msatoshi_sent"
-					     ", description"
-					     ", bolt11"
-					     ", paydescription"
-					     ", failonionreply"
-					     ", total_msat"
-					     ", partid"
-					     ", local_invreq_id"
-					     ", groupid"
-					     ", completed_at"
-					     " FROM payments"
-					     " ORDER BY id;"));
+
+	if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", updated_index"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_invreq_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE updated_index >= ?"
+						     " ORDER BY updated_index"
+						     " LIMIT ?;"));
+	} else {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", updated_index"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_invreq_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE id >= ?"
+						     " ORDER BY id"
+						     " LIMIT ?;"));
+	}
+
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
 	db_query_prepared(stmt);
 	return payments_next(wallet, stmt);
 }
@@ -3815,36 +3856,81 @@ struct db_stmt *payments_by_label(struct wallet *wallet,
 }
 
 struct db_stmt *payments_by_status(struct wallet *wallet,
-				   enum payment_status status)
+				   enum payment_status status,
+				   const enum wait_index *listindex,
+				   u64 liststart,
+				   const u32 *listlimit)
 {
 	struct db_stmt *stmt;
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-					     "  id"
-					     ", updated_index"
-					     ", status"
-					     ", destination"
-					     ", msatoshi"
-					     ", payment_hash"
-					     ", timestamp"
-					     ", payment_preimage"
-					     ", path_secrets"
-					     ", route_nodes"
-					     ", route_channels"
-					     ", msatoshi_sent"
-					     ", description"
-					     ", bolt11"
-					     ", paydescription"
-					     ", failonionreply"
-					     ", total_msat"
-					     ", partid"
-					     ", local_invreq_id"
-					     ", groupid"
-					     ", completed_at"
-					     " FROM payments"
-					     " WHERE"
-					     "  status = ?"
-					     " ORDER BY id;"));
+
+	if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", updated_index"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_invreq_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE"
+						     "  status = ?"
+						     " AND"
+						     "  updated_index >= ?"
+						     " ORDER BY updated_index"
+						     " LIMIT ?;"));
+	} else {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", updated_index"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_invreq_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE"
+						     "  status = ?"
+						     " AND"
+						     "  id >= ?"
+						     " ORDER BY id"
+						     " LIMIT ?;"));
+	}
+
 	db_bind_int(stmt, payment_status_in_db(status));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
 	db_query_prepared(stmt);
 	return payments_next(wallet, stmt);
 }

@@ -778,6 +778,11 @@ struct command_result *param_string(struct command *cmd UNNEEDED, const char *na
 				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    const char **str UNNEEDED)
 { fprintf(stderr, "param_string called!\n"); abort(); }
+/* Generated stub for param_u32 */
+struct command_result *param_u32(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				 uint32_t **num UNNEEDED)
+{ fprintf(stderr, "param_u32 called!\n"); abort(); }
 /* Generated stub for param_u64 */
 struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
