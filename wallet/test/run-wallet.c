@@ -2088,27 +2088,37 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 
 static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 {
-	struct wallet_payment *t = tal(ctx, struct wallet_payment), *t2;
+	struct wallet_payment *t, *t2;
 	struct wallet *w = create_test_wallet(ld, ctx);
+	struct sha256 payment_hash;
+	struct node_id destination;
 
-	mempat(t, sizeof(*t));
-	t->destination = tal(t, struct node_id);
-	memset(t->destination, 2, sizeof(struct node_id));
-
-	t->id = 0;
-	t->msatoshi = AMOUNT_MSAT(100);
-	t->msatoshi_sent = AMOUNT_MSAT(101);
-	t->total_msat = t->msatoshi;
-	t->status = PAYMENT_PENDING;
-	t->payment_preimage = NULL;
-	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
-	t->partid = 0;
-	t->groupid = 12345;
+	memset(&payment_hash, 1, sizeof(payment_hash));
+	memset(&destination, 2, sizeof(struct node_id));
 
 	db_begin_transaction(w->db);
 	load_indexes(w->db, ld->indexes);
-	t2 = tal_dup(NULL, struct wallet_payment, t);
-	wallet_add_payment(w, take(t2));
+	t = wallet_add_payment(ctx,
+			       w,
+			       1,
+			       NULL,
+			       &payment_hash,
+			       0, 12345,
+			       PAYMENT_PENDING,
+			       &destination,
+			       AMOUNT_MSAT(100),
+			       AMOUNT_MSAT(101),
+			       AMOUNT_MSAT(100),
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL,
+			       NULL);
+
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, 0, t->groupid);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);

@@ -1100,8 +1100,8 @@ send_payment_core(struct lightningd *ld,
 					     partid);
 	}
 
-	payment = wallet_payment_new(cmd,
-				     0, /* ID is not in db yet */
+	payment = wallet_add_payment(cmd,
+				     ld->wallet,
 				     time_now().ts.tv_sec,
 				     NULL,
 				     rhash,
@@ -1121,9 +1121,6 @@ send_payment_core(struct lightningd *ld,
 				     description,
 				     NULL,
 				     local_invreq_id);
-
-	/* Save into db */
-	wallet_add_payment(ld->wallet, payment);
 
 	return json_sendpay_in_progress(cmd, payment);
 }
@@ -1412,8 +1409,8 @@ static struct command_result *self_payment(struct lightningd *ld,
 	u64 inv_dbid;
 	const char *err;
 
-	payment = wallet_payment_new(tmpctx,
-				     0, /* ID is not in db yet */
+	payment = wallet_add_payment(tmpctx,
+				     ld->wallet,
 				     time_now().ts.tv_sec,
 				     NULL,
 				     rhash,
@@ -1433,9 +1430,6 @@ static struct command_result *self_payment(struct lightningd *ld,
 				     description,
 				     NULL,
 				     local_invreq_id);
-
-	/* We write this into db immediately. */
-	wallet_add_payment(ld->wallet, payment);
 
 	/* Now, resolve the invoice */
 	inv = invoice_check_payment(tmpctx, ld, rhash, msat, payment_secret, &err);

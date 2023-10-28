@@ -418,30 +418,6 @@ struct wallet_payment {
 	struct sha256 *local_invreq_id;
 };
 
-struct wallet_payment *wallet_payment_new(const tal_t *ctx,
-					  u64 dbid,
-					  u32 timestamp,
-					  const u32 *completed_at,
-					  const struct sha256 *payment_hash,
-					  u64 partid,
-					  u64 groupid,
-					  enum payment_status status,
-					  /* The destination may not be known if we used `sendonion` */
-					  const struct node_id *destination TAKES,
-					  struct amount_msat msatoshi,
-					  struct amount_msat msatoshi_sent,
-					  struct amount_msat total_msat,
-					  /* If and only if PAYMENT_COMPLETE */
-					  const struct preimage *payment_preimage TAKES,
-					  const struct secret *path_secrets TAKES,
-					  const struct node_id *route_nodes TAKES,
-					  const struct short_channel_id *route_channels TAKES,
-					  const char *invstring TAKES,
-					  const char *label TAKES,
-					  const char *description TAKES,
-					  const u8 *failonion TAKES,
-					  const struct sha256 *local_invreq_id);
-
 struct outpoint {
 	struct bitcoin_outpoint outpoint;
 	u32 blockheight;
@@ -921,11 +897,34 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct channel *chan, u64 commit_num);
 
 /**
- * wallet_add_payment - Store this payment in the db; sets payment->id
+ * wallet_add_payment - Store this payment in the db
+ * @ctx: context to allocate returned `struct wallet_payment` off.
  * @wallet: wallet we're going to store it in.
- * @payment: the payment for later committing.
+ * @...: the details
  */
-void wallet_add_payment(struct wallet *wallet, struct wallet_payment *payment TAKES);
+struct wallet_payment *wallet_add_payment(const tal_t *ctx,
+					  struct wallet *wallet,
+					  u32 timestamp,
+					  const u32 *completed_at,
+					  const struct sha256 *payment_hash,
+					  u64 partid,
+					  u64 groupid,
+					  enum payment_status status,
+					  /* The destination may not be known if we used `sendonion` */
+					  const struct node_id *destination TAKES,
+					  struct amount_msat msatoshi,
+					  struct amount_msat msatoshi_sent,
+					  struct amount_msat total_msat,
+					  /* If and only if PAYMENT_COMPLETE */
+					  const struct preimage *payment_preimage TAKES,
+					  const struct secret *path_secrets TAKES,
+					  const struct node_id *route_nodes TAKES,
+					  const struct short_channel_id *route_channels TAKES,
+					  const char *invstring TAKES,
+					  const char *label TAKES,
+					  const char *description TAKES,
+					  const u8 *failonion TAKES,
+					  const struct sha256 *local_invreq_id);
 
 /**
  * wallet_payment_delete - Remove a payment
