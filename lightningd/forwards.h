@@ -92,7 +92,7 @@ static inline const char *forward_style_name(enum forward_style style)
 void forward_index_deleted(struct lightningd *ld,
 			   enum forward_status status,
 			   struct short_channel_id in_channel,
-			   struct amount_msat in_amount,
+			   const struct amount_msat *in_amount,
 			   const struct short_channel_id *out_channel);
 u64 forward_index_created(struct lightningd *ld,
 			  enum forward_status status,
