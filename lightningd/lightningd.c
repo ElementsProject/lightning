@@ -212,7 +212,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->recover = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
-	list_head_init(&ld->sendpay_commands);
 	list_head_init(&ld->close_commands);
 	list_head_init(&ld->ping_commands);
 	list_head_init(&ld->disconnect_commands);

@@ -193,12 +193,6 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 					     struct channel *channel UNNEEDED,
 					     const struct bitcoin_tx *tx UNNEEDED)
 { fprintf(stderr, "create_anchor_details called!\n"); abort(); }
-/* Generated stub for db_begin_transaction_ */
-void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
-{ fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
-/* Generated stub for db_commit_transaction */
-void db_commit_transaction(struct db *db UNNEEDED)
-{ fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for delete_channel */
 void delete_channel(struct channel *channel STEALS UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
@@ -874,7 +868,7 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for plugin_request_send */
 void plugin_request_send(struct plugin *plugin UNNEEDED,
-			 struct jsonrpc_request *req TAKES UNNEEDED)
+			 struct jsonrpc_request *req UNNEEDED)
 { fprintf(stderr, "plugin_request_send called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
