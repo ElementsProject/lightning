@@ -9,7 +9,7 @@ from pyln.testing.utils import (
     wait_for, TailableProc, env, mine_funding_to_announce
 )
 from utils import (
-    account_balance, scriptpubkey_addr, check_coin_moves
+    account_balance, scriptpubkey_addr, check_coin_moves, first_scid
 )
 from ephemeral_port_reserve import reserve
 
@@ -2989,6 +2989,89 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     l2.rpc.delforward(in_channel=c12, in_htlc_id=1, status='settled')
     l2.rpc.delforward(in_channel=c12, in_htlc_id=2, status='local_failed')
     assert l2.rpc.listforwards() == {'forwards': []}
+
+
+def test_listforwards_wait(node_factory, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    waitres = l1.rpc.wait(subsystem='forwards', indexname='created', nextvalue=0)
+    assert waitres == {'subsystem': 'forwards',
+                       'created': 0}
+
+    # Now ask for 1.
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=1)
+    waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=1)
+    time.sleep(1)
+
+    amt1 = 1000
+    inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
+    l1.rpc.pay(inv1['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'forwards',
+                       'created': 1,
+                       'details': {'in_channel': scid12,
+                                   'in_msat': Millisatoshi(amt1 + 1),
+                                   'out_channel': scid23,
+                                   'status': 'offered'}}
+    waitres = waitupdate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'forwards',
+                       'updated': 1,
+                       'details': {'in_channel': scid12,
+                                   'in_msat': Millisatoshi(amt1 + 1),
+                                   'out_channel': scid23,
+                                   'status': 'settled'}}
+
+    # Now check failure.
+    amt2 = 42
+    inv2 = l3.rpc.invoice(amt2, 'inv2', 'invdesc2')
+    l3.rpc.delinvoice('inv2', 'unpaid')
+
+    waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=2)
+    waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=2)
+    time.sleep(1)
+
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    waitres = waitcreate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'forwards',
+                       'created': 2,
+                       'details': {'in_channel': scid12,
+                                   'in_msat': Millisatoshi(amt2 + 1),
+                                   'out_channel': scid23,
+                                   'status': 'offered'}}
+    waitres = waitupdate.result(TIMEOUT)
+    assert waitres == {'subsystem': 'forwards',
+                       'updated': 2,
+                       'details': {'in_channel': scid12,
+                                   'in_msat': Millisatoshi(amt2 + 1),
+                                   'out_channel': scid23,
+                                   'status': 'failed'}}
+
+    # Order and pagination.
+    assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(index='created')['forwards']] == [(1, Millisatoshi(amt1 + 1), 'settled'), (2, Millisatoshi(amt2 + 1), 'failed')]
+    assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(index='created', start=2)['forwards']] == [(2, Millisatoshi(amt2 + 1), 'failed')]
+    assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(index='created', limit=1)['forwards']] == [(1, Millisatoshi(amt1 + 1), 'settled')]
+
+    # We can also filter by status.
+    assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(status='failed', index='created', limit=2)['forwards']] == [(2, Millisatoshi(amt2 + 1), 'failed')]
+
+    assert [(p['created_index'], p['in_msat'], p['status']) for p in l2.rpc.listforwards(status='failed', index='updated', limit=2)['forwards']] == [(2, Millisatoshi(amt2 + 1), 'failed')]
+
+    # Finally, check deletion.
+    waitfut = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='deleted', nextvalue=1)
+    time.sleep(1)
+
+    l2.rpc.delforward(scid12, 1, 'failed')
+
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'forwards',
+                       'deleted': 1,
+                       'details': {'in_channel': scid12,
+                                   'status': 'failed'}}
 
 
 @pytest.mark.openchannel('v1')
