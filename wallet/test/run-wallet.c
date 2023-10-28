@@ -200,6 +200,27 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
 			   const char *why UNNEEDED)
 { fprintf(stderr, "force_peer_disconnect called!\n"); abort(); }
+/* Generated stub for forward_index_created */
+u64 forward_index_created(struct lightningd *ld UNNEEDED,
+			  enum forward_status status UNNEEDED,
+			  struct short_channel_id in_channel UNNEEDED,
+			  struct amount_msat in_amount UNNEEDED,
+			  const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_created called!\n"); abort(); }
+/* Generated stub for forward_index_deleted */
+void forward_index_deleted(struct lightningd *ld UNNEEDED,
+			   enum forward_status status UNNEEDED,
+			   struct short_channel_id in_channel UNNEEDED,
+			   const struct amount_msat *in_amount UNNEEDED,
+			   const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_deleted called!\n"); abort(); }
+/* Generated stub for forward_index_update_status */
+u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
+				enum forward_status status UNNEEDED,
+				struct short_channel_id in_channel UNNEEDED,
+				struct amount_msat in_amount UNNEEDED,
+				const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -415,10 +436,6 @@ void json_add_string(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,
 		     const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
-/* Generated stub for json_add_timeabs */
-void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		      struct timeabs t UNNEEDED)
-{ fprintf(stderr, "json_add_timeabs called!\n"); abort(); }
 /* Generated stub for json_add_timeiso */
 void json_add_timeiso(struct json_stream *result UNNEEDED,
 		      const char *fieldname UNNEEDED,

@@ -52,6 +52,27 @@ void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 /* Generated stub for find_peer_by_dbid */
 struct peer *find_peer_by_dbid(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "find_peer_by_dbid called!\n"); abort(); }
+/* Generated stub for forward_index_created */
+u64 forward_index_created(struct lightningd *ld UNNEEDED,
+			  enum forward_status status UNNEEDED,
+			  struct short_channel_id in_channel UNNEEDED,
+			  struct amount_msat in_amount UNNEEDED,
+			  const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_created called!\n"); abort(); }
+/* Generated stub for forward_index_deleted */
+void forward_index_deleted(struct lightningd *ld UNNEEDED,
+			   enum forward_status status UNNEEDED,
+			   struct short_channel_id in_channel UNNEEDED,
+			   const struct amount_msat *in_amount UNNEEDED,
+			   const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_deleted called!\n"); abort(); }
+/* Generated stub for forward_index_update_status */
+u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
+				enum forward_status status UNNEEDED,
+				struct short_channel_id in_channel UNNEEDED,
+				struct amount_msat in_amount UNNEEDED,
+				const struct short_channel_id *out_channel UNNEEDED)
+{ fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }
