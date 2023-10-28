@@ -233,8 +233,6 @@ struct lightningd {
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;
-	/* Outstanding sendpay commands. */
-	struct list_head sendpay_commands;
 	/* Outstanding close commands. */
 	struct list_head close_commands;
 	/* Outstanding ping commands. */

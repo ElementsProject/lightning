@@ -31,7 +31,6 @@ struct wallet {
 	struct db *db;
 	struct logger *log;
 	struct invoices *invoices;
-	struct list_head unstored_payments;
 	u64 max_channel_dbid;
 
 	/* Filter matching all outpoints corresponding to our owned outputs,
@@ -381,8 +380,6 @@ static inline enum payment_status payment_status_in_db(enum payment_status w)
  * a UI (alongside invoices) to display the balance history.
  */
 struct wallet_payment {
-	/* If it's in unstored_payments */
-	struct list_node list;
 	u64 id;
 	u32 timestamp;
 	u32 *completed_at;
@@ -924,23 +921,11 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct channel *chan, u64 commit_num);
 
 /**
- * wallet_payment_setup - Remember this payment for later committing.
- *
- * Either wallet_payment_store() gets called to put in db once hout
- * is ready to go (and frees @payment), or @payment is tal_free'd.
- *
+ * wallet_add_payment - Store this payment in the db; sets payment->id
  * @wallet: wallet we're going to store it in.
  * @payment: the payment for later committing.
  */
-void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment);
-
-/**
- * wallet_payment_store - Record a new incoming/outgoing payment
- *
- * Stores the payment in the database.
- */
-void wallet_payment_store(struct wallet *wallet,
-			  struct wallet_payment *payment TAKES);
+void wallet_add_payment(struct wallet *wallet, struct wallet_payment *payment TAKES);
 
 /**
  * wallet_payment_delete - Remove a payment

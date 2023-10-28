@@ -29,7 +29,7 @@ struct routing_failure {
 	const u8 *msg;
 };
 
-/* sendpay command */
+/* waitsendpay command */
 struct sendpay_command {
 	struct list_node list;
 
@@ -73,24 +73,6 @@ static const char *payment_status_to_string(const enum payment_status status)
 static void destroy_sendpay_command(struct sendpay_command *pc)
 {
 	list_del(&pc->list);
-}
-
-/* Owned by cmd, if cmd is deleted, then sendpay_success/sendpay_fail will
- * no longer be called. */
-static void
-add_sendpay_waiter(struct lightningd *ld,
-		   struct command *cmd,
-		   const struct sha256 *payment_hash,
-		   u64 partid, u64 groupid)
-{
-	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
-
-	pc->payment_hash = *payment_hash;
-	pc->partid = partid;
-	pc->groupid = groupid;
-	pc->cmd = cmd;
-	list_add(&ld->sendpay_commands, &pc->list);
-	tal_add_destructor(pc, destroy_sendpay_command);
 }
 
 /* Owned by cmd, if cmd is deleted, then sendpay_success/sendpay_fail will
@@ -517,28 +499,6 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
-void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
-{
-	struct sendpay_command *pc;
-	struct sendpay_command *next;
-	/* Need to remember here otherwise wallet_payment_store will free us. */
-	bool ptaken = taken(payment);
-
-	wallet_payment_store(ld->wallet, payment);
-
-	/* Trigger any sendpay commands waiting for the store to occur. */
-	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
-		if (!sha256_eq(&payment->payment_hash, &pc->payment_hash))
-			continue;
-
-		/* Deletes from list, frees pc */
-		json_sendpay_in_progress(pc->cmd, payment);
-	}
-
-	if (ptaken)
-		tal_free(payment);
-}
-
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
@@ -633,8 +593,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		}
 	}
 
-	/* Save to DB */
-	payment_store(ld, payment);
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  hout->partid, hout->groupid,
 				  PAYMENT_FAILED, NULL);
@@ -1142,8 +1100,7 @@ send_payment_core(struct lightningd *ld,
 					     partid);
 	}
 
-	/* If hout fails, payment should be freed too. */
-	payment = wallet_payment_new(hout,
+	payment = wallet_payment_new(cmd,
 				     0, /* ID is not in db yet */
 				     time_now().ts.tv_sec,
 				     NULL,
@@ -1165,11 +1122,10 @@ send_payment_core(struct lightningd *ld,
 				     NULL,
 				     local_invreq_id);
 
-	/* We write this into db when HTLC is actually sent. */
-	wallet_payment_setup(ld->wallet, payment);
+	/* Save into db */
+	wallet_add_payment(ld->wallet, payment);
 
-	add_sendpay_waiter(ld, cmd, rhash, partid, group);
-	return command_still_pending(cmd);
+	return json_sendpay_in_progress(cmd, payment);
 }
 
 static struct command_result *
@@ -1478,12 +1434,10 @@ static struct command_result *self_payment(struct lightningd *ld,
 				     NULL,
 				     local_invreq_id);
 
-	/* We write this into db immediately, but we're expected to do
-	 * it in two stages like a normal payment. */
-	wallet_payment_setup(ld->wallet, payment);
-	payment_store(ld, payment);
+	/* We write this into db immediately. */
+	wallet_add_payment(ld->wallet, payment);
 
-	/* Now, resolved the invoice */
+	/* Now, resolve the invoice */
 	inv = invoice_check_payment(tmpctx, ld, rhash, msat, payment_secret, &err);
 	if (!inv) {
 		struct routing_failure *fail;

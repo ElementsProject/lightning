@@ -1181,7 +1181,6 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);
 
-	list_head_init(&w->unstored_payments);
 	w->ld = ld;
 	ld->wallet = w;
 
@@ -2109,8 +2108,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	db_begin_transaction(w->db);
 	load_indexes(w->db, ld->indexes);
 	t2 = tal_dup(NULL, struct wallet_payment, t);
-	wallet_payment_setup(w, t2);
-	wallet_payment_store(w, take(t2));
+	wallet_add_payment(w, take(t2));
 	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, 0, t->groupid);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);

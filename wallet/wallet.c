@@ -111,7 +111,6 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	wallet->ld = ld;
 	wallet->log = new_logger(wallet, ld->log_book, NULL, "wallet");
 	wallet->keyscan_gap = 50;
-	list_head_init(&wallet->unstored_payments);
 	trace_span_start("db_setup", wallet);
 	wallet->db = db_setup(wallet, ld, ld->bip32_base);
 	trace_span_end(wallet);
@@ -3175,62 +3174,10 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
-static struct wallet_payment *
-find_unstored_payment(struct wallet *wallet,
-		      const struct sha256 *payment_hash,
-		      u64 partid)
-{
-	struct wallet_payment *i;
-
-	list_for_each(&wallet->unstored_payments, i, list) {
-		if (sha256_eq(payment_hash, &i->payment_hash)
-		    && i->partid == partid)
-			return i;
-	}
-	return NULL;
-}
-
-static void destroy_unstored_payment(struct wallet_payment *payment)
-{
-	list_del(&payment->list);
-}
-
-void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
-{
-	assert(!find_unstored_payment(wallet, &payment->payment_hash,
-				      payment->partid));
-
-	list_add_tail(&wallet->unstored_payments, &payment->list);
-	tal_add_destructor(payment, destroy_unstored_payment);
-}
-
-void wallet_payment_store(struct wallet *wallet,
-			  struct wallet_payment *payment TAKES)
+void wallet_add_payment(struct wallet *wallet,
+			struct wallet_payment *payment)
 {
 	struct db_stmt *stmt;
-	if (!find_unstored_payment(wallet, &payment->payment_hash, payment->partid)) {
-		/* Already stored on-disk */
-		if (wallet->ld->developer) {
-			/* Double-check that it is indeed stored to disk
-			 * (catch bug, where we call this on a payment_hash
-			 * we never paid to) */
-			bool res;
-			stmt =
-				db_prepare_v2(wallet->db, SQL("SELECT status FROM payments"
-							      " WHERE payment_hash=?"
-							      " AND partid = ? AND groupid = ?;"));
-			db_bind_sha256(stmt, &payment->payment_hash);
-			db_bind_u64(stmt, payment->partid);
-			db_bind_u64(stmt, payment->groupid);
-			db_query_prepared(stmt);
-			res = db_step(stmt);
-			assert(res);
-			db_col_ignore(stmt, "status");
-			tal_free(stmt);
-		}
-
-		return;
-	}
 
         /* Don't attempt to add the same payment twice */
 	assert(!payment->id);
@@ -3320,12 +3267,8 @@ void wallet_payment_store(struct wallet *wallet,
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 
-	if (taken(payment)) {
+	if (taken(payment))
 		tal_free(payment);
-	}  else {
-		list_del(&payment->list);
-		tal_del_destructor(payment, destroy_unstored_payment);
-	}
 }
 
 u64 wallet_payment_get_groupid(struct wallet *wallet,
@@ -3484,11 +3427,6 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	struct db_stmt *stmt;
 	struct wallet_payment *payment;
 
-	/* Present the illusion that it's in the db... */
-	payment = find_unstored_payment(wallet, payment_hash, partid);
-	if (payment)
-		return payment;
-
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", status"
@@ -3520,6 +3458,8 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	db_query_prepared(stmt);
 	if (db_step(stmt)) {
 		payment = wallet_stmt2payment(ctx, stmt);
+	} else {
+		payment = NULL;
 	}
 	tal_free(stmt);
 	return payment;
@@ -3532,19 +3472,10 @@ void wallet_payment_set_status(struct wallet *wallet,
 			       const struct preimage *preimage)
 {
 	struct db_stmt *stmt;
-	struct wallet_payment *payment;
 	u32 completed_at = 0;
 
 	if (newstatus != PAYMENT_PENDING)
 		completed_at = time_now().ts.tv_sec;
-
-	/* We can only fail an unstored payment! */
-	payment = find_unstored_payment(wallet, payment_hash, partid);
-	if (payment) {
-		assert(newstatus == PAYMENT_FAILED);
-		tal_free(payment);
-		return;
-	}
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("UPDATE payments SET status=?, completed_at=?, updated_index=? "
@@ -3719,7 +3650,6 @@ wallet_payment_list(const tal_t *ctx,
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
-	struct wallet_payment *p;
 	size_t i;
 
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
@@ -3783,15 +3713,6 @@ wallet_payment_list(const tal_t *ctx,
 		payments[i] = wallet_stmt2payment(payments, stmt);
 	}
 	tal_free(stmt);
-
-	/* Now attach payments not yet in db. */
-	list_for_each(&wallet->unstored_payments, p, list) {
-		if (payment_hash && !sha256_eq(&p->payment_hash, payment_hash))
-			continue;
-		tal_resize(&payments, i+1);
-		payments[i++] = p;
-	}
-
 	return payments;
 }
 
@@ -3802,7 +3723,6 @@ wallet_payments_by_invoice_request(const tal_t *ctx,
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
-	struct wallet_payment *p;
 	size_t i;
 
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
@@ -3837,15 +3757,6 @@ wallet_payments_by_invoice_request(const tal_t *ctx,
 		payments[i] = wallet_stmt2payment(payments, stmt);
 	}
 	tal_free(stmt);
-
-	/* Now attach payments not yet in db. */
-	list_for_each(&wallet->unstored_payments, p, list) {
-		if (!p->local_invreq_id || !sha256_eq(p->local_invreq_id, local_invreq_id))
-			continue;
-		tal_resize(&payments, i+1);
-		payments[i++] = p;
-	}
-
 	return payments;
 }
 

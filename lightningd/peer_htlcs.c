@@ -1928,7 +1928,6 @@ static bool update_out_htlc(struct channel *channel,
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout;
-	struct wallet_payment *payment;
 
 	hout = find_htlc_out(ld->htlcs_out, channel, id);
 	if (!hout) {
@@ -1948,16 +1947,6 @@ static bool update_out_htlc(struct channel *channel,
 						     FORWARD_STYLE_TLV,
 						     channel_scid_or_local_alias(channel), hout,
 						     FORWARD_OFFERED, 0);
-		}
-
-		/* For our own HTLCs, we commit payment to db lazily */
-		if (hout->am_origin) {
-			payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-							 &hout->payment_hash,
-							 hout->partid,
-							 hout->groupid);
-			assert(payment);
-			payment_store(ld, take(payment));
 		}
 	}
 
