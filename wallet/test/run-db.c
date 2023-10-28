@@ -237,6 +237,27 @@ const char *rune_is_ours(struct lightningd *ld UNNEEDED, const struct rune *rune
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
+/* Generated stub for sendpay_index_created */
+u64 sendpay_index_created(struct lightningd *ld UNNEEDED,
+			  const struct sha256 *payment_hash UNNEEDED,
+			  u64 partid UNNEEDED,
+			  u64 groupid UNNEEDED,
+			  enum payment_status status UNNEEDED)
+{ fprintf(stderr, "sendpay_index_created called!\n"); abort(); }
+/* Generated stub for sendpay_index_deleted */
+void sendpay_index_deleted(struct lightningd *ld UNNEEDED,
+			   const struct sha256 *payment_hash UNNEEDED,
+			   u64 partid UNNEEDED,
+			   u64 groupid UNNEEDED,
+			   enum payment_status status UNNEEDED)
+{ fprintf(stderr, "sendpay_index_deleted called!\n"); abort(); }
+/* Generated stub for sendpay_index_update_status */
+u64 sendpay_index_update_status(struct lightningd *ld UNNEEDED,
+				const struct sha256 *payment_hash UNNEEDED,
+				u64 partid UNNEEDED,
+				u64 groupid UNNEEDED,
+				enum payment_status status UNNEEDED)
+{ fprintf(stderr, "sendpay_index_update_status called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }

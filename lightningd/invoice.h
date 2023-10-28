@@ -56,13 +56,12 @@ struct invoice_details {
  *
  * Returns NULL if there's a problem, otherwise returns the invoice details.
  */
-const struct invoice_details *
-invoice_check_payment(const tal_t *ctx,
-		      struct lightningd *ld,
-		      const struct sha256 *payment_hash,
-		      const struct amount_msat msat,
-		      const struct secret *payment_secret,
-		      const char **err);
+const struct invoice_details *invoice_check_payment(const tal_t *ctx,
+						    struct lightningd *ld,
+						    const struct sha256 *payment_hash,
+						    const struct amount_msat msat,
+						    const struct secret *payment_secret,
+						    const char **err);
 
 /**
  * invoice_check_onchain_payment - check if this on-chain payment would be valid
