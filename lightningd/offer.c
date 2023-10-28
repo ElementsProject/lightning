@@ -237,33 +237,30 @@ AUTODATA(json_command, &disableoffer_command);
 /* We do some sanity checks now, since we're looking up prev payment anyway,
  * but our main purpose is to fill in invreq->invreq_metadata tweak. */
 static struct command_result *prev_payment(struct command *cmd,
-					   struct json_escape *label,
+					   const struct json_escape *label,
 					   struct tlv_invoice_request *invreq,
 					   u64 **prev_basetime)
 {
-	const struct wallet_payment **payments;
 	bool prev_paid = false;
 	struct sha256 invreq_oid;
 
 	invreq_offer_id(invreq, &invreq_oid);
 	assert(!invreq->invreq_metadata);
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL);
 
-	for (size_t i = 0; i < tal_count(payments); i++) {
+	for (struct db_stmt *stmt = payments_by_label(cmd->ld->wallet, label);
+	     stmt;
+	     stmt = payments_next(cmd->ld->wallet, stmt)) {
+		const struct wallet_payment *payment;
 		const struct tlv_invoice *inv;
 		char *fail;
 		struct sha256 inv_oid;
 
-		/* FIXME: Restrict db queries instead */
-		if (!payments[i]->label
-		    || !streq(label->s, payments[i]->label))
+		payment = payment_get_details(tmpctx, stmt);
+		if (!payment->invstring)
 			continue;
 
-		if (!payments[i]->invstring)
-			continue;
-
-		inv = invoice_decode(tmpctx, payments[i]->invstring,
-				     strlen(payments[i]->invstring),
+		inv = invoice_decode(tmpctx, payment->invstring,
+				     strlen(payment->invstring),
 				     NULL, chainparams, &fail);
 		if (!inv)
 			continue;
@@ -305,7 +302,7 @@ static struct command_result *prev_payment(struct command *cmd,
 		}
 
 		if (*inv->invreq_recurrence_counter == *invreq->invreq_recurrence_counter-1) {
-			if (payments[i]->status == PAYMENT_COMPLETE)
+			if (payment->status == PAYMENT_COMPLETE)
 				prev_paid = true;
 		}
 
@@ -316,8 +313,10 @@ static struct command_result *prev_payment(struct command *cmd,
 						 inv->invoice_recurrence_basetime);
 		}
 
-		if (prev_paid && inv->invreq_metadata)
+		if (prev_paid && inv->invreq_metadata) {
+			tal_free(stmt);
 			break;
+		}
 	}
 
 	if (!invreq->invreq_metadata)
