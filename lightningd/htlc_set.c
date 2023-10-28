@@ -6,6 +6,7 @@
 #include <lightningd/htlc_set.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/peer_htlcs.h>
 
 /* If an HTLC times out, we need to free entire set, since we could be processing
  * it in invoice.c right now. */

@@ -2,8 +2,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #define LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #include "config.h"
-#include <common/channel_config.h>
-#include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
 
 struct channel;
@@ -13,18 +11,7 @@ struct htlc_out;
 struct htlc_out_map;
 struct htlc_stub;
 struct lightningd;
-struct forwarding;
 struct json_stream;
-
-/* FIXME: Define serialization primitive for this? */
-struct channel_info {
-	struct channel_config their_config;
-	struct pubkey remote_fundingkey;
-	struct basepoints theirbase;
-	/* The old_remote_per_commit is for the locked-in remote commit_tx,
-	 * and the remote_per_commit is for the commit_tx we're modifying now. */
-	struct pubkey remote_per_commit, old_remote_per_commit;
-};
 
 /* Get all HTLCs for a peer, to send in init message. */
 const struct existing_htlc **peer_htlcs(const tal_t *ctx,
@@ -73,14 +60,6 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES);
 void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 				     const u8 *failmsg_needs_update TAKES,
 				     const struct short_channel_id *failmsg_scid);
-
-/* This json process will be used as the serialize method for
- * forward_event_notification_gen and be used in
- * `listforwardings_add_forwardings()`. */
-void json_add_forwarding_object(struct json_stream *response,
-				const char *fieldname,
-				const struct forwarding *cur,
-				const struct sha256 *payment_hash);
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 #define failmsg_incorrect_or_unknown(ctx, ld, hin) \

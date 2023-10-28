@@ -3,21 +3,28 @@
 
 #include "config.h"
 #include "db.h"
+#include <ccan/crypto/shachain/shachain.h>
 #include <ccan/rune/rune.h>
+#include <common/htlc.h>
+#include <common/htlc_state.h>
 #include <common/onion_encode.h>
 #include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/channel_state.h>
+#include <lightningd/forwards.h>
 #include <lightningd/log.h>
-#include <lightningd/peer_htlcs.h>
 #include <lightningd/wait.h>
 
 struct amount_msat;
 struct invoices;
 struct channel;
 struct channel_inflight;
+struct htlc_in;
+struct htlc_in_map;
+struct htlc_out;
+struct htlc_out_map;
 struct json_escape;
 struct lightningd;
 struct node_id;
@@ -104,23 +111,6 @@ static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_outpu
 	fatal("%s: %u is invalid", __func__, w);
 }
 
-/**
- * Possible states for forwards
- *
- */
-/* /!\ This is a DB ENUM, please do not change the numbering of any
- * already defined elements (adding is ok) /!\ */
-enum forward_status {
-	FORWARD_OFFERED = 0,
-	FORWARD_SETTLED = 1,
-	FORWARD_FAILED = 2,
-	FORWARD_LOCAL_FAILED = 3,
-	/* Special status used to express that we don't care in
-	 * queries */
-	FORWARD_ANY = 255
-
-};
-
 static inline enum forward_status wallet_forward_status_in_db(enum forward_status s)
 {
 	switch (s) {
@@ -142,34 +132,6 @@ static inline enum forward_status wallet_forward_status_in_db(enum forward_statu
 	fatal("%s: %u is invalid", __func__, s);
 }
 
-static inline const char* forward_status_name(enum forward_status status)
-{
-	switch(status) {
-	case FORWARD_OFFERED:
-		return "offered";
-	case FORWARD_SETTLED:
-		return "settled";
-	case FORWARD_FAILED:
-		return "failed";
-	case FORWARD_LOCAL_FAILED:
-		return "local_failed";
-	case FORWARD_ANY:
-		return "any";
-	}
-	abort();
-}
-
-bool string_to_forward_status(const char *status_str, size_t len,
-			      enum forward_status *status);
-
-/* /!\ This is a DB ENUM, please do not change the numbering of any
- * already defined elements (adding is ok) /!\ */
-enum forward_style {
-	FORWARD_STYLE_LEGACY = 0,
-	FORWARD_STYLE_TLV = 1,
-	FORWARD_STYLE_UNKNOWN = 2, /* Not actually in db, safe to renumber! */
-};
-
 /* Wrapper to ensure types don't change, and we don't insert/extract
  * invalid ones from db */
 static inline enum forward_style forward_style_in_db(enum forward_style o)
@@ -186,19 +148,6 @@ static inline enum forward_style forward_style_in_db(enum forward_style o)
 		break;
 	}
 	fatal("%s: %u is invalid", __func__, o);
-}
-
-static inline const char *forward_style_name(enum forward_style style)
-{
-	switch (style) {
-	case FORWARD_STYLE_UNKNOWN:
-		return "UNKNOWN";
-	case FORWARD_STYLE_TLV:
-		return "tlv";
-	case FORWARD_STYLE_LEGACY:
-		return "legacy";
-	}
-	abort();
 }
 
 /* DB wrapper to check htlc_state */
@@ -318,20 +267,6 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }
-
-struct forwarding {
-	/* channel_out is all-zero if unknown. */
-	struct short_channel_id channel_in, channel_out;
-	/* htlc_id_out is NULL if unknown. */
-	u64 htlc_id_in, *htlc_id_out;
-	struct amount_msat msat_in, msat_out, fee;
-	enum forward_style forward_style;
-	enum forward_status status;
-	enum onion_wire failcode;
-	struct timeabs received_time;
-	/* May not be present if the HTLC was not resolved yet. */
-	struct timeabs *resolved_time;
-};
 
 /* A database backed shachain struct. The datastructure is
  * writethrough, reads are performed from an in-memory version, all

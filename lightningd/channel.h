@@ -1,8 +1,10 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
+#include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/channel_type.h>
+#include <common/derive_basepoints.h>
 #include <common/scb_wiregen.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
@@ -11,6 +13,16 @@
 
 struct uncommitted_channel;
 struct wally_psbt;
+
+/* FIXME: Define serialization primitive for this? */
+struct channel_info {
+	struct channel_config their_config;
+	struct pubkey remote_fundingkey;
+	struct basepoints theirbase;
+	/* The old_remote_per_commit is for the locked-in remote commit_tx,
+	 * and the remote_per_commit is for the commit_tx we're modifying now. */
+	struct pubkey remote_per_commit, old_remote_per_commit;
+};
 
 struct billboard {
 	/* Status information to display on listpeers */

@@ -16,6 +16,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_htlcs.h>
 #include <wallet/invoices.h>
 
 /* Routing failure object */
