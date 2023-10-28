@@ -17,6 +17,25 @@
         "complete",
         "failed"
       ]
+    },
+    "index": {
+      "type": "string",
+      "added": "v23.11",
+      "enum": [
+        "created",
+        "updated"
+      ],
+      "description": ""
+    },
+    "start": {
+      "type": "u64",
+      "added": "v23.11",
+      "description": ""
+    },
+    "limit": {
+      "type": "u32",
+      "added": "v23.11",
+      "description": ""
     }
   }
 }

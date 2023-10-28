@@ -1024,11 +1024,17 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 /**
  * payments_first: get first payment, optionally filtering by status
  * @w: the wallet
+ * @listindex: what index order to use (if you care)
+ * @liststart: first index to return (0 == all).
+ * @listlimit: limit on number of entries to return (NULL == no limit).
  *
  * Returns NULL if none, otherwise you must call payments_next() or
  * tal_free(stmt).
  */
-struct db_stmt *payments_first(struct wallet *w);
+struct db_stmt *payments_first(struct wallet *w,
+			       const enum wait_index *listindex,
+			       u64 liststart,
+			       const u32 *listlimit);
 
 /**
  * payments_next: get next payment
@@ -1057,12 +1063,18 @@ struct db_stmt *payments_by_hash(struct wallet *w,
  * payments_by_status: get the payments, if any, by status.
  * @w: the wallet
  * @status: the status.
+ * @listindex: what index order to use (if you care)
+ * @liststart: first index to return (0 == all).
+ * @listlimit: limit on number of entries to return (NULL == no limit).
  *
  * Returns NULL if none, otherwise call payments_get_details(),
  * and then tal_free(stmt).
  */
 struct db_stmt *payments_by_status(struct wallet *w,
-				   enum payment_status status);
+				   enum payment_status status,
+				   const enum wait_index *listindex,
+				   u64 liststart,
+				   const u32 *listlimit);
 
 /**
  * payments_by_label: get the payment, if any, by label.

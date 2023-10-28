@@ -269,6 +269,10 @@
             "SKIPPED": 0,
             "UNUSUAL": 2
         },
+        "ListsendpaysIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListsendpaysPaymentsStatus": {
             "complete": 2,
             "failed": 1,
@@ -1305,7 +1309,10 @@
         },
         "ListsendpaysRequest": {
             "ListSendPays.bolt11": 1,
+            "ListSendPays.index": 4,
+            "ListSendPays.limit": 6,
             "ListSendPays.payment_hash": 2,
+            "ListSendPays.start": 5,
             "ListSendPays.status": 3
         },
         "ListsendpaysResponse": {
@@ -4739,6 +4746,14 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListSendPays.index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListSendPays.limit": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "ListSendPays.payment_hash": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4812,6 +4827,10 @@
             "deprecated": false
         },
         "ListSendPays.payments[].updated_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListSendPays.start": {
             "added": "v23.11",
             "deprecated": false
         },

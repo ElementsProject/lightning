@@ -5363,6 +5363,106 @@ def test_listsendpays_crash(node_factory):
     l1.rpc.listsendpays('lightning:' + inv)
 
 
+def test_sendpays_wait(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    waitres = l1.rpc.wait(subsystem='sendpays', indexname='created', nextvalue=0)
+    assert waitres == {'subsystem': 'sendpays',
+                       'created': 0}
+
+    # Now ask for 1.
+    waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='created', nextvalue=1)
+    time.sleep(1)
+
+    inv1 = l2.rpc.invoice(42, 'invlabel', 'invdesc')
+    l1.rpc.pay(inv1['bolt11'])
+
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'sendpays',
+                       'created': 1,
+                       'details': {'status': 'pending',
+                                   'partid': 0,
+                                   'groupid': 1,
+                                   'payment_hash': inv1['payment_hash']}}
+    assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['created_index'] == 1
+    assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['updated_index'] == 1
+
+    # Second returns instantly, without any details.
+    waitres = l1.rpc.wait(subsystem='sendpays', indexname='created', nextvalue=1)
+    assert waitres == {'subsystem': 'sendpays',
+                       'created': 1}
+
+    # Now for updates
+    waitres = l1.rpc.wait(subsystem='sendpays', indexname='updated', nextvalue=0)
+    assert waitres == {'subsystem': 'sendpays',
+                       'updated': 1}
+
+    inv2 = l2.rpc.invoice(42, 'invlabel2', 'invdesc2')
+
+    waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=2)
+    time.sleep(1)
+    l1.rpc.pay(inv2['bolt11'])
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'sendpays',
+                       'updated': 2,
+                       'details': {'status': 'complete',
+                                   'partid': 0,
+                                   'groupid': 1,
+                                   'payment_hash': inv2['payment_hash']}}
+    assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['created_index'] == 2
+    assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['updated_index'] == 2
+
+    # Second returns instantly, without any details.
+    waitres = l1.rpc.wait(subsystem='sendpays', indexname='updated', nextvalue=2)
+    assert waitres == {'subsystem': 'sendpays',
+                       'updated': 2}
+
+    # Now check failure.
+    inv3 = l2.rpc.invoice(42, 'invlabel3', 'invdesc3')
+    l2.rpc.delinvoice('invlabel3', 'unpaid')
+
+    waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=3)
+    time.sleep(1)
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv3['bolt11'])
+
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'sendpays',
+                       'updated': 3,
+                       'details': {'status': 'failed',
+                                   'partid': 0,
+                                   'groupid': 1,
+                                   'payment_hash': inv3['payment_hash']}}
+
+    # Order and pagination.
+    assert [(p['created_index'], p['bolt11']) for p in l1.rpc.listsendpays(index='created')['payments']] == [(1, inv1['bolt11']), (2, inv2['bolt11']), (3, inv3['bolt11'])]
+    assert [(p['created_index'], p['bolt11']) for p in l1.rpc.listsendpays(index='created', start=2)['payments']] == [(2, inv2['bolt11']), (3, inv3['bolt11'])]
+    assert [(p['created_index'], p['bolt11']) for p in l1.rpc.listsendpays(index='created', limit=2)['payments']] == [(1, inv1['bolt11']), (2, inv2['bolt11'])]
+
+    # We can also filter by status.
+    assert [(p['created_index'], p['bolt11']) for p in l1.rpc.listsendpays(status='failed', index='created', limit=2)['payments']] == [(3, inv3['bolt11'])]
+
+    assert [(p['updated_index'], p['bolt11']) for p in l1.rpc.listsendpays(index='updated')['payments']] == [(1, inv1['bolt11']), (2, inv2['bolt11']), (3, inv3['bolt11'])]
+
+    # Finally, check deletion.
+    waitres = l1.rpc.wait(subsystem='sendpays', indexname='deleted', nextvalue=0)
+    assert waitres == {'subsystem': 'sendpays',
+                       'deleted': 0}
+
+    waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='deleted', nextvalue=1)
+    time.sleep(1)
+
+    l1.rpc.delpay(inv3['payment_hash'], 'failed', 0, 1)
+
+    waitres = waitfut.result(TIMEOUT)
+    assert waitres == {'subsystem': 'sendpays',
+                       'deleted': 1,
+                       'details': {'status': 'failed',
+                                   'partid': 0,
+                                   'groupid': 1,
+                                   'payment_hash': inv3['payment_hash']}}
+
+
 def test_pay_routehint_minhtlc(node_factory, bitcoind):
     # l1 -> l2 -> l3 private -> l4
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)

@@ -756,9 +756,17 @@ message ListsendpaysRequest {
 		COMPLETE = 1;
 		FAILED = 2;
 	}
+	// ListSendPays.index
+	enum ListsendpaysIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional string bolt11 = 1;
 	optional bytes payment_hash = 2;
 	optional ListsendpaysStatus status = 3;
+	optional ListsendpaysIndex index = 4;
+	optional uint64 start = 5;
+	optional uint32 limit = 6;
 }
 
 message ListsendpaysResponse {

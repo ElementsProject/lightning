@@ -733,6 +733,34 @@ pub mod requests {
 	    }
 	}
 
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListsendpaysIndex {
+	    #[serde(rename = "created")]
+	    CREATED,
+	    #[serde(rename = "updated")]
+	    UPDATED,
+	}
+
+	impl TryFrom<i32> for ListsendpaysIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListsendpaysIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListsendpaysIndex::CREATED),
+	    1 => Ok(ListsendpaysIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListsendpaysIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListsendpaysIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListsendpaysIndex::CREATED => "CREATED",
+	            ListsendpaysIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -741,6 +769,12 @@ pub mod requests {
 	    pub payment_hash: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub status: Option<ListsendpaysStatus>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListsendpaysIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
 	}
 
 	impl From<ListsendpaysRequest> for Request {
