@@ -1086,6 +1086,16 @@ send_payment_core(struct lightningd *ld,
 		return command_failed(cmd, data);
 	}
 
+	if (route_channels)
+		log_info(ld->log, "Sending %s over %zu hops to deliver %s",
+			 fmt_amount_msat(tmpctx, first_hop->amount),
+			 tal_count(route_channels),
+			 fmt_amount_msat(tmpctx, msat));
+	else
+		log_info(ld->log, "Sending %s in onion to deliver %s",
+			 fmt_amount_msat(tmpctx, first_hop->amount),
+			 fmt_amount_msat(tmpctx, msat));
+
 	failmsg = send_onion(tmpctx, ld, packet, first_hop, msat,
 			     rhash, NULL, partid,
 			     group, channel, &hout);
@@ -1206,9 +1216,6 @@ send_payment(struct lightningd *ld,
 	for (i = 0; i < n_hops; ++i)
 		channels[i] = route[i].scid;
 
-	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
-		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
-		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
 	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
 				 msat, total_msat,

@@ -691,6 +691,28 @@ def test_sendpay(node_factory):
     assert payments[-1]['payment_preimage'] == preimage3
 
 
+def test_repay(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
+
+    amt = 200000000
+    inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
+    routestep = {
+        'amount_msat': amt,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': first_scid(l1, l2)
+    }
+    l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.daemon.wait_for_log("Sending 200000000msat over 1 hops to deliver 200000000msat")
+    l1.rpc.waitsendpay(inv['payment_hash'])['payment_preimage']
+
+    # Re-attempt is instant
+    assert l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])['status'] == 'complete'
+
+    # Don't re-log that we are sending!
+    assert l1.daemon.is_in_log("Sending 200000000msat over 1 hops to deliver 200000000msat", start=l1.daemon.logsearch_start) is None
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_sendpay_cant_afford(node_factory, anchors):
