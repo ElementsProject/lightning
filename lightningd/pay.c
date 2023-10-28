@@ -30,7 +30,7 @@ struct routing_failure {
 };
 
 /* waitsendpay command */
-struct sendpay_command {
+struct waitsendpay_command {
 	struct list_node list;
 
 	struct sha256 payment_hash;
@@ -70,7 +70,7 @@ static const char *payment_status_to_string(const enum payment_status status)
 }
 
 
-static void destroy_sendpay_command(struct sendpay_command *pc)
+static void destroy_waitsendpay_command(struct waitsendpay_command *pc)
 {
 	list_del(&pc->list);
 }
@@ -83,14 +83,14 @@ add_waitsendpay_waiter(struct lightningd *ld,
 		       const struct sha256 *payment_hash,
 		       u64 partid, u64 groupid)
 {
-	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
+	struct waitsendpay_command *pc = tal(cmd, struct waitsendpay_command);
 
 	pc->payment_hash = *payment_hash;
 	pc->partid = partid;
 	pc->groupid = groupid;
 	pc->cmd = cmd;
 	list_add(&ld->waitsendpay_commands, &pc->list);
-	tal_add_destructor(pc, destroy_sendpay_command);
+	tal_add_destructor(pc, destroy_waitsendpay_command);
 }
 
 /* Outputs fields, not a separate object*/
@@ -264,8 +264,8 @@ static void tell_waiters_failed(struct lightningd *ld,
 				const struct routing_failure *fail,
 				const char *details)
 {
-	struct sendpay_command *pc;
-	struct sendpay_command *next;
+	struct waitsendpay_command *pc;
+	struct waitsendpay_command *next;
 	const char *errmsg =
 	    sendpay_errmsg_fmt(tmpctx, pay_errcode, fail, details);
 
@@ -294,8 +294,8 @@ static void tell_waiters_success(struct lightningd *ld,
 				 const struct sha256 *payment_hash,
 				 struct wallet_payment *payment)
 {
-	struct sendpay_command *pc;
-	struct sendpay_command *next;
+	struct waitsendpay_command *pc;
+	struct waitsendpay_command *next;
 
 	/* Careful: sendpay_success deletes cmd */
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
