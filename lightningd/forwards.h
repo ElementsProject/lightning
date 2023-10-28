@@ -5,6 +5,7 @@
 #include <wire/onion_wire.h>
 
 struct json_stream;
+struct lightningd;
 struct sha256;
 
 /* /!\ This is a DB ENUM, please do not change the numbering of any
@@ -87,4 +88,20 @@ static inline const char *forward_style_name(enum forward_style style)
 	abort();
 }
 
+/* wait() hooks in here */
+void forward_index_deleted(struct lightningd *ld,
+			   enum forward_status status,
+			   struct short_channel_id in_channel,
+			   struct amount_msat in_amount,
+			   const struct short_channel_id *out_channel);
+u64 forward_index_created(struct lightningd *ld,
+			  enum forward_status status,
+			  struct short_channel_id in_channel,
+			  struct amount_msat in_amount,
+			  const struct short_channel_id *out_channel);
+u64 forward_index_update_status(struct lightningd *ld,
+				enum forward_status status,
+				struct short_channel_id in_channel,
+				struct amount_msat in_amount,
+				const struct short_channel_id *out_channel);
 #endif /* LIGHTNING_LIGHTNINGD_FORWARDS_H */

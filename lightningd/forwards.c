@@ -1,13 +1,61 @@
 #include "config.h"
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <inttypes.h>
 #include <lightningd/forwards.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/wallet.h>
+
+static u64 forward_index_inc(struct lightningd *ld,
+			     enum forward_status status,
+			     struct short_channel_id in_channel,
+			     struct amount_msat in_amount,
+			     const struct short_channel_id *out_channel,
+			     enum wait_index idx)
+{
+	return wait_index_increment(ld, WAIT_SUBSYSTEM_FORWARD, idx,
+				    "status", forward_status_name(status),
+				    "in_channel", short_channel_id_to_str(tmpctx, &in_channel),
+				    "=in_msat", tal_fmt(tmpctx, "%"PRIu64, in_amount.millisatoshis), /* Raw: JSON output */
+				    "out_channel", out_channel ? short_channel_id_to_str(tmpctx, out_channel): NULL,
+				    NULL);
+}
+
+void forward_index_deleted(struct lightningd *ld,
+			   enum forward_status status,
+			   struct short_channel_id in_channel,
+			   struct amount_msat in_amount,
+			   const struct short_channel_id *out_channel)
+{
+	forward_index_inc(ld, status, in_channel, in_amount, out_channel,
+			  WAIT_INDEX_DELETED);
+}
+
+/* Fortuntely, dbids start at 1, not 0! */
+u64 forward_index_created(struct lightningd *ld,
+			  enum forward_status status,
+			  struct short_channel_id in_channel,
+			  struct amount_msat in_amount,
+			  const struct short_channel_id *out_channel)
+{
+	return forward_index_inc(ld, status, in_channel, in_amount, out_channel,
+				 WAIT_INDEX_CREATED);
+}
+
+u64 forward_index_update_status(struct lightningd *ld,
+				enum forward_status status,
+				struct short_channel_id in_channel,
+				struct amount_msat in_amount,
+				const struct short_channel_id *out_channel)
+{
+	return forward_index_inc(ld, status, in_channel, in_amount, out_channel,
+				 WAIT_INDEX_UPDATED);
+}
 
 bool string_to_forward_status(const char *status_str,
 			      size_t len,
