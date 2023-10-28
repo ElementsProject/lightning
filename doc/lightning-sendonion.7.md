@@ -93,7 +93,8 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **id** (u64): unique ID for this payment attempt
+- **created\_index** (u64): 1-based index indicating order this payment was created in *(added v23.11)*
+- **id** (u64): old synonym for created\_index
 - **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
@@ -108,6 +109,7 @@ On success, an object is returned, containing:
 If **status** is "complete":
 
   - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash**
+  - **updated\_index** (u64, optional): 1-based index indicating order this payment was changed *(added v23.11)*
 
 If **status** is "pending":
 
@@ -135,4 +137,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:c1f3def8b395cd7d56a8a9270c46027d8b097a124a010931006926f6322257c5)
+[comment]: # ( SHA256STAMP:ebda126fec67fe3b556a34b57323d13e20a996bc221cb0c48fbd1e16241259a0)

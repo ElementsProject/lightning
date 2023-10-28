@@ -1290,6 +1290,7 @@
             "ListSendPays.payments[].bolt11": 10,
             "ListSendPays.payments[].bolt12": 11,
             "ListSendPays.payments[].created_at": 7,
+            "ListSendPays.payments[].created_index": 16,
             "ListSendPays.payments[].description": 14,
             "ListSendPays.payments[].destination": 6,
             "ListSendPays.payments[].erroronion": 13,
@@ -1299,7 +1300,8 @@
             "ListSendPays.payments[].partid": 15,
             "ListSendPays.payments[].payment_hash": 3,
             "ListSendPays.payments[].payment_preimage": 12,
-            "ListSendPays.payments[].status": 4
+            "ListSendPays.payments[].status": 4,
+            "ListSendPays.payments[].updated_index": 17
         },
         "ListsendpaysRequest": {
             "ListSendPays.bolt11": 1,
@@ -1423,6 +1425,7 @@
             "SendOnion.bolt11": 9,
             "SendOnion.bolt12": 10,
             "SendOnion.created_at": 6,
+            "SendOnion.created_index": 14,
             "SendOnion.destination": 5,
             "SendOnion.id": 1,
             "SendOnion.label": 8,
@@ -1430,7 +1433,8 @@
             "SendOnion.partid": 13,
             "SendOnion.payment_hash": 2,
             "SendOnion.payment_preimage": 11,
-            "SendOnion.status": 3
+            "SendOnion.status": 3,
+            "SendOnion.updated_index": 15
         },
         "SendpayRequest": {
             "SendPay.amount_msat": 10,
@@ -1452,6 +1456,7 @@
             "SendPay.bolt12": 12,
             "SendPay.completed_at": 15,
             "SendPay.created_at": 7,
+            "SendPay.created_index": 16,
             "SendPay.destination": 6,
             "SendPay.groupid": 2,
             "SendPay.id": 1,
@@ -1460,7 +1465,8 @@
             "SendPay.partid": 10,
             "SendPay.payment_hash": 3,
             "SendPay.payment_preimage": 13,
-            "SendPay.status": 4
+            "SendPay.status": 4,
+            "SendPay.updated_index": 17
         },
         "SendpayRoute": {
             "SendPay.route[].amount_msat": 5,
@@ -1648,6 +1654,7 @@
             "WaitSendPay.bolt12": 12,
             "WaitSendPay.completed_at": 14,
             "WaitSendPay.created_at": 7,
+            "WaitSendPay.created_index": 15,
             "WaitSendPay.destination": 6,
             "WaitSendPay.groupid": 2,
             "WaitSendPay.id": 1,
@@ -1655,7 +1662,8 @@
             "WaitSendPay.partid": 10,
             "WaitSendPay.payment_hash": 3,
             "WaitSendPay.payment_preimage": 13,
-            "WaitSendPay.status": 4
+            "WaitSendPay.status": 4,
+            "WaitSendPay.updated_index": 16
         },
         "WithdrawRequest": {
             "Withdraw.destination": 1,
@@ -4759,6 +4767,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListSendPays.payments[].created_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "ListSendPays.payments[].description": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4797,6 +4809,10 @@
         },
         "ListSendPays.payments[].status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays.payments[].updated_index": {
+            "added": "v23.11",
             "deprecated": false
         },
         "ListSendPays.status": {
@@ -5071,6 +5087,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "SendOnion.created_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "SendOnion.destination": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5135,6 +5155,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "SendOnion.updated_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "SendPay": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -5161,6 +5185,10 @@
         },
         "SendPay.created_at": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.created_index": {
+            "added": "v23.11",
             "deprecated": false
         },
         "SendPay.destination": {
@@ -5225,6 +5253,10 @@
         },
         "SendPay.status": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.updated_index": {
+            "added": "v23.11",
             "deprecated": false
         },
         "SendPsbt": {
@@ -5723,6 +5755,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "WaitSendPay.created_index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "WaitSendPay.destination": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5757,6 +5793,10 @@
         },
         "WaitSendPay.timeout": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "WaitSendPay.updated_index": {
+            "added": "v23.11",
             "deprecated": false
         },
         "Withdraw": {

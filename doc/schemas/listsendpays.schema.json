@@ -13,6 +13,7 @@
         "additionalProperties": true,
         "required": [
           "id",
+          "created_index",
           "payment_hash",
           "status",
           "groupid",
@@ -20,9 +21,14 @@
           "amount_sent_msat"
         ],
         "properties": {
+          "created_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": "1-based index indicating order this payment was created in"
+          },
           "id": {
             "type": "u64",
-            "description": "unique ID for this payment attempt"
+            "description": "old synonym for created_index"
           },
           "groupid": {
             "type": "u64",
@@ -35,6 +41,11 @@
           "payment_hash": {
             "type": "hash",
             "description": "the hash of the *payment_preimage* which will prove payment"
+          },
+          "updated_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": "1-based index indicating order this payment was changed (only present if it has changed since creation)"
           },
           "status": {
             "type": "string",
@@ -97,6 +108,8 @@
               ],
               "properties": {
                 "id": {},
+                "created_index": {},
+                "updated_index": {},
                 "partid": {},
                 "groupid": {},
                 "payment_hash": {},
@@ -135,6 +148,8 @@
               "required": [],
               "properties": {
                 "id": {},
+                "created_index": {},
+                "updated_index": {},
                 "partid": {},
                 "groupid": {},
                 "payment_hash": {},
@@ -173,6 +188,8 @@
               "required": [],
               "properties": {
                 "id": {},
+                "created_index": {},
+                "updated_index": {},
                 "partid": {},
                 "groupid": {},
                 "payment_hash": {},
