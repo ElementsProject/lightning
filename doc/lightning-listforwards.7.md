@@ -24,6 +24,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
 
+- **created\_index** (u64): 1-based index indicating order this forward was created in *(added v23.11)*
 - **in\_channel** (short\_channel\_id): the channel that received the HTLC
 - **in\_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local\_failed", "failed")
@@ -31,6 +32,7 @@ On success, an object containing **forwards** is returned.  It is an array of ob
 - **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
 - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
 - **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out\_channel is present, for old forwards before v22.11)
+- **updated\_index** (u64, optional): 1-based index indicating order this forward was changed (only present if it has changed since creation) *(added v23.11)*
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
 If **out\_msat** is present:
@@ -64,4 +66,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:fb6b59740d52aee780678850445bdd58803b33c1df02c5794473ee87c23da35b)
+[comment]: # ( SHA256STAMP:b08957fa97a9e574ea80570518551577e272552a29b60d5b1620f00bdfdfe225)

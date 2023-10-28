@@ -1298,6 +1298,7 @@ def getroute2py(m):
 
 def listforwards_forwards2py(m):
     return remove_default({
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
         "in_channel": m.in_channel,  # PrimitiveField in generate_composite
         "in_htlc_id": m.in_htlc_id,  # PrimitiveField in generate_composite
         "in_msat": amount2msat(m.in_msat),  # PrimitiveField in generate_composite
@@ -1305,6 +1306,7 @@ def listforwards_forwards2py(m):
         "received_time": m.received_time,  # PrimitiveField in generate_composite
         "out_channel": m.out_channel,  # PrimitiveField in generate_composite
         "out_htlc_id": m.out_htlc_id,  # PrimitiveField in generate_composite
+        "updated_index": m.updated_index,  # PrimitiveField in generate_composite
         "style": str(m.style),  # EnumField in generate_composite
         "fee_msat": amount2msat(m.fee_msat),  # PrimitiveField in generate_composite
         "out_msat": amount2msat(m.out_msat),  # PrimitiveField in generate_composite

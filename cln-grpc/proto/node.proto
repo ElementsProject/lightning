@@ -1646,6 +1646,7 @@ message ListforwardsForwards {
 		LEGACY = 0;
 		TLV = 1;
 	}
+	optional uint64 created_index = 12;
 	string in_channel = 1;
 	optional uint64 in_htlc_id = 10;
 	Amount in_msat = 2;
@@ -1653,6 +1654,7 @@ message ListforwardsForwards {
 	double received_time = 4;
 	optional string out_channel = 5;
 	optional uint64 out_htlc_id = 11;
+	optional uint64 updated_index = 13;
 	optional ListforwardsForwardsStyle style = 9;
 	optional Amount fee_msat = 7;
 	optional Amount out_msat = 8;

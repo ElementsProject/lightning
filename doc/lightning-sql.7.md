@@ -171,6 +171,7 @@ The following tables are currently supported:
   - `close_cause` (type `string`, sqltype `TEXT`)
 
 - `forwards` indexed by `in_channel and in_htlc_id` (see lightning-listforwards(7))
+  - `created_index` (type `u64`, sqltype `INTEGER`)
   - `in_channel` (type `short_channel_id`, sqltype `TEXT`)
   - `in_htlc_id` (type `u64`, sqltype `INTEGER`)
   - `in_msat` (type `msat`, sqltype `INTEGER`)
@@ -178,6 +179,7 @@ The following tables are currently supported:
   - `received_time` (type `number`, sqltype `REAL`)
   - `out_channel` (type `short_channel_id`, sqltype `TEXT`)
   - `out_htlc_id` (type `u64`, sqltype `INTEGER`)
+  - `updated_index` (type `u64`, sqltype `INTEGER`)
   - `style` (type `string`, sqltype `TEXT`)
   - `fee_msat` (type `msat`, sqltype `INTEGER`)
   - `out_msat` (type `msat`, sqltype `INTEGER`)
@@ -518,4 +520,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:51935a8b2807867e97ecb077194090e55ce610a32120825c093c766d0292a6cb)
+[comment]: # ( SHA256STAMP:f1434805992a6d428e96c93e2acde932d99da9cfbc91c9b543b3553b1af39c9b)
