@@ -26,6 +26,8 @@ static void test_error(struct lightningd *ld, bool fatal, const char *fmt, va_li
 #include "lightningd/peer_control.c"
 #include "lightningd/peer_htlcs.c"
 #include "lightningd/channel.c"
+#include "lightningd/pay.c"
+#include "lightningd/wait.c"
 
 #include "db/bindings.c"
 #include "db/db_sqlite3.c"
@@ -59,6 +61,13 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for bolt11_decode */
+struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
+			     const struct feature_set *our_features UNNEEDED,
+			     const char *description UNNEEDED,
+			     const struct chainparams *must_be_chain UNNEEDED,
+			     char **fail UNNEEDED)
+{ fprintf(stderr, "bolt11_decode called!\n"); abort(); }
 /* Generated stub for broadcast_tx_ */
 void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   struct chain_topology *topo UNNEEDED,
@@ -105,6 +114,11 @@ struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_e
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
+/* Generated stub for command_failed */
+struct command_result *command_failed(struct command *cmd UNNEEDED,
+				      struct json_stream *result)
+
+{ fprintf(stderr, "command_failed called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
 
@@ -142,6 +156,14 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 					     struct channel *channel UNNEEDED,
 					     const struct bitcoin_tx *tx UNNEEDED)
 { fprintf(stderr, "create_anchor_details called!\n"); abort(); }
+/* Generated stub for create_onionpacket */
+struct onionpacket *create_onionpacket(
+	const tal_t * ctx UNNEEDED,
+	struct sphinx_path *sp UNNEEDED,
+	size_t fixed_size UNNEEDED,
+	struct secret **path_secrets
+	)
+{ fprintf(stderr, "create_onionpacket called!\n"); abort(); }
 /* Generated stub for create_onionreply */
 struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
@@ -262,11 +284,38 @@ void htlc_set_add(struct lightningd *ld UNNEEDED,
 		  struct amount_msat total_msat UNNEEDED,
 		  const struct secret *payment_secret UNNEEDED)
 { fprintf(stderr, "htlc_set_add called!\n"); abort(); }
+/* Generated stub for invoice_check_payment */
+const struct invoice_details *invoice_check_payment(const tal_t *ctx UNNEEDED,
+						    struct lightningd *ld UNNEEDED,
+						    const struct sha256 *payment_hash UNNEEDED,
+						    const struct amount_msat msat UNNEEDED,
+						    const struct secret *payment_secret UNNEEDED,
+						    const char **err UNNEEDED)
+{ fprintf(stderr, "invoice_check_payment called!\n"); abort(); }
+/* Generated stub for invoice_decode */
+struct tlv_invoice *invoice_decode(const tal_t *ctx UNNEEDED,
+				   const char *b12 UNNEEDED, size_t b12len UNNEEDED,
+				   const struct feature_set *our_features UNNEEDED,
+				   const struct chainparams *must_be_chain UNNEEDED,
+				   char **fail UNNEEDED)
+{ fprintf(stderr, "invoice_decode called!\n"); abort(); }
+/* Generated stub for invoices_find_by_rhash */
+bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
+			    u64 *inv_dbid UNNEEDED,
+			    const struct sha256 *rhash UNNEEDED)
+{ fprintf(stderr, "invoices_find_by_rhash called!\n"); abort(); }
 /* Generated stub for invoices_new */
 struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct wallet *wallet UNNEEDED,
 			      struct timers *timers UNNEEDED)
 { fprintf(stderr, "invoices_new called!\n"); abort(); }
+/* Generated stub for invoices_resolve */
+bool invoices_resolve(struct invoices *invoices UNNEEDED,
+		      u64 inv_dbid UNNEEDED,
+		      struct amount_msat received UNNEEDED,
+		      const struct json_escape *label UNNEEDED,
+		      const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "invoices_resolve called!\n"); abort(); }
 /* Generated stub for is_hsm_secret_encrypted */
 int is_hsm_secret_encrypted(const char *path UNNEEDED)
 { fprintf(stderr, "is_hsm_secret_encrypted called!\n"); abort(); }
@@ -300,11 +349,21 @@ void json_add_channel_id(struct json_stream *response UNNEEDED,
 			 const char *fieldname UNNEEDED,
 			 const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "json_add_channel_id called!\n"); abort(); }
+/* Generated stub for json_add_hex */
+void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  const void *data UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
 void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
 			 const tal_t *data UNNEEDED)
 { fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
+/* Generated stub for json_add_jsonstr */
+void json_add_jsonstr(struct json_stream *js UNNEEDED,
+		      const char *fieldname UNNEEDED,
+		      const char *jsonstr UNNEEDED,
+		      size_t jsonstrlen UNNEEDED)
+{ fprintf(stderr, "json_add_jsonstr called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *log_book UNNEEDED,
@@ -320,6 +379,10 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_preimage */
+void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		     const struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "json_add_preimage called!\n"); abort(); }
 /* Generated stub for json_add_pubkey */
 void json_add_pubkey(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -400,6 +463,9 @@ void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNN
 const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
 				 const char *label UNNEEDED)
 { fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_next */
+const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_next called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }
@@ -409,6 +475,11 @@ void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UN
 /* Generated stub for json_strdup */
 char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_strdup called!\n"); abort(); }
+/* Generated stub for json_stream_fail */
+struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
+				     enum jsonrpc_errcode code UNNEEDED,
+				     const char *errmsg UNNEEDED)
+{ fprintf(stderr, "json_stream_fail called!\n"); abort(); }
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
@@ -416,6 +487,10 @@ struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "json_to_channel_id called!\n"); abort(); }
+/* Generated stub for json_to_msat */
+bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		  struct amount_msat *msat UNNEEDED)
+{ fprintf(stderr, "json_to_msat called!\n"); abort(); }
 /* Generated stub for json_to_node_id */
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
@@ -543,6 +618,23 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED,
 			  enum forward_style forward_style UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
+/* Generated stub for notify_invoice_payment */
+void notify_invoice_payment(struct lightningd *ld UNNEEDED, struct amount_msat amount UNNEEDED,
+			    struct preimage preimage UNNEEDED, const struct json_escape *label UNNEEDED,
+			    const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "notify_invoice_payment called!\n"); abort(); }
+/* Generated stub for notify_sendpay_failure */
+void notify_sendpay_failure(struct lightningd *ld UNNEEDED,
+			    const struct wallet_payment *payment UNNEEDED,
+			    enum jsonrpc_errcode pay_errcode UNNEEDED,
+			    const struct onionreply *onionreply UNNEEDED,
+			    const struct routing_failure *fail UNNEEDED,
+			    const char *errmsg UNNEEDED)
+{ fprintf(stderr, "notify_sendpay_failure called!\n"); abort(); }
+/* Generated stub for notify_sendpay_success */
+void notify_sendpay_success(struct lightningd *ld UNNEEDED,
+			    const struct wallet_payment *payment UNNEEDED)
+{ fprintf(stderr, "notify_sendpay_success called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
@@ -559,6 +651,20 @@ struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
 				   u64 *failtlvtype UNNEEDED,
 				   size_t *failtlvpos UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
+/* Generated stub for onion_final_hop */
+u8 *onion_final_hop(const tal_t *ctx UNNEEDED,
+		    struct amount_msat forward UNNEEDED,
+		    u32 outgoing_cltv UNNEEDED,
+		    struct amount_msat total_msat UNNEEDED,
+		    const struct secret *payment_secret UNNEEDED,
+		    const u8 *payment_metadata UNNEEDED)
+{ fprintf(stderr, "onion_final_hop called!\n"); abort(); }
+/* Generated stub for onion_nonfinal_hop */
+u8 *onion_nonfinal_hop(const tal_t *ctx UNNEEDED,
+		       const struct short_channel_id *scid UNNEEDED,
+		       struct amount_msat forward UNNEEDED,
+		       u32 outgoing_cltv UNNEEDED)
+{ fprintf(stderr, "onion_nonfinal_hop called!\n"); abort(); }
 /* Generated stub for onion_wire_name */
 const char *onion_wire_name(int e UNNEEDED)
 { fprintf(stderr, "onion_wire_name called!\n"); abort(); }
@@ -603,6 +709,23 @@ bool param_check(struct command *cmd UNNEEDED,
 		 const char *buffer UNNEEDED,
 		 const jsmntok_t tokens[] UNNEEDED, ...)
 { fprintf(stderr, "param_check called!\n"); abort(); }
+/* Generated stub for param_escaped_string */
+struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
+					    const char *name UNNEEDED,
+					    const char *buffer UNNEEDED,
+					    const jsmntok_t *tok UNNEEDED,
+					    const char **str UNNEEDED)
+{ fprintf(stderr, "param_escaped_string called!\n"); abort(); }
+/* Generated stub for param_hops_array */
+struct command_result *param_hops_array(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+					const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+					struct sphinx_hop **hops UNNEEDED)
+{ fprintf(stderr, "param_hops_array called!\n"); abort(); }
+/* Generated stub for param_invstring */
+struct command_result *param_invstring(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const char **str UNNEEDED)
+{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const char *name UNNEEDED,
@@ -627,6 +750,22 @@ struct command_result *param_number(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    unsigned int **num UNNEEDED)
 { fprintf(stderr, "param_number called!\n"); abort(); }
+/* Generated stub for param_secret */
+struct command_result *param_secret(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    struct secret **secret UNNEEDED)
+{ fprintf(stderr, "param_secret called!\n"); abort(); }
+/* Generated stub for param_secrets_array */
+struct command_result *param_secrets_array(struct command *cmd UNNEEDED,
+					   const char *name UNNEEDED, const char *buffer UNNEEDED,
+					   const jsmntok_t *tok UNNEEDED,
+					   struct secret **secrets UNNEEDED)
+{ fprintf(stderr, "param_secrets_array called!\n"); abort(); }
+/* Generated stub for param_sha256 */
+struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    struct sha256 **hash UNNEEDED)
+{ fprintf(stderr, "param_sha256 called!\n"); abort(); }
 /* Generated stub for param_short_channel_id */
 struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const char *name UNNEEDED,
@@ -650,19 +789,6 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx UNNEEDED,
 				      const size_t srclen UNNEEDED,
 				      enum onion_wire *failcode UNNEEDED)
 { fprintf(stderr, "parse_onionpacket called!\n"); abort(); }
-/* Generated stub for payment_failed */
-void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout UNNEEDED,
-		    const char *localfail UNNEEDED)
-{ fprintf(stderr, "payment_failed called!\n"); abort(); }
-/* Generated stub for payment_store */
-void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *payment UNNEEDED)
-{ fprintf(stderr, "payment_store called!\n"); abort(); }
-/* Generated stub for payment_succeeded */
-void payment_succeeded(struct lightningd *ld UNNEEDED,
-		       const struct sha256 *payment_hash UNNEEDED,
-		       u64 partid UNNEEDED, u64 groupid UNNEEDED,
-		       const struct preimage *rval UNNEEDED)
-{ fprintf(stderr, "payment_succeeded called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 bool peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
@@ -724,6 +850,22 @@ u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
 	const struct onionpacket *packet UNNEEDED)
 { fprintf(stderr, "serialize_onionpacket called!\n"); abort(); }
+/* Generated stub for sphinx_add_hop_has_length */
+bool sphinx_add_hop_has_length(struct sphinx_path *path UNNEEDED, const struct pubkey *pubkey UNNEEDED,
+			       const u8 *payload TAKES UNNEEDED)
+{ fprintf(stderr, "sphinx_add_hop_has_length called!\n"); abort(); }
+/* Generated stub for sphinx_path_new */
+struct sphinx_path *sphinx_path_new(const tal_t *ctx UNNEEDED,
+				    const u8 *associated_data UNNEEDED)
+{ fprintf(stderr, "sphinx_path_new called!\n"); abort(); }
+/* Generated stub for sphinx_path_new_with_key */
+struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx UNNEEDED,
+					     const u8 *associated_data UNNEEDED,
+					     const struct secret *session_key UNNEEDED)
+{ fprintf(stderr, "sphinx_path_new_with_key called!\n"); abort(); }
+/* Generated stub for sphinx_path_payloads_size */
+size_t sphinx_path_payloads_size(const struct sphinx_path *path UNNEEDED)
+{ fprintf(stderr, "sphinx_path_payloads_size called!\n"); abort(); }
 /* Generated stub for start_leak_request */
 void start_leak_request(const struct subd_req *req UNNEEDED,
 			struct leak_detect *leak_detect UNNEEDED)
@@ -906,12 +1048,13 @@ void try_reconnect(const tal_t *ctx UNNEEDED,
 		   struct peer *peer UNNEEDED,
 		   const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "try_reconnect called!\n"); abort(); }
-/* Generated stub for wait_index_name */
-const char *wait_index_name(enum wait_index index UNNEEDED)
-{ fprintf(stderr, "wait_index_name called!\n"); abort(); }
-/* Generated stub for wait_subsystem_name */
-const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
-{ fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
+/* Generated stub for unwrap_onionreply */
+u8 *unwrap_onionreply(const tal_t *ctx UNNEEDED,
+		      const struct secret *shared_secrets UNNEEDED,
+		      const int numhops UNNEEDED,
+		      const struct onionreply *reply UNNEEDED,
+		      int *origin_index UNNEEDED)
+{ fprintf(stderr, "unwrap_onionreply called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
@@ -1964,6 +2107,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t->groupid = 12345;
 
 	db_begin_transaction(w->db);
+	load_indexes(w->db, ld->indexes);
 	t2 = tal_dup(NULL, struct wallet_payment, t);
 	wallet_payment_setup(w, t2);
 	wallet_payment_store(w, take(t2));
@@ -2029,6 +2173,7 @@ int main(int argc, const char *argv[])
 	htlc_in_map_init(ld->htlcs_in);
 	ld->htlcs_out = tal(ld, struct htlc_out_map);
 	htlc_out_map_init(ld->htlcs_out);
+	list_head_init(&ld->wait_commands);
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {

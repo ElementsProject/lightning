@@ -3238,6 +3238,7 @@ void wallet_payment_store(struct wallet *wallet,
 	stmt = db_prepare_v2(
 		wallet->db,
 		SQL("INSERT INTO payments ("
+		    "  id,"
 		    "  status,"
 		    "  payment_hash,"
 		    "  destination,"
@@ -3254,8 +3255,16 @@ void wallet_payment_store(struct wallet *wallet,
 		    "  local_invreq_id,"
 		    "  groupid,"
 		    "  paydescription"
-		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
+	payment->id = sendpay_index_created(wallet->ld,
+					    &payment->payment_hash,
+					    payment->partid,
+					    payment->groupid,
+					    payment->status);
+	assert(payment->id > 0);
+
+	db_bind_u64(stmt, payment->id);
 	db_bind_int(stmt, payment->status);
 	db_bind_sha256(stmt, &payment->payment_hash);
 
@@ -3309,8 +3318,6 @@ void wallet_payment_store(struct wallet *wallet,
 		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
-	payment->id = db_last_insert_id_v2(stmt);
-	assert(payment->id > 0);
 	tal_free(stmt);
 
 	if (taken(payment)) {
@@ -3358,6 +3365,8 @@ void wallet_payment_delete(struct wallet *wallet,
 		db_bind_u64(stmt, *groupid);
 		db_bind_u64(stmt, *partid);
 		db_bind_u64(stmt, *status);
+		sendpay_index_deleted(wallet->ld, payment_hash, *partid, *groupid,
+				      *status);
 	} else {
 		assert(!partid);
 		stmt = db_prepare_v2(wallet->db,
@@ -3366,6 +3375,7 @@ void wallet_payment_delete(struct wallet *wallet,
 					 "     AND status = ?"));
 		db_bind_sha256(stmt, payment_hash);
 		db_bind_u64(stmt, *status);
+		/* FIXME: Increment deleted appropriately! */
 	}
 	db_exec_prepared_v2(take(stmt));
 }
@@ -3537,7 +3547,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 	}
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("UPDATE payments SET status=?, completed_at=? "
+			     SQL("UPDATE payments SET status=?, completed_at=?, updated_index=? "
 				 "WHERE payment_hash=? AND partid=? AND groupid=?"));
 
 	db_bind_int(stmt, payment_status_in_db(newstatus));
@@ -3546,6 +3556,8 @@ void wallet_payment_set_status(struct wallet *wallet,
 	} else {
 		db_bind_null(stmt);
 	}
+	db_bind_u64(stmt, sendpay_index_update_status(wallet->ld, payment_hash,
+						      partid, groupid, newstatus));
 	db_bind_sha256(stmt, payment_hash);
 	db_bind_u64(stmt, partid);
 	db_bind_u64(stmt, groupid);
