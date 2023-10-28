@@ -149,11 +149,14 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 					    struct wallet *wallet,
 					    enum forward_status status,
 					    const struct short_channel_id *chan_in,
-					    const struct short_channel_id *chan_out)
+					    const struct short_channel_id *chan_out,
+					    const enum wait_index *listindex,
+					    u64 liststart,
+					    const u32 *listlimit)
 {
 	const struct forwarding *forwardings;
 
-	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status, chan_in, chan_out);
+	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status, chan_in, chan_out, listindex, liststart, listlimit);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
@@ -190,17 +193,37 @@ static struct command_result *json_listforwards(struct command *cmd,
 	struct json_stream *response;
 	struct short_channel_id *chan_in, *chan_out;
 	enum forward_status *status;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("status", param_forward_status, &status,
 			     FORWARD_ANY),
 		   p_opt("in_channel", param_short_channel_id, &chan_in),
 		   p_opt("out_channel", param_short_channel_id, &chan_out),
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
 		   NULL))
 		return command_param_failed();
 
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+
+	if ((chan_in || chan_out) && *liststart != 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot use start with in_channel or out_channel");
+	}
+
 	response = json_stream_success(cmd);
-	listforwardings_add_forwardings(response, cmd->ld->wallet, *status, chan_in, chan_out);
+	listforwardings_add_forwardings(response, cmd->ld->wallet, *status, chan_in, chan_out, listindex, *liststart, listlimit);
 
 	return command_success(cmd, response);
 }

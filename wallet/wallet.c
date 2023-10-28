@@ -4832,7 +4832,10 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 						       const tal_t *ctx,
 						       enum forward_status status,
 						       const struct short_channel_id *chan_in,
-						       const struct short_channel_id *chan_out)
+						       const struct short_channel_id *chan_out,
+						       const enum wait_index *listindex,
+						       u64 liststart,
+						       const u32 *listlimit)
 {
 	struct forwarding *results = tal_arr(ctx, struct forwarding, 0);
 	size_t count = 0;
@@ -4841,57 +4844,135 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	// placeholder for any parameter, the value doesn't matter because it's discarded by sql
 	const int any = -1;
 
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT"
-		"  state"
-		", in_msatoshi"
-		", out_msatoshi"
-		", in_channel_scid"
-		", out_channel_scid"
-		", in_htlc_id"
-		", out_htlc_id"
-		", received_time"
-		", resolved_time"
-		", failcode "
-		", forward_style "
-		", rowid "
-		", updated_index "
-		"FROM forwards "
-		"WHERE (1 = ? OR state = ?) AND "
-		"(1 = ? OR in_channel_scid = ?) AND "
-		"(1 = ? OR out_channel_scid = ?)"));
+	/* We don't support start/limits with this */
+	if (chan_in || chan_out) {
+		stmt = db_prepare_v2(
+			w->db,
+			SQL("SELECT"
+			    "  state"
+			    ", in_msatoshi"
+			    ", out_msatoshi"
+			    ", in_channel_scid"
+			    ", out_channel_scid"
+			    ", in_htlc_id"
+			    ", out_htlc_id"
+			    ", received_time"
+			    ", resolved_time"
+			    ", failcode "
+			    ", forward_style "
+			    ", rowid "
+			    ", updated_index "
+			    "FROM forwards "
+			    "WHERE (1 = ? OR state = ?) AND "
+			    "(1 = ? OR in_channel_scid = ?) AND "
+			    "(1 = ? OR out_channel_scid = ?)"));
 
-	if (status == FORWARD_ANY) {
-		// any status
-		db_bind_int(stmt, 1);
-		db_bind_int(stmt, any);
+		if (status == FORWARD_ANY) {
+			// any status
+			db_bind_int(stmt, 1);
+			db_bind_int(stmt, any);
+		} else {
+			// specific forward status
+			db_bind_int(stmt, 0);
+			db_bind_int(stmt, status);
+		}
+
+		if (chan_in) {
+			// specific in_channel
+			db_bind_int(stmt, 0);
+			db_bind_short_channel_id(stmt, chan_in);
+		} else {
+			// any in_channel
+			db_bind_int(stmt, 1);
+			db_bind_int(stmt, any);
+		}
+
+		if (chan_out) {
+			// specific out_channel
+			db_bind_int(stmt, 0);
+			db_bind_short_channel_id(stmt, chan_out);
+		} else {
+			// any out_channel
+			db_bind_int(stmt, 1);
+			db_bind_int(stmt, any);
+		}
+	} else if (listindex && *listindex == WAIT_INDEX_UPDATED) {
+		stmt = db_prepare_v2(
+			w->db,
+			SQL("SELECT"
+			    "  state"
+			    ", in_msatoshi"
+			    ", out_msatoshi"
+			    ", in_channel_scid"
+			    ", out_channel_scid"
+			    ", in_htlc_id"
+			    ", out_htlc_id"
+			    ", received_time"
+			    ", resolved_time"
+			    ", failcode "
+			    ", forward_style "
+			    ", rowid "
+			    ", updated_index "
+			    "FROM forwards "
+			    " WHERE"
+			    "  (1 = ? OR state = ?)"
+			    " AND"
+			    "  updated_index >= ?"
+			    " ORDER BY updated_index"
+			    " LIMIT ?;"));
+		if (status == FORWARD_ANY) {
+			// any status
+			db_bind_int(stmt, 1);
+			db_bind_int(stmt, any);
+		} else {
+			// specific forward status
+			db_bind_int(stmt, 0);
+			db_bind_int(stmt, status);
+		}
+		db_bind_u64(stmt, liststart);
+		if (listlimit)
+			db_bind_int(stmt, *listlimit);
+		else
+			db_bind_int(stmt, INT_MAX);
 	} else {
-		// specific forward status
-		db_bind_int(stmt, 0);
-		db_bind_int(stmt, status);
+		stmt = db_prepare_v2(
+			w->db,
+			SQL("SELECT"
+			    "  state"
+			    ", in_msatoshi"
+			    ", out_msatoshi"
+			    ", in_channel_scid"
+			    ", out_channel_scid"
+			    ", in_htlc_id"
+			    ", out_htlc_id"
+			    ", received_time"
+			    ", resolved_time"
+			    ", failcode "
+			    ", forward_style "
+			    ", rowid "
+			    ", updated_index "
+			    "FROM forwards "
+			    " WHERE"
+			    "  (1 = ? OR state = ?)"
+			    " AND"
+			    "  rowid >= ?"
+			    " ORDER BY rowid"
+			    " LIMIT ?;"));
+		if (status == FORWARD_ANY) {
+			// any status
+			db_bind_int(stmt, 1);
+			db_bind_int(stmt, any);
+		} else {
+			// specific forward status
+			db_bind_int(stmt, 0);
+			db_bind_int(stmt, status);
+		}
+		db_bind_u64(stmt, liststart);
+		if (listlimit)
+			db_bind_int(stmt, *listlimit);
+		else
+			db_bind_int(stmt, INT_MAX);
 	}
-
-	if (chan_in) {
-		// specific in_channel
-		db_bind_int(stmt, 0);
-		db_bind_short_channel_id(stmt, chan_in);
-	} else {
-		// any in_channel
-		db_bind_int(stmt, 1);
-		db_bind_int(stmt, any);
-	}
-
-	if (chan_out) {
-		// specific out_channel
-		db_bind_int(stmt, 0);
-		db_bind_short_channel_id(stmt, chan_out);
-	} else {
-		// any out_channel
-		db_bind_int(stmt, 1);
-		db_bind_int(stmt, any);
-	}
-
 	db_query_prepared(stmt);
 
 	for (count=0; db_step(stmt); count++) {

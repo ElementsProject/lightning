@@ -2315,6 +2315,9 @@ impl From<requests::ListforwardsRequest> for pb::ListforwardsRequest {
             status: c.status.map(|v| v as i32),
             in_channel: c.in_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            index: c.index.map(|v| v as i32),
+            start: c.start, // Rule #2 for type u64?
+            limit: c.limit, // Rule #2 for type u32?
         }
     }
 }
@@ -3023,6 +3026,9 @@ impl From<pb::ListforwardsRequest> for requests::ListforwardsRequest {
             status: c.status.map(|v| v.try_into().unwrap()),
             in_channel: c.in_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
             out_channel: c.out_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            index: c.index.map(|v| v.try_into().unwrap()),
+            start: c.start, // Rule #1 for type u64?
+            limit: c.limit, // Rule #1 for type u32?
         }
     }
 }

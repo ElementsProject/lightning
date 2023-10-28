@@ -1007,7 +1007,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listdatastore", payload)
 
-    def listforwards(self, status=None, in_channel=None, out_channel=None):
+    def listforwards(self, status=None, in_channel=None, out_channel=None, index=None, start=None, limit=None):
         """List all forwarded payments and their information matching
         forward {status}, {in_channel} and {out_channel}.
         """
@@ -1015,6 +1015,9 @@ class LightningRpc(UnixDomainSocketRpc):
             "status": status,
             "in_channel": in_channel,
             "out_channel": out_channel,
+            "index": index,
+            "start": start,
+            "limit": limit,
         }
         return self.call("listforwards", payload)
 

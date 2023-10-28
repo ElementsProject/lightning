@@ -92,6 +92,10 @@
             "legacy": 0,
             "tlv": 1
         },
+        "ListforwardsIndex": {
+            "created": 0,
+            "updated": 1
+        },
         "ListforwardsStatus": {
             "failed": 3,
             "local_failed": 2,
@@ -940,7 +944,10 @@
         },
         "ListforwardsRequest": {
             "ListForwards.in_channel": 2,
+            "ListForwards.index": 4,
+            "ListForwards.limit": 6,
             "ListForwards.out_channel": 3,
+            "ListForwards.start": 5,
             "ListForwards.status": 1
         },
         "ListforwardsResponse": {
@@ -3624,8 +3631,20 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListForwards.index": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "ListForwards.limit": {
+            "added": "v23.11",
+            "deprecated": false
+        },
         "ListForwards.out_channel": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListForwards.start": {
+            "added": "v23.11",
             "deprecated": false
         },
         "ListForwards.status": {
