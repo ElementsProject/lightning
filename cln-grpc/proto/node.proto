@@ -1624,9 +1624,17 @@ message ListforwardsRequest {
 		LOCAL_FAILED = 2;
 		FAILED = 3;
 	}
+	// ListForwards.index
+	enum ListforwardsIndex {
+		CREATED = 0;
+		UPDATED = 1;
+	}
 	optional ListforwardsStatus status = 1;
 	optional string in_channel = 2;
 	optional string out_channel = 3;
+	optional ListforwardsIndex index = 4;
+	optional uint64 start = 5;
+	optional uint32 limit = 6;
 }
 
 message ListforwardsResponse {

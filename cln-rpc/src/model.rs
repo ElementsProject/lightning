@@ -1379,6 +1379,34 @@ pub mod requests {
 	    }
 	}
 
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListforwardsIndex {
+	    #[serde(rename = "created")]
+	    CREATED,
+	    #[serde(rename = "updated")]
+	    UPDATED,
+	}
+
+	impl TryFrom<i32> for ListforwardsIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListforwardsIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListforwardsIndex::CREATED),
+	    1 => Ok(ListforwardsIndex::UPDATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListforwardsIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsIndex::CREATED => "CREATED",
+	            ListforwardsIndex::UPDATED => "UPDATED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1387,6 +1415,12 @@ pub mod requests {
 	    pub in_channel: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListforwardsIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
 	}
 
 	impl From<ListforwardsRequest> for Request {
