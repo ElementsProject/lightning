@@ -1021,23 +1021,76 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 int faildirection);
 
 /**
- * wallet_payment_list - Retrieve a list of payments
+ * payments_first: get first payment, optionally filtering by status
+ * @w: the wallet
  *
- * payment_hash: optional filter for only this payment hash.
+ * Returns NULL if none, otherwise you must call payments_next() or
+ * tal_free(stmt).
  */
-const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
-						  struct wallet *wallet,
-						  const struct sha256 *payment_hash)
-	NON_NULL_ARGS(2);
+struct db_stmt *payments_first(struct wallet *w);
+
+/**
+ * payments_next: get next payment
+ * @w: the wallet
+ * @stmt: the previous stmt from payments_first or payments_next.
+ *
+ * Returns NULL if none, otherwise you must call payments_next() or
+ * tal_free(stmt).
+ */
+struct db_stmt *payments_next(struct wallet *w,
+			      struct db_stmt *stmt);
 
 
 /**
- * wallet_payments_by_invoice_request - Retrieve a list of payments for this local_invreq_id
+ * payments_by_hash: get the payment, if any, by payment_hash.
+ * @w: the wallet
+ * @payment_hash: the payment_hash.
+ *
+ * Returns NULL if none, otherwise call payments_get_details(),
+ * and then tal_free(stmt).
  */
-const struct wallet_payment **
-wallet_payments_by_invoice_request(const tal_t *ctx,
-				   struct wallet *wallet,
-				   const struct sha256 *local_invreq_id);
+struct db_stmt *payments_by_hash(struct wallet *w,
+				 const struct sha256 *payment_hash);
+
+/**
+ * payments_by_status: get the payments, if any, by status.
+ * @w: the wallet
+ * @status: the status.
+ *
+ * Returns NULL if none, otherwise call payments_get_details(),
+ * and then tal_free(stmt).
+ */
+struct db_stmt *payments_by_status(struct wallet *w,
+				   enum payment_status status);
+
+/**
+ * payments_by_label: get the payment, if any, by label.
+ * @w: the wallet
+ * @label: the label.
+ *
+ * Returns NULL if none, otherwise call payments_get_details(),
+ * and then tal_free(stmt).
+ */
+struct db_stmt *payments_by_label(struct wallet *w,
+				  const struct json_escape *label);
+
+/**
+ * payments_by_invoice_request: get payments, if any, for this local_invreq_id
+ * @w: the wallet
+ * @local_invreq_id: the local invreq_id.
+ *
+ * Returns NULL if none, otherwise you must call payments_next() or
+ * tal_free(stmt).
+ */
+struct db_stmt *payments_by_invoice_request(struct wallet *wallet,
+					    const struct sha256 *local_invreq_id);
+
+/**
+ * payments_get_details: get the details of a payment.
+ */
+struct wallet_payment *payment_get_details(const tal_t *ctx,
+					   struct db_stmt *stmt);
+
 
 /**
  * wallet_htlc_sigs_save - Delete all HTLC sigs (including inflights) for the

@@ -3441,8 +3441,8 @@ struct wallet_payment *wallet_payment_new(const tal_t *ctx,
 	return payment;
 }
 
-static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
-						  struct db_stmt *stmt)
+struct wallet_payment *payment_get_details(const tal_t *ctx,
+					   struct db_stmt *stmt)
 {
 	struct wallet_payment *payment;
 	u32 *completed_at;
@@ -3522,7 +3522,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	db_bind_u64(stmt, groupid);
 	db_query_prepared(stmt);
 	if (db_step(stmt)) {
-		payment = wallet_stmt2payment(ctx, stmt);
+		payment = payment_get_details(ctx, stmt);
 	} else {
 		payment = NULL;
 	}
@@ -3708,89 +3708,142 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
-const struct wallet_payment **
-wallet_payment_list(const tal_t *ctx,
-		    struct wallet *wallet,
-		    const struct sha256 *payment_hash)
+struct db_stmt *payments_first(struct wallet *wallet)
 {
-	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
-	size_t i;
-
-	payments = tal_arr(ctx, const struct wallet_payment *, 0);
-
-	if (payment_hash) {
-		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-						     "  id"
-						     ", status"
-						     ", destination"
-						     ", msatoshi"
-						     ", payment_hash"
-						     ", timestamp"
-						     ", payment_preimage"
-						     ", path_secrets"
-						     ", route_nodes"
-						     ", route_channels"
-						     ", msatoshi_sent"
-						     ", description"
-						     ", bolt11"
-						     ", paydescription"
-						     ", failonionreply"
-						     ", total_msat"
-						     ", partid"
-						     ", local_invreq_id"
-						     ", groupid"
-						     ", completed_at"
-						     " FROM payments"
-						     " WHERE"
-						     "  payment_hash = ?"
-						     " ORDER BY id;"));
-		db_bind_sha256(stmt, payment_hash);
-	} else {
-		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-						     "  id"
-						     ", status"
-						     ", destination"
-						     ", msatoshi"
-						     ", payment_hash"
-						     ", timestamp"
-						     ", payment_preimage"
-						     ", path_secrets"
-						     ", route_nodes"
-						     ", route_channels"
-						     ", msatoshi_sent"
-						     ", description"
-						     ", bolt11"
-						     ", paydescription"
-						     ", failonionreply"
-						     ", total_msat"
-						     ", partid"
-						     ", local_invreq_id"
-						     ", groupid"
-						     ", completed_at"
-						     " FROM payments"
-						     " ORDER BY id;"));
-	}
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+					     "  id"
+					     ", status"
+					     ", destination"
+					     ", msatoshi"
+					     ", payment_hash"
+					     ", timestamp"
+					     ", payment_preimage"
+					     ", path_secrets"
+					     ", route_nodes"
+					     ", route_channels"
+					     ", msatoshi_sent"
+					     ", description"
+					     ", bolt11"
+					     ", paydescription"
+					     ", failonionreply"
+					     ", total_msat"
+					     ", partid"
+					     ", local_invreq_id"
+					     ", groupid"
+					     ", completed_at"
+					     " FROM payments"
+					     " ORDER BY id;"));
 	db_query_prepared(stmt);
-
-	for (i = 0; db_step(stmt); i++) {
-		tal_resize(&payments, i+1);
-		payments[i] = wallet_stmt2payment(payments, stmt);
-	}
-	tal_free(stmt);
-	return payments;
+	return payments_next(wallet, stmt);
 }
 
-const struct wallet_payment **
-wallet_payments_by_invoice_request(const tal_t *ctx,
-				   struct wallet *wallet,
-				   const struct sha256 *local_invreq_id)
+struct db_stmt *payments_by_hash(struct wallet *wallet,
+				 const struct sha256 *payment_hash)
 {
-	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
-	size_t i;
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+					     "  id"
+					     ", status"
+					     ", destination"
+					     ", msatoshi"
+					     ", payment_hash"
+					     ", timestamp"
+					     ", payment_preimage"
+					     ", path_secrets"
+					     ", route_nodes"
+					     ", route_channels"
+					     ", msatoshi_sent"
+					     ", description"
+					     ", bolt11"
+					     ", paydescription"
+					     ", failonionreply"
+					     ", total_msat"
+					     ", partid"
+					     ", local_invreq_id"
+					     ", groupid"
+					     ", completed_at"
+					     " FROM payments"
+					     " WHERE"
+					     "  payment_hash = ?"
+					     " ORDER BY id;"));
+	db_bind_sha256(stmt, payment_hash);
+	db_query_prepared(stmt);
+	return payments_next(wallet, stmt);
+}
 
-	payments = tal_arr(ctx, const struct wallet_payment *, 0);
+struct db_stmt *payments_by_label(struct wallet *wallet,
+				  const struct json_escape *label)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+					     "  id"
+					     ", status"
+					     ", destination"
+					     ", msatoshi"
+					     ", payment_hash"
+					     ", timestamp"
+					     ", payment_preimage"
+					     ", path_secrets"
+					     ", route_nodes"
+					     ", route_channels"
+					     ", msatoshi_sent"
+					     ", description"
+					     ", bolt11"
+					     ", paydescription"
+					     ", failonionreply"
+					     ", total_msat"
+					     ", partid"
+					     ", local_invreq_id"
+					     ", groupid"
+					     ", completed_at"
+					     " FROM payments"
+					     " WHERE"
+					     /* label is called "description" in db */
+					     "  description = ?;"));
+	db_bind_json_escape(stmt, label);
+	db_query_prepared(stmt);
+	return payments_next(wallet, stmt);
+}
+
+struct db_stmt *payments_by_status(struct wallet *wallet,
+				   enum payment_status status)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+					     "  id"
+					     ", status"
+					     ", destination"
+					     ", msatoshi"
+					     ", payment_hash"
+					     ", timestamp"
+					     ", payment_preimage"
+					     ", path_secrets"
+					     ", route_nodes"
+					     ", route_channels"
+					     ", msatoshi_sent"
+					     ", description"
+					     ", bolt11"
+					     ", paydescription"
+					     ", failonionreply"
+					     ", total_msat"
+					     ", partid"
+					     ", local_invreq_id"
+					     ", groupid"
+					     ", completed_at"
+					     " FROM payments"
+					     " WHERE"
+					     "  status = ?"
+					     " ORDER BY id;"));
+	db_bind_int(stmt, payment_status_in_db(status));
+	db_query_prepared(stmt);
+	return payments_next(wallet, stmt);
+}
+
+struct db_stmt *payments_by_invoice_request(struct wallet *wallet,
+					    const struct sha256 *local_invreq_id)
+{
+	struct db_stmt *stmt;
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", status"
@@ -3817,12 +3870,16 @@ wallet_payments_by_invoice_request(const tal_t *ctx,
 	db_bind_sha256(stmt, local_invreq_id);
 	db_query_prepared(stmt);
 
-	for (i = 0; db_step(stmt); i++) {
-		tal_resize(&payments, i+1);
-		payments[i] = wallet_stmt2payment(payments, stmt);
-	}
-	tal_free(stmt);
-	return payments;
+	return payments_next(wallet, stmt);
+}
+
+struct db_stmt *payments_next(struct wallet *w,
+			      struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
 }
 
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
