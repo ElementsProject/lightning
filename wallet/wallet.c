@@ -3174,14 +3174,84 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_add_payment(struct wallet *wallet,
-			struct wallet_payment *payment)
+/* FIXME: reorder! */
+static
+struct wallet_payment *wallet_payment_new(const tal_t *ctx,
+					  u64 dbid,
+					  u32 timestamp,
+					  const u32 *completed_at,
+					  const struct sha256 *payment_hash,
+					  u64 partid,
+					  u64 groupid,
+					  enum payment_status status,
+					  /* The destination may not be known if we used `sendonion` */
+					  const struct node_id *destination,
+					  struct amount_msat msatoshi,
+					  struct amount_msat msatoshi_sent,
+					  struct amount_msat total_msat,
+					  /* If and only if PAYMENT_COMPLETE */
+					  const struct preimage *payment_preimage,
+					  const struct secret *path_secrets,
+					  const struct node_id *route_nodes,
+					  const struct short_channel_id *route_channels,
+					  const char *invstring,
+					  const char *label,
+					  const char *description,
+					  const u8 *failonion,
+					  const struct sha256 *local_invreq_id);
+
+struct wallet_payment *wallet_add_payment(const tal_t *ctx,
+					  struct wallet *wallet,
+					  u32 timestamp,
+					  const u32 *completed_at,
+					  const struct sha256 *payment_hash,
+					  u64 partid,
+					  u64 groupid,
+					  enum payment_status status,
+					  /* The destination may not be known if we used `sendonion` */
+					  const struct node_id *destination TAKES,
+					  struct amount_msat msatoshi,
+					  struct amount_msat msatoshi_sent,
+					  struct amount_msat total_msat,
+					  /* If and only if PAYMENT_COMPLETE */
+					  const struct preimage *payment_preimage TAKES,
+					  const struct secret *path_secrets TAKES,
+					  const struct node_id *route_nodes TAKES,
+					  const struct short_channel_id *route_channels TAKES,
+					  const char *invstring TAKES,
+					  const char *label TAKES,
+					  const char *description TAKES,
+					  const u8 *failonion TAKES,
+					  const struct sha256 *local_invreq_id)
 {
 	struct db_stmt *stmt;
+	struct wallet_payment *payment;
+	u64 id;
 
-        /* Don't attempt to add the same payment twice */
-	assert(!payment->id);
+	id = sendpay_index_created(wallet->ld,
+				   payment_hash,
+				   partid, groupid, status);
 
+	payment = wallet_payment_new(ctx, id,
+				     timestamp,
+				     completed_at,
+				     payment_hash,
+				     partid,
+				     groupid,
+				     status,
+				     destination,
+				     msatoshi,
+				     msatoshi_sent,
+				     total_msat,
+				     payment_preimage,
+				     path_secrets,
+				     route_nodes,
+				     route_channels,
+				     invstring,
+				     label,
+				     description,
+				     failonion,
+				     local_invreq_id);
 	stmt = db_prepare_v2(
 		wallet->db,
 		SQL("INSERT INTO payments ("
@@ -3204,11 +3274,6 @@ void wallet_add_payment(struct wallet *wallet,
 		    "  paydescription"
 		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
-	payment->id = sendpay_index_created(wallet->ld,
-					    &payment->payment_hash,
-					    payment->partid,
-					    payment->groupid,
-					    payment->status);
 	assert(payment->id > 0);
 
 	db_bind_u64(stmt, payment->id);
@@ -3267,8 +3332,7 @@ void wallet_add_payment(struct wallet *wallet,
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
 
-	if (taken(payment))
-		tal_free(payment);
+	return payment;
 }
 
 u64 wallet_payment_get_groupid(struct wallet *wallet,
@@ -3323,6 +3387,7 @@ void wallet_payment_delete(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
+static
 struct wallet_payment *wallet_payment_new(const tal_t *ctx,
 					  u64 dbid,
 					  u32 timestamp,
