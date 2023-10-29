@@ -1471,8 +1471,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 
 		/* Make sure it's not spamming us (private channel
-		 * updates are never considered spam) */
+		 * updates are never considered spam, nor is anything
+		 * we send ourselves!) */
 		if (is_chan_public(chan)
+		    && !local_direction(rstate, chan, NULL)
 		    && !ratelimit(rstate,
 				  &hc->tokens, hc->bcast.timestamp, timestamp)) {
 			status_peer_debug(source_peer,
