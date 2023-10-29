@@ -814,22 +814,6 @@ static void tell_master_local_cupdates(struct daemon *daemon)
 	}
 }
 
-/* Disables all channels connected to our node. */
-static void gossip_disable_local_channels(struct daemon *daemon)
-{
-	struct node *local_node = get_node(daemon->rstate, &daemon->id);
-	struct chan_map_iter i;
-	struct chan *c;
-
-	/* We don't have a local_node, so we don't have any channels yet
-	 * either */
-	if (!local_node)
-		return;
-
-	for (c = first_chan(local_node, &i); c; c = next_chan(local_node, &i))
-		local_disable_chan(daemon, c, half_chan_idx(local_node, c));
-}
-
 struct peer *first_random_peer(struct daemon *daemon,
 			       struct peer_node_id_map_iter *it)
 {
@@ -896,9 +880,6 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	 * be the gossip_store mtime. */
 	if (daemon->rstate->last_timestamp > timestamp)
 		daemon->rstate->last_timestamp = timestamp;
-
-	/* Now disable all local channels, they can't be connected yet. */
-	gossip_disable_local_channels(daemon);
 
 	/* If that announced channels, we can announce ourselves (options
 	 * or addresses might have changed!) */
