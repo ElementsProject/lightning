@@ -422,13 +422,22 @@ bool wallet_update_output_status(struct wallet *w,
 				 enum output_status newstatus);
 
 /**
- * wallet_get_utxos - Retrieve all utxos matching a given state
+ * wallet_get_all_utxos - Return all utxos, including spent ones.
  *
  * Returns a `tal_arr` of `utxo` structs. Double indirection in order
  * to be able to steal individual elements onto something else.
  */
-struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
-			      const enum output_status state);
+struct utxo **wallet_get_all_utxos(const tal_t *ctx, struct wallet *w);
+
+/**
+ * wallet_get_unspent_utxos - Return reserved and unreserved UTXOs.
+ *
+ * Returns a `tal_arr` of `utxo` structs. Double indirection in order
+ * to be able to steal individual elements onto something else.
+ *
+ * Use utxo_is_reserved() to test if it's reserved.
+ */
+struct utxo **wallet_get_unspent_utxos(const tal_t *ctx, struct wallet *w);
 
 
 /**

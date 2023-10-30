@@ -353,7 +353,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 	struct json_stream *response;
 	struct peer *p;
 	struct peer_node_id_map_iter it;
-	struct utxo **utxos, **reserved_utxos, **spent_utxos;
+	struct utxo **utxos;
 	bool *spent;
 
 	if (!param(cmd, buffer, params,
@@ -363,18 +363,13 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 	response = json_stream_success(cmd);
 
-	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_AVAILABLE);
-	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_RESERVED);
+	if (*spent)
+		utxos = wallet_get_all_utxos(cmd, cmd->ld->wallet);
+	else
+		utxos = wallet_get_unspent_utxos(cmd, cmd->ld->wallet);
 
 	json_array_start(response, "outputs");
 	json_add_utxos(response, cmd->ld->wallet, utxos);
-	json_add_utxos(response, cmd->ld->wallet, reserved_utxos);
-
-	if (*spent) {
-		spent_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_SPENT);
-		json_add_utxos(response, cmd->ld->wallet, spent_utxos);
-	}
-
 	json_array_end(response);
 
 	/* Add funds that are allocated to channels */
@@ -484,7 +479,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 
 	/* Open the outputs structure so we can incrementally add results */
 	json_array_start(rescan->response, "outputs");
-	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, OUTPUT_STATE_ANY);
+	rescan->utxos = wallet_get_all_utxos(rescan, cmd->ld->wallet);
 	if (tal_count(rescan->utxos) == 0) {
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
