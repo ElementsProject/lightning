@@ -178,6 +178,9 @@ WARN_UNUSED_RESULT bool amount_msat_add_fee(struct amount_msat *amt,
 /* What is the fee for this tx weight? */
 struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight);
 
+/* What is the feerate given this fee and (non-zero!) weight? */
+WARN_UNUSED_RESULT bool amount_feerate(u32 *feerate, struct amount_sat fee, size_t weight);
+
 /* Different formatting by amounts: btc, sat and msat */
 /* => 1.23456789012btc (11 decimals!) */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
