@@ -211,13 +211,13 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 
 static u32 commit_feerate(const struct local_anchor_info *info)
 {
-	struct amount_sat fee;
+	u32 feerate;
 
 	/* Fee should not overflow! */
-	if (!amount_sat_mul(&fee, info->commitment_fee, 1000))
+	if (!amount_feerate(&feerate, info->commitment_fee, info->commitment_weight))
 		abort();
 
-	return amount_sat_div(fee, info->commitment_weight).satoshis; /* Raw: feerate */
+	return feerate;
 }
 
 /* If it's possible and worth it, return signed tx.  Otherwise NULL. */

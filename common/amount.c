@@ -597,6 +597,16 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw, size_t weight)
 	return fee;
 }
 
+bool amount_feerate(u32 *feerate, struct amount_sat fee, size_t weight)
+{
+	assert(weight);
+
+	if (!amount_sat_mul(&fee, fee, 1000))
+		return false;
+
+	return assign_overflow_u32(feerate, fee.satoshis / weight);
+}
+
 bool amount_asset_is_main(struct amount_asset *amount)
 {
 	/* If we're not on elements, there is only one asset. */
