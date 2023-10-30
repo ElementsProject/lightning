@@ -3703,16 +3703,33 @@ def test_onchain_rexmit_tx(node_factory, bitcoind):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
 def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
     # Set feerates to lowball for now.
     l1, l2 = node_factory.line_graph(2, opts=[{'feerates': (1000,) * 4,
-                                               'experimental-anchors': None},
+                                               'experimental-anchors': None,
+                                               'min-emergency-msat': 546000},
                                               {'feerates': (1000,) * 4,
                                                'experimental-anchors': None,
                                                'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
     assert 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
+
+    # We reduce l1's UTXOs so it's forced to use more than one UTXO to push.
+    fundsats = int(only_one(l1.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
+    psbt = l1.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
+    # Pay 5k sats in fees, send most to l2
+    psbt = l1.rpc.addpsbtoutput(fundsats - 20000 - 5000, psbt, destination=l2.rpc.newaddr()['bech32'])['psbt']
+    # 10x2000 sat outputs for l1 to use.
+    for i in range(10):
+        psbt = l1.rpc.addpsbtoutput(2000, psbt)['psbt']
+    l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt)['signed_psbt'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    # Make sure all amounts are below 2000 sats!
+    assert [x for x in l1.rpc.listfunds()['outputs'] if x['amount_msat'] > 2000_000] == []
 
     inv = l2.rpc.invoice(123000, 'label', 'description')
     l2.rpc.delinvoice('label', 'unpaid')
@@ -3732,7 +3749,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     l1.set_feerates((2000, 2000, 2000, 2000))
     bitcoind.generate_block(14)
 
-    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 116 hit deadline')
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 117 hit deadline')
     l1.daemon.wait_for_log('Creating anchor spend for local commit tx')
 
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 2)
@@ -3882,14 +3899,32 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
     l1, l2, l3 = node_factory.line_graph(3, opts=[{},
-                                                  {'experimental-anchors': None},
+                                                  {'experimental-anchors': None,
+                                                   'min-emergency-msat': 546000},
                                                   {'experimental-anchors': None,
                                                    'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
                                          wait_for_announce=True)
+
+    # We splinter l2's funds so it's forced to use more than one UTXO to push.
+    fundsats = int(only_one(l2.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
+    OUTPUT_SAT = 10000
+    NUM_OUTPUTS = 10
+    psbt = l2.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
+    # Pay 5k sats in fees.
+    psbt = l2.rpc.addpsbtoutput(fundsats - OUTPUT_SAT * NUM_OUTPUTS - 5000, psbt, destination=l3.rpc.newaddr()['bech32'])['psbt']
+    for _ in range(NUM_OUTPUTS):
+        psbt = l2.rpc.addpsbtoutput(OUTPUT_SAT, psbt)['psbt']
+    l2.rpc.sendpsbt(l2.rpc.signpsbt(psbt)['signed_psbt'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l2])
+
+    # Make sure all amounts are below OUTPUT_SAT sats!
+    assert [x for x in l2.rpc.listfunds()['outputs'] if x['amount_msat'] > Millisatoshi(str(OUTPUT_SAT) + "sat")] == []
 
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
