@@ -676,12 +676,14 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	u32 weight;
 	struct pubkey pubkey;
 	s64 keyidx;
-	u8 *b32script;
+	const u8 *b32script;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("satoshi", param_sat, &amount),
 			 p_opt("initialpsbt", param_psbt, &psbt),
 			 p_opt("locktime", param_number, &locktime),
+			 p_opt("destination", param_bitcoin_address,
+			       &b32script),
 			 NULL))
 		return command_param_failed();
 
@@ -691,8 +693,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 			*locktime = default_locktime(cmd->ld->topology);
 		}
 		psbt = create_psbt(cmd, 0, 0, *locktime);
-	}
-	else if(locktime) {
+	} else if (locktime) {
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Can't set locktime of an existing {initialpsbt}");
 	}
@@ -713,24 +714,27 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 		return command_check_done(cmd);
 
 	/* Get a change adddress */
-	keyidx = wallet_get_newindex(cmd->ld);
-	if (keyidx < 0)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Failed to generate change address."
-				    " Keys exhausted.");
-
-	if (chainparams->is_elements) {
-		bip32_pubkey(cmd->ld, &pubkey, keyidx);
-		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-	} else {
-		b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
-	}
 	if (!b32script) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Failed to generate change address."
-				    " Keys generation failure");
+		keyidx = wallet_get_newindex(cmd->ld);
+		if (keyidx < 0)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Failed to generate change address."
+					    " Keys exhausted.");
+
+		if (chainparams->is_elements) {
+			bip32_pubkey(cmd->ld, &pubkey, keyidx);
+			b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+		} else {
+			b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+		}
+
+		if (!b32script) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Failed to generate change address."
+					    " Keys generation failure");
+		}
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 	}
-	txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 
 	outnum = psbt->num_outputs;
 	psbt_append_output(psbt, b32script, *amount);
