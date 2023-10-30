@@ -450,6 +450,62 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+/* Gather enough utxos to meet feerate, otherwise all we can. */
+struct utxo **wallet_utxo_boost(const tal_t *ctx,
+				struct wallet *w,
+				u32 blockheight,
+				struct amount_sat fee_amount,
+				u32 feerate_target,
+				size_t *weight)
+{
+	struct utxo **all_utxos = wallet_get_unspent_utxos(tmpctx, w);
+	struct utxo **utxos = tal_arr(ctx, struct utxo *, 0);
+	u32 feerate;
+
+	/* Select in random order */
+	tal_arr_randomize(all_utxos, struct utxo *);
+
+	/* Can't overflow, it's from our tx! */
+	if (!amount_feerate(&feerate, fee_amount, *weight))
+		abort();
+
+	for (size_t i = 0; i < tal_count(all_utxos); i++) {
+		u32 new_feerate;
+		size_t new_weight;
+		struct amount_sat new_fee_amount;
+		/* Convenience var */
+		struct utxo *utxo = all_utxos[i];
+
+		/* Are we already happy? */
+		if (feerate >= feerate_target)
+			break;
+
+		/* Don't add reserved ones */
+		if (utxo_is_reserved(utxo, blockheight))
+			continue;
+
+		/* UTXOs must be sane amounts */
+		if (!amount_sat_add(&new_fee_amount,
+				    fee_amount, utxo->amount))
+			abort();
+
+		new_weight = *weight + utxo_spend_weight(utxo, 0);
+		if (!amount_feerate(&new_feerate, new_fee_amount, new_weight))
+			abort();
+
+		/* Don't add uneconomic ones! */
+		if (new_feerate < feerate)
+			continue;
+
+		feerate = new_feerate;
+		*weight = new_weight;
+		fee_amount = new_fee_amount;
+		tal_arr_expand(&utxos, tal_steal(utxos, utxo));
+	}
+
+	return utxos;
+}
+
 static void db_set_utxo(struct db *db, const struct utxo *utxo)
 {
 	struct db_stmt *stmt;

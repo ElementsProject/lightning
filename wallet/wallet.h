@@ -538,6 +538,25 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 			     const struct bitcoin_outpoint *outpoint);
 
 /**
+ * wallet_utxo_boost - get (unreserved) utxos to meet a given feerate.
+ * @ctx: context to tal return array from
+ * @w: the wallet
+ * @blockheight: current height (to determine reserved status)
+ * @fee_amount: amount already paying in fees
+ * @feerate_target: feerate we want, in perkw.
+ * @weight: (in)existing weight before any utxos added, (out)final weight with utxos added.
+ *
+ * May not meet the feerate, but will spend all available utxos to try.
+ * You may also need to create change, as it may exceed.
+ */
+struct utxo **wallet_utxo_boost(const tal_t *ctx,
+				struct wallet *w,
+				u32 blockheight,
+				struct amount_sat fee_amount,
+				u32 feerate_target,
+				size_t *weight);
+
+/**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?
  *
  * FIXME: This is very slow with lots of inputs!
