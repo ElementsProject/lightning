@@ -884,7 +884,6 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	/* Make a copy to play with */
 	newtx = clone_bitcoin_tx(tmpctx, info->raw_htlc_tx);
 	weight = bitcoin_tx_weight(newtx);
-	utxos = tal_arr(tmpctx, struct utxo *, 0);
 
 	/* We'll need this to regenerate PSBT */
 	if (wally_psbt_get_locktime(newtx->psbt, &locktime) != WALLY_OK) {
@@ -892,31 +891,31 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 		return true;
 	}
 
-	/* Keep attaching input inputs until we get sufficient fees */
-	while (tx_feerate(newtx) < feerate) {
-		struct utxo *utxo;
+	utxos = wallet_utxo_boost(tmpctx,
+				  ld->wallet,
+				  get_block_height(ld->topology),
+				  bitcoin_tx_compute_fee(newtx),
+				  feerate,
+				  &weight);
 
-		/* Get fresh utxo */
-		utxo = wallet_find_utxo(tmpctx, ld->wallet,
-					get_block_height(ld->topology),
-					NULL,
-					0, /* FIXME: unused! */
-					0, false,
-					cast_const2(const struct utxo **, utxos));
-		if (!utxo) {
-			/* Did we get nothing at all? */
-			if (tal_count(utxos) == 0) {
-				log_unusual(channel->log,
-					    "We want to bump HTLC fee, but no funds!");
-				return true;
-			}
-			/* At least we got something, right? */
-			break;
+	/* Add those to create a new PSBT */
+	psbt = psbt_using_utxos(tmpctx, ld->wallet, utxos, locktime,
+				BITCOIN_TX_RBF_SEQUENCE, newtx->psbt);
+
+	/* Subtract how much we pay in fees for this tx, to calc excess. */
+	if (!amount_sat_sub(&excess,
+			    psbt_compute_fee(psbt),
+			    amount_tx_fee(feerate, weight))) {
+		/* We didn't make the feerate.  Did we get nothing at all? */
+		if (tal_count(utxos) == 0) {
+			log_unusual(channel->log,
+				    "We want to bump HTLC fee, but no funds!");
+			return true;
 		}
-
-		/* Add to any UTXOs we have already */
-		tal_arr_expand(&utxos, utxo);
-		weight += bitcoin_tx_simple_input_weight(utxo->is_p2sh);
+		/* At least we got something! */
+		log_unusual(channel->log,
+			    "We want to bump HTLC fee more, but ran out of funds!");
+		excess = AMOUNT_SAT(0);
 	}
 
 	/* We were happy with feerate already (can't happen with zero-fee
@@ -924,17 +923,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	if (tal_count(utxos) == 0)
 		return true;
 
-	/* PSBT knows how to spend utxos; append to existing. */
-	psbt = psbt_using_utxos(tmpctx, ld->wallet, utxos, locktime,
-				BITCOIN_TX_RBF_SEQUENCE, newtx->psbt);
-
-	/* Subtract how much we pay in fees for this tx, to calc excess. */
-	if (!amount_sat_sub(&excess,
-			    psbt_compute_fee(psbt),
-			    amount_sat((u64)weight * feerate / 1000))) {
-		excess = AMOUNT_SAT(0);
-	}
-
+	/* Maybe add change */
 	change = change_amount(excess, feerate, weight);
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		/* Append change output. */
