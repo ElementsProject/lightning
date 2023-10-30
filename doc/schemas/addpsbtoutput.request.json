@@ -16,6 +16,9 @@
     "initialpsbt": {
       "type": "string",
       "description": "the (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically"
+    },
+    "destination": {
+      "type": "string"
     }
   }
 }

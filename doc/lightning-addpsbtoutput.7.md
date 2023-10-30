@@ -4,7 +4,7 @@ lightning-addpsbtoutput -- Command to populate PSBT outputs from the wallet
 SYNOPSIS
 --------
 
-**addpsbtoutput** *satoshi* [*initialpsbt*] [*locktime*]
+**addpsbtoutput** *satoshi* [*initialpsbt*] [*locktime*] [*destination*]
 
 DESCRIPTION
 -----------
@@ -25,6 +25,8 @@ will be created automatically.
 
 *locktime* is an optional locktime: if not set, it is set to a recent
 block height (if no initial psbt is specified).
+
+If *destination* is not set, an internal address is generated.
 
 EXAMPLE USAGE
 -------------

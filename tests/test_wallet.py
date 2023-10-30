@@ -633,6 +633,17 @@ def test_addpsbtoutput(node_factory, bitcoind, chainparams):
     assert psbt_info['tx']['vout'][n]['value'] * 100000000 == amount2
     assert psbt_info['tx']['vout'][n]['n'] == result['outnum']
 
+    dest = l1.rpc.newaddr('p2tr')['p2tr']
+    result = l1.rpc.addpsbtoutput(amount2, result['psbt'], destination=dest)
+    n = result['outnum']
+
+    psbt_info = bitcoind.rpc.decodepsbt(l1.rpc.setpsbtversion(result['psbt'], 0)['psbt'])
+
+    assert len(psbt_info['tx']['vout']) == 3
+    assert psbt_info['tx']['vout'][n]['value'] * 100000000 == amount2
+    assert psbt_info['tx']['vout'][n]['n'] == result['outnum']
+    assert psbt_info['tx']['vout'][n]['scriptPubKey']['address'] == dest
+
 
 def test_utxopsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
