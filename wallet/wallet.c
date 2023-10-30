@@ -82,7 +82,7 @@ static enum state_change state_change_in_db(enum state_change s)
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
-	struct utxo **utxos = wallet_get_utxos(NULL, w, OUTPUT_STATE_ANY);
+	struct utxo **utxos = wallet_get_all_utxos(NULL, w);
 	struct bitcoin_outpoint outpoint;
 
 	w->owned_outpoints = outpointfilter_new(w);
@@ -303,55 +303,12 @@ bool wallet_update_output_status(struct wallet *w,
 	return changes > 0;
 }
 
-struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
+static struct utxo **gather_utxos(const tal_t *ctx, struct db_stmt *stmt STEALS)
 {
 	struct utxo **results;
-	struct db_stmt *stmt;
 
-	if (state == OUTPUT_STATE_ANY) {
-		stmt = db_prepare_v2(w->db, SQL("SELECT"
-						"  prev_out_tx"
-						", prev_out_index"
-						", value"
-						", type"
-						", status"
-						", keyindex"
-						", channel_id"
-						", peer_id"
-						", commitment_point"
-						", option_anchor_outputs"
-						", confirmation_height"
-						", spend_height"
-						", scriptpubkey "
-						", reserved_til "
-						", csv_lock "
-						", is_in_coinbase "
-						"FROM outputs"));
-	} else {
-		stmt = db_prepare_v2(w->db, SQL("SELECT"
-						"  prev_out_tx"
-						", prev_out_index"
-						", value"
-						", type"
-						", status"
-						", keyindex"
-						", channel_id"
-						", peer_id"
-						", commitment_point"
-						", option_anchor_outputs"
-						", confirmation_height"
-						", spend_height"
-						", scriptpubkey "
-						", reserved_til "
-						", csv_lock "
-						", is_in_coinbase "
-						"FROM outputs "
-						"WHERE status= ? "));
-		db_bind_int(stmt, output_status_in_db(state));
-	}
 	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct utxo*, 0);
+	results = tal_arr(ctx, struct utxo *, 0);
 	while (db_step(stmt)) {
 		struct utxo *u = wallet_stmt2output(results, stmt);
 		tal_arr_expand(&results, u);
@@ -361,11 +318,70 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	return results;
 }
 
+struct utxo **wallet_get_all_utxos(const tal_t *ctx, struct wallet *w)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", option_anchor_outputs"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey "
+					", reserved_til "
+					", csv_lock "
+					", is_in_coinbase "
+					"FROM outputs"));
+	return gather_utxos(ctx, stmt);
+}
+
+/**
+ * wallet_get_unspent_utxos - Return reserved and unreserved UTXOs.
+ *
+ * Returns a `tal_arr` of `utxo` structs. Double indirection in order
+ * to be able to steal individual elements onto something else.
+ *
+ * Use utxo_is_reserved() to test if it's reserved.
+ */
+struct utxo **wallet_get_unspent_utxos(const tal_t *ctx, struct wallet *w)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", option_anchor_outputs"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey "
+					", reserved_til "
+					", csv_lock "
+					", is_in_coinbase "
+					"FROM outputs "
+					"WHERE status != ?"));
+	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_SPENT));
+	return gather_utxos(ctx, stmt);
+}
+
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w)
 {
 	struct db_stmt *stmt;
-	struct utxo **results;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  prev_out_tx"
@@ -387,16 +403,8 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					" FROM outputs"
 					" WHERE channel_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
-	db_query_prepared(stmt);
 
-	results = tal_arr(ctx, struct utxo *, 0);
-	while (db_step(stmt)) {
-		struct utxo *u = wallet_stmt2output(results, stmt);
-		tal_arr_expand(&results, u);
-	}
-	tal_free(stmt);
-
-	return results;
+	return gather_utxos(ctx, stmt);
 }
 
 struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,

@@ -111,10 +111,6 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	struct channel *chan;
 	struct peer *p;
 	struct peer_node_id_map_iter it;
-	/* Available + reserved utxos are A+, as reserved things have not yet
-	 * been spent */
-	enum output_status utxo_states[] = {OUTPUT_STATE_AVAILABLE,
-					    OUTPUT_STATE_RESERVED};
 
 	snap->blockheight = blockheight;
 	snap->timestamp = time_now().ts.tv_sec;
@@ -127,18 +123,17 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	bal->acct_id = WALLET;
 	bal->bip173_name = chainparams->lightning_hrp;
 
-	for (size_t i = 0; i < ARRAY_SIZE(utxo_states); i++) {
-		utxos = wallet_get_utxos(NULL, ld->wallet, utxo_states[i]);
-		for (size_t j = 0; j < tal_count(utxos); j++) {
-			/* Don't count unconfirmed utxos! */
-			if (!utxos[j]->spendheight && !utxos[j]->blockheight)
-				continue;
-			if (!amount_msat_add_sat(&bal->balance,
-						 bal->balance, utxos[j]->amount))
-				fatal("Overflow adding node balance");
-		}
-		tal_free(utxos);
+	utxos = wallet_get_unspent_utxos(NULL, ld->wallet);
+	for (size_t j = 0; j < tal_count(utxos); j++) {
+		/* Don't count unconfirmed utxos! */
+		if (!utxos[j]->spendheight && !utxos[j]->blockheight)
+			continue;
+		if (!amount_msat_add_sat(&bal->balance,
+					 bal->balance, utxos[j]->amount))
+			fatal("Overflow adding node balance");
 	}
+	tal_free(utxos);
+
 	snap->accts[0] = bal;
 
 	/* Add channel balances */
