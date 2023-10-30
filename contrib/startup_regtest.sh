@@ -143,14 +143,14 @@ start_ln() {
 	while ! bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
 
 	# Check if default wallet exists
-	if ! bitcoin-cli -datadir=$PATH_TO_BITCOIN -regtest listwalletdir | jq -r '.wallets[] | .name' | grep -wqe 'default' ; then
+	if ! bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest listwalletdir | jq -r '.wallets[] | .name' | grep -wqe 'default' ; then
 		# wallet dir does not exist, create one
 		echo "Making \"default\" bitcoind wallet."
 		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest createwallet default >/dev/null 2>&1
 	fi
 
 	# Check if default wallet is loaded
-	if ! bitcoin-cli -datadir=$PATH_TO_BITCOIN -regtest listwallets | jq -r '.[]' | grep -wqe 'default' ; then
+	if ! bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest listwallets | jq -r '.[]' | grep -wqe 'default' ; then
 		echo "Loading \"default\" bitcoind wallet."
 		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest loadwallet default >/dev/null 2>&1
 	fi
@@ -160,7 +160,7 @@ start_ln() {
 		bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest generatetoaddress 1 "$(bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest getnewaddress)" > /dev/null
 	fi
 
-	alias bt-cli='bitcoin-cli -datadir=$PATH_TO_BITCOIN -regtest'
+	alias bt-cli='bitcoin-cli -datadir="$PATH_TO_BITCOIN" -regtest'
 
 	if [ -z "$1" ]; then
 		nodes=2
