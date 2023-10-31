@@ -948,6 +948,7 @@ static const struct config testnet_config = {
 
 	.max_fee_multiplier = 10,
 	.commit_fee_percent = 100,
+	.feerate_offset = 5,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -1022,6 +1023,7 @@ static const struct config mainnet_config = {
 
 	.max_fee_multiplier = 10,
 	.commit_fee_percent = 100,
+	.feerate_offset = 5,
 };
 
 static void check_config(struct lightningd *ld)

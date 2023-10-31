@@ -93,6 +93,9 @@ struct config {
 
 	/* Percent of CONSERVATIVE/2 feerate we'll use for commitment txs. */
 	u64 commit_fee_percent;
+
+	/* Commit feerate offset above min_feerate to use as a channel opener */
+	u32 feerate_offset;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
