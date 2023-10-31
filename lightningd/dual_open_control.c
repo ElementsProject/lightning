@@ -1297,7 +1297,7 @@ wallet_update_channel(struct lightningd *ld,
 	return inflight;
 }
 
-static void
+static bool
 wallet_update_channel_commit(struct lightningd *ld,
 			     struct channel *channel,
 			     struct channel_inflight *inflight,
@@ -1343,10 +1343,13 @@ wallet_update_channel_commit(struct lightningd *ld,
 					       type_to_string(tmpctx, struct bitcoin_txid, &inflight_txid),
 					       type_to_string(tmpctx, struct bitcoin_txid, &txid));
 		}
-	} else {
-		inflight_set_last_tx(inflight, remote_commit, *remote_commit_sig);
-		wallet_inflight_save(ld->wallet, inflight);
+		return false;
 	}
+
+
+	inflight_set_last_tx(inflight, remote_commit, *remote_commit_sig);
+	wallet_inflight_save(ld->wallet, inflight);
+	return true;
 }
 
 
@@ -3469,6 +3472,7 @@ static void handle_commit_received(struct subd *dualopend,
 	struct openchannel2_psbt_payload *payload;
 	struct channel_inflight *inflight;
 	struct command *cmd;
+	bool updated;
 
 	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &remote_commit,
@@ -3491,9 +3495,9 @@ static void handle_commit_received(struct subd *dualopend,
 		return;
 	}
 
-	wallet_update_channel_commit(ld, channel, inflight,
-				     remote_commit,
-				     &remote_commit_sig);
+	updated = wallet_update_channel_commit(ld, channel, inflight,
+					       remote_commit,
+					       &remote_commit_sig);
 
 	/* FIXME: handle RBF pbases */
 	if (pbase && channel->state != DUALOPEND_AWAITING_LOCKIN) {
@@ -3517,6 +3521,10 @@ static void handle_commit_received(struct subd *dualopend,
 		was_pending(command_success(cmd, response));
 		return;
 	case REMOTE:
+		if (!updated) {
+			log_info(channel->log, "Already had sigs, skipping notif");
+			return;
+		}
 		payload = tal(dualopend, struct openchannel2_psbt_payload);
 		payload->ld = ld;
 		payload->dualopend = dualopend;
