@@ -622,13 +622,10 @@ def test_disconnect_fundee_v2(node_factory):
 
 
 @pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
 def test_disconnect_half_signed(node_factory):
     # Now, these are the corner cases.  Fundee sends funding_signed,
     # but opener doesn't receive it.
     disconnects = ['-WIRE_FUNDING_SIGNED']
-    if EXPERIMENTAL_DUAL_FUND:
-        disconnects = ['-WIRE_COMMITMENT_SIGNED']
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
@@ -641,6 +638,26 @@ def test_disconnect_half_signed(node_factory):
     # Peer remembers, opener doesn't.
     wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     assert len(l2.rpc.listpeerchannels(l1.info['id'])['channels']) == 1
+
+
+@pytest.mark.openchannel('v2')
+def test_disconnect_half_signed_v2(node_factory):
+    # Now, these are the corner cases.
+    # L1 remembers the channel, L2 doesn't
+    disconnects = ['-WIRE_TX_COMPLETE']
+    l1 = node_factory.get_node(disconnect=disconnects)
+    l2 = node_factory.get_node()
+
+    l1.fundwallet(2000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError):
+        l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
+
+    # Opener remembers, peer doesn't.
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] == [])
+    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 1
 
 
 @pytest.mark.openchannel('v1')
