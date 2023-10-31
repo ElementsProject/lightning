@@ -549,8 +549,8 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 				psbt_set_version(psbt, 0);
 				hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				    "Received wally_err attempting to "
-				    "sign utxo with key %s. PSBT: %s",
-				    type_to_string(tmpctx, struct pubkey,
+				    "sign input %zu with key %s. PSBT: %s",
+				    j, type_to_string(tmpctx, struct pubkey,
 						   &pubkey),
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));

@@ -19,6 +19,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
+#include <wally_psbt.h>
 
 /* This is attached to each anchor tx retransmission */
 struct one_anchor {
@@ -209,15 +210,51 @@ struct anchor_details *create_anchor_details(const tal_t *ctx,
 	return adet;
 }
 
-static u32 commit_feerate(const struct local_anchor_info *info)
+/* total_weight includes the commitment tx we're trying to push! */
+static struct wally_psbt *anchor_psbt(const tal_t *ctx,
+				      struct channel *channel,
+				      struct one_anchor *anch,
+				      struct utxo **utxos,
+				      u32 feerate_target,
+				      size_t total_weight)
 {
-	u32 feerate;
+	struct lightningd *ld = channel->peer->ld;
+	struct wally_psbt *psbt;
+	struct amount_sat change, fee;
+	struct pubkey final_key;
 
-	/* Fee should not overflow! */
-	if (!amount_feerate(&feerate, info->commitment_fee, info->commitment_weight))
-		abort();
+	/* PSBT knows how to spend utxos. */
+	psbt = psbt_using_utxos(ctx, ld->wallet, utxos,
+				default_locktime(ld->topology),
+				BITCOIN_TX_RBF_SEQUENCE, NULL);
 
-	return feerate;
+	/* BOLT #3:
+	 * #### `to_local_anchor` and `to_remote_anchor` Output (option_anchors)
+	 *...
+	 * The amount of the output is fixed at 330 sats, the default
+	 * dust limit for P2WSH.
+	 */
+	psbt_append_input(psbt, &anch->info.anchor_point, BITCOIN_TX_RBF_SEQUENCE,
+			  NULL, anch->adet->anchor_wscript, NULL);
+	psbt_input_set_wit_utxo(psbt, psbt->num_inputs - 1,
+				scriptpubkey_p2wsh(tmpctx, anch->adet->anchor_wscript),
+				AMOUNT_SAT(330));
+	psbt_input_add_pubkey(psbt, psbt->num_inputs - 1, &channel->local_funding_pubkey, false);
+
+	/* A zero-output tx is invalid: we must have change, even if not really economic */
+	change = psbt_compute_fee(psbt);
+	/* Assume we add a change output, what would the total fee be? */
+	fee = amount_tx_fee(feerate_target, total_weight + change_weight());
+	if (!amount_sat_sub(&change, change, fee)
+	    || amount_sat_less(change, chainparams->dust_limit)) {
+		change = chainparams->dust_limit;
+	}
+
+	bip32_pubkey(ld, &final_key, channel->final_key_idx);
+	psbt_append_output(psbt,
+			   scriptpubkey_p2wpkh(tmpctx, &final_key),
+			   change);
+	return psbt;
 }
 
 /* If it's possible and worth it, return signed tx.  Otherwise NULL. */
@@ -226,60 +263,98 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				       struct one_anchor *anch)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct utxo **utxos;
-	size_t weight;
-	struct amount_sat fee, diff, change;
+	struct utxo **utxos COMPILER_WANTS_INIT("gcc -O3 CI");
+	size_t base_weight, weight;
+	struct amount_sat fee, diff;
 	struct bitcoin_tx *tx;
-	bool worthwhile;
 	struct wally_psbt *psbt;
 	struct amount_msat total_value;
-	struct pubkey final_key;
 	const u8 *msg;
 
-	/* Estimate weight of spend tx plus commitment_tx */
-	weight = bitcoin_tx_core_weight(2, 1)
-		+ bitcoin_tx_input_weight(false, bitcoin_tx_simple_input_witness_weight())
+	/* Estimate weight of spend tx plus commitment_tx (not including any UTXO we add) */
+	base_weight = bitcoin_tx_core_weight(2, 1)
 		+ bitcoin_tx_input_weight(false,
 					  bitcoin_tx_input_sig_weight()
 					  + 1 + tal_bytelen(anch->adet->anchor_wscript))
 		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN)
 		+ anch->info.commitment_weight;
 
-	worthwhile = false;
 	total_value = AMOUNT_MSAT(0);
-	for (int i = tal_count(anch->adet->vals) - 1; i >= 0 && !worthwhile; --i) {
+	psbt = NULL;
+	for (int i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
 		const struct deadline_value *val = &anch->adet->vals[i];
-		u32 feerate;
+		u32 feerate, feerate_target;
+		struct wally_psbt *candidate_psbt;
 
 		/* Calculate the total value for the current deadline
 		 * and all the following */
 		if (!amount_msat_add(&total_value, total_value, val->msat))
 			return NULL;
 
-		feerate = feerate_for_target(ld->topology, val->block);
-		/* Would the commit tx make that feerate by itself? */
-		if (commit_feerate(&anch->info) >= feerate)
+		feerate_target = feerate_for_target(ld->topology, val->block);
+
+		/* Ask for some UTXOs which could meet this feerate */
+		weight = base_weight;
+		utxos = wallet_utxo_boost(tmpctx,
+					  ld->wallet,
+					  get_block_height(ld->topology),
+					  anch->info.commitment_fee,
+					  feerate_target,
+					  &weight);
+
+		/* Create a new candidate PSBT */
+		candidate_psbt = anchor_psbt(tmpctx, channel, anch, utxos, feerate_target, weight);
+		if (!candidate_psbt)
 			continue;
 
-		/* Get the fee required to meet the current block */
-		fee = amount_tx_fee(feerate, weight);
+		fee = psbt_compute_fee(candidate_psbt);
 
-		/* We already have part of the fee in commitment_tx. */
-		if (amount_sat_sub(&fee, fee, anch->info.commitment_fee)
-		    && amount_msat_greater_sat(total_value, fee)) {
-			worthwhile = true;
+		/* Is it even worth spending this fee to meet the deadline? */
+		if (!amount_msat_greater_sat(total_value, fee)) {
+			log_debug(channel->log,
+				  "Not worth fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
+				  fmt_amount_sat(tmpctx, fee),
+				  anch->commit_side == LOCAL ? "local" : "remote",
+				  fmt_amount_msat(tmpctx, val->msat),
+				  val->block, feerate_target);
+			break;
 		}
 
-		log_debug(channel->log, "%s fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
-			  worthwhile ? "Worth" : "Not worth",
+		/* Add in base commitment fee */
+		if (!amount_sat_add(&fee,
+				    fee, anch->info.commitment_fee))
+			abort();
+		if (!amount_feerate(&feerate, fee, weight))
+			abort();
+
+		if (feerate < feerate_target) {
+			/* We might have had lower feerates which worked: only complain if
+			 * we have *nothing* */
+			if (tal_count(utxos) == 0 && !psbt) {
+				log_unusual(channel->log,
+					    "No utxos to bump commit_tx to feerate %uperkw!",
+					    feerate_target);
+				break;
+			}
+
+			log_unusual(channel->log,
+				    "We want to bump commit_tx to feerate %uperkw, but can only bump to %uperkw with %zu UTXOs!",
+				    feerate_target, feerate, tal_count(utxos));
+			psbt = candidate_psbt;
+			/* We don't expect to do any better at higher feerates */
+			break;
+		}
+
+		log_debug(channel->log, "Worth fee %s for %s commit tx to get %s in %u blocks at feerate %uperkw",
 			  fmt_amount_sat(tmpctx, fee),
 			  anch->commit_side == LOCAL ? "local" : "remote",
 			  fmt_amount_msat(tmpctx, val->msat),
 			  val->block, feerate);
+		psbt = candidate_psbt;
 	}
 
-	/* Not worth it? */
-	if (!worthwhile)
+	/* No psbt was worth it? */
+	if (!psbt)
 		return NULL;
 
 	/* Higher enough than previous to be valid RBF?
@@ -298,63 +373,6 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		  anch->info.commitment_weight,
 		  (fee.satoshis + anch->info.commitment_fee.satoshis) /* Raw: debug log */
 		  * 1000 / weight);
-
-	/* FIXME: Use more than one utxo! */
-	utxos = tal_arr(tmpctx, struct utxo *, 1);
-	utxos[0] = wallet_find_utxo(utxos, ld->wallet,
-				    get_block_height(ld->topology),
-				    NULL,
-				    0, /* FIXME: unused! */
-				    0, false, NULL);
-	if (!utxos[0]) {
-		log_unusual(channel->log,
-			    "We want to bump commit_tx fee, but no funds!");
-		return NULL;
-	}
-
-	/* FIXME: we get a random UTXO.  We should really allow
-	 * multiple UTXOs here */
-	if (amount_sat_less(utxos[0]->amount, fee)) {
-		log_unusual(channel->log,
-			    "We want to bump commit_tx with fee %s, but utxo %s is only %s!",
-			    fmt_amount_sat(tmpctx, fee),
-			    type_to_string(tmpctx, struct bitcoin_outpoint,
-					   &utxos[0]->outpoint),
-			    fmt_amount_sat(tmpctx, utxos[0]->amount));
-		return NULL;
-	}
-
-	/* PSBT knows how to spend utxos. */
-	psbt = psbt_using_utxos(tmpctx, ld->wallet, utxos,
-				default_locktime(ld->topology),
-				BITCOIN_TX_RBF_SEQUENCE, NULL);
-
-	/* BOLT #3:
-	 * #### `to_local_anchor` and `to_remote_anchor` Output (option_anchors)
-	 *...
-	 * The amount of the output is fixed at 330 sats, the default
-	 * dust limit for P2WSH.
-	 */
-	psbt_append_input(psbt, &anch->info.anchor_point, BITCOIN_TX_RBF_SEQUENCE,
-			  NULL, anch->adet->anchor_wscript, NULL);
-	psbt_input_set_wit_utxo(psbt, 1,
-				scriptpubkey_p2wsh(tmpctx, anch->adet->anchor_wscript),
-				AMOUNT_SAT(330));
-	psbt_input_add_pubkey(psbt, 1, &channel->local_funding_pubkey, false);
-
-	if (!amount_sat_add(&change, utxos[0]->amount, AMOUNT_SAT(330))
-	    || !amount_sat_sub(&change, change, fee)) {
-		log_broken(channel->log,
-			   "Error calculating anchorspend change: utxo %s fee %s",
-			   fmt_amount_sat(tmpctx, utxos[0]->amount),
-			   fmt_amount_sat(tmpctx, fee));
-		return NULL;
-	}
-
-	bip32_pubkey(ld, &final_key, channel->final_key_idx);
-	psbt_append_output(psbt,
-			   scriptpubkey_p2wpkh(tmpctx, &final_key),
-			   change);
 
 	/* OK, HSM, sign it! */
 	msg = towire_hsmd_sign_anchorspend(NULL,
