@@ -70,7 +70,8 @@ enum dev_disconnect dev_disconnect(const struct node_id *id, int pkt_type)
 		err(1, "lseek failure");
 	}
 
-	status_peer_debug(id, "dev_disconnect: %s (%s)", dev_disconnect_line,
+	status_peer_debug(id, "dev_disconnect: %s (%s)",
+			  dev_disconnect_line,
 			  peer_wire_name(pkt_type));
 	return dev_disconnect_line[0];
 }

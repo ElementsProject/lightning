@@ -446,6 +446,14 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 		break;
 	case DEV_DISCONNECT_NORMAL:
 		break;
+	case DEV_DISCONNECT_DROP:
+		/* Drop this message and continue */
+		if (taken(msg))
+			tal_free(msg);
+		/* Tell them to read again, */
+		io_wake(&peer->subds);
+		return msg_queue_wait(peer->to_peer, peer->peer_outq,
+				      next, peer);
 	case DEV_DISCONNECT_DISABLE_AFTER:
 		peer->dev_read_enabled = false;
 		peer->dev_writes_enabled = tal(peer, u32);

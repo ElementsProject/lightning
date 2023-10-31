@@ -216,6 +216,38 @@ def test_v2_open_sigs_reconnect_1(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.xfail
+@pytest.mark.openchannel('v2')
+def test_v2_open_sigs_out_of_order(node_factory, bitcoind):
+    """ Test what happens if the tx-sigs get sent "before" commitment signed """
+    disconnects = ['$WIRE_COMMITMENT_SIGNED']
+
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{},
+                                          {'disconnect': disconnects}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Fund the channel, should error because L2 doesn't see our commitment-signed
+    # so they think we've sent things out of order
+    with pytest.raises(RpcError, match='tx_signatures sent before commitment sigs'):
+        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+
+    # L1 should remove the in-progress channel
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'] == [])
+    # L2 should fail it to chain
+    l2.daemon.wait_for_logs([r'to AWAITING_UNILATERAL',
+                             # We can't broadcast this, we don't have sigs for funding
+                             'sendrawtx exit 25'])
+
+
 @pytest.mark.openchannel('v2')
 def test_v2_fail_second(node_factory, bitcoind):
     """ Open a channel succeeds; opening a second channel
