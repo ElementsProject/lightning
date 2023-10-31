@@ -1033,6 +1033,70 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
+    disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
+                   '=WIRE_COMMITMENT_SIGNED',
+                   '-WIRE_COMMITMENT_SIGNED']
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'disconnect': disconnects,
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None,
+                                           'allow_broken_log': True}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    assert(only_one(vins))
+    prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
+
+    # Check that we're waiting for lockin
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # rbf the lease with a higher amount
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    # We 4x the feerate to beat the min-relay fee
+    next_feerate = '{}perkw'.format(rate * 4)
+
+    # Initiate an RBF
+    startweight = 42 + 172  # base weight, funding output
+    initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                               prev_utxos, reservedok=True,
+                               min_witness_weight=110,
+                               excess_as_change=True)
+
+    # Peers try RBF, break on initial COMMITMENT_SIGNED
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_update(chan_id, bump['psbt'])
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+
+    # We don't have the commtiments yet, there's no scratch_txid
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+    assert len(inflights) == 2
+    assert 'scratch_txid' not in inflights[1]
+
+    # Close the channel!
+    l1.rpc.close(chan_id, 1)
+    l1.daemon.wait_for_logs(['Broadcasting txid {}'.format(inflights[0]['scratch_txid']),
+                             'sendrawtx exit 0'])
+
+    wait_for(lambda: inflights[0]['scratch_txid'] in bitcoind.rpc.getrawmempool())
+    assert inflights[0]['funding_txid'] in bitcoind.rpc.getrawmempool()
+    assert inflights[1]['funding_txid'] not in bitcoind.rpc.getrawmempool()
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts={'allow_warning': True})
