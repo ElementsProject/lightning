@@ -288,6 +288,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 			      "Blackhole not supported during handshake");
 		break;
 	case DEV_DISCONNECT_NORMAL:
+	case DEV_DISCONNECT_DROP:
 		break;
 	case DEV_DISCONNECT_DISABLE_AFTER:
 		next = dev_peer_write_post_sabotage;

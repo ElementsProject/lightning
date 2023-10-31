@@ -1628,7 +1628,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_TX_SIGNATURES:
 			/* We can get these when we restart and immediately
 			 * startup an RBF */
-
 			handle_tx_sigs(state, msg);
 			continue;
 		case WIRE_CHANNEL_READY:
