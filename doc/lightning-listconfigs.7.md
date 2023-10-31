@@ -281,6 +281,9 @@ On success, an object is returned, containing:
   - **commit-fee** (object, optional):
     - **value\_int** (u64): field from config or cmdline, or default
     - **source** (string): source of configuration setting
+  - **commit-feerate-offset** (object, optional):
+    - **value\_int** (u32): field from config or cmdline, or default
+    - **source** (string): source of configuration setting
 - **# version** (string, optional): Special field indicating the current version **deprecated, removal in v24.05**
 - **plugins** (array of objects, optional) **deprecated, removal in v24.05**:
   - **path** (string): Full path of the plugin
@@ -359,6 +362,7 @@ On success, an object is returned, containing:
 - **developer** (boolean, optional): Whether developer mode is enabled *(added v23.08)*
 - **commit-fee** (u64, optional): The percentage of the 6-block fee estimate to use for commitment transactions **deprecated, removal in v24.05** *(added v23.05)*
 - **min-emergency-msat** (msat, optional): field from config or cmdline, or default *(added v23.08)*
+- **commit-feerate-offset** (u32, optional): additional commitment feerate applied by channel owner *(added v23.11)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -476,4 +480,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cc7b6d10f93b9efb34ad76d0cc2273d29189a8dd7ef4acef2e5227755c279ea8)
+[comment]: # ( SHA256STAMP:245e056bdda7c8015917c89e243a0fd3bdd1512ca760da5d7f0a284cb3214ef7)

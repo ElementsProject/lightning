@@ -313,6 +313,11 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
   The percentage of _estimatesmartfee 2/CONSERVATIVE_ to use for the commitment  
   transactions: default is 100.
 
+- **commit-feerate-offset**=_INTEGER_
+
+  The additional feerate a channel opener adds to their preferred feerate to
+  lessen the odds of a disconnect due to feerate disagreement (default 5).
+
 - **max-concurrent-htlcs**=_INTEGER_
 
   Number of HTLCs one channel can handle concurrently in each direction.  
