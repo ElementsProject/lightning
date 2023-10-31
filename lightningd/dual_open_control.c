@@ -2497,6 +2497,7 @@ json_openchannel_bump(struct command *cmd,
 	struct wally_psbt *psbt;
 	u32 last_feerate_perkw, next_feerate_min, *feerate_per_kw_funding;
 	struct open_attempt *oa;
+	struct channel_inflight *inflight;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
@@ -2599,8 +2600,21 @@ json_openchannel_bump(struct command *cmd,
 				    "Only the channel opener can initiate an"
 				    " RBF attempt");
 
+	inflight = channel_current_inflight(channel);
+	if (!inflight) {
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "No inflight for this channel exists.");
+	}
+
+	if (!inflight->remote_tx_sigs) {
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Funding sigs for this channel not "
+				    "secured, see `openchannel_signed`");
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
 
 	/* Ok, we're kosher to start */
 	channel->open_attempt = oa = new_channel_open_attempt(channel);
