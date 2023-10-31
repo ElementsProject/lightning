@@ -2204,25 +2204,10 @@ static u8 *accepter_commits(struct state *state,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
 
-	/* Wait for the peer to send us our commitment tx signature */
-	msg = opening_negotiate_msg(tmpctx, state);
-	if (!msg) {
-		*err_reason = NULL;
-		return NULL;
-	}
-
-	*err_reason = do_commit_signed_received(tmpctx, msg, state, tx_state,
-						&local_commit, &remote_sig);
-	if (*err_reason) {
-		revert_channel_state(state);
-		return NULL;
-	}
-
 	/* Let lightningd know we're about to send our commitment sigs */
 	peer_billboard(false, "channel open: commitment ready to send, "
 		       "sending channel to lightningd to save");
 
-	notleak(tal_steal(NULL, local_commit));
 	msg = towire_dualopend_commit_ready(state,
 					    &tx_state->remoteconf,
 					    tx_state->psbt,
@@ -2265,27 +2250,43 @@ static u8 *accepter_commits(struct state *state,
 		return NULL;
 	}
 
+	tal_steal(NULL, pbase);
+	/* Send our commitment sigs over now */
+	peer_write(state->pps, take(commit_msg));
+
+	/* Wait for the peer to send us our commitment tx signature */
+	msg = opening_negotiate_msg(tmpctx, state);
+	if (!msg) {
+		*err_reason = NULL;
+		tal_free(pbase);
+		return NULL;
+	}
+
+	*err_reason = do_commit_signed_received(tmpctx, msg, state, tx_state,
+						&local_commit, &remote_sig);
+	if (*err_reason) {
+		revert_channel_state(state);
+		tal_free(pbase);
+		return NULL;
+	}
+
 	/* Send the commitment_signed to lightningd; will save to db,
 	 * then wait to get our sigs back */
 	peer_billboard(false, "channel open: commitment received, "
 		       "sending to lightningd to save");
 
-	/* We have to hang onto the `commit_msg` until after this call */
-	tal_steal(NULL, commit_msg);
 	msg = towire_dualopend_commit_rcvd(state,
 					   local_commit,
 					   &remote_sig,
 					   pbase);
 
+	tal_free(pbase);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS)
 		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
 
-	/* Send our commitment sigs over now */
-	peer_write(state->pps, take(commit_msg));
-	tal_free(local_commit);
 	return msg;
 }
 
