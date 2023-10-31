@@ -1252,6 +1252,7 @@ static char *do_commit_signed_received(const tal_t *ctx,
 					     tx_state->psbt));
 	}
 
+	tx_state->has_commitments = true;
 	return NULL;
 }
 
@@ -1344,6 +1345,11 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			      type_to_string(tmpctx,
 					     struct bitcoin_txid,
 					     &tx_state->funding.txid));
+
+	if (!tx_state->has_commitments)
+		open_err_fatal(state,
+			      "tx_signatures sent before commitment sigs %s",
+			      tal_hex(msg, msg));
 
 	/* We put the PSBT + sigs all together */
 	for (size_t i = 0, j = 0; i < tx_state->psbt->num_inputs; i++) {
