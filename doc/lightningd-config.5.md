@@ -420,6 +420,11 @@ opens a channel before the channel is usable.
   The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
 transactions: default is 100.
 
+* **commit-feerate-offset**=*INTEGER*
+
+  The additional feerate a channel opener adds to their preferred feerate to
+lessen the odds of a disconnect due to feerate disagreement (default 5).
+
 * **max-concurrent-htlcs**=*INTEGER*
 
   Number of HTLCs one channel can handle concurrently in each direction.

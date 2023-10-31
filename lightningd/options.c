@@ -1578,6 +1578,10 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--commit-fee", OPT_SHOWINT,
 		       opt_set_u64, opt_show_u64, &ld->config.commit_fee_percent,
 		       "Percentage of fee to request for their commitment");
+	clnopt_witharg("--commit-feerate-offset", OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32, &ld->config.feerate_offset,
+		       "Additional feerate per kw to apply to feerate updates "
+		       "as the channel opener");
 	clnopt_witharg("--min-emergency-msat", OPT_SHOWMSATS,
 		       opt_set_sat_nondust, opt_show_sat, &ld->emergency_sat,
 		       "Amount to leave in wallet for spending anchor closes");

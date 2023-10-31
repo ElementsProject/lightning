@@ -1351,6 +1351,24 @@
               "description": "source of configuration setting"
             }
           }
+        },
+        "commit-feerate-offset": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value_int",
+            "source"
+          ],
+          "properties": {
+            "value_int": {
+              "type": "u32",
+              "description": "field from config or cmdline, or default"
+            },
+            "source": {
+              "type": "string",
+              "description": "source of configuration setting"
+            }
+          }
         }
       }
     },
@@ -1770,6 +1788,11 @@
       "type": "msat",
       "added": "v23.08",
       "description": "field from config or cmdline, or default"
+    },
+    "commit-feerate-offset": {
+      "type": "u32",
+      "added": "v23.11",
+      "description": "additional commitment feerate applied by channel owner"
     }
   }
 }
