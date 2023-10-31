@@ -56,6 +56,13 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
+	/* The channel opener should use a slightly higher than minimal feerate
+	 * in order to avoid excessive feerate disagreements */
+	if (channel->opener == LOCAL) {
+		feerate += ld->config.feerate_offset;
+		if (feerate > max_feerate)
+			feerate = max_feerate;
+	}
 
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
 		min_feerate = 1;

@@ -2412,7 +2412,7 @@ def test_update_fee(node_factory, bitcoind):
     # Make payments.
     l1.pay(l2, 200000000)
     # First payment causes fee update.
-    l2.daemon.wait_for_log('peer updated fee to 11000')
+    l2.daemon.wait_for_log('peer updated fee to 11005')
     l2.pay(l1, 100000000)
 
     # Now shutdown cleanly.
@@ -2454,22 +2454,22 @@ def test_fee_limits(node_factory, bitcoind):
     l1.set_feerates((15, 15, 15, 15), False)
     l1.start()
 
-    l1.daemon.wait_for_log('Received WARNING .*: update_fee 253 outside range 1875-75000')
+    l1.daemon.wait_for_log('Received WARNING .*: update_fee 258 outside range 1875-75000')
     # They hang up on *us*
     l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL: channeld: Owning subdaemon channeld died')
 
     # Disconnects, but does not error.  Make sure it's noted in their status though.
     # FIXME: does not happen for l1!
     # assert 'update_fee 253 outside range 1875-75000' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'][0]
-    assert 'update_fee 253 outside range 1875-75000' in only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status'][0]
+    assert 'update_fee 258 outside range 1875-75000' in only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status'][0]
 
-    assert only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] != 253
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] != 258
     # Make l2 accept those fees, and it should recover.
     assert only_one(l2.rpc.setchannel(l1.get_channel_scid(l2), ignorefeelimits=True)['channels'])['ignore_fee_limits'] is True
     assert only_one(l2.rpc.listpeerchannels()['channels'])['ignore_fee_limits'] is True
 
     # Now we stay happy (and connected!)
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] == 253)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['feerate']['perkw'] == 258)
     assert only_one(l2.rpc.listpeerchannels()['channels'])['peer_connected'] is True
 
     l1.rpc.close(l2.info['id'])
@@ -2583,19 +2583,19 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     # Make l1 send out feechange; triggers disconnect/reconnect.
     # (Note: < 10% change, so no smoothing here!)
     l1.set_feerates((14000, 14000, 14000, 3750))
-    l1.daemon.wait_for_log('Setting REMOTE feerate to 14000')
-    l2.daemon.wait_for_log('Setting LOCAL feerate to 14000')
+    l1.daemon.wait_for_log('Setting REMOTE feerate to 14005')
+    l2.daemon.wait_for_log('Setting LOCAL feerate to 14005')
     l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
     # Wait for reconnect....
-    l1.daemon.wait_for_log('Feerate:.*LOCAL now 14000')
+    l1.daemon.wait_for_log('Feerate:.*LOCAL now 14005')
 
     l1.pay(l2, 200000000)
     l2.pay(l1, 100000000)
 
     # They should both have gotten commits with correct feerate.
-    assert l1.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
-    assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
+    assert l1.daemon.is_in_log('got commitsig [0-9]*: feerate 14005')
+    assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14005')
 
     # Now shutdown cleanly.
     l1.rpc.close(chan)
@@ -3347,7 +3347,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.pay(l2, 10**9 - slack)
 
     # It will send this once (may have happened before line_graph's wait)
-    wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 11000'))
+    wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 11005'))
     wait_for(lambda: l1.daemon.is_in_log('peer_out WIRE_UPDATE_FEE'))
 
     # Now change feerates to something l1 can't afford.
