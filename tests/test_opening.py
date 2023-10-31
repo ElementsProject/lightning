@@ -217,7 +217,6 @@ def test_v2_open_sigs_reconnect_1(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail
 @pytest.mark.openchannel('v2')
 def test_v2_open_sigs_out_of_order(node_factory, bitcoind):
     """ Test what happens if the tx-sigs get sent "before" commitment signed """
