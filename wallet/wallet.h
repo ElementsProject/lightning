@@ -255,6 +255,9 @@ static inline enum channel_state channel_state_in_db(enum channel_state s)
 	case DUALOPEND_OPEN_COMMITTED:
 		BUILD_ASSERT(DUALOPEND_OPEN_COMMITTED == 11);
 		return s;
+	case DUALOPEND_OPEN_COMMIT_READY:
+		BUILD_ASSERT(DUALOPEND_OPEN_COMMIT_READY == 14);
+		return s;
 	case DUALOPEND_AWAITING_LOCKIN:
 		BUILD_ASSERT(DUALOPEND_AWAITING_LOCKIN == 12);
 		return s;

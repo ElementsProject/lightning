@@ -46,6 +46,9 @@ enum channel_state {
 	/* Channel has started splice and is awaiting lock-in */
 	CHANNELD_AWAITING_SPLICE,
 
+	/* Dual-funded channel initial commitment ready */
+	DUALOPEND_OPEN_COMMIT_READY,
+
 };
 #define CHANNEL_STATE_MAX CHANNELD_AWAITING_SPLICE
 
