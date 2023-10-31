@@ -321,6 +321,11 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh);
 size_t bitcoin_tx_2of2_input_witness_weight(void);
 
 /**
+ * change_weight - what's the weight of a change output?
+ */
+size_t change_weight(void);
+
+/**
  * change_fee - what's the cost to add a change output to this tx?
  * @feerate_perkw: feerate.
  * @total_weight: current weight of tx.

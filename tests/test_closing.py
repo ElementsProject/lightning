@@ -3703,7 +3703,6 @@ def test_onchain_rexmit_tx(node_factory, bitcoind):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
 def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
@@ -3899,7 +3898,6 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
