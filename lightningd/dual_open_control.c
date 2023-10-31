@@ -1127,6 +1127,7 @@ send_msg:
 		channel_saved_err_broken_reconn(channel,
 						"dualopend daemon died"
 						" before signed PSBT returned");
+		tal_free(msg);
 		return;
 	}
 	tal_del_destructor2(payload->dualopend,
