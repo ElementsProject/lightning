@@ -430,6 +430,7 @@ static inline bool channel_state_can_add_htlc(enum channel_state state)
 	case ONCHAIN:
 	case CLOSED:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		return false;
@@ -452,6 +453,7 @@ static inline bool channel_state_can_remove_htlc(enum channel_state state)
 	case ONCHAIN:
 	case CLOSED:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		return false;
@@ -469,6 +471,7 @@ static inline bool channel_state_closing(enum channel_state state)
 	case CHANNELD_AWAITING_LOCKIN:
 	case CHANNELD_NORMAL:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 	case CHANNELD_AWAITING_SPLICE:
@@ -496,6 +499,7 @@ static inline bool channel_state_fees_can_change(enum channel_state state)
 	case ONCHAIN:
 	case CLOSED:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		return false;
@@ -518,6 +522,7 @@ static inline bool channel_state_failing_onchain(enum channel_state state)
 	case CLOSINGD_COMPLETE:
 	case CLOSED:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		return false;
@@ -534,6 +539,7 @@ static inline bool channel_state_pre_open(enum channel_state state)
 	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		return true;
@@ -556,6 +562,7 @@ static inline bool channel_state_closed(enum channel_state state)
 	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 	case CHANNELD_NORMAL:
@@ -579,6 +586,7 @@ static inline bool channel_state_uncommitted(enum channel_state state)
 	switch (state) {
  	case DUALOPEND_OPEN_INIT:
 		return true;
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case CHANNELD_AWAITING_LOCKIN:
  	case DUALOPEND_AWAITING_LOCKIN:
@@ -602,6 +610,7 @@ static inline bool channel_state_wants_peercomms(enum channel_state state)
 	switch (state) {
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case CHANNELD_NORMAL:
 	case CHANNELD_AWAITING_SPLICE:
@@ -632,6 +641,7 @@ static inline bool channel_state_wants_onchain_fail(enum channel_state state)
 	case CHANNELD_SHUTTING_DOWN:
 		return true;
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case CLOSINGD_COMPLETE:
 	case AWAITING_UNILATERAL:
 	case FUNDING_SPEND_SEEN:

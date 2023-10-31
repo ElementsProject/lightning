@@ -570,6 +570,7 @@ static bool channel_state_can_close(enum channel_state state)
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case CLOSINGD_SIGEXCHANGE:
 	case CHANNELD_SHUTTING_DOWN:
@@ -899,6 +900,7 @@ static struct command_result *json_close(struct command *cmd,
 			break;
 
 		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_OPEN_COMMIT_READY:
 		case DUALOPEND_OPEN_COMMITTED:
 		case CLOSINGD_COMPLETE:
 		case AWAITING_UNILATERAL:

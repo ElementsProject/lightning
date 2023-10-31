@@ -426,6 +426,7 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CHANNELD_AWAITING_LOCKIN:
 			case CHANNELD_NORMAL:
 			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_OPEN_COMMIT_READY:
 			case DUALOPEND_OPEN_COMMITTED:
 			case DUALOPEND_AWAITING_LOCKIN:
 			case CHANNELD_AWAITING_SPLICE:
@@ -1238,6 +1239,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 					"Awaiting unilateral close");
 		goto send_error;
 
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case DUALOPEND_AWAITING_LOCKIN:
 		assert(!channel->owner);
@@ -1889,6 +1891,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		switch (channel->state) {
 		case DUALOPEND_AWAITING_LOCKIN:
 		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_OPEN_COMMIT_READY:
 		case DUALOPEND_OPEN_COMMITTED:
 			/* Shouldn't be here! */
 			channel_internal_error(channel,
@@ -1945,6 +1948,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	/* We should not be in the callback! */
 	case DUALOPEND_AWAITING_LOCKIN:
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 		abort();
 
@@ -2293,6 +2297,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 	list_for_each(&peer->channels, channel, list) {
 		switch (channel->state) {
 		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_OPEN_COMMIT_READY:
 		case DUALOPEND_OPEN_COMMITTED:
 			/* Nothing to watch */
 			continue;
@@ -2507,6 +2512,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 			switch (channel->state) {
 			case CHANNELD_AWAITING_LOCKIN:
 			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_OPEN_COMMIT_READY:
 			case DUALOPEND_OPEN_COMMITTED:
 			case DUALOPEND_AWAITING_LOCKIN:
 				pending_channels++;
@@ -2729,6 +2735,7 @@ static bool channel_state_can_setchannel(enum channel_state state)
 	case DUALOPEND_AWAITING_LOCKIN:
 		return true;
 	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case CLOSINGD_SIGEXCHANGE:
 	case CHANNELD_SHUTTING_DOWN:
