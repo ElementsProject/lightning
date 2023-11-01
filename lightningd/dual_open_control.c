@@ -3839,18 +3839,31 @@ static void dualopen_errmsg(struct channel *channel,
 		delete_channel(channel);
 		return;
 	}
-
-	/* No peer_fd means a subd crash or disconnection. */
-	if (!peer_fd) {
-		/* If the channel is unsaved, we forget it */
-		channel_fail_transient(channel, disconnect, "%s: %s",
-				       channel->owner->name, desc);
+	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)) {
+		log_info(channel->log, "%s", "Commit ready peer failed."
+			 " Deleting channel.");
+		delete_channel(channel);
 		return;
 	}
 
 	/* Do we have an error to send? */
 	if (err_for_them && !channel->error && !warning)
 		channel->error = tal_dup_talarr(channel, u8, err_for_them);
+
+	/* No peer_fd means a subd crash or disconnection. */
+	if (!peer_fd) {
+		if (!warning && disconnect)
+			channel_fail_permanent(channel,
+					       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
+					       "%s: %s ERROR %s",
+					       channel->owner->name,
+					       err_for_them ? "sent" : "received", desc);
+		else
+			/* If the channel is unsaved, we forget it */
+			channel_fail_transient(channel, disconnect, "%s: %s",
+					       channel->owner->name, desc);
+		return;
+	}
 
 	/* Other implementations chose to ignore errors early on.  Not
 	 * surprisingly, they now spew out spurious errors frequently,
@@ -3870,6 +3883,12 @@ static void dualopen_errmsg(struct channel *channel,
 
 
 		if (!disconnect) {
+			if (channel_state_open_uncommitted(channel->state)) {
+				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
+					 " Deleting channel.");
+				delete_channel(channel);
+				return;
+			}
 			char *err = restart_dualopend(tmpctx,
 						      channel->peer->ld,
 						      channel, true);
@@ -3912,8 +3931,7 @@ static void dualopen_errmsg(struct channel *channel,
 	/* FIXME: We don't close all channels */
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
-	if (!err_for_them && channel->opener == REMOTE
-	    && channel->state == CHANNELD_AWAITING_LOCKIN)
+	if (!err_for_them && channel_state_open_uncommitted(channel->state))
 		channel_fail_forget(channel, "%s: %s ERROR %s",
 				    channel->owner->name,
 				    err_for_them ? "sent" : "received", desc);
