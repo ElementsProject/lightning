@@ -3,6 +3,115 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v23.11rc1] - 2023-11-02: "Bitcoin Orangepaper"
+
+This release named by Shahana Farooqui
+
+### Added
+
+ - JSON-RPC: `wait` now works for `forwards` infrastructure. ([#6753])
+ - JSON-RPC: `wait` now works for `sendpays` infrastructure. ([#6753])
+ - JSON-RPC: `check` now does much more checking on every command (not just basic parameter types). ([#6772])
+ - `hsmtool`: new command `getemergencyrecover` to extract emergency.recover in bech32 format (clnemerge1...) ([#6773])
+ - JSON-RPC: `datastoreusage`: returns the total bytes that are stored under a given key. ([#6442])
+ - JSON-RPC: `decode` can now decode emergency.recover files (clnemerg1...) ([#6773])
+ - Option: --commit-fee-offset to potentially reduce feerate update disagreements ([#6833])
+ - Runes: `per=Nsec/min/hour/msec/usec/nsec` for general ratelimiting ([#6617])
+ - JSON-RPC: `showrunes` new field `last_used` ([#6617])
+ - JSON-RPC: `listforwards` new parameters `index`, `start` and `limit`. ([#6753])
+ - JSON-RPC: `listforwards` fields `created_index` (old: `id`) and `updated_index`. ([#6753])
+ - JSON-RPC: `listsendpays` new parameters `index`, `start` and `limit`. ([#6753])
+ - JSON-RPC: `sendpay`, `listsendpays`, `delpay` new fields `created_index` (old: `id`) and `updated_index`. ([#6753])
+ - JSON-RPC: `listinvoices` new field `paid_outpoint` if an invoice is paid onchain. ([#6421])
+ - JSON-RPC: New `addpsbtoutput` command for creating a PSBT that can receive funds to the on-chain wallet. ([#6676])
+ - Config: `invoices-onchain-fallback` to automatically add an onchain p2tr address to invoices, and allow that for payment. ([#6421])
+ - JSON-RPC: `recover` command to force (unused) lightningd node to restart with `--recover` flag. ([#6772])
+ - Config: `--recover` can take a 32-byte hex string, as well as codex32. ([#6772])
+ - Config: `--developer` enables developer options and changes default to be "disable deprecated APIs". ([#6311])
+ - Cln-RPC: Implement send_custom_notification to allow sending custom notifications to other plugins. ([#6135])
+ - Plugins: plugins can now specify (unknown) even messages we should accept from peers. ([#6689])
+ - New configurable Content-Security-Policy (CSP) header for clnrest ([#6686])
+ - New configurable Cross-Origin-Resource-Sharing(CSP) header for clnrest ([#6686])
+ - hsmd protocol: Added hsmd_check_outpoint and hsmd_lock_outpoint ([#6760])
+
+
+### Changed
+ - JSON-RPC time fields now have full nanosecond precision (i.e. 9 decimals not 3): `listfowards` `received_time` `resolved_time` `listpays`/`listsendpays` `created_at`. ([#6617])
+ - Config: `large-channels` is now the default, wumbology for all. ([#6783])
+ - JSON-RPC `listpeerchannels`.`inflights` may sometimes not include `scratch_txid` (mandatory -> optional) ([#6824])
+ - JSON-RPC: `openchannel_update` will now echo back a result if there's a matching inflight record for this open. ([#6824])
+ - JSON-RPC: `openchannel_signed` will now remember the details of a signed PSBT even if the peer is disconnected. ([#6824])
+ - cln-plugin: Suppress internal logging handler via `with_logging(false)` ([#6797])
+ - JSON-RPC: `checkrune` `rate` restriction is slightly stricter (exact division of time like `per`) ([#6710])
+ - Protocol: use CPFP on peer's commitment tx if we can't broadcast our own. ([#6752])
+ - Plugins: upgraded clnrest to poetry project. ([#6651])
+ - Protocol: dual-funding now follows the next-funding-id rules. ([#6824])
+ - Protocol: we no longer disconnect every time we receive a warning message. ([#6668])
+ - Protocol: `invoice` no longer explicitly encodes `c` if it's the default (18) ([#6668])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+
+
+### Removed
+
+ - Build: `--enable-developer` arg to configure (and DEVELOPER variables): use `./configure --enable-debugbuild` and `developer` setting at runtime. ([#6311])
+ - JSON-RPC: `dev-sendcustommsg` (use `sendcustommsg`, which was added in v0.10.1) ([#6311])
+
+
+### Fixed
+
+ - Protocol: Some peer disconnects due to update_fee disagreements are avoided. ([#6833])
+ - Cln-Rest: websocket server notifications are available with restriction of `readonly` runes ([#6749])
+ - Protocol: Issue splicing with pending / stuck HTLCs fixed. ([#6748])
+ - Wallet: close change outputs show up immediately in `listfunds` so you can CPFP. ([#6734])
+ - Restore any missing metadata that resource constrained signers stripped ([#6767])
+ - JSON-RPC: fix `checkrune` when `method` parameter is the empty string. ([#6759])
+ - JSON-RPC: `getroute` now documents that it ignores `fuzzpercent`. ([#6697])
+ - Rune: use runes table `id` instead `runes_uniqueid` from `vars` because it returns incorrect unique id if rune/s migrated from datastore. ([#6715])
+ - Added docs, testing, and some fixes related to splicing out, insufficent balance handling, and restarting during a splice. ([#6677])
+
+
+### EXPERIMENTAL
+
+ - Fixed anchor spending to be able to use more than one UTXO. ([#6780])
+ - JSON-RPC: added new dual-funding state `DUALOPEND_OPEN_COMMITTED` ([#6628])
+
+
+[#6752]: https://github.com/ElementsProject/lightning/pull/6752
+[#6749]: https://github.com/ElementsProject/lightning/pull/6749
+[#6753]: https://github.com/ElementsProject/lightning/pull/6753
+[#6421]: https://github.com/ElementsProject/lightning/pull/6421
+[#6689]: https://github.com/ElementsProject/lightning/pull/6689
+[#6780]: https://github.com/ElementsProject/lightning/pull/6780
+[#6651]: https://github.com/ElementsProject/lightning/pull/6651
+[#6697]: https://github.com/ElementsProject/lightning/pull/6697
+[#6617]: https://github.com/ElementsProject/lightning/pull/6617
+[#6710]: https://github.com/ElementsProject/lightning/pull/6710
+[#6767]: https://github.com/ElementsProject/lightning/pull/6767
+[#6676]: https://github.com/ElementsProject/lightning/pull/6676
+[#6686]: https://github.com/ElementsProject/lightning/pull/6686
+[#6628]: https://github.com/ElementsProject/lightning/pull/6628
+[#6797]: https://github.com/ElementsProject/lightning/pull/6797
+[#6783]: https://github.com/ElementsProject/lightning/pull/6783
+[#6772]: https://github.com/ElementsProject/lightning/pull/6772
+[#6833]: https://github.com/ElementsProject/lightning/pull/6833
+[#6677]: https://github.com/ElementsProject/lightning/pull/6677
+[#6668]: https://github.com/ElementsProject/lightning/pull/6668
+[#6748]: https://github.com/ElementsProject/lightning/pull/6748
+[#6715]: https://github.com/ElementsProject/lightning/pull/6715
+[#6824]: https://github.com/ElementsProject/lightning/pull/6824
+[#6760]: https://github.com/ElementsProject/lightning/pull/6760
+[#6442]: https://github.com/ElementsProject/lightning/pull/6442
+[#6759]: https://github.com/ElementsProject/lightning/pull/6759
+[#6773]: https://github.com/ElementsProject/lightning/pull/6773
+[#6135]: https://github.com/ElementsProject/lightning/pull/6135
+[#6311]: https://github.com/ElementsProject/lightning/pull/6311
+[#6734]: https://github.com/ElementsProject/lightning/pull/6734
+
 
 ## [23.08.1] - 2023-09-12: "Satoshi's Successor II"
 
