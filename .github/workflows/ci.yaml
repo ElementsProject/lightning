@@ -15,7 +15,7 @@ env:
   # of a bit of compile time.
   RUST_PROFILE: release
   SLOW_MACHINE: 1
-  CI_SERVER: "http://35.239.136.52:3170"
+  CI_SERVER_URL: "http://35.239.136.52:3170"
 
 jobs:
   prebuild:
