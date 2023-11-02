@@ -6,7 +6,7 @@ import json
 from time import time
 import unittest
 
-server = os.environ.get("CI_SERVER", None)
+server = os.environ.get("CI_SERVER_URL", None)
 
 github_sha = (
     subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ASCII").strip()
