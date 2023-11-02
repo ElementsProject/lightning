@@ -30,5 +30,5 @@ RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_
     mv bitcoin-$BITCOIN_VERSION/share/man/man1/* /usr/share/man/man1 && \
     rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
 
-RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install python-bitcoinlib pytest setuptools pytest-test-groups flake8 pytest-rerunfailures ephemeral-port-reserve
+RUN python3 -m pip install --force-reinstall -U pip setuptools && \
+    python3 -m pip install python-bitcoinlib pytest pytest-test-groups flake8 pytest-rerunfailures ephemeral-port-reserve
