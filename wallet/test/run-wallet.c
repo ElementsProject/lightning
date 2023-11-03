@@ -1923,6 +1923,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				AMOUNT_MSAT(10),
 				AMOUNT_SAT(1111),
 				0,
+				false,
 				false);
 
 	inflight_set_last_tx(inflight, last_tx, sig);
@@ -1949,6 +1950,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				AMOUNT_MSAT(0),
 				AMOUNT_SAT(0),
 				0,
+				false,
 				false);
 	inflight_set_last_tx(inflight, last_tx, sig);
 	wallet_inflight_add(w, inflight);

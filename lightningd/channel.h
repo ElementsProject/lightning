@@ -76,6 +76,9 @@ struct channel_inflight {
 	/* Did I initate this splice attempt? */
 	bool i_am_initiator;
 
+	/* On reestablish recovery; should I sign first? */
+	bool force_sign_first;
+
 	/* Note: This field is not stored in the database.
 	 *
 	 * After splice_locked, we need a way to stop the chain watchers from
@@ -397,7 +400,8 @@ struct channel_inflight *new_inflight(struct channel *channel,
 	     const struct amount_msat lease_fee,
 	     const struct amount_sat lease_amt,
 	     s64 splice_amnt,
-	     bool i_am_initiator);
+	     bool i_am_initiator,
+	     bool force_sign_first);
 
 /* Add a last_tx and sig to an inflight */
 void inflight_set_last_tx(struct channel_inflight *inflight,

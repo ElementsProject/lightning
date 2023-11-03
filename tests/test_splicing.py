@@ -211,12 +211,13 @@ def test_invalid_splice(node_factory, bitcoind):
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
-    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-
     mempool = bitcoind.rpc.getrawmempool(True)
     assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
+
+    # Wait until nodes are reconnected
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
     bitcoind.generate_block(6, wait_for_mempool=1)
 

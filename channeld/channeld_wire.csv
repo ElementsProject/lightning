@@ -243,6 +243,10 @@ msgtype,channeld_splice_confirmed_signed,7213
 msgdata,channeld_splice_confirmed_signed,tx,bitcoin_tx,
 msgdata,channeld_splice_confirmed_signed,output_index,u32,
 
+# channeld->master: Splice signatures are about to be sent
+msgtype,channeld_splice_sending_sigs,7214
+msgdata,channeld_splice_sending_sigs,tx,bitcoin_txid,
+
 # channeld->master: A feerate error has occured
 msgtype,channeld_splice_feerate_error,7215
 msgdata,channeld_splice_feerate_error,fee,amount_msat,
@@ -257,6 +261,7 @@ msgdata,channeld_add_inflight,satoshis,amount_sat,
 msgdata,channeld_add_inflight,splice_amount,s64,
 msgdata,channeld_add_inflight,psbt,wally_psbt,
 msgdata,channeld_add_inflight,i_am_initiator,bool,
+msgdata,channeld_add_inflight,force_sign_first,bool,
 
 # master->channeld: Inflight saved successfully
 msgtype,channeld_got_inflight,7217

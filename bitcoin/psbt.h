@@ -178,6 +178,14 @@ WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t
 						 const struct pubkey *pubkey,
 						 const struct bitcoin_signature *sig);
 
+/* Returns false on error. On success, *signature_found is set to true if the
+ * input has a signature present for `pubkey` and false if if one was not found.
+ * Only ignature presence is checked, is not validated. */
+WARN_UNUSED_RESULT bool psbt_input_have_signature(const struct wally_psbt *psbt,
+						  size_t in,
+						  const struct pubkey *pubkey,
+						  bool *signature_found);
+
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript);
 
 /* psbt_input_set_unknown - Set the given Key-Value in the psbt's input keymap
