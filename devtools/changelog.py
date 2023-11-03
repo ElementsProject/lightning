@@ -81,14 +81,14 @@ def get_log_entries(commitrange):
 
 
 def linkify(entries):
-    links = []
+    links = {}
     for e in entries:
-        links.append(Link(
+        links[e.pullreq] = (Link(
             ref='#{}'.format(e.pullreq),
             content=e.content,
             url="https://github.com/ElementsProject/lightning/pull/{}".format(e.pullreq)
         ))
-    return list(set(links))
+    return list(set(links.values()))
 
 
 def group(entries):
