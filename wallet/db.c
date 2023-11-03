@@ -1010,6 +1010,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE forwards ADD updated_index BIGINT DEFAULT 0"), NULL},
     {SQL("CREATE INDEX forwards_updated_idx ON forwards (updated_index)"), NULL},
     {NULL, migrate_initialize_forwards_wait_indexes},
+    {SQL("ALTER TABLE channel_funding_inflights ADD force_sign_first INTEGER DEFAULT 0"), NULL},
 };
 
 /**

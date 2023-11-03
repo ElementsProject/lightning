@@ -290,6 +290,27 @@ bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
 	return ok;
 }
 
+bool psbt_input_have_signature(const struct wally_psbt *psbt,
+			       size_t in,
+			       const struct pubkey *pubkey,
+			       bool *signature_found)
+{
+	u8 pk_der[PUBKEY_CMPR_LEN];
+	size_t index_plus_one;
+	bool ok;
+
+	assert(in < psbt->num_inputs);
+
+	pubkey_to_der(pk_der, pubkey);
+
+	ok = wally_psbt_input_find_signature(&psbt->inputs[in], pk_der,
+					     sizeof(pk_der),
+					     &index_plus_one) == WALLY_OK;
+	if (ok)
+		*signature_found = index_plus_one > 0;
+	return ok;
+}
+
 void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 			     const u8 *scriptPubkey, struct amount_sat amt)
 {

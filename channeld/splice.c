@@ -6,8 +6,6 @@ struct splice_state *splice_state_new(const tal_t *ctx)
 {
 	struct splice_state *splice_state = tal(ctx, struct splice_state);
 
-	splice_state->committed_count = 0;
-	splice_state->revoked_count = 0;
 	splice_state->count = 0;
 	splice_state->locked_ready[LOCAL] = false;
 	splice_state->locked_ready[REMOTE] = false;

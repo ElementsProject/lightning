@@ -124,6 +124,8 @@ psbt_to_witnesses(const tal_t *ctx,
 		tal_arr(ctx, const struct witness *, 0);
 
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct wally_tx_witness_stack *wtx_s =
+			psbt->inputs[i].final_witness;
 		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
 					&serial_id))
 			/* FIXME: throw an error ? */
@@ -136,9 +138,7 @@ psbt_to_witnesses(const tal_t *ctx,
 		 * - if is the *initiator*:
 		 *   - MUST send even `serial_id`s
 		 */
-		if (serial_id % 2 == side_to_stack) {
-			struct wally_tx_witness_stack *wtx_s =
-				psbt->inputs[i].final_witness;
+		if (wtx_s && serial_id % 2 == side_to_stack) {
 
 			/* BOLT-e299850cb5ebd8bd9c55763bbc498fcdf94a9567 #2:
 			 *
