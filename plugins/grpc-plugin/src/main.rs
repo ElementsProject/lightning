@@ -3,7 +3,7 @@ use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder};
 use log::{debug, warn};
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod tls;
 
@@ -17,7 +17,6 @@ struct PluginState {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     debug!("Starting grpc plugin");
-    let path = Path::new("lightning-rpc");
 
     let directory = std::env::current_dir()?;
 
@@ -50,7 +49,7 @@ async fn main() -> Result<()> {
     let (identity, ca_cert) = tls::init(&directory)?;
 
     let state = PluginState {
-        rpc_path: path.into(),
+        rpc_path: PathBuf::from(plugin.configuration().rpc_file.as_str()),
         identity,
         ca_cert,
     };
