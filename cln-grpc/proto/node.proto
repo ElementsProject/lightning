@@ -52,6 +52,7 @@ service Node {
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
+	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
@@ -1564,6 +1565,39 @@ message FeeratesOnchain_fee_estimates {
 	optional uint64 unilateral_close_nonanchor_satoshis = 6;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
+}
+
+message FetchinvoiceRequest {
+	string offer = 1;
+	optional Amount amount_msat = 2;
+	optional uint64 quantity = 3;
+	optional uint64 recurrence_counter = 4;
+	optional double recurrence_start = 5;
+	optional string recurrence_label = 6;
+	optional double timeout = 7;
+	optional string payer_note = 8;
+}
+
+message FetchinvoiceResponse {
+	string invoice = 1;
+	FetchinvoiceChanges changes = 2;
+	optional FetchinvoiceNext_period next_period = 3;
+}
+
+message FetchinvoiceChanges {
+	optional string description_appended = 1;
+	optional string description = 2;
+	optional string vendor_removed = 3;
+	optional string vendor = 4;
+	optional Amount amount_msat = 5;
+}
+
+message FetchinvoiceNext_period {
+	uint64 counter = 1;
+	uint64 starttime = 2;
+	uint64 endtime = 3;
+	uint64 paywindow_start = 4;
+	uint64 paywindow_end = 5;
 }
 
 message FundchannelRequest {

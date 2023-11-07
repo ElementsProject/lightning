@@ -73,7 +73,7 @@ def load_jsonrpc_service(schema_dir: str):
         # "disableoffer",
         "Disconnect",
         "Feerates",
-        # "fetchinvoice",
+        "FetchInvoice",
         # "fundchannel_cancel",
         # "fundchannel_complete",
         "FundChannel",

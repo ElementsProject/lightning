@@ -58,6 +58,7 @@ pub enum Request {
 	Decode(requests::DecodeRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
+	FetchInvoice(requests::FetchinvoiceRequest),
 	FundChannel(requests::FundchannelRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
@@ -123,6 +124,7 @@ pub enum Response {
 	Decode(responses::DecodeResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
+	FetchInvoice(responses::FetchinvoiceResponse),
 	FundChannel(responses::FundchannelResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
@@ -1278,6 +1280,35 @@ pub mod requests {
 
 	impl IntoRequest for FeeratesRequest {
 	    type Response = super::responses::FeeratesResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FetchinvoiceRequest {
+	    pub offer: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub quantity: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_counter: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_start: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timeout: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payer_note: Option<String>,
+	}
+
+	impl From<FetchinvoiceRequest> for Request {
+	    fn from(r: FetchinvoiceRequest) -> Self {
+	        Request::FetchInvoice(r)
+	    }
+	}
+
+	impl IntoRequest for FetchinvoiceRequest {
+	    type Response = super::responses::FetchinvoiceResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4661,6 +4692,48 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Feerates(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FetchinvoiceChanges {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description_appended: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub vendor_removed: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub vendor: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FetchinvoiceNext_period {
+	    pub counter: u64,
+	    pub starttime: u64,
+	    pub endtime: u64,
+	    pub paywindow_start: u64,
+	    pub paywindow_end: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FetchinvoiceResponse {
+	    pub invoice: String,
+	    pub changes: FetchinvoiceChanges,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub next_period: Option<FetchinvoiceNext_period>,
+	}
+
+	impl TryFrom<Response> for FetchinvoiceResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FetchInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
