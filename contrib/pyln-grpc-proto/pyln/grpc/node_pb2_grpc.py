@@ -234,6 +234,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.FeeratesRequest.SerializeToString,
                 response_deserializer=node__pb2.FeeratesResponse.FromString,
                 )
+        self.FetchInvoice = channel.unary_unary(
+                '/cln.Node/FetchInvoice',
+                request_serializer=node__pb2.FetchinvoiceRequest.SerializeToString,
+                response_deserializer=node__pb2.FetchinvoiceResponse.FromString,
+                )
         self.FundChannel = channel.unary_unary(
                 '/cln.Node/FundChannel',
                 request_serializer=node__pb2.FundchannelRequest.SerializeToString,
@@ -288,6 +293,11 @@ class NodeStub(object):
                 '/cln.Node/WaitBlockHeight',
                 request_serializer=node__pb2.WaitblockheightRequest.SerializeToString,
                 response_deserializer=node__pb2.WaitblockheightResponse.FromString,
+                )
+        self.Wait = channel.unary_unary(
+                '/cln.Node/Wait',
+                request_serializer=node__pb2.WaitRequest.SerializeToString,
+                response_deserializer=node__pb2.WaitResponse.FromString,
                 )
         self.Stop = channel.unary_unary(
                 '/cln.Node/Stop',
@@ -578,6 +588,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FetchInvoice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def FundChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -639,6 +655,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def WaitBlockHeight(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Wait(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -891,6 +913,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.FeeratesRequest.FromString,
                     response_serializer=node__pb2.FeeratesResponse.SerializeToString,
             ),
+            'FetchInvoice': grpc.unary_unary_rpc_method_handler(
+                    servicer.FetchInvoice,
+                    request_deserializer=node__pb2.FetchinvoiceRequest.FromString,
+                    response_serializer=node__pb2.FetchinvoiceResponse.SerializeToString,
+            ),
             'FundChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.FundChannel,
                     request_deserializer=node__pb2.FundchannelRequest.FromString,
@@ -945,6 +972,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.WaitBlockHeight,
                     request_deserializer=node__pb2.WaitblockheightRequest.FromString,
                     response_serializer=node__pb2.WaitblockheightResponse.SerializeToString,
+            ),
+            'Wait': grpc.unary_unary_rpc_method_handler(
+                    servicer.Wait,
+                    request_deserializer=node__pb2.WaitRequest.FromString,
+                    response_serializer=node__pb2.WaitResponse.SerializeToString,
             ),
             'Stop': grpc.unary_unary_rpc_method_handler(
                     servicer.Stop,
@@ -1725,6 +1757,23 @@ class Node(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def FetchInvoice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FetchInvoice',
+            node__pb2.FetchinvoiceRequest.SerializeToString,
+            node__pb2.FetchinvoiceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def FundChannel(request,
             target,
             options=(),
@@ -1908,6 +1957,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/WaitBlockHeight',
             node__pb2.WaitblockheightRequest.SerializeToString,
             node__pb2.WaitblockheightResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Wait(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Wait',
+            node__pb2.WaitRequest.SerializeToString,
+            node__pb2.WaitResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

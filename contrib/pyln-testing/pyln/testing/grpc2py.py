@@ -1441,6 +1441,15 @@ def waitblockheight2py(m):
     })
 
 
+def wait2py(m):
+    return remove_default({
+        "subsystem": str(m.subsystem),  # EnumField in generate_composite
+        "created": m.created,  # PrimitiveField in generate_composite
+        "updated": m.updated,  # PrimitiveField in generate_composite
+        "deleted": m.deleted,  # PrimitiveField in generate_composite
+    })
+
+
 def stop2py(m):
     return remove_default({
     })

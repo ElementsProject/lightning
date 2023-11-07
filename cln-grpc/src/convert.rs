@@ -1720,6 +1720,18 @@ impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitResponse> for pb::WaitResponse {
+    fn from(c: responses::WaitResponse) -> Self {
+        Self {
+            subsystem: c.subsystem as i32,
+            created: c.created, // Rule #2 for type u64?
+            updated: c.updated, // Rule #2 for type u64?
+            deleted: c.deleted, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::StopResponse> for pb::StopResponse {
     fn from(c: responses::StopResponse) -> Self {
         Self {
@@ -2460,6 +2472,17 @@ impl From<requests::WaitblockheightRequest> for pb::WaitblockheightRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::WaitRequest> for pb::WaitRequest {
+    fn from(c: requests::WaitRequest) -> Self {
+        Self {
+            subsystem: c.subsystem as i32,
+            indexname: c.indexname as i32,
+            nextvalue: c.nextvalue, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::StopRequest> for pb::StopRequest {
     fn from(c: requests::StopRequest) -> Self {
         Self {
@@ -3182,6 +3205,17 @@ impl From<pb::WaitblockheightRequest> for requests::WaitblockheightRequest {
         Self {
             blockheight: c.blockheight, // Rule #1 for type u32
             timeout: c.timeout, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::WaitRequest> for requests::WaitRequest {
+    fn from(c: pb::WaitRequest) -> Self {
+        Self {
+            subsystem: c.subsystem.try_into().unwrap(),
+            indexname: c.indexname.try_into().unwrap(),
+            nextvalue: c.nextvalue, // Rule #1 for type u64
         }
     }
 }
