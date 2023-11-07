@@ -1818,6 +1818,38 @@ async fn wait_block_height(
 
 }
 
+async fn wait(
+    &self,
+    request: tonic::Request<pb::WaitRequest>,
+) -> Result<tonic::Response<pb::WaitResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::WaitRequest = req.into();
+    debug!("Client asked for wait");
+    trace!("wait request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Wait(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Wait: {:?}", e)))?;
+    match result {
+        Response::Wait(r) => {
+           trace!("wait response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Wait",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn stop(
     &self,
     request: tonic::Request<pb::StopRequest>,

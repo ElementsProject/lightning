@@ -334,6 +334,16 @@
             "complete": 1,
             "pending": 0
         },
+        "WaitIndexname": {
+            "created": 0,
+            "deleted": 2,
+            "updated": 1
+        },
+        "WaitSubsystem": {
+            "forwards": 1,
+            "invoices": 0,
+            "sendpays": 2
+        },
         "WaitanyinvoiceStatus": {
             "expired": 1,
             "paid": 0
@@ -1631,6 +1641,17 @@
             "UtxoPsbt.feerate_per_kw": 2,
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
+        },
+        "WaitRequest": {
+            "Wait.indexname": 2,
+            "Wait.nextvalue": 3,
+            "Wait.subsystem": 1
+        },
+        "WaitResponse": {
+            "Wait.created": 2,
+            "Wait.deleted": 4,
+            "Wait.subsystem": 1,
+            "Wait.updated": 3
         },
         "WaitanyinvoicePaid_outpoint": {
             "WaitAnyInvoice.paid_outpoint.outnum": 2,
@@ -5727,6 +5748,34 @@
             "deprecated": false
         },
         "UtxoPsbt.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "Wait.created": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.deleted": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.indexname": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.nextvalue": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.subsystem": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Wait.updated": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

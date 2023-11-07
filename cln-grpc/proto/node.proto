@@ -64,6 +64,7 @@ service Node {
 	rpc SignInvoice(SigninvoiceRequest) returns (SigninvoiceResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc WaitBlockHeight(WaitblockheightRequest) returns (WaitblockheightResponse) {}
+	rpc Wait(WaitRequest) returns (WaitResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
@@ -1837,6 +1838,37 @@ message WaitblockheightRequest {
 
 message WaitblockheightResponse {
 	uint32 blockheight = 1;
+}
+
+message WaitRequest {
+	// Wait.subsystem
+	enum WaitSubsystem {
+		INVOICES = 0;
+		FORWARDS = 1;
+		SENDPAYS = 2;
+	}
+	// Wait.indexname
+	enum WaitIndexname {
+		CREATED = 0;
+		UPDATED = 1;
+		DELETED = 2;
+	}
+	WaitSubsystem subsystem = 1;
+	WaitIndexname indexname = 2;
+	uint64 nextvalue = 3;
+}
+
+message WaitResponse {
+	// Wait.subsystem
+	enum WaitSubsystem {
+		INVOICES = 0;
+		FORWARDS = 1;
+		SENDPAYS = 2;
+	}
+	WaitSubsystem subsystem = 1;
+	optional uint64 created = 2;
+	optional uint64 updated = 3;
+	optional uint64 deleted = 4;
 }
 
 message StopRequest {
