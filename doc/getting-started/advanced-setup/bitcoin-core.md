@@ -23,3 +23,4 @@ You can use _trusted_ third-party plugins as bitcoin backends instead of using y
 
 - [sauron](https://github.com/lightningd/plugins/tree/master/sauron) is a bitcoin backend plugin relying on [Esplora](https://github.com/Blockstream/esplora).
 - [trustedcoin](https://github.com/nbd-wtf/trustedcoin) is a plugin that uses block explorers (blockstream.info, mempool.space, blockchair.com and blockchain.info) as backends instead of your own bitcoin node.
+- [bps](https://github.com/coinos/bps) is a proxy server that exposes just the RPC commands that lightning needs. There's a public endpoint at <https://coinos.io/proxy> or you can host your own.
