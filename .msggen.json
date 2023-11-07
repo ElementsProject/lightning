@@ -697,6 +697,35 @@
             "Feerates.perkw": 3,
             "Feerates.warning_missing_feerates": 1
         },
+        "FetchinvoiceChanges": {
+            "FetchInvoice.changes.amount_msat": 5,
+            "FetchInvoice.changes.description": 2,
+            "FetchInvoice.changes.description_appended": 1,
+            "FetchInvoice.changes.vendor": 4,
+            "FetchInvoice.changes.vendor_removed": 3
+        },
+        "FetchinvoiceNext_period": {
+            "FetchInvoice.next_period.counter": 1,
+            "FetchInvoice.next_period.endtime": 3,
+            "FetchInvoice.next_period.paywindow_end": 5,
+            "FetchInvoice.next_period.paywindow_start": 4,
+            "FetchInvoice.next_period.starttime": 2
+        },
+        "FetchinvoiceRequest": {
+            "FetchInvoice.amount_msat": 2,
+            "FetchInvoice.offer": 1,
+            "FetchInvoice.payer_note": 8,
+            "FetchInvoice.quantity": 3,
+            "FetchInvoice.recurrence_counter": 4,
+            "FetchInvoice.recurrence_label": 6,
+            "FetchInvoice.recurrence_start": 5,
+            "FetchInvoice.timeout": 7
+        },
+        "FetchinvoiceResponse": {
+            "FetchInvoice.changes": 2,
+            "FetchInvoice.invoice": 1,
+            "FetchInvoice.next_period": 3
+        },
         "FundchannelRequest": {
             "FundChannel.amount": 1,
             "FundChannel.announce": 3,
@@ -2850,6 +2879,94 @@
             "deprecated": false
         },
         "Feerates.warning_missing_feerates": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FetchInvoice.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes.description_appended": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes.vendor": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.changes.vendor_removed": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.invoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period.counter": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period.endtime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period.paywindow_end": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period.paywindow_start": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.next_period.starttime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.offer": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.payer_note": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.quantity": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.recurrence_counter": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.recurrence_label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.recurrence_start": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.timeout": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },
