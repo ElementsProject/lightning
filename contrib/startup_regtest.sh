@@ -74,7 +74,9 @@ if [ -z "$LIGHTNING_DIR" ]; then
 fi
 
 if [ -z "$BITCOIN_DIR" ]; then
-	if [ -d "$HOME/.bitcoin" ]; then
+	if [ -d "$HOME/snap/bitcoin-core/common/.bitcoin" ]; then
+		BITCOIN_DIR="$HOME/snap/bitcoin-core/common/.bitcoin"
+	elif [ -d "$HOME/.bitcoin" ]; then
 		BITCOIN_DIR="$HOME/.bitcoin"
 	elif [ -d "$HOME/Library/Application Support/Bitcoin/" ]; then
 		BITCOIN_DIR="$HOME/Library/Application Support/Bitcoin/"
@@ -113,6 +115,29 @@ export BCLI="$BCLI"
 export BITCOIND="$BITCOIND"
 export BITCOIN_DIR="$BITCOIN_DIR"
 
+wait_for_lightningd() {
+	for i in $(seq "5"); do
+		if $LCLI --lightning-dir="$LIGHTNING_DIR"/l1 getinfo > /dev/null 2>&1; then
+			break
+		else
+			sleep 1
+		fi
+	done
+}
+
+clnrest_status() {
+	logfile="$1"
+	active_str="plugin-clnrest.py: REST Server is starting"
+	disabled_str="plugin-clnrest.py: Killing plugin: disabled itself"
+
+	if grep -q "$active_str" "$logfile"; then
+		echo "active"
+	elif grep -q "$disabled_str" "$logfile"; then
+		echo "disabled"
+	else
+		echo "waiting"
+	fi
+}
 
 start_nodes() {
 	if [ -z "$1" ]; then
@@ -147,6 +172,7 @@ start_nodes() {
 		log-file=$LIGHTNING_DIR/l$i/log
 		addr=localhost:$socket
 		allow-deprecated-apis=false
+		clnrest-port=$((3109+i))
 		developer
 		dev-fast-gossip
 		dev-bitcoind-poll=5
@@ -179,6 +205,7 @@ funder-lease-requests-only=false
 	fi
 	# Give a hint.
 	echo "Commands: "
+
 	for i in $(seq "$node_count"); do
 		echo "	l$i-cli, l$i-log,"
 	done
@@ -219,6 +246,17 @@ start_ln() {
 	fi
 	start_nodes "$nodes" regtest
 	echo "	bt-cli, stop_ln, fund_nodes"
+	wait_for_lightningd
+
+	active_status=$(clnrest_status "$LIGHTNING_DIR/l1/log")
+	if [ "$active_status" = "active" ] ; then
+		node_info regtest
+	elif [ "$active_status" = "disabled" ]; then
+		echo "clnrest is disabled. Try installing python developer dependencies"
+		echo "with 'poetry install'"
+	else
+		echo "timed out parsing log $LIGHTNING_DIR/l1/log"
+	fi
 }
 
 ensure_bitcoind_funds() {
@@ -347,6 +385,17 @@ stop_ln() {
 
 	unset LN_NODES
 	unalias bt-cli
+}
+
+node_info() {
+	network=${1:-regtest}
+	if [ -n "$LN_NODES" ]; then
+		echo "Node Info:"
+		for i in $(seq "$LN_NODES"); do
+			echo "	l$i rest: https://127.0.0.1:$((3109 + i))"\
+			" rune: $($LCLI --lightning-dir="$LIGHTNING_DIR"/l"$i" createrune | jq .rune)"
+		done
+	fi
 }
 
 destroy_ln() {
