@@ -1162,7 +1162,7 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 	char *err;
 
 	if (!ld->deprecated_apis)
-		return "--experimental-websocket-port been deprecated, use --bind=ws:...";
+		return "--experimental-websocket-port been deprecated, use --bind-addr=ws:...";
 
 	err = opt_set_u32(arg, &port);
 	if (err)

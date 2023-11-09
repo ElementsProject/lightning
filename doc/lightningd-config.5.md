@@ -761,7 +761,8 @@ connections on that port, on any IPv4 and IPv6 addresses you listen
 to ([bolt][bolt] #891).  The normal protocol is expected to be sent over WebSocket binary
 frames once the connection is upgraded.
 
-  You should use `bind=ws::<portnum>` instead to create a WebSocket listening port.
+  You should use `bind-addr=ws::<portnum>` instead to create a WebSocket listening port.
+  see [Networking options](getting-started/getting-started/configuration.md#networking-options)
 
 * **experimental-peer-storage**
 
