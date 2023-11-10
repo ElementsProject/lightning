@@ -105,7 +105,8 @@ def _dictify(balances):
 def check_balance_snaps(n, expected_bals):
     snaps = n.rpc.listsnapshots()['balance_snapshots']
     for snap, exp in zip(snaps, expected_bals):
-        assert snap['blockheight'] == exp['blockheight']
+        if snap['blockheight'] != exp['blockheight']:
+            raise Exception('Unexpected balance snap blockheight: {} vs {}'.format(_dictify(snap), _dictify(exp)))
         if _dictify(snap) != _dictify(exp):
             raise Exception('Unexpected balance snap: {} vs {}'.format(_dictify(snap), _dictify(exp)))
 
@@ -127,6 +128,8 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
 
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
+    # Stash moves for errors, if needed
+    _acct_moves = acct_moves
     for mv in acct_moves:
         print("{{'type': '{}', 'credit_msat': {}, 'debit_msat': {}, 'tags': '{}' , ['fees_msat'?: '{}']}},"
               .format(mv['type'],
@@ -134,13 +137,17 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
                       Millisatoshi(mv['debit_msat']).millisatoshis,
                       mv['tags'],
                       mv['fees_msat'] if 'fees_msat' in mv else ''))
-        assert mv['version'] == 2
-        assert mv['node_id'] == node_id
-        assert mv['timestamp'] > 0
-        assert mv['coin_type'] == chainparams['bip173_prefix']
+        if mv['version'] != 2:
+            raise ValueError(f'version not 2 {mv}')
+        if mv['node_id'] != node_id:
+            raise ValueError(f'node_id not: {mv}')
+        if mv['timestamp'] <= 0:
+            raise ValueError(f'timestamp invalid: {mv}')
+        if mv['coin_type'] != chainparams['bip173_prefix']:
+            raise ValueError(f'coin_type not {chainparams["bip173_prefix"]}: {mv}')
         # chain moves should have blockheights
-        if mv['type'] == 'chain_mvt' and mv['account_id'] != 'external':
-            assert mv['blockheight'] is not None
+        if mv['type'] == 'chain_mvt' and mv['account_id'] != 'external' and not mv['blockheight']:
+            raise ValueError(f'blockheight not set: {mv}')
 
     for num, m in enumerate(expected_moves):
         # They can group things which are in any order.
@@ -161,13 +168,15 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
                 raise ValueError("Unexpected move {}: {} != {}".format(num, acct_moves[0], m))
             acct_moves = acct_moves[1:]
 
-    assert acct_moves == []
+    if acct_moves != []:
+        raise ValueError(f'check_coin_moves failed: still has acct_moves {acct_moves}. exp: {expected_moves}. actual: {_acct_moves}')
 
 
 def account_balance(n, account_id):
     moves = dedupe_moves(n.rpc.call('listcoinmoves_plugin')['coin_moves'])
     chan_moves = [m for m in moves if m['account_id'] == account_id]
-    assert len(chan_moves) > 0
+    if len(chan_moves) == 0:
+        raise ValueError(f"No channel moves found for {account_id}. {moves}")
     m_sum = Millisatoshi(0)
     for m in chan_moves:
         m_sum += Millisatoshi(m['credit_msat'])
@@ -192,7 +201,8 @@ def extract_utxos(moves):
             for ev in evs:
                 if ev[0]['vout'] == m['vout']:
                     ev[1] = m
-                    assert ev[0]['output_msat'] == m['output_msat']
+                    if ev[0]['output_msat'] != m['output_msat']:
+                        raise ValueError(f'output_msat does not match. expected {ev[0]}. actual {m}')
                     break
     return utxos
 
@@ -237,9 +247,14 @@ def utxos_for_channel(utxoset, channel_id):
 
 
 def matchup_events(u_set, evs, chans, tag_list):
-    assert len(u_set) == len(evs) and len(u_set) > 0
+    if len(u_set) != len(evs):
+        raise ValueError(f"utxo-set does not match expected (diff lens). exp {evs}, actual {u_set}")
+    if len(u_set) == 0:
+        raise ValueError(f"utxo-set is empty. exp {evs}, actual {u_set}")
 
     txid = u_set[0][0]['utxo_txid']
+    # Stash the set for logging at end, if error
+    _u_set = u_set
     for ev in evs:
         found = False
         for u in u_set:
@@ -257,7 +272,8 @@ def matchup_events(u_set, evs, chans, tag_list):
                 continue
 
             if ev[2] is None:
-                assert u[1] is None
+                if u[1] is not None:
+                    raise ValueError(f"Expected unspent utxo. exp {ev}, actual {u}")
                 found = True
                 u_set.remove(u)
                 break
@@ -265,7 +281,8 @@ def matchup_events(u_set, evs, chans, tag_list):
             # ugly hack to annotate two possible futures for a utxo
             if type(ev[2]) is tuple:
                 tag = u[1]['tags'] if u[1] else u[1]
-                assert tag in [x[0] for x in ev[2]]
+                if tag not in [x[0] for x in ev[2]]:
+                    raise ValueError(f"Unable to find {tag} in event set {ev}")
                 if not u[1]:
                     found = True
                     u_set.remove(u)
@@ -275,7 +292,8 @@ def matchup_events(u_set, evs, chans, tag_list):
                         # Save the 'spent to' txid in the tag-list
                         tag_list[x[1]] = u[1]['txid']
             else:
-                assert ev[2] == u[1]['tags']
+                if ev[2] != u[1]['tags']:
+                    raise ValueError(f"tags dont' match. exp {ev}, actual ({u[1]}) full utxo info: {u}")
                 # Save the 'spent to' txid in the tag-list
                 if 'to_miner' not in u[1]['tags']:
                     tag_list[ev[3]] = u[1]['txid']
@@ -283,10 +301,13 @@ def matchup_events(u_set, evs, chans, tag_list):
             found = True
             u_set.remove(u)
 
-        assert found
+        if not found:
+            raise ValueError(f"Unable to find expected event in utxos. exp {ev}, utxos {u_set}")
 
     # Verify we used them all up
-    assert len(u_set) == 0
+    if len(u_set) != 0:
+        raise ValueError(f"Too many utxo events. exp {ev}, actual {_u_set} (extra: {u_set})")
+
     return txid
 
 
@@ -307,7 +328,9 @@ def dedupe_moves(moves):
 
 
 def inspect_check_actual(txids, channel_id, actual, exp):
-    assert len(actual['outputs']) == len(exp)
+    if len(actual['outputs']) != len(exp):
+        raise ValueError(f"actual outputs != exp. exp: {exp}. actual: {actual['outputs']}")
+
     for e in exp:
         # find the event in actual that matches
         found = False
@@ -321,20 +344,26 @@ def inspect_check_actual(txids, channel_id, actual, exp):
             if e[1][0] != a['output_tag']:
                 continue
             if e[2]:
-                assert e[2][0] == a['spend_tag']
+                if e[2][0] != a['spend_tag']:
+                    raise ValueError(f'spend_tag mismatch. expected: {e}, actual {a}')
                 txids.append((e[3], a['spending_txid']))
-            else:
-                assert 'spend_tag' not in a
+            elif 'spend_tag' in a:
+                raise ValueError(f'{a} contains "spend_tag", expecting {e}')
+
             found = True
             break
-        assert found
+        if not found:
+            raise ValueError(f'Unable to find actual tx {a} in expected {exp}')
 
     return txids
 
 
 def check_inspect_channel(n, channel_id, expected_txs):
     actual_txs = n.rpc.bkpr_inspect(channel_id)['txs']
-    assert len(actual_txs) == len(expected_txs.keys())
+    # Stash a copy in case we need to print on error/assert at end
+    _actual_txs = actual_txs
+    if len(actual_txs) != len(expected_txs.keys()):
+        raise ValueError(f'count actual_txs != expected exp: {expected_txs}')
     # start at the top
     exp = list(expected_txs.values())[0]
     actual = actual_txs[0]
@@ -351,7 +380,8 @@ def check_inspect_channel(n, channel_id, expected_txs):
             if a['txid'] == txid:
                 actual = a
                 break
-        assert actual
+        if not actual:
+            raise ValueError(f'No "actual" tx found, looking for {txid}. {actual_txs}')
         exp = expected_txs[marker]
         inspect_check_actual(txids, channel_id, actual, exp)
 
@@ -360,8 +390,10 @@ def check_inspect_channel(n, channel_id, expected_txs):
         exp_counter += 1
 
     # Did we inspect everything?
-    assert len(actual_txs) == 0
-    assert exp_counter == len(expected_txs.keys())
+    if len(actual_txs) != 0:
+        raise ValueError(f'Had more txs than expected. expected: {expected_txs}. actual: {_actual_txs}')
+    if exp_counter != len(expected_txs.keys()):
+        raise ValueError(f'Had less txs than expected. expected: {expected_txs}. actual txs: {_actual_txs}')
 
 
 def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=None):
@@ -373,6 +405,8 @@ def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=No
     if filter_channel:
         utxos = utxos_for_channel(utxos, filter_channel)
 
+    # Stash for errors, if we get them
+    _utxos = utxos
     for tag, evs in expected.items():
         if tag not in tag_list:
             u_set = list(utxos.values())[0]
@@ -388,13 +422,15 @@ def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=No
         del utxos[txid]
 
     # Verify that we went through all of the utxos
-    assert len(utxos) == 0
+    if len(utxos) != 0:
+        raise ValueError(f"leftover utxos? expected: {expected}, actual: {_utxos}")
 
     # Verify that the expected tags match the found tags
     if exp_tag_list:
         for tag, txid in tag_list.items():
             if tag in exp_tag_list:
-                assert exp_tag_list[tag] == txid
+                if exp_tag_list[tag] != txid:
+                    raise ValueError(f"expected tags txid {exp_tag_list[tag]} != actual {txid}. expected: {exp_tag_list}, actual: {tag_list}")
 
     return tag_list
 
