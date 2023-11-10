@@ -1,5 +1,6 @@
 import json5
 import ipaddress
+import pyln.client
 
 
 CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT, REST_CSP, REST_CORS_ORIGINS = "", "", "", "", "", []
@@ -64,8 +65,29 @@ def set_config(options):
     return None
 
 
+def convert_millisatoshis(item):
+    """
+    The global JSON encoder has been replaced (see
+    monkey_patch_json!)  by one that turns Millisatoshi class object
+    into strings ending in msat.  We do not want the http response
+    to be encoded like that!  pyln-client should probably not do that,
+    but meanwhile, convert them to integers.
+    """
+    if isinstance(item, dict):
+        ret = {}
+        for k in item:
+            ret[k] = convert_millisatoshis(item[k])
+    elif isinstance(item, list):
+        ret = [convert_millisatoshis(i) for i in item]
+    elif isinstance(item, pyln.client.Millisatoshi):
+        ret = int(item)
+    else:
+        ret = item
+    return ret
+
+
 def call_rpc_method(plugin, rpc_method, payload):
-    return plugin.rpc.call(rpc_method, payload)
+    return convert_millisatoshis(plugin.rpc.call(rpc_method, payload))
 
 
 def verify_rune(plugin, rune, rpc_method, rpc_params):
