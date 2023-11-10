@@ -39,25 +39,25 @@ def validate_port(port):
 
 
 def set_config(options):
-    if 'rest-port' not in options:
-        return "`rest-port` option is not configured"
+    if 'clnrest-port' not in options:
+        return "`clnrest-port` option is not configured"
     global CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT, REST_CSP, REST_CORS_ORIGINS
 
-    REST_PORT = int(options["rest-port"])
+    REST_PORT = int(options["clnrest-port"])
     if validate_port(REST_PORT) is False:
-        return f"`rest-port` {REST_PORT}, should be a valid available port between 1024 and 65535."
+        return f"`clnrest-port` {REST_PORT}, should be a valid available port between 1024 and 65535."
 
-    REST_HOST = str(options["rest-host"])
+    REST_HOST = str(options["clnrest-host"])
     if REST_HOST != "localhost" and validate_ip4(REST_HOST) is False and validate_ip6(REST_HOST) is False:
-        return f"`rest-host` should be a valid IP."
+        return f"`clnrest-host` should be a valid IP."
 
-    REST_PROTOCOL = str(options["rest-protocol"])
+    REST_PROTOCOL = str(options["clnrest-protocol"])
     if REST_PROTOCOL != "http" and REST_PROTOCOL != "https":
-        return f"`rest-protocol` can either be http or https."
+        return f"`clnrest-protocol` can either be http or https."
 
-    CERTS_PATH = str(options["rest-certs"])
-    REST_CSP = str(options["rest-csp"])
-    cors_origins = options["rest-cors-origins"]
+    CERTS_PATH = str(options["clnrest-certs"])
+    REST_CSP = str(options["clnrest-csp"])
+    cors_origins = options["clnrest-cors-origins"]
     REST_CORS_ORIGINS.clear()
     for origin in cors_origins:
         REST_CORS_ORIGINS.append(str(origin))

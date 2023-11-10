@@ -24,22 +24,22 @@ def http_session_with_retry():
 
 
 def test_clnrest_no_auto_start(node_factory):
-    """Ensure that we do not start clnrest unless a `rest-port` is configured."""
+    """Ensure that we do not start clnrest unless a `clnrest-port` is configured."""
     l1 = node_factory.get_node()
     # This might happen really early!
     l1.daemon.logsearch_start = 0
     assert [p for p in l1.rpc.plugin('list')['plugins'] if 'clnrest.py' in p['name']] == []
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `rest-port` option is not configured')
+    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
 
 
 def test_clnrest_self_signed_certificates(node_factory):
-    """Test that self-signed certificates have `rest-host` IP in Subject Alternative Name."""
+    """Test that self-signed certificates have `clnrest-host` IP in Subject Alternative Name."""
     rest_port = str(reserve())
     rest_host = '127.0.0.1'
     base_url = f'https://{rest_host}:{rest_port}'
     l1 = node_factory.get_node(options={'disable-plugin': 'cln-grpc',
-                                        'rest-port': rest_port,
-                                        'rest-host': rest_host})
+                                        'clnrest-port': rest_port,
+                                        'clnrest-host': rest_host})
     # This might happen really early!
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_log(r'plugin-clnrest.py: REST server running at ' + base_url)
@@ -54,12 +54,12 @@ def test_clnrest_self_signed_certificates(node_factory):
 def test_clnrest_uses_grpc_plugin_certificates(node_factory):
     """Test that clnrest reuses `cln-grpc` plugin certificates if available.
     Defaults:
-    - rest-protocol: https
+    - clnrest-protocol: https
     """
     rest_host = 'localhost'
     grpc_port = str(reserve())
     rest_port = str(reserve())
-    l1 = node_factory.get_node(options={'grpc-port': grpc_port, 'rest-host': rest_host, 'rest-port': rest_port})
+    l1 = node_factory.get_node(options={'grpc-port': grpc_port, 'clnrest-host': rest_host, 'clnrest-port': rest_port})
     base_url = f'https://{rest_host}:{rest_port}'
     # This might happen really early!
     l1.daemon.logsearch_start = 0
@@ -73,21 +73,21 @@ def test_clnrest_uses_grpc_plugin_certificates(node_factory):
 
 def test_clnrest_generate_certificate(node_factory):
     """Test whether we correctly generate the certificates."""
-    # when `rest-protocol` is `http`, certs are not generated at `rest-certs` path
+    # when `clnrest-protocol` is `http`, certs are not generated at `clnrest-certs` path
     rest_port = str(reserve())
     rest_protocol = 'http'
     rest_certs = node_factory.directory + '/clnrest-certs'
-    l1 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-protocol': rest_protocol,
-                                        'rest-certs': rest_certs})
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port,
+                                        'clnrest-protocol': rest_protocol,
+                                        'clnrest-certs': rest_certs})
 
     assert not Path(rest_certs).exists()
 
     # node l1 not started
     rest_port = str(reserve())
     rest_certs = node_factory.directory + '/clnrest-certs'
-    l1 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-certs': rest_certs}, start=False)
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port,
+                                        'clnrest-certs': rest_certs}, start=False)
     rest_certs_path = Path(rest_certs)
     files = [rest_certs_path / f for f in [
         'ca.pem',
@@ -131,7 +131,7 @@ def start_node_with_clnrest(node_factory):
     - the certificate authority path used for the self-signed certificates."""
     rest_port = str(reserve())
     rest_certs = node_factory.directory + '/clnrest-certs'
-    l1 = node_factory.get_node(options={'rest-port': rest_port, 'rest-certs': rest_certs})
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port, 'clnrest-certs': rest_certs})
     base_url = 'https://127.0.0.1:' + rest_port
     # This might happen really early!
     l1.daemon.logsearch_start = 0
@@ -374,34 +374,34 @@ def test_clnrest_websocket_rune_no_listnotifications(node_factory):
 
 
 def test_clnrest_options(node_factory):
-    """Test startup options `rest-host`, `rest-protocol` and `rest-certs`."""
+    """Test startup options `clnrest-host`, `clnrest-protocol` and `clnrest-certs`."""
     # with invalid port
     rest_port = 1000
-    l1 = node_factory.get_node(options={'rest-port': rest_port})
-    assert l1.daemon.is_in_log(f'plugin-clnrest.py: Killing plugin: disabled itself at init: `rest-port` {rest_port}, should be a valid available port between 1024 and 65535.')
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port})
+    assert l1.daemon.is_in_log(f'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` {rest_port}, should be a valid available port between 1024 and 65535.')
 
     # with invalid protocol
     rest_port = str(reserve())
     rest_protocol = 'htttps'
-    l1 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-protocol': rest_protocol})
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `rest-protocol` can either be http or https.')
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port,
+                                        'clnrest-protocol': rest_protocol})
+    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-protocol` can either be http or https.')
 
     # with invalid host
     rest_port = str(reserve())
     rest_host = '127.0.0.12.15'
-    l1 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-host': rest_host})
-    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `rest-host` should be a valid IP.')
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port,
+                                        'clnrest-host': rest_host})
+    assert l1.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-host` should be a valid IP.')
 
 
 def test_clnrest_http_headers(node_factory):
-    """Test HTTP headers set with `rest-csp` and `rest-cors-origins` options."""
+    """Test HTTP headers set with `clnrest-csp` and `clnrest-cors-origins` options."""
     # start a node with clnrest
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
     http_session = http_session_with_retry()
 
-    # Default values for `rest-csp` and `rest-cors-origins` options
+    # Default values for `clnrest-csp` and `clnrest-cors-origins` options
     response = http_session.get(base_url + '/v1/list-methods', verify=ca_cert)
     assert response.headers['Content-Security-Policy'] == "default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';"
     assert response.headers['Access-Control-Allow-Origin'] == '*'
@@ -409,14 +409,14 @@ def test_clnrest_http_headers(node_factory):
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_log(f'plugin-clnrest.py: REST server running at {base_url}')
 
-    # Custom values for `rest-csp` and `rest-cors-origins` options
+    # Custom values for `clnrest-csp` and `clnrest-cors-origins` options
     rest_port = str(reserve())
     rest_certs = node_factory.directory + '/clnrest-certs'
     l2 = node_factory.get_node(options={
-        'rest-port': rest_port,
-        'rest-certs': rest_certs,
-        'rest-csp': "default-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'; style-src 'self'; script-src 'self';",
-        'rest-cors-origins': ['https://localhost:5500', 'http://192.168.1.30:3030', 'http://192.168.1.10:1010']
+        'clnrest-port': rest_port,
+        'clnrest-certs': rest_certs,
+        'clnrest-csp': "default-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'; style-src 'self'; script-src 'self';",
+        'clnrest-cors-origins': ['https://localhost:5500', 'http://192.168.1.30:3030', 'http://192.168.1.10:1010']
     })
     base_url = 'https://127.0.0.1:' + rest_port
     # This might happen really early!

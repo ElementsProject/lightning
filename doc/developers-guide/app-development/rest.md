@@ -28,7 +28,7 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 >
 > - The `ip` should be configured with your system's public IP address.
 >
-> - Default `rest-host` is `127.0.0.1` but this testing will require it to be `0.0.0.0`.
+> - Default `clnrest-host` is `127.0.0.1` but this testing will require it to be `0.0.0.0`.
 >
 > Note: This setup is for **testing only**. It is **highly recommended** to test with _non-mainnet_ (regtest/testnet) setup only.
 
@@ -38,36 +38,37 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 The plugin is built-in with Core Lightning but its python dependencies are not, and must be installed separately.
 Install required packages with `pip install -r plugins/clnrest/requirements.txt`.
 
-Note: if you have the older c-lightning-rest plugin, you can configure Core Lightning with `disable-plugin=clnrest.py` option 
-to avoid any conflict with this one. Of course, you could use this one instead!
+Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest.py`
+option to avoid confusion with this one. You can also run both plugins simultaneously till all your applications
+are not migrated to `clnrest`.
 
 
 ## Configuration
 
-If `rest-port` is not specified, the plugin will disable itself.
+If `clnrest-port` is not specified, the plugin will disable itself.
 
-- --rest-port: Sets the REST server port to listen to (3010 is common)
+- --clnrest-port: Sets the REST server port to listen to (3010 is common)
 
-- --rest-protocol: Specifies the REST server protocol. Default is HTTPS.
+- --clnrest-protocol: Specifies the REST server protocol. Default is HTTPS.
 
-- --rest-host: Defines the REST server host. Default is 127.0.0.1.
+- --clnrest-host: Defines the REST server host. Default is 127.0.0.1.
 
-- --rest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate.
+- --clnrest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate.
 If it is missing at the configured location, new identity will be generated.
 
-- --rest-csp: Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. 
+- --clnrest-csp: Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. 
 Default CSP:
 `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`
 Example CSP:
-`rest-csp=default-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'; style-src 'self'; script-src 'self';`.
+`clnrest-csp=default-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'; style-src 'self'; script-src 'self';`.
 
-- --rest-cors-origins: Define multiple origins which are allowed to share resources on web pages to a domain different from the 
+- --clnrest-cors-origins: Define multiple origins which are allowed to share resources on web pages to a domain different from the 
 one that served the web page. Default is `*` which allows all origins. Example to define multiple origins:
 
 ```
-rest-cors-origins=https://localhost:5500
-rest-cors-origins=http://192.168.1.50:3030
-rest-cors-origins=https?://127.0.0.1:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])
+clnrest-cors-origins=https://localhost:5500
+clnrest-cors-origins=http://192.168.1.50:3030
+clnrest-cors-origins=https?://127.0.0.1:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])
 
 ```
 
