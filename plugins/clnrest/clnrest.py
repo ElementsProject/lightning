@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # For --hidden-import gunicorn.glogging gunicorn.workers.sync
 try:
+    from gevent import monkey
+    monkey.patch_ssl()
     import sys
     import os
     import re
