@@ -23,7 +23,7 @@ def test_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.signpsbt(result['psbt'], utxo_string=funds_result['utxo_string'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -61,7 +61,7 @@ def test_splice_gossip(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.signpsbt(result['psbt'], utxo_string=funds_result['utxo_string'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
@@ -119,7 +119,7 @@ def test_splice_listnodes(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.signpsbt(result['psbt'], utxo_string=funds_result['utxo_string'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -208,7 +208,7 @@ def test_invalid_splice(node_factory, bitcoind):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.signpsbt(result['psbt'], utxo_string=funds_result['utxo_string'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -307,7 +307,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
-    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.signpsbt(result['psbt'], utxo_string=funds_result['utxo_string'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')

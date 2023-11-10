@@ -46,6 +46,7 @@ echo $RESULT;
 
 RESULT=$(lightning-cli fundpsbt -k satoshi=100000sat feerate=urgent startweight=800 excess_as_change=true);
 INITIALPSBT=$(echo $RESULT | jq -r ".psbt");
+UTXO_STRING=$(echo $RESULT | jq -r ".utxo_string");
 echo $RESULT;
 
 RESULT=$(lightning-cli splice_init $CHANNEL_ID 100000 $INITIALPSBT);
@@ -56,7 +57,7 @@ RESULT=$(lightning-cli splice_update $CHANNEL_ID $PSBT);
 PSBT=$(echo $RESULT | jq -r ".psbt");
 echo $RESULT;
 
-RESULT=$(lightning-cli signpsbt -k psbt="$PSBT");
+RESULT=$(lightning-cli signpsbt -k psbt="$PSBT" utxo_string="$UTXO_STRING");
 PSBT=$(echo $RESULT | jq -r ".signed_psbt");
 echo $RESULT;
 

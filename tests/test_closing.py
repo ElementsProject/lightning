@@ -3717,13 +3717,15 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
 
     # We reduce l1's UTXOs so it's forced to use more than one UTXO to push.
     fundsats = int(only_one(l1.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
-    psbt = l1.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
+    result = l1.rpc.fundpsbt("all", "1000perkw", 1000)
+    psbt = result['psbt']
+    utxo_string = result['utxo_string']
     # Pay 5k sats in fees, send most to l2
     psbt = l1.rpc.addpsbtoutput(fundsats - 20000 - 5000, psbt, destination=l2.rpc.newaddr()['bech32'])['psbt']
     # 10x2000 sat outputs for l1 to use.
     for i in range(10):
         psbt = l1.rpc.addpsbtoutput(2000, psbt)['psbt']
-    l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt)['signed_psbt'])
+    l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt, utxo_string=utxo_string)['signed_psbt'])
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
 
@@ -3912,12 +3914,14 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     fundsats = int(only_one(l2.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
     OUTPUT_SAT = 10000
     NUM_OUTPUTS = 10
-    psbt = l2.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
+    result = l2.rpc.fundpsbt("all", "1000perkw", 1000)
+    psbt = result['psbt']
+    utxo_string = result['utxo_string']
     # Pay 5k sats in fees.
     psbt = l2.rpc.addpsbtoutput(fundsats - OUTPUT_SAT * NUM_OUTPUTS - 5000, psbt, destination=l3.rpc.newaddr()['bech32'])['psbt']
     for _ in range(NUM_OUTPUTS):
         psbt = l2.rpc.addpsbtoutput(OUTPUT_SAT, psbt)['psbt']
-    l2.rpc.sendpsbt(l2.rpc.signpsbt(psbt)['signed_psbt'])
+    l2.rpc.sendpsbt(l2.rpc.signpsbt(psbt, utxo_string=utxo_string)['signed_psbt'])
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l2])
 

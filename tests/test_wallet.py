@@ -807,7 +807,7 @@ def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     psbt = bitcoind.rpc.createpsbt(inputs, [{addr: (amount * 3) / 10**8}])
 
     l1.rpc.reserveinputs(psbt)
-    l1.rpc.signpsbt(psbt)
+    l1.rpc.signpsbt(psbt, unsafe_sign_all=True)
 
 
 def test_psbt_version(node_factory, bitcoind, chainparams):
@@ -913,7 +913,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 
     # We require the utxos be reserved before signing them
     with pytest.raises(RpcError, match=r"Aborting PSBT signing. UTXO .* is not reserved"):
-        l1.rpc.signpsbt(funding['psbt'])['signed_psbt']
+        l1.rpc.signpsbt(funding['psbt'], utxo_string=funding['utxo_string'])['signed_psbt']
 
     # Now we unreserve the singleton, so we can reserve it again
     l1.rpc.unreserveinputs(psbt)
@@ -930,7 +930,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     l1.rpc.reserveinputs(fullpsbt)
 
     # Sign + send the PSBT we've created
-    signed_psbt = l1.rpc.signpsbt(fullpsbt)['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(fullpsbt, utxo_string=funding['utxo_string'])['signed_psbt']
     broadcast_tx = l1.rpc.sendpsbt(signed_psbt)
 
     # Check that it was broadcast successfully
@@ -947,7 +947,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 
     # Now we try signing a PSBT with an output that's already been spent
     with pytest.raises(RpcError, match=r"Aborting PSBT signing. UTXO .* is not reserved"):
-        l1.rpc.signpsbt(fullpsbt)
+        l1.rpc.signpsbt(fullpsbt, utxo_string=funding['utxo_string'])
 
     # Queue up another node, to make some PSBTs for us
     for i in range(total_outs):
@@ -962,7 +962,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 
     # Try to get L1 to sign it
     with pytest.raises(RpcError, match=r"No wallet inputs to sign"):
-        l1.rpc.signpsbt(l2_funding['psbt'])
+        l1.rpc.signpsbt(l2_funding['psbt'], utxo_string=funding['utxo_string'])
 
     # With signonly it will fail if it can't sign it.
     with pytest.raises(RpcError, match=r"is unknown"):
@@ -1007,7 +1007,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     for s in sign_success:
         assert bitcoind.rpc.decodepsbt(half_signed_psbt)['inputs'][s]['partial_signatures'] is not None
 
-    totally_signed = l2.rpc.signpsbt(half_signed_psbt)['signed_psbt']
+    totally_signed = l2.rpc.signpsbt(half_signed_psbt, unsafe_sign_all=True)['signed_psbt']
 
     broadcast_tx = l1.rpc.sendpsbt(totally_signed)
     l1.daemon.wait_for_log(r'sendrawtx exit 0 .* sendrawtransaction {}'.format(broadcast_tx['tx']))
@@ -1020,7 +1020,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     output_psbt = bitcoind.rpc.createpsbt([],
                                           [{addr: float((out_total + out_amt).to_btc())}])
     psbt = bitcoind.rpc.joinpsbts([l2_funding['psbt'], output_psbt])
-    l2_signed_psbt = l2.rpc.signpsbt(psbt)['signed_psbt']
+    l2_signed_psbt = l2.rpc.signpsbt(psbt, unsafe_sign_all=True)['signed_psbt']
     l1.rpc.sendpsbt(l2_signed_psbt)
 
     # Re-try sending the same tx?

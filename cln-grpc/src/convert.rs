@@ -931,6 +931,7 @@ impl From<responses::FundpsbtResponse> for pb::FundpsbtResponse {
             change_outnum: c.change_outnum, // Rule #2 for type u32?
             // Field: FundPsbt.reservations[]
             reservations: c.reservations.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            utxo_string: c.utxo_string, // Rule #2 for type string?
         }
     }
 }
@@ -2159,6 +2160,7 @@ impl From<requests::SignpsbtRequest> for pb::SignpsbtRequest {
             psbt: c.psbt, // Rule #2 for type string
             // Field: SignPsbt.signonly[]
             signonly: c.signonly.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            utxo_string: c.utxo_string, // Rule #2 for type string?
         }
     }
 }
@@ -2875,6 +2877,7 @@ impl From<pb::SignpsbtRequest> for requests::SignpsbtRequest {
         Self {
             psbt: c.psbt, // Rule #1 for type string
             signonly: Some(c.signonly.into_iter().map(|s| s).collect()), // Rule #4
+            utxo_string: c.utxo_string, // Rule #1 for type string?
         }
     }
 }

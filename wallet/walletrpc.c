@@ -740,13 +740,62 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	struct wally_psbt *psbt, *signed_psbt;
 	struct utxo **utxos;
 	u32 *input_nums;
+	const char *utxo_string;
 	u32 psbt_version;
+	bool *sign_all;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("psbt", param_psbt, &psbt),
 			 p_opt("signonly", param_input_numbers, &input_nums),
+			 p_opt("utxo_string", param_string, &utxo_string),
+			 p_opt_def("unsafe_sign_all", param_bool, &sign_all, false),
 			 NULL))
 		return command_param_failed();
+
+	if (!input_nums && !utxo_string && !sign_all)
+		return command_fail(cmd, LIGHTNINGD, "Must specify which inputs"
+				    " to sign with signonly or utxo_string");
+
+	if (input_nums && utxo_string)
+		return command_fail(cmd, LIGHTNINGD, "Must specify which inputs"
+				    " to sign with either signonly or"
+				    " utxo_string, not both.");
+
+	if (sign_all) {
+		input_nums = tal_free(input_nums);
+		utxo_string = tal_free(utxo_string);
+	}
+
+	if (utxo_string)
+		input_nums = tal_arr(tmpctx, u32, 0);
+
+	while (utxo_string && strlen(utxo_string)) {
+		struct bitcoin_outpoint usr_outpoint;
+
+		if (strlen(utxo_string) < 66)
+			return command_fail(cmd, LIGHTNINGD, "utxo_string encoding");
+
+		if (!bitcoin_txid_from_hex(utxo_string, 64, &usr_outpoint.txid))
+			return command_fail(cmd, LIGHTNINGD, "utxo_string encoding");
+
+		if (utxo_string[64] != ':')
+			return command_fail(cmd, LIGHTNINGD, "utxo_string encoding");
+
+		errno = 0;
+		usr_outpoint.n = strtoul(utxo_string + 65, NULL, 10);
+
+		if (errno != 0)
+			return command_fail(cmd, LIGHTNINGD, "utxo_string encoding");
+
+		utxo_string = strchr(utxo_string, ',');
+
+		for (size_t i = 0; i < psbt->num_inputs; i++) {
+			struct bitcoin_outpoint outpoint;
+			wally_psbt_input_get_outpoint(&psbt->inputs[i], &outpoint);
+			if (bitcoin_outpoint_eq(&outpoint, &usr_outpoint))
+				tal_arr_expand(&input_nums, i);
+		}
+	}
 
 	/* We internally deal with v2 only but we want to return V2 if given */
 	psbt_version = psbt->version;
@@ -829,7 +878,10 @@ static const struct json_command signpsbt_command = {
 	"signpsbt",
 	"bitcoin",
 	json_signpsbt,
-	"Sign this wallet's inputs on a provided PSBT.",
+	"Sign this wallet's inputs specified by {signonly} or {utxo_string} on"
+	" a provided {psbt}. {signonly} is an array of input indices to sign"
+	" while {utxo_string} is in the format returned by fundpsbt"
+	" \"txid:ounum,txid:outnum\".",
 	false
 };
 

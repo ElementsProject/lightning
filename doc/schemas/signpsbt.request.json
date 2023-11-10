@@ -14,6 +14,14 @@
       "items": {
         "type": "u32"
       }
+    },
+    "utxo_string": {
+      "type": "string",
+      "added": "v23.11"
+    },
+    "unsafe_sign_all": {
+      "type": "bool",
+      "added": "v23.11"
     }
   }
 }

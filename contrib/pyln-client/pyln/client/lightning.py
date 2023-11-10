@@ -1570,13 +1570,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("utxopsbt", payload)
 
-    def signpsbt(self, psbt, signonly=None):
+    def signpsbt(self, psbt, signonly=None, utxo_string=None, unsafe_sign_all=None):
         """
         Add internal wallet's signatures to PSBT
         """
         payload = {
             "psbt": psbt,
             "signonly": signonly,
+            "utxo_string": utxo_string,
+            "unsafe_sign_all": unsafe_sign_all,
         }
         return self.call("signpsbt", payload)
 

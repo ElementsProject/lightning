@@ -718,6 +718,7 @@ def fundpsbt2py(m):
         "excess_msat": amount2msat(m.excess_msat),  # PrimitiveField in generate_composite
         "change_outnum": m.change_outnum,  # PrimitiveField in generate_composite
         "reservations": [fundpsbt_reservations2py(i) for i in m.reservations],  # ArrayField[composite] in generate_composite
+        "utxo_string": m.utxo_string,  # PrimitiveField in generate_composite
     })
 
 

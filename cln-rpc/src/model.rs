@@ -1062,6 +1062,8 @@ pub mod requests {
 	    pub psbt: String,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub signonly: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub utxo_string: Option<String>,
 	}
 
 	impl From<SignpsbtRequest> for Request {
@@ -3683,6 +3685,8 @@ pub mod responses {
 	    pub change_outnum: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub reservations: Option<Vec<FundpsbtReservations>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub utxo_string: Option<String>,
 	}
 
 	impl TryFrom<Response> for FundpsbtResponse {

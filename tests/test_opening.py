@@ -386,7 +386,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     assert int(info_2['next_feerate'][:-5]) == rate * 65 // 64
 
     # Sign our inputs, and continue
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
 
     # Fails because we didn't put enough feerate in.
     with pytest.raises(RpcError, match=r'insufficient fee'):
@@ -412,7 +412,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
                                    funding_feerate=next_rate)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
     assert update['commitments_secured']
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     bitcoind.generate_block(1)
@@ -505,7 +505,7 @@ def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
                                    funding_feerate=next_rate)
 
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     bitcoind.generate_block(1)
@@ -638,7 +638,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     assert update['commitments_secured']
 
     # Sign our inputs, and continue
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # There's data in the datastore now (l2 only)
@@ -731,7 +731,7 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     assert update['commitments_secured']
 
     # Sign our inputs, and continue
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # We 2x the feerate to beat the min-relay fee
@@ -754,7 +754,7 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     assert update['commitments_secured']
 
     # Sign our inputs, and continue
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     bitcoind.generate_block(1)
@@ -969,7 +969,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     # We can call update again! It should short-circuit this time :)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
     assert update['commitments_secured']
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     l2.daemon.wait_for_log('Broadcasting funding tx')
@@ -1038,7 +1038,7 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
 
     # Sign our inputs, and continue
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
 
     # First time we error when we send our sigs
     with pytest.raises(RpcError):
@@ -1210,7 +1210,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
         update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
         assert update['commitments_secured']
 
-        return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+        return l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
 
     signed_psbt = run_retry()
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
@@ -1295,7 +1295,7 @@ def test_rbf_broadcast_close_inflights(node_factory, bitcoind, chainparams):
         update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
         assert update['commitments_secured']
 
-        return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+        return l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
 
     signed_psbt = run_retry()
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
@@ -1363,7 +1363,7 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
         update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
         assert update['commitments_secured']
 
-        return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+        return l1.rpc.signpsbt(update['psbt'], unsafe_sign_all=True)['signed_psbt']
 
     # Make a second inflight
     signed_psbt = run_retry()

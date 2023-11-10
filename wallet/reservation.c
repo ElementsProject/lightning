@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -56,6 +57,7 @@ static void reserve_and_report(struct json_stream *response,
 			       u32 reserve,
 			       struct utxo **utxos)
 {
+	char *utxo_string = tal_strdup(NULL, "");
 	json_array_start(response, "reservations");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		enum output_status oldstatus;
@@ -75,8 +77,15 @@ static void reserve_and_report(struct json_stream *response,
 		}
 		json_add_reservestatus(response, utxos[i], oldstatus, old_res,
 				       current_height);
+		tal_append_fmt(&utxo_string, "%s%s",
+			       type_to_string(utxo_string,
+			       		      struct bitcoin_outpoint,
+			       		      &utxos[i]->outpoint),
+			       strlen(utxo_string) ? "," : "");
 	}
 	json_array_end(response);
+	json_add_string(response, "utxo_string", utxo_string);
+	tal_free(utxo_string);
 }
 
 static struct command_result *json_reserveinputs(struct command *cmd,

@@ -81,6 +81,7 @@ On success, an object is returned, containing:
   - **was\_reserved** (boolean): Whether this output was previously reserved (always *false*)
   - **reserved** (boolean): Whether this output is now reserved (always *true*)
   - **reserved\_to\_block** (u32): The blockheight the reservation will expire
+- **utxo\_string** (string, optional): A command seperated list of utxos used to fund the psbt *(added v24.02)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -112,4 +113,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:13e35920ba8810db082e3cca62d1141a67498a2756da2479a24eaa62567ff4fe)
+[comment]: # ( SHA256STAMP:8c942b9a2303a05e3cda8e3190b4c299ede6020849573ef4c4ca7ee4c4363fae)

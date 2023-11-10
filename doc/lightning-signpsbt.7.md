@@ -13,11 +13,18 @@ DESCRIPTION
 BIP-174.
 
 - *psbt*: A string that represents the PSBT value.
-- *signonly*: An optional array of input numbers to sign.
+- *signonly*: An an array of input numbers to sign.
+- *utxo\_string*: An an array of outputs to sign.
+- *unsafe\_sign\_all*: A flag to recklessly sign all reserved inputs.
 
-By default, all known inputs are signed, and others ignored: with
-*signonly*, only those inputs are signed, and an error is returned if
-one of them cannot be signed.
+Specify which inputs to sign by either an array of input indices to sign with
+*sigonly* or a *utxo\_string*.
+
+*utxo\_string* is in the format of a txid and outnum seperated by a colon.
+Multiple utxos can be added by putting a comma inbetween entries. As such:
+txid:outnum,txid:outnum... This is the same format returned by fundpsbt.
+
+An error is returned if one of them cannot be signed.
 
 Note that the command will fail if there are no inputs to sign, or
 if the inputs to be signed were not previously reserved.
@@ -30,7 +37,8 @@ EXAMPLE JSON REQUEST
   "id": 82,
   "method": "signpsbt",
   "params": {
-    "psbt": "some_psbt"
+    "psbt": "some_psbt",
+    "utxo_string": "txid:outnum,txid:outnum"
   }
 }
 ```

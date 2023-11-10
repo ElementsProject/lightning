@@ -71,6 +71,11 @@
           }
         }
       }
+    },
+    "utxo_string": {
+      "type": "string",
+      "description": "A command seperated list of utxos used to fund the psbt",
+      "added": "v23.11"
     }
   }
 }

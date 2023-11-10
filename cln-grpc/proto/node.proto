@@ -1067,6 +1067,7 @@ message FundpsbtResponse {
 	Amount excess_msat = 4;
 	optional uint32 change_outnum = 5;
 	repeated FundpsbtReservations reservations = 6;
+	optional string utxo_string = 7;
 }
 
 message FundpsbtReservations {
@@ -1090,6 +1091,7 @@ message SendpsbtResponse {
 message SignpsbtRequest {
 	string psbt = 1;
 	repeated uint32 signonly = 2;
+	optional string utxo_string = 3;
 }
 
 message SignpsbtResponse {

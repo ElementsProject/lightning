@@ -745,7 +745,8 @@
             "FundPsbt.excess_msat": 4,
             "FundPsbt.feerate_per_kw": 2,
             "FundPsbt.psbt": 1,
-            "FundPsbt.reservations[]": 6
+            "FundPsbt.reservations[]": 6,
+            "FundPsbt.utxo_string": 7
         },
         "GetinfoAddress": {
             "Getinfo.address[].address": 3,
@@ -1541,7 +1542,8 @@
         },
         "SignpsbtRequest": {
             "SignPsbt.psbt": 1,
-            "SignPsbt.signonly[]": 2
+            "SignPsbt.signonly[]": 2,
+            "SignPsbt.utxo_string": 3
         },
         "SignpsbtResponse": {
             "SignPsbt.signed_psbt": 1
@@ -3007,6 +3009,10 @@
         },
         "FundPsbt.startweight": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundPsbt.utxo_string": {
+            "added": "v23.11",
             "deprecated": false
         },
         "GetRoute": {
@@ -5451,6 +5457,10 @@
         },
         "SignPsbt.signonly[]": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SignPsbt.utxo_string": {
+            "added": "v23.11",
             "deprecated": false
         },
         "StaticBackup": {
