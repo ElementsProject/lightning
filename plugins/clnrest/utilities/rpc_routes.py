@@ -1,7 +1,8 @@
+from pyln.client import RpcError
 import json5
 from flask import request, make_response
 from flask_restx import Namespace, Resource
-from .shared import call_rpc_method, verify_rune, process_help_response
+from .shared import call_rpc_method, verify_rune, process_help_response, RuneError
 from .rpc_plugin import plugin
 
 methods_list = []
@@ -42,20 +43,19 @@ class RpcMethodResource(Resource):
             rpc_params = request.form.to_dict() if not request.is_json else request.get_json() if len(request.data) != 0 else {}
 
             try:
-                is_valid_rune = verify_rune(plugin, rune, rpc_method, rpc_params)
-                if "error" in is_valid_rune:
-                    plugin.log(f"Error: {is_valid_rune}", "error")
-                    raise Exception(is_valid_rune)
-
-            except Exception as err:
-                return json5.loads(str(err)), 401
+                verify_rune(plugin, rune, rpc_method, rpc_params)
+            except RpcError as rpc_err:
+                plugin.log(f"RPC Error: {str(rpc_err.error)}", "info")
+                return rpc_err.error, 401
+            except RuneError as rune_err:
+                plugin.log(f"Rune Error: {str(rune_err)}", "info")
+                return rune_err.error, 403
 
             try:
                 return call_rpc_method(plugin, rpc_method, rpc_params), 201
-
-            except Exception as err:
-                plugin.log(f"Error: {err}", "info")
-                return json5.loads(str(err)), 500
+            except RpcError as rpc_err:
+                plugin.log(f"RPC Error: {str(rpc_err.error)}", "info")
+                return (rpc_err.error, 404) if rpc_err.error["code"] == -32601 else (rpc_err.error, 500)
 
         except Exception as err:
             return f"Unable to parse request: {err}", 500

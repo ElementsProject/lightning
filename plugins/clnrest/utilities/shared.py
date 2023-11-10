@@ -1,10 +1,14 @@
 import json5
-import re
-import json
 import ipaddress
 
 
 CERTS_PATH, REST_PROTOCOL, REST_HOST, REST_PORT, REST_CSP, REST_CORS_ORIGINS = "", "", "", "", "", []
+
+
+class RuneError(Exception):
+    def __init__(self, error=str({"code": 1501, "message": "Not authorized: Missing or invalid rune"})):
+        self.error = error
+        super().__init__(self.error)
 
 
 def validate_ip4(ip_str):
@@ -61,34 +65,12 @@ def set_config(options):
 
 
 def call_rpc_method(plugin, rpc_method, payload):
-    try:
-        response = plugin.rpc.call(rpc_method, payload)
-        if '"error":' in str(response).lower():
-            raise Exception(response)
-        else:
-            plugin.log(f"{response}", "debug")
-            if '"result":' in str(response).lower():
-                # Use json5.loads ONLY when necessary, as it increases processing time
-                return json.loads(response)["result"]
-            else:
-                return response
-
-    except Exception as err:
-        plugin.log(f"Error: {err}", "info")
-        if "error" in str(err).lower():
-            match_err_obj = re.search(r'"error":\{.*?\}', str(err))
-            if match_err_obj is not None:
-                err = "{" + match_err_obj.group() + "}"
-            else:
-                match_err_str = re.search(r"error: \{.*?\}", str(err))
-                if match_err_str is not None:
-                    err = "{" + match_err_str.group() + "}"
-        raise Exception(err)
+    return plugin.rpc.call(rpc_method, payload)
 
 
 def verify_rune(plugin, rune, rpc_method, rpc_params):
     if rune is None:
-        raise Exception('{ "error": {"code": 403, "message": "Not authorized: Missing rune"} }')
+        raise RuneError({"code": 1501, "message": "Not authorized: Missing rune"})
 
     return call_rpc_method(plugin, "checkrune",
                            {"rune": rune,

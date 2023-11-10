@@ -1,6 +1,7 @@
 from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from pyln.testing.utils import env, TEST_NETWORK
+from pyln.client import Millisatoshi
 import unittest
 import requests
 from pathlib import Path
@@ -164,9 +165,9 @@ def test_clnrest_unknown_method(node_factory):
     """Test POST request error on `/v1/unknown-post` end point."""
     rune = l1.rpc.createrune()['rune']
     response = http_session.post(base_url + '/v1/unknown-post', headers={'Rune': rune}, verify=ca_cert)
-    assert response.status_code == 500
-    assert response.json()['error']['code'] == -32601
-    assert response.json()['error']['message'] == "Unknown command 'unknown-post'"
+    assert response.status_code == 404
+    assert response.json()['code'] == -32601
+    assert response.json()['message'] == "Unknown command 'unknown-post'"
 
 
 def test_clnrest_rpc_method(node_factory):
@@ -177,17 +178,17 @@ def test_clnrest_rpc_method(node_factory):
 
     # /v1/getinfo no rune provided in header of the request
     response = http_session.post(base_url + '/v1/getinfo', verify=ca_cert)
-    assert response.status_code == 401
-    assert response.json()['error']['code'] == 403
-    assert response.json()['error']['message'] == 'Not authorized: Missing rune'
+    assert response.status_code == 403
+    assert response.json()['code'] == 1501
+    assert response.json()['message'] == 'Not authorized: Missing rune'
 
     # /v1/getinfo with a rune which doesn't authorized getinfo method
     rune_no_getinfo = l1.rpc.createrune(restrictions=[["method/getinfo"]])['rune']
     response = http_session.post(base_url + '/v1/getinfo', headers={'Rune': rune_no_getinfo},
                                  verify=ca_cert)
     assert response.status_code == 401
-    assert response.json()['error']['code'] == 1502
-    assert response.json()['error']['message'] == 'Not permitted: method is equal to getinfo'
+    assert response.json()['code'] == 1502
+    assert response.json()['message'] == 'Not permitted: method is equal to getinfo'
 
     # /v1/getinfo with a correct rune
     rune_getinfo = l1.rpc.createrune(restrictions=[["method=getinfo"]])['rune']
@@ -201,7 +202,7 @@ def test_clnrest_rpc_method(node_factory):
     response = http_session.post(base_url + '/v1/invoice', headers={'Rune': rune_invoice},
                                  verify=ca_cert)
     assert response.status_code == 500
-    assert response.json()['error']['code'] == -32602
+    assert response.json()['code'] == -32602
 
     # /v1/invoice with a correct rune but wrong parameters
     rune_invoice = l1.rpc.createrune(restrictions=[["method=invoice"]])['rune']
@@ -211,7 +212,7 @@ def test_clnrest_rpc_method(node_factory):
                                        'description': 'description'},
                                  verify=ca_cert)
     assert response.status_code == 500
-    assert response.json()['error']['code'] == -32602
+    assert response.json()['code'] == -32602
 
     # l2 pays l1's invoice where the invoice is created with /v1/invoice
     rune_invoice = l1.rpc.createrune(restrictions=[["method=invoice"]])['rune']
@@ -282,7 +283,7 @@ def test_clnrest_websocket_wrong_rune(node_factory):
 
     notifications = notifications_received_via_websocket(l1, base_url, http_session)
     l1.daemon.logsearch_start = 0
-    assert l1.daemon.is_in_log(r"plugin-clnrest.py: {error: {'code': 1501, 'message': 'Not authorized: Not derived from master'}}")
+    assert l1.daemon.is_in_log(r"error: {'code': 1501, 'message': 'Not authorized: Not derived from master'}")
     assert len(notifications) == 0
 
 
