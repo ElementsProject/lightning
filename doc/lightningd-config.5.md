@@ -632,27 +632,27 @@ all DNS lookups, to avoid leaking information.
   Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
-* **rest-port**=*PORT* [plugin `clnrest.py`]
+* **clnrest-port**=*PORT* [plugin `clnrest.py`]
 
   Sets the REST server port to listen to (3010 is common).  If this is not specified, the clnrest.py plugin will be disabled.
 
-* **rest-protocol**=*PROTOCOL* [plugin `clnrest.py`]
+* **clnrest-protocol**=*PROTOCOL* [plugin `clnrest.py`]
 
   Specifies the REST server protocol. Default is HTTPS.
 
-* **rest-host**=*HOST* [plugin `clnrest.py`]
+* **clnrest-host**=*HOST* [plugin `clnrest.py`]
 
   Defines the REST server host. Default is 127.0.0.1.
 
-* **rest-certs**=*PATH*  [plugin `clnrest.py`]
+* **clnrest-certs**=*PATH*  [plugin `clnrest.py`]
 
   Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
-* **rest-cors-origins**=*CORSORIGINS*  [plugin `clnrest.py`]
+* **clnrest-cors-origins**=*CORSORIGINS*  [plugin `clnrest.py`]
 
   Define multiple origins which are allowed to share resources on web pages to a domain different from the one that served the web page. Default is `*` which allows all origins.
 
-* **rest-csp**=*CSPOLICY*  [plugin `clnrest.py`]
+* **clnrest-csp**=*CSPOLICY*  [plugin `clnrest.py`]
 
   Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. Default CSP is `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`.
 

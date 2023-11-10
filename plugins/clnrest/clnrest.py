@@ -119,7 +119,7 @@ def add_csp_headers(response):
         response.headers['Content-Security-Policy'] = REST_CSP.replace('\\', '').replace("[\"", '').replace("\"]", '')
         return response
     except Exception as err:
-        plugin.log(f"Error from rest-csp config: {err}", "info")
+        plugin.log(f"Error from clnrest-csp config: {err}", "info")
 
 
 def set_application_options(plugin):
