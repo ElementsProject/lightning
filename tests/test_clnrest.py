@@ -225,6 +225,28 @@ def test_clnrest_rpc_method(node_factory):
     assert 'bolt11' in response.json()
 
 
+def test_clnrest_large_response(node_factory):
+    """Test a large reply still works (and msat fields are integers!)"""
+    # start a node with clnrest
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    # Add 500 invoices, test list
+    NUM_INVOICES = 500
+    for i in range(NUM_INVOICES):
+        l1.rpc.invoice(amount_msat=100, label=str(i), description="inv")
+
+    rune = l1.rpc.createrune()['rune']
+    response = http_session.post(base_url + '/v1/listinvoices', headers={'Rune': rune},
+                                 verify=ca_cert)
+    # No, this doesn't return JSON, it *parses* it into a Python object!
+    resp = response.json()
+
+    # Make sure it hasn't turned msat fields into strings!
+    assert not isinstance(resp['invoices'][0]['amount_msat'], Millisatoshi)
+    assert len(resp['invoices']) == NUM_INVOICES
+
+
 # Tests for websocket are written separately to avoid flake8
 # to complain with the errors F811 like this "F811 redefinition of
 # unused 'message'".
