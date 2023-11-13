@@ -474,10 +474,10 @@ class Config():
                         # The white space is getting excessive.
                         remove_these_lines.append(n)
                         continue
-            if not addline:
+            if not addline and not write_required:
                 return
             # No write necessary if addline is already in config.
-            if not write_required:
+            if addline and not write_required:
                 for line in original:
                     if line.strip() == addline.strip():
                         return
@@ -490,7 +490,7 @@ class Config():
                             conf_write.write(f'\n{l.strip()}')
                         else:
                             conf_write.write(l.strip())
-                        if addline.strip() == l.strip():
+                        if addline and addline.strip() == l.strip():
                             # addline is idempotent
                             line_exists = True
                 if not line_exists:

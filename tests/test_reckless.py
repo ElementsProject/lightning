@@ -101,7 +101,8 @@ def get_reckless_node(node_factory):
 
 def check_stderr(stderr):
     def output_okay(out):
-        for warning in ['[notice]', 'WARNING:', 'npm WARN', 'npm notice']:
+        for warning in ['[notice]', 'WARNING:', 'npm WARN',
+                        'npm notice', 'DEPRECATION:']:
             if out.startswith(warning):
                 return True
         return False
@@ -135,6 +136,35 @@ def test_sources(node_factory):
     n = get_reckless_node(node_factory)
     r = reckless(["source", "-h"], dir=n.lightning_dir)
     assert r.returncode == 0
+    r = reckless(["source", "list"], dir=n.lightning_dir)
+    print(r.stdout)
+    assert r.returncode == 0
+    print(n.lightning_dir)
+    reckless_dir = Path(n.lightning_dir) / 'reckless'
+    print(dir(reckless_dir))
+    assert (reckless_dir / '.sources').exists()
+    print(os.listdir(reckless_dir))
+    print(reckless_dir / '.sources')
+    r = reckless([f"--network={NETWORK}", "-v", "source", "add",
+                  "tests/data/recklessrepo/lightningd/testplugfail"],
+                 dir=n.lightning_dir)
+    r = reckless([f"--network={NETWORK}", "-v", "source", "add",
+                  "tests/data/recklessrepo/lightningd/testplugpass"],
+                 dir=n.lightning_dir)
+    with open(reckless_dir / '.sources') as sources:
+        contents = [c.strip() for c in sources.readlines()]
+        print('contents:', contents)
+        assert 'https://github.com/lightningd/plugins' in contents
+        assert "tests/data/recklessrepo/lightningd/testplugfail" in contents
+        assert "tests/data/recklessrepo/lightningd/testplugpass" in contents
+    r = reckless([f"--network={NETWORK}", "-v", "source", "remove",
+                  "tests/data/recklessrepo/lightningd/testplugfail"],
+                 dir=n.lightning_dir)
+    with open(reckless_dir / '.sources') as sources:
+        contents = [c.strip() for c in sources.readlines()]
+        print('contents:', contents)
+        assert "tests/data/recklessrepo/lightningd/testplugfail" not in contents
+        assert "tests/data/recklessrepo/lightningd/testplugpass" in contents
 
 
 def test_search(node_factory):
