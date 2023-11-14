@@ -167,7 +167,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	if (feature_offered(ld->our_features->bits[INIT_FEATURE],
-			    WIRE_HSMD_SIGN_SPLICE_TX)
+			    OPT_EXPERIMENTAL_SPLICE)
 	    && !hsm_capable(ld, WIRE_HSMD_SIGN_SPLICE_TX)) {
 		fatal("--experimental-splicing needs HSM capable of signing splices!");
 	}
