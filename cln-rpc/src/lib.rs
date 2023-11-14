@@ -130,9 +130,11 @@ fn is_none_or_empty<T>(f: &Option<Vec<T>>) -> bool
 where
     T: Clone,
 {
-    // TODO Find a better way to check, possibly without cloning
-    let f = f.clone();
-    f.is_none() || f.unwrap().is_empty()
+    if let Some(inner) = f {
+        inner.is_empty()
+    } else {
+        true
+    }
 }
 
 #[cfg(test)]
