@@ -130,9 +130,7 @@ fn is_none_or_empty<T>(f: &Option<Vec<T>>) -> bool
 where
     T: Clone,
 {
-    // TODO Find a better way to check, possibly without cloning
-    let f = f.clone();
-    f.is_none() || f.unwrap().is_empty()
+    f.as_ref().map_or(true, |value| value.is_empty())
 }
 
 #[cfg(test)]
