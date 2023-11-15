@@ -1,10 +1,10 @@
 use crate::codec::JsonCodec;
-use env_logger::filter;
+use anyhow::Context;
 use futures::SinkExt;
-use log::{Metadata, Record};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::AsyncWrite;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio_util::codec::FramedWrite;
 
@@ -35,28 +35,14 @@ impl From<log::Level> for LogLevel {
     }
 }
 
-/// A simple logger that just wraps log entries in a JSON-RPC
-/// notification and delivers it to `lightningd`.
-struct PluginLogger {
-    // An unbounded mpsc channel we can use to talk to the
-    // flusher. This avoids having circular locking dependencies if we
-    // happen to emit a log record while holding the lock on the
-    // plugin connection.
-    sender: tokio::sync::mpsc::UnboundedSender<LogEntry>,
-    filter: filter::Filter,
-}
-
-/// Initialize the logger starting a flusher to the passed in sink.
-pub async fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>
+/// Start a listener that receives incoming log events, and then
+/// writes them out to `stdout`, after wrapping them in a valid
+/// JSON-RPC notification object.
+fn start_writer<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> mpsc::UnboundedSender<LogEntry>
 where
     O: AsyncWrite + Send + Unpin + 'static,
 {
-    let out = out.clone();
-
-    let filter_str = std::env::var("CLN_PLUGIN_LOG").unwrap_or("info".to_string());
-    let filter = filter::Builder::new().parse(&filter_str).build();
-
-    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<LogEntry>();
+    let (sender, mut receiver) = mpsc::unbounded_channel::<LogEntry>();
     tokio::spawn(async move {
         while let Some(i) = receiver.recv().await {
             // We continue draining the queue, even if we get some
@@ -72,25 +58,92 @@ where
             let _ = out.lock().await.send(payload).await;
         }
     });
-    log::set_boxed_logger(Box::new(PluginLogger { sender, filter }))
-        .map(|()| log::set_max_level(log::LevelFilter::Debug))
+    sender
 }
 
-impl log::Log for PluginLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        self.filter.enabled(metadata)
+/// Initialize the logger starting a flusher to the passed in sink.
+pub async fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), anyhow::Error>
+where
+    O: AsyncWrite + Send + Unpin + 'static,
+{
+    return trace::init(out).context("initializing tracing logger");
+}
+
+mod trace {
+    use super::*;
+    use tracing::Level;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::Layer;
+
+    /// Initialize the logger starting a flusher to the passed in sink.
+    pub fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>
+    where
+        O: AsyncWrite + Send + Unpin + 'static,
+    {
+        let filter = tracing_subscriber::filter::EnvFilter::from_env("CLN_PLUGIN_LOG");
+        let sender = start_writer(out);
+
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(LoggingLayer::new(sender))
+            .init();
+
+        Ok(())
     }
 
-    fn log(&self, record: &Record) {
-        if self.filter.matches(record) {
-            self.sender
-                .send(LogEntry {
-                    level: record.level().into(),
-                    message: record.args().to_string(),
-                })
-                .unwrap();
+    struct LoggingLayer {
+        sender: mpsc::UnboundedSender<LogEntry>,
+    }
+    impl LoggingLayer {
+        fn new(sender: mpsc::UnboundedSender<LogEntry>) -> Self {
+            LoggingLayer { sender }
         }
     }
 
-    fn flush(&self) {}
+    impl<S> Layer<S> for LoggingLayer
+    where
+        S: tracing::Subscriber,
+    {
+        fn on_event(
+            &self,
+            event: &tracing::Event<'_>,
+            _ctx: tracing_subscriber::layer::Context<'_, S>,
+        ) {
+            let mut extractor = LogExtract::default();
+            event.record(&mut extractor);
+            let message = match extractor.msg {
+                Some(m) => m,
+                None => return,
+            };
+            let level = event.metadata().level().into();
+            self.sender.send(LogEntry { level, message }).unwrap();
+        }
+    }
+
+    impl From<&Level> for LogLevel {
+        fn from(l: &Level) -> LogLevel {
+            match l {
+                &Level::DEBUG => LogLevel::Debug,
+                &Level::ERROR => LogLevel::Error,
+                &Level::INFO => LogLevel::Info,
+                &Level::WARN => LogLevel::Warn,
+                &Level::TRACE => LogLevel::Debug,
+            }
+        }
+    }
+
+    /// Extracts the message from the visitor
+    #[derive(Default)]
+    struct LogExtract {
+        msg: Option<String>,
+    }
+
+    impl tracing::field::Visit for LogExtract {
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            if field.name() != "message" {
+                return;
+            }
+            self.msg = Some(format!("{:?}", value));
+        }
+    }
 }
