@@ -113,32 +113,3 @@ lightningd also stores detailed information of funds locked in Lightning Network
 Real-time database replication is the recommended approach to backing up node data. Tools for replication are currently in active development, using the db write plugin hook.
 
 Click [here](doc:advanced-db-backup) to learn more about advanced DB backup methods.
-
-
-## Recovery
-
-> 🚧 
->
-> **Only** recover from database if you are sure that it is **latest**.
->
-> Snapshot-style backups of the lightningd database is **discouraged**, as _any_ loss of state may result in permanent loss of funds. 
->
-> See the  [penalty mechanism](https://github.com/lightning/bolts/blob/master/05-onchain.md#revoked-transaction-close-handling) for more details.
-
-
-### Using `emergency.recover`
-
-  - Copy the valid binary formatted `hsm_secret` into `$LIGHTNINGDIR` directory
-  - Copy the latest `emergency.recover` backup file into the `$LIGHTNINGDIR` before starting up the node
-  - Start `lightningd`
-  - Run `lightning-cli emergencyrecover` (RPC command)[https://docs.corelightning.org/reference/lightning-emergencyrecover] to recover all the channels on the node.
-  - Wait until your peer force closes the channel and the node would automatically sweep the funds. This could take some time.
-
-
-### Using `--recover` flag
-
-  - Copy the latest `emergency.recover` backup file into the `$LIGHTNINGDIR` before starting up the node
-  - Start `lightningd --recover=<codex32secret>`. It will automatically generate your node's hsm_secret using the codex32 secret.
-  - The node will initiate in offline mode. As a result, it won't establish connections with peers automatically. 
-  - Restart `lightningd`.
-  - Run `lightning-cli emergencyrecover` (RPC command)[https://docs.corelightning.org/reference/lightning-emergencyrecover] to recover all the channels on the node.
