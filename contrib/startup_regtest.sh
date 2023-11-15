@@ -116,8 +116,13 @@ export BITCOIND="$BITCOIND"
 export BITCOIN_DIR="$BITCOIN_DIR"
 
 wait_for_lightningd() {
+	if [ -z "$1" ]; then
+		node_count=2
+	else
+		node_count=$1
+	fi
 	for i in $(seq "5"); do
-		if $LCLI --lightning-dir="$LIGHTNING_DIR"/l1 getinfo > /dev/null 2>&1; then
+		if $LCLI --lightning-dir="$LIGHTNING_DIR"/l"$node_count" getinfo > /dev/null 2>&1; then
 			break
 		else
 			sleep 1
@@ -172,7 +177,6 @@ start_nodes() {
 		log-file=$LIGHTNING_DIR/l$i/log
 		addr=localhost:$socket
 		allow-deprecated-apis=false
-		clnrest-port=$((3109+i))
 		developer
 		dev-fast-gossip
 		dev-bitcoind-poll=5
@@ -190,6 +194,10 @@ funder-lease-requests-only=false
 		invoices-onchain-fallback
 		EOF
 
+		# If clnrest loads, add the port so it will run
+		if [ -n "$ACTIVATE_CLNREST" ]; then
+			echo "clnrest-port=$((3109+i))" >> "$LIGHTNING_DIR/l$i/config"
+		fi
 
 		# Start the lightning nodes
 		test -f "$LIGHTNING_DIR/l$i/lightningd-$network.pid" || \
@@ -244,12 +252,16 @@ start_ln() {
 	else
 		nodes="$1"
 	fi
+	# Are the clnrest dependencies installed?
+	if timeout 2 python3 plugins/clnrest/clnrest.py > /dev/null 2>&1; then
+		ACTIVATE_CLNREST=1
+	fi
 	start_nodes "$nodes" regtest
 	echo "	bt-cli, stop_ln, fund_nodes"
-	wait_for_lightningd
 
+	wait_for_lightningd "$nodes"
 	active_status=$(clnrest_status "$LIGHTNING_DIR/l1/log")
-	if [ "$active_status" = "active" ] ; then
+	if [ -n "$ACTIVATE_CLNREST" ] && [ "$active_status" = "active" ] ; then
 		node_info regtest
 	elif [ "$active_status" = "disabled" ]; then
 		echo "clnrest is disabled. Try installing python developer dependencies"
