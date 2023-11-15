@@ -198,9 +198,16 @@ where
             RpcMethod {
                 name: name.to_string(),
                 description: description.to_string(),
+                usage: String::default(),
                 callback: Box::new(move |p, r| Box::pin(callback(p, r))),
             },
         );
+        self
+    }
+
+    pub fn rpcmethod_from_builder(mut self, rpc_method: RpcMethodBuilder<S>) -> Builder<S, I, O> {
+        self.rpcmethods
+            .insert(rpc_method.name.to_string(), rpc_method.build());
         self
     }
 
@@ -335,7 +342,7 @@ where
             .map(|v| messages::RpcMethod {
                 name: v.name.clone(),
                 description: v.description.clone(),
-                usage: String::new(),
+                usage: v.usage.clone(),
             })
             .collect();
 
@@ -383,6 +390,44 @@ where
     }
 }
 
+impl<S> RpcMethodBuilder<S>
+where
+    S: Send + Clone,
+{
+    pub fn new<C, F>(name: &str, callback: C) -> Self
+    where
+        C: Send + Sync + 'static,
+        C: Fn(Plugin<S>, Request) -> F + 'static,
+        F: Future<Output = Response> + Send + 'static,
+    {
+        Self {
+            name: name.to_string(),
+            callback: Box::new(move |p, r| Box::pin(callback(p, r))),
+            usage: None,
+            description: None,
+        }
+    }
+
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(description.to_string());
+        self
+    }
+
+    pub fn usage(mut self, usage: &str) -> Self {
+        self.usage = Some(usage.to_string());
+        self
+    }
+
+    fn build(self) -> RpcMethod<S> {
+        RpcMethod {
+            callback: self.callback,
+            name: self.name,
+            description: self.description.unwrap_or_default(),
+            usage: self.usage.unwrap_or_default(),
+        }
+    }
+}
+
 // Just some type aliases so we don't get confused in a lisp-like sea
 // of parentheses.
 type Request = serde_json::Value;
@@ -405,6 +450,17 @@ where
     callback: AsyncCallback<S>,
     description: String,
     name: String,
+    usage: String,
+}
+
+pub struct RpcMethodBuilder<S>
+where
+    S: Clone + Send,
+{
+    callback: AsyncCallback<S>,
+    name: String,
+    description: Option<String>,
+    usage: Option<String>,
 }
 
 struct Subscription<S>
