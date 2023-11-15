@@ -130,11 +130,7 @@ fn is_none_or_empty<T>(f: &Option<Vec<T>>) -> bool
 where
     T: Clone,
 {
-    if let Some(inner) = f {
-        inner.is_empty()
-    } else {
-        true
-    }
+    f.map_or(true, |value| value.is_empty())
 }
 
 #[cfg(test)]
