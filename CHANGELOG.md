@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [v23.11rc1] - 2023-11-02: "Bitcoin Orangepaper"
+## [v23.11rc2] - 2023-11-02: "Bitcoin Orangepaper"
 
 This release named by Shahana Farooqui
 
@@ -29,6 +29,8 @@ This release named by Shahana Farooqui
  - Config: `--recover` can take a 32-byte hex string, as well as codex32. ([#6772])
  - Config: `--developer` enables developer options and changes default to be "disable deprecated APIs". ([#6311])
  - Cln-RPC: Implement send_custom_notification to allow sending custom notifications to other plugins. ([#6135])
+ - Cln-RPC: Add `wait` system to cln-rpc and cln-grpc. ([#6850])
+ - Cln-RPC: Add `fetchinvoice` method to cln-rpc and cln-grpc. ([#6850])
  - Plugins: plugins can now specify (unknown) even messages we should accept from peers. ([#6689])
  - New configurable Content-Security-Policy (CSP) header for clnrest ([#6686])
  - New configurable Cross-Origin-Resource-Sharing(CSP) header for clnrest ([#6686])
@@ -38,13 +40,14 @@ This release named by Shahana Farooqui
 ### Changed
  - JSON-RPC time fields now have full nanosecond precision (i.e. 9 decimals not 3): `listfowards` `received_time` `resolved_time` `listpays`/`listsendpays` `created_at`. ([#6617])
  - Config: `large-channels` is now the default, wumbology for all. ([#6783])
+ - Plugins: `clnrest` config options `rest-certs`, `rest-protocol`, `rest-host`, `rest-port`, `rest-cors-origins`, `rest-csp` are all now prefixed with `cln` in order to avoid clashing with c-lightning-REST. (i.e., rest-port to clnrest-port) ([#6857])
  - JSON-RPC `listpeerchannels`.`inflights` may sometimes not include `scratch_txid` (mandatory -> optional) ([#6824])
  - JSON-RPC: `openchannel_update` will now echo back a result if there's a matching inflight record for this open. ([#6824])
  - JSON-RPC: `openchannel_signed` will now remember the details of a signed PSBT even if the peer is disconnected. ([#6824])
- - cln-plugin: Suppress internal logging handler via `with_logging(false)` ([#6797])
+ - Plugins: `clnrest` can suppress the internal logging handler via `with_logging(false)` now ([#6797])
  - JSON-RPC: `checkrune` `rate` restriction is slightly stricter (exact division of time like `per`) ([#6710])
  - Protocol: use CPFP on peer's commitment tx if we can't broadcast our own. ([#6752])
- - Plugins: upgraded clnrest to poetry project. ([#6651])
+ - Plugins: `clnrest` is upgraded to a poetry project. ([#6651])
  - Protocol: dual-funding now follows the next-funding-id rules. ([#6824])
  - Protocol: we no longer disconnect every time we receive a warning message. ([#6668])
  - Protocol: `invoice` no longer explicitly encodes `c` if it's the default (18) ([#6668])
@@ -54,6 +57,7 @@ This release named by Shahana Farooqui
 
 Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
+- Plugins: `clnrest` parameters `rest-port`, `rest-protocol`, `rest-host` and `rest-certs`: prefix `cln` to them ([#6876])
 
 
 ### Removed
@@ -65,14 +69,16 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 ### Fixed
 
  - Protocol: Some peer disconnects due to update_fee disagreements are avoided. ([#6833])
- - Cln-Rest: websocket server notifications are available with restriction of `readonly` runes ([#6749])
+ - Plugins: `clnrest` websocket server notifications are available with restriction of `readonly` runes ([#6749])
  - Protocol: Issue splicing with pending / stuck HTLCs fixed. ([#6748])
+ - Protocol: Implemented splicing restart logic for tx_signature and commitment_signed. Splice commitments are reworked in a manner incompatible with the last version. ([#6840])
  - Wallet: close change outputs show up immediately in `listfunds` so you can CPFP. ([#6734])
  - Restore any missing metadata that resource constrained signers stripped ([#6767])
  - JSON-RPC: fix `checkrune` when `method` parameter is the empty string. ([#6759])
  - JSON-RPC: `getroute` now documents that it ignores `fuzzpercent`. ([#6697])
  - Rune: use runes table `id` instead `runes_uniqueid` from `vars` because it returns incorrect unique id if rune/s migrated from datastore. ([#6715])
  - Added docs, testing, and some fixes related to splicing out, insufficent balance handling, and restarting during a splice. ([#6677])
+ - The WIRE_HSMD_SIGN_SPLICE_TX HSM capability is now correctly checked. ([#6867])
 
 
 ### EXPERIMENTAL
@@ -111,6 +117,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6135]: https://github.com/ElementsProject/lightning/pull/6135
 [#6311]: https://github.com/ElementsProject/lightning/pull/6311
 [#6734]: https://github.com/ElementsProject/lightning/pull/6734
+[#6850]: https://github.com/ElementsProject/lightning/pull/6850
+[#6867]: https://github.com/ElementsProject/lightning/pull/6867
+[#6857]: https://github.com/ElementsProject/lightning/pull/6857
+[#6876]: https://github.com/ElementsProject/lightning/pull/6876
+[#6840]: https://github.com/ElementsProject/lightning/pull/6840
 
 
 ## [23.08.1] - 2023-09-12: "Satoshi's Successor II"
