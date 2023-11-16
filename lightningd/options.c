@@ -1811,8 +1811,43 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	logging_options_parsed(ld->log_book);
 }
 
+/* Free *str, set *str to copy with `cln` prepended */
+static void prefix_cln(const char **str STEALS)
+{
+	const char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
+	tal_free(*str);
+	*str = newstr;
+}
+
+/* Due to a conflict between the widely-deployed clightning-rest plugin and
+ * our own clnrest plugin, and people wanting to run both, in v23.11 we
+ * renamed some options.  This breaks perfectly working v23.08 deployments who
+ * don't care about clightning-rest, so we work around it here. */
+static void fixup_clnrest_options(struct lightningd *ld)
+{
+	for (size_t i = 0; i < tal_count(ld->configvars); i++) {
+		struct configvar *cv = ld->configvars[i];
+
+		/* These worked for v23.08 */
+		if (!strstarts(cv->configline, "rest-port=")
+		    && !strstarts(cv->configline, "rest-protocol=")
+		    && !strstarts(cv->configline, "rest-host=")
+		    && !strstarts(cv->configline, "rest-certs="))
+			continue;
+		/* Did some (plugin) claim it? */
+		if (opt_find_long(cv->configline, &cv->optarg))
+			continue;
+		log_unusual(ld->log, "Option %s deprecated in v23.11, renaming to cln%s",
+			    cv->configline, cv->configline);
+		prefix_cln(&cv->configline);
+	}
+}
+
 void handle_opts(struct lightningd *ld)
 {
+	if (ld->deprecated_apis)
+		fixup_clnrest_options(ld);
+
 	/* Now we know all the options, finish parsing and finish
 	 * populating ld->configvars with cmdline. */
 	parse_configvars_final(ld->configvars, true, ld->developer);
