@@ -3,6 +3,7 @@ from fixtures import *  # noqa: F401,F403
 from pyln.testing.utils import env, TEST_NETWORK
 from pyln.client import Millisatoshi
 import unittest
+import os
 import requests
 from pathlib import Path
 from requests.adapters import HTTPAdapter
@@ -433,3 +434,35 @@ def test_clnrest_http_headers(node_factory):
                                 headers={'Origin': 'http://192.168.1.10:1010'},
                                 verify=ca_cert)
     assert response.headers['Access-Control-Allow-Origin'] == 'http://192.168.1.10:1010'
+
+
+def test_clnrest_old_params(node_factory):
+    """Test that we handle the v23.08-style parameters"""
+    rest_port = str(reserve())
+    rest_host = '127.0.0.1'
+    base_url = f'https://{rest_host}:{rest_port}'
+    l1 = node_factory.get_node(options={'rest-port': rest_port,
+                                        'rest-host': rest_host,
+                                        'allow-deprecated-apis': True})
+    # This might happen really early!
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_logs([r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-port',
+                             r'UNUSUAL lightningd: Option rest-host=.* deprecated in v23\.11, renaming to clnrest-host'])
+    l1.daemon.wait_for_log(r'plugin-clnrest.py: REST server running at ' + base_url)
+
+    # Now try one where a plugin (e.g. clightning-rest) registers the option.
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/clnrest-use-options.py')
+    l2 = node_factory.get_node(options={'rest-port': rest_port,
+                                        'rest-host': rest_host,
+                                        'plugin': plugin,
+                                        'allow-deprecated-apis': True})
+
+    l2.daemon.logsearch_start = 0
+    # We still rename this one, since it's for clnrest.
+    assert l2.daemon.is_in_log(r'UNUSUAL lightningd: Option rest-host=.* deprecated in v23\.11, renaming to clnrest-host')
+
+    # This one does not get renamed!
+    assert not l2.daemon.is_in_log(r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-host')
+    assert [p for p in l2.rpc.plugin('list')['plugins'] if 'clnrest.py' in p['name']] == []
+    assert l2.daemon.is_in_log(r'plugin-clnrest.py: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
+    assert l2.daemon.is_in_log(rf'clnrest-use-options.py: rest-port is {rest_port}')
