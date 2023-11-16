@@ -12,7 +12,8 @@ from utils import (
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@flaky
+# incompatible w/ pytest-timeout
+# @flaky
 def test_splice(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
 
