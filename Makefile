@@ -71,7 +71,7 @@ COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1 -DCOMPAT_V062=1 -D
 endif
 
 # (method=thread to support xdist)
-PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
+PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS) $(PYTEST_MOREOPTS)
 MY_CHECK_PYTHONPATH=$${PYTHONPATH}$${PYTHONPATH:+:}$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7:$(shell pwd)/contrib/pyln-grpc-proto
 # Collect generated python files to be excluded from lint checks
 PYTHON_GENERATED= \
