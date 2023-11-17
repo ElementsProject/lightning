@@ -95,21 +95,6 @@ struct pay_plugin {
 /* Set in init */
 extern struct pay_plugin *pay_plugin;
 
-/* Accumulate or panic on overflow */
-#define amount_msat_accumulate(dst, src) \
-	amount_msat_accumulate_((dst), (src), stringify(dst), stringify(src))
-#define amount_msat_reduce(dst, src) \
-	amount_msat_reduce_((dst), (src), stringify(dst), stringify(src))
-
-void amount_msat_accumulate_(struct amount_msat *dst,
-			     struct amount_msat src,
-			     const char *dstname,
-			     const char *srcname);
-void amount_msat_reduce_(struct amount_msat *dst,
-			 struct amount_msat src,
-			 const char *dstname,
-			 const char *srcname);
-
 /* Returns NULL if OK, otherwise an error msg and sets *ecode */
 const char *try_paying(const tal_t *ctx,
 		       struct payment *payment,
