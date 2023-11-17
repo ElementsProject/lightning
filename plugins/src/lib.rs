@@ -5,7 +5,7 @@ use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
-use messages::{Configuration, NotificationTopic};
+use messages::{Configuration, NotificationTopic, FeatureBits};
 use options::ConfigOption;
 use std::collections::HashMap;
 use std::future::Future;
@@ -48,6 +48,7 @@ where
     subscriptions: HashMap<String, Subscription<S>>,
     notifications: Vec<NotificationTopic>,
     custommessages : Vec<u16>,
+    featurebits: FeatureBits,
     dynamic: bool,
     // Do we want the plugin framework to automatically register a logging handler?
     logging: bool,
@@ -122,6 +123,7 @@ where
             options: vec![],
             rpcmethods: HashMap::new(),
             notifications: vec![],
+            featurebits: FeatureBits::default(),
             dynamic: false,
             custommessages : vec![],
             logging: true,
@@ -216,6 +218,17 @@ where
     /// Send true value for "dynamic" field in "getmanifest" response
     pub fn dynamic(mut self) -> Builder<S, I, O> {
         self.dynamic = true;
+        self
+    }
+
+    /// Sets the "featurebits" in the "getmanifest" response
+    pub fn featurebits(mut self, place: FeatureBitsPlace, hex: String) -> Self {
+        match place {
+            FeatureBitsPlace::Node => self.featurebits.node = Some(hex),
+            FeatureBitsPlace::Channel => self.featurebits.channel = Some(hex),
+            FeatureBitsPlace::Init => self.featurebits.init = Some(hex),
+            FeatureBitsPlace::Invoice => self.featurebits.invoice = Some(hex),
+        }
         self
     }
 
@@ -361,6 +374,7 @@ where
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
             notifications: self.notifications.clone(),
+            featurebits: self.featurebits.clone(),
             dynamic: self.dynamic,
             nonnumericids: true,
             custommessages : self.custommessages.clone()
@@ -771,5 +785,24 @@ where
             .send(())
             .context("error waiting for shutdown")?;
         Ok(())
+    }
+}
+
+pub enum FeatureBitsPlace {
+    Node,
+    Channel,
+    Invoice,
+    Init,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn init() {
+        let state = ();
+        let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
+        let _ = builder.start(state);
     }
 }
