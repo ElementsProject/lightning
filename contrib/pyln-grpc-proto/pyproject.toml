@@ -19,6 +19,8 @@ protobuf3 = "*"
 [tool.poetry.group.dev.dependencies]
 grpcio = "*"
 twine = "^4.0.2"
+grpcio-tools = "^1.59.2"
+mypy-protobuf = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core"]
