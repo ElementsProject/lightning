@@ -5,7 +5,7 @@
 #include <ccan/htable/htable_type.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
-#include <plugins/renepay/payment.h>
+
 
 // TODO(eduardo): a hard coded constant to indicate a limit on any channel
 // capacity. Channels for which the capacity is unknown (because they are not
@@ -158,8 +158,7 @@ void chan_extra_can_send(struct chan_extra_map *chan_extra_map,
 			 struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
-void chan_extra_cannot_send(struct pay_flow* pf,
-			    struct chan_extra_map *chan_extra_map,
+void chan_extra_cannot_send(struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd,
 			    struct amount_msat x);
 
@@ -169,8 +168,7 @@ void chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			      struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
-void chan_extra_sent_success(struct pay_flow *pf,
-			     struct chan_extra_map *chan_extra_map,
+void chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
 			     const struct short_channel_id_dir *scidd,
 			     struct amount_msat x);
 

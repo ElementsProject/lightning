@@ -193,9 +193,18 @@ void uncertainty_network_flow_success(
 	for (size_t i = 0; i < tal_count(pf->path_scidds); i++)
 	{
 		chan_extra_sent_success(
-			pf, chan_extra_map,
+			chan_extra_map,
 			&pf->path_scidds[i],
 			pf->amounts[i]);
+		// TODO notify the payflow
+		// payflow_note(pf, LOG_DBG,
+		// 	     "Success of %s for %s capacity [%s,%s] -> [%s,%s]",
+		// 	     fmt_amount_msat(tmpctx, x),
+		// 	     type_to_string(tmpctx,struct short_channel_id_dir,scidd),
+		// 	     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_min),
+		// 	     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_max),
+		// 	     fmt_amount_msat(tmpctx, new_a),
+		// 	     fmt_amount_msat(tmpctx, new_b));
 	}
 }
 /* All parts up to erridx succeeded, so we know something about min
