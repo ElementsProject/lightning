@@ -6,7 +6,6 @@
 #include <common/type_to_string.h>
 #include <math.h>
 #include <plugins/renepay/flow.h>
-#include <plugins/renepay/pay.h>
 #include <stdio.h>
 
 #ifndef SUPERVERBOSE
@@ -192,7 +191,6 @@ void chan_extra_can_send(
 
 /* Update the knowledge that this (channel,direction) cannot send.*/
 void chan_extra_cannot_send(
-		struct pay_flow *pf,
 		struct chan_extra_map *chan_extra_map,
 		const struct short_channel_id_dir *scidd,
 		struct amount_msat sent)
@@ -227,15 +225,6 @@ void chan_extra_cannot_send(
 	}
 
 	ce->half[scidd->dir].known_max = amount_msat_min(ce->half[scidd->dir].known_max,x);
-
-	payflow_note(pf, LOG_INFORM,
-		     "Failure of %s for %s capacity [%s,%s] -> [%s,%s]",
-		     fmt_amount_msat(tmpctx, sent),
-		     type_to_string(tmpctx,struct short_channel_id_dir,scidd),
-		     fmt_amount_msat(tmpctx, oldmin),
-		     fmt_amount_msat(tmpctx, oldmax),
-		     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_min),
-		     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_max));
 
 	chan_extra_adjust_half(ce,!scidd->dir);
 }
@@ -276,7 +265,6 @@ void chan_extra_set_liquidity(
 }
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
 void chan_extra_sent_success(
-		struct pay_flow *pf,
 		struct chan_extra_map *chan_extra_map,
 		const struct short_channel_id_dir *scidd,
 		struct amount_msat x)
@@ -305,15 +293,6 @@ void chan_extra_sent_success(
 		new_a = AMOUNT_MSAT(0);
 	if(!amount_msat_sub(&new_b,ce->half[scidd->dir].known_max,x))
 		new_b = AMOUNT_MSAT(0);
-
-	payflow_note(pf, LOG_DBG,
-		     "Success of %s for %s capacity [%s,%s] -> [%s,%s]",
-		     fmt_amount_msat(tmpctx, x),
-		     type_to_string(tmpctx,struct short_channel_id_dir,scidd),
-		     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_min),
-		     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_max),
-		     fmt_amount_msat(tmpctx, new_a),
-		     fmt_amount_msat(tmpctx, new_b));
 
 	ce->half[scidd->dir].known_min = new_a;
 	ce->half[scidd->dir].known_max = new_b;

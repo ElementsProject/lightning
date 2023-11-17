@@ -1150,9 +1150,11 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 	if((enum onion_wire)onionerr == WIRE_TEMPORARY_CHANNEL_FAILURE
 	   && erridx < tal_count(pf->path_scidds))
 	{
-		chan_extra_cannot_send(pf,pay_plugin->chan_extra_map,
+		chan_extra_cannot_send(pay_plugin->chan_extra_map,
 				       &pf->path_scidds[erridx],
 				       pf->amounts[erridx]);
+		// TODO: notify the plugin of the changes to the uncertainty
+		// network
 	}
 }
 
