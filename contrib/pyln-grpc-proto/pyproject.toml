@@ -1,14 +1,18 @@
 
 [tool.poetry]
 name = "pyln-grpc-proto"
-version = "0.1.1"
+version = "0.1.2"
 description = "The compiled GRPC proto for CLN"
 authors = ["Christian Decker <decker@blockstream.com>"]
 license = "MIT"
 readme = "README.md"
 
 packages = [
-    { include = "pyln/grpc/*.py" }
+    { include = "pyln/grpc/*.py" },
+]
+
+include = [
+    { path = "pyln/grpc", format = ["wheel", "sdist"] }
 ]
 
 [tool.poetry.dependencies]
@@ -19,8 +23,8 @@ protobuf3 = "*"
 [tool.poetry.group.dev.dependencies]
 grpcio = "*"
 twine = "^4.0.2"
-grpcio-tools = "^1.59.2"
 mypy-protobuf = "^3.5.0"
+grpcio-tools = "^1.59.2"
 
 [build-system]
 requires = ["poetry-core"]
