@@ -177,9 +177,22 @@ pub(crate) struct GetManifestResponse {
     pub(crate) notifications: Vec<NotificationTopic>,
     pub(crate) hooks: Vec<String>,
     pub(crate) dynamic: bool,
+    pub(crate) featurebits: FeatureBits,
     pub(crate) nonnumericids: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) custommessages : Vec<u16>
+}
+
+#[derive(Serialize, Default, Debug, Clone)]
+pub(crate) struct FeatureBits {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub init: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invoice: Option<String>,
 }
 
 #[derive(Serialize, Default, Debug)]
