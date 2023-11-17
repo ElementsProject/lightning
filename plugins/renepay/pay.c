@@ -31,31 +31,6 @@
 
 struct pay_plugin *pay_plugin;
 
-void amount_msat_accumulate_(struct amount_msat *dst,
-			     struct amount_msat src,
-			     const char *dstname,
-			     const char *srcname)
-{
-	if (amount_msat_add(dst, *dst, src))
-		return;
-	plugin_err(pay_plugin->plugin,"Overflow adding %s (%s) into %s (%s)",
-		   srcname, type_to_string(tmpctx, struct amount_msat, &src),
-		   dstname, type_to_string(tmpctx, struct amount_msat, dst));
-}
-
-void amount_msat_reduce_(struct amount_msat *dst,
-			 struct amount_msat src,
-			 const char *dstname,
-			 const char *srcname)
-{
-	if (amount_msat_sub(dst, *dst, src))
-		return;
-	plugin_err(pay_plugin->plugin,"Underflow subtracting %s (%s) from %s (%s)",
-		   srcname, type_to_string(tmpctx, struct amount_msat, &src),
-		   dstname, type_to_string(tmpctx, struct amount_msat, dst));
-}
-
-
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, pay_plugin);

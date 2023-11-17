@@ -340,9 +340,20 @@ static void convert_and_attach_flows(struct payment *payment,
 			     flow_path_annotated(tmpctx, pf));
 
 		/* Increase totals for payment */
-		amount_msat_accumulate(&payment->total_sent, pf->amounts[0]);
-		amount_msat_accumulate(&payment->total_delivering,
-				       payflow_delivered(pf));
+		if(!amount_msat_add(&payment->total_sent,
+				    payment->total_sent,
+				    pf->amounts[0]))
+		{
+			// TODO: fail this call and notifiy the plugin
+			assert(0);
+		}
+		if(!amount_msat_add(&payment->total_delivering,
+				    payment->total_delivering,
+				    payflow_delivered(pf)))
+		{
+			// TODO: fail this call and notifiy the plugin
+			assert(0);
+		}
 
 		/* We keep a global map to identify notifications
 		 * about this flow. */
@@ -584,9 +595,20 @@ static struct pf_result *pf_resolve(struct pay_flow *pf,
 
 	/* If it didn't deliver, remove from totals */
 	if (pf->state != PAY_FLOW_SUCCESS) {
-		amount_msat_reduce(&pf->payment->total_delivering,
-				   payflow_delivered(pf));
-		amount_msat_reduce(&pf->payment->total_sent, pf->amounts[0]);
+		if(!amount_msat_sub(&pf->payment->total_delivering,
+				    pf->payment->total_delivering,
+				    payflow_delivered(pf)))
+		{
+			// TODO: fail this call and notifiy the plugin
+			assert(0);
+		}
+		if(!amount_msat_sub(&pf->payment->total_sent,
+				    pf->payment->total_sent,
+				    pf->amounts[0]))
+		{
+			// TODO: fail this call and notifiy the plugin
+			assert(0);
+		}
 	}
 
 	/* Subtract HTLC counters from the path */
