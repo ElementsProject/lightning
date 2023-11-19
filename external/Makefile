@@ -86,15 +86,10 @@ $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core
 	&& PYTHON_VERSION=3 CFLAGS="-std=c99 $(FUZZFLAGS)" LDFLAGS="$(FUZZFLAGS)" ${TOP}/libwally-core/configure CC="$(CC)" \
 		--enable-static=yes \
 		$(CROSSCOMPILE_OPTS) \
-		--enable-module-recovery \
-		--enable-module-extrakeys \
-		--enable-module-schnorrsig \
-		--enable-elements \
 		--enable-shared=no \
 		--prefix=/ \
 		--libdir=/ \
 		--enable-debug \
-	&& cp src/secp256k1/src/libsecp256k1-config.h ../../libwally-core/src/secp256k1/src/libsecp256k1-config.h \
 	&& $(MAKE)
 
 # If we tell Make that the above builds both, it runs it twice in
