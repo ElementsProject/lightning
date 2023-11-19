@@ -84,7 +84,7 @@ static bool is_segwit_output(const tal_t *ctx,
 	if (tal_bytelen(redeemscript) > 0)
 		maybe_witness = redeemscript;
 	else
-		maybe_witness = wally_tx_output_get_script(ctx, output);
+		maybe_witness = cln_wally_tx_output_get_script(ctx, output);
 
 	return is_known_segwit_scripttype(maybe_witness);
 }
