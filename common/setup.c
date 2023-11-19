@@ -8,21 +8,21 @@
 #include <sodium.h>
 #include <wally_core.h>
 
-static void *wally_tal(size_t size)
+static void *cln_wally_tal(size_t size)
 {
 	assert(wally_tal_ctx);
-	return tal_arr_label(wally_tal_ctx, u8, size, "wally_tal");
+	return tal_arr_label(wally_tal_ctx, u8, size, "cln_wally_tal");
 }
 
-static void wally_free(void *ptr)
+static void cln_wally_free(void *ptr)
 {
 	tal_free(ptr);
 }
 
 static struct wally_operations wally_tal_ops = {
 	.struct_size = sizeof(struct wally_operations),
-	.malloc_fn = wally_tal,
-	.free_fn = wally_free,
+	.malloc_fn = cln_wally_tal,
+	.free_fn = cln_wally_free,
 };
 
 static void *htable_tal(struct htable *ht, size_t len)

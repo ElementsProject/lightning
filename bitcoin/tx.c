@@ -302,8 +302,8 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 	wally_psbt_output_set_amount(&tx->psbt->outputs[outnum], satoshis);
 }
 
-const u8 *wally_tx_output_get_script(const tal_t *ctx,
-				     const struct wally_tx_output *output)
+const u8 *cln_wally_tx_output_get_script(const tal_t *ctx,
+					 const struct wally_tx_output *output)
 {
 	if (output->script == NULL) {
 		/* This can happen for coinbase transactions and pegin
@@ -321,7 +321,7 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 	assert(outnum < tx->wtx->num_outputs);
 	output = &tx->wtx->outputs[outnum];
 
-	return wally_tx_output_get_script(ctx, output);
+	return cln_wally_tx_output_get_script(ctx, output);
 }
 
 u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx,

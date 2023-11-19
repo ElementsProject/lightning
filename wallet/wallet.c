@@ -2725,8 +2725,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		script = wally_tx_output_get_script(tmpctx,
-						    &wtx->outputs[output]);
+		script = cln_wally_tx_output_get_script(tmpctx,
+							&wtx->outputs[output]);
 		if (!script)
 			continue;
 
