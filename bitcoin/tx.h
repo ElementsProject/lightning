@@ -156,8 +156,8 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx
  * comfort of being able to call `tal_bytelen` and similar on a script we just
  * return a `tal_arr` clone of the original script.
  */
-const u8 *wally_tx_output_get_script(const tal_t *ctx,
-				     const struct wally_tx_output *output);
+const u8 *cln_wally_tx_output_get_script(const tal_t *ctx,
+					 const struct wally_tx_output *output);
 /**
  * Helper to get a witness script for an output.
  */

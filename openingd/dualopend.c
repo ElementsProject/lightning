@@ -990,7 +990,7 @@ static char *check_balances(const tal_t *ctx,
 
 static bool is_segwit_output(struct wally_tx_output *output)
 {
-	const u8 *script = wally_tx_output_get_script(tmpctx, output);
+	const u8 *script = cln_wally_tx_output_get_script(tmpctx, output);
 	return is_known_segwit_scripttype(script);
 }
 
