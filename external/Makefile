@@ -79,6 +79,10 @@ $(TARGET_DIR)/libsecp256k1.% $(TARGET_DIR)/libwallycore.%: $(TARGET_DIR)/libwall
 	$(MAKE) -C $(TARGET_DIR)/libwally-core-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
 # Build libwally-core.
+ifeq ($(DEBUGBUILD),1)
+WALLY_OPTS=--enable-debug
+endif
+
 $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd external/libwally-core && ./tools/autogen.sh
 	mkdir -p ${TARGET_DIR}/libwally-core-build
@@ -89,7 +93,7 @@ $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core
 		--enable-shared=no \
 		--prefix=/ \
 		--libdir=/ \
-		--enable-debug \
+		$(WALLY_OPTS) \
 	&& $(MAKE)
 
 # If we tell Make that the above builds both, it runs it twice in
