@@ -598,35 +598,19 @@ void psbt_input_set_unknown(const tal_t *ctx,
 	map_replace(ctx, &in->unknowns, key, value, value_len);
 }
 
-static void *psbt_get_unknown(const struct wally_map *map,
-			      const u8 *key,
-			      size_t *val_len)
-{
-	size_t index;
-
-	if (wally_map_find(map, key, tal_bytelen(key), &index) != WALLY_OK)
-		return NULL;
-
-	/* Zero: item not found. */
-	if (index == 0)
-		return NULL;
-
-	/* ++: item is at this index minus 1 */
-	*val_len = map->items[index - 1].value_len;
-	return map->items[index - 1].value;
-}
-
 void *psbt_get_lightning(const struct wally_map *map,
 			 const u8 proprietary_type,
 			 size_t *val_len)
 {
-	void *res;
 	u8 *key = psbt_make_key(NULL, proprietary_type, NULL);
-	res = psbt_get_unknown(map, key, val_len);
+	const struct wally_map_item *item;
+	item = wally_map_get(map, key, tal_bytelen(key));
 	tal_free(key);
-	return res;
+	if (!item)
+		return NULL;
+	*val_len = item->value_len;
+	return item->value;
 }
-
 
 void psbt_output_set_unknown(const tal_t *ctx,
 			     struct wally_psbt_output *out,
