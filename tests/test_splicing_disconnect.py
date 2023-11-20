@@ -8,6 +8,7 @@ from utils import (
 )
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_SKIP_SPLICE_TESTS') == '1', "test expected to fail before VLS dual-funding / splicing support")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -66,6 +67,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_SKIP_SPLICE_TESTS') == '1', "test expected to fail before VLS dual-funding / splicing support")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
