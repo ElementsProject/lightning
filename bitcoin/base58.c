@@ -47,16 +47,14 @@ static bool from_base58(u8 *version,
 			struct ripemd160 *rmd,
 			const char *base58, size_t base58_len)
 {
-	u8 buf[1 + sizeof(*rmd) + 4];
-	/* Avoid memcheck complaining if decoding resulted in a short value */
-	size_t buflen = sizeof(buf);
-	memset(buf, 0, buflen);
-	char *terminated_base58 = tal_dup_arr(NULL, char, base58, base58_len, 1);
-	terminated_base58[base58_len] = '\0';
+	/* Initialize to avoid memcheck complaining if decoding a short value */
+	u8 buf[1 + sizeof(*rmd) + 4] = { 0 };
+	const size_t buflen = sizeof(buf);
+	const uint32_t flags = BASE58_FLAG_CHECKSUM;
 
 	size_t written = 0;
-	int r = wally_base58_to_bytes(terminated_base58, BASE58_FLAG_CHECKSUM, buf, buflen, &written);
-	tal_free(terminated_base58);
+	int r = wally_base58_n_to_bytes(base58, base58_len, flags,
+					buf, buflen, &written);
 	if (r != WALLY_OK || written > buflen) {
 		return false;
 	}
