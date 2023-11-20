@@ -26,6 +26,7 @@ try:
 except ModuleNotFoundError as err:
     # OK, something is not installed?
     import json
+    import sys
     getmanifest = json.loads(sys.stdin.readline())
     print(json.dumps({'jsonrpc': "2.0",
                       'id': getmanifest['id'],
