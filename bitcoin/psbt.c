@@ -575,37 +575,18 @@ u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data)
 	return key;
 }
 
-static bool wally_map_set_unknown(const tal_t *ctx,
-				  struct wally_map *map,
-				  const u8 *key,
-				  const void *value,
-				  size_t value_len)
+static void map_replace(const tal_t *ctx,
+			struct wally_map *map,
+			const u8 *key,
+			const void *value,
+			size_t value_len)
 {
-	size_t exists_at;
-	struct wally_map_item *item;
-
-	assert(value_len != 0);
-	if (wally_map_find(map, key, tal_bytelen(key), &exists_at) != WALLY_OK)
-		return false;
-
-	/* If not exists, add */
-	if (exists_at == 0) {
-		bool ok;
-		tal_wally_start();
-		ok = wally_map_add(map, key, tal_bytelen(key),
-			      (unsigned char *) memcheck(value, value_len), value_len)
-			== WALLY_OK;
-		tal_wally_end(ctx);
-		return ok;
-	}
-
-	/* Already in map, update entry */
-	item = &map->items[exists_at - 1];
-	tal_resize(&item->value, value_len);
-	memcpy(item->value, memcheck(value, value_len), value_len);
-	item->value_len = value_len;
-
-	return true;
+	const unsigned char *checked_value = memcheck(value, value_len);
+	tal_wally_start();
+	if (wally_map_replace(map, key, tal_bytelen(key),
+			      checked_value, value_len) != WALLY_OK)
+		abort();
+	tal_wally_end(ctx);
 }
 
 void psbt_input_set_unknown(const tal_t *ctx,
@@ -614,8 +595,7 @@ void psbt_input_set_unknown(const tal_t *ctx,
 			    const void *value,
 			    size_t value_len)
 {
-	if (!wally_map_set_unknown(ctx, &in->unknowns, key, value, value_len))
-		abort();
+	map_replace(ctx, &in->unknowns, key, value, value_len);
 }
 
 static void *psbt_get_unknown(const struct wally_map *map,
@@ -654,8 +634,7 @@ void psbt_output_set_unknown(const tal_t *ctx,
 			     const void *value,
 			     size_t value_len)
 {
-	if (!wally_map_set_unknown(ctx, &out->unknowns, key, value, value_len))
-		abort();
+	map_replace(ctx, &out->unknowns, key, value, value_len);
 }
 
 /* Use the destructor to free the wally_tx */
