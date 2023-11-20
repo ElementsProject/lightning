@@ -48,31 +48,6 @@ static void destroy_wally_tx_output(struct wally_tx_output *out)
 	wally_tx_output_free(out);
 }
 
-static struct wally_tx_output *clone_output(const struct wally_tx_output *src)
-{
-	struct wally_tx_output *out;
-	int ret;
-
-	if (is_elements(chainparams)) {
-		ret = wally_tx_elements_output_init_alloc
-			(src->script, src->script_len,
-			 src->asset, src->asset_len,
-			 src->value, src->value_len,
-			 src->nonce, src->nonce_len,
-			 src->surjectionproof, src->surjectionproof_len,
-			 src->rangeproof, src->rangeproof_len,
-			 &out);
-	} else {
-		ret = wally_tx_output_init_alloc(src->satoshi,
-						 src->script, src->script_len,
-						 &out);
-	}
-	assert(ret == WALLY_OK);
-
-	tal_add_destructor(out, destroy_wally_tx_output);
-	return out;
-}
-
 struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 					const struct wally_tx *wtx,
 					int input, int output)
@@ -93,7 +68,10 @@ struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		if (output != -1 && output != i)
 			continue;
-		txp->outputs[i] = clone_output(&wtx->outputs[i]);
+		if (wally_tx_output_clone_alloc(&wtx->outputs[i],
+						&txp->outputs[i]) != WALLY_OK)
+			abort();
+		tal_add_destructor(txp->outputs[i], destroy_wally_tx_output);
 
 		/* Cheat a bit by also setting the numeric satoshi
 		 * value, otherwise we end up converting a
