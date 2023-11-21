@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
-from pyln.client import Millisatoshi
+from pyln.client import Millisatoshi, RpcError
 from db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
@@ -666,6 +666,27 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l2_koinly_csv = open(koinly_path, 'rb').read()
     assert l2_koinly_csv.find(bolt11_exp) >= 0
     assert l2_koinly_csv.find(bolt12_exp) >= 0
+
+
+def test_empty_node(node_factory, bitcoind):
+    """
+    Make sure that the bookkeeper commands don't blow up
+    on an empty accounts database.
+    """
+    l1 = node_factory.get_node()
+
+    bkpr_cmds = [
+        ('channelsapy', []),
+        ('listaccountevents', []),
+        ('listbalances', []),
+        ('listincome', [])]
+    for cmd, params in bkpr_cmds:
+        l1.rpc.call('bkpr-' + cmd, params)
+
+    # inspect fails for non-channel accounts
+    # FIXME: implement for all accounts?
+    with pytest.raises(RpcError, match=r'not supported for non-channel accounts'):
+        l1.rpc.bkpr_inspect('wallet')
 
 
 def test_rebalance_tracking(node_factory, bitcoind):

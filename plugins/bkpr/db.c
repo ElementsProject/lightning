@@ -102,7 +102,7 @@ static struct migration db_migrations[] = {
 	{NULL, migration_remove_dupe_lease_fees}
 };
 
-static bool db_migrate(struct plugin *p, struct db *db, bool *created)
+static bool db_migrate(struct plugin *p, struct db *db)
 {
 	/* Read current version from database */
 	int current, orig, available;
@@ -111,9 +111,7 @@ static bool db_migrate(struct plugin *p, struct db *db, bool *created)
 	orig = current = db_get_version(db);
 	available = ARRAY_SIZE(db_migrations) - 1;
 
-	*created = false;
 	if (current == -1) {
-		*created = true;
 		plugin_log(p, LOG_INFORM, "Creating database");
 	} else if (available < current)
 		plugin_err(p,
@@ -194,8 +192,7 @@ static void db_error(struct plugin *plugin, bool fatal, const char *fmt, va_list
 }
 
 struct db *db_setup(const tal_t *ctx, struct plugin *p,
-		    const char *db_dsn,
-		    bool *created)
+		    const char *db_dsn)
 {
 	bool migrated;
 	struct db *db;
@@ -204,7 +201,7 @@ struct db *db_setup(const tal_t *ctx, struct plugin *p,
 	db->report_changes_fn = NULL;
 
 	db_begin_transaction(db);
-	migrated = db_migrate(p, db, created);
+	migrated = db_migrate(p, db);
 	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
 
