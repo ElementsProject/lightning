@@ -1025,10 +1025,14 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   " for account %s: %s",
 				   acct_name, err);
 
-		/* FIXME: multiple currency balances */
-		if (tal_count(balances) > 0)
-			bal = balances[0];
-		else {
+		/* multiple currency balances! */
+		bal = NULL;
+		for (size_t j = 0; j < tal_count(balances); j++) {
+			if (streq(balances[j]->currency, currency))
+				bal = balances[j];
+		}
+
+		if (!bal) {
 			bal = tal(balances, struct acct_balance);
 			bal->credit = AMOUNT_MSAT(0);
 			bal->debit = AMOUNT_MSAT(0);
