@@ -1269,7 +1269,7 @@ def test_invoice_payment_notification(node_factory):
     l1.dev_pay(inv1['bolt11'], dev_use_shadow=False)
 
     l2.daemon.wait_for_log(r"Received invoice_payment event for label {},"
-                           " preimage {}, and amount of {}msat"
+                           " preimage {}, and amount of {}"
                            .format(label, preimage, msats))
 
 
@@ -1286,7 +1286,7 @@ def test_invoice_creation_notification(node_factory):
     l2.rpc.invoice(msats, label, 'description', preimage=preimage)
 
     l2.daemon.wait_for_log(r"Received invoice_creation event for label {},"
-                           " preimage {}, and amount of {}msat"
+                           " preimage {}, and amount of {}"
                            .format(label, preimage, msats))
 
 

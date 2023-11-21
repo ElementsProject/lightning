@@ -375,7 +375,6 @@ def test_clnrest_websocket_rune_no_listnotifications(node_factory):
     assert len([n for n in notifications if n.find('invoice_creation') > 0]) == 0
 
 
-@pytest.mark.xfail(strict=True)
 def test_clnrest_numeric_msat_notification(node_factory):
     """Test that msat fields are integers in notifications also."""
     # start a node with clnrest

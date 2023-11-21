@@ -614,7 +614,7 @@ void json_add_amount_msat(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 {
-	assert(strends(msatfieldname, "_msat"));
+	assert(strends(msatfieldname, "_msat") || streq(msatfieldname, "msat"));
 	json_add_u64(result, msatfieldname, msat.millisatoshis); /* Raw: low-level helper */
 }
 
