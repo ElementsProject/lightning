@@ -158,6 +158,36 @@ void notify_warning(struct lightningd *ld, struct log_entry *l)
 	plugins_notify(ld->plugins, take(n));
 }
 
+static void custommsg_notification_serialize(struct json_stream *stream,
+					     struct node_id *peer_id,
+					     const u8 *msg)
+{
+	json_object_start(stream, "custommsg");
+	json_add_node_id(stream, "peer_id", peer_id);
+	json_add_string(stream, "payload", tal_hex(tmpctx, msg));
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(custommsg,
+		custommsg_notification_serialize);
+
+void notify_custommsg(struct lightningd *ld,
+		      const struct node_id *peer_id,
+		      const u8 *msg)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct node_id *,
+			  const u8 *) = custommsg_notification_gen.serialize;
+
+	struct jsonrpc_notification *n
+		= jsonrpc_notification_start(NULL, custommsg_notification_gen.topic);
+
+	serialize(n->stream, peer_id, msg);
+	jsonrpc_notification_end(n);
+
+	plugins_notify(ld->plugins, take(n));
+}
+
 static void invoice_payment_notification_serialize(struct json_stream *stream,
 						   struct amount_msat amount,
 						   struct preimage preimage,

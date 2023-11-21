@@ -16,6 +16,7 @@
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/notification.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
@@ -534,6 +535,7 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
+	notify_custommsg(ld, &p->peer_id, p->msg);
 	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
