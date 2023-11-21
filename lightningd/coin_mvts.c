@@ -25,7 +25,7 @@ void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
 	u32 timestamp;
 
 	timestamp = time_now().ts.tv_sec;
-	cm = finalize_chain_mvt(mvt, mvt, chainparams->onchain_hrp,
+	cm = finalize_chain_mvt(mvt, mvt, chainparams->lightning_hrp,
 				timestamp, &ld->id);
 	notify_coin_mvt(ld, cm);
 }
