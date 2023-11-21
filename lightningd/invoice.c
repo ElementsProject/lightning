@@ -223,9 +223,7 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 	json_object_start(stream, "payment");
 	json_add_escaped_string(stream, "label", payload->label);
 	json_add_preimage(stream, "preimage", &payload->preimage);
-	json_add_string(stream, "msat",
-			type_to_string(tmpctx, struct amount_msat,
-				       &payload->msat));
+	json_add_amount_msat(stream, "msat", payload->msat);
 
 	if (payload->ld->developer && payload->set)
 		invoice_payment_add_tlvs(stream, payload->set);
