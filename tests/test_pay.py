@@ -1384,7 +1384,8 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     wallet = accts[0]
     chan_acct = accts[1]
     assert wallet['account'] == 'wallet'
-    assert only_one(wallet['balances'])['balance_msat'] == Millisatoshi(0)
+    # We no longer make a zero balance entry for the wallet at start
+    assert wallet['balances'] == []
     assert incomes[0]['tag'] == 'invoice'
     assert only_one(chan_acct['balances'])['balance_msat'] == incomes[0]['debit_msat']
     inve = only_one([e for e in l1.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice'])

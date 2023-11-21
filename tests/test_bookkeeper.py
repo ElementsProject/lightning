@@ -152,7 +152,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
         assert inc['credit_msat'] == amount_msat
     # The event should show up in the 'bkpr_listaccountevents' however
     events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 4
+    assert len(events) == 3
     external = [e for e in events if e['account'] == 'external'][0]
     assert external['credit_msat'] == Millisatoshi(amount // 2 * 1000)
 
@@ -169,8 +169,8 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     assert len(find_tags(incomes, 'journal_entry')) == 0
     assert len(incomes) == 2
     events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 4
-    assert len(find_tags(events, 'journal_entry')) == 1
+    assert len(events) == 3
+    assert len(find_tags(events, 'journal_entry')) == 0
 
     # the wallet balance should be unchanged
     btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
@@ -223,8 +223,8 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
 
     # Only two income events: deposits
     assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
-    # 4 account events: empty wallet start, 2 wallet deposits, 1 external deposit
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 4
+    # 4 account events:  2 wallet deposits, 1 external deposit
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
 
     # Stop node and remove the accounts data
     l1.stop()
@@ -274,22 +274,31 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     addr = l1.rpc.newaddr()['bech32']
 
     amount = 1111111
+    event_counter = 0
+    income_counter = 0
+
     bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    event_counter += 1
+    income_counter += 1
+
     bitcoind.generate_block(1)
+
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 2
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == event_counter
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == income_counter
 
     # Ok, now we send some funds to an external address
     waddr = l1.bitcoin.rpc.getnewaddress()
     out1 = l1.rpc.withdraw(waddr, amount // 2, feerate='253perkw')
+    event_counter += 1
+
     mempool = bitcoind.rpc.getrawmempool(True)
     assert len(list(mempool.keys())) == 1
     assert out1['txid'] in list(mempool.keys())
 
     # another account event, still one income event
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == event_counter
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == income_counter
 
     # unreserve the existing output
     l1.rpc.unreserveinputs(out1['psbt'], 200)
@@ -297,12 +306,14 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     # resend the tx
     out2 = l1.rpc.withdraw(waddr, amount // 2, feerate='1000perkw')
     mempool = bitcoind.rpc.getrawmempool(True)
+    event_counter += 1
+
     assert len(list(mempool.keys())) == 1
     assert out2['txid'] in list(mempool.keys())
 
     # another account event, still one income event
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 4
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == event_counter
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == income_counter
 
     # ok now we mine a block
     bitcoind.generate_block(1)
@@ -583,7 +594,7 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     # Wait for the balance snapshot to fire/finish
     l1.daemon.wait_for_log('Snapshot balances updated')
 
-    # We should have the deposit and then the journal entry
+    # We should have the deposit
     events = l1.rpc.bkpr_listaccountevents()['events']
     assert len(events) == 2
     assert events[0]['account'] == 'wallet'
