@@ -984,9 +984,10 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	db_begin_transaction(db);
 	json_for_each_arr(i, acct_tok, accounts_tok) {
 		struct acct_balance **balances, *bal;
+		struct account *acct;
 		struct amount_msat snap_balance, credit_diff, debit_diff;
 		char *acct_name, *currency;
-		bool exists;
+		bool existed;
 
 		err = json_scan(cmd, buf, acct_tok,
 				"{account_id:%"
@@ -1016,7 +1017,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 					   * balances items */
 					  true,
 					  &balances,
-					  &exists);
+					  NULL);
 
 		if (err)
 			plugin_err(cmd->plugin,
@@ -1043,14 +1044,41 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   "Unable to find_diff for amounts: %s",
 				   err);
 
-		if (!exists
-		    || !amount_msat_zero(credit_diff)
-		    || !amount_msat_zero(debit_diff)) {
-			struct account *acct;
-			struct channel_event *ev;
+		acct = find_account(cmd, db, acct_name);
+		if (!acct) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "account %s not found, adding",
+				   acct_name);
+
+			/* FIXME: lookup peer id for channel? */
+			acct = new_account(cmd, acct_name, NULL);
+			account_add(db, acct);
+			existed = false;
+		} else
+			existed = true;
+
+		/* If we're entering a channel account,
+		 * from a balance entry, we need to
+		 * go find the channel open info*/
+		if (!existed && is_channel_account(acct)) {
+			struct new_account_info *info;
 			u64 timestamp_now;
 
-			/* This is *expected* on first run of bookkeeper! */
+			timestamp_now = time_now().ts.tv_sec;
+			info = tal(new_accts, struct new_account_info);
+			info->acct = tal_steal(info, acct);
+			info->curr_bal = snap_balance;
+			info->timestamp = timestamp_now;
+			info->currency =
+				tal_strdup(info, currency);
+
+			tal_arr_expand(&new_accts, info);
+			continue;
+		}
+
+		if (!amount_msat_zero(credit_diff) || !amount_msat_zero(debit_diff)) {
+			struct channel_event *ev;
+
 			plugin_log(cmd->plugin,
 				   tom_jones ? LOG_DBG : LOG_UNUSUAL,
 				   "Snapshot balance does not equal ondisk"
@@ -1064,38 +1092,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 						  &credit_diff),
 				   acct_name);
 
-			timestamp_now = time_now().ts.tv_sec;
-
-			/* Log a channel "journal entry" to get
-			 * the balances inline */
-			acct = find_account(cmd, db, acct_name);
-			if (!acct) {
-				struct new_account_info *info;
-
-				plugin_log(cmd->plugin, LOG_INFORM,
-					   "account %s not found, adding"
-					   " along with new balance",
-					   acct_name);
-
-				/* FIXME: lookup peer id for channel? */
-				acct = new_account(cmd, acct_name, NULL);
-				account_add(db, acct);
-
-				/* If we're entering a channel account,
-				 * from a balance entry, we need to
-				 * go find the channel open info*/
-				if (is_channel_account(acct)) {
-					info = tal(new_accts, struct new_account_info);
-					info->acct = tal_steal(info, acct);
-					info->curr_bal = snap_balance;
-					info->timestamp = timestamp_now;
-					info->currency =
-						tal_strdup(info, currency);
-
-					tal_arr_expand(&new_accts, info);
-					continue;
-				}
-			}
 
 			ev = new_channel_event(cmd,
 					       tal_fmt(tmpctx, "%s",
