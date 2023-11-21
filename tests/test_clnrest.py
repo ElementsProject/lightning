@@ -252,7 +252,7 @@ def test_clnrest_large_response(node_factory):
 # to complain with the errors F811 like this "F811 redefinition of
 # unused 'message'".
 
-def notifications_received_via_websocket(l1, base_url, http_session):
+def notifications_received_via_websocket(l1, base_url, http_session, rpc_method='invoice', rpc_params=[100000, 'label', 'description']):
     """Return the list of notifications received by the websocket client.
 
     We try to connect to the websocket server running at `base_url`
@@ -271,8 +271,9 @@ def notifications_received_via_websocket(l1, base_url, http_session):
         notifications.append(data)
     sio.connect(base_url)
     time.sleep(2)
-    # trigger `invoice_creation` notification
-    l1.rpc.invoice(10000, "label", "description")
+    # trigger notification by calling method
+    rpc_call = getattr(l1.rpc, rpc_method)
+    rpc_call(*rpc_params)
     time.sleep(2)
     sio.disconnect()
     return notifications
