@@ -1794,7 +1794,6 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v1')  # We manually turn on dual-funding for select nodes
-#@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "commit c0cc285a causes: channel stub can only return point for commitment number zero")
 def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v1 + v2

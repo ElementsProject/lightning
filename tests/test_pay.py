@@ -4443,7 +4443,6 @@ def test_offer(node_factory, bitcoind):
                               'recurrence_base': '@1456740000'})
 
 
-#@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "Invalid bech32: invalid checksum")
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
@@ -4697,7 +4696,6 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                      'recurrence_label': 'test paywindow'})
 
 
-#@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "invoice from offer: Invalid bech32: invalid checksum")
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
@@ -4836,7 +4834,6 @@ def test_dev_rawrequest(node_factory):
     assert 'invoice' in ret
 
 
-#@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "sendinvoice: bolt12: Invalid bech32: invalid checksum")
 def test_sendinvoice(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
