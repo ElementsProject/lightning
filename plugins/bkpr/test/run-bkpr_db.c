@@ -260,13 +260,11 @@ static struct db *create_test_db(void)
 static bool test_db_migrate(struct plugin *plugin)
 {
 	struct db *db = create_test_db();
-	bool created;
 
 	CHECK(db);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
-	CHECK(db_migrate(plugin, db, &created) == true);
-	CHECK(created);
+	CHECK(db_migrate(plugin, db) == true);
 	db_commit_transaction(db);
 
 	db_begin_transaction(db);
@@ -274,8 +272,7 @@ static bool test_db_migrate(struct plugin *plugin)
 	db_commit_transaction(db);
 
 	db_begin_transaction(db);
-	CHECK(db_migrate(plugin, db, &created) == false);
-	CHECK(!created);
+	CHECK(db_migrate(plugin, db) == false);
 	db_commit_transaction(db);
 
 	tal_free(db);
