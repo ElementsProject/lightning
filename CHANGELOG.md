@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [v23.11rc2] - 2023-11-02: "Bitcoin Orangepaper"
+## [v23.11rc3] - 2023-11-02: "Bitcoin Orangepaper"
 
 This release named by Shahana Farooqui
 
@@ -74,6 +74,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: Implemented splicing restart logic for tx_signature and commitment_signed. Splice commitments are reworked in a manner incompatible with the last version. ([#6840])
  - Wallet: close change outputs show up immediately in `listfunds` so you can CPFP. ([#6734])
  - Restore any missing metadata that resource constrained signers stripped ([#6767])
+ - JSON-RPC: Plugin notification `msat` fields in `invoice_payment` and `invoice_created` hooks now a number, not a string with "msat" suffix. ([#6884])
+ - JSON-RPC: Plugin hook `payment` `msat` field is now a number, not a string with "msat" suffix. ([#6884])
  - JSON-RPC: fix `checkrune` when `method` parameter is the empty string. ([#6759])
  - JSON-RPC: `getroute` now documents that it ignores `fuzzpercent`. ([#6697])
  - Rune: use runes table `id` instead `runes_uniqueid` from `vars` because it returns incorrect unique id if rune/s migrated from datastore. ([#6715])
@@ -122,6 +124,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6857]: https://github.com/ElementsProject/lightning/pull/6857
 [#6876]: https://github.com/ElementsProject/lightning/pull/6876
 [#6840]: https://github.com/ElementsProject/lightning/pull/6840
+[#6884]: https://github.com/ElementsProject/lightning/pull/6884
 
 
 ## [23.08.1] - 2023-09-12: "Satoshi's Successor II"
