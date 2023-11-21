@@ -131,6 +131,8 @@ def test_invoice_weirdstring(node_factory):
     l1.rpc.delinvoice(weird_label, "unpaid")
 
 
+# Can't be filtered with VLS_PERMISSIVE, re-using preimage corrupts internal data ...
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "already have a different invoice for same secret")
 def test_invoice_preimage(node_factory):
     """Test explicit invoice 'preimage'.
     """

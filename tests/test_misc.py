@@ -1263,6 +1263,7 @@ def test_cli_commando(node_factory):
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd integration test job control fails here")
 def test_daemon_option(node_factory):
     """
     Make sure --daemon at least vaguely works!
@@ -2291,6 +2292,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support forced secrets")
 def test_dev_force_bip32_seed(node_factory):
     l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
     # First is m/0/0/1 ..
@@ -2633,6 +2635,7 @@ def test_regtest_upgrade(node_factory):
 
 @unittest.skipIf(VALGRIND, "valgrind files can't be written since we rmdir")
 @unittest.skipIf(TEST_NETWORK != "regtest", "needs bitcoin mainnet")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't create hsm_secret file")
 def test_new_node_is_mainnet(node_factory):
     """Test that an empty directory causes us to be on mainnet"""
     l1 = node_factory.get_node(start=False, may_fail=True)
@@ -2823,6 +2826,7 @@ def test_custommsg_triggers_notification(node_factory):
     l1.daemon.wait_for_log(f"payload=77770012")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support dev-force-privkey")
 def test_makesecret(node_factory):
     """
     Test makesecret command.
@@ -2860,6 +2864,7 @@ def test_staticbackup(node_factory):
             and l1.rpc.staticbackup()["scb"][0][16: 16 + 64] == _["channel_id"])
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd says no such channel")
 def test_recoverchannel(node_factory):
     """
     Test recoverchannel
@@ -4056,6 +4061,7 @@ def test_setconfig(node_factory, bitcoind):
         assert len(lines) == 3
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support this command")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)

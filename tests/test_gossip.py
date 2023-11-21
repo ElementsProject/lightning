@@ -185,6 +185,7 @@ def test_announce_dns_suppressed(node_factory, bitcoind):
     assert addresses[0]['port'] == 1236
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "trouble with IPv6 in VLS CI runner")
 def test_announce_and_connect_via_dns(node_factory, bitcoind):
     """ Test that DNS announcements propagate and can be used when connecting.
 

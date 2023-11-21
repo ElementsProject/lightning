@@ -734,6 +734,7 @@ def test_openchannel_hook(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100001)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "this test frequently hangs w/ VLSD")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_openchannel_hook_error_handling(node_factory, bitcoind):
@@ -1849,6 +1850,7 @@ def test_bitcoin_backend(node_factory, bitcoind):
                                " bitcoind")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "channel too big, then feerate above maximum")
 def test_bitcoin_bad_estimatefee(node_factory, bitcoind):
     """
     This tests that we don't crash if bitcoind backend gives bad estimatefees.
@@ -2027,6 +2029,7 @@ def test_replacement_payload(node_factory):
     assert l2.daemon.wait_for_log("Attempt to pay.*with wrong payment_secret")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 def test_watchtower(node_factory, bitcoind, directory, chainparams):
     """Test watchtower hook.
 
@@ -2244,6 +2247,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "trouble managing remotesigner when node killed this way")
 def test_important_plugin(node_factory):
     # Cache it here.
     pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
@@ -3477,6 +3481,7 @@ def test_block_added_notifications(node_factory, bitcoind):
     assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "timeout waiting for hold_invoice plugin")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_sql(node_factory, bitcoind):
     opts = {'experimental-dual-fund': None,

@@ -781,6 +781,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
                     reservedok=True)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "non-beneficial value considered as fees is above maximum feerate")
 def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     """
     A PSBT w/ one of our inputs should be signable (we can fill
@@ -857,6 +858,7 @@ def test_psbt_version(node_factory, bitcoind, chainparams):
             l1.rpc.setpsbtversion(v2_funding, i)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "validate_payments: unbalanced payments on channel")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'Core/Elements need joinpsbt support for v2')
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
@@ -1116,6 +1118,7 @@ def write_all(fd, bytestr):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support hsm_secret file")
 def test_hsm_secret_encryption(node_factory):
     l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
     password = "reckful&é🍕\n"
@@ -1179,6 +1182,7 @@ class HsmTool(TailableProc):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support hsm_secret file")
 def test_hsmtool_secret_decryption(node_factory):
     l1 = node_factory.get_node()
     password = "reckless123#{ù}\n"
@@ -1315,6 +1319,7 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
         assert res["total_amount"] == Decimal('0.00001000')
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support generatehsm")
 def test_hsmtool_generatehsm(node_factory):
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,

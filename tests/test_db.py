@@ -136,6 +136,7 @@ def test_max_channel_id(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't like channel_nonce changing")
 def test_scid_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
@@ -167,6 +168,7 @@ def test_scid_upgrade(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't like channel_nonce changing")
 def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
@@ -185,6 +187,7 @@ def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't like channel_nonce changing")
 def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
@@ -225,6 +228,7 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
 @pytest.mark.slow_test
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support backfill yet")
 def test_backfill_scriptpubkeys(node_factory, bitcoind):
     bitcoind.generate_block(214)
 
@@ -358,6 +362,7 @@ def test_psql_key_value_dsn(node_factory, db_provider, monkeypatch):
     os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
     "This test is based on a sqlite3 snapshot"
 )
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support DB migration")
 def test_local_basepoints_cache(bitcoind, node_factory):
     """XXX started caching the local basepoints as well as the remote ones.
 
@@ -446,6 +451,7 @@ def test_sqlite3_builtin_backup(bitcoind, node_factory):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Don't know how to swap dbs in Postgres")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "vlsd chokes on allowlist when started on wrong network")
 def test_db_sanity_checks(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'may_fail': True, 'broken_log': 'Wallet node_id does not match HSM|Wallet blockchain hash does not match network blockchain hash'}, {}])
 
