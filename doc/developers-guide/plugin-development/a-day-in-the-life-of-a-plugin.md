@@ -45,7 +45,7 @@ The `getmanifest` method is required for all plugins and will be called on start
       "default": "World",
       "description": "What name should I call you?",
       "deprecated": false,
-   	  "dynamic": false
+      "dynamic": false
     }
   ],
   "rpcmethods": [
@@ -78,8 +78,8 @@ The `getmanifest` method is required for all plugins and will be called on start
   },
   "notifications": [
     {
-	  "method": "mycustomnotification"
-	}
+        "method": "mycustomnotification"
+    }
   ],
   "custommessages": [
     11008, 11010
