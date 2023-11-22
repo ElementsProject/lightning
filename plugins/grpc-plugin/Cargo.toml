@@ -3,6 +3,11 @@ edition = "2021"
 name = "cln-grpc-plugin"
 version = "0.1.4"
 
+description = "A Core Lightning plugin that re-exposes the JSON-RPC over grpc. Authentication is done via mTLS."
+license = "MIT"
+repository = "https://github.com/ElementsProject/lightning"
+documentation = "https://docs.rs/crate/cln-grpc-plugin/"
+
 [[bin]]
 name = "cln-grpc"
 path = "src/main.rs"
