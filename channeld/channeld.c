@@ -5147,7 +5147,7 @@ static void peer_reconnect(struct peer *peer,
 	}
 
 	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64
-		     " inflights: %lu, active splices: %"PRIu32,
+		     " inflights: %zu, active splices: %"PRIu32,
 		     next_commitment_number,
 		     next_revocation_number,
 		     tal_count(peer->splice_state->inflights),
