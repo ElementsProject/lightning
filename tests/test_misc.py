@@ -2674,6 +2674,33 @@ def test_sendcustommsg(node_factory):
     ])
 
 
+def test_custommsg_triggers_notification(node_factory):
+    """Check that a notification is triggered when a node receives
+    a custommsg.
+
+    We'll send a message from l2 to l1 and verify that l1 received
+    the appropriate notification
+    """
+    plugin_path = os.path.join(os.path.dirname(__file__), "plugins", "custommsg_notification.py")
+    l1: LightningNode = node_factory.get_node(options={"plugin": plugin_path})
+    l2: LightningNode = node_factory.get_node()
+
+    # Connect l1 to l2
+    l1.connect(l2)
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['connected'])
+
+    # Send a custommsg from l2 to l1
+    # The message id 7777 is chosen to be sufficiently high and shouldn't be used by the
+    # lightning spec
+    l2.rpc.sendcustommsg(l1.info['id'], "77770012")
+
+    # TODO: Check if the peer_id and payload matches
+    peer_id = l2.info["id"]
+    l1.daemon.wait_for_log(f"Received a custommsg with data")
+    l1.daemon.wait_for_log(f"peer_id={peer_id}")
+    l1.daemon.wait_for_log(f"payload=77770012")
+
+
 def test_makesecret(node_factory):
     """
     Test makesecret command.
