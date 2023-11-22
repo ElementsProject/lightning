@@ -105,6 +105,28 @@ A notification for topic `disconnect` is sent every time a connection to a peer 
 }
 ```
 
+### `custommsg`
+
+A notification for topic `custommsg` is sent when the node receives a `custommsg`. 
+```json
+{
+  "custommsg" : {
+    "peer_id" : "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
+    "payload" : "1337ffffffff"
+  }
+}
+```
+
+This `payload` represents a `custommsg` that was send by the peer whose `node_id` matches
+`peer_id`. The message has type `0x1337` and contents `ffffffff`.
+
+To  avoid conflicts with internal state-tracking, unexpected disconnections and channel-closures
+the messages are currently limited to odd-numbered messages that can be safely ignored by 
+other nodes (see ["it's ok to be odd" in the specification](https://github.com/lightning/bolts/blob/c74a3bbcf890799d343c62cb05fcbcdc952a1cf3/01-messaging.md#lightning-message-format)
+for details).
+
+The plugin must implement the parsing of the message including the type prefix.
+
 ### `invoice_payment`
 
 A notification for topic `invoice_payment` is sent every time an invoice is paid.
