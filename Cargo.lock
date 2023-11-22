@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "cln-plugin"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "bytes",
@@ -306,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "cln-rpc"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "bitcoin",
