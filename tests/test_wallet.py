@@ -858,7 +858,6 @@ def test_psbt_version(node_factory, bitcoind, chainparams):
             l1.rpc.setpsbtversion(v2_funding, i)
 
 
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "validate_payments: unbalanced payments on channel")
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'Core/Elements need joinpsbt support for v2')
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
@@ -1006,7 +1005,12 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # But it can sign all the valid ones at once.
     half_signed_psbt = l1.rpc.signpsbt(joint_psbt, signonly=sign_success)['signed_psbt']
     for s in sign_success:
-        assert bitcoind.rpc.decodepsbt(half_signed_psbt)['inputs'][s]['partial_signatures'] is not None
+        decoded_input = bitcoind.rpc.decodepsbt(half_signed_psbt)['inputs'][s]
+        if 'partial_signatures' in decoded_input:
+            assert decoded_input['partial_signatures'] is not None
+        else:
+            # VLS returns signatures in final_scriptwitness instead
+            assert decoded_input['final_scriptwitness'] is not None
 
     totally_signed = l2.rpc.signpsbt(half_signed_psbt)['signed_psbt']
 
