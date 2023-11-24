@@ -1695,6 +1695,21 @@ impl From<responses::ListhtlcsResponse> for pb::ListhtlcsResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::OfferResponse> for pb::OfferResponse {
+    fn from(c: responses::OfferResponse) -> Self {
+        Self {
+            offer_id: c.offer_id, // Rule #2 for type hex
+            active: c.active, // Rule #2 for type boolean
+            single_use: c.single_use, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            used: c.used, // Rule #2 for type boolean
+            created: c.created, // Rule #2 for type boolean
+            label: c.label, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::PingResponse> for pb::PingResponse {
     fn from(c: responses::PingResponse) -> Self {
         Self {
@@ -2488,6 +2503,57 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::OfferRecurrence> for pb::OfferRecurrence {
+    fn from(c: requests::OfferRecurrence) -> Self {
+        Self {
+            period: c.period, // Rule #2 for type u32
+            time_unit: c.time_unit, // Rule #2 for type u32
+            time_unit_name: c.time_unit_name, // Rule #2 for type string?
+        }
+    }
+}
+
+
+#[allow(unused_variables)]
+impl From<requests::OfferRecurrenceBase> for pb::OfferRecurrenceBase {
+    fn from(c: requests::OfferRecurrenceBase) -> Self {
+        Self {
+		    basetime: c.basetime, // Rule #2 for type u64
+		    start_any_period: c.start_any_period, // Rule #2 for type bool
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::OfferRecurrencePaywindow> for pb::OfferRecurrencePaywindow {
+    fn from(c: requests::OfferRecurrencePaywindow) -> Self {
+        Self {
+		    seconds_before: c.seconds_before, // Rule #2 for type u32
+		    seconds_after: c.seconds_after, // Rule #2 for type u32
+		    proportional_amount: c.proportional_amount, // Rule #2 for type bool?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::OfferRequest> for pb::OfferRequest {
+    fn from(c: requests::OfferRequest) -> Self {
+        Self {
+            amount: Some(c.amount.into()), // Rule #2 for type msat_or_any
+            description: c.description, // Rule #2 for type string
+            issuer: c.issuer, // Rule #2 for type string?
+            label: c.label,  // Rule #2 for type string?
+            absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
+            recurrence: c.recurrence.map(|v| v.into()),
+            recurrence_base: c.recurrence_base.map(|v| v.into()),
+            recurrence_paywindow: c.recurrence_paywindow.map(|v| v.into()),
+            recurrence_limit: c.recurrence_limit, // Rule #2 for type u64?
+            single_use: c.single_use // Rule #2 for type bool?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::PingRequest> for pb::PingRequest {
     fn from(c: requests::PingRequest) -> Self {
         Self {
@@ -3233,6 +3299,57 @@ impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
     fn from(c: pb::ListhtlcsRequest) -> Self {
         Self {
             id: c.id, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OfferRecurrence> for requests::OfferRecurrence {
+    fn from(c: pb::OfferRecurrence) -> Self {
+        Self {
+            period: c.period, // Rule #1 for type u32
+            time_unit: c.time_unit, // Rule #1 for type u32
+            time_unit_name: c.time_unit_name, // Rule #1 for type string?
+        }
+    }
+}
+
+
+#[allow(unused_variables)]
+impl From<pb::OfferRecurrenceBase> for requests::OfferRecurrenceBase {
+    fn from(c: pb::OfferRecurrenceBase) -> Self {
+        Self {
+		    basetime: c.basetime, // Rule #1 for type u64
+		    start_any_period: c.start_any_period, // Rule #1 for type bool
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OfferRecurrencePaywindow> for requests::OfferRecurrencePaywindow {
+    fn from(c: pb::OfferRecurrencePaywindow) -> Self {
+        Self {
+		    seconds_before: c.seconds_before, // Rule #1 for type u32
+		    seconds_after: c.seconds_after, // Rule #1 for type u32
+		    proportional_amount: c.proportional_amount, // Rule #1 for type bool?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::OfferRequest> for requests::OfferRequest {
+    fn from(c: pb::OfferRequest) -> Self {
+        Self {
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_any
+            description: c.description, // Rule #1 for type string
+            issuer: c.issuer, // Rule #1 for type string?
+            label: c.label,  // Rule #1 for type string?
+            absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
+            recurrence: c.recurrence.map(|v| v.into()),
+            recurrence_base: c.recurrence_base.map(|v| v.into()),
+            recurrence_paywindow: c.recurrence_paywindow.map(|v| v.into()),
+            recurrence_limit: c.recurrence_limit, // Rule #1 for type u64?
+            single_use: c.single_use // Rule #1 for type bool?
         }
     }
 }

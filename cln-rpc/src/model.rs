@@ -67,6 +67,7 @@ pub enum Request {
 	ListForwards(requests::ListforwardsRequest),
 	ListPays(requests::ListpaysRequest),
 	ListHtlcs(requests::ListhtlcsRequest),
+	Offer(requests::OfferRequest),
 	Ping(requests::PingRequest),
 	SendCustomMsg(requests::SendcustommsgRequest),
 	SetChannel(requests::SetchannelRequest),
@@ -135,6 +136,7 @@ pub enum Response {
 	ListForwards(responses::ListforwardsResponse),
 	ListPays(responses::ListpaysResponse),
 	ListHtlcs(responses::ListhtlcsResponse),
+	Offer(responses::OfferResponse),
 	Ping(responses::PingResponse),
 	SendCustomMsg(responses::SendcustommsgResponse),
 	SetChannel(responses::SetchannelResponse),
@@ -1897,6 +1899,58 @@ pub mod requests {
 	        "listhtlcs"
 	    }
 	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct OfferRecurrence {
+		pub time_unit: u32,
+		pub period: u32,
+		pub time_unit_name: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct OfferRecurrenceBase {
+ 		pub basetime: u64,
+ 		pub start_any_period: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct OfferRecurrencePaywindow {
+		pub seconds_before: u32,
+		pub seconds_after: u32,
+		pub proportional_amount: Option<bool>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct OfferRequest {
+		pub amount: AmountOrAny,
+		pub description: String,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+		pub issuer: Option<String>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub label: Option<String>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub absolute_expiry: Option<u64>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub recurrence: Option<OfferRecurrence>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub recurrence_base: Option<OfferRecurrenceBase>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub recurrence_paywindow: Option<OfferRecurrencePaywindow>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub recurrence_limit: Option<u64>,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub single_use: Option<bool>,
+	}
+
+	impl From<OfferRequest> for Request {
+	    fn from(r: OfferRequest) -> Self {
+	        Request::Offer(r)
+	    }
+	}
+
+	impl IntoRequest for OfferRequest {
+	    type Response = super::responses::OfferResponse;
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PingRequest {
 	    pub id: PublicKey,
@@ -5653,6 +5707,29 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListHtlcs(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct OfferResponse {
+		pub offer_id: Vec<u8>,
+		pub active: bool,
+		pub single_use: bool,
+		pub bolt12: String,
+		pub used: bool,
+		pub created: bool,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub label: Option<String>,
+	}
+
+	impl TryFrom<Response> for OfferResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Offer(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
