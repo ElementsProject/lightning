@@ -634,4 +634,4 @@ The payload for a call follows this format:
 
 All fields shown here are optional.
 
-We suggest just returning `{'result': 'continue'}`; any other result will cause the message not to be handed to any other hooks.
+We suggest just returning `{"result": "continue"}`; any other result will cause the message not to be handed to any other hooks.
