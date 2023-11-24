@@ -47,7 +47,7 @@ static void show_usage(const char *progname)
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
 	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
-	printf("        - getemergencyrecover <path/to/emergency.recover>\n");
+	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
 	exit(0);
 }
 
@@ -788,7 +788,7 @@ int main(int argc, char *argv[])
 	}
 
 	if(streq(method, "getcodexsecret")) {
-		if (argc < 2)
+		if (argc < 4)
 			show_usage(argv[0]);
 		return make_codexsecret(argv[2], argv[3]);
 	}
