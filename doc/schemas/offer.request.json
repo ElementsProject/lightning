@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "amount",
+    "description"
+  ],
+  "properties": {
+    "amount": {
+      "type": "msat_or_any",
+      "description": "either the string \"any\" (e.g. for donations) or a positive value in millisatoshi precision"
+    },
+    "description": {
+      "type": "string",
+      "description": "a short description of purpose of the offer"
+    },
+    "issuer": {
+      "type": "string",
+      "description": "who is issuing this offer"
+    },
+    "label": {
+      "type": "string",
+      "description": "an internal-use name for the offer"
+    },
+    "quantity_max": {
+      "type": "u64",
+      "description": "specifies the number of items up (and including) this maximum"
+    },
+    "absolute_expiry": {
+      "type": "u64",
+      "description": "the time the offer is valid until, in seconds since the first day of 1970 UTC"
+    },
+    "recurrence": {
+      "type": "object",
+      "required": [
+        "time_unit",
+        "period"
+      ],
+      "properties": {
+        "time_unit": {
+          "type": "u32",
+          "description": "a positive number referring to a time unit - 0 (seconds), 1 (days), 2 (months), 3 (years)"
+        },
+        "period": {
+          "type": "u32",
+          "description": "the positive number which the time unit refers to"
+        },
+        "time_unit_name": {
+          "type": "string",
+          "description": "the name of the specified time unit - either  \"seconds\", \"minutes\", \"hours\", \"days\", \"weeks\" or \"years\""
+        }
+      }
+    },
+    "recurrence_base": {
+      "type": "object",
+      "required": [
+        "basetime",
+        "start_any_period"
+      ],
+      "properties": {
+        "basetime": {
+          "type": "u64",
+          "description": "time in seconds since the first day of 1970 UTC"
+        },
+        "start_any_period": {
+          "type": "boolean",
+          "description": "whether or not the invoice should start at any period"
+        }
+      }
+    },
+    "recurrence_paywindow": {
+      "type": "object",
+      "required": [
+        "seconds_before",
+        "seconds_after"
+      ],
+      "properties": {
+        "seconds_before": {
+          "type": "u32",
+          "description": "number of seconds before the start of a period in which an invoice and payment is valid"
+        },
+        "seconds_after": {
+          "type": "u32",
+          "description": "number of seconds after the start of a period in which an invoice and payment is valid"
+        },
+        "proportional_amount": {
+          "type": "boolean",
+          "description": "indicates whether the amount of the invoice will be scaled by the time remaining in the period"
+        }
+      }
+    },
+    "recurrence_limit": {
+      "type": "u64",
+      "description": "the maximum recurrence period which exists"
+    },
+    "single_use": {
+      "type": "boolean",
+      "description": "indicates that the offer is only valid once"
+    }
+  }
+}
