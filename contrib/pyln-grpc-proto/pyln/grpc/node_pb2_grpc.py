@@ -264,6 +264,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListhtlcsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListhtlcsResponse.FromString,
                 )
+        self.Offer = channel.unary_unary(
+                '/cln.Node/Offer',
+                request_serializer=node__pb2.OfferRequest.SerializeToString,
+                response_deserializer=node__pb2.OfferResponse.FromString,
+                )
         self.Ping = channel.unary_unary(
                 '/cln.Node/Ping',
                 request_serializer=node__pb2.PingRequest.SerializeToString,
@@ -629,6 +634,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Offer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -953,6 +964,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListHtlcs,
                     request_deserializer=node__pb2.ListhtlcsRequest.FromString,
                     response_serializer=node__pb2.ListhtlcsResponse.SerializeToString,
+            ),
+            'Offer': grpc.unary_unary_rpc_method_handler(
+                    servicer.Offer,
+                    request_deserializer=node__pb2.OfferRequest.FromString,
+                    response_serializer=node__pb2.OfferResponse.SerializeToString,
             ),
             'Ping': grpc.unary_unary_rpc_method_handler(
                     servicer.Ping,
@@ -1871,6 +1887,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ListHtlcs',
             node__pb2.ListhtlcsRequest.SerializeToString,
             node__pb2.ListhtlcsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Offer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Offer',
+            node__pb2.OfferRequest.SerializeToString,
+            node__pb2.OfferResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

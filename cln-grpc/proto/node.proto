@@ -58,6 +58,7 @@ service Node {
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
+	rpc Offer(OfferRequest) returns (OfferResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
@@ -1796,6 +1797,46 @@ message ListhtlcsHtlcs {
 	ListhtlcsHtlcsDirection direction = 5;
 	bytes payment_hash = 6;
 	HtlcState state = 7;
+}
+
+message OfferRequest {
+	AmountOrAny amount = 1;
+	string description = 2;
+	optional string issuer = 3;
+	optional string label = 4;
+	optional uint64 absolute_expiry = 5;
+	optional Offer_recurrence recurrence = 6;
+	optional Offer_recurrenceBase recurrence_base = 7;
+	optional Offer_recurrencePaywindow recurrence_paywindow = 8;
+	optional uint64 recurrence_limit = 9;
+	optional bool single_use = 10;
+}
+
+message Offer_recurrence {
+ 	uint32 time_unit = 1;
+ 	uint32 period = 2;
+ 	optional string time_unit_name = 3;
+}
+
+message Offer_recurrenceBase {
+ 	uint64 basetime = 1;
+ 	bool start_any_period = 2;
+}
+
+message Offer_recurrencePaywindow {
+	uint32 seconds_before = 1;
+	uint32 seconds_after = 2;
+	optional bool proportional_amount = 3;
+}
+
+message OfferResponse {
+	bytes offer_id = 1;
+  bool active = 2;
+  bool single_use = 3;
+  string bolt12 = 4;
+  bool used = 5;
+  bool created = 6;
+  optional string label = 7;
 }
 
 message PingRequest {
