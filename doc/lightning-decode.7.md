@@ -57,7 +57,7 @@ If **type** is "bolt12 offer", and **valid** is *true*:
     - **period** (u32): how many `time_unit` per payment period
     - **time\_unit\_name** (string, optional): the name of `time_unit` (if valid)
     - **basetime** (u64, optional): period starts at this UNIX timestamp
-    - **start\_any\_period** (u64, optional): you can start at any period (only if `basetime` present)
+    - **start\_any\_period** (boolean, optional): you can start at any period (only if `basetime` present)
     - **limit** (u32, optional): maximum period number for recurrence
     - **paywindow** (object, optional): when within a period will payment be accepted (default is prior and during the period):
       - **seconds\_before** (u32): seconds prior to period start
@@ -109,7 +109,7 @@ If **type** is "bolt12 invoice\_request", and **valid** is *true*:
     - **period** (u32): how many `time_unit` per payment period
     - **time\_unit\_name** (string, optional): the name of `time_unit` (if valid)
     - **basetime** (u64, optional): period starts at this UNIX timestamp
-    - **start\_any\_period** (u64, optional): you can start at any period (only if `basetime` present)
+    - **start\_any\_period** (boolean, optional): you can start at any period (only if `basetime` present)
     - **limit** (u32, optional): maximum period number for recurrence
     - **paywindow** (object, optional): when within a period will payment be accepted (default is prior and during the period):
       - **seconds\_before** (u32): seconds prior to period start
@@ -186,7 +186,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
     - **period** (u32): how many `time_unit` per payment period
     - **time\_unit\_name** (string, optional): the name of `time_unit` (if valid)
     - **basetime** (u64, optional): period starts at this UNIX timestamp
-    - **start\_any\_period** (u64, optional): you can start at any period (only if `basetime` present)
+    - **start\_any\_period** (boolean, optional): you can start at any period (only if `basetime` present)
     - **limit** (u32, optional): maximum period number for recurrence
     - **paywindow** (object, optional): when within a period will payment be accepted (default is prior and during the period):
       - **seconds\_before** (u32): seconds prior to period start
@@ -310,4 +310,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b02cea039b40deb3f248f8cac575602a3fe34d1d85dbf6fdb8a0b63b778e5883)
+[comment]: # ( SHA256STAMP:59bcc38bf3c4b2aa6f4258c1327d16171c4ba37276ac3a96528a2f12a2ef3ad5)
