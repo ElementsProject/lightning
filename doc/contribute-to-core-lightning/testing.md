@@ -39,7 +39,7 @@ There are four kinds of tests:
 
 - **blackbox tests** - These tests setup a mini-regtest environment and test lightningd as a whole.  They can be run individually:
 
-  `PYTHONPATH=contrib/pylightning:contrib/pyln-client:contrib/pyln-testing:contrib/pyln-proto py.test -v tests/`
+  `PYTHONPATH=contrib/pyln-client:contrib/pyln-testing:contrib/pyln-proto:contrib/pyln-grpc-proto py.test -v tests/`
 
   You can also append `-k TESTNAME` to run a single test.  Environment variables `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging subdaemons on individual tests.
 
