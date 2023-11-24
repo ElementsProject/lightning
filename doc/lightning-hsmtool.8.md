@@ -76,6 +76,9 @@ You will still need to create a rune once the node starts, if you want commando 
 **getcodexsecret** *hsm\_secret\_path* *id*
   Print out the BIP-93 formatted HSM secret, for use with `--recover`.  The `id` is any 4 character string you can use to identify this secret (e.g. `adi0`): it cannot contain `i`, `o`, or `b`, but can contain digits except `1`.
 
+**getemergencyrecover** *emergency.recover\_path*
+  Print out the bech32 encoded emergency.recover file.
+
 BUGS
 ----
 
