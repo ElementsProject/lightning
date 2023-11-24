@@ -1423,13 +1423,13 @@ def listhtlcs2py(m):
 
 def offer2py(m):
     return remove_default({
-        "offer_id": m.offer_id,  # PrimitiveField in generate_composite
+        "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "active": m.active,  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "used": m.used,  # PrimitiveField in generate_composite
-        "created": c.created,  # PrimitiveField in generate_composite
-        "label": c.label,  # PrimitiveField in generate_composite # PrimitiveField in generate_composite
+        "created": m.created,  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
     })
 
 

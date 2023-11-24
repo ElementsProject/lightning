@@ -1901,44 +1901,48 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferRecurrence {
-		pub time_unit: u32,
-		pub period: u32,
-		pub time_unit_name: Option<String>,
+	    pub time_unit: u32,
+	    pub period: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub time_unit_name: Option<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct OfferRecurrenceBase {
- 		pub basetime: u64,
- 		pub start_any_period: bool,
+	pub struct OfferRecurrence_base {
+	    pub basetime: u64,
+	    pub start_any_period: bool,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct OfferRecurrencePaywindow {
-		pub seconds_before: u32,
-		pub seconds_after: u32,
-		pub proportional_amount: Option<bool>,
+	pub struct OfferRecurrence_paywindow {
+	    pub seconds_before: u32,
+	    pub seconds_after: u32,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proportional_amount: Option<bool>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferRequest {
-		pub amount: AmountOrAny,
-		pub description: String,
+	    pub amount: AmountOrAny,
+	    pub description: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-		pub issuer: Option<String>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub label: Option<String>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub absolute_expiry: Option<u64>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub recurrence: Option<OfferRecurrence>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub recurrence_base: Option<OfferRecurrenceBase>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub recurrence_paywindow: Option<OfferRecurrencePaywindow>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub recurrence_limit: Option<u64>,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub single_use: Option<bool>,
+	    pub issuer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub quantity_max: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub absolute_expiry: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence: Option<OfferRecurrence>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_base: Option<OfferRecurrence_base>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_paywindow: Option<OfferRecurrence_paywindow>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recurrence_limit: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub single_use: Option<bool>,
 	}
 
 	impl From<OfferRequest> for Request {
@@ -1951,6 +1955,13 @@ pub mod requests {
 	    type Response = super::responses::OfferResponse;
 	}
 
+	impl TypedRequest for OfferRequest {
+	    type Response = super::responses::OfferResponse;
+
+	    fn method(&self) -> &str {
+	        "offer"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PingRequest {
 	    pub id: PublicKey,
@@ -5714,14 +5725,14 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferResponse {
-		pub offer_id: Vec<u8>,
-		pub active: bool,
-		pub single_use: bool,
-		pub bolt12: String,
-		pub used: bool,
-		pub created: bool,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		pub label: Option<String>,
+	    pub offer_id: Sha256,
+	    pub active: bool,
+	    pub single_use: bool,
+	    pub bolt12: String,
+	    pub used: bool,
+	    pub created: bool,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
 	}
 
 	impl TryFrom<Response> for OfferResponse {

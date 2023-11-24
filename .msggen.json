@@ -1453,6 +1453,42 @@
             "NewAddr.p2sh-segwit": 2,
             "NewAddr.p2tr": 3
         },
+        "OfferRecurrence": {
+            "Offer.recurrence.period": 2,
+            "Offer.recurrence.time_unit": 1,
+            "Offer.recurrence.time_unit_name": 3
+        },
+        "OfferRecurrence_base": {
+            "Offer.recurrence_base.basetime": 1,
+            "Offer.recurrence_base.start_any_period": 2
+        },
+        "OfferRecurrence_paywindow": {
+            "Offer.recurrence_paywindow.proportional_amount": 3,
+            "Offer.recurrence_paywindow.seconds_after": 2,
+            "Offer.recurrence_paywindow.seconds_before": 1
+        },
+        "OfferRequest": {
+            "Offer.absolute_expiry": 6,
+            "Offer.amount": 1,
+            "Offer.description": 2,
+            "Offer.issuer": 3,
+            "Offer.label": 4,
+            "Offer.quantity_max": 5,
+            "Offer.recurrence": 7,
+            "Offer.recurrence_base": 8,
+            "Offer.recurrence_limit": 10,
+            "Offer.recurrence_paywindow": 9,
+            "Offer.single_use": 11
+        },
+        "OfferResponse": {
+            "Offer.active": 2,
+            "Offer.bolt12": 4,
+            "Offer.created": 6,
+            "Offer.label": 7,
+            "Offer.offer_id": 1,
+            "Offer.single_use": 3,
+            "Offer.used": 5
+        },
         "PayRequest": {
             "Pay.amount_msat": 13,
             "Pay.bolt11": 1,
@@ -5288,6 +5324,106 @@
         },
         "NewAddr.p2tr": {
             "added": "v23.08",
+            "deprecated": false
+        },
+        "Offer": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Offer.absolute_expiry": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.created": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.issuer": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.quantity_max": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence.period": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence.time_unit": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence.time_unit_name": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_base": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_base.basetime": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_base.start_any_period": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_limit": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_paywindow": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_paywindow.proportional_amount": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_paywindow.seconds_after": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.recurrence_paywindow.seconds_before": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Offer.used": {
+            "added": "pre-v0.10.1",
             "deprecated": false
         },
         "Pay": {
