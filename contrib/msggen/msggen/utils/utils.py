@@ -87,7 +87,7 @@ def load_jsonrpc_service(schema_dir: str):
         "ListHtlcs",
         # "multifundchannel",
         # "multiwithdraw",
-        # "offer",
+        "Offer",
         # "openchannel_abort",
         # "openchannel_bump",
         # "openchannel_init",
