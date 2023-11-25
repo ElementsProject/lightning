@@ -147,27 +147,21 @@ start_nodes() {
 		log-file=$LIGHTNING_DIR/l$i/log
 		addr=localhost:$socket
 		allow-deprecated-apis=false
+		developer
+		dev-fast-gossip
+		dev-bitcoind-poll=5
+		experimental-dual-fund
+		experimental-splicing
+		experimental-offers
+		funder-policy=match
+		funder-policy-mod=100
+		funder-min-their-funding=10000
+		funder-per-channel-max=100000
+		funder-fuzz-percent=0
+		lease-fee-base-sat=2sat
+		lease-fee-basis=50
+		invoices-onchain-fallback
 		EOF
-
-		# If we've configured to use developer, add dev options
-		if "$LIGHTNINGD" --help | grep -q dev-fast-gossip; then
-			cat <<- EOF >> "$LIGHTNING_DIR/l$i/config"
-			developer
-			dev-fast-gossip
-			dev-bitcoind-poll=5
-			experimental-dual-fund
-			experimental-splicing
-			experimental-offers
-			funder-policy=match
-			funder-policy-mod=100
-			funder-min-their-funding=10000
-			funder-per-channel-max=100000
-			funder-fuzz-percent=0
-			lease-fee-base-sat=2sat
-			lease-fee-basis=50
-			invoices-onchain-fallback
-			EOF
-		fi
 
 
 		# Start the lightning nodes
