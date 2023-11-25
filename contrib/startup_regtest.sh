@@ -158,6 +158,7 @@ start_nodes() {
 		funder-min-their-funding=10000
 		funder-per-channel-max=100000
 		funder-fuzz-percent=0
+funder-lease-requests-only=false
 		lease-fee-base-sat=2sat
 		lease-fee-basis=50
 		invoices-onchain-fallback
@@ -284,10 +285,12 @@ fund_nodes() {
 		"$LCLI" -H --lightning-dir="$LIGHTNING_DIR"/l"$node1" connect "$L2_NODE_ID"@localhost:"$L2_NODE_PORT" > /dev/null
 
 		L1_WALLET_ADDR=$($LCLI -F --lightning-dir=$LIGHTNING_DIR/l"$node1" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
+		L2_WALLET_ADDR=$($LCLI -F --lightning-dir=$LIGHTNING_DIR/l"$node2" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
 
 		ensure_bitcoind_funds
 
 		"$BCLI" -datadir="$BITCOIN_DIR" -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
+		"$BCLI" -datadir="$BITCOIN_DIR" -regtest "$WALLET" sendtoaddress "$L2_WALLET_ADDR" 1 > /dev/null
 
 		"$BCLI" -datadir="$BITCOIN_DIR" -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
 
@@ -298,9 +301,14 @@ fund_nodes() {
 			sleep 1
 		done
 
+		while ! "$LCLI" -F --lightning-dir="$LIGHTNING_DIR"/l"$node2" listfunds | grep -q "outputs"
+		do
+			sleep 1
+		done
+
 		echo "found."
 
-		printf "%s" "Funding channel from node " "$node1" " to node " "$node2"". "
+		printf "%s" "Funding channel <-> node " "$node1" " to node " "$node2"". "
 
 		"$LCLI" --lightning-dir="$LIGHTNING_DIR"/l"$node1" fundchannel "$L2_NODE_ID" 1000000 > /dev/null
 
