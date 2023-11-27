@@ -1120,6 +1120,21 @@
         "ListnodesResponse": {
             "ListNodes.nodes[]": 1
         },
+        "ListoffersOffers": {
+            "ListOffers.offers[].active": 2,
+            "ListOffers.offers[].bolt12": 4,
+            "ListOffers.offers[].label": 6,
+            "ListOffers.offers[].offer_id": 1,
+            "ListOffers.offers[].single_use": 3,
+            "ListOffers.offers[].used": 5
+        },
+        "ListoffersRequest": {
+            "ListOffers.active_only": 2,
+            "ListOffers.offer_id": 1
+        },
+        "ListoffersResponse": {
+            "ListOffers.offers[]": 1
+        },
         "ListpaysPays": {
             "ListPays.pays[].amount_msat": 8,
             "ListPays.pays[].amount_sent_msat": 9,
@@ -4239,6 +4254,46 @@
             "deprecated": false
         },
         "ListNodes.nodes[].nodeid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListOffers.active_only": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].active": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].label": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].offer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].single_use": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListOffers.offers[].used": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

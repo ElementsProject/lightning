@@ -1562,6 +1562,38 @@ async fn list_forwards(
 
 }
 
+async fn list_offers(
+    &self,
+    request: tonic::Request<pb::ListoffersRequest>,
+) -> Result<tonic::Response<pb::ListoffersResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListoffersRequest = req.into();
+    debug!("Client asked for list_offers");
+    trace!("list_offers request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListOffers(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListOffers: {:?}", e)))?;
+    match result {
+        Response::ListOffers(r) => {
+           trace!("list_offers response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListOffers",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn list_pays(
     &self,
     request: tonic::Request<pb::ListpaysRequest>,

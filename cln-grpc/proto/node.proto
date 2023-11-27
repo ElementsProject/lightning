@@ -56,6 +56,7 @@ service Node {
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
+	rpc ListOffers(ListoffersRequest) returns (ListoffersResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc ListHtlcs(ListhtlcsRequest) returns (ListhtlcsResponse) {}
 	rpc Offer(OfferRequest) returns (OfferResponse) {}
@@ -1735,6 +1736,24 @@ message ListforwardsForwards {
 	optional ListforwardsForwardsStyle style = 9;
 	optional Amount fee_msat = 7;
 	optional Amount out_msat = 8;
+}
+
+message ListoffersRequest {
+	optional bytes offer_id = 1;
+	optional bool active_only = 2;
+}
+
+message ListoffersResponse {
+	repeated ListoffersOffers offers = 1;
+}
+
+message ListoffersOffers {
+	bytes offer_id = 1;
+	bool active = 2;
+	bool single_use = 3;
+	string bolt12 = 4;
+	bool used = 5;
+	optional string label = 6;
 }
 
 message ListpaysRequest {

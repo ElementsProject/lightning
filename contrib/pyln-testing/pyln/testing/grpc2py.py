@@ -1378,6 +1378,23 @@ def listforwards2py(m):
     })
 
 
+def listoffers_offers2py(m):
+    return remove_default({
+        "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
+        "active": m.active,  # PrimitiveField in generate_composite
+        "single_use": m.single_use,  # PrimitiveField in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "used": m.used,  # PrimitiveField in generate_composite
+        "label": m.label,  # PrimitiveField in generate_composite
+    })
+
+
+def listoffers2py(m):
+    return remove_default({
+        "offers": [listoffers_offers2py(i) for i in m.offers],  # ArrayField[composite] in generate_composite
+    })
+
+
 def listpays_pays2py(m):
     return remove_default({
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
