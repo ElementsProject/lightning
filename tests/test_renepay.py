@@ -356,3 +356,20 @@ def test_hardmpp(node_factory):
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
     assert invoice['amount_received_msat'] >= Millisatoshi('1800000sat')
+
+
+def test_self_pay(node_factory):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    inv = l1.rpc.invoice(10000, 'test', 'test')['bolt11']
+    l1.rpc.call('renepay', {'invstring': inv})
+
+    # We can pay twice, no problem!
+    l1.rpc.call('renepay', {'invstring': inv})
+
+    inv2 = l1.rpc.invoice(10000, 'test2', 'test2')['bolt11']
+    l1.rpc.delinvoice('test2', 'unpaid')
+
+    with pytest.raises(RpcError, match=r'Unknown invoice') as excinfo:
+        l1.rpc.call('renepay', {'invstring': inv2})
+    assert excinfo.value.error['code'] == 203

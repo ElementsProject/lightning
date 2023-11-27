@@ -200,7 +200,7 @@ void payment_assert_delivering_all(const struct payment *p)
 	}
 }
 
-static struct command_result *payment_success(struct payment *p)
+struct command_result *payment_success(struct payment *p)
 {
 	/* We only finish command once: its destructor clears this. */
 	if (!p->cmd)

@@ -581,6 +581,62 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
+static struct command_result *selfpay_success(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      struct payment *p)
+{
+	struct preimage preimage;
+	const char *err;
+	err = json_scan(tmpctx, buf, result,
+			"{payment_preimage:%}",
+			JSON_SCAN(json_to_preimage, &preimage));
+	p->preimage = tal_dup(p, struct preimage, &preimage);
+	if (err)
+		plugin_err(cmd->plugin,
+			   "selfpay didn't have payment_preimage? %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	p->status = PAYMENT_SUCCESS;
+	payment_note(p, LOG_DBG, "Paid with self-pay.");
+	return payment_success(p);
+}
+
+/* Self-payment used in plugins/pay.c */
+static struct command_result *selfpay(struct command *cmd, struct payment *p)
+{
+	struct out_req *req;
+
+	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
+	tal_steal(pay_plugin->plugin, p);
+	assert(cmd == p->cmd);
+	/* When we terminate cmd for any reason, clear it from payment so we don't do it again. */
+	tal_add_destructor2(cmd, destroy_cmd_payment_ptr, p);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+				    selfpay_success,
+				    forward_error, p);
+	/* Empty route means "to-self" */
+	json_array_start(req->js, "route");
+	json_array_end(req->js);
+	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
+	if (p->label)
+		json_add_string(req->js, "label", p->label);
+	json_add_amount_msat(req->js, "amount_msat", p->amount);
+	json_add_string(req->js, "bolt11", p->invstr);
+	if (p->payment_secret)
+		json_add_secret(req->js, "payment_secret", p->payment_secret);
+	json_add_u64(req->js, "groupid", p->groupid);
+	if (p->payment_metadata)
+		json_add_hex_talarr(req->js, "payment_metadata", p->payment_metadata);
+	if (p->description)
+		json_add_string(req->js, "description", p->description);
+
+	/* Pretend we have sent partid=1 with the total amount. */
+	p->next_partid = 2;
+	p->total_sent = p->amount;
+	return send_outreq(cmd->plugin, req);
+}
 
 /* Taken from ./plugins/pay.c
  *
@@ -624,14 +680,17 @@ payment_listsendpays_previous(
 
 	json_for_each_arr(i, t, arr)
 	{
-		u64 partid, groupid;
+		u64 partid = 0, groupid;
 		struct amount_msat this_msat, this_sent;
 		const char *status;
 
-		// TODO(eduardo): assuming amount_msat is always known.
+		// TODO: we assume amount_msat is always present, but according
+		// to the documentation this field is optional. How do I
+		// interpret if amount_msat is missing?
+		const char *err =
 		json_scan(tmpctx,buf,t,
 			  "{status:%"
-			  ",partid:%"
+			  ",partid?:%"
 			  ",groupid:%"
 			  ",amount_msat:%"
 			  ",amount_sent_msat:%}",
@@ -640,6 +699,12 @@ payment_listsendpays_previous(
 			  JSON_SCAN(json_to_u64,&groupid),
 			  JSON_SCAN(json_to_msat,&this_msat),
 			  JSON_SCAN(json_to_msat,&this_sent));
+
+		if(err)
+			plugin_err(pay_plugin->plugin,
+				   "%s json_scan of listsendpay returns the following error: %s",
+				   __PRETTY_FUNCTION__,
+				   err);
 
 		/* If we decide to create a new group, we base it on max_group_id */
 		if (groupid > max_group_id)
@@ -660,6 +725,11 @@ payment_listsendpays_previous(
 				  JSON_SCAN(json_to_u32, &complete_created_at),
 				  JSON_SCAN(json_to_preimage, &complete_preimage));
 			complete_parts++;
+
+			plugin_log(pay_plugin->plugin,LOG_DBG,
+				   "this part is complete then "
+				   "complete_msat = %s",
+				   type_to_string(tmpctx,struct amount_msat,&complete_msat));
 		} else if (streq(status, "pending")) {
 			/* If we have more than one pending group, something went wrong! */
 			if (pending_group_id != INVALID_ID
@@ -725,6 +795,10 @@ payment_listsendpays_previous(
 		payment->groupid = max_group_id + 1;
 		payment->next_partid=1;
 	}
+
+	/* Bypass everything if we're doing (synchronous) self-pay */
+	if (node_id_eq(&pay_plugin->my_id, &payment->destination))
+		return selfpay(cmd, payment);
 
 
 	struct out_req *req;
@@ -900,11 +974,6 @@ static struct command_result *json_pay(struct command *cmd,
 		else
 			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
 	}
-
-	if (node_id_eq(&pay_plugin->my_id, &destination))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "This payment is destined for ourselves. "
-				    "Self-payments are not supported");
 
 	// set the payment amount
 	if (invmsat) {
