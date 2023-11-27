@@ -178,4 +178,6 @@ struct command_result *payment_fail(
 	enum jsonrpc_errcode code,
 	const char *fmt, ...);
 
+struct command_result *payment_success(struct payment *p);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */
