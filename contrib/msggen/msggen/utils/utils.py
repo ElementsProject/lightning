@@ -82,7 +82,7 @@ def load_jsonrpc_service(schema_dir: str):
         # "getlog",
         "GetRoute",
         "ListForwards",
-        # "listoffers",
+        "ListOffers",
         "ListPays",
         "ListHtlcs",
         # "multifundchannel",

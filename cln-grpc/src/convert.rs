@@ -1638,6 +1638,30 @@ impl From<responses::ListforwardsResponse> for pb::ListforwardsResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListoffersOffers> for pb::ListoffersOffers {
+    fn from(c: responses::ListoffersOffers) -> Self {
+        Self {
+            offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
+            active: c.active, // Rule #2 for type boolean
+            single_use: c.single_use, // Rule #2 for type boolean
+            bolt12: c.bolt12, // Rule #2 for type string
+            used: c.used, // Rule #2 for type boolean
+            label: c.label, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListoffersResponse> for pb::ListoffersResponse {
+    fn from(c: responses::ListoffersResponse) -> Self {
+        Self {
+            // Field: ListOffers.offers[]
+            offers: c.offers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListoffersOffers
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListpaysPays> for pb::ListpaysPays {
     fn from(c: responses::ListpaysPays) -> Self {
         Self {
@@ -2483,6 +2507,16 @@ impl From<requests::ListforwardsRequest> for pb::ListforwardsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ListoffersRequest> for pb::ListoffersRequest {
+    fn from(c: requests::ListoffersRequest) -> Self {
+        Self {
+            offer_id: c.offer_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            active_only: c.active_only, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::ListpaysRequest> for pb::ListpaysRequest {
     fn from(c: requests::ListpaysRequest) -> Self {
         Self {
@@ -3279,6 +3313,16 @@ impl From<pb::ListforwardsRequest> for requests::ListforwardsRequest {
             index: c.index.map(|v| v.try_into().unwrap()),
             start: c.start, // Rule #1 for type u64?
             limit: c.limit, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListoffersRequest> for requests::ListoffersRequest {
+    fn from(c: pb::ListoffersRequest) -> Self {
+        Self {
+            offer_id: c.offer_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            active_only: c.active_only, // Rule #1 for type boolean?
         }
     }
 }

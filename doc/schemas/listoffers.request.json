@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "additionalProperties": false,
+  "properties": {
+    "offer_id": {
+      "type": "hash",
+      "description": "Only return offers matching this ID"
+    },
+    "active_only": {
+      "type": "boolean",
+      "description": "f active_only is set and is true, only offers with active true are returned."
+    }
+  }
+}

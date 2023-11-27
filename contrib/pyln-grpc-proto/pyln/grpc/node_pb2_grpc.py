@@ -254,6 +254,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListforwardsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListforwardsResponse.FromString,
                 )
+        self.ListOffers = channel.unary_unary(
+                '/cln.Node/ListOffers',
+                request_serializer=node__pb2.ListoffersRequest.SerializeToString,
+                response_deserializer=node__pb2.ListoffersResponse.FromString,
+                )
         self.ListPays = channel.unary_unary(
                 '/cln.Node/ListPays',
                 request_serializer=node__pb2.ListpaysRequest.SerializeToString,
@@ -622,6 +627,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListOffers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListPays(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -954,6 +965,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListForwards,
                     request_deserializer=node__pb2.ListforwardsRequest.FromString,
                     response_serializer=node__pb2.ListforwardsResponse.SerializeToString,
+            ),
+            'ListOffers': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListOffers,
+                    request_deserializer=node__pb2.ListoffersRequest.FromString,
+                    response_serializer=node__pb2.ListoffersResponse.SerializeToString,
             ),
             'ListPays': grpc.unary_unary_rpc_method_handler(
                     servicer.ListPays,
@@ -1853,6 +1869,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ListForwards',
             node__pb2.ListforwardsRequest.SerializeToString,
             node__pb2.ListforwardsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListOffers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ListOffers',
+            node__pb2.ListoffersRequest.SerializeToString,
+            node__pb2.ListoffersResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -65,6 +65,7 @@ pub enum Request {
 	FundChannel(requests::FundchannelRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
+	ListOffers(requests::ListoffersRequest),
 	ListPays(requests::ListpaysRequest),
 	ListHtlcs(requests::ListhtlcsRequest),
 	Offer(requests::OfferRequest),
@@ -134,6 +135,7 @@ pub enum Response {
 	FundChannel(responses::FundchannelResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
+	ListOffers(responses::ListoffersResponse),
 	ListPays(responses::ListpaysResponse),
 	ListHtlcs(responses::ListhtlcsResponse),
 	Offer(responses::OfferResponse),
@@ -1815,6 +1817,31 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listforwards"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListoffersRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer_id: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub active_only: Option<bool>,
+	}
+
+	impl From<ListoffersRequest> for Request {
+	    fn from(r: ListoffersRequest) -> Self {
+	        Request::ListOffers(r)
+	    }
+	}
+
+	impl IntoRequest for ListoffersRequest {
+	    type Response = super::responses::ListoffersResponse;
+	}
+
+	impl TypedRequest for ListoffersRequest {
+	    type Response = super::responses::ListoffersResponse;
+
+	    fn method(&self) -> &str {
+	        "listoffers"
 	    }
 	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -5581,6 +5608,33 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListForwards(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListoffersOffers {
+	    pub offer_id: Sha256,
+	    pub active: bool,
+	    pub single_use: bool,
+	    pub bolt12: String,
+	    pub used: bool,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListoffersResponse {
+	    pub offers: Vec<ListoffersOffers>,
+	}
+
+	impl TryFrom<Response> for ListoffersResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListOffers(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
