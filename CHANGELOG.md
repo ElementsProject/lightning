@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [v23.11rc3] - 2023-11-02: "Bitcoin Orangepaper"
+## [23.11] - 2023-11-28: "Bitcoin Orangepaper"
 
 This release named by Shahana Farooqui
 
@@ -81,6 +81,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Rune: use runes table `id` instead `runes_uniqueid` from `vars` because it returns incorrect unique id if rune/s migrated from datastore. ([#6715])
  - Added docs, testing, and some fixes related to splicing out, insufficent balance handling, and restarting during a splice. ([#6677])
  - The WIRE_HSMD_SIGN_SPLICE_TX HSM capability is now correctly checked. ([#6867])
+ - Hsmtool: Fix segmentation fault when calling `getcodexsecret` without id. ([#6895])
 
 
 ### EXPERIMENTAL
@@ -125,6 +126,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#6876]: https://github.com/ElementsProject/lightning/pull/6876
 [#6840]: https://github.com/ElementsProject/lightning/pull/6840
 [#6884]: https://github.com/ElementsProject/lightning/pull/6884
+[#6895]: https://github.com/ElementsProject/lightning/pull/6895
 
 
 ## [23.08.1] - 2023-09-12: "Satoshi's Successor II"
@@ -2757,6 +2759,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[23.11]: https://github.com/ElementsProject/lightning/releases/tag/v23.11
 [23.05]: https://github.com/ElementsProject/lightning/releases/tag/v23.05
 [23.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02.1
 [23.02]: https://github.com/ElementsProject/lightning/releases/tag/v23.02
