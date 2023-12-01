@@ -71,6 +71,7 @@ jobs:
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         cd ${{ env.WORKDIR}}
+        python3 -m pip config set global.timeout 150
         poetry config repositories.testpypi https://test.pypi.org/legacy/
         poetry publish --repository testpypi --no-interaction
 
@@ -83,4 +84,5 @@ jobs:
         cd ${{ env.WORKDIR}}
         export VERSION=$(git describe --abbrev=0)
         make upgrade-version NEW_VERSION=$VERSION
+        python3 -m pip config set global.timeout 150
         poetry publish --no-interaction
