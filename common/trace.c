@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/htable/htable.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -16,7 +15,23 @@
 #include <sys/sdt.h>
 
 #define MAX_ACTIVE_SPANS 128
-#define SPAN_ID_LEN 33
+
+#define HEX_SPAN_ID_SIZE (2*SPAN_ID_SIZE+1)
+#define HEX_TRACE_ID_SIZE (2 * TRACE_ID_SIZE + 1)
+
+/* The traceperent format is defined in W3C Trace Context RFC[1].
+ * Its format is defined as
+ *
+ * ```
+ * version-format   = trace-id "-" parent-id "-" trace-flags
+ * trace-id         = 32HEXDIGLC  ; 16 bytes array identifier. All zeroes forbidden
+ * parent-id        = 16HEXDIGLC  ; 8 bytes array identifier. All zeroes forbidden
+ * trace-flags      = 2HEXDIGLC   ; 8 bit flags. Currently, only one bit is used.
+ * ```
+ *
+ * [1] https://www.w3.org/TR/trace-context/
+ */
+#define TRACEPARENT_LEN (2 + 1 + 32 + 1 + 16 + 1 + 2)
 
 const char *trace_service_name = "lightningd";
 
@@ -25,32 +40,69 @@ struct span_tag {
 };
 
 struct span {
-	size_t key;
-	u64 id;
-	struct span *parent;
+	/* Our own id */
+	u8 id[SPAN_ID_SIZE];
+
+	/* 0 if we have no parent. */
+	u8 parent_id[SPAN_ID_SIZE];
+
+	/* The trace_id for this span and all its children. */
+	u8 trace_id[TRACE_ID_SIZE];
+
 	u64 start_time;
 	u64 end_time;
+
+	/* The unique key used to find ourselves in the active
+	 * spans. */
+	size_t key;
+	struct span *parent;
 	struct span_tag *tags;
 	char *name;
+
+	/* Indicate whether this is a remote span, i.e., it was
+	inherited by some other process, which is in charge of
+	emitting the span. This just means that we don't emit this
+	span ourselves, but we want to add child spans to the remote
+	span. */
+	bool remote;
 };
 
-/* All traces we emit are prefixed with this constant. */
-static u64 trace_prefix = 0;
-static struct span *active_spans;
+static struct span *active_spans = NULL;
 static struct span *current;
-static size_t last_span_id;
 
-static void trace_span_id_serialize(struct span *s, char *dest)
+/* If the `CLN_TRACEPARENT` envvar is set, we inject that as the
+ * parent for the startup. This allows us to integrate the startup
+ * tracing with whatever tooling we build around it. This only has an
+ * effect if the envvar is set, otherwise the startup will create its
+ * own parent. */
+static void trace_inject_traceparent(void)
 {
-	hex_encode(&trace_prefix, 8, dest, 17);
-	hex_encode(&s->id, 8, 16 + dest, 17);
+	char *traceparent;
+	traceparent = getenv("CLN_TRACEPARENT");
+	if (!traceparent)
+		return;
+
+	assert(strlen(traceparent) == TRACEPARENT_LEN);
+	trace_span_start("", active_spans);
+	current->remote = true;
+	assert(current && !current->parent);
+	if (!hex_decode(traceparent + 3, 2*TRACE_ID_SIZE, current->trace_id,
+			TRACE_ID_SIZE) ||
+	    !hex_decode(traceparent + 36, 2*SPAN_ID_SIZE, current->id,
+			SPAN_ID_SIZE)) {
+		/* We failed to parse the traceparent, abandon. */
+		fprintf(stderr, "Failed!");
+		trace_span_end(active_spans);
+	}
 }
 
 static void trace_init(void) {
-	randombytes_buf(&trace_prefix, sizeof(u64));
+	if (active_spans)
+		return;
 	active_spans = malloc(sizeof(struct span) * MAX_ACTIVE_SPANS);
-	last_span_id = 1;
+
 	current = NULL;
+	trace_inject_traceparent();
 }
 
 /**
@@ -85,23 +137,43 @@ static struct span *trace_span_slot(void)
 	return s;
 }
 
+static const struct span *trace_span_root(const struct span *s)
+{
+	if (s->parent)
+		return trace_span_root(s->parent);
+	return s;
+}
+
 static void trace_emit(struct span *s)
 {
-	char id[SPAN_ID_LEN];
-	trace_span_id_serialize(s, id);
+	const struct span *root = trace_span_root(s);
+	char span_id[HEX_SPAN_ID_SIZE];
+	char trace_id[HEX_TRACE_ID_SIZE];
+	char parent_span_id[HEX_SPAN_ID_SIZE];
+
+	/* If this is a remote span it's not up to us to emit it. Make
+	 * this a no-op. `trace_span_end` will take care of cleaning
+	 * the in-memory span up. */
+	if (s->remote)
+		return;
+
+	hex_encode(s->id, SPAN_ID_SIZE, span_id, HEX_SPAN_ID_SIZE);
+	hex_encode(root->trace_id, TRACE_ID_SIZE, trace_id, HEX_TRACE_ID_SIZE);
+
+	if (s->parent)
+		hex_encode(s->parent_id, SPAN_ID_SIZE, parent_span_id, HEX_SPAN_ID_SIZE);
 
 	char *res = tal_fmt(
 	    NULL,
 	    "[{\"id\": \"%s\", \"name\": \"%s\", "
 	    "\"timestamp\": %" PRIu64 ", \"duration\": %" PRIu64 ",",
-	    id + 16, s->name, s->start_time, s->end_time - s->start_time);
+	    span_id, s->name, s->start_time, s->end_time - s->start_time);
 
 	tal_append_fmt(&res, "\"localEndpoint\": { \"serviceName\": \"%s\"}, ",
 		       trace_service_name);
 
 	if (s->parent != NULL) {
-		trace_span_id_serialize(s->parent, id);
-		tal_append_fmt(&res, "\"parentId\": \"%s\",", id + 16);
+		tal_append_fmt(&res, "\"parentId\": \"%s\",", parent_span_id);
 	}
 
 	tal_append_fmt(&res, "\"tags\": {");
@@ -110,9 +182,8 @@ static void trace_emit(struct span *s)
 			       s->tags[i].name, s->tags[i].value);
 	}
 
-	trace_span_id_serialize(s, id);
-	tal_append_fmt(&res, "}, \"traceId\": \"%.*s\"}]", 16, id);
-	DTRACE_PROBE2(lightningd, span_emit, id, res);
+	tal_append_fmt(&res, "}, \"traceId\": \"%s\"}]", trace_id);
+	DTRACE_PROBE2(lightningd, span_emit, span_id, res);
 	tal_free(res);
 }
 
@@ -122,7 +193,8 @@ static void trace_emit(struct span *s)
 static void trace_span_clear(struct span *s)
 {
 	s->key = 0;
-	s->id = 0;
+	memset(s->id, 0, SPAN_ID_SIZE);
+	memset(s->trace_id, 0, TRACE_ID_SIZE);;
 	s->parent = NULL;
 	s->name = tal_free(s->name);
 	s->tags = tal_free(s->tags);
@@ -130,24 +202,35 @@ static void trace_span_clear(struct span *s)
 
 void trace_span_start(const char *name, const void *key)
 {
-	if (!trace_prefix)
-		trace_init();
-
 	size_t numkey = trace_key(key);
 	struct timeabs now = time_now();
 
+	trace_init();
+
 	assert(trace_span_find(numkey) == NULL);
 	struct span *s = trace_span_slot();
-	assert(current == NULL || current->id != 0);
-	// assert(current != s);
 	s->key = numkey;
-	s->id = last_span_id++;
+	randombytes_buf(s->id, SPAN_ID_SIZE);
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = current;
 	s->tags = notleak(tal_arr(NULL, struct span_tag, 0));
 	s->name = notleak(tal_strdup(NULL, name));
+
+	/* If this is a new root span we also need to associate a new
+	 * trace_id with it. */
+	if (!current) {
+		randombytes_buf(s->trace_id, TRACE_ID_SIZE);
+	} else {
+		memcpy(s->parent_id, current->id, SPAN_ID_SIZE);
+	}
+
 	current = s;
 	DTRACE_PROBE1(lightningd, span_start, s->id);
+}
+
+void trace_span_remote(u8 trace_id[TRACE_ID_SIZE], u8 span_id[SPAN_ID_SIZE])
+{
+	abort();
 }
 
 void trace_span_end(const void *key)
@@ -167,6 +250,14 @@ void trace_span_end(const void *key)
 
 	/* Now reset the span */
 	trace_span_clear(s);
+
+	/* One last special case: if the parent is remote, it must be
+	 * the root. And we should terminate that trace along with
+	 * this one. */
+	if (current && current->remote) {
+		assert(current->parent == NULL);
+		current = NULL;
+	}
 }
 
 void trace_span_tag(const void *key, const char *name, const char *value)
