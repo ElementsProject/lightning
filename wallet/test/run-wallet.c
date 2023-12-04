@@ -272,6 +272,9 @@ bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEED
 /* Generated stub for fromwire_hsmd_new_channel_reply */
 bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_new_channel_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_forget_channel_reply */
+bool fromwire_hsmd_forget_channel_reply(const void *p UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_forget_channel_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_commitment_tx_reply */
 bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_commitment_tx_reply called!\n"); abort(); }
@@ -1008,6 +1011,9 @@ u8 *towire_hsmd_init(const tal_t *ctx UNNEEDED, const struct bip32_key_version *
 /* Generated stub for towire_hsmd_new_channel */
 u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsmd_new_channel called!\n"); abort(); }
+/* Generated stub for towire_hsmd_forget_channel */
+u8 *towire_hsmd_forget_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_forget_channel called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 commit_num UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
