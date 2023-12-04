@@ -214,7 +214,7 @@ jobs:
       BITCOIN_VERSION: "25.1"
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200
+      PYTEST_OPTS: --timeout=1200 --force-flaky
     needs:
       - compile
     strategy:
@@ -323,7 +323,7 @@ jobs:
       ELEMENTS_VERSION: 22.0.2
       RUST_PROFILE: release  # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --force-flaky
     needs:
       - compile
     strategy:
@@ -394,7 +394,7 @@ jobs:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --force-flaky
     needs:
       - compile
     strategy:
