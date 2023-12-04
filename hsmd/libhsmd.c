@@ -118,6 +118,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_NEW_CHANNEL:
+ 	case WIRE_HSMD_FORGET_CHANNEL:
 	case WIRE_HSMD_CLIENT_HSMFD:
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 	case WIRE_HSMD_SIGN_INVOICE:
@@ -150,6 +151,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SETUP_CHANNEL_REPLY:
 	case WIRE_HSMD_CHECK_OUTPOINT_REPLY:
 	case WIRE_HSMD_LOCK_OUTPOINT_REPLY:
+ 	case WIRE_HSMD_FORGET_CHANNEL_REPLY:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
@@ -380,6 +382,21 @@ static u8 *handle_setup_channel(struct hsmd_client *c, const u8 *msg_in)
 	assert(remote_to_self_delay > 0);
 
 	return towire_hsmd_setup_channel_reply(NULL);
+}
+
+/* ~This stub implementation is overriden by fully validating signers
+ * that need to manage per-channel state. */
+static u8 *handle_forget_channel(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct node_id peer_id;
+	u64 dbid;
+
+	if (!fromwire_hsmd_forget_channel(msg_in, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Stub implementation */
+
+	return towire_hsmd_forget_channel_reply(NULL);
 }
 
 /* ~This stub implementation is overriden by fully validating signers
@@ -1945,6 +1962,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_check_outpoint(client, msg);
 	case WIRE_HSMD_LOCK_OUTPOINT:
 		return handle_lock_outpoint(client, msg);
+	case WIRE_HSMD_FORGET_CHANNEL:
+		return handle_forget_channel(client, msg);
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		return handle_get_output_scriptpubkey(client, msg);
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
@@ -2024,6 +2043,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SETUP_CHANNEL_REPLY:
 	case WIRE_HSMD_CHECK_OUTPOINT_REPLY:
 	case WIRE_HSMD_LOCK_OUTPOINT_REPLY:
+ 	case WIRE_HSMD_FORGET_CHANNEL_REPLY:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
@@ -2067,6 +2087,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 		WIRE_HSMD_SIGN_HTLC_TX_MINGLE,
 		WIRE_HSMD_SIGN_SPLICE_TX,
 		WIRE_HSMD_CHECK_OUTPOINT,
+		WIRE_HSMD_FORGET_CHANNEL,
 	};
 
 	/*~ Don't swap this. */

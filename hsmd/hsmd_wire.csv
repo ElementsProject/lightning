@@ -105,6 +105,14 @@ msgdata,hsmd_lock_outpoint,funding_txout,u16,
 # No value returned.
 msgtype,hsmd_lock_outpoint_reply,137
 
+# Forget channel.
+msgtype,hsmd_forget_channel,34
+msgdata,hsmd_forget_channel,id,node_id,
+msgdata,hsmd_forget_channel,dbid,u64,
+
+# No value returned.
+msgtype,hsmd_forget_channel_reply,134
+
 # Return signature for a funding tx.
 #include <common/utxo.h>
 

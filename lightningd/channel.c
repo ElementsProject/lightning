@@ -89,9 +89,21 @@ static void destroy_channel(struct channel *channel)
 
 void delete_channel(struct channel *channel STEALS)
 {
+	const u8 *msg;
+
 	struct peer *peer = channel->peer;
 	if (channel->dbid != 0)
 		wallet_channel_close(channel->peer->ld->wallet, channel->dbid);
+
+	/* Tell the hsm to forget the channel, needs to be after it's
+	 * been forgotten here */
+	if (hsm_capable(channel->peer->ld, WIRE_HSMD_FORGET_CHANNEL)) {
+		msg = towire_hsmd_forget_channel(NULL, &channel->peer->id, channel->dbid);
+		msg = hsm_sync_req(tmpctx, channel->peer->ld, take(msg));
+		if (!fromwire_hsmd_forget_channel_reply(msg))
+			fatal("HSM gave bad hsm_forget_channel_reply %s", tal_hex(msg, msg));
+	}
+
 	tal_free(channel);
 
 	maybe_delete_peer(peer);
