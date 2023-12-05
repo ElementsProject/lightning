@@ -65,7 +65,7 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 	size_t size, max = tal_count(data);
 	bool ok;
 
-	wally_tx_witness_stack_free(in->final_witness);
+	wally_psbt_input_set_final_witness(in, NULL);
 
 	/* FIXME: return an error?? */
 	if (!next_size(&data, &max, &size))
