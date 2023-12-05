@@ -356,6 +356,7 @@ include connectd/Makefile
 include lightningd/Makefile
 include cli/Makefile
 include doc/Makefile
+include contrib/msggen/Makefile
 include devtools/Makefile
 include tools/Makefile
 include plugins/Makefile
@@ -368,8 +369,8 @@ ifneq ($(RUST),0)
 	include cln-rpc/Makefile
 	include cln-grpc/Makefile
 
-$(MSGGEN_GENALL)&: doc/schemas/*.request.json doc/schemas/*.schema.json
-	PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py
+$(MSGGEN_GENALL)&: contrib/msggen/msggen/schema.json
+	PYTHONPATH=contrib/msggen $(PYTHON) contrib/msggen/msggen/__main__.py generate
 
 # The compiler assumes that the proto files are in the same
 # directory structure as the generated files will be. Since we

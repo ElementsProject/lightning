@@ -5,6 +5,9 @@ description = "A utility to transform wire messages and JSON-RPC messages to arb
 authors = ["Christian Decker <decker@blockstream.com>"]
 license = "BSD-MIT"
 
+include = ["msggen/schema.json"]
+
+
 [tool.poetry.dependencies]
 python = "^3.6"
 
@@ -16,4 +19,4 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-msggen = 'msggen.__main__:run'
+msggen = 'msggen.__main__:main'
