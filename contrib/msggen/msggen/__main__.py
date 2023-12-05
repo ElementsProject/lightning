@@ -6,7 +6,7 @@ from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconvert
 from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
-from msggen.utils import load_jsonrpc_service
+from msggen.utils import load_jsonrpc_service, combine_schemas
 import logging
 from msggen.patch import VersionAnnotationPatch, OptionalPatch, OverridePatch
 from msggen.checks import VersioningCheck
@@ -62,11 +62,9 @@ def write_msggen_meta(meta):
     os.rename(f'.msggen.json.tmp.{pid}', '.msggen.json')
 
 
-def run(rootdir: Path):
-    schemadir = rootdir / "doc" / "schemas"
+def run():
     meta = load_msggen_meta()
     service = load_jsonrpc_service(
-        schema_dir=schemadir,
     )
 
     p = VersionAnnotationPatch(meta=meta)
@@ -91,14 +89,25 @@ def run(rootdir: Path):
     write_msggen_meta(meta)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--rootdir',
-        dest='rootdir',
-        default='.'
-    )
+    subcmds = parser.add_subparsers(required=True, dest='command')
+    bundle = subcmds.add_parser("bundle", help="bundle schemas into package")
+    bundle.add_argument('schema_dir', action='store')
+
+    subcmds.add_parser("generate", help="generate all files")
     args = parser.parse_args()
-    run(
-        rootdir=Path(args.rootdir)
-    )
+
+    if args.command == 'generate':
+        run()
+    elif args.command == 'bundle':
+        dest = Path(__file__).parent / 'schema.json'
+        src = Path(__file__).parent / '..' / '..' / '..' / 'doc' / 'schemas'
+
+        print(f"Combining schemas from {src.resolve()} into {dest.resolve()}")
+        schema = combine_schemas(src, dest)
+        print(f"Created {dest} from {len(schema)} files")
+
+
+if __name__ == "__main__":
+    main()
