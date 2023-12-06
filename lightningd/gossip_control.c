@@ -175,7 +175,8 @@ const u8 *get_channel_update(struct channel *channel)
 
 static void set_channel_remote_update(struct lightningd *ld,
 				      struct channel *channel,
-				      struct remote_priv_update* update TAKES)
+				      const struct node_id *source,
+				      struct peer_update *update TAKES)
 {
 	struct short_channel_id *scid;
 
@@ -183,11 +184,11 @@ static void set_channel_remote_update(struct lightningd *ld,
 	if (!scid)
 		scid = channel->alias[LOCAL];
 
-	if (!node_id_eq(&update->source_node, &channel->peer->id)) {
+	/* NULL source means it's from gossipd itself */
+	if (source && !node_id_eq(source, &channel->peer->id)) {
 		log_unusual(ld->log, "Bad gossip order: %s sent us a channel update for a "
 			    "channel owned by %s (%s)",
-			    type_to_string(tmpctx, struct node_id,
-					   &update->source_node),
+			    type_to_string(tmpctx, struct node_id, source),
 			    type_to_string(tmpctx, struct node_id,
 					   &channel->peer->id),
 			    type_to_string(tmpctx, struct short_channel_id, scid));
@@ -197,31 +198,32 @@ static void set_channel_remote_update(struct lightningd *ld,
 	}
 	log_debug(ld->log, "updating channel %s with private inbound settings",
 		  type_to_string(tmpctx, struct short_channel_id, scid));
-	tal_free(channel->private_update);
-	channel->private_update = tal_dup(channel,
-					  struct remote_priv_update, update);
+	tal_free(channel->peer_update);
+	channel->peer_update = tal_dup(channel, struct peer_update, update);
 	if (taken(update))
 		tal_free(update);
 	wallet_channel_save(ld->wallet, channel);
 }
 
-static void handle_private_update_data(struct lightningd *ld, const u8 *msg)
+static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 {
 	struct channel *channel;
-	struct remote_priv_update *update;
+	struct peer_update *update;
+	struct node_id *source;
 
-	update = tal(tmpctx, struct remote_priv_update);
-	if (!fromwire_gossipd_remote_channel_update(msg, update))
+	update = tal(tmpctx, struct peer_update);
+	if (!fromwire_gossipd_remote_channel_update(msg, msg, &source, update))
 		fatal("Gossip gave bad GOSSIPD_REMOTE_CHANNEL_UPDATE %s",
 		      tal_hex(msg, msg));
 	channel = any_channel_by_scid(ld, &update->scid, true);
 	if (!channel) {
-		log_unusual(ld->log, "could not find channel for peer's "
-			    "private channel update");
+		log_unusual(ld->log, "Bad gossip: could not find channel %s for peer's "
+			    "channel update",
+			    short_channel_id_to_str(tmpctx, &update->scid));
 		return;
 	}
 
-	set_channel_remote_update(ld, channel, update);
+	set_channel_remote_update(ld, channel, source, update);
 }
 
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
@@ -267,7 +269,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		break;
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
 		/* Please stash in database for us! */
-		handle_private_update_data(gossip->ld, msg);
+		handle_peer_update_data(gossip->ld, msg);
 		tal_free(msg);
 		break;
 	}

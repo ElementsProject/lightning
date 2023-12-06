@@ -1348,25 +1348,24 @@ static bool is_chan_dying(struct routing_state *rstate,
 	return false;
 }
 
-static void tell_lightningd_private_update(struct routing_state *rstate,
-					   const struct node_id *source_peer,
-					   struct short_channel_id scid,
-					   u32 fee_base_msat,
-					   u32 fee_ppm,
-					   u16 cltv_delta,
-					   struct amount_msat htlc_minimum,
-					   struct amount_msat htlc_maximum)
+static void tell_lightningd_peer_update(struct routing_state *rstate,
+					const struct node_id *source_peer,
+					struct short_channel_id scid,
+					u32 fee_base_msat,
+					u32 fee_ppm,
+					u16 cltv_delta,
+					struct amount_msat htlc_minimum,
+					struct amount_msat htlc_maximum)
 {
-	struct remote_priv_update remote_update;
+	struct peer_update remote_update;
 	u8* msg;
-	remote_update.source_node = *source_peer;
 	remote_update.scid = scid;
 	remote_update.fee_base = fee_base_msat;
 	remote_update.fee_ppm = fee_ppm;
 	remote_update.cltv_delta = cltv_delta;
 	remote_update.htlc_minimum_msat = htlc_minimum;
 	remote_update.htlc_maximum_msat = htlc_maximum;
-	msg = towire_gossipd_remote_channel_update(NULL, &remote_update);
+	msg = towire_gossipd_remote_channel_update(NULL, source_peer, &remote_update);
 	daemon_conn_send(rstate->daemon->master, take(msg));
 }
 
@@ -1425,13 +1424,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			if (index)
 				return false;
 			/* Allow ld to process a private channel update */
-			if (source_peer) {
-				tell_lightningd_private_update(rstate, source_peer,
-							       short_channel_id, fee_base_msat,
-							       fee_proportional_millionths,
-							       expiry, htlc_minimum,
-							       htlc_maximum);
-			}
+			tell_lightningd_peer_update(rstate, source_peer,
+						    short_channel_id, fee_base_msat,
+						    fee_proportional_millionths,
+						    expiry, htlc_minimum,
+						    htlc_maximum);
 			return false;
 		}
 		sat = uc->sat;
@@ -1542,6 +1539,20 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!spam)
 		hc->bcast.timestamp = timestamp;
 
+	/* If this is a peer's update to one of our local channels, tell lightningd. */
+	if (node_id_eq(&chan->nodes[!direction]->id, &rstate->daemon->id)) {
+		/* give lightningd the channel's inbound info to store to db */
+		tell_lightningd_peer_update(rstate,
+					    /* Note: we can get public
+					     * channel_updates from other than
+					     * direct peer! */
+					    is_chan_public(chan) ? NULL : source_peer,
+					    short_channel_id, fee_base_msat,
+					    fee_proportional_millionths,
+					    expiry, htlc_minimum,
+					    htlc_maximum);
+	}
+
 	/* BOLT #7:
 	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
 	 *     the `timestamp` of a corresponding `channel_update`.
@@ -1568,14 +1579,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		} else {
 			hc->bcast.index = index;
 			hc->rgraph.index = index;
-		}
-		if (source_peer) {
-			/* give lightningd the channel's inbound info to store to db */
-			tell_lightningd_private_update(rstate, source_peer,
-						       short_channel_id, fee_base_msat,
-						       fee_proportional_millionths,
-						       expiry, htlc_minimum,
-						       htlc_maximum);
 		}
 		return true;
 	}
