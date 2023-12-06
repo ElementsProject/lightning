@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -148,86 +149,6 @@ static struct command_result *try_route(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
-static struct gossmap_localmods *
-gossmods_from_listpeerchannels(const tal_t *ctx,
-			       struct plugin *plugin,
-			       struct gossmap *gossmap,
-			       const char *buf,
-			       const jsmntok_t *toks)
-{
-	struct gossmap_localmods *mods = gossmap_localmods_new(ctx);
-	const jsmntok_t *channels, *channel;
-	size_t i;
-
-	channels = json_get_member(buf, toks, "channels");
-	json_for_each_arr(i, channel, channels) {
-		struct short_channel_id scid;
-		int dir;
-		bool connected;
-		struct node_id dst;
-		struct amount_msat capacity;
-		const char *state, *err;
-
-		/* scid/direction may not exist. */
-		scid.u64 = 0;
-		capacity = AMOUNT_MSAT(0);
-		err = json_scan(tmpctx, buf, channel,
-				"{short_channel_id?:%,"
-				"direction?:%,"
-				"spendable_msat?:%,"
-				"peer_connected:%,"
-				"state:%,"
-				"peer_id:%}",
-				JSON_SCAN(json_to_short_channel_id, &scid),
-				JSON_SCAN(json_to_int, &dir),
-				JSON_SCAN(json_to_msat, &capacity),
-				JSON_SCAN(json_to_bool, &connected),
-				JSON_SCAN_TAL(tmpctx, json_strdup, &state),
-				JSON_SCAN(json_to_node_id, &dst));
-		if (err) {
-			plugin_err(plugin,
-				   "Bad listpeerchannels.channels %zu: %s",
-				   i, err);
-		}
-
-		/* Unusable if no scid (yet) */
-		if (scid.u64 == 0)
-			continue;
-
-		/* Disable if in bad state, or disconnected */
-		if (!streq(state, "CHANNELD_NORMAL")
-		    && !streq(state, "CHANNELD_AWAITING_SPLICE")) {
-			goto disable;
-		}
-
-		if (!connected) {
-			goto disable;
-		}
-
-		/* FIXME: features? */
-		gossmap_local_addchan(mods, &local_id, &dst, &scid, NULL);
-		gossmap_local_updatechan(mods, &scid,
-					 AMOUNT_MSAT(0), capacity,
-					 /* We don't charge ourselves fees */
-					 0, 0, 0,
-					 true,
-					 dir);
-		continue;
-
-	disable:
-		/* Only apply fake "disabled" if channel exists */
-		if (gossmap_find_chan(gossmap, &scid)) {
-			gossmap_local_updatechan(mods, &scid,
-						 AMOUNT_MSAT(0), AMOUNT_MSAT(0),
-						 0, 0, 0,
-						 false,
-						 dir);
-		}
-	}
-
-	return mods;
-}
-
 static struct command_result *
 listpeerchannels_getroute_done(struct command *cmd,
 			       const char *buf,
@@ -239,11 +160,12 @@ listpeerchannels_getroute_done(struct command *cmd,
 	struct command_result *res;
 
 	/* Get local knowledge */
-	gossmap = get_gossmap();
-	mods = gossmods_from_listpeerchannels(tmpctx, cmd->plugin,
-					      gossmap, buf, result);
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+					      buf, result,
+					      gossmod_add_localchan, NULL);
 
 	/* Overlay local knowledge for dijkstra */
+	gossmap = get_gossmap();
 	gossmap_apply_localmods(gossmap, mods);
 	res = try_route(cmd, gossmap, info);
 	gossmap_remove_localmods(gossmap, mods);
