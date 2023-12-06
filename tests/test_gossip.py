@@ -2180,8 +2180,8 @@ def test_gossip_private_updates(node_factory, bitcoind):
     scid, _ = l1.fundchannel(l2, 10**6, None, False)
     bitcoind.generate_block(5)
 
-    l1.wait_channel_active(scid)
-    l2.wait_channel_active(scid)
+    l1.wait_local_channel_active(scid)
+    l2.wait_local_channel_active(scid)
 
     l2.rpc.setchannel(l1.info['id'], feebase=11)
     wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 12)
