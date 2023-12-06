@@ -23,9 +23,14 @@ static struct node_id local_id;
 static struct plugin *plugin;
 
 /* We load this on demand, since we can start before gossipd. */
-static struct gossmap *get_gossmap(void)
+static struct gossmap *get_gossmap(bool public_only)
 {
-	gossmap_refresh(global_gossmap, NULL);
+	/* Temporary hack so callers can individually exclude private gossip */
+	tal_free(global_gossmap);
+	gossmap_public_only = public_only;
+	global_gossmap = gossmap_load(NULL,
+				      GOSSIP_STORE_FILENAME,
+				      NULL);
 	return global_gossmap;
 }
 
@@ -165,7 +170,7 @@ listpeerchannels_getroute_done(struct command *cmd,
 					      gossmod_add_localchan, NULL);
 
 	/* Overlay local knowledge for dijkstra */
-	gossmap = get_gossmap();
+	gossmap = get_gossmap(true);
 	gossmap_apply_localmods(gossmap, mods);
 	res = try_route(cmd, gossmap, info);
 	gossmap_remove_localmods(gossmap, mods);
@@ -354,7 +359,7 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct node_map *connected;
 	struct gossmap_chan *c;
 	struct json_stream *js;
-	struct gossmap *gossmap = get_gossmap();
+	struct gossmap *gossmap = get_gossmap(false);
 
 	connected = local_connected(opts, buf, result);
 
@@ -510,7 +515,7 @@ static struct command_result *json_listnodes(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	gossmap = get_gossmap();
+	gossmap = get_gossmap(false);
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "nodes");
 	if (id) {
@@ -564,7 +569,7 @@ static struct command_result *json_listincoming(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	gossmap = get_gossmap();
+	gossmap = get_gossmap(false);
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "incoming");
