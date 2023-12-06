@@ -817,6 +817,7 @@ static struct route_hop *route(const tal_t *ctx,
 		}
 	}
 
+	*errmsg = NULL;
 	return r;
 }
 
