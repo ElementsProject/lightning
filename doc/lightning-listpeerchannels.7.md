@@ -36,6 +36,19 @@ On success, an object containing **channels** is returned.  It is an array of ob
     - Bit number
   - **names** (array of strings): Feature name for each bit set in this channel\_type:
     - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
+- **updates** (object, optional): Latest gossip updates sent/received *(added v24.02)*:
+  - **local** (object): Our gossip for channel *(added v24.02)*:
+    - **htlc\_minimum\_msat** (msat): Minimum msat amount we allow *(added v24.02)*
+    - **htlc\_maximum\_msat** (msat): Maximum msat amount we allow *(added v24.02)*
+    - **cltv\_expiry\_delta** (u32): Blocks delay required between incoming and outgoing HTLCs *(added v24.02)*
+    - **fee\_base\_msat** (msat): Amount we charge to use the channel *(added v24.02)*
+    - **fee\_proportional\_millionths** (u32): Amount we charge to use the channel in parts-per-million *(added v24.02)*
+  - **remote** (object, optional): Peer's gossip for channel *(added v24.02)*:
+    - **htlc\_minimum\_msat** (msat): Minimum msat amount they allow *(added v24.02)*
+    - **htlc\_maximum\_msat** (msat): Maximum msat amount they allow *(added v24.02)*
+    - **cltv\_expiry\_delta** (u32): Blocks delay required between incoming and outgoing HTLCs *(added v24.02)*
+    - **fee\_base\_msat** (msat): Amount they charge to use the channel *(added v24.02)*
+    - **fee\_proportional\_millionths** (u32): Amount they charge to use the channel in parts-per-million *(added v24.02)*
 - **ignore\_fee\_limits** (boolean, optional): set if we allow this peer to set fees to anything they want *(added v23.08)*
 - **feerate** (object, optional): Feerates for the current tx:
   - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
@@ -202,4 +215,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c4507febb0d592ac386f2e8bedbc88ab77d93f780e2d534d6c8d8064afbd6ee6)
+[comment]: # ( SHA256STAMP:fac5201293041a7875d78c0f7acc0067ba34d5ad4b809307ea334afde7563aaf)

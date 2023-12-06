@@ -1171,7 +1171,8 @@
             "ListPeerChannels.channels[].their_reserve_msat": 31,
             "ListPeerChannels.channels[].their_to_self_delay": 38,
             "ListPeerChannels.channels[].to_us_msat": 23,
-            "ListPeerChannels.channels[].total_msat": 26
+            "ListPeerChannels.channels[].total_msat": 26,
+            "ListPeerChannels.channels[].updates": 55
         },
         "ListpeerchannelsChannelsAlias": {
             "ListPeerChannels.channels[].alias.local": 1,
@@ -1217,6 +1218,24 @@
             "ListPeerChannels.channels[].state_changes[].new_state": 3,
             "ListPeerChannels.channels[].state_changes[].old_state": 2,
             "ListPeerChannels.channels[].state_changes[].timestamp": 1
+        },
+        "ListpeerchannelsChannelsUpdates": {
+            "ListPeerChannels.channels[].updates.local": 1,
+            "ListPeerChannels.channels[].updates.remote": 2
+        },
+        "ListpeerchannelsChannelsUpdatesLocal": {
+            "ListPeerChannels.channels[].updates.local.cltv_expiry_delta": 3,
+            "ListPeerChannels.channels[].updates.local.fee_base_msat": 4,
+            "ListPeerChannels.channels[].updates.local.fee_proportional_millionths": 5,
+            "ListPeerChannels.channels[].updates.local.htlc_maximum_msat": 2,
+            "ListPeerChannels.channels[].updates.local.htlc_minimum_msat": 1
+        },
+        "ListpeerchannelsChannelsUpdatesRemote": {
+            "ListPeerChannels.channels[].updates.remote.cltv_expiry_delta": 3,
+            "ListPeerChannels.channels[].updates.remote.fee_base_msat": 4,
+            "ListPeerChannels.channels[].updates.remote.fee_proportional_millionths": 5,
+            "ListPeerChannels.channels[].updates.remote.htlc_maximum_msat": 2,
+            "ListPeerChannels.channels[].updates.remote.htlc_minimum_msat": 1
         },
         "ListpeerchannelsRequest": {
             "ListPeerChannels.id": 1
@@ -4509,6 +4528,58 @@
         },
         "ListPeerChannels.channels[].total_msat": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local.cltv_expiry_delta": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local.fee_base_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local.fee_proportional_millionths": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local.htlc_maximum_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.local.htlc_minimum_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote.cltv_expiry_delta": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote.fee_base_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote.fee_proportional_millionths": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote.htlc_maximum_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].updates.remote.htlc_minimum_msat": {
+            "added": "v24.02",
             "deprecated": false
         },
         "ListPeerChannels.id": {

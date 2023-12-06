@@ -1190,6 +1190,7 @@ message ListpeerchannelsChannels {
 	optional bool peer_connected = 2;
 	optional ListpeerchannelsChannelsState state = 3;
 	optional bytes scratch_txid = 4;
+	optional ListpeerchannelsChannelsUpdates updates = 55;
 	optional bool ignore_fee_limits = 54;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
@@ -1237,6 +1238,27 @@ message ListpeerchannelsChannels {
 	optional Amount out_fulfilled_msat = 51;
 	repeated ListpeerchannelsChannelsHtlcs htlcs = 52;
 	optional string close_to_addr = 53;
+}
+
+message ListpeerchannelsChannelsUpdates {
+	optional ListpeerchannelsChannelsUpdatesLocal local = 1;
+	optional ListpeerchannelsChannelsUpdatesRemote remote = 2;
+}
+
+message ListpeerchannelsChannelsUpdatesLocal {
+	optional Amount htlc_minimum_msat = 1;
+	optional Amount htlc_maximum_msat = 2;
+	optional uint32 cltv_expiry_delta = 3;
+	optional Amount fee_base_msat = 4;
+	optional uint32 fee_proportional_millionths = 5;
+}
+
+message ListpeerchannelsChannelsUpdatesRemote {
+	optional Amount htlc_minimum_msat = 1;
+	optional Amount htlc_maximum_msat = 2;
+	optional uint32 cltv_expiry_delta = 3;
+	optional Amount fee_base_msat = 4;
+	optional uint32 fee_proportional_millionths = 5;
 }
 
 message ListpeerchannelsChannelsFeerate {

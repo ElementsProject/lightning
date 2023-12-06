@@ -1015,6 +1015,42 @@ impl From<responses::TxsendResponse> for pb::TxsendResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsUpdatesLocal> for pb::ListpeerchannelsChannelsUpdatesLocal {
+    fn from(c: responses::ListpeerchannelsChannelsUpdatesLocal) -> Self {
+        Self {
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            cltv_expiry_delta: c.cltv_expiry_delta, // Rule #2 for type u32?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsUpdatesRemote> for pb::ListpeerchannelsChannelsUpdatesRemote {
+    fn from(c: responses::ListpeerchannelsChannelsUpdatesRemote) -> Self {
+        Self {
+            htlc_minimum_msat: c.htlc_minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlc_maximum_msat: c.htlc_maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            cltv_expiry_delta: c.cltv_expiry_delta, // Rule #2 for type u32?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsUpdates> for pb::ListpeerchannelsChannelsUpdates {
+    fn from(c: responses::ListpeerchannelsChannelsUpdates) -> Self {
+        Self {
+            local: c.local.map(|v| v.into()),
+            remote: c.remote.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListpeerchannelsChannelsFeerate> for pb::ListpeerchannelsChannelsFeerate {
     fn from(c: responses::ListpeerchannelsChannelsFeerate) -> Self {
         Self {
@@ -1086,6 +1122,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             peer_connected: c.peer_connected, // Rule #2 for type boolean?
             state: c.state.map(|v| v as i32),
             scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            updates: c.updates.map(|v| v.into()),
             ignore_fee_limits: c.ignore_fee_limits, // Rule #2 for type boolean?
             feerate: c.feerate.map(|v| v.into()),
             owner: c.owner, // Rule #2 for type string?

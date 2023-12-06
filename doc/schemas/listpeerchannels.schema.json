@@ -87,6 +87,97 @@
               }
             }
           },
+          "updates": {
+            "type": "object",
+            "added": "v24.02",
+            "description": "Latest gossip updates sent/received",
+            "additionalProperties": false,
+            "required": [
+              "local"
+            ],
+            "properties": {
+              "local": {
+                "type": "object",
+                "description": "Our gossip for channel",
+                "additionalProperties": false,
+                "added": "v24.02",
+                "required": [
+                  "htlc_minimum_msat",
+                  "htlc_maximum_msat",
+                  "cltv_expiry_delta",
+                  "fee_base_msat",
+                  "fee_proportional_millionths"
+                ],
+                "properties": {
+                  "htlc_minimum_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Minimum msat amount we allow"
+                  },
+                  "htlc_maximum_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Maximum msat amount we allow"
+                  },
+                  "cltv_expiry_delta": {
+                    "type": "u32",
+                    "added": "v24.02",
+                    "description": "Blocks delay required between incoming and outgoing HTLCs"
+                  },
+                  "fee_base_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Amount we charge to use the channel"
+                  },
+                  "fee_proportional_millionths": {
+                    "type": "u32",
+                    "added": "v24.02",
+                    "description": "Amount we charge to use the channel in parts-per-million"
+                  }
+                }
+              },
+              "remote": {
+                "type": "object",
+                "added": "v24.02",
+                "description": "Peer's gossip for channel",
+                "additionalProperties": false,
+                "required": [
+                  "htlc_minimum_msat",
+                  "htlc_maximum_msat",
+                  "cltv_expiry_delta",
+                  "fee_base_msat",
+                  "fee_proportional_millionths"
+                ],
+                "properties": {
+                  "htlc_minimum_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Minimum msat amount they allow"
+                  },
+                  "htlc_maximum_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Maximum msat amount they allow"
+                  },
+                  "cltv_expiry_delta": {
+                    "type": "u32",
+                    "added": "v24.02",
+                    "description": "Blocks delay required between incoming and outgoing HTLCs"
+                  },
+                  "fee_base_msat": {
+                    "type": "msat",
+                    "added": "v24.02",
+                    "description": "Amount they charge to use the channel"
+                  },
+                  "fee_proportional_millionths": {
+                    "type": "u32",
+                    "added": "v24.02",
+                    "description": "Amount they charge to use the channel in parts-per-million"
+                  }
+                }
+              }
+            }
+          },
           "ignore_fee_limits": {
             "type": "boolean",
             "added": "v23.08",
@@ -632,6 +723,7 @@
                 "owner": {},
                 "short_channel_id": {},
                 "channel_id": {},
+                "updates": {},
                 "funding_txid": {},
                 "funding_outnum": {},
                 "close_to": {},
@@ -723,6 +815,7 @@
                 "owner": {},
                 "short_channel_id": {},
                 "channel_id": {},
+                "updates": {},
                 "funding_txid": {},
                 "funding_outnum": {},
                 "inflight": {},
@@ -813,6 +906,7 @@
                 "owner": {},
                 "short_channel_id": {},
                 "channel_id": {},
+                "updates": {},
                 "funding_txid": {},
                 "funding_outnum": {},
                 "inflight": {},
@@ -905,6 +999,7 @@
                 "alias": {},
                 "short_channel_id": {},
                 "channel_id": {},
+                "updates": {},
                 "funding_txid": {},
                 "funding_outnum": {},
                 "close_to": {},

@@ -4008,6 +4008,42 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsUpdatesLocal {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry_delta: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_proportional_millionths: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsUpdatesRemote {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_minimum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub htlc_maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_expiry_delta: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_base_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub fee_proportional_millionths: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeerchannelsChannelsUpdates {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub local: Option<ListpeerchannelsChannelsUpdatesLocal>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub remote: Option<ListpeerchannelsChannelsUpdatesRemote>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsFeerate {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub perkw: Option<u32>,
@@ -4114,6 +4150,8 @@ pub mod responses {
 	    pub state: Option<ListpeerchannelsChannelsState>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub scratch_txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub updates: Option<ListpeerchannelsChannelsUpdates>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub ignore_fee_limits: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
