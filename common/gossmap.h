@@ -40,6 +40,9 @@ struct gossmap_chan {
 	} half[2];
 };
 
+/* Temporary flag for testing: don't load private gossip info! */
+extern bool gossmap_public_only;
+
 /* If num_channel_updates_rejected is not NULL, indicates how many channels we
  * marked inactive because their values were too high to be represented. */
 struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
