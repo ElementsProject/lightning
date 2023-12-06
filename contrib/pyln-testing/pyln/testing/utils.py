@@ -1132,7 +1132,7 @@ class LightningNode(object):
     def is_local_channel_active(self, scid):
         """Is the local channel @scid usable?"""
         channels = self.rpc.listpeerchannels()['channels']
-        return [c['state'] in ('CHANNELD_NORMAL', 'CHANNELD_AWAITING_SPLICE') for c in channels if c.get('short_channel_id') == scid] == [True]
+        return [c['state'] in ('CHANNELD_NORMAL', 'CHANNELD_AWAITING_SPLICE') and 'remote' in c.get('updates', {}) for c in channels if c.get('short_channel_id') == scid] == [True]
 
     def wait_local_channel_active(self, scid):
         wait_for(lambda: self.is_local_channel_active(scid))
