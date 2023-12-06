@@ -210,16 +210,26 @@ if [ -z "${TARGETS##* docker *}" ]; then
         )
         rm -rf "${TMPDIR}"
     done
+    echo "Creating a multi-platform image tagged as $VERSION"
+    docker manifest create --amend "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
+    docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
+    docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
+    # FIXME: Throws ERROR: failed to solve: debian:bullseye-slim: no match for platform in manifest
+    # docker buildx create --use
+    # docker buildx build --push --platform linux/amd64,linux/arm64v8 -t "$DOCKER_USER/lightningd:"$VERSION"-$d" .
+    echo "Creating a multi-platform image tagged as latest"
+    # Remove the old image
+    docker rmi "$DOCKER_USER"/lightningd:latest
+    # Remove the old manifest
+    docker manifest rm "$DOCKER_USER"/lightningd:latest
+    docker manifest create "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
+    docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
+    docker manifest annotate "$DOCKER_USER"/lightningd:latest "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
     if $DOCKER_PUSH; then
-        echo "Creating and pushing a multi-platform image tagged as $VERSION"
-        docker manifest create --amend "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8
-        docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-amd64 --os linux --arch amd64
-        docker manifest annotate "$DOCKER_USER"/lightningd:"$VERSION" "$DOCKER_USER"/lightningd:"$VERSION"-arm64v8 --os linux --arch arm64 --variant v8
         docker manifest push "$DOCKER_USER"/lightningd:"$VERSION"
-        # FIXME: Throws ERROR: failed to solve: debian:bullseye-slim: no match for platform in manifest
-        # docker buildx create --use
-        # docker buildx build --push --platform linux/amd64,linux/arm64v8 -t "$DOCKER_USER/lightningd:"$VERSION"-$d" .
         echo "Pushed a multi-platform image tagged as $VERSION"
+        docker manifest push "$DOCKER_USER"/lightningd:latest
+        echo "Pushed a multi-platform image tagged as latest"
     else
         echo "Docker Images Built. Ready to Upload on Dockerhub."
     fi
