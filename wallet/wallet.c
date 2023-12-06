@@ -1514,7 +1514,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
 	bool ignore_fee_limits;
-	struct remote_priv_update *remote_update;
+	struct peer_update *remote_update;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1680,8 +1680,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	}
 
 	if (!db_col_is_null(stmt, "remote_cltv_expiry_delta")) {
-		remote_update = tal(NULL, struct remote_priv_update);
-		remote_update->source_node = peer->id;
+		remote_update = tal(NULL, struct peer_update);
 		if (scid)
 			remote_update->scid = *scid;
 		else
@@ -2354,12 +2353,12 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, chan->ignore_fee_limits);
-	if (chan->private_update) {
-		db_bind_int(stmt, chan->private_update->fee_base);
-		db_bind_int(stmt, chan->private_update->fee_ppm);
-		db_bind_int(stmt, chan->private_update->cltv_delta);
-		db_bind_amount_msat(stmt, &chan->private_update->htlc_minimum_msat);
-		db_bind_amount_msat(stmt, &chan->private_update->htlc_maximum_msat);
+	if (chan->peer_update) {
+		db_bind_int(stmt, chan->peer_update->fee_base);
+		db_bind_int(stmt, chan->peer_update->fee_ppm);
+		db_bind_int(stmt, chan->peer_update->cltv_delta);
+		db_bind_amount_msat(stmt, &chan->peer_update->htlc_minimum_msat);
+		db_bind_amount_msat(stmt, &chan->peer_update->htlc_maximum_msat);
 	} else {
 		db_bind_null(stmt);
 		db_bind_null(stmt);
