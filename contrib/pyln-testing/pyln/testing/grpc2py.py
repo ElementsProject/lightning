@@ -785,6 +785,31 @@ def listpeerchannels_channels_channel_type2py(m):
     })
 
 
+def listpeerchannels_channels_updates_local2py(m):
+    return remove_default({
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+    })
+
+
+def listpeerchannels_channels_updates_remote2py(m):
+    return remove_default({
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+    })
+
+
+def listpeerchannels_channels_updates2py(m):
+    return remove_default({
+    })
+
+
 def listpeerchannels_channels_feerate2py(m):
     return remove_default({
         "perkw": m.perkw,  # PrimitiveField in generate_composite
