@@ -198,7 +198,7 @@ plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJ
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
-plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o common/gossmods_listpeerchannels.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 

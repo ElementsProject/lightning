@@ -1514,6 +1514,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
 	bool ignore_fee_limits;
+	struct remote_priv_update *remote_update;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1678,6 +1679,27 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		last_sig = NULL;
 	}
 
+	if (!db_col_is_null(stmt, "remote_cltv_expiry_delta")) {
+		remote_update = tal(NULL, struct remote_priv_update);
+		remote_update->source_node = peer->id;
+		if (scid)
+			remote_update->scid = *scid;
+		else
+			remote_update->scid = *alias[LOCAL];
+		remote_update->fee_base = db_col_int(stmt, "remote_feerate_base");
+		remote_update->fee_ppm = db_col_int(stmt, "remote_feerate_ppm");
+		remote_update->cltv_delta = db_col_int(stmt, "remote_cltv_expiry_delta");
+		remote_update->htlc_minimum_msat = db_col_amount_msat(stmt, "remote_htlc_minimum_msat");
+		remote_update->htlc_maximum_msat = db_col_amount_msat(stmt, "remote_htlc_maximum_msat");
+	} else {
+		remote_update = NULL;
+		db_col_ignore(stmt, "remote_feerate_base");
+		db_col_ignore(stmt, "remote_feerate_ppm");
+		db_col_ignore(stmt, "remote_cltv_expiry_delta");
+		db_col_ignore(stmt, "remote_htlc_minimum_msat");
+		db_col_ignore(stmt, "remote_htlc_maximum_msat");
+	}
+
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
 			   &wshachain,
 			   channel_state_in_db(db_col_int(stmt, "state")),
@@ -1737,7 +1759,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   lease_chan_max_ppt,
 			   htlc_minimum_msat,
 			   htlc_maximum_msat,
-			   ignore_fee_limits);
+			   ignore_fee_limits,
+			   remote_update);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1925,6 +1948,11 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", alias_local"
 					", alias_remote"
 					", ignore_fee_limits"
+					", remote_feerate_base"
+					", remote_feerate_ppm"
+					", remote_cltv_expiry_delta"
+					", remote_htlc_minimum_msat"
+					", remote_htlc_maximum_msat"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2238,8 +2266,13 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  htlc_maximum_msat=?," // 43
 					"  alias_local=?," // 44
 					"  alias_remote=?," // 45
-					"  ignore_fee_limits=?" // 46
-					" WHERE id=?")); // 47
+					"  ignore_fee_limits=?," // 46
+					"  remote_feerate_base=?," // 47
+					"  remote_feerate_ppm=?," // 48
+					"  remote_cltv_expiry_delta=?," // 49
+					"  remote_htlc_minimum_msat=?," // 50
+					"  remote_htlc_maximum_msat=?" // 51
+					" WHERE id=?")); // 52
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, chan->scid);
@@ -2321,6 +2354,19 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, chan->ignore_fee_limits);
+	if (chan->private_update) {
+		db_bind_int(stmt, chan->private_update->fee_base);
+		db_bind_int(stmt, chan->private_update->fee_ppm);
+		db_bind_int(stmt, chan->private_update->cltv_delta);
+		db_bind_amount_msat(stmt, &chan->private_update->htlc_minimum_msat);
+		db_bind_amount_msat(stmt, &chan->private_update->htlc_maximum_msat);
+	} else {
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 

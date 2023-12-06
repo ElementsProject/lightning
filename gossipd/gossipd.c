@@ -1206,6 +1206,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 	case WIRE_GOSSIPD_GOT_LOCAL_CHANNEL_UPDATE:
+	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
 		break;
 	}
 
