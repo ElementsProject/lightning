@@ -3703,6 +3703,11 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		final_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
 
+		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
+							      chan_output_index);
+		wire_sync_write(MASTER_FD, take(msg));
+		send_channel_update(peer, true);
+
 		wit_stack = bitcoin_witness_2of2(final_tx, &splice_sig,
 						 &their_sig,
 						 &peer->channel->funding_pubkey[LOCAL],
@@ -3729,14 +3734,6 @@ static void resume_splice_negotiation(struct peer *peer,
 	}
 
 	peer->splicing = tal_free(peer->splicing);
-
-	if (recv_signature) {
-		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
-							      chan_output_index);
-		wire_sync_write(MASTER_FD, take(msg));
-
-		send_channel_update(peer, true);
-	}
 }
 
 static struct inflight *inflights_new(struct peer *peer)
