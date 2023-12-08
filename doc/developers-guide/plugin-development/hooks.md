@@ -163,12 +163,11 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
   "payment": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "amount_msat": 10000
+    "msat": 10000
   }
 }
 ```
-
-
+Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
 The hook is deliberately sparse, since the plugin can use the JSON-RPC `listinvoices` command to get additional details about this invoice. It can return a `failure_message` field as defined for final nodes in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages), a `result` field with the string
 `reject` to fail it with `incorrect_or_unknown_payment_details`, or a `result` field with the string `continue` to accept the payment.

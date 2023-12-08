@@ -114,11 +114,13 @@ A notification for topic `invoice_payment` is sent every time an invoice is paid
   "invoice_payment": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "amount_msat": 10000
+    "msat": 10000,
   }
 }
 
 ```
+
+Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
 Note that there will be a string member "outpoint" ("txid:outnum") if
 the payment was onchain (possible with the *invoices-onchain-fallback*
