@@ -483,6 +483,177 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     _check_events(l2, channel_id, exp_events)
 
 
+@pytest.mark.xfail
+@pytest.mark.timeout(15)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+@pytest.mark.openchannel('v1')
+def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
+    """
+    Test that bookkeeper splits multifundchannel fees correctly for single funded channels.
+    For single funded channels, l1 pays the entirety of the fee associated with multifundchannel, and the fee is
+    split into each channel and is viewed from the opener's perspective.
+    """
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    l1.fundwallet(200000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 25000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 25000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 25000}]
+
+    multifundchannel_return = l1.rpc.multifundchannel(destinations)
+
+    multifundchannel_txid = multifundchannel_return['txid']
+
+    channel_ids = multifundchannel_return['channel_ids']
+
+    channel_12_channel_id = channel_ids[0]['channel_id']
+    channel_13_channel_id = channel_ids[1]['channel_id']
+    channel_14_channel_id = channel_ids[2]['channel_id']
+
+    bitcoind.generate_block(1, wait_for_mempool=[multifundchannel_txid])
+    wait_for(lambda: l1.channel_state(l2) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l1.channel_state(l3) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l1.channel_state(l4) == 'CHANNELD_NORMAL')
+
+    # calculate the tx fee from bitcoin-cli by subtracting the multifundchannel tx inputs and outputs
+    multifundchannel_rawtx = l1.bitcoin.rpc.getrawtransaction(multifundchannel_txid, True)
+
+    inputs_total_btc = 0
+    vins = multifundchannel_rawtx['vin']
+    for vin in vins:
+        temp_txid = vin['txid']
+        temp_vout = vin['vout']
+        temp_rawtx = l1.bitcoin.rpc.getrawtransaction(temp_txid, True)
+        output_amount_btc = temp_rawtx['vout'][temp_vout]['value']
+        inputs_total_btc += output_amount_btc
+
+    outputs_total_btc = 0
+    vouts = multifundchannel_rawtx['vout']
+    for vout in vouts:
+        outputs_total_btc += vout['value']
+
+    calculated_total_fees_btc = inputs_total_btc - outputs_total_btc
+
+    # now use getblock to get the tx fee also from bitcoin-cli's perspective
+    blockhash = multifundchannel_rawtx['blockhash']
+    getblock_tx = l1.bitcoin.rpc.getblock(blockhash, 2)['tx']
+    getblock_fee_btc = 0
+    for tx in getblock_tx:
+        if tx['txid'] == multifundchannel_txid:
+            getblock_fee_btc = tx['fee']
+
+    # now sum bookkeeper fees for each channel to get the total fees for this tx
+    channel_12_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_12_channel_id)['txs'][0]['fees_paid_msat']
+    channel_13_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_13_channel_id)['txs'][0]['fees_paid_msat']
+    channel_14_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
+
+    bkpr_total_fee_btc = (channel_12_multifundchannel_fee_msat
+                          + channel_13_multifundchannel_fee_msat
+                          + channel_14_multifundchannel_fee_msat).to_btc()
+
+    assert bkpr_total_fee_btc == calculated_total_fees_btc
+    assert bkpr_total_fee_btc == getblock_fee_btc
+
+
+@pytest.mark.xfail
+@pytest.mark.timeout(15)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+@pytest.mark.openchannel('v2')
+def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):
+    """
+    Test that bookkeeper splits multifundchannel fees correctly for dual funded channels.
+    For dual funded channels, the other nodes also pay part of the fees associated with multifundchannel, since they
+    are also funding the channel.  To calculate the total fees spent for the multifundchannel tx, the
+    other nodes' fees paid must be included.
+    """
+    opts = {'experimental-dual-fund': None, 'funder-policy': 'match',
+            'funder-policy-mod': 100, 'funder-lease-requests-only': False}
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
+
+    l1.fundwallet(2000000000)
+    l2.fundwallet(2000000000)
+    l3.fundwallet(2000000000)
+    l4.fundwallet(2000000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 25000,
+                     "announce": True},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 25000,
+                     "announce": True},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 25000,
+                     "announce": True}]
+
+    multifundchannel_return = l1.rpc.multifundchannel(destinations)
+    multifundchannel_txid = multifundchannel_return['txid']
+    channel_ids = multifundchannel_return['channel_ids']
+
+    channel_12_channel_id = channel_ids[0]['channel_id']
+    channel_13_channel_id = channel_ids[1]['channel_id']
+    channel_14_channel_id = channel_ids[2]['channel_id']
+
+    bitcoind.generate_block(5, wait_for_mempool=[multifundchannel_txid])
+    wait_for(lambda: l1.channel_state(l2) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l1.channel_state(l3) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l1.channel_state(l4) == 'CHANNELD_NORMAL')
+
+    # calculate the tx fee from bitcoin-cli by subtracting the multifundchannel tx inputs and outputs
+    multifundchannel_rawtx = l1.bitcoin.rpc.getrawtransaction(multifundchannel_txid, True)
+
+    inputs_total_btc = 0
+    vins = multifundchannel_rawtx['vin']
+    for vin in vins:
+        temp_txid = vin['txid']
+        temp_vout = vin['vout']
+        temp_rawtx = l1.bitcoin.rpc.getrawtransaction(temp_txid, True)
+        output_amount_btc = temp_rawtx['vout'][temp_vout]['value']
+        inputs_total_btc += output_amount_btc
+
+    outputs_total_btc = 0
+    vouts = multifundchannel_rawtx['vout']
+    for vout in vouts:
+        outputs_total_btc += vout['value']
+
+    calculated_total_fees_btc = inputs_total_btc - outputs_total_btc
+
+    # now use getblock to get the tx fee also from bitcoin-cli's perspective
+    blockhash = multifundchannel_rawtx['blockhash']
+    getblock_tx = l1.bitcoin.rpc.getblock(blockhash, 2)['tx']
+    getblock_fee_btc = 0
+    for tx in getblock_tx:
+        if tx['txid'] == multifundchannel_txid:
+            getblock_fee_btc = tx['fee']
+
+    # now sum bookkeeper fees for each node to get the total fees for this tx
+    channel_12_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_12_channel_id)['txs'][0]['fees_paid_msat']
+    channel_21_multifundchannel_fee_msat = l2.rpc.bkpr_inspect(channel_12_channel_id)['txs'][0]['fees_paid_msat']
+    channel_13_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_13_channel_id)['txs'][0]['fees_paid_msat']
+    channel_31_multifundchannel_fee_msat = l3.rpc.bkpr_inspect(channel_13_channel_id)['txs'][0]['fees_paid_msat']
+    channel_14_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
+    channel_41_multifundchannel_fee_msat = l4.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
+
+    bkpr_total_fee_btc = (channel_12_multifundchannel_fee_msat
+                          + channel_21_multifundchannel_fee_msat
+                          + channel_13_multifundchannel_fee_msat
+                          + channel_31_multifundchannel_fee_msat
+                          + channel_14_multifundchannel_fee_msat
+                          + channel_41_multifundchannel_fee_msat).to_btc()
+
+    assert bkpr_total_fee_btc == calculated_total_fees_btc
+    assert bkpr_total_fee_btc == getblock_fee_btc
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
 @pytest.mark.openchannel('v1', 'Uses push-msat')
