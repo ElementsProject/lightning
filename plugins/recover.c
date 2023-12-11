@@ -5,16 +5,21 @@
 #include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <unistd.h>
 
 static struct plugin *plugin;
-static struct plugin_timer *lost_state_timer;
+static struct gossmap *global_gossmap;
+static struct plugin_timer *lost_state_timer, *find_exes_timer, *peer_storage_timer;
+
 /* This tells if we are already in the process of recovery. */
 static bool recovery, already_has_peers;
 static void do_check_lost_peer (void *unused);
+static void do_check_gossip (struct command *cmd);
+static void do_find_peer_storage (struct command *cmd);
 static struct node_id local_id;
 
 /* List of most connected nodes on the network */
@@ -60,10 +65,81 @@ static struct command_result *after_emergency_recover(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static struct command_result *after_restorefrompeer(struct command *cmd,
+					             const char *buf,
+					             const jsmntok_t *params,
+					             void *cb_arg UNUSED)
+{
+	plugin_log(plugin, LOG_DBG, "restorefrompeer called");
+
+	peer_storage_timer = plugin_timer(plugin, time_from_sec(5), do_find_peer_storage, cmd);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *find_peer_storage (struct command *cmd)
+{
+	peer_storage_timer = NULL;
+
+	struct out_req *req;
+	req = jsonrpc_request_start(plugin, cmd, "restorefrompeer",
+					after_restorefrompeer,
+					&forward_error, NULL);
+
+	return send_outreq(plugin, req);
+}
+
+static void do_find_peer_storage (struct command *cmd)
+{
+	find_peer_storage(cmd);
+	return;
+}
+
+
+static void do_check_gossip (struct command *cmd)
+{
+	find_exes_timer = NULL;
+
+	gossmap_refresh(global_gossmap, NULL);
+
+	plugin_log(plugin, LOG_DBG, "Finding our node in gossip");
+
+	struct gossmap_node *n = gossmap_find_node(global_gossmap, &local_id);
+
+	if (n) {
+		for (size_t i = 0; i < n->num_chans; i++) {
+			int half;
+			struct node_id peer_id;
+			struct gossmap_chan *c = gossmap_nth_chan(global_gossmap, n, i, &half);
+			struct gossmap_node *neighbour = gossmap_nth_node(global_gossmap, c, !half);
+
+			gossmap_node_get_id(global_gossmap, neighbour, &peer_id);
+
+			struct out_req *req;
+			req = jsonrpc_request_start(plugin,
+						    cmd,
+						    "connect",
+						    connect_success,
+						    connect_fail,
+						    NULL);
+
+			json_add_node_id(req->js, "id", &peer_id);
+
+			plugin_log(plugin, LOG_DBG, "Connecting to: %s", type_to_string(tmpctx, struct node_id, &peer_id));
+			send_outreq(plugin, req);
+
+		}
+
+		peer_storage_timer = plugin_timer(plugin, time_from_sec(5), do_find_peer_storage, cmd);
+		return;
+	}
+
+	find_exes_timer = plugin_timer(plugin, time_from_sec(5), do_check_gossip, cmd);
+	return;
+}
 
 static void entering_recovery_mode(struct command *cmd)
 {
-	if(!already_has_peers) {
+	if (!already_has_peers) {
 		for (size_t i = 0; i < ARRAY_SIZE(nodes_for_gossip); i++) {
 			struct out_req *req;
 			req = jsonrpc_request_start(plugin,
@@ -89,6 +165,7 @@ static void entering_recovery_mode(struct command *cmd)
 						  NULL);
 
 	send_outreq(plugin, req_emer_recovery);
+	find_exes_timer = plugin_timer(plugin, time_from_sec(5), do_check_gossip, cmd);
 	return;
 }
 
@@ -157,6 +234,7 @@ static const char *init(struct plugin *p,
 	recovery = false;
 	lost_state_timer = plugin_timer(plugin, time_from_sec(2), do_check_lost_peer, NULL);
 	u32 num_peers;
+	size_t num_cupdates_rejected;
 
 	/* Find number of peers */
 	rpc_scan(p, "getinfo",
@@ -164,6 +242,21 @@ static const char *init(struct plugin *p,
 		 "{id:%,num_peers:%}",
 		 JSON_SCAN(json_to_node_id, &local_id),
 		 JSON_SCAN(json_to_u32, &num_peers));
+
+	global_gossmap = notleak_with_children(gossmap_load(NULL,
+				      			    GOSSIP_STORE_FILENAME,
+				      			    &num_cupdates_rejected));
+
+	if (!global_gossmap)
+		plugin_err(p, "Could not load gossmap %s: %s",
+			   GOSSIP_STORE_FILENAME, strerror(errno));
+
+	if (num_cupdates_rejected)
+		plugin_log(p, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_cupdates_rejected);
+
+	plugin_log(p, LOG_DBG, "Gossmap loaded!");
 
 	already_has_peers = num_peers > 1 ? 1: 0;
 
