@@ -1,6 +1,5 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/type_to_string.h>
@@ -716,106 +715,6 @@ double flow_set_probability(
 	}
 	tal_free(this_ctx);
 	return prob;
-}
-
-static int cmp_amount_msat(const struct amount_msat *a,
-			   const struct amount_msat *b,
-			   void *unused)
-{
-	if (amount_msat_less(*a, *b))
-		return -1;
-	if (amount_msat_greater(*a, *b))
-		return 1;
-	return 0;
-}
-
-static int cmp_amount_sat(const struct amount_sat *a,
-			  const struct amount_sat *b,
-			  void *unused)
-{
-	if (amount_sat_less(*a, *b))
-		return -1;
-	if (amount_sat_greater(*a, *b))
-		return 1;
-	return 0;
-}
-
-/* Get median feerates and capacities. */
-static void get_medians(const struct gossmap *gossmap,
-			struct amount_msat amount,
-			struct amount_msat *median_capacity,
-			struct amount_msat *median_fee)
-{
-	size_t num_caps, num_fees;
-	struct amount_sat *caps;
-	struct amount_msat *fees;
-
-	caps = tal_arr(tmpctx, struct amount_sat,
-		       gossmap_max_chan_idx(gossmap));
-	fees = tal_arr(tmpctx, struct amount_msat,
-		       gossmap_max_chan_idx(gossmap) * 2);
-	num_caps = num_fees = 0;
-
-	for (struct gossmap_chan *c = gossmap_first_chan(gossmap);
-	     c;
-	     c = gossmap_next_chan(gossmap, c)) {
-
-		/* If neither feerate is set, it's not useful */
-		if (!gossmap_chan_set(c, 0) && !gossmap_chan_set(c, 1))
-			continue;
-
-		/* Insufficient capacity?  Not useful */
-		if (!gossmap_chan_get_capacity(gossmap, c, &caps[num_caps]))
-			continue;
-		if (amount_msat_greater_sat(amount, caps[num_caps]))
-			continue;
-		num_caps++;
-
-		for (int dir = 0; dir <= 1; dir++) {
-			if (!gossmap_chan_set(c, dir))
-				continue;
-			if (!amount_msat_fee(&fees[num_fees],
-					     amount,
-					     c->half[dir].base_fee,
-					     c->half[dir].proportional_fee))
-				continue;
-			num_fees++;
-		}
-	}
-
-	asort(caps, num_caps, cmp_amount_sat, NULL);
-	/* If there are no channels, it doesn't really matter, but
-	 * this avoids div by 0 */
-	if (!num_caps)
-		*median_capacity = amount;
-	else if (!amount_sat_to_msat(median_capacity, caps[num_caps / 2]))
-	{
-		plugin_err(pay_plugin->plugin,"%s (line %d) amount_msat overflow",
-			__PRETTY_FUNCTION__,
-			__LINE__);
-	}
-	asort(fees, num_fees, cmp_amount_msat, NULL);
-	if (!num_caps)
-		*median_fee = AMOUNT_MSAT(0);
-	else
-		*median_fee = fees[num_fees / 2];
-}
-
-double derive_mu(const struct gossmap *gossmap,
-		 struct amount_msat amount,
-		 double frugality)
-{
-	struct amount_msat median_capacity, median_fee;
-	double cap_plus_one;
-
-	get_medians(gossmap, amount, &median_capacity, &median_fee);
-
-	cap_plus_one = median_capacity.millisatoshis + 1; /* Raw: derive_mu */
-	return -log((cap_plus_one - amount.millisatoshis) /* Raw: derive_mu */
-		    / cap_plus_one)
-		* frugality
-		/* +1 in case median fee is zero... */
-		/ (median_fee.millisatoshis + 1); /* Raw: derive_mu */
 }
 
 /* Get the fee cost associated to this directed channel.
