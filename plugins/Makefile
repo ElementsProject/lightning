@@ -57,6 +57,9 @@ PLUGIN_SPENDER_HEADER :=			\
 	plugins/spender/openchannel.h
 PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
 
+PLUGIN_RECOVER_SRC := plugins/recover.c
+PLUGIN_RECOVER_OBJS := $(PLUGIN_RECOVER_SRC:.c=.o)
+
 PLUGIN_FUNDER_SRC :=				\
 	plugins/funder.c			\
 	plugins/funder_policy.c
@@ -78,7 +81,8 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_OFFERS_SRC)			\
 	$(PLUGIN_PAY_LIB_SRC)			\
 	$(PLUGIN_PAY_SRC)			\
-	$(PLUGIN_SPENDER_SRC)
+	$(PLUGIN_SPENDER_SRC)			\
+	$(PLUGIN_RECOVER_SRC)
 
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_PAY_HEADER)			\
@@ -99,6 +103,7 @@ C_PLUGINS :=					\
 	plugins/keysend				\
 	plugins/offers				\
 	plugins/pay				\
+	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
 	plugins/spenderp
@@ -215,6 +220,8 @@ plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) c
 plugins/fetchinvoice: $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/bolt12.o common/bolt12_merkle.o common/iso4217.o $(WIRE_OBJS) $(WIRE_BOLT12_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o $(JSMN_OBJS) common/gossmap.o common/fp16.o common/dijkstra.o common/route.o common/blindedpath.o common/hmac.o common/blinding.o common/gossmods_listpeerchannels.o
 
 plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+
+plugins/recover:  common/gossmap.o common/fp16.o $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome
