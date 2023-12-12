@@ -93,6 +93,11 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 	if (!channel->owner)
 		return;
 
+	/* The feerate message is only understood by `channeld` so
+	 * don't attempt to send it to other subds*/
+	if (!streq(channel->owner->name, "channeld"))
+		return;
+
 	channel_update_feerates(ld, channel);
 }
 
