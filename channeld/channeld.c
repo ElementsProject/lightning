@@ -1757,6 +1757,8 @@ static void send_commit(struct peer *peer)
 	}
 
 	/* Now, tell master about the anchor on each of their commitments */
+	TODO: Just send this during commit_part so it happens during reestablish
+	and splicing
 	msg = towire_channeld_local_anchor_info(NULL, peer->next_index[REMOTE],
 						anchors_info);
 	wire_sync_write(MASTER_FD, take(msg));
