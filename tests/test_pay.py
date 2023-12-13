@@ -259,8 +259,6 @@ def test_pay_disconnect(node_factory, bitcoind):
     inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')
     rhash = inv['payment_hash']
 
-    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
-
     # Can't use `pay` since that'd notice that we can't route, due to disabling channel_update
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
@@ -2045,7 +2043,8 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert channel['minimum_htlc_out_msat'] == 17
     assert channel['maximum_htlc_out_msat'] == 133337
 
-    # wait for gossip and check if l1 sees new fees in listchannels
+    # wait for gossip and check if l1 sees new fees in listchannels after mining
+    bitcoind.generate_block(5)
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, 137])
     wait_for(lambda: [c['htlc_minimum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [0, 17])
@@ -2448,10 +2447,19 @@ def test_setchannel_all(node_factory, bitcoind):
     # now try to set all (two) channels using wildcard syntax
     result = l1.rpc.setchannel("all", 0xDEAD, 0xBEEF, 0xBAD, 0xCAFE)
 
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_BASE, 0xDEAD])
-    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_PPM, 0xBEEF])
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xDEAD, DEF_BASE])
-    wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xBEEF, DEF_PPM])
+    channel_after = {"htlc_minimum_msat": Millisatoshi(0xBAD),
+                     "htlc_maximum_msat": Millisatoshi(0xCAFE),
+                     "cltv_expiry_delta": 6,
+                     "fee_base_msat": Millisatoshi(0xDEAD),
+                     "fee_proportional_millionths": 0xBEEF}
+
+    # We should see these updates immediately.
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['updates']['local'] == channel_after
+    assert only_one(l1.rpc.listpeerchannels(l3.info['id'])['channels'])['updates']['local'] == channel_after
+
+    # Peer should see them soon (once we sent)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['updates']['remote'] == channel_after)
+    wait_for(lambda: only_one(l3.rpc.listpeerchannels()['channels'])['updates']['remote'] == channel_after)
 
     # Don't assume order!
     assert len(result['channels']) == 2

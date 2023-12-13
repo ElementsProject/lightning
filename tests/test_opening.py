@@ -1835,7 +1835,8 @@ def test_zeroconf_forward(node_factory, bitcoind):
 
     # And now try the other way around: zeroconf channel first
     # followed by a public one.
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+    # Make sure it l3 sees l1->l2
+    wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1)
 
     # Make sure all htlcs completely settled!
     wait_for(lambda: (p['htlcs'] == [] for p in l2.rpc.listpeerchannels()['channels']))
@@ -2011,7 +2012,7 @@ def test_scid_alias_private(node_factory, bitcoind):
     scid12 = chan['short_channel_id']
 
     # Make sure it sees both sides of private channel in gossmap!
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+    wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['updates'])
 
     # BOLT #2:
     # - if `channel_type` has `option_scid_alias` set:
