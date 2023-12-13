@@ -239,10 +239,10 @@ static void json_add_halfchan(struct json_stream *response,
 	if (!gossmap_chan_get_capacity(gossmap, c, &capacity))
 		capacity = AMOUNT_SAT(0);
 
-	/* Local channels are not "active" unless peer is connected. */
-	if (node_id_eq(&node_id[0], &local_id))
+	/* Deprecated: local channels are not "active" unless peer is connected. */
+	if (connected && node_id_eq(&node_id[0], &local_id))
 		local_disable = !node_map_get(connected, &node_id[1]);
-	else if (node_id_eq(&node_id[1], &local_id))
+	else if (connected && node_id_eq(&node_id[1], &local_id))
 		local_disable = !node_map_get(connected, &node_id[0]);
 	else
 		local_disable = false;
@@ -345,7 +345,7 @@ static struct node_map *local_connected(const tal_t *ctx,
 	return connected;
 }
 
-/* We want to combine local knowledge to we know which are actually inactive! */
+/* FIXME: We don't need this listpeerchannels at all if not deprecated! */
 static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *result,
@@ -356,7 +356,10 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct json_stream *js;
 	struct gossmap *gossmap = get_gossmap();
 
-	connected = local_connected(opts, buf, result);
+	if (deprecated_apis)
+		connected = local_connected(opts, buf, result);
+	else
+		connected = NULL;
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
