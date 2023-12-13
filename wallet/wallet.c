@@ -2286,9 +2286,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_feerate_ppm=?," // 48
 					"  remote_cltv_expiry_delta=?," // 49
 					"  remote_htlc_minimum_msat=?," // 50
-					"  remote_htlc_maximum_msat=?,"
-					"  last_stable_connection=?"
-					" WHERE id=?"));
+					"  remote_htlc_maximum_msat=?," // 51
+					"  last_stable_connection=?" // 52
+					"  require_confirm_inputs_remote=?" // 53
+					" WHERE id=?")); // 54
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, chan->scid);
@@ -2385,6 +2386,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 	}
 	db_bind_u64(stmt, chan->last_stable_connection);
+
+	db_bind_int(stmt, chan->req_confirmed_ins[REMOTE]);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 

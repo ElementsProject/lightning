@@ -76,11 +76,13 @@ msgdata,tx_init_rbf,feerate,u32,
 msgdata,tx_init_rbf,tlvs,tx_init_rbf_tlvs,
 tlvtype,tx_init_rbf_tlvs,funding_output_contribution,0
 tlvdata,tx_init_rbf_tlvs,funding_output_contribution,satoshis,s64,
+tlvtype,tx_init_rbf_tlvs,require_confirmed_inputs,2
 msgtype,tx_ack_rbf,73
 msgdata,tx_ack_rbf,channel_id,channel_id,
 msgdata,tx_ack_rbf,tlvs,tx_ack_rbf_tlvs,
 tlvtype,tx_ack_rbf_tlvs,funding_output_contribution,0
 tlvdata,tx_ack_rbf_tlvs,funding_output_contribution,satoshis,s64,
+tlvtype,tx_ack_rbf_tlvs,require_confirmed_inputs,2
 msgtype,tx_abort,74
 msgdata,tx_abort,channel_id,channel_id,
 msgdata,tx_abort,len,u16,
