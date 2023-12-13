@@ -3469,7 +3469,6 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3)
 
     # We'll be forced to use routehint, since we don't know about l3.
-    l3.wait_channel_active(l3.get_channel_scid(l2))
     inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
 
     l1.wait_channel_active(l1.get_channel_scid(l2))
@@ -4037,9 +4036,6 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     # Increase blockheight by 2, like in test_blockheight_disagreement.
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l3])
-
-    # FIXME: routehint currently requires channels in gossip store
-    l3.wait_channel_active(l2l3)
 
     inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
     assert 'routes' in l3.rpc.decodepay(inv)
@@ -4894,8 +4890,6 @@ gives a routehint straight to us causes an issue
     # Make sure l3 sees l1->l2 channel.
     l3.wait_channel_active(scid12)
 
-    # FIXME: Routehint code currently relies on private gossip in store!
-    l3.wait_channel_active(scid23)
     inv = l3.rpc.invoice(10, "test", "test")['bolt11']
     decoded = l3.rpc.decodepay(inv)
     assert(only_one(only_one(decoded['routes']))['short_channel_id']
@@ -5480,8 +5474,6 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
     # And make sure l1 knows that l2->l3 has htlcmin 1000
     wait_for(lambda: l1.rpc.listchannels(scid)['channels'][0]['htlc_minimum_msat'] == Millisatoshi(1000))
 
-    # FIXME: Routehint code currently relies on private gossip in store!
-    l4.wait_channel_active(scid34)
     inv = l4.rpc.invoice(100000, "inv", "inv")
     assert only_one(l1.rpc.decodepay(inv['bolt11'])['routes'])
 
