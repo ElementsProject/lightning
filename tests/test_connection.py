@@ -2400,12 +2400,14 @@ def test_channel_reenable(node_factory):
 
     # Restart l2, will cause l1 to reconnect
     l2.stop()
-    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [False, False])
+    wait_for(lambda: [c['peer_connected'] for c in l1.rpc.listpeerchannels()['channels']] == [False])
     l2.start()
 
     # Updates may be suppressed if redundant; just test results.
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
+    wait_for(lambda: [c['peer_connected'] for c in l1.rpc.listpeerchannels()['channels']] == [True])
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True])
+    wait_for(lambda: [c['peer_connected'] for c in l2.rpc.listpeerchannels()['channels']] == [True])
 
 
 def test_update_fee(node_factory, bitcoind):

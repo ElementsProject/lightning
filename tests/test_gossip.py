@@ -92,7 +92,8 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     def count_active(node):
         chans = node.rpc.listchannels()['channels']
         active = [c for c in chans if c['active']]
-        return len(active)
+        connected = len([p for p in node.rpc.listpeerchannels()['channels'] if p['peer_connected'] is True])
+        return connected * len(active)
 
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
@@ -394,23 +395,32 @@ def test_gossip_jsonrpc(node_factory):
     # Shouldn't send announce signatures until 6 deep.
     assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
-    # Channels should be activated locally
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 2)
-
     # Make sure we can route through the channel, will raise on failure
     l1.rpc.getroute(l2.info['id'], 100, 1)
 
-    # Outgoing should be active, but not public.
-    channels1 = l1.rpc.listchannels()['channels']
-    channels2 = l2.rpc.listchannels()['channels']
+    # Channels not should be activated locally
+    assert l1.rpc.listchannels() == {'channels': []}
+    assert l2.rpc.listchannels() == {'channels': []}
 
-    assert [c['active'] for c in channels1] == [True, True]
-    assert [c['active'] for c in channels2] == [True, True]
-    # The incoming direction will be considered public, hence check for out
-    # outgoing only
-    assert len([c for c in channels1 if not c['public']]) == 2
-    assert len([c for c in channels2 if not c['public']]) == 2
+    # Outgoing should be public, even if not announced yet.
+    channels1 = l1.rpc.listpeerchannels()['channels']
+    channels2 = l2.rpc.listpeerchannels()['channels']
+
+    assert [c['private'] for c in channels1] == [False]
+    assert [c['private'] for c in channels2] == [False]
+
+    # Now proceed to funding-depth and do a full gossip round
+    l1.bitcoin.generate_block(5)
+    # Could happen in either order.
+    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
+                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
+
+    # Just wait for the update to kick off and then check the effect
+    needle = "Received node_announcement for node"
+    l1.daemon.wait_for_log(needle)
+    l2.daemon.wait_for_log(needle)
+    l1.wait_channel_active(only_one(channels1)['short_channel_id'])
+    l2.wait_channel_active(only_one(channels1)['short_channel_id'])
 
     # Test listchannels-by-source
     channels1 = l1.rpc.listchannels(source=l1.info['id'])['channels']
@@ -439,19 +449,6 @@ def test_gossip_jsonrpc(node_factory):
         l1.rpc.listchannels(source=l1.info['id'], destination=l2.info['id'])
     with pytest.raises(RpcError, match=r"Can only specify one of.*"):
         l1.rpc.listchannels(short_channel_id="1x1x1", source=l2.info['id'])
-
-    # Now proceed to funding-depth and do a full gossip round
-    l1.bitcoin.generate_block(5)
-    # Could happen in either order.
-    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
-                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
-
-    # Just wait for the update to kick off and then check the effect
-    needle = "Received node_announcement for node"
-    l1.daemon.wait_for_log(needle)
-    l2.daemon.wait_for_log(needle)
-    l1.wait_channel_active(only_one(channels1)['short_channel_id'])
-    l2.wait_channel_active(only_one(channels1)['short_channel_id'])
 
     nodes = l1.rpc.listnodes()['nodes']
     assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
@@ -561,20 +558,20 @@ def test_gossip_persistence(node_factory, bitcoind):
         return sorted([c['short_channel_id'] for c in chans if c['active']])
 
     def non_public(node):
-        chans = node.rpc.listchannels()['channels']
-        return sorted([c['short_channel_id'] for c in chans if not c['public']])
+        # Not just c["private"] == True, but immature ones too.
+        public_chans = [c['short_channel_id'] for c in node.rpc.listchannels()['channels']]
+        our_chans = [c['short_channel_id'] for c in node.rpc.listpeerchannels()['channels'] if c['state'] in ('CHANNELD_NORMAL', 'CHANNELD_AWAITING_SPLICE')]
+        return sorted(list(set(our_chans) - set(public_chans)))
 
     # Channels should be activated
     wait_for(lambda: active(l1) == [scid12, scid12, scid23, scid23])
     wait_for(lambda: active(l2) == [scid12, scid12, scid23, scid23])
-    # This one sees its private channel
-    wait_for(lambda: active(l3) == [scid12, scid12, scid23, scid23, scid34, scid34])
+    # This one has private channels, but doesn't appear in listchannels.
+    wait_for(lambda: active(l3) == [scid12, scid12, scid23, scid23])
 
-    # l1 restarts and doesn't connect, but loads from persisted store, all
-    # local channels should be disabled, leaving only the two l2 <-> l3
-    # directions
+    # l1 restarts and public gossip should persist
     l1.restart()
-    wait_for(lambda: active(l1) == [scid23, scid23])
+    wait_for(lambda: active(l1) == [scid12, scid12, scid23, scid23])
 
     # Now reconnect, they should re-enable the two l1 <-> l2 directions
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -590,24 +587,24 @@ def test_gossip_persistence(node_factory, bitcoind):
 
     wait_for(lambda: active(l1) == [scid23, scid23])
     wait_for(lambda: active(l2) == [scid23, scid23])
-    wait_for(lambda: active(l3) == [scid23, scid23, scid34, scid34])
+    wait_for(lambda: active(l3) == [scid23, scid23])
 
     # The channel l3 -> l4 should be known only to them
     assert non_public(l1) == []
     assert non_public(l2) == []
-    wait_for(lambda: non_public(l3) == [scid34, scid34])
-    wait_for(lambda: non_public(l4) == [scid34, scid34])
+    wait_for(lambda: non_public(l3) == [scid34])
+    wait_for(lambda: non_public(l4) == [scid34])
 
     # Finally, it should also remember the deletion after a restart
     l3.restart()
     l4.restart()
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
-    wait_for(lambda: active(l3) == [scid23, scid23, scid34, scid34])
+    wait_for(lambda: active(l3) == [scid23, scid23])
 
     # Both l3 and l4 should remember their local-only channel
-    wait_for(lambda: non_public(l3) == [scid34, scid34])
-    wait_for(lambda: non_public(l4) == [scid34, scid34])
+    wait_for(lambda: non_public(l3) == [scid34])
+    wait_for(lambda: non_public(l4) == [scid34])
 
 
 def test_routing_gossip_reconnect(node_factory):

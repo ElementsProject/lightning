@@ -13,6 +13,9 @@ The **listchannels** RPC command returns data on channels that are known
 to the node. Because channels may be bidirectional, up to 2 objects will
 be returned for each channel (one for each direction).
 
+Note that for local channels, listpeerchannels(7) gives much more detailed
+information: **listchannels** only shows public gossip information (previously it merged local information, but that was deprecated in *v24.02*).
+
 If *short\_channel\_id* is a short channel id, then only known channels with a
 matching *short\_channel\_id* are returned.  Otherwise, it must be null.
 
@@ -37,7 +40,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **destination** (pubkey): the destination node
 - **short\_channel\_id** (short\_channel\_id): short channel id of channel
 - **direction** (u32): direction (0 if source < destination, 1 otherwise).
-- **public** (boolean): true if this is announced (otherwise it must be our channel)
+- **public** (boolean): true if this is announced (from *v24.02*, being false is deprecated)
 - **amount\_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
 - **message\_flags** (u8): as defined by BOLT #7
 - **channel\_flags** (u8): as defined by BOLT #7
@@ -80,4 +83,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:cef9786aeca2eddaca0d1adf6dc3d0eef442297e0f63d7c49647e65dbca73396)
+[comment]: # ( SHA256STAMP:5e729a362943aa9481cc12e410c1f507020983251871fbac497dbb8679ca36ca)

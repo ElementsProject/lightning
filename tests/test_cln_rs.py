@@ -316,7 +316,7 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     ])
 
     # FIXME: keysend needs (unannounced) channel in gossip_store
-    l1.wait_channel_active(first_scid(l1, l2))
+    l1.wait_local_channel_active(first_scid(l1, l2))
 
     # And now we send a keysend with that routehint list
     call = clnpb.KeysendRequest(
