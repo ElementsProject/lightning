@@ -4,6 +4,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -610,6 +611,8 @@ int main(int argc, char *argv[])
 		features->bits[i] = tal_arr(features, u8, 0);
 	set_feature_bit(&features->bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
 
+	/* We are migrated, ready for public-only gossmap! */
+	gossmap_public_only = true;
 	plugin_main(argv, init, PLUGIN_STATIC, true, features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    notification_topics, ARRAY_SIZE(notification_topics), NULL);
