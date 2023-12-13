@@ -47,7 +47,7 @@
           },
           "public": {
             "type": "boolean",
-            "description": "true if this is announced (otherwise it must be our channel)"
+            "description": "true if this is announced (from *v24.02*, being false is deprecated)"
           },
           "amount_msat": {
             "type": "msat",

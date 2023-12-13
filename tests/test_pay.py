@@ -309,7 +309,7 @@ def test_pay_get_error_with_update(node_factory):
     l3.stop()
 
     # Make sure that l2 has seen disconnect, considers channel disabled.
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(chanid2)['channels']] == [False, False])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
 
     assert(l1.is_channel_active(chanid2))
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):

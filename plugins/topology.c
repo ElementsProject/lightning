@@ -359,7 +359,7 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct node_map *connected;
 	struct gossmap_chan *c;
 	struct json_stream *js;
-	struct gossmap *gossmap = get_gossmap(false);
+	struct gossmap *gossmap = get_gossmap(true);
 
 	connected = local_connected(opts, buf, result);
 
