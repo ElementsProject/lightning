@@ -1852,6 +1852,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
     assert not resp["success"] and "decode failed" in resp["errmsg"]
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'p2tr addresses not supported by elementsd')
 def test_hook_crash(node_factory, executor, bitcoind):
     """Verify that we fail over if a plugin crashes while handling a hook.
 
