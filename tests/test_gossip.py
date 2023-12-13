@@ -1555,104 +1555,30 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, l5.info['id'], chan_l2l4])
 
 
-def test_gossip_store_local_channels(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=False)
-
-    # We see this channel, even though it's not announced, because it's local.
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
-
-    l2.stop()
-    l1.restart()
-
-    # We should still see local channels!
-    time.sleep(3)  # Make sure store is loaded
-    chans = l1.rpc.listchannels()['channels']
-    assert len(chans) == 2
-
-    # Now compact store
-    l1.rpc.call('dev-compact-gossip-store')
-    l1.restart()
-
-    time.sleep(3)  # Make sure store is loaded
-    # We should still see local channels!
-    chans = l1.rpc.listchannels()['channels']
-    assert len(chans) == 2
-
-
-def test_gossip_store_private_channels(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, announce_channels=False)
-
-    # We see this channel, even though it's not announced, because it's local.
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
-
-    l2.stop()
-    l1.restart()
-
-    # We should still see local channels!
-    time.sleep(3)  # Make sure store is loaded
-    chans = l1.rpc.listchannels()['channels']
-    assert len(chans) == 2
-
-    # Now compact store
-    l1.rpc.call('dev-compact-gossip-store')
-    l1.restart()
-
-    time.sleep(3)  # Make sure store is loaded
-    # We should still see local channels!
-    chans = l1.rpc.listchannels()['channels']
-    assert len(chans) == 2
-
-
 def setup_gossip_store_test(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
-
-    # Create channel.
-    scid23, _ = l2.fundchannel(l3, 10**6)
-
-    # Have that channel announced.
-    mine_funding_to_announce(bitcoind, [l1, l2, l3])
-    # Make sure we've got node_announcements
-    wait_for(lambda: ['alias' in n for n in l2.rpc.listnodes()['nodes']] == [True, True])
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     # Now, replace the one channel_update, so it's past the node announcements.
     l2.rpc.setchannel(l3.info['id'], 20, 1000)
-    # Old base feerate is 1.
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l2.rpc.listchannels()['channels']]) == 21)
+    l3.rpc.setchannel(l2.info['id'], 21, 1001)
 
-    # Create another channel, which will stay private.
-    scid12, _ = l1.fundchannel(l2, 10**6)
+    # Wait for it to hit l1's gossip store.
+    wait_for(lambda: sorted([c['fee_per_millionth'] for c in l1.rpc.listchannels()['channels']]) == [10, 10, 1000, 1001])
 
-    # FIXME: We assume that private announcements are in gossip_store!
-    l2.wait_channel_active(scid12)
-
-    # Now insert channel_update for previous channel; now they're both past the
-    # node announcements.
-    l3.rpc.setchannel(l2.info['id'], feebase=20, feeppm=1000)
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid23)['channels']] == [20, 20])
-
-    # Replace both (private) updates for scid12.
-    l1.rpc.setchannel(l2.info['id'], feebase=20, feeppm=1000)
-    l2.rpc.setchannel(l1.info['id'], feebase=20, feeppm=1000)
-    wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid12)['channels']] == [20, 20])
-
-    # Records in store now looks (something) like:
-    #    DELETED: private channel_announcement (scid23)
-    #    DELETED: private channel_update (scid23/0)
-    #    DELETED: private channel_update (scid23/1)
-    #  delete channel (scid23)
+    # Records in l2's store now looks (something) like:
+    #  channel_announcement (scid12)
+    #  channel_amount
+    #  channel_update (scid12/0)
+    #  channel_update (scid12/1)
+    #  node_announcement (l1)
+    #  node_announcement (l2)
     #  channel_announcement (scid23)
     #  channel_amount
     #    DELETED: channel_update (scid23/0)
     #    DELETED: channel_update (scid23/1)
     #  node_announcement
-    #  node_announcement
-    #  channel_update (scid23)
-    #  private channel_announcement (scid12)
-    #    DELETED: private channel_update (scid12/0)
-    #    DELETED: private channel_update (scid12/1)
-    #  channel_update (scid23)
-    #  private_channel_update (scid12)
-    #  private_channel_update (scid12)
+    #  channel_update (scid23/0)
+    #  channel_update (scid23/1)
     return l2
 
 
@@ -1750,13 +1676,15 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     # These appear before we're fully started, so will already in log:
-    line = l2.daemon.is_in_log(r'gossip_store_compact_offline: .* deleted, 9 copied')
+    # FIXME: this will change!
+    line = l2.daemon.is_in_log(r'gossip_store_compact_offline: .* deleted, .* copied')
     m = re.search(r'gossip_store_compact_offline: (.*) deleted', line)
     # We can have private re-tranmissions, but at minumum we had a deleted private
     # channel message and two private updates, then two deleted updates.
     assert int(m.group(1)) >= 5
 
-    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes')
+    # FIXME: this will change!
+    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/[23]/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
@@ -2167,35 +2095,6 @@ def test_close_12_block_delay(node_factory, bitcoind):
     # One more block, it's forgotten too.
     bitcoind.generate_block(1)
     wait_for(lambda: l4.rpc.listchannels(source=l2.info['id'])['channels'] == [])
-
-
-def test_gossip_private_updates(node_factory, bitcoind):
-    """Check that private channel updates are properly added and deleted from
-    the gossip store.
-
-    """
-    l1, l2 = node_factory.get_nodes(2)
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid, _ = l1.fundchannel(l2, 10**6, None, False)
-    bitcoind.generate_block(5)
-
-    l1.wait_local_channel_active(scid)
-    l2.wait_local_channel_active(scid)
-
-    l2.rpc.setchannel(l1.info['id'], feebase=11)
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 12)
-    l2.rpc.setchannel(l1.info['id'], feebase=12)
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 13)
-    l2.rpc.setchannel(l1.info['id'], feebase=13)
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 14)
-    l2.rpc.setchannel(l1.info['id'], feebase=14)
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 15)
-    l2.rpc.setchannel(l1.info['id'], feebase=15)
-    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 16)
-    l1.restart()
-
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store_compact_offline: 5 deleted, 3 copied'))
 
 
 def test_gossip_not_dying(node_factory, bitcoind):

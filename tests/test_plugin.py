@@ -4,6 +4,7 @@ from fixtures import *  # noqa: F401,F403
 from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
+from pyln.testing.utils import FUNDAMOUNT
 from utils import (
     only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     expected_peer_features, expected_node_features,
@@ -1874,18 +1875,25 @@ def test_hook_crash(node_factory, executor, bitcoind):
     l1 = node_factory.get_node()
     nodes = [node_factory.get_node() for _ in perm]
 
+    # For simplicity, give us N UTXOs to spend.
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    for n in nodes:
+        bitcoind.rpc.sendtoaddress(addr, (FUNDAMOUNT + 5000) / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=len(nodes))
+    sync_blockheight(bitcoind, [l1])
+
     # Start them in any order and we should still always end up with each
     # plugin being called and ultimately the `pay` call should succeed:
     for plugins, n in zip(perm, nodes):
         for p in plugins:
             n.rpc.plugin_start(p)
-        l1.openchannel(n, 10**6, confirm=False, wait_for_announce=False)
+        l1.connect(n)
+        l1.rpc.fundchannel(n.info['id'], FUNDAMOUNT)
 
-    # Mine final openchannel tx first.
-    sync_blockheight(bitcoind, [l1] + nodes)
-    mine_funding_to_announce(bitcoind, [l1] + nodes, wait_for_mempool=1)
+    # Mine txs first.
+    mine_funding_to_announce(bitcoind, [l1] + nodes, num_blocks=6, wait_for_mempool=len(nodes))
 
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(perm))
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(nodes))
 
     # Start an RPC call that should error once the plugin crashes.
     f1 = executor.submit(nodes[0].rpc.hold_rpc_call)
