@@ -63,7 +63,6 @@ routehint_candidates(const tal_t *ctx,
 		struct routehint_candidate candidate;
 		struct amount_msat fee_base, htlc_max;
 		struct route_info *r;
-		struct peer *peer;
 		bool is_public;
 
 		r = tal(tmpctx, struct route_info);
@@ -94,27 +93,8 @@ routehint_candidates(const tal_t *ctx,
 			      json_tok_full(buf, toks));
 		}
 
-		/* Do we know about this peer? */
-		peer = peer_by_id(ld, &r->pubkey);
-		if (!peer) {
-			log_debug(ld->log, "%s: unknown peer",
-				  type_to_string(tmpctx,
-						 struct node_id,
-						 &r->pubkey));
-			continue;
-		}
-
-		/* Check channel is in CHANNELD_NORMAL or CHANNELD_AWAITING_SPLICE */
-		candidate.c = find_channel_by_scid(peer, &r->short_channel_id);
-
-		/* Try seeing if we should be using a remote alias
-		 * instead. The `listpeers` result may have returned
-		 * the REMOTE alias, because it is the only scid we
-		 * have, and it is mandatory once the channel is in
-		 * CHANNELD_NORMAL or CHANNELD_AWAITING_SPLICE. */
-		if (!candidate.c)
-			candidate.c = find_channel_by_alias(peer, &r->short_channel_id, REMOTE);
-
+		/* Note: listincoming returns real scid or local alias if no real scid. */
+		candidate.c = any_channel_by_scid(ld, &r->short_channel_id, true);
 		if (!candidate.c) {
 			log_debug(ld->log, "%s: channel not found in peer %s",
 				  type_to_string(tmpctx,
@@ -126,6 +106,7 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
+		/* Check channel is in CHANNELD_NORMAL or CHANNELD_AWAITING_SPLICE */
 		if (!channel_state_can_add_htlc(candidate.c->state)) {
 			log_debug(ld->log, "%s: abnormal channel",
 				  type_to_string(tmpctx,
@@ -212,15 +193,36 @@ routehint_candidates(const tal_t *ctx,
 		 *       - MUST NOT use the real `short_channel_id` in
 		 *         BOLT 11 `r` fields.
 		 */
-		/* FIXME: We don't remember the type explicitly, so
-		 * we just assume all private channels negotiated since
-		 * we had alias support want this. */
-
-		/* Note explicit flag test here: if we're told to expose all
-		 * private channels, then "is_public" is forced true */
-		if (!(candidate.c->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		    && candidate.c->alias[REMOTE]) {
+		if (channel_has(candidate.c, OPT_SCID_ALIAS)) {
+			if (!candidate.c->alias[REMOTE]) {
+				log_debug(ld->log, "%s: no remote alias (yet?)",
+					  type_to_string(tmpctx,
+							 struct short_channel_id,
+							 &r->short_channel_id));
+				continue;
+			}
 			r->short_channel_id = *candidate.c->alias[REMOTE];
+		} else {
+			/* Older code didn't remember type correctly,
+			 * or negotiate properly, so best effort here */
+
+			/* Note explicit flag test here: if we're told to expose all
+			 * private channels, then "is_public" is forced true */
+			if (candidate.c->alias[REMOTE]
+			    /* Use remote alias if it's all we've got, or unannounced channel */
+			    && (!(candidate.c->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+				|| !candidate.c->scid)) {
+				r->short_channel_id = *candidate.c->alias[REMOTE];
+			} else if (candidate.c->scid) {
+				r->short_channel_id = *candidate.c->scid;
+			} else {
+				/* Haven't got remote alias yet?  Can't use ut. */
+				log_debug(ld->log, "%s: no alias",
+					  type_to_string(tmpctx,
+							 struct short_channel_id,
+						 &r->short_channel_id));
+				continue;
+			}
 		}
 
 		/* OK, finish it and append to one of the arrays. */

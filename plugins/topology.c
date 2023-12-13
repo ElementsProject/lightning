@@ -181,7 +181,7 @@ listpeerchannels_getroute_done(struct command *cmd,
 static struct command_result *listpeerchannels_err(struct command *cmd,
 						   const char *buf,
 						   const jsmntok_t *result,
-						   struct getroute_info *info)
+						   void *unused)
 {
 	plugin_err(cmd->plugin,
 		   "Bad listpeerchannels: %.*s",
@@ -558,18 +558,26 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 	return capacity;
 }
 
-static struct command_result *json_listincoming(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
+static struct command_result *
+listpeerchannels_listincoming_done(struct command *cmd,
+				   const char *buffer,
+				   const jsmntok_t *result,
+				   void *unused)
 {
 	struct json_stream *js;
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
+	struct gossmap_localmods *mods;
 
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
+	/* Get local knowledge */
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+					      buffer, result,
+					      gossmod_add_localchan,
+					      NULL);
 
-	gossmap = get_gossmap(false);
+	/* Overlay local knowledge */
+	gossmap = get_gossmap(true);
+	gossmap_apply_localmods(gossmap, mods);
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "incoming");
@@ -621,7 +629,25 @@ static struct command_result *json_listincoming(struct command *cmd,
 done:
 	json_array_end(js);
 
+	gossmap_remove_localmods(gossmap, mods);
 	return command_finished(cmd, js);
+}
+
+static struct command_result *json_listincoming(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	/* Add local info */
+	req = jsonrpc_request_start(cmd->plugin,
+				    cmd, "listpeerchannels",
+				    listpeerchannels_listincoming_done,
+				    listpeerchannels_err, NULL);
+	return send_outreq(cmd->plugin, req);
 }
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)
