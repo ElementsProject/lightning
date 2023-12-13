@@ -3564,6 +3564,14 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	*init_rbf_tlvs->funding_output_contribution
 	       = (s64)tx_state->opener_funding.satoshis; /* Raw: wire conversion */
 
+
+	/* We repeat whatever we used on initial open for requiring confirmed
+	 * inputs */
+	if (state->require_confirmed_inputs[LOCAL])
+		init_rbf_tlvs->require_confirmed_inputs =
+			tal(init_rbf_tlvs, struct tlv_tx_init_rbf_tlvs_require_confirmed_inputs);
+
+
 	msg = towire_tx_init_rbf(tmpctx, &state->channel_id,
 				 tx_state->tx_locktime,
 				 tx_state->feerate_per_kw_funding,
@@ -3600,6 +3608,14 @@ static void rbf_local_start(struct state *state, u8 *msg)
 						    &tx_state->accepter_funding));
 	} else
 		tx_state->accepter_funding = state->tx_state->accepter_funding;
+
+	/* Set the require_confirmed_inputs to whatever they set here */
+	if (ack_rbf_tlvs)
+		state->require_confirmed_inputs[REMOTE] =
+			ack_rbf_tlvs->require_confirmed_inputs != NULL;
+	else
+		/* They have to re-affirm to keep it! */
+		state->require_confirmed_inputs[REMOTE] = false;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -3672,6 +3688,11 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	tal_free(state->tx_state);
 	state->tx_state = tal_steal(state, tx_state);
 
+	/* Notify lightningd about require_confirmed state */
+	msg = towire_dualopend_update_require_confirmed(NULL,
+		state->require_confirmed_inputs[REMOTE]);
+	wire_sync_write(REQ_FD, take(msg));
+
 	/* We merge with RBF's we've initiated now */
 	rbf_wrap_up(state, tx_state, total);
 	tal_free(rbf_ctx);
@@ -3735,6 +3756,14 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		/* Otherwise we use the last known funding amount */
 		tx_state->opener_funding = state->tx_state->opener_funding;
 
+	/* Set the require_confirmed_inputs to whatever they set here */
+	if (init_rbf_tlvs)
+		state->require_confirmed_inputs[REMOTE] =
+			init_rbf_tlvs->require_confirmed_inputs != NULL;
+	else
+		/* They have to re-affirm to keep it! */
+		state->require_confirmed_inputs[REMOTE] = false;
+
 	/* Copy over the channel config info -- everything except
 	 * the reserve will be the same */
 	tx_state->localconf = state->tx_state->localconf;
@@ -3757,7 +3786,8 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 					     state->tx_state->accepter_funding,
 					     tx_state->feerate_per_kw_funding,
 					     tx_state->tx_locktime,
-					     state->requested_lease);
+					     state->requested_lease,
+					     state->require_confirmed_inputs[REMOTE]);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -3832,6 +3862,11 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		= tal(ack_rbf_tlvs, s64);
 	*ack_rbf_tlvs->funding_output_contribution
 	       = (s64)tx_state->accepter_funding.satoshis; /* Raw: wire conversion */
+
+	/* We keep whatever we initially set at open for RBFs */
+	if (state->require_confirmed_inputs[LOCAL])
+		ack_rbf_tlvs->require_confirmed_inputs =
+			tal(ack_rbf_tlvs, struct tlv_tx_ack_rbf_tlvs_require_confirmed_inputs);
 
 	msg = towire_tx_ack_rbf(tmpctx, &state->channel_id, ack_rbf_tlvs);
 	peer_write(state->pps, msg);
@@ -4177,6 +4212,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_DRY_RUN:
 	case WIRE_DUALOPEND_VALIDATE_LEASE:
 	case WIRE_DUALOPEND_VALIDATE_INPUTS:
+	case WIRE_DUALOPEND_UPDATE_REQUIRE_CONFIRMED:
 		break;
 	}
 	status_failed(STATUS_FAIL_MASTER_IO,

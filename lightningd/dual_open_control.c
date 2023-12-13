@@ -543,6 +543,13 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 		return subd_send_msg(dualopend, take(msg));
 	}
 
+	/* Update the remote's require confirmed preferences */
+	if (payload->req_confirmed_ins_remote != channel->req_confirmed_ins[REMOTE]) {
+		channel->req_confirmed_ins[REMOTE] =
+			payload->req_confirmed_ins_remote;
+		wallet_channel_save(dualopend->ld->wallet, channel);
+	}
+
 	/* Update channel with new open attempt. */
 	channel->open_attempt = new_channel_open_attempt(channel);
 	msg = towire_dualopend_got_rbf_offer_reply(NULL,
@@ -2002,7 +2009,8 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 					      &payload->our_last_funding,
 					      &payload->funding_feerate_per_kw,
 					      &payload->locktime,
-					      &payload->requested_lease_amt)) {
+					      &payload->requested_lease_amt,
+					      &payload->req_confirmed_ins_remote)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_GOT_RBF_OFFER: %s",
 				       tal_hex(msg, msg));
@@ -2027,8 +2035,6 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 	payload->peer_id = channel->peer->id;
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
 	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
-	payload->req_confirmed_ins_remote =
-		channel->req_confirmed_ins[REMOTE];
 
 	payload->psbt = NULL;
 
@@ -3243,6 +3249,25 @@ done:
 	tal_free(pv);
 }
 
+static void handle_update_require_confirmed(struct subd *dualopend,
+					    const u8 *msg)
+{
+	bool require_confirmed;
+	struct channel *channel = dualopend->channel;
+
+	if (!fromwire_dualopend_update_require_confirmed(msg, &require_confirmed)) {
+		channel_internal_error(dualopend->channel,
+				       "Bad DUALOPEND_UPDATE_REQUIRE_CONFIRMED: %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+	if (channel->req_confirmed_ins[REMOTE] != require_confirmed) {
+		channel->req_confirmed_ins[REMOTE] = require_confirmed;
+		wallet_channel_save(dualopend->ld->wallet, channel);
+	}
+}
+
 static void handle_validate_inputs(struct subd *dualopend,
 				   const u8 *msg)
 {
@@ -3631,6 +3656,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			return 0;
 		case WIRE_DUALOPEND_VALIDATE_INPUTS:
 			handle_validate_inputs(dualopend, msg);
+			return 0;
+		case WIRE_DUALOPEND_UPDATE_REQUIRE_CONFIRMED:
+			handle_update_require_confirmed(dualopend, msg);
 			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:

@@ -118,11 +118,16 @@ msgdata,dualopend_got_rbf_offer,our_last_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer,funding_feerate_per_kw,u32,
 msgdata,dualopend_got_rbf_offer,locktime,u32,
 msgdata,dualopend_got_rbf_offer,requested_lease,?amount_sat,
+msgdata,dualopend_got_rbf_offer,require_confirmed_inputs,bool,
 
 # master->dualopend: reply back with our funding info/contribs
 msgtype,dualopend_got_rbf_offer_reply,7505
 msgdata,dualopend_got_rbf_offer_reply,our_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer_reply,psbt,wally_psbt,
+
+# dualopend->master: update to require_confirmed_inputs preference
+msgtype,dualopend_update_require_confirmed,7511
+msgdata,dualopend_update_require_confirmed,require_confirmed_inputs,bool,
 
 # dualopend->master: is this a valid RBF candidate transaction?
 msgtype,dualopend_rbf_validate,7506

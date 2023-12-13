@@ -1,6 +1,6 @@
 --- wire/peer_wire.csv.raw	2023-09-11 13:32:30.677617251 +0930
 +++ wire/peer_wire.csv.openchannel2	2023-09-11 13:31:47.906308397 +0930
-@@ -37,6 +37,51 @@
+@@ -37,6 +37,53 @@
  tlvdata,n2,tlv1,amount_msat,tu64,
  tlvtype,n2,tlv2,11
  tlvdata,n2,tlv2,cltv_expiry,tu32,
@@ -40,11 +40,13 @@
 +msgdata,tx_init_rbf,tlvs,tx_init_rbf_tlvs,
 +tlvtype,tx_init_rbf_tlvs,funding_output_contribution,0
 +tlvdata,tx_init_rbf_tlvs,funding_output_contribution,satoshis,s64,
++tlvtype,tx_init_rbf_tlvs,require_confirmed_inputs,2
 +msgtype,tx_ack_rbf,73
 +msgdata,tx_ack_rbf,channel_id,channel_id,
 +msgdata,tx_ack_rbf,tlvs,tx_ack_rbf_tlvs,
 +tlvtype,tx_ack_rbf_tlvs,funding_output_contribution,0
 +tlvdata,tx_ack_rbf_tlvs,funding_output_contribution,satoshis,s64,
++tlvtype,tx_ack_rbf_tlvs,require_confirmed_inputs,2
 +msgtype,tx_abort,74
 +msgdata,tx_abort,channel_id,channel_id,
 +msgdata,tx_abort,len,u16,

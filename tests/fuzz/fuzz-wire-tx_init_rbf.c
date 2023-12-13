@@ -36,10 +36,14 @@ static bool equal(const struct tx_init_rbf *x, const struct tx_init_rbf *y)
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(x->tlvs->funding_output_contribution,
+	if (!memeq(x->tlvs->funding_output_contribution,
 		     tal_bytelen(x->tlvs->funding_output_contribution),
 		     y->tlvs->funding_output_contribution,
-		     tal_bytelen(y->tlvs->funding_output_contribution));
+		     tal_bytelen(y->tlvs->funding_output_contribution)))
+		return false;
+
+	return !!x->tlvs->require_confirmed_inputs ==
+	       !!y->tlvs->require_confirmed_inputs;
 }
 
 void run(const u8 *data, size_t size)
