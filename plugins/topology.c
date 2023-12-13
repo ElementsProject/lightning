@@ -515,7 +515,7 @@ static struct command_result *json_listnodes(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	gossmap = get_gossmap(false);
+	gossmap = get_gossmap(true);
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "nodes");
 	if (id) {
