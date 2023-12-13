@@ -1339,9 +1339,6 @@ int main(int argc, char *argv[])
 	pay_plugin = tal(NULL, struct pay_plugin);
 	pay_plugin->debug_mcf = pay_plugin->debug_payflow = false;
 
-	/* We are migrated, ready for public-only gossmap! */
-	gossmap_public_only = true;
-
 	plugin_main(
 		argv,
 		init,

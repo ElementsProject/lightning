@@ -1577,8 +1577,6 @@ static const struct plugin_hook hooks[] = {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	/* We are migrated, ready for public-only gossmap! */
-	gossmap_public_only = true;
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    /* No notifications */
