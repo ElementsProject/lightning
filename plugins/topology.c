@@ -345,6 +345,29 @@ static struct node_map *local_connected(const tal_t *ctx,
 	return connected;
 }
 
+/* Only add a local entry if it's unknown publicly */
+static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
+					  const struct node_id *self,
+					  const struct node_id *peer,
+					  const struct short_channel_id_dir *scidd,
+					  struct amount_msat min,
+					  struct amount_msat max,
+					  struct amount_msat fee_base,
+					  u32 fee_proportional,
+					  u32 cltv_delta,
+					  bool enabled,
+					  const char *buf UNUSED,
+					  const jsmntok_t *chantok UNUSED,
+					  struct gossmap *gossmap)
+{
+	if (gossmap_find_chan(gossmap, &scidd->scid))
+		return;
+
+	gossmod_add_localchan(mods, self, peer, scidd, min, max,
+			      fee_base, fee_proportional, cltv_delta, enabled,
+			      buf, chantok, gossmap);
+}
+
 /* FIXME: We don't need this listpeerchannels at all if not deprecated! */
 static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
@@ -355,11 +378,22 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct gossmap_chan *c;
 	struct json_stream *js;
 	struct gossmap *gossmap = get_gossmap();
+	struct gossmap_localmods *mods;
 
 	if (deprecated_apis)
 		connected = local_connected(opts, buf, result);
 	else
 		connected = NULL;
+
+	/* In deprecated mode, re-add private channels */
+	if (deprecated_apis) {
+		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+						      buf, result,
+						      gossmod_add_unknown_localchan,
+						      gossmap);
+		gossmap_apply_localmods(gossmap, mods);
+	} else
+		mods = NULL;
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
@@ -400,6 +434,9 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	}
 
 	json_array_end(js);
+
+	if (mods)
+		gossmap_remove_localmods(gossmap, mods);
 
 	return command_finished(cmd, js);
 }
