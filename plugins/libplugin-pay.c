@@ -2,6 +2,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpay.h>
+#include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
@@ -16,6 +17,7 @@
 #include <wire/peer_wire.h>
 
 static struct gossmap *global_gossmap;
+static bool got_gossmap;
 
 static void init_gossmap(struct plugin *plugin)
 {
@@ -33,13 +35,27 @@ static void init_gossmap(struct plugin *plugin)
 			   num_channel_updates_rejected);
 }
 
-struct gossmap *get_gossmap(struct plugin *plugin)
+static struct gossmap *get_gossmap(struct payment *payment)
 {
+	assert(!got_gossmap);
 	if (!global_gossmap)
-		init_gossmap(plugin);
+		init_gossmap(payment->plugin);
 	else
 		gossmap_refresh(global_gossmap, NULL);
+	got_gossmap = true;
 	return global_gossmap;
+}
+
+static void put_gossmap(struct payment *payment)
+{
+	assert(got_gossmap);
+	got_gossmap = false;
+}
+
+int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	assert(!got_gossmap);
+	return daemon_poll(fds, nfds, timeout);
 }
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
@@ -832,10 +848,11 @@ static struct command_result *payment_getroute(struct payment *p)
 	 * free an eventual stale route. */
 	p->route = tal_free(p->route);
 
-	gossmap = get_gossmap(p->plugin);
+	gossmap = get_gossmap(p);
 
 	dst = gossmap_find_node(gossmap, p->getroute->destination);
 	if (!dst) {
+		put_gossmap(p);
 		payment_fail(
 			p, "Unknown destination %s",
 			type_to_string(tmpctx, struct node_id,
@@ -848,6 +865,7 @@ static struct command_result *payment_getroute(struct payment *p)
 	/* If we don't exist in gossip, routing can't happen. */
 	src = gossmap_find_node(gossmap, p->local_id);
 	if (!src) {
+		put_gossmap(p);
 		payment_fail(p, "We don't have any channels");
 
 		/* Let payment_finished_ handle this, so we mark it as pending */
@@ -857,6 +875,8 @@ static struct command_result *payment_getroute(struct payment *p)
 	p->route = route(p, gossmap, src, dst, p->getroute->amount, p->getroute->cltv,
 			 p->getroute->riskfactorppm / 1000000.0, p->getroute->max_hops,
 			 p, &errstr);
+	put_gossmap(p);
+
 	if (!p->route) {
 		payment_fail(p, "%s", errstr);
 		/* Let payment_finished_ handle this, so we mark it as pending */
@@ -2751,7 +2771,7 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 static void routehint_check_reachable(struct payment *p)
 {
 	const struct gossmap_node *dst, *src;
-	struct gossmap *gossmap = get_gossmap(p->plugin);
+	struct gossmap *gossmap = get_gossmap(p);
 	const struct dijkstra *dij;
 	struct route_hop *r;
 	struct payment *root = payment_root(p);
@@ -2811,6 +2831,7 @@ static void routehint_check_reachable(struct payment *p)
 	}
 
 	routehint_pre_getroute(d, p);
+	put_gossmap(p);
 
 	paymod_log(p, LOG_DBG,
 		   "The destination is%s directly reachable %s attempts "
@@ -2835,7 +2856,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		 * beginning, and every other payment will filter out the
 		 * exluded ones on the fly. */
 		if (p->parent == NULL) {
-			map = get_gossmap(p->plugin);
+			map = get_gossmap(p);
 			d->routehints = filter_routehints(
 			    map, p, d, p->local_id, p->routes);
 			/* filter_routehints modifies the array, but
@@ -2858,6 +2879,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			 * in paymod, paymod should use (and mutate) the
 			 * p->routes array, and
 			 */
+			put_gossmap(p);
 			p->routes = d->routehints;
 
 			paymod_log(p, LOG_DBG,

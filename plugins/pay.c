@@ -1307,4 +1307,5 @@ int main(int argc, char *argv[])
 				  "Disable multi-part payments.",
 				  flag_option, &disablempp),
 		    NULL);
+	io_poll_override(libplugin_pay_poll);
 }
