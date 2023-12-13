@@ -39,12 +39,13 @@ void uncertainty_network_channel_can_send(
 
 /* listpeerchannels gives us the certainty on local channels' capacity.  Of course,
  * this is racy and transient, but better than nothing! */
-bool uncertainty_network_update_from_listpeerchannels(
-		struct chan_extra_map * chan_extra_map,
-		struct node_id my_id,
-		struct payment *payment,
-		const char *buf,
-		const jsmntok_t *toks);
+void uncertainty_network_update_from_listpeerchannels(struct payment *p,
+						      const struct short_channel_id_dir *scidd,
+						      struct amount_msat max,
+						      bool enabled,
+						      const char *buf,
+						      const jsmntok_t *chantok,
+						      struct chan_extra_map *chan_extra_map);
 
 /* Forget ALL channels information by a fraction of the capacity. */
 void uncertainty_network_relax_fraction(

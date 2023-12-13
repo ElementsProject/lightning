@@ -76,7 +76,7 @@ struct payment *payment_new(const tal_t *ctx,
 	p->use_shadow = use_shadow;
 	p->groupid=1;
 
- 	p->local_gossmods = gossmap_localmods_new(p);
+ 	p->local_gossmods = NULL;
 	p->disabled_scids = tal_arr(p,struct short_channel_id,0);
 	p->next_partid=1;
 	p->progress_deadline = NULL;

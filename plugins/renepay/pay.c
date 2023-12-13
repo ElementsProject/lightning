@@ -6,6 +6,7 @@
 #include <common/bolt11.h>
 #include <common/bolt12_merkle.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -469,6 +470,30 @@ static void destroy_cmd_payment_ptr(struct command *cmd,
 	payment->cmd = NULL;
 }
 
+static void gossmod_cb(struct gossmap_localmods *mods,
+		       const struct node_id *self,
+		       const struct node_id *peer,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat min,
+		       struct amount_msat max,
+		       struct amount_msat fee_base,
+		       u32 fee_proportional,
+		       u32 cltv_delta,
+		       bool enabled,
+		       const char *buf,
+		       const jsmntok_t *chantok,
+		       struct payment *payment)
+{
+	/* Add to gossmap like normal */
+	gossmod_add_localchan(mods, self, peer, scidd, min, max,
+			      fee_base, fee_proportional, cltv_delta, enabled, buf, chantok, NULL);
+
+	/* Also update uncertainty map */
+	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,
+							 buf, chantok,
+							 pay_plugin->chan_extra_map);
+}
+
 static struct command_result *listpeerchannels_done(
 		struct command *cmd,
 		const char *buf,
@@ -479,16 +504,10 @@ static struct command_result *listpeerchannels_done(
 	const char *errmsg;
 	enum jsonrpc_errcode ecode;
 
-	if (!uncertainty_network_update_from_listpeerchannels(
-			pay_plugin->chan_extra_map,
-			pay_plugin->my_id,
-			payment,
-			buf,
-			result))
-		return command_fail(cmd, LIGHTNINGD,
-				    "listpeerchannels malformed: %.*s",
-				    json_tok_full_len(result),
-				    json_tok_full(buf, result));
+	payment->local_gossmods = gossmods_from_listpeerchannels(payment, &pay_plugin->my_id,
+								 buf, result,
+								 gossmod_cb, payment);
+
 	// TODO(eduardo): check that there won't be a prob. cost associated with
 	// any gossmap local chan. The same way there aren't fees to pay for my
 	// local channels.
@@ -1319,6 +1338,9 @@ int main(int argc, char *argv[])
 	/* Most gets initialized in init(), but set debug options here. */
 	pay_plugin = tal(NULL, struct pay_plugin);
 	pay_plugin->debug_mcf = pay_plugin->debug_payflow = false;
+
+	/* We are migrated, ready for public-only gossmap! */
+	gossmap_public_only = true;
 
 	plugin_main(
 		argv,

@@ -1,5 +1,6 @@
 #include "config.h"
 #include <common/bolt11.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/uncertainty_network.h>
 
@@ -216,129 +217,44 @@ void uncertainty_network_channel_can_send(
 	}
 }
 
-/* listpeerchannels gives us the certainty on local channels' capacity.  Of course,
- * this is racy and transient, but better than nothing! */
-bool uncertainty_network_update_from_listpeerchannels(
-		struct chan_extra_map * chan_extra_map,
-		struct node_id my_id,
-		struct payment *p,
-		const char *buf,
-		const jsmntok_t *toks)
+void uncertainty_network_update_from_listpeerchannels(struct payment *p,
+						      const struct short_channel_id_dir *scidd,
+						      struct amount_msat max,
+						      bool enabled,
+						      const char *buf,
+						      const jsmntok_t *chantok,
+						      struct chan_extra_map *chan_extra_map)
 {
-	const jsmntok_t *channels, *channel;
-	size_t i;
+	struct chan_extra *ce;
 
-	if (json_get_member(buf, toks, "error"))
-		goto malformed;
-
-	channels = json_get_member(buf, toks, "channels");
-	if (!channels)
-		goto malformed;
-
-	json_for_each_arr(i, channel, channels) {
-		struct short_channel_id_dir scidd;
-		const jsmntok_t *scidtok = json_get_member(buf, channel, "short_channel_id");
-		/* If channel is still opening, this won't be there.
-		 * Also it won't be in the gossmap, so there is
-		 * no need to mark it as disabled. */
-		if (!scidtok)
-			continue;
-		if (!json_to_short_channel_id(buf, scidtok, &scidd.scid))
-			goto malformed;
-
-		bool connected;
-		if(!json_to_bool(buf,
-				 json_get_member(buf,channel,"peer_connected"),
-				 &connected))
-			goto malformed;
-
-		if (!connected) {
-			payment_disable_chan(p, scidd.scid, LOG_DBG,
-					     "peer disconnected");
-			continue;
-		}
-
-		const jsmntok_t *spendabletok, *dirtok,*statetok, *totaltok,
-			*peeridtok;
-		struct amount_msat spendable,capacity;
-
-		const struct node_id src=my_id;
-		struct node_id dst;
-
-		spendabletok = json_get_member(buf, channel, "spendable_msat");
-		dirtok = json_get_member(buf, channel, "direction");
-		statetok = json_get_member(buf, channel, "state");
-		totaltok = json_get_member(buf, channel, "total_msat");
-		peeridtok = json_get_member(buf,channel,"peer_id");
-
-		if(spendabletok==NULL || dirtok==NULL || statetok==NULL ||
-		   totaltok==NULL || peeridtok==NULL)
-			goto malformed;
-		if (!json_to_msat(buf, spendabletok, &spendable))
-			goto malformed;
-		if (!json_to_msat(buf, totaltok, &capacity))
-			goto malformed;
-		if (!json_to_int(buf, dirtok, &scidd.dir))
-			goto malformed;
-		if(!json_to_node_id(buf,peeridtok,&dst))
-			goto malformed;
-
-		/* Don't report opening/closing channels */
-		if (!json_tok_streq(buf, statetok, "CHANNELD_NORMAL")
-		    && !json_tok_streq(buf, statetok, "CHANNELD_AWAITING_SPLICE")) {
-			payment_disable_chan(p, scidd.scid, LOG_DBG,
-					     "channel in state %.*s",
-					     statetok->end - statetok->start,
-					     buf + statetok->start);
-			continue;
-		}
-
-		struct chan_extra *ce = chan_extra_map_get(chan_extra_map,
-							   scidd.scid);
-
-		if(!ce)
-		{
-			/* this channel is not public, but it belongs to us */
-			ce = new_chan_extra(chan_extra_map,
-					    scidd.scid,
-					    capacity);
-			/* FIXME: features? */
-			gossmap_local_addchan(p->local_gossmods,
-					      &src, &dst, &scidd.scid, NULL);
-		}
-		gossmap_local_updatechan(p->local_gossmods,
-					 &scidd.scid,
-
-					 /* TODO(eduardo): does it
-					  * matter to consider HTLC
-					  * limits in our own channel? */
-					 AMOUNT_MSAT(0),capacity,
-
-					 /* fees = */0,0,
-
-					 /* TODO(eduardo): does it
-					  * matter to set this delay? */
-					 /*delay=*/0,
-					 true,
-					 scidd.dir);
-
-		/* FIXME: There is a bug with us trying to send more down a local
-		 * channel (after fees) than it has capacity.  For now, we reduce
-		 * our capacity by 1% of total, to give fee headroom. */
-		if (!amount_msat_sub(&spendable, spendable,
-				     amount_msat_div(p->amount, 100)))
-			spendable = AMOUNT_MSAT(0);
-
-		// TODO(eduardo): this includes pending HTLC of previous
-		// payments!
-		/* We know min and max liquidity exactly now! */
-		chan_extra_set_liquidity(chan_extra_map,
-					 &scidd,spendable);
+	if (!enabled) {
+		payment_disable_chan(p, scidd->scid, LOG_DBG,
+				     "listpeerchannelks says not enabled");
+		return;
 	}
-	return true;
 
-malformed:
-	return false;
+	ce = chan_extra_map_get(chan_extra_map, scidd->scid);
+	if (!ce) {
+		const jsmntok_t *totaltok;
+		struct amount_msat capacity;
+
+		/* this channel is not public, but it belongs to us */
+		totaltok = json_get_member(buf, chantok, "total_msat");
+		json_to_msat(buf, totaltok, &capacity);
+
+		ce = new_chan_extra(chan_extra_map, scidd->scid, capacity);
+	}
+
+	/* FIXME: There is a bug with us trying to send more down a local
+	 * channel (after fees) than it has capacity.  For now, we reduce
+	 * our capacity by 1% of total, to give fee headroom. */
+	if (!amount_msat_sub(&max, max, amount_msat_div(p->amount, 100)))
+		max = AMOUNT_MSAT(0);
+
+	// TODO(eduardo): this includes pending HTLC of previous
+	// payments!
+	/* We know min and max liquidity exactly now! */
+	chan_extra_set_liquidity(chan_extra_map, scidd, max);
 }
 
 /* Forget ALL channels information by a fraction of the capacity. */
