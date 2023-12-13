@@ -205,6 +205,30 @@ static void set_channel_remote_update(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
+/* One of the few places where we look up by *remote* id.  It's not unique,
+ * but it is unique for a specific peer. */
+static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
+						   const struct node_id *source,
+						   struct short_channel_id scid)
+{
+	const struct peer *p;
+	struct channel *chan;
+
+	if (!source)
+		return NULL;
+
+	p = peer_by_id(ld, source);
+	if (!p)
+		return NULL;
+
+	list_for_each(&p->channels, chan, list) {
+		if (chan->alias[REMOTE]
+		    && short_channel_id_eq(&scid, chan->alias[REMOTE]))
+			return chan;
+	}
+	return NULL;
+}
+
 static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 {
 	struct channel *channel;
@@ -216,8 +240,10 @@ static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 		fatal("Gossip gave bad GOSSIPD_REMOTE_CHANNEL_UPDATE %s",
 		      tal_hex(msg, msg));
 	channel = any_channel_by_scid(ld, &update->scid, true);
+	if (!channel)
+		channel = lookup_by_peer_remote_alias(ld, source, update->scid);
 	if (!channel) {
-		log_unusual(ld->log, "Bad gossip: could not find channel %s for peer's "
+		log_unusual(ld->log, "Bad gossip order: could not find channel %s for peer's "
 			    "channel update",
 			    short_channel_id_to_str(tmpctx, &update->scid));
 		return;
