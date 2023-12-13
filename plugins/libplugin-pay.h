@@ -237,6 +237,9 @@ struct payment {
 
 	struct short_channel_id *exclusions;
 
+	/* Local modifications, from listpeerchannels */
+	struct gossmap_localmods *mods;
+
 	/* Tree structure of payments and subpayments. */
 	struct payment *parent, **children;
 

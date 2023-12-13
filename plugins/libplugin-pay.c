@@ -5,6 +5,7 @@
 #include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
@@ -43,13 +44,17 @@ static struct gossmap *get_gossmap(struct payment *payment)
 	else
 		gossmap_refresh(global_gossmap, NULL);
 	got_gossmap = true;
+	assert(payment->mods);
+	gossmap_apply_localmods(global_gossmap, payment->mods);
 	return global_gossmap;
 }
+
 
 static void put_gossmap(struct payment *payment)
 {
 	assert(got_gossmap);
 	got_gossmap = false;
+	gossmap_remove_localmods(global_gossmap, payment->mods);
 }
 
 int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout)
@@ -112,6 +117,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->groupid = parent->groupid;
 		p->invstring = parent->invstring;
 		p->description = parent->description;
+		p->mods = parent->mods;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -125,6 +131,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->local_id = NULL;
 		p->local_invreq_id = NULL;
 		p->groupid = 0;
+		p->mods = NULL;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -331,6 +338,7 @@ void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 	json_add_u32(req->js, "blockheight", 0);
 	send_outreq(p->plugin, req);
 }
+
 void payment_start(struct payment *p)
 {
 	payment_start_at_blockheight(p, INVALID_BLOCKHEIGHT);
@@ -928,6 +936,33 @@ static struct command_result *payment_getroute(struct payment *p)
 	 * onion_payloads */
 	payment_continue(p);
 	return command_still_pending(p->cmd);
+}
+
+static struct command_result *
+payment_listpeerchannels_success(struct command *cmd,
+				 const char *buffer,
+				 const jsmntok_t *toks,
+				 struct payment *p)
+{
+	p->mods = gossmods_from_listpeerchannels(p, p->local_id,
+						 buffer, toks,
+						 gossmod_add_localchan,
+						 NULL);
+	return payment_getroute(p);
+}
+
+static struct command_result *payment_getlocalmods(struct payment *p)
+{
+	struct out_req *req;
+
+	/* Don't call listpeerchannels if we already have mods */
+	if (p->mods)
+		return payment_getroute(p);
+
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+				    &payment_listpeerchannels_success,
+				    &payment_rpc_failure, p);
+	return send_outreq(p->plugin, req);
 }
 
 static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
@@ -2168,7 +2203,7 @@ void payment_continue(struct payment *p)
 		switch (p->step) {
 		case PAYMENT_STEP_INITIALIZED:
 		case PAYMENT_STEP_RETRY_GETROUTE:
-			payment_getroute(p);
+			payment_getlocalmods(p);
 			return;
 
 		case PAYMENT_STEP_GOT_ROUTE:
@@ -2827,6 +2862,7 @@ static void routehint_check_reachable(struct payment *p)
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
 		    type_to_string(tmpctx, struct node_id, p->destination));
+		put_gossmap(p);
 		return;
 	}
 
@@ -3309,6 +3345,9 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 	for (size_t i=0; i<tal_count(channels); i++) {
 		struct listpeers_channel *chan = channels[i];
 
+		if (!node_id_eq(&chan->id, p->destination))
+			continue;
+
 		if (!chan->connected)
 			continue;
 
@@ -3329,6 +3368,13 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 		d->chan->dir = chan->direction;
 	}
 
+	/* We may still need local mods! */
+	if (!p->mods)
+		p->mods = gossmods_from_listpeerchannels(p, p->local_id,
+							 buffer, toks,
+							 gossmod_add_localchan,
+							 NULL);
+
 	direct_pay_override(p);
 	return command_still_pending(cmd);
 
@@ -3348,7 +3394,6 @@ static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 				    direct_pay_listpeerchannels,
 				    direct_pay_listpeerchannels,
 				    p);
-	json_add_node_id(req->js, "id", p->destination);
 	send_outreq(p->plugin, req);
 }
 
