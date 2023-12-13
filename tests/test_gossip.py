@@ -6,7 +6,8 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
-    mine_funding_to_announce, default_ln_port, CHANNEL_SIZE
+    mine_funding_to_announce, default_ln_port, CHANNEL_SIZE,
+    first_scid,
 )
 
 import json
@@ -2334,3 +2335,36 @@ def test_read_spam_nannounce(node_factory, bitcoind):
     l1.daemon.wait_for_log('Received node_announcement')
     l1.restart()
     assert not l1.daemon.is_in_log('BROKEN')
+
+
+def test_listchannels_deprecated_local(node_factory, bitcoind):
+    """Test listchannels shows local/private channels only in deprecated mode"""
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{}, {'allow-deprecated-apis': True}, {}])
+    # This will be in block 103
+    node_factory.join_nodes([l1, l2], wait_for_announce=False)
+    l1l2 = first_scid(l1, l2)
+    # This will be in block 104
+    node_factory.join_nodes([l2, l3], wait_for_announce=False)
+    l2l3 = first_scid(l2, l3)
+
+    # Non-deprecated nodes say no.
+    assert l1.rpc.listchannels() == {'channels': []}
+    assert l3.rpc.listchannels() == {'channels': []}
+    # Deprecated API lists both sides of local channels:
+
+    vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
+    # Either order
+    assert vals == [(True, False, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, False, l1l2)] * 2
+
+    # Mine l1-l2 channel so it's public.
+    bitcoind.generate_block(4)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    # l2 shows public one correctly, and private one correctly
+    # Either order
+    vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
+    assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2

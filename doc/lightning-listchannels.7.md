@@ -44,7 +44,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **amount\_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
 - **message\_flags** (u8): as defined by BOLT #7
 - **channel\_flags** (u8): as defined by BOLT #7
-- **active** (boolean): true unless source has disabled it, or it's a local channel and the peer is disconnected or it's still opening or closing
+- **active** (boolean): true unless source has disabled it (or (deprecated in *v24.02*) it's a local channel and the peer is disconnected or it's still opening or closing)
 - **last\_update** (u32): UNIX timestamp on the last channel\_update from *source*
 - **base\_fee\_millisatoshi** (u32): Base fee changed by *source* to use this channel
 - **fee\_per\_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
@@ -83,4 +83,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:5e729a362943aa9481cc12e410c1f507020983251871fbac497dbb8679ca36ca)
+[comment]: # ( SHA256STAMP:c32fcbcb0d0ba926513978a96e6b68ee9e3d7f732b5a9cc167aa77cdd33d717f)
