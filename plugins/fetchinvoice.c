@@ -10,6 +10,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -452,6 +453,8 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 
 static struct pubkey *path_to_node(const tal_t *ctx,
 				   struct plugin *plugin,
+				   const char *buf,
+				   const jsmntok_t *listpeerchannels,
 				   const struct pubkey *node_id)
 {
 	struct route_hop *r;
@@ -460,25 +463,32 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 	const struct gossmap_node *dst;
 	struct node_id dstid, local_nodeid;
 	struct pubkey *nodes;
-	struct gossmap *gossmap = get_gossmap(plugin);
+	struct gossmap *gossmap;
+	struct gossmap_localmods *mods;
 
+	node_id_from_pubkey(&local_nodeid, &local_id);
 	node_id_from_pubkey(&dstid, node_id);
+
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_nodeid, buf, listpeerchannels,
+					      gossmod_add_localchan, NULL);
+
+	gossmap = get_gossmap(plugin);
+	gossmap_apply_localmods(gossmap, mods);
 	dst = gossmap_find_node(gossmap, &dstid);
 	if (!dst)
-		return NULL;
+		goto fail;
 
 	/* If we don't exist in gossip, routing can't happen. */
-	node_id_from_pubkey(&local_nodeid, &local_id);
 	src = gossmap_find_node(gossmap, &local_nodeid);
 	if (!src)
-		return NULL;
+		goto fail;
 
 	dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
 		       can_carry_onionmsg, route_score_shorter, NULL);
 
 	r = route_from_dijkstra(tmpctx, gossmap, dij, src, AMOUNT_MSAT(0), 0);
 	if (!r)
-		return NULL;
+		goto fail;
 
 	nodes = tal_arr(ctx, struct pubkey, tal_count(r) + 1);
 	nodes[0] = local_id;
@@ -489,7 +499,13 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 						  &r[i].node_id));
 		}
 	}
+
+	gossmap_remove_localmods(gossmap, mods);
 	return nodes;
+
+fail:
+	gossmap_remove_localmods(gossmap, mods);
+	return NULL;
 }
 
 /* Marshal arguments for sending onion messages */
@@ -760,6 +776,20 @@ connect_direct(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *fetchinvoice_listpeerchannels_done(struct command *cmd,
+								 const char *buf,
+								 const jsmntok_t *result,
+								 struct sent *sent)
+{
+	sent->path = path_to_node(sent, cmd->plugin, buf, result,
+				  sent->invreq->offer_node_id);
+	if (!sent->path)
+		return connect_direct(cmd, sent->invreq->offer_node_id,
+				      sendinvreq_after_connect, sent);
+
+	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+}
+
 static struct command_result *invreq_done(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *result,
@@ -767,6 +797,7 @@ static struct command_result *invreq_done(struct command *cmd,
 {
 	const jsmntok_t *t;
 	char *fail;
+	struct out_req *req;
 
 	/* Get invoice request */
 	t = json_get_member(buf, result, "bolt12");
@@ -859,13 +890,11 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 	}
 
-	sent->path = path_to_node(sent, cmd->plugin,
-				  sent->invreq->offer_node_id);
-	if (!sent->path)
-		return connect_direct(cmd, sent->invreq->offer_node_id,
-				      sendinvreq_after_connect, sent);
-
-	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    fetchinvoice_listpeerchannels_done,
+				    &forward_error,
+				    sent);
+	return send_outreq(cmd->plugin, req);
 }
 
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
@@ -1124,12 +1153,28 @@ sendinvoice_after_connect(struct command *cmd,
 	return send_message(cmd, sent, payload, prepare_inv_timeout);
 }
 
+static struct command_result *sendinvoice_listpeerchannels_done(struct command *cmd,
+								const char *buf,
+								const jsmntok_t *result,
+								struct sent *sent)
+{
+
+	sent->path = path_to_node(sent, cmd->plugin, buf, result,
+				  sent->invreq->invreq_payer_id);
+	if (!sent->path)
+		return connect_direct(cmd, sent->invreq->invreq_payer_id,
+				      sendinvoice_after_connect, sent);
+
+	return sendinvoice_after_connect(cmd, NULL, NULL, sent);
+}
+
 static struct command_result *createinvoice_done(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *result,
 						 struct sent *sent)
 {
 	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
+	struct out_req *req;
 	char *fail;
 
 	/* Replace invoice with signed one */
@@ -1161,13 +1206,11 @@ static struct command_result *createinvoice_done(struct command *cmd,
 				    "FIXME: support blinded paths!");
 	}
 
-	sent->path = path_to_node(sent, cmd->plugin,
-				  sent->invreq->invreq_payer_id);
-	if (!sent->path)
-		return connect_direct(cmd, sent->invreq->invreq_payer_id,
-				      sendinvoice_after_connect, sent);
-
-	return sendinvoice_after_connect(cmd, NULL, NULL, sent);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    sendinvoice_listpeerchannels_done,
+				    &forward_error,
+				    sent);
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *sign_invoice(struct command *cmd,
@@ -1429,6 +1472,23 @@ static struct command_result *param_raw_invreq(struct command *cmd,
 	return NULL;
 }
 
+static struct command_result *rawrequest_listpeerchannels_done(struct command *cmd,
+							       const char *buf,
+							       const jsmntok_t *result,
+							       struct sent *sent)
+{
+	struct pubkey node_id;
+	/* Hack to store node_id from cmd */
+	node_id = *sent->path;
+	sent->path = path_to_node(sent, cmd->plugin, buf, result, &node_id);
+	if (!sent->path) {
+		return connect_direct(cmd, &node_id,
+				      sendinvreq_after_connect, sent);
+	}
+
+	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+}
+
 static struct command_result *json_dev_rawrequest(struct command *cmd,
 						  const char *buffer,
 						  const jsmntok_t *params)
@@ -1436,6 +1496,7 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 	struct sent *sent = tal(cmd, struct sent);
 	u32 *timeout;
 	struct pubkey *node_id;
+	struct out_req *req;
 
 	if (!param(cmd, buffer, params,
 		   p_req("invreq", param_raw_invreq, &sent->invreq),
@@ -1449,13 +1510,13 @@ static struct command_result *json_dev_rawrequest(struct command *cmd,
 	sent->cmd = cmd;
 	sent->offer = NULL;
 
-	sent->path = path_to_node(sent, cmd->plugin, node_id);
-	if (!sent->path) {
-		return connect_direct(cmd, node_id,
-				      sendinvreq_after_connect, sent);
-	}
-
-	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+	/* We temporarily abuse ->path to store nodeid! */
+	sent->path = node_id;
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    rawrequest_listpeerchannels_done,
+				    &forward_error,
+				    sent);
+	return send_outreq(cmd->plugin, req);
 }
 
 static const struct plugin_command commands[] = {
@@ -1516,6 +1577,8 @@ static const struct plugin_hook hooks[] = {
 int main(int argc, char *argv[])
 {
 	setup_locale();
+	/* We are migrated, ready for public-only gossmap! */
+	gossmap_public_only = true;
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    /* No notifications */
