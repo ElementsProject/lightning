@@ -47,6 +47,9 @@ struct payment {
 	/* invstring (bolt11 or bolt12) */
 	const char *invstr;
 
+	/* Extracted routehints */
+	const struct route_info **routes;
+
 	/* How much, what, where */
 	struct amount_msat amount;
 	struct node_id destination;
@@ -123,6 +126,7 @@ struct payment *payment_new(const tal_t *ctx,
 			    const struct sha256 *local_offer_id TAKES,
 			    const struct secret *payment_secret TAKES,
 			    const u8 *payment_metadata TAKES,
+			    const struct route_info **routes TAKES,
 			    const struct node_id *destination,
 			    const struct sha256 *payment_hash,
 			    struct amount_msat amount,
