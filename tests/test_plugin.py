@@ -4229,6 +4229,17 @@ def test_all_subscription(node_factory, directory):
     assert not l2.daemon.is_in_log(f'.*test_libplugin: all: connect.*')
 
 
+def test_dynamic_option_python_plugin(node_factory):
+    plugin = os.path.join(os.getcwd(), "tests/plugins/dynamic_option.py")
+    ln = node_factory.get_node(options={"plugin": plugin})
+    result = ln.rpc.listconfigs("test-dynamic-config")
+
+    assert result["configs"]["test-dynamic-config"]["value_str"] == "initial"
+
+    result = ln.rpc.setconfig("test-dynamic-config", "changed")
+    assert result["config"]["value_str"] == "changed"
+
+
 def test_renepay_not_important(node_factory):
     # I mean, it's *important*, it's just not "mission-critical" just yet!
     l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
