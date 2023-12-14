@@ -74,7 +74,7 @@ jobs:
         cd ${{ env.WORKDIR}}
         python3 -m pip config set global.timeout 150
         poetry config repositories.testpypi https://test.pypi.org/legacy/
-        poetry publish --repository testpypi --no-interaction
+        poetry publish --repository testpypi --no-interaction --skip-existing
 
     - name: Publish distribution 📦 to PyPI
       if: startsWith(github.ref, 'refs/tags') && github.repository == 'ElementsProject/lightning'
