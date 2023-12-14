@@ -483,8 +483,6 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     _check_events(l2, channel_id, exp_events)
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
 @pytest.mark.openchannel('v1')
 def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
@@ -562,8 +560,6 @@ def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
     assert bkpr_total_fee_btc == getblock_fee_btc
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
 @pytest.mark.openchannel('v2')
 def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):

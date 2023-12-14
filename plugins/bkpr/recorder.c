@@ -342,7 +342,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 				     ", CAST(SUM(debit) AS BIGINT) as debit"
 				     " FROM onchain_fees"
 				     " WHERE account_id = ?"
-				     " GROUP BY txid, update_count"
+				     " GROUP BY txid"
 				     " ORDER BY txid, update_count"));
 
 	db_bind_u64(stmt, acct->db_id);
