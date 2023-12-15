@@ -105,4 +105,10 @@ common/test/run-version:				\
 	wire/towire.o
 
 
+common/test/run-trace:					\
+	common/amount.o                                 \
+	common/memleak.o				\
+	common/trace.o					\
+	wire/fromwire.o					\
+	wire/towire.o
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
