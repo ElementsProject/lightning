@@ -1,5 +1,5 @@
 ---
-title: "Wallet Recovery"
+title: "Wallet recovery"
 slug: "recovery"
 excerpt: "Learn about various recovery methods."
 hidden: false
