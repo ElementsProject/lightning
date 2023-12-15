@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "psbt"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description": "id is the node id of the remote peer."
+    },
+    "psbt": {
+      "type": "string",
+      "description": "the transaction to use for funding (does not need to be signed but must be otherwise complete)"
+    }
+  }
+}

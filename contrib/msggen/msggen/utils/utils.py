@@ -1,15 +1,36 @@
+import os
+import errno
 import json
 from pathlib import Path
 
 from msggen.model import Method, CompositeField, Service
 
 
+def find_schema_path(base_path: Path, method_name: str, ext: str) -> Path:
+    expected_file_name = f"{method_name.lower()}.{ext}.json"
+
+    if os.path.exists(base_path / expected_file_name):
+        return base_path / expected_file_name
+
+    # I some cases the rpc-method contains an underscore but
+    # the name should not.
+    # E.g: name="FundChannelRequest" but rpc-method is "fundchannel_request"
+    for actual_file_name in os.listdir(base_path):
+        if actual_file_name.replace('_', "") == expected_file_name:
+            return base_path / actual_file_name
+
+    raise FileNotFoundError(
+        errno.ENOENT, os.strerror(errno.ENOENT), expected_file_name)
+
+
 def load_jsonrpc_method(name, schema_dir: Path):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
     base_path = schema_dir
-    req_file = base_path / f"{name.lower()}.request.json"
-    resp_file = base_path / f"{name.lower()}.schema.json"
+
+    req_file = find_schema_path(base_path, name, "request")
+    resp_file = find_schema_path(base_path, name, "schema")
+
     request = CompositeField.from_js(json.load(open(req_file)), path=name)
     response = CompositeField.from_js(json.load(open(resp_file)), path=name)
 
@@ -74,10 +95,10 @@ def load_jsonrpc_service(schema_dir: str):
         "Disconnect",
         "Feerates",
         "FetchInvoice",
-        # "fundchannel_cancel",
-        # "fundchannel_complete",
+        "FundChannelStart",
+        "FundChannelComplete",
         "FundChannel",
-        # "fundchannel_start",
+        "FundChannelCancel",
         # "funderupdate",
         # "getlog",
         "GetRoute",
