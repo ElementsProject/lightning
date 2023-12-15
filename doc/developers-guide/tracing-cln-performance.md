@@ -81,3 +81,36 @@ Attaching 1 probe...
 
 
 Notice that due to a [limitation](https://github.com/iovisor/bpftrace/issues/305) in `bpftrace` you'll at most get the first 200 bytes of the payload. If you write your own exporter you'll be able to specify the size of the buffer that is being used, and can extract the entire span.
+
+## Tracing Overhead
+
+While we try to make tracing as lightweight as possible it isn't
+free. To quantify how much time is spent actually maintaining the
+tracing context we built a small test in `common/test/run-trace` which
+creates a sequence of 25'000 traces, with a total of 1'000'000 spans,
+without any additional operations.
+
+The following run with [hyperfine][hf] shows the runtime for that test
+without an exporter attached:
+
+
+```bash
+
+$ hyperfine common/test/run-trace
+Benchmark 1: common/test/run-trace
+  Time (mean ± σ):     368.4 ms ±   4.8 ms    [User: 142.7 ms, System: 225.1 ms]
+  Range (min … max):   358.3 ms … 377.2 ms    10 runs
+```
+
+While the following is the same run, but with an exporter attached:
+
+```bash
+$ ❯ hyperfine common/test/run-trace
+Benchmark 1: common/test/run-trace
+  Time (mean ± σ):     561.5 ms ±  14.1 ms    [User: 164.5 ms, System: 396.5 ms]
+  Range (min … max):   546.5 ms … 598.9 ms    10 runs
+```
+
+So depending on whether an exporter is attached, creating and emitting
+span without and with an exporter takes around 370ns and 560ns
+respectively.
