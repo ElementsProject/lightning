@@ -1,7 +1,7 @@
 ---
-title: "Backup and recovery"
-slug: "backup-and-recovery"
-excerpt: "Learn the various backup and recovery options available for your Core Lightning node."
+title: "Backup your wallet"
+slug: "backup"
+excerpt: "Learn the various backup options available for your Core Lightning node."
 hidden: false
 createdAt: "2022-11-18T16:28:17.292Z"
 updatedAt: "2023-04-22T12:51:49.775Z"
