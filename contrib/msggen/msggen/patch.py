@@ -61,8 +61,8 @@ class VersionAnnotationPatch(Patch):
         # mark. These are stored in `.msggen.json` only, and we use
         # the default value only on the first run. Code left commented
         # to show how it was done
-        if f.added is None and 'added' not in m:
-            m['added'] = 'v24.02'
+        # if f.added is None and 'added' not in m:
+        #    m['added'] = 'pre-v0.10.1'
 
         added = m.get('added', None)
         deprecated = m.get('deprecated', None)
