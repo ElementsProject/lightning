@@ -195,6 +195,13 @@ void trace_span_resume(const void *key)
 	current = trace_span_find(numkey);
 	DTRACE_PROBE1(lightningd, span_resume, current->id);
 }
+
+void trace_cleanup(void)
+{
+	free(active_spans);
+	active_spans = NULL;
+}
+
 #else /* HAVE_USDT */
 
 void trace_span_start(const char *name, const void *key) {}
@@ -202,5 +209,6 @@ void trace_span_end(const void *key) {}
 void trace_span_suspend(const void *key) {}
 void trace_span_resume(const void *key) {}
 void trace_span_tag(const void *key, const char *name, const char *value) {}
+void trace_cleanup(void) {}
 
 #endif /* HAVE_USDT */
