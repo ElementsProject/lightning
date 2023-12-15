@@ -53,7 +53,10 @@ service Node {
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
+	rpc FundChannelStart(FundchannelstartRequest) returns (FundchannelstartResponse) {}
+	rpc FundChannelComplete(FundchannelcompleteRequest) returns (FundchannelcompleteResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
+	rpc FundChannelCancel(FundchannelcancelRequest) returns (FundchannelcancelResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
@@ -1623,6 +1626,33 @@ message FetchinvoiceNext_period {
 	uint64 paywindow_end = 5;
 }
 
+message FundchannelstartRequest {
+	optional bytes id = 1;
+	optional AmountOrAll amount = 2;
+	optional Feerate feerate = 3;
+	optional bool announce = 4;
+	optional string close_to = 5;
+	optional Amount push_msat = 6;
+}
+
+message FundchannelstartResponse {
+	optional string funding_address = 1;
+	optional bytes scriptpubkey = 2;
+	optional bytes close_to = 3;
+	optional string warning_usage = 4;
+	optional uint32 mindepth = 5;
+}
+
+message FundchannelcompleteRequest {
+	optional bytes id = 1;
+	optional string psbt = 2;
+}
+
+message FundchannelcompleteResponse {
+	optional bytes channel_id = 1;
+	optional bool commitments_secured = 2;
+}
+
 message FundchannelRequest {
 	bytes id = 9;
 	AmountOrAll amount = 1;
@@ -1645,6 +1675,14 @@ message FundchannelResponse {
 	bytes channel_id = 4;
 	optional bytes close_to = 5;
 	optional uint32 mindepth = 6;
+}
+
+message FundchannelcancelRequest {
+	optional bytes id = 1;
+}
+
+message FundchannelcancelResponse {
+	optional string cancelled = 1;
 }
 
 message GetrouteRequest {

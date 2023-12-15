@@ -759,6 +759,35 @@
             "FundChannel.tx": 1,
             "FundChannel.txid": 2
         },
+        "FundchannelcancelRequest": {
+            "FundChannelCancel.id": 1
+        },
+        "FundchannelcancelResponse": {
+            "FundChannelCancel.cancelled": 1
+        },
+        "FundchannelcompleteRequest": {
+            "FundChannelComplete.id": 1,
+            "FundChannelComplete.psbt": 2
+        },
+        "FundchannelcompleteResponse": {
+            "FundChannelComplete.channel_id": 1,
+            "FundChannelComplete.commitments_secured": 2
+        },
+        "FundchannelstartRequest": {
+            "FundChannelStart.amount": 2,
+            "FundChannelStart.announce": 4,
+            "FundChannelStart.close_to": 5,
+            "FundChannelStart.feerate": 3,
+            "FundChannelStart.id": 1,
+            "FundChannelStart.push_msat": 6
+        },
+        "FundchannelstartResponse": {
+            "FundChannelStart.close_to": 3,
+            "FundChannelStart.funding_address": 1,
+            "FundChannelStart.mindepth": 5,
+            "FundChannelStart.scriptpubkey": 2,
+            "FundChannelStart.warning_usage": 4
+        },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
             "FundPsbt.feerate": 2,
@@ -3076,6 +3105,82 @@
         },
         "FundChannel.utxos[]": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannelCancel": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "FundChannelCancel.cancelled": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelCancel.id": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelComplete": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "FundChannelComplete.channel_id": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelComplete.commitments_secured": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelComplete.id": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelComplete.psbt": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "FundChannelStart.amount": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.announce": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.close_to": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.feerate": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.funding_address": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.id": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.mindepth": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.push_msat": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.scriptpubkey": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannelStart.warning_usage": {
+            "added": "v24.02",
             "deprecated": false
         },
         "FundPsbt": {

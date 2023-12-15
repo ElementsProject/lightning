@@ -1319,6 +1319,23 @@ def fetchinvoice2py(m):
     })
 
 
+def fundchannelstart2py(m):
+    return remove_default({
+        "funding_address": m.funding_address,  # PrimitiveField in generate_composite
+        "scriptpubkey": hexlify(m.scriptpubkey),  # PrimitiveField in generate_composite
+        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+        "warning_usage": m.warning_usage,  # PrimitiveField in generate_composite
+        "mindepth": m.mindepth,  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannelcomplete2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+    })
+
+
 def fundchannel2py(m):
     return remove_default({
         "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
@@ -1327,6 +1344,12 @@ def fundchannel2py(m):
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
         "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
         "mindepth": m.mindepth,  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannelcancel2py(m):
+    return remove_default({
+        "cancelled": m.cancelled,  # PrimitiveField in generate_composite
     })
 
 
