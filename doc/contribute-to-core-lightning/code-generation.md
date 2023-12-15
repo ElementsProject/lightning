@@ -1,7 +1,7 @@
 ---
 title: "Code Generation"
 slug: "code-generation"
-hidden: true
+hidden: false
 createdAt: "2023-04-22T12:29:01.116Z"
 updatedAt: "2023-04-22T12:44:47.814Z"
 ---
