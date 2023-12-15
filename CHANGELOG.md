@@ -3,6 +3,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [23.11.1] - 2023-12-15: "Bitcoin Orangepaper"
+
+This is a hotfix release to address a couple of issues in the release.
+
+### Fixed
+
+ - channeld: We could crash `closingd` by sending it a `channeld` message ([#6937])
+
+[#6937]: https://github.com/ElementsProject/lightning/pull/6937
+
+[v23.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.11.1
+
 ## [23.11] - 2023-11-28: "Bitcoin Orangepaper"
 
 This release named by Shahana Farooqui
@@ -149,7 +162,7 @@ Bugfix release for bad issues found since 23.08 which can't wait for 23.11, and 
 
  - Protocol: Fixed a wrong number type being used in routes ([#6642])
  - JSON-RPC: `showrunes` on a specific rune would always say `stored`: false. ([#6640])
- - MacOS: `clnrest` now works ([#6605]) 
+ - MacOS: `clnrest` now works ([#6605])
  - Build: test for `python3` or `python`, rather than assuming `python3` ([#6630])
 
 
@@ -417,7 +430,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: `close`, `fundchannel`, `fundpsbt`, `multifundchannel`, `multiwithdraw`, `txprepare`, `upgradewallet`, `withdraw` `feerate` (`feerange` for `close`) expressed as, "delayed_to_us", "htlc_resolution", "max_acceptable" or "min_acceptable".  Use explicit block counts or *slow*/*normal*/*urgent*/*minimum*. ([#6120])
  - Plugins: `estimatefees` returning feerates by name (e.g. "opening"); use `fee_floor` and `feerates`. ([#6120])
  - Protocol: Not setting `option_scid_alias` in `option_channel` `channel_type` for unannounced channels. ([#6136])
- 
+
 
 ### Removed
 
