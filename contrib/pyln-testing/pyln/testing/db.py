@@ -112,6 +112,7 @@ class PostgresDb(BaseDb):
         cur = conn.cursor()
         cur.execute("DROP DATABASE {};".format(self.dbname))
         cur.close()
+        conn.close()
 
     def wipe_db(self):
         cur = self.conn.cursor()
@@ -240,3 +241,49 @@ class PostgresDbProvider(object):
         self.proc.send_signal(signal.SIGINT)
         self.proc.wait()
         shutil.rmtree(self.pgdir)
+
+
+class SystemPostgresProvider(PostgresDbProvider):
+    """A Postgres DB variant that uses an existing instance on the system.
+
+    The specifics of the DB admin connection are passed in via
+    `CLN_TEST_POSTGRES_DSN`, or uses `dbname=template1 user=postgres
+    host=localhost port=5432` by default. The DSN must have permission
+    to create new roles and schemas.
+
+    Currently only supports postgres instances running on the default
+    port (5432).
+
+    """
+
+    def __init__(self, directory):
+        self.directory = directory
+        self.dbs: List[str] = []
+        self.admin_dsn = os.environ.get(
+            "CLN_TEST_POSTGRES_DSN",
+            "dbname=template1 user=postgres host=127.0.0.1 port=5432"
+        )
+        self.port = 5432
+
+    def start(self):
+        """We assume the postgres instance is already running, so this is a no-op. """
+
+    def connect(self):
+        return psycopg2.connect(self.admin_dsn)
+
+    def get_db(self, node_directory, testname, node_id):
+        # Random suffix to avoid collisions on repeated tests
+        nonce = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+        dbname = "{}_{}_{}".format(testname, node_id, nonce)
+
+        conn = self.connect()
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = conn.cursor()
+        cur.execute("CREATE DATABASE {} TEMPLATE template0;".format(dbname))
+        cur.close()
+        conn.close()
+        db = PostgresDb(dbname, self.port)
+        return db
+
+    def stop(self):
+        """Cleanup the schemas we created. """
