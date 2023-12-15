@@ -646,6 +646,9 @@ class LightningD(TailableProc):
     def cmd_line(self):
 
         opts = []
+        for k, v in self.early_opts.items():
+            opts.append(f'--{k}{"=" + v if v is not None else ""}')
+
         for k, v in self.opts.items():
             if v is None:
                 opts.append("--{}".format(k))
@@ -655,7 +658,7 @@ class LightningD(TailableProc):
             else:
                 opts.append("--{}={}".format(k, v))
 
-        return self.cmd_prefix + [self.executable] + self.early_opts + opts
+        return self.cmd_prefix + [self.executable] + opts
 
     def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
