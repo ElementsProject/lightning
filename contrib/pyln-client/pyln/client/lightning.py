@@ -10,18 +10,15 @@ from math import floor, log10
 from typing import Optional, Union
 
 
-def _patched_default(self, obj):
-    return getattr(obj.__class__, "to_json", _patched_default.default)(obj)
+def to_json_default(self, obj):
+    """
+    Try to use .to_json() if available, otherwise use the normal JSON default method.
+    """
+    return getattr(obj.__class__, "to_json", old_json_default)(obj)
 
 
-def monkey_patch_json(patch=True):
-    is_patched = JSONEncoder.default == _patched_default
-
-    if patch and not is_patched:
-        _patched_default.default = JSONEncoder.default  # Save unmodified
-        JSONEncoder.default = _patched_default  # Replace it.
-    elif not patch and is_patched:
-        JSONEncoder.default = _patched_default.default
+old_json_default = JSONEncoder.default
+JSONEncoder.default = to_json_default
 
 
 class RpcError(ValueError):
@@ -41,8 +38,7 @@ class Millisatoshi:
     """
     A subtype to represent thousandths of a satoshi.
 
-    Many JSON API fields are expressed in millisatoshis: these automatically
-    get turned into Millisatoshi types. Converts to and from int.
+    If you put this in an object, converting to JSON automatically makes it an "...msat" string, so you can safely hand it even to our APIs which treat raw numbers as satoshis.  Converts to and from int.
     """
     def __init__(self, v: Union[int, str, Decimal]):
         """
@@ -286,10 +282,8 @@ class UnixSocket(object):
 
 
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder(), caller_name=None):
+    def __init__(self, socket_path, executor=None, logger=logging, caller_name=None):
         self.socket_path = socket_path
-        self.encoder_cls = encoder_cls
-        self.decoder = decoder
         self.executor = executor
         self.logger = logger
         self._notify = None
@@ -303,7 +297,7 @@ class UnixDomainSocketRpc(object):
         self.next_id = 1
 
     def _writeobj(self, sock, obj):
-        s = json.dumps(obj, ensure_ascii=False, cls=self.encoder_cls)
+        s = json.dumps(obj, ensure_ascii=False)
         sock.sendall(bytearray(s, 'UTF-8'))
 
     def _readobj(self, sock, buff=b''):
@@ -318,7 +312,7 @@ class UnixDomainSocketRpc(object):
                     return {'error': 'Connection to RPC server lost.'}, buff
             else:
                 buff = parts[1]
-                obj, _ = self.decoder.raw_decode(parts[0].decode("UTF-8"))
+                obj, _ = json.JSONDecoder().raw_decode(parts[0].decode("UTF-8"))
                 return obj, buff
 
     def __getattr__(self, name):
@@ -480,66 +474,12 @@ class LightningRpc(UnixDomainSocketRpc):
     between calls, but it does not (yet) support concurrent calls.
     """
 
-    class LightningJSONEncoder(json.JSONEncoder):
-        def default(self, o):
-            try:
-                return o.to_json()
-            except NameError:
-                pass
-            return json.JSONEncoder.default(self, o)
-
-    class LightningJSONDecoder(json.JSONDecoder):
-        def __init__(self, *, object_hook=None, parse_float=None,
-                     parse_int=None, parse_constant=None,
-                     strict=True, object_pairs_hook=None,
-                     patch_json=True):
-            self.object_hook_next = object_hook
-            super().__init__(object_hook=self.millisatoshi_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant, strict=strict, object_pairs_hook=object_pairs_hook)
-
-        @staticmethod
-        def replace_amounts(obj):
-            """
-            Recursively replace _msat fields with appropriate values with Millisatoshi.
-            """
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    # Objects ending in msat are not treated specially!
-                    if k.endswith('msat') and not isinstance(v, dict):
-                        if isinstance(v, list):
-                            obj[k] = [Millisatoshi(e) for e in v]
-                        # FIXME: Deprecated "listconfigs" gives two 'null' fields:
-                        #            "lease-fee-base-msat": null,
-                        #            "channel-fee-max-base-msat": null,
-                        # FIXME: Removed for v23.08, delete this code in 24.08?
-                        elif v is None:
-                            obj[k] = None
-                        else:
-                            obj[k] = Millisatoshi(v)
-                    else:
-                        obj[k] = LightningRpc.LightningJSONDecoder.replace_amounts(v)
-            elif isinstance(obj, list):
-                obj = [LightningRpc.LightningJSONDecoder.replace_amounts(e) for e in obj]
-
-            return obj
-
-        def millisatoshi_hook(self, obj):
-            obj = LightningRpc.LightningJSONDecoder.replace_amounts(obj)
-            if self.object_hook_next:
-                obj = self.object_hook_next(obj)
-            return obj
-
-    def __init__(self, socket_path, executor=None, logger=logging,
-                 patch_json=True):
+    def __init__(self, socket_path, executor=None, logger=logging):
         super().__init__(
             socket_path,
             executor,
-            logger,
-            self.LightningJSONEncoder,
-            self.LightningJSONDecoder()
+            logger
         )
-
-        if patch_json:
-            monkey_patch_json(patch=True)
 
     def addgossip(self, message):
         """
