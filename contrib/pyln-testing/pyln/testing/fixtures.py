@@ -348,8 +348,8 @@ def _extra_validator(is_request: bool):
             return False
 
     def is_msat_response(checker, instance):
-        """An integer, but we convert to Millisatoshi in JSON parsing"""
-        return type(instance) is Millisatoshi
+        """A positive integer"""
+        return type(instance) is int and instance >= 0
 
     def is_txid(checker, instance):
         """Bitcoin transaction ID"""

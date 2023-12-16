@@ -684,12 +684,11 @@ class PrettyPrintingLightningRpc(LightningRpc):
     Also validates (optional) schemas for us.
     """
     def __init__(self, socket_path, executor=None, logger=logging,
-                 patch_json=True, jsonschemas={}):
+                 jsonschemas={}):
         super().__init__(
             socket_path,
             executor,
             logger,
-            patch_json,
         )
         self.jsonschemas = jsonschemas
         self.check_request_schemas = True

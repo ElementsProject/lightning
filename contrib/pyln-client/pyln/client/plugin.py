@@ -682,7 +682,6 @@ class Plugin(object):
         # then utf8 ourselves.
         s = bytes(json.dumps(
             obj,
-            cls=LightningRpc.LightningJSONEncoder,
             ensure_ascii=False
         ) + "\n\n", encoding='utf-8')
         with self.write_lock:
