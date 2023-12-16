@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <string.h>
 
+#define BUF_SIZE CMSG_SPACE(sizeof(fd))
+
 bool fdpass_send(int sockout, int fd)
 {
 	/* From the cmsg(3) manpage: */
@@ -13,7 +15,7 @@ bool fdpass_send(int sockout, int fd)
 	char c = 0;
 	union {         /* Ancillary data buffer, wrapped in a union
 			   in order to ensure it is suitably aligned */
-		char buf[CMSG_SPACE(sizeof(fd))];
+		char buf[BUF_SIZE];
 		struct cmsghdr align;
 	} u;
 
@@ -50,7 +52,7 @@ int fdpass_recv(int sockin)
 	char c;
 	union {         /* Ancillary data buffer, wrapped in a union
 			   in order to ensure it is suitably aligned */
-		char buf[CMSG_SPACE(sizeof(fd))];
+		char buf[BUF_SIZE];
 		struct cmsghdr align;
 	} u;
 
