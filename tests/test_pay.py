@@ -90,13 +90,11 @@ def test_pay_amounts(node_factory):
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
 
-    assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123000)
 
     l1.dev_pay(inv, dev_use_shadow=False)
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
-    assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi(123000)
 
 
@@ -2844,9 +2842,9 @@ def test_shadow_routing(node_factory):
         inv = l3.rpc.invoice(amount, "{}".format(i), "test")["bolt11"]
         total_amount += l1.rpc.pay(inv)["amount_sent_msat"]
 
-    assert total_amount.millisatoshis > n_payments * amount
+    assert total_amount > n_payments * amount
     # Test that the added amount isn't absurd
-    assert total_amount.millisatoshis < (n_payments * amount) * (1 + 0.01)
+    assert total_amount < int((n_payments * amount) * (1 + 0.01))
 
     # FIXME: Test cltv delta too ?
 
@@ -3732,11 +3730,11 @@ def test_pay_peer(node_factory, bitcoind):
     def spendable(n1, n2):
         chan = n1.rpc.listpeerchannels(n2.info['id'])['channels'][0]
         avail = chan['spendable_msat']
-        return avail
+        return Millisatoshi(avail)
 
     amt = Millisatoshi(10**8)
     # How many payments do we expect to go through directly?
-    direct = spendable(l1, l2).millisatoshis // amt.millisatoshis
+    direct = spendable(l1, l2) // amt
 
     # Remember the l1 -> l3 capacity, it should not change until we run out of
     # direct capacity.
@@ -3797,8 +3795,8 @@ def test_mpp_adaptive(node_factory, bitcoind):
     # Make sure neither channel can fit the payment by itself.
     c12 = l1.rpc.listpeerchannels(l2.info['id'])['channels'][0]
     c34 = l3.rpc.listpeerchannels(l4.info['id'])['channels'][0]
-    assert(c12['spendable_msat'].millisatoshis < amt)
-    assert(c34['spendable_msat'].millisatoshis < amt)
+    assert(c12['spendable_msat'] < amt)
+    assert(c34['spendable_msat'] < amt)
 
     # Make sure all HTLCs entirely resolved before we mine more blocks!
     def all_htlcs(n):
@@ -3872,7 +3870,7 @@ def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     l2.rpc.pay(invl1)
 
     # Wait for us to recognize that the channel is available
-    wait_for(lambda: l1.rpc.listpeerchannels()['channels'][0]['spendable_msat'].millisatoshis > amount_sat * 1000)
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'][0]['spendable_msat'] > amount_sat * 1000)
 
     # Now l1 can pay to l2.
     l1.rpc.pay(invl2)

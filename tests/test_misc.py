@@ -803,7 +803,7 @@ def test_multiplexed_rpc(node_factory):
     # (delaying completion should mean we don't see the other commands intermingled).
     for i in commands:
         obj, buff = l1.rpc._readobj(sock, buff)
-        assert obj['id'] == l1.rpc.decoder.decode(i.decode("UTF-8"))['id']
+        assert obj['id'] == json.loads(i.decode("UTF-8"))['id']
     sock.close()
 
 

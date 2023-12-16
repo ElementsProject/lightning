@@ -171,15 +171,13 @@ def test_millisatoshi_passthrough(node_factory):
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/millisatoshis.py')
     n = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
 
-    # By keyword
+    # By keyword (plugin literally returns Millisatoshi, which becomes a string)
     ret = n.rpc.call('echo', {'msat': Millisatoshi(17), 'not_an_msat': '22msat'})['echo_msat']
-    assert type(ret) == Millisatoshi
-    assert ret == Millisatoshi(17)
+    assert Millisatoshi(ret) == Millisatoshi(17)
 
     # By position
     ret = n.rpc.call('echo', [Millisatoshi(18), '22msat'])['echo_msat']
-    assert type(ret) == Millisatoshi
-    assert ret == Millisatoshi(18)
+    assert Millisatoshi(ret) == Millisatoshi(18)
 
 
 def test_rpc_passthrough(node_factory):

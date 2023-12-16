@@ -205,13 +205,11 @@ def test_amounts(node_factory):
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
 
-    assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123456)
 
     l1.rpc.call('renepay', {'invstring': inv, 'dev_use_shadow': False})
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
-    assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi(123456)
 
 
@@ -268,7 +266,6 @@ def test_limits(node_factory):
     l1.rpc.call(
         'renepay', {'invstring': inv2['bolt11']})
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
-    assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi('800000sat')
 
 
@@ -358,5 +355,4 @@ def test_hardmpp(node_factory):
     json.loads("".join([l for l in lines if not l.startswith('#')]))
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices('inv2')['invoices'])
-    assert isinstance(invoice['amount_received_msat'], Millisatoshi)
     assert invoice['amount_received_msat'] >= Millisatoshi('1800000sat')
