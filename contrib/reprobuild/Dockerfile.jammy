@@ -59,11 +59,12 @@ RUN cd /tmp/ && \
 RUN mkdir /build
 WORKDIR /build
 
-CMD poetry export -o requirements.txt --without-hashes \
+# We mount the repo into `/repo` and then we take a snapshot of it
+# first by cloning it. This ensures we're not including any
+# uncommitted changes in the working directory on the host. Notice
+# that we no longer take the zipfile.
+CMD git clone /repo . \
+    && poetry export -o requirements.txt --without-hashes \
     && pip install -r requirements.txt \
-	&& mkdir -p /repro \
-	&& cd /repro \
-	&& unzip /build/release/*.zip \
-	&& cd clightning* \
     && tools/repro-build.sh \
-	&& cp *.xz /build/release/
+    && cp *.xz /repo/release/
