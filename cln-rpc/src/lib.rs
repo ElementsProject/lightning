@@ -1,6 +1,83 @@
+//! # A Core Lightning RPC-client
+//! 
+//! Core Lightning exposes a JSON-RPC interface over unix-domain sockets.
+//! The unix-domain socket appears like file and located by default in 
+//! `~/.lightning/<network>/lightning-rpc`.
+//!
+//! This crate contains an RPC-client called [ClnRpc] and models
+//! for most [requests](crate::model::requests) and [responses](crate::model::responses).
+//! 
+//! The example below shows how to initiate the client and celss the `getinfo`-rpc method.
+//! 
+//! ```no_run
+//! use std::path::Path;
+//! use tokio_test;
+//! use cln_rpc::{ClnRpc, TypedRequest};
+//! use cln_rpc::model::requests::GetinfoRequest;
+//! use cln_rpc::model::responses::GetinfoResponse;
+//! 
+//! tokio_test::block_on( async {
+//!     let path = Path::new("path_to_lightning_dir");
+//!     let mut rpc = ClnRpc::new(path).await.unwrap();
+//!     let request = GetinfoRequest {};
+//!     let response : GetinfoResponse = rpc.call_typed(request).await.unwrap();
+//! });
+//! ```
+//! 
+//! If the required model is not available you can implement [`TypedRequest`] 
+//! and use [`ClnRpc::call_typed`] without a problem.
+//! 
+//! ```no_run
+//! use std::path::Path;
+//! use tokio_test;
+//! use cln_rpc::{ClnRpc, TypedRequest};
+//! use serde::{Serialize, Deserialize};
+//!
+//! #[derive(Serialize, Debug)] 
+//! struct CustomMethodRequest {
+//!     param_a : String
+//! };
+//! #[derive(Deserialize, Debug)]
+//! struct CustomMethodResponse {
+//!     field_a : String
+//! };
+//! 
+//! impl TypedRequest for CustomMethodRequest {
+//!     type Response = CustomMethodResponse;
+//! 
+//!     fn method(&self) -> &str {
+//!         "custommethod"
+//!     }
+//! }
+//! 
+//! tokio_test::block_on( async {
+//!     let path = Path::new("path_to_lightning_dir");
+//!     let mut rpc = ClnRpc::new(path).await.unwrap();
+//! 
+//!     let request = CustomMethodRequest { param_a : String::from("example")};
+//!     let response = rpc.call_typed(request).await.unwrap();
+//! })
+//! ```
+//! 
+//! An alternative is to use [`ClnRpc::call_raw`]. 
+//! 
+//! ```no_run
+//! use std::path::Path;
+//! use tokio_test;
+//! use cln_rpc::{ClnRpc, TypedRequest};
+//! 
+//! tokio_test::block_on( async {
+//!     let path = Path::new("path_to_lightning_dir");
+//!     let mut rpc = ClnRpc::new(path).await.unwrap();
+//!     let method = "custommethod";
+//!     let request = serde_json::json!({"param_a" : "example"});
+//!     let response : serde_json::Value = rpc.call_raw(method, request).await.unwrap();
+//! })
+//! ```
+//! 
 use crate::codec::JsonCodec;
 pub use anyhow::Error;
-use anyhow::Result;
+use anyhow::Result; 
 use core::fmt::Debug;
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
@@ -19,13 +96,16 @@ pub mod model;
 pub mod notifications;
 pub mod primitives;
 
-use crate::model::TypedRequest;
+pub use crate::model::TypedRequest;
 pub use crate::{
     model::{Request, Response},
     notifications::Notification,
     primitives::RpcError,
 };
 
+/// An RPC-client for Core Lightning
+/// 
+/// 
 /// 
 pub struct ClnRpc {
     next_id: AtomicUsize,
@@ -59,11 +139,11 @@ impl ClnRpc {
 
     /// Low-level API to call the rpc.
     ///
-    /// It is the responsibility of the caller to pick valid types `R` and `P`.
-    /// It's useful for ad-hoc calls to methods that are not present in [`crate::model`].
-    /// Users can use [`serde_json::Value`] and don't have to implement any custom structs.
+    /// An interesting choice of `R` and `P` is [`serde_json::Value`] because it allows
+    /// ad-hoc calls to custom RPC-methods
     /// 
-    /// Most users would prefer to use [call_typed](crate::ClnRpc::call_typed) instead.
+    /// If you are using a model such as [`crate::model::requests::GetinfoRequest`] you'd 
+    /// probably want to use [`Self::call_typed`] instead. 
     /// 
     /// Example:
     /// ```no_run

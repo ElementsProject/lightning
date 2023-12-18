@@ -1,3 +1,4 @@
+//! Primitive types representing [`Amount`]s, [`PublicKey`]s, ...
 use anyhow::Context;
 use anyhow::{anyhow, Error, Result};
 use bitcoin::hashes::Hash as BitcoinHash;
