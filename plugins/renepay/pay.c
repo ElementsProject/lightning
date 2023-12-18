@@ -1125,11 +1125,28 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 	if((enum onion_wire)onionerr == WIRE_TEMPORARY_CHANNEL_FAILURE
 	   && erridx < tal_count(pf->path_scidds))
 	{
-		chan_extra_cannot_send(pay_plugin->chan_extra_map,
-				       &pf->path_scidds[erridx],
-				       pf->amounts[erridx]);
-		// TODO: notify the plugin of the changes to the uncertainty
-		// network
+		const char *old_state =
+		    fmt_chan_extra_details(tmpctx, pay_plugin->chan_extra_map,
+					   &pf->path_scidds[erridx]);
+
+		char *fail;
+		if (!chan_extra_cannot_send(tmpctx, pay_plugin->chan_extra_map,
+					    &pf->path_scidds[erridx],
+					    pf->amounts[erridx], &fail)) {
+			plugin_err(pay_plugin->plugin,
+				   "chan_extra_cannot_send failed: %s", fail);
+		}
+
+		payflow_note(pf, LOG_INFORM,
+			     "Failure to forward amount %s in channel %s, "
+			     "state change %s -> %s",
+			     fmt_amount_msat(tmpctx, pf->amounts[erridx]),
+			     type_to_string(tmpctx, struct short_channel_id_dir,
+					    &pf->path_scidds[erridx]),
+			     old_state,
+			     fmt_chan_extra_details(tmpctx,
+						    pay_plugin->chan_extra_map,
+						    &pf->path_scidds[erridx]));
 	}
 }
 

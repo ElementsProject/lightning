@@ -121,7 +121,7 @@ const char *fmt_chan_extra_map(
 /* Returns "" if nothing useful known about channel, otherwise
  * "(details)" */
 const char *fmt_chan_extra_details(const tal_t *ctx,
-				   struct chan_extra_map* chan_extra_map,
+				   const struct chan_extra_map* chan_extra_map,
 				   const struct short_channel_id_dir *scidd);
 
 /* Creates a new chan_extra and adds it to the chan_extra_map. */
@@ -130,12 +130,6 @@ struct chan_extra *new_chan_extra(
 		const struct short_channel_id scid,
 		struct amount_msat capacity);
 
-
-/* This helper function preserves the uncertainty network invariant after the
- * knowledge is updated. It assumes that the (channel,!dir) knowledge is
- * correct. */
-void chan_extra_adjust_half(struct chan_extra *ce,
-			    int dir);
 
 /* Helper to find the min of two amounts */
 static inline struct amount_msat amount_msat_min(
@@ -153,36 +147,32 @@ static inline struct amount_msat amount_msat_max(
 }
 
 /* Update the knowledge that this (channel,direction) can send x msat.*/
-void chan_extra_can_send(struct chan_extra_map *chan_extra_map,
+bool chan_extra_can_send(const tal_t *ctx,
+			 struct chan_extra_map *chan_extra_map,
 			 const struct short_channel_id_dir *scidd,
-			 struct amount_msat x);
+			 struct amount_msat x, char **fail);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
-void chan_extra_cannot_send(struct chan_extra_map *chan_extra_map,
+bool chan_extra_cannot_send(const tal_t *ctx,
+			    struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd,
-			    struct amount_msat x);
+			    struct amount_msat sent, char **fail);
 
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
-void chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
+bool chan_extra_set_liquidity(const tal_t *ctx,
+			      struct chan_extra_map *chan_extra_map,
 			      const struct short_channel_id_dir *scidd,
-			      struct amount_msat x);
+			      struct amount_msat x, char **fail);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
-void chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
+bool chan_extra_sent_success(const tal_t *ctx,
+			     struct chan_extra_map *chan_extra_map,
 			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat x);
-
-/* Forget a bit about this (channel,direction) state. */
-void chan_extra_relax(struct chan_extra_map *chan_extra_map,
-		      const struct short_channel_id_dir *scidd,
-		      struct amount_msat down,
-		      struct amount_msat up);
+			     struct amount_msat x, char **fail);
 
 /* Forget the channel information by a fraction of the capacity. */
-void chan_extra_relax_fraction(
-		struct chan_extra* ce,
-		double fraction);
-
+bool chan_extra_relax_fraction(const tal_t *ctx, struct chan_extra *ce,
+			       double fraction, char **fail);
 
 /* Returns either NULL, or an entry from the hash */
 struct chan_extra_half *get_chan_extra_half_by_scid(struct chan_extra_map *chan_extra_map,
@@ -232,30 +222,30 @@ double flow_edge_cost(const struct gossmap *gossmap,
 		      double delay_riskfactor);
 
 /* Function to fill in amounts and success_prob for flow. */
-void flow_complete(struct flow *flow,
+bool flow_complete(const tal_t *ctx, struct flow *flow,
 		   const struct gossmap *gossmap,
 		   struct chan_extra_map *chan_extra_map,
-		   struct amount_msat delivered);
+		   struct amount_msat delivered, char **fail);
 
 /* Compute the prob. of success of a set of concurrent set of flows. */
-double flow_set_probability(
-		struct flow ** flows,
-		const struct gossmap *const gossmap,
-		struct chan_extra_map * chan_extra_map);
+double flowset_probability(const tal_t *ctx, struct flow **flows,
+			   const struct gossmap *const gossmap,
+			   struct chan_extra_map *chan_extra_map, char **fail);
 
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
 /* Once flow is completed, this can remove it from the extra_map */
-void remove_completed_flow(const struct gossmap *gossmap,
+bool remove_completed_flow(const tal_t *ctx, const struct gossmap *gossmap,
 			   struct chan_extra_map *chan_extra_map,
-			   struct flow *flow);
+			   struct flow *flow, char **fail);
+
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
-void remove_completed_flow_set(const struct gossmap *gossmap,
-			   struct chan_extra_map *chan_extra_map,
-			   struct flow **flows);
+bool remove_completed_flowset(const tal_t *ctx, const struct gossmap *gossmap,
+			      struct chan_extra_map *chan_extra_map,
+			      struct flow **flows, char **fail);
 
-struct amount_msat flow_set_fee(struct flow **flows);
+bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
 /*
  * mu (μ) is used as follows in the cost function:
@@ -307,17 +297,15 @@ s64 linear_fee_cost(
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
 /* Take the flows and commit them to the chan_extra's . */
-void commit_flow(
-		const struct gossmap *gossmap,
-		struct chan_extra_map *chan_extra_map,
-		struct flow *flow);
+bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
+		 struct chan_extra_map *chan_extra_map, struct flow *flow,
+		 char **fail);
 
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
 /* Take the flows and commit them to the chan_extra's . */
-void commit_flow_set(
-		const struct gossmap *gossmap,
-		struct chan_extra_map *chan_extra_map,
-		struct flow **flows);
+bool commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
+		    struct chan_extra_map *chan_extra_map, struct flow **flows,
+		    char **fail);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */
