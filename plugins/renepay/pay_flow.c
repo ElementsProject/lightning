@@ -491,8 +491,19 @@ const char *add_payflows(const tal_t *ctx,
 		}
 
 		/* Are we unhappy? */
-		prob = flow_set_probability(flows,pay_plugin->gossmap,pay_plugin->chan_extra_map);
-		fee = flow_set_fee(flows);
+		char *fail;
+		prob = flowset_probability(tmpctx, flows, pay_plugin->gossmap,
+					   pay_plugin->chan_extra_map, &fail);
+		if(prob<0)
+		{
+			plugin_err(pay_plugin->plugin,
+				   "flow_set_probability failed: %s", fail);
+		}
+		if(!flowset_fee(&fee,flows))
+		{
+			plugin_err(pay_plugin->plugin,
+				   "flowset_fee failed");
+		}
 		delay = flows_worst_delay(flows) + p->final_cltv;
 
 		payment_note(p, LOG_INFORM,

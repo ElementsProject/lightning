@@ -355,7 +355,11 @@ int main(int argc, char *argv[])
 			 /* delay fee factor = */ 1,
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10);
-	commit_flow_set(gossmap,chan_extra_map,flows);
+
+	if(!commit_flowset(tmpctx, gossmap,chan_extra_map,flows,NULL))
+	{
+		assert(0 && "commit_flowset failed");
+	}
 	printf("%s\n",
 	       print_flows(tmpctx,"Flow via single path l1->l2->l3", gossmap, flows));
 
@@ -406,7 +410,10 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(ce->half[1].known_max, AMOUNT_MSAT(1000000000)));
 
 	/* Clear that */
-	remove_completed_flow_set(gossmap, chan_extra_map, flows);
+	if(!remove_completed_flowset(tmpctx, gossmap, chan_extra_map, flows,NULL))
+	{
+		assert(0 && "remove_completed_flowset failed");
+	}
 
 	// /* Now try adding a local channel scid */
 

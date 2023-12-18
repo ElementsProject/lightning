@@ -190,21 +190,29 @@ void uncertainty_network_flow_success(
 		struct chan_extra_map *chan_extra_map,
 		struct pay_flow *pf)
 {
+	char *errmsg;
 	for (size_t i = 0; i < tal_count(pf->path_scidds); i++)
 	{
-		chan_extra_sent_success(
-			chan_extra_map,
-			&pf->path_scidds[i],
-			pf->amounts[i]);
-		// TODO notify the payflow
-		// payflow_note(pf, LOG_DBG,
-		// 	     "Success of %s for %s capacity [%s,%s] -> [%s,%s]",
-		// 	     fmt_amount_msat(tmpctx, x),
-		// 	     type_to_string(tmpctx,struct short_channel_id_dir,scidd),
-		// 	     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_min),
-		// 	     fmt_amount_msat(tmpctx, ce->half[scidd->dir].known_max),
-		// 	     fmt_amount_msat(tmpctx, new_a),
-		// 	     fmt_amount_msat(tmpctx, new_b));
+		const char *old_state
+		    = fmt_chan_extra_details(tmpctx, pay_plugin->chan_extra_map,
+					   &pf->path_scidds[i]);
+		if (!chan_extra_sent_success(tmpctx, chan_extra_map,
+					     &pf->path_scidds[i],
+					     pf->amounts[i], &errmsg)) {
+			plugin_err(pay_plugin->plugin,
+				   "chan_extra_sent_success failed: %s",
+				   errmsg);
+		}
+		payflow_note(pf, LOG_INFORM,
+			     "Success forwarding amount %s in channel %s, "
+			     "state change %s -> %s",
+			     fmt_amount_msat(tmpctx, pf->amounts[i]),
+			     type_to_string(tmpctx, struct short_channel_id_dir,
+					    &pf->path_scidds[i]),
+			     old_state,
+			     fmt_chan_extra_details(tmpctx,
+						    pay_plugin->chan_extra_map,
+						    &pf->path_scidds[i]));
 	}
 }
 /* All parts up to erridx succeeded, so we know something about min
@@ -214,15 +222,19 @@ void uncertainty_network_channel_can_send(
 		struct pay_flow *pf,
 		u32 erridx)
 {
+	char *fail;
 	for (size_t i = 0; i < erridx; i++)
 	{
-		chan_extra_can_send(chan_extra_map,
-				    &pf->path_scidds[i],
-				    /* This channel can send all that was
-				     * commited in HTLCs.
-				     * Had we removed the commited amount then
-				     * we would have to put here pf->amounts[i]. */
-				    AMOUNT_MSAT(0));
+		if (!chan_extra_can_send(
+			tmpctx, chan_extra_map, &pf->path_scidds[i],
+			/* This channel can send all that was
+			 * commited in HTLCs.
+			 * Had we removed the commited amount then
+			 * we would have to put here pf->amounts[i]. */
+			AMOUNT_MSAT(0), &fail)) {
+			plugin_err(pay_plugin->plugin,
+				   "chan_extra_can_send failed: %s", fail);
+		}
 	}
 }
 
@@ -235,6 +247,7 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 						      struct chan_extra_map *chan_extra_map)
 {
 	struct chan_extra *ce;
+	char *errmsg;
 
 	if (!enabled) {
 		payment_disable_chan(p, scidd->scid, LOG_DBG,
@@ -263,19 +276,29 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 	// TODO(eduardo): this includes pending HTLC of previous
 	// payments!
 	/* We know min and max liquidity exactly now! */
-	chan_extra_set_liquidity(chan_extra_map, scidd, max);
+	if (!chan_extra_set_liquidity(tmpctx, chan_extra_map, scidd, max,
+				      &errmsg)) {
+		plugin_err(pay_plugin->plugin,
+			   "chan_extra_set_liquidity failed: %s", errmsg);
+	}
 }
 
 /* Forget ALL channels information by a fraction of the capacity. */
-void uncertainty_network_relax_fraction(
-		struct chan_extra_map* chan_extra_map,
-		double fraction)
+void uncertainty_network_relax_fraction(struct chan_extra_map *chan_extra_map,
+					double fraction)
 {
 	struct chan_extra_map_iter it;
-	for(struct chan_extra *ce=chan_extra_map_first(chan_extra_map,&it);
-	    ce;
-	    ce=chan_extra_map_next(chan_extra_map,&it))
-	{
-		chan_extra_relax_fraction(ce,fraction);
+	char *fail;
+	for (struct chan_extra *ce = chan_extra_map_first(chan_extra_map, &it);
+	     ce; ce = chan_extra_map_next(chan_extra_map, &it)) {
+		if (!chan_extra_relax_fraction(tmpctx, ce, fraction, &fail)) {
+			plugin_err(pay_plugin->plugin,
+				   "chan_extra_relax_fraction failed for "
+				   "channel %s: %s",
+				   type_to_string(tmpctx,
+						  struct short_channel_id,
+						  &ce->scid),
+				   fail);
+		}
 	}
 }

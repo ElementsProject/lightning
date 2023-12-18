@@ -1122,6 +1122,7 @@ static struct flow **
 		// in the MCF solver
 		struct amount_msat excess)
 {
+	char *errmsg;
 	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
 
 	tal_t *this_ctx = tal(tmpctx,tal_t);
@@ -1250,7 +1251,13 @@ static struct flow **
 
 			// complete the flow path by adding real fees and
 			// probabilities.
-			flow_complete(fp,gossmap,chan_extra_map,delivered);
+			if (!flow_complete(tmpctx, fp, gossmap, chan_extra_map,
+					   delivered, &errmsg)) {
+				plugin_err(
+				    pay_plugin->plugin,
+				    "%s (line %d) flow_complete failed: %s",
+				    __PRETTY_FUNCTION__, __LINE__, errmsg);
+			}
 
 			// add fp to flows
 			tal_arr_expand(&flows, fp);
@@ -1381,6 +1388,7 @@ struct flow** minflow(
 		u32 prob_cost_factor )
 {
 	tal_t *this_ctx = tal(tmpctx,tal_t);
+	char *errmsg;
 
 	struct pay_parameters *params = tal(this_ctx,struct pay_parameters);
 	struct dijkstra *dijkstra;
@@ -1467,10 +1475,19 @@ struct flow** minflow(
 	best_flow_paths = get_flow_paths(ctx,params->gossmap,params->chan_extra_map,
 	                            linear_network,residual_network,
 				    excess);
-	best_prob_success = flow_set_probability(best_flow_paths,
-						params->gossmap,
-						params->chan_extra_map);
-	best_fee = flow_set_fee(best_flow_paths);
+	best_prob_success =
+	    flowset_probability(tmpctx, best_flow_paths, params->gossmap,
+				params->chan_extra_map, &errmsg);
+	if (best_prob_success < 0) {
+		plugin_err(pay_plugin->plugin,
+			   "%s (line %d) flowset_probability failed: %s",
+			   __PRETTY_FUNCTION__, __LINE__, errmsg);
+	}
+	if (!flowset_fee(&best_fee, best_flow_paths)) {
+		plugin_err(pay_plugin->plugin,
+			   "%s (line %d) flowset_fee failed",
+			   __PRETTY_FUNCTION__, __LINE__, errmsg);
+	}
 
 	// binary search for a value of `mu` that fits our fee and prob.
 	// constraints.
@@ -1492,11 +1509,22 @@ struct flow** minflow(
 		                            linear_network,residual_network,
 					    excess);
 
-		double prob_success = flow_set_probability(
-						flow_paths,
-						params->gossmap,
-						params->chan_extra_map);
-		struct amount_msat fee = flow_set_fee(flow_paths);
+		double prob_success =
+		    flowset_probability(tmpctx, flow_paths, params->gossmap,
+					params->chan_extra_map, &errmsg);
+		if (prob_success < 0) {
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s (line %d) flowset_probability failed: %s",
+			    __PRETTY_FUNCTION__, __LINE__, errmsg);
+		}
+
+		struct amount_msat fee;
+		if (!flowset_fee(&fee, flow_paths)) {
+			plugin_err(pay_plugin->plugin,
+				   "%s (line %d) flowset_fee failed",
+				   __PRETTY_FUNCTION__, __LINE__, errmsg);
+		}
 
 		/* Is this better than the previous one? */
 		if(!best_flow_paths ||

@@ -394,40 +394,40 @@ static void test_edge_probability(void)
 	{
 		f.millisatoshis = i;
 		// prob = 1
-		assert(fabs(edge_probability(min,max,X,f)-1.0)< eps);
+		assert(fabs(edge_probability(tmpctx,min,max,X,f, NULL)-1.0)< eps);
 	}
 	for(int i=max.millisatoshis+1;i<=100;++i)
 	{
 		f.millisatoshis = i;
 		// prob = 0
-		assert(fabs(edge_probability(min,max,X,f))< eps);
+		assert(fabs(edge_probability(tmpctx,min,max,X,f, NULL))< eps);
 	}
 	f.millisatoshis=11;
-	assert(fabs(edge_probability(min,max,X,f)-0.9)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.9)< eps);
 
 	f.millisatoshis=12;
-	assert(fabs(edge_probability(min,max,X,f)-0.8)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.8)< eps);
 
 	f.millisatoshis=13;
-	assert(fabs(edge_probability(min,max,X,f)-0.7)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.7)< eps);
 
 	f.millisatoshis=14;
-	assert(fabs(edge_probability(min,max,X,f)-0.6)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.6)< eps);
 
 	f.millisatoshis=15;
-	assert(fabs(edge_probability(min,max,X,f)-0.5)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.5)< eps);
 
 	f.millisatoshis=16;
-	assert(fabs(edge_probability(min,max,X,f)-0.4)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.4)< eps);
 
 	f.millisatoshis=17;
-	assert(fabs(edge_probability(min,max,X,f)-0.3)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.3)< eps);
 
 	f.millisatoshis=18;
-	assert(fabs(edge_probability(min,max,X,f)-0.2)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.2)< eps);
 
 	f.millisatoshis=19;
-	assert(fabs(edge_probability(min,max,X,f)-0.1)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.1)< eps);
 
 	X = AMOUNT_MSAT(5);
 
@@ -436,34 +436,34 @@ static void test_edge_probability(void)
 	{
 		f.millisatoshis = i;
 		// prob = 1
-		assert(fabs(edge_probability(min,max,X,f)-1.0)< eps);
+		assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-1.0)< eps);
 	}
 	// X<A, f>=B-X
 	for(int i=15;i<100;++i)
 	{
 		f.millisatoshis = i;
 		// prob = 0
-		assert(fabs(edge_probability(min,max,X,f))< eps);
+		assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL))< eps);
 	}
 	// X<A, A-X<=f<=B-X
 	f.millisatoshis=6;
-	assert(fabs(edge_probability(min,max,X,f)-0.9)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.9)< eps);
 	f.millisatoshis=7;
-	assert(fabs(edge_probability(min,max,X,f)-0.8)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.8)< eps);
 	f.millisatoshis=8;
-	assert(fabs(edge_probability(min,max,X,f)-0.7)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.7)< eps);
 	f.millisatoshis=9;
-	assert(fabs(edge_probability(min,max,X,f)-0.6)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.6)< eps);
 	f.millisatoshis=10;
-	assert(fabs(edge_probability(min,max,X,f)-0.5)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.5)< eps);
 	f.millisatoshis=11;
-	assert(fabs(edge_probability(min,max,X,f)-0.4)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.4)< eps);
 	f.millisatoshis=12;
-	assert(fabs(edge_probability(min,max,X,f)-0.3)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.3)< eps);
 	f.millisatoshis=13;
-	assert(fabs(edge_probability(min,max,X,f)-0.2)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.2)< eps);
 	f.millisatoshis=14;
-	assert(fabs(edge_probability(min,max,X,f)-0.1)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.1)< eps);
 
 	X = AMOUNT_MSAT(15);
 
@@ -471,22 +471,22 @@ static void test_edge_probability(void)
 	for(int i=5;i<100;++i)
 	{
 		f.millisatoshis = i;
-		assert(fabs(edge_probability(min,max,X,f))< eps);
+		assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL))< eps);
 	}
 
 	// X>=A, 0<=f<=B-X
 	f.millisatoshis=0;
-	assert(fabs(edge_probability(min,max,X,f)-1.0)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-1.0)< eps);
 	f.millisatoshis=1;
-	assert(fabs(edge_probability(min,max,X,f)-0.8)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.8)< eps);
 	f.millisatoshis=2;
-	assert(fabs(edge_probability(min,max,X,f)-0.6)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.6)< eps);
 	f.millisatoshis=3;
-	assert(fabs(edge_probability(min,max,X,f)-0.4)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.4)< eps);
 	f.millisatoshis=4;
-	assert(fabs(edge_probability(min,max,X,f)-0.2)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.2)< eps);
 	f.millisatoshis=5;
-	assert(fabs(edge_probability(min,max,X,f)-0.0)< eps);
+	assert(fabs(edge_probability(tmpctx,min,max,X,f,NULL)-0.0)< eps);
 }
 
 static void remove_file(char *fname)
@@ -557,10 +557,12 @@ static void test_flow_complete(void)
 	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
+	assert(h0);
 	h0->known_min = AMOUNT_MSAT(0);
 	h0->known_max = AMOUNT_MSAT(500000000);
 
 	h1 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,1);
+	assert(h1);
 	h1->known_min = AMOUNT_MSAT(500000000);
 	h1->known_max = AMOUNT_MSAT(1000000000);
 
@@ -578,10 +580,12 @@ static void test_flow_complete(void)
 	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
 
 	h1 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,1);
+	assert(h1);
 	h1->known_min = AMOUNT_MSAT(0);
 	h1->known_max = AMOUNT_MSAT(2000000000);
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
+	assert(h0);
 	h0->known_min = AMOUNT_MSAT(0);
 	h0->known_max = AMOUNT_MSAT(2000000000);
 
@@ -599,10 +603,12 @@ static void test_flow_complete(void)
 	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
+	assert(h0);
 	h0->known_min = AMOUNT_MSAT(500000000);
 	h0->known_max = AMOUNT_MSAT(1000000000);
 
 	h1 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,1);
+	assert(h1);
 	h1->known_min = AMOUNT_MSAT(0);
 	h1->known_max = AMOUNT_MSAT(500000000);
 
@@ -620,10 +626,12 @@ static void test_flow_complete(void)
 	assert(gossmap_chan_get_capacity(gossmap,c,&cap));
 
 	h0 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,0);
+	assert(h0);
 	h0->known_min = AMOUNT_MSAT(1000000000);
 	h0->known_max = AMOUNT_MSAT(2000000000);
 
 	h1 = get_chan_extra_half_by_chan_verify(gossmap,chan_extra_map,c,1);
+	assert(h1);
 	h1->known_min = AMOUNT_MSAT(1000000000);
 	h1->known_max = AMOUNT_MSAT(2000000000);
 
@@ -645,7 +653,9 @@ static void test_flow_complete(void)
 	F->path[0]=gossmap_find_chan(gossmap,&scid12);
 	F->dirs[0]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	flow_complete(F,gossmap,chan_extra_map,deliver);
+	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
+		assert(0 && "flow_complete fail");
+	}
 	assert(amount_msat_eq(F->amounts[0],deliver));
 	assert(fabs(F->success_prob - 0.5)<eps);
 
@@ -657,7 +667,9 @@ static void test_flow_complete(void)
 	F->dirs[0]=0;
 	F->dirs[1]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	flow_complete(F,gossmap,chan_extra_map,deliver);
+	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
+		assert(0 && "flow_complete fail");
+	}
 	assert(amount_msat_eq(F->amounts[0],amount_msat(250050016)));
 	assert(fabs(F->success_prob - 1.)<eps);
 
@@ -671,7 +683,9 @@ static void test_flow_complete(void)
 	F->dirs[1]=0;
 	F->dirs[2]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	flow_complete(F,gossmap,chan_extra_map,deliver);
+	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
+		assert(0 && "flow_complete fail");
+	}
 	assert(amount_msat_eq(F->amounts[0],amount_msat(250087534)));
 	assert(fabs(F->success_prob - 1. + 250.087534/2000)<eps);
 
@@ -687,7 +701,9 @@ static void test_flow_complete(void)
 	F->dirs[2]=0;
 	F->dirs[3]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	flow_complete(F,gossmap,chan_extra_map,deliver);
+	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
+		assert(0 && "flow_complete fail");
+	}
 	assert(amount_msat_eq(F->amounts[0],amount_msat(250112544)));
 	assert(fabs(F->success_prob - 0.43728117)<eps);
 
