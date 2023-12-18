@@ -149,6 +149,12 @@ pub trait IntoRequest: Into<Request> {
     type Response: TryFrom<Response, Error = TryFromResponseError>;
 }
 
+pub trait TypedRequest {
+    type Response;
+
+    fn method(&self) -> &str;
+}
+
 #[derive(Debug)]
 pub struct TryFromResponseError;
 
@@ -157,8 +163,8 @@ pub mod requests {
     use crate::primitives::*;
     #[allow(unused_imports)]
     use serde::{{Deserialize, Serialize}};
-    use super::{IntoRequest, Request};
-
+    use core::fmt::Debug;
+    use super::{IntoRequest, Request, TypedRequest};
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoRequest {
 	}
@@ -173,6 +179,13 @@ pub mod requests {
 	    type Response = super::responses::GetinfoResponse;
 	}
 
+	impl TypedRequest for GetinfoRequest {
+	    type Response = super::responses::GetinfoResponse;
+
+	    fn method(&self) -> &str {
+	        "getinfo"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -191,6 +204,13 @@ pub mod requests {
 	    type Response = super::responses::ListpeersResponse;
 	}
 
+	impl TypedRequest for ListpeersRequest {
+	    type Response = super::responses::ListpeersResponse;
+
+	    fn method(&self) -> &str {
+	        "listpeers"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListfundsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,6 +227,13 @@ pub mod requests {
 	    type Response = super::responses::ListfundsResponse;
 	}
 
+	impl TypedRequest for ListfundsRequest {
+	    type Response = super::responses::ListfundsResponse;
+
+	    fn method(&self) -> &str {
+	        "listfunds"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
 	    pub amount_msat: Amount,
@@ -245,6 +272,13 @@ pub mod requests {
 	    type Response = super::responses::SendpayResponse;
 	}
 
+	impl TypedRequest for SendpayRequest {
+	    type Response = super::responses::SendpayResponse;
+
+	    fn method(&self) -> &str {
+	        "sendpay"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -265,6 +299,13 @@ pub mod requests {
 	    type Response = super::responses::ListchannelsResponse;
 	}
 
+	impl TypedRequest for ListchannelsRequest {
+	    type Response = super::responses::ListchannelsResponse;
+
+	    fn method(&self) -> &str {
+	        "listchannels"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AddgossipRequest {
 	    pub message: String,
@@ -280,6 +321,13 @@ pub mod requests {
 	    type Response = super::responses::AddgossipResponse;
 	}
 
+	impl TypedRequest for AddgossipRequest {
+	    type Response = super::responses::AddgossipResponse;
+
+	    fn method(&self) -> &str {
+	        "addgossip"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AutocleaninvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -298,6 +346,13 @@ pub mod requests {
 	    type Response = super::responses::AutocleaninvoiceResponse;
 	}
 
+	impl TypedRequest for AutocleaninvoiceRequest {
+	    type Response = super::responses::AutocleaninvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "autocleaninvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CheckmessageRequest {
 	    pub message: String,
@@ -316,6 +371,13 @@ pub mod requests {
 	    type Response = super::responses::CheckmessageResponse;
 	}
 
+	impl TypedRequest for CheckmessageRequest {
+	    type Response = super::responses::CheckmessageResponse;
+
+	    fn method(&self) -> &str {
+	        "checkmessage"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CloseRequest {
 	    pub id: String,
@@ -343,6 +405,13 @@ pub mod requests {
 	    type Response = super::responses::CloseResponse;
 	}
 
+	impl TypedRequest for CloseRequest {
+	    type Response = super::responses::CloseResponse;
+
+	    fn method(&self) -> &str {
+	        "close"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectRequest {
 	    pub id: String,
@@ -362,6 +431,13 @@ pub mod requests {
 	    type Response = super::responses::ConnectResponse;
 	}
 
+	impl TypedRequest for ConnectRequest {
+	    type Response = super::responses::ConnectResponse;
+
+	    fn method(&self) -> &str {
+	        "connect"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoiceRequest {
 	    pub invstring: String,
@@ -379,6 +455,13 @@ pub mod requests {
 	    type Response = super::responses::CreateinvoiceResponse;
 	}
 
+	impl TypedRequest for CreateinvoiceRequest {
+	    type Response = super::responses::CreateinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "createinvoice"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DatastoreMode {
 	    #[serde(rename = "must-create")]
@@ -442,6 +525,13 @@ pub mod requests {
 	    type Response = super::responses::DatastoreResponse;
 	}
 
+	impl TypedRequest for DatastoreRequest {
+	    type Response = super::responses::DatastoreResponse;
+
+	    fn method(&self) -> &str {
+	        "datastore"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreusageRequest {
 	}
@@ -456,6 +546,13 @@ pub mod requests {
 	    type Response = super::responses::DatastoreusageResponse;
 	}
 
+	impl TypedRequest for DatastoreusageRequest {
+	    type Response = super::responses::DatastoreusageResponse;
+
+	    fn method(&self) -> &str {
+	        "datastoreusage"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateonionHops {
 	    pub pubkey: PublicKey,
@@ -482,6 +579,13 @@ pub mod requests {
 	    type Response = super::responses::CreateonionResponse;
 	}
 
+	impl TypedRequest for CreateonionRequest {
+	    type Response = super::responses::CreateonionResponse;
+
+	    fn method(&self) -> &str {
+	        "createonion"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DeldatastoreRequest {
 	    pub key: Vec<String>,
@@ -499,6 +603,13 @@ pub mod requests {
 	    type Response = super::responses::DeldatastoreResponse;
 	}
 
+	impl TypedRequest for DeldatastoreRequest {
+	    type Response = super::responses::DeldatastoreResponse;
+
+	    fn method(&self) -> &str {
+	        "deldatastore"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DelexpiredinvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -515,6 +626,13 @@ pub mod requests {
 	    type Response = super::responses::DelexpiredinvoiceResponse;
 	}
 
+	impl TypedRequest for DelexpiredinvoiceRequest {
+	    type Response = super::responses::DelexpiredinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "delexpiredinvoice"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -566,6 +684,13 @@ pub mod requests {
 	    type Response = super::responses::DelinvoiceResponse;
 	}
 
+	impl TypedRequest for DelinvoiceRequest {
+	    type Response = super::responses::DelinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "delinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceRequest {
 	    pub amount_msat: AmountOrAny,
@@ -593,6 +718,13 @@ pub mod requests {
 	    type Response = super::responses::InvoiceResponse;
 	}
 
+	impl TypedRequest for InvoiceRequest {
+	    type Response = super::responses::InvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "invoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListdatastoreRequest {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
@@ -609,6 +741,13 @@ pub mod requests {
 	    type Response = super::responses::ListdatastoreResponse;
 	}
 
+	impl TypedRequest for ListdatastoreRequest {
+	    type Response = super::responses::ListdatastoreResponse;
+
+	    fn method(&self) -> &str {
+	        "listdatastore"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesIndex {
 	    #[serde(rename = "created")]
@@ -665,6 +804,13 @@ pub mod requests {
 	    type Response = super::responses::ListinvoicesResponse;
 	}
 
+	impl TypedRequest for ListinvoicesRequest {
+	    type Response = super::responses::ListinvoicesResponse;
+
+	    fn method(&self) -> &str {
+	        "listinvoices"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionFirst_hop {
 	    pub id: PublicKey,
@@ -705,6 +851,13 @@ pub mod requests {
 	    type Response = super::responses::SendonionResponse;
 	}
 
+	impl TypedRequest for SendonionRequest {
+	    type Response = super::responses::SendonionResponse;
+
+	    fn method(&self) -> &str {
+	        "sendonion"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysStatus {
 	    #[serde(rename = "pending")]
@@ -791,6 +944,13 @@ pub mod requests {
 	    type Response = super::responses::ListsendpaysResponse;
 	}
 
+	impl TypedRequest for ListsendpaysRequest {
+	    type Response = super::responses::ListsendpaysResponse;
+
+	    fn method(&self) -> &str {
+	        "listsendpays"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListtransactionsRequest {
 	}
@@ -805,6 +965,13 @@ pub mod requests {
 	    type Response = super::responses::ListtransactionsResponse;
 	}
 
+	impl TypedRequest for ListtransactionsRequest {
+	    type Response = super::responses::ListtransactionsResponse;
+
+	    fn method(&self) -> &str {
+	        "listtransactions"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PayRequest {
 	    pub bolt11: String,
@@ -842,6 +1009,13 @@ pub mod requests {
 	    type Response = super::responses::PayResponse;
 	}
 
+	impl TypedRequest for PayRequest {
+	    type Response = super::responses::PayResponse;
+
+	    fn method(&self) -> &str {
+	        "pay"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -858,6 +1032,13 @@ pub mod requests {
 	    type Response = super::responses::ListnodesResponse;
 	}
 
+	impl TypedRequest for ListnodesRequest {
+	    type Response = super::responses::ListnodesResponse;
+
+	    fn method(&self) -> &str {
+	        "listnodes"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitanyinvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -876,6 +1057,13 @@ pub mod requests {
 	    type Response = super::responses::WaitanyinvoiceResponse;
 	}
 
+	impl TypedRequest for WaitanyinvoiceRequest {
+	    type Response = super::responses::WaitanyinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "waitanyinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoiceRequest {
 	    pub label: String,
@@ -891,6 +1079,13 @@ pub mod requests {
 	    type Response = super::responses::WaitinvoiceResponse;
 	}
 
+	impl TypedRequest for WaitinvoiceRequest {
+	    type Response = super::responses::WaitinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "waitinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitsendpayRequest {
 	    pub payment_hash: Sha256,
@@ -912,6 +1107,13 @@ pub mod requests {
 	    type Response = super::responses::WaitsendpayResponse;
 	}
 
+	impl TypedRequest for WaitsendpayRequest {
+	    type Response = super::responses::WaitsendpayResponse;
+
+	    fn method(&self) -> &str {
+	        "waitsendpay"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
@@ -960,6 +1162,13 @@ pub mod requests {
 	    type Response = super::responses::NewaddrResponse;
 	}
 
+	impl TypedRequest for NewaddrRequest {
+	    type Response = super::responses::NewaddrResponse;
+
+	    fn method(&self) -> &str {
+	        "newaddr"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WithdrawRequest {
 	    pub destination: String,
@@ -983,6 +1192,13 @@ pub mod requests {
 	    type Response = super::responses::WithdrawResponse;
 	}
 
+	impl TypedRequest for WithdrawRequest {
+	    type Response = super::responses::WithdrawResponse;
+
+	    fn method(&self) -> &str {
+	        "withdraw"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendRequest {
 	    pub destination: PublicKey,
@@ -1013,6 +1229,13 @@ pub mod requests {
 	    type Response = super::responses::KeysendResponse;
 	}
 
+	impl TypedRequest for KeysendRequest {
+	    type Response = super::responses::KeysendResponse;
+
+	    fn method(&self) -> &str {
+	        "keysend"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundpsbtRequest {
 	    pub satoshi: AmountOrAll,
@@ -1044,6 +1267,13 @@ pub mod requests {
 	    type Response = super::responses::FundpsbtResponse;
 	}
 
+	impl TypedRequest for FundpsbtRequest {
+	    type Response = super::responses::FundpsbtResponse;
+
+	    fn method(&self) -> &str {
+	        "fundpsbt"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpsbtRequest {
 	    pub psbt: String,
@@ -1061,6 +1291,13 @@ pub mod requests {
 	    type Response = super::responses::SendpsbtResponse;
 	}
 
+	impl TypedRequest for SendpsbtRequest {
+	    type Response = super::responses::SendpsbtResponse;
+
+	    fn method(&self) -> &str {
+	        "sendpsbt"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SignpsbtRequest {
 	    pub psbt: String,
@@ -1078,6 +1315,13 @@ pub mod requests {
 	    type Response = super::responses::SignpsbtResponse;
 	}
 
+	impl TypedRequest for SignpsbtRequest {
+	    type Response = super::responses::SignpsbtResponse;
+
+	    fn method(&self) -> &str {
+	        "signpsbt"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UtxopsbtRequest {
 	    pub satoshi: Amount,
@@ -1108,6 +1352,13 @@ pub mod requests {
 	    type Response = super::responses::UtxopsbtResponse;
 	}
 
+	impl TypedRequest for UtxopsbtRequest {
+	    type Response = super::responses::UtxopsbtResponse;
+
+	    fn method(&self) -> &str {
+	        "utxopsbt"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxdiscardRequest {
 	    pub txid: String,
@@ -1123,6 +1374,13 @@ pub mod requests {
 	    type Response = super::responses::TxdiscardResponse;
 	}
 
+	impl TypedRequest for TxdiscardRequest {
+	    type Response = super::responses::TxdiscardResponse;
+
+	    fn method(&self) -> &str {
+	        "txdiscard"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxprepareRequest {
 	    pub outputs: Vec<OutputDesc>,
@@ -1144,6 +1402,13 @@ pub mod requests {
 	    type Response = super::responses::TxprepareResponse;
 	}
 
+	impl TypedRequest for TxprepareRequest {
+	    type Response = super::responses::TxprepareResponse;
+
+	    fn method(&self) -> &str {
+	        "txprepare"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct TxsendRequest {
 	    pub txid: String,
@@ -1159,6 +1424,13 @@ pub mod requests {
 	    type Response = super::responses::TxsendResponse;
 	}
 
+	impl TypedRequest for TxsendRequest {
+	    type Response = super::responses::TxsendResponse;
+
+	    fn method(&self) -> &str {
+	        "txsend"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1175,6 +1447,13 @@ pub mod requests {
 	    type Response = super::responses::ListpeerchannelsResponse;
 	}
 
+	impl TypedRequest for ListpeerchannelsRequest {
+	    type Response = super::responses::ListpeerchannelsResponse;
+
+	    fn method(&self) -> &str {
+	        "listpeerchannels"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListclosedchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1191,6 +1470,13 @@ pub mod requests {
 	    type Response = super::responses::ListclosedchannelsResponse;
 	}
 
+	impl TypedRequest for ListclosedchannelsRequest {
+	    type Response = super::responses::ListclosedchannelsResponse;
+
+	    fn method(&self) -> &str {
+	        "listclosedchannels"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodepayRequest {
 	    pub bolt11: String,
@@ -1208,6 +1494,13 @@ pub mod requests {
 	    type Response = super::responses::DecodepayResponse;
 	}
 
+	impl TypedRequest for DecodepayRequest {
+	    type Response = super::responses::DecodepayResponse;
+
+	    fn method(&self) -> &str {
+	        "decodepay"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeRequest {
 	    pub string: String,
@@ -1223,6 +1516,13 @@ pub mod requests {
 	    type Response = super::responses::DecodeResponse;
 	}
 
+	impl TypedRequest for DecodeRequest {
+	    type Response = super::responses::DecodeResponse;
+
+	    fn method(&self) -> &str {
+	        "decode"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisconnectRequest {
 	    pub id: PublicKey,
@@ -1240,6 +1540,13 @@ pub mod requests {
 	    type Response = super::responses::DisconnectResponse;
 	}
 
+	impl TypedRequest for DisconnectRequest {
+	    type Response = super::responses::DisconnectResponse;
+
+	    fn method(&self) -> &str {
+	        "disconnect"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum FeeratesStyle {
 	    #[serde(rename = "perkb")]
@@ -1284,6 +1591,13 @@ pub mod requests {
 	    type Response = super::responses::FeeratesResponse;
 	}
 
+	impl TypedRequest for FeeratesRequest {
+	    type Response = super::responses::FeeratesResponse;
+
+	    fn method(&self) -> &str {
+	        "feerates"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FetchinvoiceRequest {
 	    pub offer: String,
@@ -1313,6 +1627,13 @@ pub mod requests {
 	    type Response = super::responses::FetchinvoiceResponse;
 	}
 
+	impl TypedRequest for FetchinvoiceRequest {
+	    type Response = super::responses::FetchinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "fetchinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelRequest {
 	    pub id: PublicKey,
@@ -1349,6 +1670,13 @@ pub mod requests {
 	    type Response = super::responses::FundchannelResponse;
 	}
 
+	impl TypedRequest for FundchannelRequest {
+	    type Response = super::responses::FundchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "fundchannel"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRequest {
 	    pub id: PublicKey,
@@ -1376,6 +1704,13 @@ pub mod requests {
 	    type Response = super::responses::GetrouteResponse;
 	}
 
+	impl TypedRequest for GetrouteRequest {
+	    type Response = super::responses::GetrouteResponse;
+
+	    fn method(&self) -> &str {
+	        "getroute"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsStatus {
 	    #[serde(rename = "offered")]
@@ -1466,6 +1801,13 @@ pub mod requests {
 	    type Response = super::responses::ListforwardsResponse;
 	}
 
+	impl TypedRequest for ListforwardsRequest {
+	    type Response = super::responses::ListforwardsResponse;
+
+	    fn method(&self) -> &str {
+	        "listforwards"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysStatus {
 	    #[serde(rename = "pending")]
@@ -1518,6 +1860,13 @@ pub mod requests {
 	    type Response = super::responses::ListpaysResponse;
 	}
 
+	impl TypedRequest for ListpaysRequest {
+	    type Response = super::responses::ListpaysResponse;
+
+	    fn method(&self) -> &str {
+	        "listpays"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListhtlcsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1534,6 +1883,13 @@ pub mod requests {
 	    type Response = super::responses::ListhtlcsResponse;
 	}
 
+	impl TypedRequest for ListhtlcsRequest {
+	    type Response = super::responses::ListhtlcsResponse;
+
+	    fn method(&self) -> &str {
+	        "listhtlcs"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PingRequest {
 	    pub id: PublicKey,
@@ -1553,6 +1909,13 @@ pub mod requests {
 	    type Response = super::responses::PingResponse;
 	}
 
+	impl TypedRequest for PingRequest {
+	    type Response = super::responses::PingResponse;
+
+	    fn method(&self) -> &str {
+	        "ping"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendcustommsgRequest {
 	    pub node_id: PublicKey,
@@ -1569,6 +1932,13 @@ pub mod requests {
 	    type Response = super::responses::SendcustommsgResponse;
 	}
 
+	impl TypedRequest for SendcustommsgRequest {
+	    type Response = super::responses::SendcustommsgResponse;
+
+	    fn method(&self) -> &str {
+	        "sendcustommsg"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelRequest {
 	    pub id: String,
@@ -1596,6 +1966,13 @@ pub mod requests {
 	    type Response = super::responses::SetchannelResponse;
 	}
 
+	impl TypedRequest for SetchannelRequest {
+	    type Response = super::responses::SetchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "setchannel"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SigninvoiceRequest {
 	    pub invstring: String,
@@ -1611,6 +1988,13 @@ pub mod requests {
 	    type Response = super::responses::SigninvoiceResponse;
 	}
 
+	impl TypedRequest for SigninvoiceRequest {
+	    type Response = super::responses::SigninvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "signinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SignmessageRequest {
 	    pub message: String,
@@ -1626,6 +2010,13 @@ pub mod requests {
 	    type Response = super::responses::SignmessageResponse;
 	}
 
+	impl TypedRequest for SignmessageRequest {
+	    type Response = super::responses::SignmessageResponse;
+
+	    fn method(&self) -> &str {
+	        "signmessage"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitblockheightRequest {
 	    pub blockheight: u32,
@@ -1643,6 +2034,13 @@ pub mod requests {
 	    type Response = super::responses::WaitblockheightResponse;
 	}
 
+	impl TypedRequest for WaitblockheightRequest {
+	    type Response = super::responses::WaitblockheightResponse;
+
+	    fn method(&self) -> &str {
+	        "waitblockheight"
+	    }
+	}
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitSubsystem {
 	    #[serde(rename = "invoices")]
@@ -1726,6 +2124,13 @@ pub mod requests {
 	    type Response = super::responses::WaitResponse;
 	}
 
+	impl TypedRequest for WaitRequest {
+	    type Response = super::responses::WaitResponse;
+
+	    fn method(&self) -> &str {
+	        "wait"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct StopRequest {
 	}
@@ -1740,6 +2145,13 @@ pub mod requests {
 	    type Response = super::responses::StopResponse;
 	}
 
+	impl TypedRequest for StopRequest {
+	    type Response = super::responses::StopResponse;
+
+	    fn method(&self) -> &str {
+	        "stop"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PreapprovekeysendRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1760,6 +2172,13 @@ pub mod requests {
 	    type Response = super::responses::PreapprovekeysendResponse;
 	}
 
+	impl TypedRequest for PreapprovekeysendRequest {
+	    type Response = super::responses::PreapprovekeysendResponse;
+
+	    fn method(&self) -> &str {
+	        "preapprovekeysend"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PreapproveinvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1776,6 +2195,13 @@ pub mod requests {
 	    type Response = super::responses::PreapproveinvoiceResponse;
 	}
 
+	impl TypedRequest for PreapproveinvoiceRequest {
+	    type Response = super::responses::PreapproveinvoiceResponse;
+
+	    fn method(&self) -> &str {
+	        "preapproveinvoice"
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct StaticbackupRequest {
 	}
@@ -1790,6 +2216,13 @@ pub mod requests {
 	    type Response = super::responses::StaticbackupResponse;
 	}
 
+	impl TypedRequest for StaticbackupRequest {
+	    type Response = super::responses::StaticbackupResponse;
+
+	    fn method(&self) -> &str {
+	        "staticbackup"
+	    }
+	}
 }
 
 

@@ -19,14 +19,14 @@ pub mod model;
 pub mod notifications;
 pub mod primitives;
 
-use crate::model::IntoRequest;
+use crate::model::TypedRequest;
 pub use crate::{
     model::{Request, Response},
     notifications::Notification,
     primitives::RpcError,
 };
 
-///
+/// 
 pub struct ClnRpc {
     next_id: AtomicUsize,
 
@@ -57,10 +57,15 @@ impl ClnRpc {
         })
     }
 
-    /// Low-level API to call the rpc
+    /// Low-level API to call the rpc.
     ///
-    /// It is the resposnbility of the caller to pick valid types `R` and `P`.
-    ///
+    /// It is the responsibility of the caller to pick valid types `R` and `P`.
+    /// It's useful for ad-hoc calls to methods that are not present in [`crate::model`].
+    /// Users can use [`serde_json::Value`] and don't have to implement any custom structs.
+    /// 
+    /// Most users would prefer to use [call_typed](crate::ClnRpc::call_typed) instead.
+    /// 
+    /// Example:
     /// ```no_run
     /// use cln_rpc::ClnRpc;
     /// use cln_rpc::model::{requests::GetinfoRequest, responses::GetinfoResponse, responses::ListfundsResponse};
@@ -77,15 +82,7 @@ impl ClnRpc {
     ///    // Prefer to use call_typed instead
     ///    let request = GetinfoRequest {};
     ///    let response : GetinfoResponse = cln.call_raw("getinfo", request.clone()).await.unwrap();
-    ///    // `call_typed` is more ergonomic because you don't have to specify the method name and return type
-    ///    let response = cln.call_typed(request).await.unwrap();
-    ///    
-    ///    // `call_typed` can catch issues at compile_time
-    ///    let request = GetinfoRequest {};
-    ///    let response : ListfundsResponse = cln.call_raw("get_info", request).await.unwrap();   // Runtime error
-    ///    // The next line would not compile
-    ///    // let response : ListfundsResponse = cln.call_typed(request).await.unwrap();
-    /// })
+   /// })
     /// ```
     pub async fn call_raw<R, P>(&mut self, method: &str, params: P) -> Result<R, RpcError>
     where
@@ -190,6 +187,11 @@ impl ClnRpc {
     }
 
     pub async fn call(&mut self, req: Request) -> Result<Response, RpcError> {
+        self.call_enum(req).await
+    }
+
+    /// Performs an rpc-call
+    pub async fn call_enum(&mut self, req: Request) -> Result<Response, RpcError> {
         trace!("call : Serialize and deserialize request {:?}", req);
         // Construct the full JsonRpcRequest
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
@@ -215,15 +217,26 @@ impl ClnRpc {
         })
     }
 
-    pub async fn call_typed<R: IntoRequest>(
-        &mut self,
-        request: R,
-    ) -> Result<R::Response, RpcError> {
-        Ok(self
-            .call(request.into())
-            .await?
-            .try_into()
-            .expect("CLN will reply correctly"))
+    /// Performs an rpc-call and performs type-checking.
+    /// 
+    /// ```no_run
+    /// use cln_rpc::ClnRpc;
+    /// use cln_rpc::model::requests::GetinfoRequest;
+    /// use std::path::Path;
+    /// use tokio_test;
+    /// tokio_test::block_on( async {
+    ///    let mut rpc = ClnRpc::new(Path::new("path_to_rpc")).await.unwrap();
+    ///    let request = GetinfoRequest {};
+    ///    let response = rpc.call_typed(request);
+    /// })
+    /// ```
+    pub async fn call_typed<R>(&mut self, request: R) -> Result<R::Response, RpcError>
+    where
+        R: TypedRequest + Serialize + std::fmt::Debug,
+        R::Response: DeserializeOwned + std::fmt::Debug,
+    {
+        let method = request.method();
+        self.call_raw(method, &request).await?
     }
 }
 
