@@ -247,8 +247,8 @@ class RustGenerator(IGenerator):
             use crate::primitives::*;
             #[allow(unused_imports)]
             use serde::{{Deserialize, Serialize}};
-            use super::{IntoRequest, Request};
-
+            use core::fmt::Debug;
+            use super::{IntoRequest, Request, TypedRequest};
         """)
 
         for meth in service.methods:
@@ -271,6 +271,13 @@ class RustGenerator(IGenerator):
             type Response = super::responses::{method.response.typename};
         }}
 
+        impl TypedRequest for {method.request.typename} {{
+            type Response = super::responses::{method.response.typename};
+
+            fn method(&self) -> &str {{
+                "{method.name.lower()}"
+            }}
+        }}
         """), numindent=1)
 
     def generate_responses(self, service: Service):
@@ -343,6 +350,12 @@ class RustGenerator(IGenerator):
         self.write("""
         pub trait IntoRequest: Into<Request> {
             type Response: TryFrom<Response, Error = TryFromResponseError>;
+        }
+
+        pub trait TypedRequest {
+            type Response;
+
+            fn method(&self) -> &str;
         }
 
         #[derive(Debug)]
