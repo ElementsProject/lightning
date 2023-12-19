@@ -1327,8 +1327,10 @@ char *bolt11_encode_(const tal_t *ctx,
 	 *   - if the `c` field (`min_final_cltv_expiry_delta`) is not provided:
 	 *     - MUST use an expiry delta of at least 18 when making the payment
 	 */
-	if (b11->min_final_cltv_expiry != 18)
-		encode_c(&data, b11->min_final_cltv_expiry);
+	/* FIXME: Only encode if non-default once all implementations update
+	 * default min_final_cltv_expiry_delta to 18. Forcing inclusion in the
+	 * interrim to ensure compatibility with existing nodes. */
+	encode_c(&data, b11->min_final_cltv_expiry);
 
 	for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
 		encode_f(&data, b11->fallbacks[i]);
