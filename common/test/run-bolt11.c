@@ -494,11 +494,11 @@ int main(int argc, char *argv[])
 	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqqsgqtqyx5vggfcsll4wu246hz02kp85x4katwsk9639we5n5yngc3yhqkm35jnjw4len8vrnqnf5ejh0mzj9n3vz2px97evektfm2l6wqccp3y7372"));
 	dev_bolt11_old_order = false;
-	dev_bolt11_omit_c_value = false;
 
 	/* Otherwise it does it normally */
 	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	assert(streq(badstr, "lnbc25m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdees9q4psqqqqqqqqqqqqqqqqsgq8w9mkdh2n9pmrsg5natjffcgjpp5caamstsq5pm03v2c7ca5ej3plyrfe3vyzl76v6wex4r8rd6rdvys4a35983n6wrzegcwfl2gl4qqxh98vj"));
+	dev_bolt11_omit_c_value = false;
 
 	/* Empty set of allowed bits, ensures this fails! */
 	fset = tal(tmpctx, struct feature_set);
