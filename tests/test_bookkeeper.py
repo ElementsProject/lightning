@@ -534,11 +534,11 @@ def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
     channel_13_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_13_channel_id)['txs'][0]['fees_paid_msat']
     channel_14_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
 
-    bkpr_total_fee_btc = (channel_12_multifundchannel_fee_msat
-                          + channel_13_multifundchannel_fee_msat
-                          + channel_14_multifundchannel_fee_msat).to_btc()
+    bkpr_total_fee_msat = (channel_12_multifundchannel_fee_msat
+                           + channel_13_multifundchannel_fee_msat
+                           + channel_14_multifundchannel_fee_msat)
 
-    assert bkpr_total_fee_btc == getblock_fee_btc
+    assert bkpr_total_fee_msat == int(getblock_fee_btc * 100000000000)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
@@ -602,14 +602,14 @@ def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):
     channel_14_multifundchannel_fee_msat = l1.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
     channel_41_multifundchannel_fee_msat = l4.rpc.bkpr_inspect(channel_14_channel_id)['txs'][0]['fees_paid_msat']
 
-    bkpr_total_fee_btc = (channel_12_multifundchannel_fee_msat
-                          + channel_21_multifundchannel_fee_msat
-                          + channel_13_multifundchannel_fee_msat
-                          + channel_31_multifundchannel_fee_msat
-                          + channel_14_multifundchannel_fee_msat
-                          + channel_41_multifundchannel_fee_msat).to_btc()
+    bkpr_total_fee_msat = (channel_12_multifundchannel_fee_msat
+                           + channel_21_multifundchannel_fee_msat
+                           + channel_13_multifundchannel_fee_msat
+                           + channel_31_multifundchannel_fee_msat
+                           + channel_14_multifundchannel_fee_msat
+                           + channel_41_multifundchannel_fee_msat)
 
-    assert bkpr_total_fee_btc == getblock_fee_btc
+    assert bkpr_total_fee_msat == int(getblock_fee_btc * 100000000000)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
