@@ -343,7 +343,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 				     " FROM onchain_fees"
 				     " WHERE account_id = ?"
 				     " GROUP BY txid"
-				     " ORDER BY txid, update_count"));
+				     " ORDER BY txid"));
 
 	db_bind_u64(stmt, acct->db_id);
 	db_query_prepared(stmt);

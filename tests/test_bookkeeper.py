@@ -520,26 +520,8 @@ def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
     wait_for(lambda: l1.channel_state(l3) == 'CHANNELD_NORMAL')
     wait_for(lambda: l1.channel_state(l4) == 'CHANNELD_NORMAL')
 
-    # calculate the tx fee from bitcoin-cli by subtracting the multifundchannel tx inputs and outputs
+    # now use getblock to get the tx fee from bitcoin-cli's perspective
     multifundchannel_rawtx = l1.bitcoin.rpc.getrawtransaction(multifundchannel_txid, True)
-
-    inputs_total_btc = 0
-    vins = multifundchannel_rawtx['vin']
-    for vin in vins:
-        temp_txid = vin['txid']
-        temp_vout = vin['vout']
-        temp_rawtx = l1.bitcoin.rpc.getrawtransaction(temp_txid, True)
-        output_amount_btc = temp_rawtx['vout'][temp_vout]['value']
-        inputs_total_btc += output_amount_btc
-
-    outputs_total_btc = 0
-    vouts = multifundchannel_rawtx['vout']
-    for vout in vouts:
-        outputs_total_btc += vout['value']
-
-    calculated_total_fees_btc = inputs_total_btc - outputs_total_btc
-
-    # now use getblock to get the tx fee also from bitcoin-cli's perspective
     blockhash = multifundchannel_rawtx['blockhash']
     getblock_tx = l1.bitcoin.rpc.getblock(blockhash, 2)['tx']
     getblock_fee_btc = 0
@@ -556,7 +538,6 @@ def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
                           + channel_13_multifundchannel_fee_msat
                           + channel_14_multifundchannel_fee_msat).to_btc()
 
-    assert bkpr_total_fee_btc == calculated_total_fees_btc
     assert bkpr_total_fee_btc == getblock_fee_btc
 
 
@@ -604,26 +585,8 @@ def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):
     wait_for(lambda: l1.channel_state(l3) == 'CHANNELD_NORMAL')
     wait_for(lambda: l1.channel_state(l4) == 'CHANNELD_NORMAL')
 
-    # calculate the tx fee from bitcoin-cli by subtracting the multifundchannel tx inputs and outputs
+    # now use getblock to get the tx fee from bitcoin-cli's perspective
     multifundchannel_rawtx = l1.bitcoin.rpc.getrawtransaction(multifundchannel_txid, True)
-
-    inputs_total_btc = 0
-    vins = multifundchannel_rawtx['vin']
-    for vin in vins:
-        temp_txid = vin['txid']
-        temp_vout = vin['vout']
-        temp_rawtx = l1.bitcoin.rpc.getrawtransaction(temp_txid, True)
-        output_amount_btc = temp_rawtx['vout'][temp_vout]['value']
-        inputs_total_btc += output_amount_btc
-
-    outputs_total_btc = 0
-    vouts = multifundchannel_rawtx['vout']
-    for vout in vouts:
-        outputs_total_btc += vout['value']
-
-    calculated_total_fees_btc = inputs_total_btc - outputs_total_btc
-
-    # now use getblock to get the tx fee also from bitcoin-cli's perspective
     blockhash = multifundchannel_rawtx['blockhash']
     getblock_tx = l1.bitcoin.rpc.getblock(blockhash, 2)['tx']
     getblock_fee_btc = 0
@@ -646,7 +609,6 @@ def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):
                           + channel_14_multifundchannel_fee_msat
                           + channel_41_multifundchannel_fee_msat).to_btc()
 
-    assert bkpr_total_fee_btc == calculated_total_fees_btc
     assert bkpr_total_fee_btc == getblock_fee_btc
 
 
