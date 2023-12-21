@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.11.2] - 2023-12-22: "Bitcoin Orangepaper"
+
+This is a hotfix release to address BOLT 11 invoice compatibility.
+
+### Fixed
+
+ - invoice: Force cltv field inclusion in BOLT 11 invoice ([#6957])
+
+[#6957]: https://github.com/ElementsProject/lightning/pull/6957
+
+
+
 ## [23.11.1] - 2023-12-15: "Bitcoin Orangepaper"
 
 This is a hotfix release to address a couple of issues in the release.
@@ -14,7 +26,7 @@ This is a hotfix release to address a couple of issues in the release.
 
 [#6937]: https://github.com/ElementsProject/lightning/pull/6937
 
-[v23.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.11.1
+[23.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.11.1
 
 ## [23.11] - 2023-11-28: "Bitcoin Orangepaper"
 
@@ -2772,6 +2784,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[23.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v23.11.2
 [23.11]: https://github.com/ElementsProject/lightning/releases/tag/v23.11
 [23.05]: https://github.com/ElementsProject/lightning/releases/tag/v23.05
 [23.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02.1
