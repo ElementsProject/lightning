@@ -1950,7 +1950,7 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OfferRequest {
-	    pub amount: AmountOrAny,
+	    pub amount: String,
 	    pub description: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub issuer: Option<String>,

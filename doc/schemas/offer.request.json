@@ -7,8 +7,8 @@
   ],
   "properties": {
     "amount": {
-      "type": "msat_or_any",
-      "description": "either the string \"any\" (e.g. for donations) or a positive value in millisatoshi precision"
+      "type": "string",
+      "description": "The amount parameter can be the string \"any\", which creates an offer that can be paid with any amount (e.g. a donation). Otherwise it can be a positive value in millisatoshi precision; it can be a whole number, or a whole number ending in msat or sat, or a number with three decimal places ending in sat, or a number with 1 to 11 decimal places ending in btc. `amount` can also have an ISO 4217 postfix (i.e. USD), in which case currency conversion will need to be done for the invoice itself. A plugin is needed which provides the \"currencyconvert\" API for this currency, otherwise the offer creation will fail."
     },
     "description": {
       "type": "string",

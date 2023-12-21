@@ -1819,7 +1819,7 @@ message ListhtlcsHtlcs {
 }
 
 message OfferRequest {
-	AmountOrAny amount = 1;
+	string amount = 1;
 	string description = 2;
 	optional string issuer = 3;
 	optional string label = 4;

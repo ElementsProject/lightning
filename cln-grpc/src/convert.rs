@@ -2572,7 +2572,7 @@ impl From<requests::OfferRecurrence_paywindow> for pb::OfferRecurrencePaywindow 
 impl From<requests::OfferRequest> for pb::OfferRequest {
     fn from(c: requests::OfferRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type msat_or_any
+            amount: c.amount, // Rule #2 for type string
             description: c.description, // Rule #2 for type string
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
@@ -3383,7 +3383,7 @@ impl From<pb::OfferRecurrencePaywindow> for requests::OfferRecurrence_paywindow 
 impl From<pb::OfferRequest> for requests::OfferRequest {
     fn from(c: pb::OfferRequest) -> Self {
         Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_any
+            amount: c.amount, // Rule #1 for type string
             description: c.description, // Rule #1 for type string
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
