@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [23.11.2] - 2023-12-22: "Bitcoin Orangepaper"
+
+This is a hotfix release to address BOLT 11 invoice compatibility.
+
+### Fixed
+
+ - invoice: Force cltv field inclusion in BOLT 11 invoice, for old implementations still defaulting to 9 blocks ([#6957])
+
+[#6957]: https://github.com/ElementsProject/lightning/pull/6957
+
+
 ## [23.11.1] - 2023-12-15: "Bitcoin Orangepaper"
 
 This is a hotfix release to address a couple of issues in the release.
