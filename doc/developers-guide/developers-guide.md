@@ -19,7 +19,7 @@ cd contrib
 Load the script, using `source` so it can set aliases:
 
 ```shell
-source contrib/startup_regtest.sh
+source startup_regtest.sh
 ```
 
 Start up the nodeset:
