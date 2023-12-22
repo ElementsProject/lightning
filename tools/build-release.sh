@@ -161,7 +161,7 @@ for target in $TARGETS; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
 			echo "Building Ubuntu $D Image"
-			docker run --rm -v "$(pwd)":/build -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -ti cl-repro-"$d"
+			docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -ti cl-repro-"$d"
             echo "Ubuntu $D Image Built"
 		done
         ;;
@@ -257,7 +257,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     fi
     sumfile="$(pwd)/${sumfile}"
     cd release/
-    # Check that the release captains sum matches. Ignore missing entries as we 
+    # Check that the release captains sum matches. Ignore missing entries as we
     # do not have a repro build for Fedora. Strictly this is not necessary here
     # as we compare our checksums with the release captains checksums later, but
     # it gives a direct hint which specific checksums don't match if so.
