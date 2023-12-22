@@ -45,7 +45,7 @@ The `getmanifest` method is required for all plugins and will be called on start
       "default": "World",
       "description": "What name should I call you?",
       "deprecated": false,
-   	  "dynamic": false
+      "dynamic": false
     }
   ],
   "rpcmethods": [
@@ -78,8 +78,8 @@ The `getmanifest` method is required for all plugins and will be called on start
   },
   "notifications": [
     {
-	  "method": "mycustomnotification"
-	}
+        "method": "mycustomnotification"
+    }
   ],
   "custommessages": [
     11008, 11010
@@ -89,7 +89,7 @@ The `getmanifest` method is required for all plugins and will be called on start
 }
 ```
 
-During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._ If an option specifies `dynamic`: `true`, then it should allow a `setvalue` call for that option after initialization.
+During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._ If an option specifies `dynamic`: `true`, then it should allow a `setconfig` call for that option after initialization.
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields  
 are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.

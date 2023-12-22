@@ -6,6 +6,7 @@
 #include <common/bolt11.h>
 #include <common/bolt12_merkle.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -469,6 +470,30 @@ static void destroy_cmd_payment_ptr(struct command *cmd,
 	payment->cmd = NULL;
 }
 
+static void gossmod_cb(struct gossmap_localmods *mods,
+		       const struct node_id *self,
+		       const struct node_id *peer,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat min,
+		       struct amount_msat max,
+		       struct amount_msat fee_base,
+		       u32 fee_proportional,
+		       u32 cltv_delta,
+		       bool enabled,
+		       const char *buf,
+		       const jsmntok_t *chantok,
+		       struct payment *payment)
+{
+	/* Add to gossmap like normal */
+	gossmod_add_localchan(mods, self, peer, scidd, min, max,
+			      fee_base, fee_proportional, cltv_delta, enabled, buf, chantok, NULL);
+
+	/* Also update uncertainty map */
+	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,
+							 buf, chantok,
+							 pay_plugin->chan_extra_map);
+}
+
 static struct command_result *listpeerchannels_done(
 		struct command *cmd,
 		const char *buf,
@@ -479,19 +504,17 @@ static struct command_result *listpeerchannels_done(
 	const char *errmsg;
 	enum jsonrpc_errcode ecode;
 
-	if (!uncertainty_network_update_from_listpeerchannels(
-			pay_plugin->chan_extra_map,
-			pay_plugin->my_id,
-			payment,
-			buf,
-			result))
-		return command_fail(cmd, LIGHTNINGD,
-				    "listpeerchannels malformed: %.*s",
-				    json_tok_full_len(result),
-				    json_tok_full(buf, result));
+	payment->local_gossmods = gossmods_from_listpeerchannels(payment, &pay_plugin->my_id,
+								 buf, result,
+								 gossmod_cb, payment);
+
 	// TODO(eduardo): check that there won't be a prob. cost associated with
 	// any gossmap local chan. The same way there aren't fees to pay for my
 	// local channels.
+
+	// TODO(eduardo): are there route hints for B12?
+	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
+	uncertainty_network_add_routehints(pay_plugin->chan_extra_map, payment->routes, payment);
 
 	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
 	tal_steal(pay_plugin->plugin, payment);
@@ -941,25 +964,26 @@ static struct command_result *json_pay(struct command *cmd,
 	 * actually started, it persists beyond the command, so we
 	 * tal_steal. */
 	struct payment *payment = payment_new(cmd,
-					       cmd,
-					       take(invstr),
-					       take(label),
-					       take(description),
-					       take(local_offer_id),
-					       take(payment_secret),
-					       take(payment_metadata),
-					       &destination,
-					       &payment_hash,
-					       *msat,
-					       *maxfee,
-					       *maxdelay,
-					       *retryfor,
-					       final_cltv,
-					       *base_fee_penalty,
-					       *prob_cost_factor,
-					       *riskfactor_millionths,
-					       *min_prob_success_millionths,
-					       use_shadow);
+					      cmd,
+					      take(invstr),
+					      take(label),
+					      take(description),
+					      take(local_offer_id),
+					      take(payment_secret),
+					      take(payment_metadata),
+					      take(routes),
+					      &destination,
+					      &payment_hash,
+					      *msat,
+					      *maxfee,
+					      *maxdelay,
+					      *retryfor,
+					      final_cltv,
+					      *base_fee_penalty,
+					      *prob_cost_factor,
+					      *riskfactor_millionths,
+					      *min_prob_success_millionths,
+					      use_shadow);
 
 	/* We immediately add this payment to the payment list. */
 	list_add_tail(&pay_plugin->payments, &payment->list);
@@ -1005,10 +1029,6 @@ static struct command_result *json_pay(struct command *cmd,
 	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
 					   fraction);
 	pay_plugin->last_time = now_sec;
-
-	// TODO(eduardo): are there route hints for B12?
-	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
-	uncertainty_network_add_routehints(pay_plugin->chan_extra_map, routes, payment);
 
 	if(!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
 		plugin_log(pay_plugin->plugin,

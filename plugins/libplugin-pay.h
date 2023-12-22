@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H
 #include "config.h"
 
+#include <ccan/io/io.h>
 #include <common/bolt11.h>
 #include <common/route.h>
 #include <plugins/libplugin.h>
@@ -235,6 +236,9 @@ struct payment {
 	struct payment_constraints *start_constraints;
 
 	struct short_channel_id *exclusions;
+
+	/* Local modifications, from listpeerchannels */
+	struct gossmap_localmods *mods;
 
 	/* Tree structure of payments and subpayments. */
 	struct payment *parent, **children;
@@ -488,7 +492,7 @@ void json_add_payment_success(struct json_stream *js,
 			      const struct preimage *preimage,
 			      const struct payment_tree_result *result);
 
-/* For special effects, like inspecting your own routes. */
-struct gossmap *get_gossmap(struct plugin *plugin);
+/* Overriding io_poll for extra checks. */
+int libplugin_pay_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */

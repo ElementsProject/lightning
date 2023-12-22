@@ -8,6 +8,7 @@
 #include <common/scb_wiregen.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <lightningd/channel_state.h>
 #include <wallet/wallet.h>
 
@@ -297,6 +298,10 @@ struct channel {
 	/* Lease commited max part per thousandth channel fee (ppm * 1000) */
 	u16 lease_chan_max_ppt;
 
+	/* Channel incoming fee rates, cltv delta min/max htlc from
+	 * peer. Used to generate route hints, blinded paths. */
+	const struct peer_update *peer_update;
+
 	/* Latest channel_update, for use in error messages. */
 	u8 *channel_update;
 
@@ -383,7 +388,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u16 lease_chan_max_ppt,
 			    struct amount_msat htlc_minimum_msat,
 			    struct amount_msat htlc_maximum_msat,
-			    bool ignore_fee_limits);
+			    bool ignore_fee_limits,
+			    /* NULL or stolen */
+			    struct peer_update *peer_update STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

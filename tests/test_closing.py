@@ -3716,7 +3716,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     assert 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
 
     # We reduce l1's UTXOs so it's forced to use more than one UTXO to push.
-    fundsats = int(only_one(l1.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
+    fundsats = int(Millisatoshi(only_one(l1.rpc.listfunds()['outputs'])['amount_msat']).to_satoshi())
     psbt = l1.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
     # Pay 5k sats in fees, send most to l2
     psbt = l1.rpc.addpsbtoutput(fundsats - 20000 - 5000, psbt, destination=l2.rpc.newaddr()['bech32'])['psbt']
@@ -3909,7 +3909,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
                                          wait_for_announce=True)
 
     # We splinter l2's funds so it's forced to use more than one UTXO to push.
-    fundsats = int(only_one(l2.rpc.listfunds()['outputs'])['amount_msat'].to_satoshi())
+    fundsats = int(Millisatoshi(only_one(l2.rpc.listfunds()['outputs'])['amount_msat']).to_satoshi())
     OUTPUT_SAT = 10000
     NUM_OUTPUTS = 10
     psbt = l2.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']

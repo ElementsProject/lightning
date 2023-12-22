@@ -256,6 +256,16 @@ The following tables are currently supported:
     - `row` (reference to `peerchannels_channel_type.rowid`, sqltype `INTEGER`)
     - `arrindex` (index within array, sqltype `INTEGER`)
     - `names` (type `string`, sqltype `TEXT`)
+  - `local_htlc_minimum_msat` (type `msat`, sqltype `INTEGER`, from JSON object `local`)
+  - `local_htlc_maximum_msat` (type `msat`, sqltype `INTEGER`, from JSON object `local`)
+  - `local_cltv_expiry_delta` (type `u32`, sqltype `INTEGER`, from JSON object `local`)
+  - `local_fee_base_msat` (type `msat`, sqltype `INTEGER`, from JSON object `local`)
+  - `local_fee_proportional_millionths` (type `u32`, sqltype `INTEGER`, from JSON object `local`)
+  - `remote_htlc_minimum_msat` (type `msat`, sqltype `INTEGER`, from JSON object `remote`)
+  - `remote_htlc_maximum_msat` (type `msat`, sqltype `INTEGER`, from JSON object `remote`)
+  - `remote_cltv_expiry_delta` (type `u32`, sqltype `INTEGER`, from JSON object `remote`)
+  - `remote_fee_base_msat` (type `msat`, sqltype `INTEGER`, from JSON object `remote`)
+  - `remote_fee_proportional_millionths` (type `u32`, sqltype `INTEGER`, from JSON object `remote`)
   - `ignore_fee_limits` (type `boolean`, sqltype `INTEGER`)
   - `feerate_perkw` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `feerate_perkb` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
@@ -520,4 +530,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:f1434805992a6d428e96c93e2acde932d99da9cfbc91c9b543b3553b1af39c9b)
+[comment]: # ( SHA256STAMP:5c5e14f8fde75b877080c0c10feb786f1d2fefbb61a62aecb8d003d1d54627e9)

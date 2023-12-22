@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "cln-tracer"
+version = "0.1.0"
+description = ""
+authors = ["Christian Decker <decker.christian@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+bcc = "^0.1.10"
+opentelemetry-proto = "^1.21.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

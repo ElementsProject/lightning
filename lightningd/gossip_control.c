@@ -5,6 +5,7 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/permissions.h>
@@ -172,6 +173,85 @@ const u8 *get_channel_update(struct channel *channel)
 	return channel->channel_update;
 }
 
+static void set_channel_remote_update(struct lightningd *ld,
+				      struct channel *channel,
+				      const struct node_id *source,
+				      struct peer_update *update TAKES)
+{
+	struct short_channel_id *scid;
+
+	scid = channel->scid;
+	if (!scid)
+		scid = channel->alias[LOCAL];
+
+	/* NULL source means it's from gossipd itself */
+	if (source && !node_id_eq(source, &channel->peer->id)) {
+		log_unusual(ld->log, "Bad gossip order: %s sent us a channel update for a "
+			    "channel owned by %s (%s)",
+			    type_to_string(tmpctx, struct node_id, source),
+			    type_to_string(tmpctx, struct node_id,
+					   &channel->peer->id),
+			    type_to_string(tmpctx, struct short_channel_id, scid));
+		if (taken(update))
+			tal_free(update);
+		return;
+	}
+	log_debug(ld->log, "updating channel %s with private inbound settings",
+		  type_to_string(tmpctx, struct short_channel_id, scid));
+	tal_free(channel->peer_update);
+	channel->peer_update = tal_dup(channel, struct peer_update, update);
+	if (taken(update))
+		tal_free(update);
+	wallet_channel_save(ld->wallet, channel);
+}
+
+/* One of the few places where we look up by *remote* id.  It's not unique,
+ * but it is unique for a specific peer. */
+static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
+						   const struct node_id *source,
+						   struct short_channel_id scid)
+{
+	const struct peer *p;
+	struct channel *chan;
+
+	if (!source)
+		return NULL;
+
+	p = peer_by_id(ld, source);
+	if (!p)
+		return NULL;
+
+	list_for_each(&p->channels, chan, list) {
+		if (chan->alias[REMOTE]
+		    && short_channel_id_eq(&scid, chan->alias[REMOTE]))
+			return chan;
+	}
+	return NULL;
+}
+
+static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
+{
+	struct channel *channel;
+	struct peer_update *update;
+	struct node_id *source;
+
+	update = tal(tmpctx, struct peer_update);
+	if (!fromwire_gossipd_remote_channel_update(msg, msg, &source, update))
+		fatal("Gossip gave bad GOSSIPD_REMOTE_CHANNEL_UPDATE %s",
+		      tal_hex(msg, msg));
+	channel = any_channel_by_scid(ld, &update->scid, true);
+	if (!channel)
+		channel = lookup_by_peer_remote_alias(ld, source, update->scid);
+	if (!channel) {
+		log_unusual(ld->log, "Bad gossip order: could not find channel %s for peer's "
+			    "channel update",
+			    short_channel_id_to_str(tmpctx, &update->scid));
+		return;
+	}
+
+	set_channel_remote_update(ld, channel, source, update);
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -212,6 +292,11 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		break;
 	case WIRE_GOSSIPD_GOT_LOCAL_CHANNEL_UPDATE:
 		handle_local_channel_update(gossip->ld, msg);
+		break;
+	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
+		/* Please stash in database for us! */
+		handle_peer_update_data(gossip->ld, msg);
+		tal_free(msg);
 		break;
 	}
 	return 0;

@@ -219,5 +219,30 @@ int main(int argc, char *argv[])
 			  JSON_SCAN(json_to_number, &u32val)));
 	assert(u32val == 4);
 
+	/* You can have optional whole objects */
+	u32val = -1U;
+	/* Missing */
+	assert(!json_scan(tmpctx, buf, toks, "{5?:{deeper:%}}",
+			  JSON_SCAN(json_to_number, &u32val)));
+	assert(u32val == -1U);
+	/* Missing */
+	assert(!json_scan(tmpctx, buf, toks, "{3?:{not?:%}}",
+			  JSON_SCAN(json_to_number, &u32val)));
+	assert(u32val == -1U);
+	/* Present */
+	assert(!json_scan(tmpctx, buf, toks, "{3?:{three:{deeper:%}}}",
+			  JSON_SCAN(json_to_number, &u32val)));
+	assert(u32val == 17);
+	/* Missing inside optional */
+	err = json_scan(tmpctx, buf, toks, "{3?:{not:%}",
+			JSON_SCAN(json_to_number, &u32val));
+	assert(streq(err, "Parsing '{3?:{not:': object does not have member not"));
+
+
+	buf = tal_strdup(tmpctx, "{\"1\":\"one\", \"2\":\"two\", \"3\":{\"three\": {\"deeper\": 17}}, \"arr\": [{\"1\": \"arrone\"}, 2, [3, 4]]}");
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(toks);
+	assert(toks->size == 4);
+
 	common_shutdown();
 }

@@ -4,6 +4,7 @@ from fixtures import *  # noqa: F401,F403
 from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
+from pyln.testing.utils import FUNDAMOUNT
 from utils import (
     only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     expected_peer_features, expected_node_features,
@@ -170,15 +171,13 @@ def test_millisatoshi_passthrough(node_factory):
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/millisatoshis.py')
     n = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
 
-    # By keyword
+    # By keyword (plugin literally returns Millisatoshi, which becomes a string)
     ret = n.rpc.call('echo', {'msat': Millisatoshi(17), 'not_an_msat': '22msat'})['echo_msat']
-    assert type(ret) == Millisatoshi
-    assert ret == Millisatoshi(17)
+    assert Millisatoshi(ret) == Millisatoshi(17)
 
     # By position
     ret = n.rpc.call('echo', [Millisatoshi(18), '22msat'])['echo_msat']
-    assert type(ret) == Millisatoshi
-    assert ret == Millisatoshi(18)
+    assert Millisatoshi(ret) == Millisatoshi(18)
 
 
 def test_rpc_passthrough(node_factory):
@@ -1851,6 +1850,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
     assert not resp["success"] and "decode failed" in resp["errmsg"]
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'p2tr addresses not supported by elementsd')
 def test_hook_crash(node_factory, executor, bitcoind):
     """Verify that we fail over if a plugin crashes while handling a hook.
 
@@ -1874,18 +1874,25 @@ def test_hook_crash(node_factory, executor, bitcoind):
     l1 = node_factory.get_node()
     nodes = [node_factory.get_node() for _ in perm]
 
+    # For simplicity, give us N UTXOs to spend.
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    for n in nodes:
+        bitcoind.rpc.sendtoaddress(addr, (FUNDAMOUNT + 5000) / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=len(nodes))
+    sync_blockheight(bitcoind, [l1])
+
     # Start them in any order and we should still always end up with each
     # plugin being called and ultimately the `pay` call should succeed:
     for plugins, n in zip(perm, nodes):
         for p in plugins:
             n.rpc.plugin_start(p)
-        l1.openchannel(n, 10**6, confirm=False, wait_for_announce=False)
+        l1.connect(n)
+        l1.rpc.fundchannel(n.info['id'], FUNDAMOUNT)
 
-    # Mine final openchannel tx first.
-    sync_blockheight(bitcoind, [l1] + nodes)
-    mine_funding_to_announce(bitcoind, [l1] + nodes, wait_for_mempool=1)
+    # Mine txs first.
+    mine_funding_to_announce(bitcoind, [l1] + nodes, num_blocks=6, wait_for_mempool=len(nodes))
 
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(perm))
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(nodes))
 
     # Start an RPC call that should error once the plugin crashes.
     f1 = executor.submit(nodes[0].rpc.hold_rpc_call)
@@ -3713,6 +3720,26 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'scratch_txid',
                          'type': 'txid'},
+                        {'name': 'local_htlc_minimum_msat',
+                         'type': 'msat'},
+                        {'name': 'local_htlc_maximum_msat',
+                         'type': 'msat'},
+                        {'name': 'local_cltv_expiry_delta',
+                         'type': 'u32'},
+                        {'name': 'local_fee_base_msat',
+                         'type': 'msat'},
+                        {'name': 'local_fee_proportional_millionths',
+                         'type': 'u32'},
+                        {'name': 'remote_htlc_minimum_msat',
+                         'type': 'msat'},
+                        {'name': 'remote_htlc_maximum_msat',
+                         'type': 'msat'},
+                        {'name': 'remote_cltv_expiry_delta',
+                         'type': 'u32'},
+                        {'name': 'remote_fee_base_msat',
+                         'type': 'msat'},
+                        {'name': 'remote_fee_proportional_millionths',
+                         'type': 'u32'},
                         {'name': 'ignore_fee_limits',
                          'type': 'boolean'},
                         {'name': 'feerate_perkw',
@@ -4227,6 +4254,17 @@ def test_all_subscription(node_factory, directory):
     # shutdown and connect are subscribed before the wildcard, so is handled by that handler
     assert not l2.daemon.is_in_log(f'.*test_libplugin: all: shutdown.*')
     assert not l2.daemon.is_in_log(f'.*test_libplugin: all: connect.*')
+
+
+def test_dynamic_option_python_plugin(node_factory):
+    plugin = os.path.join(os.getcwd(), "tests/plugins/dynamic_option.py")
+    ln = node_factory.get_node(options={"plugin": plugin})
+    result = ln.rpc.listconfigs("test-dynamic-config")
+
+    assert result["configs"]["test-dynamic-config"]["value_str"] == "initial"
+
+    result = ln.rpc.setconfig("test-dynamic-config", "changed")
+    assert result["config"]["value_str"] == "changed"
 
 
 def test_renepay_not_important(node_factory):

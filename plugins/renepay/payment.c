@@ -10,25 +10,26 @@
 
 struct payment *payment_new(const tal_t *ctx,
 			    struct command *cmd,
-				    const char *invstr TAKES,
-				    const char *label TAKES,
-				    const char *description TAKES,
-				    const struct sha256 *local_offer_id TAKES,
-				    const struct secret *payment_secret TAKES,
-				    const u8 *payment_metadata TAKES,
-				    const struct node_id *destination,
-				    const struct sha256 *payment_hash,
-				    struct amount_msat amount,
-				    struct amount_msat maxfee,
-				    unsigned int maxdelay,
-				    u64 retryfor,
-				    u16 final_cltv,
-				    /* Tweakable in --developer mode */
-				    u64 base_fee_penalty,
-				    u64 prob_cost_factor,
-				    u64 riskfactor_millionths,
-				    u64 min_prob_success_millionths,
-				    bool use_shadow)
+			    const char *invstr TAKES,
+			    const char *label TAKES,
+			    const char *description TAKES,
+			    const struct sha256 *local_offer_id TAKES,
+			    const struct secret *payment_secret TAKES,
+			    const u8 *payment_metadata TAKES,
+			    const struct route_info **routes TAKES,
+			    const struct node_id *destination,
+			    const struct sha256 *payment_hash,
+			    struct amount_msat amount,
+			    struct amount_msat maxfee,
+			    unsigned int maxdelay,
+			    u64 retryfor,
+			    u16 final_cltv,
+			    /* Tweakable in --developer mode */
+			    u64 base_fee_penalty,
+			    u64 prob_cost_factor,
+			    u64 riskfactor_millionths,
+			    u64 min_prob_success_millionths,
+			    bool use_shadow)
 {
 	struct payment *p = tal(ctx,struct payment);
 	p->cmd = cmd;
@@ -45,6 +46,14 @@ struct payment *payment_new(const tal_t *ctx,
 	if (!amount_msat_add(&p->maxspend, amount, maxfee))
 		p->maxspend = AMOUNT_MSAT(UINT64_MAX);
 
+	if (taken(routes))
+		p->routes = tal_steal(p, routes);
+	else {
+		/* Deep copy */
+		p->routes = tal_dup_talarr(p, const struct route_info *, routes);
+		for (size_t i = 0; i < tal_count(p->routes); i++)
+			p->routes[i] = tal_steal(p->routes, p->routes[i]);
+	}
 	p->maxdelay = maxdelay;
 	p->start_time = time_now();
 	p->stop_time = timeabs_add(p->start_time, time_from_sec(retryfor));
@@ -67,7 +76,7 @@ struct payment *payment_new(const tal_t *ctx,
 	p->use_shadow = use_shadow;
 	p->groupid=1;
 
- 	p->local_gossmods = gossmap_localmods_new(p);
+ 	p->local_gossmods = NULL;
 	p->disabled_scids = tal_arr(p,struct short_channel_id,0);
 	p->next_partid=1;
 	p->progress_deadline = NULL;

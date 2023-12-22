@@ -4,6 +4,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>

@@ -1634,13 +1634,17 @@ def test_zeroconf_open(bitcoind, node_factory):
     """
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
 
-    l1, l2 = node_factory.get_nodes(2, opts=[
+    # Without l0->l1, l2 doesn't add a routehint since l1 looks like a deadend
+    l0, l1, l2 = node_factory.get_nodes(3, opts=[
+        {},
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+            'zeroconf-allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
         },
     ])
+
+    node_factory.join_nodes([l0, l1], wait_for_announce=True)
 
     # Try to open a mindepth=0 channel
     l1.fundwallet(10**6)
@@ -1653,7 +1657,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     # plugin
     l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
 
-    assert l1.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
+    assert l1.db.query('SELECT minimum_depth FROM channels WHERE minimum_depth != 1') == [{'minimum_depth': 0}]
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
 
     l1.daemon.wait_for_logs([
@@ -1665,16 +1669,19 @@ def test_zeroconf_open(bitcoind, node_factory):
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
 
-    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']] == ['CHANNELD_NORMAL'] * 2)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
     wait_for(lambda: l2.rpc.listincoming()['incoming'] != [])
+
+    # Make sure l2 sees l0->l1
+    wait_for(lambda: l2.rpc.listchannels() != {'channels': []})
 
     inv = l2.rpc.invoice(10**8, 'lbl', 'desc')['bolt11']
     details = l1.rpc.decodepay(inv)
     pprint(details)
     assert('routes' in details and len(details['routes']) == 1)
     hop = details['routes'][0][0]  # First (and only) hop of hint 0
-    l1alias = only_one(l1.rpc.listpeerchannels()['channels'])['alias']['local']
+    l1alias = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['alias']['local']
     assert(hop['pubkey'] == l1.info['id'])  # l1 is the entrypoint
     assert(hop['short_channel_id'] == l1alias)  # Alias has to make sense to entrypoint
     l1.rpc.pay(inv)
@@ -1828,7 +1835,8 @@ def test_zeroconf_forward(node_factory, bitcoind):
 
     # And now try the other way around: zeroconf channel first
     # followed by a public one.
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+    # Make sure it l3 sees l1->l2
+    wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1)
 
     # Make sure all htlcs completely settled!
     wait_for(lambda: (p['htlcs'] == [] for p in l2.rpc.listpeerchannels()['channels']))
@@ -2004,7 +2012,7 @@ def test_scid_alias_private(node_factory, bitcoind):
     scid12 = chan['short_channel_id']
 
     # Make sure it sees both sides of private channel in gossmap!
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+    wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['updates'])
 
     # BOLT #2:
     # - if `channel_type` has `option_scid_alias` set:

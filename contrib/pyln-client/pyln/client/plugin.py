@@ -220,7 +220,8 @@ class Plugin(object):
                  invoice_features: Optional[Union[int, str, bytes]] = None,
                  custom_msgs: Optional[List[int]] = None):
         self.methods = {
-            'init': Method('init', self._init, MethodType.RPCMETHOD)
+            'init': Method('init', self._init, MethodType.RPCMETHOD),
+            'setconfig': Method('setconfig', self._set_config, MethodType.RPCMETHOD)
         }
 
         self.options: Dict[str, Dict[str, Any]] = {}
@@ -389,7 +390,8 @@ class Plugin(object):
     def add_option(self, name: str, default: Optional[str],
                    description: Optional[str],
                    opt_type: str = "string", deprecated: bool = False,
-                   multi: bool = False) -> None:
+                   multi: bool = False,
+                   dynamic=False) -> None:
         """Add an option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -414,10 +416,11 @@ class Plugin(object):
             'value': None,
             'multi': multi,
             'deprecated': deprecated,
+            "dynamic": dynamic
         }
 
     def add_flag_option(self, name: str, description: str,
-                        deprecated: bool = False) -> None:
+                        deprecated: bool = False, dynamic: bool = False) -> None:
         """Add a flag option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -425,7 +428,7 @@ class Plugin(object):
 
         """
         self.add_option(name, None, description, opt_type="flag",
-                        deprecated=deprecated)
+                        deprecated=deprecated, dynamic=dynamic)
 
     def add_notification_topic(self, topic: str):
         """Announce that the plugin will emit notifications for the topic.
@@ -679,7 +682,6 @@ class Plugin(object):
         # then utf8 ourselves.
         s = bytes(json.dumps(
             obj,
-            cls=LightningRpc.LightningJSONEncoder,
             ensure_ascii=False
         ) + "\n\n", encoding='utf-8')
         with self.write_lock:
@@ -784,7 +786,7 @@ class Plugin(object):
         """)
 
         for method in self.methods.values():
-            if method.name in ['init', 'getmanifest']:
+            if method.name in ['init', 'getmanifest', 'setconfig']:
                 # Skip internal methods provided by all plugins
                 continue
 
@@ -864,7 +866,7 @@ class Plugin(object):
         hooks = []
         for method in self.methods.values():
             # Skip the builtin ones, they don't get reported
-            if method.name in ['getmanifest', 'init']:
+            if method.name in ['getmanifest', 'init', 'setconfig']:
                 continue
 
             if method.mtype == MethodType.HOOK:
@@ -969,6 +971,12 @@ class Plugin(object):
         if self.child_init:
             return self._exec_func(self.child_init, request)
         return None
+
+    def _set_config(self, **_) -> None:
+        """Called when the value of a dynamic option is changed
+        For now we don't do anything.
+        """
+        pass
 
 
 class PluginStream(object):

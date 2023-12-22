@@ -21,6 +21,9 @@ struct command_result *command_finished(struct command *cmd UNNEEDED, struct jso
 /* Generated stub for command_still_pending */
 struct command_result *command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
+/* Generated stub for daemon_poll */
+int daemon_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
+{ fprintf(stderr, "daemon_poll called!\n"); abort(); }
 /* Generated stub for feature_offered */
 bool feature_offered(const u8 *features UNNEEDED, size_t f UNNEEDED)
 { fprintf(stderr, "feature_offered called!\n"); abort(); }
@@ -31,6 +34,41 @@ bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for gossmod_add_localchan */
+void gossmod_add_localchan(struct gossmap_localmods *mods UNNEEDED,
+			   const struct node_id *self UNNEEDED,
+			   const struct node_id *peer UNNEEDED,
+			   const struct short_channel_id_dir *scidd UNNEEDED,
+			   struct amount_msat min UNNEEDED,
+			   struct amount_msat max UNNEEDED,
+			   struct amount_msat fee_base UNNEEDED,
+			   u32 fee_proportional UNNEEDED,
+			   u32 cltv_delta UNNEEDED,
+			   bool enabled UNNEEDED,
+			   const char *buf UNUSED UNNEEDED,
+			   const jsmntok_t *chantok UNUSED UNNEEDED,
+			   void *cbarg UNUSED UNNEEDED)
+{ fprintf(stderr, "gossmod_add_localchan called!\n"); abort(); }
+/* Generated stub for gossmods_from_listpeerchannels_ */
+struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx UNNEEDED,
+							  const struct node_id *self UNNEEDED,
+							  const char *buf UNNEEDED,
+							  const jsmntok_t *toks UNNEEDED,
+							  void (*cb)(struct gossmap_localmods *mods UNNEEDED,
+								     const struct node_id *self_ UNNEEDED,
+								     const struct node_id *peer UNNEEDED,
+								     const struct short_channel_id_dir *scidd UNNEEDED,
+								     struct amount_msat min UNNEEDED,
+								     struct amount_msat max UNNEEDED,
+								     struct amount_msat fee_base UNNEEDED,
+								     u32 fee_proportional UNNEEDED,
+								     u32 cltv_delta UNNEEDED,
+								     bool enabled UNNEEDED,
+								     const char *buf_ UNNEEDED,
+								     const jsmntok_t *chantok UNNEEDED,
+								     void *cbarg_) UNNEEDED,
+							  void *cbarg UNNEEDED)
+{ fprintf(stderr, "gossmods_from_listpeerchannels_ called!\n"); abort(); }
 /* Generated stub for json_add_amount_msat */
 void json_add_amount_msat(struct json_stream *result UNNEEDED,
 			  const char *msatfieldname UNNEEDED,

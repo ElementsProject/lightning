@@ -14,6 +14,7 @@ If you're on Ubuntu, you need to install bitcoind:
 ```shell
 sudo apt-get install -y software-properties-common
 sudo snap install bitcoin-core
+sudo snap refresh --hold bitcoin-core	# To prevent automated update of bitcoin-core
 sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 ```
 
@@ -175,7 +176,7 @@ OS version: Fedora 27 or above
 Get dependencies:
 
 ```shell
-$ sudo dnf update -y && \
+sudo dnf update -y && \
         sudo dnf groupinstall -y \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
@@ -201,36 +202,36 @@ Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to r
 Clone lightning:
 
 ```shell
-$ git clone https://github.com/ElementsProject/lightning.git
-$ cd lightning
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
 ```
 
 Checkout a release tag:
 
 ```shell
-$ git checkout v22.11.1
+git checkout v22.11.1
 ```
 
 Build and install lightning:
 
 ```shell
-$lightning> ./configure
-$lightning> make
-$lightning> sudo make install
+./configure
+make
+sudo make install
 ```
 
 Running lightning (mainnet):
 
 ```shell
-$ bitcoind &
-$ lightningd --network=bitcoin
+bitcoind &
+lightningd --network=bitcoin
 ```
 
 Running lightning on testnet:
 
 ```shell
-$ bitcoind -testnet &
-$ lightningd --network=testnet
+bitcoind -testnet &
+lightningd --network=testnet
 ```
 
 ## To Build on FreeBSD
@@ -318,11 +319,11 @@ Finally, build `c-lightning`:
 Use nix-shell launch a shell with a full Core Lightning dev environment:
 
 ```shell
-$ nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
+nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
 autogen automake gmp zlib gettext libsodium poetry 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind --run "./configure && poetry shell"
-$ poetry install
-$ make
+poetry install
+make
 ```
 
 ## To Build on macOS
@@ -330,67 +331,67 @@ $ make
 Assuming you have Xcode and Homebrew installed. Install dependencies:
 
 ```shell
-$ brew install autoconf automake libtool python3 gnu-sed gettext libsodium
-$ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
-$ export PATH="/usr/local/opt:$PATH"
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium
+ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
+export PATH="/usr/local/opt:$PATH"
 ```
 
 If you need SQLite (or get a SQLite mismatch build error):
 
 ```shell
-$ brew install sqlite
-$ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
-$ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+brew install sqlite
+export LDFLAGS="-L/usr/local/opt/sqlite/lib"
+export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 ```
 
-Some library paths are different when using `homebrew` with M1 macs, therefore the following two variables need to be set for M1 machines
+Some library paths are different when using `homebrew` on Macs with Apple silicon, therefore the following two variables need to be set for Macs with Apple silicon:
 
 ```shell
-$ export CPATH=/opt/homebrew/include
-$ export LIBRARY_PATH=/opt/homebrew/lib
+export CPATH=/opt/homebrew/include
+export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
 If you need Python 3.x for mako (or get a mako build error):
 
 ```shell
-$ brew install pyenv
-$ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
-$ source ~/.bash_profile
-$ pyenv install 3.8.10
-$ pip install --upgrade pip
-$ pip install poetry
+brew install pyenv
+echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
+source ~/.bash_profile
+pyenv install 3.8.10
+pip install --upgrade pip
+pip install poetry
 ```
 
 If you don't have bitcoind installed locally you'll need to install that as well:
 
 ```shell
-$ brew install berkeley-db4 boost miniupnpc pkg-config libevent
-$ git clone https://github.com/bitcoin/bitcoin
-$ cd bitcoin
-$ ./autogen.sh
-$ ./configure
-$ make src/bitcoind src/bitcoin-cli && make install
+brew install berkeley-db4 boost miniupnpc pkg-config libevent
+git clone https://github.com/bitcoin/bitcoin
+cd bitcoin
+./autogen.sh
+./configure
+make src/bitcoind src/bitcoin-cli && make install
 ```
 
 Clone lightning:
 
 ```shell
-$ git clone https://github.com/ElementsProject/lightning.git
-$ cd lightning
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
 ```
 
 Checkout a release tag:
 
 ```shell
-$ git checkout v22.11.1
+git checkout v22.11.1
 ```
 
 Build lightning:
 
 ```shell
-$ poetry install
-$ ./configure
-$ poetry run make
+poetry install
+./configure
+poetry run make
 ```
 
 Running lightning:
@@ -411,7 +412,7 @@ To install the built binaries into your system, you'll need to run `make install
 make install
 ```
 
-On an M1 mac you may need to use this command instead:
+On a Mac with Apple silicon, you may need to use this command instead:
 
 ```shell
 sudo PATH="/usr/local/opt:$PATH"  LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
@@ -429,8 +430,8 @@ pip install --user poetry
 Clone Core Lightning:
 
 ```shell
-$ git clone https://github.com/ElementsProject/lightning.git
-$ cd lightning
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
 ```
 
 Build Core Lightning:

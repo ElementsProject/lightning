@@ -848,7 +848,39 @@ static void json_add_channel(struct lightningd *ld,
 		if (channel->ignore_fee_limits) {
 			json_add_bool(response, "ignore_fee_limits", channel->ignore_fee_limits);
 		}
+		/* This reflects current gossip */
+		json_object_start(response, "updates");
+		json_object_start(response, "local");
+		json_add_amount_msat(response,
+				     "htlc_minimum_msat",
+				     channel->htlc_minimum_msat);
+		json_add_amount_msat(response,
+				     "htlc_maximum_msat",
+				     channel->htlc_maximum_msat);
+		json_add_u32(response, "cltv_expiry_delta", ld->config.cltv_expiry_delta);
+		json_add_amount_msat(response, "fee_base_msat",
+				     amount_msat(channel->feerate_base));
+		json_add_u32(response, "fee_proportional_millionths",
+			     channel->feerate_ppm);
+		json_object_end(response);
+		if (channel->peer_update) {
+			json_object_start(response, "remote");
+			json_add_amount_msat(response,
+					     "htlc_minimum_msat",
+					     channel->peer_update->htlc_minimum_msat);
+			json_add_amount_msat(response,
+					     "htlc_maximum_msat",
+					     channel->peer_update->htlc_maximum_msat);
+			json_add_u32(response, "cltv_expiry_delta", channel->peer_update->cltv_delta);
+			json_add_amount_msat(response, "fee_base_msat",
+					     amount_msat(channel->peer_update->fee_base));
+			json_add_u32(response, "fee_proportional_millionths",
+				     channel->peer_update->fee_ppm);
+			json_object_end(response);
+		}
+		json_object_end(response);
 	}
+
 	json_add_string(response, "state", channel_state_name(channel));
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;

@@ -163,12 +163,11 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
   "payment": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "amount_msat": 10000
+    "msat": 10000
   }
 }
 ```
-
-
+Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
 The hook is deliberately sparse, since the plugin can use the JSON-RPC `listinvoices` command to get additional details about this invoice. It can return a `failure_message` field as defined for final nodes in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages), a `result` field with the string
 `reject` to fail it with `incorrect_or_unknown_payment_details`, or a `result` field with the string `continue` to accept the payment.
@@ -609,23 +608,30 @@ The payload for a call follows this format:
 
 ```json
 {
-    "onion_message": {
-        "pathsecret": "0000000000000000000000000000000000000000000000000000000000000000",
-        "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-        "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-		"reply_path": [ {"id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-                         "encrypted_recipient_data": "0a020d0d",
-                         "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"} ],
-        "invoice_request": "0a020d0d",
-		"invoice": "0a020d0d",
-		"invoice_error": "0a020d0d",
-		"unknown_fields": [ {"number": 12345, "value": "0a020d0d"} ]
-	}
+  "onion_message": {
+    "pathsecret": "0000000000000000000000000000000000000000000000000000000000000000",
+    "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+    "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+    "reply_path": [
+      {
+        "id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "encrypted_recipient_data": "0a020d0d",
+        "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
+      }
+    ],
+    "invoice_request": "0a020d0d",
+    "invoice": "0a020d0d",
+    "invoice_error": "0a020d0d",
+    "unknown_fields": [
+      {
+        "number": 12345,
+        "value": "0a020d0d"
+      }
+    ]
+  }
 }
 ```
 
-
-
 All fields shown here are optional.
 
-We suggest just returning `{'result': 'continue'}`; any other result will cause the message not to be handed to any other hooks.
+We suggest just returning `{"result": "continue"}`; any other result will cause the message not to be handed to any other hooks.

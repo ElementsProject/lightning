@@ -47,7 +47,7 @@
           },
           "public": {
             "type": "boolean",
-            "description": "true if this is announced (otherwise it must be our channel)"
+            "description": "true if this is announced (from *v24.02*, being false is deprecated)"
           },
           "amount_msat": {
             "type": "msat",
@@ -63,7 +63,7 @@
           },
           "active": {
             "type": "boolean",
-            "description": "true unless source has disabled it, or it's a local channel and the peer is disconnected or it's still opening or closing"
+            "description": "true unless source has disabled it (or (deprecated in *v24.02*) it's a local channel and the peer is disconnected or it's still opening or closing)"
           },
           "last_update": {
             "type": "u32",

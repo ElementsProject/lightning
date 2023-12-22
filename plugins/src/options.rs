@@ -63,6 +63,18 @@ impl Value {
             _ => None,
         }
     }
+
+    /// Return `true` if the option is not None and `false` otherwise.
+    pub fn is_some(&self) -> bool {
+        match self {
+            Value::String(_) => false,
+            Value::Integer(_) => false,
+            Value::Boolean(_) => false,
+            Value::OptString => true,
+            Value::OptInteger => true,
+            Value::OptBoolean => true,
+        }
+    }
 }
 
 /// An stringly typed option that is passed to

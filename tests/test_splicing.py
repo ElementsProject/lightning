@@ -136,8 +136,8 @@ def test_splice_listnodes(node_factory, bitcoind):
 
     bitcoind.generate_block(7)
 
-    assert len(l1.rpc.listnodes()['nodes']) == 2
-    assert len(l2.rpc.listnodes()['nodes']) == 2
+    wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 2)
+    wait_for(lambda: len(l2.rpc.listnodes()['nodes']) == 2)
 
 
 @pytest.mark.openchannel('v1')

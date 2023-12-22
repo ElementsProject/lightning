@@ -63,7 +63,7 @@ If you need a lot of inbound liquidity, you can use a service that trustlessly s
 
 ### Are there any issues if my node changes its IP address? What happens to the channels if it does?
 
-There is no risk to your channels if your IP address changes. Other nodes might not be able to connect to you, but your node can still connect to them. But Core Lightning also has an integrated IPv4/6 address discovery mechanism. If your node detects an new public address, it will update its announcement. For this to work binhind a NAT router you need to forward the default TCP port 9735 to your node. IP discovery is only active if no other addresses are announced.
+There is no risk to your channels if your IP address changes. Other nodes might not be able to connect to you, but your node can still connect to them. But Core Lightning also has an integrated IPv4/6 address discovery mechanism. If your node detects an new public address, it will update its announcement. For this to work behind a NAT router you need to forward the default TCP port 9735 to your node. IP discovery is only active if no other addresses are announced.
 
 Alternatively, you can [setup a TOR hidden service](doc:tor) for your node that will also work well behind NAT firewalls.
 

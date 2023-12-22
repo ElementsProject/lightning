@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -148,86 +149,6 @@ static struct command_result *try_route(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
-static struct gossmap_localmods *
-gossmods_from_listpeerchannels(const tal_t *ctx,
-			       struct plugin *plugin,
-			       struct gossmap *gossmap,
-			       const char *buf,
-			       const jsmntok_t *toks)
-{
-	struct gossmap_localmods *mods = gossmap_localmods_new(ctx);
-	const jsmntok_t *channels, *channel;
-	size_t i;
-
-	channels = json_get_member(buf, toks, "channels");
-	json_for_each_arr(i, channel, channels) {
-		struct short_channel_id scid;
-		int dir;
-		bool connected;
-		struct node_id dst;
-		struct amount_msat capacity;
-		const char *state, *err;
-
-		/* scid/direction may not exist. */
-		scid.u64 = 0;
-		capacity = AMOUNT_MSAT(0);
-		err = json_scan(tmpctx, buf, channel,
-				"{short_channel_id?:%,"
-				"direction?:%,"
-				"spendable_msat?:%,"
-				"peer_connected:%,"
-				"state:%,"
-				"peer_id:%}",
-				JSON_SCAN(json_to_short_channel_id, &scid),
-				JSON_SCAN(json_to_int, &dir),
-				JSON_SCAN(json_to_msat, &capacity),
-				JSON_SCAN(json_to_bool, &connected),
-				JSON_SCAN_TAL(tmpctx, json_strdup, &state),
-				JSON_SCAN(json_to_node_id, &dst));
-		if (err) {
-			plugin_err(plugin,
-				   "Bad listpeerchannels.channels %zu: %s",
-				   i, err);
-		}
-
-		/* Unusable if no scid (yet) */
-		if (scid.u64 == 0)
-			continue;
-
-		/* Disable if in bad state, or disconnected */
-		if (!streq(state, "CHANNELD_NORMAL")
-		    && !streq(state, "CHANNELD_AWAITING_SPLICE")) {
-			goto disable;
-		}
-
-		if (!connected) {
-			goto disable;
-		}
-
-		/* FIXME: features? */
-		gossmap_local_addchan(mods, &local_id, &dst, &scid, NULL);
-		gossmap_local_updatechan(mods, &scid,
-					 AMOUNT_MSAT(0), capacity,
-					 /* We don't charge ourselves fees */
-					 0, 0, 0,
-					 true,
-					 dir);
-		continue;
-
-	disable:
-		/* Only apply fake "disabled" if channel exists */
-		if (gossmap_find_chan(gossmap, &scid)) {
-			gossmap_local_updatechan(mods, &scid,
-						 AMOUNT_MSAT(0), AMOUNT_MSAT(0),
-						 0, 0, 0,
-						 false,
-						 dir);
-		}
-	}
-
-	return mods;
-}
-
 static struct command_result *
 listpeerchannels_getroute_done(struct command *cmd,
 			       const char *buf,
@@ -239,11 +160,12 @@ listpeerchannels_getroute_done(struct command *cmd,
 	struct command_result *res;
 
 	/* Get local knowledge */
-	gossmap = get_gossmap();
-	mods = gossmods_from_listpeerchannels(tmpctx, cmd->plugin,
-					      gossmap, buf, result);
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+					      buf, result,
+					      gossmod_add_localchan, NULL);
 
 	/* Overlay local knowledge for dijkstra */
+	gossmap = get_gossmap();
 	gossmap_apply_localmods(gossmap, mods);
 	res = try_route(cmd, gossmap, info);
 	gossmap_remove_localmods(gossmap, mods);
@@ -254,7 +176,7 @@ listpeerchannels_getroute_done(struct command *cmd,
 static struct command_result *listpeerchannels_err(struct command *cmd,
 						   const char *buf,
 						   const jsmntok_t *result,
-						   struct getroute_info *info)
+						   void *unused)
 {
 	plugin_err(cmd->plugin,
 		   "Bad listpeerchannels: %.*s",
@@ -317,10 +239,10 @@ static void json_add_halfchan(struct json_stream *response,
 	if (!gossmap_chan_get_capacity(gossmap, c, &capacity))
 		capacity = AMOUNT_SAT(0);
 
-	/* Local channels are not "active" unless peer is connected. */
-	if (node_id_eq(&node_id[0], &local_id))
+	/* Deprecated: local channels are not "active" unless peer is connected. */
+	if (connected && node_id_eq(&node_id[0], &local_id))
 		local_disable = !node_map_get(connected, &node_id[1]);
-	else if (node_id_eq(&node_id[1], &local_id))
+	else if (connected && node_id_eq(&node_id[1], &local_id))
 		local_disable = !node_map_get(connected, &node_id[0]);
 	else
 		local_disable = false;
@@ -423,7 +345,30 @@ static struct node_map *local_connected(const tal_t *ctx,
 	return connected;
 }
 
-/* We want to combine local knowledge to we know which are actually inactive! */
+/* Only add a local entry if it's unknown publicly */
+static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
+					  const struct node_id *self,
+					  const struct node_id *peer,
+					  const struct short_channel_id_dir *scidd,
+					  struct amount_msat min,
+					  struct amount_msat max,
+					  struct amount_msat fee_base,
+					  u32 fee_proportional,
+					  u32 cltv_delta,
+					  bool enabled,
+					  const char *buf UNUSED,
+					  const jsmntok_t *chantok UNUSED,
+					  struct gossmap *gossmap)
+{
+	if (gossmap_find_chan(gossmap, &scidd->scid))
+		return;
+
+	gossmod_add_localchan(mods, self, peer, scidd, min, max,
+			      fee_base, fee_proportional, cltv_delta, enabled,
+			      buf, chantok, gossmap);
+}
+
+/* FIXME: We don't need this listpeerchannels at all if not deprecated! */
 static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *result,
@@ -433,8 +378,22 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct gossmap_chan *c;
 	struct json_stream *js;
 	struct gossmap *gossmap = get_gossmap();
+	struct gossmap_localmods *mods;
 
-	connected = local_connected(opts, buf, result);
+	if (deprecated_apis)
+		connected = local_connected(opts, buf, result);
+	else
+		connected = NULL;
+
+	/* In deprecated mode, re-add private channels */
+	if (deprecated_apis) {
+		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+						      buf, result,
+						      gossmod_add_unknown_localchan,
+						      gossmap);
+		gossmap_apply_localmods(gossmap, mods);
+	} else
+		mods = NULL;
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
@@ -475,6 +434,9 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	}
 
 	json_array_end(js);
+
+	if (mods)
+		gossmap_remove_localmods(gossmap, mods);
 
 	return command_finished(cmd, js);
 }
@@ -631,18 +593,26 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 	return capacity;
 }
 
-static struct command_result *json_listincoming(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
+static struct command_result *
+listpeerchannels_listincoming_done(struct command *cmd,
+				   const char *buffer,
+				   const jsmntok_t *result,
+				   void *unused)
 {
 	struct json_stream *js;
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
+	struct gossmap_localmods *mods;
 
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
+	/* Get local knowledge */
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
+					      buffer, result,
+					      gossmod_add_localchan,
+					      NULL);
 
+	/* Overlay local knowledge */
 	gossmap = get_gossmap();
+	gossmap_apply_localmods(gossmap, mods);
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "incoming");
@@ -694,7 +664,25 @@ static struct command_result *json_listincoming(struct command *cmd,
 done:
 	json_array_end(js);
 
+	gossmap_remove_localmods(gossmap, mods);
 	return command_finished(cmd, js);
+}
+
+static struct command_result *json_listincoming(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	/* Add local info */
+	req = jsonrpc_request_start(cmd->plugin,
+				    cmd, "listpeerchannels",
+				    listpeerchannels_listincoming_done,
+				    listpeerchannels_err, NULL);
+	return send_outreq(cmd->plugin, req);
 }
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)

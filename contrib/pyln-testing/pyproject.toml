@@ -19,7 +19,7 @@ python-bitcoinlib = "^0.11.0"
 jsonschema = "^4.4.0"
 pyln-client = ">=23"
 Flask = "^2"
-cheroot = "^8"
+cheroot = ">=8 <=10"
 psutil = "^5.9"
 requests = "^2.31.0"
 
