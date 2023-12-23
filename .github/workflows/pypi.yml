@@ -61,9 +61,9 @@ jobs:
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         export VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')
-        cd ${{ env.WORKDIR}}
+        cd ${{ env.WORKDIR }}
         make upgrade-version NEW_VERSION=$VERSION
-        poetry build
+        poetry build --no-interaction
 
     - name: Publish distribution 📦 to Test PyPI
       if: github.repository == 'ElementsProject/lightning'
@@ -71,19 +71,21 @@ jobs:
         POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
-        cd ${{ env.WORKDIR}}
+        cd ${{ env.WORKDIR }}
         python3 -m pip config set global.timeout 150
         poetry config repositories.testpypi https://test.pypi.org/legacy/
+        poetry build  --no-interaction
         poetry publish --repository testpypi --no-interaction --skip-existing
 
     - name: Publish distribution 📦 to PyPI
-      if: startsWith(github.ref, 'refs/tags') && github.repository == 'ElementsProject/lightning'
+      if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'ElementsProject/lightning'
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
-        cd ${{ env.WORKDIR}}
+        cd ${{ env.WORKDIR }}
         export VERSION=$(git describe --abbrev=0)
         make upgrade-version NEW_VERSION=$VERSION
         python3 -m pip config set global.timeout 150
+        poetry build  --no-interaction
         poetry publish --no-interaction
