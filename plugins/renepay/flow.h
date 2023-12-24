@@ -247,47 +247,6 @@ bool remove_completed_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 
 bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
-/*
- * mu (μ) is used as follows in the cost function:
- *
- *     -log((c_e + 1 - f_e) / (c_e + 1)) + μ fee
- *
- * This raises the question of how to set mu?  The left term is a
- * logrithmic failure probability, the right term is the fee in
- * millisats.
- *
- * We want a more "usable" measure of frugality (fr), where fr = 1
- * means that the two terms are roughly equal, and fr < 1 means the
- * probability is more important, and fr > 1 means the fee is more
- * important.
- *
- * For this we take the current payment amount and the median channel
- * capacity and feerates:
- *
- * -log((median_cap + 1 - f_e) / (median_cap + 1)) = μ (1/fr) median_fee
- *
- * => μ = -log((median_cap + 1 - f_e) / (median_cap + 1)) * fr / median_fee
- *
- * But this is slightly too naive!  If we're trying to make a payment larger
- * than the median, this is undefined; and grows hugely when we're near the median.
- * In fact, it should be "the median of all channels larger than the amount",
- * which is what we calculate here.
- *
- * Turns out that in the real network:
- * - median_cap = 1250800000
- * - median_feerate = 51
- *
- * And the log term at the 10th percentile capacity is about 0.125 of the median,
- * and at the 90th percentile capacity the log term is about 12.5 the value at the median.
- *
- * In other words, we expose a simple frugality knob with reasonable
- * range 0.1 (don't care about fees) to 10 (fees before probability),
- * and generate our μ from there.
- */
-double derive_mu(const struct gossmap *gossmap,
-		 struct amount_msat amount,
-		 double frugality);
-
 s64 linear_fee_cost(
 		const struct gossmap_chan *c,
 		const int dir,
