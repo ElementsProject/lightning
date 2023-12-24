@@ -247,12 +247,6 @@ bool remove_completed_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 
 bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
-s64 linear_fee_cost(
-		const struct gossmap_chan *c,
-		const int dir,
-		double base_fee_penalty,
-		double delay_feefactor);
-
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
 /* Take the flows and commit them to the chan_extra's . */

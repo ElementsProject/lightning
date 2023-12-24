@@ -8,7 +8,6 @@
 #include <plugins/renepay/dijkstra.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/mcf.h>
-#include <plugins/renepay/pay.h>
 #include <stdint.h>
 
 /* # Optimal payments
@@ -568,6 +567,36 @@ static void linear_network_add_adjacenct_arc(
 	assert(node_idx < tal_count(linear_network->node_adjacency_first_arc));
 	linear_network->node_adjacency_first_arc[node_idx]=arc;
 }
+
+/* Get the fee cost associated to this directed channel.
+ * Cost is expressed as PPM of the payment.
+ *
+ * Choose and integer `c_fee` to linearize the following fee function
+ *
+ *  	fee_msat = base_msat + floor(millionths*x_msat / 10^6)
+ *
+ * into
+ *
+ *  	fee_microsat = c_fee * x_sat
+ *
+ *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
+ *  weight the CLTV delay.
+ *  */
+static s64 linear_fee_cost(
+		const struct gossmap_chan *c,
+		const int dir,
+		double base_fee_penalty,
+		double delay_feefactor)
+{
+	assert(c);
+	assert(dir==0 || dir==1);
+	s64 pfee = c->half[dir].proportional_fee,
+	    bfee = c->half[dir].base_fee,
+	    delay = c->half[dir].delay;
+
+	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
+}
+
 
 
 static void init_linear_network(
