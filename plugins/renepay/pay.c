@@ -1132,7 +1132,7 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 		char *fail;
 		if (!chan_extra_cannot_send(tmpctx, pay_plugin->chan_extra_map,
 					    &pf->path_scidds[erridx],
-					    pf->amounts[erridx], &fail)) {
+					    &fail)) {
 			plugin_err(pay_plugin->plugin,
 				   "chan_extra_cannot_send failed: %s", fail);
 		}

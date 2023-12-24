@@ -150,13 +150,13 @@ static inline struct amount_msat amount_msat_max(
 bool chan_extra_can_send(const tal_t *ctx,
 			 struct chan_extra_map *chan_extra_map,
 			 const struct short_channel_id_dir *scidd,
-			 struct amount_msat x, char **fail);
+			 char **fail);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
 bool chan_extra_cannot_send(const tal_t *ctx,
 			    struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd,
-			    struct amount_msat sent, char **fail);
+			    char **fail);
 
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
 bool chan_extra_set_liquidity(const tal_t *ctx,

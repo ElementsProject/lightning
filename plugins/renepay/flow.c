@@ -225,7 +225,7 @@ static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 bool chan_extra_can_send(const tal_t *ctx,
 			 struct chan_extra_map *chan_extra_map,
 			 const struct short_channel_id_dir *scidd,
-			 struct amount_msat x, char **fail)
+			 char **fail)
 {
 	assert(scidd);
 	assert(chan_extra_map);
@@ -235,16 +235,8 @@ bool chan_extra_can_send(const tal_t *ctx,
 		*fail = chan_extra_not_found_error(ctx, &scidd->scid);
 		goto function_fail;
 	}
-	if (!amount_msat_add(&x, x, ce->half[scidd->dir].htlc_total)) {
-		if(fail)
-		*fail =
-		    tal_fmt(ctx, "cannot add x=%s and htlc_total=%s",
-			    type_to_string(ctx, struct amount_msat, &x),
-			    type_to_string(ctx, struct amount_msat,
-					   &ce->half[scidd->dir].htlc_total));
-		goto function_fail;
-	}
-	if (!chan_extra_can_send_(ctx, ce, scidd->dir, x, fail)) {
+	if (!chan_extra_can_send_(ctx, ce, scidd->dir,
+				  ce->half[scidd->dir].htlc_total, fail)) {
 		goto function_fail;
 	}
 	return true;
@@ -257,7 +249,7 @@ bool chan_extra_can_send(const tal_t *ctx,
 bool chan_extra_cannot_send(const tal_t *ctx,
 			    struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd,
-			    struct amount_msat sent, char **fail)
+			    char **fail)
 {
 	assert(scidd);
 	assert(chan_extra_map);
@@ -395,6 +387,16 @@ bool chan_extra_sent_success(const tal_t *ctx,
 	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	char *errmsg;
+
+	// if we sent amount x, it first means that all htlcs on this channel fit
+	// in the liquidity
+	if (!chan_extra_can_send(this_ctx, chan_extra_map, scidd, &errmsg)) {
+		if (fail)
+		*fail = tal_fmt(ctx, "chan_extra_can_send failed: %s",
+				errmsg);
+		goto function_fail;
+	}
+
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
 	if (!ce) {
 		if(fail)
