@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
 			 /* base fee penalty */ 1,
 			 /* prob cost factor = */ 10);
 
-	if(!commit_flowset(tmpctx, gossmap,chan_extra_map,flows,NULL))
+	if(commit_flowset(tmpctx, gossmap,chan_extra_map,flows,NULL)<tal_count(flows))
 	{
 		assert(0 && "commit_flowset failed");
 	}
