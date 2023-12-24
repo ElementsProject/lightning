@@ -110,6 +110,7 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 				  const struct short_channel_id scid,
 				  struct amount_msat capacity)
 {
+	assert(chan_extra_map);
 	struct chan_extra *ce = tal(chan_extra_map, struct chan_extra);
 	if (!ce)
 		return ce;
@@ -141,7 +142,12 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 				   int dir, char **fail)
 {
-	if (!amount_msat_sub(&ce->half[dir].known_max, ce->capacity,
+	assert(ce);
+	assert(dir==0 || dir==1);
+
+	struct amount_msat new_known_max, new_known_min;
+
+	if (!amount_msat_sub(&new_known_max, ce->capacity,
 			     ce->half[!dir].known_min)) {
 		if(fail)
 		*fail = tal_fmt(
@@ -151,7 +157,7 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 				   &ce->half[!dir].known_min));
 		goto function_fail;
 	}
-	if (!amount_msat_sub(&ce->half[dir].known_min, ce->capacity,
+	if (!amount_msat_sub(&new_known_min, ce->capacity,
 			     ce->half[!dir].known_max)) {
 		if(fail)
 		*fail = tal_fmt(
@@ -161,6 +167,9 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 				   &ce->half[!dir].known_max));
 		goto function_fail;
 	}
+
+	ce->half[dir].known_max = new_known_max;
+	ce->half[dir].known_min = new_known_min;
 	return true;
 
 	function_fail:
@@ -171,6 +180,8 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 				 int dir, struct amount_msat x, char **fail)
 {
+	assert(ce);
+	assert(dir==0 || dir==1);
 	const tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 	if (amount_msat_greater(x, ce->capacity)) {
@@ -184,6 +195,12 @@ static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 		goto function_fail;
 	}
 
+	struct amount_msat known_min, known_max;
+
+	// in case we fail, let's remember the original state
+	known_min = ce->half[dir].known_min;
+	known_max = ce->half[dir].known_max;
+
 	ce->half[dir].known_min = amount_msat_max(ce->half[dir].known_min, x);
 	ce->half[dir].known_max = amount_msat_max(ce->half[dir].known_max, x);
 
@@ -191,9 +208,15 @@ static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 		if(fail)
 		*fail = tal_fmt(ctx, "chan_extra_adjust_half failed: %s",
 				errmsg);
-		goto function_fail;
+
+		goto restore_and_fail;
 	}
 	return true;
+
+	restore_and_fail:
+	// we fail, thus restore the original state
+	ce->half[dir].known_min = known_min;
+	ce->half[dir].known_max = known_max;
 
 	function_fail:
 	return false;
@@ -204,6 +227,8 @@ bool chan_extra_can_send(const tal_t *ctx,
 			 const struct short_channel_id_dir *scidd,
 			 struct amount_msat x, char **fail)
 {
+	assert(scidd);
+	assert(chan_extra_map);
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
 	if (!ce) {
 		if(fail)
@@ -234,6 +259,8 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 			    const struct short_channel_id_dir *scidd,
 			    struct amount_msat sent, char **fail)
 {
+	assert(scidd);
+	assert(chan_extra_map);
 	const tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 	struct amount_msat x;
@@ -259,6 +286,11 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 		goto function_fail;
 	}
 
+	struct amount_msat known_min, known_max;
+	// in case we fail, let's remember the original state
+	known_min = ce->half[scidd->dir].known_min;
+	known_max = ce->half[scidd->dir].known_max;
+
 	/* If we "knew" the capacity was at least this, we just showed we're wrong! */
 	if (amount_msat_less(x, ce->half[scidd->dir].known_min)) {
 		/* Skip to half of x, since we don't know (rounds down) */
@@ -272,10 +304,15 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 		if(fail)
 		*fail = tal_fmt(ctx, "chan_extra_adjust_half failed: %s",
 				errmsg);
-		goto function_fail;
+		goto restore_and_fail;
 	}
 	tal_free(this_ctx);
 	return true;
+
+	restore_and_fail:
+	// we fail, thus restore the original state
+	ce->half[scidd->dir].known_min = known_min;
+	ce->half[scidd->dir].known_max = known_max;
 
 	function_fail:
 	tal_free(this_ctx);
@@ -286,6 +323,8 @@ static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 				      int dir, struct amount_msat x,
 				      char **fail)
 {
+	assert(ce);
+	assert(dir==0 || dir==1);
 	const tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 	if (amount_msat_greater(x, ce->capacity)) {
@@ -299,6 +338,11 @@ static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 		goto function_fail;
 	}
 
+	// in case we fail, let's remember the original state
+	struct amount_msat known_min, known_max;
+	known_min = ce->half[dir].known_min;
+	known_max = ce->half[dir].known_max;
+
 	ce->half[dir].known_min = x;
 	ce->half[dir].known_max = x;
 
@@ -306,10 +350,15 @@ static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 		if(fail)
 		*fail = tal_fmt(ctx, "chan_extra_adjust_half failed: %s",
 				errmsg);
-		goto function_fail;
+		goto restore_and_fail;
 	}
 	tal_free(this_ctx);
 	return true;
+
+	restore_and_fail:
+	// we fail, thus restore the original state
+	ce->half[dir].known_min = known_min;
+	ce->half[dir].known_max = known_max;
 
 	function_fail:
 	tal_free(this_ctx);
@@ -320,6 +369,8 @@ bool chan_extra_set_liquidity(const tal_t *ctx,
 			      const struct short_channel_id_dir *scidd,
 			      struct amount_msat x, char **fail)
 {
+	assert(scidd);
+	assert(chan_extra_map);
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
 	if (!ce) {
 		if(fail)
@@ -340,6 +391,8 @@ bool chan_extra_sent_success(const tal_t *ctx,
 			     const struct short_channel_id_dir *scidd,
 			     struct amount_msat x, char **fail)
 {
+	assert(scidd);
+	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	char *errmsg;
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
@@ -360,6 +413,11 @@ bool chan_extra_sent_success(const tal_t *ctx,
 		goto function_fail;
 	}
 
+	// in case we fail, let's remember the original state
+	struct amount_msat known_min, known_max;
+	known_min = ce->half[scidd->dir].known_min;
+	known_max = ce->half[scidd->dir].known_max;
+
 	struct amount_msat new_a, new_b;
 
 	if (!amount_msat_sub(&new_a, ce->half[scidd->dir].known_min, x))
@@ -374,10 +432,15 @@ bool chan_extra_sent_success(const tal_t *ctx,
 		if(fail)
 		*fail =
 		    tal_fmt(ctx, "chan_extra_adjust_half failed: %s", errmsg);
-		goto function_fail;
+		goto restore_and_fail;
 	}
 	tal_free(this_ctx);
 	return true;
+
+	// we fail, thus restore the original state
+	restore_and_fail:
+	ce->half[scidd->dir].known_min = known_min;
+	ce->half[scidd->dir].known_max = known_max;
 
 	function_fail:
 	tal_free(this_ctx);
@@ -388,6 +451,8 @@ static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
 			     struct amount_msat down, struct amount_msat up,
 			     char **fail)
 {
+	assert(ce);
+	assert(dir==0 || dir==1);
 	const tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 	struct amount_msat new_a, new_b;
@@ -398,6 +463,11 @@ static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
 		new_b = ce->capacity;
 	new_b = amount_msat_min(new_b, ce->capacity);
 
+	// in case we fail, let's remember the original state
+	struct amount_msat known_min, known_max;
+	known_min = ce->half[dir].known_min;
+	known_max = ce->half[dir].known_max;
+
 	ce->half[dir].known_min = new_a;
 	ce->half[dir].known_max = new_b;
 
@@ -405,12 +475,16 @@ static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
 		if(fail)
 		*fail = tal_fmt(ctx, "chan_extra_adjust_half failed: %s",
 				errmsg);
-		goto function_fail;
+		goto restore_and_fail;
 	}
 	tal_free(this_ctx);
 	return true;
 
-	function_fail:
+	// we fail, thus restore the original state
+	restore_and_fail:
+	ce->half[dir].known_min = known_min;
+	ce->half[dir].known_max = known_max;
+
 	tal_free(this_ctx);
 	return false;
 }
@@ -419,13 +493,16 @@ static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
 bool chan_extra_relax_fraction(const tal_t *ctx, struct chan_extra *ce,
 			       double fraction, char **fail)
 {
+	assert(ce);
+	assert(fraction>=0);
+	/* Allow to have values greater than 1 to indicate full relax. */
+	// assert(fraction<=1);
 	const tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 	fraction = fabs(fraction);     // this number is always non-negative
 	fraction = MIN(1.0, fraction); // this number cannot be greater than 1.
 	struct amount_msat delta =
-	    amount_msat(ce->capacity.millisatoshis *
-			fraction); /* Raw: get a fraction of the capacity */
+	    amount_msat(ce->capacity.millisatoshis * fraction); /* Raw: get a fraction of the capacity */
 
 	/* The direction here is not important because the 'down' and the 'up'
 	 * limits are changed by the same amount.
@@ -451,6 +528,8 @@ struct chan_extra_half *
 get_chan_extra_half_by_scid(struct chan_extra_map *chan_extra_map,
 			    const struct short_channel_id_dir *scidd)
 {
+	assert(scidd);
+	assert(chan_extra_map);
 	struct chan_extra *ce;
 
 	ce = chan_extra_map_get(chan_extra_map, scidd->scid);
@@ -465,6 +544,10 @@ get_chan_extra_half_by_chan(const struct gossmap *gossmap,
 			    const struct gossmap_chan *chan,
 			    int dir)
 {
+	assert(chan);
+	assert(dir==0 || dir==1);
+	assert(gossmap);
+	assert(chan_extra_map);
 	struct short_channel_id_dir scidd;
 
 	scidd.scid = gossmap_chan_scid(gossmap, chan);
@@ -484,6 +567,10 @@ get_chan_extra_half_by_chan_verify(const struct gossmap *gossmap,
 				   struct chan_extra_map *chan_extra_map,
 				   const struct gossmap_chan *chan, int dir)
 {
+	assert(chan);
+	assert(dir==0 || dir==1);
+	assert(gossmap);
+	assert(chan_extra_map);
 	struct short_channel_id_dir scidd;
 
 	scidd.scid = gossmap_chan_scid(gossmap, chan);
@@ -601,10 +688,15 @@ static double edge_probability(const tal_t *ctx, struct amount_msat min,
 
 
 // TODO(eduardo): remove this function, is a duplicate
+/* If this function fails it means there is a bad data inconsistency and the
+ * program should stop. */
 bool remove_completed_flow(const tal_t *ctx, const struct gossmap *gossmap,
 			   struct chan_extra_map *chan_extra_map,
 			   struct flow *flow, char **fail)
 {
+	assert(flow);
+	assert(gossmap);
+	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_chan(gossmap,
@@ -643,10 +735,15 @@ bool remove_completed_flow(const tal_t *ctx, const struct gossmap *gossmap,
 	return false;
 }
 // TODO(eduardo): remove this function, is a duplicate
+/* If this function fails it means there is a bad data inconsistency and the
+ * program should stop. */
 bool remove_completed_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 			      struct chan_extra_map *chan_extra_map,
 			      struct flow **flows, char **fail)
 {
+	assert(flows);
+	assert(gossmap);
+	assert(chan_extra_map);
 	for (size_t i = 0; i < tal_count(flows); ++i) {
 		if (!remove_completed_flow(ctx, gossmap, chan_extra_map, flows[i],
 					   fail)) {
@@ -661,6 +758,9 @@ bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
 		 struct chan_extra_map *chan_extra_map, struct flow *flow,
 		 char **fail)
 {
+	assert(flow);
+	assert(gossmap);
+	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_chan(gossmap,
@@ -689,18 +789,23 @@ bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
 	return false;
 }
 // TODO(eduardo): remove this function, is a duplicate
-bool commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
+/* Returns the number of flows successfully commited. */
+size_t commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 		    struct chan_extra_map *chan_extra_map, struct flow **flows,
 		    char **fail)
 {
-	for(size_t i=0;i<tal_count(flows);++i)
+	assert(flows);
+	assert(gossmap);
+	assert(chan_extra_map);
+	const size_t N = tal_count(flows);
+	for(size_t i=0; i<N; ++i)
 	{
 		if (!commit_flow(ctx, gossmap, chan_extra_map, flows[i],
 				 fail)) {
-			return false;
+			return i;
 		}
 	}
-	return true;
+	return N;
 }
 
 /* Helper function to fill in amounts and success_prob for flow
@@ -716,6 +821,9 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 		   struct chan_extra_map *chan_extra_map,
 		   struct amount_msat delivered, char **fail)
 {
+	assert(flow);
+	assert(gossmap);
+	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	char *errmsg;
 
@@ -791,6 +899,9 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   const struct gossmap *const gossmap,
 			   struct chan_extra_map *chan_extra_map, char **fail)
 {
+	assert(flows);
+	assert(gossmap);
+	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
 	char *errmsg;
 	double prob = 1.0;
@@ -882,6 +993,8 @@ s64 linear_fee_cost(
 		double base_fee_penalty,
 		double delay_feefactor)
 {
+	assert(c);
+	assert(dir==0 || dir==1);
 	s64 pfee = c->half[dir].proportional_fee,
 	    bfee = c->half[dir].base_fee,
 	    delay = c->half[dir].delay;
@@ -891,6 +1004,8 @@ s64 linear_fee_cost(
 
 bool flowset_fee(struct amount_msat *ret, struct flow **flows)
 {
+	assert(ret);
+	assert(flows);
 	struct amount_msat fee = AMOUNT_MSAT(0);
 
 	for (size_t i = 0; i < tal_count(flows); i++) {
@@ -912,6 +1027,7 @@ bool flowset_fee(struct amount_msat *ret, struct flow **flows)
 /* Helper to access the half chan at flow index idx */
 const struct half_chan *flow_edge(const struct flow *flow, size_t idx)
 {
+	assert(flow);
 	assert(idx < tal_count(flow->path));
 	return &flow->path[idx]->half[flow->dirs[idx]];
 }

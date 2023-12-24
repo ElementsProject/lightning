@@ -303,8 +303,9 @@ bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
 
 // TODO(eduardo): we probably don't need this. Instead we should have payflow
 // input.
-/* Take the flows and commit them to the chan_extra's . */
-bool commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
+/* Take the flows and commit them to the chan_extra's .
+ * Returns the number of flows successfully commited. */
+size_t commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 		    struct chan_extra_map *chan_extra_map, struct flow **flows,
 		    char **fail);
 
