@@ -227,11 +227,7 @@ void uncertainty_network_channel_can_send(
 	{
 		if (!chan_extra_can_send(
 			tmpctx, chan_extra_map, &pf->path_scidds[i],
-			/* This channel can send all that was
-			 * commited in HTLCs.
-			 * Had we removed the commited amount then
-			 * we would have to put here pf->amounts[i]. */
-			AMOUNT_MSAT(0), &fail)) {
+			&fail)) {
 			plugin_err(pay_plugin->plugin,
 				   "chan_extra_can_send failed: %s", fail);
 		}
