@@ -975,35 +975,6 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	return -1;
 }
 
-/* Get the fee cost associated to this directed channel.
- * Cost is expressed as PPM of the payment.
- *
- * Choose and integer `c_fee` to linearize the following fee function
- *
- *  	fee_msat = base_msat + floor(millionths*x_msat / 10^6)
- *
- * into
- *
- *  	fee_microsat = c_fee * x_sat
- *
- *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
- *  weight the CLTV delay.
- *  */
-s64 linear_fee_cost(
-		const struct gossmap_chan *c,
-		const int dir,
-		double base_fee_penalty,
-		double delay_feefactor)
-{
-	assert(c);
-	assert(dir==0 || dir==1);
-	s64 pfee = c->half[dir].proportional_fee,
-	    bfee = c->half[dir].base_fee,
-	    delay = c->half[dir].delay;
-
-	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
-}
-
 bool flowset_fee(struct amount_msat *ret, struct flow **flows)
 {
 	assert(ret);
