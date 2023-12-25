@@ -67,6 +67,7 @@ tests/node_pb2.py
 tests/node_pb2_grpc.py
 tests/primitives_pb2.py
 tests/primitives_pb2_grpc.py
+ccan/config.h.*
 
 # Ignore unrelated stuff
 .DS_Store

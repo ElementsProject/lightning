@@ -540,7 +540,7 @@ done < $CONFIG_VAR_FILE.$$
 
 if [ "$HAVE_SQLITE3" = 0 -a "$HAVE_POSTGRES" = 0 ]; then
     # I have no database yet I must schema!)
-    echo "*** We need a database, but neither sqlite3 nor postgres found" >&2
+    echo "*** We need a database, but neither sqlite3 (with libsqlite3-dev) nor postgres found" >&2
     exit 1
 fi
 
