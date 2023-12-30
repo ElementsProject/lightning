@@ -31,10 +31,10 @@
 # We've got a legacy problem is that PATH_TO_LIGHTNING is the
 # path to the lightningd / lightning-cli and PATH_TO_BITCOIN
 # is the path to the bitcoin data dir. These are not the same
-# things (data directories vs binary locations). 
+# things (data directories vs binary locations).
 # Ideally we'd let users set each of these four
 # things independently. Unless we rename stuff, this going to
-# be problematic. 
+# be problematic.
 #
 # Instead we rename them and throw up
 # if you're using the old ones.
@@ -56,10 +56,14 @@ fi
 
 if [ -z "$LIGHTNING_BIN" ]; then
 	# Already installed maybe?  Prints
-	# shellcheck disable=SC2039
-	type lightning-cli >/dev/null 2>&1 || return
-	# shellcheck disable=SC2039
-	type lightningd >/dev/null 2>&1 || return
+	if [ ! "$(type lightning-cli >/dev/null 2>&1)" ]; then
+		echo lightning-cli: not found
+		return 1
+	fi
+	if [ ! "$(type lightningd >/dev/null 2>&1)" ]; then
+		echo lightningd: not found
+		return 1
+	fi
 	LCLI=lightning-cli
 	LIGHTNINGD=lightningd
 else
@@ -89,10 +93,14 @@ fi
 # shellcheck disable=SC2153
 if [ -z "$BITCOIN_BIN" ]; then
 	# Already installed maybe?  Prints
-	# shellcheck disable=SC2039
-	type bitcoin-cli >/dev/null 2>&1 || return
-	# shellcheck disable=SC2039
-	type bitcoind >/dev/null 2>&1 || return
+	if [ ! "$(type bitcoin-cli >/dev/null 2>&1)" ]; then
+		echo bitcoin-cli: not found
+		return 1
+	fi
+	if [ ! "$(type bitcoind >/dev/null 2>&1)" ]; then
+		echo bitcoind: not found
+		return 1
+	fi
 	BCLI=bitcoin-cli
 	BITCOIND=bitcoind
 else
