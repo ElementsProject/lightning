@@ -35,7 +35,7 @@ On success, an object containing **forwards** is returned.  It is an array of ob
 - **in\_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local\_failed", "failed")
 - **received\_time** (number): the UNIX timestamp when this was received
-- **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
+- **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)
 - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
 - **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out\_channel is present, for old forwards before v22.11)
 - **updated\_index** (u64, optional): 1-based index indicating order this forward was changed (only present if it has changed since creation) *(added v23.11)*

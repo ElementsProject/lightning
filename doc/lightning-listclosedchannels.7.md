@@ -34,7 +34,7 @@ On success, an object containing **closedchannels** is returned.  It is an array
 - **leased** (boolean): Whether this channel was leased from `opener`
 - **total\_msat** (msat): total amount in the channel
 - **final\_to\_us\_msat** (msat): Our balance in final commitment transaction
-- **min\_to\_us\_msat** (msat): Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain.
+- **min\_to\_us\_msat** (msat): Least amount owed to us ever.  If the peer were to successfully steal from us, this is the amount we would still retain.
 - **max\_to\_us\_msat** (msat): Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get.
 - **close\_cause** (string): What caused the channel to close (one of "unknown", "local", "user", "remote", "protocol", "onchain")
 - **peer\_id** (pubkey, optional): Peer public key (can be missing with pre-v23.05 closes!)

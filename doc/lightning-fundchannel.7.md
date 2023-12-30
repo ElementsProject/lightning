@@ -63,7 +63,7 @@ Returns `close_to` set to closing script iff is negotiated.
 If peer supports `option_will_fund`, indicates to them to include this
 much liquidity into the channel. Must also pass in *compact\_lease*.
 
-*compact\_lease* is a compact represenation of the peer's expected
+*compact\_lease* is a compact representation of the peer's expected
 channel lease terms. If the peer's terms don't match this set, we will
 fail to open the channel.
 

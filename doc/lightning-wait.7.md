@@ -81,7 +81,7 @@ If **subsystem** is "forwards":
   - **details** (object, optional):
     - **status** (string, optional): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "failed", "local\_failed")
     - **in\_channel** (short\_channel\_id, optional): unique label supplied at invoice creation
-    - **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
+    - **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)
     - **in\_msat** (msat, optional): the value of the incoming HTLC
     - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
 

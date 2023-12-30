@@ -108,7 +108,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **summary** (string): Summary of the current funding policy e.g. (match 100)
-- **policy** (string): Policy funder plugin will use to decide how much captial to commit to a v2 open channel request (one of "match", "available", "fixed")
+- **policy** (string): Policy funder plugin will use to decide how much capital to commit to a v2 open channel request (one of "match", "available", "fixed")
 - **policy\_mod** (u32): The *policy\_mod* is the number or 'modification' to apply to the policy.
 - **leases\_only** (boolean): Only contribute funds to `option_will_fund` lease requests.
 - **min\_their\_funding\_msat** (msat): The minimum funding sats that we require from peer to activate our funding policy.

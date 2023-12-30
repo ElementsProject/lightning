@@ -12,7 +12,7 @@ When hooks are registered, they can optionally specify "before" and "after" arra
 
 The call semantics of the hooks, i.e., when and how hooks are called, depend on the hook type. Most hooks are currently set to `single`-mode. In this mode only a single plugin can register the hook, and that plugin will get called for each event of that type. If a second plugin attempts to register the hook it gets killed and a corresponding log entry will be added to the logs.
 
-In `chain`-mode multiple plugins can register for the hook type and they are called in any order they are loaded (i.e. cmdline order first, configuration order file second: though note that the order of plugin directories is implementation-dependent), overriden only by `before` and `after` requirements the plugin's hook registrations specify. Each plugin can then handle the event or defer by returning a `continue` result like the following:
+In `chain`-mode multiple plugins can register for the hook type and they are called in any order they are loaded (i.e. cmdline order first, configuration order file second: though note that the order of plugin directories is implementation-dependent), overridden only by `before` and `after` requirements the plugin's hook registrations specify. Each plugin can then handle the event or defer by returning a `continue` result like the following:
 
 ```json
 {
@@ -141,7 +141,7 @@ Your plugin **MUST** validate the `data_version`. It **MUST** keep track of the 
 2. If the new `data_version` is **_exactly_** the same value as the previous, then the previous set of queries was not committed.
    Your plugin **MAY** overwrite the previous set of queries with the current set, or it **MAY** overwrite its entire backup with a new snapshot of the database and the current `writes`
    array (treating this case as if `data_version` were two or more higher than the previous).
-3. If the new `data_version` is **_less than_** the previous, your plugin **MUST** halt and catch fire, and have the operator inspect what exactly happend here.
+3. If the new `data_version` is **_less than_** the previous, your plugin **MUST** halt and catch fire, and have the operator inspect what exactly happened here.
 4. Otherwise, some queries were lost and your plugin **SHOULD** recover by creating a new snapshot of the database: copy the database file, back up the given `writes` array, then delete (or atomically `rename` if in a POSIX filesystem) the previous backups of the database and SQL statements, or you **MAY** fail the hook to abort `lightningd`.
 
 The "rolling up" of the database could be done periodically as well if the log of SQL statements has grown large.

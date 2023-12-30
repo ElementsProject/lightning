@@ -280,7 +280,7 @@ state, or in various circumstances:
 * *min\_to\_us\_msat*: A string describing the historic point at which
   we owned the least amount of funds in this channel;
   a number followed by a string unit.
-  If the peer were to succesfully steal from us, this is the amount we
+  If the peer were to successfully steal from us, this is the amount we
   would still retain.
 * *max\_to\_us\_msat*: A string describing the historic point at which
   we owned the most amount of funds in this channel;

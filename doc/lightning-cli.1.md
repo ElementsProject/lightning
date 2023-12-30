@@ -107,7 +107,7 @@ ARGUMENTS
 Arguments may be provided positionally or using *key*=*value* after the
 command name, based on either **-o** or **-k** option. When using **-k** 
 consider prefixing all arguments of the command with their respective keyword, 
-this is to avoid having lightningd intrepret the position of an arguement. 
+this is to avoid having lightningd interpret the position of an argument. 
 
 Arguments may be integer numbers (composed entirely of digits), floating-point 
 numbers (has a radix point but otherwise composed of digits), *true*, *false*,
