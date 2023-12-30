@@ -80,7 +80,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **fee\_paid\_msat** (msat, optional): Amount we paid peer at open
   - **fee\_rcvd\_msat** (msat, optional): Amount we were paid by peer at open
 - **to\_us\_msat** (msat, optional): How much of channel is owed to us
-- **min\_to\_us\_msat** (msat, optional): Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain.
+- **min\_to\_us\_msat** (msat, optional): Least amount owed to us ever.  If the peer were to successfully steal from us, this is the amount we would still retain.
 - **max\_to\_us\_msat** (msat, optional): Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get.
 - **total\_msat** (msat, optional): total amount in the channel
 - **fee\_base\_msat** (msat, optional): amount we charge to use the channel
@@ -167,8 +167,8 @@ The *state* field values (and *old\_state* / *new\_state*) are worth describing 
   * `"DUALOPEND_OPEN_COMMIT_READY"`: Like `OPENINGD`, but for v2 connections which
     are using collaborative opens. You're ready to send your commitment signed
     to your peer.
-  * `"DUALOPEND_OPEN_COMMITED"`: Like `OPENINGD`, but for v2 connections which
-    are using collaborative opens. You've gotten an inital signed commitment
+  * `"DUALOPEND_OPEN_COMMITTED"`: Like `OPENINGD`, but for v2 connections which
+    are using collaborative opens. You've gotten an initial signed commitment
     from your peer.
   * `"CHANNELD_AWAITING_LOCKIN"` / `"DUALOPEND\_AWAITING\_LOCKIN"`: The peer and you have agreed on channel
     parameters and are just waiting for the channel funding transaction to

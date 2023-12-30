@@ -388,7 +388,7 @@ use the RPC call lightning-setchannel(7).
 
   Explicitly control the usage of discovered public IPs in `node_announcement` updates.
   Default: 'auto' - Only if we don't have anything else to announce.
-  Note: You also need to open TCP port 9735 on your router towords your node.
+  Note: You also need to open TCP port 9735 on your router towards your node.
   Note: Will always be disabled if you use 'always-use-proxy'.
 
 * **announce-addr-discovered-port**=*PORT*
@@ -528,7 +528,7 @@ IP discovery is only active if no other addresses are announced.
 You can instead use *addr* to override this (eg. to change the port), or
 precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
-*autolisten* logic, so you must specifiy exactly what you want!
+*autolisten* logic, so you must specify exactly what you want!
 
 * **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]|HOSTNAME\[:PORT\]*
 
@@ -691,7 +691,7 @@ is currently unspecified.
 * **clear-plugins**
 
   This option clears all *plugin*, *important-plugin*, and *plugin-dir* options
-preceeding it,
+preceding it,
 including the default built-in plugin directory. You can still add
 *plugin-dir*, *plugin*, and *important-plugin* options following this
 and they will have the normal effect.

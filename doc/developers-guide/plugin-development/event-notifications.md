@@ -372,7 +372,7 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 - `deposit`: funds deposited
 - `withdrawal`: funds withdrawn
 - `penalty`: funds paid or gained from a penalty tx.
-- `invoice`: funds paid to or recieved from an invoice.
+- `invoice`: funds paid to or received from an invoice.
 - `routed`: funds routed through this node.
 - `pushed`: funds pushed to peer.
 - `channel_open` : channel is opened, initial channel balance

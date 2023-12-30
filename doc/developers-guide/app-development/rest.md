@@ -81,7 +81,7 @@ The POST method requires `rune` header for authorization.
 existing runes can be retrieved with [listrunes](https://docs.corelightning.org/reference/lightning-commando-listrunes) command.
 
 Note: in version v23.08, a parameter `Nodeid` was required to be the id of the node we're talking to (see `id (pubkey)` received 
-from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo)). You can still send this for backwards compatiblity, 
+from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo)). You can still send this for backwards compatibility, 
 but it is completely ignored.
 
 ### cURL

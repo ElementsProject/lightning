@@ -108,7 +108,7 @@ The `featurebits` object allows the plugin to register featurebits that should b
 
 The `notifications` array allows plugins to announce which custom notifications they intend to send to `lightningd`. These custom notifications can then be subscribed to by other plugins, allowing them to communicate with each other via the existing publish-subscribe mechanism and react to events that happen in other plugins, or collect information based on the notification topics.
 
-The `custommessages` array allows the plugin to tell `lightningd` to explicity allow these (unknown) custom messages: we normally disconnect with an error if we receive these.  This only makes sense if you also subscribe to the `custommsg` hook.
+The `custommessages` array allows the plugin to tell `lightningd` to explicitly allow these (unknown) custom messages: we normally disconnect with an error if we receive these.  This only makes sense if you also subscribe to the `custommsg` hook.
 
 Plugins are free to register any `name` for their `rpcmethod` as long as the name was not previously registered. This includes both built-in methods, such as `help` and `getinfo`, as well as methods registered by other plugins. If there is a conflict then `lightningd` will report an error and kill the plugin, this aborts startup if the plugin is _important_.
 

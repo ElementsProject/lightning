@@ -95,7 +95,7 @@ The exact specification for (most!) commands is specified in
 part of the documentation for each command; the following types are
 referred to in addition to simple JSON types:
 
-* `hex`: an even-length string of hexidecimal digits.
+* `hex`: an even-length string of hexadecimal digits.
 * `hash`: a 64-character `hex` which is a sha256 hash.
 * `secret`: a 64-character `hex` which is a secret of some kind.
 * `u64`: a JSON number without decimal point in the range 0 to 18446744073709551615 inclusive.
@@ -247,7 +247,7 @@ The result would be:
 ```
 
 Note: `"filter"` doesn't change the order, just which fields are
-printed.  Any fields not explictly mentioned are omitted from the
+printed.  Any fields not explicitly mentioned are omitted from the
 output, but plugins which don't support filter (and some routines
 doing simple JSON transfers) may ignore `"filter"`, so you should treat
 it as an optimazation only).
