@@ -17,7 +17,7 @@ export PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
 else
 CPATH=/usr/local/lib
 LIBRARY_PATH=/usr/local/lib
-export PKG_CONFIG_PATH=/usr/local/opt/sqlite/lib/pkgconfig
+export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/opt/sqlite/lib/pkgconfig
 fi
 
 : ${PKG_CONFIG=pkg-config}
