@@ -4,7 +4,7 @@ lightning-fundchannel\_start -- Command for initiating channel establishment for
 SYNOPSIS
 --------
 
-**fundchannel\_start** *id* *amount* [*feerate*] [*announce*] [*close\_to*] [*push\_msat*] [*channel\_type*]
+**fundchannel\_start** *id* *amount* [*feerate* *announce* *close\_to* *push\_msat* *channel\_type*]  *mindepth* *reserve*]
 
 DESCRIPTION
 -----------
@@ -49,6 +49,15 @@ Each basic type has the following variations allowed:
   - `option_zeroconf` ([50])
 ```
 
+*mindepth* is the number of confirmations before we accept the channel as
+active.
+
+*reserve* is the amount we want the peer to maintain on its side of the channel.
+Default is 1% of the funding amount. It can be a whole number, a whole number
+ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8
+decimal places ending in *btc*.
+
+
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed by running
 `fundchannel_complete`, as the commitment transactions for this channel
@@ -69,7 +78,6 @@ On success, an object is returned, containing:
   - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
     - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`
-- **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
 The following warnings may also be returned:
 
@@ -86,7 +94,8 @@ with `code` being one of the following:
 - 301: The provided `push_msat` is greater than the provided `amount`.
 - 304: Still syncing with bitcoin network
 - 305: Peer is not connected.
-- 306: Unknown peer id.
+- 306: Unknown peer id
+- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)
 
 AUTHOR
 ------
