@@ -49,6 +49,7 @@ struct wally_psbt *clone_psbt(const tal_t *ctx, const struct wally_psbt *psbt)
 struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 {
 	struct wally_psbt *psbt;
+	size_t is_pset;
 	int wally_err;
 
 	psbt = create_psbt(ctx, wtx->num_inputs, wtx->num_outputs, wtx->locktime);
@@ -58,7 +59,14 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 	/* locktime and modifiable flags are set in create_psbt */
 	wally_psbt_set_tx_version(psbt, wtx->version);
 
+	// FIXME(vincenzopalazzo): catch the return error
+	wally_psbt_is_elements(psbt, &is_pset);
+
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
+		/* FIXME: libwally is not supporting pegin, so we skip because in cln
+		 * this is not using the pegin (maybe :P) */
+		if (is_pset)
+			wtx->inputs[i].features &= ~WALLY_TX_IS_PEGIN;
 		wally_err = wally_psbt_add_tx_input_at(psbt, i, 0, &wtx->inputs[i]);
 		assert(wally_err == WALLY_OK);
 
