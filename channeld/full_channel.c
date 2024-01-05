@@ -560,9 +560,9 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 					option_anchors_zero_fee_htlc_tx,
 					committed, adding, removing);
 
-	/* Now, how much would it cost us if feerate increases 100% and we added
+	/* Now, how much would it cost us if feerate increases 10% and we added
 	 * another HTLC? */
-	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1,
+	fee = commit_tx_base_fee(1.1 * feerate, untrimmed + 1,
 				 option_anchor_outputs,
 				 option_anchors_zero_fee_htlc_tx);
 	if (amount_msat_greater_eq_sat(remainder, fee))
