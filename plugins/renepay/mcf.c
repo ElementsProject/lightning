@@ -2,8 +2,10 @@
 #include <assert.h>
 #include <ccan/list/list.h>
 #include <ccan/lqueue/lqueue.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <math.h>
 #include <plugins/renepay/dijkstra.h>
 #include <plugins/renepay/flow.h>
@@ -441,12 +443,9 @@ static struct arc node_adjacency_next(
 
 // TODO(eduardo): unit test this
 /* Split a directed channel into parts with linear cost function. */
-static void linearize_channel(
-		const struct pay_parameters *params,
-		const struct gossmap_chan *c,
-		const int dir,
-		s64 *capacity,
-		s64 *cost)
+static bool linearize_channel(const struct pay_parameters *params,
+			      const struct gossmap_chan *c, const int dir,
+			      s64 *capacity, s64 *cost)
 {
 	struct chan_extra_half *extra_half = get_chan_extra_half_by_chan(
 							params->gossmap,
@@ -454,11 +453,8 @@ static void linearize_channel(
 							c,
 							dir);
 
-	if(!extra_half)
-	{
-		plugin_err(pay_plugin->plugin,"%s (line %d) unexpected, extra_half is NULL",
-			__PRETTY_FUNCTION__,
-			__LINE__);
+	if (!extra_half) {
+		return false;
 	}
 
 	s64 h = extra_half->htlc_total.millisatoshis/1000; /* Raw: linearize_channel */
@@ -491,19 +487,33 @@ static void linearize_channel(
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
 		          *params->prob_cost_factor*1.0/(b-a);
 	}
+	return true;
 }
 
-static void alloc_residual_netork(
-		const struct linear_network * linear_network,
-		struct residual_network* residual_network)
+static struct residual_network *
+alloc_residual_network(const tal_t *ctx, const size_t max_num_nodes,
+		      const size_t max_num_arcs)
 {
-	const size_t max_num_arcs = linear_network->max_num_arcs;
-	const size_t max_num_nodes = linear_network->max_num_nodes;
+	struct residual_network *residual_network =
+	    tal(ctx, struct residual_network);
+	if (!residual_network)
+		goto function_fail;
 
-	residual_network->cap = tal_arrz(residual_network,s64,max_num_arcs);
-	residual_network->cost = tal_arrz(residual_network,s64,max_num_arcs);
-	residual_network->potential = tal_arrz(residual_network,s64,max_num_nodes);
+	residual_network->cap = tal_arrz(residual_network, s64, max_num_arcs);
+	residual_network->cost = tal_arrz(residual_network, s64, max_num_arcs);
+	residual_network->potential =
+	    tal_arrz(residual_network, s64, max_num_nodes);
+
+	if (!residual_network->cap || !residual_network->cost ||
+	    !residual_network->potential) {
+		goto function_fail;
+	}
+	return residual_network;
+
+	function_fail:
+	return tal_free(residual_network);
 }
+
 static void init_residual_network(
 		const struct linear_network * linear_network,
 		struct residual_network* residual_network)
@@ -597,12 +607,19 @@ static s64 linear_fee_cost(
 	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
 }
 
-
-
-static void init_linear_network(
-		const struct pay_parameters *params,
-		struct linear_network *linear_network)
+static struct linear_network *
+init_linear_network(const tal_t *ctx, const struct pay_parameters *params,
+		    char **fail)
 {
+	tal_t *this_ctx = tal(ctx,tal_t);
+
+	struct linear_network * linear_network = tal(ctx, struct linear_network);
+	if (!linear_network) {
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of linear_network");
+		goto function_fail;
+	}
+
 	const size_t max_num_chans = gossmap_max_chan_idx(params->gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
 	const size_t max_num_nodes = gossmap_max_node_idx(params->gossmap);
@@ -611,26 +628,62 @@ static void init_linear_network(
 	linear_network->max_num_nodes = max_num_nodes;
 
 	linear_network->arc_tail_node = tal_arr(linear_network,u32,max_num_arcs);
+	if(!linear_network->arc_tail_node)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of arc_tail_node");
+		goto function_fail;
+	}
 	for(size_t i=0;i<tal_count(linear_network->arc_tail_node);++i)
 		linear_network->arc_tail_node[i]=INVALID_INDEX;
 
 	linear_network->node_adjacency_next_arc = tal_arr(linear_network,struct arc,max_num_arcs);
+	if(!linear_network->node_adjacency_next_arc)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of node_adjacency_next_arc");
+		goto function_fail;
+	}
 	for(size_t i=0;i<tal_count(linear_network->node_adjacency_next_arc);++i)
 		linear_network->node_adjacency_next_arc[i].idx=INVALID_INDEX;
 
 	linear_network->node_adjacency_first_arc = tal_arr(linear_network,struct arc,max_num_nodes);
+	if(!linear_network->node_adjacency_first_arc)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of node_adjacency_first_arc");
+		goto function_fail;
+	}
 	for(size_t i=0;i<tal_count(linear_network->node_adjacency_first_arc);++i)
 		linear_network->node_adjacency_first_arc[i].idx=INVALID_INDEX;
 
 	linear_network->arc_prob_cost = tal_arr(linear_network,s64,max_num_arcs);
+	if(!linear_network->arc_prob_cost)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of arc_prob_cost");
+		goto function_fail;
+	}
 	for(size_t i=0;i<tal_count(linear_network->arc_prob_cost);++i)
 		linear_network->arc_prob_cost[i]=INFINITE;
 
 	linear_network->arc_fee_cost = tal_arr(linear_network,s64,max_num_arcs);
+	if(!linear_network->arc_fee_cost)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of arc_fee_cost");
+		goto function_fail;
+	}
 	for(size_t i=0;i<tal_count(linear_network->arc_fee_cost);++i)
 		linear_network->arc_fee_cost[i]=INFINITE;
 
 	linear_network->capacity = tal_arrz(linear_network,s64,max_num_arcs);
+	if(!linear_network->capacity)
+	{
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation of capacity");
+		goto function_fail;
+	}
 
 	for(struct gossmap_node *node = gossmap_first_node(params->gossmap);
 	    node;
@@ -669,7 +722,13 @@ static void init_linear_network(
 
 			// split this channel direction to obtain the arcs
 			// that are outgoing to `node`
-			linearize_channel(params,c,half,capacity,prob_cost);
+			if (!linearize_channel(params, c, half,
+					       capacity, prob_cost)) {
+				if(fail)
+				*fail =
+				    tal_fmt(ctx, "linearize_channel failed");
+				goto function_fail;
+			}
 
 			const s64 fee_cost = linear_fee_cost(c,half,
 						params->base_fee_penalty,
@@ -703,6 +762,13 @@ static void init_linear_network(
 			}
 		}
 	}
+
+	tal_free(this_ctx);
+	return linear_network;
+
+	function_fail:
+	tal_free(this_ctx);
+	return tal_free(linear_network);
 }
 
 /* Simple queue to traverse the network. */
@@ -716,18 +782,17 @@ struct queue_data
 /* Finds an admissible path from source to target, traversing arcs in the
  * residual network with capacity greater than 0.
  * The path is encoded into prev, which contains the idx of the arcs that are
- * traversed.
- * Returns RENEPAY_ERR_OK if the path exists. */
-static int find_admissible_path(
-		const struct linear_network *linear_network,
-		const struct residual_network *residual_network,
-                const u32 source,
-		const u32 target,
-		struct arc *prev)
+ * traversed. */
+static bool
+find_admissible_path(const tal_t *ctx,
+		     const struct linear_network *linear_network,
+		     const struct residual_network *residual_network,
+		     const u32 source, const u32 target, struct arc *prev)
 {
-	tal_t *this_ctx = tal(tmpctx,tal_t);
+	tal_t *this_ctx = tal(ctx,tal_t);
 
-	int ret = RENEPAY_ERR_NOFEASIBLEFLOW;
+	bool target_found = false;
+
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
 
@@ -749,7 +814,7 @@ static int find_admissible_path(
 
 		if(cur==target)
 		{
-			ret = RENEPAY_ERR_OK;
+			target_found = true;
 			break;
 		}
 
@@ -771,13 +836,13 @@ static int find_admissible_path(
 
 			prev[next] = arc;
 
-			qdata = tal(tmpctx,struct queue_data);
+			qdata = tal(this_ctx,struct queue_data);
 			qdata->idx = next;
 			lqueue_enqueue(&myqueue,qdata);
 		}
 	}
 	tal_free(this_ctx);
-	return ret;
+	return target_found;
 }
 
 /* Get the max amount of flow one can send from source to target along the path
@@ -848,33 +913,36 @@ static void augment_flow(
  *
  * 13/04/2023 This implementation uses a simple augmenting path approach.
  * */
-static int find_feasible_flow(
-		const struct linear_network *linear_network,
-		struct residual_network *residual_network,
-		const u32 source,
-		const u32 target,
-		s64 amount)
+static bool find_feasible_flow(const tal_t *ctx,
+			       const struct linear_network *linear_network,
+			       struct residual_network *residual_network,
+			       const u32 source, const u32 target, s64 amount,
+			       char **fail)
 {
 	assert(amount>=0);
-
-	tal_t *this_ctx = tal(tmpctx,tal_t);
-	int ret = RENEPAY_ERR_OK;
+	tal_t *this_ctx = tal(ctx,tal_t);
 
 	/* path information
 	 * prev: is the id of the arc that lead to the node. */
 	struct arc *prev = tal_arr(this_ctx,struct arc,linear_network->max_num_nodes);
+	if(!prev)
+	{
+		if(fail)
+		*fail = tal_fmt(ctx, "bad allocation of prev");
+		goto function_fail;
+	}
 
 	while(amount>0)
 	{
 		// find a path from source to target
-		int err = find_admissible_path(
-					linear_network,
-					residual_network,source,target,prev);
+		if (!find_admissible_path(this_ctx, linear_network,
+					  residual_network, source, target,
+					  prev))
 
-		if(err!=RENEPAY_ERR_OK)
 		{
-			ret = RENEPAY_ERR_NOFEASIBLEFLOW;
-			break;
+			if(fail)
+			*fail = tal_fmt(ctx, "find_admissible_path failed");
+			goto function_fail;
 		}
 
 		// traverse the path and see how much flow we can send
@@ -891,25 +959,36 @@ static int find_feasible_flow(
 	}
 
 	tal_free(this_ctx);
-	return ret;
+	return true;
+
+	function_fail:
+	tal_free(this_ctx);
+	return false;
 }
 
 // TODO(eduardo): unit test this
 /* Similar to `find_admissible_path` but use Dijkstra to optimize the distance
  * label. Stops when the target is hit. */
-static int  find_optimal_path(
-		struct dijkstra *dijkstra,
-		const struct linear_network *linear_network,
-		const struct residual_network* residual_network,
-		const u32 source,
-		const u32 target,
-		struct arc *prev)
+static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
+			      const struct linear_network *linear_network,
+			      const struct residual_network *residual_network,
+			      const u32 source, const u32 target,
+			      struct arc *prev, char **fail)
 {
-	tal_t *this_ctx = tal(tmpctx,tal_t);
-	int ret = RENEPAY_ERR_NOFEASIBLEFLOW;
+	tal_t *this_ctx = tal(ctx,tal_t);
+
+	bool target_found = false;
 
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
 					BITMAP_NWORDS(linear_network->max_num_nodes));
+
+	if(!visited)
+	{
+		if(fail)
+		*fail = tal_fmt(ctx, "bad allocation of visited");
+		goto finish;
+	}
+
 
 	for(size_t i=0;i<tal_count(prev);++i)
 		prev[i].idx=INVALID_INDEX;
@@ -931,7 +1010,7 @@ static int  find_optimal_path(
 
 		if(cur==target)
 		{
-			ret = RENEPAY_ERR_OK;
+			target_found = true;
 			break;
 		}
 
@@ -959,8 +1038,10 @@ static int  find_optimal_path(
 			prev[next]=arc;
 		}
 	}
+
+	finish:
 	tal_free(this_ctx);
-	return ret;
+	return target_found;
 }
 
 /* Set zero flow in the residual network. */
@@ -994,18 +1075,15 @@ static void zero_flow(
  * each step, we might use the previous flow result, which is not optimal in the
  * current iteration but I might be not too far from the truth.
  * It comes to mind to use cycle cancelling. */
-static int optimize_mcf(
-		struct dijkstra *dijkstra,
-		const struct linear_network *linear_network,
-		struct residual_network *residual_network,
-		const u32 source,
-		const u32 target,
-		const s64 amount)
+static bool optimize_mcf(const tal_t *ctx, struct dijkstra *dijkstra,
+			 const struct linear_network *linear_network,
+			 struct residual_network *residual_network,
+			 const u32 source, const u32 target, const s64 amount,
+			 char **fail)
 {
 	assert(amount>=0);
-	tal_t *this_ctx = tal(tmpctx,tal_t);
-
-	int ret = RENEPAY_ERR_OK;
+	tal_t *this_ctx = tal(ctx,tal_t);
+	char *errmsg;
 
 	zero_flow(linear_network,residual_network);
 	struct arc *prev = tal_arr(this_ctx,struct arc,linear_network->max_num_nodes);
@@ -1016,12 +1094,14 @@ static int optimize_mcf(
 
 	while(remaining_amount>0)
 	{
-		int err = find_optimal_path(dijkstra,linear_network,residual_network,source,target,prev);
-		if(err!=RENEPAY_ERR_OK)
-		{
-			// unexpected error
-			ret = RENEPAY_ERR_NOFEASIBLEFLOW;
-			break;
+		if (!find_optimal_path(this_ctx, dijkstra, linear_network,
+				       residual_network, source, target, prev,
+				       &errmsg)) {
+			if (fail)
+			*fail =
+			    tal_fmt(ctx, "find_optimal_path failed: %s",
+				    errmsg);
+			goto function_fail;
 		}
 
 		// traverse the path and see how much flow we can send
@@ -1053,7 +1133,12 @@ static int optimize_mcf(
 		}
 	}
 	tal_free(this_ctx);
-	return ret;
+	return true;
+
+	function_fail:
+
+	tal_free(this_ctx);
+	return false;
 }
 
 // flow on directed channels
@@ -1137,24 +1222,23 @@ struct list_data
 /* Given a flow in the residual network, build a set of payment flows in the
  * gossmap that corresponds to this flow. */
 static struct flow **
-	get_flow_paths(
-		const tal_t *ctx,
-		const struct gossmap *gossmap,
+get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 
-		// chan_extra_map cannot be const because we use it to keep
-		// track of htlcs and in_flight sats.
-		struct chan_extra_map *chan_extra_map,
-		const struct linear_network *linear_network,
-		const struct residual_network *residual_network,
+	       // chan_extra_map cannot be const because we use it to keep
+	       // track of htlcs and in_flight sats.
+	       struct chan_extra_map *chan_extra_map,
+	       const struct linear_network *linear_network,
+	       const struct residual_network *residual_network,
 
-		// how many msats in excess we paid for not having msat accuracy
-		// in the MCF solver
-		struct amount_msat excess)
+	       // how many msats in excess we paid for not having msat accuracy
+	       // in the MCF solver
+	       struct amount_msat excess, char **fail)
 {
+	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
-	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
+	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
-	tal_t *this_ctx = tal(tmpctx,tal_t);
+	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
 
 	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
 	struct chan_flow *chan_flow = tal_arrz(this_ctx,struct chan_flow,max_num_chans);
@@ -1165,8 +1249,15 @@ static struct flow **
 	const struct gossmap_chan **prev_chan
 		= tal_arr(this_ctx,const struct gossmap_chan *,max_num_nodes);
 
+
 	int *prev_dir = tal_arr(this_ctx,int,max_num_nodes);
 	u32 *prev_idx = tal_arr(this_ctx,u32,max_num_nodes);
+
+	if (!chan_flow || !balance || !prev_chan || !prev_idx || !prev_dir) {
+		if (fail)
+		*fail = tal_fmt(ctx, "bad allocation");
+		goto function_fail;
+	}
 
 	// Convert the arc based residual network flow into a flow in the
 	// directed channel network.
@@ -1193,8 +1284,6 @@ static struct flow **
 
 	}
 
-
-	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
 	// Select all nodes with negative balance and find a flow that reaches a
 	// positive balance node.
@@ -1270,22 +1359,24 @@ static struct flow **
 			// substract the excess of msats for not having msat
 			// accuracy
 			struct amount_msat delivered = amount_msat(delta*1000);
-			if(!amount_msat_sub(&delivered,delivered,excess))
-			{
-				plugin_err(pay_plugin->plugin,"%s (line %d) unable to substract excess.",
-					__PRETTY_FUNCTION__,
-					__LINE__);
+			if (!amount_msat_sub(&delivered, delivered, excess)) {
+				if (fail)
+				*fail = tal_fmt(
+				    ctx, "unable to substract excess");
+				goto function_fail;
 			}
 			excess = amount_msat(0);
 
 			// complete the flow path by adding real fees and
 			// probabilities.
-			if (!flow_complete(tmpctx, fp, gossmap, chan_extra_map,
-					   delivered, &errmsg)) {
-				plugin_err(
-				    pay_plugin->plugin,
-				    "%s (line %d) flow_complete failed: %s",
-				    __PRETTY_FUNCTION__, __LINE__, errmsg);
+			if (!flow_complete(this_ctx, fp, gossmap,
+					   chan_extra_map, delivered,
+					   &errmsg)) {
+				if (fail)
+				*fail = tal_fmt(
+				    ctx, "flow_complete failed: %s",
+				    errmsg);
+				goto function_fail;
 			}
 
 			// add fp to flows
@@ -1300,6 +1391,10 @@ static struct flow **
 	}
 	tal_free(this_ctx);
 	return flows;
+
+	function_fail:
+	tal_free(this_ctx);
+	return tal_free(flows);
 }
 
 /* Given the constraints on max fee and min prob.,
@@ -1402,21 +1497,16 @@ static bool is_better(
 
 // TODO(eduardo): we should LOG_DBG the process of finding the MCF while
 // adjusting the frugality factor.
-struct flow** minflow(
-		const tal_t *ctx,
-		struct gossmap *gossmap,
-		const struct gossmap_node *source,
-		const struct gossmap_node *target,
-		struct chan_extra_map *chan_extra_map,
-		const bitmap *disabled,
-		struct amount_msat amount,
-		struct amount_msat max_fee,
-		double min_probability,
-		double delay_feefactor,
-		double base_fee_penalty,
-		u32 prob_cost_factor )
+struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
+		      const struct gossmap_node *source,
+		      const struct gossmap_node *target,
+		      struct chan_extra_map *chan_extra_map,
+		      const bitmap *disabled, struct amount_msat amount,
+		      struct amount_msat max_fee, double min_probability,
+		      double delay_feefactor, double base_fee_penalty,
+		      u32 prob_cost_factor, char **fail)
 {
-	tal_t *this_ctx = tal(tmpctx,tal_t);
+	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
 
 	struct pay_parameters *params = tal(this_ctx,struct pay_parameters);
@@ -1454,11 +1544,23 @@ struct flow** minflow(
 	params->prob_cost_factor = prob_cost_factor;
 
 	// build the uncertainty network with linearization and residual arcs
-	struct linear_network *linear_network= tal(this_ctx,struct linear_network);
-	init_linear_network(params,linear_network);
+	struct linear_network *linear_network= init_linear_network(this_ctx, params, &errmsg);
+	if (!linear_network) {
+		if(fail)
+		*fail = tal_fmt(ctx, "init_linear_network failed: %s",
+				errmsg);
+		goto function_fail;
+	}
 
-	struct residual_network *residual_network = tal(this_ctx,struct residual_network);
-	alloc_residual_netork(linear_network,residual_network);
+	struct residual_network *residual_network =
+	    alloc_residual_network(this_ctx, linear_network->max_num_nodes,
+				  linear_network->max_num_arcs);
+	if (!residual_network) {
+		if (fail)
+		*fail = tal_fmt(
+		    ctx, "failed to allocate the residual network");
+		goto function_fail;
+	}
 
 	dijkstra = dijkstra_new(this_ctx, gossmap_max_node_idx(params->gossmap));
 
@@ -1491,31 +1593,41 @@ struct flow** minflow(
 	const struct amount_msat excess
 		= amount_msat(pay_amount_msats ? 1000 - pay_amount_msats : 0);
 
-	int err = find_feasible_flow(linear_network,residual_network,source_idx,target_idx,
-	                             pay_amount_sats);
-
-	if(err!=RENEPAY_ERR_OK)
-	{
+	if (!find_feasible_flow(this_ctx, linear_network, residual_network,
+				source_idx, target_idx, pay_amount_sats,
+				&errmsg)) {
 		// there is no flow that satisfy the constraints, we stop here
-		goto finish;
+		if(fail)
+		*fail = tal_fmt(ctx, "failed to find a feasible flow: %s", errmsg);
+		goto function_fail;
 	}
 
 	// first flow found
-	best_flow_paths = get_flow_paths(ctx,params->gossmap,params->chan_extra_map,
-	                            linear_network,residual_network,
-				    excess);
+	best_flow_paths =
+	    get_flow_paths(this_ctx, params->gossmap, params->chan_extra_map,
+			   linear_network, residual_network, excess, &errmsg);
+	if (!best_flow_paths) {
+		if (fail)
+		*fail =
+		    tal_fmt(ctx, "get_flow_paths failed: %s", errmsg);
+		goto function_fail;
+	}
+	best_flow_paths = tal_steal(ctx, best_flow_paths);
+
 	best_prob_success =
-	    flowset_probability(tmpctx, best_flow_paths, params->gossmap,
+	    flowset_probability(this_ctx, best_flow_paths, params->gossmap,
 				params->chan_extra_map, &errmsg);
 	if (best_prob_success < 0) {
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) flowset_probability failed: %s",
-			   __PRETTY_FUNCTION__, __LINE__, errmsg);
+		if (fail)
+		*fail =
+		    tal_fmt(ctx, "flowset_probability failed: %s", errmsg);
+		goto function_fail;
 	}
 	if (!flowset_fee(&best_fee, best_flow_paths)) {
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) flowset_fee failed",
-			   __PRETTY_FUNCTION__, __LINE__, errmsg);
+		if (fail)
+		*fail =
+		    tal_fmt(ctx, "flowset_fee failed on MaxFlow phase");
+		goto function_fail;
 	}
 
 	// binary search for a value of `mu` that fits our fee and prob.
@@ -1530,29 +1642,47 @@ struct flow** minflow(
 
 		combine_cost_function(linear_network,residual_network,mu);
 
-		optimize_mcf(dijkstra,linear_network,residual_network,
-				source_idx,target_idx,pay_amount_sats);
+		if(!optimize_mcf(this_ctx, dijkstra,linear_network,residual_network,
+				source_idx,target_idx,pay_amount_sats, &errmsg))
+		{
+			// optimize_mcf doesn't fail unless there is a bug.
+			if (fail)
+			*fail =
+			    tal_fmt(ctx, "optimize_mcf failed: %s", errmsg);
+			goto function_fail;
+		}
 
 		struct flow **flow_paths;
-		flow_paths = get_flow_paths(this_ctx,params->gossmap,params->chan_extra_map,
-		                            linear_network,residual_network,
-					    excess);
+		flow_paths = get_flow_paths(
+		    this_ctx, params->gossmap, params->chan_extra_map,
+		    linear_network, residual_network, excess, &errmsg);
+		if(!flow_paths)
+		{
+			// get_flow_paths doesn't fail unless there is a bug.
+			if (fail)
+			*fail =
+			    tal_fmt(ctx, "get_flow_paths failed: %s", errmsg);
+			goto function_fail;
+		}
 
 		double prob_success =
-		    flowset_probability(tmpctx, flow_paths, params->gossmap,
+		    flowset_probability(this_ctx, flow_paths, params->gossmap,
 					params->chan_extra_map, &errmsg);
 		if (prob_success < 0) {
-			plugin_err(
-			    pay_plugin->plugin,
-			    "%s (line %d) flowset_probability failed: %s",
-			    __PRETTY_FUNCTION__, __LINE__, errmsg);
+			// flowset_probability doesn't fail unless there is a bug.
+			if (fail)
+			*fail =
+			    tal_fmt(ctx, "flowset_probability: %s", errmsg);
+			goto function_fail;
 		}
 
 		struct amount_msat fee;
 		if (!flowset_fee(&fee, flow_paths)) {
-			plugin_err(pay_plugin->plugin,
-				   "%s (line %d) flowset_fee failed",
-				   __PRETTY_FUNCTION__, __LINE__, errmsg);
+			// flowset_fee doesn't fail unless there is a bug.
+			if (fail)
+			*fail =
+			    tal_fmt(ctx, "flowset_fee failed evaluating MinCostFlow candidate");
+			goto function_fail;
 		}
 
 		/* Is this better than the previous one? */
@@ -1561,9 +1691,9 @@ struct flow** minflow(
 				  fee,prob_success,
 			          best_fee, best_prob_success))
 		{
-			struct flow **tmp = best_flow_paths;
+
+			best_flow_paths = tal_free(best_flow_paths);
 			best_flow_paths = tal_steal(ctx,flow_paths);
-			tal_free(tmp);
 
 			best_fee = fee;
 			best_prob_success=prob_success;
@@ -1590,11 +1720,11 @@ struct flow** minflow(
 		}
 	}
 
-
-
-	finish:
-
 	tal_free(this_ctx);
 	return best_flow_paths;
+
+	function_fail:
+	tal_free(this_ctx);
+	return tal_free(best_flow_paths);
 }
 

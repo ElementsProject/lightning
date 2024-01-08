@@ -55,17 +55,12 @@ enum {
  *
  * Return a series of subflows which deliver amount to target, or NULL.
  */
-struct flow** minflow(
-		const tal_t *ctx,
-		struct gossmap *gossmap,
-		const struct gossmap_node *source,
-		const struct gossmap_node *target,
-		struct chan_extra_map *chan_extra_map,
-		const bitmap *disabled,
-		struct amount_msat amount,
-		struct amount_msat max_fee,
-		double min_probability,
-		double delay_feefactor,
-		double base_fee_penalty,
-		u32 prob_cost_factor);
+struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
+		      const struct gossmap_node *source,
+		      const struct gossmap_node *target,
+		      struct chan_extra_map *chan_extra_map,
+		      const bitmap *disabled, struct amount_msat amount,
+		      struct amount_msat max_fee, double min_probability,
+		      double delay_feefactor, double base_fee_penalty,
+		      u32 prob_cost_factor, char **fail);
 #endif /* LIGHTNING_PLUGINS_RENEPAY_MCF_H */
