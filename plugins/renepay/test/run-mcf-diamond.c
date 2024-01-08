@@ -78,6 +78,8 @@ int main(int argc, char *argv[])
 	struct gossmap_localmods *mods;
 	struct chan_extra_map *chan_extra_map;
 
+	char *errmsg;
+
 	common_setup(argv[0]);
 
 	fd = tmpdir_mkstemp(tmpctx, "run-not_mcf-diamond.XXXXXX", &gossfile);
@@ -158,7 +160,12 @@ int main(int argc, char *argv[])
 			 /* min probability = */ 0.8, // 80%
 			 /* delay fee factor = */ 0,
 			 /* base fee penalty */ 0,
-			 /* prob cost factor = */ 1);
+			 /* prob cost factor = */ 1,
+			 &errmsg);
+	if (!flows) {
+		printf("Minflow has failed with: %s", errmsg);
+		assert(0 && "minflow failed");
+	}
 
 	printf("%s\n",
 		print_flows(tmpctx,"Simple minflow", gossmap,chan_extra_map, flows));

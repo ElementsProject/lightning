@@ -454,6 +454,7 @@ const char *add_payflows(const tal_t *ctx,
 {
 	bitmap *disabled;
 	const struct gossmap_node *src, *dst;
+	char *errmsg;
 
 	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled_scids);
 	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
@@ -482,12 +483,14 @@ const char *add_payflows(const tal_t *ctx,
 				p->min_prob_success ,
 				p->delay_feefactor,
 				p->base_fee_penalty,
-				p->prob_cost_factor);
+				p->prob_cost_factor,
+				&errmsg);
 		if (!flows) {
 			*ecode = PAY_ROUTE_NOT_FOUND;
 			return tal_fmt(ctx,
-				       "minflow couldn't find a feasible flow for %s",
-				       type_to_string(tmpctx,struct amount_msat,&amount));
+				       "minflow couldn't find a feasible flow for %s, %s",
+				       type_to_string(tmpctx,struct amount_msat,&amount),
+				       errmsg);
 		}
 
 		/* Are we unhappy? */
