@@ -4,9 +4,12 @@
 #include <ccan/asort/asort.h>
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
+#include <common/channel_id.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
+
+#define MAX_CHANNEL_IDS 4096
 
 bool psbt_get_serial_id(const struct wally_map *map, u64 *serial_id)
 {
@@ -196,6 +199,56 @@ void psbt_sort_by_serial_id(struct wally_psbt *psbt)
 	sort_inputs(psbt);
 	sort_outputs(psbt);
 }
+
+bool psbt_get_channel_ids(const tal_t *ctx,
+			  const struct wally_psbt *psbt,
+			  struct channel_id **channel_ids)
+{
+	size_t value_len;
+	void *res = psbt_get_lightning(&psbt->unknowns, PSBT_TYPE_CHANNELIDS,
+				       &value_len);
+	if (!res)
+		return false;
+
+	/* Max channel id limit */
+	if (value_len > MAX_CHANNEL_IDS * 32)
+		return false;
+
+	/* Must be a multiple of 32 */
+	if (value_len % 32)
+		return false;
+
+	*channel_ids = tal_arr(ctx, struct channel_id, value_len / 32);
+	for (size_t i = 0; i < value_len / 32; i++)
+		memcpy((*channel_ids)[i].id, res + i * 32, 32);
+
+	return true;
+}
+
+void psbt_set_channel_ids(struct wally_psbt *psbt,
+			  struct channel_id *channel_ids)
+{
+	BUILD_ASSERT(sizeof(channel_ids[0].id) == 32);
+	int data_size = tal_count(channel_ids) * 32;
+	u8 *data = tal_arr(tmpctx, u8, data_size);
+
+	for (size_t i = 0; i < tal_count(channel_ids); i++)
+		memcpy(data + i * 32, channel_ids[i].id, 32);
+
+	psbt_set_lightning(psbt,
+			   &psbt->unknowns,
+			   PSBT_TYPE_CHANNELIDS,
+			   data,
+			   data_size);
+}
+
+/* psbt_set_channel_ids - Stores the channel_ids in the PSBT
+ *
+ * @psbt - the psbt to put the channel_ids into
+ * @channel_ids - the channel ids to put in
+ */
+void psbt_set_channel_ids(struct wally_psbt *psbt,
+			  struct channel_id *channel_ids);
 
 #define ADD(type, add_to, from, index)				\
 	do {							\
