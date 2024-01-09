@@ -459,7 +459,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 
 			/* Convert tx_bytes to a tx! */
 			len = tal_bytelen(tx_bytes);
-			tx = pull_bitcoin_tx(ctx, &tx_bytes, &len);
+			tx = pull_bitcoin_tx_only(ctx, &tx_bytes, &len);
 
 			if (!tx || len != 0)
 				return tal_fmt(ctx, "Invalid tx sent. len: %d",
