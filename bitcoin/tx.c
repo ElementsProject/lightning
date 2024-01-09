@@ -794,15 +794,13 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 
 	u32 len = fromwire_u32(cursor, max);
 	size_t start = *max;
-	tx = pull_bitcoin_tx(ctx, cursor, max);
+	tx = pull_bitcoin_tx_only(ctx, cursor, max);
 	if (!tx)
 		return fromwire_fail(cursor, max);
 	// Check that we consumed len bytes
 	if (start - *max != len)
 		return fromwire_fail(cursor, max);
 
-	/* pull_bitcoin_tx sets the psbt */
-	tal_free(tx->psbt);
 	tx->psbt = fromwire_wally_psbt(tx, cursor, max);
 	if (!tx->psbt)
 		return fromwire_fail(cursor, max);
