@@ -1784,7 +1784,7 @@ static bool run_tx_interactive(struct state *state,
 
 			/* Convert tx_bytes to a tx! */
 			len = tal_bytelen(tx_bytes);
-			tx = pull_bitcoin_tx(tmpctx, &tx_bytes, &len);
+			tx = pull_bitcoin_tx_only(tmpctx, &tx_bytes, &len);
 			if (!tx || len != 0) {
 				open_abort(state, "%s", "Invalid tx sent.");
 				return false;
