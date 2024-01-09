@@ -13,9 +13,9 @@ DESCRIPTION
 `splice_signed` is a low level RPC command which finishes the active channel
 splice associated with `channel_id`.
 
-*channel\_id* is the channel id of the channel being spliced.
-
 *psbt* is the final version of the psbt to complete the splice with.
+
+*channel\_id* is optionally the channel id of the channel being spliced.
 
 *sign\_first* is a flag that makes our node offer the final splice signature
 first (defaults to false). When false, the node will calculate who should
@@ -24,6 +24,8 @@ spec.
 
 The *psbt* must have all signatures attached to all inputs that you have added
 to it or it will fail.
+
+If *channel\_id* is not specified, the psbt will be scanned for channel\_ids.
 
 In this example we funded the psbt from our lightning node, so we can use the
 lightning node to sign for its funds.
@@ -76,6 +78,7 @@ On success, an object is returned, containing:
 
 - **tx** (hex): The hex representation of the final transaction that is published
 - **txid** (txid): The txid is of the final transaction
+- **psbt** (string, optional): The psbt of the final transaction *(added v24.02)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -92,4 +95,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:429eb13039cd6af7180c7de1d74f001eb1090c6c6d404bac0dcb2af51e0ab0f4)
+[comment]: # ( SHA256STAMP:a094d4147d83dc50a92e2287b206b7f54bb9ed089bd54a595a3e75141f4f0b61)
