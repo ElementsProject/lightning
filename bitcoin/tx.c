@@ -652,8 +652,8 @@ static struct wally_tx *pull_wtx(const tal_t *ctx,
 	return wtx;
 }
 
-struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
-				   size_t *max)
+struct bitcoin_tx *pull_bitcoin_tx_only(const tal_t *ctx, const u8 **cursor,
+					size_t *max)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	tx->wtx = pull_wtx(tx, cursor, max);
@@ -662,10 +662,20 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 	tx->chainparams = chainparams;
-	tx->psbt = new_psbt(tx, tx->wtx);
-	if (!tx->psbt)
-		return tal_free(tx);
+	tx->psbt = NULL;
 
+	return tx;
+}
+
+struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
+				   size_t *max)
+{
+	struct bitcoin_tx *tx = pull_bitcoin_tx_only(ctx, cursor, max);
+	if (tx) {
+		tx->psbt = new_psbt(tx, tx->wtx);
+		if (!tx->psbt)
+			return tal_free(tx);
+        }
 	return tx;
 }
 
