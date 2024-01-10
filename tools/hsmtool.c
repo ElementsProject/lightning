@@ -44,7 +44,7 @@ static void show_usage(const char *progname)
 	       "<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
-	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
+	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network] [show_secrets: true/false]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
 	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
 	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
@@ -570,14 +570,15 @@ static int generate_hsm(const char *hsm_secret_path)
 	return 0;
 }
 
-static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_passwd UNUSED,
-				  const u32 version)
+static int dumponchaindescriptors(const char *hsm_secret_path,
+				  const char *old_passwd UNUSED,
+				  const u32 version, bool show_secrets)
 {
 	struct secret hsm_secret;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
 	struct ext_key master_extkey;
-	char *enc_xpub, *descriptor;
+	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
 
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
@@ -595,31 +596,38 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
 				     version, 0, &master_extkey) != WALLY_OK);
 
-	if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PUBLIC, &enc_xpub) != WALLY_OK)
-		errx(ERROR_LIBWALLY, "Can't encode xpub");
+	if (show_secrets) {
+		if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PRIVATE,
+					&enc_xkey) != WALLY_OK)
+			errx(ERROR_LIBWALLY, "Can't encode xpriv");
+	} else {
+		if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PUBLIC,
+					&enc_xkey) != WALLY_OK)
+			errx(ERROR_LIBWALLY, "Can't encode xpub");
+	}
 
 	/* Now we format the descriptor strings (we only ever create P2TR, P2WPKH, and
 	 * P2SH-P2WPKH outputs). */
 
-	descriptor = tal_fmt(NULL, "wpkh(%s/0/0/*)", enc_xpub);
+	descriptor = tal_fmt(NULL, "wpkh(%s/0/0/*)", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for wpkh");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "sh(wpkh(%s/0/0/*))", enc_xpub);
+	descriptor = tal_fmt(NULL, "sh(wpkh(%s/0/0/*))", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for sh(wpkh)");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "tr(%s/0/0/*)", enc_xpub);
+	descriptor = tal_fmt(NULL, "tr(%s/0/0/*)", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for tr");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	wally_free_string(enc_xpub);
+	wally_free_string(enc_xkey);
 
 	return 0;
 }
@@ -755,6 +763,8 @@ int main(int argc, char *argv[])
 
 	if (streq(method, "dumponchaindescriptors")) {
 		char *net = NULL;
+		char *show_secrets_str = NULL;
+		bool show_secrets = false;
 		u32 version;
 
 		if (argc < 3)
@@ -772,7 +782,21 @@ int main(int argc, char *argv[])
 		else
 			version = BIP32_VER_MAIN_PRIVATE;
 
-		return dumponchaindescriptors(argv[2], NULL, version);
+		if (argc > 4)
+			show_secrets_str = argv[4];
+
+		if (show_secrets_str) {
+			if (streq(show_secrets_str, "true"))
+				show_secrets = true;
+			else if (streq(show_secrets_str, "false"))
+				show_secrets = false;
+			else
+				errx(ERROR_USAGE, "show_secrets should be "
+						  "either true or false.");
+		} else
+			show_secrets = false;
+
+		return dumponchaindescriptors(argv[2], NULL, version, show_secrets);
 	}
 
 	if (streq(method, "checkhsm")) {
