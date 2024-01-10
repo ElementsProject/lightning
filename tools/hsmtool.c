@@ -44,7 +44,7 @@ static void show_usage(const char *progname)
 	       "<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
-	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network] [show_secrets: true/false]\n");
+	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
 	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
 	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
@@ -762,16 +762,45 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(method, "dumponchaindescriptors")) {
+		char *fname = NULL;
 		char *net = NULL;
-		char *show_secrets_str = NULL;
 		bool show_secrets = false;
+		bool only_arguments = false;
 		u32 version;
 
 		if (argc < 3)
 			show_usage(argv[0]);
 
-		if (argc > 3)
-			net = argv[3];
+		for (int i = 2; i < argc; ++i) {
+			char *next = argv[i];
+
+			if (only_arguments || next[0] != '-') {
+				// this is an argument
+				if (!fname) {
+					fname = next;
+					continue;
+				}
+				if (!net) {
+					net = next;
+					continue;
+				}
+				errx(ERROR_USAGE,
+				     "Argument '%s' was not expected.", next);
+			}
+
+			if (streq(next, "--")) {
+				only_arguments = true;
+				continue;
+			}
+
+			// we are processing an option here
+			if (streq(next, "--show-secrets")) {
+				show_secrets = true;
+				continue;
+			}
+			errx(ERROR_USAGE, "Option '%s' is not recognized.",
+			     next);
+		}
 
 		if (net && (streq(net, "testnet") || streq(net, "signet")))
 			version = BIP32_VER_TEST_PRIVATE;
@@ -782,21 +811,7 @@ int main(int argc, char *argv[])
 		else
 			version = BIP32_VER_MAIN_PRIVATE;
 
-		if (argc > 4)
-			show_secrets_str = argv[4];
-
-		if (show_secrets_str) {
-			if (streq(show_secrets_str, "true"))
-				show_secrets = true;
-			else if (streq(show_secrets_str, "false"))
-				show_secrets = false;
-			else
-				errx(ERROR_USAGE, "show_secrets should be "
-						  "either true or false.");
-		} else
-			show_secrets = false;
-
-		return dumponchaindescriptors(argv[2], NULL, version, show_secrets);
+		return dumponchaindescriptors(fname, NULL, version, show_secrets);
 	}
 
 	if (streq(method, "checkhsm")) {
