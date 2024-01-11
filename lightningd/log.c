@@ -540,6 +540,13 @@ static void maybe_print(struct logger *log, const struct log_entry *l)
 			     log->log_book->log_files);
 }
 
+static void maybe_notify_log(struct logger *log,
+			     const struct log_entry *l)
+{
+	if (l->level >= log->print_level)
+		notify_log(log->log_book->ld, l);
+}
+
 void logv(struct logger *log, enum log_level level,
 	  const struct node_id *node_id,
 	  bool call_notifier,
@@ -561,6 +568,7 @@ void logv(struct logger *log, enum log_level level,
 			l->log[i] = '?';
 
 	maybe_print(log, l);
+	maybe_notify_log(log, l);
 
 	add_entry(log, &l);
 
