@@ -3,6 +3,7 @@
 #include <common/configdir.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/log.h>
 #include <lightningd/notification.h>
 
 bool notifications_topic_is_native(const char *topic)
@@ -135,8 +136,7 @@ static void warning_notification_serialize(struct json_stream *stream,
 	/* Choose "BROKEN"/"UNUSUAL" to keep consistent with the habit
 	 * of plugin. But this may confuses the users who want to 'getlog'
 	 * with the level indicated by notifications. It is the duty of a
-	 * plugin to eliminate this misunderstanding.
-	 */
+	 * plugin to eliminate this misunderstanding. */
 	json_add_string(stream, "level",
 			l->level == LOG_BROKEN ? "error"
 			: "warn");
@@ -618,3 +618,23 @@ bool notify_deprecated_oneshot(struct lightningd *ld,
 	return plugin_single_notify(p, take(n));
 }
 REGISTER_NOTIFICATION(deprecated_oneshot);
+
+static void log_notification_serialize(struct json_stream *stream,
+				       const struct log_entry *l)
+{
+	json_add_string(stream, "level", log_level_name(l->level));
+	json_add_timestr(stream, "time", l->time.ts);
+	json_add_timeiso(stream, "timestamp", l->time);
+	json_add_string(stream, "source", l->prefix->prefix);
+	json_add_string(stream, "log", l->log);
+}
+
+
+REGISTER_NOTIFICATION(log);
+
+void notify_log(struct lightningd *ld, const struct log_entry *l)
+{
+	struct jsonrpc_notification *n = notify_start("log");
+	log_notification_serialize(n->stream, l);
+	notify_send(ld, n);
+}

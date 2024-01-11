@@ -15,6 +15,7 @@
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
+#include <common/plugin.h>
 #include <common/timeout.h>
 #include <common/version.h>
 #include <connectd/connectd_wiregen.h>
@@ -2468,10 +2469,9 @@ static bool plugin_subscriptions_contains(struct plugin *plugin,
 {
 	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++) {
 		if (streq(method, plugin->subscriptions[i])
-		    /* Asterisk is magic "all" */
-		    || streq(plugin->subscriptions[i], "*")) {
+		    || is_asterix_notification(method,
+					       plugin->subscriptions[i]))
 			return true;
-		}
 	}
 
 	return false;
