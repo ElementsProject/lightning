@@ -207,6 +207,8 @@ A notification for topic `warning` is sent every time a new `BROKEN`/`UNUSUAL` l
    `jcon fd <error_fd_to_jsonrpc>:`, `plugin-manager`;
 4. `log` is the context of the original log entry.
 
+There is also a more general version of this notification called `log`, which has the same payload. This needs to be used with caution, but it is useful for plugins that report logs remotely. For example: using OpenTelemetry.
+
 ### `forward_event`
 
 A notification for topic `forward_event` is sent every time the status of a forward payment is set. The json format is same as the API `listforwards`.
