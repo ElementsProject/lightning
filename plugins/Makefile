@@ -166,6 +166,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/lease_rates.o			\
 	common/memleak.o			\
 	common/node_id.o			\
+	common/plugin.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\

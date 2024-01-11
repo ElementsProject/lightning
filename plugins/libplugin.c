@@ -12,6 +12,7 @@
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/plugin.h>
 #include <common/route.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
@@ -1740,7 +1741,8 @@ static void ld_command_handle(struct plugin *plugin,
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
 				  plugin->notif_subs[i].name)
-			    || streq(plugin->notif_subs[i].name, "*")) {
+			    || is_asterix_notification(cmd->methodname,
+						       plugin->notif_subs[i].name)) {
 				plugin->notif_subs[i].handle(cmd,
 							     plugin->buffer,
 							     paramstok);
