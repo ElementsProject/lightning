@@ -2420,6 +2420,9 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
                 assert acc['account_resolved']
                 assert acc['resolved_at_block'] > 0
 
+    # Have l1 send all funds to check that the unilateral close info is correct
+    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
+
 
 def test_listfunds_after_their_unilateral(node_factory, bitcoind):
     """We keep spending info around for their unilateral closes.
