@@ -1184,6 +1184,7 @@
             "ListPeerChannels.channels[].initial_feerate": 12,
             "ListPeerChannels.channels[].last_feerate": 13,
             "ListPeerChannels.channels[].last_stable_connection": 56,
+            "ListPeerChannels.channels[].lost_state": 57,
             "ListPeerChannels.channels[].max_accepted_htlcs": 40,
             "ListPeerChannels.channels[].max_to_us_msat": 25,
             "ListPeerChannels.channels[].max_total_htlc_in_msat": 30,
@@ -4586,6 +4587,10 @@
             "deprecated": false
         },
         "ListPeerChannels.channels[].last_stable_connection": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].lost_state": {
             "added": "v24.02",
             "deprecated": false
         },

@@ -1194,6 +1194,7 @@ message ListpeerchannelsChannels {
 	optional bytes scratch_txid = 4;
 	optional ListpeerchannelsChannelsUpdates updates = 55;
 	optional bool ignore_fee_limits = 54;
+	optional bool lost_state = 57;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
 	optional string short_channel_id = 8;
