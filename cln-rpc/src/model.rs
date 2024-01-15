@@ -4688,6 +4688,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub ignore_fee_limits: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub lost_state: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<ListpeerchannelsChannelsFeerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub owner: Option<String>,

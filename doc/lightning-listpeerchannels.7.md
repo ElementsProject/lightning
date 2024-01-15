@@ -50,6 +50,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
     - **fee\_base\_msat** (msat): Amount they charge to use the channel *(added v24.02)*
     - **fee\_proportional\_millionths** (u32): Amount they charge to use the channel in parts-per-million *(added v24.02)*
 - **ignore\_fee\_limits** (boolean, optional): set if we allow this peer to set fees to anything they want *(added v23.08)*
+- **lost\_state** (boolean, optional): set if we are fallen behind i.e. lost some channel state. *(added v24.02)*
 - **feerate** (object, optional): Feerates for the current tx:
   - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
   - **perkb** (u32): Feerate per 1000 virtual bytes
@@ -220,4 +221,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c2ab91a2357b83264415f923b9d5195e5294a17b7424d9e75ac9ea704bea8fc5)
+[comment]: # ( SHA256STAMP:02dbb15d46497d33808d1bc021cb604529546b94f46d8de285d7b47f4615a516)

@@ -882,6 +882,7 @@ static void json_add_channel(struct lightningd *ld,
 					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
 
+	json_add_bool(response, "lost_state", channel->future_per_commitment_point ? true : false);
 	json_object_start(response, "feerate");
 	feerate = get_feerate(channel->fee_states, channel->opener, LOCAL);
 	json_add_u32(response, feerate_style_name(FEERATE_PER_KSIPA), feerate);

@@ -268,6 +268,7 @@ The following tables are currently supported:
   - `remote_fee_base_msat` (type `msat`, sqltype `INTEGER`, from JSON object `remote`)
   - `remote_fee_proportional_millionths` (type `u32`, sqltype `INTEGER`, from JSON object `remote`)
   - `ignore_fee_limits` (type `boolean`, sqltype `INTEGER`)
+  - `lost_state` (type `boolean`, sqltype `INTEGER`)
   - `feerate_perkw` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `feerate_perkb` (type `u32`, sqltype `INTEGER`, from JSON object `feerate`)
   - `owner` (type `string`, sqltype `TEXT`)
@@ -533,4 +534,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:299446e88b1f847a82ae63c2087ce28a36b7c8fea2b102d4e3d87c420a9268e9)
+[comment]: # ( SHA256STAMP:24eeff191907cb804299716293ef0733ef25cf8e74eb1808749aebbfd9e9fa9f)

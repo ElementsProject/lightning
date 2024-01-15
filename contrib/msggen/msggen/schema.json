@@ -10596,6 +10596,11 @@
               "added": "v23.08",
               "description": "set if we allow this peer to set fees to anything they want"
             },
+            "lost_state": {
+              "type": "boolean",
+              "added": "v24.02",
+              "description": "set if we are fallen behind i.e. lost some channel state."
+            },
             "feerate": {
               "type": "object",
               "description": "Feerates for the current tx",
@@ -11161,6 +11166,7 @@
                   "channel_type": {},
                   "feerate": {},
                   "ignore_fee_limits": {},
+                  "lost_state": {},
                   "owner": {},
                   "short_channel_id": {},
                   "channel_id": {},
@@ -11255,6 +11261,7 @@
                   "channel_type": {},
                   "feerate": {},
                   "ignore_fee_limits": {},
+                  "lost_state": {},
                   "owner": {},
                   "short_channel_id": {},
                   "channel_id": {},
@@ -11348,6 +11355,7 @@
                   "channel_type": {},
                   "feerate": {},
                   "ignore_fee_limits": {},
+                  "lost_state": {},
                   "owner": {},
                   "short_channel_id": {},
                   "channel_id": {},
@@ -11442,6 +11450,7 @@
                   "channel_type": {},
                   "feerate": {},
                   "ignore_fee_limits": {},
+                  "lost_state": {},
                   "owner": {},
                   "alias": {},
                   "short_channel_id": {},
