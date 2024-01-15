@@ -1,0 +1,5 @@
+# We provide a library so we don't want to pin the dependencies.
+go.sum
+
+# Ignore the example
+goln-example

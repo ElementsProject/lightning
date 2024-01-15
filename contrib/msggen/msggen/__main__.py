@@ -5,6 +5,7 @@ from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rust import RustGenerator
+from msggen.gen.go import GoGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service
 import logging
@@ -49,6 +50,10 @@ def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain):
     dest = open(fname, "w")
     generator_chain.add_generator(RustGenerator(dest))
 
+def add_handler_gen_go_jsonrpc(generator_chain: GeneratorChain):
+    fname = Path("contrib") / "goln" / "rpc" / "messages.go"
+    dest = open(fname, "w")
+    generator_chain.add_generator(GoGenerator(dest))
 
 def load_msggen_meta():
     meta = json.load(open('.msggen.json', 'r'))
@@ -85,6 +90,7 @@ def run(rootdir: Path):
     add_handler_gen_grpc(generator_chain, meta)
     add_handler_gen_rust_jsonrpc(generator_chain)
     add_handler_get_grpc2py(generator_chain)
+    add_handler_gen_go_jsonrpc(generator_chain)
 
     generator_chain.generate(service)
 
