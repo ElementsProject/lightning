@@ -1,0 +1,235 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "autoclean-once",
+  "title": "A single deletion of old invoices/payments/forwards",
+  "description": [
+    "The **autoclean-once** RPC command tell the `autoclean` plugin to do a single sweep to delete old entries. This is a manual alternative (or addition) to the various `autoclean-...-age` parameters which cause autoclean to run once per hour: see lightningd-config(5)."
+  ],
+  "request": {
+    "required": [
+      "subsystem",
+      "age"
+    ],
+    "properties": {
+      "subsystem": {
+        "type": "string",
+        "enum": [
+          "succeededforwards",
+          "failedforwards",
+          "succeededpays",
+          "failedpays",
+          "paidinvoices",
+          "expiredinvoices"
+        ],
+        "description": [
+          "What subsystem to clean. Currently supported subsystems are:",
+          "    * `failedforwards`: routed payments which did not succeed (`failed` or `local_failed` in listforwards `status`).",
+          "    * `succeededforwards`: routed payments which succeeded (`settled` in listforwards `status`).",
+          "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
+          "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
+          "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
+          "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+        ]
+      },
+      "age": {
+        "type": "u64",
+        "description": [
+          "Non-zero number in seconds. How many seconds old an entry must be to delete it."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "autoclean"
+    ],
+    "properties": {
+      "autoclean": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "succeededforwards": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "failedforwards": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "succeededpays": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "failedpays": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "paidinvoices": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "expiredinvoices": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:autoclean-once#1",
+      "method": "autoclean-once",
+      "params": [
+        "failedpays",
+        1
+      ]
+    },
+    {
+      "id": "example:autoclean-once#2",
+      "method": "autoclean-once",
+      "params": [
+        "succeededpays",
+        1
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "autoclean": {
+        "failedpays": {
+          "cleaned": 1,
+          "uncleaned": 1
+        }
+      }
+    },
+    {
+      "autoclean": {
+        "succeededpays": {
+          "cleaned": 1,
+          "uncleaned": 0
+        }
+      }
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-autoclean-status(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

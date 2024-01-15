@@ -1,0 +1,210 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "pre-v0.10.1",
+  "rpc": "bkpr-listincome",
+  "title": "Command for listing all income impacting events",
+  "description": [
+    "The **bkpr-listincome** RPC command is a list of all income impacting events that the bookkeeper plugin has recorded for this node."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "consolidate_fees": {
+        "type": "boolean",
+        "description": [
+          "If true, we emit a single, consolidated event for any onchain-fees for a txid and account. Otherwise, events for every update to the onchain fee calculation for this account and txid will be printed. Note that this means that the events emitted are non-stable, i.e. calling **listincome** twice may result in different onchain fee events being emitted, depending on how much information we've logged for that transaction."
+        ],
+        "default": "True"
+      },
+      "start_time": {
+        "type": "u32",
+        "description": [
+          "UNIX timestamp (in seconds) that filters events after the provided timestamp."
+        ],
+        "default": "zero"
+      },
+      "end_time": {
+        "type": "u32",
+        "description": [
+          "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp."
+        ],
+        "default": "max-int"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "income_events"
+    ],
+    "properties": {
+      "income_events": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account",
+            "tag",
+            "credit_msat",
+            "debit_msat",
+            "currency",
+            "timestamp"
+          ],
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": [
+                "The account name. If the account is a channel, the channel_id."
+              ]
+            },
+            "tag": {
+              "type": "string",
+              "description": [
+                "Type of income event."
+              ]
+            },
+            "credit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount earned (income)."
+              ]
+            },
+            "debit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount spent (expenses)."
+              ]
+            },
+            "currency": {
+              "type": "string",
+              "description": [
+                "Human-readable bech32 part for this coin type."
+              ]
+            },
+            "timestamp": {
+              "type": "u32",
+              "description": [
+                "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp."
+              ]
+            },
+            "description": {
+              "type": "string",
+              "description": [
+                "More information about this event. If a `invoice` type, typically the bolt11/bolt12 description."
+              ]
+            },
+            "outpoint": {
+              "type": "string",
+              "description": [
+                "The txid:outnum for this event, if applicable."
+              ]
+            },
+            "txid": {
+              "type": "txid",
+              "description": [
+                "The txid of the transaction that created this event, if applicable."
+              ]
+            },
+            "payment_id": {
+              "type": "hex",
+              "description": [
+                "Lightning payment identifier. For an htlc, this will be the preimage."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:bkpr-listincome#1",
+      "method": "bkpr-listincome",
+      "params": "{}"
+    },
+    {
+      "id": "example:bkpr-listincome#2",
+      "method": "bkpr-listincome",
+      "params": {
+        "consolidate_fees": false
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "income_events": [
+        {
+          "account": "wallet",
+          "tag": "deposit",
+          "credit_msat": 1111111000,
+          "debit_msat": 0,
+          "currency": "bcrt",
+          "timestamp": 1706153060,
+          "outpoint": "6d813d2e99ae7181b61e59ff224c43de698bd08b8ca5b8034ccc13aa7b6428ef:0"
+        },
+        {
+          "account": "wallet",
+          "tag": "deposit",
+          "credit_msat": 1111111000,
+          "debit_msat": 0,
+          "currency": "bcrt",
+          "timestamp": 1706153060,
+          "outpoint": "0bbbe965f76525af3876ae6f1520d91047d4be04cb4e46b7229120a60c5dc9c5:0"
+        }
+      ]
+    },
+    {
+      "income_events": [
+        {
+          "account": "wallet",
+          "tag": "deposit",
+          "credit_msat": 1111111000,
+          "debit_msat": 0,
+          "currency": "bcrt",
+          "timestamp": 1708624181,
+          "outpoint": "895b5eaad4544d24c99628883b4d84b2c6024d6a2da4c1de54098d985f280943:1"
+        },
+        {
+          "account": "wallet",
+          "tag": "withdrawal",
+          "credit_msat": 0,
+          "debit_msat": 555555000,
+          "currency": "bcrt",
+          "timestamp": 1708624182,
+          "outpoint": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71:0"
+        },
+        {
+          "account": "wallet",
+          "tag": "onchain_fee",
+          "credit_msat": 0,
+          "debit_msat": 555556000,
+          "currency": "bcrt",
+          "timestamp": 1708624183,
+          "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
+        },
+        {
+          "account": "wallet",
+          "tag": "onchain_fee",
+          "credit_msat": 554947000,
+          "debit_msat": 0,
+          "currency": "bcrt",
+          "timestamp": 1708624183,
+          "txid": "d28a2cba55da10700ddd7f1f23618160dafb3134650055654551d9b0382dcd71"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-listfunds(7)",
+    "lightning-bkpr-listbalances(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

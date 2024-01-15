@@ -1,0 +1,335 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "funderupdate",
+  "title": "Command for adjusting node funding v2 channels",
+  "description": [
+    "NOTE: Must have --experimental-dual-fund enabled for these settings to take effect.",
+    "",
+    "For channel open requests using dual funding.",
+    "",
+    "Note: to maximize channel leases, best policy setting is (match, 100).",
+    "",
+    "Setting any of the 5 options from *lease_fee_base_msat*, *lease_fee_basis*, *funding_weight*, *channel_fee_max_base_msat* and, *channel_fee_max_proportional_thousandths* will activate channel leases for this node, and advertise these values via the lightning gossip network. If any one is set, the other values will be the default."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "policy": {
+        "type": "string",
+        "enum": [
+          "match",
+          "available",
+          "fixed"
+        ],
+        "description": [
+          "Funder plugin will use to decide how much capital to commit to a v2 open channel request.",
+          "There are three policy options, detailed below:",
+          "    * `match` -- Contribute *policy_mod* percent of their requested funds. Valid *policy_mod* values are 0 to 200. If this is a channel lease request, we match based on their requested funds. If it is not a channel lease request (and *lease_only* is false), then we match their funding amount. Note: any lease match less than 100 will likely fail, as clients will not accept a lease less than their request.",
+          "    * `available` -- Contribute *policy_mod* percent of our available node wallet funds. Valid *policy_mod* values are 0 to 100.",
+          "    * `fixed` -- Contributes a fixed  *policy_mod* sats to v2 channel open requests."
+        ],
+        "default": "fixed"
+      },
+      "policy_mod": {
+        "type": "sat",
+        "description": [
+          "Number or 'modification' to apply to the policy."
+        ],
+        "default": "0sats"
+      },
+      "leases_only": {
+        "type": "boolean",
+        "description": [
+          "Only contribute funds to `option_will_fund` requests which pay to lease funds. It will fund any v2 open request using *policy* even if it's they're not seeking to lease funds. Note that `option_will_fund` commits funds for 4032 blocks (~1mo). Must also set *lease_fee_base_msat*, *lease_fee_basis*, *funding_weight*, *channel_fee_max_base_msat*, and *channel_fee_max_proportional_thousandths* to advertise available channel leases."
+        ],
+        "default": "False"
+      },
+      "min_their_funding_msat": {
+        "type": "msat",
+        "description": [
+          "Minimum funding sats that we require in order to activate our contribution policy to the v2 open."
+        ],
+        "default": "10k sats"
+      },
+      "max_their_funding_msat": {
+        "type": "msat",
+        "description": [
+          "Maximum funding sats that we will consider to activate our contribution policy to the v2 open. Any channel open above this will not be funded."
+        ],
+        "default": "no max (`UINT_MAX`)"
+      },
+      "per_channel_min_msat": {
+        "type": "msat",
+        "description": [
+          "Minimum amount that we will contribute to a channel open."
+        ],
+        "default": "10k sats"
+      },
+      "per_channel_max_msat": {
+        "type": "msat",
+        "description": [
+          "Maximum amount that we will contribute to a channel open."
+        ],
+        "default": "no max (`UINT_MAX`)"
+      },
+      "reserve_tank_msat": {
+        "type": "msat",
+        "description": [
+          "Amount of sats to leave available in the node wallet."
+        ],
+        "default": "zero sats"
+      },
+      "fuzz_percent": {
+        "type": "u32",
+        "description": [
+          "A percentage to fuzz the resulting contribution amount by. Valid values are 0 to 100. Note that turning this on with (match, 100) policy will randomly fail `option_will_fund` leases, as most clients expect an exact or greater match of their `requested_funds`."
+        ],
+        "default": "0% (no fuzz)"
+      },
+      "fund_probability": {
+        "type": "u32",
+        "description": [
+          "The percent of v2 channel open requests to apply our policy to. Valid values are integers from 0 (fund 0% of all open requests) to 100 (fund every request). Useful for randomizing opens that receive funds. Useful for randomizing opens that receive funds."
+        ],
+        "default": "100"
+      },
+      "lease_fee_base_msat": {
+        "type": "msat",
+        "description": [
+          "Flat fee for a channel lease. Node will receive this much extra added to their channel balance, paid by the opening node. Note that the minimum is 1sat."
+        ],
+        "default": "2k sats"
+      },
+      "lease_fee_basis": {
+        "type": "u32",
+        "description": [
+          "A basis fee that's calculated as 1/10k of the total requested funds the peer is asking for. Node will receive the total of *lease_fee_basis* times requested funds / 10k satoshis added to their channel balance, paid by the opening node."
+        ],
+        "default": "0.65% (65 basis points)"
+      },
+      "funding_weight": {
+        "type": "u32",
+        "description": [
+          "To calculate the fee the peer will compensate your node for its contributing inputs to the funding transaction. The total fee is calculated as the `open_channel2`.`funding_feerate_perkw` times this *funding_weight* divided by 1000. Node will have this funding fee added to their channel balance, paid by the opening node."
+        ],
+        "default": "2 inputs + 1 P2WPKH output"
+      },
+      "channel_fee_max_base_msat": {
+        "type": "msat",
+        "description": [
+          "A commitment to a maximum `channel_fee_base_msat` that your node will charge for routing payments over this leased channel during the lease duration."
+        ],
+        "default": "5k sats"
+      },
+      "channel_fee_max_proportional_thousandths": {
+        "type": "u32",
+        "description": [
+          "A commitment to a maximum `channel_fee_proportional_millionths` that your node will charge for routing payments over this leased channel during the lease duration. Note that it's denominated in 'thousandths'. A setting of `1` is equal to 1k ppm; `5` is 5k ppm, etc."
+        ],
+        "default": "100 (100k ppm)"
+      },
+      "compact_lease": {
+        "type": "hex",
+        "description": [
+          "A compact description of the channel lease params. When opening a channel, passed in to `fundchannel` to indicate the terms we expect from the peer."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "summary",
+      "policy",
+      "policy_mod",
+      "leases_only",
+      "min_their_funding_msat",
+      "max_their_funding_msat",
+      "per_channel_min_msat",
+      "per_channel_max_msat",
+      "reserve_tank_msat",
+      "fuzz_percent",
+      "fund_probability"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": [
+          "Summary of the current funding policy e.g. (match 100)."
+        ]
+      },
+      "policy": {
+        "type": "string",
+        "enum": [
+          "match",
+          "available",
+          "fixed"
+        ],
+        "description": [
+          "Policy funder plugin will use to decide how much capital to commit to a v2 open channel request."
+        ]
+      },
+      "policy_mod": {
+        "type": "u32",
+        "description": [
+          "The *policy_mod* is the number or 'modification' to apply to the policy."
+        ]
+      },
+      "leases_only": {
+        "type": "boolean",
+        "description": [
+          "Only contribute funds to `option_will_fund` lease requests."
+        ]
+      },
+      "min_their_funding_msat": {
+        "type": "msat",
+        "description": [
+          "The minimum funding sats that we require from peer to activate our funding policy."
+        ]
+      },
+      "max_their_funding_msat": {
+        "type": "msat",
+        "description": [
+          "The maximum funding sats that we'll allow from peer to activate our funding policy."
+        ]
+      },
+      "per_channel_min_msat": {
+        "type": "msat",
+        "description": [
+          "The minimum amount that we will fund a channel open with."
+        ]
+      },
+      "per_channel_max_msat": {
+        "type": "msat",
+        "description": [
+          "The maximum amount that we will fund a channel open with."
+        ]
+      },
+      "reserve_tank_msat": {
+        "type": "msat",
+        "description": [
+          "Amount of sats to leave available in the node wallet."
+        ]
+      },
+      "fuzz_percent": {
+        "type": "u32",
+        "description": [
+          "Percentage to fuzz our funding amount by."
+        ]
+      },
+      "fund_probability": {
+        "type": "u32",
+        "description": [
+          "Percent of opens to consider funding. 100 means we'll consider funding every requested open channel request."
+        ]
+      },
+      "lease_fee_base_msat": {
+        "type": "msat",
+        "description": [
+          "Flat fee to charge for a channel lease."
+        ]
+      },
+      "lease_fee_basis": {
+        "type": "u32",
+        "description": [
+          "Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds."
+        ]
+      },
+      "funding_weight": {
+        "type": "u32",
+        "description": [
+          "Transaction weight the channel opener will pay us for a leased funding transaction."
+        ]
+      },
+      "channel_fee_max_base_msat": {
+        "type": "msat",
+        "description": [
+          "Maximum channel_fee_base_msat we'll charge for routing funds leased on this channel."
+        ]
+      },
+      "channel_fee_max_proportional_thousandths": {
+        "type": "u32",
+        "description": [
+          "Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths."
+        ]
+      },
+      "compact_lease": {
+        "type": "hex",
+        "description": [
+          "Compact description of the channel lease parameters."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "The following error code may occur:",
+    "",
+    "- -32602: If the given parameters are invalid."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:funderupdate#1",
+      "method": "funderupdate",
+      "params": "{}"
+    },
+    {
+      "id": "example:funderupdate#2",
+      "method": "funderupdate",
+      "params": {
+        "policy": "fixed",
+        "policy_mod": "50000sat",
+        "min_their_funding_msat": 1000,
+        "per_channel_min_msat": "1000sat",
+        "per_channel_max_msat": "500000sat",
+        "fund_probability": 100,
+        "fuzz_percent": 0,
+        "leases_only": false
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "summary": "match (100%)",
+      "policy": "match",
+      "policy_mod": 100,
+      "leases_only": true,
+      "min_their_funding_msat": 10000000,
+      "max_their_funding_msat": 4294967295000,
+      "per_channel_min_msat": 10000000,
+      "per_channel_max_msat": 4294967295000,
+      "reserve_tank_msat": 0,
+      "fuzz_percent": 0,
+      "fund_probability": 100,
+      "lease_fee_base_msat": 100000,
+      "lease_fee_basis": 100,
+      "funding_weight": 666,
+      "channel_fee_max_base_msat": 5000000,
+      "channel_fee_max_proportional_thousandths": 100,
+      "compact_lease": "029a00640064000000644c4b40"
+    },
+    {
+      "summary": "fixed (50000sat)",
+      "policy": "fixed",
+      "policy_mod": 50000,
+      "leases_only": false,
+      "min_their_funding_msat": 1000,
+      "max_their_funding_msat": 4294967295000,
+      "per_channel_min_msat": 1000000,
+      "per_channel_max_msat": 500000000,
+      "reserve_tank_msat": 0,
+      "fuzz_percent": 0,
+      "fund_probability": 100
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-fundchannel(7)",
+    "lightning-listfunds(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

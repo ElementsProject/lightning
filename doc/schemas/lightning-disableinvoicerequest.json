@@ -1,0 +1,90 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v22.11",
+  "rpc": "disableinvoicerequest",
+  "title": "Command for removing an invoice request",
+  "warning": "experimental-offers only",
+  "description": [
+    "The **disableinvoicerequest** RPC command disables an invoice_request, so that no further invoices will be accepted (and thus, no further payments made)..",
+    "",
+    "We currently don't support deletion of invoice_requests, so they are not forgotten entirely (there may be payments which refer to this invoice_request)."
+  ],
+  "request": {
+    "required": [
+      "invreq_id"
+    ],
+    "properties": {
+      "invreq_id": {
+        "type": "string",
+        "description": [
+          "A specific invoice can be disabled by providing the `invreq_id`, which is presented by lightning-invoicerequest(7)."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "invreq_id",
+      "single_use",
+      "active",
+      "bolt12",
+      "used"
+    ],
+    "properties": {
+      "invreq_id": {
+        "type": "hash",
+        "description": [
+          "The SHA256 hash of all invoice_request fields less than 160."
+        ]
+      },
+      "active": {
+        "type": "boolean",
+        "enum": [
+          false
+        ],
+        "description": [
+          "Whether the invoice_request is currently active."
+        ]
+      },
+      "single_use": {
+        "type": "boolean",
+        "description": [
+          "Whether the invoice_request will become inactive after we pay an invoice for it."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 string starting with lnr."
+        ]
+      },
+      "used": {
+        "type": "boolean",
+        "description": [
+          "Whether the invoice_request has already been used."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The label provided when creating the invoice_request."
+        ]
+      }
+    },
+    "pre_return_value_notes": [
+      "Note: the returned object is the same format as **listinvoicerequest**."
+    ]
+  },
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-invoicerequest(7)",
+    "lightning-listinvoicerequest(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

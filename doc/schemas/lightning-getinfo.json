@@ -1,0 +1,431 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "getinfo",
+  "title": "Command to receive all information about the Core Lightning node.",
+  "description": [
+    "The **getinfo** gives a summary of the current running node."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "id",
+      "alias",
+      "color",
+      "num_peers",
+      "num_pending_channels",
+      "num_active_channels",
+      "num_inactive_channels",
+      "version",
+      "blockheight",
+      "network",
+      "fees_collected_msat",
+      "lightning-dir",
+      "address"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "The public key unique to this node."
+        ]
+      },
+      "alias": {
+        "type": "string",
+        "description": [
+          "The fun alias this node will advertize."
+        ],
+        "maxLength": 32
+      },
+      "color": {
+        "type": "hex",
+        "description": [
+          "The favorite RGB color this node will advertize."
+        ],
+        "minLength": 6,
+        "maxLength": 6
+      },
+      "num_peers": {
+        "type": "u32",
+        "description": [
+          "The total count of peers, connected or with channels."
+        ]
+      },
+      "num_pending_channels": {
+        "type": "u32",
+        "description": [
+          "The total count of channels being opened."
+        ]
+      },
+      "num_active_channels": {
+        "type": "u32",
+        "description": [
+          "The total count of channels in normal state."
+        ]
+      },
+      "num_inactive_channels": {
+        "type": "u32",
+        "description": [
+          "The total count of channels waiting for opening or closing transactions to be mined."
+        ]
+      },
+      "version": {
+        "type": "string",
+        "description": [
+          "Identifies what bugs you are running into."
+        ]
+      },
+      "lightning-dir": {
+        "type": "string",
+        "description": [
+          "Identifies where you can find the configuration and other related files."
+        ]
+      },
+      "our_features": {
+        "type": "object",
+        "description": [
+          "Our BOLT #9 feature bits (as hexstring) for various contexts."
+        ],
+        "additionalProperties": true,
+        "required": [
+          "init",
+          "node",
+          "channel",
+          "invoice"
+        ],
+        "properties": {
+          "init": {
+            "type": "hex",
+            "description": [
+              "Features (incl. globalfeatures) in our init message, these also restrict what we offer in open_channel or accept in accept_channel."
+            ]
+          },
+          "node": {
+            "type": "hex",
+            "description": [
+              "Features in our node_announcement message."
+            ]
+          },
+          "channel": {
+            "type": "hex",
+            "description": [
+              "Negotiated channel features we (as channel initiator) publish in the channel_announcement message."
+            ]
+          },
+          "invoice": {
+            "type": "hex",
+            "description": [
+              "Features in our BOLT11 invoices."
+            ]
+          }
+        }
+      },
+      "blockheight": {
+        "type": "u32",
+        "description": [
+          "The highest block height we've learned."
+        ]
+      },
+      "network": {
+        "type": "string",
+        "description": [
+          "Represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)."
+        ]
+      },
+      "fees_collected_msat": {
+        "type": "msat",
+        "description": [
+          "Total routing fees collected by this node."
+        ]
+      },
+      "address": {
+        "type": "array",
+        "description": [
+          "The addresses we announce to the world."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "type",
+            "port"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "dns",
+                "ipv4",
+                "ipv6",
+                "torv2",
+                "torv3"
+              ],
+              "description": [
+                "Type of connection (until 23.08, `websocket` was also allowed)."
+              ]
+            },
+            "port": {
+              "type": "u16",
+              "description": [
+                "Port number."
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "dns",
+                  "ipv4",
+                  "ipv6",
+                  "torv2",
+                  "torv3"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "type",
+              "address",
+              "port"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {},
+              "port": {},
+              "address": {
+                "type": "string",
+                "description": [
+                  "Address in expected format for **type**."
+                ]
+              }
+            }
+          },
+          "else": {
+            "required": [
+              "type",
+              "port"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {},
+              "port": {}
+            }
+          }
+        }
+      },
+      "binding": {
+        "type": "array",
+        "description": [
+          "The addresses we are listening on."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "local socket",
+                "websocket",
+                "ipv4",
+                "ipv6",
+                "torv2",
+                "torv3"
+              ],
+              "description": [
+                "Type of connection."
+              ]
+            },
+            "address": {
+              "type": "string",
+              "description": [
+                "Address in expected format for **type**."
+              ]
+            },
+            "port": {
+              "type": "u16",
+              "description": [
+                "Port number."
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "local socket"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "socket"
+                ],
+                "properties": {
+                  "type": {},
+                  "socket": {
+                    "type": "string",
+                    "description": [
+                      "Socket filename."
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "address",
+                  "port"
+                ],
+                "properties": {
+                  "type": {},
+                  "address": {},
+                  "port": {},
+                  "subtype": {}
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "websocket"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "address",
+                  "port",
+                  "subtype"
+                ],
+                "properties": {
+                  "type": {},
+                  "address": {},
+                  "port": {},
+                  "subtype": {
+                    "type": "string",
+                    "description": [
+                      "Type of address."
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "additionalProperties": false,
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {},
+                  "address": {},
+                  "port": {},
+                  "socket": {}
+                }
+              }
+            }
+          ]
+        }
+      },
+      "warning_bitcoind_sync": {
+        "type": "string",
+        "description": [
+          "Bitcoind is not up-to-date with network."
+        ]
+      },
+      "warning_lightningd_sync": {
+        "type": "string",
+        "description": [
+          "Lightningd is still loading latest blocks from bitcoind."
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:getinfo#1",
+      "method": "getinfo",
+      "params": {}
+    }
+  ],
+  "example_json_response": [
+    {
+      "id": "02bf811f7571754f0b51e6d41a8885f5561041a7b14fac093e4cffb95749de1a8d",
+      "alias": "SLICKERGOPHER",
+      "color": "02bf81",
+      "num_peers": 0,
+      "num_pending_channels": 0,
+      "num_active_channels": 0,
+      "num_inactive_channels": 0,
+      "address": [
+        {
+          "type": "torv3",
+          "address": "fp463inc4w3lamhhduytrwdwq6q6uzugtaeapylqfc43agrdnnqsheyd.onion",
+          "port": 9736
+        },
+        {
+          "type": "torv3",
+          "address": "ifnntp5ak4homxrti2fp6ckyllaqcike447ilqfrgdw64ayrmkyashid.onion",
+          "port": 9736
+        }
+      ],
+      "binding": [
+        {
+          "type": "ipv4",
+          "address": "127.0.0.1",
+          "port": 9736
+        }
+      ],
+      "version": "v0.10.2",
+      "blockheight": 724302,
+      "network": "bitcoin",
+      "msatoshi_fees_collected": 0,
+      "fees_collected_msat": "0msat",
+      "lightning-dir": "/media/vincent/Maxtor/C-lightning/node/bitcoin",
+      "our_features": {
+        "init": "8828226aa2",
+        "node": "80008828226aa2",
+        "channel": "",
+        "invoice": "20024200"
+      }
+    }
+  ],
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or some error happened during the command process."
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-fundchannel(7)",
+    "lightning-listconfigs(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

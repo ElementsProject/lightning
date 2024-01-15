@@ -1,0 +1,172 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "openchannel_bump",
+  "title": "Command to initiate a channel RBF",
+  "description": [
+    "`openchannel_bump` is a RPC command which initiates a channel RBF (Replace-By-Fee) for the specified channel. It uses the openchannel protocol which allows for interactive transaction construction.",
+    "",
+    "Warning: bumping a leased channel will lose the lease."
+  ],
+  "request": {
+    "required": [
+      "channel_id",
+      "amount",
+      "initialpsbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "Id of the channel to RBF."
+        ]
+      },
+      "amount": {
+        "type": "sat",
+        "description": [
+          "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
+        ]
+      },
+      "initialpsbt": {
+        "type": "string",
+        "description": [
+          "The funded, incomplete PSBT that specifies the UTXOs and change output for our channel contribution. It can be updated, see `openchannel_update`; *initialpsbt* must have at least one input. Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for every input. An error (code 309) will be returned if this requirement is not met."
+        ]
+      },
+      "funding_feerate": {
+        "type": "feerate",
+        "description": [
+          "Feerate for the funding transaction."
+        ],
+        "default": "1/64th greater than the last feerate used for this channel"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channel_id",
+      "channel_type",
+      "psbt",
+      "commitments_secured",
+      "funding_serial"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the channel."
+        ]
+      },
+      "channel_type": {
+        "type": "object",
+        "description": [
+          "Channel_type as negotiated with peer."
+        ],
+        "added": "v24.02",
+        "additionalProperties": false,
+        "required": [
+          "bits",
+          "names"
+        ],
+        "properties": {
+          "bits": {
+            "type": "array",
+            "description": [
+              "Each bit set in this channel_type."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "u32",
+              "description": [
+                "Bit number."
+              ]
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": [
+              "Feature name for each bit set in this channel_type."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "string",
+              "enum": [
+                "static_remotekey/even",
+                "anchor_outputs/even",
+                "anchors_zero_fee_htlc_tx/even",
+                "scid_alias/even",
+                "zeroconf/even"
+              ],
+              "description": [
+                "Name of feature bit."
+              ]
+            }
+          }
+        }
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The (incomplete) PSBT of the RBF transaction."
+        ]
+      },
+      "commitments_secured": {
+        "type": "boolean",
+        "enum": [
+          false
+        ],
+        "description": [
+          "Whether the *psbt* is complete."
+        ]
+      },
+      "funding_serial": {
+        "type": "u64",
+        "description": [
+          "The serial_id of the funding output in the *psbt*."
+        ]
+      },
+      "requires_confirmed_inputs": {
+        "type": "boolean",
+        "description": [
+          "Does peer require confirmed inputs in psbt?"
+        ]
+      }
+    },
+    "post_return_value_notes": [
+      "If the peer does not support `option_dual_fund`, this command will return an error.",
+      "",
+      "If the channel is not in a state that is eligible for RBF, this command will return an error."
+    ]
+  },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 300: The amount exceeded the maximum configured funding amount.",
+    "- 301: The provided PSBT cannot afford the funding amount.",
+    "- 305: Peer is not connected.",
+    "- 309: PSBT missing required fields",
+    "- 311: Unknown channel id.",
+    "- 312: Channel in an invalid state"
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_init(7)",
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_abort(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

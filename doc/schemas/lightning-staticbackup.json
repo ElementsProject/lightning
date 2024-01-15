@@ -1,0 +1,53 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "staticbackup",
+  "title": "Command for deriving getting SCB of all the existing channels",
+  "description": [
+    "The **staticbackup** RPC command returns an object with SCB of all the channels in an array."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "scb"
+    ],
+    "properties": {
+      "scb": {
+        "type": "array",
+        "items": {
+          "type": "hex",
+          "description": [
+            "SCB of a channel in TLV format."
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:staticbackup#1",
+      "method": "staticbackup",
+      "params": "{}"
+    }
+  ],
+  "example_json_response": [
+    {
+      "scb": [
+        "0000000000000001c707da9b230e1655b0a6c082b8daf4fa44d9d1f68163ed4d531d45cf453dc651022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5900017f000001b2e3c707da9b230e1655b0a6c082b8daf4fa44d9d1f68163ed4d531d45cf453dc6510000000000000000000186a000021000"
+      ]
+    }
+  ],
+  "author": [
+    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-getsharedsecret(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

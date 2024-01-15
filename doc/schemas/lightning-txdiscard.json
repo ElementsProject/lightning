@@ -1,0 +1,76 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "txdiscard",
+  "title": "Abandon a transaction from txprepare, release inputs",
+  "description": [
+    "The **txdiscard** RPC command releases inputs which were reserved for use of the *txid* from lightning-txprepare(7)."
+  ],
+  "request": {
+    "required": [
+      "txid"
+    ],
+    "properties": {
+      "txid": {
+        "type": "txid",
+        "description": [
+          "The transaction id, inputs should be unreseverd from."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "unsigned_tx",
+      "txid"
+    ],
+    "properties": {
+      "unsigned_tx": {
+        "type": "hex",
+        "description": [
+          "The unsigned transaction."
+        ]
+      },
+      "txid": {
+        "type": "txid",
+        "description": [
+          "The transaction id of *unsigned_tx*."
+        ]
+      }
+    },
+    "post_return_value_notes": [
+      "If there is no matching *txid*, an error is reported. Note that this may happen due to incorrect usage, such as **txdiscard** or **txsend** already being called for *txid*."
+    ]
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: An unknown *txid*."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:txdiscard#1",
+      "method": "txdiscard",
+      "params": {
+        "txid": "6e680cb76077f11c838cc7aee0c0aa360f9857f00856bb1614025a1af53739fc"
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "unsigned_tx": "020000000142dc00d81359c3a551e170e3bf5262fa9cacc2eb2e283a10e579491cd86dce4b0000000000fdffffff02ffffff00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd42839800000000002251207836355fdc8a82dc4cb00a772c5554151d06384a4dd65e8d3f68ac08566b84be66000000",
+      "txid": "6e680cb76077f11c838cc7aee0c0aa360f9857f00856bb1614025a1af53739fc"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-txprepare(7)",
+    "lightning-txsend(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

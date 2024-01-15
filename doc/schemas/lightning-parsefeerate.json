@@ -1,0 +1,90 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "parsefeerate",
+  "title": "Command for parsing a feerate string to a feerate",
+  "description": [
+    "The **parsefeerate** command returns the current feerate for any valid *feerate_str*. This is useful for finding the current feerate that a **fundpsbt** or **utxopsbt** command might use."
+  ],
+  "request": {
+    "required": [
+      "feerate_str"
+    ],
+    "properties": {
+      "feerate_str": {
+        "type": "string",
+        "description": [
+          "The feerate string to parse."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [],
+    "properties": {
+      "perkw": {
+        "type": "u32",
+        "description": [
+          "Value of *feerate_str* in kilosipa."
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:parsefeerate#1",
+      "method": "parsefeerate",
+      "params": [
+        "unilateral_close"
+      ]
+    },
+    {
+      "id": "example:parsefeerate#2",
+      "method": "parsefeerate",
+      "params": [
+        "9999perkw"
+      ]
+    },
+    {
+      "id": "example:parsefeerate#3",
+      "method": "parsefeerate",
+      "params": [
+        10000
+      ]
+    },
+    {
+      "id": "example:parsefeerate#4",
+      "method": "parsefeerate",
+      "params": [
+        "urgent"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "perkw": 11000
+    },
+    {
+      "perkw": 9999
+    },
+    {
+      "perkw": 2500
+    },
+    {
+      "perkw": 11000
+    }
+  ],
+  "errors": [
+    "The **parsefeerate** command will error if the *feerate_str* format is not recognized.",
+    "",
+    "- -32602: If the given parameters are wrong."
+  ],
+  "trivia": [
+    "In CLN we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

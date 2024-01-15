@@ -1,0 +1,160 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "bkpr-listbalances",
+  "title": "Command for listing current channel + wallet balances",
+  "description": [
+    "The **bkpr-listbalances** RPC command is a list of all current and historical account balances. An account is either the on-chain *wallet* or a channel balance. Any funds sent to an *external* account will not be accounted for here.",
+    "",
+    "Note that any channel that was recorded will be listed. Closed channel balances will be 0msat."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "accounts"
+    ],
+    "properties": {
+      "accounts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "account",
+            "balances"
+          ],
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": [
+                "The account name. If the account is a channel, the channel_id."
+              ]
+            },
+            "balances": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "balance_msat",
+                  "coin_type"
+                ],
+                "properties": {
+                  "balance_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Current account balance."
+                    ]
+                  },
+                  "coin_type": {
+                    "type": "string",
+                    "description": [
+                      "Coin type, same as HRP for bech32."
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "if": {
+            "required": [
+              "peer_id"
+            ]
+          },
+          "then": {
+            "required": [
+              "account",
+              "balances",
+              "peer_id",
+              "we_opened",
+              "account_closed",
+              "account_resolved"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "account": {},
+              "balances": {},
+              "peer_id": {
+                "type": "pubkey",
+                "description": [
+                  "Node id for the peer this account is with."
+                ]
+              },
+              "we_opened": {
+                "type": "boolean",
+                "description": [
+                  "Did we initiate this account open (open the channel)."
+                ]
+              },
+              "account_closed": {
+                "type": "boolean",
+                "description": [
+                  "",
+                  ""
+                ]
+              },
+              "account_resolved": {
+                "type": "boolean",
+                "description": [
+                  "Has this channel been closed and all outputs resolved?"
+                ]
+              },
+              "resolved_at_block": {
+                "type": "u32",
+                "description": [
+                  "Blockheight account resolved on chain."
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "account": {},
+              "balances": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:bkpr-listbalances#1",
+      "method": "bkpr-listbalances",
+      "params": "{}"
+    }
+  ],
+  "example_json_response": [
+    {
+      "accounts": [
+        {
+          "account": "wallet",
+          "balances": [
+            {
+              "balance_msat": 2222222000,
+              "coin_type": "bcrt"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-bkpr-listincome(7)",
+    "lightning-listfunds(7)",
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-bkpr-channelsapy(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

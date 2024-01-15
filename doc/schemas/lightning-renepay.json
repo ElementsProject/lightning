@@ -1,0 +1,216 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "renepay",
+  "title": "Command for sending a payment to a BOLT11 invoice",
+  "added": "v23.08",
+  "description": [
+    "**renepay** is a new payment plugin based on Pickhardt-Richter optimization method for Multi-Path-Payments. This implementation has not been thoroughly tested and it should be used with caution.",
+    "",
+    "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **renepay** with the same *invstring* will not lead to a new payment attempt, but instead it will succeed immediately.",
+    "",
+    "When using *lightning-cli*, you may skip optional parameters by using *null*. Alternatively, use **-k** option to provide parameters by name."
+  ],
+  "request": {
+    "required": [
+      "invstring"
+    ],
+    "properties": {
+      "invstring": {
+        "type": "string",
+        "description": [
+          "Bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "If the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*."
+        ]
+      },
+      "maxfee": {
+        "type": "msat",
+        "description": [
+          "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value."
+        ]
+      },
+      "maxdelay": {
+        "type": "u32",
+        "description": [
+          "Overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks."
+        ]
+      },
+      "retry_for": {
+        "type": "u32",
+        "description": [
+          "Measured in seconds specifies how much time it is allowed for the command to keep retrying the payment."
+        ],
+        "default": "60 seconds"
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "Only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)."
+        ]
+      },
+      "dev_use_shadow": {
+        "hidden": true,
+        "type": "boolean"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "payment_preimage",
+      "payment_hash",
+      "created_at",
+      "parts",
+      "amount_msat",
+      "amount_sent_msat",
+      "status"
+    ],
+    "properties": {
+      "payment_preimage": {
+        "type": "secret",
+        "description": [
+          "The proof of payment: SHA256 of this **payment_hash**."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "created_at": {
+        "type": "number",
+        "description": [
+          "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "parts": {
+        "type": "u32",
+        "description": [
+          "How many attempts this took."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "Amount the recipient received."
+        ]
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "description": [
+          "Total amount we sent (including fees)."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "pending",
+          "failed"
+        ],
+        "description": [
+          "Status of payment."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "The final destination of the payment."
+        ]
+      }
+    },
+    "post_return_value_notes": [
+      "You can monitor the progress and retries of a payment using the lightning-renepaystatus(7) command."
+    ]
+  },
+  "optimality": [
+    "**renepay** is based on the work by Pickhardt-Richter's *Optimally Reliable & Cheap Payment Flows on the Lightning Network*. Which means the payment command will prefer routes that have a higher probability of success while keeping fees low.",
+    "",
+    "The algorithm records some partial knowledge of the state of the Network deduced from the responses obtained after evey payment attempt. This knowledge is kept through different payment requests, but decays with time to account for the dynamics of the Network (after 1 hour all previous knowledge will be erased). Knowledge from previous payment attempts increases the reliability for subsequent ones.",
+    "",
+    "Higher probabilities of success and lower fees cannot generally by optimized at once. Hence **renepay** combines the two in different amounts seeking solutions that satisfy *maxfee* bound and a target for 90% probability of success. *maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value. While the probability target is not compulsory (but desirable), i.e. if the best route does not satisfy the 90% probability target it will be tried anyways.",
+    "",
+    "When *maxfee* and the 90% probability bounds are satified, the algorithm will optimize the fees to its lowest value."
+  ],
+  "randomization": [
+    "To protect user privacy, the payment algorithm performs *shadow route* randomization. Which means the payment algorithm will virtually extend the route by adding delays and fees along it, making it appear to intermediate nodes that the route is longer than it actually is. This prevents intermediate nodes from reliably guessing their distance from the payee.",
+    "",
+    "Route randomization will never exceed *maxfee* of the payment. Route randomization and shadow routing will not take routes that would exceed *maxdelay*."
+  ],
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 200: Other payment attempts are in progress.",
+    "- 203: Permanent failure at destination.",
+    "- 205: Unable to find a route.",
+    "- 206: Payment routes are too expensive.",
+    "- 207: Invoice expired. Payment took too long before expiration, or already expired at the time you initiated payment.",
+    "- 210: Payment timed out without a payment in progress.",
+    "- 212: Invoice is invalid."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:renepay#1",
+      "method": "renepay",
+      "params": {
+        "invstring": "lnbcrt1230n1pjmxj9jsp5suc4cag0lv3wemllkvms56e6ll0w867cczqfttuu8cpfl089f9kspp56wvxtdh8fxg5r5y3kg3klxceakqaydskwzatga25v95da8nzkmwqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqkmyhymt0j7hy38vzqxx465s4ys0fg78flnjqfx4clvdq9mrmgglpcnjrrnhtk7maa87pfvjez88hke8w97zvuecwswaf9gzyqlsthegpza67eu"
+      }
+    },
+    {
+      "id": "example:renepay#2",
+      "method": "renepay",
+      "params": {
+        "invstring": "lnbcrt1pja0f9asp50kzadmeyy78eymjvhnlk5dznl3g5k5x8agh52ewjtg0jclas4ylspp5crsutd9hg05lxyhzphdcuyng6z3knrsdae83mxwawa842gz3vj3sdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqr5yzhxmup4muyaz6x8u2dy4qyu9t5qzuf5k9xayvj5kg7tve60gjk4jrv2l76exnj2xkuzhtwky23pkkxedzy6p9yrsgyqdwj7dv5gsp4zcw6v",
+        "amount_msat": 548925
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "payment_preimage": "0a3fd704b34f47d6e306dbac78141753be83848d3a19725c972abfc367dcc591",
+      "payment_hash": "d39865b6e7499141d091b2236f9b19ed81d2361670bab475546168de9e62b6dc",
+      "created_at": 1706248370.6267352,
+      "parts": 1,
+      "amount_msat": 123000,
+      "amount_sent_msat": 123000,
+      "status": "complete",
+      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+    },
+    {
+      "payment_preimage": "a635e92d024beebfc58519e6544888aa560ba3bcaba7e74924e4b8432eaa56f5",
+      "payment_hash": "c0e1c5b4b743e9f312e20ddb8e1268d0a3698e0dee4f1d99dd774f55205164a3",
+      "created_at": 1708631229.7841823,
+      "parts": 1,
+      "amount_msat": 548925,
+      "amount_sent_msat": 548925,
+      "status": "complete",
+      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+    }
+  ],
+  "author": [
+    "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-renepaystatus(7)",
+    "lightning-listpays(7)",
+    "lightning-invoice(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>"
+  ]
+}

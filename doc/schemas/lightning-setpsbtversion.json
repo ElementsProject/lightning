@@ -1,0 +1,85 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "setpsbtversion",
+  "title": "Command for setting PSBT version",
+  "description": [
+    "The **setpsbtversion** RPC command converts the provided PSBT to the given version, and returns the base64 result of the conversion. Returns an error if version is invalid."
+  ],
+  "request": {
+    "required": [
+      "psbt",
+      "version"
+    ],
+    "properties": {
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The PSBT to change versions."
+        ]
+      },
+      "version": {
+        "type": "u32",
+        "description": [
+          "The version to set."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "psbt"
+    ],
+    "properties": {
+      "psbt": {
+        "type": "string",
+        "description": [
+          "A converted PSBT of the requested version."
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:setpsbtversion#1",
+      "method": "setpsbtversion",
+      "params": {
+        "psbt": "cHNidP8BAAoCAAAAAAAAAAAAAA==",
+        "version": "2"
+      }
+    },
+    {
+      "id": "example:setpsbtversion#2",
+      "method": "setpsbtversion",
+      "params": [
+        "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQABBQEBAQYBAwH7BAIAAAAAAQMIQEIPAAAAAAABBCJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4uAA==",
+        0
+      ]
+    }
+  ],
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -32602: Parameter missed or malformed."
+  ],
+  "example_json_response": [
+    {
+      "psbt": "cHNidP8BAgQCAAAAAQQBAAEFAQABBgEDAfsEAgAAAAA="
+    },
+    {
+      "psbt": "cHNidP8BADUCAAAAAAFAQg8AAAAAACJRIJd6ICNAQALFOMhoUHuSVSuzcaUdkDKlk4K+A+DR9+4ubwAAAAAA"
+    }
+  ],
+  "author": [
+    "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-signpsbt(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

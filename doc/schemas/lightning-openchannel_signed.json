@@ -1,0 +1,90 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "openchannel_signed",
+  "title": "Command to conclude a channel open",
+  "description": [
+    "`openchannel_signed` is a low level RPC command which concludes a channel open with the specified peer. It uses the v2 openchannel protocol, which allows for interactive transaction construction.",
+    "",
+    "This command should be called after `openchannel_update` returns *commitments_secured* `true`.",
+    "",
+    "This command will broadcast the finalized funding transaction, if we receive valid signatures from the peer."
+  ],
+  "request": {
+    "required": [
+      "channel_id",
+      "signed_psbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "Id of the channel."
+        ]
+      },
+      "signed_psbt": {
+        "type": "string",
+        "description": [
+          "The PSBT returned from `openchannel_update` (where *commitments_secured* was true) with partial signatures or finalized witness stacks included for every input that we contributed to the PSBT."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channel_id",
+      "tx",
+      "txid"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the channel."
+        ]
+      },
+      "tx": {
+        "type": "hex",
+        "description": [
+          "The funding transaction."
+        ]
+      },
+      "txid": {
+        "type": "txid",
+        "description": [
+          "The txid of the **tx**."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "On error, the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 303: Funding transaction broadcast failed.",
+    "- 305: Peer is not connected.",
+    "- 309: PSBT missing required fields.",
+    "- 311: Unknown channel id.",
+    "- 312: Channel in an invalid state"
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_init(7)",
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_abort(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

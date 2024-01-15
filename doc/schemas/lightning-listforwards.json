@@ -1,0 +1,453 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listforwards",
+  "title": "Command showing all htlcs and their information",
+  "description": [
+    "The **listforwards** RPC command displays all htlcs that have been attempted to be forwarded by the Core Lightning node."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "status": {
+        "type": "string",
+        "description": [
+          "If specified, then only the forwards with the given status are returned."
+        ],
+        "enum": [
+          "offered",
+          "settled",
+          "local_failed",
+          "failed"
+        ]
+      },
+      "in_channel": {
+        "type": "short_channel_id",
+        "description": [
+          "Only the matching forwards on the given inbound channel are returned."
+        ]
+      },
+      "out_channel": {
+        "type": "short_channel_id",
+        "description": [
+          "Only the matching forwards on the given outbount channel are returned."
+        ]
+      },
+      "index": {
+        "type": "string",
+        "added": "v23.11",
+        "enum": [
+          "created",
+          "updated"
+        ],
+        "description": [
+          "If neither *in_channel* nor *out_channel* is specified, it controls ordering."
+        ],
+        "default": "`created`"
+      },
+      "start": {
+        "type": "u64",
+        "added": "v23.11",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "added": "v23.11",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
+      }
+    },
+    "dependentUpon": {
+      "index": [
+        "start",
+        "limit"
+      ]
+    }
+  },
+  "response": {
+    "required": [
+      "forwards"
+    ],
+    "properties": {
+      "forwards": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "created_index",
+            "in_channel",
+            "in_msat",
+            "status",
+            "received_time"
+          ],
+          "properties": {
+            "created_index": {
+              "added": "v23.11",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this forward was created in."
+              ]
+            },
+            "in_channel": {
+              "type": "short_channel_id",
+              "description": [
+                "The channel that received the HTLC."
+              ]
+            },
+            "in_htlc_id": {
+              "type": "u64",
+              "description": [
+                "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
+              ]
+            },
+            "in_msat": {
+              "type": "msat",
+              "description": [
+                "The value of the incoming HTLC."
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "offered",
+                "settled",
+                "local_failed",
+                "failed"
+              ],
+              "description": [
+                "Still ongoing, completed, failed locally, or failed after forwarding."
+              ]
+            },
+            "received_time": {
+              "type": "number",
+              "description": [
+                "The UNIX timestamp when this was received."
+              ]
+            },
+            "out_channel": {
+              "type": "short_channel_id",
+              "description": [
+                "The channel that the HTLC (trying to) forward to."
+              ]
+            },
+            "out_htlc_id": {
+              "type": "u64",
+              "description": [
+                "The unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)."
+              ]
+            },
+            "updated_index": {
+              "added": "v23.11",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this forward was changed (only present if it has changed since creation)."
+              ]
+            },
+            "style": {
+              "type": "string",
+              "enum": [
+                "legacy",
+                "tlv"
+              ],
+              "description": [
+                "Either a legacy onion format or a modern tlv format."
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "out_msat"
+                ]
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "fee_msat",
+                  "out_msat",
+                  "out_channel"
+                ],
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "resolved_time": {},
+                  "out_channel": {},
+                  "out_htlc_id": {},
+                  "failcode": {},
+                  "failreason": {},
+                  "fee_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The amount this paid in fees."
+                    ]
+                  },
+                  "out_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The amount we sent out the *out_channel*."
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "resolved_time": {},
+                  "failcode": {},
+                  "failreason": {},
+                  "out_channel": {}
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "settled",
+                      "failed"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "resolved_time"
+                ],
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "out_channel": {},
+                  "out_htlc_id": {},
+                  "fee": {},
+                  "fee_msat": {},
+                  "out_msatoshi": {},
+                  "out_msat": {},
+                  "failcode": {},
+                  "failreason": {},
+                  "resolved_time": {
+                    "type": "number",
+                    "description": [
+                      "The UNIX timestamp when this was resolved."
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "additionalProperties": false,
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "out_channel": {},
+                  "out_htlc_id": {},
+                  "fee": {},
+                  "fee_msat": {},
+                  "failcode": {},
+                  "failreason": {},
+                  "out_msatoshi": {},
+                  "out_msat": {}
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "local_failed",
+                      "failed"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "out_channel": {},
+                  "out_htlc_id": {},
+                  "fee": {},
+                  "fee_msat": {},
+                  "out_msatoshi": {},
+                  "out_msat": {},
+                  "resolved_time": {},
+                  "failcode": {
+                    "type": "u32",
+                    "description": [
+                      "The numeric onion code returned."
+                    ]
+                  },
+                  "failreason": {
+                    "type": "string",
+                    "description": [
+                      "The name of the onion code returned."
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "created_index": {},
+                  "updated_index": {},
+                  "in_channel": {},
+                  "in_htlc_id": {},
+                  "in_msatoshi": {},
+                  "in_msat": {},
+                  "status": {},
+                  "style": {},
+                  "received_time": {},
+                  "out_channel": {},
+                  "out_htlc_id": {},
+                  "fee": {},
+                  "fee_msat": {},
+                  "out_msatoshi": {},
+                  "out_msat": {},
+                  "resolved_time": {}
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:listforwards#1",
+      "method": "listforwards",
+      "params": {
+        "status": null,
+        "in_channel": null,
+        "out_channel": null,
+        "index": null,
+        "start": null,
+        "limit": null
+      }
+    },
+    {
+      "id": "example:listforwards#2",
+      "method": "listforwards",
+      "params": {
+        "in_channel": "0x1x2",
+        "out_channel": "0x2x3",
+        "status": "settled"
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "forwards": [
+        {
+          "created_index": 1,
+          "updated_index": 1,
+          "in_channel": "103x1x0",
+          "in_htlc_id": 0,
+          "out_channel": "104x1x0",
+          "out_htlc_id": 0,
+          "in_msat": 100001001,
+          "out_msat": 100000000,
+          "fee_msat": 1001,
+          "status": "settled",
+          "style": "tlv",
+          "received_time": 1706229285.5934534,
+          "resolved_time": 1706229288.830004
+        },
+        {
+          "created_index": 2,
+          "updated_index": 2,
+          "in_channel": "103x1x0",
+          "in_htlc_id": 1,
+          "out_channel": "105x1x0",
+          "out_htlc_id": 0,
+          "in_msat": 100001001,
+          "out_msat": 100000000,
+          "fee_msat": 1001,
+          "status": "failed",
+          "style": "tlv",
+          "received_time": 1706229290.0289993,
+          "resolved_time": 1706229292.9487684
+        },
+        {
+          "created_index": 3,
+          "updated_index": 3,
+          "in_channel": "103x1x0",
+          "in_htlc_id": 2,
+          "out_channel": "106x1x0",
+          "out_htlc_id": 0,
+          "in_msat": 100001000,
+          "out_msat": 99999999,
+          "fee_msat": 1001,
+          "status": "local_failed",
+          "failcode": 16392,
+          "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
+          "style": "tlv",
+          "received_time": 1706229295.3175724
+        }
+      ]
+    },
+    {
+      "forwards": []
+    }
+  ],
+  "author": [
+    "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-autoclean-status(7)",
+    "lightning-getinfo(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

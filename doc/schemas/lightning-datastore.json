@@ -1,0 +1,203 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "datastore",
+  "title": "Command for storing (plugin) data",
+  "description": [
+    "The **datastore** RPC command allows plugins to store data in the Core Lightning database, for later retrieval."
+  ],
+  "request": {
+    "required": [
+      "key"
+    ],
+    "properties": {
+      "key": {
+        "description": [
+          "A key can either have children or a value, never both: parents are created and removed automatically."
+        ],
+        "oneOf": [
+          {
+            "type": "array",
+            "description": [
+              "An array of values to form a hierarchy (though a single value is treated as a one-element array). Using the first element of the key as the plugin name (e.g. `[ 'summary' ]`) is recommended."
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "string": {
+        "type": "string",
+        "description": [
+          "Data to be saved in string format."
+        ]
+      },
+      "hex": {
+        "type": "hex",
+        "description": [
+          "Data to be saved in hex format."
+        ]
+      },
+      "mode": {
+        "type": "string",
+        "description": [
+          "Write mode to determine how the record is updated:",
+          "    * `must-create`: fails if it already exists.",
+          "    * `must-replace`: fails if it doesn't already exist.",
+          "    * `create-or-replace`: never fails.",
+          "    * `must-append`: must already exist, append this to what's already there.",
+          "    * `create-or-append`: append if anything is there, otherwise create."
+        ],
+        "enum": [
+          "must-create",
+          "must-replace",
+          "create-or-replace",
+          "must-append",
+          "create-or-append"
+        ],
+        "default": "`must-create`"
+      },
+      "generation": {
+        "type": "u64",
+        "description": [
+          "If specified, means that the update will fail if the previously-existing data is not exactly that generation. This allows for simple atomicity. This is only legal with *mode* `must-replace` or `must-append`."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "key"
+    ],
+    "properties": {
+      "key": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": [
+            "Part of the key added to the datastore."
+          ]
+        }
+      },
+      "generation": {
+        "type": "u64",
+        "description": [
+          "The number of times this has been updated."
+        ]
+      },
+      "hex": {
+        "type": "hex",
+        "description": [
+          "The hex data which has been added to the datastore."
+        ]
+      },
+      "string": {
+        "type": "string",
+        "description": [
+          "The data as a string, if it's valid utf-8."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- 1202: The key already exists (and mode said it must not)",
+    "- 1203: The key does not exist (and mode said it must)",
+    "- 1204: The generation was wrong (and generation was specified)",
+    "- 1205: The key has children already.",
+    "- 1206: One of the parents already exists with a value.",
+    "- -32602: invalid parameters"
+  ],
+  "example_json_request": [
+    {
+      "id": "example:datastore#1",
+      "method": "datastore",
+      "params": {
+        "key": [
+          "test_libplugin",
+          "name"
+        ],
+        "string": "foobar",
+        "hex": null,
+        "mode": "must-replace",
+        "generation": null
+      }
+    },
+    {
+      "id": "example:datastore#2",
+      "method": "datastore",
+      "params": {
+        "key": "somekey",
+        "string": null,
+        "hex": "61",
+        "mode": "create-or-append",
+        "generation": null
+      }
+    },
+    {
+      "id": "example:datastore#3",
+      "method": "datastore",
+      "params": {
+        "key": [
+          "a",
+          "d",
+          "e",
+          "f",
+          "g"
+        ],
+        "string": "somedatatostoreinthedatastore",
+        "hex": null,
+        "mode": null,
+        "generation": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "key": [
+        "test_libplugin",
+        "name"
+      ],
+      "generation": 1,
+      "hex": "666f6f626172",
+      "string": "foobar"
+    },
+    {
+      "key": [
+        "somekey"
+      ],
+      "generation": 3,
+      "hex": "736f6d6564617461",
+      "string": "somedata"
+    },
+    {
+      "key": [
+        "a",
+        "d",
+        "e",
+        "f",
+        "g"
+      ],
+      "generation": 0,
+      "hex": "736f6d6564617461746f73746f7265696e7468656461746173746f7265",
+      "string": "somedatatostoreinthedatastore"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listdatastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-datastoreusage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

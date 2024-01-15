@@ -1,0 +1,239 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.08",
+  "rpc": "showrunes",
+  "title": "Command to list previously generated runes",
+  "description": [
+    "The **showrunes** RPC command either lists runes that we stored as we generate them (see lightning-createrune(7)) or decodes the rune given on the command line."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "rune": {
+        "type": "string",
+        "description": [
+          "If specified, only details of that rune will be returned."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "runes"
+    ],
+    "properties": {
+      "runes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rune",
+            "unique_id",
+            "restrictions",
+            "restrictions_as_english"
+          ],
+          "properties": {
+            "rune": {
+              "type": "string",
+              "description": [
+                "Base64 encoded rune."
+              ]
+            },
+            "unique_id": {
+              "type": "string",
+              "description": [
+                "Unique id assigned when the rune was generated; this is always a u64 for commando runes."
+              ]
+            },
+            "restrictions": {
+              "type": "array",
+              "description": [
+                "The restrictions on what commands this rune can authorize."
+              ],
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "alternatives",
+                  "english"
+                ],
+                "properties": {
+                  "alternatives": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "fieldname",
+                        "value",
+                        "condition",
+                        "english"
+                      ],
+                      "properties": {
+                        "fieldname": {
+                          "type": "string",
+                          "description": [
+                            "The field this restriction applies to; see commando-rune(7)."
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": [
+                            "The value accepted for this field."
+                          ]
+                        },
+                        "condition": {
+                          "type": "string",
+                          "description": [
+                            "The way to compare fieldname and value."
+                          ]
+                        },
+                        "english": {
+                          "type": "string",
+                          "description": [
+                            "English readable description of this alternative."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "english": {
+                    "type": "string",
+                    "description": [
+                      "English readable summary of alternatives above."
+                    ]
+                  }
+                }
+              }
+            },
+            "restrictions_as_english": {
+              "type": "string",
+              "description": [
+                "English readable description of the restrictions array above."
+              ]
+            },
+            "stored": {
+              "type": "boolean",
+              "enum": [
+                false
+              ],
+              "description": [
+                "This is false if the rune does not appear in our datastore (only possible when `rune` is specified)."
+              ]
+            },
+            "blacklisted": {
+              "type": "boolean",
+              "enum": [
+                true
+              ],
+              "description": [
+                "The rune has been blacklisted; see commando-blacklist(7)."
+              ]
+            },
+            "last_used": {
+              "type": "number",
+              "description": [
+                "The last time this rune was successfully used."
+              ],
+              "added": "23.11"
+            },
+            "our_rune": {
+              "type": "boolean",
+              "enum": [
+                false
+              ],
+              "description": [
+                "This is not a rune for this node (only possible when `rune` is specified)."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:showrunes#1",
+      "method": "showrunes",
+      "params": "{}"
+    },
+    {
+      "id": "example:showrunes#2",
+      "method": "showrunes",
+      "params": {
+        "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM="
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "runes": [
+        {
+          "rune": "OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==",
+          "unique_id": "0",
+          "restrictions": [],
+          "restrictions_as_english": ""
+        },
+        {
+          "rune": "geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==",
+          "unique_id": "1",
+          "restrictions": [],
+          "restrictions_as_english": ""
+        },
+        {
+          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
+          "unique_id": "2",
+          "restrictions": [
+            {
+              "alternatives": [
+                {
+                  "fieldname": "per",
+                  "value": "1000000000nsec",
+                  "condition": "=",
+                  "english": "per equal to 1000000000nsec"
+                }
+              ],
+              "english": "per equal to 1000000000nsec"
+            }
+          ],
+          "restrictions_as_english": "per equal to 1000000000nsec"
+        }
+      ]
+    },
+    {
+      "runes": [
+        {
+          "rune": "Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM=",
+          "unique_id": "2",
+          "restrictions": [
+            {
+              "alternatives": [
+                {
+                  "fieldname": "per",
+                  "value": "1000000000nsec",
+                  "condition": "=",
+                  "english": "per equal to 1000000000nsec"
+                }
+              ],
+              "english": "per equal to 1000000000nsec"
+            }
+          ],
+          "restrictions_as_english": "per equal to 1000000000nsec"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-commando-showrunes(7)",
+    "lightning-blacklistrune(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

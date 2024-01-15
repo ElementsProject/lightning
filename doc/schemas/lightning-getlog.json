@@ -1,0 +1,255 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "getlog",
+  "title": "Command to show logs.",
+  "description": [
+    "The **getlog** the RPC command to show logs, with optional log *level*."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "broken",
+          "unusual",
+          "info",
+          "debug",
+          "io"
+        ],
+        "description": [
+          "A string that represents the log level."
+        ],
+        "default": "*info*"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "created_at",
+      "bytes_used",
+      "bytes_max",
+      "log"
+    ],
+    "properties": {
+      "created_at": {
+        "type": "string",
+        "description": [
+          "UNIX timestamp with 9 decimal places, when logging was initialized."
+        ]
+      },
+      "bytes_used": {
+        "type": "u32",
+        "description": [
+          "The number of bytes used by logging records."
+        ]
+      },
+      "bytes_max": {
+        "type": "u32",
+        "description": [
+          "The bytes_used values at which records will be trimmed ."
+        ]
+      },
+      "log": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "SKIPPED",
+                "BROKEN",
+                "UNUSUAL",
+                "INFO",
+                "DEBUG",
+                "IO_IN",
+                "IO_OUT"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "SKIPPED"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "num_skipped"
+                ],
+                "properties": {
+                  "type": {},
+                  "num_skipped": {
+                    "type": "u32",
+                    "description": [
+                      "Number of unprinted log entries (deleted or below *level* parameter)."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "BROKEN",
+                      "UNUSUAL",
+                      "INFO",
+                      "DEBUG"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "time",
+                  "source",
+                  "log"
+                ],
+                "properties": {
+                  "type": {},
+                  "time": {
+                    "type": "string",
+                    "description": [
+                      "UNIX timestamp with 9 decimal places after **created_at**."
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": [
+                      "The particular logbook this was found in."
+                    ]
+                  },
+                  "log": {
+                    "type": "string",
+                    "description": [
+                      "The actual log message."
+                    ]
+                  },
+                  "node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The peer this is associated with."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "IO_IN",
+                      "IO_OUT"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "time",
+                  "source",
+                  "log",
+                  "data"
+                ],
+                "properties": {
+                  "type": {},
+                  "time": {
+                    "type": "string",
+                    "description": [
+                      "Seconds after **created_at**, with 9 decimal places."
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": [
+                      "The particular logbook this was found in."
+                    ]
+                  },
+                  "log": {
+                    "type": "string",
+                    "description": [
+                      "The associated log message."
+                    ]
+                  },
+                  "node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The peer this is associated with."
+                    ]
+                  },
+                  "data": {
+                    "type": "hex",
+                    "description": [
+                      "The IO which occurred."
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:getlog#1",
+      "method": "getlog",
+      "params": {
+        "level": "debug"
+      }
+    }
+  ],
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters."
+  ],
+  "example_json_response": [
+    {
+      "created_at": "1598192543.820753463",
+      "bytes_used": 89285843,
+      "bytes_max": 104857600,
+      "log": [
+        {
+          "type": "SKIPPED",
+          "num_skipped": 45
+        },
+        {
+          "type": "INFO",
+          "time": "0.453627568",
+          "source": "plugin-autopilot.py",
+          "log": "RPCmethod'autopilot-run-once'doesnothaveadocstring."
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

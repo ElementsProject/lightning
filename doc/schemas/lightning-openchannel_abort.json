@@ -1,0 +1,93 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "openchannel_abort",
+  "title": "Command to abort a channel to a peer",
+  "description": [
+    "`openchannel_init` is a low level RPC command which initiates a channel open with a specified peer. It uses the openchannel protocol which allows for interactive transaction construction."
+  ],
+  "request": {
+    "required": [
+      "channel_id"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "Channel id of the channel to be aborted."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channel_id",
+      "channel_canceled",
+      "reason"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the aborted channel."
+        ]
+      },
+      "channel_canceled": {
+        "type": "boolean",
+        "description": [
+          "Whether this is completely canceled (there may be remaining in-flight transactions)."
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "description": [
+          "Usually \"Abort requested\", but if it happened to fail at the same time it could be different."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 305: Peer is not connected.",
+    "- 311: Unknown channel id.",
+    "- 312: Channel in an invalid state"
+  ],
+  "example_json_request": [
+    {
+      "id": "example:openchannel_abort#1",
+      "method": "openchannel_abort",
+      "params": {
+        "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6"
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "channel_id": "aec3dfd0c7643a23b679cd2e493c053f8fdf621ff2624949f9582c4118b818c6",
+      "channel_canceled": true,
+      "reason": "Abort requested"
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_init(7)",
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

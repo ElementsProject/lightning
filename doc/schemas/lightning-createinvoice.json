@@ -1,0 +1,207 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "createinvoice",
+  "title": "Low-level invoice creation",
+  "description": [
+    "The **createinvoice** RPC command signs and saves an invoice into the database."
+  ],
+  "request": {
+    "required": [
+      "invstring",
+      "label",
+      "preimage"
+    ],
+    "properties": {
+      "invstring": {
+        "type": "string",
+        "description": [
+          "The bolt11 form, but the final signature is ignored. Minimal sanity checks are done. (Note: if **experimental-offers** is enabled, *invstring* can actually be an unsigned bolt12 invoice)."
+        ]
+      },
+      "label": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ],
+        "description": [
+          "A unique string or number (which is treated as a string, so `01` is different from `1`); it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice."
+        ]
+      },
+      "preimage": {
+        "type": "hex",
+        "description": [
+          "The preimage to supply upon successful payment of the invoice."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "label",
+      "created_index",
+      "payment_hash",
+      "status",
+      "description",
+      "expires_at"
+    ],
+    "properties": {
+      "label": {
+        "type": "string",
+        "description": [
+          "The label for the invoice."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "The bolt11 string (always present unless **bolt12** is)."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 string instead of **bolt11** (**experimental-offers** only)."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount of the invoice (if it has one)."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "paid",
+          "expired",
+          "unpaid"
+        ],
+        "description": [
+          "Whether it has been paid, or can no longer be paid."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "Description extracted from **bolt11** or **bolt12**."
+        ]
+      },
+      "expires_at": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp of when invoice expires (or expired)."
+        ]
+      },
+      "created_index": {
+        "type": "u64",
+        "added": "v23.08",
+        "description": [
+          "1-based index indicating order this invoice was created in."
+        ]
+      },
+      "pay_index": {
+        "type": "u64",
+        "description": [
+          "Incrementing id for when this was paid (**status** *paid* only)."
+        ]
+      },
+      "amount_received_msat": {
+        "type": "msat",
+        "description": [
+          "Amount actually received (**status** *paid* only)."
+        ]
+      },
+      "paid_at": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp of when invoice was paid (**status** *paid* only)."
+        ]
+      },
+      "paid_outpoint": {
+        "type": "object",
+        "description": [
+          "Outpoint this invoice was paid with (**status** *paid* only)."
+        ],
+        "added": "v23.11",
+        "additionalProperties": false,
+        "required": [
+          "txid",
+          "outnum"
+        ],
+        "properties": {
+          "txid": {
+            "added": "v23.11",
+            "type": "txid",
+            "description": [
+              "ID of the transaction that paid the invoice (**status** *paid* only)."
+            ]
+          },
+          "outnum": {
+            "added": "v23.11",
+            "type": "u32",
+            "description": [
+              "The 0-based output number of the transaction that paid the invoice (**status** *paid* only)."
+            ]
+          }
+        }
+      },
+      "payment_preimage": {
+        "type": "secret",
+        "description": [
+          "The proof of payment: SHA256 of this **payment_hash**."
+        ]
+      },
+      "local_offer_id": {
+        "type": "hex",
+        "description": [
+          "The *id* of our offer which created this invoice (**experimental-offers** only)."
+        ],
+        "maxLength": 64,
+        "minLength": 64
+      },
+      "invreq_payer_note": {
+        "type": "string",
+        "description": [
+          "The optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+        ]
+      }
+    },
+    "pre_return_value_notes": [
+      "(Note: the return format is the same as lightning-listinvoices(7))."
+    ]
+  },
+  "errors": [
+    "On failure, an error is returned and no invoice is created. If the lightning process fails before responding, the caller should use lightning-listinvoices(7) to query whether this invoice was created or not.",
+    "",
+    "The following error codes may occur:",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 900: An invoice with the given *label* already exists."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-invoice(7)",
+    "lightning-listinvoices(7)",
+    "lightning-delinvoice(7)",
+    "lightning-getroute(7)",
+    "lightning-sendpay(7)",
+    "lightning-offer(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

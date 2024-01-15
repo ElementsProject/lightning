@@ -1,0 +1,364 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "sendonion",
+  "title": "Send a payment with a custom onion packet",
+  "description": [
+    "The **sendonion** RPC command can be used to initiate a payment attempt with a custom onion packet. The onion packet is used to deliver instructions for hops along the route on how to behave. Normally these instructions are indications on where to forward a payment and what parameters to use, or contain details of the payment for the final hop. However, it is possible to add arbitrary information for hops in the custom onion, allowing for custom extensions that are not directly supported by Core Lightning.",
+    "",
+    "If the first element of *route* does not have \"channel\" set, a suitable channel (if any) will be chosen, otherwise that specific short-channel-id is used. The following is an example of a 3 hop onion:",
+    "",
+    "```json",
+    "[",
+    "  \"298606954e9de3e9d938d18a74fed794c440e8eda82e52dc08600953c8acf9c4\",",
+    "  \"2dc094de72adb03b90894192edf9f67919cb2691b37b1f7d4a2f4f31c108b087\",",
+    "  \"a7b82b240dbd77a4ac8ea07709b1395d8c510c73c17b4b392bb1f0605d989c85\"",
+    "]",
+    "```"
+  ],
+  "request": {
+    "required": [
+      "onion",
+      "first_hop",
+      "payment_hash"
+    ],
+    "properties": {
+      "onion": {
+        "type": "hex",
+        "description": [
+          "Hex-encoded 1366 bytes long blob that was returned by either of the tools that can generate onions. It contains the payloads destined for each hop and some metadata. Please refer to [BOLT 04][bolt04] for further details. If is specific to the route that is being used and the *payment_hash* used to construct, and therefore cannot be reused for other payments or to attempt a separate route. The custom onion can generally be created using the `devtools/onion` CLI tool, or the **createonion** RPC command."
+        ]
+      },
+      "first_hop": {
+        "type": "object",
+        "description": [
+          "Instructs Core Lightning which peer to send the onion to. It is a JSON dictionary that corresponds to the first element of the route array returned by *getroute*."
+        ],
+        "required": [
+          "id",
+          "amount_msat",
+          "delay"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "Node id for the peer. Use any available channel available to this peer."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "The amount to add an HTLC for millisatoshis."
+            ]
+          },
+          "delay": {
+            "type": "u16",
+            "description": [
+              "The number of blocks delay of blocks on top of the current blockheight."
+            ]
+          }
+        }
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "Specifies the 32 byte hex-encoded hash to use as a challenge to the HTLC that we are sending. It is specific to the onion and has to match the one the onion was created with."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "Can be used to provide a human readable reference to retrieve the payment at a later time."
+        ]
+      },
+      "shared_secrets": {
+        "type": "array",
+        "description": [
+          "A JSON list of 32 byte hex-encoded secrets that were used when creating the onion. Core Lightning can send a payment with a custom onion without the knowledge of these secrets, however it will not be able to parse an eventual error message since that is encrypted with the shared secrets used in the onion. If *shared_secrets* is provided Core Lightning will decrypt the error, act accordingly, e.g., add a `channel_update` included in the error to its network view, and set the details in *listsendpays* correctly. If it is not provided Core Lightning will store the encrypted onion, and expose it in *listsendpays* allowing the caller to decrypt it externally. If it is not provided the Core Lightning node does not know how long the route is, which channels or nodes are involved, and what an eventual error could have been. It can therefore be used for oblivious payments."
+        ],
+        "items": {
+          "type": "secret"
+        }
+      },
+      "partid": {
+        "type": "u16",
+        "description": [
+          "If provided and non-zero, allows for multiple parallel partial payments with the same *payment_hash*."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "If provided, it will be returned in *waitsendpay* and *listsendpays* results."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "Used to annotate the payment, and is returned by *waitsendpay* and *listsendpays*."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "If provided, it will be returned in **listpays** result."
+        ]
+      },
+      "localinvreqid": {
+        "type": "hash",
+        "description": [
+          "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+        ]
+      },
+      "description": {
+        "added": "v0.11.0",
+        "type": "string",
+        "description": [
+          "If provided, it will be returned in *waitsendpay* and *listsendpays* results."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "created_index",
+      "id",
+      "payment_hash",
+      "status",
+      "created_at",
+      "amount_sent_msat"
+    ],
+    "properties": {
+      "created_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was created in."
+        ]
+      },
+      "id": {
+        "type": "u64",
+        "description": [
+          "Old synonym for created_index."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "complete"
+        ],
+        "description": [
+          "Status of the payment (could be complete if already sent previously)."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount delivered to destination (if known)."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "The final destination of the payment if known."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "description": [
+          "The amount sent."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The label, if given to sendpay."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "The bolt11 string (if supplied)."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 string (if supplied: **experimental-offers** only)."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The partid (if supplied) to sendonion/sendpay."
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "payment_preimage"
+          ],
+          "properties": {
+            "created_index": {},
+            "id": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "groupid": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "bolt11": {},
+            "bolt12": {},
+            "partid": {},
+            "updated_index": {
+              "added": "v23.11",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this payment was changed."
+              ]
+            },
+            "payment_preimage": {
+              "type": "secret",
+              "description": [
+                "The proof of payment: SHA256 of this **payment_hash**."
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "created_index": {},
+            "id": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "groupid": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "bolt11": {},
+            "bolt12": {},
+            "partid": {},
+            "message": {
+              "type": "string",
+              "description": [
+                "Monitor status with listpays or waitsendpay."
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- 202: an parseable onion",
+    "",
+    "the error details are decrypted and presented here, if *shared_secrets* was provided and an error was returned by one of the intermediate nodes"
+  ],
+  "example_json_request": [
+    {
+      "id": "example:sendonion#1",
+      "method": "sendonion",
+      "params": {
+        "onion": "00034928294556b10308f9aeac7a240223d4d5f72097db1ef36a36b10cab937f2f205ed7218b47d4600eaf7fd390940bf9a6cdac99aafdb4783c468150eeeab9b57e56a06778d023ffb3bb84c7d8c2ad8868b61c28b566634af52c288ed6569583db66f5bd0edfb801c252f078020e1df6359af5969296b4698a71d17c5ca6e5ee4b64b7cce3ad0a1aa31e6be4d5fe3a31fa7a25259c640716020a9a248ca3ebb68eb823f8884b5df3710969f4c2ffb153779a923bab946ed43c1f6658d7f8e7e25303bb78ef4862fb550b8b1c79d522b035eedfda9ab70a61322522acf7233bb8ea2423958448fc8ac3d000835fda04bf661f1bf2ad2d091f506840bb2f10f82c0812149d99267a47824defe90877ed70db526b2200e18dccb92b17516de3778c055645728eadf4c74375aa0aae80a7773a536a908ca1e25c0fdca90e50ce0be05eeb973ec5e83ce3ab6b35818e021780428af81320a694483c1c15f64e685ba1fd3b1e1b926e6b4ec9eeeac8aca60c60e0f0f583e35e7f081dc6f4c64157e100c79c4c25101bed77cd9f93416f9a67d9f1916a782c498c38365af4a5fabb1b745fa840a054a06564c3f4b376aeb72cdd059d3794c82bbbf12a1f62234016a6912b384e7e4cebbd39ee4395aeff43c461e226d1e0151cce508a181a9c61275bf4b89e4556cf24df13b993dec96541555f8b9a699be9488568a11ac7f25849da62765472511ad74a6660c10e37f5fa13d4e4665ef7825ae1f2da4a86d5581912262de89b4b11a722fd127b31aa0d7fab8c679b07bf95e65cb80b2dacb5b90794399fb8f23823f68058431aa1c399b5baceccaf8521d004f45dba6ec1fddc54473343e9e67cd50cc3f2f3d8a5dab8a7ab9ae553dc3cd34e74b858da75975265f7c673a25e8d01a5130ab40eaba712b80c608cd0431b4b45ea0d81af595e21f24976608429127bf586f7507666500bc7245cf9266fa0bd0e58404c496e190c873cd143ace9048e9d5021c23967a24e09f2e54166e54b4ee8888dc1af535624e7ee8b426c1628175017a9e8a73eb1d0d49028a4f4d77897f3c08f1cd7bdee2b00f9bb9eadc49a69bf4f6c0cb2c95a16f03d7958f1b8f83cb40ae87ddf75f26050e2c2ed9f8f8523b3d389a50b217bda651dc21f095fe7d2d3851a0a6cf01051f3f3c6f1ad59ed46d44928d15a0e6e1bd4df4c99bdb82a05b0e781b69a73bc30fe579c8ac9fe8aeb6beb1c0f44def2775b7341af37e6ef58ceb34958b29d3e36112b78644612228761b8badc802f0b2b8fcaeb1db8f3a8db4afa2d7b4540a7c331db6f5141fa3909a513df875ff8a63f5b542d662781ca96a69e3b2925d6a63555b2c5825ffb2ad848d71122f54110e0d203000f3e9cc23b793c3540dfb8d881caedd25055a8f495e9e7a0391dbf9cbd9344f7df659ee8d3ce5ec16217ab83e1394ba991eb8ffd9a869f8ebb2e2428845e779979c57b5f8875f502728229a55ce87b3eba85c75264d30eaf7b373f6b09ba3086d9e98348d87b049468c2c30a6501cb2a3862f1703bbf29895e8b4262353eae720ed8ae678750011e2eb51f4800d3f4725fa873d7deec1c46f77a5f61c73dc938239e77f432bcc245c7b935413c51c0bc92bdaae144452aa95910909e46e500557961203f4e1483b9c09c124464907825e1ff74c87c58d6e2e91970baac9b89a554beca6df9acee16d77dd929d0caa7797e06f2c384c03fdedc89c697b9c34787a50cf399a8d7f195e79b347efc8267c474a477ce210f11049d432b280eaf3fccd451f6218d35c64cbd1006bcc54eeea8b856855c9aa92bc3adc6900a7c7a0eee09834c5a1f2da3d8ea9a478aea90c954952ad2a72d3856350ac3132d17e1e8116fa774066a22c857a827699c98285111a405e74685a3ae579ae78c545774f45491e4935bf4",
+        "first_hop": {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "channel": "103x3x0",
+          "direction": 1,
+          "amount_msat": 1002,
+          "delay": 21,
+          "style": "tlv"
+        },
+        "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc",
+        "label": null,
+        "shared_secrets": null,
+        "partid": null,
+        "bolt11": null,
+        "amount_msat": null,
+        "destination": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "message": "Monitor status with listpays or waitsendpay",
+      "created_index": 1,
+      "id": 1,
+      "payment_hash": "f584c14bb23506acdd94cf3cea377f3cc5805f3cba5430bc3756ef83ede1a0dc",
+      "groupid": 1,
+      "amount_sent_msat": 1002,
+      "created_at": 1706315098,
+      "status": "pending"
+    }
+  ],
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-createonion(7)",
+    "lightning-sendpay(7)",
+    "lightning-listsendpays(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
+  ]
+}

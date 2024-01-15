@@ -1,0 +1,285 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.05",
+  "rpc": "listclosedchannels",
+  "title": "Get data on our closed historical channels",
+  "description": [
+    "The **listclosedchannels** RPC command returns data on channels which are otherwise forgotten (more than 100 blocks after they're completely resolved onchain)."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "If no *id* is supplied, then channel data on all historical channels are given. Supplying *id* will filter the results to only match channels to that peer. Note that prior to v23.05, old peers were forgotten."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "closedchannels"
+    ],
+    "properties": {
+      "closedchannels": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "channel_id",
+            "opener",
+            "private",
+            "total_msat",
+            "total_local_commitments",
+            "total_remote_commitments",
+            "total_htlcs_sent",
+            "funding_txid",
+            "funding_outnum",
+            "leased",
+            "final_to_us_msat",
+            "min_to_us_msat",
+            "max_to_us_msat",
+            "close_cause"
+          ],
+          "properties": {
+            "peer_id": {
+              "type": "pubkey",
+              "description": [
+                "Peer public key (can be missing with pre-v23.05 closes!)."
+              ]
+            },
+            "channel_id": {
+              "type": "hash",
+              "description": [
+                "The full channel_id (funding txid Xored with output number)."
+              ]
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": [
+                "The short_channel_id."
+              ]
+            },
+            "alias": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "local": {
+                  "type": "short_channel_id",
+                  "description": [
+                    "An alias assigned by this node to this channel, used for outgoing payments."
+                  ]
+                },
+                "remote": {
+                  "type": "short_channel_id",
+                  "description": [
+                    "An alias assigned by the remote node to this channel, usable in routehints and invoices."
+                  ]
+                }
+              }
+            },
+            "opener": {
+              "type": "string",
+              "enum": [
+                "local",
+                "remote"
+              ],
+              "description": [
+                "Who initiated the channel."
+              ]
+            },
+            "closer": {
+              "type": "string",
+              "enum": [
+                "local",
+                "remote"
+              ],
+              "description": [
+                "Who initiated the channel close (only present if closing)."
+              ]
+            },
+            "private": {
+              "type": "boolean",
+              "description": [
+                "If True, we will not announce this channel."
+              ]
+            },
+            "channel_type": {
+              "type": "object",
+              "description": [
+                "Channel_type as negotiated with peer."
+              ],
+              "additionalProperties": false,
+              "required": [
+                "bits",
+                "names"
+              ],
+              "properties": {
+                "bits": {
+                  "type": "array",
+                  "description": [
+                    "Each bit set in this channel_type."
+                  ],
+                  "items": {
+                    "type": "u32",
+                    "description": [
+                      "Bit number."
+                    ]
+                  }
+                },
+                "names": {
+                  "type": "array",
+                  "description": [
+                    "Feature name for each bit set in this channel_type."
+                  ],
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "static_remotekey/even",
+                      "anchor_outputs/even",
+                      "anchors_zero_fee_htlc_tx/even",
+                      "scid_alias/even",
+                      "zeroconf/even"
+                    ],
+                    "description": [
+                      "Name of feature bit."
+                    ]
+                  }
+                }
+              }
+            },
+            "total_local_commitments": {
+              "type": "u64",
+              "description": [
+                "Number of commitment transaction we made."
+              ]
+            },
+            "total_remote_commitments": {
+              "type": "u64",
+              "description": [
+                "Number of commitment transaction they made."
+              ]
+            },
+            "total_htlcs_sent": {
+              "type": "u64",
+              "description": [
+                "Number of HTLCs we ever sent."
+              ]
+            },
+            "funding_txid": {
+              "type": "txid",
+              "description": [
+                "ID of the funding transaction."
+              ]
+            },
+            "funding_outnum": {
+              "type": "u32",
+              "description": [
+                "The 0-based output number of the funding transaction which opens the channel."
+              ]
+            },
+            "leased": {
+              "type": "boolean",
+              "description": [
+                "Whether this channel was leased from `opener`."
+              ]
+            },
+            "funding_fee_paid_msat": {
+              "type": "msat",
+              "description": [
+                "How much we paid to lease the channel (iff `leased` is true and `opener` is local)."
+              ]
+            },
+            "funding_fee_rcvd_msat": {
+              "type": "msat",
+              "description": [
+                "How much they paid to lease the channel (iff `leased` is true and `opener` is remote)."
+              ]
+            },
+            "funding_pushed_msat": {
+              "type": "msat",
+              "description": [
+                "How much `opener` pushed immediate (if non-zero)."
+              ]
+            },
+            "total_msat": {
+              "type": "msat",
+              "description": [
+                "Total amount in the channel."
+              ]
+            },
+            "final_to_us_msat": {
+              "type": "msat",
+              "description": [
+                "Our balance in final commitment transaction."
+              ]
+            },
+            "min_to_us_msat": {
+              "type": "msat",
+              "description": [
+                "Least amount owed to us ever. If the peer were to successfully steal from us, this is the amount we would still retain."
+              ]
+            },
+            "max_to_us_msat": {
+              "type": "msat",
+              "description": [
+                "Most amount owed to us ever. If we were to successfully steal from the peer, this is the amount we could potentially get."
+              ]
+            },
+            "last_commitment_txid": {
+              "type": "hash",
+              "description": [
+                "The final commitment tx's txid (or mutual close, if we accepted it). Not present for some very old, small channels pre-0.7.0."
+              ]
+            },
+            "last_commitment_fee_msat": {
+              "type": "msat",
+              "description": [
+                "The fee on `last_commitment_txid`."
+              ]
+            },
+            "close_cause": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "local",
+                "user",
+                "remote",
+                "protocol",
+                "onchain"
+              ],
+              "description": [
+                "What caused the channel to close."
+              ]
+            },
+            "last_stable_connection": {
+              "type": "u64",
+              "added": "v24.02",
+              "description": [
+                "Last time we reestablished the open channel and stayed connected for 1 minute."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@blockstream.com>>."
+  ],
+  "see_also": [
+    "lightning-listpeerchannels(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
