@@ -1508,6 +1508,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
+	struct flow **best_flow_paths = NULL;
 
 	struct pay_parameters *params = tal(this_ctx,struct pay_parameters);
 	struct dijkstra *dijkstra;
@@ -1571,7 +1572,6 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 	struct amount_msat best_fee;
 	double best_prob_success;
-	struct flow **best_flow_paths = NULL;
 
 	/* TODO(eduardo):
 	 * Some MCF algorithms' performance depend on the size of maxflow. If we
