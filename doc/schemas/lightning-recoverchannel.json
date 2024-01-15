@@ -1,0 +1,71 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "recoverchannel",
+  "title": "Command for recovering channels bundeled in an array in the form of *Static Backup*",
+  "description": [
+    "The **recoverchannel** RPC command tries to force the peer (with whom you already had a channel) to close the channel and sweeps on-chain fund. This method is not spontaneous and depends on the peer, so use it in case of severe data loss.",
+    "",
+    "The *scb* parameter is an array containing minimum required info to reconnect and sweep funds. You can get the scb for already stored channels by using the RPC command 'staticbackup'."
+  ],
+  "request": {
+    "required": [
+      "scb"
+    ],
+    "properties": {
+      "scb": {
+        "type": "array",
+        "description": [
+          "SCB of the channels in an array."
+        ],
+        "items": {
+          "type": "hex"
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "stubs"
+    ],
+    "properties": {
+      "stubs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": [
+            "Channel IDs of channels successfully inserted."
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:recoverchannel#1",
+      "method": "recoverchannel",
+      "params": [
+        [
+          "0000000000000001c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5904017f0000019f0bc3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a0000000000000000000186a000021000"
+        ]
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "stubs": [
+        "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
+      ]
+    }
+  ],
+  "author": [
+    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-getsharedsecret(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

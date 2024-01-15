@@ -1,0 +1,122 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.11",
+  "rpc": "datastoreusage",
+  "title": "Command for listing datastore usage info",
+  "description": [
+    "The **datastoreusage** RPC command allows the caller to fetch the total bytes that are stored under a certain *key* (or from the root), including the size of the *key*.",
+    "",
+    "All descendants of the *key* (or root) are taken into account."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "key": {
+        "oneOf": [
+          {
+            "type": "array",
+            "description": [
+              "Key is an array of values (though a single value is treated as a one-element array). Used as the starting point to traverse the datastore."
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "datastoreusage"
+    ],
+    "properties": {
+      "datastoreusage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "total_bytes"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "added": "v23.11",
+            "description": [
+              "The key from which the database was traversed."
+            ]
+          },
+          "total_bytes": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "The total bytes that are stored under the *key*, including the all descendants data and the size of the keys themselves."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:datastoreusage#1",
+      "method": "datastoreusage",
+      "params": {
+        "key": null
+      }
+    },
+    {
+      "id": "example:datastoreusage#2",
+      "method": "datastoreusage",
+      "params": {
+        "key": "a"
+      }
+    },
+    {
+      "id": "example:datastoreusage#3",
+      "method": "datastoreusage",
+      "params": {
+        "key": [
+          "a",
+          "thisissomelongkeythattriestostore46bytesofdata"
+        ]
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "datastoreusage": {
+        "key": "[]",
+        "total_bytes": 0
+      }
+    },
+    {
+      "datastoreusage": {
+        "key": "[a]",
+        "total_bytes": 32
+      }
+    },
+    {
+      "datastoreusage": {
+        "key": "[a,thisissomelongkeythattriestostore46bytesofdata]",
+        "total_bytes": 77
+      }
+    }
+  ],
+  "author": [
+    "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-datastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-listdatastore(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

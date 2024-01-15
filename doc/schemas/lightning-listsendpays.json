@@ -1,0 +1,411 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listsendpays",
+  "title": "Low-level command for querying sendpay status",
+  "description": [
+    "The **listsendpays** RPC command gets the status of all *sendpay* commands (which is also used by the *pay* command), or with *bolt11* or *payment_hash* limits results to that specific payment. You cannot specify both. It is possible to filter the payments also by *status*.",
+    "",
+    "Note that there may be more than one concurrent *sendpay* command per *pay*, so this command should be used with caution."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "Bolt11 invoice."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the payment_preimage."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "complete",
+          "failed"
+        ],
+        "description": [
+          "Whether the invoice has been paid, pending, or failed."
+        ]
+      },
+      "index": {
+        "type": "string",
+        "added": "v23.11",
+        "enum": [
+          "created",
+          "updated"
+        ],
+        "description": [
+          "If neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`."
+        ]
+      },
+      "start": {
+        "type": "u64",
+        "added": "v23.11",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "added": "v23.11",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
+      }
+    },
+    "dependentUpon": {
+      "index": [
+        "start",
+        "limit"
+      ]
+    }
+  },
+  "response": {
+    "required": [
+      "payments"
+    ],
+    "properties": {
+      "payments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "id",
+            "created_index",
+            "payment_hash",
+            "status",
+            "groupid",
+            "created_at",
+            "amount_sent_msat"
+          ],
+          "properties": {
+            "created_index": {
+              "added": "v23.11",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this payment was created in."
+              ]
+            },
+            "id": {
+              "type": "u64",
+              "description": [
+                "Old synonym for created_index."
+              ]
+            },
+            "groupid": {
+              "type": "u64",
+              "description": [
+                "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+              ]
+            },
+            "partid": {
+              "type": "u64",
+              "description": [
+                "Part number (for multiple parts to a single payment)."
+              ]
+            },
+            "payment_hash": {
+              "type": "hash",
+              "description": [
+                "The hash of the *payment_preimage* which will prove payment."
+              ]
+            },
+            "updated_index": {
+              "added": "v23.11",
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "failed",
+                "complete"
+              ],
+              "description": [
+                "Status of the payment."
+              ]
+            },
+            "amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount delivered to destination (if known)."
+              ]
+            },
+            "destination": {
+              "type": "pubkey",
+              "description": [
+                "The final destination of the payment if known."
+              ]
+            },
+            "created_at": {
+              "type": "u64",
+              "description": [
+                "The UNIX timestamp showing when this payment was initiated."
+              ]
+            },
+            "amount_sent_msat": {
+              "type": "msat",
+              "description": [
+                "The amount sent."
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": [
+                "The label, if given to sendpay."
+              ]
+            },
+            "bolt11": {
+              "type": "string",
+              "description": [
+                "The bolt11 string (if pay supplied one)."
+              ]
+            },
+            "description": {
+              "type": "string",
+              "description": [
+                "The description matching the bolt11 description hash (if pay supplied one)."
+              ]
+            },
+            "bolt12": {
+              "type": "string",
+              "description": [
+                "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "payment_preimage"
+                ],
+                "properties": {
+                  "id": {},
+                  "created_index": {},
+                  "updated_index": {},
+                  "partid": {},
+                  "groupid": {},
+                  "payment_hash": {},
+                  "status": {},
+                  "msatoshi": {},
+                  "amount_msat": {},
+                  "destination": {},
+                  "created_at": {},
+                  "msatoshi_sent": {},
+                  "amount_sent_msat": {},
+                  "label": {},
+                  "bolt11": {},
+                  "description": {},
+                  "bolt12": {},
+                  "completed_at": {
+                    "type": "u64",
+                    "added": "pre-v0.10.1",
+                    "description": [
+                      "The UNIX timestamp showing when this payment was completed."
+                    ]
+                  },
+                  "payment_preimage": {
+                    "type": "secret",
+                    "description": [
+                      "The proof of payment: SHA256 of this **payment_hash**."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "failed"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "id": {},
+                  "created_index": {},
+                  "updated_index": {},
+                  "partid": {},
+                  "groupid": {},
+                  "payment_hash": {},
+                  "status": {},
+                  "msatoshi": {},
+                  "amount_msat": {},
+                  "destination": {},
+                  "created_at": {},
+                  "completed_at": {},
+                  "msatoshi_sent": {},
+                  "amount_sent_msat": {},
+                  "label": {},
+                  "bolt11": {},
+                  "description": {},
+                  "bolt12": {},
+                  "erroronion": {
+                    "type": "hex",
+                    "description": [
+                      "The onion message returned."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "id": {},
+                  "created_index": {},
+                  "updated_index": {},
+                  "partid": {},
+                  "groupid": {},
+                  "payment_hash": {},
+                  "status": {},
+                  "msatoshi": {},
+                  "amount_msat": {},
+                  "destination": {},
+                  "created_at": {},
+                  "msatoshi_sent": {},
+                  "amount_sent_msat": {},
+                  "label": {},
+                  "bolt11": {},
+                  "description": {},
+                  "bolt12": {}
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "pre_return_value_notes": [
+      "Note that the returned array is ordered by increasing *id*."
+    ]
+  },
+  "example_json_request": [
+    {
+      "id": "example:listsendpays#1",
+      "method": "listsendpays",
+      "params": {
+        "bolt11": null,
+        "payment_hash": null,
+        "status": null,
+        "index": null,
+        "start": null,
+        "limit": null
+      }
+    },
+    {
+      "id": "example:listsendpays#2",
+      "method": "listsendpays",
+      "params": {
+        "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9",
+        "payment_hash": null,
+        "status": null,
+        "index": null,
+        "start": null,
+        "limit": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "payments": [
+        {
+          "created_index": 1,
+          "id": 1,
+          "payment_hash": "e3b43574acd074b0c4ba1b13b5155ff5f9c76742e643ed003e17301c5a2db149",
+          "groupid": 1,
+          "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount_msat": 20000,
+          "amount_sent_msat": 20000,
+          "created_at": 1706225269,
+          "status": "pending",
+          "bolt11": "lnbcrt200n1pjm9mn5sp5gq84lgga959m6gg4g0kj29ypwjaxxnm4cu5csymq8p6nqxv800mspp5uw6r2a9v6p6tp396rvfm292l7huuwe6zuep76qp7zucpck3dk9ysdpqf9grgmt62fmk5stswefh23n2tpykvcmzxqyjw5qcqp99qxpqysgqz8s496zmwed278jvp075zlhrnj0ncg45kcfw5s2lkhtxd3wc39f8wflp5gmd827dk470xpasfpx0azsfu0k8ttwae7620h8d050w28cqan776g"
+        },
+        {
+          "created_index": 2,
+          "id": 2,
+          "payment_hash": "f55d92cfe019b5a015f5e5956e9255053cda14786171d5002feb12ae5254e5a5",
+          "groupid": 1,
+          "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount_msat": 30000,
+          "amount_sent_msat": 30000,
+          "created_at": 1706225269,
+          "status": "pending",
+          "bolt11": "lnbcrt300n1pjm9mn5sp5zqfkr93rp92mdyj6m8lzpcu90rfefcaqff8fxdd2sc5mace23ujspp574we9nlqrx66q904uk2kayj4q57d59rcv9ca2qp0avf2u5j5ukjsdpq29j55nfcgfcnsvzw2er57knhwcmhzwt0xqyjw5qcqp99qxpqysgq76p2jpnegtzlxmn0aqt6d3f89q4p6y5v3v2qz7t2mm6xt90nt324cq400tl82k28562aux8jxs57d603g7s0q4g3dapu9a7vln94j7spsut799"
+        }
+      ]
+    },
+    {
+      "payments": [
+        {
+          "created_index": 1,
+          "id": 1,
+          "payment_hash": "6f1ca61f10bbc57a990507e3dde7653f59fb6159c0f252ad1b1aa357f7692db7",
+          "groupid": 1,
+          "updated_index": 1,
+          "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "amount_msat": 123000,
+          "amount_sent_msat": 123000,
+          "created_at": 1708639237,
+          "completed_at": 1708639238,
+          "status": "complete",
+          "payment_preimage": "91f8366681fdfd309c048082fcde81a79116f85a7b2dd09aef1e34f5f7c3397b",
+          "bolt11": "lnbcrt1230n1pja03q9sp5xu9aypccf3n6vld2waxcysy47ct2wl5x5adtm7k8u30knqes22lspp5duw2v8csh0zh4xg9ql3amem98avlkc2ecre99tgmr2340amf9kmsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqwh78s8wqg0kepspw0epcxmxteh5wu8n6ddlwdnyj758fqxpqk8ejf597x8ju3r32xqgae3yzjjz9e5s6l2vs5zxvkayhmemmx74wvyqqyqf8c9"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listpays(7)",
+    "lightning-sendpay(7)",
+    "lightning-listinvoice(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.02",
+  "rpc": "preapprovekeysend",
+  "title": "Ask the HSM to preapprove a keysend payment (low-level)",
+  "description": [
+    "The **preapprovekeysend** RPC command submits the *destination*, *payment_hash*, and *amount_msat* parameters to the HSM to check that they are approved as a keysend payment.",
+    "",
+    "Generally the **preapprovekeysend** request does not need to be made explicitly, it is automatically generated as part of a **keysend** request.",
+    "",
+    "By default, the HSM will approve all **preapprovekeysend** requests.",
+    "",
+    "If a remote signer is being used it might decline an **preapprovekeysend** request because it would exceed velocity controls, is not covered by allowlist controls, was declined manually, or other reasons.",
+    "",
+    "If a remote signer declines a **preapprovekeysend** request a subsequent attempt to pay the keysend anyway will fail; the signer will refuse to sign the commitment."
+  ],
+  "request": {
+    "required": [
+      "destination",
+      "payment_hash",
+      "amount_msat"
+    ],
+    "properties": {
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "It is a 33 byte, hex-encoded, node ID of the node that the payment should go to."
+        ],
+        "added": "v23.02"
+      },
+      "payment_hash": {
+        "type": "hex",
+        "added": "v23.02",
+        "description": [
+          "It is the unique identifier of a payment."
+        ],
+        "maxLength": 64,
+        "minLength": 64
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount to send in millisatoshi precision; it can be a whole number, or a whole number with suffix `msat` or `sat`, or a three decimal point number with suffix `sat`, or an 1 to 11 decimal point number suffixed by `btc`."
+        ],
+        "added": "v23.02"
+      }
+    }
+  },
+  "response": {
+    "properties": {}
+  },
+  "author": [
+    "Ken Sedgwick <<ken@bonsai.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-keysend(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

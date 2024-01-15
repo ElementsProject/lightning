@@ -1,0 +1,93 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "signmessage",
+  "title": "Command to create a signature from this node",
+  "description": [
+    "The **signmessage** RPC command creates a digital signature of *message* using this node's secret key. A receiver who knows your node's *id* and the *message* can be sure that the resulting signature could only be created by something with access to this node's secret key."
+  ],
+  "request": {
+    "required": [
+      "message"
+    ],
+    "properties": {
+      "message": {
+        "type": "string",
+        "description": [
+          "Less than 65536 characters long message to be signed by the node."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "signature",
+      "recid",
+      "zbase"
+    ],
+    "properties": {
+      "signature": {
+        "type": "hex",
+        "description": [
+          "The signature."
+        ],
+        "minLength": 128,
+        "maxLength": 128
+      },
+      "recid": {
+        "type": "hex",
+        "description": [
+          "The recovery id (0, 1, 2 or 3)."
+        ],
+        "minLength": 2,
+        "maxLength": 2
+      },
+      "zbase": {
+        "type": "string",
+        "description": [
+          "*signature* and *recid* encoded in a style compatible with **lnd**'s [SignMessageRequest](https://api.lightning.community/#grpc-request- signmessagerequest)."
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:signmessage#1",
+      "method": "signmessage",
+      "params": {
+        "message": "this is a test!"
+      }
+    },
+    {
+      "id": "example:signmessage#2",
+      "method": "signmessage",
+      "params": {
+        "message": "message for you"
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "signature": "a2ec227012795f9d6b80a3f5ea98374c6d2886917517c05336799923fcf37caf08344c0431275e1a8189da01b444ae978007fe70f0cc9009f38cabe074ade87d",
+      "recid": "00",
+      "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
+    },
+    {
+      "signature": "85843b010bc517b32eaafe70232e2c44bb5a354c74d2202390af1b272e4c6ac23ac3f97ea663d8b49116ad6c2d080515b43bcdf1ea4f38cdb18af0edf8209cd8",
+      "recid": "00",
+      "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-checkmessage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "",
+    "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
+  ]
+}

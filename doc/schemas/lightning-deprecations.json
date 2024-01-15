@@ -1,0 +1,54 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v24.02",
+  "rpc": "deprecations",
+  "title": "Command to enable/disable deprecated APIs",
+  "description": [
+    "The **deprecations** RPC command is used to override global config option `allow-deprecated-apis` for further RPC commands on this same connection. This can be useful for developer testing to ensure you don't accidentally rely on deprecated features."
+  ],
+  "request": {
+    "required": [
+      "enable"
+    ],
+    "properties": {
+      "enable": {
+        "type": "boolean",
+        "description": [
+          "Flag to enable or disable deprecated APIs. Setting it to `false` will neither accept deprecated parameters or commands, nor output deprecated fields."
+        ]
+      }
+    }
+  },
+  "response": {
+    "properties": {}
+  },
+  "example_json_request": [
+    {
+      "id": "example:deprecations#1",
+      "method": "deprecations",
+      "params": {
+        "enable": false
+      }
+    }
+  ],
+  "example_json_response": [
+    {}
+  ],
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters."
+  ],
+  "author": [
+    "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-notifications(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

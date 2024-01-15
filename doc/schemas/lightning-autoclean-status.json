@@ -1,0 +1,484 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "autoclean-status",
+  "title": "Examine auto-delete of old invoices/payments/forwards",
+  "description": [
+    "The **autoclean-status** RPC command tells you about the status of the autclean plugin, optionally for only one subsystem."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "subsystem": {
+        "type": "string",
+        "enum": [
+          "succeededforwards",
+          "failedforwards",
+          "succeededpays",
+          "failedpays",
+          "paidinvoices",
+          "expiredinvoices"
+        ],
+        "description": [
+          "What subsystem to ask about. Currently supported subsystems are:",
+          "    * `failedforwards`: routed payments which did not succeed (`failed` or `local_failed` in listforwards `status`).",
+          "    * `succeededforwards`: routed payments which succeeded (`settled` in listforwards `status`).",
+          "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
+          "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
+          "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
+          "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "autoclean"
+    ],
+    "properties": {
+      "autoclean": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "succeededforwards": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for successful listforwards."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to delete successful listforwards."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          },
+          "failedforwards": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for failed listforwards."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to delete failed listforwards."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          },
+          "succeededpays": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for successful listpays/listsendpays."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to delete successful listpays/listsendpays."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          },
+          "failedpays": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for failed listpays/listsendpays."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to delete failed listpays/listsendpays."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          },
+          "paidinvoices": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for paid listinvoices."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to paid listinvoices."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          },
+          "expiredinvoices": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "enabled",
+              "cleaned"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": [
+                  "Whether autocleaning is enabled for expired (unpaid) listinvoices."
+                ]
+              },
+              "cleaned": {
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done (ever)."
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "age",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {},
+                "age": {
+                  "type": "u64",
+                  "description": [
+                    "Age (in seconds) to expired listinvoices."
+                  ]
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [
+                "enabled",
+                "cleaned"
+              ],
+              "properties": {
+                "enabled": {},
+                "cleaned": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "pre_return_value_notes": [
+      "Note that the ages parameters are set by various `autoclean-...-age` parameters in your configuration: see lightningd-config(5)."
+    ]
+  },
+  "example_json_request": [
+    {
+      "id": "example:autoclean-status#1",
+      "method": "autoclean-status",
+      "params": {
+        "subsystem": "expiredinvoices"
+      }
+    },
+    {
+      "id": "example:autoclean-status#2",
+      "method": "autoclean-status",
+      "params": {
+        "subsystem": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "autoclean": {
+        "expiredinvoices": {
+          "enabled": false,
+          "cleaned": 0
+        }
+      }
+    },
+    {
+      "autoclean": {
+        "succeededforwards": {
+          "enabled": false,
+          "cleaned": 0
+        },
+        "failedforwards": {
+          "enabled": false,
+          "cleaned": 0
+        },
+        "succeededpays": {
+          "enabled": false,
+          "cleaned": 0
+        },
+        "failedpays": {
+          "enabled": false,
+          "cleaned": 0
+        },
+        "paidinvoices": {
+          "enabled": false,
+          "cleaned": 0
+        },
+        "expiredinvoices": {
+          "enabled": true,
+          "age": 2,
+          "cleaned": 0
+        }
+      }
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-listinvoices(7)",
+    "lightning-listpays(7)",
+    "lightning-listforwards(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

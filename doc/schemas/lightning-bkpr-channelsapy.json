@@ -1,0 +1,262 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "bkpr-channelsapy",
+  "title": "Command to list stats on channel earnings",
+  "description": [
+    "The **bkpr-channelsapy** RPC command lists stats on routing income, leasing income, and various calculated APYs for channel routed funds."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "start_time": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp (in seconds) to filter events after the provided timestamp."
+        ],
+        "default": "zero"
+      },
+      "end_time": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp (in seconds) to filter events up to and at the provided timestamp."
+        ],
+        "default": "max-int"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channels_apy"
+    ],
+    "properties": {
+      "channels_apy": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account",
+            "routed_out_msat",
+            "routed_in_msat",
+            "lease_fee_paid_msat",
+            "lease_fee_earned_msat",
+            "pushed_out_msat",
+            "pushed_in_msat",
+            "our_start_balance_msat",
+            "channel_start_balance_msat",
+            "fees_out_msat",
+            "utilization_out",
+            "utilization_in",
+            "apy_out",
+            "apy_in",
+            "apy_total"
+          ],
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": [
+                "The account name. If the account is a channel, the channel_id. The 'net' entry is the rollup of all channel accounts."
+              ]
+            },
+            "routed_out_msat": {
+              "type": "msat",
+              "description": [
+                "Sats routed (outbound)."
+              ]
+            },
+            "routed_in_msat": {
+              "type": "msat",
+              "description": [
+                "Sats routed (inbound)."
+              ]
+            },
+            "lease_fee_paid_msat": {
+              "type": "msat",
+              "description": [
+                "Sats paid for leasing inbound (liquidity ads)."
+              ]
+            },
+            "lease_fee_earned_msat": {
+              "type": "msat",
+              "description": [
+                "Sats earned for leasing outbound (liquidity ads)."
+              ]
+            },
+            "pushed_out_msat": {
+              "type": "msat",
+              "description": [
+                "Sats pushed to peer at open."
+              ]
+            },
+            "pushed_in_msat": {
+              "type": "msat",
+              "description": [
+                "Sats pushed in from peer at open."
+              ]
+            },
+            "our_start_balance_msat": {
+              "type": "msat",
+              "description": [
+                "Starting balance in channel at funding. Note that if our start balance is zero, any _initial field will be omitted (can't divide by zero)."
+              ]
+            },
+            "channel_start_balance_msat": {
+              "type": "msat",
+              "description": [
+                "Total starting balance at funding."
+              ]
+            },
+            "fees_out_msat": {
+              "type": "msat",
+              "description": [
+                "Fees earned on routed outbound."
+              ]
+            },
+            "fees_in_msat": {
+              "type": "msat",
+              "description": [
+                "Fees earned on routed inbound."
+              ]
+            },
+            "utilization_out": {
+              "type": "string",
+              "description": [
+                "Sats routed outbound / total start balance."
+              ]
+            },
+            "utilization_out_initial": {
+              "type": "string",
+              "description": [
+                "Sats routed outbound / our start balance."
+              ]
+            },
+            "utilization_in": {
+              "type": "string",
+              "description": [
+                "Sats routed inbound / total start balance."
+              ]
+            },
+            "utilization_in_initial": {
+              "type": "string",
+              "description": [
+                "Sats routed inbound / our start balance."
+              ]
+            },
+            "apy_out": {
+              "type": "string",
+              "description": [
+                "Fees earned on outbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_out_initial": {
+              "type": "string",
+              "description": [
+                "Fees earned on outbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_in": {
+              "type": "string",
+              "description": [
+                "Fees earned on inbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_in_initial": {
+              "type": "string",
+              "description": [
+                "Fees earned on inbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_total": {
+              "type": "string",
+              "description": [
+                "Total fees earned on routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_total_initial": {
+              "type": "string",
+              "description": [
+                "Total fees earned on routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)."
+              ]
+            },
+            "apy_lease": {
+              "type": "string",
+              "description": [
+                "Lease fees earned over total amount leased for the lease term, amortized to a year (APY). Only appears if channel was leased out by us."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:bkpr-channelsapy#1",
+      "method": "bkpr-channelsapy",
+      "params": "{}"
+    }
+  ],
+  "example_json_response": [
+    {
+      "channels_apy": [
+        {
+          "account": "e41b2ec83e9139a9fd8f1d89b01e5d7df73099494e6b91504c39445e37485b0d",
+          "routed_out_msat": 1431440,
+          "routed_in_msat": 0,
+          "lease_fee_paid_msat": 0,
+          "lease_fee_earned_msat": 0,
+          "pushed_out_msat": 0,
+          "pushed_in_msat": 0,
+          "our_start_balance_msat": 1000000000,
+          "channel_start_balance_msat": 1000000000,
+          "fees_out_msat": 0,
+          "fees_in_msat": 0,
+          "utilization_out": "0.1431%",
+          "utilization_out_initial": "0.1431%",
+          "utilization_in": "0.0000%",
+          "apy_out": "0.0000%",
+          "apy_out_initial": "0.0000%",
+          "apy_in": "0.0000%",
+          "apy_total": "0.0000%",
+          "apy_total_initial": "0.0000%"
+        },
+        {
+          "account": "net",
+          "routed_out_msat": 1431440,
+          "routed_in_msat": 0,
+          "lease_fee_paid_msat": 0,
+          "lease_fee_earned_msat": 0,
+          "pushed_out_msat": 0,
+          "pushed_in_msat": 0,
+          "our_start_balance_msat": 1000000000,
+          "channel_start_balance_msat": 1000000000,
+          "fees_out_msat": 0,
+          "fees_in_msat": 0,
+          "utilization_out": "0.1431%",
+          "utilization_out_initial": "0.1431%",
+          "utilization_in": "0.0000%",
+          "apy_out": "0.0000%",
+          "apy_out_initial": "0.0000%",
+          "apy_in": "0.0000%",
+          "apy_total": "0.0000%",
+          "apy_total_initial": "0.0000%"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-bkpr-listincome(7)",
+    "lightning-bkpr-listfunds(7)",
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-bkpr-dumpincomecsv(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.08",
+  "rpc": "blacklistrune",
+  "title": "Command to prevent a rune from working",
+  "description": [
+    "The **blacklistrune** RPC command allows you to effectively revoke the rune you have created (and any runes derived from that rune with additional restictions). Attempting to use these runes will be resulted in a `Blacklisted rune` error message.",
+    "",
+    "Destroy a rune like in olden times with the **destroyrune** command.",
+    "",
+    "All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "start": {
+        "type": "u64",
+        "description": [
+          "First rune unique id to blacklist."
+        ]
+      },
+      "end": {
+        "type": "u64",
+        "description": [
+          "Final rune unique id to blacklist (defaults to start)."
+        ]
+      }
+    },
+    "dependentUpon": {
+      "start": [
+        "end"
+      ]
+    }
+  },
+  "response": {
+    "required": [
+      "blacklist"
+    ],
+    "properties": {
+      "blacklist": {
+        "type": "array",
+        "description": [
+          "The resulting blacklist ranges after the command."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "u64",
+              "description": [
+                "Unique id of first rune in this blacklist range."
+              ]
+            },
+            "end": {
+              "type": "u64",
+              "description": [
+                "Unique id of last rune in this blacklist range."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:blacklistrune#1",
+      "method": "blacklistrune",
+      "params": {
+        "start": 2
+      }
+    },
+    {
+      "id": "example:blacklistrune#2",
+      "method": "blacklistrune",
+      "params": {
+        "start": 5,
+        "end": 7
+      }
+    },
+    {
+      "id": "example:blacklistrune#3",
+      "method": "blacklistrune",
+      "params": {
+        "start": 3,
+        "end": 4
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "blacklist": [
+        {
+          "start": 2,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "blacklist": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 5,
+          "end": 7
+        }
+      ]
+    },
+    {
+      "blacklist": [
+        {
+          "start": 2,
+          "end": 7
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-commando-blacklist(7)",
+    "lightning-showrunes(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

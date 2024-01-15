@@ -1,0 +1,277 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.02",
+  "rpc": "listsqlschemas",
+  "title": "Command to example lightning-sql schemas",
+  "description": [
+    "This allows you to examine the schemas at runtime; while they are fully documented for the current release in lightning-sql(7), as fields are added or deprecated, you can use this command to determine what fields are present.",
+    "",
+    "If *table* is given, only that table is in the resulting list, otherwise all tables are listed."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "table": {
+        "type": "string"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "schemas"
+    ],
+    "properties": {
+      "schemas": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tablename",
+            "columns"
+          ],
+          "properties": {
+            "tablename": {
+              "type": "string",
+              "description": [
+                "The name of the table."
+              ]
+            },
+            "columns": {
+              "type": "array",
+              "description": [
+                "The columns, in database order."
+              ],
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "type"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": [
+                      "The name of the column."
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "INTEGER",
+                      "BLOB",
+                      "TEXT",
+                      "REAL"
+                    ],
+                    "description": [
+                      "The SQL type of the column."
+                    ]
+                  }
+                }
+              }
+            },
+            "indices": {
+              "type": "array",
+              "description": [
+                "Any index we created to speed lookups."
+              ],
+              "items": {
+                "type": "array",
+                "description": [
+                  "The columns for this index."
+                ],
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "The column name."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:listsqlschemas#1",
+      "method": "listsqlschemas",
+      "params": {
+        "table": "offers"
+      }
+    },
+    {
+      "id": "example:listsqlschemas#2",
+      "method": "listsqlschemas",
+      "params": [
+        "closedchannels"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "schemas": [
+        {
+          "tablename": "offers",
+          "columns": [
+            {
+              "name": "offer_id",
+              "type": "BLOB"
+            },
+            {
+              "name": "active",
+              "type": "INTEGER"
+            },
+            {
+              "name": "single_use",
+              "type": "INTEGER"
+            },
+            {
+              "name": "bolt12",
+              "type": "TEXT"
+            },
+            {
+              "name": "bolt12_unsigned",
+              "type": "TEXT"
+            },
+            {
+              "name": "used",
+              "type": "INTEGER"
+            },
+            {
+              "name": "label",
+              "type": "TEXT"
+            }
+          ],
+          "indices": [
+            [
+              "offer_id"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "schemas": [
+        {
+          "tablename": "closedchannels",
+          "columns": [
+            {
+              "name": "rowid",
+              "type": "INTEGER"
+            },
+            {
+              "name": "peer_id",
+              "type": "BLOB"
+            },
+            {
+              "name": "channel_id",
+              "type": "BLOB"
+            },
+            {
+              "name": "short_channel_id",
+              "type": "TEXT"
+            },
+            {
+              "name": "alias_local",
+              "type": "TEXT"
+            },
+            {
+              "name": "alias_remote",
+              "type": "TEXT"
+            },
+            {
+              "name": "opener",
+              "type": "TEXT"
+            },
+            {
+              "name": "closer",
+              "type": "TEXT"
+            },
+            {
+              "name": "private",
+              "type": "INTEGER"
+            },
+            {
+              "name": "total_local_commitments",
+              "type": "INTEGER"
+            },
+            {
+              "name": "total_remote_commitments",
+              "type": "INTEGER"
+            },
+            {
+              "name": "total_htlcs_sent",
+              "type": "INTEGER"
+            },
+            {
+              "name": "funding_txid",
+              "type": "BLOB"
+            },
+            {
+              "name": "funding_outnum",
+              "type": "INTEGER"
+            },
+            {
+              "name": "leased",
+              "type": "INTEGER"
+            },
+            {
+              "name": "funding_fee_paid_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "funding_fee_rcvd_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "funding_pushed_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "total_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "final_to_us_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "min_to_us_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "max_to_us_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "last_commitment_txid",
+              "type": "BLOB"
+            },
+            {
+              "name": "last_commitment_fee_msat",
+              "type": "INTEGER"
+            },
+            {
+              "name": "close_cause",
+              "type": "TEXT"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-sql(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

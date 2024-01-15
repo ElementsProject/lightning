@@ -1,0 +1,98 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "fundchannel_complete",
+  "title": "Command for completing channel establishment",
+  "description": [
+    "`fundchannel_complete` is a lower level RPC command. It allows a user to complete an initiated channel establishment with a connected peer.",
+    "",
+    "Note that the funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed, as the commitment transactions for this channel are not secured until this command successfully completes. Broadcasting transaction before can lead to unrecoverable loss of funds."
+  ],
+  "request": {
+    "required": [
+      "id",
+      "psbt"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "Node id of the remote peer."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "Transaction to use for funding (does not need to be signed but must be otherwise complete)."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channel_id",
+      "commitments_secured"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel_id of the resulting channel."
+        ]
+      },
+      "commitments_secured": {
+        "type": "boolean",
+        "enum": [
+          true
+        ],
+        "description": [
+          "Indication that channel is safe to use."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 305: Peer is not connected.",
+    "- 306: Unknown peer id.",
+    "- 309: PSBT does not have a unique, correct output to fund the channel."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:fundchannel_complete#1",
+      "method": "fundchannel_complete",
+      "params": {
+        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "psbt": "cHNidP8BAIkCAAAAASYd4TeOHEIzrUbbELM2DK0IX09WaXqWsJFlLD455MPPAAAAAAD9////Av///wAAAAAAIgAgW4zTuRTPZ83Y+mJzyTA1PdNkdnNPvZYhAsLfU7kIgM1c8QUpAQAAACJRIH8AZYBKMKON4/oVmJVsVt6zy/+PkBPzziE+LtkuFvWXAAAAAAABAIMCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wJRAP////8CAPIFKgEAAAAWABQ5FIjuMd8ar9WFRV9eGNLF+3RMcAAAAAAAAAAAJmokqiGp7eL2HD9x0d79P6mZ36NpU3VcaQaJeZlitIvr2DaXToz5AAAAAAEBHwDyBSoBAAAAFgAUORSI7jHfGq/VhUVfXhjSxft0THAiBgMegIxEPDa2OseVTaV6ANtSwQuoj/j2an7X/Is2EekvWBhhFDNgVAAAgAEAAIAAAACAAAAAAAAAAAAAAAEFIEm9AFgqUlJwbPFtyt3a9dzvb+nAGZiQ3CT1CImhjBFpIQdJvQBYKlJScGzxbcrd2vXc72/pwBmYkNwk9QiJoYwRaRkAYRQzYFYAAIABAACAAAAAgAEAAAAAAAAAAA=="
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "channel_id": "049217e5035a4a60449c6382c445b5c105bd63588d66137ad0511c57a16db6d9",
+      "commitments_secured": true
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-fundchannel(7)",
+    "lightning-multifundchannel(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_cancel(7)",
+    "lightning-openchannel_init(7)",
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-openchannel_abort(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

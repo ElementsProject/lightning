@@ -1,0 +1,1448 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listpeers",
+  "title": "Command returning data on connected lightning nodes",
+  "description": [
+    "The **listpeers** RPC command returns data on nodes that are connected or are not connected but have open channels with this node.",
+    "",
+    "Once a connection to another lightning node has been established, using the **connect** command, data on the node can be returned using **listpeers** and the *id* that was used with the **connect** command.",
+    "",
+    "If no *id* is supplied, then data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned.",
+    "",
+    "If a channel is open with a node and the connection has been lost, then the node will still appear in the output of the command and the value of the *connected* attribute of the node will be \"false\".",
+    "",
+    "The channel will remain open for a set blocktime, after which if the connection has not been re-established, the channel will close and the node will no longer appear in the command output."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "If supplied, limits the result to just the peer with the given ID, if it exists."
+        ]
+      },
+      "level": {
+        "type": "string",
+        "description": [
+          "Supplying level will show log entries related to that peer at the given log level."
+        ],
+        "enum": [
+          "io",
+          "debug",
+          "info",
+          "unusual"
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "peers"
+    ],
+    "properties": {
+      "peers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "id",
+            "connected",
+            "num_channels"
+          ],
+          "properties": {
+            "id": {
+              "type": "pubkey",
+              "description": [
+                "The unique id of the peer."
+              ]
+            },
+            "connected": {
+              "type": "boolean",
+              "description": [
+                "Value showing the connection status."
+              ]
+            },
+            "num_channels": {
+              "type": "u32",
+              "description": [
+                "The number of channels the peer has with this node."
+              ],
+              "added": "v23.02"
+            },
+            "log": {
+              "type": "array",
+              "description": [
+                "If *level* is specified, logs for this peer."
+              ],
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "SKIPPED",
+                      "BROKEN",
+                      "UNUSUAL",
+                      "INFO",
+                      "DEBUG",
+                      "IO_IN",
+                      "IO_OUT"
+                    ]
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "SKIPPED"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "num_skipped"
+                      ],
+                      "properties": {
+                        "type": {},
+                        "num_skipped": {
+                          "type": "u32",
+                          "description": [
+                            "Number of deleted/omitted entries."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "BROKEN",
+                            "UNUSUAL",
+                            "INFO",
+                            "DEBUG"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "time",
+                        "source",
+                        "log",
+                        "node_id"
+                      ],
+                      "properties": {
+                        "type": {},
+                        "time": {
+                          "type": "string",
+                          "description": [
+                            "UNIX timestamp with 9 decimal places."
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": [
+                            "The particular logbook this was found in."
+                          ]
+                        },
+                        "log": {
+                          "type": "string",
+                          "description": [
+                            "The actual log message."
+                          ]
+                        },
+                        "node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "The peer this is associated with."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "IO_IN",
+                            "IO_OUT"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "time",
+                        "source",
+                        "log",
+                        "node_id",
+                        "data"
+                      ],
+                      "properties": {
+                        "type": {},
+                        "time": {
+                          "type": "string",
+                          "description": [
+                            "UNIX timestamp with 9 decimal places."
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": [
+                            "The particular logbook this was found in."
+                          ]
+                        },
+                        "log": {
+                          "type": "string",
+                          "description": [
+                            "The actual log message."
+                          ]
+                        },
+                        "node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "The peer this is associated with."
+                          ]
+                        },
+                        "data": {
+                          "type": "hex",
+                          "description": [
+                            "The IO which occurred."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "channels": {
+              "deprecated": [
+                "v23.02",
+                "v24.02"
+              ],
+              "type": "array",
+              "description": [
+                "Channels with this peer."
+              ],
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "state",
+                  "opener",
+                  "features"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "OPENINGD",
+                      "CHANNELD_AWAITING_LOCKIN",
+                      "CHANNELD_NORMAL",
+                      "CHANNELD_SHUTTING_DOWN",
+                      "CLOSINGD_SIGEXCHANGE",
+                      "CLOSINGD_COMPLETE",
+                      "AWAITING_UNILATERAL",
+                      "FUNDING_SPEND_SEEN",
+                      "ONCHAIN",
+                      "DUALOPEND_OPEN_INIT",
+                      "DUALOPEND_AWAITING_LOCKIN",
+                      "DUALOPEND_OPEN_COMMITTED",
+                      "DUALOPEND_OPEN_COMMIT_READY"
+                    ],
+                    "description": [
+                      "Current state of the channel:",
+                      "  * `OPENINGD`: The channel funding protocol with the peer is ongoing and both sides are negotiating parameters.",
+                      "  * `CHANNELD_AWAITING_LOCKIN`: The peer and you have agreed on channel parameters and are just waiting for the channel funding transaction to be confirmed deeply. Both you and the peer must acknowledge the channel funding transaction to be confirmed deeply before entering the next state.",
+                      "  * `CHANNELD_NORMAL`: The channel can be used for normal payments.",
+                      "  * `CHANNELD_SHUTTING_DOWN`: A mutual close was requested (by you or peer) and both of you are waiting for HTLCs in-flight to be either failed or succeeded. The channel can no longer be used for normal payments and forwarding. Mutual close will proceed only once all HTLCs in the channel have either been fulfilled or failed.",
+                      "  * `CLOSINGD_SIGEXCHANGE`: You and the peer are negotiating the mutual close onchain fee.",
+                      "  * `CLOSINGD_COMPLETE`: You and the peer have agreed on the mutual close onchain fee and are awaiting the mutual close getting confirmed deeply.",
+                      "  * `AWAITING_UNILATERAL`: You initiated a unilateral close, and are now waiting for the peer-selected unilateral close timeout to complete.",
+                      "  * `FUNDING_SPEND_SEEN`: You saw the funding transaction getting spent (usually the peer initiated a unilateral close) and will now determine what exactly happened (i.e. if it was a theft attempt).",
+                      "  * `ONCHAIN`: You saw the funding transaction getting spent and now know what happened (i.e. if it was a proper unilateral close by the peer, or a theft attempt).",
+                      "  * `CLOSED`: The channel closure has been confirmed deeply. The channel will eventually be removed from this array."
+                    ]
+                  },
+                  "scratch_txid": {
+                    "type": "txid",
+                    "description": [
+                      "The txid we would use if we went onchain now."
+                    ]
+                  },
+                  "feerate": {
+                    "type": "object",
+                    "description": [
+                      "Feerates for the current tx."
+                    ],
+                    "additionalProperties": false,
+                    "required": [
+                      "perkw",
+                      "perkb"
+                    ],
+                    "properties": {
+                      "perkw": {
+                        "type": "u32",
+                        "description": [
+                          "Feerate per 1000 weight (i.e kSipa)."
+                        ]
+                      },
+                      "perkb": {
+                        "type": "u32",
+                        "description": [
+                          "Feerate per 1000 virtual bytes."
+                        ]
+                      }
+                    }
+                  },
+                  "owner": {
+                    "type": "string",
+                    "description": [
+                      "The current subdaemon controlling this connection."
+                    ]
+                  },
+                  "short_channel_id": {
+                    "type": "short_channel_id",
+                    "description": [
+                      "The short_channel_id (once locked in)."
+                    ]
+                  },
+                  "channel_id": {
+                    "type": "hash",
+                    "description": [
+                      "The full channel_id (funding txid Xored with output number)."
+                    ]
+                  },
+                  "funding_txid": {
+                    "type": "txid",
+                    "description": [
+                      "ID of the funding transaction."
+                    ]
+                  },
+                  "funding_outnum": {
+                    "type": "u32",
+                    "description": [
+                      "The 0-based output number of the funding transaction which opens the channel."
+                    ]
+                  },
+                  "initial_feerate": {
+                    "type": "string",
+                    "description": [
+                      "For inflight opens, the first feerate used to initiate the channel open."
+                    ]
+                  },
+                  "last_feerate": {
+                    "type": "string",
+                    "description": [
+                      "For inflight opens, the most recent feerate used on the channel open."
+                    ]
+                  },
+                  "next_feerate": {
+                    "type": "string",
+                    "description": [
+                      "For inflight opens, the next feerate we'll use for the channel open."
+                    ]
+                  },
+                  "next_fee_step": {
+                    "type": "u32",
+                    "description": [
+                      "For inflight opens, the next feerate step we'll use for the channel open."
+                    ]
+                  },
+                  "inflight": {
+                    "type": "array",
+                    "description": [
+                      "Current candidate funding transactions."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "funding_txid",
+                        "funding_outnum",
+                        "feerate",
+                        "total_funding_msat",
+                        "our_funding_msat",
+                        "splice_amount",
+                        "scratch_txid"
+                      ],
+                      "properties": {
+                        "funding_txid": {
+                          "type": "txid",
+                          "description": [
+                            "ID of the funding transaction."
+                          ]
+                        },
+                        "funding_outnum": {
+                          "type": "u32",
+                          "description": [
+                            "The 0-based output number of the funding transaction which opens the channel."
+                          ]
+                        },
+                        "feerate": {
+                          "type": "string",
+                          "description": [
+                            "The feerate for this funding transaction in per-1000-weight, with `kpw` appended."
+                          ]
+                        },
+                        "total_funding_msat": {
+                          "type": "msat",
+                          "description": [
+                            "Total amount in the channel."
+                          ]
+                        },
+                        "our_funding_msat": {
+                          "type": "msat",
+                          "description": [
+                            "Amount we have in the channel."
+                          ]
+                        },
+                        "splice_amount": {
+                          "type": "integer",
+                          "added": "v23.08",
+                          "description": [
+                            "The amouont of sats we're splicing in or out."
+                          ]
+                        },
+                        "scratch_txid": {
+                          "type": "txid",
+                          "description": [
+                            "The commitment transaction txid we would use if we went onchain now."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "close_to": {
+                    "type": "hex",
+                    "description": [
+                      "ScriptPubkey which we have to close to if we mutual close."
+                    ]
+                  },
+                  "private": {
+                    "type": "boolean",
+                    "description": [
+                      "If True, we will not announce this channel."
+                    ]
+                  },
+                  "opener": {
+                    "type": "string",
+                    "enum": [
+                      "local",
+                      "remote"
+                    ],
+                    "description": [
+                      "Who initiated the channel."
+                    ]
+                  },
+                  "closer": {
+                    "type": "string",
+                    "enum": [
+                      "local",
+                      "remote"
+                    ],
+                    "description": [
+                      "Who initiated the channel close (only present if closing)."
+                    ]
+                  },
+                  "features": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "option_static_remotekey",
+                        "option_anchor_outputs",
+                        "option_scid_alias",
+                        "option_zeroconf"
+                      ],
+                      "description": [
+                        "BOLT #9 features which apply to this channel."
+                      ]
+                    }
+                  },
+                  "funding": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "local_funds_msat",
+                      "remote_funds_msat"
+                    ],
+                    "properties": {
+                      "pushed_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount pushed from opener to peer."
+                        ]
+                      },
+                      "local_funds_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount of channel we funded."
+                        ]
+                      },
+                      "remote_funds_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount of channel they funded."
+                        ]
+                      },
+                      "fee_paid_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount we paid peer at open."
+                        ]
+                      },
+                      "fee_rcvd_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Amount we were paid by peer at open."
+                        ]
+                      }
+                    }
+                  },
+                  "to_us_msat": {
+                    "type": "msat",
+                    "description": [
+                      "How much of channel is owed to us."
+                    ]
+                  },
+                  "min_to_us_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Least amount owed to us ever. If the peer were to successfully steal from us, this is the amount we would still retain."
+                    ]
+                  },
+                  "max_to_us_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Most amount owed to us ever. If we were to successfully steal from the peer, this is the amount we could potentially get."
+                    ]
+                  },
+                  "total_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Total amount in the channel."
+                    ]
+                  },
+                  "fee_base_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Amount we charge to use the channel."
+                    ]
+                  },
+                  "fee_proportional_millionths": {
+                    "type": "u32",
+                    "description": [
+                      "Amount we charge to use the channel in parts-per-million."
+                    ]
+                  },
+                  "dust_limit_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Minimum amount for an output on the channel transactions."
+                    ]
+                  },
+                  "max_total_htlc_in_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Max amount accept in a single payment."
+                    ]
+                  },
+                  "their_reserve_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Minimum we insist they keep in channel. If they have less than this in the channel, they cannot send to us on that channel."
+                    ],
+                    "default": "1% of the total channel capacity"
+                  },
+                  "our_reserve_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Minimum they insist we keep in channel. If you have less than this in the channel, you cannot send out via this channel."
+                    ]
+                  },
+                  "spendable_msat": {
+                    "type": "msat",
+                    "description": [
+                      "An estimate of the total we could send through channel (can be wrong because adding HTLCs requires an increase in fees paid to onchain miners, and onchain fees change dynamically according to onchain activity)."
+                    ]
+                  },
+                  "receivable_msat": {
+                    "type": "msat",
+                    "description": [
+                      "An estimate of the total peer could send through channel."
+                    ]
+                  },
+                  "minimum_htlc_in_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The minimum amount HTLC we accept."
+                    ]
+                  },
+                  "minimum_htlc_out_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The minimum amount HTLC we will send."
+                    ]
+                  },
+                  "maximum_htlc_out_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The maximum amount HTLC we will send."
+                    ]
+                  },
+                  "their_to_self_delay": {
+                    "type": "u32",
+                    "description": [
+                      "The number of blocks before they can take their funds if they unilateral close."
+                    ]
+                  },
+                  "our_to_self_delay": {
+                    "type": "u32",
+                    "description": [
+                      "The number of blocks before we can take our funds if we unilateral close."
+                    ]
+                  },
+                  "max_accepted_htlcs": {
+                    "type": "u32",
+                    "description": [
+                      "Maximum number of incoming HTLC we will accept at once."
+                    ]
+                  },
+                  "alias": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {
+                      "local": {
+                        "type": "short_channel_id",
+                        "description": [
+                          "An alias assigned by this node to this channel, used for outgoing payments."
+                        ]
+                      },
+                      "remote": {
+                        "type": "short_channel_id",
+                        "description": [
+                          "An alias assigned by the remote node to this channel, usable in routehints and invoices."
+                        ]
+                      }
+                    }
+                  },
+                  "state_changes": {
+                    "type": "array",
+                    "description": [
+                      "Prior state changes."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "timestamp",
+                        "old_state",
+                        "new_state",
+                        "cause",
+                        "message"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "description": [
+                            "UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ."
+                          ]
+                        },
+                        "old_state": {
+                          "type": "string",
+                          "enum": [
+                            "OPENINGD",
+                            "CHANNELD_AWAITING_LOCKIN",
+                            "CHANNELD_NORMAL",
+                            "CHANNELD_SHUTTING_DOWN",
+                            "CLOSINGD_SIGEXCHANGE",
+                            "CLOSINGD_COMPLETE",
+                            "AWAITING_UNILATERAL",
+                            "FUNDING_SPEND_SEEN",
+                            "ONCHAIN",
+                            "DUALOPEND_OPEN_INIT",
+                            "DUALOPEND_AWAITING_LOCKIN",
+                            "DUALOPEND_OPEN_COMMITTED",
+                            "DUALOPEND_OPEN_COMMIT_READY"
+                          ],
+                          "description": [
+                            "Previous state."
+                          ]
+                        },
+                        "new_state": {
+                          "type": "string",
+                          "enum": [
+                            "OPENINGD",
+                            "CHANNELD_AWAITING_LOCKIN",
+                            "CHANNELD_NORMAL",
+                            "CHANNELD_SHUTTING_DOWN",
+                            "CLOSINGD_SIGEXCHANGE",
+                            "CLOSINGD_COMPLETE",
+                            "AWAITING_UNILATERAL",
+                            "FUNDING_SPEND_SEEN",
+                            "ONCHAIN",
+                            "DUALOPEND_OPEN_INIT",
+                            "DUALOPEND_AWAITING_LOCKIN",
+                            "DUALOPEND_OPEN_COMMITTED",
+                            "DUALOPEND_OPEN_COMMIT_READY"
+                          ],
+                          "description": [
+                            "New state."
+                          ]
+                        },
+                        "cause": {
+                          "type": "string",
+                          "enum": [
+                            "unknown",
+                            "local",
+                            "user",
+                            "remote",
+                            "protocol",
+                            "onchain"
+                          ],
+                          "description": [
+                            "What caused the change."
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": [
+                            "Human-readable explanation."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Billboard log of significant changes."
+                      ]
+                    }
+                  },
+                  "in_payments_offered": {
+                    "type": "u64",
+                    "description": [
+                      "Number of incoming payment attempts."
+                    ]
+                  },
+                  "in_offered_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Total amount of incoming payment attempts."
+                    ]
+                  },
+                  "in_payments_fulfilled": {
+                    "type": "u64",
+                    "description": [
+                      "Number of successful incoming payment attempts."
+                    ]
+                  },
+                  "in_fulfilled_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Total amount of successful incoming payment attempts."
+                    ]
+                  },
+                  "out_payments_offered": {
+                    "type": "u64",
+                    "description": [
+                      "Number of outgoing payment attempts."
+                    ]
+                  },
+                  "out_offered_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Total amount of outgoing payment attempts."
+                    ]
+                  },
+                  "out_payments_fulfilled": {
+                    "type": "u64",
+                    "description": [
+                      "Number of successful outgoing payment attempts."
+                    ]
+                  },
+                  "out_fulfilled_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Total amount of successful outgoing payment attempts."
+                    ]
+                  },
+                  "htlcs": {
+                    "type": "array",
+                    "description": [
+                      "Current HTLCs in this channel."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "required": [
+                        "direction",
+                        "id",
+                        "amount_msat",
+                        "expiry",
+                        "payment_hash",
+                        "state"
+                      ],
+                      "properties": {
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "in",
+                            "out"
+                          ],
+                          "description": [
+                            "Whether it came from peer, or is going to peer."
+                          ]
+                        },
+                        "id": {
+                          "type": "u64",
+                          "description": [
+                            "Unique ID for this htlc on this channel in this direction."
+                          ]
+                        },
+                        "amount_msat": {
+                          "type": "msat",
+                          "description": [
+                            "Amount send/received for this HTLC."
+                          ]
+                        },
+                        "expiry": {
+                          "type": "u32",
+                          "description": [
+                            "Block this HTLC expires at (after which an `in` direction HTLC will be returned to the peer, an `out` returned to us). If this expiry is too close, lightningd(8) will automatically unilaterally close the channel in order to enforce the timeout onchain."
+                          ]
+                        },
+                        "payment_hash": {
+                          "type": "hash",
+                          "description": [
+                            "The hash of the payment_preimage which will prove payment."
+                          ]
+                        },
+                        "local_trimmed": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ],
+                          "description": [
+                            "If this is too small to enforce onchain; it doesn't appear in the commitment transaction and will not be enforced in a unilateral close. Generally true if the HTLC (after subtracting onchain fees) is below the `dust_limit_msat` for the channel."
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": [
+                            "Set if this HTLC is currently waiting on a hook (and shows what plugin)."
+                          ]
+                        }
+                      },
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "direction": {
+                                "enum": [
+                                  "out"
+                                ]
+                              }
+                            }
+                          },
+                          "then": {
+                            "additionalProperties": false,
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "direction": {},
+                              "id": {},
+                              "amount_msat": {},
+                              "msatoshi": {},
+                              "expiry": {},
+                              "payment_hash": {},
+                              "local_trimmed": {},
+                              "status": {},
+                              "alias": {},
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "SENT_ADD_HTLC",
+                                  "SENT_ADD_COMMIT",
+                                  "RCVD_ADD_REVOCATION",
+                                  "RCVD_ADD_ACK_COMMIT",
+                                  "SENT_ADD_ACK_REVOCATION",
+                                  "RCVD_REMOVE_HTLC",
+                                  "RCVD_REMOVE_COMMIT",
+                                  "SENT_REMOVE_REVOCATION",
+                                  "SENT_REMOVE_ACK_COMMIT",
+                                  "RCVD_REMOVE_ACK_REVOCATION"
+                                ],
+                                "description": [
+                                  "Status of the HTLC."
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "if": {
+                            "properties": {
+                              "direction": {
+                                "enum": [
+                                  "in"
+                                ]
+                              }
+                            }
+                          },
+                          "then": {
+                            "additionalProperties": false,
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "direction": {},
+                              "id": {},
+                              "amount_msat": {},
+                              "msatoshi": {},
+                              "expiry": {},
+                              "payment_hash": {},
+                              "local_trimmed": {},
+                              "status": {},
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "RCVD_ADD_HTLC",
+                                  "RCVD_ADD_COMMIT",
+                                  "SENT_ADD_REVOCATION",
+                                  "SENT_ADD_ACK_COMMIT",
+                                  "RCVD_ADD_ACK_REVOCATION",
+                                  "SENT_REMOVE_HTLC",
+                                  "SENT_REMOVE_COMMIT",
+                                  "RCVD_REMOVE_REVOCATION",
+                                  "RCVD_REMOVE_ACK_COMMIT",
+                                  "SENT_REMOVE_ACK_REVOCATION"
+                                ],
+                                "description": [
+                                  "Status of the HTLC."
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "close_to"
+                      ]
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [],
+                      "properties": {
+                        "state": {},
+                        "scratch_txid": {},
+                        "feerate": {},
+                        "owner": {},
+                        "short_channel_id": {},
+                        "channel_id": {},
+                        "funding_txid": {},
+                        "funding_outnum": {},
+                        "close_to": {},
+                        "private": {},
+                        "alias": {},
+                        "opener": {},
+                        "closer": {},
+                        "features": {},
+                        "funding": {},
+                        "to_us_msat": {},
+                        "min_to_us_msat": {},
+                        "max_to_us_msat": {},
+                        "total_msat": {},
+                        "fee_base_msat": {},
+                        "fee_proportional_millionths": {},
+                        "dust_limit_msat": {},
+                        "max_total_htlc_in_msat": {},
+                        "their_reserve_msat": {},
+                        "our_reserve_msat": {},
+                        "spendable_msat": {},
+                        "receivable_msat": {},
+                        "minimum_htlc_in_msat": {},
+                        "minimum_htlc_out_msat": {},
+                        "maximum_htlc_out_msat": {},
+                        "spendable_msatoshi": {},
+                        "receivable_msatoshi": {},
+                        "their_to_self_delay": {},
+                        "our_to_self_delay": {},
+                        "max_accepted_htlcs": {},
+                        "msatoshi_to_us": {},
+                        "msatoshi_to_us_min": {},
+                        "msatoshi_to_us_max": {},
+                        "msatoshi_total": {},
+                        "dust_limit_satoshis": {},
+                        "max_htlc_value_in_flight_msat": {},
+                        "our_channel_reserve_satoshis": {},
+                        "their_channel_reserve_satoshis": {},
+                        "spendable_satoshis": {},
+                        "receivable_satoshis": {},
+                        "htlc_minimum_msat": {},
+                        "state_changes": {},
+                        "status": {},
+                        "in_payments_offered": {},
+                        "in_offered_msat": {},
+                        "in_msatoshi_offered": {},
+                        "in_payments_fulfilled": {},
+                        "in_fulfilled_msat": {},
+                        "in_msatoshi_fulfilled": {},
+                        "out_payments_offered": {},
+                        "out_offered_msat": {},
+                        "out_msatoshi_offered": {},
+                        "out_payments_fulfilled": {},
+                        "out_fulfilled_msat": {},
+                        "out_msatoshi_fulfilled": {},
+                        "htlcs": {},
+                        "initial_feerate": {},
+                        "last_feerate": {},
+                        "next_feerate": {},
+                        "inflight": {},
+                        "last_tx_fee_msat": {},
+                        "direction": {},
+                        "close_to_addr": {
+                          "type": "string",
+                          "description": [
+                            "The bitcoin address we will close to (present if close_to_addr is a standardized address)."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "scratch_txid"
+                      ]
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [
+                        "last_tx_fee_msat"
+                      ],
+                      "properties": {
+                        "state": {},
+                        "alias": {},
+                        "scratch_txid": {},
+                        "feerate": {},
+                        "owner": {},
+                        "short_channel_id": {},
+                        "channel_id": {},
+                        "funding_txid": {},
+                        "funding_outnum": {},
+                        "inflight": {},
+                        "close_to": {},
+                        "private": {},
+                        "opener": {},
+                        "closer": {},
+                        "features": {},
+                        "funding": {},
+                        "to_us_msat": {},
+                        "min_to_us_msat": {},
+                        "max_to_us_msat": {},
+                        "total_msat": {},
+                        "fee_base_msat": {},
+                        "fee_proportional_millionths": {},
+                        "dust_limit_msat": {},
+                        "max_total_htlc_in_msat": {},
+                        "their_reserve_msat": {},
+                        "our_reserve_msat": {},
+                        "spendable_msat": {},
+                        "receivable_msat": {},
+                        "minimum_htlc_in_msat": {},
+                        "minimum_htlc_out_msat": {},
+                        "maximum_htlc_out_msat": {},
+                        "spendable_msatoshi": {},
+                        "receivable_msatoshi": {},
+                        "their_to_self_delay": {},
+                        "our_to_self_delay": {},
+                        "max_accepted_htlcs": {},
+                        "msatoshi_to_us": {},
+                        "msatoshi_to_us_min": {},
+                        "msatoshi_to_us_max": {},
+                        "msatoshi_total": {},
+                        "dust_limit_satoshis": {},
+                        "max_htlc_value_in_flight_msat": {},
+                        "our_channel_reserve_satoshis": {},
+                        "their_channel_reserve_satoshis": {},
+                        "spendable_satoshis": {},
+                        "receivable_satoshis": {},
+                        "htlc_minimum_msat": {},
+                        "state_changes": {},
+                        "status": {},
+                        "in_payments_offered": {},
+                        "in_offered_msat": {},
+                        "in_msatoshi_offered": {},
+                        "in_payments_fulfilled": {},
+                        "in_fulfilled_msat": {},
+                        "in_msatoshi_fulfilled": {},
+                        "out_payments_offered": {},
+                        "out_offered_msat": {},
+                        "out_msatoshi_offered": {},
+                        "out_payments_fulfilled": {},
+                        "out_fulfilled_msat": {},
+                        "out_msatoshi_fulfilled": {},
+                        "htlcs": {},
+                        "initial_feerate": {},
+                        "last_feerate": {},
+                        "next_feerate": {},
+                        "close_to_addr": {},
+                        "direction": {},
+                        "last_tx_fee_msat": {
+                          "type": "msat",
+                          "description": [
+                            "Fee attached to this the current tx."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "short_channel_id"
+                      ]
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [
+                        "direction"
+                      ],
+                      "properties": {
+                        "alias": {},
+                        "state": {},
+                        "scratch_txid": {},
+                        "feerate": {},
+                        "owner": {},
+                        "short_channel_id": {},
+                        "channel_id": {},
+                        "funding_txid": {},
+                        "funding_outnum": {},
+                        "inflight": {},
+                        "close_to": {},
+                        "private": {},
+                        "opener": {},
+                        "closer": {},
+                        "features": {},
+                        "funding": {},
+                        "to_us_msat": {},
+                        "min_to_us_msat": {},
+                        "max_to_us_msat": {},
+                        "total_msat": {},
+                        "fee_base_msat": {},
+                        "fee_proportional_millionths": {},
+                        "dust_limit_msat": {},
+                        "max_total_htlc_in_msat": {},
+                        "their_reserve_msat": {},
+                        "our_reserve_msat": {},
+                        "spendable_msat": {},
+                        "receivable_msat": {},
+                        "minimum_htlc_in_msat": {},
+                        "minimum_htlc_out_msat": {},
+                        "maximum_htlc_out_msat": {},
+                        "spendable_msatoshi": {},
+                        "receivable_msatoshi": {},
+                        "their_to_self_delay": {},
+                        "our_to_self_delay": {},
+                        "max_accepted_htlcs": {},
+                        "msatoshi_to_us": {},
+                        "msatoshi_to_us_min": {},
+                        "msatoshi_to_us_max": {},
+                        "msatoshi_total": {},
+                        "dust_limit_satoshis": {},
+                        "max_htlc_value_in_flight_msat": {},
+                        "our_channel_reserve_satoshis": {},
+                        "their_channel_reserve_satoshis": {},
+                        "spendable_satoshis": {},
+                        "receivable_satoshis": {},
+                        "htlc_minimum_msat": {},
+                        "state_changes": {},
+                        "status": {},
+                        "in_payments_offered": {},
+                        "in_offered_msat": {},
+                        "in_msatoshi_offered": {},
+                        "in_payments_fulfilled": {},
+                        "in_fulfilled_msat": {},
+                        "in_msatoshi_fulfilled": {},
+                        "out_payments_offered": {},
+                        "out_offered_msat": {},
+                        "out_msatoshi_offered": {},
+                        "out_payments_fulfilled": {},
+                        "out_fulfilled_msat": {},
+                        "out_msatoshi_fulfilled": {},
+                        "htlcs": {},
+                        "initial_feerate": {},
+                        "last_feerate": {},
+                        "next_feerate": {},
+                        "close_to_addr": {},
+                        "last_tx_fee_msat": {},
+                        "direction": {
+                          "type": "u32",
+                          "description": [
+                            "0 if we're the lesser node_id, 1 if we're the greater (as used in BOLT #7 channel_update)."
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "inflight"
+                      ]
+                    },
+                    "then": {
+                      "additionalProperties": false,
+                      "required": [
+                        "initial_feerate",
+                        "last_feerate",
+                        "next_feerate"
+                      ],
+                      "properties": {
+                        "state": {},
+                        "scratch_txid": {},
+                        "feerate": {},
+                        "owner": {},
+                        "alias": {},
+                        "short_channel_id": {},
+                        "channel_id": {},
+                        "funding_txid": {},
+                        "funding_outnum": {},
+                        "close_to": {},
+                        "private": {},
+                        "opener": {},
+                        "closer": {},
+                        "features": {},
+                        "funding": {},
+                        "to_us_msat": {},
+                        "min_to_us_msat": {},
+                        "max_to_us_msat": {},
+                        "total_msat": {},
+                        "fee_base_msat": {},
+                        "fee_proportional_millionths": {},
+                        "dust_limit_msat": {},
+                        "max_total_htlc_in_msat": {},
+                        "their_reserve_msat": {},
+                        "our_reserve_msat": {},
+                        "spendable_msat": {},
+                        "receivable_msat": {},
+                        "minimum_htlc_in_msat": {},
+                        "minimum_htlc_out_msat": {},
+                        "maximum_htlc_out_msat": {},
+                        "spendable_msatoshi": {},
+                        "receivable_msatoshi": {},
+                        "their_to_self_delay": {},
+                        "our_to_self_delay": {},
+                        "max_accepted_htlcs": {},
+                        "msatoshi_to_us": {},
+                        "msatoshi_to_us_min": {},
+                        "msatoshi_to_us_max": {},
+                        "msatoshi_total": {},
+                        "dust_limit_satoshis": {},
+                        "max_htlc_value_in_flight_msat": {},
+                        "our_channel_reserve_satoshis": {},
+                        "their_channel_reserve_satoshis": {},
+                        "spendable_satoshis": {},
+                        "receivable_satoshis": {},
+                        "htlc_minimum_msat": {},
+                        "state_changes": {},
+                        "status": {},
+                        "in_payments_offered": {},
+                        "in_offered_msat": {},
+                        "in_msatoshi_offered": {},
+                        "in_payments_fulfilled": {},
+                        "in_fulfilled_msat": {},
+                        "in_msatoshi_fulfilled": {},
+                        "out_payments_offered": {},
+                        "out_offered_msat": {},
+                        "out_msatoshi_offered": {},
+                        "out_payments_fulfilled": {},
+                        "out_fulfilled_msat": {},
+                        "out_msatoshi_fulfilled": {},
+                        "htlcs": {},
+                        "inflight": {},
+                        "close_to_addr": {},
+                        "direction": {},
+                        "last_tx_fee_msat": {},
+                        "initial_feerate": {
+                          "type": "string",
+                          "description": [
+                            "The feerate for the initial funding transaction in per-1000-weight, with `kpw` appended."
+                          ]
+                        },
+                        "last_feerate": {
+                          "type": "string",
+                          "description": [
+                            "The feerate for the latest funding transaction in per-1000-weight, with `kpw` appended."
+                          ]
+                        },
+                        "next_feerate": {
+                          "type": "string",
+                          "description": [
+                            "The minimum feerate for the next funding transaction in per-1000-weight, with `kpw` appended."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "connected": {
+                    "enum": [
+                      true
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "netaddr",
+                  "features"
+                ],
+                "properties": {
+                  "id": {},
+                  "channels": {},
+                  "connected": {},
+                  "num_channels": {},
+                  "htlcs": {},
+                  "log": {},
+                  "netaddr": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "description": [
+                      "A single entry array."
+                    ],
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Address, e.g. 1.2.3.4:1234."
+                      ]
+                    }
+                  },
+                  "remote_addr": {
+                    "type": "string",
+                    "description": [
+                      "The public IPv4/6 address the peer sees us from, e.g. 1.2.3.4:1234."
+                    ]
+                  },
+                  "features": {
+                    "type": "hex",
+                    "description": [
+                      "Bitmap of BOLT #9 features from peer's INIT message."
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:listpeers#1",
+      "method": "listpeers",
+      "params": {
+        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "level": null
+      }
+    },
+    {
+      "id": "example:listpeers#2",
+      "method": "listpeers",
+      "params": {
+        "id": null,
+        "level": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "peers": [
+        {
+          "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "connected": true,
+          "num_channels": 1,
+          "netaddr": [
+            "127.0.0.1:44619"
+          ],
+          "features": "08a0000a0a69a2"
+        }
+      ]
+    },
+    {
+      "peers": [
+        {
+          "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "connected": true,
+          "num_channels": 1,
+          "netaddr": [
+            "127.0.0.1:48862"
+          ],
+          "features": "08a0000a0a69a2"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+  ],
+  "see_also": [
+    "lightning-connect(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-setchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "Lightning RFC site (BOLT #9):",
+    "<https://github.com/lightning/bolts/blob/master/09-features.md>"
+  ]
+}

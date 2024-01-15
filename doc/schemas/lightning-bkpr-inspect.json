@@ -1,0 +1,238 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "bkpr-inspect",
+  "title": "Command to show onchain footprint of a channel",
+  "description": [
+    "The **bkpr-inspect** RPC command lists all known on-chain transactions and associated events for the provided account. Useful for inspecting unilateral closes for a given channel account. Only valid for channel accounts."
+  ],
+  "request": {
+    "required": [
+      "account"
+    ],
+    "properties": {
+      "account": {
+        "type": "string",
+        "description": [
+          "Channel account to inspect."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "txs"
+    ],
+    "properties": {
+      "txs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "txid",
+            "fees_paid_msat",
+            "outputs"
+          ],
+          "properties": {
+            "txid": {
+              "type": "txid",
+              "description": [
+                "Transaction id."
+              ]
+            },
+            "blockheight": {
+              "type": "u32",
+              "description": [
+                "Blockheight of transaction."
+              ]
+            },
+            "fees_paid_msat": {
+              "type": "msat",
+              "description": [
+                "Amount paid in sats for this tx."
+              ]
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "account",
+                  "outnum",
+                  "output_value_msat",
+                  "currency"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "account": {
+                    "type": "string",
+                    "description": [
+                      "Account this output affected."
+                    ]
+                  },
+                  "outnum": {
+                    "type": "u32",
+                    "description": [
+                      "Index of output."
+                    ]
+                  },
+                  "output_value_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Value of the output."
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "description": [
+                      "Human-readable bech32 part for this coin type."
+                    ]
+                  },
+                  "credit_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Amount credited to account."
+                    ]
+                  },
+                  "debit_msat": {
+                    "type": "msat",
+                    "description": [
+                      "Amount debited from account."
+                    ]
+                  },
+                  "originating_account": {
+                    "type": "string",
+                    "description": [
+                      "Account this output originated from."
+                    ]
+                  },
+                  "output_tag": {
+                    "type": "string",
+                    "description": [
+                      "Description of output creation event."
+                    ]
+                  },
+                  "spend_tag": {
+                    "type": "string",
+                    "description": [
+                      "Description of output spend event."
+                    ]
+                  },
+                  "spending_txid": {
+                    "type": "txid",
+                    "description": [
+                      "Transaction this output was spent in."
+                    ]
+                  },
+                  "payment_id": {
+                    "type": "hex",
+                    "description": [
+                      "Lightning payment identifier. For an htlc, this will be the preimage."
+                    ]
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "credit_msat"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "output_tag"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {},
+                        "outnum": {},
+                        "output_value_msat": {},
+                        "currency": {},
+                        "credit_msat": {},
+                        "originating_account": {},
+                        "debit_msat": {},
+                        "output_tag": {},
+                        "spend_tag": {},
+                        "spending_txid": {},
+                        "payment_id": {}
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "spending_txid"
+                      ]
+                    },
+                    "then": {
+                      "required": [
+                        "spend_tag",
+                        "debit_msat"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {},
+                        "outnum": {},
+                        "output_value_msat": {},
+                        "currency": {},
+                        "credit_msat": {},
+                        "originating_account": {},
+                        "debit_msat": {},
+                        "output_tag": {},
+                        "spend_tag": {},
+                        "spending_txid": {},
+                        "payment_id": {}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:bkpr-inspect#1",
+      "method": "bkpr-inspect",
+      "params": [
+        "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "txs": [
+        {
+          "txid": "abb283035e569c190696d42a1208bb38ddc64b6377e88f2d6277c01eab7b0af3",
+          "fees_paid_msat": 0,
+          "outputs": [
+            {
+              "account": "f30a7bab1ec077622d8fe877634bc6dd38bb08122ad49606199c565e0383b2ab",
+              "outnum": 0,
+              "output_tag": "channel_proposed",
+              "output_value_msat": 996363000,
+              "credit_msat": 996363000,
+              "currency": "bcrt"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listbalances(7)",
+    "lightning-listfunds(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

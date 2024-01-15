@@ -1,0 +1,444 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "sendpay",
+  "title": "Low-level command for sending a payment via a route",
+  "description": [
+    "The **sendpay** RPC command attempts to send funds associated with the given *payment_hash*, along a route to the final destination in the route.",
+    "",
+    "Generally, a client would call lightning-getroute(7) to resolve a route, then use **sendpay** to send it. If it fails, it would call lightning-getroute(7) again to retry. If the route is empty, a payment-to-self is attempted.",
+    "",
+    "The response will occur when the payment is on its way to the destination. The **sendpay** RPC command does not wait for definite success or definite failure of the payment (except for already-succeeded payments, or to-self payments). Instead, use the **waitsendpay** RPC command to poll or wait for definite success or definite failure.",
+    "",
+    "Once a payment has succeeded, calls to **sendpay** with the same *payment_hash* but a different *amount_msat* or destination will fail; this prevents accidental multiple payments. Calls to **sendpay** with the same *payment_hash*, *amount_msat*, and destination as a previous successful payment (even if a different route or *partid*) will return immediately with success."
+  ],
+  "request": {
+    "required": [
+      "route",
+      "payment_hash"
+    ],
+    "properties": {
+      "route": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "amount_msat",
+            "id",
+            "delay",
+            "channel"
+          ],
+          "properties": {
+            "id": {
+              "type": "pubkey",
+              "description": [
+                "The node at the end of this hop."
+              ]
+            },
+            "channel": {
+              "type": "short_channel_id",
+              "description": [
+                "The channel joining these nodes."
+              ]
+            },
+            "delay": {
+              "type": "u32",
+              "description": [
+                "The total CLTV expected by the node at the end of this hop."
+              ]
+            },
+            "amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount expected by the node at the end of this hop."
+              ]
+            }
+          }
+        }
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the payment_preimage."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The label provided when creating the invoice_request."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "Amount must be provided if *partid* is non-zero, or the payment is to-self, otherwise it must be equal to the final amount to the destination. it can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
+        ],
+        "default": "in millisatoshi precision"
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "Bolt11 invoice to pay. If provided, will be returned in *waitsendpay* and *listsendpays* results."
+        ]
+      },
+      "payment_secret": {
+        "type": "secret",
+        "description": [
+          "Value that the final recipient requires to accept the payment, as defined by the `payment_data` field in BOLT 4 and the `s` field in the BOLT 11 invoice format. It is required if *partid* is non-zero."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "Must not be provided for self-payments. If provided and non-zero, allows for multiple parallel partial payments with the same *payment_hash*. The *amount_msat* amount (which must be provided) for each **sendpay** with matching *payment_hash* must be equal, and **sendpay** will fail if there are differing values given."
+        ]
+      },
+      "localinvreqid": {
+        "type": "hex",
+        "description": [
+          "Indicates that this payment is being made for a local invoice_request. This ensures that we only send a payment for a single-use invoice_request once."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Allows you to attach a number which appears in **listsendpays** so payments can be identified as part of a logical group. The *pay* plugin uses this to identify one attempt at a MPP payment, for example."
+        ]
+      },
+      "payment_metadata": {
+        "added": "v0.11.0",
+        "type": "hex",
+        "description": [
+          "Placed in the final onion hop TLV."
+        ]
+      },
+      "description": {
+        "added": "v0.11.0",
+        "type": "string",
+        "description": [
+          "Description used in the invoice."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "id",
+      "created_index",
+      "payment_hash",
+      "status",
+      "created_at",
+      "amount_sent_msat"
+    ],
+    "properties": {
+      "created_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was created in."
+        ]
+      },
+      "updated_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+        ]
+      },
+      "id": {
+        "type": "u64",
+        "description": [
+          "Old synonym for created_index."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "complete"
+        ],
+        "description": [
+          "Status of the payment (could be complete if already sent previously)."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount delivered to destination (if known)."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "The final destination of the payment if known."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "completed_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp showing when this payment was completed."
+        ]
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "description": [
+          "The amount sent."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The *label*, if given to sendpay."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The *partid*, if given to sendpay."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "The bolt11 string (if supplied)."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 string (if supplied: **experimental-offers** only)."
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "payment_preimage"
+          ],
+          "properties": {
+            "id": {},
+            "created_index": {},
+            "updated_index": {},
+            "groupid": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "completed_at": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "partid": {},
+            "bolt11": {},
+            "bolt12": {},
+            "payment_preimage": {
+              "type": "secret",
+              "description": [
+                "The proof of payment: SHA256 of this **payment_hash**."
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "id": {},
+            "created_index": {},
+            "updated_index": {},
+            "groupid": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "completed_at": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "partid": {},
+            "bolt11": {},
+            "bolt12": {},
+            "message": {
+              "type": "string",
+              "description": [
+                "Monitor status with listpays or waitsendpay."
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "errors": [
+    "On error, if the error occurred from a node other than the final destination, the route table will be updated so that lightning-getroute(7) should return an alternate route (if any). An error from the final destination implies the payment should not be retried.",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 201: Already paid with this *hash* using different amount or destination.",
+    "- 202: Unparseable onion reply. The *data* field of the error will have an *onionreply* field, a hex string representation of the raw onion reply.",
+    "- 203: Permanent failure at destination. The *data* field of the error will be routing failure object.",
+    "- 204: Failure along route; retry a different route. The *data* field of the error will be routing failure object.",
+    "- 212: *localinvreqid* refers to an invalid, or used, local invoice_request.",
+    "",
+    "A routing failure object has the fields below:",
+    "",
+    "*erring_index*: The index of the node along the route that reported the error. 0 for the local node, 1 for the first hop, and so on.",
+    "*erring_node*: The hex string of the pubkey id of the node that reported the error.",
+    "*erring_channel*: The short channel ID of the channel that has the error, or *0:0:0* if the destination node raised the error. In addition *erring_direction* will indicate which direction of the channel caused the failure.",
+    "*failcode*: The failure code, as per BOLT #4.",
+    "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the UPDATE bit set, as per BOLT #4."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:sendpay#1",
+      "method": "sendpay",
+      "params": {
+        "route": [
+          {
+            "amount_msat": 11000000,
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "delay": 5,
+            "channel": "103x1x0"
+          }
+        ],
+        "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+        "label": null,
+        "amount_msat": null,
+        "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
+        "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
+        "partid": null,
+        "groupid": null,
+        "payment_metadata": null
+      }
+    },
+    {
+      "id": "example:sendpay#2",
+      "method": "sendpay",
+      "params": {
+        "route": [
+          {
+            "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "channel": "103x1x0",
+            "direction": 1,
+            "amount_msat": 4211,
+            "style": "tlv",
+            "delay": 24
+          },
+          {
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel": "105x1x0",
+            "direction": 0,
+            "amount_msat": 3710,
+            "style": "tlv",
+            "delay": 16
+          },
+          {
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "channel": "107x1x0",
+            "direction": 1,
+            "amount_msat": 3210,
+            "style": "tlv",
+            "delay": 8
+          }
+        ],
+        "payment_hash": "bc747053329402620a26bdc187cd134cdb699130d85be499ecd24160aff04c5c",
+        "label": null,
+        "amount_msat": null,
+        "bolt11": null,
+        "payment_secret": "c36a2fe9aced78c06960e2f21b369ed03f0492c97e53ba3b662163bcdaf1d7fa",
+        "partid": null,
+        "groupid": null,
+        "payment_metadata": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "message": "Monitor status with listpays or waitsendpay",
+      "created_index": 1,
+      "id": 1,
+      "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+      "groupid": 1,
+      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "amount_msat": 11000000,
+      "amount_sent_msat": 11000000,
+      "created_at": 1706152930,
+      "status": "pending",
+      "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
+    },
+    {
+      "message": "Monitor status with listpays or waitsendpay",
+      "created_index": 2,
+      "id": 2,
+      "payment_hash": "bc747053329402620a26bdc187cd134cdb699130d85be499ecd24160aff04c5c",
+      "groupid": 1,
+      "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+      "amount_msat": 3210,
+      "amount_sent_msat": 4211,
+      "created_at": 1708624260,
+      "status": "pending"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listinvoice(7)",
+    "lightning-delinvoice(7)",
+    "lightning-getroute(7)",
+    "lightning-invoice(7)",
+    "lightning-pay(7)",
+    "lightning-waitsendpay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

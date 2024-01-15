@@ -1,0 +1,285 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "openchannel_init",
+  "title": "Command to initiate a channel to a peer",
+  "description": [
+    "`openchannel_init` is a low level RPC command which initiates a channel open with a specified peer. It uses the openchannel protocol which allows for interactive transaction construction."
+  ],
+  "request": {
+    "required": [
+      "id",
+      "amount",
+      "initialpsbt"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "Node id of the remote peer."
+        ]
+      },
+      "amount": {
+        "type": "sat",
+        "description": [
+          "Satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel."
+        ]
+      },
+      "initialpsbt": {
+        "type": "string",
+        "description": [
+          "Funded, incomplete PSBT that specifies the UTXOs and change output for our channel contribution. It can be updated, see `openchannel_update`; *initialpsbt* must have at least one input. Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for every input. An error (code 309) will be returned if this requirement is not met."
+        ]
+      },
+      "commitment_feerate": {
+        "type": "feerate",
+        "description": [
+          "Feerate for commitment transactions for non-anchor channels: see **fundchannel**. For anchor channels, it is ignored."
+        ]
+      },
+      "funding_feerate": {
+        "type": "feerate",
+        "description": [
+          "Feerate for the funding transaction."
+        ],
+        "default": "'opening' feerate"
+      },
+      "announce": {
+        "type": "boolean",
+        "description": [
+          "Whether or not to announce this channel."
+        ]
+      },
+      "close_to": {
+        "type": "string",
+        "description": [
+          "Bitcoin address to which the channel funds should be sent on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`."
+        ]
+      },
+      "request_amt": {
+        "type": "msat",
+        "description": [
+          "An amount of liquidity you'd like to lease from the peer. If peer supports `option_will_fund`, indicates to them to include this much liquidity into the channel. Must also pass in *compact_lease*."
+        ]
+      },
+      "compact_lease": {
+        "type": "hex",
+        "description": [
+          "A compact representation of the peer's expected channel lease terms. If the peer's terms don't match this set, we will fail to open the channel."
+        ]
+      },
+      "channel_type": {
+        "type": "array",
+        "description": [
+          "Each bit set in this channel_type."
+        ],
+        "items": {
+          "type": "u32",
+          "description": [
+            "Bit number."
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channel_id",
+      "psbt",
+      "channel_type",
+      "commitments_secured",
+      "funding_serial"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the channel."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The (incomplete) PSBT of the funding transaction."
+        ]
+      },
+      "channel_type": {
+        "type": "object",
+        "description": [
+          "Channel_type as negotiated with peer."
+        ],
+        "added": "v24.02",
+        "additionalProperties": false,
+        "required": [
+          "bits",
+          "names"
+        ],
+        "properties": {
+          "bits": {
+            "type": "array",
+            "description": [
+              "Each bit set in this channel_type."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "u32",
+              "description": [
+                "Bit number."
+              ]
+            }
+          },
+          "names": {
+            "type": "array",
+            "description": [
+              "Feature name for each bit set in this channel_type."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "string",
+              "enum": [
+                "static_remotekey/even",
+                "anchor_outputs/even",
+                "anchors_zero_fee_htlc_tx/even",
+                "scid_alias/even",
+                "zeroconf/even"
+              ],
+              "description": [
+                "Name of feature bit."
+              ]
+            }
+          }
+        }
+      },
+      "commitments_secured": {
+        "type": "boolean",
+        "enum": [
+          false
+        ],
+        "description": [
+          "Whether the *psbt* is complete."
+        ]
+      },
+      "funding_serial": {
+        "type": "u64",
+        "description": [
+          "The serial_id of the funding output in the *psbt*."
+        ]
+      },
+      "requires_confirmed_inputs": {
+        "type": "boolean",
+        "description": [
+          "Does peer require confirmed inputs in psbt?"
+        ]
+      }
+    },
+    "post_return_value_notes": [
+      "If the peer does not support `option_dual_fund`, this command will return an error.",
+      "",
+      "If you sent a *request_amt* and the peer supports `option_will_fund` and is interested in leasing you liquidity in this channel, returns their updated channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*), updated rate card for the lease fee (*lease_fee_proportional_basis*, *lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will be added to the lease fee at a rate of *funding_feerate* * *weight_charge* / 1000."
+    ]
+  },
+  "example_json_request": [
+    {
+      "id": "example:openchannel_init#1",
+      "method": "openchannel_init",
+      "params": {
+        "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "amount": 999000,
+        "initialpsbt": "cHNidP8BADMCAAAAAYbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQAAAAD9////AGYAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
+        "commitment_feerate": null,
+        "funding_feerate": null,
+        "announce": true,
+        "close_to": null,
+        "request_amt": null,
+        "channel_type": [
+          12,
+          22
+        ]
+      }
+    },
+    {
+      "id": "example:openchannel_init#2",
+      "method": "openchannel_init",
+      "params": {
+        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "amount": 16777216,
+        "initialpsbt": "cHNidP8BADMCAAAAAQVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAAAAAAD9////AGYAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQA=",
+        "commitment_feerate": null,
+        "funding_feerate": null,
+        "announce": true,
+        "close_to": null,
+        "request_amt": null,
+        "channel_type": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "channel_id": "53fa2b1ca0d8f21abeaaac0495ab9925cdfaf2ca8b04dbe4aeb061823e1ff2c8",
+      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABARVD4QKlmwy8SNcNypf1o9TzbIFZjj4dqVzHAL0SLDoTAAAAAAD9////AjOv9ikBAAAAFgAUXJGglH7At5HOVY4ZHp0+19kv655AQg8AAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgVIxRXqIykOOxm/6YPaFFx2Qh1618qlXPUhDiliVQ2KUCIHQcHniUTcm1XT8SyRE8ev52jm0uiIYum15XcR/tPh+NASEC3Pby7xL4+Ig/Z8TchQ0QT1upLGet3da8qjSjgHO9LOJlAAAAAQEfQEIPAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIIbThUhSzYr7ph6Z434bdcW7eoirYOFMmUt2GXZ79sF/AQ8EAQAAAAEQBP3///8M/AlsaWdodG5pbmcBCMCDK/6LyRi8AAEDCFg+DwAAAAAAAQQiACDYM+8ZRsbTj0OCG/yzqLt2buFQn9LuMPDZqFFcgmCmfAz8CWxpZ2h0bmluZwEIchtFHfZ5FBgA",
+      "channel_type": {
+        "bits": [
+          12,
+          22
+        ],
+        "names": [
+          "static_remotekey/even",
+          "anchors_zero_fee_htlc_tx/even"
+        ]
+      },
+      "commitments_secured": false,
+      "funding_serial": 8222241539686471000,
+      "requires_confirmed_inputs": false
+    },
+    {
+      "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+      "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQEBAQYBAwH7BAIAAAAAAQDeAgAAAAABAdWZZguGlQJ1eA+d7WAT500jdCzHJWT9J/TGQIkbS1KfAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFE8Xxp4GJggW2lJcsHg0VLolc/Z/AkcwRAIgEQLtA2JvAk7S1R9QD5o4SVNXCjMwTUIyHtu65taC/d4CIEnpq2PdrqKqitdmZj09U8cFuwV+Ba9kmZSUsctSWx8CASECUKP6EBufpaBXT910uYhCcKdw9z8iqHgyKa3uuX2QgmVlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIAVmgyf8sA3N9J6XaH5z7W+GUPDFOM/2L/PuD7iE0RaqAQ8EAAAAAAEQBP3///8M/AlsaWdodG5pbmcBCLR8RjOq9lmcAAEDCAAAAAEAAAAAAQQiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzQz8CWxpZ2h0bmluZwEIZZtc7LD4y9YA",
+      "channel_type": {
+        "bits": [
+          12,
+          22
+        ],
+        "names": [
+          "static_remotekey/even",
+          "anchors_zero_fee_htlc_tx/even"
+        ]
+      },
+      "commitments_secured": false,
+      "funding_serial": 7321547790872006000,
+      "requires_confirmed_inputs": false
+    }
+  ],
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 300: The amount exceeded the maximum configured funding amount.",
+    "- 301: The provided PSBT cannot afford the funding amount.",
+    "- 304: Still syncing with bitcoin network",
+    "- 305: Peer is not connected.",
+    "- 306: Unknown peer id.",
+    "- 309: PSBT missing required fields",
+    "- 310: v2 channel open protocol not supported by peer",
+    "- 312: Channel in an invalid state"
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-openchannel_update(7)",
+    "lightning-openchannel_signed(7)",
+    "lightning-openchannel_abort(7)",
+    "lightning-openchannel_bump(7)",
+    "lightning-fundchannel_start(7)",
+    "lightning-fundchannel_complete(7)",
+    "lightning-fundchannel(7)",
+    "lightning-fundpsbt(7)",
+    "lightning-utxopsbt(7)",
+    "lightning-multifundchannel(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

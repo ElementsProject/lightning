@@ -1,0 +1,72 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "recover",
+  "title": "Reinitialize Your Node for Recovery",
+  "description": [
+    "The **recover** RPC command wipes your node and restarts it with the `--recover` option. This is only permitted if the node is unused: no channels, no bitcoin addresses issued (you can use `check` to see if recovery is possible).",
+    "",
+    "*hsmsecret* is either a codex32 secret starting with \"cl1\" as returned by `hsmtool getcodexsecret`, or a raw 64 character hex string.",
+    "",
+    "NOTE: this command only currently works with the `sqlite3` database backend."
+  ],
+  "request": {
+    "required": [
+      "hsmsecret"
+    ],
+    "properties": {
+      "hsmsecret": {
+        "type": "string",
+        "description": [
+          "Either a codex32 secret starting with `cl1` as returned by `hsmtool getcodexsecret`, or a raw 64 character hex string."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "added": "v24.05",
+        "enum": [
+          "Recovery restart in progress"
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:recover#1",
+      "method": "recover",
+      "params": {
+        "hsmsecret": "cl10leetsd35kw6r5de5kueedxgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdeuq7xuh94k9g"
+      }
+    },
+    {
+      "id": "example:recover#2",
+      "method": "recover",
+      "params": {
+        "hsmsecret": "6c696768746e696e672d31000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "example_json_response": [
+    {},
+    {
+      "result": "Recovery restart in progress"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-hsmtool(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

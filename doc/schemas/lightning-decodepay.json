@@ -1,0 +1,290 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v23.05",
+  "rpc": "decodepay",
+  "title": "Command for decoding a bolt11 string (low-level)",
+  "description": [
+    "The **decodepay** RPC command checks and parses a *bolt11* string as specified by the BOLT 11 specification."
+  ],
+  "request": {
+    "required": [
+      "bolt11"
+    ],
+    "properties": {
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "Bolt11 invoice to decode."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "Description of the invoice to decode."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "currency",
+      "created_at",
+      "expiry",
+      "payee",
+      "min_final_cltv_expiry",
+      "payment_hash",
+      "signature"
+    ],
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": [
+          "The BIP173 name for the currency."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX-style timestamp of the invoice."
+        ]
+      },
+      "expiry": {
+        "type": "u64",
+        "description": [
+          "The number of seconds this is valid after *timestamp*."
+        ]
+      },
+      "payee": {
+        "type": "pubkey",
+        "description": [
+          "The public key of the recipient."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "Amount the invoice asked for."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage*."
+        ]
+      },
+      "signature": {
+        "type": "signature",
+        "description": [
+          "Signature of the *payee* on this invoice."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "The description of the purpose of the purchase."
+        ]
+      },
+      "description_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the description, in place of *description*."
+        ]
+      },
+      "min_final_cltv_expiry": {
+        "type": "u32",
+        "description": [
+          "The minimum CLTV delay for the final node."
+        ]
+      },
+      "payment_secret": {
+        "type": "hash",
+        "description": [
+          "The secret to hand to the payee node."
+        ]
+      },
+      "features": {
+        "type": "hex",
+        "description": [
+          "The features bitmap for this invoice."
+        ]
+      },
+      "payment_metadata": {
+        "type": "hex",
+        "description": [
+          "The payment_metadata to put in the payment."
+        ]
+      },
+      "fallbacks": {
+        "type": "array",
+        "description": [
+          "Onchain addresses."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "type",
+            "hex"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": [
+                "The address type (if known)."
+              ],
+              "enum": [
+                "P2PKH",
+                "P2SH",
+                "P2WPKH",
+                "P2WSH",
+                "P2TR"
+              ]
+            },
+            "addr": {
+              "type": "string",
+              "description": [
+                "The address in appropriate format for *type*."
+              ]
+            },
+            "hex": {
+              "type": "hex",
+              "description": [
+                "Raw encoded address."
+              ]
+            }
+          }
+        }
+      },
+      "routes": {
+        "type": "array",
+        "description": [
+          "Route hints to the *payee*."
+        ],
+        "items": {
+          "type": "array",
+          "description": [
+            "Hops in the route."
+          ],
+          "items": {
+            "type": "object",
+            "required": [
+              "pubkey",
+              "short_channel_id",
+              "fee_base_msat",
+              "fee_proportional_millionths",
+              "cltv_expiry_delta"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pubkey": {
+                "type": "pubkey",
+                "description": [
+                  "The public key of the node."
+                ]
+              },
+              "short_channel_id": {
+                "type": "short_channel_id",
+                "description": [
+                  "A channel to the next peer."
+                ]
+              },
+              "fee_base_msat": {
+                "type": "msat",
+                "description": [
+                  "The base fee for payments."
+                ]
+              },
+              "fee_proportional_millionths": {
+                "type": "u32",
+                "description": [
+                  "The parts-per-million fee for payments."
+                ]
+              },
+              "cltv_expiry_delta": {
+                "type": "u32",
+                "description": [
+                  "The CLTV delta across this hop."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "extra": {
+        "type": "array",
+        "description": [
+          "Any extra fields we didn't know how to parse."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "tag",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "type": "string",
+              "description": [
+                "The bech32 letter which identifies this field."
+              ],
+              "maxLength": 1,
+              "minLength": 1
+            },
+            "data": {
+              "type": "string",
+              "description": [
+                "The bech32 data for this field."
+              ]
+            }
+          }
+        }
+      }
+    },
+    "post_return_value_notes": [
+      "Technically, the *description* field is optional if a *description_hash* field is given, but in this case **decodepay** will only succeed if the optional *description* field is passed and matches the *description_hash*. In practice, these are currently unused."
+    ]
+  },
+  "example_json_request": [
+    {
+      "id": "example:decodepay#1",
+      "method": "decodepay",
+      "params": {
+        "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk",
+        "description": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "currency": "bcrt",
+      "created_at": 1706152930,
+      "expiry": 604800,
+      "payee": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "amount_msat": 11000000,
+      "description": [
+        "XEoCR94SIz6UIRUEkxum."
+      ],
+      "min_final_cltv_expiry": 5,
+      "payment_secret": "82644944d3f70d42aad1d5f7b5d7a629e7afa30b529cc952a4c59fc0e3790ea2",
+      "features": "02024100",
+      "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+      "signature": "3045022100e3b7d8886eae1a7c9e55e1797aa0dcb77b8c5a19d56c657cad030e360c90682802203a35713acb098245e53a37faeac98754a29a7078db5ed6f2166f917e55b94484"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-pay(7)",
+    "lightning-getroute(7)",
+    "lightning-sendpay(7)"
+  ],
+  "resources": [
+    "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
+    "",
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

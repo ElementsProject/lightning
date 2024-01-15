@@ -1,0 +1,260 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "waitsendpay",
+  "title": "Command for sending a payment via a route",
+  "description": [
+    "The **waitsendpay** RPC command polls or waits for the status of an outgoing payment that was initiated by a previous **sendpay** invocation.",
+    "",
+    "If the payment completed with success, this command returns with success. Otherwise, if the payment completed with failure, this command returns an error."
+  ],
+  "request": {
+    "required": [
+      "payment_hash"
+    ],
+    "properties": {
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage*."
+        ]
+      },
+      "timeout": {
+        "type": "u32",
+        "description": [
+          "A timeout in seconds, for this RPC command to return. If the *timeout* is provided and the given amount of time passes without the payment definitely succeeding or definitely failing, this command returns with a 200 error code (payment still in progress). If *timeout* is not provided this call will wait indefinitely. Indicating a *timeout* of 0 effectively makes this call a pollable query of the status of the payment."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "Unique ID within this (multi-part) payment. It must match that of the **sendpay** command."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Grouping key to disambiguate multiple attempts to pay the same payment_hash."
+        ]
+      }
+    },
+    "pairedWith": [
+      [
+        "partid",
+        "groupid"
+      ]
+    ]
+  },
+  "response": {
+    "required": [
+      "id",
+      "created_index",
+      "payment_hash",
+      "status",
+      "created_at",
+      "amount_sent_msat"
+    ],
+    "properties": {
+      "created_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was created in."
+        ]
+      },
+      "id": {
+        "type": "u64",
+        "description": [
+          "Old synonym for created_index."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "complete"
+        ],
+        "description": [
+          "Status of the payment."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount delivered to destination (if known)."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "The final destination of the payment if known."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "updated_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+        ]
+      },
+      "completed_at": {
+        "type": "number",
+        "description": [
+          "The UNIX timestamp showing when this payment was completed."
+        ]
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "description": [
+          "The amount sent."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The label, if given to sendpay."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The *partid*, if given to sendpay."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "The bolt11 string (if pay supplied one)."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "payment_preimage"
+          ],
+          "properties": {
+            "id": {},
+            "created_index": {},
+            "updated_index": {},
+            "groupid": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "completed_at": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "partid": {},
+            "bolt11": {},
+            "bolt12": {},
+            "payment_preimage": {
+              "type": "secret",
+              "description": [
+                "The proof of payment: SHA256 of this **payment_hash**."
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "errors": [
+    "On error, and even if the error occurred from a node other than the final destination, the route table will no longer be updated. Use the *exclude* parameter of the `getroute` command to ignore the failing route.",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 200: Timed out before the payment could complete.",
+    "- 202: Unparseable onion reply. The *data* field of the error will have an *onionreply* field, a hex string representation of the raw onion reply.",
+    "- 203: Permanent failure at destination. The *data* field of the error will be routing failure object.",
+    "- 204: Failure along route; retry a different route. The *data* field of the error will be routing failure object.",
+    "- 208: A payment for *payment_hash* was never made and there is nothing to wait for.",
+    "- 209: The payment already failed, but the reason for failure was not stored. This should only occur when querying failed payments on very old databases.",
+    "",
+    "A routing failure object has the fields below:",
+    "",
+    "*erring_index*: The index of the node along the route that reported the error. 0 for the local node, 1 for the first hop, and so on.",
+    "*erring_node*: The hex string of the pubkey id of the node that reported the error.",
+    "*erring_channel*: The short channel ID of the channel that has the error (or the final channel if the destination raised the error).",
+    "*erring_direction*: The direction of traversing the *erring_channel*:",
+    "*failcode*: The failure code, as per BOLT #4.",
+    "*failcodename*: The human-readable name corresponding to *failcode*, if known."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:waitsendpay#1",
+      "method": "waitsendpay",
+      "params": {
+        "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+        "timeout": null,
+        "partid": null,
+        "groupid": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "created_index": 1,
+      "id": 1,
+      "payment_hash": "072b1d20f4a7c757a56d5fb10eaed40b58b68849da41fe396cdbd2d81692875a",
+      "groupid": 1,
+      "updated_index": 1,
+      "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "amount_msat": 11000000,
+      "amount_sent_msat": 11000000,
+      "created_at": 1706152930,
+      "completed_at": 1706152933,
+      "status": "complete",
+      "payment_preimage": "af7ba559629f719c04c43a82767fe3622790a539164d6270db07f765203e574b",
+      "bolt11": "lnbcrt110u1pjmr5lzsp5sfjyj3xn7ux592k36hmmt4ax98n6lgct22wvj54yck0upcmep63qpp5qu436g855lr40ftdt7csatk5pdvtdzzfmfqluwtvm0fds95jsadqdpq0pzk7s6j8y69xjt6xe25j5j4g44hsatdxqyjw5qcqp99qxpqysgquwma3zrw4cd8e8j4u9uh4gxukaacckse64kx2l9dqv8rvrysdq5r5dt38t9snqj9u5ar07h2exr4fg56wpudkhkk7gtxlyt72ku5fpqqd4fnlk"
+    }
+  ],
+  "author": [
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-sendpay(7)",
+    "lightning-pay(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

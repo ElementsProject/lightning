@@ -1,0 +1,520 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "title": "Core lightning rpc meta-schema",
+    "definitions": {
+        "nonNegativeInteger": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "nonNegativeIntegerDefault0": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/nonNegativeInteger"
+                },
+                {
+                    "default": 0
+                }
+            ]
+        },
+        "simpleTypes": {
+            "enum": [
+                "array",
+                "boolean",
+                "integer",
+                "null",
+                "number",
+                "object",
+                "string",
+                "hex",
+                "hash",
+                "secret",
+                "u64",
+                "u32",
+                "u16",
+                "u8",
+                "pubkey",
+                "sat",
+                "msat",
+                "msat_or_all",
+                "msat_or_any",
+                "currency",
+                "txid",
+                "signature",
+                "bip340sig",
+                "short_channel_id",
+                "short_channel_id_dir",
+                "outpoint",
+                "feerate",
+                "outputdesc"
+            ]
+        },
+        "schemaArray": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "properties": {
+                    "type": {
+                        "$ref": "#/definitions/simpleTypes"
+                    },
+                    "description": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "schemaIfThenElse": {
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "patternProperties": {
+                        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "$ref": "#/definitions/simpleTypes"
+                                },
+                                "description": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schemaItems": {
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "$ref": "#/definitions/simpleTypes"
+                },
+                "additionalProperties": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "description": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "items": {
+                    "$ref": "#/definitions/schemaItems"
+                },
+                "properties": {
+                    "$ref": "#/definitions/schemaObject"
+                },
+                "enum": {
+                    "type": "array",
+                    "items": true,
+                    "minItems": 1,
+                    "uniqueItems": true
+                },
+                "if": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
+                "then": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
+                "else": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
+                "allOf": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "anyOf": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "oneOf": {
+                    "$ref": "#/definitions/schemaArray"
+                }
+            }
+        },
+        "schemaObject": {
+            "type": "object",
+            "patternProperties": {
+                "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "$ref": "#/definitions/simpleTypes"
+                        },
+                        "additionalProperties": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "hidden": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "untyped": {
+                            "type": "boolean"
+                        },
+                        "comment": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "properties": {
+                            "$ref": "#/definitions/schemaObject"
+                        },
+                        "items": {
+                            "$ref": "#/definitions/schemaItems"
+                        },
+                        "default": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "array",
+                                "object",
+                                "null"
+                            ]
+                        },
+                        "added": {
+                            "type": "string"
+                        },
+                        "deprecated": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "required": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "maximum": {
+                            "type": "number"
+                        },
+                        "minimum": {
+                            "type": "number"
+                        },
+                        "maxLength": {
+                            "$ref": "#/definitions/nonNegativeInteger"
+                        },
+                        "minLength": {
+                            "$ref": "#/definitions/nonNegativeIntegerDefault0"
+                        },
+                        "pattern": {
+                            "type": "string",
+                            "format": "regex"
+                        },
+                        "enum": {
+                            "type": "array",
+                            "items": true,
+                            "minItems": 1,
+                            "uniqueItems": true
+                        },
+                        "format": {
+                            "type": "string"
+                        },
+                        "if": {
+                            "$ref": "#/definitions/schemaIfThenElse"
+                        },
+                        "then": {
+                            "$ref": "#/definitions/schemaIfThenElse"
+                        },
+                        "else": {
+                            "$ref": "#/definitions/schemaIfThenElse"
+                        },
+                        "allOf": {
+                            "$ref": "#/definitions/schemaArray"
+                        },
+                        "anyOf": {
+                            "$ref": "#/definitions/schemaArray"
+                        },
+                        "oneOf": {
+                            "$ref": "#/definitions/schemaArray"
+                        }
+                    }
+                }
+            }
+        },
+        "schemaRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "properties": {
+                    "$ref": "#/definitions/schemaObject"
+                },
+                "oneOfMany": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "pairedWith": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "dependentUpon": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                            "$ref": "#/definitions/schemaArray"
+                        }
+                    }
+                }
+            }
+        },
+        "schemaResponse": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pre_return_value_notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "post_return_value_notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "properties": {
+                    "$ref": "#/definitions/schemaObject"
+                },
+                "allOf": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "anyOf": {
+                    "$ref": "#/definitions/schemaArray"
+                },
+                "oneOf": {
+                    "$ref": "#/definitions/schemaArray"
+                }
+            }
+        }
+    },
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "additionalProperties": {
+            "type": "boolean"
+        },
+        "type": {
+            "type": "string",
+            "enum": [
+                "object"
+            ]
+        },
+        "added": {
+            "type": "string"
+        },
+        "deprecated": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "warning": {
+            "type": "string"
+        },
+        "rpc": {
+            "type": "string"
+        },
+        "title": {
+            "type": "string"
+        },
+        "description": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "request": {
+            "$ref": "#/definitions/schemaRequest"
+        },
+        "reliability": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "usage": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "restriction_format": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "example_usage": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "example_json_request": {
+            "type": "array",
+            "items": {
+                "id": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "params": {}
+            }
+        },
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "notifications": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "sharing_runes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "riskfactor_effect_on_routing": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "recommended_riskfactor_values": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "optimality": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "randomization": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "response": {
+            "$ref": "#/definitions/schemaResponse"
+        },
+        "treatment_of_types": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "permitted_sqlite3_functions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "tables": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "example_json_response": {
+            "type": "array",
+            "items": {}
+        },
+        "example_json_notifications": {
+            "type": "array",
+            "items": {
+                "method": {
+                    "type": "string"
+                },
+                "params": {}
+            }
+        },
+        "trivia": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "errors": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "author": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "see_also": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "resources": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "$schema",
+        "type",
+        "rpc",
+        "title",
+        "description",
+        "request",
+        "response"
+    ]
+}

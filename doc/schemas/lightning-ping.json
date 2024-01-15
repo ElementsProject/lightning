@@ -1,0 +1,92 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "ping",
+  "title": "Command to check if a node is up.",
+  "description": [
+    "The **ping** command checks if the node with *id* is ready to talk. It currently only works for peers we have a channel with."
+  ],
+  "request": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "The pubkey of the node to ping."
+        ]
+      },
+      "len": {
+        "type": "u16",
+        "description": [
+          "The length of the ping."
+        ],
+        "default": "128"
+      },
+      "pongbytes": {
+        "type": "u16",
+        "description": [
+          "The length of the reply. A value of 65532 to 65535 means `don't reply`."
+        ],
+        "default": "128"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "totlen"
+    ],
+    "properties": {
+      "totlen": {
+        "type": "u16",
+        "description": [
+          "The answer length of the reply message (including header: 0 means no reply expected)."
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:ping#1",
+      "method": "ping",
+      "params": {
+        "len": 128,
+        "pongbytes": 128
+      }
+    },
+    {
+      "id": "example:ping#2",
+      "method": "ping",
+      "params": {
+        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "len": 1000,
+        "pongbytes": 65535
+      }
+    }
+  ],
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters or we're already waiting for a ping response from peer."
+  ],
+  "example_json_response": [
+    {
+      "totlen": 132
+    },
+    {
+      "totlen": 0
+    }
+  ],
+  "author": [
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+    "but many others did the hard work of actually implementing this rpc command."
+  ],
+  "see_also": [
+    "lightning-connect(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listdatastore",
+  "title": "Command for listing (plugin) data",
+  "description": [
+    "The **listdatastore** RPC command allows plugins to fetch data which was stored in the Core Lightning database."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "key": {
+        "oneOf": [
+          {
+            "type": "array",
+            "description": [
+              "All immediate children of the *key* (or root children) are returned.",
+              "    Using the first element of the key as the plugin name (e.g. `[ 'summary' ]`) is recommended.",
+              "    An array of values to form a hierarchy (though a single value is treated as a one-element array)."
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "datastore"
+    ],
+    "properties": {
+      "datastore": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key"
+          ],
+          "properties": {
+            "key": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": [
+                  "Part of the key added to the datastore."
+                ]
+              }
+            },
+            "generation": {
+              "type": "u64",
+              "description": [
+                "The number of times this has been updated."
+              ]
+            },
+            "hex": {
+              "type": "hex",
+              "description": [
+                "The hex data from the datastore."
+              ]
+            },
+            "string": {
+              "type": "string",
+              "description": [
+                "The data as a string, if it's valid utf-8."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -32602: invalid parameters."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:listdatastore#1",
+      "method": "listdatastore",
+      "params": {
+        "key": [
+          "commando"
+        ]
+      }
+    },
+    {
+      "id": "example:listdatastore#2",
+      "method": "listdatastore",
+      "params": {
+        "key": "otherkey"
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "datastore": []
+    },
+    {
+      "datastore": [
+        {
+          "key": [
+            "otherkey"
+          ],
+          "generation": 0,
+          "hex": "6f7468657264617461",
+          "string": "otherdata"
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-datastore(7)",
+    "lightning-deldatastore(7)",
+    "lightning-datastoreusage(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

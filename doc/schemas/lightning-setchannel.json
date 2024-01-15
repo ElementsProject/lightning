@@ -1,0 +1,230 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "setchannel",
+  "title": "Command for configuring fees / htlc range advertized for a channel",
+  "description": [
+    "The **setchannel** RPC command sets channel specific routing fees, and `htlc_minimum_msat` or `htlc_maximum_msat` as defined in BOLT #7. The channel has to be in normal or awaiting state. This can be checked by **listpeers** reporting a *state* of CHANNELD_NORMAL or CHANNELD_AWAITING_LOCKIN for the channel.",
+    "",
+    "These changes (for a public channel) will be broadcast to the rest of the network (though many nodes limit the rate of such changes they will accept: we allow 2 a day, with a few extra occasionally)."
+  ],
+  "request": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": [
+          "Should contain a scid (short channel ID), channel id or peerid (pubkey) of the channel to be modified. If *id* is set to `all`, the updates are applied to all channels in states CHANNELD_NORMAL CHANNELD_AWAITING_LOCKIN or DUALOPEND_AWAITING_LOCKIN. If *id* is a peerid, all channels with the +peer in those states are changed."
+        ]
+      },
+      "feebase": {
+        "type": "msat",
+        "description": [
+          "Value in millisatoshi that is added as base fee to any routed payment: if omitted, it is unchanged. It can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
+        ]
+      },
+      "feeppm": {
+        "type": "u32",
+        "description": [
+          "Value that is added proportionally per-millionths to any routed payment volume in satoshi. For example, if ppm is 1,000 and 1,000,000 satoshi is being routed through the channel, an proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee."
+        ]
+      },
+      "htlcmin": {
+        "type": "msat",
+        "description": [
+          "Value that limits how small an HTLC we will forward: if omitted, it is unchanged. It can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*. Note that the peer also enforces a minimum for the channel: setting it below that will simply set it to that value with a warning. Also note that *htlcmin* only applies to forwarded HTLCs: we can still send smaller payments ourselves."
+        ],
+        "default": "no lower limit"
+      },
+      "htlcmax": {
+        "type": "msat",
+        "description": [
+          "Value that limits how large an HTLC we will forward: if omitted, it is unchanged. It can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*. Note that *htlcmax* only applies to forwarded HTLCs: we can still send larger payments ourselves."
+        ],
+        "default": "no effective limit"
+      },
+      "enforcedelay": {
+        "type": "u32",
+        "description": [
+          "Number of seconds to delay before enforcing the new fees/htlc max. This gives the network a chance to catch up with the new rates and avoids rejecting HTLCs before they do. This only has an effect if rates are increased (we always allow users to overpay fees) or *htlcmax* is decreased, and only applied to a single rate increase per channel (we don't remember an arbitrary number of prior feerates) and if the node is restarted the updated configuration is enforced immediately."
+        ],
+        "default": "600, which is ten minutes"
+      },
+      "ignorefeelimits": {
+        "added": "v23.08",
+        "type": "boolean",
+        "description": [
+          "If set to True means to allow the peer to set the commitment transaction fees (or closing transaction fees) to any value they want. This is dangerous: they could set an exorbitant fee (so HTLCs are unenforcable), or a tiny fee (so that commitment transactions cannot be relayed), but avoids channel breakage in case of feerate disagreements. (Note: the global `ignore_fee_limits` setting overrides this)."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "channels"
+    ],
+    "properties": {
+      "channels": {
+        "type": "array",
+        "description": [
+          "Channel(s) set, and their resulting configuration."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "peer_id",
+            "channel_id",
+            "fee_base_msat",
+            "fee_proportional_millionths",
+            "minimum_htlc_out_msat",
+            "maximum_htlc_out_msat",
+            "ignore_fee_limits"
+          ],
+          "properties": {
+            "peer_id": {
+              "type": "pubkey",
+              "description": [
+                "The node_id of the peer."
+              ]
+            },
+            "channel_id": {
+              "type": "hash",
+              "description": [
+                "The channel_id of the channel."
+              ]
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": [
+                "The short_channel_id (if locked in)."
+              ]
+            },
+            "fee_base_msat": {
+              "type": "msat",
+              "description": [
+                "The resulting feebase (this is the BOLT #7 name)."
+              ]
+            },
+            "fee_proportional_millionths": {
+              "type": "u32",
+              "description": [
+                "The resulting feeppm (this is the BOLT #7 name)."
+              ]
+            },
+            "ignore_fee_limits": {
+              "type": "boolean",
+              "added": "v23.08",
+              "description": [
+                "If we are now allowing peer to set feerate on commitment transaction without restriction."
+              ]
+            },
+            "minimum_htlc_out_msat": {
+              "type": "msat",
+              "description": [
+                "The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)."
+              ]
+            },
+            "warning_htlcmin_too_low": {
+              "type": "string",
+              "description": [
+                "The requested htlcmin was too low for this peer, so we set it to the minimum they will allow."
+              ]
+            },
+            "maximum_htlc_out_msat": {
+              "type": "msat",
+              "description": [
+                "The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)."
+              ]
+            },
+            "warning_htlcmax_too_high": {
+              "type": "string",
+              "description": [
+                "The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: Channel is in incorrect state, i.e. Catchall nonspecific error.",
+    "- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID or short channel ID."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:setchannel#1",
+      "method": "setchannel",
+      "params": {
+        "id": "103x1x0",
+        "feebase": null,
+        "feeppm": null,
+        "htlcmin": null,
+        "htlcmax": null,
+        "enforcedelay": null,
+        "ignorefeelimits": true
+      }
+    },
+    {
+      "id": "example:setchannel#2",
+      "method": "setchannel",
+      "params": {
+        "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+        "feebase": 4000,
+        "feeppm": 300,
+        "htlcmin": null,
+        "htlcmax": null,
+        "enforcedelay": 0,
+        "ignorefeelimits": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "channels": [
+        {
+          "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "channel_id": "90210d39d12a65d239ece267c5f48e0a82e7cb95724e658f6d99f370064faad1",
+          "short_channel_id": "103x1x0",
+          "fee_base_msat": 1,
+          "fee_proportional_millionths": 10,
+          "minimum_htlc_out_msat": 0,
+          "maximum_htlc_out_msat": 990000000,
+          "ignore_fee_limits": true
+        }
+      ]
+    },
+    {
+      "channels": [
+        {
+          "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+          "channel_id": "9c54c71bbbe59591cc3162e14fc4ff58c146f085c07d0f206ea679a8231d03ab",
+          "short_channel_id": "103x3x0",
+          "fee_base_msat": 4000,
+          "fee_proportional_millionths": 300,
+          "minimum_htlc_out_msat": 0,
+          "maximum_htlc_out_msat": 990000000,
+          "ignore_fee_limits": false
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
+  ],
+  "see_also": [
+    "lightningd-config(5)",
+    "lightning-fundchannel(7)",
+    "lightning-listchannels(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

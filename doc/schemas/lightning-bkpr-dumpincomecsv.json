@@ -1,0 +1,105 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "bkpr-dumpincomecsv",
+  "title": "Command to emit a CSV of income events",
+  "description": [
+    "The **bkpr-dumpincomcsv** RPC command writes a CSV file to disk at *csv_file* location. This is a formatted output of the **listincome** RPC command."
+  ],
+  "request": {
+    "required": [
+      "csv_format"
+    ],
+    "properties": {
+      "csv_format": {
+        "type": "string",
+        "description": [
+          "CSV format to use. See RETURN VALUE for options."
+        ]
+      },
+      "csv_file": {
+        "type": "string",
+        "description": [
+          "On-disk destination of the generated CSV file."
+        ]
+      },
+      "consolidate_fees": {
+        "type": "boolean",
+        "description": [
+          "If true, we emit a single, consolidated event for any onchain-fees for a txid and account. Otherwise, events for every update to the onchain fee calculation for this account and txid will be printed. Note that this means that the events emitted are non-stable, i.e. calling **dumpincomecsv** twice may result in different onchain fee events being emitted, depending on how much information we've logged for that transaction."
+        ],
+        "default": "True"
+      },
+      "start_time": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp (in seconds) that filters events after the provided timestamp."
+        ],
+        "default": "zero"
+      },
+      "end_time": {
+        "type": "u64",
+        "description": [
+          "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp."
+        ],
+        "default": "max-int"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "csv_file",
+      "csv_format"
+    ],
+    "properties": {
+      "csv_file": {
+        "type": "string",
+        "description": [
+          "File that the csv was generated to."
+        ]
+      },
+      "csv_format": {
+        "type": "string",
+        "enum": [
+          "cointracker",
+          "koinly",
+          "harmony",
+          "quickbooks"
+        ],
+        "description": [
+          "Format to print csv as."
+        ]
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:bkpr-dumpincomecsv#1",
+      "method": "bkpr-dumpincomecsv",
+      "params": [
+        "koinly",
+        "koinly.csv"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "csv_file": "koinly.csv",
+      "csv_format": "koinly"
+    }
+  ],
+  "author": [
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-bkpr-listincome(7)",
+    "lightning-bkpr-listfunds(7)",
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-bkpr-channelsapy(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

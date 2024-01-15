@@ -1,0 +1,144 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listoffers",
+  "title": "Command for listing offers",
+  "warning": "experimental-offers only",
+  "description": [
+    "The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer_id (if it exists)."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "offer_id": {
+        "type": "hash",
+        "description": [
+          "Offer_id to get details for (if it exists)."
+        ]
+      },
+      "active_only": {
+        "type": "boolean",
+        "description": [
+          "If set and is true, only offers with `active` true are returned."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "offers"
+    ],
+    "properties": {
+      "offers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "offer_id",
+            "active",
+            "single_use",
+            "bolt12",
+            "used"
+          ],
+          "properties": {
+            "offer_id": {
+              "type": "hash",
+              "description": [
+                "The id of this offer (merkle hash of non-signature fields)."
+              ]
+            },
+            "active": {
+              "type": "boolean",
+              "description": [
+                "Whether this can still be used."
+              ]
+            },
+            "single_use": {
+              "type": "boolean",
+              "description": [
+                "Whether this expires as soon as it's paid."
+              ]
+            },
+            "bolt12": {
+              "type": "string",
+              "description": [
+                "The bolt12 encoding of the offer."
+              ]
+            },
+            "used": {
+              "type": "boolean",
+              "description": [
+                "True if an associated invoice has been paid."
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": [
+                "The (optional) user-specified label."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:listoffers#1",
+      "method": "listoffers",
+      "params": {
+        "active_only": true
+      }
+    },
+    {
+      "id": "example:listoffers#2",
+      "method": "listoffers",
+      "params": [
+        "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "offers": [
+        {
+          "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+          "active": true,
+          "single_use": false,
+          "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
+          "used": false
+        },
+        {
+          "offer_id": "3247d3597fec19e362ca683416a48a0f76a44c1600725a7ee1936548feadacca",
+          "active": true,
+          "single_use": false,
+          "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq",
+          "used": true
+        }
+      ]
+    },
+    {
+      "offers": [
+        {
+          "offer_id": "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48",
+          "active": true,
+          "single_use": false,
+          "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5rn5v4ehggrxdaezqvtdwdshg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s",
+          "used": false
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-offer(7)",
+    "lightning-listoffers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

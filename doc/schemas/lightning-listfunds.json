@@ -1,0 +1,380 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "listfunds",
+  "title": "Command showing all funds currently managed by the Core Lightning node",
+  "description": [
+    "The **listfunds** RPC command displays all funds available, either in unspent outputs (UTXOs) in the internal wallet or funds locked in currently open channels."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "spent": {
+        "type": "boolean",
+        "description": [
+          "If True, then the *outputs* will include spent outputs in addition to the unspent ones."
+        ],
+        "default": "False"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "outputs",
+      "channels"
+    ],
+    "properties": {
+      "outputs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "txid",
+            "output",
+            "amount_msat",
+            "scriptpubkey",
+            "status",
+            "reserved"
+          ],
+          "properties": {
+            "txid": {
+              "type": "txid",
+              "description": [
+                "The ID of the spendable transaction."
+              ]
+            },
+            "output": {
+              "type": "u32",
+              "description": [
+                "The index within *txid*."
+              ]
+            },
+            "amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount of the output."
+              ]
+            },
+            "scriptpubkey": {
+              "type": "hex",
+              "description": [
+                "The scriptPubkey of the output."
+              ]
+            },
+            "address": {
+              "type": "string",
+              "description": [
+                "The bitcoin address of the output."
+              ]
+            },
+            "redeemscript": {
+              "type": "hex",
+              "description": [
+                "The redeemscript, only if it's p2sh-wrapped."
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "unconfirmed",
+                "confirmed",
+                "spent",
+                "immature"
+              ]
+            },
+            "reserved": {
+              "type": "boolean",
+              "description": [
+                "Whether this UTXO is currently reserved for an in-flight tx."
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "confirmed"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "blockheight"
+                ],
+                "properties": {
+                  "txid": {},
+                  "output": {},
+                  "amount_msat": {},
+                  "scriptpubkey": {},
+                  "address": {},
+                  "value": {},
+                  "redeemscript": {},
+                  "status": {},
+                  "reserved": {},
+                  "reserved_to_block": {},
+                  "blockheight": {
+                    "type": "u32",
+                    "description": [
+                      "Block height where it was confirmed."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "reserved": {
+                    "type": "boolean",
+                    "enum": [
+                      "true"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "reserved_to_block"
+                ],
+                "properties": {
+                  "txid": {},
+                  "output": {},
+                  "amount_msat": {},
+                  "scriptpubkey": {},
+                  "address": {},
+                  "value": {},
+                  "redeemscript": {},
+                  "status": {},
+                  "blockheight": {},
+                  "reserved": {},
+                  "reserved_to_block": {
+                    "type": "u32",
+                    "description": [
+                      "Block height where reservation will expire."
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "channels": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "peer_id",
+            "our_amount_msat",
+            "amount_msat",
+            "funding_txid",
+            "funding_output",
+            "connected",
+            "state",
+            "channel_id"
+          ],
+          "properties": {
+            "peer_id": {
+              "type": "pubkey",
+              "description": [
+                "The peer with which the channel is opened."
+              ]
+            },
+            "our_amount_msat": {
+              "type": "msat",
+              "description": [
+                "Available satoshis on our node's end of the channel."
+              ]
+            },
+            "amount_msat": {
+              "type": "msat",
+              "description": [
+                "Total channel value."
+              ]
+            },
+            "funding_txid": {
+              "type": "txid",
+              "description": [
+                "Funding transaction id."
+              ]
+            },
+            "funding_output": {
+              "type": "u32",
+              "description": [
+                "The 0-based index of the output in the funding transaction."
+              ]
+            },
+            "connected": {
+              "type": "boolean",
+              "description": [
+                "Whether the channel peer is connected."
+              ]
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "OPENINGD",
+                "CHANNELD_AWAITING_LOCKIN",
+                "CHANNELD_NORMAL",
+                "CHANNELD_SHUTTING_DOWN",
+                "CLOSINGD_SIGEXCHANGE",
+                "CLOSINGD_COMPLETE",
+                "AWAITING_UNILATERAL",
+                "FUNDING_SPEND_SEEN",
+                "ONCHAIN",
+                "DUALOPEND_OPEN_INIT",
+                "DUALOPEND_AWAITING_LOCKIN",
+                "DUALOPEND_OPEN_COMMITTED",
+                "DUALOPEND_OPEN_COMMIT_READY"
+              ],
+              "description": [
+                "The channel state, in particular `CHANNELD_NORMAL` means the channel can be used normally."
+              ]
+            },
+            "channel_id": {
+              "type": "hash",
+              "description": [
+                "The full channel_id (funding txid Xored with output number)."
+              ],
+              "added": "v23.05"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "CHANNELD_NORMAL"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "short_channel_id"
+                ],
+                "properties": {
+                  "peer_id": {},
+                  "our_amount_msat": {},
+                  "channel_sat": {},
+                  "amount_msat": {},
+                  "channel_total_sat": {},
+                  "funding_txid": {},
+                  "funding_output": {},
+                  "connected": {},
+                  "state": {},
+                  "channel_id": {},
+                  "short_channel_id": {
+                    "type": "short_channel_id",
+                    "description": [
+                      "Short channel id of channel."
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "CHANNELD_SHUTTING_DOWN",
+                      "CLOSINGD_SIGEXCHANGE",
+                      "CLOSINGD_COMPLETE",
+                      "AWAITING_UNILATERAL",
+                      "FUNDING_SPEND_SEEN",
+                      "ONCHAIN"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "peer_id": {},
+                  "our_amount_msat": {},
+                  "channel_sat": {},
+                  "amount_msat": {},
+                  "channel_total_sat": {},
+                  "funding_txid": {},
+                  "funding_output": {},
+                  "connected": {},
+                  "state": {},
+                  "channel_id": {},
+                  "short_channel_id": {
+                    "type": "short_channel_id",
+                    "description": [
+                      "Short channel id of channel (only if funding reached lockin depth before closing)."
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:listfunds#1",
+      "method": "listfunds",
+      "params": {
+        "spent": null
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "outputs": [
+        {
+          "txid": "0f184b101569bf777af3449fa266948a9d55768f97867e48416a2c92858dd1bc",
+          "output": 1,
+          "amount_msat": 1111111000,
+          "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
+          "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+          "status": "confirmed",
+          "blockheight": 102,
+          "reserved": false
+        },
+        {
+          "txid": "4bee7dc3a28f2434e9bb3e9aaab418dd276485a8705b0f787bf741d3f979ec3b",
+          "output": 1,
+          "amount_msat": 1111111000,
+          "scriptpubkey": "001401fad90abcd66697e2592164722de4a95ebee165",
+          "address": "bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf",
+          "status": "confirmed",
+          "blockheight": 102,
+          "reserved": false
+        }
+      ],
+      "channels": []
+    }
+  ],
+  "author": [
+    "Felix <<fixone@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-newaddr(7)",
+    "lightning-fundchannel(7)",
+    "lightning-withdraw(7)",
+    "lightning-listtransactions(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

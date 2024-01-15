@@ -1,0 +1,120 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v22.11",
+  "rpc": "listinvoicerequests",
+  "title": "Command for querying invoice_request status",
+  "description": [
+    "The **listinvoicerequests** RPC command gets the status of a specific `invoice_request`, if it exists, or the status of all `invoice_requests` if given no argument."
+  ],
+  "request": {
+    "required": [],
+    "properties": {
+      "invreq_id": {
+        "type": "string",
+        "description": [
+          "A specific invoice can be queried by providing the `invreq_id`, which is presented by lightning-invoicerequest(7), or can be calculated from a bolt12 invoice."
+        ]
+      },
+      "active_only": {
+        "type": "boolean",
+        "description": [
+          "If it is *True* then only active invoice requests are returned."
+        ],
+        "default": "*False*"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "invoicerequests"
+    ],
+    "properties": {
+      "invoicerequests": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "invreq_id",
+            "single_use",
+            "active",
+            "bolt12",
+            "used"
+          ],
+          "properties": {
+            "invreq_id": {
+              "type": "hash",
+              "description": [
+                "The SHA256 hash of all invoice_request fields less than 160."
+              ]
+            },
+            "active": {
+              "type": "boolean",
+              "description": [
+                "Whether the invoice_request is currently active."
+              ]
+            },
+            "single_use": {
+              "type": "boolean",
+              "description": [
+                "Whether the invoice_request will become inactive after we pay an invoice for it."
+              ]
+            },
+            "bolt12": {
+              "type": "string",
+              "description": [
+                "The bolt12 string starting with lnr."
+              ]
+            },
+            "used": {
+              "type": "boolean",
+              "description": [
+                "Whether the invoice_request has already been used."
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": [
+                "The label provided when creating the invoice_request."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:listinvoicerequests#1",
+      "method": "listinvoicerequests",
+      "params": [
+        "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d"
+      ]
+    }
+  ],
+  "example_json_response": [
+    {
+      "invoicerequests": [
+        {
+          "invreq_id": "cf0b41d4eb248d975909deb9accf9722b1c86839de80ee8815ce907bbb700a1d",
+          "active": true,
+          "single_use": true,
+          "bolt12": "lnr1qqgx9ag7nmtns87htndlgcfndlq0wzstwd5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gzqta0pqpvzzqnxu3vc68fug904w25y3zpskc8huazwmy34av93h2fjswe3tsp4rrcyps5sf5jwnn2tr3ghn32mdta8jvax62pwzhna8sktmaezl3f4s3zy35gx6dfay7r8zn299uwr7ugpze74zft4m8q3fnk2sr0ljqpve3jq",
+          "used": false
+        }
+      ]
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-invoicerequests(7)",
+    "lightning-disableinvoicerequest(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

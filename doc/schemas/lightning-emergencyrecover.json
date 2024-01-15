@@ -1,0 +1,63 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "emergencyrecover",
+  "title": "Command for recovering channels from the emergency.recovery file in the lightning directory",
+  "description": [
+    "The **emergencyrecover** RPC command fetches data from the emergency.recover file and tries to reconnect to the peer and force him to close the channel. The data in this file has enough information to reconnect and sweep the funds.",
+    "",
+    "This recovery method is not spontaneous and it depends on the peer, so it should be used as a last resort to recover the funds stored in a channel in case of severe data loss."
+  ],
+  "request": {
+    "required": [],
+    "properties": {}
+  },
+  "response": {
+    "required": [
+      "stubs"
+    ],
+    "properties": {
+      "stubs": {
+        "type": "array",
+        "items": {
+          "type": "hash",
+          "description": [
+            "Channel IDs of channels successfully inserted."
+          ]
+        }
+      }
+    }
+  },
+  "example_json_request": [
+    {
+      "id": "example:emergencyrecover#1",
+      "method": "emergencyrecover",
+      "params": "{}"
+    },
+    {
+      "id": "example:emergencyrecover#2",
+      "method": "emergencyrecover",
+      "params": "{}"
+    }
+  ],
+  "example_json_response": [
+    {
+      "stubs": []
+    },
+    {
+      "stubs": [
+        "c00734472f344fdadd0bf787de182e5cf144ccda5d731b0f7c75befd1f1eff52"
+      ]
+    }
+  ],
+  "author": [
+    "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-getsharedsecret(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
