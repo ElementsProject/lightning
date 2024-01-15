@@ -976,7 +976,6 @@ static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
 			      struct arc *prev, char **fail)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
-
 	bool target_found = false;
 
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
@@ -1038,6 +1037,9 @@ static bool find_optimal_path(const tal_t *ctx, struct dijkstra *dijkstra,
 			prev[next]=arc;
 		}
 	}
+
+	if (!target_found && fail)
+		*fail = tal_fmt(ctx, "no route to destination");
 
 	finish:
 	tal_free(this_ctx);
