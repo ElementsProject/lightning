@@ -80,7 +80,7 @@ For more advanced report generation options, see the [Clang coverage documentati
 There are a few subtleties you should be aware of as you modify deeper parts of the code:
 
 - `ccan/structeq`'s STRUCTEQ_DEF will define safe comparison function `foo_eq()` for struct `foo`, failing the build if the structure has implied padding.
-- `command_success`, `command_fail`, and `command_fail_detailed` will free the `cmd` you pass in.  
+- `command_success`, `command_fail`, and `command_fail_detailed` will free the `cmd` you pass in.
   This also means that if you `tal`-allocated anything from the `cmd`, they will also get freed at those points and will no longer be accessible afterwards.
 - When making a structure part of a list, you will instance a `struct list_node`. This has to be the _first_ field of the structure, or else `dev-memleak` command will think your structure has leaked.
 
@@ -90,3 +90,77 @@ The source tree contains CSV files extracted from the v1.0 BOLT specifications (
 extract-bolt-csv`. By default the bolts will be retrieved from the directory `../bolts` and a recent git version.
 
 e.g., `make extract-bolt-csv BOLTDIR=../bolts BOLTVERSION=ee76043271f79f45b3392e629fd35e47f1268dc8`
+
+
+## Pushing Up Changes to PR Branches
+
+If you want to pull down and run changes to a PR branch, you can use the convenient
+pr/<pr#> branch tags to do this. First you'll need to make sure you have the following
+in your `.github/config`.
+
+```
+[remote "origin"]
+fetch = +refs/pull/*/head:refs/remotes/origin/pr/*
+```
+
+Once that's added, run `git fetch` and then you should be able to check out PRs by their number.
+
+```shell
+git checkout pr/<pr#>
+```
+
+If you make changes, here's how to push them back to the original PR originator's
+branch. NOTE: This assumes they have turned on "allow maintainers to push changes".
+
+First you'll want to make sure that their remote is added to your local git. You
+can do this with `remote -v` which lists all current remotes.
+
+```shell
+git remote -v
+```
+
+If it's not there, you can add it with
+
+```shell
+git remote add <name> <repo_url>
+```
+
+For example, here's how you'd add `niftynei`'s git lightning clone.
+
+```shell
+git remote add niftynei git@github.com:niftynei/lightning.git
+```
+
+To push changes to the remote, from a `pr/<pr#>` branch, you'll need to
+know the name of the branch on their repo that made the PR originally. You
+can find this on the PR on github.
+
+You'll also need to make sure you've got a ref to that branch from their repo;
+you can do this by fetching the latest branches for them with the following command.
+
+```shell
+git fetch niftynei
+```
+
+You may need to fetch their latest set of commits before pushing yours, you can do
+this with
+
+```shell
+git pull -r niftynei <pr-branch/name>
+```
+
+Finally, you're good to go in terms of pushing up the latest commits that you've made
+(or changed) on their branch.
+
+```shell
+git push <name> HEAD:<pr-branch/name>
+```
+
+For example, here's how you'd push changes to a branch named "nifty/add-remote-to-readme".
+
+```shell
+git push niftynei HEAD:nifty/add-remote-to-readme
+```
+
+If that fails, go check with the PR submitter that they have the ability to push changes
+to their PR turned on. Also make sure you're on the right branch before you push!
