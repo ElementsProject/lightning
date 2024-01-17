@@ -222,12 +222,12 @@ where
     }
 
     /// Sets the "featurebits" in the "getmanifest" response
-    pub fn featurebits(mut self, place: FeatureBitsPlace, hex: String) -> Self {
-        match place {
-            FeatureBitsPlace::Node => self.featurebits.node = Some(hex),
-            FeatureBitsPlace::Channel => self.featurebits.channel = Some(hex),
-            FeatureBitsPlace::Init => self.featurebits.init = Some(hex),
-            FeatureBitsPlace::Invoice => self.featurebits.invoice = Some(hex),
+    pub fn featurebits(mut self, kind: FeatureBitsKind, hex: String) -> Self {
+        match kind {
+            FeatureBitsKind::Node => self.featurebits.node = Some(hex),
+            FeatureBitsKind::Channel => self.featurebits.channel = Some(hex),
+            FeatureBitsKind::Init => self.featurebits.init = Some(hex),
+            FeatureBitsKind::Invoice => self.featurebits.invoice = Some(hex),
         }
         self
     }
@@ -788,7 +788,7 @@ where
     }
 }
 
-pub enum FeatureBitsPlace {
+pub enum FeatureBitsKind {
     Node,
     Channel,
     Invoice,
