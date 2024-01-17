@@ -1934,11 +1934,6 @@ static void send_revocation(struct peer *peer,
 			   &failed,
 			   &added);
 
-	/* Revoke previous commit, get new point. */
-	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-1,
-					      &peer->next_local_per_commit,
-					      old_secret, next_point);
-
 	/* From now on we apply changes to the next commitment */
 	peer->next_index[LOCAL]++;
 
@@ -1968,6 +1963,11 @@ static void send_revocation(struct peer *peer,
 			       WIRE_CHANNELD_GOT_COMMITSIG_REPLY);
 
 	peer->splice_state->await_commitment_succcess = false;
+
+	/* Revoke previous commit, get new point. */
+	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-2,
+					      &peer->next_local_per_commit,
+					      old_secret, next_point);
 
 	/* Now we can finally send revoke_and_ack to peer */
 	peer_write(peer->pps, take(msg));
