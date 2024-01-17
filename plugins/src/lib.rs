@@ -47,6 +47,7 @@ where
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     notifications: Vec<NotificationTopic>,
+    custommessages : Vec<u16>,
     dynamic: bool,
     // Do we want the plugin framework to automatically register a logging handler?
     logging: bool,
@@ -122,6 +123,7 @@ where
             rpcmethods: HashMap::new(),
             notifications: vec![],
             dynamic: false,
+            custommessages : vec![],
             logging: true,
         }
     }
@@ -225,6 +227,13 @@ where
     /// look like.
     pub fn with_logging(mut self, log: bool) -> Builder<S, I, O> {
         self.logging = log;
+        self
+    }
+
+    /// Tells lightningd explicitly to allow custommmessages of the provided
+    /// type
+    pub fn custommessages(mut self, custommessages : Vec<u16>) -> Self {
+        self.custommessages = custommessages;
         self
     }
 
@@ -354,6 +363,7 @@ where
             notifications: self.notifications.clone(),
             dynamic: self.dynamic,
             nonnumericids: true,
+            custommessages : self.custommessages.clone()
         }
     }
 
