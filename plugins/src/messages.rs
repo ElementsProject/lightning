@@ -178,6 +178,8 @@ pub(crate) struct GetManifestResponse {
     pub(crate) hooks: Vec<String>,
     pub(crate) dynamic: bool,
     pub(crate) nonnumericids: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) custommessages : Vec<u16>
 }
 
 #[derive(Serialize, Default, Debug)]
