@@ -38,7 +38,7 @@ class BitcoinRpcProxy(object):
 
         # If we have set a mock for this method reply with that instead of
         # forwarding the request.
-        if method in self.mocks and type(self.mocks[method]) == dict:
+        if method in self.mocks and self.mocks[method] is dict:
             ret = {}
             ret['id'] = r['id']
             ret['error'] = None

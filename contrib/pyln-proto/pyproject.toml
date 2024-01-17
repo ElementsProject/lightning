@@ -15,7 +15,7 @@ python = "^3.8"
 base58 = "^2.1.1"
 bitstring = "^4.1.0"
 coincurve = "^18"
-cryptography = "^41"
+cryptography = "^42"
 PySocks = "^1"
 
 [tool.poetry.dev-dependencies]

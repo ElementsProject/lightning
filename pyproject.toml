@@ -6,17 +6,16 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
-python = "^3.8"
+python = "^3.8.1"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
 clnrest = { path = "plugins/clnrest", develop = true }
-Mako = "^1.1.6"
+Mako = "^1.3.2"
 websocket-client = "^1.2.3"
 grpcio-tools = "^1"
 grpcio = "^1"
 # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-protobuf = "4.21.12"
-cryptography = "^41.0.2"
+protobuf = "=4.25.2"
 
 [tool.poetry.group.dev.dependencies]
 # Test dependencies and inherited dependencies belong here
@@ -24,8 +23,8 @@ crc32c = "^2.2.post0"  # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
 pytest-test-groups = "^1.0.3"
 pytest-timeout = "^2.1.0"
-flake8 = "^4.0.1"
-mypy = "^0.931"
+flake8 = "^7"
+mypy = "^1"
 pytest-custom-exit-code = "0.3.0"
 pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
 flaky = "^3.7.0"
