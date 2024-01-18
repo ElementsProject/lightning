@@ -3,36 +3,24 @@ title: "Writing JSON Schemas"
 slug: "writing-json-schemas"
 hidden: false
 createdAt: "2023-01-25T05:46:43.718Z"
-updatedAt: "2023-01-30T15:36:28.523Z"
+updatedAt: "2024-01-18T15:36:28.523Z"
 ---
-A JSON Schema is a JSON file which defines what a structure should look like; in our case we use it in our testsuite to check that they match command responses, and also use it to generate our documentation.
+A JSON Schema is a JSON file which defines what a structure should look like; in our case we use it in our testsuite to check that they match command requests and responses, and also use it to generate our documentation.
 
 Yes, schemas are horrible to write, but they're damn useful.  We can only use a subset of the full [JSON Schema Specification](https://json-schema.org/), but if you find that limiting it's probably a sign that you should simplify your JSON output.
 
 ## Updating a Schema
 
-If you add a field, you should add it to the schema, and you must add "added": "VERSION" (where VERSION is the next release version!).
+If you add a field, you should add it to the field schema, and you must add "added": "VERSION" (where VERSION is the next release version!).
 
-Similarly, if you deprecate a field, add "deprecated": "VERSION" (where VERSION is the next release version).  They will be removed two versions later.
+Similarly, if you deprecate a field, add "deprecated": "VERSION" (where VERSION is the next release version) to the field.  They will be removed two versions later.
 
 ## How to Write a Schema
 
-Name the schema doc/schemas/`command`.schema.json: the testsuite should pick it up and check all invocations of that command against it.
+Name the schema doc/schemas/lightning-`command`.json: the testsuite should pick it up and check all invocations of that command against it.
+The core lightning RPC commands use custom schema specification defined in [rpc-schema-draft](https://github.com/ElementsProject/lightning/doc/rpc-schema-draft.json).
 
-I recommend copying an existing one to start.
-
-You will need to put the magic lines in the manual page so `make doc-all` will fill it in for you:
-
-```json
-[comment]: # (GENERATE-FROM-SCHEMA-START)
-[comment]: # (GENERATE-FROM-SCHEMA-END)
-```
-
-
-
-If something goes wrong, try tools/fromscheme.py doc/schemas/`command`.schema.json to see how far it got before it died.
-
-You should always use `"additionalProperties": false`, otherwise your schema might not be covering everything.  Deprecated fields simply have `"deprecated": true` in their properties, so they are allowed by omitted from the documentation.
+I recommend copying an existing one to start. If something goes wrong, try tools/fromscheme.py doc/schemas/lightning-`command`.json to see how far it got before it died.
 
 You should always list all fields which are _always_ present in `"required"`.
 
@@ -56,6 +44,23 @@ To add conditional fields:
    `"properties": { "field": { "enum": [ "val1", "val2" ] } }` inside the "if".
 6. Inside the "then", use `"additionalProperties": false` and place empty `{}` for all the other possible properties.
 7. If you haven't covered all the possibilties with `if` statements, add an `else` with `"additionalProperties": false` which simply mentions every allowable property.  This ensures that the fields can _only_ be present when conditions are met.
+
+### Exceptions in dynamic schema generation
+
+- If response (`RETURN VALUE`) should not be generated dynamically and you want it to be a custom text message instead. You can use `return_value_notes` to add custom text with empty `properties`. Examples: `setpsbtversion`, `commando`, `recover`.
+- If only one of multiple request parameters can be provided then utilize `oneOfMany`
+   key with condition defining arrays. For example, `plugin` command defines it as
+   `"oneOfMany": [["plugin", "directory"]]` and it prints the parameter output as
+   `[*plugin|directory*]`.
+- If request parameters are paired with other parameter and either all of them can be passed
+   to the command or none of them; then utilize `pairedWith` key with condition defining arrays.
+   For example, `delpay` command defines it as `"pairedWith": [["partid", "groupid"]]` 
+   and it prints the parameter output as `[*partid* *groupid*]`.
+- - If some of the optional request parameters are dependent upon other optional parameters,
+   use `dependentUpon` key where object key can be mapped with the array of dependent params.
+   For example, `listforwards` command has `start` and `limit` params dependent upon `index` and
+   it can be defined as `"dependentUpon": { "index": ["start", "limit"] }` in the json and it will
+   generate the markdown syntax as `[*index* [*start*] [*limit*]]`.
 
 ### JSON Drinking Game!
 

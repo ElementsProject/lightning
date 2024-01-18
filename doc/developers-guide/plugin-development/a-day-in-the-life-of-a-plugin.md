@@ -68,8 +68,15 @@ The `getmanifest` method is required for all plugins and will be called on start
     "disconnect"
   ],
   "hooks": [
-    { "name": "openchannel", "before": ["another_plugin"] },
-    { "name": "htlc_accepted" }
+    {
+      "name": "openchannel",
+      "before": [
+        "another_plugin"
+      ]
+    },
+    {
+      "name": "htlc_accepted"
+    }
   ],
   "featurebits": {
     "node": "D0000000",
@@ -79,11 +86,12 @@ The `getmanifest` method is required for all plugins and will be called on start
   },
   "notifications": [
     {
-        "method": "mycustomnotification"
+      "method": "mycustomnotification"
     }
   ],
   "custommessages": [
-    11008, 11010
+    11008,
+    11010
   ],
   "nonnumericids": true,
   "dynamic": true
@@ -129,6 +137,7 @@ Nota bene: if a `flag` type option is not set, it will not appear in the options
 Here's an example option set, as sent in response to `getmanifest`
 
 ```json
+{
   "options": [
     {
       "name": "greeting",
@@ -158,9 +167,10 @@ Here's an example option set, as sent in response to `getmanifest`
       "type": "int",
       "default": 0,
       "description": "Another number to add",
-	  "multi": true
+      "multi": true
     }
-  ],
+  ]
+}
 ```
 
 #### Custom notifications
@@ -175,9 +185,9 @@ When forwarding a custom notification `lightningd` will wrap the payload of the 
   "method": "mycustomnotification",
   "params": {
     "key": "value",
-	"message": "Hello fellow plugin!"
+    "message": "Hello fellow plugin!"
   }
-} 
+}
 ```
 
 is delivered as
@@ -194,7 +204,6 @@ is delivered as
     }
   }
 }
-
 ```
 
 The notification topic (`method` in the JSON-RPC message) must not match one of the internal events in order to prevent breaking subscribers that expect the existing notification format. Multiple plugins are allowed to emit notifications for the same topics, allowing things like metric aggregators where the aggregator subscribes to a common topic and other plugins publish metrics as notifications.
@@ -207,7 +216,9 @@ The `init` method is required so that `lightningd` can pass back the filled comm
 {
   "options": {
     "greeting": "World",
-	"number": [0]
+    "number": [
+      0
+    ]
   },
   "configuration": {
     "lightning-dir": "/home/user/.lightning/testnet",
@@ -215,15 +226,15 @@ The `init` method is required so that `lightningd` can pass back the filled comm
     "startup": true,
     "network": "testnet",
     "feature_set": {
-        "init": "02aaa2",
-        "node": "8000000002aaa2",
-        "channel": "",
-        "invoice": "028200"
+      "init": "02aaa2",
+      "node": "8000000002aaa2",
+      "channel": "",
+      "invoice": "028200"
     },
     "proxy": {
-        "type": "ipv4",
-        "address": "127.0.0.1",
-        "port": 9050
+      "type": "ipv4",
+      "address": "127.0.0.1",
+      "port": 9050
     },
     "torv3-enabled": true,
     "always_use_proxy": false

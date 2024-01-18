@@ -3,7 +3,7 @@ title: "Code Generation"
 slug: "code-generation"
 hidden: false
 createdAt: "2023-04-22T12:29:01.116Z"
-updatedAt: "2023-04-22T12:44:47.814Z"
+updatedAt: "2024-01-18T12:44:47.814Z"
 ---
 The CLN project has a multitude of interfaces, most of which are generated from an abstract schema:
 
@@ -13,19 +13,11 @@ The CLN project has a multitude of interfaces, most of which are generated from 
   1. addition of FD passing semantics to allow establishing a new connection between daemons (communication uses [socketpair](https://man7.org/linux/man-pages/man2/socketpair.2.html), so no `connect`)
   2. change the message length prefix from `u16` to `u32`, allowing for messages larger than 65Kb. The CSV files are with the respective sub-daemon and also use [generate-wire.py](https://github.com/ElementsProject/lightning/blob/master/tools/generate-wire.py) to generate encoding, decoding and printing functions
 
-- We describe the JSON-RPC using [JSON Schema](https://json-schema.org/) in the [`doc/schemas`](https://github.com/ElementsProject/lightning/tree/master/doc/schemas) directory. Each method has a `.request.json` for the request message, and a `.schema.json` for the response (the mismatch is historical and will eventually be addressed). During tests the `pytest` target will verify responses, however the JSON-RPC methods are _not_ generated (yet?). We do generate various client stubs for languages, using the `msggen`][msggen] tool. More on the generated stubs and utilities below.
+- We describe the JSON-RPC using [JSON Schema](https://json-schema.org/) in the [`doc/schemas`](https://github.com/ElementsProject/lightning/tree/master/doc/schemas) directory. Each method has a `lightning-*.json` for request and response. During tests the `pytest` target will verify responses, however the JSON-RPC methods are _not_ generated (yet?). We do generate various client stubs for languages, using the `msggen`[msggen] tool. More on the generated stubs and utilities below.
 
 ## Man pages
 
-The manpages are partially generated from the JSON schemas using the [`fromschema`](https://github.com/ElementsProject/lightning/blob/master/tools/fromschema.py) tool. It reads the request schema and fills in the manpage between two markers:
-
-```markdown
-[comment]: # (GENERATE-FROM-SCHEMA-START)
-...
-[comment]: # (GENERATE-FROM-SCHEMA-END)
-```
-
-
+The manpages are generated from the JSON schemas using the [`fromschema`](https://github.com/ElementsProject/lightning/blob/master/tools/fromschema.py) tool. It reads the request and response schema from `lightning-*.json` and generates markdown contents and manpages:
 
 > 📘 
 > 
@@ -50,10 +42,6 @@ The manpages are partially generated from the JSON schemas using the [`fromschem
   ]
 }
 [/block]
-
-
-
-
 
 ### `cln-rpc`
 
