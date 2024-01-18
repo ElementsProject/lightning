@@ -26,6 +26,36 @@ class FieldName:
         return self.name
 
 
+class TypeName:
+    def __init__(self, name: Optional[str]):
+        if name is None:
+            raise ValueError("empty typename")
+        self.name = name
+
+    def __str__(self) -> str:
+        """Return the normalized typename."""
+        return (
+            self.name
+            .replace(' ', '_')
+            .replace('-', '')
+            .replace('/', '_')
+        )
+
+    def __repr__(self) -> str:
+        return f"Typename[raw={self.name}, str={self}"
+
+    def __iadd__(self, other):
+        self.name += str(other)
+        return self
+
+    def __lt__(self, other) -> bool:
+        return str(self.name) < str(other)
+
+
+class MethodName(TypeName):
+    """A class encapsulating the naming rules for methods. """
+
+
 class Field:
     def __init__(
             self,
@@ -140,7 +170,7 @@ class Method:
 class CompositeField(Field):
     def __init__(
             self,
-            typename,
+            typename: TypeName,
             fields,
             path,
             description,
@@ -159,7 +189,7 @@ class CompositeField(Field):
 
     @classmethod
     def from_js(cls, js, path):
-        typename = path2type(path)
+        typename = TypeName(path2type(path))
 
         properties = js.get("properties", {})
         # Ok, let's flatten the conditional properties. We do this by
@@ -257,7 +287,7 @@ class EnumVariant(Field):
 
 
 class EnumField(Field):
-    def __init__(self, typename, values, path, description, added, deprecated):
+    def __init__(self, typename: TypeName, values, path, description, added, deprecated):
         Field.__init__(self, path, description, added=added, deprecated=deprecated)
         self.typename = typename
         self.values = values
@@ -266,7 +296,7 @@ class EnumField(Field):
     @classmethod
     def from_js(cls, js, path):
         # Transform the path into something that is a valid TypeName
-        typename = path2type(path)
+        typename = TypeName(path2type(path))
         return EnumField(
             typename,
             values=filter(lambda i: i is not None, js["enum"]),
