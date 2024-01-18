@@ -77,6 +77,9 @@ struct peer {
 	/* Features we support. */
 	struct feature_set *our_features;
 
+	/* What (additional) messages the HSM accepts */
+	u32 *hsm_capabilities;
+
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
@@ -6085,6 +6088,7 @@ static void init_channel(struct peer *peer)
 	if (!fromwire_channeld_init(peer, msg,
 				    &chainparams,
 				    &peer->our_features,
+				    &peer->hsm_capabilities,
 				    &peer->channel_id,
 				    &funding,
 				    &funding_sats,
