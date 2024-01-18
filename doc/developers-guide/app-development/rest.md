@@ -78,7 +78,7 @@ With the default configurations, the Swagger user interface will be available at
 The POST method requires `rune` header for authorization.
 
 - A new `rune` can be created via [createrune](https://docs.corelightning.org/reference/lightning-createrune) or the list of 
-existing runes can be retrieved with [listrunes](https://docs.corelightning.org/reference/lightning-commando-listrunes) command.
+existing runes can be retrieved with [showrunes](https://docs.corelightning.org/reference/lightning-showrunes) command.
 
 Note: in version v23.08, a parameter `Nodeid` was required to be the id of the node we're talking to (see `id (pubkey)` received 
 from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo)). You can still send this for backwards compatibility, 
