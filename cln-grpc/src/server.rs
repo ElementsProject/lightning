@@ -1978,4 +1978,36 @@ async fn static_backup(
 
 }
 
+async fn bkpr_list_income(
+    &self,
+    request: tonic::Request<pb::BkprlistincomeRequest>,
+) -> Result<tonic::Response<pb::BkprlistincomeResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::BkprlistincomeRequest = req.into();
+    debug!("Client asked for bkpr_list_income");
+    trace!("bkpr_list_income request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::BkprListIncome(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method BkprListIncome: {:?}", e)))?;
+    match result {
+        Response::BkprListIncome(r) => {
+           trace!("bkpr_list_income response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call BkprListIncome",
+                r
+            )
+        )),
+    }
+
+}
+
 }

@@ -1816,6 +1816,34 @@ impl From<responses::StaticbackupResponse> for pb::StaticbackupResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::BkprlistincomeIncome_events> for pb::BkprlistincomeIncomeEvents {
+    fn from(c: responses::BkprlistincomeIncome_events) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            tag: c.tag, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            currency: c.currency, // Rule #2 for type string
+            timestamp: c.timestamp, // Rule #2 for type u32
+            description: c.description, // Rule #2 for type string?
+            outpoint: c.outpoint, // Rule #2 for type string?
+            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            payment_id: c.payment_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
+    fn from(c: responses::BkprlistincomeResponse) -> Self {
+        Self {
+            // Field: Bkpr-ListIncome.income_events[]
+            income_events: c.income_events.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkprlistincomeIncome_events
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -2570,6 +2598,17 @@ impl From<requests::StaticbackupRequest> for pb::StaticbackupRequest {
     }
 }
 
+#[allow(unused_variables)]
+impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
+    fn from(c: requests::BkprlistincomeRequest) -> Self {
+        Self {
+            consolidate_fees: c.consolidate_fees, // Rule #2 for type boolean?
+            start_time: c.start_time, // Rule #2 for type u32?
+            end_time: c.end_time, // Rule #2 for type u32?
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -3305,6 +3344,17 @@ impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
 impl From<pb::StaticbackupRequest> for requests::StaticbackupRequest {
     fn from(c: pb::StaticbackupRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
+    fn from(c: pb::BkprlistincomeRequest) -> Self {
+        Self {
+            consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
+            start_time: c.start_time, // Rule #1 for type u32?
+            end_time: c.end_time, // Rule #1 for type u32?
         }
     }
 }
