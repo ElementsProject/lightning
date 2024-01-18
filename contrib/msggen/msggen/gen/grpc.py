@@ -1,5 +1,5 @@
 # A grpc model
-from msggen.model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
+from msggen.model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service, MethodName, TypeName
 from msggen.gen import IGenerator
 from typing import TextIO, List, Dict, Any
 from textwrap import indent, dedent
@@ -60,8 +60,10 @@ class GrpcGenerator(IGenerator):
         else:
             self.dest.write(text)
 
-    def field2number(self, message_name, field):
+    def field2number(self, message_name: TypeName, field):
         m = self.meta['grpc-field-map']
+
+        message_name = message_name.name  # TypeName is not JSON-serializable, use the unaltered name.
 
         # Wrap each field mapping by the message_name, since otherwise
         # requests and responses share the same number space (just
@@ -94,11 +96,14 @@ class GrpcGenerator(IGenerator):
         for f in fields:
             yield (self.field2number(message_name, f), f)
 
-    def enumvar2number(self, typename, variant):
+    def enumvar2number(self, typename: TypeName, variant):
         """Find an existing variant number of generate a new one.
 
         If we don't have a variant number yet we'll just take the
         largest one assigned so far and increment it by 1.  """
+
+        typename = str(typename.name)
+
         m = self.meta['grpc-enum-map']
         variant = str(variant)
         if typename not in m:
@@ -149,7 +154,7 @@ class GrpcGenerator(IGenerator):
         """)
 
         for method in service.methods:
-            mname = method_name_overrides.get(method.name, method.name)
+            mname = MethodName(method_name_overrides.get(method.name, method.name))
             self.write(
                 f"	rpc {mname}({method.request.typename}) returns ({method.response.typename}) {{}}\n",
                 cleanup=False,
@@ -202,7 +207,7 @@ class GrpcGenerator(IGenerator):
                 typename = f.override(f.typename)
                 self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
 
-        self.write(f"""}}
+        self.write("""}
         """)
 
     def generate(self, service: Service) -> None:
@@ -250,7 +255,7 @@ class GrpcConverterGenerator(IGenerator):
             elif isinstance(f, CompositeField):
                 self.generate_composite(prefix, f)
 
-        pbname = self.to_camel_case(field.typename)
+        pbname = self.to_camel_case(str(field.typename))
 
         # If any of the field accesses would result in a deprecated
         # warning we mark the construction here to allow deprecated
@@ -421,7 +426,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         has_deprecated = any([f.deprecated for f in field.fields])
         deprecated = ",deprecated" if has_deprecated else ""
 
-        pbname = self.to_camel_case(field.typename)
+        pbname = self.to_camel_case(str(field.typename))
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables{deprecated})]
