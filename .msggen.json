@@ -369,6 +369,26 @@
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
         },
+        "Bkpr-listincomeIncome_events": {
+            "Bkpr-ListIncome.income_events[].account": 1,
+            "Bkpr-ListIncome.income_events[].credit_msat": 3,
+            "Bkpr-ListIncome.income_events[].currency": 5,
+            "Bkpr-ListIncome.income_events[].debit_msat": 4,
+            "Bkpr-ListIncome.income_events[].description": 7,
+            "Bkpr-ListIncome.income_events[].outpoint": 8,
+            "Bkpr-ListIncome.income_events[].payment_id": 10,
+            "Bkpr-ListIncome.income_events[].tag": 2,
+            "Bkpr-ListIncome.income_events[].timestamp": 6,
+            "Bkpr-ListIncome.income_events[].txid": 9
+        },
+        "Bkpr-listincomeRequest": {
+            "Bkpr-ListIncome.consolidate_fees": 1,
+            "Bkpr-ListIncome.end_time": 3,
+            "Bkpr-ListIncome.start_time": 2
+        },
+        "Bkpr-listincomeResponse": {
+            "Bkpr-ListIncome.income_events[]": 1
+        },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
             "CheckMessage.pubkey": 3,
@@ -1795,6 +1815,66 @@
             "deprecated": false
         },
         "AutoCleanInvoice.expired_by": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ListIncome.consolidate_fees": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.end_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].account": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].credit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].currency": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].debit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].description": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].outpoint": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].payment_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].tag": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].timestamp": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.income_events[].txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Bkpr-ListIncome.start_time": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

@@ -1502,3 +1502,24 @@ def staticbackup2py(m):
     return remove_default({
         "scb": [hexlify(m.scb) for i in hexlify(m.scb)], # ArrayField[primitive] in generate_composite
     })
+
+
+def bkpr_listincome_income_events2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "tag": m.tag,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+        "currency": m.currency,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+        "description": m.description,  # PrimitiveField in generate_composite
+        "outpoint": m.outpoint,  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "payment_id": hexlify(m.payment_id),  # PrimitiveField in generate_composite
+    })
+
+
+def bkpr_listincome2py(m):
+    return remove_default({
+        "income_events": [bkpr_listincome_income_events2py(i) for i in m.income_events],  # ArrayField[composite] in generate_composite
+    })

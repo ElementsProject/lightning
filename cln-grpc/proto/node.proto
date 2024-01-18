@@ -69,6 +69,7 @@ service Node {
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
+	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
 }
 
 message GetinfoRequest {
@@ -1928,4 +1929,27 @@ message StaticbackupRequest {
 
 message StaticbackupResponse {
 	repeated bytes scb = 1;
+}
+
+message BkprlistincomeRequest {
+	optional bool consolidate_fees = 1;
+	optional uint32 start_time = 2;
+	optional uint32 end_time = 3;
+}
+
+message BkprlistincomeResponse {
+	repeated BkprlistincomeIncome_events income_events = 1;
+}
+
+message BkprlistincomeIncome_events {
+	string account = 1;
+	string tag = 2;
+	Amount credit_msat = 3;
+	Amount debit_msat = 4;
+	string currency = 5;
+	uint32 timestamp = 6;
+	optional string description = 7;
+	optional string outpoint = 8;
+	optional bytes txid = 9;
+	optional bytes payment_id = 10;
 }
