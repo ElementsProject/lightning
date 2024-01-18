@@ -3,6 +3,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <common/ecdh.h>
 #include <common/errcode.h>
+#include <common/hsm_capable.h>
 #include <common/hsm_encryption.h>
 #include <common/hsm_version.h>
 #include <common/invoice_path_id.h>
@@ -78,11 +79,7 @@ static unsigned int hsm_msg(struct subd *hsmd,
  * number) */
 bool hsm_capable(struct lightningd *ld, u32 msgtype)
 {
-	for (size_t i = 0; i < tal_count(ld->hsm_capabilities); i++) {
-		if (ld->hsm_capabilities[i] == msgtype)
-			return true;
-	}
-	return false;
+	return hsm_is_capable(ld->hsm_capabilities, msgtype);
 }
 
 struct ext_key *hsm_init(struct lightningd *ld)

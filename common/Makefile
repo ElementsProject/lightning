@@ -42,6 +42,7 @@ COMMON_SRC_NOGEN :=				\
 	common/gossmods_listpeerchannels.c	\
 	common/hash_u5.c			\
 	common/hmac.c				\
+	common/hsm_capable.c			\
 	common/hsm_encryption.c			\
 	common/htlc_state.c			\
 	common/htlc_trim.c			\

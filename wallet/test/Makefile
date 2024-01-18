@@ -14,6 +14,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/htlc_state.o			\
+	common/hsm_capable.o			\
 	common/htlc_wire.o			\
 	common/fee_states.o			\
 	common/type_to_string.o			\
