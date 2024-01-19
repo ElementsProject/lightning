@@ -1803,6 +1803,23 @@ impl From<responses::StaticbackupResponse> for pb::StaticbackupResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SqlResponse> for pb::SqlResponse {
+    fn from(c: responses::SqlResponse) -> Self {
+        Self {
+            // Field: Sql.rows[][]
+            rows: c.rows.map(|arr| {
+                arr.into_iter()
+                    // Convert each `Vec<String>` into a `String` by joining with a delimiter
+                    .map(|i| i.join(", ")) // You can change the delimiter to whatever you need (e.g., ", ", " ", "\n")
+                    .collect()
+            })
+            .unwrap_or_else(|| vec![]), // Use `unwrap_or_else` to provide a default in case of None
+            warning_db_failure: c.warning_db_failure, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -2555,6 +2572,15 @@ impl From<requests::StaticbackupRequest> for pb::StaticbackupRequest {
     }
 }
 
+#[allow(unused_variables)]
+impl From<requests::SqlRequest> for pb::SqlRequest {
+    fn from(c: requests::SqlRequest) -> Self {
+        Self {
+            query: c.query, // Rule #2 for type string?
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -3289,6 +3315,15 @@ impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
 impl From<pb::StaticbackupRequest> for requests::StaticbackupRequest {
     fn from(c: pb::StaticbackupRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SqlRequest> for requests::SqlRequest {
+    fn from(c: pb::SqlRequest) -> Self {
+        Self {
+            query: c.query, // Rule #1 for type string?
         }
     }
 }

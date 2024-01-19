@@ -7,12 +7,17 @@
   ],
   "properties": {
     "rows": {
+      "added": "v24.02",
       "type": "array",
       "items": {
-        "type": "array"
+        "type": "array",
+        "items": {
+          "type": "string"
+        }        
       }
     },
     "warning_db_failure": {
+      "added": "v24.02",
       "type": "string",
       "description": "A message if the database encounters an error partway through"
     }

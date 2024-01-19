@@ -1494,3 +1494,10 @@ def staticbackup2py(m):
     return remove_default({
         "scb": [hexlify(m.scb) for i in hexlify(m.scb)], # ArrayField[primitive] in generate_composite
     })
+
+
+def sql2py(m):
+    return remove_default({
+        "rows": [m.rows for i in m.rows], # ArrayField[primitive] in generate_composite
+        "warning_db_failure": m.warning_db_failure,  # PrimitiveField in generate_composite
+    })

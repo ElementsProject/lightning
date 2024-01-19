@@ -1978,4 +1978,36 @@ async fn static_backup(
 
 }
 
+async fn sql(
+    &self,
+    request: tonic::Request<pb::SqlRequest>,
+) -> Result<tonic::Response<pb::SqlResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SqlRequest = req.into();
+    debug!("Client asked for sql");
+    trace!("sql request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Sql(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Sql: {:?}", e)))?;
+    match result {
+        Response::Sql(r) => {
+           trace!("sql response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Sql",
+                r
+            )
+        )),
+    }
+
+}
+
 }

@@ -69,6 +69,7 @@ service Node {
 	rpc PreApproveKeysend(PreapprovekeysendRequest) returns (PreapprovekeysendResponse) {}
 	rpc PreApproveInvoice(PreapproveinvoiceRequest) returns (PreapproveinvoiceResponse) {}
 	rpc StaticBackup(StaticbackupRequest) returns (StaticbackupResponse) {}
+	rpc Sql(SqlRequest) returns (SqlResponse) {}
 }
 
 message GetinfoRequest {
@@ -1920,4 +1921,13 @@ message StaticbackupRequest {
 
 message StaticbackupResponse {
 	repeated bytes scb = 1;
+}
+
+message SqlRequest {
+	optional string query = 1;
+}
+
+message SqlResponse {
+	repeated string rows = 1;
+	optional string warning_db_failure = 2;
 }

@@ -1604,6 +1604,13 @@
         "SignpsbtResponse": {
             "SignPsbt.signed_psbt": 1
         },
+        "SqlRequest": {
+            "Sql.query": 1
+        },
+        "SqlResponse": {
+            "Sql.rows[][]": 1,
+            "Sql.warning_db_failure": 2
+        },
         "StaticbackupResponse": {
             "StaticBackup.scb[]": 1
         },
@@ -5660,6 +5667,22 @@
         },
         "SignPsbt.signonly[]": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Sql": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "Sql.query": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "Sql.rows[][]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "Sql.warning_db_failure": {
+            "added": "v24.02",
             "deprecated": false
         },
         "StaticBackup": {

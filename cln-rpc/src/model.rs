@@ -78,6 +78,7 @@ pub enum Request {
 	PreApproveKeysend(requests::PreapprovekeysendRequest),
 	PreApproveInvoice(requests::PreapproveinvoiceRequest),
 	StaticBackup(requests::StaticbackupRequest),
+	Sql(requests::SqlRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -145,6 +146,7 @@ pub enum Response {
 	PreApproveKeysend(responses::PreapprovekeysendResponse),
 	PreApproveInvoice(responses::PreapproveinvoiceResponse),
 	StaticBackup(responses::StaticbackupResponse),
+	Sql(responses::SqlResponse),
 }
 
 
@@ -2224,6 +2226,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "staticbackup"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SqlRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub query: Option<String>,
+	}
+
+	impl From<SqlRequest> for Request {
+	    fn from(r: SqlRequest) -> Self {
+	        Request::Sql(r)
+	    }
+	}
+
+	impl IntoRequest for SqlRequest {
+	    type Response = super::responses::SqlResponse;
+	}
+
+	impl TypedRequest for SqlRequest {
+	    type Response = super::responses::SqlResponse;
+
+	    fn method(&self) -> &str {
+	        "sql"
 	    }
 	}
 }
@@ -5844,6 +5869,25 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::StaticBackup(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SqlResponse {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub rows: Option<Vec<Vec<String>>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_db_failure: Option<String>,
+	}
+
+	impl TryFrom<Response> for SqlResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Sql(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

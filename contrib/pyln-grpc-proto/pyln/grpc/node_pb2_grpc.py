@@ -319,6 +319,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.StaticbackupRequest.SerializeToString,
                 response_deserializer=node__pb2.StaticbackupResponse.FromString,
                 )
+        self.Sql = channel.unary_unary(
+                '/cln.Node/Sql',
+                request_serializer=node__pb2.SqlRequest.SerializeToString,
+                response_deserializer=node__pb2.SqlResponse.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -690,6 +695,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Sql(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -997,6 +1008,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.StaticBackup,
                     request_deserializer=node__pb2.StaticbackupRequest.FromString,
                     response_serializer=node__pb2.StaticbackupResponse.SerializeToString,
+            ),
+            'Sql': grpc.unary_unary_rpc_method_handler(
+                    servicer.Sql,
+                    request_deserializer=node__pb2.SqlRequest.FromString,
+                    response_serializer=node__pb2.SqlResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2042,5 +2058,22 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/StaticBackup',
             node__pb2.StaticbackupRequest.SerializeToString,
             node__pb2.StaticbackupResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Sql(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/Sql',
+            node__pb2.SqlRequest.SerializeToString,
+            node__pb2.SqlResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

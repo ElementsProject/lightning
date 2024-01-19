@@ -114,6 +114,7 @@ def load_jsonrpc_service(schema_dir: str):
         "PreApproveKeysend",
         "PreApproveInvoice",
         "StaticBackup",
+        "Sql"
     ]
     methods = [load_jsonrpc_method(name, schema_dir=schema_dir) for name in method_names]
     service = Service(name="Node", methods=methods)
