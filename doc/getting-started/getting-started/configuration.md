@@ -268,7 +268,7 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 
 - **commit-time**=_MILLISECONDS_
 
-  How long to wait before sending commitment messages to the peer: in theory increasing this would reduce load, but your node would have to be extremely busy node for you to even notice.
+  How long to wait before sending commitment messages to the peer: in theory increasing this would reduce load, but your node would have to be an extremely busy node for you to even notice.
 
 - **force-feerates**==_VALUES_
 
