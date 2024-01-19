@@ -2808,6 +2808,53 @@ def test_emergencyrecover(node_factory, bitcoind):
     assert l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_recover_plugin(node_factory, bitcoind):
+    l1 = node_factory.get_node(may_reconnect=True, options={'log-level': 'info', 'experimental-peer-storage': None},
+                               allow_warning=True,
+                               feerates=(7500, 7500, 7500, 7500))
+    l2 = node_factory.get_node(may_reconnect=True, options={'log-level': 'info', 'experimental-peer-storage': None},
+                               feerates=(7500, 7500, 7500, 7500), allow_broken_log=True, allow_bad_gossip=True)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.fundchannel(l1, 10**6)
+    mine_funding_to_announce(bitcoind, [l1, l2])
+
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = open(dbpath, "rb").read()
+
+    l2.start()
+
+    assert l2.daemon.is_in_log('Server started with public key')
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    # successful payments
+    i31 = l1.rpc.invoice(10000, 'i31', 'desc')
+    l2.rpc.pay(i31['bolt11'])
+
+    # Now, move l2 back in time.
+    l2.stop()
+
+    # Overwrite with OLD db.
+    open(dbpath, "wb").write(orig_db)
+
+    l2.start()
+
+    bitcoind.generate_block(5, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    l2.daemon.wait_for_log(f"{l1.info['id']}-chan#1: State changed from FUNDING_SPEND_SEEN to ONCHAIN")
+    wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+
+    # Both channels should go ONCHAIN!
+    assert l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN"
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_restorefrompeer(node_factory, bitcoind):
     """

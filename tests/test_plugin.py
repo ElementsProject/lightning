@@ -3750,6 +3750,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'u32'},
                         {'name': 'ignore_fee_limits',
                          'type': 'boolean'},
+                        {'name': 'lost_state',
+                         'type': 'boolean'},
                         {'name': 'feerate_perkw',
                          'type': 'u32'},
                         {'name': 'feerate_perkb',
