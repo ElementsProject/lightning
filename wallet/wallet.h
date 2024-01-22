@@ -621,6 +621,12 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan);
 void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight);
 
 /**
+ * Delete an inflight transaction for a channel
+ */
+void wallet_inflight_del(struct wallet *w, struct channel *chan,
+			 struct channel_inflight *inflight);
+
+/**
  * Update an existing inflight channel transaction
  */
 void wallet_inflight_save(struct wallet *w,
