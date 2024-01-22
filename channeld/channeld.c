@@ -25,6 +25,8 @@
 #include <common/billboard.h>
 #include <common/ecdh_hsmd.h>
 #include <common/gossip_store.h>
+#include <common/hsm_capable.h>
+#include <common/hsm_version.h>
 #include <common/interactivetx.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
@@ -1924,6 +1926,8 @@ static void send_revocation(struct peer *peer,
 	struct added_htlc *added;
 	const u8 *msg;
 	const u8 *msg_for_master;
+	struct secret old_secret2;
+	struct pubkey next_point2;
 
 	/* Marshall it now before channel_sending_revoke_and_ack changes htlcs */
 	/* FIXME: Make infrastructure handle state post-revoke_and_ack! */
@@ -1964,10 +1968,26 @@ static void send_revocation(struct peer *peer,
 
 	peer->splice_state->await_commitment_succcess = false;
 
+	/* Now that the master has persisted the new commitment advance the HSMD
+	 * and fetch the revocation secret for the old one. */
+	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX)) {
+		/* Prior to HSM_VERSION 5 we use the old_secret
+		 * received earlier from validate_commitment_tx. */
+		old_secret2 = *old_secret;
+		next_point2 = *next_point;
+	} else {
+		msg = towire_hsmd_revoke_commitment_tx(tmpctx, peer->next_index[LOCAL] - 2);
+		msg = hsm_req(tmpctx, take(msg));
+		if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_secret2, &next_point2))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Reading revoke_commitment_tx reply: %s",
+				      tal_hex(tmpctx, msg));
+	}
+
 	/* Revoke previous commit, get new point. */
 	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-2,
 					      &peer->next_local_per_commit,
-					      old_secret, next_point);
+					      &old_secret2, &next_point2);
 
 	/* Now we can finally send revoke_and_ack to peer */
 	peer_write(peer->pps, take(msg));
@@ -2273,7 +2293,10 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		tal_steal(commitsigs, result);
 	}
 
-	assert(old_secret);
+	// If the HSM doesn't support WIRE_HSMD_REVOKE_COMMITMENT_TX we'd better
+	// have the old_secret at this point.
+	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX))
+		assert(old_secret);
 
 	send_revocation(peer, &commit_sig, htlc_sigs, changed_htlcs, txs[0],
 			old_secret, &next_point, commitsigs);
