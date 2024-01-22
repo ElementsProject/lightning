@@ -51,6 +51,10 @@ struct splicing {
 	bool received_tx_complete;
 	/* If, in the last splice_update, we sent tx_complete */
 	bool sent_tx_complete;
+	/* Lease request sats */
+	struct amount_sat *requested_sats;
+	/* Lease request terms */
+	struct lease_rates *expected_rates;
 };
 
 /* Sets `splice` items to default values */

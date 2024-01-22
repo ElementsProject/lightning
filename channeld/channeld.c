@@ -3804,6 +3804,10 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct bitcoin_outpoint outpoint;
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_ACCEPTER;
+	struct tlv_splice_tlvs *splice_tlvs;
+	struct tlv_splice_ack_tlvs *splice_ack_tlvs;
+	struct amount_sat requested_sats;
+	u8 *abort_msg;
 
 	/* Can't start a splice with another splice still active */
 	assert(!peer->splicing);
@@ -3812,13 +3816,14 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
 
-	if (!fromwire_splice(inmsg,
+	if (!fromwire_splice(tmpctx, inmsg,
 			     &channel_id,
 			     &genesis_blockhash,
 			     &peer->splicing->opener_relative,
 			     &funding_feerate_perkw,
 			     &locktime,
-			     &splice_remote_pubkey))
+			     &splice_remote_pubkey,
+			     &splice_tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad wire_splice %s", tal_hex(tmpctx, inmsg));
 
@@ -3849,11 +3854,21 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	/* TODO: Add plugin hook for user to adjust accepter amount */
 	peer->splicing->accepter_relative = 0;
 
+	requested_sats = AMOUNT_SAT(0);
+	if (splice_tlvs && splice_tlvs->request_funds) {
+		requested_sats.satoshis = splice_tlvs->request_funds->requested_sats; /* Raw: wire -> struct */
+		status_info("Peer requests we add %s funds to splice!",
+			    type_to_string(tmpctx, struct amount_sat,
+			    		   &requested_sats));
+	}
+
+	splice_ack_tlvs = NULL;
 	msg = towire_splice_ack(NULL,
 				&peer->channel_id,
 				&chainparams->genesis_blockhash,
 				peer->splicing->accepter_relative,
-				&peer->channel->funding_pubkey[LOCAL]);
+				&peer->channel->funding_pubkey[LOCAL],
+				splice_ack_tlvs);
 
 	peer->splicing->mode = true;
 
@@ -3968,15 +3983,19 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	u32 sequence = 0;
 	u8 *scriptPubkey;
 	char *error;
+	u8 *abort_msg;
+	struct tlv_splice_ack_tlvs *tlvs;
+	u8 *msg;
 
 	ictx = new_interactivetx_context(tmpctx, TX_INITIATOR,
 					 peer->pps, peer->channel_id);
 
-	if (!fromwire_splice_ack(inmsg,
+	if (!fromwire_splice_ack(tmpctx, inmsg,
 				 &channel_id,
 				 &genesis_blockhash,
 				 &peer->splicing->accepter_relative,
-				 &splice_remote_pubkey))
+				 &splice_remote_pubkey,
+				 &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad wire_splice_ack %s",
 				 tal_hex(tmpctx, inmsg));
@@ -3994,6 +4013,21 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 		       &peer->channel->funding_pubkey[REMOTE]))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] doesnt support changing pubkeys");
+
+	if (peer->splicing->requested_sats) {
+		if (!tlvs || !tlvs->will_fund) {
+
+			msg = towire_channeld_splice_lease_error(NULL,
+								 "Peer lease"
+								 " rejected :(");
+			wire_sync_write(MASTER_FD, take(msg));
+
+			splice_abort(peer, tal_fmt(tmpctx, "You rejected our lease request you jerk"));
+			return;
+		}
+		// TODO: add minimum lease amount setting and check that
+		// TODO: check lease terms
+	}
 
 	peer->splicing->received_tx_complete = false;
 	peer->splicing->sent_tx_complete = false;
@@ -4347,13 +4381,25 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 /* This occurs once our 'stfu' transition was successful. */
 static void handle_splice_stfu_success(struct peer *peer)
 {
+	struct tlv_splice_tlvs *tlvs;
+
+	if (peer->splicing->requested_sats) {
+		tlvs = tlv_splice_tlvs_new(tmpctx);
+		tlvs->request_funds = tal(tlvs,
+					  struct tlv_splice_tlvs_request_funds);
+		tlvs->request_funds->requested_sats =
+			peer->splicing->requested_sats->satoshis; /* Raw: struct -> wire */
+	} else {
+		tlvs = NULL;
+	}
 	u8 *msg = towire_splice(tmpctx,
 				&peer->channel_id,
 				&chainparams->genesis_blockhash,
 				peer->splicing->opener_relative,
 				peer->splicing->feerate_per_kw,
 				peer->splicing->current_psbt->fallback_locktime,
-				&peer->channel->funding_pubkey[LOCAL]);
+				&peer->channel->funding_pubkey[LOCAL],
+				tlvs);
 	peer->splice_state->await_commitment_succcess = false;
 	peer_write(peer->pps, take(msg));
 }
@@ -4381,7 +4427,9 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 					   &peer->splicing->current_psbt,
 					   &peer->splicing->opener_relative,
 					   &peer->splicing->feerate_per_kw,
-					   &peer->splicing->force_feerate))
+					   &peer->splicing->force_feerate,
+					   &peer->splicing->requested_sats,
+					   &peer->splicing->expected_rates))
 		master_badmsg(WIRE_CHANNELD_SPLICE_INIT, inmsg);
 
 	if (peer->want_stfu) {
@@ -6002,6 +6050,10 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT:
 	case WIRE_CHANNELD_SPLICE_FEERATE_ERROR:
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
+	case WIRE_CHANNELD_SPLICE_LEASE_ERROR:
+		break;
+	case WIRE_CHANNELD_SPLICE_ABORT:
+		check_tx_abort(peer, msg);
 		break;
  	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 		if (peer->developer) {
