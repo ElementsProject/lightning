@@ -60,6 +60,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/gossip_store.o			\
 	common/hmac.o				\
+	common/hsm_capable.o				\
 	common/interactivetx.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
