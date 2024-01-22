@@ -128,8 +128,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 		desc = is_peer_warning(msg, msg);
 		if (desc) {
 			status_info("They sent %s", desc);
-			tal_free(msg);
-			continue;
+			return tal_free(msg);
 		}
 
 		/* In theory, we're in the middle of an open/RBF/splice, but
@@ -142,9 +141,8 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_TX_ADD_OUTPUT:
 		case WIRE_TX_REMOVE_OUTPUT:
 		case WIRE_TX_COMPLETE:
-			return msg;
 		case WIRE_TX_ABORT:
-			/* TODO */
+			return msg;
 		case WIRE_TX_SIGNATURES:
 		case WIRE_CHANNEL_READY:
 		case WIRE_TX_INIT_RBF:
@@ -345,12 +343,15 @@ bool interactivetx_has_changes(struct interactivetx_context *ictx,
 
 char *process_interactivetx_updates(const tal_t *ctx,
 			 	    struct interactivetx_context *ictx,
-				    bool *received_tx_complete)
+				    bool *received_tx_complete,
+				    u8 **abort_msg)
 {
 	bool we_complete = false, they_complete = false;
 	u8 *msg;
 	char *error = NULL;
 	struct wally_psbt *next_psbt;
+
+	*abort_msg = NULL;
 
 	if (received_tx_complete)
 		they_complete = *received_tx_complete;
@@ -696,7 +697,8 @@ char *process_interactivetx_updates(const tal_t *ctx,
 				*received_tx_complete = true;
 			break;
 		case WIRE_TX_ABORT:
-			/* Todo */
+			*abort_msg = msg;
+			return NULL;
 		case WIRE_INIT:
 		case WIRE_ERROR:
 		case WIRE_WARNING:
