@@ -58,13 +58,18 @@ Specify *password* if the `hsm_secret` is encrypted.
 **checkhsm** *hsm\_secret\_path*
   Checks that hsm\_secret matches a BIP39 passphrase.
 
-**dumponchaindescriptors** *hsm\_secret* \[*password*\] \[*network*\]
+**dumponchaindescriptors** \[*--show-secrets*\] *hsm\_secret* \[*network*\]
   Dump output descriptors for our onchain wallet.
+This command requires the path to the hsm\_secret containing the wallet seed.
+If the flag *--show-secrets* is set the command will show the BIP32 extended private
+keys, otherwise the extended public keys will be shown.
 The descriptors can be used by external services to be able to generate
-addresses for our onchain wallet. (for example on `bitcoind` using the
-`importmulti` or `importdescriptors` RPC calls)
-We need the path to the hsm\_secret containing the wallet seed, and an optional
-(skip using `""`) password if it was encrypted.
+addresses for our onchain wallet or to spend those funds
+provided that the private keys are visible with *--show-secrets*.
+The descriptors can be loaded into a bitcoin-core wallet for example,
+using the `importmulti` or `importdescriptors` RPC calls.
+If the hsm\_secret was encrypted the command will prompt for a decryption
+password.
 To generate descriptors using testnet master keys, you may specify *testnet* as
 the last parameter. By default, mainnet-encoded keys are generated.
 
