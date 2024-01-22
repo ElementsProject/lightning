@@ -3,6 +3,7 @@
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/multiwithdraw.h>
 #include <plugins/spender/openchannel.h>
+#include <plugins/spender/splice.h>
 
 /*~ The spender plugin contains various commands that handle
  * spending from the onchain wallet.  */
@@ -27,6 +28,7 @@ int main(int argc, char **argv)
 	tal_expand(&commands, multiwithdraw_commands, num_multiwithdraw_commands);
 	tal_expand(&commands, fundchannel_commands, num_fundchannel_commands);
 	tal_expand(&commands, multifundchannel_commands, num_multifundchannel_commands);
+	tal_expand(&commands, splice_commands, num_splice_commands);
 	/* tal_expand(&commands, whatever_commands, num_whatever_commands); */
 
 	notifs = tal_arr(NULL, struct plugin_notification, 0);
