@@ -284,6 +284,95 @@ static void handle_splice_feerate_error(struct lightningd *ld,
 	}
 }
 
+static void handle_splice_abort(struct lightningd *ld,
+				struct channel *channel,
+				const u8 *msg)
+{
+	struct splice_command *cc;
+	struct peer *peer = channel->peer;
+	bool did_i_abort;
+	struct bitcoin_outpoint *outpoint;
+	struct channel_inflight *inflight;
+	char *reason;
+	u8 *error;
+	int fds[2];
+
+	if (!fromwire_channeld_splice_abort(tmpctx, msg, &did_i_abort,
+					    &outpoint, &reason)) {
+		channel_internal_error(channel,
+				       "bad fromwire_channeld_splice_abort %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	if (outpoint) {
+		inflight = list_tail(&channel->inflights,
+				     struct channel_inflight,
+				     list);
+
+		if (!bitcoin_outpoint_eq(outpoint,
+					 &inflight->funding->outpoint))
+			channel_internal_error(channel,
+					       "abort outpoint %s does not"
+					       " match ours %s",
+					       type_to_string(tmpctx,
+					       		      struct bitcoin_outpoint,
+					       		      outpoint),
+					       type_to_string(tmpctx,
+					       		      struct bitcoin_outpoint,
+					       		      &inflight->funding->outpoint));
+
+		wallet_inflight_del(ld->wallet, channel, inflight);
+	}
+
+	cc = splice_command_for_chan(ld, channel);
+	if (cc)
+		was_pending(command_fail(cc->cmd, SPLICE_ABORT, "%s", reason));
+	else
+		log_peer_unusual(ld->log, &peer->id, "Splice aborted"
+				 " %s", reason);
+
+	log_debug(channel->log,
+		  "Restarting channeld after tx_abort on %s channel",
+		  channel_state_name(channel));
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		log_broken(channel->log,
+			   "Failed to create socketpair: %s",
+			   strerror(errno));
+
+		error = towire_warningfmt(tmpctx, &channel->cid,
+					  "Trouble in paradise?");
+		log_peer_debug(ld->log, &channel->peer->id,
+			       "Telling connectd to send error %s",
+			       tal_hex(tmpctx, error));
+		/* Get connectd to send error and close. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_final_msg(NULL,
+			      					  &peer->id,
+								  peer->connectd_counter,
+								  error)));
+		return;
+	}
+	log_debug(channel->log, "made the socket pair");
+
+	if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL,
+						     true, false)) {
+		log_info(channel->log, "Sending the peer fd to connectd");
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_connect_subd(NULL,
+			      					     &peer->id,
+								     peer->connectd_counter,
+								     &channel->cid)));
+		subd_send_fd(ld->connectd, fds[1]);
+		log_info(channel->log, "Sent the peer fd to channeld");
+	}
+	else {
+		log_info(channel->log, "peer_start_channeld failed");
+		close(fds[1]);
+	}
+}
+
 /* When channeld finishes processing the `splice_init` command, this is called */
 static void handle_splice_confirmed_init(struct lightningd *ld,
 					 struct channel *channel,
@@ -1365,6 +1454,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		break;
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
 		handle_splice_funding_error(sd->ld, sd->channel, msg);
+		break;
+	case WIRE_CHANNELD_SPLICE_ABORT:
+		handle_splice_abort(sd->ld, sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SPLICE_STATE_ERROR:
 		handle_splice_state_error(sd->ld, sd->channel, msg);
