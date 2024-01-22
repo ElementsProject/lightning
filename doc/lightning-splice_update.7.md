@@ -89,6 +89,7 @@ On success, an object is returned, containing:
 
 - **psbt** (string): the (incomplete) PSBT of the splice transaction
 - **commitments\_secured** (boolean): whether or not the commitments were secured
+- **signatures\_secured** (boolean, optional): whether or not the peer sent us their signatures for this splice *(added v24.02)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -105,4 +106,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:60ebb90eba3d3e5a52266efdad0e226bc2a4fa7b16f7cc67a5bcc33055ddc92c)
+[comment]: # ( SHA256STAMP:0b36412c0de2c7b1a192cc82496e8c83e62d40d602f62e60cdb81ba2c9dcd7f1)

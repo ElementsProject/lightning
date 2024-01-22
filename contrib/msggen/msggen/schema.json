@@ -15479,6 +15479,63 @@
       }
     }
   },
+  "splice.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "added": "v24.02",
+    "properties": {
+      "script": {
+        "type": "string",
+        "description": "The splice script to execute"
+      },
+      "dryrun": {
+        "type": "bool",
+        "description": "Don't execute any actions and output a transcript of what would have been done"
+      },
+      "json": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "A json payload of instructions can be passed instead of script"
+      },
+      "psbt": {
+        "type": "string",
+        "description": "An initial psbt to begin the splice with"
+      },
+      "user_provided_sats": {
+        "type": "sats",
+        "description": "The amount of sats being contributed by the initial psbt"
+      }
+    }
+  },
+  "splice.schema.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "added": "v24.02",
+    "properties": {
+      "dryrun": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "One action line of the splice script result"
+        },
+        "description": "The transcript of what the script would have done"
+      },
+      "psbt": {
+        "type": "string",
+        "description": "The final transaction"
+      },
+      "txid": {
+        "type": "string",
+        "description": "The txid of the final transaction"
+      }
+    }
+  },
   "splice_init.request.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -15612,6 +15669,11 @@
       "commitments_secured": {
         "type": "boolean",
         "description": "whether or not the commitments were secured"
+      },
+      "signatures_secured": {
+        "added": "v24.02",
+        "type": "boolean",
+        "description": "whether or not the peer sent us their signatures for this splice"
       }
     }
   },
