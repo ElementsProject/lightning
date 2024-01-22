@@ -31,6 +31,8 @@ struct splicing *splicing_new(const tal_t *ctx)
 	splicing->received_tx_complete = false;
 	splicing->sent_tx_complete = false;
 	splicing->tx_sig_msg = NULL;
+	splicing->inws = NULL;
+	splicing->their_sig = NULL;
 
 	return splicing;
 }

@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
 
 	str = json_out_contents(js->jout, &len);
 
-	printf("%.*s\n", len, str);
+	printf("%.*s\n", (int)len, str);
 
 	assert(str);
 
