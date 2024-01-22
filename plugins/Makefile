@@ -48,13 +48,15 @@ PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/main.c			\
 	plugins/spender/multifundchannel.c	\
 	plugins/spender/multiwithdraw.c		\
-	plugins/spender/openchannel.c
+	plugins/spender/openchannel.c		\
+	plugins/spender/splice.c
 PLUGIN_SPENDER_HEADER :=			\
 	plugins/spender/multifundchannel.h	\
 	plugins/spender/multiwithdraw.h		\
 	plugins/spender/fundchannel.h		\
 	plugins/spender/multifundchannel.h	\
-	plugins/spender/openchannel.h
+	plugins/spender/openchannel.h		\
+	plugins/spender/splice.h
 PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
 
 PLUGIN_RECOVER_SRC := plugins/recover.c
@@ -170,6 +172,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/scb_wiregen.o			\
+	common/splice_script.o			\
 	common/setup.o				\
 	common/status_levels.o			\
 	common/type_to_string.o			\
