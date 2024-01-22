@@ -77,10 +77,13 @@ struct interactivetx_context *new_interactivetx_context(const tal_t *ctx,
  * out -> true means the last message from the peer was 'tx_complete'.
  *
  * Returns NULL on success or a description of the error on failure.
+ *
+ * If `tx_abort` is received, NULL is returned and `abort_msg` will be set to
  */
 char *process_interactivetx_updates(const tal_t *ctx,
 				    struct interactivetx_context *ictx,
-				    bool *received_tx_complete);
+				    bool *received_tx_complete,
+				    u8 **abort_msg);
 
 /* If the given ictx would cause `process_interactivetx_updates to send tx
  * changes when called. Returns true if an error occurs
