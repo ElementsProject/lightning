@@ -10,6 +10,7 @@
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/fee_states.h>
+#include <wire/peer_wire.h>
 
 # Begin!  (passes gossipd-client fd)
 msgtype,channeld_init,1000
@@ -279,6 +280,12 @@ msgdata,channeld_splice_funding_error,opener_error,bool,
 # channeld->master: A splice state error has occured
 msgtype,channeld_splice_state_error,7221
 msgdata,channeld_splice_state_error,state_error,wirestring,
+
+# channeld->master: Peer rejected our splice
+msgtype,channeld_splice_abort,7223
+msgdata,channeld_splice_abort,did_i_initiate,bool,
+msgdata,channeld_splice_abort,inflight_outpoint,?bitcoin_outpoint,
+msgdata,channeld_splice_abort,reason,?wirestring,
 
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023
