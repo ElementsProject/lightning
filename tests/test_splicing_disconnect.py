@@ -100,17 +100,14 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     # Should reconnect, and reestablish the splice.
     l2.start()
 
+    # Splice should be abandoned via tx_abort
+
     # Wait until nodes are reconnected
     l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
-    bitcoind.generate_block(6, wait_for_mempool=1)
-
-    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-
-    inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)

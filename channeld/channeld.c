@@ -273,6 +273,12 @@ static void maybe_send_stfu(struct peer *peer)
 	}
 }
 
+/* Durring reestablish, STFU mode is assumed if continuing a splice */
+static void assume_stfu_mode(struct peer *peer)
+{
+	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = true;
+}
+
 static void handle_stfu(struct peer *peer, const u8 *stfu)
 {
 	struct channel_id channel_id;
@@ -1625,6 +1631,197 @@ static void send_revocation(struct peer *peer,
 	peer_write(peer->pps, take(msg));
 }
 
+static struct inflight *last_inflight(struct peer *peer)
+{
+	size_t count = tal_count(peer->splice_state->inflights);
+
+	if (count)
+		return peer->splice_state->inflights[count - 1];
+
+	return NULL;
+}
+
+static size_t last_inflight_index(struct peer *peer)
+{
+	assert(tal_count(peer->splice_state->inflights) > 0);
+
+	return tal_count(peer->splice_state->inflights) - 1;
+}
+
+static u32 find_channel_funding_input(struct wally_psbt *psbt,
+				      struct bitcoin_outpoint *funding)
+{
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct bitcoin_outpoint psbt_outpoint;
+		wally_psbt_input_get_outpoint(&psbt->inputs[i], &psbt_outpoint);
+
+		if (!bitcoin_outpoint_eq(&psbt_outpoint, funding))
+			continue;
+
+		if (funding->n == psbt->inputs[i].index)
+			return i;
+	}
+
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Unable to find splice funding tx");
+
+	return UINT_MAX;
+}
+
+/* This checks if local has signed the funding input only */
+static bool have_i_signed_inflight(const struct peer *peer,
+				   const struct inflight *inflight)
+{
+	bool has_sig;
+	u32 index;
+
+	if (!inflight || !inflight->psbt)
+		return false;
+
+	index = find_channel_funding_input(inflight->psbt,
+					   &peer->channel->funding);
+
+	if (!psbt_input_have_signature(inflight->psbt, index,
+				       &peer->channel->funding_pubkey[LOCAL],
+				       &has_sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable parse inflight psbt");
+
+	return has_sig;
+}
+
+/* this checks if local has signed everything buy the funding input */
+static bool missing_user_signatures(const struct peer *peer,
+				    const struct inflight *inflight)
+{
+	int sigs_needed;
+	u32 i, splice_funding_index;
+	const struct witness **outws;
+	enum tx_role our_role = inflight->i_am_initiator
+				? TX_INITIATOR : TX_ACCEPTER;
+
+	if (!inflight || !inflight->psbt)
+		return false;
+
+	splice_funding_index = find_channel_funding_input(inflight->psbt,
+							  &peer->channel->funding);
+	sigs_needed = 0;
+	for (i = 0; i < inflight->psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &inflight->psbt->inputs[i];
+		u64 in_serial;
+
+		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
+			status_broken("PSBT input %"PRIu32" missing serial_id"
+				      " %s", i,
+				      type_to_string(tmpctx,
+						     struct wally_psbt,
+						     inflight->psbt));
+			return true;
+		}
+		if (in_serial % 2 == our_role && i != splice_funding_index)
+			sigs_needed++;
+	}
+
+	outws = psbt_to_witnesses(tmpctx, inflight->psbt,
+				  our_role, splice_funding_index);
+	return tal_count(outws) != sigs_needed;
+}
+
+static void check_tx_abort(struct peer *peer, const u8 *msg)
+{
+	struct inflight *inflight = last_inflight(peer);
+	struct bitcoin_outpoint *outpoint;
+	struct channel_id channel_id;
+	u8 *reason;
+
+	if (!msg || fromwire_peektype(msg) != WIRE_TX_ABORT)
+		return;
+
+	if (have_i_signed_inflight(peer, inflight)) {
+		peer_failed_err(peer->pps, &peer->channel_id, "tx_abort"
+			        " is not allowed after I have sent my"
+			        " signature. msg: %s",
+			        tal_hex(tmpctx, msg));
+	}
+
+	if (!fromwire_tx_abort(tmpctx, msg, &channel_id, &reason))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "bad tx_abort %s", tal_hex(msg, msg));
+
+	status_info("Send ack of tx_abort");
+
+	peer_write(peer->pps,
+		   take(towire_tx_abort(NULL, &peer->channel_id, NULL)));
+
+	outpoint = NULL;
+	if (inflight)
+		outpoint = &inflight->outpoint;
+
+	status_info("Send tx_abort to master");
+
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_splice_abort(NULL, false,
+							  outpoint,
+							  (char*)reason)));
+
+	/* Give master a chance to pass the fd along */
+	status_info("Delaying closing of master fd by 1 second");
+	sleep(1);
+
+	close(MASTER_FD);
+	exit(0);
+}
+
+static void splice_abort(struct peer *peer, const char *fmt, ...)
+{
+	struct inflight *inflight = last_inflight(peer);
+	struct bitcoin_outpoint *outpoint;
+	u8 *msg;
+	char *reason;
+	va_list ap;
+
+	va_start(ap, fmt);
+	reason = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+
+	if (have_i_signed_inflight(peer, inflight))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Tried to abort a splice where I have already"
+			      " sent my signatures");
+
+	status_info("We are initiating tx_abort for reason: %s", reason);
+
+	peer_write(peer->pps,
+		   take(towire_tx_abort(NULL, &peer->channel_id, (u8*)reason)));
+
+	do {
+		msg = peer_read(tmpctx, peer->pps);
+		if (handle_peer_error_or_warning(peer->pps, msg)) {
+			status_info("Received warning/error while expecting "
+				    "tx_abort, msg: %s", tal_hex(tmpctx, msg));
+			exit(0);
+		}
+	} while (fromwire_peektype(msg) != WIRE_TX_ABORT);
+
+	status_info("We got TX_ABORT ack, now telling master about it");
+
+	outpoint = NULL;
+	if (inflight)
+		outpoint = &inflight->outpoint;
+
+	msg = towire_channeld_splice_abort(tmpctx, true, outpoint, reason);
+
+	wire_sync_write(MASTER_FD, msg);
+
+	/* Give master a chance to pass the fd along */
+	status_info("Delaying closing of master fd by 1 second");
+	sleep(1);
+
+
+	close(MASTER_FD);
+	exit(0);
+}
+
 struct commitsig_info {
 	struct commitsig *commitsig;
 	struct secret *old_secret;
@@ -1906,6 +2103,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		s64 sub_splice_amnt = peer->splice_state->inflights[i]->splice_amnt;
 
 		splice_msg = peer_read(tmpctx, peer->pps);
+		check_tx_abort(peer, splice_msg);
 		/* Check type for cleaner failure message */
 		type = fromwire_peektype(msg);
 		if (type != WIRE_COMMITMENT_SIGNED)
@@ -2572,6 +2770,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 					    WIRE_TX_SIGNATURES,
 					    WIRE_TX_ABORT);
 
+		check_tx_abort(peer, msg);
+
 		if (msg_received)
 			*msg_received = msg;
 
@@ -2831,7 +3031,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "Initiator funding is less than commited"
 				 " amount. Initiator contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
@@ -2853,7 +3053,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "Accepter funding is less than commited"
 				 " amount. Accepter contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
@@ -2895,8 +3095,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
-		/* DTODO: Swap `peer_failed_warn` out for `tx_abort`? */
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Our" : "Your",
 				 type_to_string(tmpctx, struct amount_msat,
@@ -2909,8 +3108,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		/* DTODO: Swap `peer_failed_warn` out for `tx_abort` */
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
 				 type_to_string(tmpctx, struct amount_msat,
@@ -2923,8 +3121,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
-		/* DTODO: Swap `peer_failed_warn` out for `tx_abort`? */
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Your" : "Our",
 				 type_to_string(tmpctx, struct amount_msat,
@@ -2937,8 +3134,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		/* DTODO: Swap `peer_failed_warn` out for `tx_abort` */
-		peer_failed_warn(peer->pps, &peer->channel_id,
+		splice_abort(peer,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
 				 type_to_string(tmpctx, struct amount_msat,
@@ -2991,26 +3187,6 @@ static struct amount_sat check_balances(struct peer *peer,
 	return funding_amount_res;
 }
 
-static u32 find_channel_funding_input(struct wally_psbt *psbt,
-				      struct bitcoin_outpoint *funding)
-{
-	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		struct bitcoin_outpoint psbt_outpoint;
-		wally_psbt_input_get_outpoint(&psbt->inputs[i], &psbt_outpoint);
-
-		if (!bitcoin_outpoint_eq(&psbt_outpoint, funding))
-			continue;
-
-		if (funding->n == psbt->inputs[i].index)
-			return i;
-	}
-
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "Unable to find splice funding tx");
-
-	return UINT_MAX;
-}
-
 static void update_view_from_inflights(struct peer *peer)
 {
 	struct inflight **inflights = peer->splice_state->inflights;
@@ -3032,58 +3208,6 @@ static void update_view_from_inflights(struct peer *peer)
 		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
 			peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 	}
-}
-
-static struct inflight *last_inflight(struct peer *peer)
-{
-	size_t count = tal_count(peer->splice_state->inflights);
-
-	if (count)
-		return peer->splice_state->inflights[count - 1];
-
-	return NULL;
-}
-
-static size_t last_inflight_index(struct peer *peer)
-{
-	assert(tal_count(peer->splice_state->inflights) > 0);
-
-	return tal_count(peer->splice_state->inflights) - 1;
-}
-
-static bool have_i_signed_inflight(const struct peer *peer,
-				   const struct inflight *inflight)
-{
-	bool has_sig;
-	u32 index;
-
-	index = find_channel_funding_input(inflight->psbt,
-					   &peer->channel->funding);
-
-	if (!psbt_input_have_signature(inflight->psbt, index,
-				       &peer->channel->funding_pubkey[LOCAL],
-				       &has_sig))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Unable parse inflight psbt");
-
-	return has_sig;
-}
-
-static bool check_tx_abort(struct peer *peer, const u8 *msg)
-{
-	if (!msg || fromwire_peektype(msg) != WIRE_TX_ABORT)
-		return false;
-
-	if (have_i_signed_inflight(peer, last_inflight(peer))) {
-		peer_failed_err(peer->pps, &peer->channel_id, "tx_abort"
-			        " is not allowed after I have sent my"
-			        " signature. msg: %s",
-			        tal_hex(tmpctx, msg));
-	}
-
-	/* DTODO: Remove last_inflight */
-
-	return true;
 }
 
 /* Called to finish an ongoing splice OR on restart from chanenl_reestablish. */
@@ -3120,11 +3244,12 @@ static void resume_splice_negotiation(struct peer *peer,
 	const u8 *msg_received;
 
 	status_info("Splice negotation, will %ssend commit, %srecv commit,"
-		    " %ssend signature, %srecv signature",
+		    " %ssend signature, %srecv signature as %s",
 		    send_commitments ? "" : "not ",
 		    recv_commitments ? "" : "not ",
 		    send_signature ? "" : "not ",
-		    recv_signature ? "" : "not ");
+		    recv_signature ? "" : "not ",
+		    our_role == TX_INITIATOR ? "initiator" : "accepter");
 
 	wit_script = bitcoin_redeem_2of2(tmpctx,
 					 &peer->channel->funding_pubkey[LOCAL],
@@ -3143,8 +3268,7 @@ static void resume_splice_negotiation(struct peer *peer,
 						    recv_commitments,
 						    &msg_received);
 
-	if (check_tx_abort(peer, msg_received))
-		return;
+	check_tx_abort(peer, msg_received);
 
 	if (their_commit) {
 		if (inflight->last_tx != their_commit->tx)
@@ -3246,8 +3370,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		type = fromwire_peektype(msg);
 
-		if (check_tx_abort(peer, msg))
-			return;
+		check_tx_abort(peer, msg);
 
 		if (handle_peer_error_or_warning(peer->pps, msg))
 			return;
@@ -3457,6 +3580,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct bitcoin_outpoint outpoint;
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_ACCEPTER;
+	u8 *abort_msg;
 
 	/* Can't start a splice with another splice still active */
 	assert(!peer->splicing);
@@ -3523,10 +3647,13 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	ictx->pause_when_complete = false;
 
 	error = process_interactivetx_updates(tmpctx, ictx,
-					      &peer->splicing->received_tx_complete);
+					      &peer->splicing->received_tx_complete,
+					      &abort_msg);
 	if (error)
 		peer_failed_err(peer->pps, &peer->channel_id,
 				"Interactive splicing error: %s", error);
+
+	check_tx_abort(peer, abort_msg);
 
 	assert(ictx->pause_when_complete == false);
 	peer->splicing->sent_tx_complete = true;
@@ -3621,6 +3748,7 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	u32 sequence = 0;
 	u8 *scriptPubkey;
 	char *error;
+	u8 *abort_msg;
 
 	ictx = new_interactivetx_context(tmpctx, TX_INITIATOR,
 					 peer->pps, peer->channel_id);
@@ -3711,11 +3839,14 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 
 	error = process_interactivetx_updates(tmpctx,
 					      ictx,
-					      &peer->splicing->received_tx_complete);
+					      &peer->splicing->received_tx_complete,
+					      &abort_msg);
 
 	if (error)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Interactive splicing_ack error: %s", error);
+
+	check_tx_abort(peer, abort_msg);
 
 	peer->splicing->tx_add_input_count = ictx->tx_add_input_count;
 	peer->splicing->tx_add_output_count = ictx->tx_add_output_count;
@@ -3751,6 +3882,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	struct commitsig *their_commit;
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_INITIATOR;
+	u8 *abort_msg;
 
 	ictx = new_interactivetx_context(tmpctx, our_role,
 					 peer->pps, peer->channel_id);
@@ -3762,10 +3894,13 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	ictx->tx_add_output_count = peer->splicing->tx_add_output_count;
 
 	error = process_interactivetx_updates(tmpctx, ictx,
-					      &peer->splicing->received_tx_complete);
+					      &peer->splicing->received_tx_complete,
+					      &abort_msg);
 	if (error)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice interactivetx error: %s", error);
+
+	check_tx_abort(peer, abort_msg);
 
 	/* With pause_when_complete fase, this assert should never fail */
 	assert(peer->splicing->received_tx_complete);
@@ -3848,7 +3983,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
  * new details to the active PSBT. Each user call enters here: */
 static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 {
-	u8 *outmsg, *msg;
+	u8 *outmsg, *msg, *abort_msg;
 	struct interactivetx_context *ictx;
 	char *error;
 
@@ -3897,10 +4032,13 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 	}
 
 	error = process_interactivetx_updates(tmpctx, ictx,
-					      &peer->splicing->received_tx_complete);
+					      &peer->splicing->received_tx_complete,
+					      &abort_msg);
 	if (error)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Splice update error: %s", error);
+
+	check_tx_abort(peer, abort_msg);
 
 	peer->splicing->tx_add_input_count = ictx->tx_add_input_count;
 	peer->splicing->tx_add_output_count = ictx->tx_add_output_count;
@@ -4086,6 +4224,15 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	if (handle_peer_error_or_warning(peer->pps, msg))
 		return;
+
+	check_tx_abort(peer, msg);
+
+	/* If we're in STFU mode and aren't waiting for a STFU mode
+	 * specific message, the only valid message was tx_abort */
+	if (is_stfu_active(peer) && !peer->stfu_wait_single_msg)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Received message %s when only TX_ABORT was"
+				 " valid", peer_wire_name(type));
 
 	/* Must get channel_ready before almost anything. */
 	if (!peer->channel_ready[REMOTE]) {
@@ -4691,17 +4838,23 @@ static void peer_reconnect(struct peer *peer,
 	inflight = last_inflight(peer);
 
 	if (inflight && (!inflight->last_tx || !inflight->remote_tx_sigs)) {
-		status_info("Reconnecting to peer with pending inflight commit:"
-			    " %s, remote sigs: %s.",
-			    inflight->last_tx ? "received" : "missing",
-			    inflight->remote_tx_sigs ? "received" : "missing");
+		if (missing_user_signatures(peer, inflight)) {
+			status_info("Unable to resume splice as user sigs are"
+				    " missing.");
+			inflight = NULL;
+		} else {
+			status_info("Reconnecting to peer with pending inflight"
+				    " commit: %s, remote sigs: %s.",
+				    inflight->last_tx ? "received" : "missing",
+				    inflight->remote_tx_sigs ? "received" : "missing");
 
-		if (!send_tlvs) {
-			/* Subtle: we free tmpctx below as we loop, so tal off
-			 * peer */
-			send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+			if (!send_tlvs) {
+				/* Subtle: we free tmpctx below as we loop, so
+				 * tal off peer */
+				send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+			}
+			send_tlvs->next_funding = &inflight->outpoint.txid;
 		}
-		send_tlvs->next_funding = &inflight->outpoint.txid;
 	}
 
 	/* BOLT #2:
@@ -4806,10 +4959,6 @@ static void peer_reconnect(struct peer *peer,
 		     tal_count(peer->splice_state->inflights),
 		     peer->splice_state->count);
 
-	/* If we didn't send (i.e. don't support!) ignore theirs */
-	if (!send_tlvs && !inflight)
-		recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-
 	local_next_funding = (send_tlvs ? send_tlvs->next_funding : NULL);
 	remote_next_funding = (recv_tlvs ? recv_tlvs->next_funding : NULL);
 
@@ -4823,6 +4972,7 @@ static void peer_reconnect(struct peer *peer,
 	if (inflight && (remote_next_funding || local_next_funding)) {
 		if (!remote_next_funding) {
 			status_info("Resuming splice negotation.");
+			assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
 						  false,
 						  true,
@@ -4830,9 +4980,14 @@ static void peer_reconnect(struct peer *peer,
 						  true);
 		} else if (bitcoin_txid_eq(remote_next_funding,
 					   &inflight->outpoint.txid)) {
+			/* Don't send sigs unless we have theirs */
+			assert(local_next_funding || inflight->remote_tx_sigs);
+
 			status_info("Resuming splice negotation");
+			if (local_next_funding)
+				assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
-						  !inflight->remote_tx_sigs,
+						  true,
 						  local_next_funding,
 						  true,
 						  local_next_funding);
@@ -4874,13 +5029,8 @@ static void peer_reconnect(struct peer *peer,
 				   take(towire_splice_locked(NULL, &peer->channel_id)));
 		}
 		else {
-			char *errmsg = tal_fmt(tmpctx,
-					     "next_funding_txid not recognized."
+			splice_abort(peer, "next_funding_txid not recognized."
 					     " Sending tx_abort.");
-			peer_write(peer->pps,
-				   take(towire_tx_abort(NULL,
-				   			&peer->channel_id,
-				   			(u8*)errmsg)));
 		}
 	}
 
@@ -5656,6 +5806,8 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_LOOKUP_TX_RESULT:
 	case WIRE_CHANNELD_SPLICE_FEERATE_ERROR:
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
+	case WIRE_CHANNELD_SPLICE_ABORT:
+		check_tx_abort(peer, msg);
 		break;
  	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 		if (peer->developer) {
@@ -5967,11 +6119,6 @@ int main(int argc, char *argv[])
 			tptr = &timeout;
 		}
 
-		/* If we're in STFU mode and aren't waiting for a STFU mode
-		 * specific message, don't read from the peer. */
-		if (is_stfu_active(peer) && !peer->stfu_wait_single_msg)
-			FD_CLR(peer->pps->peer_fd, &rfds);
-
 		if (select(nfds, &rfds, NULL, NULL, tptr) < 0) {
 			/* Signals OK, eg. SIGUSR1 */
 			if (errno == EINTR)
@@ -5999,5 +6146,6 @@ int main(int argc, char *argv[])
 	assert(shutdown_complete(peer));
 	send_shutdown_complete(peer);
 	daemon_shutdown();
+	sleep(1);
 	return 0;
 }
