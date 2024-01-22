@@ -658,6 +658,9 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	struct pubkey pubkey;
 	s64 keyidx;
 	const u8 *b32script;
+	bool *add_initiator_serial_ids;
+	struct wally_psbt_output *output;
+	u64 serial_id;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("satoshi", param_sat, &amount),
@@ -665,6 +668,8 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 			 p_opt("locktime", param_number, &locktime),
 			 p_opt("destination", param_bitcoin_address,
 			       &b32script),
+			 p_opt_def("add_initiator_serial_ids", param_bool,
+			 	   &add_initiator_serial_ids, false),
 			 NULL))
 		return command_param_failed();
 
@@ -717,7 +722,13 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	}
 
 	outnum = psbt->num_outputs;
-	psbt_append_output(psbt, b32script, *amount);
+	output = psbt_append_output(psbt, b32script, *amount);
+
+	if (*add_initiator_serial_ids) {
+		serial_id = psbt_new_output_serial(psbt, TX_INITIATOR);
+		psbt_output_set_serial_id(psbt, output, serial_id);
+	}
+
 	/* Add additional weight of output */
 	weight = bitcoin_tx_output_weight(
 			chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
