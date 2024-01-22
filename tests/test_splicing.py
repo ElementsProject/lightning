@@ -196,7 +196,7 @@ def test_invalid_splice(node_factory, bitcoind):
     # The splicing inflight should not have been left pending in the DB
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
 
-    l1.daemon.wait_for_log(r'Peer has reconnected, state CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'Restarting channeld after tx_abort on CHANNELD_NORMAL channel')
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
 
@@ -250,7 +250,7 @@ def test_commit_crash_splice(node_factory, bitcoind):
     # The splicing inflight should have been left pending in the DB
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
 
-    l1.daemon.wait_for_log(r'Peer has reconnected, state CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'Restarting channeld after tx_abort on CHANNELD_NORMAL channel')
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
 
