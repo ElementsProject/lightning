@@ -100,6 +100,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX:
+	case WIRE_HSMD_REVOKE_COMMITMENT_TX:
 	case WIRE_HSMD_VALIDATE_REVOCATION:
 		return (client->capabilities & HSM_PERM_SIGN_REMOTE_TX) != 0;
 
@@ -160,6 +161,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
+	case WIRE_HSMD_REVOKE_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_REVOCATION_REPLY:
 	case WIRE_HSMD_SIGN_TX_REPLY:
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY:
@@ -1709,17 +1711,55 @@ static u8 *handle_validate_commitment_tx(struct hsmd_client *c, const u8 *msg_in
 		return hsmd_status_bad_request_fmt(
 		    c, msg_in, "bad per_commit_point %" PRIu64, commit_num + 1);
 
-	if (commit_num >= 1) {
-		old_secret = tal(tmpctx, struct secret);
-		if (!per_commit_secret(&shaseed, old_secret, commit_num - 1)) {
-			return hsmd_status_bad_request_fmt(
-			    c, msg_in, "Cannot derive secret %" PRIu64, commit_num - 1);
-		}
-	} else {
-		old_secret = NULL;
-	}
+	/* Don't ever return the old_secret here anymore. The node should
+	 * call hsmd_revoke_commitment_tx to transactionally revoke the commitment
+	 * and return the secret ...
+	 */
+	old_secret = NULL;
 
 	return towire_hsmd_validate_commitment_tx_reply(
+		NULL, old_secret, &next_per_commitment_point);
+}
+
+/* ~This stub implementation is overriden by fully validating signers
+ * that need to independently revoke the old local commitment tx and
+ * release it's secret.
+ * Revoke the old commitment tx by disclosing its secret and also return
+ * the next commitiment's per-commitment-point.
+ */
+static u8 *handle_revoke_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	u64 commit_num;
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	struct secret *old_secret;
+	struct pubkey next_per_commitment_point;
+
+	if (!fromwire_hsmd_revoke_commitment_tx(msg_in, &commit_num))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Stub implementation */
+
+	/* The signatures are not checked in this stub because they
+	 * are already checked by the caller.  However, the returned
+	 * old_secret and next_per_commitment_point are used.
+	 */
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request(c, msg_in, "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &next_per_commitment_point, commit_num + 2))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad per_commit_point %" PRIu64, commit_num + 2);
+
+	old_secret = tal(tmpctx, struct secret);
+	if (!per_commit_secret(&shaseed, old_secret, commit_num)) {
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Cannot derive secret %" PRIu64, commit_num);
+	}
+
+	return towire_hsmd_revoke_commitment_tx_reply(
 		NULL, old_secret, &next_per_commitment_point);
 }
 
@@ -2010,6 +2050,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_commitment_tx(client, msg);
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX:
 		return handle_validate_commitment_tx(client, msg);
+	case WIRE_HSMD_REVOKE_COMMITMENT_TX:
+		return handle_revoke_commitment_tx(client, msg);
 	case WIRE_HSMD_VALIDATE_REVOCATION:
 		return handle_validate_revocation(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
@@ -2052,6 +2094,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
+	case WIRE_HSMD_REVOKE_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_REVOCATION_REPLY:
 	case WIRE_HSMD_SIGN_TX_REPLY:
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY:
@@ -2088,6 +2131,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 		WIRE_HSMD_SIGN_SPLICE_TX,
 		WIRE_HSMD_CHECK_OUTPOINT,
 		WIRE_HSMD_FORGET_CHANNEL,
+		WIRE_HSMD_REVOKE_COMMITMENT_TX,
 	};
 
 	/*~ Don't swap this. */

@@ -210,6 +210,14 @@ msgtype,hsmd_validate_commitment_tx_reply,135
 msgdata,hsmd_validate_commitment_tx_reply,old_commitment_secret,?secret,
 msgdata,hsmd_validate_commitment_tx_reply,next_per_commitment_point,pubkey,
 
+# Revoke our local commitment, returns the revocation secret and next point
+msgtype,hsmd_revoke_commitment_tx,40
+msgdata,hsmd_revoke_commitment_tx,commit_num,u64,
+
+msgtype,hsmd_revoke_commitment_tx_reply,140
+msgdata,hsmd_revoke_commitment_tx_reply,old_commitment_secret,secret,
+msgdata,hsmd_revoke_commitment_tx_reply,next_per_commitment_point,pubkey,
+
 # Vaidate the counterparty's revocation secret
 msgtype,hsmd_validate_revocation,36
 msgdata,hsmd_validate_revocation,revoke_num,u64,

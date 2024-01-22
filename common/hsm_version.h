@@ -20,7 +20,8 @@
  * v4 with renaming of channel_ready to setup_channel: 60b92a0930b631cc77df564cb9235e6cb220f4337a2bb00e5153145e0bf8c80e
  * v4 with buried outpoint check: f44fae666895cab0347b3de7c245267c71cc7de834827b83e286e86318c08aec
  * v4 with forget_channel: d87c6934ea188f92785d38d7cd0b13ed7f76aa7417f3200baf0c7b5aa832fe29
+ * v5 with hsmd_revoke_commitment_tx: 5742538f87ef5d5bf55b66dc19e52c8683cfeb1b887d3e64ba530ba9a4d8e638
  */
 #define HSM_MIN_VERSION 3
-#define HSM_MAX_VERSION 4
+#define HSM_MAX_VERSION 5
 #endif /* LIGHTNING_COMMON_HSM_VERSION_H */
