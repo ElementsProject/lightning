@@ -1259,6 +1259,24 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	tal_free(stmt);
 }
 
+void wallet_inflight_del(struct wallet *w, struct channel *chan,
+			 struct channel_inflight *inflight)
+{
+	struct db_stmt *stmt;
+
+	/* Remove inflight from the channel */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_funding_inflights"
+					" WHERE channel_id = ?"
+					"   AND funding_tx_id = ?"
+					"   AND funding_tx_outnum = ?"));
+	db_bind_u64(stmt, chan->dbid);
+	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
+	db_bind_int(stmt, inflight->funding->outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	tal_free(inflight);
+}
+
 void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight)
 {
