@@ -641,12 +641,10 @@ class LightningD(TailableProc):
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
         self.opts['log-prefix'] = self.prefix + ' '
 
+    @property
+    def version(self) -> Version:
         v = subprocess.check_output([self.executable, "--version"]).decode('ASCII')
-        self.version = Version.from_str(v)
-
-        if self.version >= Version.from_str('v23.11'):
-            # Starting with v23.11 we ahve the `--developer` flag
-            self.early_opts = {'developer': None}
+        return Version.from_str(v)
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -656,6 +654,9 @@ class LightningD(TailableProc):
 
     @property
     def cmd_line(self):
+        if self.version >= Version.from_str('v23.11'):
+            # Starting with v23.11 we ahve the `--developer` flag
+            self.early_opts = {'developer': None}
 
         opts = []
         for k, v in list(self.early_opts.items()) + list(self.opts.items()):
