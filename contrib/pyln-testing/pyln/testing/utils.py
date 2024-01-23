@@ -629,7 +629,7 @@ class ElementsD(BitcoinD):
 
 
 class ValidatingLightningSignerD(TailableProc):
-    def __init__(self, vlsd_dir, vlsd_port, node_id, network):
+    def __init__(self, vlsd_dir, vlsd_port, vlsd_rpc_port, node_id, network):
         TailableProc.__init__(self, vlsd_dir, verbose=True)
         self.executable = env("REMOTE_SIGNER_CMD", 'vlsd2')
         os.environ['ALLOWLIST'] = env(
@@ -639,6 +639,7 @@ class ValidatingLightningSignerD(TailableProc):
             '--network={}'.format(network),
             '--datadir={}'.format(vlsd_dir),
             '--connect=http://localhost:{}'.format(vlsd_port),
+            '--rpc-server-port={}'.format(vlsd_rpc_port),
             '--integration-test',
         ]
         self.prefix = 'vlsd2-%d' % (node_id)
@@ -685,6 +686,7 @@ class LightningD(TailableProc):
         self.use_vlsd = False
         self.vlsd_dir = os.path.join(lightning_dir, "vlsd")
         self.vlsd_port = None
+        self.vlsd_rpc_server_port = None
         self.vlsd = None
         self.node_id = node_id
 
@@ -804,6 +806,7 @@ class LightningD(TailableProc):
 
             if self.use_vlsd:
                 self.vlsd_port = reserve_unused_port()
+                self.vlsd_rpc_server_port = reserve_unused_port()
                 # We can't do this in the constructor because we need a new port on each restart.
                 self.env['VLS_PORT'] = str(self.vlsd_port)
                 # Kill any previous vlsd (we may have been restarted)
@@ -816,7 +819,7 @@ class LightningD(TailableProc):
             if self.use_vlsd:
                 # Start the remote signer first
                 self.vlsd = ValidatingLightningSignerD(
-                    self.vlsd_dir, self.vlsd_port, self.node_id, self.opts['network'])
+                    self.vlsd_dir, self.vlsd_port, self.vlsd_rpc_server_port, self.node_id, self.opts['network'])
                 self.vlsd.start(
                     stdin, stdout_redir=True, stderr_redir=True,
                     wait_for_initialized=wait_for_initialized)
