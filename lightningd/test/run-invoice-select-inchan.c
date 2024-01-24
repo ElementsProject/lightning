@@ -237,19 +237,10 @@ bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
 /* Generated stub for featurebits_or */
 u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
 { fprintf(stderr, "featurebits_or called!\n"); abort(); }
-/* Generated stub for find_channel_by_alias */
-struct channel *find_channel_by_alias(const struct peer *peer UNNEEDED,
-				      const struct short_channel_id *alias UNNEEDED,
-				      enum side side UNNEEDED)
-{ fprintf(stderr, "find_channel_by_alias called!\n"); abort(); }
 /* Generated stub for find_channel_by_id */
 struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 				   const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "find_channel_by_id called!\n"); abort(); }
-/* Generated stub for find_channel_by_scid */
-struct channel *find_channel_by_scid(const struct peer *peer UNNEEDED,
-				     const struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "find_channel_by_scid called!\n"); abort(); }
 /* Generated stub for find_plugin_for_command */
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
@@ -721,12 +712,16 @@ void notify_connect(struct lightningd *ld UNNEEDED,
 void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)
 { fprintf(stderr, "notify_disconnect called!\n"); abort(); }
 /* Generated stub for notify_invoice_creation */
-void notify_invoice_creation(struct lightningd *ld UNNEEDED, struct amount_msat *amount UNNEEDED,
-			    struct preimage preimage UNNEEDED, const struct json_escape *label UNNEEDED)
+void notify_invoice_creation(struct lightningd *ld UNNEEDED,
+			     const struct amount_msat *amount UNNEEDED,
+			     const struct preimage *preimage UNNEEDED,
+			     const struct json_escape *label UNNEEDED)
 { fprintf(stderr, "notify_invoice_creation called!\n"); abort(); }
 /* Generated stub for notify_invoice_payment */
-void notify_invoice_payment(struct lightningd *ld UNNEEDED, struct amount_msat amount UNNEEDED,
-			    struct preimage preimage UNNEEDED, const struct json_escape *label UNNEEDED,
+void notify_invoice_payment(struct lightningd *ld UNNEEDED,
+			    struct amount_msat amount UNNEEDED,
+			    const struct preimage *preimage UNNEEDED,
+			    const struct json_escape *label UNNEEDED,
 			    const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "notify_invoice_payment called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */

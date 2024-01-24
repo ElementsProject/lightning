@@ -53,8 +53,7 @@ struct forwarding {
 /* This json function will be used as the serialize method for
  * forward_event_notification_gen and be used in
  * `listforwardings_add_forwardings()`. */
-void json_add_forwarding_object(struct json_stream *response,
-				const char *fieldname,
+void json_add_forwarding_fields(struct json_stream *response,
 				const struct forwarding *cur,
 				const struct sha256 *payment_hash);
 

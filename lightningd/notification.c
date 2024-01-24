@@ -1,27 +1,23 @@
 #include "config.h"
+#include <ccan/cast/cast.h>
 #include <common/configdir.h>
 #include <common/type_to_string.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
 
-static struct notification *find_notification_by_topic(const char* topic)
-{
-	static struct notification **notilist = NULL;
-	static size_t num_notis;
-	if (!notilist)
-		notilist = autodata_get(notifications, &num_notis);
-
-	for (size_t i=0; i<num_notis; i++)
-		if (streq(notilist[i]->topic, topic))
-			return notilist[i];
-	return NULL;
-}
-
 bool notifications_topic_is_native(const char *topic)
 {
-	struct notification *noti = find_notification_by_topic(topic);
-	return noti != NULL;
+	static const char **notilist = NULL;
+	static size_t num_notis;
+	if (!notilist)
+		notilist = cast_const2(const char **,
+				       autodata_get(notifications, &num_notis));
+
+	for (size_t i=0; i<num_notis; i++)
+		if (streq(notilist[i], topic))
+			return true;
+	return false;
 }
 
 bool notifications_have_topic(const struct plugins *plugins, const char *topic)
@@ -41,10 +37,28 @@ bool notifications_have_topic(const struct plugins *plugins, const char *topic)
 	return false;
 }
 
+/* Modern notifications X contain an object X */
+static struct jsonrpc_notification *notify_start(const char *name)
+{
+	struct jsonrpc_notification *n;
+
+	n = jsonrpc_notification_start(NULL, name);
+	json_object_start(n->stream, name);
+	return n;
+}
+
+static void notify_send(struct lightningd *ld,
+			struct jsonrpc_notification *n STEALS)
+{
+	json_object_end(n->stream);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
 static void json_add_connect_fields(struct json_stream *stream,
-					   const struct node_id *nodeid,
-					   bool incoming,
-					   const struct wireaddr_internal *addr)
+				    const struct node_id *nodeid,
+				    bool incoming,
+				    const struct wireaddr_internal *addr)
 {
 	json_add_node_id(stream, "id", nodeid);
 	json_add_string(stream, "direction", incoming ? "in" : "out");
@@ -65,23 +79,16 @@ static void connect_notification_serialize(struct json_stream *stream,
 	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(connect,
-		      connect_notification_serialize);
+REGISTER_NOTIFICATION(connect);
 
 void notify_connect(struct lightningd *ld,
 		    const struct node_id *nodeid,
 		    bool incoming,
 		    const struct wireaddr_internal *addr)
 {
-	void (*serialize)(struct json_stream *,
-			  struct lightningd *,
-			  const struct node_id *,
-			  bool,
-			  const struct wireaddr_internal *) = connect_notification_gen.serialize;
-
 	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, connect_notification_gen.topic);
-	serialize(n->stream, ld, nodeid, incoming, addr);
+		= jsonrpc_notification_start(NULL, "connect");
+	connect_notification_serialize(n->stream, ld, nodeid, incoming, addr);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -94,7 +101,7 @@ static void json_add_disconnect_fields(struct json_stream *stream,
 
 static void disconnect_notification_serialize(struct json_stream *stream,
 					      struct lightningd *ld,
-					      struct node_id *nodeid)
+					      const struct node_id *nodeid)
 {
 	/* Old style: Add raw fields without disconnect key */
 	if (ld->deprecated_apis)
@@ -104,18 +111,13 @@ static void disconnect_notification_serialize(struct json_stream *stream,
 	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(disconnect,
-		      disconnect_notification_serialize);
+REGISTER_NOTIFICATION(disconnect);
 
 void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 {
-	void (*serialize)(struct json_stream *,
-			  struct lightningd *,
-			  struct node_id *) = disconnect_notification_gen.serialize;
-
 	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, disconnect_notification_gen.topic);
-	serialize(n->stream, ld, nodeid);
+		= jsonrpc_notification_start(NULL, "disconnect");
+	disconnect_notification_serialize(n->stream, ld, nodeid);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -125,7 +127,6 @@ void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
 static void warning_notification_serialize(struct json_stream *stream,
 					   struct log_entry *l)
 {
-	json_object_start(stream, "warning");
 	/* Choose "BROKEN"/"UNUSUAL" to keep consistent with the habit
 	 * of plugin. But this may confuses the users who want to 'getlog'
 	 * with the level indicated by notifications. It is the duty of a
@@ -140,159 +141,113 @@ static void warning_notification_serialize(struct json_stream *stream,
 	json_add_timeiso(stream, "timestamp", l->time);
 	json_add_string(stream, "source", l->prefix->prefix);
 	json_add_string(stream, "log", l->log);
-	json_object_end(stream); /* .warning */
 }
 
-REGISTER_NOTIFICATION(warning,
-		      warning_notification_serialize);
+REGISTER_NOTIFICATION(warning);
 
 void notify_warning(struct lightningd *ld, struct log_entry *l)
 {
-	void (*serialize)(struct json_stream *,
-			  struct log_entry *) = warning_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, warning_notification_gen.topic);
-	serialize(n->stream, l);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("warning");
+	warning_notification_serialize(n->stream, l);
+	notify_send(ld, n);
 }
 
 static void custommsg_notification_serialize(struct json_stream *stream,
-					     struct node_id *peer_id,
+					     const struct node_id *peer_id,
 					     const u8 *msg)
 {
-	json_object_start(stream, "custommsg");
 	json_add_node_id(stream, "peer_id", peer_id);
-	json_add_string(stream, "payload", tal_hex(tmpctx, msg));
-	json_object_end(stream);
+	json_add_hex_talarr(stream, "payload", msg);
 }
 
-REGISTER_NOTIFICATION(custommsg,
-		custommsg_notification_serialize);
+REGISTER_NOTIFICATION(custommsg);
 
 void notify_custommsg(struct lightningd *ld,
 		      const struct node_id *peer_id,
 		      const u8 *msg)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct node_id *,
-			  const u8 *) = custommsg_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, custommsg_notification_gen.topic);
-
-	serialize(n->stream, peer_id, msg);
-	jsonrpc_notification_end(n);
-
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("custommsg");
+	custommsg_notification_serialize(n->stream, peer_id, msg);
+	notify_send(ld, n);
 }
 
 static void invoice_payment_notification_serialize(struct json_stream *stream,
 						   struct amount_msat amount,
-						   struct preimage preimage,
+						   const struct preimage *preimage,
 						   const struct json_escape *label,
 						   const struct bitcoin_outpoint *outpoint)
 {
-	json_object_start(stream, "invoice_payment");
 	json_add_amount_msat(stream, "msat", amount);
-	json_add_hex(stream, "preimage", &preimage, sizeof(preimage));
+	json_add_preimage(stream, "preimage", preimage);
 	if (outpoint)
 		json_add_outpoint(stream, "outpoint", outpoint);
 	json_add_escaped_string(stream, "label", label);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(invoice_payment,
-		      invoice_payment_notification_serialize)
+REGISTER_NOTIFICATION(invoice_payment)
 
-void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
-			    struct preimage preimage, const struct json_escape *label,
+void notify_invoice_payment(struct lightningd *ld,
+			    struct amount_msat amount,
+			    const struct preimage *preimage,
+			    const struct json_escape *label,
 			    const struct bitcoin_outpoint *outpoint)
 {
-	void (*serialize)(struct json_stream *,
-			  struct amount_msat,
-			  struct preimage,
-			  const struct json_escape *,
-			  const struct bitcoin_outpoint *) = invoice_payment_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, invoice_payment_notification_gen.topic);
-	serialize(n->stream, amount, preimage, label, outpoint);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("invoice_payment");
+	invoice_payment_notification_serialize(n->stream, amount, preimage, label, outpoint);
+	notify_send(ld, n);
 }
 
 static void invoice_creation_notification_serialize(struct json_stream *stream,
-						   struct amount_msat *amount,
-						   struct preimage preimage,
-						   const struct json_escape *label)
+						    const struct amount_msat *amount,
+						    const struct preimage *preimage,
+						    const struct json_escape *label)
 {
-	json_object_start(stream, "invoice_creation");
 	if (amount != NULL)
 		json_add_amount_msat(stream, "msat", *amount);
 
-	json_add_hex(stream, "preimage", &preimage, sizeof(preimage));
+	json_add_preimage(stream, "preimage", preimage);
 	json_add_escaped_string(stream, "label", label);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(invoice_creation,
-		      invoice_creation_notification_serialize)
+REGISTER_NOTIFICATION(invoice_creation)
 
-void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
-			     struct preimage preimage,
+void notify_invoice_creation(struct lightningd *ld,
+			     const struct amount_msat *amount,
+			     const struct preimage *preimage,
 			     const struct json_escape *label)
 {
-	void (*serialize)(struct json_stream *,
-			  struct amount_msat *,
-			  struct preimage,
-			  const struct json_escape *) = invoice_creation_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, invoice_creation_notification_gen.topic);
-	serialize(n->stream, amount, preimage, label);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("invoice_creation");
+	invoice_creation_notification_serialize(n->stream, amount, preimage, label);
+	notify_send(ld, n);
 }
 
 /* FIXME: Use outpoint here! */
 static void channel_opened_notification_serialize(struct json_stream *stream,
 						  struct lightningd *ld,
-						  struct node_id *node_id,
-						  struct amount_sat *funding_sat,
-						  struct bitcoin_txid *funding_txid,
+						  const struct node_id *node_id,
+						  const struct amount_sat *funding_sat,
+						  const struct bitcoin_txid *funding_txid,
 						  bool channel_ready)
 {
-	json_object_start(stream, "channel_opened");
 	json_add_node_id(stream, "id", node_id);
 	json_add_amount_sat_msat(stream, "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
 	if (ld->deprecated_apis)
 		json_add_bool(stream, "funding_locked", channel_ready);
 	json_add_bool(stream, "channel_ready", channel_ready);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(channel_opened,
-		      channel_opened_notification_serialize)
+REGISTER_NOTIFICATION(channel_opened)
 
-void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
-			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
+void notify_channel_opened(struct lightningd *ld,
+			   const struct node_id *node_id,
+			   const struct amount_sat *funding_sat,
+			   const struct bitcoin_txid *funding_txid,
 			   bool channel_ready)
 {
-	void (*serialize)(struct json_stream *,
-			  struct lightningd *,
-			  struct node_id *,
-			  struct amount_sat *,
-			  struct bitcoin_txid *,
-			  bool) = channel_opened_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, channel_opened_notification_gen.topic);
-	serialize(n->stream, ld, node_id, funding_sat, funding_txid, channel_ready);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("channel_opened");
+	channel_opened_notification_serialize(n->stream, ld, node_id, funding_sat, funding_txid, channel_ready);
+	notify_send(ld, n);
 }
 
 static void channel_state_changed_notification_serialize(struct json_stream *stream,
@@ -305,7 +260,6 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 							 enum state_change cause,
 							 const char *message)
 {
-	json_object_start(stream, "channel_state_changed");
 	json_add_node_id(stream, "peer_id", peer_id);
 	json_add_channel_id(stream, "channel_id", cid);
 	if (scid)
@@ -320,12 +274,9 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 		json_add_string(stream, "message", message);
 	else
 		json_add_null(stream, "message");
-	json_object_end(stream);
 }
 
-
-REGISTER_NOTIFICATION(channel_state_changed,
-		      channel_state_changed_notification_serialize)
+REGISTER_NOTIFICATION(channel_state_changed)
 
 void notify_channel_state_changed(struct lightningd *ld,
 				  const struct node_id *peer_id,
@@ -337,21 +288,9 @@ void notify_channel_state_changed(struct lightningd *ld,
 				  enum state_change cause,
 				  const char *message)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct node_id *,
-			  const struct channel_id *,
-			  const struct short_channel_id *,
-			  struct timeabs timestamp,
-			  enum channel_state,
-			  enum channel_state,
-			  enum state_change,
-			  const char *message) = channel_state_changed_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, channel_state_changed_notification_gen.topic);
-	serialize(n->stream, peer_id, cid, scid, timestamp, old_state, new_state, cause, message);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("channel_state_changed");
+	channel_state_changed_notification_serialize(n->stream, peer_id, cid, scid, timestamp, old_state, new_state, cause, message);
+	notify_send(ld, n);
 }
 
 static void forward_event_notification_serialize(struct json_stream *stream,
@@ -402,12 +341,10 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	cur->created_index = created_index;
 	cur->updated_index = updated_index;
 
-	json_add_forwarding_object(stream, "forward_event",
-				   cur, &in->payment_hash);
+	json_add_forwarding_fields(stream, cur, &in->payment_hash);
 }
 
-REGISTER_NOTIFICATION(forward_event,
-		      forward_event_notification_serialize);
+REGISTER_NOTIFICATION(forward_event);
 
 void notify_forward_event(struct lightningd *ld,
 			  const struct htlc_in *in,
@@ -420,46 +357,19 @@ void notify_forward_event(struct lightningd *ld,
 			  u64 created_index,
 			  u64 updated_index)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct htlc_in *,
-			  const struct short_channel_id *,
-			  const struct amount_msat *,
-			  enum forward_status,
-			  enum onion_wire,
-			  struct timeabs *,
-			  enum forward_style,
-			  u64,
-			  u64) = forward_event_notification_gen.serialize;
-
-	struct jsonrpc_notification *n
-		= jsonrpc_notification_start(NULL, forward_event_notification_gen.topic);
-	serialize(n->stream, in, scid_out, amount_out, state, failcode, resolved_time, forward_style, created_index, updated_index);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("forward_event");
+	forward_event_notification_serialize(n->stream, in, scid_out, amount_out, state, failcode, resolved_time, forward_style, created_index, updated_index);
+	notify_send(ld, n);
 }
 
-static void sendpay_success_notification_serialize(struct json_stream *stream,
-						   const struct wallet_payment *payment)
-{
-	json_object_start(stream, "sendpay_success");
-	json_add_payment_fields(stream, payment);
-	json_object_end(stream); /* .sendpay_success */
-}
-
-REGISTER_NOTIFICATION(sendpay_success,
-		      sendpay_success_notification_serialize);
+REGISTER_NOTIFICATION(sendpay_success);
 
 void notify_sendpay_success(struct lightningd *ld,
 			    const struct wallet_payment *payment)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct wallet_payment *) = sendpay_success_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-	    jsonrpc_notification_start(NULL, "sendpay_success");
-	serialize(n->stream, payment);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("sendpay_success");
+	json_add_payment_fields(n->stream, payment);
+	notify_send(ld, n);
 }
 
 static void sendpay_failure_notification_serialize(struct json_stream *stream,
@@ -467,10 +377,8 @@ static void sendpay_failure_notification_serialize(struct json_stream *stream,
 						   enum jsonrpc_errcode pay_errcode,
 						   const struct onionreply *onionreply,
 						   const struct routing_failure *fail,
-						   char *errmsg)
+						   const char *errmsg)
 {
-	json_object_start(stream, "sendpay_failure");
-
 	/* In line with the format of json error returned
 	 * by sendpay_fail(). */
 	json_add_jsonrpc_errcode(stream, "code", pay_errcode);
@@ -484,11 +392,9 @@ static void sendpay_failure_notification_serialize(struct json_stream *stream,
 				 fail);
 
 	json_object_end(stream); /* .data */
-	json_object_end(stream); /* .sendpay_failure */
 }
 
-REGISTER_NOTIFICATION(sendpay_failure,
-		      sendpay_failure_notification_serialize);
+REGISTER_NOTIFICATION(sendpay_failure);
 
 void notify_sendpay_failure(struct lightningd *ld,
 			    const struct wallet_payment *payment,
@@ -497,22 +403,13 @@ void notify_sendpay_failure(struct lightningd *ld,
 			    const struct routing_failure *fail,
 			    const char *errmsg)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct wallet_payment *,
-			  enum jsonrpc_errcode,
-			  const struct onionreply *,
-			  const struct routing_failure *,
-			  const char *) = sendpay_failure_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-	    jsonrpc_notification_start(NULL, "sendpay_failure");
-	serialize(n->stream, payment, pay_errcode, onionreply, fail, errmsg);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("sendpay_failure");
+	sendpay_failure_notification_serialize(n->stream, payment, pay_errcode, onionreply, fail, errmsg);
+	notify_send(ld, n);
 }
 
 static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
-			struct mvt_id *id)
+			const struct mvt_id *id)
 {
 	switch (mvt_type) {
 		case CHAIN_MVT:
@@ -547,9 +444,8 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 }
 
 static void coin_movement_notification_serialize(struct json_stream *stream,
-						 struct coin_mvt *mvt)
+						 const struct coin_mvt *mvt)
 {
-	json_object_start(stream, "coin_movement");
 	json_add_num(stream, "version", mvt->version);
 	json_add_node_id(stream, "node_id", mvt->node_id);
 	if (mvt->peer_id)
@@ -585,29 +481,21 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 
 	json_add_u32(stream, "timestamp", mvt->timestamp);
 	json_add_string(stream, "coin_type", mvt->hrp_name);
-
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(coin_movement,
-		      coin_movement_notification_serialize);
+REGISTER_NOTIFICATION(coin_movement);
 
 void notify_coin_mvt(struct lightningd *ld,
 		     const struct coin_mvt *mvt)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct coin_mvt *) = coin_movement_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "coin_movement");
-	serialize(n->stream, mvt);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("coin_movement");
+	coin_movement_notification_serialize(n->stream, mvt);
+	notify_send(ld, n);
 }
 
-static void balance_snapshot_notification_serialize(struct json_stream *stream, struct balance_snapshot *snap)
+static void balance_snapshot_serialize(struct json_stream *stream,
+				       const struct balance_snapshot *snap)
 {
-	json_object_start(stream, "balance_snapshot");
 	json_add_node_id(stream, "node_id", snap->node_id);
 	json_add_u32(stream, "blockheight", snap->blockheight);
 	json_add_u32(stream, "timestamp", snap->timestamp);
@@ -623,23 +511,16 @@ static void balance_snapshot_notification_serialize(struct json_stream *stream, 
 		json_object_end(stream);
 	}
 	json_array_end(stream);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(balance_snapshot,
-		      balance_snapshot_notification_serialize);
+REGISTER_NOTIFICATION(balance_snapshot);
 
 void notify_balance_snapshot(struct lightningd *ld,
 			     const struct balance_snapshot *snap)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct balance_snapshot *) = balance_snapshot_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "balance_snapshot");
-	serialize(n->stream, snap);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("balance_snapshot");
+	balance_snapshot_serialize(n->stream, snap);
+	notify_send(ld, n);
 }
 
 static void json_add_block_added_fields(struct json_stream *stream,
@@ -652,7 +533,7 @@ static void json_add_block_added_fields(struct json_stream *stream,
 
 static void block_added_notification_serialize(struct json_stream *stream,
 					       struct lightningd *ld,
-					       struct block *block)
+					       const struct block *block)
 {
 	if (ld->deprecated_apis) {
 		json_object_start(stream, "block");
@@ -664,19 +545,14 @@ static void block_added_notification_serialize(struct json_stream *stream,
 	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(block_added,
-		      block_added_notification_serialize);
+REGISTER_NOTIFICATION(block_added);
 
 void notify_block_added(struct lightningd *ld,
 			const struct block *block)
 {
-	void (*serialize)(struct json_stream *,
-			  struct lightningd *ld,
-			  const struct block *block) = block_added_notification_gen.serialize;
-
 	struct jsonrpc_notification *n =
 		jsonrpc_notification_start(NULL, "block_added");
-	serialize(n->stream, ld, block);
+	block_added_notification_serialize(n->stream, ld, block);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
@@ -685,63 +561,42 @@ static void openchannel_peer_sigs_serialize(struct json_stream *stream,
 					    const struct channel_id *cid,
 					    const struct wally_psbt *psbt)
 {
-	json_object_start(stream, "openchannel_peer_sigs");
 	json_add_channel_id(stream, "channel_id", cid);
 	json_add_psbt(stream, "signed_psbt", psbt);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(openchannel_peer_sigs,
-		      openchannel_peer_sigs_serialize);
+REGISTER_NOTIFICATION(openchannel_peer_sigs);
 
 void notify_openchannel_peer_sigs(struct lightningd *ld,
 				  const struct channel_id *cid,
 				  const struct wally_psbt *psbt)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct channel_id *cid,
-			  const struct wally_psbt *) = openchannel_peer_sigs_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "openchannel_peer_sigs");
-	serialize(n->stream, cid, psbt);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("openchannel_peer_sigs");
+	openchannel_peer_sigs_serialize(n->stream, cid, psbt);
+	notify_send(ld, n);
 }
 
 static void channel_open_failed_serialize(struct json_stream *stream,
 					  const struct channel_id *cid)
 {
-	json_object_start(stream, "channel_open_failed");
 	json_add_channel_id(stream, "channel_id", cid);
-	json_object_end(stream);
 }
 
-REGISTER_NOTIFICATION(channel_open_failed,
-		      channel_open_failed_serialize);
+REGISTER_NOTIFICATION(channel_open_failed);
 
 void notify_channel_open_failed(struct lightningd *ld,
 				const struct channel_id *cid)
 {
-	void (*serialize)(struct json_stream *,
-			  const struct channel_id *) = channel_open_failed_notification_gen.serialize;
-
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "channel_open_failed");
-	serialize(n->stream, cid);
-	jsonrpc_notification_end(n);
-	plugins_notify(ld->plugins, take(n));
+	struct jsonrpc_notification *n = notify_start("channel_open_failed");
+	channel_open_failed_serialize(n->stream, cid);
+	notify_send(ld, n);
 }
 
-REGISTER_NOTIFICATION(shutdown, NULL);
+REGISTER_NOTIFICATION(shutdown);
 
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 {
-	struct jsonrpc_notification *n =
-		jsonrpc_notification_start(NULL, "shutdown");
-
-	/* Even shutdown should follow the same "object inside notification" pattern */
-	json_object_start(n->stream, "shutdown");
+	struct jsonrpc_notification *n = notify_start("shutdown");
 	json_object_end(n->stream);
 	jsonrpc_notification_end(n);
 	return plugin_single_notify(p, take(n));

@@ -87,13 +87,10 @@ bool string_to_forward_status(const char *status_str,
 
 /* Warp this process to ensure the consistent json object structure
  * between 'listforwards' API and 'forward_event' notification. */
-void json_add_forwarding_object(struct json_stream *response,
-				const char *fieldname,
+void json_add_forwarding_fields(struct json_stream *response,
 				const struct forwarding *cur,
 				const struct sha256 *payment_hash)
 {
-	json_object_start(response, fieldname);
-
 	/* We don't bother grabbing id from db on update. */
 	if (cur->created_index)
 		json_add_u64(response, "created_index", cur->created_index);
@@ -150,7 +147,6 @@ void json_add_forwarding_object(struct json_stream *response,
 	if (cur->resolved_time)
 		json_add_timeabs(response, "resolved_time", *cur->resolved_time);
 #endif
-	json_object_end(response);
 }
 
 static void listforwardings_add_forwardings(struct json_stream *response,
@@ -169,7 +165,9 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
 		const struct forwarding *cur = &forwardings[i];
-		json_add_forwarding_object(response, NULL, cur, NULL);
+		json_object_start(response, NULL);
+		json_add_forwarding_fields(response, cur, NULL);
+		json_object_end(response);
 	}
 	json_array_end(response);
 

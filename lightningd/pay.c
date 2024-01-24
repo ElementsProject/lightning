@@ -1497,7 +1497,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 	log_info(ld->log, "Self-resolved invoice '%s' with amount %s",
 		 inv->label->s,
 		 type_to_string(tmpctx, struct amount_msat, &msat));
-	notify_invoice_payment(ld, msat, inv->r, inv->label, NULL);
+	notify_invoice_payment(ld, msat, &inv->r, inv->label, NULL);
 
 	/* Now resolve the payment */
 	payment_succeeded(ld, rhash, partid, groupid,  &inv->r);
