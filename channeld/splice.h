@@ -51,6 +51,8 @@ struct splicing {
 	bool received_tx_complete;
 	/* If, in the last splice_update, we sent tx_complete */
 	bool sent_tx_complete;
+	/* If our peer signs early, we allow that and cache it here */
+	const u8 *tx_sig_msg;
 };
 
 /* Sets `splice` items to default values */
