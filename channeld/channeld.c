@@ -3363,6 +3363,13 @@ static void resume_splice_negotiation(struct peer *peer,
 	their_pubkey = &peer->channel->funding_pubkey[REMOTE];
 
 	if (recv_signature) {
+		if (peer->splicing && peer->splicing->tx_sig_msg) {
+			msg_received = tal_steal(tmpctx,
+						 peer->splicing->tx_sig_msg);
+			peer->splicing->tx_sig_msg = NULL;
+			status_debug("Splice is using cached tx_sig_msg");
+		}
+
 		if (fromwire_peektype(msg_received) == WIRE_TX_SIGNATURES)
 			msg = msg_received;
 		else
@@ -4229,10 +4236,21 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	/* If we're in STFU mode and aren't waiting for a STFU mode
 	 * specific message, the only valid message was tx_abort */
-	if (is_stfu_active(peer) && !peer->stfu_wait_single_msg)
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Received message %s when only TX_ABORT was"
-				 " valid", peer_wire_name(type));
+	if (is_stfu_active(peer) && !peer->stfu_wait_single_msg) {
+		if (peer->splicing && type == WIRE_TX_SIGNATURES) {
+			if (peer->splicing->tx_sig_msg)
+				peer_failed_warn(peer->pps, &peer->channel_id,
+						 "Received TX_SIGNATURES while"
+						 " we already have one cached");
+			peer->splicing->tx_sig_msg = tal_steal(peer->splicing,
+							       msg);
+			return;
+		} else {
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Received message %s when only TX_ABORT was"
+					 " valid", peer_wire_name(type));
+		}
+	}
 
 	/* Must get channel_ready before almost anything. */
 	if (!peer->channel_ready[REMOTE]) {
