@@ -16,6 +16,12 @@ def node_cls():
 
 class LightningNode(utils.LightningNode):
     def __init__(self, *args, **kwargs):
+        # Yes, we really want to test the local development version, not
+        # something in out path.
+        self.old_path = os.environ['PATH']
+        binpath = Path(__file__) / ".." / "lightningd"
+        os.environ['PATH'] = f"{binpath}:{self.old_path}"
+
         utils.LightningNode.__init__(self, *args, **kwargs)
 
         # We have some valgrind suppressions in the `tests/`
@@ -47,9 +53,8 @@ class LightningNode(utils.LightningNode):
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
 
-        # Yes, we really want to test the local development version, not
-        # something in out path.
-        self.daemon.executable = 'lightningd/lightningd'
+    def __del__(self):
+        os.environ['PATH'] = self.old_path
 
 
 class CompatLevel(object):
