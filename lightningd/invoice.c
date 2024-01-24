@@ -341,7 +341,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	if (payload->set)
 		htlc_set_fulfill(payload->set, &payload->preimage);
 
-	notify_invoice_payment(ld, payload->msat, payload->preimage,
+	notify_invoice_payment(ld, payload->msat, &payload->preimage,
 			       payload->label, payload->outpoint);
 }
 
@@ -915,7 +915,7 @@ invoice_complete(struct invoice_info *info,
 	json_add_u64(response, "created_index", details->created_index);
 
 	notify_invoice_creation(info->cmd->ld, info->b11->msat,
-				info->payment_preimage, info->label);
+				&info->payment_preimage, info->label);
 
 	if (warning_no_listincoming)
 		json_add_string(response, "warning_listincoming",
@@ -1811,7 +1811,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 				     NULL))
 			return fail_exists(cmd, label);
 
-		notify_invoice_creation(cmd->ld, b11->msat, *preimage, label);
+		notify_invoice_creation(cmd->ld, b11->msat, preimage, label);
 	} else {
 		struct tlv_invoice *inv;
 		struct sha256 offer_id, *local_offer_id;
@@ -1909,7 +1909,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 				     local_offer_id))
 			return fail_exists(cmd, label);
 
-		notify_invoice_creation(cmd->ld, &msat,	*preimage, label);
+		notify_invoice_creation(cmd->ld, &msat,	preimage, label);
 	}
 
 	response = json_stream_success(cmd);

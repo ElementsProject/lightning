@@ -16,21 +16,10 @@ bool notifications_have_topic(const struct plugins *plugins, const char *topic);
  * lightningd itself? */
 bool notifications_topic_is_native(const char *topic);
 
-struct notification {
-	const char *topic;
-	/* the serialization interface */
-	void *serialize;
-};
+AUTODATA_TYPE(notifications, char);
 
-AUTODATA_TYPE(notifications, struct notification);
-
-/* FIXME: Find a way to avoid back-to-back declaration and definition */
-#define REGISTER_NOTIFICATION(topic, serialize)                                  \
-	struct notification topic##_notification_gen = {                         \
-		stringify(topic),                                                \
-		serialize,                                                       \
-	};                                                                       \
-	AUTODATA(notifications, &topic##_notification_gen);
+#define REGISTER_NOTIFICATION(topic)                                  \
+	AUTODATA(notifications, stringify(topic));
 
 void notify_connect(struct lightningd *ld,
 		    const struct node_id *nodeid,
@@ -44,15 +33,21 @@ void notify_custommsg(struct lightningd *ld,
 		      const struct node_id *peer_id,
 		      const u8 *msg);
 
-void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
-			    struct preimage preimage, const struct json_escape *label,
+void notify_invoice_payment(struct lightningd *ld,
+			    struct amount_msat amount,
+			    const struct preimage *preimage,
+			    const struct json_escape *label,
 			    const struct bitcoin_outpoint *outpoint);
 
-void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
-			    struct preimage preimage, const struct json_escape *label);
+void notify_invoice_creation(struct lightningd *ld,
+			     const struct amount_msat *amount,
+			     const struct preimage *preimage,
+			     const struct json_escape *label);
 
-void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
-			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
+void notify_channel_opened(struct lightningd *ld,
+			   const struct node_id *node_id,
+			   const struct amount_sat *funding_sat,
+			   const struct bitcoin_txid *funding_txid,
 			   bool channel_ready);
 
 void notify_channel_state_changed(struct lightningd *ld,
