@@ -271,7 +271,7 @@ static struct command_result *json_listconfigs(struct command *cmd,
 
 	response = json_stream_success(cmd);
 
-	if (!cmd->ld->deprecated_apis)
+	if (!command_deprecated_out_ok(cmd, "configlist", "v23.08", "v24.08"))
 		goto modern;
 
 	if (!config)

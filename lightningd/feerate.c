@@ -82,9 +82,10 @@ static struct command_result *param_feerate_unchecked(struct command *cmd,
 
 		if (!json_tok_streq(buffer, tok, feerate_name(i)))
 			continue;
-		if (!cmd->ld->deprecated_apis)
+		if (!command_deprecated_in_ok(cmd, feerate_name(i), "v23.05", "v23.05")) {
 			return command_fail_badparam(cmd, name, buffer, tok,
 						     "removed feerate by names");
+		}
 		switch (i) {
 		case FEERATE_OPENING:
 		case FEERATE_MUTUAL_CLOSE:

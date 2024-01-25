@@ -111,7 +111,7 @@ struct lightningd {
 	const char *daemon_dir;
 
 	/* Are deprecated APIs enabled? */
-	bool deprecated_apis;
+	bool deprecated_ok;
 
 	/* If we told to run in the background, this is our parent fd, otherwise
 	 * -1. */

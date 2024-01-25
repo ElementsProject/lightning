@@ -273,9 +273,6 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		return failmsg;
 	}
 
-	if (!ld->deprecated_apis)
-		return NULL;
-
 	t = json_get_member(buffer, toks, "failure_code");
 	if (!t) {
 		static bool warned = false;
@@ -291,6 +288,12 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		}
 		return failmsg_incorrect_or_unknown(ctx, ld, hin);
 	}
+
+	if (!lightningd_deprecated_in_ok(ld, ld->log,
+					 ld->deprecated_ok,
+					 "invoice_payment_hook", "failure_code",
+					 "v22.08", "V23.02", NULL))
+		return NULL;
 
 	if (!json_to_number(buffer, t, &val))
 		fatal("Invalid invoice_payment_hook failure_code: %.*s",

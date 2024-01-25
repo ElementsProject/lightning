@@ -72,8 +72,11 @@ static void connect_notification_serialize(struct json_stream *stream,
 					   const struct wireaddr_internal *addr)
 {
 	/* Old style: Add raw fields without connect key */
-	if (ld->deprecated_apis)
+	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					 "connect_notification", "rawfields",
+					 "v23.08", "v24.08")) {
 		json_add_connect_fields(stream, nodeid, incoming, addr);
+	}
 	json_object_start(stream, "connect");
 	json_add_connect_fields(stream, nodeid, incoming, addr);
 	json_object_end(stream);
@@ -104,8 +107,11 @@ static void disconnect_notification_serialize(struct json_stream *stream,
 					      const struct node_id *nodeid)
 {
 	/* Old style: Add raw fields without disconnect key */
-	if (ld->deprecated_apis)
+	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					 "disconnect_notification", "rawfields",
+					 "v23.08", "v24.08")) {
 		json_add_disconnect_fields(stream, nodeid);
+	}
 	json_object_start(stream, "disconnect");
 	json_add_disconnect_fields(stream, nodeid);
 	json_object_end(stream);
@@ -232,7 +238,8 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "id", node_id);
 	json_add_amount_sat_msat(stream, "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
-	if (ld->deprecated_apis)
+	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					 "channel_opened", "funding_locked", "v22.11", "v24.02"))
 		json_add_bool(stream, "funding_locked", channel_ready);
 	json_add_bool(stream, "channel_ready", channel_ready);
 }
@@ -535,7 +542,9 @@ static void block_added_notification_serialize(struct json_stream *stream,
 					       struct lightningd *ld,
 					       const struct block *block)
 {
-	if (ld->deprecated_apis) {
+	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					 "block_added_notification", "block",
+					 "v23.08", "v24.08")) {
 		json_object_start(stream, "block");
 		json_add_block_added_fields(stream, block);
 		json_object_end(stream);

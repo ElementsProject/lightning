@@ -39,6 +39,19 @@
 #define TIME_FROM_MSEC(msec) \
 	{ { .tv_nsec = ((msec) % 1000) * 1000000, .tv_sec = (msec) / 1000 } }
 
+/* issue is NULL, or what the issue is with the argname */
+static bool opt_deprecated_ok(struct lightningd *ld,
+			      const char *argname,
+			      const char *issue,
+			      const char *start,
+			      const char *end)
+{
+	return lightningd_deprecated_in_ok(ld, ld->log,
+					   ld->deprecated_ok,
+					   argname, issue,
+					   start, end, NULL);
+}
+
 static char *opt_set_u64(const char *arg, u64 *u)
 {
 	char *endp;
@@ -211,8 +224,10 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 {
 	char *ret, **elements = tal_strsplit(tmpctx, arg, ",", STR_NO_EMPTY);
 
-	if (!ld->deprecated_apis)
+	if (!opt_deprecated_ok(ld, "accept-htlc-tlv-types", NULL,
+			       "v23.08", "v24.08")) {
 		return "Please use --accept-htlc-tlv-type multiple times";
+	}
 	for (int i = 0; elements[i] != NULL; i++) {
 		ret = opt_add_accept_htlc_tlv(elements[i],
 					      &ld->accept_extra_tlv_types);
@@ -280,7 +295,8 @@ static char *opt_add_addr_withtype(const char *arg,
 		case ADDR_TYPE_TOR_V3:
 			switch (ala) {
 			case ADDR_LISTEN:
-				if (!ld->deprecated_apis)
+				if (!opt_deprecated_ok(ld, "bind-addr", "torv3",
+						       "v23.08", "v24.08"))
 					return tal_fmt(tmpctx,
 						       "Don't use --bind-addr=%s, use --announce-addr=%s",
 						       arg, arg);
@@ -292,7 +308,8 @@ static char *opt_add_addr_withtype(const char *arg,
 				/* And we ignore it */
 				return NULL;
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!ld->deprecated_apis)
+				if (!opt_deprecated_ok(ld, "addr", "torv3",
+						       "v23.08", "v24.08"))
 					return tal_fmt(tmpctx,
 						       "Don't use --addr=%s, use --announce-addr=%s",
 						       arg, arg);
@@ -337,7 +354,8 @@ static char *opt_add_addr_withtype(const char *arg,
 				return tal_fmt(tmpctx,
 					       "Cannot announce sockets, try --bind-addr=%s", arg);
 			case ADDR_LISTEN_AND_ANNOUNCE:
-				if (!ld->deprecated_apis)
+				if (!opt_deprecated_ok(ld, "addr", "socket",
+						       "v23.08", "v24.08"))
 					return tal_fmt(tmpctx, "Don't use --addr=%s, use --bind-addr=%s",
 						       arg, arg);
 				ala = ADDR_LISTEN;
@@ -1161,7 +1179,8 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 	u32 port COMPILER_WANTS_INIT("9.3.0 -O2");
 	char *err;
 
-	if (!ld->deprecated_apis)
+	if (!opt_deprecated_ok(ld, "experimental-websocket-port", NULL,
+			       "v23.08", "v23.08"))
 		return "--experimental-websocket-port been deprecated, use --bind-addr=ws:...";
 
 	err = opt_set_u32(arg, &port);
@@ -1262,7 +1281,8 @@ static char *opt_add_api_beg(const char *arg, struct lightningd *ld)
 
 static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 {
-	if (!ld->deprecated_apis)
+	if (!opt_deprecated_ok(ld, "announce-addr-dns", NULL,
+			       "v23.08", "v24.08"))
 		return "--announce-addr-dns has been deprecated, use --bind-addr=dns:...";
 	return opt_set_bool_arg(optarg, &ld->announce_dns);
 }
@@ -1367,7 +1387,7 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--allow-deprecated-apis",
 		       OPT_EARLY|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
-		       &ld->deprecated_apis,
+		       &ld->deprecated_ok,
 		       "Enable deprecated options, JSONRPC commands, fields, etc.");
 	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
@@ -1797,7 +1817,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* --developer changes default for APIs */
 	if (ld->developer)
-		ld->deprecated_apis = false;
+		ld->deprecated_ok = false;
 
 	/*~ We move files from old locations on first upgrade. */
 	promote_missing_files(ld);
@@ -1840,6 +1860,12 @@ static void fixup_clnrest_options(struct lightningd *ld)
 		/* Did some (plugin) claim it? */
 		if (opt_find_long(cv->configline, &cv->optarg))
 			continue;
+		if (!opt_deprecated_ok(ld,
+				       tal_strndup(tmpctx, cv->configline,
+						   strcspn(cv->configline, "=")),
+				       "clnrest-prefix",
+				       "v23.11", "v24.11"))
+			continue;
 		log_unusual(ld->log, "Option %s deprecated in v23.11, renaming to cln%s",
 			    cv->configline, cv->configline);
 		prefix_cln(&cv->configline);
@@ -1848,8 +1874,7 @@ static void fixup_clnrest_options(struct lightningd *ld)
 
 void handle_opts(struct lightningd *ld)
 {
-	if (ld->deprecated_apis)
-		fixup_clnrest_options(ld);
+	fixup_clnrest_options(ld);
 
 	/* Now we know all the options, finish parsing and finish
 	 * populating ld->configvars with cmdline. */
