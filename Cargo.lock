@@ -267,6 +267,7 @@ dependencies = [
  "hex",
  "log",
  "prost",
+ "serde",
  "serde_json",
  "tonic",
  "tonic-build",
