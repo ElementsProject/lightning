@@ -45,7 +45,11 @@ struct plugin {
 	struct io_conn *stdin_conn;
 	struct io_conn *stdout_conn;
 
+	/* Are we in developer mode? */
 	bool developer;
+
+	/* Is this command overriding the global deprecated_apis? */
+	bool *deprecated_ok_override;
 
 	/* to append to all our command ids */
 	const char *id;
@@ -142,11 +146,6 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 	return &cmd->filter;
 }
 
-static bool command_deprecated_ok(const struct command *cmd)
-{
-	return deprecated_apis;
-}
-
 static void complain_deprecated(const char *feature,
 				bool allowing,
 				struct command *cmd)
@@ -169,7 +168,7 @@ bool command_deprecated_in_named_ok(struct command *cmd,
 				    const char *depr_start,
 				    const char *depr_end)
 {
-	return deprecated_ok(command_deprecated_ok(cmd),
+	return deprecated_ok(command_deprecated_ok_flag(cmd),
 			     param
 			     ? tal_fmt(tmpctx, "%s.%s", cmdname, param)
 			     : cmdname,
@@ -192,7 +191,7 @@ bool command_deprecated_out_ok(struct command *cmd,
 			       const char *depr_start,
 			       const char *depr_end)
 {
-	return deprecated_ok(command_deprecated_ok(cmd),
+	return deprecated_ok(command_deprecated_ok_flag(cmd),
 			     tal_fmt(tmpctx, "%s.%s", cmd->methodname, fieldname),
 			     depr_start, depr_end,
 			     /* FIXME: Get api begs from lightningd! */
@@ -1030,6 +1029,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	/* For memleak detection, always get notified of shutdown. */
 	if (!has_shutdown_notif && p->developer)
 		json_add_string(params, NULL, "shutdown");
+	json_add_string(params, NULL, "deprecated_oneshot");
 	json_array_end(params);
 
 	json_array_start(params, "hooks");
@@ -1644,6 +1644,13 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 		plugin->mark_mem = mark_mem;
 }
 
+bool command_deprecated_ok_flag(const struct command *cmd)
+{
+	if (cmd->plugin->deprecated_ok_override)
+		return *cmd->plugin->deprecated_ok_override;
+	return deprecated_apis;
+}
+
 static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
 {
@@ -1693,6 +1700,18 @@ static void ld_command_handle(struct plugin *plugin,
 		if (is_shutdown && plugin->developer)
 			memleak_check(plugin, cmd);
 
+		if (streq(cmd->methodname, "deprecated_oneshot")) {
+			const char *err;
+
+			plugin->deprecated_ok_override = tal(plugin, bool);
+			err = json_scan(tmpctx, plugin->buffer, paramstok,
+					"{deprecated_oneshot:{deprecated_ok:%}}",
+					JSON_SCAN(json_to_bool,
+						  plugin->deprecated_ok_override));
+			if (err)
+				plugin_err(plugin, "Parsing deprecated_oneshot notification: %s", err);
+			return;
+		}
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
 				  plugin->notif_subs[i].name)
@@ -1734,6 +1753,9 @@ static void ld_command_handle(struct plugin *plugin,
 			plugin->commands[i].handle(cmd,
 						   plugin->buffer,
 						   paramstok);
+			/* Reset this */
+			plugin->deprecated_ok_override
+				= tal_free(plugin->deprecated_ok_override);
 			return;
 		}
 	}
@@ -1922,6 +1944,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	name[path_ext_off(name)] = '\0';
 	p->id = name;
 	p->developer = developer;
+	p->deprecated_ok_override = NULL;
 	p->buffer = tal_arr(p, char, 64);
 	list_head_init(&p->js_list);
 	p->used = 0;
