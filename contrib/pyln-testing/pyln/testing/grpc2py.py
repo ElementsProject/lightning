@@ -674,7 +674,6 @@ def newaddr2py(m):
     return remove_default({
         "p2tr": m.p2tr,  # PrimitiveField in generate_composite
         "bech32": m.bech32,  # PrimitiveField in generate_composite
-        "p2sh_segwit": m.p2sh_segwit,  # PrimitiveField in generate_composite
     })
 
 

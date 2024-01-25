@@ -3,11 +3,9 @@
 #include "config.h"
 
 enum addrtype {
-	/* Deprecated! */
-	ADDR_P2SH_SEGWIT = 1,
 	ADDR_BECH32 = 2,
 	ADDR_P2TR = 4,
-	ADDR_ALL = (ADDR_P2SH_SEGWIT + ADDR_BECH32 + ADDR_P2TR)
+	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
 };
 
 struct utxo;

@@ -1004,7 +1004,6 @@ message NewaddrRequest {
 message NewaddrResponse {
 	optional string p2tr = 3;
 	optional string bech32 = 1;
-	optional string p2sh_segwit = 2;
 }
 
 message WithdrawRequest {
