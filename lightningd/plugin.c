@@ -903,10 +903,27 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 
 static char *plugin_opt_check(struct plugin_opt *popt)
 {
-	/* Warn them that this is deprecated */
-	if (popt->deprecated && !popt->plugin->plugins->ld->deprecated_apis)
+	/* Fail if this is deprecated */
+	if (!lightningd_deprecated_in_ok(popt->plugin->plugins->ld,
+					 popt->plugin->plugins->log,
+					 popt->plugin->plugins->ld->deprecated_apis,
+					 popt->plugin->shortname,
+					 popt->name,
+					 popt->depr_start,
+					 popt->depr_end, NULL))
 		return tal_fmt(tmpctx, "deprecated option (will be removed!)");
 	return NULL;
+}
+
+static bool plugin_opt_deprecated_out_ok(struct plugin_opt *popt)
+{
+	return lightningd_deprecated_out_ok(popt->plugin->plugins->ld,
+					    popt->plugin->plugins->ld->deprecated_apis,
+					    popt->plugin->shortname,
+					    /* Skip --prefix  */
+					    popt->name + 2,
+					    popt->depr_start,
+					    popt->depr_end);
 }
 
 /* We merely check they're valid: the values stay in configvars */
@@ -1045,7 +1062,7 @@ static const char *json_parse_deprecated(const tal_t *ctx,
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				  const jsmntok_t *opt)
 {
-	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok;
+	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deprtok;
 	struct plugin_opt *popt;
 	const char *name, *err;
 	enum opt_type optflags = 0;
@@ -1055,6 +1072,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	typetok = json_get_member(buffer, opt, "type");
 	desctok = json_get_member(buffer, opt, "description");
 	defaulttok = json_get_member(buffer, opt, "default");
+	deprtok = json_get_member(buffer, opt, "deprecated");
 
 	if (!typetok || !nametok || !desctok) {
 		return tal_fmt(plugin,
@@ -1067,6 +1085,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			     json_strdup(tmpctx, buffer, nametok));
 	name = popt->name + 2;
 	popt->def = NULL;
+	popt->depr_start = popt->depr_end = NULL;
 
 	/* Only allow sane option names  */
 	if (strspn(name, "0123456789" "abcdefghijklmnopqrstuvwxyz" "_-")
@@ -1085,9 +1104,11 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	}
 
 	popt->description = json_strdup(popt, buffer, desctok);
-	err = bool_setting(plugin, popt->name, buffer, opt, "deprecated", &popt->deprecated);
+
+	err = json_parse_deprecated(popt, buffer, deprtok,
+				    &popt->depr_start, &popt->depr_end);
 	if (err)
-		return err;
+		return tal_steal(plugin, err);
 
 	err = bool_setting(plugin, popt->name, buffer, opt, "multi", &set);
 	if (err)
@@ -1127,7 +1148,8 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		clnopt_noarg(popt->name,
 			     optflags,
 			     plugin_opt_flag_check, popt,
-			     popt->deprecated ? opt_hidden : popt->description);
+			     /* Don't document if it's deprecated */
+			     popt->depr_start ? opt_hidden : popt->description);
 	} else {
 		/* These all take an arg. */
 		char *(*cb_arg)(const char *optarg, void *arg);
@@ -1161,7 +1183,8 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		 * configvar if it's set. */
 		clnopt_witharg(popt->name,
 			       optflags, cb_arg, popt_show_default, popt,
-			       popt->deprecated ? opt_hidden : popt->description);
+			       /* Don't document if it's deprecated */
+			       popt->depr_start ? opt_hidden : popt->description);
 	}
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
@@ -2090,7 +2113,7 @@ static void json_add_plugin_options(struct json_stream *stream,
 		struct configvar *cv;
 		const struct opt_table *ot;
 
-		if (popt->deprecated && !include_deprecated)
+		if (!include_deprecated && !plugin_opt_deprecated_out_ok(popt))
 			continue;
 
 		namesarr[0] = popt->name + 2;
@@ -2329,8 +2352,7 @@ void json_add_opt_plugins_array(struct json_stream *response,
 		json_add_string(response, "name", p->shortname);
 
 		if (!list_empty(&p->plugin_opts)) {
-			json_add_plugin_options(response, "options", p,
-						!plugins->ld->deprecated_apis);
+			json_add_plugin_options(response, "options", p, false);
 		}
 		json_object_end(response);
 	}

@@ -94,7 +94,7 @@ During startup the `options` will be added to the list of command line options t
 The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields  
 are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.
 
-`options` and `rpcmethods` can mark themselves `deprecated: true` if you plan on removing them: this will disable them if the user sets `allow-deprecated-apis` to false (which every developer should do, right?).
+`options` and `rpcmethods` can mark themselves `deprecated: true` if you plan on removing them: this will disable them if the user sets `allow-deprecated-apis` to false, or in `--developer` mode.  You can also specify `deprecated` as an array of one or two version numbers, indicating when deprecation starts, and the final version it will be permitted, e.g. `"deprecated": ["v24.02", "v24.02"]`.  If only one version number is given, then the final version will be 6 months after the start version.
 
 The `nonnumericids` indicates that the plugin can handle string JSON request `id` fields: prior to v22.11 lightningd used numbers for these, and the change to strings broke some plugins.  If not set, then strings will be used once this feature is removed after v23.05. See the [lightningd-rpc](ref:lightningd-rpc) documentation for how to handle JSON `id` fields!
 
