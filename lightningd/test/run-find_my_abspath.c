@@ -47,7 +47,7 @@ s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defv
 bool db_in_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_in_transaction called!\n"); abort(); }
 /* Generated stub for deprecated_ok_ */
-bool deprecated_ok_(bool deprecated_apis UNNEEDED,
+bool  deprecated_ok_(bool deprecated_apis UNNEEDED,
 		    const char *feature UNNEEDED,
 		    const char *start UNNEEDED,
 		    const char *end UNNEEDED,

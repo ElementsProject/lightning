@@ -27,6 +27,7 @@
 
 struct param {
 	const char *name;
+	const char *depr_start, *depr_end;
 	bool is_set;
 	enum param_style style;
 	param_cbx cbx;
@@ -36,6 +37,8 @@ struct param {
 static void param_add(struct param **params,
 		      const char *name,
 		      enum param_style style,
+		      const char *depr_start,
+		      const char *depr_end,
 		      param_cbx cbx, void *arg)
 {
 	struct param last;
@@ -46,6 +49,8 @@ static void param_add(struct param **params,
 
 	last.is_set = false;
 	last.name = name;
+	last.depr_start = depr_start;
+	last.depr_end = depr_end;
 	last.style = style;
 	last.cbx = cbx;
 	last.arg = arg;
@@ -138,8 +143,14 @@ static struct param *find_param(struct command *cmd,
 	struct param *last = first + tal_count(params);
 
 	while (first != last) {
-		if (memeqstr(start, n, first->name))
+		if (memeqstr(start, n, first->name)) {
+			if (!command_deprecated_in_ok(cmd, first->name,
+						      first->depr_start,
+						      first->depr_end)) {
+				return NULL;
+			}
 			return first;
+		}
 		first++;
 	}
 	return NULL;
@@ -301,7 +312,8 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 	const char *arg, **names = tal_arr(tmpctx, const char *, 1);
 	const char *subcmd;
 
-	param_add(&params, "subcommand", PARAM_REQUIRED, (void *)param_string, &subcmd);
+	param_add(&params, "subcommand", PARAM_REQUIRED, NULL, NULL,
+		  (void *)param_string, &subcmd);
 	names[0] = name;
 	va_start(ap, name);
 	while ((arg = va_arg(ap, const char *)) != NULL)
@@ -347,13 +359,15 @@ static bool param_core(struct command *cmd,
 
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		enum param_style style = va_arg(ap, enum param_style);
+		const char *depr_start = va_arg(ap, const char *);
+		const char *depr_end = va_arg(ap, const char *);
 		param_cbx cbx = va_arg(ap, param_cbx);
 		void *arg = va_arg(ap, void *);
 		if (streq(name, "")) {
 			allow_extra = true;
 			continue;
 		}
-		param_add(&params, name, style, cbx, arg);
+		param_add(&params, name, style, depr_start, depr_end, cbx, arg);
 	}
 
 	if (command_usage_only(cmd)) {
