@@ -21,8 +21,6 @@
 
 #define READ_CHUNKSIZE 4096
 
-bool deprecated_apis;
-
 struct plugin_timer {
 	struct timer timer;
 	void (*cb)(void *cb_arg);
@@ -48,7 +46,10 @@ struct plugin {
 	/* Are we in developer mode? */
 	bool developer;
 
-	/* Is this command overriding the global deprecated_apis? */
+	/* Global deprecations enabled? */
+	bool deprecated_ok;
+
+	/* Is this command overriding global deprecated_ok? */
 	bool *deprecated_ok_override;
 
 	/* to append to all our command ids */
@@ -167,7 +168,7 @@ bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
 				    const char *depr_start,
 				    const char *depr_end)
 {
-	return deprecated_ok(deprecated_apis,
+	return deprecated_ok(plugin->deprecated_ok,
 			     name,
 			     depr_start, depr_end,
 			     plugin->beglist,
@@ -1001,18 +1002,14 @@ handle_getmanifest(struct command *getmanifest_cmd,
 {
 	struct json_stream *params = jsonrpc_stream_success(getmanifest_cmd);
 	struct plugin *p = getmanifest_cmd->plugin;
-	const jsmntok_t *dep;
 	bool has_shutdown_notif;
 
-	/* This was added post 0.9.0 */
-	dep = json_get_member(buf, getmanifest_params, "allow-deprecated-apis");
-	if (!dep)
-		deprecated_apis = true;
-	else {
-		if (!json_to_bool(buf, dep, &deprecated_apis))
-			plugin_err(p, "Invalid allow-deprecated-apis '%.*s'",
-				   json_tok_full_len(dep),
-				   json_tok_full(buf, dep));
+	if (json_scan(tmpctx, buf, getmanifest_params,
+		      "{allow-deprecated-apis:%}",
+		      JSON_SCAN(json_to_bool, &p->deprecated_ok)) != NULL) {
+		plugin_err(p, "Invalid allow-deprecated-apis in '%.*s'",
+			   json_tok_full_len(getmanifest_params),
+			   json_tok_full(buf, getmanifest_params));
 	}
 
 	json_array_start(params, "options");
@@ -1676,7 +1673,7 @@ bool command_deprecated_ok_flag(const struct command *cmd)
 {
 	if (cmd->plugin->deprecated_ok_override)
 		return *cmd->plugin->deprecated_ok_override;
-	return deprecated_apis;
+	return cmd->plugin->deprecated_ok;
 }
 
 static void ld_command_handle(struct plugin *plugin,
