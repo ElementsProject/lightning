@@ -139,7 +139,8 @@ struct plugin_opt {
 	const char *description;
 	/* NULL if no default */
 	const char *def;
-	bool deprecated;
+	/* NULL if not deprecated */
+	const char *depr_start, *depr_end;
 };
 
 /**
