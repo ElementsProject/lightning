@@ -50,6 +50,9 @@ struct plugin {
 	/* to append to all our command ids */
 	const char *id;
 
+	/* options to i-promise-to-fix-broken-api-user */
+	const char **beglist;
+
 	/* To read from lightningd */
 	char *buffer;
 	size_t used, len_read;
@@ -171,8 +174,7 @@ bool command_deprecated_in_named_ok(struct command *cmd,
 			     ? tal_fmt(tmpctx, "%s.%s", cmdname, param)
 			     : cmdname,
 			     depr_start, depr_end,
-			     /* FIXME: Get api begs from lightningd! */
-			     NULL,
+			     cmd->plugin->beglist,
 			     complain_deprecated, cmd);
 }
 
@@ -1224,6 +1226,18 @@ static struct plugin_option *find_opt(struct plugin *plugin, const char *name)
 	return NULL;
 }
 
+static const char **json_to_apilist(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	size_t i;
+	const jsmntok_t *t;
+	const char **ret = tal_arr(ctx, const char *, tok->size);
+
+	json_for_each_arr(i, t, tok)
+		ret[i] = json_strdup(ret, buffer, t);
+
+	return ret;
+}
+
 static struct command_result *handle_init(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -1305,8 +1319,14 @@ static struct command_result *handle_init(struct command *cmd,
 								 disable));
 	}
 
-	if (with_rpc)
+	if (with_rpc) {
+		p->beglist = NULL;
+		rpc_scan(p, "listconfigs",
+			 take(json_out_obj(NULL, "config", "i-promise-to-fix-broken-api-user")),
+			 "{configs:{i-promise-to-fix-broken-api-user?:%}}",
+			 JSON_SCAN_TAL(p, json_to_apilist, &p->beglist));
 		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
+	}
 
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
