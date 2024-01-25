@@ -53,10 +53,9 @@ static void param_add(struct param **params,
 	tal_arr_expand(params, last);
 }
 
-/* FIXME: To support the deprecated p_req_dup_ok */
 static bool is_required(enum param_style style)
 {
-	return style == PARAM_REQUIRED || style == PARAM_REQUIRED_ALLOW_DUPS;
+	return style == PARAM_REQUIRED;
 }
 
 static struct command_result *make_callback(struct command *cmd,
@@ -176,8 +175,6 @@ static struct command_result *parse_by_name(struct command *cmd,
 			struct command_result *res;
 
 			if (p->is_set) {
-				if (p->style == PARAM_REQUIRED_ALLOW_DUPS)
-					continue;
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "duplicate json names: %s",
 						    p->name);
