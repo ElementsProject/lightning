@@ -99,6 +99,12 @@ void notify_openchannel_peer_sigs(struct lightningd *ld,
 void notify_channel_open_failed(struct lightningd *ld,
                                 const struct channel_id *cid);
 
+/* Tell this plugin about deprecated flag for next: returns false
+ * if doesn't subscribe */
+bool notify_deprecated_oneshot(struct lightningd *ld,
+			       struct plugin *p,
+			       bool deprecated_ok);
+
 /* Tell this plugin to shutdown: returns true if it was subscribed. */
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

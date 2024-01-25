@@ -63,6 +63,7 @@ The `getmanifest` method is required for all plugins and will be called on start
     }
   ],
   "subscriptions": [
+    "deprecated_oneshot",
     "connect",
     "disconnect"
   ],
@@ -91,10 +92,11 @@ The `getmanifest` method is required for all plugins and will be called on start
 
 During startup the `options` will be added to the list of command line options that `lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a default value of `World` and the specified description. _Notice that currently string, integers, bool, and flag options are supported._ If an option specifies `dynamic`: `true`, then it should allow a `setconfig` call for that option after initialization.
 
-The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields  
-are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.
+The `rpcmethods` are methods that will be exposed via `lightningd`'s JSON-RPC over Unix-Socket interface, just like the builtin commands. Any parameters given to the JSON-RPC calls will be passed through verbatim. Notice that the `name`, `description` and `usage` fields are mandatory, while the `long_description` can be omitted (it'll be set to `description` if it was not provided). `usage` should surround optional parameter names in `[]`.
 
 `options` and `rpcmethods` can mark themselves `deprecated: true` if you plan on removing them: this will disable them if the user sets `allow-deprecated-apis` to false, or in `--developer` mode.  You can also specify `deprecated` as an array of one or two version numbers, indicating when deprecation starts, and the final version it will be permitted, e.g. `"deprecated": ["v24.02", "v24.02"]`.  If only one version number is given, then the final version will be 6 months after the start version.
+
+The `subscriptions` array indicates what [Event Notifications](doc:event-notifications) your plugin wants to receive.  You should subscribe to `deprecated_oneshot` if you have any deprecated commands or output, so users can use the `deprecations` API to control it on a per-connection basis.  You can specify `*` here to subscribe to all other subscriptions (since *v23.08*).
 
 The `nonnumericids` indicates that the plugin can handle string JSON request `id` fields: prior to v22.11 lightningd used numbers for these, and the change to strings broke some plugins.  If not set, then strings will be used once this feature is removed after v23.05. See the [lightningd-rpc](ref:lightningd-rpc) documentation for how to handle JSON `id` fields!
 

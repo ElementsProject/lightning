@@ -1307,6 +1307,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct plugin *plugin;
 	struct jsonrpc_request *req;
+	bool cmd_ok;
 
 	if (cmd->mode == CMD_CHECK)
 		return command_param_failed();
@@ -1319,6 +1320,15 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	idtok = json_get_member(buffer, toks, "id");
 	assert(idtok != NULL);
 
+	/* If they've changed deprecation status for this cmd, tell plugin */
+	cmd_ok = command_deprecated_ok_flag(cmd);
+	if (cmd_ok != cmd->ld->deprecated_ok) {
+		if (!notify_deprecated_oneshot(cmd->ld, plugin, cmd_ok)) {
+			log_debug(plugin->log,
+				  "Plugin does not support deprecation setting for cmd %s (id %s)",
+				  cmd->json_cmd->name, cmd->id);
+		}
+	}
 	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name,
 					cmd->id, plugin->non_numeric_ids,
 					plugin->log,

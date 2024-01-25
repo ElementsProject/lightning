@@ -610,3 +610,15 @@ bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 	jsonrpc_notification_end(n);
 	return plugin_single_notify(p, take(n));
 }
+
+bool notify_deprecated_oneshot(struct lightningd *ld,
+			       struct plugin *p,
+			       bool deprecated_ok)
+{
+	struct jsonrpc_notification *n = notify_start("deprecated_oneshot");
+	json_add_bool(n->stream, "deprecated_ok", deprecated_ok);
+	json_object_end(n->stream);
+	jsonrpc_notification_end(n);
+	return plugin_single_notify(p, take(n));
+}
+REGISTER_NOTIFICATION(deprecated_oneshot);
