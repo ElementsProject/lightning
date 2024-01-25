@@ -655,6 +655,24 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for lightningd_deprecated_in_ok */
+bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
+				 struct logger *log UNNEEDED,
+				 bool deprecated_apis UNNEEDED,
+				 const char *subsys UNNEEDED,
+				 const char *api UNNEEDED,
+				 const char *start UNNEEDED,
+				 const char *end UNNEEDED,
+				 const char *details UNNEEDED)
+{ fprintf(stderr, "lightningd_deprecated_in_ok called!\n"); abort(); }
+/* Generated stub for lightningd_deprecated_out_ok */
+bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
+				  bool deprecated_apis UNNEEDED,
+				  const char *subsys UNNEEDED,
+				  const char *api UNNEEDED,
+				  const char *start UNNEEDED,
+				  const char *end UNNEEDED)
+{ fprintf(stderr, "lightningd_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for lockin_complete */
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)

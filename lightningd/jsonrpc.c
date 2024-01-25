@@ -665,7 +665,7 @@ static bool command_deprecated_ok(const struct command *cmd)
 {
 	if (cmd->jcon)
 		return cmd->jcon->deprecated_ok;
-	return cmd->ld->deprecated_apis;
+	return cmd->ld->deprecated_ok;
 }
 
 bool command_deprecated_in_ok(struct command *cmd,
@@ -1349,7 +1349,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->input_toks = toks_alloc(jcon);
 	jcon->notifications_enabled = false;
 	jcon->db_batching = false;
-	jcon->deprecated_ok = ld->deprecated_apis;
+	jcon->deprecated_ok = ld->deprecated_ok;
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */

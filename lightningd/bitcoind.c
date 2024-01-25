@@ -310,10 +310,16 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 								"feerates"),
 						&floor);
 	} else {
-		if (!call->bitcoind->ld->deprecated_apis)
+		if (!lightningd_deprecated_in_ok(call->bitcoind->ld,
+						 call->bitcoind->ld->log,
+						 call->bitcoind->ld->deprecated_ok,
+						 "estimatefeesv1", NULL,
+						 "v23.05", "v24.05",
+						 NULL)) {
 			bitcoin_plugin_error(call->bitcoind, buf, resulttok,
 					     "estimatefees",
-					     "missing fee_floor field");
+					     "missing feerate_floor field");
+		}
 
 		feerates = parse_deprecated_feerates(call, call->bitcoind,
 						     buf, resulttok);

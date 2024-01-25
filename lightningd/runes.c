@@ -475,7 +475,7 @@ static struct rune_altern *rune_altern_from_json(const tal_t *ctx,
 }
 
 static struct rune_restr *rune_restr_from_json(struct command *cmd,
-						   const tal_t *ctx,
+					       const tal_t *ctx,
 					       const char *buffer,
 					       const jsmntok_t *tok)
 {
@@ -484,7 +484,9 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	struct rune_restr *restr;
 
 	/* \| is not valid JSON, so they use \\|: undo it! */
-	if (cmd->ld->deprecated_apis && tok->type == JSMN_STRING) {
+	if (tok->type == JSMN_STRING
+	    && command_deprecated_in_ok(cmd, "restrictions.string",
+					"v23.05", "v24.02")) {
 		const char *unescape;
 		struct json_escape *e = json_escape_string_(tmpctx,
 							    buffer + tok->start,

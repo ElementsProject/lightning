@@ -1020,9 +1020,11 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 				      buffer + failmsgtok->start);
 			local_fail_in_htlc(hin, take(failmsg));
 			return false;
-		} else if (ld->deprecated_apis
-			   && (failcodetok = json_get_member(buffer, toks,
-							     "failure_code"))) {
+		} else if ((failcodetok = json_get_member(buffer, toks,
+							     "failure_code"))
+			   && lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
+							  "htlc_accepted_hook", "failure_code",
+							  "v0.8", "v24.02", NULL)) {
 			unsigned int failcode;
 			if (!json_to_number(buffer, failcodetok, &failcode))
 				fatal("Bad failure_code for htlc_accepted"

@@ -906,7 +906,7 @@ static char *plugin_opt_check(struct plugin_opt *popt)
 	/* Fail if this is deprecated */
 	if (!lightningd_deprecated_in_ok(popt->plugin->plugins->ld,
 					 popt->plugin->plugins->log,
-					 popt->plugin->plugins->ld->deprecated_apis,
+					 popt->plugin->plugins->ld->deprecated_ok,
 					 popt->plugin->shortname,
 					 popt->name,
 					 popt->depr_start,
@@ -918,7 +918,7 @@ static char *plugin_opt_check(struct plugin_opt *popt)
 static bool plugin_opt_deprecated_out_ok(struct plugin_opt *popt)
 {
 	return lightningd_deprecated_out_ok(popt->plugin->plugins->ld,
-					    popt->plugin->plugins->ld->deprecated_apis,
+					    popt->plugin->plugins->ld->deprecated_ok,
 					    popt->plugin->shortname,
 					    /* Skip --prefix  */
 					    popt->name + 2,
@@ -945,8 +945,12 @@ static char *plugin_opt_bool_check(const char *arg, struct plugin_opt *popt)
 {
 	/* FIXME: For some reason, '1' and '0' were allowed here? */
 	if (streq(arg, "1") || streq(arg, "0")) {
-		if (!popt->plugin->plugins->ld->deprecated_apis)
+		struct lightningd *ld = popt->plugin->plugins->ld;
+		if (!lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
+						 popt->name + 2, "0-or-1",
+						 "v23.08", "v24.08", NULL)) {
 			return "boolean plugin arguments must be true or false";
+		}
 	} else {
 		bool v;
 		char *ret = opt_set_bool_arg(arg, &v);
@@ -1067,6 +1071,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	const char *name, *err;
 	enum opt_type optflags = 0;
 	bool set;
+	struct lightningd *ld = plugin->plugins->ld;
 
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
@@ -1128,17 +1133,14 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			/* We used to allow (ignore) anything, now make sure it's 'false' */
 			if (!json_to_bool(buffer, defaulttok, &val)
 			    || val != false) {
-				if (!plugin->plugins->ld->deprecated_apis)
+				if (!lightningd_deprecated_in_ok(ld, plugin->log,
+								 ld->deprecated_ok,
+								 "options.flag", "default-not-false",
+								 "v23.08", "v24.08", NULL)) {
 					return tal_fmt(plugin, "%s type flag default must be 'false' not %.*s",
 						       popt->name,
 						       json_tok_full_len(defaulttok),
 						       json_tok_full(buffer, defaulttok));
-				else {
-					/* At least warn that we're ignoring! */
-					log_broken(plugin->log, "Ignoring default %.*s for %s (if set, must be 'false'!)",
-						   json_tok_full_len(defaulttok),
-						   json_tok_full(buffer, defaulttok),
-						   popt->name);
 				}
 			}
 			defaulttok = NULL;
@@ -1679,6 +1681,7 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 {
 	const jsmntok_t *resulttok, *featurestok, *custommsgtok, *tok;
 	const char *err;
+	struct lightningd *ld = plugin->plugins->ld;
 
 	*disabled = NULL;
 
@@ -1743,7 +1746,7 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 				    buffer + featurestok->start);
 		}
 
-		if (!feature_set_or(plugin->plugins->ld->our_features, fset)) {
+		if (!feature_set_or(ld->our_features, fset)) {
 			return tal_fmt(plugin,
 				    "Custom featurebits already present");
 		}
@@ -1775,13 +1778,19 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 				       "Invalid nonnumericids: %.*s",
 				       json_tok_full_len(tok),
 				       json_tok_full(buffer, tok));
-		if (!plugin->plugins->ld->deprecated_apis
-		    && !plugin->non_numeric_ids)
+		if (!plugin->non_numeric_ids
+		    && !lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
+						    "plugin", "nonnumericids",
+						    "v23.08", "v24.08", NULL)) {
 			return tal_fmt(plugin,
 				       "Plugin does not allow nonnumericids");
-	} else
+		}
+	} else {
 		/* Default is false in deprecated mode */
-		plugin->non_numeric_ids = !plugin->plugins->ld->deprecated_apis;
+		plugin->non_numeric_ids = !lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+									"plugin", "nonnumericids",
+									"v23.08", "v24.08");
+	}
 
 	err = plugin_notifications_add(buffer, resulttok, plugin);
 	if (!err)
@@ -1986,7 +1995,7 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->non_numeric_ids,
 				    p->log, NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis",
-		      p->plugins->ld->deprecated_apis);
+		      p->plugins->ld->deprecated_ok);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
 	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
