@@ -63,6 +63,24 @@ bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok U
 bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
 { fprintf(stderr, "json_to_number called!\n"); abort(); }
+/* Generated stub for lightningd_deprecated_in_ok */
+bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
+				 struct logger *log UNNEEDED,
+				 bool deprecated_apis UNNEEDED,
+				 const char *subsys UNNEEDED,
+				 const char *api UNNEEDED,
+				 const char *start UNNEEDED,
+				 const char *end UNNEEDED,
+				 const char *details UNNEEDED)
+{ fprintf(stderr, "lightningd_deprecated_in_ok called!\n"); abort(); }
+/* Generated stub for lightningd_deprecated_out_ok */
+bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
+				  bool deprecated_apis UNNEEDED,
+				  const char *subsys UNNEEDED,
+				  const char *api UNNEEDED,
+				  const char *start UNNEEDED,
+				  const char *end UNNEEDED)
+{ fprintf(stderr, "lightningd_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,

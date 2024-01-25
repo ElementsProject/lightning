@@ -99,11 +99,6 @@ bool command_check_only(const struct command *cmd)
 	return cmd->mode == CMD_CHECK;
 }
 
-bool command_deprecated_apis(const struct command *cmd)
-{
-	return cmd->deprecated_apis;
-}
-
 struct json {
 	jsmntok_t *toks;
 	char *buffer;

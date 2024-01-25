@@ -44,9 +44,6 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 /* Generated stub for command_check_only */
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
-/* Generated stub for command_deprecated_apis */
-bool command_deprecated_apis(const struct command *cmd UNNEEDED)
-{ fprintf(stderr, "command_deprecated_apis called!\n"); abort(); }
 /* Generated stub for command_dev_apis */
 bool command_dev_apis(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_dev_apis called!\n"); abort(); }

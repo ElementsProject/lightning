@@ -36,8 +36,17 @@ command_fail_badparam(struct command *cmd,
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);
 
-/* Do we allow deprecated apis? */
-bool command_deprecated_apis(const struct command *cmd);
+/* Caller supplies this too: they tried to use a deprecated parameter (or cmd). */
+bool command_deprecated_in_ok(struct command *cmd,
+			      const char *param,
+			      const char *depr_start,
+			      const char *depr_end);
+
+/* Caller supplies this: should we output this deprecated thing */
+bool command_deprecated_out_ok(struct command *cmd,
+			       const char *fieldname,
+			       const char *depr_start,
+			       const char *depr_end);
 
 /* Do we allow dev commands? */
 bool command_dev_apis(const struct command *cmd);

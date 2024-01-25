@@ -32,6 +32,15 @@ void daemon_setup(const char *argv0 UNNEEDED,
 		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,
 		  void (*backtrace_exit)(void))
 { fprintf(stderr, "daemon_setup called!\n"); abort(); }
+/* Generated stub for deprecated_ok_ */
+bool deprecated_ok_(bool deprecated_apis UNNEEDED,
+		    const char *feature UNNEEDED,
+		    const char *start UNNEEDED,
+		    const char *end UNNEEDED,
+		    const char **begs UNNEEDED,
+		    void (*complain)(const char *feat UNNEEDED, bool allowing UNNEEDED, void *) UNNEEDED,
+		    void *cbarg UNNEEDED)
+{ fprintf(stderr, "deprecated_ok_ called!\n"); abort(); }
 /* Generated stub for first_fee_state */
 enum htlc_state first_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "first_fee_state called!\n"); abort(); }
