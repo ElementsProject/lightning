@@ -255,7 +255,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 
 	if (!param(cmd, buf, params,
 		   p_req("destination", param_node_id, &destination),
-		   p_req("amount_msat|msatoshi", param_msat, &msat),
+		   p_req("amount_msat", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("maxfeepercent", param_millionths,
 			     &maxfee_pct_millionths, 500000),
