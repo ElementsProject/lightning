@@ -5,8 +5,9 @@ excerpt: "Deprecated features and timeline for old feature removals."
 hidden: false
 ---
 
-| Name      | Type  | First Deprecated | Last Supported | Description |
-|-----------|-------|------------------|----------------|-------------|
+| Name              | Type    | First Deprecated | Last Supported | Description                       |
+|-------------------|---------|------------------|----------------|-----------------------------------|
+| delexpiredinvoice | Command | v22.11           | v24.02         | `autoclean-once` is more powerful |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

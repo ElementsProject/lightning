@@ -63,7 +63,7 @@ struct json_command {
 	const char *description;
 	const char *verbose;
 	bool dev_only;
-	bool deprecated;
+	const char *depr_start, *depr_end;
 };
 
 struct jsonrpc_notification {
