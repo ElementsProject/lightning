@@ -1686,11 +1686,6 @@ int main(int argc, char **argv)
 				  "Channel lease rates, base fee for leased"
 				  " funds, in satoshi.",
 				  option_lease_fee_base, current_policy),
-		    plugin_option_deprecated("lease-fee-base-msat",
-				  "string",
-				  "Channel lease rates, base fee for leased"
-				  " funds, in satoshi.",
-				  option_lease_fee_base, current_policy),
 		    plugin_option("lease-fee-basis",
 				  "int",
 				  "Channel lease rates, basis charged"
