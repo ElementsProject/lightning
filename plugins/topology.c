@@ -380,20 +380,18 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	struct gossmap *gossmap = get_gossmap();
 	struct gossmap_localmods *mods;
 
-	if (deprecated_apis)
-		connected = local_connected(opts, buf, result);
-	else
-		connected = NULL;
-
 	/* In deprecated mode, re-add private channels */
-	if (deprecated_apis) {
+	if (command_deprecated_in_ok(cmd, "include_private", "v24.02", "v24.08")) {
+		connected = local_connected(opts, buf, result);
 		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
 						      buf, result,
 						      gossmod_add_unknown_localchan,
 						      gossmap);
 		gossmap_apply_localmods(gossmap, mods);
-	} else
+	} else {
+		connected = NULL;
 		mods = NULL;
+	}
 
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
