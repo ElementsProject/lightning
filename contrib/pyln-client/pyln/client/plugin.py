@@ -48,7 +48,7 @@ class Method(object):
     def __init__(self, name: str, func: Callable[..., JSONType],
                  mtype: MethodType = MethodType.RPCMETHOD,
                  category: str = None, desc: str = None,
-                 long_desc: str = None, deprecated: bool = False):
+                 long_desc: str = None, deprecated: Union[bool, List[str]] = None):
         self.name = name
         self.func = func
         self.mtype = mtype
@@ -297,7 +297,7 @@ class Plugin(object):
                    category: Optional[str] = None,
                    desc: Optional[str] = None,
                    long_desc: Optional[str] = None,
-                   deprecated: bool = False) -> None:
+                   deprecated: Union[bool, List[str]] = None) -> None:
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -327,8 +327,9 @@ class Plugin(object):
         The `category` argument can be used to specify the category of the
         newly created rpc command.
 
-        `deprecated` means that it won't appear unless `allow-deprecated-apis`
-        is true (the default).
+        `deprecated` True means that it won't appear unless `allow-deprecated-apis`
+        is true (the default), or if list of version string (e.g. "v23.08"), then
+        start deprecation cycle at that version (and removal after second entry in list).
         """
         if name in self.methods:
             raise ValueError(
@@ -389,7 +390,7 @@ class Plugin(object):
 
     def add_option(self, name: str, default: Optional[str],
                    description: Optional[str],
-                   opt_type: str = "string", deprecated: bool = False,
+                   opt_type: str = "string", deprecated: Union[bool, List[str]] = None,
                    multi: bool = False,
                    dynamic=False) -> None:
         """Add an option that we'd like to register with lightningd.
@@ -420,7 +421,8 @@ class Plugin(object):
         }
 
     def add_flag_option(self, name: str, description: str,
-                        deprecated: bool = False, dynamic: bool = False) -> None:
+                        deprecated: Union[bool, List[str]] = None,
+                        dynamic: bool = False) -> None:
         """Add a flag option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -447,7 +449,7 @@ class Plugin(object):
     def async_method(self, method_name: str, category: Optional[str] = None,
                      desc: Optional[str] = None,
                      long_desc: Optional[str] = None,
-                     deprecated: bool = False) -> NoneDecoratorType:
+                     deprecated: Union[bool, List[str]] = None) -> NoneDecoratorType:
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
@@ -462,7 +464,7 @@ class Plugin(object):
     def method(self, method_name: str, category: Optional[str] = None,
                desc: Optional[str] = None,
                long_desc: Optional[str] = None,
-               deprecated: bool = False) -> JsonDecoratorType:
+               deprecated: Union[bool, List[str]] = None) -> JsonDecoratorType:
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
