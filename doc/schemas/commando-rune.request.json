@@ -3,7 +3,10 @@
   "type": "object",
   "additionalProperties": false,
   "required": [],
-  "deprecated": "v23.08",
+  "deprecated": [
+    "v23.08",
+    "v23.05"
+  ],
   "properties": {
     "rune": {
       "type": "string",

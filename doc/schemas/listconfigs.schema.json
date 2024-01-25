@@ -1373,13 +1373,19 @@
       }
     },
     "# version": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "Special field indicating the current version"
     },
     "plugins": {
       "type": "array",
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1409,7 +1415,10 @@
     },
     "important-plugins": {
       "type": "array",
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1438,32 +1447,50 @@
       }
     },
     "conf": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`conf` field from cmdline, or default"
     },
     "lightning-dir": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`lightning-dir` field from config or cmdline, or default"
     },
     "network": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`network` field from config or cmdline, or default"
     },
     "allow-deprecated-apis": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`allow-deprecated-apis` field from config or cmdline, or default"
     },
     "rpc-file": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`rpc-file` field from config or cmdline, or default"
     },
     "disable-plugin": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "array",
       "items": {
         "type": "string",
@@ -1471,67 +1498,106 @@
       }
     },
     "bookkeeper-dir": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`bookkeeper-dir` field from config or cmdline, or default"
     },
     "bookkeeper-db": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`bookkeeper-db` field from config or cmdline, or default"
     },
     "always-use-proxy": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`always-use-proxy` field from config or cmdline, or default"
     },
     "daemon": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`daemon` field from config or cmdline, or default"
     },
     "wallet": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`wallet` field from config or cmdline default"
     },
     "large-channels": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`large-channels` field from config or cmdline, or default"
     },
     "experimental-dual-fund": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`experimental-dual-fund` field from config or cmdline, or default"
     },
     "experimental-splicing": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`experimental-splicing` field from config or cmdline, or default"
     },
     "experimental-onion-messages": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`experimental-onion-messages` field from config or cmdline, or default"
     },
     "experimental-offers": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`experimental-offers` field from config or cmdline, or default"
     },
     "experimental-shutdown-wrong-funding": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`experimental-shutdown-wrong-funding` field from config or cmdline, or default"
     },
     "experimental-websocket-port": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u16",
       "description": "`experimental-websocket-port` field from config or cmdline, or default"
     },
     "experimental-peer-storage": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "added": "v23.02",
       "description": "`experimental-peer-storage` field from config or cmdline, or default"
@@ -1539,13 +1605,19 @@
     "experimental-quiesce": {
       "type": "boolean",
       "added": "v23.08",
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "description": "`experimental-quiesce` field from config or cmdline, or default"
     },
     "experimental-upgrade-protocol": {
       "type": "boolean",
       "added": "v23.08",
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "description": "`experimental-upgrade-protocol` field from config or cmdline, or default"
     },
     "invoices-onchain-fallback": {
@@ -1554,217 +1626,343 @@
       "description": "`invoices-onchain-fallback` field from config or cmdline, or default"
     },
     "database-upgrade": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`database-upgrade` field from config or cmdline"
     },
     "rgb": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "hex",
       "description": "`rgb` field from config or cmdline, or default",
       "maxLength": 6,
       "minLength": 6
     },
     "alias": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`alias` field from config or cmdline, or default"
     },
     "pid-file": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`pid-file` field from config or cmdline, or default"
     },
     "ignore-fee-limits": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`ignore-fee-limits` field from config or cmdline, or default"
     },
     "watchtime-blocks": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`watchtime-blocks` field from config or cmdline, or default"
     },
     "max-locktime-blocks": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`max-locktime-blocks` field from config or cmdline, or default"
     },
     "funding-confirms": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`funding-confirms` field from config or cmdline, or default"
     },
     "cltv-delta": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`cltv-delta` field from config or cmdline, or default"
     },
     "cltv-final": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`cltv-final` field from config or cmdline, or default"
     },
     "commit-time": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`commit-time` field from config or cmdline, or default"
     },
     "fee-base": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`fee-base` field from config or cmdline, or default"
     },
     "rescan": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "integer",
       "description": "`rescan` field from config or cmdline, or default"
     },
     "fee-per-satoshi": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`fee-per-satoshi` field from config or cmdline, or default"
     },
     "max-concurrent-htlcs": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u32",
       "description": "`max-concurrent-htlcs` field from config or cmdline, or default"
     },
     "htlc-minimum-msat": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "msat",
       "description": "`htlc-minimum-msat` field from config or cmdline, or default"
     },
     "htlc-maximum-msat": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "msat",
       "description": "`htlc-maximum-msat` field from config or cmdline, or default"
     },
     "max-dust-htlc-exposure-msat": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "msat",
       "description": "`max-dust-htlc-exposure-mast` field from config or cmdline, or default"
     },
     "min-capacity-sat": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u64",
       "description": "`min-capacity-sat` field from config or cmdline, or default"
     },
     "addr": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`addr` field from config or cmdline (can be more than one)"
     },
     "announce-addr": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`announce-addr` field from config or cmdline (can be more than one)"
     },
     "bind-addr": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`bind-addr` field from config or cmdline (can be more than one)"
     },
     "offline": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`true` if `offline` was set in config or cmdline"
     },
     "autolisten": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`autolisten` field from config or cmdline, or default"
     },
     "proxy": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`proxy` field from config or cmdline, or default"
     },
     "disable-dns": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`true` if `disable-dns` was set in config or cmdline"
     },
     "announce-addr-discovered": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline",
       "added": "v23.02"
     },
     "announce-addr-discovered-port": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "integer",
       "description": "Sets the announced TCP port for dynamically discovered IPs.",
       "added": "v23.02"
     },
     "encrypted-hsm": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`true` if `encrypted-hsm` was set in config or cmdline"
     },
     "rpc-file-mode": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`rpc-file-mode` field from config or cmdline, or default"
     },
     "log-level": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`log-level` field from config or cmdline, or default"
     },
     "log-prefix": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`log-prefix` field from config or cmdline, or default"
     },
     "log-file": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`log-file` field from config or cmdline, or default"
     },
     "log-timestamps": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`log-timestamps` field from config or cmdline, or default"
     },
     "force-feerates": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "force-feerate configuration setting, if any"
     },
     "subdaemon": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`subdaemon` fields from config or cmdline if any (can be more than one)"
     },
     "fetchinvoice-noconnect": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "`fetchinvoice-noconnect` fields from config or cmdline, or default"
     },
     "accept-htlc-tlv-types": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`accept-htlc-tlv-types` field from config or cmdline, or not present"
     },
     "tor-service-password": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "string",
       "description": "`tor-service-password` field from config or cmdline, if any"
     },
     "dev-allowdustreserve": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "Whether we allow setting dust reserves"
     },
     "announce-addr-dns": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "added": "v22.11.1",
       "description": "Whether we put DNS entries into node_announcement"
     },
     "require-confirmed-inputs": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "boolean",
       "description": "Request peers to only send confirmed inputs (dual-fund only)"
     },
@@ -1774,7 +1972,10 @@
       "description": "Whether developer mode is enabled"
     },
     "commit-fee": {
-      "deprecated": "v23.08",
+      "deprecated": [
+        "v23.08",
+        "v24.02"
+      ],
       "type": "u64",
       "added": "v23.05",
       "description": "The percentage of the 6-block fee estimate to use for commitment transactions"

@@ -74,8 +74,13 @@ class VersionAnnotationPatch(Patch):
         if f.added and added and f.added != m['added']:
             raise ValueError(f"Field {f.path} changed `added` annotation: {f.added} != {m['added']}")
 
-        if f.deprecated and deprecated and f.deprecated != deprecated:
-            raise ValueError(f"Field {f.path} changed `deprecated` annotation: {f.deprecated} != {m['deprecated']}")
+        if f.deprecated:
+            # We don't care about finishing value.
+            if isinstance(f.deprecated, list):
+                assert len(f.deprecated) == 2
+                f.deprecated = f.deprecated[0]
+            if f.deprecated != deprecated:
+                raise ValueError(f"Field {f.path} changed `deprecated` annotation: {f.deprecated} vs {deprecated}")
 
         if f.added is None:
             f.added = added

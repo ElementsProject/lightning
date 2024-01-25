@@ -4,6 +4,7 @@
 #include <ccan/err/err.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
+#include <common/deprecation.h>
 #include <common/gossip_store.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -1327,11 +1328,17 @@ static void add_table_singleton(struct table_desc *td,
 	tal_arr_expand(&td->columns, col);
 }
 
-static bool is_deprecated(const jsmntok_t *deprecated_tok)
+static bool is_deprecated(const char *buffer, const jsmntok_t *tok)
 {
-	const char *deprstr;
+	const char *depr_start, *err;
+	u32 vnum;
 
-	if (!deprecated_tok)
+	depr_start = NULL;
+	err = json_scan(tmpctx, schemas, tok,
+			"{deprecated?:[0:%]}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &depr_start));
+	assert(!err);
+	if (!depr_start)
 		return false;
 
 	/* If deprecated APIs are globally disabled, we don't want them! */
@@ -1340,12 +1347,9 @@ static bool is_deprecated(const jsmntok_t *deprecated_tok)
 
 	/* If it was deprecated before our release, we don't want it; older ones
 	 * were simply 'deprecated: true' */
-	deprstr = json_strdup(tmpctx, schemas, deprecated_tok);
-	assert(strstarts(deprstr, "v"));
-	if (streq(deprstr, "v0.12.0") || streq(deprstr, "v23.02"))
-		return true;
-
-	return false;
+	vnum = version_to_number(depr_start);
+	assert(vnum);
+	return vnum <= version_to_number("v23.02");
 }
 
 static void add_table_properties(struct table_desc *td,
@@ -1355,7 +1359,7 @@ static void add_table_properties(struct table_desc *td,
 	size_t i;
 
 	json_for_each_obj(i, t, properties) {
-		const jsmntok_t *type, *deprecated_tok;
+		const jsmntok_t *type;
 		struct column col;
 
 		if (ignore_column(td, t))
@@ -1368,8 +1372,7 @@ static void add_table_properties(struct table_desc *td,
 
 		/* Depends on when it was deprecated, and whether deprecations
 		 * are enabled! */
-		deprecated_tok = json_get_member(schemas, t+1, "deprecated");
-		if (is_deprecated(deprecated_tok))
+		if (is_deprecated(schemas, t+1))
 			continue;
 
 		if (json_tok_streq(schemas, type, "array")) {

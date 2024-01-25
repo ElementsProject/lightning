@@ -65,7 +65,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **log** (string): The actual log message
     - **node\_id** (pubkey): The peer this is associated with
     - **data** (hex): The IO which occurred
-- **channels** (array of objects, optional) **deprecated, removal in v23.11**:
+- **channels** (array of objects, optional) **deprecated in v23.02, removed after v24.02**:
   - **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN", "DUALOPEND\_OPEN\_COMMITTED", "DUALOPEND\_OPEN\_COMMIT\_READY")
   - **opener** (string): Who initiated the channel (one of "local", "remote")
   - **features** (array of strings):
@@ -400,4 +400,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightning/bolts/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:6ba98a11876db615f4ea25f1afedf319a4bd4e50dad216306ea85b51b83b3f7b)
+[comment]: # ( SHA256STAMP:5b622ce05ce081a3184b01dc1cf5d2d5882293e171b3a3a118efff3748d8e25a)

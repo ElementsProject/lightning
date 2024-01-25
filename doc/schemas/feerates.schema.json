@@ -82,12 +82,18 @@
         },
         "delayed_to_us": {
           "type": "u32",
-          "deprecated": "v23.05",
+          "deprecated": [
+            "v23.05",
+            "v24.05"
+          ],
           "description": "Feerate for returning unilateral close funds to our wallet"
         },
         "htlc_resolution": {
           "type": "u32",
-          "deprecated": "v23.05",
+          "deprecated": [
+            "v23.05",
+            "v24.05"
+          ],
           "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
         },
         "penalty": {
@@ -170,12 +176,18 @@
         },
         "delayed_to_us": {
           "type": "u32",
-          "deprecated": "v23.05",
+          "deprecated": [
+            "v23.05",
+            "v24.05"
+          ],
           "description": "Feerate for returning unilateral close funds to our wallet"
         },
         "htlc_resolution": {
           "type": "u32",
-          "deprecated": "v23.05",
+          "deprecated": [
+            "v23.05",
+            "v24.05"
+          ],
           "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
         },
         "penalty": {
