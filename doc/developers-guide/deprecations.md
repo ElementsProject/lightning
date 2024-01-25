@@ -47,6 +47,8 @@ hidden: false
 | estimatefees.penalty                 | Field              | v23.05           | v24.05         | `penalty` feerate (implementation-specific, use modern feerates)                                                                                                                |
 | estimatefees.min_acceptable          | Field              | v23.05           | v24.05         | `min_acceptable` feerate (implementation-specific, use modern feerates)                                                                                                         |
 | estimatefees.max_acceptable          | Field              | v23.05           | v24.05         | `max_acceptable` feerate (implementation-specific, use modern feerates)                                                                                                         |
+| commando.missing_id                  | Parameter          | v23.02           | v24.02         | Incoming JSON commands without an `id` field                                                                                                                                    |
+
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

@@ -146,6 +146,34 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 	return &cmd->filter;
 }
 
+static void complain_deprecated_nocmd(const char *feature,
+				      bool allowing,
+				      struct plugin *plugin)
+{
+	if (!allowing) {
+		/* Mild log message for disallowing */
+		plugin_log(plugin, LOG_DBG,
+			   "Note: disallowing deprecated %s",
+			   feature);
+	} else {
+		plugin_log(plugin, LOG_BROKEN,
+			   "DEPRECATED API USED: %s",
+			   feature);
+	}
+}
+
+bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
+				    const char *name,
+				    const char *depr_start,
+				    const char *depr_end)
+{
+	return deprecated_ok(deprecated_apis,
+			     name,
+			     depr_start, depr_end,
+			     plugin->beglist,
+			     complain_deprecated_nocmd, plugin);
+}
+
 static void complain_deprecated(const char *feature,
 				bool allowing,
 				struct command *cmd)

@@ -280,6 +280,12 @@ bool command_deprecated_in_named_ok(struct command *cmd,
 				    const char *depr_start,
 				    const char *depr_end);
 
+/* For commando, which doesn't have a "cmd" incoming */
+bool command_deprecated_in_nocmd_ok(struct plugin *plugin,
+				    const char *name,
+				    const char *depr_start,
+				    const char *depr_end);
+
 /* Call this on fatal error. */
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
 

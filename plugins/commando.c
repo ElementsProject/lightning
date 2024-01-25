@@ -397,7 +397,8 @@ static void try_command(struct commando *incoming STEALS)
 	}
 	filter = json_get_member(buf, toks, "filter");
 	id = json_get_member(buf, toks, "id");
-	if (!id && !deprecated_apis) {
+	if (!id && !command_deprecated_in_nocmd_ok(plugin, "commando.missing-id",
+						   "v23.02", "v24.02")) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE,
 			       "missing id field");
 		return;
