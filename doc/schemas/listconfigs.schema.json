@@ -1685,11 +1685,6 @@
       "type": "boolean",
       "description": "`true` if `disable-dns` was set in config or cmdline"
     },
-    "disable-ip-discovery": {
-      "deprecated": "v23.02",
-      "type": "boolean",
-      "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
-    },
     "announce-addr-discovered": {
       "deprecated": "v23.08",
       "type": "string",

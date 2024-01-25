@@ -286,10 +286,6 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 
   Default: unset (no limit). Sets the maximum allowed HTLC value for newly created channels. If you want to change the `htlc_maximum_msat` for existing channels, use the RPC call [`lightning-setchannel`](ref:lightning-setchannel).
 
-- **disable-ip-discovery**
-
-  Turn off public IP discovery to send `node_announcement` updates that contain the discovered IP with TCP port 9735 as announced address. If unset and you open TCP port 9735 on your router towards your node, your node will remain connectable on changing IP addresses.  Note: Will always be disabled if you use 'always-use-proxy'.
-
 ### Lightning channel and HTLC options
 
 - **watchtime-blocks**=_BLOCKS_
@@ -427,6 +423,14 @@ If a 'DNS' hostname was given that resolves to a local interface, the daemon wil
 - **announce-addr-dns**=_BOOL_
 
   Set to _true_ (default is \_false), this so that names given as arguments to **addr** and \_announce-addr\*\* are published in node announcement messages as names, rather than IP addresses.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
+
+- **announce-addr-discovered**=_true/false/auto_
+
+  Controls public IP discovery: peers can tell us what they see our IP address as, so we can send `node_announcement` updates that contain the discovered IP as announced address.  `auto` (the default) means only to use this if we have no other announced addresses.  Note: Will always be disabled if you set **always-use-proxy**.
+
+- **announce-addr-discovered-port**=_PORT_
+
+  The port to advertize for for the IP address  **announce-addr-discovered** (default 9735).  You should open this TCP port on your router towards your node.
 
 - **offline**
 
