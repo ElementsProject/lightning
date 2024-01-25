@@ -568,7 +568,8 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 
 
 def test_autocleaninvoice_deprecated(node_factory):
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    # This is so deprecated it emits a broken message when we use it!
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True}, allow_broken_log=True)
 
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)
@@ -704,8 +705,8 @@ def test_listinvoices_filter(node_factory):
 
 
 def test_wait_invoices(node_factory, executor):
-    # We use delexpiredinvoice
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
+    # We use delexpiredinvoice, and CLN complains!
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True, 'allow_broken_log': True})
 
     # Asking for 0 gives us current index.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 0})
