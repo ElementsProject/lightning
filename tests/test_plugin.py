@@ -1629,7 +1629,9 @@ def test_libplugin_deprecated(node_factory):
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
     l1 = node_factory.get_node(options={"plugin": plugin,
                                         'somearg-deprecated': 'test_opt depr',
-                                        'allow-deprecated-apis': True})
+                                        'allow-deprecated-apis': True},
+                               # testrpc-deprecated causes a complaint!
+                               allow_broken_log=True)
 
     assert l1.daemon.is_in_log("somearg = test_opt depr")
     l1.rpc.help('testrpc-deprecated')
