@@ -93,6 +93,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/configdir.o			\
 	common/configvar.o			\
 	common/daemon.o				\
+	common/deprecation.o			\
 	common/derive_basepoints.o		\
 	common/ecdh_hsmd.o			\
 	common/features.o			\

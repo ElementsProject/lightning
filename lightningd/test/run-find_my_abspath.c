@@ -46,6 +46,15 @@ s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defv
 /* Generated stub for db_in_transaction */
 bool db_in_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_in_transaction called!\n"); abort(); }
+/* Generated stub for deprecated_ok_ */
+bool deprecated_ok_(bool deprecated_apis UNNEEDED,
+		    const char *feature UNNEEDED,
+		    const char *start UNNEEDED,
+		    const char *end UNNEEDED,
+		    const char **begs UNNEEDED,
+		    void (*complain)(const char *feat UNNEEDED, bool allowing UNNEEDED, void *) UNNEEDED,
+		    void *cbarg UNNEEDED)
+{ fprintf(stderr, "deprecated_ok_ called!\n"); abort(); }
 /* Generated stub for discard_key */
 void discard_key(struct secret *key TAKES UNNEEDED)
 { fprintf(stderr, "discard_key called!\n"); abort(); }

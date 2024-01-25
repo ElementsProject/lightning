@@ -393,6 +393,9 @@ struct lightningd {
 
 	/* runes! */
 	struct runes *runes;
+
+	/* Explicitly re-enabled deprecated APIs. */
+	const char **api_begs;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
@@ -417,5 +420,24 @@ void notify_new_block(struct lightningd *ld, u32 block_height);
  * all the way to the main loop for `lightningd` to exit.
  */
 void lightningd_exit(struct lightningd *ld, int exit_code);
+
+/* Should we accept them using this deprecated API?  (add details to
+ * log msg if non-NULL) */
+bool lightningd_deprecated_in_ok(struct lightningd *ld,
+				 struct logger *log,
+				 bool deprecated_apis,
+				 const char *subsys,
+				 const char *api,
+				 const char *start,
+				 const char *end,
+				 const char *details);
+
+/* Should we output this deprecated field? */
+bool lightningd_deprecated_out_ok(struct lightningd *ld,
+				  bool deprecated_apis,
+				  const char *subsys,
+				  const char *api,
+				  const char *start,
+				  const char *end);
 
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

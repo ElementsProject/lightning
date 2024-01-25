@@ -47,7 +47,9 @@
 
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
+#include <common/configdir.h>
 #include <common/daemon.h>
+#include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
 #include <common/hsm_encryption.h>
 #include <common/json_stream.h>
@@ -346,6 +348,13 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * the default minimum at 25,000 sats.
 	 */
 	ld->emergency_sat = AMOUNT_SAT(25000);
+
+	/*~ We used to simply deprecate, then remove with a 6 month warning.
+	 * We even provided an option to immediately disable deprecated APIs.
+	 * But people kept being taken by surprise, so now we escalate, and
+	 * the final step is to make *users* explicitly re-enable each API
+	 * which is due for complete removal. */
+	ld->api_begs = tal_arr(ld, const char *, 0);
 
 	return ld;
 }
@@ -959,6 +968,72 @@ REGISTER_PLUGIN_HOOK(recover,
 		     recover_hook_final,
 		     recover_hook_serialize,
 		     struct recover_payload *);
+
+static const char *api_name(const tal_t *ctx,
+			    const char *subsys,
+			    const char *api)
+{
+	if (api)
+		return tal_fmt(ctx, "%s.%s", subsys, api);
+	return subsys;
+}
+
+/* Do we output this field? */
+bool lightningd_deprecated_out_ok(struct lightningd *ld,
+				  bool deprecated_apis,
+				  const char *subsys,
+				  const char *api,
+				  const char *start,
+				  const char *end)
+{
+	return deprecated_ok(deprecated_apis,
+			     api_name(tmpctx, subsys, api),
+			     start, end,
+			     ld->api_begs,
+			     NULL, NULL);
+}
+
+struct depr_in {
+	struct logger *log;
+	const char *details;
+};
+
+static void complain_deprecated(const char *feature,
+				bool allowing,
+				struct depr_in *depr_in)
+{
+	if (!allowing) {
+		/* Mild log message for disallowing */
+		log_debug(depr_in->log, "Note: disallowing deprecated %s", feature);
+	} else {
+		log_broken(depr_in->log,
+			   "DEPRECATED API USED %s %s",
+			   feature,
+			   depr_in->details ? depr_in->details : "");
+	}
+}
+
+/* Do we accept this? */
+bool lightningd_deprecated_in_ok(struct lightningd *ld,
+				 struct logger *log,
+				 bool deprecated_apis,
+				 const char *subsys,
+				 const char *api,
+				 const char *start,
+				 const char *end,
+				 const char *details)
+{
+	struct depr_in depr_in;
+
+	depr_in.log = log;
+	depr_in.details = details;
+
+	return deprecated_ok(deprecated_apis,
+			     api_name(tmpctx, subsys, api),
+			     start, end,
+			     ld->api_begs,
+			     complain_deprecated, &depr_in);
+}
 
 int main(int argc, char *argv[])
 {
