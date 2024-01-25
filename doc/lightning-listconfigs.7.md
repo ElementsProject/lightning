@@ -342,7 +342,6 @@ On success, an object is returned, containing:
 - **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **proxy** (string, optional): `proxy` field from config or cmdline, or default **deprecated, removal in v24.05**
 - **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline **deprecated, removal in v24.05**
-- **disable-ip-discovery** (boolean, optional): `true` if `disable-ip-discovery` was set in config or cmdline **deprecated, removal in v23.11**
 - **announce-addr-discovered** (string, optional): `true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline **deprecated, removal in v24.05** *(added v23.02)*
 - **announce-addr-discovered-port** (integer, optional): Sets the announced TCP port for dynamically discovered IPs. **deprecated, removal in v24.05** *(added v23.02)*
 - **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline **deprecated, removal in v24.05**
@@ -480,4 +479,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:245e056bdda7c8015917c89e243a0fd3bdd1512ca760da5d7f0a284cb3214ef7)
+[comment]: # ( SHA256STAMP:cbd485cba5ad5295f6d47bb612b2ce51ad94f07f3bbf2e1db4cd9f5d45ecb6e3)

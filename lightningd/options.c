@@ -1254,13 +1254,6 @@ static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
 	return opt_set_bool_arg(arg, ld->db_upgrade_ok);
 }
 
-static char *opt_disable_ip_discovery(struct lightningd *ld)
-{
-	log_broken(ld->log, "--disable-ip-discovery has been deprecated, use --announce-addr-discovered=false");
-	ld->config.ip_discovery = OPT_AUTOBOOL_FALSE;
-	return NULL;
-}
-
 static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 {
 	if (!ld->deprecated_apis)
@@ -1529,7 +1522,6 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
 
-	opt_register_noarg("--disable-ip-discovery", opt_disable_ip_discovery, ld, opt_hidden);
 	opt_register_arg("--announce-addr-discovered", opt_set_autobool_arg, opt_show_autobool,
 			 &ld->config.ip_discovery,
 			 "Explicitly turns IP discovery 'on' or 'off'.");
