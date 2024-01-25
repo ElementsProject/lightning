@@ -4,7 +4,10 @@
   "additionalProperties": false,
   "required": [],
   "added": "v23.05",
-  "deprecated": "v23.08",
+  "deprecated": [
+    "v23.08",
+    "v24.05"
+  ],
   "properties": {
     "rune": {
       "type": "string",

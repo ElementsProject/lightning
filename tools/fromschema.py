@@ -76,21 +76,6 @@ def fmt_propname(propname):
     return '**{}**'.format(esc_underscores(propname))
 
 
-def deprecated_to_deleted(vername):
-    """We promise a 6 month minumum deprecation period, and versions are every 3 months"""
-    assert vername.startswith('v')
-    base = [int(s) for s in vername[1:].split('.')[0:2]]
-    if base == [0, 12]:
-        base = [22, 8]
-    base[1] += 9
-    if base[1] > 12:
-        base[0] += 1
-        base[1] -= 12
-    # Christian points out versions should sort well lexographically,
-    # so we zero-pad single-digits.
-    return 'v{}.{:0>2}'.format(base[0], base[1])
-
-
 def output_member(propname, properties, is_optional, indent, print_type=True, prefix=None):
     """Generate description line(s) for this member"""
 
@@ -110,7 +95,9 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
     output_range(properties)
 
     if 'deprecated' in properties:
-        output(" **deprecated, removal in {}**".format(deprecated_to_deleted(properties['deprecated'])))
+        assert isinstance(properties['deprecated'], list)
+        assert len(properties['deprecated']) == 2
+        output(" **deprecated in {}, removed after {}**".format(properties['deprecated'][0], properties['deprecated'][1]))
     if 'added' in properties:
         output(" *(added {})*".format(properties['added']))
 

@@ -284,82 +284,82 @@ On success, an object is returned, containing:
   - **commit-feerate-offset** (object, optional):
     - **value\_int** (u32): field from config or cmdline, or default
     - **source** (string): source of configuration setting
-- **# version** (string, optional): Special field indicating the current version **deprecated, removal in v24.05**
-- **plugins** (array of objects, optional) **deprecated, removal in v24.05**:
+- **# version** (string, optional): Special field indicating the current version **deprecated in v23.08, removed after v24.02**
+- **plugins** (array of objects, optional) **deprecated in v23.08, removed after v24.02**:
   - **path** (string): Full path of the plugin
   - **name** (string): short name of the plugin
   - **options** (object, optional): Specific options set for this plugin:
-- **important-plugins** (array of objects, optional) **deprecated, removal in v24.05**:
+- **important-plugins** (array of objects, optional) **deprecated in v23.08, removed after v24.02**:
   - **path** (string): Full path of the plugin
   - **name** (string): short name of the plugin
   - **options** (object, optional): Specific options set for this plugin:
-- **conf** (string, optional): `conf` field from cmdline, or default **deprecated, removal in v24.05**
-- **lightning-dir** (string, optional): `lightning-dir` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **network** (string, optional): `network` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **allow-deprecated-apis** (boolean, optional): `allow-deprecated-apis` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **rpc-file** (string, optional): `rpc-file` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **disable-plugin** (array of strings, optional) **deprecated, removal in v24.05**:
+- **conf** (string, optional): `conf` field from cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **lightning-dir** (string, optional): `lightning-dir` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **network** (string, optional): `network` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **allow-deprecated-apis** (boolean, optional): `allow-deprecated-apis` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **rpc-file** (string, optional): `rpc-file` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **disable-plugin** (array of strings, optional) **deprecated in v23.08, removed after v24.02**:
   - `disable-plugin` field from config or cmdline
-- **bookkeeper-dir** (string, optional): `bookkeeper-dir` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **bookkeeper-db** (string, optional): `bookkeeper-db` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **always-use-proxy** (boolean, optional): `always-use-proxy` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **daemon** (boolean, optional): `daemon` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **wallet** (string, optional): `wallet` field from config or cmdline default **deprecated, removal in v24.05**
-- **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-splicing** (boolean, optional): `experimental-splicing` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **experimental-peer-storage** (boolean, optional): `experimental-peer-storage` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.02)*
-- **experimental-quiesce** (boolean, optional): `experimental-quiesce` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.08)*
-- **experimental-upgrade-protocol** (boolean, optional): `experimental-upgrade-protocol` field from config or cmdline, or default **deprecated, removal in v24.05** *(added v23.08)*
+- **bookkeeper-dir** (string, optional): `bookkeeper-dir` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **bookkeeper-db** (string, optional): `bookkeeper-db` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **always-use-proxy** (boolean, optional): `always-use-proxy` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **daemon** (boolean, optional): `daemon` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **wallet** (string, optional): `wallet` field from config or cmdline default **deprecated in v23.08, removed after v24.02**
+- **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-splicing** (boolean, optional): `experimental-splicing` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **experimental-peer-storage** (boolean, optional): `experimental-peer-storage` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02** *(added v23.02)*
+- **experimental-quiesce** (boolean, optional): `experimental-quiesce` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02** *(added v23.08)*
+- **experimental-upgrade-protocol** (boolean, optional): `experimental-upgrade-protocol` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02** *(added v23.08)*
 - **invoices-onchain-fallback** (boolean, optional): `invoices-onchain-fallback` field from config or cmdline, or default *(added v23.11)*
-- **database-upgrade** (boolean, optional): `database-upgrade` field from config or cmdline **deprecated, removal in v24.05**
-- **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters) **deprecated, removal in v24.05**
-- **alias** (string, optional): `alias` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **pid-file** (string, optional): `pid-file` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **ignore-fee-limits** (boolean, optional): `ignore-fee-limits` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **watchtime-blocks** (u32, optional): `watchtime-blocks` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **max-locktime-blocks** (u32, optional): `max-locktime-blocks` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **funding-confirms** (u32, optional): `funding-confirms` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **cltv-delta** (u32, optional): `cltv-delta` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **cltv-final** (u32, optional): `cltv-final` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **commit-time** (u32, optional): `commit-time` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **fee-base** (u32, optional): `fee-base` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **rescan** (integer, optional): `rescan` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **htlc-minimum-msat** (msat, optional): `htlc-minimum-msat` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **htlc-maximum-msat** (msat, optional): `htlc-maximum-msat` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **max-dust-htlc-exposure-msat** (msat, optional): `max-dust-htlc-exposure-mast` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **addr** (string, optional): `addr` field from config or cmdline (can be more than one) **deprecated, removal in v24.05**
-- **announce-addr** (string, optional): `announce-addr` field from config or cmdline (can be more than one) **deprecated, removal in v24.05**
-- **bind-addr** (string, optional): `bind-addr` field from config or cmdline (can be more than one) **deprecated, removal in v24.05**
-- **offline** (boolean, optional): `true` if `offline` was set in config or cmdline **deprecated, removal in v24.05**
-- **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **proxy** (string, optional): `proxy` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline **deprecated, removal in v24.05**
-- **announce-addr-discovered** (string, optional): `true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline **deprecated, removal in v24.05** *(added v23.02)*
-- **announce-addr-discovered-port** (integer, optional): Sets the announced TCP port for dynamically discovered IPs. **deprecated, removal in v24.05** *(added v23.02)*
-- **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline **deprecated, removal in v24.05**
-- **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **log-level** (string, optional): `log-level` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **log-prefix** (string, optional): `log-prefix` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **log-file** (string, optional): `log-file` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default **deprecated, removal in v24.05**
-- **force-feerates** (string, optional): force-feerate configuration setting, if any **deprecated, removal in v24.05**
-- **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one) **deprecated, removal in v24.05**
-- **fetchinvoice-noconnect** (boolean, optional): `fetchinvoice-noconnect` fields from config or cmdline, or default **deprecated, removal in v24.05**
-- **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` field from config or cmdline, or not present **deprecated, removal in v24.05**
-- **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any **deprecated, removal in v24.05**
-- **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves **deprecated, removal in v24.05**
-- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement **deprecated, removal in v24.05** *(added v22.11.1)*
-- **require-confirmed-inputs** (boolean, optional): Request peers to only send confirmed inputs (dual-fund only) **deprecated, removal in v24.05**
+- **database-upgrade** (boolean, optional): `database-upgrade` field from config or cmdline **deprecated in v23.08, removed after v24.02**
+- **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters) **deprecated in v23.08, removed after v24.02**
+- **alias** (string, optional): `alias` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **pid-file** (string, optional): `pid-file` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **ignore-fee-limits** (boolean, optional): `ignore-fee-limits` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **watchtime-blocks** (u32, optional): `watchtime-blocks` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **max-locktime-blocks** (u32, optional): `max-locktime-blocks` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **funding-confirms** (u32, optional): `funding-confirms` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **cltv-delta** (u32, optional): `cltv-delta` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **cltv-final** (u32, optional): `cltv-final` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **commit-time** (u32, optional): `commit-time` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **fee-base** (u32, optional): `fee-base` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **rescan** (integer, optional): `rescan` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **htlc-minimum-msat** (msat, optional): `htlc-minimum-msat` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **htlc-maximum-msat** (msat, optional): `htlc-maximum-msat` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **max-dust-htlc-exposure-msat** (msat, optional): `max-dust-htlc-exposure-mast` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **addr** (string, optional): `addr` field from config or cmdline (can be more than one) **deprecated in v23.08, removed after v24.02**
+- **announce-addr** (string, optional): `announce-addr` field from config or cmdline (can be more than one) **deprecated in v23.08, removed after v24.02**
+- **bind-addr** (string, optional): `bind-addr` field from config or cmdline (can be more than one) **deprecated in v23.08, removed after v24.02**
+- **offline** (boolean, optional): `true` if `offline` was set in config or cmdline **deprecated in v23.08, removed after v24.02**
+- **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **proxy** (string, optional): `proxy` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline **deprecated in v23.08, removed after v24.02**
+- **announce-addr-discovered** (string, optional): `true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline **deprecated in v23.08, removed after v24.02** *(added v23.02)*
+- **announce-addr-discovered-port** (integer, optional): Sets the announced TCP port for dynamically discovered IPs. **deprecated in v23.08, removed after v24.02** *(added v23.02)*
+- **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline **deprecated in v23.08, removed after v24.02**
+- **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **log-level** (string, optional): `log-level` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **log-prefix** (string, optional): `log-prefix` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **log-file** (string, optional): `log-file` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **force-feerates** (string, optional): force-feerate configuration setting, if any **deprecated in v23.08, removed after v24.02**
+- **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one) **deprecated in v23.08, removed after v24.02**
+- **fetchinvoice-noconnect** (boolean, optional): `fetchinvoice-noconnect` fields from config or cmdline, or default **deprecated in v23.08, removed after v24.02**
+- **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` field from config or cmdline, or not present **deprecated in v23.08, removed after v24.02**
+- **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any **deprecated in v23.08, removed after v24.02**
+- **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves **deprecated in v23.08, removed after v24.02**
+- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement **deprecated in v23.08, removed after v24.02** *(added v22.11.1)*
+- **require-confirmed-inputs** (boolean, optional): Request peers to only send confirmed inputs (dual-fund only) **deprecated in v23.08, removed after v24.02**
 - **developer** (boolean, optional): Whether developer mode is enabled *(added v23.08)*
-- **commit-fee** (u64, optional): The percentage of the 6-block fee estimate to use for commitment transactions **deprecated, removal in v24.05** *(added v23.05)*
+- **commit-fee** (u64, optional): The percentage of the 6-block fee estimate to use for commitment transactions **deprecated in v23.08, removed after v24.02** *(added v23.05)*
 - **min-emergency-msat** (msat, optional): field from config or cmdline, or default *(added v23.08)*
 - **commit-feerate-offset** (u32, optional): additional commitment feerate applied by channel owner *(added v23.11)*
 
@@ -479,4 +479,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cbd485cba5ad5295f6d47bb612b2ce51ad94f07f3bbf2e1db4cd9f5d45ecb6e3)
+[comment]: # ( SHA256STAMP:89743916ac51dc00d774c4d3c33715521846b36bc77e0b2083a262ef32b130f4)

@@ -62,8 +62,8 @@ On success, an object is returned, containing:
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
   - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
   - **unilateral\_anchor\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded (if anchor\_outputs was negotiated) *(added v23.08)*
-  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated, removal in v24.02**
-  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated, removal in v24.02**
+  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated in v23.05, removed after v24.05**
+  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated in v23.05, removed after v24.05**
   - **penalty** (u32, optional): Feerate to use when creating penalty tx for watchtowers
 - **perkw** (object, optional): If *style* parameter was perkw:
   - **min\_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
@@ -77,8 +77,8 @@ On success, an object is returned, containing:
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
   - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded (if anchor\_outputs was not negotiated)
   - **unilateral\_anchor\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded (if anchor\_outputs was negotiated) *(added v23.08)*
-  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated, removal in v24.02**
-  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated, removal in v24.02**
+  - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet **deprecated in v23.05, removed after v24.05**
+  - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet **deprecated in v23.05, removed after v24.05**
   - **penalty** (u32, optional): Feerate to use when creating penalty tx for watchtowers
 - **onchain\_fee\_estimates** (object, optional):
   - **opening\_channel\_satoshis** (u64): Estimated cost of typical channel open
@@ -144,4 +144,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0c0d2c56d2a568e9330e14a053d27e5d2e84ef1f400cd1a6195a850ca8cc7ad6)
+[comment]: # ( SHA256STAMP:e0da3f19e5ae27cebe038c1c7c3188405a56bf283ef4d897bf8fb9d63f9b3039)

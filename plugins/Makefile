@@ -150,6 +150,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/bolt11.o				\
 	common/channel_id.o			\
 	common/daemon.o				\
+	common/deprecation.o			\
 	common/features.o			\
 	common/hash_u5.o			\
 	common/json_param.o			\

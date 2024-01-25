@@ -172,7 +172,10 @@
             }
           },
           "channels": {
-            "deprecated": "v23.02",
+            "deprecated": [
+              "v23.02",
+              "v24.02"
+            ],
             "type": "array",
             "items": {
               "type": "object",

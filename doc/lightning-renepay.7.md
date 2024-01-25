@@ -142,4 +142,4 @@ RESOURCES
 - Main web site: <https://github.com/ElementsProject/lightning>
 - Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network*
 <https://arxiv.org/abs/2107.05322>
-[comment]: # ( SHA256STAMP:505a2ea336078020826b5897f2db02d4c4e0e03a9561170458afae008e47e06e)
+[comment]: # ( SHA256STAMP:946ad2fc9ef6bb6dbab6613b9cb55d34ed5a15dd876efcaeaa41174f0bdc40b0)

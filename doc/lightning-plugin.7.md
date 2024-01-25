@@ -89,4 +89,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [writing plugins]: PLUGINS.md
-[comment]: # ( SHA256STAMP:66b5b924fa927c85e065fd01a7b94a0a892b3e027830a8c1f2c584586ee2a7e7)
+[comment]: # ( SHA256STAMP:83b40cc97b040fc0d7d47ebfda887c7c7ab0f305330978cd8426b6eed01737d2)
