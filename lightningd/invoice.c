@@ -1152,7 +1152,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->cmd = cmd;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("amount_msat|msatoshi", param_positive_msat_or_any, &msatoshi_val),
+			 p_req("amount_msat", param_positive_msat_or_any, &msatoshi_val),
 			 p_req("label", param_label, &info->label),
 			 p_req("description", param_escaped_string, &desc_val),
 			 p_opt_def("expiry", param_u64, &expiry, 3600*24*7),
@@ -1980,7 +1980,7 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("destination", param_node_id, &destination),
 		   p_req("payment_hash", param_sha256, &payment_hash),
-		   p_req("amount_msat|msatoshi", param_msat, &amount),
+		   p_req("amount_msat", param_msat, &amount),
 		   NULL))
 		return command_param_failed();
 

@@ -913,7 +913,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("offer", param_offer, &sent->offer),
-		   p_opt("amount_msat|msatoshi", param_msat, &msat),
+		   p_opt("amount_msat", param_msat, &msat),
 		   p_opt("quantity", param_u64, &quantity),
 		   p_opt("recurrence_counter", param_number, &recurrence_counter),
 		   p_opt("recurrence_start", param_number, &recurrence_start),

@@ -1310,7 +1310,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 			 p_opt_def("partid", param_u64, &partid, 0),
 			 /* FIXME: parameter should be invstring now */
 			 p_opt("bolt11", param_invstring, &invstring),
-			 p_opt_def("amount_msat|msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
+			 p_opt_def("amount_msat", param_msat, &msat, AMOUNT_MSAT(0)),
 			 p_opt("destination", param_node_id, &destination),
 			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
 			 p_opt("groupid", param_u64, &group),
@@ -1393,8 +1393,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 		int *ignored;
 
 		if (!param(cmd, buffer, t,
-			   /* deprecated: getroute gives both, so we allow both! */
-			   p_req_dup_ok("amount_msat|msatoshi", param_msat, &amount_msat),
+			   p_req("amount_msat", param_msat, &amount_msat),
 			   p_req("id", param_node_id, &id),
 			   p_req("delay", param_number, &delay),
 			   p_req("channel", param_short_channel_id, &channel),
@@ -1526,7 +1525,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			 p_req("route", param_route_hops, &route),
 			 p_req("payment_hash", param_sha256, &rhash),
 			 p_opt("label", param_escaped_string, &label),
-			 p_opt("amount_msat|msatoshi", param_msat, &msat),
+			 p_opt("amount_msat", param_msat, &msat),
 			 /* FIXME: parameter should be invstring now */
 			 p_opt("bolt11", param_invstring, &invstring),
 			 p_opt("payment_secret", param_secret, &payment_secret),

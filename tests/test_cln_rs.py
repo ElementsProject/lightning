@@ -266,8 +266,8 @@ def test_cln_plugin_reentrant(node_factory, executor):
 
     # Now create two invoices, and pay them both. Neither should
     # succeed, but we should queue them on the plugin.
-    i1 = l1.rpc.invoice(label='lbl1', msatoshi='42sat', description='desc')['bolt11']
-    i2 = l1.rpc.invoice(label='lbl2', msatoshi='31337sat', description='desc')['bolt11']
+    i1 = l1.rpc.invoice(label='lbl1', amount_msat='42sat', description='desc')['bolt11']
+    i2 = l1.rpc.invoice(label='lbl2', amount_msat='31337sat', description='desc')['bolt11']
 
     f1 = executor.submit(l2.rpc.pay, i1)
     f2 = executor.submit(l2.rpc.pay, i2)

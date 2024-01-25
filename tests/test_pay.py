@@ -5131,26 +5131,6 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
         l1.rpc.waitsendpay('00' * 32)
 
 
-def test_sendpay_dual_amounts(node_factory):
-    """Test that handing *both* msatoshi and amount_msat to sendpay works"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
-
-    route = [{'amount_msat': 1011,
-              'msatoshi': 1011,
-              'id': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
-              'delay': 20,
-              'channel': '1x1x1'},
-             {'amount_msat': 1000,
-              'msatoshi': 1000,
-              'id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
-              'delay': 10,
-              'channel': '2x2x2'}]
-    l1.rpc.check("sendpay", route=route, payment_hash="00" * 32)
-
-    with pytest.raises(RpcError, match=r'No connection to first peer found'):
-        l1.rpc.sendpay(route=route, payment_hash="00" * 32)
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 @pytest.mark.slow_test
 def test_payerkey(node_factory):
