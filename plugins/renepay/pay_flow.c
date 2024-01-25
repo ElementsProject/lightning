@@ -10,6 +10,11 @@
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
 
+// FIXME These macros are used in more than one place of the code, they could be
+// defined in a single header.
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 /* BOLT #7:
  *
  * If a route is computed by simply routing to the intended recipient and summing
@@ -445,18 +450,17 @@ static bool disable_htlc_violations(struct payment *payment,
 	return disabled_some;
 }
 
-const char *add_payflows(const tal_t *ctx,
-			 struct payment *p,
-			 struct amount_msat amount,
-			 struct amount_msat feebudget,
-			 bool is_entire_payment,
+const char *add_payflows(const tal_t *ctx, struct payment *p,
+			 struct amount_msat amount_to_deliver,
+			 struct amount_msat feebudget, bool is_entire_payment,
 			 enum jsonrpc_errcode *ecode)
 {
 	bitmap *disabled;
 	const struct gossmap_node *src, *dst;
-	char *errmsg;
+	char *errmsg, *fail = NULL;
 
-	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap, p->disabled_scids);
+	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap,
+					p->disabled_scids);
 	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
 	if (!src) {
 		*ecode = PAY_ROUTE_NOT_FOUND;
@@ -465,83 +469,102 @@ const char *add_payflows(const tal_t *ctx,
 	dst = gossmap_find_node(pay_plugin->gossmap, &p->destination);
 	if (!dst) {
 		*ecode = PAY_ROUTE_NOT_FOUND;
-		return tal_fmt(ctx, "Destination is unknown in the network gossip.");
+		return tal_fmt(ctx,
+			       "Destination is unknown in the network gossip.");
 	}
 
-	for (;;) {
-		struct flow **flows;
-		double prob;
-		struct amount_msat fee;
-		u64 delay;
-		bool too_expensive, too_delayed;
-		const u32 *final_cltvs;
+	/* probability "bugdet". We will prefer solutions whose probability of
+	 * success is above this value. */
+	double min_prob_success = p->min_prob_success;
 
-		flows = minflow(tmpctx, pay_plugin->gossmap, src, dst,
-				pay_plugin->chan_extra_map, disabled,
-				amount,
-				feebudget,
-				p->min_prob_success ,
-				p->delay_feefactor,
-				p->base_fee_penalty,
-				p->prob_cost_factor,
-				&errmsg);
+	while (!amount_msat_zero(amount_to_deliver)) {
+		struct flow **flows = minflow(
+		    tmpctx, pay_plugin->gossmap, src, dst,
+		    pay_plugin->chan_extra_map, disabled, amount_to_deliver,
+		    feebudget, min_prob_success, p->delay_feefactor,
+		    p->base_fee_penalty, p->prob_cost_factor, &errmsg);
 		if (!flows) {
 			*ecode = PAY_ROUTE_NOT_FOUND;
-			return tal_fmt(ctx,
-				       "minflow couldn't find a feasible flow for %s, %s",
-				       type_to_string(tmpctx,struct amount_msat,&amount),
-				       errmsg);
+
+			/* We fail to allocate a portion of the payment, cleanup
+			 * previous payflows. */
+			// FIXME wouldn't it be better to put these payflows
+			// into a tal ctx with a destructor?
+			fail = tal_fmt(
+			    ctx,
+			    "minflow couldn't find a feasible flow for %s, %s",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &amount_to_deliver),
+			    errmsg);
+			goto function_fail;
+		}
+
+		/* `delivering` could be smaller than `amount_to_deliver`
+		 * because minflow does not count fees when constraining flows.
+		 * Try to redistribute the missing amount among the optimal
+		 * routes. */
+		struct amount_msat delivering;
+
+		if (!flows_fit_amount(tmpctx, &delivering, flows,
+				      amount_to_deliver, pay_plugin->gossmap,
+				      pay_plugin->chan_extra_map, &errmsg)) {
+			fail = tal_fmt(ctx,
+				       "(%s, line %d) flows_fit_amount failed "
+				       "with error: %s",
+				       __PRETTY_FUNCTION__, __LINE__, errmsg);
+			goto function_fail;
 		}
 
 		/* Are we unhappy? */
-		char *fail;
-		prob = flowset_probability(tmpctx, flows, pay_plugin->gossmap,
-					   pay_plugin->chan_extra_map, &fail);
-		if(prob<0)
-		{
+		double prob =
+		    flowset_probability(tmpctx, flows, pay_plugin->gossmap,
+					pay_plugin->chan_extra_map, &errmsg);
+		if (prob < 0) {
 			plugin_err(pay_plugin->plugin,
-				   "flow_set_probability failed: %s", fail);
+				   "flow_set_probability failed: %s", errmsg);
 		}
-		if(!flowset_fee(&fee,flows))
-		{
-			plugin_err(pay_plugin->plugin,
-				   "flowset_fee failed");
+		struct amount_msat fee;
+		if (!flowset_fee(&fee, flows)) {
+			plugin_err(pay_plugin->plugin, "flowset_fee failed");
 		}
-		delay = flows_worst_delay(flows) + p->final_cltv;
+		u64 delay = flows_worst_delay(flows) + p->final_cltv;
 
 		payment_note(p, LOG_INFORM,
-			      "we have computed a set of %ld flows with probability %.3lf, fees %s and delay %ld",
-			      tal_count(flows),
-			      prob,
-			      type_to_string(tmpctx,struct amount_msat,&fee),
-			      delay);
+			     "we have computed a set of %ld flows with "
+			     "probability %.3lf, fees %s and delay %ld",
+			     tal_count(flows), prob,
+			     type_to_string(tmpctx, struct amount_msat, &fee),
+			     delay);
 
-		too_expensive = amount_msat_greater(fee, feebudget);
-		if (too_expensive)
-		{
+		if (amount_msat_greater(fee, feebudget)) {
 			*ecode = PAY_ROUTE_TOO_EXPENSIVE;
-			return tal_fmt(ctx,
-				       "Fee exceeds our fee budget, "
-				       "fee = %s (maxfee = %s)",
-				       type_to_string(tmpctx, struct amount_msat, &fee),
-				       type_to_string(tmpctx, struct amount_msat, &feebudget));
+			fail = tal_fmt(
+			    ctx,
+			    "Fee exceeds our fee budget, "
+			    "fee = %s (maxfee = %s)",
+			    type_to_string(tmpctx, struct amount_msat, &fee),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &feebudget));
+			goto function_fail;
 		}
-		too_delayed = (delay > p->maxdelay);
-		if (too_delayed) {
+		if (delay > p->maxdelay) {
 			/* FIXME: What is a sane limit? */
 			if (p->delay_feefactor > 1000) {
 				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
-				return tal_fmt(ctx,
-					       "CLTV delay exceeds our CLTV budget, "
-					       "delay = %"PRIu64" (maxdelay = %u)",
-					       delay, p->maxdelay);
+				fail = tal_fmt(
+				    ctx,
+				    "CLTV delay exceeds our CLTV budget, "
+				    "delay = %" PRIu64 " (maxdelay = %u)",
+				    delay, p->maxdelay);
+				goto function_fail;
 			}
 
 			p->delay_feefactor *= 2;
 			payment_note(p, LOG_INFORM,
-				     "delay %"PRIu64" exceeds our max %u, so doubling delay_feefactor to %f",
-				     delay, p->maxdelay,
-				     p->delay_feefactor);
+				     "delay %" PRIu64
+				     " exceeds our max %u, so doubling "
+				     "delay_feefactor to %f",
+				     delay, p->maxdelay, p->delay_feefactor);
 
 			continue; // retry
 		}
@@ -552,24 +575,57 @@ const char *add_payflows(const tal_t *ctx,
 		 * are far better, since we can report min/max which
 		 * *actually* made us reconsider. */
 		if (disable_htlc_violations(p, flows, pay_plugin->gossmap,
-					    disabled))
-		{
+					    disabled)) {
 			continue; // retry
 		}
 
 		/* This can adjust amounts and final cltv for each flow,
 		 * to make it look like it's going elsewhere */
-		final_cltvs = shadow_additions(tmpctx, pay_plugin->gossmap,
-					       p, flows, is_entire_payment);
+		const u32 *final_cltvs = shadow_additions(
+		    tmpctx, pay_plugin->gossmap, p, flows, is_entire_payment);
 
 		/* OK, we are happy with these flows: convert to
 		 * pay_flows in the current payment, to outlive the
 		 * current gossmap. */
-		convert_and_attach_flows(p, pay_plugin->gossmap,
-					 flows, final_cltvs,
-					 &p->next_partid);
-		return NULL;
+		convert_and_attach_flows(p, pay_plugin->gossmap, flows,
+					 final_cltvs, &p->next_partid);
+		if (prob < 1e-10) {
+			// this last flow probability is too small for division
+			min_prob_success = 1.0;
+		} else {
+			/* prob here is a conditional probability, the next
+			 * round of flows will have a conditional probability
+			 * prob2 and we would like that
+			 *	prob*prob2 >= min_prob_success
+			 * hence min_prob_success/prob becomes the next
+			 * iteration's target. */
+			min_prob_success = MIN(1.0, min_prob_success / prob);
+		}
+		if (!amount_msat_sub(&feebudget, feebudget, fee)) {
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s: cannot substract feebudget (%s) - fee(%s)",
+			    __PRETTY_FUNCTION__,
+			    fmt_amount_msat(tmpctx, feebudget),
+			    fmt_amount_msat(tmpctx, fee));
+		}
+		if (!amount_msat_sub(&amount_to_deliver, amount_to_deliver,
+				     delivering)) {
+			// If we allow overpayment we might let some bugs
+			// get through.
+			plugin_err(pay_plugin->plugin,
+				   "%s: minflow has produced an overpayment, "
+				   "amount_to_deliver=%s delivering=%s",
+				   __PRETTY_FUNCTION__,
+				   fmt_amount_msat(tmpctx, amount_to_deliver),
+				   fmt_amount_msat(tmpctx, delivering));
+		}
 	}
+	return NULL;
+
+function_fail:
+	payment_remove_flows(p, PAY_FLOW_NOT_STARTED);
+	return fail;
 }
 
 const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow)

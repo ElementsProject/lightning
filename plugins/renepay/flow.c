@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/fp16.h>
+#include <common/overflows.h>
 #include <common/type_to_string.h>
 #include <math.h>
 #include <plugins/renepay/flow.h>
@@ -134,6 +136,369 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 	// hash table is removing the element with a freed pointer.
 	// tal_add_destructor2(ce, destroy_chan_extra, chan_extra_map);
 	return ce;
+}
+
+static struct amount_msat channel_max_htlc(const struct gossmap_chan *chan,
+					   const int dir)
+{
+	return amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
+}
+
+/* Based on the knowledge that we have and HTLCs, returns the greatest
+ * amount that we can send through this channel. */
+static bool channel_liquidity(struct amount_msat *liquidity,
+			      const struct gossmap *gossmap,
+			      struct chan_extra_map *chan_extra_map,
+			      const struct gossmap_chan *chan, const int dir)
+{
+	const struct chan_extra_half *h =
+	    get_chan_extra_half_by_chan(gossmap, chan_extra_map, chan, dir);
+	if (!h)
+		return false;
+	struct amount_msat value_liquidity = h->known_max;
+	if (!amount_msat_sub(&value_liquidity, value_liquidity, h->htlc_total))
+		return false;
+	*liquidity = value_liquidity;
+	return true;
+}
+
+/* Checks BOLT 7 HTLC fee condition:
+ *	recv >= base_fee + (send*proportional_fee)/1000000 */
+static bool check_fee_inequality(struct amount_msat recv,
+				 struct amount_msat send, u64 base_fee,
+				 u64 proportional_fee)
+{
+	// nothing to forward, any incoming amount is good
+	if (amount_msat_zero(send))
+		return true;
+	// FIXME If this addition fails we return false. The caller will not be
+	// able to know that there was an addition overflow, he will just assume
+	// that the fee inequality was not satisfied.
+	if (!amount_msat_add_fee(&send, base_fee, proportional_fee))
+		return false;
+	return amount_msat_greater_eq(recv, send);
+}
+
+/* Let `recv` be the maximum amount this channel can receive, this function
+ * computes the maximum amount this channel can forward `send`.
+ * From BOLT7 specification wee need to satisfy the following inequality:
+ *
+ *	recv-send >= base_fee + floor(send*proportional_fee/1000000)
+ *
+ * That is equivalent to have
+ *
+ *	send <= Bound(recv,send)
+ *
+ * where
+ *
+ *	Bound(recv, send) = ((recv - base_fee)*1000000 + (send*proportional_fee)
+ *% 1000000)/(proportional_fee+1000000)
+ *
+ * However the quantity we want to determine, `send`, appears on both sides of
+ * the equation. However the term `send*proportional_fee) % 1000000` only
+ * contributes by increasing the bound by at most one so that we can neglect
+ * the extra term and use instead
+ *
+ *	Bound_simple(recv) = ((recv -
+ *base_fee)*1000000)/(proportional_fee+1000000)
+ *
+ * as the upper bound for `send`. Formally one can check that
+ *
+ *	Bound_simple(recv) <= Bound(recv, send) < Bound_simple(recv) + 2
+ *
+ * So that if one wishes to find the very highest value of `send` that
+ * satisfies
+ *
+ *	send <= Bound(recv, send)
+ *
+ * it is enough to compute
+ *
+ *	send = Bound_simple(recv)
+ *
+ *  which already satisfies the fee equation and then try to go higher
+ *  with send+1, send+2, etc. But we know that it is enough to try up to
+ *  send+1 because Bound(recv, send) < Bound_simple(recv) + 2.
+ * */
+static bool channel_maximum_forward(struct amount_msat *max_forward,
+				    const struct gossmap_chan *chan,
+				    const int dir, struct amount_msat recv)
+{
+	const u64 b = chan->half[dir].base_fee,
+		  p = chan->half[dir].proportional_fee;
+
+	const u64 one_million = 1000000;
+	u64 x_msat =
+	    recv.millisatoshis; /* Raw: need to invert the fee equation */
+
+	// special case, when recv - base_fee <= 0, we cannot forward anything
+	if (x_msat <= b) {
+		*max_forward = amount_msat(0);
+		return true;
+	}
+
+	x_msat -= b;
+
+	if (mul_overflows_u64(one_million, x_msat))
+		return false;
+
+	struct amount_msat best_send =
+	    AMOUNT_MSAT_INIT((one_million * x_msat) / (one_million + p));
+
+	/* Try to increase the value we send (up tp the last millisat) until we
+	 * fail to fulfill the fee inequality. It takes only one iteration
+	 * though. */
+	for (size_t i = 0; i < 10; ++i) {
+		struct amount_msat next_send;
+		if (!amount_msat_add(&next_send, best_send, amount_msat(1)))
+			return false;
+
+		if (check_fee_inequality(recv, next_send, b, p))
+			best_send = next_send;
+		else
+			break;
+	}
+	*max_forward = best_send;
+	return true;
+}
+
+/* Returns the greatest amount we can deliver to the destination using this
+ * route. It takes into account the current knowledge, pending HTLC,
+ * htlc_max and fees. */
+static bool flow_maximum_deliverable(struct amount_msat *max_deliverable,
+				     const struct flow *flow,
+				     const struct gossmap *gossmap,
+				     struct chan_extra_map *chan_extra_map)
+{
+	assert(tal_count(flow->path) > 0);
+	assert(tal_count(flow->dirs) > 0);
+	assert(tal_count(flow->path) == tal_count(flow->dirs));
+	struct amount_msat x;
+
+	if (!channel_liquidity(&x, gossmap, chan_extra_map, flow->path[0],
+			       flow->dirs[0]))
+		return false;
+	x = amount_msat_min(x, channel_max_htlc(flow->path[0], flow->dirs[0]));
+
+	for (size_t i = 1; i < tal_count(flow->path); ++i) {
+		// ith node can forward up to 'liquidity_cap' because of the ith
+		// channel liquidity bound
+		struct amount_msat liquidity_cap;
+
+		if (!channel_liquidity(&liquidity_cap, gossmap, chan_extra_map,
+				       flow->path[i], flow->dirs[i]))
+			return false;
+
+		/* ith node can receive up to 'x', therefore he will not forward
+		 * more than 'forward_cap' that we compute below inverting the
+		 * fee equation. */
+		struct amount_msat forward_cap;
+		if (!channel_maximum_forward(&forward_cap, flow->path[i],
+					     flow->dirs[i], x))
+			return false;
+
+		struct amount_msat x_new =
+		    amount_msat_min(forward_cap, liquidity_cap);
+		x_new = amount_msat_min(
+		    x_new, channel_max_htlc(flow->path[i], flow->dirs[i]));
+
+		if (!amount_msat_less_eq(x_new, x))
+			return false;
+
+		// safety check: amounts decrease along the route
+		assert(amount_msat_less_eq(x_new, x));
+
+		struct amount_msat x_check = x_new;
+
+		if (!amount_msat_zero(x_new) &&
+		    !amount_msat_add_fee(&x_check, flow_edge(flow, i)->base_fee,
+					 flow_edge(flow, i)->proportional_fee))
+			return false;
+
+		// safety check: the max liquidity in the next hop + fees cannot
+		// be greater than then max liquidity in the current hop, IF the
+		// next hop is non-zero.
+		assert(amount_msat_less_eq(x_check, x));
+
+		x = x_new;
+	}
+	*max_deliverable = x;
+	return true;
+}
+
+/* How much do we deliver to destination using this set of routes */
+static bool flow_set_delivers(struct amount_msat *delivers, struct flow **flows)
+{
+	struct amount_msat final = AMOUNT_MSAT(0);
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		size_t n = tal_count(flows[i]->amounts);
+		struct amount_msat this_final = flows[i]->amounts[n - 1];
+
+		if (!amount_msat_add(&final, this_final, final))
+			return false;
+	}
+	*delivers = final;
+	return true;
+}
+
+/* How much this flow (route with amounts) is delivering to the destination
+ * node. */
+static inline struct amount_msat flow_delivers(const struct flow *flow)
+{
+	return flow->amounts[tal_count(flow->amounts) - 1];
+}
+
+/* Checks if the flows satisfy the liquidity bounds imposed by the known maximum
+ * liquidity and pending HTLCs.
+ *
+ * FIXME The function returns false even in the case of failure. The caller has
+ * no way of knowing the difference between a failure of evaluation and a
+ * negative answer. */
+static bool check_liquidity_bounds(struct flow **flows,
+				   const struct gossmap *gossmap,
+				   struct chan_extra_map *chan_extra_map)
+{
+	bool check = true;
+	for (size_t i = 0; i < tal_count(flows); ++i) {
+		struct amount_msat max_deliverable;
+		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
+					      gossmap, chan_extra_map))
+			return false;
+		struct amount_msat delivers = flow_delivers(flows[i]);
+		check &= amount_msat_less_eq(delivers, max_deliverable);
+	}
+	return check;
+}
+
+/* flows should be a set of optimal routes delivering an amount that is
+ * slighty less than amount_to_deliver. We will try to reallocate amounts in
+ * these flows so that it delivers the exact amount_to_deliver to the
+ * destination.
+ * Returns how much we are delivering at the end. */
+bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
+		      struct flow **flows, struct amount_msat amount_to_deliver,
+		      const struct gossmap *gossmap,
+		      struct chan_extra_map *chan_extra_map, char **fail)
+{
+	tal_t *this_ctx = tal(ctx, tal_t);
+	char *errmsg;
+
+	struct amount_msat total_deliver;
+	if (!flow_set_delivers(&total_deliver, flows)) {
+		if (fail)
+			*fail = tal_fmt(
+			    ctx, "(%s, line %d) flow_set_delivers failed",
+			    __PRETTY_FUNCTION__, __LINE__);
+		goto function_fail;
+	}
+	if (amount_msat_greater_eq(total_deliver, amount_to_deliver)) {
+		*amount_allocated = total_deliver;
+		goto function_success;
+	}
+
+	struct amount_msat deficit;
+	if (!amount_msat_sub(&deficit, amount_to_deliver, total_deliver)) {
+		// this should not happen, because we already checked that
+		// total_deliver<amount_to_deliver
+		if (fail)
+			*fail = tal_fmt(
+			    ctx,
+			    "(%s, line %d) unexpected amount_msat_sub failure",
+			    __PRETTY_FUNCTION__, __LINE__);
+		goto function_fail;
+	}
+
+	/* FIXME Current algorithm assigns as much of the deficit as possible to
+	 * the list of routes, we can improve this lets say in order to maximize
+	 * the probability. If the deficit is very small with respect to the
+	 * amount each flow carries then optimization here will not make much
+	 * difference. */
+	for (size_t i = 0; i < tal_count(flows) && !amount_msat_zero(deficit);
+	     ++i) {
+		struct amount_msat max_deliverable;
+		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
+					      gossmap, chan_extra_map)) {
+			if (fail)
+				*fail =
+				    tal_fmt(ctx,
+					    "(%s, line %d) "
+					    "flow_maximum_deliverable failed",
+					    __PRETTY_FUNCTION__, __LINE__);
+
+			goto function_fail;
+		}
+		struct amount_msat delivers = flow_delivers(flows[i]);
+
+		struct amount_msat diff;
+		if (!amount_msat_sub(&diff, max_deliverable, delivers)) {
+			// this should never happen, a precondition of this
+			// function is that the flows already respect the
+			// liquidity bounds.
+			if (fail)
+				*fail = tal_fmt(ctx,
+						"(%s, line %d) unexpected "
+						"amount_msat_sub failure",
+						__PRETTY_FUNCTION__, __LINE__);
+
+			goto function_fail;
+		}
+
+		if (amount_msat_zero(diff))
+			continue;
+
+		diff = amount_msat_min(diff, deficit);
+
+		if (!amount_msat_sub(&deficit, deficit, diff)) {
+			// this should never happen
+			if (fail)
+				*fail = tal_fmt(ctx,
+						"(%s, line %d) unexpected "
+						"amount_msat_sub failure",
+						__PRETTY_FUNCTION__, __LINE__);
+			goto function_fail;
+		}
+		if (!amount_msat_add(&delivers, delivers, diff)) {
+			if (fail)
+				*fail = tal_fmt(
+				    ctx,
+				    "(%s, line %d) amount_msat_add overflow",
+				    __PRETTY_FUNCTION__, __LINE__);
+			goto function_fail;
+		}
+
+		if (!flow_complete(this_ctx, flows[i], gossmap, chan_extra_map,
+				   delivers, &errmsg)) {
+			if (fail)
+				*fail = tal_fmt(
+				    ctx,
+				    "(%s, line %d) flow_complete failed: %s",
+				    __PRETTY_FUNCTION__, __LINE__, errmsg);
+			goto function_fail;
+		}
+	}
+	if (!check_liquidity_bounds(flows, gossmap, chan_extra_map)) {
+		// this should not happen if our algorithm is correct
+		if (fail)
+			*fail = tal_fmt(ctx,
+					"(%s, line %d) liquidity bounds not "
+					"satisfied or failed check",
+					__PRETTY_FUNCTION__, __LINE__);
+		goto function_fail;
+	}
+	if (!flow_set_delivers(amount_allocated, flows)) {
+		if (fail)
+			*fail = tal_fmt(
+			    ctx, "(%s, line %d) flow_set_delivers failed",
+			    __PRETTY_FUNCTION__, __LINE__);
+		goto function_fail;
+	}
+
+function_success:
+	tal_free(this_ctx);
+	return true;
+
+function_fail:
+	tal_free(this_ctx);
+	return false;
 }
 
 /* This helper function preserves the uncertainty network invariant after the
@@ -812,6 +1177,14 @@ size_t commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 
 /* Helper function to fill in amounts and success_prob for flow
  *
+ * @ctx: tal context for allocated objects that outlive this function call, eg.
+ * fail
+ * @flow: the flow we want to complete with precise amounts
+ * @gossmap: state of the network
+ * @chan_extra_map: state of the network
+ * @delivered: how much we are supposed to deliver at destination
+ * @fail: here we write verbose message errors in case of failure
+ *
  * IMPORTANT: here we do not commit flows to chan_extra, flows are commited
  * after we send those htlc.
  *
@@ -833,14 +1206,25 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 	flow->amounts =
 	    tal_arr(flow, struct amount_msat, tal_count(flow->path));
 
+	struct amount_msat max_deliverable;
+	if (!flow_maximum_deliverable(&max_deliverable, flow, gossmap,
+				      chan_extra_map)) {
+		if (fail)
+			*fail = tal_fmt(ctx, "flow_maximum_deliverable failed");
+		goto function_fail;
+	}
+	// we cannot deliver more than it is allowed by the liquidity
+	// constraints: HTLC max, fees, known_max
+	delivered = amount_msat_min(delivered, max_deliverable);
+
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct chan_extra_half *h = get_chan_extra_half_by_chan(
 		    gossmap, chan_extra_map, flow->path[i], flow->dirs[i]);
 
 		if (!h) {
 			if (fail)
-			*fail = tal_fmt(ctx,
-					"channel not found in chan_extra_map");
+				*fail = tal_fmt(
+				    ctx, "channel not found in chan_extra_map");
 			goto function_fail;
 		}
 
@@ -848,10 +1232,10 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 		double prob =
 		    edge_probability(this_ctx, h->known_min, h->known_max,
 				     h->htlc_total, delivered, &errmsg);
-		if(prob<0){
+		if (prob < 0) {
 			if (fail)
-			*fail = tal_fmt(ctx,"edge_probability failed: %s",
-				errmsg);
+				*fail = tal_fmt(
+				    ctx, "edge_probability failed: %s", errmsg);
 			goto function_fail;
 		}
 		flow->success_prob *= prob;
@@ -860,14 +1244,14 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 			&delivered, flow_edge(flow, i)->base_fee,
 			flow_edge(flow, i)->proportional_fee)) {
 			if (fail)
-			*fail = tal_fmt(ctx, "fee overflow");
+				*fail = tal_fmt(ctx, "fee overflow");
 			goto function_fail;
 		}
 	}
 	tal_free(this_ctx);
 	return true;
 
-	function_fail:
+function_fail:
 	tal_free(this_ctx);
 	return false;
 }

@@ -457,6 +457,11 @@ static bool linearize_channel(const struct pay_parameters *params,
 		return false;
 	}
 
+	assert(
+	    amount_msat_less_eq(extra_half->htlc_total, extra_half->known_max));
+	assert(
+	    amount_msat_less_eq(extra_half->known_min, extra_half->known_max));
+
 	s64 h = extra_half->htlc_total.millisatoshis/1000; /* Raw: linearize_channel */
 	s64 a = extra_half->known_min.millisatoshis/1000, /* Raw: linearize_channel */
 	    b = 1 + extra_half->known_max.millisatoshis/1000; /* Raw: linearize_channel */
@@ -1234,7 +1239,10 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 
 	       // how many msats in excess we paid for not having msat accuracy
 	       // in the MCF solver
-	       struct amount_msat excess, char **fail)
+	       struct amount_msat excess,
+
+	       // error message
+	       char **fail)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
 	char *errmsg;
@@ -1386,10 +1394,11 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 		}
 	}
 
-	/* Stablish ownership. */
-	for(int i=0;i<tal_count(flows);++i)
+	/* Establish ownership. */
+	for(size_t i=0;i<tal_count(flows);++i)
 	{
 		flows[i] = tal_steal(flows,flows[i]);
+		assert(flows[i]);
 	}
 	tal_free(this_ctx);
 	return flows;
@@ -1644,6 +1653,7 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 
 		combine_cost_function(linear_network,residual_network,mu);
 
+		/* We solve a linear MCF problem. */
 		if(!optimize_mcf(this_ctx, dijkstra,linear_network,residual_network,
 				source_idx,target_idx,pay_amount_sats, &errmsg))
 		{
@@ -1655,6 +1665,9 @@ struct flow **minflow(const tal_t *ctx, struct gossmap *gossmap,
 		}
 
 		struct flow **flow_paths;
+		/* We dissect the solution of the MCF into payment routes.
+		 * Actual amounts considering fees are computed for every
+		 * channel in the routes. */
 		flow_paths = get_flow_paths(
 		    this_ctx, params->gossmap, params->chan_extra_map,
 		    linear_network, residual_network, excess, &errmsg);
