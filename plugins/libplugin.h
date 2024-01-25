@@ -24,8 +24,6 @@ struct htable;
 struct plugin;
 struct rpc_conn;
 
-extern bool deprecated_apis;
-
 enum plugin_restartability {
 	PLUGIN_STATIC,
 	PLUGIN_RESTARTABLE
