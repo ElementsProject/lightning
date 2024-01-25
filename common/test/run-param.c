@@ -460,27 +460,6 @@ static void sendpay(void)
 	assert(*msatoshi == 547);
 }
 
-static void deprecated_rename(void)
-{
-	struct json *j = json_parse(cmd, "{ 'u64': 42 }");
-	u64 *u64;
-
-	assert(param(cmd, j->buffer, j->toks,
-		     p_req("u64|old_u64", param_u64, &u64),
-		     NULL));
-	assert(*u64 == 42);
-
-	cmd->deprecated_apis = true;
-	j = json_parse(cmd, "{ 'old_u64': 42 }");
-	assert(param(cmd, j->buffer, j->toks,
-		     p_req("u64|old_u64", param_u64, &u64),
-		     NULL));
-	cmd->deprecated_apis = false;
-	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64|old_u64", param_u64, &u64),
-		      NULL));
-}
-
 static void invalid_bech32m(void)
 {
 	int wit_version;
@@ -691,7 +670,6 @@ int main(int argc, char *argv[])
 	advanced_fail();
 	param_tests();
 	usage();
-	deprecated_rename();
 	invalid_bech32m();
 
 	printf("run-params ok\n");

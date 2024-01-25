@@ -138,14 +138,7 @@ static struct param *find_param(struct command *cmd,
 	struct param *last = first + tal_count(params);
 
 	while (first != last) {
-		size_t arglen = strcspn(first->name, "|");
-		if (memeq(first->name, arglen, start, n))
-			return first;
-		if (first->name[arglen]
-		    && memeq(first->name + arglen + 1,
-			     strlen(first->name + arglen + 1),
-			     start, n)
-		    && command_deprecated_apis(cmd))
+		if (memeqstr(start, n, first->name))
 			return first;
 		first++;
 	}
