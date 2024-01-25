@@ -1254,6 +1254,12 @@ static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
 	return opt_set_bool_arg(arg, ld->db_upgrade_ok);
 }
 
+static char *opt_add_api_beg(const char *arg, struct lightningd *ld)
+{
+	tal_arr_expand(&ld->api_begs, arg);
+	return NULL;
+}
+
 static char *opt_set_announce_dns(const char *optarg, struct lightningd *ld)
 {
 	if (!ld->deprecated_apis)
@@ -1600,6 +1606,11 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_db_upgrade, NULL,
 		       ld,
 		       "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
+	clnopt_witharg("--i-promise-to-fix-broken-api-user",
+		       OPT_MULTI,
+		       opt_add_api_beg, NULL,
+		       ld,
+		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
 
 	dev_register_opts(ld);

@@ -74,6 +74,15 @@ exit with an error rather than upgrade, unless this is an official released
 version.  If you really want to upgrade to a non-release version, you can
 set this to *true* (or *false* to never allow a non-reversible upgrade!).
 
+* **i-promise-to-fix-broken-api-user**=*FEATURE*
+
+  Deprecated features get removed slowly (over 3 releases), but
+sometimes people still get surprised when they are finally removed.
+As long as they haven't been actually fully removed, this option will
+re-enable it.  Unless we've made a horrible mistake it's probably time
+to complain or fix to whatever is using the old API.  It can be
+specified multiple times for different features.
+
 ### Bitcoin control options:
 
 Bitcoin control options:
