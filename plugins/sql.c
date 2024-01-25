@@ -83,6 +83,8 @@ struct column {
 	const char *dbname, *jsonname;
 	enum fieldtype ftype;
 
+	/* Deprecation version range, if any. */
+	const char *depr_start, *depr_end;
 	/* If this is actually a subtable: */
 	struct table_desc *sub;
 };
@@ -243,6 +245,16 @@ static bool has_table_desc(struct table_desc **tables, struct table_desc *t)
 	return false;
 }
 
+static struct column *find_column(const struct table_desc *td,
+				  const char *dbname)
+{
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		if (streq(td->columns[i]->dbname, dbname))
+			return td->columns[i];
+	}
+	return NULL;
+}
+
 static int sqlite_authorize(void *dbq_, int code,
 			    const char *a,
 			    const char *b,
@@ -255,9 +267,10 @@ static int sqlite_authorize(void *dbq_, int code,
 	if (code == SQLITE_SELECT)
 		return SQLITE_OK;
 
-	/* You can do a column read: takes a table name */
+	/* You can do a column read: takes a table name, column name */
 	if (code == SQLITE_READ) {
 		struct table_desc *td = strmap_get(&tablemap, a);
+		struct column *col;
 		if (!td) {
 			dbq->authfail = tal_fmt(dbq, "Unknown table %s", a);
 			return SQLITE_DENY;
@@ -267,6 +280,28 @@ static int sqlite_authorize(void *dbq_, int code,
 			td = td->parent;
 		if (!has_table_desc(dbq->tables, td))
 			tal_arr_expand(&dbq->tables, td);
+
+		/* Check column name, to control access to deprecated ones. */
+		col = find_column(td, b);
+		if (!col) {
+			/* Magic column names like id, __id__ etc. */
+			return SQLITE_OK;
+		}
+
+		/* Don't do tal if we are not deprecated at all */
+		if (!col->depr_start)
+			return SQLITE_OK;
+
+		/* FIXME: Use command_deprecated_param_ok! */
+		if (!deprecated_ok(deprecated_apis,
+				   tal_fmt(tmpctx, "%s.%s", td->cmdname, col->jsonname),
+				   col->depr_start,
+				   col->depr_end,
+				   NULL, NULL, NULL)) {
+			dbq->authfail = tal_fmt(dbq, "Deprecated column table %s.%s", a, b);
+			return SQLITE_DENY;
+		}
+
 		return SQLITE_OK;
 	}
 
@@ -1295,16 +1330,6 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	return td;
 }
 
-static bool find_column(const struct table_desc *td,
-			const char *dbname)
-{
-	for (size_t i = 0; i < tal_count(td->columns); i++) {
-		if (streq(td->columns[i]->dbname, dbname))
-			return true;
-	}
-	return false;
-}
-
 /* Recursion */
 static void add_table_object(struct table_desc *td, const jsmntok_t *tok);
 
@@ -1329,28 +1354,28 @@ static void add_table_singleton(struct table_desc *td,
 	tal_arr_expand(&td->columns, col);
 }
 
-static bool is_deprecated(const char *buffer, const jsmntok_t *tok)
+static bool add_deprecated(const char *buffer, const jsmntok_t *tok,
+			   struct column *col)
 {
-	const char *depr_start, *err;
+	const char *err;
 	u32 vnum;
 
-	depr_start = NULL;
+	col->depr_start = col->depr_end = NULL;
 	err = json_scan(tmpctx, schemas, tok,
-			"{deprecated?:[0:%]}",
-			JSON_SCAN_TAL(tmpctx, json_strdup, &depr_start));
+			"{deprecated?:[0:%,1:%]}",
+			JSON_SCAN_TAL(col, json_strdup, &col->depr_start),
+			JSON_SCAN_TAL(col, json_strdup, &col->depr_end));
 	assert(!err);
-	if (!depr_start)
-		return false;
-
-	/* If deprecated APIs are globally disabled, we don't want them! */
-	if (!deprecated_apis)
+	if (!col->depr_start)
 		return true;
 
-	/* If it was deprecated before our release, we don't want it; older ones
-	 * were simply 'deprecated: true' */
-	vnum = version_to_number(depr_start);
+	/* If it was deprecated before our release, we don't want it at all. */
+	vnum = version_to_number(col->depr_start);
 	assert(vnum);
-	return vnum <= version_to_number("v23.02");
+	if (vnum <= version_to_number("v23.02"))
+		return false;
+
+	return true;
 }
 
 static void add_table_properties(struct table_desc *td,
@@ -1373,9 +1398,8 @@ static void add_table_properties(struct table_desc *td,
 
 		col = tal(td->columns, struct column);
 
-		/* Depends on when it was deprecated, and whether deprecations
-		 * are enabled! */
-		if (is_deprecated(schemas, t+1)) {
+		/* Some things are so old we ignore them. */
+		if (!add_deprecated(schemas, t+1, col)) {
 			tal_free(col);
 			continue;
 		}
