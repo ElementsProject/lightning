@@ -93,6 +93,9 @@ struct json_connection {
 	jsmn_parser input_parser;
 	jsmntok_t *input_toks;
 
+	/* Local deprecated support? */
+	bool deprecated_ok;
+
 	/* Our commands */
 	struct list_head commands;
 
@@ -654,6 +657,8 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 
 static bool command_deprecated_ok(const struct command *cmd)
 {
+	if (cmd->jcon)
+		return cmd->jcon->deprecated_ok;
 	return cmd->ld->deprecated_apis;
 }
 
@@ -1332,6 +1337,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->input_toks = toks_alloc(jcon);
 	jcon->notifications_enabled = false;
 	jcon->db_batching = false;
+	jcon->deprecated_ok = ld->deprecated_apis;
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
@@ -1750,3 +1756,29 @@ static const struct json_command batching_command = {
 	"Database transaction batching {enable}",
 };
 AUTODATA(json_command, &batching_command);
+
+static struct command_result *json_deprecations(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
+{
+	bool *enable;
+
+	if (!param(cmd, buffer, params,
+		   p_req("enable", param_bool, &enable),
+		   NULL))
+		return command_param_failed();
+
+	/* Catch the case where they sent this command then hung up. */
+	if (cmd->jcon)
+		cmd->jcon->deprecated_ok = *enable;
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command deprecations_command = {
+	"deprecations",
+	"utility",
+	json_deprecations,
+	"Set/unset deprecated APIs on this JSON connection (for developer testing)",
+};
+AUTODATA(json_command, &deprecations_command);
