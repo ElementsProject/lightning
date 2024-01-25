@@ -464,12 +464,15 @@ static void json_add_help_command(struct command *cmd,
 	char *usage;
 
 	/* If they disallow deprecated APIs, don't even list them */
-	if (!cmd->ld->deprecated_apis && json_command->deprecated)
+	if (!command_deprecated_out_ok(cmd, NULL,
+				       json_command->depr_start,
+				       json_command->depr_end)) {
 		return;
+	}
 
 	usage = tal_fmt(cmd, "%s%s %s",
 			json_command->name,
-			json_command->deprecated ? " (DEPRECATED!)" : "",
+			json_command->depr_start ? " (DEPRECATED!)" : "",
 			strmap_get(&cmd->ld->jsonrpc->usagemap,
 				   json_command->name));
 	json_object_start(response, NULL);
@@ -532,7 +535,9 @@ static struct command_result *json_help(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
 					    "Unknown command %s",
 					    cmdname);
-		if (!cmd->ld->deprecated_apis && one_cmd->deprecated)
+		if (!command_deprecated_in_ok(cmd, NULL,
+					      one_cmd->depr_start,
+					      one_cmd->depr_end))
 			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
 					    "Deprecated command %s",
 					    cmdname);
@@ -917,7 +922,10 @@ static void replace_command(struct rpc_command_hook_payload *p,
 			      buffer + method->start);
 		goto fail;
 	}
-	if (p->cmd->json_cmd->deprecated && !p->cmd->ld->deprecated_apis) {
+	if (!command_deprecated_in_ok(p->cmd,
+				      json_strdup(tmpctx, buffer, method),
+				      p->cmd->json_cmd->depr_start,
+				      p->cmd->json_cmd->depr_end)) {
 		bad = tal_fmt(tmpctx, "redirected to deprecated command '%.*s'",
 			      method->end - method->start,
 			      buffer + method->start);
@@ -1148,7 +1156,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
 		    method->end - method->start, jcon->buffer + method->start);
 	}
-	if (c->json_cmd->deprecated && !jcon->ld->deprecated_apis) {
+	if (!command_deprecated_in_ok(c,
+				      json_strdup(tmpctx, jcon->buffer, method),
+				      c->json_cmd->depr_start,
+				      c->json_cmd->depr_end)) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command %.*s is deprecated",
 				    json_tok_full_len(method),

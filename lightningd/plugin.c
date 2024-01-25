@@ -11,6 +11,7 @@
 #include <ccan/utf8/utf8.h>
 #include <common/configdir.h>
 #include <common/configvar.h>
+#include <common/deprecation.h>
 #include <common/features.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
@@ -995,6 +996,50 @@ static char *bool_setting(tal_t *ctx,
 	return NULL;
 }
 
+/* Parse deprecated field, as either bool or an array of strings */
+static const char *json_parse_deprecated(const tal_t *ctx,
+					 const char *buffer,
+					 const jsmntok_t *deprtok,
+					 const char **depr_start,
+					 const char **depr_end)
+{
+	bool is_depr;
+
+	*depr_start = *depr_end = NULL;
+
+	if (!deprtok)
+		return NULL;
+
+	/* Not every plugin will track deprecation cycles (and that's OK!):
+	 * pretend it's just been deprecated. */
+	if (json_to_bool(buffer, deprtok, &is_depr)) {
+		if (is_depr)
+			*depr_start = CLN_NEXT_VERSION;
+		return NULL;
+	}
+
+	if (deprtok->type != JSMN_ARRAY || deprtok->size > 2) {
+		return tal_fmt(ctx, "\"deprecated\" must be an array of 1 or 2 elements, not %.*s",
+			       deprtok->end - deprtok->start,
+			       buffer + deprtok->start);
+	}
+
+	*depr_start = json_strdup(ctx, buffer, deprtok + 1);
+	if (version_to_number(*depr_start) == 0)
+		return tal_fmt(ctx,
+			       "invalid \"deprecated\" start version %s",
+			       *depr_start);
+
+	if (deprtok->size == 2) {
+		*depr_end = json_strdup(ctx, buffer, deprtok + 2);
+		if (version_to_number(*depr_end) == 0)
+			return tal_fmt(ctx,
+				       "invalid \"deprecated\" end version %s",
+				       *depr_end);
+	}
+	return NULL;
+}
+
 /* Add a single plugin option to the plugin as well as registering it with the
  * command line options. */
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
@@ -1268,16 +1313,16 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 					const jsmntok_t *meth)
 {
 	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok,
-		*usagetok, *deptok;
+		*usagetok, *deprtok;
 	struct json_command *cmd;
-	const char *usage;
+	const char *usage, *err;
 
 	nametok = json_get_member(buffer, meth, "name");
 	categorytok = json_get_member(buffer, meth, "category");
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 	usagetok = json_get_member(buffer, meth, "usage");
-	deptok = json_get_member(buffer, meth, "deprecated");
+	deprtok = json_get_member(buffer, meth, "deprecated");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		return tal_fmt(plugin,
@@ -1321,15 +1366,9 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 		return tal_fmt(plugin,
 			    "\"usage\" not provided by plugin");
 
-	if (deptok) {
-		if (!json_to_bool(buffer, deptok, &cmd->deprecated))
-			return tal_fmt(plugin,
-				       "%s: invalid \"deprecated\" field %.*s",
-				       cmd->name,
-			               deptok->end - deptok->start,
-				       buffer + deptok->start);
-	} else
-		cmd->deprecated = false;
+	err = json_parse_deprecated(cmd, buffer, deprtok, &cmd->depr_start, &cmd->depr_end);
+	if (err)
+		return tal_steal(plugin, err);
 
 	cmd->dev_only = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
