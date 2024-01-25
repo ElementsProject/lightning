@@ -1613,9 +1613,9 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 						     const jsmntok_t *toks,
 						     const jsmntok_t *idtok,
 						     struct plugin *plugin,
-	const char **disabled)
+						     const char **disabled)
 {
-	const jsmntok_t *resulttok, *dynamictok, *featurestok, *custommsgtok, *tok;
+	const jsmntok_t *resulttok, *featurestok, *custommsgtok, *tok;
 	const char *err;
 
 	*disabled = NULL;
@@ -1635,12 +1635,10 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		return NULL;
 	}
 
-	dynamictok = json_get_member(buffer, resulttok, "dynamic");
-	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic)) {
-		return tal_fmt(plugin, "Bad 'dynamic' field ('%.*s')",
-			    json_tok_full_len(dynamictok),
-			    json_tok_full(buffer, dynamictok));
-	}
+	err = bool_setting(plugin, "getmanifest", buffer, resulttok, "dynamic",
+			   &plugin->dynamic);
+	if (err)
+		return err;
 
 	featurestok = json_get_member(buffer, resulttok, "featurebits");
 
