@@ -396,18 +396,18 @@ def test_opening_tiny_channel(node_factory, anchors):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING).*channel capacity is .*, which is below .*sat'):
+    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING|ABORT).*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l2, l2_min_capacity + overhead - 1)
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
 
     l1.fundchannel(l2, l2_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING).*channel capacity is .*, which is below .*sat'):
+    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING|ABORT).*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l3, l3_min_capacity + overhead - 1)
     assert only_one(l1.rpc.listpeers(l3.info['id'])['peers'])['connected']
     l1.fundchannel(l3, l3_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING).*channel capacity is .*, which is below .*sat'):
+    with pytest.raises(RpcError, match=r'They sent (ERROR|WARNING|ABORT).*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l4, l4_min_capacity + overhead - 1)
     assert only_one(l1.rpc.listpeers(l4.info['id'])['peers'])['connected']
     l1.fundchannel(l4, l4_min_capacity + overhead)
