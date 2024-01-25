@@ -262,4 +262,14 @@ size_t commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
 		    struct chan_extra_map *chan_extra_map, struct flow **flows,
 		    char **fail);
 
+/* flows should be a set of optimal routes delivering an amount that is
+ * slighty less than amount_to_deliver. We will try to reallocate amounts in
+ * these flows so that it delivers the exact amount_to_deliver to the
+ * destination.
+ * Returns how much we are delivering at the end. */
+bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
+		      struct flow **flows, struct amount_msat amount_to_deliver,
+		      const struct gossmap *gossmap,
+		      struct chan_extra_map *chan_extra_map, char **fail);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

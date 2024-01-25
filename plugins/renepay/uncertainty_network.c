@@ -258,7 +258,24 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 
 		/* this channel is not public, but it belongs to us */
 		totaltok = json_get_member(buf, chantok, "total_msat");
-		json_to_msat(buf, totaltok, &capacity);
+		if (!totaltok) {
+			errmsg = tal_fmt(
+			    tmpctx,
+			    "Failed to update channel from listpeerchannels "
+			    "scid=%s, missing total_msat",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &scidd->scid));
+			goto error;
+		}
+		if (!json_to_msat(buf, totaltok, &capacity)) {
+			errmsg = tal_fmt(
+			    tmpctx,
+			    "Failed to update channel from listpeerchannels "
+			    "scid=%s, cannot parse total_msat",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &scidd->scid));
+			goto error;
+		}
 
 		ce = new_chan_extra(chan_extra_map, scidd->scid, capacity);
 	}
@@ -269,7 +286,7 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 	if (!amount_msat_sub(&max, max, amount_msat_div(p->amount, 100)))
 		max = AMOUNT_MSAT(0);
 
-	// TODO(eduardo): this includes pending HTLC of previous
+	// TODO(eduardo): this does not include pending HTLC of previous
 	// payments!
 	/* We know min and max liquidity exactly now! */
 	if (!chan_extra_set_liquidity(tmpctx, chan_extra_map, scidd, max,
@@ -277,6 +294,10 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 		plugin_err(pay_plugin->plugin,
 			   "chan_extra_set_liquidity failed: %s", errmsg);
 	}
+	return;
+
+	error:
+	plugin_log(pay_plugin->plugin, LOG_UNUSUAL, "%s", errmsg);
 }
 
 /* Forget ALL channels information by a fraction of the capacity. */

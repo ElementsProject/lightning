@@ -373,3 +373,27 @@ def test_self_pay(node_factory):
     with pytest.raises(RpcError, match=r'Unknown invoice') as excinfo:
         l1.rpc.call('renepay', {'invstring': inv2})
     assert excinfo.value.error['code'] == 203
+
+
+def test_fee_allocation(node_factory):
+    '''
+    Topology:
+    1----2
+    |    |
+    3----4
+    This a payment that fails if fee is not allocated as part of the flow
+    constraints.
+    '''
+    # High fees at 3%
+    opts = [
+        {'disable-mpp': None, 'fee-base': 1000, 'fee-per-satoshi': 30000},
+    ]
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts * 4)
+    start_channels([(l1, l2, 1000000), (l2, l4, 2000000),
+                    (l1, l3, 1000000), (l3, l4, 2000000)])
+
+    inv = l4.rpc.invoice("1500000sat", "inv", 'description')
+    l1.rpc.call('renepay', {'invstring': inv['bolt11'], 'maxfee': '75000sat'})
+    l1.wait_for_htlcs()
+    invoice = only_one(l4.rpc.listinvoices('inv')['invoices'])
+    assert invoice['amount_received_msat'] >= Millisatoshi('1500000sat')

@@ -710,12 +710,87 @@ static void test_flow_complete(void)
 	tal_free(this_ctx);
 }
 
+/* Test channel_maximum_forward function */
+static void test_channel_maximum_forward(void)
+{
+	const tal_t *this_ctx = tal(tmpctx, tal_t);
+
+	char *gossfile;
+	int fd = tmpdir_mkstemp(this_ctx, "run-testflow.XXXXXX", &gossfile);
+	tal_add_destructor(gossfile, remove_file);
+
+	assert(write_all(fd, canned_map, sizeof(canned_map)));
+	struct gossmap *gossmap = gossmap_load(this_ctx, gossfile, NULL);
+	assert(gossmap);
+
+	struct short_channel_id scid12;
+	assert(short_channel_id_from_str("113x1x1", 7, &scid12));
+
+	struct gossmap_chan *c;
+
+	// check the bounds channel 1--2
+	c = gossmap_find_chan(gossmap, &scid12);
+
+	const u64 test_in[] = {
+	    0,		1,	    2,		3,
+	    10,		11,	    12,		20,
+	    30,		100,	    110,	111,
+	    200,	300,	    1000,	2000,
+	    3000,	10000,	    10025,	20000,
+	    1000000,	1100032,    2000000,	3000000,
+	    1000000000, 2000000000, 3000000000, 1000000000000 /*10 BTC*/};
+	const u64 test_basefee[] = {
+	    0,	   1,	  2,	 3,	  4,	   10,	    20,		  30,
+	    100,   200,	  1000,	 2000,	  10000,   10001,   10002,	  10010,
+	    10011, 10012, 20000, 1000000, 2000000, 1 << 23, (1 << 24) - 1};
+	const u64 test_ppm[] = {0,	1,	2,	3,	4,
+				10,	20,	30,	100,	200,
+				300,	1000,	2000,	3000,	10000,
+				20000,	30000,	11111,	100000, 100001,
+				200000, 500000, 900000, 999999, 1000000};
+
+	const size_t N_in = sizeof(test_in) / sizeof(test_in[0]);
+	for (int i = 0; i < N_in; ++i) {
+		const struct amount_msat in = amount_msat(test_in[i]);
+
+		const size_t N_base =
+		    sizeof(test_basefee) / sizeof(test_basefee[0]);
+		for (int j = 0; j < N_base; ++j) {
+			const u64 basefee = test_basefee[j];
+
+			const size_t N_ppm =
+			    sizeof(test_ppm) / sizeof(test_ppm[0]);
+			for (int k = 0; k < N_ppm; ++k) {
+				const u64 ppm = test_ppm[k];
+
+				c->half[0].base_fee = basefee;
+				c->half[0].proportional_fee = ppm;
+				struct amount_msat out;
+
+				assert(channel_maximum_forward(&out, c, 0, in));
+
+				// do we satisfy the fee constraint?
+				assert(check_fee_inequality(in, out, basefee,
+							    ppm));
+
+				// is this the best we can do?
+				assert(
+				    amount_msat_add(&out, out, amount_msat(1)));
+				assert(!check_fee_inequality(in, out, basefee,
+							     ppm));
+			}
+		}
+	}
+	tal_free(this_ctx);
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 
 	test_edge_probability();
 	test_flow_complete();
+	test_channel_maximum_forward();
 
 	common_shutdown();
 }
