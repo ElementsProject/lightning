@@ -24,6 +24,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/codex32.h>
 #include <common/configdir.h>
+#include <common/deprecation.h>
 #include <common/json_command.h>
 #include <common/json_filter.h>
 #include <common/json_param.h>

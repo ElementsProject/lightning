@@ -33,7 +33,7 @@ void daemon_setup(const char *argv0 UNNEEDED,
 		  void (*backtrace_exit)(void))
 { fprintf(stderr, "daemon_setup called!\n"); abort(); }
 /* Generated stub for deprecated_ok_ */
-bool deprecated_ok_(bool deprecated_apis UNNEEDED,
+bool  deprecated_ok_(bool deprecated_apis UNNEEDED,
 		    const char *feature UNNEEDED,
 		    const char *start UNNEEDED,
 		    const char *end UNNEEDED,
