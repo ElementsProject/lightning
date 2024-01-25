@@ -5,9 +5,12 @@ excerpt: "Deprecated features and timeline for old feature removals."
 hidden: false
 ---
 
-| Name              | Type    | First Deprecated | Last Supported | Description                       |
-|-------------------|---------|------------------|----------------|-----------------------------------|
-| delexpiredinvoice | Command | v22.11           | v24.02         | `autoclean-once` is more powerful |
+| Name                        | Type    | First Deprecated | Last Supported | Description                                                                   |
+|-----------------------------|---------|------------------|----------------|-------------------------------------------------------------------------------|
+| delexpiredinvoice           | Command | v22.11           | v24.02         | `autoclean-once` is more powerful                                             |
+| autocleaninvoice            | Command | v22.11           | v24.02         | `autoclean` is more general, does more than expired invoices                  |
+| autocleaninvoice-cycle      | Config  | v22.11           | v24.02         | Now always once per hour: you can run `autoclean-once` regularly if you need. |
+| autocleaninvoice-expired-by | Config  | v22.11           | v24.02         | `autoclean`'s `autoclean-expiredinvoices-age`                                 |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
