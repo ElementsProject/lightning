@@ -29,6 +29,7 @@ COMMON_SRC_NOGEN :=				\
 	common/daemon.c				\
 	common/daemon_conn.c			\
 	common/decode_array.c			\
+	common/deprecation.c			\
 	common/derive_basepoints.c		\
 	common/descriptor_checksum.c		\
 	common/dev_disconnect.c			\
