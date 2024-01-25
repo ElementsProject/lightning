@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
+#include <common/deprecation.h>
 #include <common/json_filter.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
@@ -136,6 +137,55 @@ struct command_result *command_done(void)
 struct json_filter **command_filter_ptr(struct command *cmd)
 {
 	return &cmd->filter;
+}
+
+static bool command_deprecated_ok(const struct command *cmd)
+{
+	return deprecated_apis;
+}
+
+static void complain_deprecated(const char *feature,
+				bool allowing,
+				struct command *cmd)
+{
+	if (!allowing) {
+		/* Mild log message for disallowing */
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Note: disallowing deprecated %s for %s",
+			   feature, cmd->id);
+	} else {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "DEPRECATED API USED: %s by %s",
+			   feature, cmd->id);
+	}
+}
+
+bool command_deprecated_in_ok(struct command *cmd,
+			      const char *param,
+			      const char *depr_start,
+			      const char *depr_end)
+{
+	return deprecated_ok(command_deprecated_ok(cmd),
+			     param
+			     ? tal_fmt(tmpctx, "%s.%s", cmd->methodname, param)
+			     : cmd->methodname,
+			     depr_start, depr_end,
+			     /* FIXME: Get api begs from lightningd! */
+			     NULL,
+			     complain_deprecated, cmd);
+}
+
+bool command_deprecated_out_ok(struct command *cmd,
+			       const char *fieldname,
+			       const char *depr_start,
+			       const char *depr_end)
+{
+	return deprecated_ok(command_deprecated_ok(cmd),
+			     tal_fmt(tmpctx, "%s.%s", cmd->methodname, fieldname),
+			     depr_start, depr_end,
+			     /* FIXME: Get api begs from lightningd! */
+			     NULL,
+			     NULL, NULL);
 }
 
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
@@ -498,11 +548,6 @@ struct command_result *command_fail(struct command *cmd,
 bool command_usage_only(const struct command *cmd)
 {
 	return cmd->usage_only;
-}
-
-bool command_deprecated_apis(const struct command *cmd)
-{
-	return deprecated_apis;
 }
 
 bool command_dev_apis(const struct command *cmd)

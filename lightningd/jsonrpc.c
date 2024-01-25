@@ -652,6 +652,36 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 	return &cmd->filter;
 }
 
+static bool command_deprecated_ok(const struct command *cmd)
+{
+	return cmd->ld->deprecated_apis;
+}
+
+bool command_deprecated_in_ok(struct command *cmd,
+				 const char *param,
+				 const char *depr_start,
+				 const char *depr_end)
+{
+	return lightningd_deprecated_in_ok(cmd->ld,
+					   command_log(cmd),
+					   command_deprecated_ok(cmd),
+					   cmd->json_cmd->name, param,
+					   depr_start, depr_end,
+					   cmd->id);
+}
+
+bool command_deprecated_out_ok(struct command *cmd,
+			       const char *fieldname,
+			       const char *depr_start,
+			       const char *depr_end)
+{
+	return lightningd_deprecated_out_ok(cmd->ld,
+					    command_deprecated_ok(cmd),
+					    cmd->json_cmd->name,
+					    fieldname,
+					    depr_start, depr_end);
+}
+
 struct command_result *command_still_pending(struct command *cmd)
 {
 	notleak_with_children(cmd);
@@ -1423,11 +1453,6 @@ void jsonrpc_setup(struct lightningd *ld)
 bool command_usage_only(const struct command *cmd)
 {
 	return cmd->mode == CMD_USAGE;
-}
-
-bool command_deprecated_apis(const struct command *cmd)
-{
-	return cmd->ld->deprecated_apis;
 }
 
 bool command_dev_apis(const struct command *cmd)
