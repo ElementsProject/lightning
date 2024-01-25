@@ -12,11 +12,6 @@
     "bech32": {
       "type": "string",
       "description": "The bech32 (native segwit) address"
-    },
-    "p2sh-segwit": {
-      "deprecated": "v23.02",
-      "type": "string",
-      "description": "The p2sh-wrapped address"
     }
   }
 }

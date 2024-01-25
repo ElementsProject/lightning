@@ -39,21 +39,12 @@ encode_pubkey_to_addr(const tal_t *ctx,
 {
 	char *out;
 	const char *hrp;
-	struct sha256 h;
 	struct ripemd160 h160;
 	u8 *redeemscript;
 	bool ok;
 
-	assert(addrtype != ADDR_ALL);
-
-	if (addrtype == ADDR_P2SH_SEGWIT) {
-		redeemscript = bitcoin_redeem_p2sh_p2wpkh(ctx, pubkey);
-		sha256(&h, redeemscript, tal_count(redeemscript));
-		ripemd160(&h160, h.u.u8, sizeof(h));
-		out = p2sh_to_base58(ctx,
-				     chainparams,
-				     &h160);
-	} else if (addrtype == ADDR_BECH32) {
+	switch (addrtype) {
+	case ADDR_BECH32:
 		hrp = chainparams->onchain_hrp;
 
 		/* out buffer is 73 + strlen(human readable part),
@@ -68,10 +59,9 @@ encode_pubkey_to_addr(const tal_t *ctx,
 					   0);
 
 		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160));
-		if (!ok)
-			out = tal_free(out);
-	} else {
-		assert(addrtype == ADDR_P2TR);
+		goto done;
+
+	case ADDR_P2TR: {
 		u8 *p2tr_spk = scriptpubkey_p2tr(ctx, pubkey);
 		u8 *x_key = p2tr_spk + 2;
 		hrp = chainparams->onchain_hrp;
@@ -83,9 +73,18 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		out = tal_arr(ctx, char, 73 + strlen(hrp));
 
 		ok = segwit_addr_encode(out, hrp, /* witver */ 1, x_key, 32);
-		if (!ok)
-			out = tal_free(out);
+		goto done;
 	}
+
+	case ADDR_ALL:
+		abort();
+	}
+	abort();
+
+
+done:
+	if (!ok)
+		out = tal_free(out);
 
 	if (out_redeemscript)
 		*out_redeemscript = redeemscript;
@@ -102,10 +101,7 @@ static struct command_result *param_newaddr(struct command *cmd,
 					    enum addrtype **addrtype)
 {
 	*addrtype = tal(cmd, enum addrtype);
-	if (cmd->ld->deprecated_apis
-	    && json_tok_streq(buffer, tok, "p2sh-segwit"))
-		**addrtype = ADDR_P2SH_SEGWIT;
-	else if (json_tok_streq(buffer, tok, "bech32"))
+	if (json_tok_streq(buffer, tok, "bech32"))
 		**addrtype = ADDR_BECH32;
 	else if (!chainparams->is_elements && json_tok_streq(buffer, tok, "p2tr"))
 		**addrtype = ADDR_P2TR;
@@ -138,9 +134,6 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 	if (addrtype & ADDR_P2TR)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
-	if (cmd->ld->deprecated_apis && (addrtype & ADDR_P2SH_SEGWIT))
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
-					  scriptpubkey_p2sh(tmpctx, b32script));
 	return true;
 }
 
@@ -153,7 +146,7 @@ static struct command_result *json_newaddr(struct command *cmd,
 	struct json_stream *response;
 	struct pubkey pubkey;
 	enum addrtype *addrtype;
-	char *p2sh, *bech32, *p2tr;
+	char *bech32, *p2tr;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("addresstype", param_newaddr, &addrtype, ADDR_BECH32),
@@ -164,10 +157,9 @@ static struct command_result *json_newaddr(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	};
 
-	p2sh = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2SH_SEGWIT, NULL);
 	bech32 = encode_pubkey_to_addr(cmd, &pubkey, ADDR_BECH32, NULL);
 	p2tr = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2TR, NULL);
-	if (!p2sh || !bech32 || !p2tr) {
+	if (!bech32 || !p2tr) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "p2wpkh address encoding failure.");
 	}
@@ -177,8 +169,6 @@ static struct command_result *json_newaddr(struct command *cmd,
 		json_add_string(response, "bech32", bech32);
 	if (*addrtype & ADDR_P2TR)
 		json_add_string(response, "p2tr", p2tr);
-	if (cmd->ld->deprecated_apis && (*addrtype & ADDR_P2SH_SEGWIT))
-		json_add_string(response, "p2sh-segwit", p2sh);
 	return command_success(cmd, response);
 }
 
@@ -221,13 +211,6 @@ static struct command_result *json_listaddrs(struct command *cmd,
 
 		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 
-		// p2sh
-		u8 *redeemscript_p2sh;
-		char *out_p2sh = encode_pubkey_to_addr(cmd,
-						       &pubkey,
-						       ADDR_P2SH_SEGWIT,
-						       &redeemscript_p2sh);
-
 		// bech32 : p2wpkh
 		u8 *redeemscript_p2wpkh;
 		char *out_p2wpkh = encode_pubkey_to_addr(cmd,
@@ -251,9 +234,6 @@ static struct command_result *json_listaddrs(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_u64(response, "keyidx", keyidx);
 		json_add_pubkey(response, "pubkey", &pubkey);
-		json_add_string(response, "p2sh", out_p2sh);
-		json_add_hex_talarr(response, "p2sh_redeemscript",
-				    redeemscript_p2sh);
 		json_add_string(response, "bech32", out_p2wpkh);
 		json_add_hex_talarr(response, "bech32_redeemscript",
 				    redeemscript_p2wpkh);
