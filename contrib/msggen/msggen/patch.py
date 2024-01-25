@@ -97,44 +97,41 @@ class OptionalPatch(Patch):
     deprecation and addition for schema evolution
     """
 
-    versions = [
-        'pre-v0.10.1',  # Dummy versions collecting all fields that predate the versioning.
-        'v0.10.1',
-        'v0.10.2',
-        'v0.11.0',
-        'v0.12.0',
-        'v0.12.1',
-        'v22.11',
-        'v23.02',
-        'v23.05',
-        'v23.08',
-        'v23.11',
-        'v24.02',
-    ]
-    # Oldest supported versions. Bump this if you no longer want to
-    # support older versions, and you want to make required fields
-    # more stringent.
-    supported = 'v0.10.1'
+    @staticmethod
+    def version_to_number(version):
+        # Dummy versions collecting all fields that predate the versioning.
+        if version == 'pre-v0.10.1':
+            return 0
+        assert version[0] == 'v'
+        parts = version[1:].split('.')
+
+        # Months, plus 10 for minor versions.
+        num = (int(parts[0]) * 12 + int(parts[1])) * 10
+        if len(parts) == 3:
+            num += int(parts[2])
+        return num
+
+    @staticmethod
+    def supported():
+        """Oldest supported version. Bump this if you no longer want
+        to support older versions, and you want to make required
+        fields more stringent.
+        """
+
+        return OptionalPatch.version_to_number('v0.10.1')
 
     def visit(self, f: model.Field) -> None:
-        if f.added not in self.versions:
-            raise ValueError(f"Version {f.added} in unknown, please add it to {__file__}")
-        if f.deprecated and f.deprecated not in self.versions:
-            raise ValueError(f"Version {f.deprecated} in unknown, please add it to {__file__}")
-
-        idx = (
-            self.versions.index(self.supported),
-            len(self.versions) - 1,
-        )
         # Default to false, and then overwrite it if required.
         f.optional = False
         if not f.required:
             f.optional = True
 
-        if self.versions.index(f.added) > idx[0]:
+        added = self.version_to_number(f.added)
+        if added >= self.supported():
             f.optional = True
 
-        if f.deprecated and self.versions.index(f.deprecated) < idx[1]:
+        # Even if it's deprecated in future, reduce churn.
+        if f.deprecated:
             f.optional = True
 
 
