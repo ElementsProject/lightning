@@ -485,7 +485,8 @@ estimatefees_null_response(struct bitcoin_cli *bcli)
 	json_array_end(response);
 	json_add_u32(response, "feerate_floor", 1000);
 
-	if (deprecated_apis) {
+	if (command_deprecated_out_ok(bcli->cmd, "dummy_null",
+				      "v23.05", "v24.05")) {
 		json_add_null(response, "opening");
 		json_add_null(response, "mutual_close");
 		json_add_null(response, "unilateral_close");
@@ -730,21 +731,34 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	}
 
 	response = jsonrpc_stream_success(cmd);
-	if (deprecated_apis) {
+	if (command_deprecated_out_ok(cmd, "opening",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "opening", cmd, stash,
 				 feerate_for_block(stash, 12));
+	if (command_deprecated_out_ok(cmd, "mutual_close",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "mutual_close", cmd, stash,
 				 feerate_for_block(stash, 100));
+	if (command_deprecated_out_ok(cmd, "unilateral_close",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "unilateral_close", cmd, stash,
 				 feerate_for_block(stash, 6));
+	if (command_deprecated_out_ok(cmd, "delayed_to_us",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "delayed_to_us", cmd, stash,
 				 feerate_for_block(stash, 12));
+	if (command_deprecated_out_ok(cmd, "htlc_resolution",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "htlc_resolution", cmd, stash,
 				 feerate_for_block(stash, 6));
+	if (command_deprecated_out_ok(cmd, "penalty",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "penalty", cmd, stash,
 				 feerate_for_block(stash, 12));
 		/* We divide the slow feerate for the minimum acceptable, lightningd
 		 * will use floor if it's hit, though. */
+	if (command_deprecated_out_ok(cmd, "min_acceptable",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "min_acceptable", cmd, stash,
 				 feerate_for_block(stash, 100) / 2);
 		/* BOLT #2:
@@ -753,9 +767,10 @@ static struct command_result *estimatefees_next(struct command *cmd,
 		 * spent in the future, it's a good idea for the fee payer to keep a good
 		 * margin (say 5x the expected fee requirement)
 		 */
+	if (command_deprecated_out_ok(cmd, "max_acceptable",
+				      "v23.05", "v24.05"))
 		json_add_feerate(response, "max_acceptable", cmd, stash,
 				 feerate_for_block(stash, 2) * 10);
-	}
 
 	/* Modern style: present an ordered array of block deadlines, and a floor. */
 	json_array_start(response, "feerates");
