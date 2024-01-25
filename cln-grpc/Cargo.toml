@@ -18,6 +18,7 @@ log = "0.4"
 cln-rpc = { path="../cln-rpc/", version = "^0.1", optional = true }
 tonic = { version = "0.8", features = ["tls", "transport"] }
 prost = "0.11"
+serde = { version = "1.0", features = ["derive"] }
 hex = "0.4.3"
 bitcoin = { version = "0.30", features = [ "serde" ] }
 
