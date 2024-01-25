@@ -314,6 +314,14 @@ command_hook_success(struct command *cmd);
 struct command_result *WARN_UNUSED_RESULT
 notification_handled(struct command *cmd);
 
+/**
+ * What's the deprecation_ok state for this cmd?
+ * @cmd: the command.
+ *
+ * Either the default, or the explicit connection override.
+ */
+bool command_deprecated_ok_flag(const struct command *cmd);
+
 /* Helper for notification handler that will be finished in a callback.  */
 #define notification_handler_pending(cmd) command_still_pending(cmd)
 
