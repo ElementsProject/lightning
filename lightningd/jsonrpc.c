@@ -661,7 +661,7 @@ struct json_filter **command_filter_ptr(struct command *cmd)
 	return &cmd->filter;
 }
 
-static bool command_deprecated_ok(const struct command *cmd)
+bool command_deprecated_ok_flag(const struct command *cmd)
 {
 	if (cmd->jcon)
 		return cmd->jcon->deprecated_ok;
@@ -675,7 +675,7 @@ bool command_deprecated_in_ok(struct command *cmd,
 {
 	return lightningd_deprecated_in_ok(cmd->ld,
 					   command_log(cmd),
-					   command_deprecated_ok(cmd),
+					   command_deprecated_ok_flag(cmd),
 					   cmd->json_cmd->name, param,
 					   depr_start, depr_end,
 					   cmd->id);
@@ -687,7 +687,7 @@ bool command_deprecated_out_ok(struct command *cmd,
 			       const char *depr_end)
 {
 	return lightningd_deprecated_out_ok(cmd->ld,
-					    command_deprecated_ok(cmd),
+					    command_deprecated_ok_flag(cmd),
 					    cmd->json_cmd->name,
 					    fieldname,
 					    depr_start, depr_end);

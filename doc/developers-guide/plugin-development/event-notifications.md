@@ -17,6 +17,22 @@ Plugins subscribe by returning an array of subscriptions as part of the `getmani
 > 
 > This is a way of specifying that you want to subscribe to all possible event notifications. It is not recommended, but is useful for plugins which want to provide generic infrastructure for others (in future, we may add the ability to dynamically subscribe/unsubscribe).
 
+### `deprecated_oneshot`
+
+(Added in *v24.02*)
+
+This is a special notification, which the plugin will only receive it it set `deprecated_oneshot` to `true` in its getmanifest response.  It indicates that the immeditately following command wants a different deprecation status than the global `allow-deprecated-apis` setting.
+
+This is possible because of the `deprecations` RPC command, where individual connections can change their deprecation settings.
+
+```json
+{
+  "deprecated_oneshot": {
+    "deprecated_ok": false
+  }
+}
+```
+
 ### `channel_opened`
 
 A notification for topic `channel_opened` is sent if a peer successfully funded a channel with us. It contains the peer id, the funding amount (in millisatoshis), the funding transaction id, and a boolean indicating if the funding transaction has been included into a block.
