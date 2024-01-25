@@ -12,8 +12,11 @@ import string
 import subprocess
 import time
 
+class BaseDb(object):
+    def wipe_db(self):
+        raise NotImplementedError("wipe_db method must be implemented by the subclass")
 
-class Sqlite3Db(object):
+class Sqlite3Db(BaseDb):
     def __init__(self, path):
         self.path = path
         self.provider = None
@@ -50,8 +53,11 @@ class Sqlite3Db(object):
         c.close()
         db.close()
 
+    def wipe_db(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
 
-class PostgresDb(object):
+class PostgresDb(BaseDb):
     def __init__(self, dbname, port):
         self.dbname = dbname
         self.port = port
@@ -88,6 +94,12 @@ class PostgresDb(object):
         with self.conn, self.conn.cursor() as cur:
             cur.execute(query)
 
+
+    def wipe_db(self):
+        cur = self.conn.cursor()
+        cur.execute(f"DROP DATABASE IF EXISTS {self.dbname};")
+        cur.execute(f"CREATE DATABASE {self.dbname};")
+        cur.close()
 
 class SqliteDbProvider(object):
     def __init__(self, directory):

@@ -14,7 +14,12 @@ import time
 from typing import Dict, List, Optional, Union
 
 
-class Sqlite3Db(object):
+class BaseDb(object):
+    def wipe_db(self):
+        raise NotImplementedError("wipe_db method must be implemented by the subclass")
+
+
+class Sqlite3Db(BaseDb):
     def __init__(self, path: str) -> None:
         self.path = path
         self.provider = None
@@ -32,6 +37,8 @@ class Sqlite3Db(object):
 
         db.row_factory = sqlite3.Row
         c = db.cursor()
+        # Don't get upset by concurrent writes; wait for up to 5 seconds!
+        c.execute("PRAGMA busy_timeout = 5000")
         c.execute(query)
         rows = c.fetchall()
 
@@ -55,8 +62,12 @@ class Sqlite3Db(object):
     def stop(self):
         pass
 
+    def wipe_db(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
 
-class PostgresDb(object):
+
+class PostgresDb(BaseDb):
     def __init__(self, dbname, port):
         self.dbname = dbname
         self.port = port
@@ -100,6 +111,12 @@ class PostgresDb(object):
         conn = psycopg2.connect("dbname=postgres user=postgres host=localhost port={self.port}")
         cur = conn.cursor()
         cur.execute("DROP DATABASE {};".format(self.dbname))
+        cur.close()
+
+    def wipe_db(self):
+        cur = self.conn.cursor()
+        cur.execute(f"DROP DATABASE IF EXISTS {self.dbname};")
+        cur.execute(f"CREATE DATABASE {self.dbname};")
         cur.close()
 
 
