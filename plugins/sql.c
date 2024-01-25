@@ -90,6 +90,7 @@ struct column {
 };
 
 struct db_query {
+	struct command *cmd;
 	sqlite3_stmt *stmt;
 	struct table_desc **tables;
 	const char *authfail;
@@ -292,12 +293,11 @@ static int sqlite_authorize(void *dbq_, int code,
 		if (!col->depr_start)
 			return SQLITE_OK;
 
-		/* FIXME: Use command_deprecated_param_ok! */
-		if (!deprecated_ok(deprecated_apis,
-				   tal_fmt(tmpctx, "%s.%s", td->cmdname, col->jsonname),
-				   col->depr_start,
-				   col->depr_end,
-				   NULL, NULL, NULL)) {
+		/* Can this command see this? */
+		if (!command_deprecated_in_named_ok(dbq->cmd, td->cmdname,
+						    col->jsonname,
+						    col->depr_start,
+						    col->depr_end)) {
 			dbq->authfail = tal_fmt(dbq, "Deprecated column table %s.%s", a, b);
 			return SQLITE_DENY;
 		}
@@ -1030,6 +1030,7 @@ static struct command_result *json_sql(struct command *cmd,
 
 	dbq->tables = tal_arr(dbq, struct table_desc *, 0);
 	dbq->authfail = NULL;
+	dbq->cmd = cmd;
 
 	/* This both checks we're not altering, *and* tells us what
 	 * tables to refresh. */

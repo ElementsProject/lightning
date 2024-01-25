@@ -160,19 +160,29 @@ static void complain_deprecated(const char *feature,
 	}
 }
 
+bool command_deprecated_in_named_ok(struct command *cmd,
+				    const char *cmdname,
+				    const char *param,
+				    const char *depr_start,
+				    const char *depr_end)
+{
+	return deprecated_ok(command_deprecated_ok(cmd),
+			     param
+			     ? tal_fmt(tmpctx, "%s.%s", cmdname, param)
+			     : cmdname,
+			     depr_start, depr_end,
+			     /* FIXME: Get api begs from lightningd! */
+			     NULL,
+			     complain_deprecated, cmd);
+}
+
 bool command_deprecated_in_ok(struct command *cmd,
 			      const char *param,
 			      const char *depr_start,
 			      const char *depr_end)
 {
-	return deprecated_ok(command_deprecated_ok(cmd),
-			     param
-			     ? tal_fmt(tmpctx, "%s.%s", cmd->methodname, param)
-			     : cmd->methodname,
-			     depr_start, depr_end,
-			     /* FIXME: Get api begs from lightningd! */
-			     NULL,
-			     complain_deprecated, cmd);
+	return command_deprecated_in_named_ok(cmd, cmd->methodname, param,
+					      depr_start, depr_end);
 }
 
 bool command_deprecated_out_ok(struct command *cmd,

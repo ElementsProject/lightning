@@ -273,6 +273,13 @@ struct json_out *json_out_obj(const tal_t *ctx,
 /* Return this iff the param() call failed in your handler. */
 struct command_result *command_param_failed(void);
 
+/* Helper for sql command, which is a front-end to other commands. */
+bool command_deprecated_in_named_ok(struct command *cmd,
+				    const char *cmdname,
+				    const char *param,
+				    const char *depr_start,
+				    const char *depr_end);
+
 /* Call this on fatal error. */
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
 
