@@ -612,7 +612,7 @@ static const struct plugin_command commands[] = { {
 	"Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. "
 	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). ",
 	json_autocleaninvoice,
-	true, /* deprecated! */
+	"v22.11", "v24.02",
 	}, {
 	"autoclean-status",
 	"utility",
@@ -637,12 +637,14 @@ int main(int argc, char *argv[])
 				  "string",
 				  "Perform cleanup of expired invoices every"
 				  " given seconds, or do not autoclean if 0",
+			          "v22.11", "v24.02",
 				  u64_option, &deprecated_cycle_seconds),
 		    plugin_option_deprecated("autocleaninvoice-expired-by",
 				  "string",
 				  "If expired invoice autoclean enabled,"
 				  " invoices that have expired for at least"
 				  " this given seconds are cleaned",
+			          "v22.11", "v24.02",
 				  u64_option, &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
 		    plugin_option_dynamic("autoclean-cycle",
 					  "int",
