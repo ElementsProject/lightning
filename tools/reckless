@@ -676,6 +676,45 @@ def add_installation_metadata(installed: InstInfo,
         metadata.write(data)
 
 
+def _checkout_commit(orig_src: InstInfo,
+                     cloned_src: InstInfo,
+                     cloned_path: PosixPath):
+    # Check out and verify commit/tag if source was a repository
+    if orig_src.srctype in [Source.LOCAL_REPO, Source.GITHUB_REPO,
+                            Source.OTHER_URL]:
+        if orig_src.commit:
+            logging.debug(f"Checking out {orig_src.commit}")
+            checkout = Popen(['git', 'checkout', orig_src.commit],
+                             cwd=str(cloned_path),
+                             stdout=PIPE, stderr=PIPE)
+            checkout.wait()
+            if checkout.returncode != 0:
+                print('failed to checkout referenced '
+                      f'commit {orig_src.commit}')
+                return None
+        else:
+            logging.debug("using latest commit of default branch")
+
+        # Log the commit we actually used (for installation metadata)
+        git = run(['git', 'rev-parse', 'HEAD'], cwd=str(cloned_path),
+                  stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=60)
+        if git.returncode == 0:
+            head_commit = git.stdout.splitlines()[0]
+            logging.debug(f'checked out HEAD: {head_commit}')
+            cloned_src.commit = head_commit
+        else:
+            logging.debug(f'unable to collect commit: {git.stderr}')
+    else:
+        if orig_src.commit:
+            logging.warning("unable to checkout commit/tag on non-repository "
+                            "source")
+        return cloned_path
+
+    if cloned_src.subdir is not None:
+        return Path(cloned_src.source_loc) / cloned_src.subdir
+    return cloned_path
+
+
 def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     """make sure the repo exists and clone it."""
     logging.debug(f'Install requested from {src}.')
@@ -716,16 +755,11 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     if not cloned_src:
         logging.debug('failed to find plugin after cloning repo.')
         return None
-    if cloned_src.subdir is not None:
-        plugin_path = Path(cloned_src.source_loc) / cloned_src.subdir
-    if cloned_src.commit:
-        logging.debug(f"Checking out commit {cloned_src.commit}")
-        checkout = Popen(['git', 'checkout', cloned_src.commit],
-                         cwd=str(plugin_path), stdout=PIPE, stderr=PIPE)
-        checkout.wait()
-        if checkout.returncode != 0:
-            print(f'failed to checkout referenced commit {cloned_src.commit}')
-            return None
+
+    # If a specific commit or tag was requested, check it out now.
+    plugin_path = _checkout_commit(src, cloned_src, plugin_path)
+    if not plugin_path:
+        return None
 
     # Find a suitable installer
     INSTALLER = None
@@ -808,12 +842,18 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
 def install(plugin_name: str):
     """downloads plugin from source repos, installs and activates plugin"""
     assert isinstance(plugin_name, str)
-    logging.debug(f"Searching for {plugin_name}")
-    src = search(plugin_name)
-    # print('src:', src)
+    # Specify a tag or commit to checkout by adding @<tag> to plugin name
+    if '@' in plugin_name:
+        logging.debug("testing for a commit/tag in plugin name")
+        name, commit = plugin_name.split('@', 1)
+    else:
+        name = plugin_name
+        commit = None
+    logging.debug(f"Searching for {name}")
+    src = search(name)
     if src:
+        src.commit = commit
         logging.debug(f'Retrieving {src.name} from {src.source_loc}')
-        # if not _install_plugin(src):
         installed = _install_plugin(src)
         if not installed:
             print('installation aborted')
