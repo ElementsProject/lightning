@@ -1,0 +1,17 @@
+[project]
+dependencies = ["pyln-client"]
+
+[tool.poetry]
+name = "testplugpyproj"
+version = "0.1.0"
+description = "testing poetry installation of python plugins"
+authors = ["Alex Myers <alex@endothermic.dev>"]
+
+[tool.poetry.dependencies]
+# Build dependencies belong here
+python = "^3.8"
+pyln-client = "^23.11"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

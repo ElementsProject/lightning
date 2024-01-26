@@ -16,5 +16,14 @@
     "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugfail",
     "download_url": null,
     "type": "dir"
+  },
+  {
+    "name": "testplugpyproj",
+    "path": "testplugpyproj",
+    "url": "https://api.github.com/repos/lightningd/plugins/contents/webhook?ref=master",
+    "html_url": "https://github.com/lightningd/plugins/tree/master/testplugpyproj",
+    "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugpyproj",
+    "download_url": null,
+    "type": "dir"
   }
 ]
