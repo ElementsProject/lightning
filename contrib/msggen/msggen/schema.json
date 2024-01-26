@@ -15494,13 +15494,6 @@
         "type": "bool",
         "description": "Don't execute any actions and output a transcript of what would have been done"
       },
-      "json": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        },
-        "description": "A json payload of instructions can be passed instead of script"
-      },
       "psbt": {
         "type": "string",
         "description": "An initial psbt to begin the splice with"
@@ -15508,6 +15501,25 @@
       "user_provided_sats": {
         "type": "sats",
         "description": "The amount of sats being contributed by the initial psbt"
+      },
+      "force_feerate": {
+        "type": "boolean",
+        "description": "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check"
+      },
+      "json": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "A json payload of instructions can be passed instead of script"
+      },
+      "debug_log": {
+        "type": "boolean",
+        "description": "Adds a verbose log of each splice calculation step to the result"
+      },
+      "wetrun": {
+        "type": "boolean",
+        "description": "Executes the splice up until the point signatures would be sent and then aborts"
       }
     }
   },
@@ -15528,11 +15540,23 @@
       },
       "psbt": {
         "type": "string",
-        "description": "The final transaction"
+        "description": "The final psbt"
+      },
+      "tx": {
+        "type": "string",
+        "description": "The final transaction in hex"
       },
       "txid": {
         "type": "string",
         "description": "The txid of the final transaction"
+      },
+      "log": {
+        "type": "array",
+        "description": "A verbose log of each step of splice calcuations",
+        "items": {
+          "type": "string",
+          "description": "A line of detail about splice calcuations"
+        }
       }
     }
   },

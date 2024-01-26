@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "added": "v24.02",
+  "properties": {
+    "script": {
+      "type": "string",
+      "description": "The splice script to execute"
+    },
+    "dryrun": {
+      "type": "bool",
+      "description": "Don't execute any actions and output a transcript of what would have been done"
+    },
+    "psbt": {
+      "type": "string",
+      "description": "An initial psbt to begin the splice with"
+    },
+    "user_provided_sats": {
+      "type": "sats",
+      "description": "The amount of sats being contributed by the initial psbt"
+    },
+    "force_feerate": {
+      "type": "boolean",
+      "description": "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check"
+    },
+    "json": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "A json payload of instructions can be passed instead of script"
+    },
+    "debug_log": {
+      "type": "boolean",
+      "description": "Adds a verbose log of each splice calculation step to the result"
+    },
+    "wetrun": {
+      "type": "boolean",
+      "description": "Executes the splice up until the point signatures would be sent and then aborts"
+    }
+  }
+}
