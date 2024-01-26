@@ -648,6 +648,12 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
     return True
 
 
+def get_temp_reckless_dir() -> PosixPath:
+    random_dir = 'reckless-{}'.format(str(hash(os.times()))[-9:])
+    new_path = Path(tempfile.gettempdir()) / random_dir
+    return new_path
+
+
 def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     """make sure the repo exists and clone it."""
     logging.debug(f'Install requested from {src}.')
@@ -656,8 +662,15 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         sys.exit(2)
 
     # Use a unique directory for each cloned repo.
-    clone_path = 'reckless-{}'.format(str(hash(os.times()))[-9:])
-    clone_path = Path(tempfile.gettempdir()) / clone_path
+    tmp_path = get_temp_reckless_dir()
+    if not create_dir(tmp_path):
+        logging.debug(f'failed to create {tmp_path}')
+        return None
+    clone_path = tmp_path / 'clone'
+    if not create_dir(tmp_path):
+        logging.debug(f'failed to create {clone_path}')
+        return None
+    # we rename the original repo here.
     plugin_path = clone_path / src.name
     inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name
     if Path(clone_path).exists():
@@ -709,15 +722,30 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     if not cloned_src.entry:
         # The plugin entrypoint may not be discernable prior to cloning.
         # Need to search the newly cloned directory, not the original
-        cloned_src.src_loc = plugin_path
+        cloned_src.source_loc = plugin_path
+
+    # Relocate plugin to a staging directory prior to testing
+    staging_path = tmp_path / src.name / 'source'
+    shutil.copytree(str(plugin_path), staging_path)
+    staged_src = cloned_src
+    # Because the source files are copied to a 'source' directory, the
+    # get_inst_details function no longer works. (dir must match plugin name)
+    # Set these manually instead.
+    staged_src.source_loc = str(staging_path.parent)
+    staged_src.srctype = Source.DIRECTORY
+    staged_src.subdir = None
+    # Create symlink in staging tree to redirect to the plugins entrypoint
+    Path(staging_path.parent / cloned_src.entry).\
+        symlink_to(staging_path / cloned_src.entry)
+
     # try it out
     if INSTALLER.dependency_call:
         for call in INSTALLER.dependency_call:
             logging.debug(f"Install: invoking '{' '.join(call)}'")
             if logging.root.level < logging.WARNING:
-                pip = Popen(call, cwd=plugin_path, text=True)
+                pip = Popen(call, cwd=staging_path, text=True)
             else:
-                pip = Popen(call, cwd=plugin_path, stdout=PIPE, stderr=PIPE,
+                pip = Popen(call, cwd=staging_path, stdout=PIPE, stderr=PIPE,
                             text=True)
             pip.wait()
             # FIXME: handle output of multiple calls
@@ -731,8 +759,8 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
             return None
     test_log = []
     try:
-        test = run([Path(plugin_path).joinpath(cloned_src.entry)],
-                   cwd=str(plugin_path), stdout=PIPE, stderr=PIPE,
+        test = run([Path(staging_path).joinpath(cloned_src.entry)],
+                   cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
                    text=True, timeout=3)
         for line in test.stderr:
             test_log.append(line.strip('\n'))
@@ -748,10 +776,10 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         return None
 
     # Find this cute little plugin a forever home
-    shutil.copytree(str(plugin_path), inst_path)
+    shutil.copytree(str(staging_path), inst_path)
     print(f'plugin installed: {inst_path}')
     remove_dir(clone_path)
-    return cloned_src
+    return staged_src
 
 
 def install(plugin_name: str):
