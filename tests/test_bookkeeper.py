@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
-from db import Sqlite3Db
+from pyln.testing.db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
