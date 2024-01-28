@@ -756,7 +756,8 @@ class LightningRpc(UnixDomainSocketRpc):
                     minconf=None, utxos=None, push_msat=None, close_to=None,
                     request_amt=None, compact_lease=None,
                     mindepth: Optional[int] = None,
-                    reserve: Optional[str] = None):
+                    reserve: Optional[str] = None,
+                    channel_type=None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -783,6 +784,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "compact_lease": compact_lease,
             "mindepth": mindepth,
             "reserve": reserve,
+            "channel_type": channel_type,
         }
         return self.call("fundchannel", payload)
 

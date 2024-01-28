@@ -4,7 +4,7 @@ lightning-multifundchannel -- Command for establishing many lightning channels
 SYNOPSIS
 --------
 
-**multifundchannel** *destinations* [*feerate*] [*minconf*] [*utxos*] [*minchannels*] [*commitment\_feerate*]
+**multifundchannel** *destinations* [*feerate*] [*minconf*] [*utxos*] [*minchannels*] [*commitment\_feerate*] [*channel\_type*]
 
 DESCRIPTION
 -----------
@@ -83,6 +83,25 @@ the funding process.
 
 *commitment\_feerate* is the initial feerate for commitment and HTLC
 transactions. See *feerate* for valid values.
+
+*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
+channel type to request.  BOLT 2 defines the following value types:
+
+```
+*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
+channel type to request.  BOLT 2 defines the following value types:
+
+```
+The currently defined basic types are:
+  - no features (no bits set) `[]`
+  - `option_static_remotekey` (`[12]`)
+  - `option_anchor_outputs` and `option_static_remotekey` (`[20, 12]`)
+  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` ([22, 12])
+
+Each basic type has the following variations allowed:
+  - `option_scid_alias` ([46])
+  - `option_zeroconf` ([50])
+```
 
 RETURN VALUE
 ------------

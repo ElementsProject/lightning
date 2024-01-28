@@ -154,6 +154,9 @@ struct multifundchannel_destination {
 
 	/* Number of blocks to wait before sending `channel_ready`. */
 	u32 *mindepth;
+
+	/* Channel type to ask for (NULL if default OK) */
+	struct channel_type *channel_type;
 };
 
 

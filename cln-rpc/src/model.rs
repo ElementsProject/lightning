@@ -1661,6 +1661,8 @@ pub mod requests {
 	    pub mindepth: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<Amount>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub channel_type: Option<Vec<u32>>,
 	}
 
 	impl From<FundchannelRequest> for Request {
