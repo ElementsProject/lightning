@@ -2,6 +2,7 @@
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
+#include <common/json_channel_type.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
 #include <common/psbt_open.h>
@@ -1053,6 +1054,10 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 				lease_rates_tohex(tmpctx, dest->rates));
 	}
 
+	if (dest->channel_type) {
+		json_add_channel_type_arr(req->js,
+					  "channel_type", dest->channel_type);
+	}
 	return send_outreq(cmd->plugin, req);
 }
 

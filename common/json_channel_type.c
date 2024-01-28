@@ -3,6 +3,7 @@
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
+#include <common/json_stream.h>
 
 struct command_result *param_channel_type(struct command *cmd,
 					  const char *name,
@@ -29,4 +30,16 @@ struct command_result *param_channel_type(struct command *cmd,
 
 	*ctype = channel_type_from(cmd, take(features));
 	return NULL;
+}
+
+void json_add_channel_type_arr(struct json_stream *response,
+			       const char *fieldname,
+			       const struct channel_type *ctype)
+{
+	json_array_start(response, fieldname);
+	for (size_t i = 0; i < tal_bytelen(ctype->features)*8; i++) {
+		if (feature_is_set(ctype->features, i))
+			json_add_u32(response, NULL, i);
+	}
+	json_array_end(response);
 }

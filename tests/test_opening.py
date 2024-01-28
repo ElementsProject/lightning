@@ -2585,7 +2585,7 @@ def test_fundchannel_utxo_too_small(bitcoind, node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-def test_opening_explicit_channel_type(node_factory):
+def test_opening_explicit_channel_type(node_factory, bitcoind):
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
     l1, l2, l3, l4 = node_factory.get_nodes(4,
                                             opts=[{'experimental-dual-fund': None,
@@ -2635,3 +2635,16 @@ def test_opening_explicit_channel_type(node_factory):
 
     with pytest.raises(RpcError, match=r'channel_type not supported'):
         l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
+
+    l1.rpc.unreserveinputs(psbt)
+
+    # Works with fundchannel / multifundchannel
+    l1.rpc.fundchannel(l2.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
+    # FIXME: Check type is actually correct!
+
+    # Mine that so we can spend change.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    # FIXME: Check type is actually correct!
+    l1.rpc.fundchannel(l3.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])

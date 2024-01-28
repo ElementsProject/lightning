@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "destinations"
+  ],
+  "properties": {
+    "destinations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "amount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "msat_or_all"
+          },
+          "announce": {
+            "type": "boolean"
+          },
+          "push_msat": {
+            "type": "msat"
+          },
+          "close_to": {
+            "type": "string"
+          },
+          "request_amt": {
+            "type": "msat"
+          },
+          "compact_lease": {
+            "type": "string"
+          },
+          "mindepth": {
+            "description": "Number of confirmations required before we consider the channel active",
+            "type": "u32"
+          },
+          "reserve": {
+            "type": "msat",
+            "description": "The amount we want the peer to maintain on its side"
+          },
+          "channel_type": {
+            "type": "array",
+            "items": {
+              "type": "u32"
+            }
+          }
+        }
+      }
+    },
+    "feerate": {
+      "type": "feerate"
+    },
+    "minconf": {
+      "type": "u32"
+    },
+    "utxos": {
+      "type": "array",
+      "items": {
+        "type": "outpoint"
+      }
+    },
+    "minchannels": {
+      "type": "u32"
+    },
+    "commitment_feerate": {
+      "type": "feerate"
+    }
+  }
+}

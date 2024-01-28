@@ -48,6 +48,13 @@
     "reserve": {
       "type": "msat",
       "description": "The amount we want the peer to maintain on its side"
+    },
+    "channel_type": {
+      "added": "v24.02",
+      "type": "array",
+      "items": {
+        "type": "u32"
+      }
     }
   }
 }

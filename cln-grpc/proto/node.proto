@@ -1635,6 +1635,7 @@ message FundchannelRequest {
 	repeated Outpoint utxos = 11;
 	optional uint32 mindepth = 12;
 	optional Amount reserve = 13;
+	repeated uint32 channel_type = 14;
 }
 
 message FundchannelResponse {

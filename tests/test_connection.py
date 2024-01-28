@@ -2152,6 +2152,7 @@ def test_multifunding_param_failures(node_factory):
         l1.rpc.multifundchannel([])
 
     # Required destination fields missing.
+    l1.rpc.check_request_schemas = False
     destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
                      "amount": 50000},
                     {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port)}]

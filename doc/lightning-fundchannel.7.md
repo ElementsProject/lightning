@@ -6,7 +6,7 @@ SYNOPSIS
 
 **fundchannel** *id* *amount* [*feerate*] [*announce*] [*minconf*]
 [*utxos*] [*push\_msat*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
-[*reserve*]
+[*reserve*] [*channel\_type*]
 
 DESCRIPTION
 -----------
@@ -72,7 +72,25 @@ Default is 1% of the funding amount. It can be a whole number, a whole number
 ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8
 decimal places ending in *btc*.
 
+*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
+channel type to request.  There is currently no sanity checking on
+this value so if you use strange values and your channel breaks, you
+get to keep both pieces.  BOLT 2 defines the following value types:
 
+```
+The currently defined basic types are:
+  - no features (no bits set)
+  - `option_static_remotekey` (bit 12)
+  - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12)
+  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12)
+
+Each basic type has the following variations allowed:
+  - `option_scid_alias` (bit 46)
+  - `option_zeroconf` (bit 50)
+```
+
+EXAMPLE
+-------
 
 This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0
 (you can use **listfunds** command to get txid and vout):

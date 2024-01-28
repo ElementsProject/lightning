@@ -4,6 +4,8 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
+#include <common/channel_type.h>
+#include <common/json_channel_type.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -1142,6 +1144,11 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	if (dest->mindepth)
 		json_add_u32(req->js, "mindepth", *dest->mindepth);
 
+	if (dest->channel_type) {
+		json_add_channel_type_arr(req->js,
+					  "channel_type", dest->channel_type);
+	}
+
 	if (dest->reserve)
 		json_add_string(
 		    req->js, "reserve",
@@ -1861,6 +1868,7 @@ param_destinations_array(struct command *cmd, const char *name,
 			   p_opt("compact_lease", param_lease_hex, &rates),
 			   p_opt("mindepth", param_u32, &dest->mindepth),
 			   p_opt("reserve", param_sat, &dest->reserve),
+			   p_opt("channel_type", param_channel_type, &dest->channel_type),
 			   NULL))
 			return command_param_failed();
 

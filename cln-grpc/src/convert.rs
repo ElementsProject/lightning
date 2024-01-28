@@ -2387,6 +2387,8 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             mindepth: c.mindepth, // Rule #2 for type u32?
             reserve: c.reserve.map(|f| f.into()), // Rule #2 for type msat?
+            // Field: FundChannel.channel_type[]
+            channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
     }
 }
@@ -3126,6 +3128,7 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
             mindepth: c.mindepth, // Rule #1 for type u32?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
+            channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
         }
     }
 }
