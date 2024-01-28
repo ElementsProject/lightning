@@ -32,6 +32,22 @@ struct command_result *param_channel_type(struct command *cmd,
 	return NULL;
 }
 
+void json_add_channel_type(struct json_stream *response,
+			   const char *fieldname,
+			   const struct channel_type *channel_type)
+{
+	const char **fnames;
+
+	json_object_start(response, fieldname);
+	json_add_channel_type_arr(response, "bits", channel_type);
+
+	json_array_start(response, "names");
+	fnames = channel_type_name(tmpctx, channel_type);
+	for (size_t i = 0; i < tal_count(fnames); i++)
+		json_add_string(response, NULL, fnames[i]);
+	json_array_end(response);
+	json_object_end(response);
+}
 void json_add_channel_type_arr(struct json_stream *response,
 			       const char *fieldname,
 			       const struct channel_type *ctype)

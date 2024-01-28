@@ -24,6 +24,7 @@ struct bip340sig;
 struct secret;
 struct node_id;
 struct channel_id;
+struct channel_type;
 struct bitcoin_txid;
 struct bitcoin_outpoint;
 struct short_channel_id;

@@ -110,9 +110,6 @@ const char *channel_state_str(enum channel_state state UNNEEDED)
 /* Generated stub for channel_type_has */
 bool channel_type_has(const struct channel_type *type UNNEEDED, int feature UNNEEDED)
 { fprintf(stderr, "channel_type_has called!\n"); abort(); }
-/* Generated stub for channel_type_name */
-const char **channel_type_name(const tal_t *ctx UNNEEDED, const struct channel_type *t UNNEEDED)
-{ fprintf(stderr, "channel_type_name called!\n"); abort(); }
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
@@ -480,6 +477,11 @@ void json_add_bolt11(struct json_stream *response UNNEEDED,
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
+/* Generated stub for json_add_channel_type */
+void json_add_channel_type(struct json_stream *response UNNEEDED,
+			   const char *fieldname UNNEEDED,
+			   const struct channel_type *channel_type UNNEEDED)
+{ fprintf(stderr, "json_add_channel_type called!\n"); abort(); }
 /* Generated stub for json_add_escaped_string */
 void json_add_escaped_string(struct json_stream *result UNNEEDED,
 			     const char *fieldname UNNEEDED,

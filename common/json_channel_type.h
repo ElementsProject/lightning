@@ -19,4 +19,10 @@ struct command_result *param_channel_type(struct command *cmd,
 void json_add_channel_type_arr(struct json_stream *response,
 			       const char *fieldname,
 			       const struct channel_type *ctype);
+
+
+/* Add channel_type object, with array and names */
+void json_add_channel_type(struct json_stream *response,
+			   const char *fieldname,
+			   const struct channel_type *channel_type);
 #endif /* LIGHTNING_COMMON_JSON_CHANNEL_TYPE_H */
