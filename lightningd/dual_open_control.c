@@ -9,6 +9,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
+#include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/psbt_open.h>
@@ -3031,6 +3032,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct open_attempt *oa;
 	struct lease_rates *rates;
 	struct command_result *res;
+	struct channel_type *ctype;
 	int fds[2];
 
 	if (!param_check(cmd, buffer, params,
@@ -3043,6 +3045,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 			 p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
 			 p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
 			 p_opt("compact_lease", param_lease_hex, &rates),
+			 p_opt("channel_type", param_channel_type, &ctype),
 			 NULL))
 		return command_param_failed();
 
@@ -3101,6 +3104,14 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		return command_fail(cmd, FUNDING_V2_NOT_SUPPORTED,
 				    "v2 openchannel not supported "
 				    "by peer");
+	}
+
+	if (ctype &&
+	    !channel_type_accept(tmpctx,
+				 ctype->features,
+				 cmd->ld->our_features)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "channel_type not supported");
 	}
 
 	/* BOLT #2:
@@ -3194,6 +3205,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 						NULL : request_amt,
 					   get_block_height(cmd->ld->topology),
 					   false,
+					   ctype,
 					   rates);
 
 	/* Start dualopend! */
@@ -3765,7 +3777,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 						NULL : request_amt,
 					   get_block_height(cmd->ld->topology),
 					   true,
-					   NULL);
+					   NULL, NULL);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,

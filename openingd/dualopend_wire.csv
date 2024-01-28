@@ -202,6 +202,7 @@ msgdata,dualopend_opener_init,channel_flags,u8,
 msgdata,dualopend_opener_init,requested_sats,?amount_sat,
 msgdata,dualopend_opener_init,blockheight,u32,
 msgdata,dualopend_opener_init,dry_run,bool,
+msgdata,dualopend_opener_init,channel_type,?channel_type,
 # must go last because embedded tu32
 msgdata,dualopend_opener_init,expected_rates,?lease_rates,
 

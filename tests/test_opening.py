@@ -4,6 +4,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
 )
+from pyln.testing.utils import FUNDAMOUNT
 
 from pathlib import Path
 from pprint import pprint
@@ -2581,3 +2582,56 @@ def test_fundchannel_utxo_too_small(bitcoind, node_factory):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'Could not afford 100000sat using all 0 available UTXOs'):
         l1.rpc.fundchannel(l2.info['id'], 100000, 10000)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_opening_explicit_channel_type(node_factory):
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    l1, l2, l3, l4 = node_factory.get_nodes(4,
+                                            opts=[{'experimental-dual-fund': None,
+                                                   'experimental-anchors': None},
+                                                  {'experimental-anchors': None,
+                                                   'plugin': str(plugin_path),
+                                                   'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
+                                                  {'experimental-dual-fund': None,
+                                                   'experimental-anchors': None},
+                                                  {'experimental-anchors': None}])
+
+    l1.fundwallet(FUNDAMOUNT)
+    l1.connect(l2)
+    l1.connect(l3)
+    l1.connect(l4)
+
+    STATIC_REMOTEKEY = 12
+    ANCHORS_OLD = 20
+    ANCHORS_ZERO_FEE_HTLC_TX = 22
+    ZEROCONF = 50
+
+    for zeroconf in ([], [ZEROCONF]):
+        for ctype in ([],
+                      [STATIC_REMOTEKEY],
+                      [ANCHORS_ZERO_FEE_HTLC_TX, STATIC_REMOTEKEY]):
+            l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
+                                     channel_type=ctype + zeroconf)
+            l1.rpc.fundchannel_cancel(l2.info['id'])
+            # FIXME: Check type is actually correct!
+
+    # Zeroconf is refused to l4.
+    for ctype in ([],
+                  [STATIC_REMOTEKEY],
+                  [ANCHORS_ZERO_FEE_HTLC_TX, STATIC_REMOTEKEY]):
+        with pytest.raises(RpcError, match=r'not on our allowlist'):
+            l1.rpc.fundchannel_start(l4.info['id'], FUNDAMOUNT,
+                                     channel_type=ctype + [ZEROCONF])
+
+    psbt = l1.rpc.fundpsbt(FUNDAMOUNT - 1000, '253perkw', 250, reserve=0)['psbt']
+    for ctype in ([], [12], [22, 12]):
+        cid = l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=ctype)['channel_id']
+        l1.rpc.openchannel_abort(cid)
+
+    # Old anchors not supported for new channels
+    with pytest.raises(RpcError, match=r'channel_type not supported'):
+        l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
+
+    with pytest.raises(RpcError, match=r'channel_type not supported'):
+        l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])

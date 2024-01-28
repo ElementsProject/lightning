@@ -2952,6 +2952,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct amount_sat *requested_lease;
 	size_t locktime;
 	u32 nonanchor_feerate, anchor_feerate;
+	struct channel_type *ctype;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
 					    &tx_state->psbt,
@@ -2965,6 +2966,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &requested_lease,
 					    &tx_state->blockheight,
 					    &dry_run,
+					    &ctype,
 					    &expected_rates))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
@@ -2981,9 +2983,13 @@ static void opener_start(struct state *state, u8 *msg)
 	 *     - SHOULD NOT set it to a type containing a feature which was not
 	 *       negotiated.
 	 */
-	state->channel_type = default_channel_type(state,
+	if (ctype) {
+		state->channel_type = ctype;
+	} else {
+		state->channel_type = default_channel_type(state,
 						   state->our_features,
 						   state->their_features);
+	}
 	open_tlv->channel_type = state->channel_type->features;
 
 	/* Given channel type, which feerate do we use? */

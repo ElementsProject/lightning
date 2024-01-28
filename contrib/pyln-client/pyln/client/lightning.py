@@ -787,7 +787,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("fundchannel", payload)
 
     def fundchannel_start(self, node_id, amount, feerate=None, announce=True,
-                          close_to=None, mindepth: Optional[int] = None):
+                          close_to=None, mindepth: Optional[int] = None, channel_type=None):
         """
         Start channel funding with {id} for {amount} satoshis
         with feerate of {feerate} (uses default feerate if unset).
@@ -804,6 +804,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "announce": announce,
             "close_to": close_to,
             "mindepth": mindepth,
+            "channel_type": channel_type,
         }
         return self.call("fundchannel_start", payload)
 
@@ -1104,7 +1105,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
-    def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, *args, **kwargs):
+    def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, channel_type=None):
         """Initiate an openchannel with a peer """
         payload = {
             "id": node_id,
@@ -1115,6 +1116,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "announce": announce,
             "close_to": close_to,
             "request_amt": request_amt,
+            "channel_type": channel_type,
         }
         return self.call("openchannel_init", payload)
 
