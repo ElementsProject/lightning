@@ -103,6 +103,8 @@ struct state {
 	struct amount_sat *reserve;
 
 	bool allowdustreserve;
+
+	bool dev_accept_any_channel_type;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -965,11 +967,18 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		state->channel_type = channel_type_accept(
 		    state, open_tlvs->channel_type, state->our_features);
 		if (!state->channel_type) {
-			negotiation_failed(state,
-					   "Did not support channel_type %s",
-					   fmt_featurebits(tmpctx,
-							   open_tlvs->channel_type));
-			return NULL;
+			if (state->dev_accept_any_channel_type) {
+				status_unusual("dev-any-channel-type: accepting %s",
+					       fmt_featurebits(tmpctx,
+							       open_tlvs->channel_type));
+				state->channel_type = channel_type_from(state, open_tlvs->channel_type);
+			} else {
+				negotiation_failed(state,
+						   "Did not support channel_type %s",
+						   fmt_featurebits(tmpctx,
+								   open_tlvs->channel_type));
+				return NULL;
+			}
 		}
 	} else {
 		open_channel_had_channel_type = false;
@@ -1548,7 +1557,8 @@ int main(int argc, char *argv[])
 				    &state->minimum_depth,
 				    &state->min_feerate, &state->max_feerate,
 				    &state->dev_force_tmp_channel_id,
-				    &state->allowdustreserve))
+				    &state->allowdustreserve,
+				    &state->dev_accept_any_channel_type))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 	/* 3 == peer, 4 = hsmd */

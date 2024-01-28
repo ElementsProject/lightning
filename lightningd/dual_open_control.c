@@ -3107,6 +3107,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	}
 
 	if (ctype &&
+	    !cmd->ld->dev_any_channel_type &&
 	    !channel_type_accept(tmpctx,
 				 ctype->features,
 				 cmd->ld->our_features)) {
@@ -4042,7 +4043,8 @@ bool peer_start_dualopend(struct peer *peer,
 				    &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth,
-				    peer->ld->config.require_confirmed_inputs);
+				    peer->ld->config.require_confirmed_inputs,
+				    peer->ld->dev_any_channel_type);
 	subd_send_msg(channel->owner, take(msg));
 	return true;
 }

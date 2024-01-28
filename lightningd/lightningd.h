@@ -337,6 +337,9 @@ struct lightningd {
 	/* Tell channeld not to worry about pings. */
 	bool dev_no_ping_timer;
 
+	/* Tell openingd/dualopend to accept all, allow sending any. */
+	bool dev_any_channel_type;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;

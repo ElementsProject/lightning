@@ -226,6 +226,8 @@ struct state {
 
 	/* Does this negotation require confirmed inputs? */
 	bool require_confirmed_inputs[NUM_SIDES];
+
+	bool dev_accept_any_channel_type;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -2424,11 +2426,18 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					    open_tlv->channel_type,
 					    state->our_features);
 		if (!state->channel_type) {
-			negotiation_failed(state,
-					   "Did not support channel_type %s",
-					   fmt_featurebits(tmpctx,
-							   open_tlv->channel_type));
-			return;
+			if (state->dev_accept_any_channel_type) {
+				status_unusual("dev-any-channel-type: accepting %s",
+					       fmt_featurebits(tmpctx,
+							       open_tlv->channel_type));
+				state->channel_type = channel_type_from(state, open_tlv->channel_type);
+			} else {
+				negotiation_failed(state,
+						   "Did not support channel_type %s",
+						   fmt_featurebits(tmpctx,
+								   open_tlv->channel_type));
+				return;
+			}
 		}
 	} else
 		state->channel_type
@@ -4372,7 +4381,8 @@ int main(int argc, char *argv[])
 				    &state->our_points,
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth,
-				    &state->require_confirmed_inputs[LOCAL])) {
+				    &state->require_confirmed_inputs[LOCAL],
+				    &state->dev_accept_any_channel_type)) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));

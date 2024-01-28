@@ -903,6 +903,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->config.allowdustreserve,
 		       "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
+	clnopt_noarg("--dev-any-channel-type", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_any_channel_type,
+		     "Allow sending any channel type, and accept any");
 }
 
 static const struct config testnet_config = {
