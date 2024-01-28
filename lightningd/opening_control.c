@@ -8,6 +8,7 @@
 #include <common/blockheight_states.h>
 #include <common/configdir.h>
 #include <common/fee_states.h>
+#include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/memleak.h>
@@ -1148,6 +1149,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct amount_msat *push_msat;
 	u32 *upfront_shutdown_script_wallet_index;
 	struct channel_id tmp_channel_id;
+	struct channel_type *ctype;
 
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
@@ -1164,8 +1166,17 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			 p_opt("push_msat", param_msat, &push_msat),
 			 p_opt_def("mindepth", param_u32, &mindepth, cmd->ld->config.anchor_confirms),
 			 p_opt("reserve", param_sat, &reserve),
+			 p_opt("channel_type", param_channel_type, &ctype),
 			 NULL))
 		return command_param_failed();
+
+	if (ctype &&
+	    !channel_type_accept(tmpctx,
+				 ctype->features,
+				 cmd->ld->our_features)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "channel_type not supported");
+	}
 
 	if (push_msat && amount_msat_greater_sat(*push_msat, *amount))
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
@@ -1307,7 +1318,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			unilateral_feerate(cmd->ld->topology, true),
 			&tmp_channel_id,
 			fc->channel_flags,
-			fc->uc->reserve);
+			fc->uc->reserve,
+			ctype);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,

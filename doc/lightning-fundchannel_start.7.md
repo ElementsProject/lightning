@@ -4,7 +4,7 @@ lightning-fundchannel\_start -- Command for initiating channel establishment for
 SYNOPSIS
 --------
 
-**fundchannel\_start** *id* *amount* [*feerate* *announce* *close\_to* *push\_msat*]
+**fundchannel\_start** *id* *amount* [*feerate*] [*announce*] [*close\_to*] [*push\_msat*] [*channel\_type*]
 
 DESCRIPTION
 -----------
@@ -33,6 +33,21 @@ Returns `close_to` set to closing script iff is negotiated.
 open. Note that this is a gift to the peer -- these satoshis are
 added to the initial balance of the peer at channel start and are largely
 unrecoverable once pushed.
+
+*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
+channel type to request.  BOLT 2 defines the following value types:
+
+```
+The currently defined basic types are:
+  - no features (no bits set) `[]`
+  - `option_static_remotekey` (`[12]`)
+  - `option_anchor_outputs` and `option_static_remotekey` (`[20, 12]`)
+  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` ([22, 12])
+
+Each basic type has the following variations allowed:
+  - `option_scid_alias` ([46])
+  - `option_zeroconf` ([50])
+```
 
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed by running

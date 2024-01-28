@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "amount"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey"
+    },
+    "amount": {
+      "type": "msat"
+    },
+    "feerate": {
+      "type": "feerate"
+    },
+    "announce": {
+      "type": "boolean"
+    },
+    "close_to": {
+      "type": "hex"
+    },
+    "push_msat": {
+      "type": "msat"
+    },
+    "mindepth": {
+      "type": "u32"
+    },
+    "reserve": {
+      "type": "msat"
+    },
+    "channel_type": {
+      "type": "array",
+      "description": "Each bit set in this channel_type",
+      "items": {
+        "type": "u32",
+        "description": "Bit number"
+      }
+    }
+  }
+}

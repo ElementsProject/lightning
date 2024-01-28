@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "amount",
+    "initialpsbt"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey"
+    },
+    "amount": {
+      "type": "msat"
+    },
+    "initialpsbt": {
+      "type": "string"
+    },
+    "commitment_feerate": {
+      "type": "feerate"
+    },
+    "funding_feerate": {
+      "type": "feerate"
+    },
+    "announce": {
+      "type": "boolean"
+    },
+    "close_to": {
+      "type": "hex"
+    },
+    "request_amt": {
+      "type": "msat"
+    },
+    "compact_lease": {
+      "type": "hex"
+    },
+    "channel_type": {
+      "type": "array",
+      "description": "Each bit set in this channel_type",
+      "items": {
+        "type": "u32",
+        "description": "Bit number"
+      }
+    }
+  }
+}

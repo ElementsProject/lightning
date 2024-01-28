@@ -4,7 +4,7 @@ lightning-openchannel\_init -- Command to initiate a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel\_init** *id* *amount* *initalpsbt* [*commitment\_feerate*] [*funding\_feerate*] [*announce*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
+**openchannel\_init** *id* *amount* *initalpsbt* [*commitment\_feerate*] [*funding\_feerate*] [*announce*] [*close\_to*] [*request\_amt*] [*compact\_lease*] [*channel\_type*]
 
 DESCRIPTION
 -----------
@@ -47,6 +47,19 @@ much liquidity into the channel. Must also pass in *compact\_lease*.
 channel lease terms. If the peer's terms don't match this set, we will
 fail to open the channel.
 
+*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
+channel type to request.  BOLT 2 defines the following value types:
+
+The currently defined basic types are:
+  - no features (no bits set) `[]`
+  - `option_static_remotekey` (`[12]`)
+  - `option_anchor_outputs` and `option_static_remotekey` (`[20, 12]`)
+  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` ([22, 12])
+
+Each basic type has the following variations allowed:
+  - `option_scid_alias` ([46])
+  - `option_zeroconf` ([50])
+```
 
 RETURN VALUE
 ------------
