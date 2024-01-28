@@ -3133,14 +3133,14 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,
 				    "Failed to create socketpair: %s",
 				    strerror(errno));
 	}
-
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
 
 	/* Now we can't fail, create channel */
 	channel = new_unsaved_channel(peer,
