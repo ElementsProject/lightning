@@ -36,7 +36,7 @@ def hex_bits(features):
 
 def expected_peer_features(extra=[]):
     """Return the expected peer features hexstring for this configuration"""
-    features = [0, 5, 7, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51]
+    features = [0, 5, 6, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
@@ -50,7 +50,7 @@ def expected_peer_features(extra=[]):
 # features for the 'node' and the 'peer' feature sets
 def expected_node_features(extra=[]):
     """Return the expected node features hexstring for this configuration"""
-    features = [0, 5, 7, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51, 55]
+    features = [0, 5, 6, 8, 11, 13, 14, 17, 19, 25, 27, 45, 47, 51, 55]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
