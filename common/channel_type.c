@@ -141,8 +141,7 @@ struct channel_type *channel_type_from(const tal_t *ctx,
 
 struct channel_type *channel_type_accept(const tal_t *ctx,
 					 const u8 *t,
-					 const struct feature_set *our_features,
-					 const u8 *their_features)
+					 const struct feature_set *our_features)
 {
 	struct channel_type *ctype, proposed;
 	/* Need to copy since we're going to blank variant bits for equality. */
