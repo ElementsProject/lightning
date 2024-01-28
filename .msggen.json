@@ -736,9 +736,14 @@
             "FetchInvoice.invoice": 1,
             "FetchInvoice.next_period": 3
         },
+        "FundchannelChannel_type": {
+            "FundChannel.channel_type.bits[]": 1,
+            "FundChannel.channel_type.names[]": 2
+        },
         "FundchannelRequest": {
             "FundChannel.amount": 1,
             "FundChannel.announce": 3,
+            "FundChannel.channel_type[]": 14,
             "FundChannel.close_to": 6,
             "FundChannel.compact_lease": 8,
             "FundChannel.feerate": 2,
@@ -753,6 +758,7 @@
         },
         "FundchannelResponse": {
             "FundChannel.channel_id": 4,
+            "FundChannel.channel_type": 7,
             "FundChannel.close_to": 5,
             "FundChannel.mindepth": 6,
             "FundChannel.outnum": 3,
@@ -3024,6 +3030,22 @@
         },
         "FundChannel.channel_id": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FundChannel.channel_type": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannel.channel_type.bits[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannel.channel_type.names[]": {
+            "added": "v24.02",
+            "deprecated": false
+        },
+        "FundChannel.channel_type[]": {
+            "added": "v24.02",
             "deprecated": false
         },
         "FundChannel.close_to": {
