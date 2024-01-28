@@ -2608,8 +2608,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     ZEROCONF = 50
 
     for zeroconf in ([], [ZEROCONF]):
-        for ctype in ([],
-                      [STATIC_REMOTEKEY],
+        for ctype in ([STATIC_REMOTEKEY],
                       [ANCHORS_ZERO_FEE_HTLC_TX, STATIC_REMOTEKEY]):
             l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
                                      channel_type=ctype + zeroconf)
@@ -2617,15 +2616,14 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
             # FIXME: Check type is actually correct!
 
     # Zeroconf is refused to l4.
-    for ctype in ([],
-                  [STATIC_REMOTEKEY],
+    for ctype in ([STATIC_REMOTEKEY],
                   [ANCHORS_ZERO_FEE_HTLC_TX, STATIC_REMOTEKEY]):
         with pytest.raises(RpcError, match=r'not on our allowlist'):
             l1.rpc.fundchannel_start(l4.info['id'], FUNDAMOUNT,
                                      channel_type=ctype + [ZEROCONF])
 
     psbt = l1.rpc.fundpsbt(FUNDAMOUNT - 1000, '253perkw', 250, reserve=0)['psbt']
-    for ctype in ([], [12], [22, 12]):
+    for ctype in ([12], [22, 12]):
         cid = l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=ctype)['channel_id']
         l1.rpc.openchannel_abort(cid)
 
@@ -2636,6 +2634,13 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'channel_type not supported'):
         l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
 
+    # We need static_remotekey now, too
+    with pytest.raises(RpcError, match=r'channel_type not supported'):
+        l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[])
+
+    with pytest.raises(RpcError, match=r'channel_type not supported'):
+        l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=[])
+
     # l1 will try, with dev-any-channel-type, l2 will reject.
     l1.stop()
     l1.daemon.opts['dev-any-channel-type'] = None
@@ -2644,7 +2649,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
 
     with pytest.raises(RpcError, match=r'They sent ERROR .*: You gave bad parameters: Did not support channel_type 12,20'):
         l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
-    
+
     # Now make l2 accept it!
     l2.stop()
     l2.daemon.opts['dev-any-channel-type'] = None

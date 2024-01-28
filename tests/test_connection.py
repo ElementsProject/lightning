@@ -3578,15 +3578,19 @@ def test_channel_features(node_factory, bitcoind, anchors):
 
 def test_nonstatic_channel(node_factory, bitcoind):
     """Smoke test for a channel without option_static_remotekey"""
-    l1, l2 = node_factory.line_graph(2,
-                                     opts=[{},
-                                           # needs at least 1, 7 and 15 to connect
-                                           # (and 9 is a dependent)
-                                           {'dev-force-features': '1,7,9,15////////'}])
+    l1, l2 = node_factory.get_nodes(2,
+                                    # This forces us to allow send/recv of non-static-remotekey!
+                                    opts={'dev-any-channel-type': None})
+    l1.fundwallet(2000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' not in chan['features']
     assert 'option_anchor' not in chan['features']
     assert 'option_anchors_zero_fee_htlc_tx' not in chan['features']
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     l1.pay(l2, 1000)
     l1.rpc.close(l2.info['id'])
@@ -3693,12 +3697,20 @@ def test_openchannel_init_alternate(node_factory, executor):
 
 def test_upgrade_statickey(node_factory, executor):
     """l1 doesn't have option_static_remotekey, l2 offers it."""
-    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-force-features': ["-13"],
-                                               'experimental-upgrade-protocol': None},
-                                              {'may_reconnect': True,
-                                               'experimental-upgrade-protocol': None}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'experimental-upgrade-protocol': None,
+                                              # This forces us to allow sending non-static-remotekey!
+                                              'dev-any-channel-type': None},
+                                             {'may_reconnect': True,
+                                              # This forces us to accept non-static-remotekey!
+                                              'dev-any-channel-type': None,
+                                              'experimental-upgrade-protocol': None}])
 
+    l1.fundwallet(2000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+
+    # Now reconnect.
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -3723,15 +3735,22 @@ def test_upgrade_statickey(node_factory, executor):
 
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
-    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-no-reconnect': None,
-                                               'dev-force-features': ["-13"],
-                                               'experimental-upgrade-protocol': None,
-                                               # We try to cheat!
-                                               'allow_broken_log': True},
-                                              {'may_reconnect': True,
-                                               'dev-no-reconnect': None,
-                                               'experimental-upgrade-protocol': None}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'experimental-upgrade-protocol': None,
+                                              # This forces us to allow sending non-static-remotekey!
+                                              'dev-any-channel-type': None,
+                                              # We try to cheat!
+                                              'allow_broken_log': True},
+                                             {'may_reconnect': True,
+                                              # This forces us to allow non-static-remotekey!
+                                              'dev-any-channel-type': None,
+                                              'experimental-upgrade-protocol': None}])
+
+    l1.fundwallet(FUNDAMOUNT + 1000)
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     # TEST 1: Cheat from pre-upgrade.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
@@ -3769,12 +3788,17 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
     # TEST 2: Cheat from post-upgrade.
-    node_factory.join_nodes([l1, l2])
+    l1.fundwallet(FUNDAMOUNT + 1000)
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
     l2.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     l1.pay(l2, 1000000)
 
@@ -3796,7 +3820,11 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
     # TEST 3: Unilateral close from pre-upgrade
-    node_factory.join_nodes([l1, l2])
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.fundwallet(FUNDAMOUNT + 1000)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     # Give them both something for onchain close.
     l1.pay(l2, 1000000)
@@ -3827,11 +3855,15 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
     # TEST 4: Unilateral close from post-upgrade
-    node_factory.join_nodes([l1, l2])
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
 
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     # Move to static_remotekey.
     l1.pay(l2, 1000000)
@@ -3862,20 +3894,28 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     l2_disconnects = ['-WIRE_REVOKE_AND_ACK',
                       '-WIRE_COMMITMENT_SIGNED']
 
-    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-no-reconnect': None,
-                                               'disconnect': l1_disconnects,
-                                               'experimental-upgrade-protocol': None,
-                                               'dev-force-features': ["-13"],
-                                               # Don't have feerate changes!
-                                               'feerates': (7500, 7500, 7500, 7500)},
-                                              {'may_reconnect': True,
-                                               'dev-no-reconnect': None,
-                                               'experimental-upgrade-protocol': None,
-                                               'disconnect': l2_disconnects,
-                                               'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
-                                               'hold-time': 10000,
-                                               'hold-result': 'fail'}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'dev-no-reconnect': None,
+                                              'disconnect': l1_disconnects,
+                                              # This allows us to send non-static-remotekey!
+                                              'dev-any-channel-type': None,
+                                              'experimental-upgrade-protocol': None,
+                                              # Don't have feerate changes!
+                                              'feerates': (7500, 7500, 7500, 7500)},
+                                             {'may_reconnect': True,
+                                              'dev-no-reconnect': None,
+                                              'experimental-upgrade-protocol': None,
+                                              # This forces us to accept non-static-remotekey!
+                                              'dev-any-channel-type': None,
+                                              'disconnect': l2_disconnects,
+                                              'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
+                                              'hold-time': 10000,
+                                              'hold-result': 'fail'}])
+    l1.fundwallet(FUNDAMOUNT + 1000)
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=[])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
 
     # This HTLC will fail
     l1.rpc.sendpay([{'amount_msat': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}], '00' * 32, payment_secret='00' * 32)
