@@ -103,6 +103,15 @@ message TlvEntry {
 	uint64 type = 1;
 	bytes value = 2;
 }
+
 message TlvStream {
 	repeated TlvEntry entries = 1;
+}
+
+enum ChannelTypeName {
+  static_remotekey_even = 0;
+  anchor_outputs_even = 1;
+  anchors_zero_fee_htlc_tx_even = 2;
+  scid_alias_even = 3;
+  zeroconf_even = 4;
 }

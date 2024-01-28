@@ -56,6 +56,21 @@ pub enum HtlcState {
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
+pub enum ChannelTypeName {
+    #[serde(rename = "static_remotekey/even")]
+    STATIC_REMOTEKEY_EVEN = 0,
+    #[serde(rename = "anchor_outputs/even")]
+    ANCHOR_OUTPUTS_EVEN = 1,
+    #[serde(rename = "anchors_zero_fee_htlc_tx/even")]
+    ANCHORS_ZERO_FEE_HTLC_TX_EVEN = 2,
+    #[serde(rename = "scid_alias/even")]
+    SCID_ALIAS_EVEN = 3,
+    #[serde(rename = "zeroconf/even")]
+    ZEROCONF_EVEN = 4,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[allow(non_camel_case_types)]
 #[serde(rename_all = "lowercase")]
 pub enum ChannelStateChangeCause {
     UNKNOWN,
@@ -318,6 +333,31 @@ impl TryFrom<i32> for ChannelState {
     }
 }
 
+impl From<i32> for ChannelTypeName {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => ChannelTypeName::STATIC_REMOTEKEY_EVEN,
+            1 => ChannelTypeName::ANCHOR_OUTPUTS_EVEN,
+            2 => ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN,
+            3 => ChannelTypeName::SCID_ALIAS_EVEN,
+            4 => ChannelTypeName::ZEROCONF_EVEN,
+            o => panic!("Unmapped ChannelTypeName {}", o),
+        }
+    }
+}
+
+impl From<ChannelTypeName> for i32 {
+    fn from(value: ChannelTypeName) -> Self {
+        match value {
+            ChannelTypeName::STATIC_REMOTEKEY_EVEN => 0,
+            ChannelTypeName::ANCHOR_OUTPUTS_EVEN => 1,
+            ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN => 2,
+            ChannelTypeName::SCID_ALIAS_EVEN => 3,
+            ChannelTypeName::ZEROCONF_EVEN => 4,
+        }
+    }
+}
+
 impl From<i32> for HtlcState {
     fn from(value: i32) -> Self {
         match value {
@@ -470,13 +510,13 @@ impl TryFrom<&str> for Amount {
 
 impl From<Amount> for String {
     fn from(a: Amount) -> String {
-	// Best effort msat to sat conversion, for methods that accept
-	// sats but not msats
-	if a.msat % 1000 == 0 {
-	    format!("{}sat", a.msat / 1000)
-	} else {
+        // Best effort msat to sat conversion, for methods that accept
+        // sats but not msats
+        if a.msat % 1000 == 0 {
+            format!("{}sat", a.msat / 1000)
+        } else {
             format!("{}msat", a.msat)
-	}
+        }
     }
 }
 
@@ -553,6 +593,8 @@ impl Serialize for Feerate {
 
 #[cfg(test)]
 mod test {
+    use crate::model::responses::FundchannelResponse;
+
     use super::*;
 
     #[test]
@@ -564,11 +606,7 @@ mod test {
 
         let tests = vec![
             ("{\"amount\": \"10msat\"}", Amount { msat: 10 }, "10msat"),
-            (
-                "{\"amount\": \"42sat\"}",
-                Amount { msat: 42_000 },
-                "42sat",
-            ),
+            ("{\"amount\": \"42sat\"}", Amount { msat: 42_000 }, "42sat"),
             (
                 "{\"amount\": \"31337btc\"}",
                 Amount {
@@ -668,6 +706,31 @@ mod test {
 
         let res = serde_json::to_string(&stream).unwrap();
         assert_eq!(res, "{\"31337\":\"0102030405\",\"42\":\"\"}");
+    }
+
+    #[test]
+    fn test_fundchannel() {
+        let r = serde_json::json!({
+            "tx": "0000000000000000000000000000000000000000000000000000000000000000",
+            "txid": "0000000000000000000000000000000000000000000000000000000000000000",
+            "outnum": 0,
+            "channel_id": "0000000000000000000000000000000000000000000000000000000000000000",
+            "channel_type": {
+        "bits": [1, 3, 5],
+        "names": [
+                    "static_remotekey/even",
+                    "anchor_outputs/even",
+                    "anchors_zero_fee_htlc_tx/even",
+                    "scid_alias/even",
+                    "zeroconf/even"
+        ]
+            },
+        "close_to": "bc1qd23gerv2mn0qdecrmulsjsmkv8lz6t6m0770tg",
+        "mindepth": 1,
+        });
+
+        let p: FundchannelResponse = serde_json::from_value(r).unwrap();
+	assert_eq!(p.channel_type.unwrap().bits, Some(vec![1,3,5]));
     }
 }
 
