@@ -2243,7 +2243,7 @@ def test_dev_demux(node_factory):
 def test_list_features_only(node_factory):
     features = subprocess.check_output(['lightningd/lightningd',
                                         '--list-features-only']).decode('utf-8').splitlines()
-    expected = ['option_data_loss_protect/odd',
+    expected = ['option_data_loss_protect/even',
                 'option_upfront_shutdown_script/odd',
                 'option_gossip_queries/odd',
                 'option_var_onion_optin/even',

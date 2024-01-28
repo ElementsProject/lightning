@@ -3579,9 +3579,9 @@ def test_nonstatic_channel(node_factory, bitcoind):
     """Smoke test for a channel without option_static_remotekey"""
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{},
-                                           # needs at least 15 to connect
+                                           # needs at least 1 and 15 to connect
                                            # (and 9 is a dependent)
-                                           {'dev-force-features': '9,15////////'}])
+                                           {'dev-force-features': '1,9,15////////'}])
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' not in chan['features']
     assert 'option_anchor' not in chan['features']
