@@ -29,6 +29,7 @@ msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
 msgdata,dualopend_init,minimum_depth,u32,
 msgdata,dualopend_init,require_confirmed_inputs,bool,
+msgdata,dualopend_init,dev_accept_any_channel_type,bool,
 
 # master-dualopend: peer has reconnected
 msgtype,dualopend_reinit,7001

@@ -28,6 +28,7 @@ msgdata,openingd_init,dev_temporary_channel_id,?byte,32
 # reserves? This is explicitly required by the spec for safety
 # reasons, but some implementations and users keep asking for it.
 msgdata,openingd_init,allowdustreserve,bool,
+msgdata,openingd_init,dev_accept_any_channel_type,bool,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,openingd_got_offer,6005

@@ -2636,6 +2636,25 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'channel_type not supported'):
         l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
 
+    # l1 will try, with dev-any-channel-type, l2 will reject.
+    l1.stop()
+    l1.daemon.opts['dev-any-channel-type'] = None
+    l1.start()
+    l1.connect(l2)
+
+    with pytest.raises(RpcError, match=r'They sent ERROR .*: You gave bad parameters: Did not support channel_type 12,20'):
+        l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
+    
+    # Now make l2 accept it!
+    l2.stop()
+    l2.daemon.opts['dev-any-channel-type'] = None
+    l2.start()
+    l1.connect(l2)
+
+    l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
+    # FIXME: Check type is actually correct!
+    l1.rpc.fundchannel_cancel(l2.info['id'])
+
     l1.rpc.unreserveinputs(psbt)
 
     # Works with fundchannel / multifundchannel
@@ -2646,5 +2665,6 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
+    l1.connect(l3)
     # FIXME: Check type is actually correct!
     l1.rpc.fundchannel(l3.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
