@@ -1439,7 +1439,7 @@ fetch_psbt_changes(struct state *state,
 	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
 					    state->require_confirmed_inputs[REMOTE],
 					    tx_state->funding_serial,
-					    psbt);
+					    psbt, state->channel_type);
 
 	wire_sync_write(REQ_FD, take(msg));
 

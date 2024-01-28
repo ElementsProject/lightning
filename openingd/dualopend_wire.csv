@@ -180,6 +180,7 @@ msgdata,dualopend_psbt_changed,channel_id,channel_id,
 msgdata,dualopend_psbt_changed,requires_confirmed_inputs,bool,
 msgdata,dualopend_psbt_changed,funding_serial,u64,
 msgdata,dualopend_psbt_changed,psbt,wally_psbt,
+msgdata,dualopend_psbt_changed,channel_type,channel_type,
 
 # master->dualopend: we updated the psbt
 msgtype,dualopend_psbt_updated,7108

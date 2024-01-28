@@ -3312,6 +3312,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 	struct openchannel2_psbt_payload *payload;
 	struct open_attempt *oa;
 	struct command *cmd;
+	struct channel_type *channel_type;
 
 	assert(channel->open_attempt);
 	oa = channel->open_attempt;
@@ -3321,13 +3322,17 @@ static void handle_psbt_changed(struct subd *dualopend,
 					     &cid,
 					     &channel->req_confirmed_ins[REMOTE],
 					     &funding_serial,
-					     &psbt)) {
+					     &psbt,
+					     &channel_type)) {
 		channel_internal_error(channel,
 				       "Bad DUALOPEND_PSBT_CHANGED: %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}
 
+	/* This is often the first time we hear about channel details */
+	tal_free(channel->type);
+	channel->type = tal_steal(channel, channel_type);
 
 	switch (oa->role) {
 	case TX_INITIATOR:
