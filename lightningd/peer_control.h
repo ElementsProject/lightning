@@ -145,11 +145,6 @@ command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 
-/* Add channel_type object */
-void json_add_channel_type(struct json_stream *response,
-			   const char *fieldname,
-			   const struct channel_type *channel_type);
-
 /* Ancient (0.7.0 and before) releases could create invalid commitment txs! */
 bool invalid_last_tx(const struct bitcoin_tx *tx);
 
