@@ -2687,7 +2687,7 @@ def test_custommsg_triggers_notification(node_factory):
 
     # Connect l1 to l2
     l1.connect(l2)
-    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['connected'])
+    wait_for(lambda: [p['connected'] for p in l2.rpc.listpeers(l1.info['id'])['peers']] == [True])
 
     # Send a custommsg from l2 to l1
     # The message id 7777 is chosen to be sufficiently high and shouldn't be used by the
