@@ -54,6 +54,7 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_commit_tx.c		\
 	common/invoice_path_id.c		\
 	common/iso4217.c			\
+	common/json_channel_type.c		\
 	common/json_filter.c			\
 	common/json_param.c			\
 	common/json_parse.c			\
