@@ -568,6 +568,9 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		status_debug(
 		    "We negotiated option_zeroconf, using our minimum_depth=%d",
 		    state->minimum_depth);
+		/* We set this now to show we're zeroconf */
+		if (their_mindepth == 0)
+			channel_type_set_zeroconf(state->channel_type);
 	} else {
 		state->minimum_depth = their_mindepth;
 	}
