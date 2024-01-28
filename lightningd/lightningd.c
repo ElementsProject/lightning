@@ -878,9 +878,16 @@ static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
  * features later, or adding them when supplied by plugins. */
 static struct feature_set *default_features(const tal_t *ctx)
 {
+	/* BOLT PR https://github.com/lightning/bolts/pull/1092
+	 * suggests making the following compulsory:
+	 *     var_onion_optin (all but 6 nodes)
+	 *     gossip_queries (all but 11 nodes)
+	 *     option_data_loss_protect (all but 11 nodes)
+	 *     option_static_remotekey (all but 16 nodes)
+	 */
 	struct feature_set *ret = NULL;
 	static const u32 features[] = {
-		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
+		COMPULSORY_FEATURE(OPT_DATA_LOSS_PROTECT),
 		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
 		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
 		COMPULSORY_FEATURE(OPT_VAR_ONION),
