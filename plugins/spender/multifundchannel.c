@@ -488,6 +488,8 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 		json_add_node_id(out, "id", &mfc->destinations[i].id);
 		json_add_channel_id(out, "channel_id",
 				    &mfc->destinations[i].channel_id);
+		json_add_channel_type(out, "channel_type",
+				      mfc->destinations[i].channel_type);
 		json_add_num(out, "outnum", mfc->destinations[i].outnum);
 		if (mfc->destinations[i].close_to_script)
 			json_add_hex_talarr(out, "close_to",
@@ -1020,6 +1022,25 @@ fundchannel_start_done(struct multifundchannel_destination *dest)
 		return command_still_pending(mfc->cmd);
 }
 
+struct channel_type *json_bits_to_channel_type(const tal_t *ctx,
+					       const char *buffer, const jsmntok_t *tok)
+{
+	u8 *features = tal_arr(NULL, u8, 0);
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY)
+		return tal_free(features);
+
+	json_for_each_arr(i, t, tok) {
+		u32 fbit;
+		if (!json_to_u32(buffer, t, &fbit))
+			return tal_free(features);
+		set_feature_bit(&features, fbit);
+	}
+	return channel_type_from(ctx, take(features));
+}
+
 static struct command_result *
 fundchannel_start_ok(struct command *cmd,
 		     const char *buf,
@@ -1027,50 +1048,27 @@ fundchannel_start_ok(struct command *cmd,
 		     struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *address_tok;
-	const jsmntok_t *script_tok;
-	const jsmntok_t *close_to_tok;
+	const char *err;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_start %s done.",
 		   mfc->id, dest->index,
 		   node_id_to_hexstr(tmpctx, &dest->id));
 
-	/* Extract funding_address.  */
-	address_tok = json_get_member(buf, result, "funding_address");
-	if (!address_tok)
+	/* May not be set */
+	dest->close_to_script = NULL;
+	err = json_scan(mfc, buf, result,
+			"{funding_address:%,"
+			"scriptpubkey:%,"
+			"channel_type:{bits:%},"
+			"close_to?:%}",
+			JSON_SCAN_TAL(mfc, json_strdup, &dest->funding_addr),
+			JSON_SCAN_TAL(mfc, json_tok_bin_from_hex, &dest->funding_script),
+			JSON_SCAN_TAL(mfc, json_bits_to_channel_type, &dest->channel_type),
+			JSON_SCAN_TAL(mfc, json_tok_bin_from_hex, &dest->close_to_script));
+	if (err)
 		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return 'funding_address': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	dest->funding_addr = json_strdup(dest->mfc, buf, address_tok);
-	/* Extract scriptpubkey.  */
-	script_tok = json_get_member(buf, result, "scriptpubkey");
-	if (!script_tok)
-		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return 'scriptpubkey': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	dest->funding_script = json_tok_bin_from_hex(dest->mfc,
-						     buf, script_tok);
-	if (!dest->funding_script)
-		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return parseable 'scriptpubkey': %.*s",
-			   json_tok_full_len(script_tok),
-			   json_tok_full(buf, script_tok));
-
-	close_to_tok = json_get_member(buf, result, "close_to");
-	/* Only returned if a) we requested and b) peer supports
-	 * opt_upfront_shutdownscript */
-	if (close_to_tok) {
-		dest->close_to_script =
-			json_tok_bin_from_hex(dest->mfc, buf, close_to_tok);
-	} else
-		dest->close_to_script = NULL;
-
+			   "fundchannel_start parsing error: %s", err);
 
 	dest->state = MULTIFUNDCHANNEL_STARTED;
 

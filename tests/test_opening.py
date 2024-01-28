@@ -1656,7 +1656,9 @@ def test_zeroconf_open(bitcoind, node_factory):
     # Now start the negotiation, l1 should have negotiated zeroconf,
     # and use their own mindepth=6, while l2 uses mindepth=2 from the
     # plugin
-    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
+    ret = l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
+    assert ret['channel_type'] == {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_type'] == {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
 
     assert l1.db.query('SELECT minimum_depth FROM channels WHERE minimum_depth != 1') == [{'minimum_depth': 0}]
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
@@ -2609,11 +2611,11 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
 
     for zeroconf in ([], [ZEROCONF]):
         for ctype in ([STATIC_REMOTEKEY],
-                      [ANCHORS_ZERO_FEE_HTLC_TX, STATIC_REMOTEKEY]):
-            l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
-                                     channel_type=ctype + zeroconf)
+                      [STATIC_REMOTEKEY, ANCHORS_ZERO_FEE_HTLC_TX]):
+            ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
+                                           channel_type=ctype + zeroconf)
+            assert ret['channel_type']['bits'] == ctype + zeroconf
             l1.rpc.fundchannel_cancel(l2.info['id'])
-            # FIXME: Check type is actually correct!
 
     # Zeroconf is refused to l4.
     for ctype in ([STATIC_REMOTEKEY],
@@ -2623,9 +2625,10 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
                                      channel_type=ctype + [ZEROCONF])
 
     psbt = l1.rpc.fundpsbt(FUNDAMOUNT - 1000, '253perkw', 250, reserve=0)['psbt']
-    for ctype in ([12], [22, 12]):
-        cid = l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=ctype)['channel_id']
-        l1.rpc.openchannel_abort(cid)
+    for ctype in ([STATIC_REMOTEKEY], [STATIC_REMOTEKEY, ANCHORS_ZERO_FEE_HTLC_TX]):
+        ret = l1.rpc.openchannel_init(l3.info['id'], FUNDAMOUNT - 1000, psbt, channel_type=ctype)
+        assert ret['channel_type']['bits'] == ctype
+        l1.rpc.openchannel_abort(ret['channel_id'])
 
     # Old anchors not supported for new channels
     with pytest.raises(RpcError, match=r'channel_type not supported'):
@@ -2656,14 +2659,15 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l2.start()
     l1.connect(l2)
 
-    l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
-    # FIXME: Check type is actually correct!
+    ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD]
     l1.rpc.fundchannel_cancel(l2.info['id'])
 
     l1.rpc.unreserveinputs(psbt)
 
     # Works with fundchannel / multifundchannel
-    l1.rpc.fundchannel(l2.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
+    ret = l1.rpc.fundchannel(l2.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY]
     # FIXME: Check type is actually correct!
 
     # Mine that so we can spend change.
@@ -2671,5 +2675,5 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
     l1.connect(l3)
-    # FIXME: Check type is actually correct!
-    l1.rpc.fundchannel(l3.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
+    ret = l1.rpc.fundchannel(l3.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY]

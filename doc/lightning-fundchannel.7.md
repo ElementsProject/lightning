@@ -107,6 +107,11 @@ On success, an object is returned, containing:
 - **txid** (txid): The txid of the transaction which funded the channel
 - **outnum** (u32): The 0-based output index showing which output funded the channel
 - **channel\_id** (hex): The channel\_id of the resulting channel (always 64 characters)
+- **channel\_type** (object): channel\_type as negotiated with peer *(added v24.02)*:
+  - **bits** (array of u32s): Each bit set in this channel\_type *(added v24.02)*:
+    - Bit number
+  - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
+    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`
 - **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
@@ -135,4 +140,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d4ba5524781fae00bc3280f1488deb805d961e8ae78822ba651d55cb39dbefd7)
+[comment]: # ( SHA256STAMP:b890bd25970e8e1ef92812daa89a25ded100173f9ab411492a87d6cd268ee32d)

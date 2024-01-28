@@ -63,6 +63,11 @@ On success, an object is returned, containing:
 
 - **funding\_address** (string): The address to send funding to for the channel. DO NOT SEND COINS TO THIS ADDRESS YET.
 - **scriptpubkey** (hex): The raw scriptPubkey for the address
+- **channel\_type** (object): channel\_type as negotiated with peer *(added v24.02)*:
+  - **bits** (array of u32s): Each bit set in this channel\_type *(added v24.02)*:
+    - Bit number
+  - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
+    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`
 - **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
@@ -102,4 +107,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8d9c42f4424065f442b6ae5eb5624e4a4c2cb2e73649faf9c9547b8fc12803ee)
+[comment]: # ( SHA256STAMP:55a714d25c1e01c90076462f022ad814aad42bbf824ba44060d406d53ebcad0c)

@@ -122,6 +122,11 @@ On success, an object is returned, containing:
   - **id** (pubkey): The peer we opened the channel with
   - **outnum** (u32): The 0-based output index showing which output funded the channel
   - **channel\_id** (hex): The channel\_id of the resulting channel (always 64 characters)
+  - **channel\_type** (object): channel\_type as negotiated with peer *(added v24.02)*:
+    - **bits** (array of u32s): Each bit set in this channel\_type *(added v24.02)*:
+      - Bit number
+    - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
+      - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
   - **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`
 - **failed** (array of objects, optional): any peers we failed to open with (if *minchannels* was specified less than the number of destinations):
   - **id** (pubkey): The peer we failed to open the channel with
@@ -209,4 +214,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:86f5966b49a03858655163407e15b4331147d52dd6e773480157279a222e77a2)
+[comment]: # ( SHA256STAMP:eb35e768173dcc45cfd56c0847995fbc8ff9e182dbade3e11c192cf27b6bfcba)

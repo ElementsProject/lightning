@@ -279,4 +279,7 @@ struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,
 		      const char *failing_method,
 		      const char *why);
+
+struct channel_type *json_bits_to_channel_type(const tal_t *ctx,
+					       const char *buffer, const jsmntok_t *tok);
 #endif /* LIGHTNING_PLUGINS_SPENDER_MULTIFUNDCHANNEL_H */

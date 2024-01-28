@@ -69,6 +69,11 @@ On success, an object is returned, containing:
 
 - **channel\_id** (hex): the channel id of the channel (always 64 characters)
 - **psbt** (string): the (incomplete) PSBT of the funding transaction
+- **channel\_type** (object): channel\_type as negotiated with peer *(added v24.02)*:
+  - **bits** (array of u32s): Each bit set in this channel\_type *(added v24.02)*:
+    - Bit number
+  - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
+    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
 - **commitments\_secured** (boolean): whether the *psbt* is complete (always *false*)
 - **funding\_serial** (u64): the serial\_id of the funding output in the *psbt*
 - **requires\_confirmed\_inputs** (boolean, optional): Does peer require confirmed inputs in psbt?
@@ -119,4 +124,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:71a3f74f3cb3325a51f4d998675a0d8fd01de20d1f3326c553789066bcf8c3a1)
+[comment]: # ( SHA256STAMP:2815e0b486c5346d0d058a7670b7e34f55b7ce0f5d35861dd76316e42b7b589d)
