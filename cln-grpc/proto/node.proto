@@ -1643,8 +1643,14 @@ message FundchannelResponse {
 	bytes txid = 2;
 	uint32 outnum = 3;
 	bytes channel_id = 4;
+	optional FundchannelChannel_type channel_type = 7;
 	optional bytes close_to = 5;
 	optional uint32 mindepth = 6;
+}
+
+message FundchannelChannel_type {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
 }
 
 message GetrouteRequest {

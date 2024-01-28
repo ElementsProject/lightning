@@ -5,6 +5,7 @@
   "required": [
     "funding_address",
     "scriptpubkey",
+    "channel_type",
     "warning_usage"
   ],
   "properties": {
@@ -15,6 +16,43 @@
     "scriptpubkey": {
       "type": "hex",
       "description": "The raw scriptPubkey for the address"
+    },
+    "channel_type": {
+      "type": "object",
+      "description": "channel_type as negotiated with peer",
+      "added": "v24.02",
+      "additionalProperties": false,
+      "required": [
+        "bits",
+        "names"
+      ],
+      "properties": {
+        "bits": {
+          "type": "array",
+          "added": "v24.02",
+          "description": "Each bit set in this channel_type",
+          "items": {
+            "type": "u32",
+            "description": "Bit number"
+          }
+        },
+        "names": {
+          "type": "array",
+          "description": "Feature name for each bit set in this channel_type",
+          "added": "v24.02",
+          "items": {
+            "type": "string",
+            "enum": [
+              "static_remotekey/even",
+              "anchor_outputs/even",
+              "anchors_zero_fee_htlc_tx/even",
+              "scid_alias/even",
+              "zeroconf/even"
+            ],
+            "description": "Name of feature bit"
+          }
+        }
+      }
     },
     "close_to": {
       "type": "hex",

@@ -132,6 +132,7 @@ void json_add_unsaved_channel(struct json_stream *response,
 	if (peer) {
 		json_add_node_id(response, "peer_id", &peer->id);
 		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+		json_add_channel_type(response, "channel_type", channel->type);
 	}
 	json_add_string(response, "state", channel_state_name(channel));
 	json_add_string(response, "owner", channel->owner->name);
@@ -2885,6 +2886,7 @@ static struct json_stream *build_commit_response(struct command *cmd,
 				       struct channel_id,
 				       &channel->cid));
 	json_add_psbt(response, "psbt", inflight->funding_psbt);
+	json_add_channel_type(response, "channel_type", channel->type);
 	json_add_bool(response, "commitments_secured", inflight->last_tx != NULL);
 	/* For convenience sake, we include the funding outnum */
 	assert(inflight->funding);
@@ -3350,6 +3352,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 				type_to_string(tmpctx, struct channel_id,
 					       &channel->cid));
 		json_add_psbt(response, "psbt", psbt);
+		json_add_channel_type(response, "channel_type", channel->type);
 		json_add_bool(response, "commitments_secured", false);
 		json_add_u64(response, "funding_serial", funding_serial);
 		json_add_bool(response, "requires_confirmed_inputs",

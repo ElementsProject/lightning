@@ -50,6 +50,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	if (peer) {
 		json_add_node_id(response, "peer_id", &peer->id);
 		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+		json_add_channel_type(response, "channel_type", uc->fc->channel_type);
 	}
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
@@ -326,6 +327,7 @@ static void funding_started_success(struct funding_channel *fc)
 				    fc->funding_scriptpubkey);
 		if (fc->our_upfront_shutdown_script)
 			json_add_hex_talarr(response, "close_to", fc->our_upfront_shutdown_script);
+		json_add_channel_type(response, "channel_type", fc->channel_type);
 		json_add_string(response, "warning_usage",
 				"The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`");
 	}

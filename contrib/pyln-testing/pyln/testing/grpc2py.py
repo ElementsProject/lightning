@@ -1318,6 +1318,13 @@ def fetchinvoice2py(m):
     })
 
 
+def fundchannel_channel_type2py(m):
+    return remove_default({
+        "bits": [m.bits for i in m.bits], # ArrayField[primitive] in generate_composite
+        "names": [str(i) for i in m.names],  # ArrayField[composite] in generate_composite
+    })
+
+
 def fundchannel2py(m):
     return remove_default({
         "tx": hexlify(m.tx),  # PrimitiveField in generate_composite

@@ -4,6 +4,7 @@
   "additionalProperties": false,
   "required": [
     "channel_id",
+    "channel_type",
     "psbt",
     "commitments_secured",
     "funding_serial"
@@ -14,6 +15,43 @@
       "description": "the channel id of the channel",
       "maxLength": 64,
       "minLength": 64
+    },
+    "channel_type": {
+      "type": "object",
+      "description": "channel_type as negotiated with peer",
+      "added": "v24.02",
+      "additionalProperties": false,
+      "required": [
+        "bits",
+        "names"
+      ],
+      "properties": {
+        "bits": {
+          "type": "array",
+          "description": "Each bit set in this channel_type",
+          "added": "v24.02",
+          "items": {
+            "type": "u32",
+            "description": "Bit number"
+          }
+        },
+        "names": {
+          "type": "array",
+          "description": "Feature name for each bit set in this channel_type",
+          "added": "v24.02",
+          "items": {
+            "type": "string",
+            "enum": [
+              "static_remotekey/even",
+              "anchor_outputs/even",
+              "anchors_zero_fee_htlc_tx/even",
+              "scid_alias/even",
+              "zeroconf/even"
+            ],
+            "description": "Name of feature bit"
+          }
+        }
+      }
     },
     "psbt": {
       "type": "string",
