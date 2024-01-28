@@ -1661,7 +1661,7 @@ def test_plugin_feature_announce(node_factory):
 
     # Check the featurebits we've set in the `init` message from
     # feature-test.py.
-    assert l1.daemon.is_in_log(r'\[OUT\] 001000022100....{}'
+    assert l1.daemon.is_in_log(r'\[OUT\] 001000021100....{}'
                                .format(expected_peer_features(extra=[201])))
 
     # Check the invoice featurebit we set in feature-test.py
