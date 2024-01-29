@@ -1801,7 +1801,8 @@ def test_onchaind_replay(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'watchtime-blocks': 201, 'cltv-delta': 101,
                                                'disconnect': disconnects,
                                                'feerates': (7500, 7500, 7500, 7500)},
-                                              {'watchtime-blocks': 201, 'cltv-delta': 101}])
+                                              {'watchtime-blocks': 201, 'cltv-delta': 101}],
+                                     wait_for_announce=True)
 
     inv = l2.rpc.invoice(10**8, 'onchaind_replay', 'desc')
     rhash = inv['payment_hash']
