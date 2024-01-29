@@ -1830,6 +1830,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
     l2.fundwallet(10**7)
     l2.rpc.fundchannel(l3.info['id'], 10**6, mindepth=0)
     wait_for(lambda: l3.rpc.listincoming()['incoming'] != [])
+    wait_for(lambda: only_one(l3.rpc.listincoming()['incoming'])['incoming_capacity_msat'] != 0)
 
     # Make sure (esp in non-dev-mode) blockheights agree so we don't WIRE_EXPIRY_TOO_SOON...
     sync_blockheight(bitcoind, [l1, l2, l3])
