@@ -272,4 +272,16 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 		      const struct gossmap *gossmap,
 		      struct chan_extra_map *chan_extra_map, char **fail);
 
+/* Helpers to get the htlc_max and htlc_min of a channel. */
+static inline struct amount_msat
+channel_htlc_max(const struct gossmap_chan *chan, const int dir)
+{
+	return amount_msat(fp16_to_u64(chan->half[dir].htlc_max));
+}
+static inline struct amount_msat
+channel_htlc_min(const struct gossmap_chan *chan, const int dir)
+{
+	return amount_msat(fp16_to_u64(chan->half[dir].htlc_min));
+}
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

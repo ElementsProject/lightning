@@ -4,6 +4,7 @@
 #include <ccan/lqueue/lqueue.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <math.h>
@@ -191,7 +192,8 @@
 static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 
 static const s64 INFINITE = INT64_MAX;
-static const u32 INVALID_INDEX=0xffffffff;
+static const u64 INFINITE_MSAT = UINT64_MAX;
+static const u32 INVALID_INDEX = 0xffffffff;
 static const s64 MU_MAX = 128;
 
 /* Let's try this encoding of arcs:
@@ -1226,6 +1228,12 @@ struct list_data
 	struct flow *flow_path;
 };
 
+static inline uint64_t pseudorand_interval(uint64_t a, uint64_t b)
+{
+	assert(b > a);
+	return a + pseudorand(b - a);
+}
+
 /* Given a flow in the residual network, build a set of payment flows in the
  * gossmap that corresponds to this flow. */
 static struct flow **
@@ -1310,6 +1318,13 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			u32 final_idx = find_positive_balance(gossmap,chan_flow,node_idx,balance,
 							prev_chan,prev_dir,prev_idx);
 
+			/* For each route we will compute the highest htlc_min
+			 * and the smallest htlc_max and use those to constraint
+			 * the flow we will allocate. */
+			struct amount_msat sup_htlc_min = AMOUNT_MSAT_INIT(0),
+					   inf_htlc_max =
+					       AMOUNT_MSAT_INIT(INFINITE_MSAT);
+
 			s64 delta=-balance[node_idx];
 			int length = 0;
 			delta = MIN(delta,balance[final_idx]);
@@ -1329,13 +1344,45 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 				delta=MIN(delta,chan_flow[c_idx].half[dir]);
 				length++;
 
-				// TODO(eduardo) does htlc_max has any relevance
-				// here?
-				// HINT: delta=MIN(delta,htlc_max);
-				// however this might not work because often we
-				// move delta+fees
+				/* obtain the supremum htlc_min along the route
+				 */
+				sup_htlc_min = amount_msat_max(
+				    sup_htlc_min, channel_htlc_min(c, dir));
+
+				/* obtain the infimum htlc_max along the route
+				 */
+				inf_htlc_max = amount_msat_min(
+				    inf_htlc_max, channel_htlc_max(c, dir));
 			}
 
+			s64 htlc_max = inf_htlc_max.millisatoshis /
+				       1000; /* Raw: need htlc_max in sats to do
+						arithmetic operations. */
+			s64 htlc_min = (sup_htlc_min.millisatoshis + 999) /
+				       1000; /* Raw: need htlc_min in sats to do
+					       arithmetic operations. */
+
+			if (htlc_min > htlc_max) {
+				/* htlc_min is too big or htlc_max is too small,
+				 * we cannot send `delta` along this route.
+				 *
+				 * FIXME: We try anyways because failing
+				 * channels will be blacklisted downstream. */
+				htlc_min = 0;
+			}
+
+			/* If we divide this route into different flows make it
+			 * random to avoid routing nodes making correlations. */
+			if (delta > htlc_max) {
+				// FIXME: choosing a number in the range
+				// [htlc_min, htlc_max] or
+				// [0.5 htlc_max, htlc_max]
+				// The choice of the fraction was completely
+				// arbitrary.
+				delta = pseudorand_interval(
+				    MAX(htlc_min, (htlc_max * 50) / 100),
+				    htlc_max);
+			}
 
 			struct flow *fp = tal(this_ctx,struct flow);
 			fp->path = tal_arr(fp,const struct gossmap_chan *,length);
