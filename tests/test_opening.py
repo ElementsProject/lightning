@@ -2543,10 +2543,6 @@ def test_anchor_min_emergency(bitcoind, node_factory):
     with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
         l1.rpc.withdraw(addr2, 'all')
 
-    # Make sure channeld tells gossipd about channel before we close, otherwise
-    # we get spurious "bad gossip" complaints if l2 sends channel_updates.
-    l1.daemon.wait_for_log("received private channel announcement from channeld")
-
     # Even with onchain anchor channel, it still keeps reserve (just in case!).
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, wait_for_mempool=1)
