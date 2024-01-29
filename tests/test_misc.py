@@ -1319,9 +1319,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     wait_for(lambda: l2.is_local_channel_active('104x1x0'))
     assert [c for c in l2.rpc.listpeerchannels()['channels'] if c['short_channel_id'] == '103x1x0'] == []
 
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['status'] == [
-        'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Channel ready for use. Channel announced.'])
+    wait_for(lambda: [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']] == ['104x1x0'] * 2)
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
