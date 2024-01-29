@@ -1987,8 +1987,12 @@ def test_addgossip(node_factory):
     l1.daemon.logsearch_start = 0
     ann = l1.daemon.wait_for_log(r"\[(OUT|IN)\] 0100.*")  # Either direction will suppress the other.
 
-    upd1 = l1.daemon.is_in_log(r"\[OUT\] 0102.*")
-    upd2 = l2.daemon.is_in_log(r"\[OUT\] 0102.*")
+    l2.daemon.logsearch_start = 0
+    l2.daemon.wait_for_log(r"\[(OUT|IN)\] 0100.*")
+
+    # Be sure not to get the *private* updates!
+    upd1 = l1.daemon.is_in_log(r"\[OUT\] 0102.*", start=l1.daemon.logsearch_start)
+    upd2 = l2.daemon.is_in_log(r"\[OUT\] 0102.*", start=l2.daemon.logsearch_start)
 
     nann1 = l1.daemon.is_in_log(r"\[OUT\] 0101.*")
     nann2 = l2.daemon.is_in_log(r"\[OUT\] 0101.*")
