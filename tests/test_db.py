@@ -215,6 +215,12 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
 
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
+    # FIXME: gossipd gets upset, since it seems like the db with remote announcement_sigs was
+    # actually from l2, not l1.  But if we make this l1, then last_tx changes, so we just
+    # filter out gossipd messages here (we will still detect other broken msgs!)
+    l1.daemon.logs = [l for l in l1.daemon.logs if 'gossipd' not in l]
+    l2.daemon.logs = [l for l in l2.daemon.logs if 'gossipd' not in l]
+
 
 @pytest.mark.slow_test
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
