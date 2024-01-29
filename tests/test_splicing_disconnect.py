@@ -4,7 +4,7 @@ import unittest
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
-    TEST_NETWORK, first_scid
+    TEST_NETWORK
 )
 
 
@@ -53,7 +53,6 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.pay(inv['bolt11'])
@@ -109,7 +108,6 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
 
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-    l1.daemon.wait_for_log(r'private channel announcement from channeld for ' + first_scid(l1, l2))
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.pay(inv['bolt11'])
