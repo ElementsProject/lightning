@@ -2076,6 +2076,9 @@ def test_zeroconf_multichan_forward(node_factory):
     # Just making sure the allowlisted node_id matches.
     assert l2.info['id'] == node_id
 
+    # Create invoice which doesn't use zeroconf channel as routehint!
+    inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
+
     # Now create a channel that is twice as large as the real channel,
     # and don't announce it.
     l2.fundwallet(10**7)
@@ -2084,7 +2087,6 @@ def test_zeroconf_multichan_forward(node_factory):
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
     l3.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
-    inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
     l1.rpc.pay(inv)
 
     for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']:
