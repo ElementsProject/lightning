@@ -3919,7 +3919,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         psbt = l2.rpc.addpsbtoutput(OUTPUT_SAT, psbt)['psbt']
     l2.rpc.sendpsbt(l2.rpc.signpsbt(psbt)['signed_psbt'])
     bitcoind.generate_block(1, wait_for_mempool=1)
-    sync_blockheight(bitcoind, [l2])
+    sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure all amounts are below OUTPUT_SAT sats!
     assert [x for x in l2.rpc.listfunds()['outputs'] if x['amount_msat'] > Millisatoshi(str(OUTPUT_SAT) + "sat")] == []
@@ -3930,6 +3930,9 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+
+    # Make sure HTLC expiry is what we expect!
+    l2.daemon.wait_for_log('Adding HTLC 0 amount=100000000msat cltv=119 gave CHANNEL_ERR_ADD_OK')
 
     # l3 drops to chain, but make sure it doesn't CPFP its own anchor.
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] != [])
