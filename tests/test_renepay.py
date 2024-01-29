@@ -397,3 +397,32 @@ def test_fee_allocation(node_factory):
     l1.wait_for_htlcs()
     invoice = only_one(l4.rpc.listinvoices('inv')['invoices'])
     assert invoice['amount_received_msat'] >= Millisatoshi('1500000sat')
+
+
+def test_htlc_max(node_factory):
+    '''
+    Topology:
+    1----2----4
+    |         |
+    3----5----6
+    '''
+    opts = [
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0},
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0},
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0},
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0,
+            'htlc-maximum-msat': 500000000},
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0,
+            'htlc-maximum-msat': 500000000},
+        {'disable-mpp': None, 'fee-base': 0, 'fee-per-satoshi': 0},
+    ]
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
+    start_channels([(l1, l2, 10000000), (l2, l4, 1000000), (l4, l6, 2000000),
+                    (l1, l3, 10000000), (l3, l5, 1000000), (l5, l6, 2000000)])
+
+    inv = l6.rpc.invoice("1800000sat", "inv", 'description')
+
+    l1.rpc.call('renepay', {'invstring': inv['bolt11']})
+    l1.wait_for_htlcs()
+    invoice = only_one(l6.rpc.listinvoices('inv')['invoices'])
+    assert invoice['amount_received_msat'] >= Millisatoshi('1800000sat')
