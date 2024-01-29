@@ -3,8 +3,7 @@ SUBMODULES =					\
 	external/libwally-core			\
 	external/gheap				\
 	external/jsmn				\
-	external/libbacktrace			\
-	external/lnprototest
+	external/libbacktrace
 
 ifeq ($(HAVE_LOWDOWN),0)
 SUBMODULES += external/lowdown
