@@ -1355,12 +1355,8 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 				    inf_htlc_max, channel_htlc_max(c, dir));
 			}
 
-			s64 htlc_max = inf_htlc_max.millisatoshis /
-				       1000; /* Raw: need htlc_max in sats to do
-						arithmetic operations. */
-			s64 htlc_min = (sup_htlc_min.millisatoshis + 999) /
-				       1000; /* Raw: need htlc_min in sats to do
-					       arithmetic operations. */
+			s64 htlc_max=inf_htlc_max.millisatoshis/1000;/* Raw: need htlc_max in sats to do arithmetic operations.*/
+			s64 htlc_min=(sup_htlc_min.millisatoshis+999)/1000;/* Raw: need htlc_min in sats to do arithmetic operations.*/
 
 			if (htlc_min > htlc_max) {
 				/* htlc_min is too big or htlc_max is too small,
