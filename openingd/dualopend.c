@@ -2433,7 +2433,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				state->channel_type = channel_type_from(state, open_tlv->channel_type);
 			} else {
 				negotiation_failed(state,
-						   "Did not support channel_type %s",
+						   "Did not support channel_type [%s]",
 						   fmt_featurebits(tmpctx,
 								   open_tlv->channel_type));
 				return;

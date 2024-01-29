@@ -974,7 +974,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				state->channel_type = channel_type_from(state, open_tlvs->channel_type);
 			} else {
 				negotiation_failed(state,
-						   "Did not support channel_type %s",
+						   "Did not support channel_type [%s]",
 						   fmt_featurebits(tmpctx,
 								   open_tlvs->channel_type));
 				return NULL;

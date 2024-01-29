@@ -2654,7 +2654,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1.start()
     l1.connect(l2)
 
-    with pytest.raises(RpcError, match=r'They sent ERROR .*: You gave bad parameters: Did not support channel_type 12,20'):
+    with pytest.raises(RpcError, match=r'They sent ERROR .*: You gave bad parameters: Did not support channel_type \[12,20\]'):
         l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
 
     # Now make l2 accept it!
