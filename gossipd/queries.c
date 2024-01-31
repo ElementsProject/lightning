@@ -6,13 +6,15 @@
 #include <ccan/crc32c/crc32c.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
+#include <common/gossmap.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
+#include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
-#include <gossipd/routing.h>
 #include <zlib.h>
 
 static u32 dev_max_encoding_bytes = -1U;
@@ -367,22 +369,45 @@ static u32 crc32_of_update(const u8 *channel_update)
 	return sum;
 }
 
-static void get_checksum_and_timestamp(struct routing_state *rstate,
-				       const struct chan *chan,
-				       int direction,
-				       u32 *tstamp, u32 *csum)
+/* BOLT #7:
+ * Where:
+ * * `timestamp_node_id_1` is the timestamp of the `channel_update` for `node_id_1`, or 0 if there was no `channel_update` from that node.
+ * * `timestamp_node_id_2` is the timestamp of the `channel_update` for `node_id_2`, or 0 if there was no `channel_update` from that node.
+ */
+static u32 get_timestamp(struct gossmap *gossmap,
+			 const struct gossmap_chan *chan,
+			 int dir)
 {
-	const struct half_chan *hc = &chan->half[direction];
+	u32 timestamp;
+	if (!gossmap_chan_set(chan, dir))
+		return 0;
 
-	if (!is_halfchan_defined(hc)) {
-		*tstamp = *csum = 0;
-	} else {
-		const u8 *update = gossip_store_get(tmpctx, rstate->daemon->gs,
-						    hc->bcast.index);
-		*tstamp = hc->bcast.timestamp;
-		*csum = crc32_of_update(update);
-	}
+	gossmap_chan_get_update_details(gossmap, chan, dir, &timestamp,
+					NULL, NULL, NULL, NULL, NULL, NULL);
+	return timestamp;
 }
+
+/* BOLT #7:
+ * Where:
+ * * `checksum_node_id_1` is the checksum of the `channel_update` for
+ *   `node_id_1`, or 0 if there was no `channel_update` from that
+ *   node.
+ * * `checksum_node_id_2` is the checksum of the `channel_update` for
+ *   `node_id_2`, or 0 if there was no `channel_update` from that
+ *   node.
+ */
+static u32 get_checksum(struct gossmap *gossmap,
+			const struct gossmap_chan *chan,
+			int dir)
+{
+	u8 *cupdate;
+
+	cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, dir);
+	if (!cupdate)
+		return 0;
+	return crc32_of_update(cupdate);
+}
+
 
 /* FIXME: This assumes that the tlv type encodes into 1 byte! */
 static size_t tlv_overhead(size_t num_entries, size_t size)
@@ -437,15 +462,15 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 
 /* This gets all the scids they asked for, and optionally the timestamps and checksums */
 static struct short_channel_id *gather_range(const tal_t *ctx,
-					     struct routing_state *rstate,
+					     struct daemon *daemon,
 					     u32 first_blocknum, u32 number_of_blocks,
 					     enum query_option_flags query_option_flags,
 					     struct channel_update_timestamps **tstamps,
 					     struct channel_update_checksums **csums)
 {
-	struct short_channel_id scid, *scids;
+	struct short_channel_id *scids;
 	u32 end_block;
-	bool scid_ok;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(daemon->gm);
 
 	scids = tal_arr(ctx, struct short_channel_id, 0);
 	if (query_option_flags & QUERY_ADD_TIMESTAMPS)
@@ -457,16 +482,6 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
 	else
 		*csums = NULL;
 
-	/* Avoid underflow: we don't use block 0 anyway */
-	if (first_blocknum == 0)
-		scid_ok = mk_short_channel_id(&scid, 1, 0, 0);
-	else
-		scid_ok = mk_short_channel_id(&scid, first_blocknum, 0, 0);
-	scid.u64--;
-	/* Out of range?  No blocks then. */
-	if (!scid_ok)
-		return NULL;
-
 	if (number_of_blocks == 0)
 		return NULL;
 
@@ -475,39 +490,44 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
 	if (end_block < first_blocknum)
 		end_block = UINT_MAX;
 
-	/* We keep a `uintmap` of `short_channel_id` to `struct chan *`.
-	 * Unlike a htable, it's efficient to iterate through, but it only
-	 * works because each short_channel_id is basically a 64-bit unsigned
-	 * integer.
-	 *
-	 * First we iterate and gather all the short channel ids. */
-	while (uintmap_after(&rstate->chanmap, &scid.u64)) {
-		struct chan *chan;
-		struct channel_update_timestamps ts;
-		struct channel_update_checksums cs;
+	/* We used to maintain a uintmap of channels by scid, but
+	 * we no longer do, making this more expensive.  But still
+	 * not too bad, since it's usually in-mem */
+	for (size_t i = 0; i < gossmap_max_chan_idx(gossmap); i++) {
+		struct gossmap_chan *chan = gossmap_chan_byidx(gossmap, i);
+		struct short_channel_id scid;
 
-		if (short_channel_id_blocknum(&scid) > end_block)
-			break;
-
-		/* FIXME: Store csum in header. */
-		chan = get_channel(rstate, &scid);
-		tal_arr_expand(&scids, scid);
-
-		/* Don't calc csums if we don't even care */
-		if (!(query_option_flags
-		      & (QUERY_ADD_TIMESTAMPS|QUERY_ADD_CHECKSUMS)))
+		if (!chan)
 			continue;
 
-		get_checksum_and_timestamp(rstate, chan, 0,
-					   &ts.timestamp_node_id_1,
-					   &cs.checksum_node_id_1);
-		get_checksum_and_timestamp(rstate, chan, 1,
-					   &ts.timestamp_node_id_2,
-					   &cs.checksum_node_id_2);
-		if (query_option_flags & QUERY_ADD_TIMESTAMPS)
+		/* By policy, we don't give announcements here with no
+		 * channel_updates */
+		if (!gossmap_chan_set(chan, 0) && !gossmap_chan_set(chan, 1)) {
+			continue;
+		}
+
+		scid = gossmap_chan_scid(gossmap, chan);
+		if (short_channel_id_blocknum(&scid) < first_blocknum
+		    || short_channel_id_blocknum(&scid) > end_block) {
+			continue;
+		}
+
+		tal_arr_expand(&scids, scid);
+
+		if (*tstamps) {
+			struct channel_update_timestamps ts;
+
+			ts.timestamp_node_id_1 = get_timestamp(gossmap, chan, 0);
+			ts.timestamp_node_id_2 = get_timestamp(gossmap, chan, 1);
 			tal_arr_expand(tstamps, ts);
-		if (query_option_flags & QUERY_ADD_CHECKSUMS)
+		}
+
+		if (*csums) {
+			struct channel_update_checksums cs;
+			cs.checksum_node_id_1 = get_checksum(gossmap, chan, 0);
+			cs.checksum_node_id_2 = get_checksum(gossmap, chan, 1);
 			tal_arr_expand(csums, cs);
+		}
 	}
 
 	return scids;
@@ -522,13 +542,13 @@ static void queue_channel_ranges(struct peer *peer,
 				 u32 first_blocknum, u32 number_of_blocks,
 				 enum query_option_flags query_option_flags)
 {
-	struct routing_state *rstate = peer->daemon->rstate;
+	struct daemon *daemon = peer->daemon;
 	struct channel_update_timestamps *tstamps;
 	struct channel_update_checksums *csums;
 	struct short_channel_id *scids;
 	size_t off, limit;
 
-	scids = gather_range(tmpctx, rstate, first_blocknum, number_of_blocks,
+	scids = gather_range(tmpctx, daemon, first_blocknum, number_of_blocks,
 			     query_option_flags, &tstamps, &csums);
 
 	limit = max_entries(query_option_flags);
@@ -929,9 +949,11 @@ static void uniquify_node_ids(struct node_id **ids)
  * it's finished all of them. */
 static bool maybe_send_query_responses_peer(struct peer *peer)
 {
-	struct routing_state *rstate = peer->daemon->rstate;
+	struct daemon *daemon = peer->daemon;
 	size_t i, num;
 	bool sent = false;
+	const u8 *msg;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(daemon->gm);
 
 	/* BOLT #7:
 	 *
@@ -940,9 +962,11 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 	/* Search for next short_channel_id we know about. */
 	num = tal_count(peer->scid_queries);
 	for (i = peer->scid_query_idx; !sent && i < num; i++) {
-		struct chan *chan;
+		struct gossmap_chan *chan;
+		struct gossmap_node *node;
+		struct node_id node_id;
 
-		chan = get_channel(rstate, &peer->scid_queries[i]);
+		chan = gossmap_find_chan(gossmap, &peer->scid_queries[i]);
 		if (!chan)
 			continue;
 
@@ -951,7 +975,8 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 		 *   - MUST reply with a `channel_announcement`
 		 */
 		if (peer->scid_query_flags[i] & SCID_QF_ANNOUNCE) {
-			queue_peer_from_store(peer, &chan->bcast);
+			msg = gossmap_chan_get_announce(NULL, gossmap, chan);
+			queue_peer_msg(daemon, &peer->id, take(msg));
 			sent = true;
 		}
 
@@ -965,13 +990,15 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 		 *   - MUST reply with the latest `channel_update` for
 		 *   `node_id_2` */
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE1)
-		    && is_halfchan_defined(&chan->half[0])) {
-			queue_peer_from_store(peer, &chan->half[0].bcast);
+		    && gossmap_chan_set(chan, 0)) {
+			msg = gossmap_chan_get_update(NULL, gossmap, chan, 0);
+			queue_peer_msg(daemon, &peer->id, take(msg));
 			sent = true;
 		}
 		if ((peer->scid_query_flags[i] & SCID_QF_UPDATE2)
-		    && is_halfchan_defined(&chan->half[1])) {
-			queue_peer_from_store(peer, &chan->half[1].bcast);
+		    && gossmap_chan_set(chan, 1)) {
+			msg = gossmap_chan_get_update(NULL, gossmap, chan, 1);
+			queue_peer_msg(daemon, &peer->id, take(msg));
 			sent = true;
 		}
 
@@ -985,12 +1012,16 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 		 *   - MUST reply with the latest `node_announcement` for
 		 *   `node_id_2` */
 		/* Save node ids for later transmission of node_announcement */
-		if (peer->scid_query_flags[i] & SCID_QF_NODE1)
-			tal_arr_expand(&peer->scid_query_nodes,
-				       chan->nodes[0]->id);
-		if (peer->scid_query_flags[i] & SCID_QF_NODE2)
-			tal_arr_expand(&peer->scid_query_nodes,
-				       chan->nodes[1]->id);
+		if (peer->scid_query_flags[i] & SCID_QF_NODE1) {
+			node = gossmap_nth_node(gossmap, chan, 0);
+			gossmap_node_get_id(gossmap, node, &node_id);
+			tal_arr_expand(&peer->scid_query_nodes, node_id);
+		}
+		if (peer->scid_query_flags[i] & SCID_QF_NODE2) {
+			node = gossmap_nth_node(gossmap, chan, 1);
+			gossmap_node_get_id(gossmap, node, &node_id);
+			tal_arr_expand(&peer->scid_query_nodes, node_id);
+		}
 	}
 
 	/* Just finished channels?  Remove duplicate nodes. */
@@ -1021,15 +1052,16 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 	 * node_announcement to send. */
 	num = tal_count(peer->scid_query_nodes);
 	for (i = peer->scid_query_nodes_idx; !sent && i < num; i++) {
-		const struct node *n;
+		const struct gossmap_node *n;
 
 		/* Not every node announces itself (we know it exists because
 		 * of a channel_announcement, however) */
-		n = get_node(rstate, &peer->scid_query_nodes[i]);
-		if (!n || !n->bcast.index)
+		n = gossmap_find_node(gossmap, &peer->scid_query_nodes[i]);
+		if (!n || !gossmap_node_announced(n))
 			continue;
 
-		queue_peer_from_store(peer, &n->bcast);
+		msg = gossmap_node_get_announce(NULL, gossmap, n);
+		queue_peer_msg(daemon, &peer->id, take(msg));
 		sent = true;
 	}
 	peer->scid_query_nodes_idx = i;
