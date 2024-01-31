@@ -67,6 +67,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/gossip_control.h>
@@ -755,6 +756,7 @@ void notify_new_block(struct lightningd *ld, u32 block_height)
 	/* Inform our subcomponents individually. */
 	htlcs_notify_new_block(ld, block_height);
 	channel_notify_new_block(ld, block_height);
+	channel_gossip_notify_new_block(ld, block_height);
 	gossip_notify_new_block(ld, block_height);
 	waitblockheight_notify_new_block(ld, block_height);
 }

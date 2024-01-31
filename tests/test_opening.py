@@ -1724,10 +1724,9 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     l1.connect(l2)
     l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0, push_msat=push_msat)
 
-    # Wait for the update to be signed (might not be the most reliable
-    # signal)
-    l1.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
-    l2.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
+    # Wait for the alias to be sent to peer.
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
+    wait_for(lambda: 'remote' in only_one(l2.rpc.listpeerchannels()['channels'])['updates'])
 
     l1chan = only_one(l1.rpc.listpeerchannels()['channels'])
     l2chan = only_one(l2.rpc.listpeerchannels()['channels'])

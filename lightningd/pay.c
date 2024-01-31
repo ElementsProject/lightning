@@ -808,7 +808,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 			  const struct amount_msat *amount)
 {
 	struct channel *channel;
-	struct short_channel_id *scid;
+	const struct short_channel_id *scid;
 	struct peer *peer = peer_by_id(ld, node);
 	if (!peer)
 		return NULL;
@@ -843,7 +843,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 	return NULL;
 
 found:
-	scid = channel->scid ? channel->scid : channel->alias[LOCAL];
+	scid = channel_scid_or_local_alias(channel);
 	log_debug(
 	    ld->log, "Selected channel %s (%s) for selector %s (%s)",
 	    short_channel_id_to_str(tmpctx, scid),

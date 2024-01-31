@@ -587,9 +587,10 @@ static void bad_gossip_order(const u8 *msg,
 			     const char *details)
 {
 	status_peer_debug(source_peer,
-			  "Bad gossip order: %s before announcement %s",
+			  "Bad gossip order: %s before announcement %s from %s",
 			  peer_wire_name(fromwire_peektype(msg)),
-			  details);
+			  details,
+			  source_peer ? type_to_string(tmpctx, struct node_id, source_peer) : "local");
 }
 
 struct chan *new_chan(struct routing_state *rstate,
@@ -1791,6 +1792,18 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 
 	owner = get_channel_owner(rstate, &short_channel_id, direction);
 	if (!owner) {
+		/* This may be a local channel we don't know about.  If it's from a peer,
+		 * check signature assuming it's from that peer, and if it's valid, hand to ld */
+		if (source_peer
+		    && check_channel_update(tmpctx, source_peer, &signature, serialized) == NULL) {
+			tell_lightningd_peer_update(rstate, source_peer,
+						    short_channel_id, fee_base_msat,
+						    fee_proportional_millionths,
+						    expiry, htlc_minimum,
+						    htlc_maximum);
+			return NULL;
+		}
+
 		if (unknown_scid)
 			*unknown_scid = short_channel_id;
 		bad_gossip_order(serialized,

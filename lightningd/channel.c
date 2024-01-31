@@ -10,8 +10,10 @@
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/channel_state_names_gen.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
@@ -277,8 +279,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
-	channel->peer_update = NULL;
-	channel->channel_update = NULL;
 	channel->alias[REMOTE] = NULL;
 	/* We don't even bother checking for clashes. */
 	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
@@ -327,6 +327,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 			       &channel->local_basepoints,
 			       &channel->local_funding_pubkey);
 
+	/* channel->channel_gossip gets populated once we know if it's public. */
+	channel->channel_gossip = NULL;
 	channel->forgets = tal_arr(channel, struct command *, 0);
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
@@ -572,9 +574,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->lease_commit_sig = tal_steal(channel, lease_commit_sig);
 	channel->lease_chan_max_msat = lease_chan_max_msat;
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
-	channel->peer_update = tal_steal(channel, peer_update);
 	channel->blockheight_states = dup_height_states(channel, height_states);
-	channel->channel_update = NULL;
 
 	/* DB migration, for example, sets min to 0, max to large: fixup */
 	htlc_min = channel->channel_info.their_config.htlc_minimum;
@@ -598,6 +598,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->close_blockheight = NULL;
 	channel->state_change_cause = reason;
 	channel->ignore_fee_limits = ignore_fee_limits;
+ 	/* Populate channel->channel_gossip */
+	channel_gossip_init(channel, take(peer_update));
 
 	/* Make sure we see any spends using this key */
 	if (!local_shutdown_scriptpubkey) {
@@ -1098,3 +1100,11 @@ channel_scid_or_local_alias(const struct channel *chan)
 	else
 		return chan->alias[LOCAL];
 }
+
+const u8 *channel_update_for_error(const tal_t *ctx,
+				   struct channel *channel)
+{
+	/* FIXME: Call directly from callers */
+	return channel_gossip_update_for_error(ctx, channel);
+}
+

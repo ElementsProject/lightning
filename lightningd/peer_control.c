@@ -43,6 +43,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
@@ -816,6 +817,7 @@ static void json_add_channel(struct lightningd *ld,
 	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
 	struct state_change_entry *state_changes;
+	const struct peer_update *peer_update;
 	u32 feerate;
 
 	json_object_start(response, key);
@@ -841,19 +843,21 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_u32(response, "fee_proportional_millionths",
 			     channel->feerate_ppm);
 		json_object_end(response);
-		if (channel->peer_update) {
+
+		peer_update = channel_gossip_get_remote_update(channel);
+		if (peer_update) {
 			json_object_start(response, "remote");
 			json_add_amount_msat(response,
 					     "htlc_minimum_msat",
-					     channel->peer_update->htlc_minimum_msat);
+					     peer_update->htlc_minimum_msat);
 			json_add_amount_msat(response,
 					     "htlc_maximum_msat",
-					     channel->peer_update->htlc_maximum_msat);
-			json_add_u32(response, "cltv_expiry_delta", channel->peer_update->cltv_delta);
+					     peer_update->htlc_maximum_msat);
+			json_add_u32(response, "cltv_expiry_delta", peer_update->cltv_delta);
 			json_add_amount_msat(response, "fee_base_msat",
-					     amount_msat(channel->peer_update->fee_base));
+					     amount_msat(peer_update->fee_base));
 			json_add_u32(response, "fee_proportional_millionths",
-				     channel->peer_update->fee_ppm);
+				     peer_update->fee_ppm);
 			json_object_end(response);
 		}
 		json_object_end(response);
@@ -1395,6 +1399,8 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			connect_activate_subd(ld, channel);
 		}
 	}
+
+	channel_gossip_peer_connected(peer);
 	return;
 
 send_error:
@@ -2004,6 +2010,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 
 	case CHANNELD_AWAITING_LOCKIN:
+		/* This may be redundant, and may be public later, but
+		 * make sure we tell gossipd at least once */
 		if (depth >= channel->minimum_depth
 		    && channel->remote_channel_ready) {
 			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
@@ -2012,6 +2020,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	case CHANNELD_NORMAL:
 	case CHANNELD_AWAITING_SPLICE:
 		channeld_tell_depth(channel, txid, depth);
+
 		if (depth < ANNOUNCE_MIN_DEPTH || depth < channel->minimum_depth)
 			return KEEP_WATCHING;
 		/* Normal state and past announce depth?  Stop bothering us! */
@@ -2919,10 +2928,6 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	    && ignore_fee_limits) {
 		channel_update_feerates(cmd->ld, channel);
 	}
-
-	/* Tell gossipd */
-	/* FIXME: this always enables channel, even if not enabled! */
-	tell_gossipd_local_channel_update(cmd->ld, channel, true);
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);

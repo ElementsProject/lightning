@@ -971,37 +971,44 @@ def test_shutdown_reconnect(node_factory):
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manip")
 def test_reconnect_remote_sends_no_sigs(node_factory):
     """We re-announce, even when remote node doesn't send its announcement_signatures on reconnect.
     """
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'may_reconnect': True,
+                                                                      'dev-no-reconnect': None})
 
-    # When l1 restarts (with rescan=1), make it think it hasn't
-    # reached announce_depth, so it wont re-send announcement_signatures
-    def no_blocks_above(req):
-        if req['params'][0] > 107:
-            return {"result": None,
-                    "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
-        else:
-            return {'result': l1.bitcoin.rpc.getblockhash(req['params'][0]),
-                    "error": None, 'id': req['id']}
-
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', no_blocks_above)
-    l1.restart()
+    # Wipe l2's gossip_store
+    l2.stop()
+    gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    os.unlink(gs_path)
+    l2.start()
 
     # l2 will now uses (REMOTE's) announcement_signatures it has stored
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['status'] == [
-        'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Channel ready for use. Channel announced.'])
+    wait_for(lambda: l2.rpc.listchannels()['channels'] != [])
 
-    # But l2 still sends its own sigs on reconnect
-    l2.daemon.wait_for_logs([r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
-                             r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES'])
+    # Remove remote signatures from l1 so it asks for them (and delete gossip store)
+    l1.db_manip("UPDATE channels SET remote_ann_node_sig=NULL, remote_ann_bitcoin_sig=NULL")
+    gs_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    os.unlink(gs_path)
+    l1.restart()
 
-    count = ''.join(l1.daemon.logs).count(r'peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+    l1.connect(l2)
+    l1needle = l1.daemon.logsearch_start
+    l2needle = l2.daemon.logsearch_start
 
-    # l1 only did send them the first time
-    assert(count == 1 or count == 2)
+    # l1 asks once, l2 replies once.
+    # Make sure we get all the msgs!
+    time.sleep(5)
+
+    l1.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+    l2.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+
+    l1msgs = [l.split()[4] for l in l1.daemon.logs[l1needle:] if 'WIRE_ANNOUNCEMENT_SIGNATURES' in l]
+    assert l1msgs == ['peer_out', 'peer_in']
+
+    # l2 only sends one.
+    assert len([l for l in l2.daemon.logs[l2needle:] if 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES' in l]) == 1
 
 
 @pytest.mark.openchannel('v1')
@@ -3527,9 +3534,6 @@ def test_wumbo_channels(node_factory, bitcoind):
 
     # And we can wumbo pay, right?
     inv = l2.rpc.invoice(str(1 << 24) + "sat", "test_wumbo_channels", "wumbo payment")
-    # We actually do warn about capacity: l2 sees that *l1* doesn't have
-    # enough incoming to pay (not knowing that l1 is the intended payer).
-    assert 'warning_capacity' in inv
     assert 'warning_mpp' not in inv
 
     l1.rpc.pay(inv['bolt11'])

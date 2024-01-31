@@ -310,6 +310,10 @@ def test_pay_get_error_with_update(node_factory):
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
 
     assert(l1.is_channel_active(chanid2))
+
+    # Make sure it's not doing startup any more (where it doesn't disable channels!)
+    l1.daemon.wait_for_log("channel_gossip: no longer in startup mode", timeout=70)
+
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
         l1.rpc.pay(inv['bolt11'])
 

@@ -42,9 +42,6 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 /* A channel has unrecoverably fallen behind */
 void channel_fallen_behind(struct channel *channel, const u8 *msg);
 
-/* Fresh channel_update for this channel. */
-void channel_replace_update(struct channel *channel, u8 *update TAKES);
-
 /* Tell channel about new feerates (owner must be channeld!) */
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel);
 
