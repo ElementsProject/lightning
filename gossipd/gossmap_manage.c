@@ -54,6 +54,15 @@ struct dying_channel {
 	u32 deadline_blockheight;
 };
 
+struct cannounce_map {
+	UINTMAP(struct pending_cannounce *) map;
+	size_t count;
+
+	/* Name, for flood reporting */
+	const char *name;
+	bool flood_reported;
+};
+
 struct gossmap_manage {
 	struct daemon *daemon;
 
@@ -64,13 +73,13 @@ struct gossmap_manage {
 	struct gossmap *raw_gossmap;
 
 	/* Announcements we're checking, indexed by scid */
-	UINTMAP(struct pending_cannounce *) pending_ann_map;
+	struct cannounce_map pending_ann_map;
 
 	/* Updates we've deferred for above */
 	struct pending_cupdate **pending_cupdates;
 
 	/* Announcements which are too early to check. */
-	UINTMAP(struct pending_cannounce *) early_ann_map;
+	struct cannounce_map early_ann_map;
 	struct pending_cupdate **early_cupdates;
 
 	/* Node announcements (waiting for a pending_cannounce maybe) */
@@ -137,6 +146,70 @@ static void enqueue_nannounce(struct pending_nannounce ***queue,
 	tal_arr_expand(queue, pna);
 }
 
+/* Helpers to keep counters in sync with maps! */
+static void map_init(struct cannounce_map *map, const char *name)
+{
+	uintmap_init(&map->map);
+	map->count = 0;
+	map->name = name;
+	map->flood_reported = false;
+}
+
+static bool map_add(struct cannounce_map *map,
+		    struct short_channel_id scid,
+		    struct pending_cannounce *pca)
+{
+	/* More than 10000 pending things?  Stop! */
+	if (map->count > 10000) {
+		if (!map->flood_reported) {
+			status_unusual("%s being flooded by %s: dropping some",
+				       map->name,
+				       pca->source_peer
+				       ? node_id_to_hexstr(tmpctx, pca->source_peer)
+				       : "unknown");
+			map->flood_reported = true;
+		}
+		return false;
+	}
+
+	if (uintmap_add(&map->map, scid.u64, pca)) {
+		map->count++;
+		return true;
+	}
+	return false;
+}
+
+static struct pending_cannounce *map_del(struct cannounce_map *map,
+					 struct short_channel_id scid)
+{
+	struct pending_cannounce *pca = uintmap_del(&map->map, scid.u64);
+	if (pca) {
+		assert(map->count);
+		map->count--;
+		if (map->flood_reported && uintmap_empty(&map->map)) {
+			status_unusual("%s flood has subsided", map->name);
+			map->flood_reported = false;
+		}
+	}
+	return pca;
+}
+
+static bool map_empty(const struct cannounce_map *map)
+{
+	if (uintmap_empty(&map->map)) {
+		assert(map->count == 0);
+		return true;
+	}
+	assert(map->count != 0);
+	return false;
+}
+
+static struct pending_cannounce *map_get(struct cannounce_map *map,
+					 struct short_channel_id scid)
+{
+	return uintmap_get(&map->map, scid.u64);
+}
+
 /* Does any channel_announcement preceed this offset in the gossip_store? */
 static bool any_cannounce_preceeds_offset(struct gossmap *gossmap,
 					  const struct gossmap_node *node,
@@ -169,8 +242,8 @@ static void remove_channel(struct gossmap_manage *gm,
 	txout_failures_add(gm->txf, scid);
 
 	/* Cover race where we were looking up this UTXO as it was spent. */
-	tal_free(uintmap_del(&gm->pending_ann_map, scid.u64));
-	tal_free(uintmap_del(&gm->early_ann_map, scid.u64));
+	tal_free(map_del(&gm->pending_ann_map, scid));
+	tal_free(map_del(&gm->early_ann_map, scid));
 
 	/* Put in tombstone marker. */
 	gossip_store_mark_channel_deleted(gm->daemon->gs, &scid);
@@ -330,9 +403,9 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
 
-	uintmap_init(&gm->pending_ann_map);
+	map_init(&gm->pending_ann_map, "pending announcements");
 	gm->pending_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
-	uintmap_init(&gm->early_ann_map);
+	map_init(&gm->early_ann_map, "too-early announcements");
 	gm->early_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
 	gm->pending_nannounces = tal_arr(gm, struct pending_nannounce *, 0);
 	gm->txf = txout_failures_new(gm, daemon);
@@ -432,8 +505,8 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	 * Unless we already got it from a peer and we're processing now!
 	 */
 	if (known_amount
-	    && !uintmap_get(&gm->pending_ann_map, scid.u64)
-	    && !uintmap_get(&gm->early_ann_map, scid.u64)) {
+	    && !map_get(&gm->pending_ann_map, scid)
+	    && !map_get(&gm->early_ann_map, scid)) {
 		/* Set with timestamp 0 (we will update once we have a channel_update) */
 		gossip_store_add(gm->daemon->gs, announce, 0, false,
 				 towire_gossip_store_channel_amount(tmpctx, *known_amount));
@@ -441,7 +514,6 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 		return NULL;
 	}
 
-	/* FIXME: Flood protection! */
 	/* Don't know blockheight yet, or not yet deep enough?  Don't even ask */
 	if (!is_scid_depth_announceable(&scid, blockheight)) {
 		/* Don't expect to be more than 12 blocks behind! */
@@ -453,7 +525,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 				       blockheight);
 		}
 
-		if (!uintmap_add(&gm->early_ann_map, scid.u64, pca)) {
+		if (!map_add(&gm->early_ann_map, scid, pca)) {
 			/* Already pending?  Ignore */
 			tal_free(pca);
 			return NULL;
@@ -465,7 +537,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 
 	status_debug("channel_announcement: Adding %s to pending...",
 		     short_channel_id_to_str(tmpctx, &scid));
-	if (!uintmap_add(&gm->pending_ann_map, scid.u64, pca)) {
+	if (!map_add(&gm->pending_ann_map, scid, pca)) {
 		/* Already pending?  Ignore */
 		tal_free(pca);
 		return NULL;
@@ -493,7 +565,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	status_debug("channel_announcement: got reply for %s...",
 		     short_channel_id_to_str(tmpctx, &scid));
 
-	pca = uintmap_del(&gm->pending_ann_map, scid.u64);
+	pca = map_del(&gm->pending_ann_map, scid);
 	if (!pca) {
 		/* If we looking specifically for this, we no longer
 		 * are (but don't penalize sender: we don't know if it was
@@ -685,7 +757,7 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 		return NULL;
 
 	/* Still waiting? */
-	if (uintmap_get(&gm->pending_ann_map, scid.u64)) {
+	if (map_get(&gm->pending_ann_map, scid)) {
 		enqueue_cupdate(&gm->pending_cupdates,
 				scid,
 				&signature,
@@ -703,7 +775,7 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 	}
 
 	/* Too early? */
-	if (uintmap_get(&gm->early_ann_map, scid.u64)) {
+	if (map_get(&gm->early_ann_map, scid)) {
 		enqueue_cupdate(&gm->early_cupdates,
 				scid,
 				&signature,
@@ -834,8 +906,8 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 	node = gossmap_find_node(gossmap, &node_id);
 	if (!node) {
 		/* Still waiting for some channel_announcement? */
-		if (!uintmap_empty(&gm->pending_ann_map)
-		    || !uintmap_empty(&gm->early_ann_map)) {
+		if (!map_empty(&gm->pending_ann_map)
+		    || !map_empty(&gm->early_ann_map)) {
 			enqueue_nannounce(&gm->pending_nannounces,
 					  &node_id,
 					  timestamp,
@@ -907,7 +979,7 @@ static void reprocess_early_cupdates(struct gossmap_manage *gm)
 
 	for (size_t i = 0; i < tal_count(pcus); i++) {
 		/* Is announcement now pending?  Add directly to pending queue. */
-		if (uintmap_get(&gm->pending_ann_map, pcus[i]->scid.u64)) {
+		if (map_get(&gm->pending_ann_map, pcus[i]->scid)) {
 			tal_arr_expand(&gm->pending_cupdates,
 				       tal_steal(gm->pending_cupdates, pcus[i]));
 			continue;
@@ -923,21 +995,21 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 	bool pending_ann_empty, early_ann_empty;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
-	pending_ann_empty = uintmap_empty(&gm->pending_ann_map);
-	early_ann_empty = uintmap_empty(&gm->early_ann_map);
+	pending_ann_empty = map_empty(&gm->pending_ann_map);
+	early_ann_empty = map_empty(&gm->early_ann_map);
 
 	if (pending_ann_empty) {
 		reprocess_pending_cupdates(gm);
 		/* This should have been final! */
-		assert(uintmap_empty(&gm->pending_ann_map));
+		assert(map_empty(&gm->pending_ann_map));
 	}
 
 	if (early_ann_empty) {
 		/* reprocess_pending_cupdates should not have added any! */
-		assert(uintmap_empty(&gm->early_ann_map));
+		assert(map_empty(&gm->early_ann_map));
 		reprocess_early_cupdates(gm);
 		/* Won't add any more */
-		assert(uintmap_empty(&gm->early_ann_map));
+		assert(map_empty(&gm->early_ann_map));
 	}
 
 	/* Nothing at all outstanding?  All node_announcements can now be processed */
@@ -971,8 +1043,8 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 		}
 
 		/* Won't add any new ones */
-		assert(uintmap_empty(&gm->pending_ann_map));
-		assert(uintmap_empty(&gm->early_ann_map));
+		assert(map_empty(&gm->pending_ann_map));
+		assert(map_empty(&gm->early_ann_map));
 
 		tal_free(pnas);
 	}
@@ -1003,9 +1075,9 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 	u64 idx;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
-	for (struct pending_cannounce *pca = uintmap_first(&gm->early_ann_map, &idx);
+	for (struct pending_cannounce *pca = uintmap_first(&gm->early_ann_map.map, &idx);
 	     pca != NULL;
-	     pca = uintmap_after(&gm->early_ann_map, &idx)) {
+	     pca = uintmap_after(&gm->early_ann_map.map, &idx)) {
 		struct short_channel_id scid;
 		scid.u64 = idx;
 
@@ -1013,9 +1085,9 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 		if (!is_scid_depth_announceable(&scid, new_blockheight))
 			break;
 
-		uintmap_del(&gm->early_ann_map, idx);
+		map_del(&gm->early_ann_map, scid);
 
-		if (!uintmap_add(&gm->pending_ann_map, idx, pca)) {
+		if (!map_add(&gm->pending_ann_map, scid, pca)) {
 			/* Already pending?  Ignore */
 			tal_free(pca);
 			continue;
