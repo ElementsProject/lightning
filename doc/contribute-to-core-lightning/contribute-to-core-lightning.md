@@ -160,7 +160,7 @@ The flags currently defined are:
 ```
 #define DELETED		 0x8000
 #define PUSH		 0x4000
-#define RATELIMIT	 0x2000
+#define DYING		 0x0800
 ```
 
 
@@ -169,7 +169,7 @@ Deleted fields should be ignored: on restart, they will be removed as the gossip
 
 The push flag indicates gossip which is generated locally: this is important for gossip timestamp filtering, where peers request gossip and we always send our own gossip messages even if the timestamp wasn't within their request.
 
-The ratelimit flag indicates that this gossip message came too fast: we record it, but don't relay it to peers.
+The dying flag indicates that this channel has been spent, but we keep it around for 12 blocks in case it's actually a splice.
 
 Other flags should be ignored.
 
