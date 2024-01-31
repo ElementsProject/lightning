@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <gossipd/routing.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
