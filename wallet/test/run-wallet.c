@@ -1063,7 +1063,7 @@ u8 *towire_final_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expir
 u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_msat incoming_htlc_amt UNNEEDED)
 { fprintf(stderr, "towire_final_incorrect_htlc_amount called!\n"); abort(); }
 /* Generated stub for towire_gossipd_addgossip */
-u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)
+u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, struct amount_sat *known_channel UNNEEDED)
 { fprintf(stderr, "towire_gossipd_addgossip called!\n"); abort(); }
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)

@@ -68,6 +68,7 @@ msgtype,gossipd_new_blockheight_reply,3126
 msgtype,gossipd_addgossip,3044
 msgdata,gossipd_addgossip,len,u16,
 msgdata,gossipd_addgossip,msg,u8,len
+msgdata,gossipd_addgossip,known_channel,?amount_sat,
 
 # Empty string means no problem.
 msgtype,gossipd_addgossip_reply,3144

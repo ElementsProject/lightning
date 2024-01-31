@@ -324,7 +324,7 @@ static void broadcast_public_cupdate(struct channel *channel,
 			   take(sign_update(NULL, channel->peer->ld, cupdate)));
 
 	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, cg->cupdate)),
+		 take(towire_gossipd_addgossip(NULL, cg->cupdate, NULL)),
 		 -1, 0, broadcast_public_cupdate_addgossip_reply, channel);
 }
 
@@ -496,7 +496,7 @@ static void send_channel_announcement(struct channel *channel)
 					 &cg->remote_sigs->bitcoin_sig);
 
 	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, ca)),
+		 take(towire_gossipd_addgossip(NULL, ca, &channel->funding_sats)),
 		 -1, 0, send_channel_announce_addgossip_reply, channel);
 	/* We can also send our first public channel_update now */
 	broadcast_public_cupdate(channel, true);
@@ -1088,6 +1088,6 @@ void channel_gossip_node_announce(struct lightningd *ld)
 
 	/* Tell gossipd. */
 	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_addgossip(NULL, nannounce)),
+		 take(towire_gossipd_addgossip(NULL, nannounce, NULL)),
 		 -1, 0, node_announce_addgossip_reply, NULL);
 }

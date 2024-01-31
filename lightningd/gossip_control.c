@@ -410,7 +410,7 @@ static struct command_result *json_addgossip(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	req = towire_gossipd_addgossip(cmd, gossip_msg);
+	req = towire_gossipd_addgossip(cmd, gossip_msg, NULL);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_addgossip_reply, cmd);
 
