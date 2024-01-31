@@ -241,7 +241,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->daemon = daemon;
 	rstate->nodes = new_node_map(rstate);
-	rstate->gs = gossip_store_new(daemon);
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 
 	rstate->pending_cannouncements = tal(rstate, struct pending_cannouncement_map);
@@ -371,13 +370,13 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 				       struct node *node)
 {
 	const u8 *announce;
-	announce = gossip_store_get(tmpctx, rstate->gs, node->bcast.index);
+	announce = gossip_store_get(tmpctx, rstate->daemon->gs, node->bcast.index);
 
 	u32 initial_bcast_index = node->bcast.index;
-	gossip_store_delete(rstate->gs,
+	gossip_store_delete(rstate->daemon->gs,
 			    &node->bcast,
 			    WIRE_NODE_ANNOUNCEMENT);
-	node->bcast.index = gossip_store_add(rstate->gs,
+	node->bcast.index = gossip_store_add(rstate->daemon->gs,
 					     announce,
 					     node->bcast.timestamp,
 					     false,
@@ -387,11 +386,11 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 	if (node->rgraph.index == initial_bcast_index){
 		node->rgraph.index = node->bcast.index;
 	} else {
-		announce = gossip_store_get(tmpctx, rstate->gs, node->rgraph.index);
-		gossip_store_delete(rstate->gs,
+		announce = gossip_store_get(tmpctx, rstate->daemon->gs, node->rgraph.index);
+		gossip_store_delete(rstate->daemon->gs,
 				    &node->rgraph,
 				    WIRE_NODE_ANNOUNCEMENT);
-		node->rgraph.index = gossip_store_add(rstate->gs,
+		node->rgraph.index = gossip_store_add(rstate->daemon->gs,
 						      announce,
 						      node->rgraph.timestamp,
 						      false,
@@ -423,10 +422,10 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
 		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(rstate->gs,
+			gossip_store_delete(rstate->daemon->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
-		gossip_store_delete(rstate->gs,
+		gossip_store_delete(rstate->daemon->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 		tal_free(node);
@@ -440,10 +439,10 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
 		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(rstate->gs,
+			gossip_store_delete(rstate->daemon->gs,
 					    &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
-		gossip_store_delete(rstate->gs,
+		gossip_store_delete(rstate->daemon->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 		node->rgraph.index = node->bcast.index = 0;
@@ -673,7 +672,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 	if (index)
 		chan->bcast.index = index;
 	else
-		chan->bcast.index = gossip_store_add(rstate->gs,
+		chan->bcast.index = gossip_store_add(rstate->daemon->gs,
 						     channel_announce,
 						     chan->bcast.timestamp,
 						     false,
@@ -686,17 +685,17 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 					    struct chan *chan)
 {
 	/* If these aren't in the store, these are noops. */
-	gossip_store_delete(rstate->gs,
+	gossip_store_delete(rstate->daemon->gs,
 			    &chan->bcast, WIRE_CHANNEL_ANNOUNCEMENT);
 	if (chan->half[0].rgraph.index != chan->half[0].bcast.index)
-		gossip_store_delete(rstate->gs,
+		gossip_store_delete(rstate->daemon->gs,
 				    &chan->half[0].rgraph, WIRE_CHANNEL_UPDATE);
-	gossip_store_delete(rstate->gs,
+	gossip_store_delete(rstate->daemon->gs,
 			    &chan->half[0].bcast, WIRE_CHANNEL_UPDATE);
 	if (chan->half[1].rgraph.index != chan->half[1].bcast.index)
-		gossip_store_delete(rstate->gs,
+		gossip_store_delete(rstate->daemon->gs,
 				    &chan->half[1].rgraph, WIRE_CHANNEL_UPDATE);
-	gossip_store_delete(rstate->gs,
+	gossip_store_delete(rstate->daemon->gs,
 			    &chan->half[1].bcast, WIRE_CHANNEL_UPDATE);
 }
 
@@ -705,7 +704,7 @@ static void remove_channel_from_store(struct routing_state *rstate,
 {
 	/* Put in tombstone marker. Zombie channels will have one already. */
 	if (!is_chan_zombie(chan))
-		gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
+		gossip_store_mark_channel_deleted(rstate->daemon->gs, &chan->scid);
 
 	/* Now delete old entries. */
 	delete_chan_messages_from_store(rstate, chan);
@@ -1076,7 +1075,7 @@ static void delete_spam_update(struct routing_state *rstate,
 	/* Spam updates will have a unique rgraph index */
 	if (hc->rgraph.index == hc->bcast.index)
 		return;
-	gossip_store_delete(rstate->gs, &hc->rgraph,
+	gossip_store_delete(rstate->daemon->gs, &hc->rgraph,
 			    WIRE_CHANNEL_UPDATE);
 	hc->rgraph.index = hc->bcast.index;
 	hc->rgraph.timestamp = hc->bcast.timestamp;
@@ -1231,7 +1230,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 2
-		    && !cupdate_different(rstate->gs, hc, update)) {
+		    && !cupdate_different(rstate->daemon->gs, hc, update)) {
 			SUPERVERBOSE("Ignoring redundant update for %s/%u"
 				     " (last %u, now %u)",
 				     type_to_string(tmpctx,
@@ -1267,7 +1266,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* Delete any prior entries (noop if they don't exist) */
 	delete_spam_update(rstate, hc);
 	if (!spam)
-		gossip_store_delete(rstate->gs, &hc->bcast,
+		gossip_store_delete(rstate->daemon->gs, &hc->bcast,
 				    WIRE_CHANNEL_UPDATE);
 
 	/* Update timestamp(s) */
@@ -1319,41 +1318,41 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Resurrection is a careful process. First delete the zombie-
 		 * flagged channel_announcement which has already been
 		 * tombstoned, and re-add to the store without zombie flag. */
-		zombie_announcement = gossip_store_get(tmpctx, rstate->gs,
+		zombie_announcement = gossip_store_get(tmpctx, rstate->daemon->gs,
 						       chan->bcast.index);
 		u32 offset = tal_count(zombie_announcement) +
 			sizeof(struct gossip_hdr);
 		/* The channel_announcement addendum reminds us of its size. */
-		zombie_addendum = gossip_store_get(tmpctx, rstate->gs,
+		zombie_addendum = gossip_store_get(tmpctx, rstate->daemon->gs,
 						   chan->bcast.index + offset);
-		gossip_store_delete(rstate->gs, &chan->bcast,
+		gossip_store_delete(rstate->daemon->gs, &chan->bcast,
 				    WIRE_CHANNEL_ANNOUNCEMENT);
 		chan->bcast.index =
-			gossip_store_add(rstate->gs, zombie_announcement,
+			gossip_store_add(rstate->daemon->gs, zombie_announcement,
 					 chan->bcast.timestamp,
 					 false, false, false, zombie_addendum);
 		/* Deletion of the old addendum is optional. */
 		/* This opposing channel_update has been stashed away.  Now that
 		 * there are two valid updates, this one gets restored. */
 		/* FIXME: Handle spam case probably needs a helper f'n */
-		zombie_update[0] = gossip_store_get(tmpctx, rstate->gs,
+		zombie_update[0] = gossip_store_get(tmpctx, rstate->daemon->gs,
 			chan->half[!direction].bcast.index);
 		if (chan->half[!direction].bcast.index != chan->half[!direction].rgraph.index) {
 			/* Don't forget the spam channel_update */
-			zombie_update[1] = gossip_store_get(tmpctx, rstate->gs,
+			zombie_update[1] = gossip_store_get(tmpctx, rstate->daemon->gs,
 				chan->half[!direction].rgraph.index);
-			gossip_store_delete(rstate->gs, &chan->half[!direction].rgraph,
+			gossip_store_delete(rstate->daemon->gs, &chan->half[!direction].rgraph,
 					    WIRE_CHANNEL_UPDATE);
 		}
-		gossip_store_delete(rstate->gs, &chan->half[!direction].bcast,
+		gossip_store_delete(rstate->daemon->gs, &chan->half[!direction].bcast,
 				    WIRE_CHANNEL_UPDATE);
 		chan->half[!direction].bcast.index =
-			gossip_store_add(rstate->gs, zombie_update[0],
+			gossip_store_add(rstate->daemon->gs, zombie_update[0],
 					 chan->half[!direction].bcast.timestamp,
 					 false, false, false, NULL);
 		if (zombie_update[1])
 			chan->half[!direction].rgraph.index =
-				gossip_store_add(rstate->gs, zombie_update[1],
+				gossip_store_add(rstate->daemon->gs, zombie_update[1],
 						 chan->half[!direction].rgraph.timestamp,
 						 false, true, false, NULL);
 		else
@@ -1372,7 +1371,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->rgraph.index = index;
 	} else {
 		hc->rgraph.index
-			= gossip_store_add(rstate->gs, update, timestamp,
+			= gossip_store_add(rstate->daemon->gs, update, timestamp,
 					   zombie, spam, dying, NULL);
 		if (!spam)
 			hc->bcast.index = hc->rgraph.index;
@@ -1733,7 +1732,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Allow redundant updates once a day (faster in dev-fast-gossip-prune mode) */
 		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 14;
 		if (timestamp < node->bcast.timestamp + redundant_time
-		    && !nannounce_different(rstate->gs, node, msg)) {
+		    && !nannounce_different(rstate->daemon->gs, node, msg)) {
 			SUPERVERBOSE(
 			    "Ignoring redundant nannounce for %s"
 			    " (last %u, now %u)",
@@ -1769,15 +1768,15 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		node->bcast.timestamp = timestamp;
 		/* remove prior spam update if one exists */
 		if (node->rgraph.index != node->bcast.index) {
-			gossip_store_delete(rstate->gs, &node->rgraph,
+			gossip_store_delete(rstate->daemon->gs, &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
 		}
 		/* Harmless if it was never added */
-		gossip_store_delete(rstate->gs, &node->bcast,
+		gossip_store_delete(rstate->daemon->gs, &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 	/* Remove prior spam update. */
 	} else if (node->rgraph.index != node->bcast.index) {
-		gossip_store_delete(rstate->gs, &node->rgraph,
+		gossip_store_delete(rstate->daemon->gs, &node->rgraph,
 				    WIRE_NODE_ANNOUNCEMENT);
 	}
 
@@ -1788,7 +1787,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			node->bcast.index = index;
 	} else {
 		node->rgraph.index
-			= gossip_store_add(rstate->gs, msg, timestamp,
+			= gossip_store_add(rstate->daemon->gs, msg, timestamp,
 					   false, spam, false, NULL);
 		if (!spam)
 			node->bcast.index = node->rgraph.index;
@@ -2020,7 +2019,7 @@ void routing_expire_channels(struct routing_state *rstate, u32 blockheight)
 		if (chan)
 			channel_spent(rstate, chan);
 		/* Delete dying marker itself */
-		gossip_store_delete(rstate->gs,
+		gossip_store_delete(rstate->daemon->gs,
 				    &d->marker, WIRE_GOSSIP_STORE_CHAN_DYING);
 		tal_arr_remove(&rstate->dying_channels, i);
 		i--;
@@ -2062,14 +2061,14 @@ void routing_channel_spent(struct routing_state *rstate,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
-	index = gossip_store_add(rstate->gs, msg, 0, false, false, false, NULL);
+	index = gossip_store_add(rstate->daemon->gs, msg, 0, false, false, false, NULL);
 
 	/* Mark it dying, so we don't gossip it */
-	gossip_store_mark_dying(rstate->gs, &chan->bcast,
+	gossip_store_mark_dying(rstate->daemon->gs, &chan->bcast,
 				WIRE_CHANNEL_ANNOUNCEMENT);
 	for (int dir = 0; dir < ARRAY_SIZE(chan->half); dir++) {
 		if (is_halfchan_defined(&chan->half[dir])) {
-			gossip_store_mark_dying(rstate->gs,
+			gossip_store_mark_dying(rstate->daemon->gs,
 						&chan->half[dir].bcast,
 						WIRE_CHANNEL_UPDATE);
 		}

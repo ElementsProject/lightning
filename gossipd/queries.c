@@ -377,7 +377,7 @@ static void get_checksum_and_timestamp(struct routing_state *rstate,
 	if (!is_halfchan_defined(hc)) {
 		*tstamp = *csum = 0;
 	} else {
-		const u8 *update = gossip_store_get(tmpctx, rstate->gs,
+		const u8 *update = gossip_store_get(tmpctx, rstate->daemon->gs,
 						    hc->bcast.index);
 		*tstamp = hc->bcast.timestamp;
 		*csum = crc32_of_update(update);

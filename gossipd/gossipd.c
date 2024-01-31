@@ -101,7 +101,7 @@ void queue_peer_msg(struct daemon *daemon,
 void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast)
 {
-	struct gossip_store *gs = peer->daemon->rstate->gs;
+	struct gossip_store *gs = peer->daemon->gs;
 	queue_peer_msg(peer->daemon, &peer->id,
 		       take(gossip_store_get(NULL, gs, bcast->index)));
 }
@@ -128,7 +128,7 @@ static bool get_node_announcement(const tal_t *ctx,
 	if (!n->bcast.index)
 		return false;
 
-	msg = gossip_store_get(tmpctx, daemon->rstate->gs, n->bcast.index);
+	msg = gossip_store_get(tmpctx, daemon->gs, n->bcast.index);
 
 	/* Note: validity of node_id is already checked. */
 	if (!fromwire_node_announcement(ctx, msg,
@@ -599,7 +599,7 @@ static void tell_master_local_cupdates(struct daemon *daemon)
 			continue;
 
 		cupdate = gossip_store_get(tmpctx,
-					   daemon->rstate->gs,
+					   daemon->gs,
 					   hc->bcast.index);
 		daemon_conn_send(daemon->master,
 				 take(towire_gossipd_init_cupdate(NULL,
@@ -611,7 +611,7 @@ static void tell_master_local_cupdates(struct daemon *daemon)
 	if (me->bcast.index) {
 		const u8 *nannounce;
 		nannounce = gossip_store_get(tmpctx,
-					     daemon->rstate->gs,
+					     daemon->gs,
 					     me->bcast.index);
 		daemon_conn_send(daemon->master,
 				 take(towire_gossipd_init_nannounce(NULL,
@@ -696,11 +696,12 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 		tal_free(dev_gossip_time);
 	}
 
+	daemon->gs = gossip_store_new(daemon);
 	daemon->rstate = new_routing_state(daemon, daemon);
 
 	/* Load stored gossip messages (FIXME: API sucks)*/
 	daemon->gossip_store_populated =
-		(gossip_store_load(daemon->rstate->gs) != 0);
+		(gossip_store_load(daemon->gs) != 0);
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
