@@ -47,13 +47,6 @@ struct pending_nannounce {
 	const struct node_id *source_peer;
 };
 
-struct dying_channel {
-	struct short_channel_id scid;
-	/* Offset of dying marker in the gossip_store */
-	u64 gossmap_offset;
-	u32 deadline_blockheight;
-};
-
 struct cannounce_map {
 	UINTMAP(struct pending_cannounce *) map;
 	size_t count;
@@ -89,7 +82,7 @@ struct gossmap_manage {
 	struct txout_failures *txf;
 
 	/* Blockheights of scids to remove */
-	struct dying_channel *dying_channels;
+	struct chan_dying *dying_channels;
 
 	/* Occasional check for dead channels */
 	struct oneshot *prune_timer;
@@ -392,15 +385,12 @@ static void report_bad_update(struct gossmap *map,
 }
 
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
-					  struct daemon *daemon)
+					  struct daemon *daemon,
+					  struct chan_dying *dying_channels TAKES)
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	gm->fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
-	if (gm->fd < 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Opening gossip_store store: %s",
-			      strerror(errno));
+	gm->fd = gossip_store_get_fd(daemon->gs);
 	gm->raw_gossmap = gossmap_load_fd(gm, gm->fd, report_bad_update, NULL, gm);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
@@ -411,7 +401,7 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	gm->early_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
 	gm->pending_nannounces = tal_arr(gm, struct pending_nannounce *, 0);
 	gm->txf = txout_failures_new(gm, daemon);
-	gm->dying_channels = tal_arr(gm, struct dying_channel, 0);
+	gm->dying_channels = tal_dup_talarr(gm, struct chan_dying, dying_channels);
 
 	start_prune_timer(gm);
 	return gm;
@@ -1107,7 +1097,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 	}
 
 	for (size_t i = 0; i < tal_count(gm->dying_channels); i++) {
-		if (gm->dying_channels[i].deadline_blockheight > new_blockheight)
+		if (gm->dying_channels[i].deadline > new_blockheight)
 			continue;
 
 		kill_spent_channel(gm, gossmap, gm->dying_channels[i].scid);
@@ -1125,8 +1115,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	struct gossmap_chan *chan;
 	const struct gossmap_node *me;
 	const u8 *msg;
-	u32 deadline;
-	u64 off;
+	struct chan_dying cd;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 	chan = gossmap_find_chan(gossmap, &scid);
@@ -1145,7 +1134,8 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	 *   - once its funding output has been spent OR reorganized out:
 	 *     - SHOULD forget a channel after a 12-block delay.
 	 */
-	deadline = blockheight + 12;
+	cd.deadline = blockheight + 12;
+	cd.scid = scid;
 
 	/* Remember locally so we can kill it in 12 blocks */
 	status_debug("channel %s closing soon due"
@@ -1153,9 +1143,9 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Save to gossip_store in case we restart */
-	msg = towire_gossip_store_chan_dying(tmpctx, &scid, deadline);
-	off = gossip_store_add(gm->daemon->gs, msg, 0);
-	gossmap_manage_channel_dying(gm, off, deadline, scid);
+	msg = towire_gossip_store_chan_dying(tmpctx, &cd.scid, cd.deadline);
+	cd.gossmap_offset = gossip_store_add(gm->daemon->gs, msg, 0);
+	tal_arr_expand(&gm->dying_channels, cd);
 
 	/* Mark it dying, so we don't gossip it */
 	gossip_store_set_flag(gm->daemon->gs, chan->cann_off,
@@ -1177,26 +1167,6 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 {
 	gossmap_refresh(gm->raw_gossmap, NULL);
 	return gm->raw_gossmap;
-}
-
-bool gossmap_manage_channel_dying(struct gossmap_manage *gm,
-				  u64 gossmap_offset,
-				  u32 deadline,
-				  struct short_channel_id scid)
-{
-	struct dying_channel dead;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
-
-	/* Can't kill missing channels! */
-	if (!gossmap_find_chan(gossmap, &scid))
-		return false;
-
-	dead.deadline_blockheight = deadline;
-	dead.gossmap_offset = gossmap_offset;
-	dead.scid = scid;
-
-	tal_arr_expand(&gm->dying_channels, dead);
-	return true;
 }
 
 /* BOLT #7:

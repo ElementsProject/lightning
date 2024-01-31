@@ -4,9 +4,11 @@
 
 struct daemon;
 struct gossmap_manage;
+struct chan_dying;
 
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
-					  struct daemon *daemon);
+					  struct daemon *daemon,
+					  struct chan_dying *dying_channels TAKES);
 
 /**
  * gossmap_manage_channel_announcement: process an incoming channel_announcement
@@ -84,20 +86,6 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight);
  */
 void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 				  u32 blockheight,
-				  struct short_channel_id scid);
-
-/**
- * gossmap_manage_channel_dying: dying channel loaded from store.
- * @gm: the gossmap_manage context
- * @offset: the offset of the dying marker in the store.
- * @deadline: the blockheight it is to expire
- * @scid: the short_channel_id
- *
- * Returns false if this channel does not exist (already dead!).
- */
-bool gossmap_manage_channel_dying(struct gossmap_manage *gm,
-				  u64 gossmap_offset,
-				  u32 deadline,
 				  struct short_channel_id scid);
 
 /**
