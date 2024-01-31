@@ -198,9 +198,7 @@ struct routing_state {
 
 	/* Cache for txout queries that failed. Allows us to skip failed
 	 * checks if we get another announcement for the same scid. */
-	size_t num_txout_failures;
-	UINTMAP(bool) txout_failures, txout_failures_old;
-	struct oneshot *txout_failure_timer;
+	struct txout_failures *txf;
 
 	/* Highest timestamp of gossip we accepted (before now) */
 	u32 last_timestamp;

@@ -16,6 +16,7 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
+#include <gossipd/txout_failures.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -248,43 +249,6 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	}
 }
 
-/* Once an hour, or at 10000 entries, we expire old ones */
-static void txout_failure_age(struct routing_state *rstate)
-{
-	uintmap_clear(&rstate->txout_failures_old);
-	rstate->txout_failures_old = rstate->txout_failures;
-	uintmap_init(&rstate->txout_failures);
-	rstate->num_txout_failures = 0;
-
-	rstate->txout_failure_timer = new_reltimer(&rstate->daemon->timers,
-						   rstate, time_from_sec(3600),
-						   txout_failure_age, rstate);
-}
-
-static void add_to_txout_failures(struct routing_state *rstate,
-				  const struct short_channel_id *scid)
-{
-	if (uintmap_add(&rstate->txout_failures, scid->u64, true)
-	    && ++rstate->num_txout_failures == 10000) {
-		tal_free(rstate->txout_failure_timer);
-		txout_failure_age(rstate);
-	}
-}
-
-static bool in_txout_failures(struct routing_state *rstate,
-			      const struct short_channel_id *scid)
-{
-	if (uintmap_get(&rstate->txout_failures, scid->u64))
-		return true;
-
-	/* If we were going to expire it, we no longer are. */
-	if (uintmap_get(&rstate->txout_failures_old, scid->u64)) {
-		add_to_txout_failures(rstate, scid);
-		return true;
-	}
-	return false;
-}
-
 struct routing_state *new_routing_state(const tal_t *ctx,
 					struct daemon *daemon,
 					const u32 *dev_gossip_time TAKES,
@@ -303,10 +267,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
-	rstate->num_txout_failures = 0;
-	uintmap_init(&rstate->txout_failures);
-	uintmap_init(&rstate->txout_failures_old);
-	txout_failure_age(rstate);
+	rstate->txf = txout_failures_new(rstate, rstate->daemon);
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
 
@@ -974,7 +935,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling. */
-	if (in_txout_failures(rstate, &pending->short_channel_id)) {
+	if (in_txout_failures(rstate->txf, pending->short_channel_id)) {
 		SUPERVERBOSE(
 		    "Ignoring channel_announcement of %s due to a prior txout "
 		    "query failure. The channel was likely closed on-chain.",
@@ -1147,7 +1108,7 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 						 struct short_channel_id,
 						 scid));
 		tal_free(pending);
-		add_to_txout_failures(rstate, scid);
+		txout_failures_add(rstate->txf, *scid);
 		return false;
 	}
 
@@ -1665,7 +1626,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	/* If we dropped the matching announcement for this channel due to the
 	 * txout query failing, don't report failure, it's just too noisy on
 	 * mainnet */
-	if (in_txout_failures(rstate, &short_channel_id))
+	if (in_txout_failures(rstate->txf, short_channel_id))
 		return NULL;
 
 	/* If we have an unvalidated channel, just queue on that */
@@ -2213,7 +2174,7 @@ static void channel_spent(struct routing_state *rstate,
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &chan->scid));
 	/* Suppress any now-obsolete updates/announcements */
-	add_to_txout_failures(rstate, &chan->scid);
+	txout_failures_add(rstate->txf, chan->scid);
 	remove_channel_from_store(rstate, chan);
 	/* Freeing is sufficient since everything else is allocated off
 	 * of the channel and this takes care of unregistering
