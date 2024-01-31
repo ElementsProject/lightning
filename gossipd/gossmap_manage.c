@@ -1171,6 +1171,46 @@ void gossmap_manage_new_peer(struct gossmap_manage *gm,
 		queue_peer_msg(gm->daemon, peer, take(msg));
 }
 
+void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
+					   struct gossmap_manage *gm)
+{
+	struct gossmap_node *me;
+	const u8 *nannounce;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+
+	/* Find ourselves; if no channels, nothing to send */
+	me = gossmap_find_node(gossmap, &gm->daemon->id);
+	if (!me)
+		return;
+
+	for (size_t i = 0; i < me->num_chans; i++) {
+		struct gossmap_chan *chan = gossmap_nth_chan(gossmap, me, i, NULL);
+		struct short_channel_id scid;
+		const u8 *cupdate;
+
+		scid = gossmap_chan_scid(gossmap, chan);
+		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, 0);
+		if (cupdate)
+			daemon_conn_send(daemon->master,
+					 take(towire_gossipd_init_cupdate(NULL,
+									  &scid,
+									  cupdate)));
+		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, 1);
+		if (cupdate)
+			daemon_conn_send(daemon->master,
+					 take(towire_gossipd_init_cupdate(NULL,
+									  &scid,
+									  cupdate)));
+	}
+
+	/* Tell lightningd about our current node_announcement, if any */
+	nannounce = gossmap_node_get_announce(tmpctx, gossmap, me);
+	if (nannounce)
+		daemon_conn_send(daemon->master,
+				 take(towire_gossipd_init_nannounce(NULL,
+								    nannounce)));
+}
+
 struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
 						   struct gossmap_manage *gm,
 						   const struct node_id *node_id)
