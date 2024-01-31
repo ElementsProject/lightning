@@ -3629,9 +3629,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 			channel_fail_fallen_behind(dualopend, msg);
 			return 0;
-		/* FIXME: remove from dual_open_wire.csv */
-		case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
-			return 0;
 		case WIRE_DUALOPEND_VALIDATE_INPUTS:
 			handle_validate_inputs(dualopend, msg);
 			return 0;

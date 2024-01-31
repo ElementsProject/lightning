@@ -3882,38 +3882,6 @@ static void send_channel_ready(struct state *state)
 	billboard_update(state);
 }
 
-/* FIXME: Maybe cache this? */
-static struct amount_sat channel_size(struct state *state)
-{
-	u32 funding_outnum;
-	const u8 *funding_wscript =
-		bitcoin_redeem_2of2(tmpctx,
-				    &state->our_funding_pubkey,
-				    &state->their_funding_pubkey);
-
-	if (!find_txout(state->tx_state->psbt,
-			scriptpubkey_p2wsh(tmpctx, funding_wscript),
-			&funding_outnum)) {
-		open_err_fatal(state, "Cannot fund txout");
-	}
-
-	return psbt_output_get_amount(state->tx_state->psbt, funding_outnum);
-}
-
-static void tell_gossipd_new_channel(struct state *state)
-{
-	u8 *msg;
-	const u8 *annfeatures = get_agreed_channelfeatures(tmpctx,
-							   state->our_features,
-							   state->their_features);
-
-	/* Tell lightningd about local channel. */
-	msg = towire_dualopend_local_private_channel(NULL,
-						     channel_size(state),
-						     annfeatures);
- 	wire_sync_write(REQ_FD, take(msg));
-}
-
 static u8 *handle_funding_depth(struct state *state, u8 *msg)
 {
 	u32 depth;
@@ -3927,9 +3895,6 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 
 	/* We check this before we arrive here, but for sanity */
 	assert(state->minimum_depth <= depth);
-
-	/* Tell gossipd the new channel exists before we tell peer. */
-	tell_gossipd_new_channel(state);
 
 	send_channel_ready(state);
 	if (state->channel_ready[REMOTE])
@@ -4211,7 +4176,6 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 	case WIRE_DUALOPEND_DRY_RUN:
 	case WIRE_DUALOPEND_VALIDATE_LEASE:
-	case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
 	case WIRE_DUALOPEND_VALIDATE_INPUTS:
 		break;
 	}

@@ -282,9 +282,3 @@ msgdata,dualopend_validate_lease,their_pubkey,pubkey,
 
 msgtype,dualopend_validate_lease_reply,7127
 msgdata,dualopend_validate_lease_reply,err_msg,?wirestring,
-
-# Tell gossipd about this (as-yet) unannounced channel
-msgtype,dualopend_local_private_channel,7015
-msgdata,dualopend_local_private_channel,capacity,amount_sat,
-msgdata,dualopend_local_private_channel,len,u16,
-msgdata,dualopend_local_private_channel,features,u8,len
