@@ -167,12 +167,6 @@ void inject_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	msg_enqueue(peer->peer_outq, msg);
 }
 
-void multiplex_final_msg(struct peer *peer, const u8 *final_msg TAKES)
-{
-	inject_peer_msg(peer, final_msg);
-	drain_peer(peer);
-}
-
 /* Send warning, close connection to peer */
 static void send_warning(struct peer *peer, const char *fmt, ...)
 {
@@ -187,7 +181,8 @@ static void send_warning(struct peer *peer, const char *fmt, ...)
 	msg = towire_warningfmtv(NULL, NULL, fmt, ap);
 	va_end(ap);
 
-	multiplex_final_msg(peer, take(msg));
+	inject_peer_msg(peer, take(msg));
+	drain_peer(peer);
 }
 
 /* Kicks off write_to_peer() to look for more gossip to send from store */

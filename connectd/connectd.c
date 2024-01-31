@@ -1835,24 +1835,24 @@ static void start_shutdown(struct daemon *daemon, const u8 *msg)
 			 take(towire_connectd_start_shutdown_reply(NULL)));
 }
 
-/* lightningd tells us to send a msg and disconnect. */
-static void peer_final_msg(struct io_conn *conn,
+/* lightningd tells us to send a msg. */
+static void peer_send_msg(struct io_conn *conn,
 			   struct daemon *daemon, const u8 *msg)
 {
 	struct peer *peer;
 	struct node_id id;
 	u64 counter;
-	u8 *finalmsg;
+	u8 *sendmsg;
 
-	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &counter,
-					      &finalmsg))
-		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
+	if (!fromwire_connectd_peer_send_msg(tmpctx, msg, &id, &counter,
+					     &sendmsg))
+		master_badmsg(WIRE_CONNECTD_PEER_SEND_MSG, msg);
 
 	/* This can happen if peer hung up on us (or wrong counter
 	 * if it reconnected). */
 	peer = peer_htable_get(daemon->peers, &id);
 	if (peer && peer->counter == counter)
-		multiplex_final_msg(peer, take(finalmsg));
+		inject_peer_msg(peer, take(sendmsg));
 }
 
 static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
@@ -2078,8 +2078,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		peer_discard(daemon, msg);
 		goto out;
 
-	case WIRE_CONNECTD_PEER_FINAL_MSG:
-		peer_final_msg(conn, daemon, msg);
+	case WIRE_CONNECTD_PEER_SEND_MSG:
+		peer_send_msg(conn, daemon, msg);
 		goto out;
 
 	case WIRE_CONNECTD_PING:

@@ -99,12 +99,12 @@ msgtype,connectd_discard_peer,2015
 msgdata,connectd_discard_peer,id,node_id,
 msgdata,connectd_discard_peer,counter,u64,
 
-# master -> connectd: give message to peer and disconnect.
-msgtype,connectd_peer_final_msg,2003
-msgdata,connectd_peer_final_msg,id,node_id,
-msgdata,connectd_peer_final_msg,counter,u64,
-msgdata,connectd_peer_final_msg,len,u16,
-msgdata,connectd_peer_final_msg,msg,u8,len
+# master -> connectd: give message to peer.
+msgtype,connectd_peer_send_msg,2003
+msgdata,connectd_peer_send_msg,id,node_id,
+msgdata,connectd_peer_send_msg,counter,u64,
+msgdata,connectd_peer_send_msg,len,u16,
+msgdata,connectd_peer_send_msg,msg,u8,len
 
 # master -> connectd: do you have a memleak?
 msgtype,connectd_dev_memleak,2033

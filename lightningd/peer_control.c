@@ -1318,9 +1318,13 @@ send_error:
 		       tal_hex(tmpctx, error));
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_final_msg(NULL, &channel->peer->id,
-							  channel->peer->connectd_counter,
-							  error)));
+		      take(towire_connectd_peer_send_msg(NULL, &channel->peer->id,
+							 channel->peer->connectd_counter,
+							 error)));
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_discard_peer(NULL,
+							&channel->peer->id,
+							channel->peer->connectd_counter)));
 }
 
 static void peer_connected_hook_final(struct peer_connected_hook_payload *payload STEALS)
@@ -1367,12 +1371,16 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	/* Developer hack to fail all channels on permfail line. */
 	if (dev_disconnect_permanent(ld)) {
 		list_for_each(&peer->channels, channel, list) {
+			subd_send_msg(ld->connectd,
+				      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+									 peer->connectd_counter,
+									 channel->error)));
+			subd_send_msg(ld->connectd,
+				      take(towire_connectd_discard_peer(NULL,
+									&peer->id,
+									peer->connectd_counter)));
 			channel_fail_permanent(channel, REASON_LOCAL,
 					       "dev_disconnect permfail");
-			subd_send_msg(ld->connectd,
-				      take(towire_connectd_peer_final_msg(NULL, &peer->id,
-									  peer->connectd_counter,
-									  channel->error)));
 		}
 		return;
 	}
@@ -1394,9 +1402,13 @@ send_error:
 		       tal_hex(tmpctx, error));
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
-							  peer->connectd_counter,
-							  error)));
+		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+							 peer->connectd_counter,
+							 error)));
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_discard_peer(NULL,
+							&peer->id,
+							peer->connectd_counter)));
 }
 
 static bool
@@ -1764,9 +1776,13 @@ send_error:
 		       tal_hex(tmpctx, error));
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
-							  peer->connectd_counter,
-							  error)));
+		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+							 peer->connectd_counter,
+							 error)));
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_discard_peer(NULL,
+							&peer->id,
+							peer->connectd_counter)));
 	return;
 
 tell_connectd:

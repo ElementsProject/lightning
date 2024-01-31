@@ -14,10 +14,6 @@ struct feature_set;
 struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 				     struct peer *peer);
 
-/* Send this message to peer and disconnect. */
-void multiplex_final_msg(struct peer *peer,
-			 const u8 *final_msg TAKES);
-
 /* Inject a message into the output stream.  Unlike a raw msg_enqueue,
  * this does io logging. */
 void inject_peer_msg(struct peer *peer, const u8 *msg TAKES);

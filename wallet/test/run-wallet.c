@@ -993,12 +993,15 @@ u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amo
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_sending_commitsig_reply called!\n"); abort(); }
+/* Generated stub for towire_connectd_discard_peer */
+u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
+{ fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_connect_subd */
 u8 *towire_connectd_peer_connect_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_connect_subd called!\n"); abort(); }
-/* Generated stub for towire_connectd_peer_final_msg */
-u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
+/* Generated stub for towire_connectd_peer_send_msg */
+u8 *towire_connectd_peer_send_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "towire_connectd_peer_send_msg called!\n"); abort(); }
 /* Generated stub for towire_dualopend_dev_memleak */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_dualopend_dev_memleak called!\n"); abort(); }
