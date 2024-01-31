@@ -618,17 +618,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	return chan;
 }
 
-/* Checks that key is valid, and signed this hash */
-static bool check_signed_hash_nodeid(const struct sha256_double *hash,
-				     const secp256k1_ecdsa_signature *signature,
-				     const struct node_id *id)
-{
-	struct pubkey key;
-
-	return pubkey_from_node_id(&key, id)
-		&& check_signed_hash(hash, signature, &key);
-}
-
 /* Verify the signature of a channel_update message */
 static u8 *check_channel_update(const tal_t *ctx,
 				const struct node_id *node_id,

@@ -10,6 +10,7 @@ struct channel;
  * create_channel_announcement: create a channel_announcement message
  * @ctx: the tal context to allocate return from
  * @channel: the channel to announce
+ * @scid: channel->scid
  * @local_node_signature: optional local node signature
  * @local_bitcoin_signature: optional local node signature
  * @remote_node_signature: optional peer node signature
@@ -20,6 +21,7 @@ struct channel;
  */
 u8 *create_channel_announcement(const tal_t *ctx,
 				const struct channel *channel,
+				struct short_channel_id scid,
 				const secp256k1_ecdsa_signature *local_node_signature,
 				const secp256k1_ecdsa_signature *local_bitcoin_signature,
 				const secp256k1_ecdsa_signature *remote_node_signature,
@@ -60,5 +62,19 @@ bool channel_update_same(const u8 *cupdate1, const u8 *cupdate2);
 bool channel_update_details(const u8 *channel_update,
 			    u32 *timestamp,
 			    bool *enabled);
+
+/**
+ * check_announce_sigs: check that signatures are correct for this scid
+ * @channel: the channel (for peer's id / bitcoin key and the channel features)
+ * @scid: the short_channel_id it's proposing
+ * @remote_node_signature: node signature
+ * @remote_bitcoin_signature: bitcoin signature
+ *
+ * Returns a string literal if one signature is bad.
+ */
+const char *check_announce_sigs(const struct channel *channel,
+				struct short_channel_id scid,
+				const secp256k1_ecdsa_signature *remote_node_signature,
+				const secp256k1_ecdsa_signature *remote_bitcoin_signature);
 
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_GENERATION_H */

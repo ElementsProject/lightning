@@ -107,6 +107,12 @@ void channeld_tell_depth(struct channel *channel UNNEEDED,
 			 const struct bitcoin_txid *txid UNNEEDED,
 			 u32 depth UNNEEDED)
 { fprintf(stderr, "channeld_tell_depth called!\n"); abort(); }
+/* Generated stub for check_announce_sigs */
+const char *check_announce_sigs(const struct channel *channel UNNEEDED,
+				struct short_channel_id scid UNNEEDED,
+				const secp256k1_ecdsa_signature *remote_node_signature UNNEEDED,
+				const secp256k1_ecdsa_signature *remote_bitcoin_signature UNNEEDED)
+{ fprintf(stderr, "check_announce_sigs called!\n"); abort(); }
 /* Generated stub for cmd_id_from_close_command */
 const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
 				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
@@ -174,6 +180,7 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 /* Generated stub for create_channel_announcement */
 u8 *create_channel_announcement(const tal_t *ctx UNNEEDED,
 				const struct channel *channel UNNEEDED,
+				struct short_channel_id scid UNNEEDED,
 				const secp256k1_ecdsa_signature *local_node_signature UNNEEDED,
 				const secp256k1_ecdsa_signature *local_bitcoin_signature UNNEEDED,
 				const secp256k1_ecdsa_signature *remote_node_signature UNNEEDED,

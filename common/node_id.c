@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/signature.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -65,4 +66,14 @@ void towire_node_id(u8 **pptr, const struct node_id *id)
 	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
 #endif
 	towire(pptr, id->k, sizeof(id->k));
+}
+
+bool check_signed_hash_nodeid(const struct sha256_double *hash,
+			      const secp256k1_ecdsa_signature *signature,
+			      const struct node_id *id)
+{
+	struct pubkey key;
+
+	return pubkey_from_node_id(&key, id)
+		&& check_signed_hash(hash, signature, &key);
 }
