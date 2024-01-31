@@ -186,9 +186,6 @@ struct routing_state {
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct pending_cannouncement_map *pending_cannouncements;
 
-	/* Gossip store */
-	struct gossip_store *gs;
-
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
 
