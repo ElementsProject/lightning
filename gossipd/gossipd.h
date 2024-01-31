@@ -136,4 +136,14 @@ void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
 void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast);
 
+/* We have an update for one of our channels (or unknown). */
+void tell_lightningd_peer_update(struct daemon *daemon,
+				 const struct node_id *source_peer,
+				 struct short_channel_id scid,
+				 u32 fee_base_msat,
+				 u32 fee_ppm,
+				 u16 cltv_delta,
+				 struct amount_msat htlc_minimum,
+				 struct amount_msat htlc_maximum);
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
