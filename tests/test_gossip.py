@@ -1616,7 +1616,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # This should actually result in an empty store.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("0d")
+        assert bytearray(f.read()) == bytearray.fromhex("0e")
 
 
 def test_gossip_store_compact_on_load(node_factory, bitcoind):
@@ -2092,74 +2092,6 @@ def test_gossip_not_dying(node_factory, bitcoind):
     # We won't gossip the dead channel any more (but we still propagate node_announcement).  But connectd is not explicitly synced, so wait for "a bit".
     time.sleep(1)
     assert len(get_gossip(l1)) == 2
-
-
-@pytest.mark.skip("Zombie research had unexpected side effects")
-def test_channel_resurrection(node_factory, bitcoind):
-    """When a node goes offline long enough to prune a channel, the
-    channel_announcement should be retained in case the node comes back online.
-    """
-    opts = {'dev-fast-gossip-prune': None,
-            'may_reconnect': True}
-    l1, l2 = node_factory.get_nodes(2, opts=opts)
-    opts.update({'log-level': 'debug'})
-    l3, = node_factory.get_nodes(1, opts=opts)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid, _ = l1.fundchannel(l2, 10**6, True, True)
-    bitcoind.generate_block(6)
-    sync_blockheight(bitcoind, [l1, l2, l3])
-    l3.wait_channel_active(scid)
-    start_time = int(time.time())
-    # Channel_update should now be refreshed.
-    refresh_due = start_time + 44
-    prune_due = start_time + 61
-    l2.rpc.call('dev-gossip-set-time', [refresh_due])
-    l3.rpc.call('dev-gossip-set-time', [refresh_due])
-    # Automatic reconnect is too fast, so shutdown l1 instead of disconnecting
-    l1.stop()
-    l2.daemon.wait_for_log('Sending keepalive channel_update')
-    l3.daemon.wait_for_log('Received channel_update for channel 103x1')
-    # Wait for the next pruning cycle
-    l2.rpc.call('dev-gossip-set-time', [prune_due])
-    l3.rpc.call('dev-gossip-set-time', [prune_due])
-    # Make sure l1 is recognized as disconnected
-    wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'] is False)
-    # Wait for the channel to be pruned.
-    l3.daemon.wait_for_log("Pruning channel")
-    assert l3.rpc.listchannels()['channels'] == []
-    l1.start()
-    time.sleep(1)
-    l1.rpc.call('dev-gossip-set-time', [prune_due])
-    time.sleep(1)
-    l1.rpc.call('dev-gossip-set-time', [prune_due])
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True])
-    l1.rpc.call('dev-gossip-set-time', [prune_due + 30])
-    l2.rpc.call('dev-gossip-set-time', [prune_due + 30])
-    l3.rpc.call('dev-gossip-set-time', [prune_due + 30])
-    # l2 should recognize its own channel as announceable
-    wait_for(lambda: [[c['public'], c['active']] for c in l2.rpc.listchannels()['channels']] == [[True, True], [True, True]], timeout=30)
-    # l3 should be able to recover the zombie channel
-    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True, True], timeout=30)
-
-    # Now test spending the outpoint and removing a zombie channel from the store.
-    l2.stop()
-    prune_again = prune_due + 91
-    l1.rpc.call('dev-gossip-set-time', [prune_again])
-    l3.rpc.call('dev-gossip-set-time', [prune_again])
-    l3.daemon.wait_for_log("Pruning channel")
-    txid = l1.rpc.close(l2.info['id'], 1)['txid']
-    bitcoind.generate_block(13, txid)
-    l3.daemon.wait_for_log(f"Deleting channel {scid} due to the funding "
-                           "outpoint being spent", 30)
-    # gossip_store is cleaned of zombie channels once outpoint is spent.
-    gs_path = os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
-    gs = subprocess.run(['devtools/dump-gossipstore', '--print-deleted', gs_path],
-                        check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
-    print(gs.stdout.decode())
-    for l in gs.stdout.decode().splitlines():
-        if "ZOMBIE" in l:
-            assert ("DELETED" in l)
 
 
 def test_dump_own_gossip(node_factory):

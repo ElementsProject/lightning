@@ -30,9 +30,6 @@ struct half_chan {
 
 	/* Token bucket */
 	u8 tokens;
-
-	/* Disabled channel waiting for a channel_update from both sides. */
-	bool zombie;
 };
 
 struct chan {
@@ -319,8 +316,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				u32 index,
 				const struct node_id *source_peer TAKES,
 				bool ignore_timestamp,
-				bool force_spam_flag,
-				bool force_zombie_flag);
+				bool force_spam_flag);
 /**
  * Add a node_announcement to the network view without checking it
  *
@@ -364,7 +360,7 @@ bool would_ratelimit_cupdate(struct routing_state *rstate,
 			     const struct half_chan *hc,
 			     u32 timestamp);
 
-/* Does this node have public, non-zombie channels? */
+/* Does this node have public channels? */
 bool node_has_broadcastable_channels(const struct node *node);
 
 /* Returns an error string if there are unfinalized entries after load */

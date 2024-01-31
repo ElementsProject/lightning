@@ -17,7 +17,6 @@ GOSSIP_STORE_MAJOR_VERSION_MASK = 0xE0
 GOSSIP_STORE_LEN_DELETED_BIT = 0x8000
 GOSSIP_STORE_LEN_PUSH_BIT = 0x4000
 GOSSIP_STORE_LEN_RATELIMIT_BIT = 0x2000
-GOSSIP_STORE_ZOMBIE_BIT = 0x1000
 
 # These duplicate constants in lightning/gossipd/gossip_store_wiregen.h
 WIRE_GOSSIP_STORE_PRIVATE_CHANNEL = 4104
@@ -92,7 +91,6 @@ class GossipStoreMsgHeader(object):
         self.off = off
         self.deleted = (self.flags & GOSSIP_STORE_LEN_DELETED_BIT) != 0
         self.ratelimit = (self.flags & GOSSIP_STORE_LEN_RATELIMIT_BIT) != 0
-        self.zombie = (self.flags & GOSSIP_STORE_ZOMBIE_BIT) != 0
 
 
 class GossmapHalfchannel(object):
@@ -623,8 +621,6 @@ class Gossmap(object):
             if rec is None:  # EOF
                 break
             if hdr.deleted:  # Skip deleted records
-                continue
-            if hdr.zombie:
                 continue
 
             rectype, = struct.unpack(">H", rec[:2])

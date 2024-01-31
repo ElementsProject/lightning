@@ -32,14 +32,13 @@ u32 gossip_store_load(struct gossip_store *gs);
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
- * @zombie: true if this channel is missing a current channel_update.
  * @spam: true if this message is rate-limited and squelched to peers.
  * @dying: true if this message is for a dying channel.
  * @addendum: another message to append immediately after this
  *            (for appending amounts to channel_announcements for internal use).
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool zombie, bool spam, bool dying,
+		     u32 timestamp, bool spam, bool dying,
 		     const u8 *addendum);
 
 
@@ -79,17 +78,6 @@ void gossip_store_flag(struct gossip_store *gs,
  */
 void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid);
-
-/*
- * Marks the length field of a channel announcement with a zombie flag bit.
- * This allows the channel_announcement to be retained in the store while
- * waiting for channel updates to reactivate it.
- */
-void gossip_store_mark_channel_zombie(struct gossip_store *gs,
-				      struct broadcastable *bcast);
-
-void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
-				      struct broadcastable *bcast);
 
 /**
  * Mark this channel_announcement/channel_update as dying.
