@@ -43,15 +43,6 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 
 
 /**
- * Delete the broadcast associated with this (if any).
- *
- * In developer mode, checks that type is correct.
- */
-void gossip_store_delete(struct gossip_store *gs,
-			 struct broadcastable *bcast,
-			 int type);
-
-/**
  * Delete the record at this offset (offset is that of
  * record, not header, unlike bcast->index!).
  *
@@ -80,26 +71,6 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid);
 
 /**
- * Mark this channel_announcement/channel_update as dying.
- *
- * We'll clean it up in 12 blocks, but this tells connectd not to gossip
- * about it.
- */
-void gossip_store_mark_dying(struct gossip_store *gs,
-			     const struct broadcastable *bcast,
-			     int type);
-
-
-/**
- * Direct store accessor: loads gossip msg back from store.
- *
- * Caller must ensure offset != 0.  Never returns NULL.
- */
-const u8 *gossip_store_get(const tal_t *ctx,
-			   struct gossip_store *gs,
-			   u64 offset);
-
-/**
  * Direct store accessor: get timestamp header for a record.
  *
  * Offset is *after* the header.
@@ -112,13 +83,5 @@ u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset);
  * Offset is *after* the header.
  */
 void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timestamp);
-
-/**
- * Get a readonly fd for the gossip_store.
- * @gs: the gossip store.
- *
- * Returns -1 on failure, and sets errno.
- */
-int gossip_store_readonly_fd(struct gossip_store *gs);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

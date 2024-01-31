@@ -148,11 +148,6 @@ void queue_peer_msg(struct daemon *daemon,
 		    const struct node_id *peer,
 		    const u8 *msg TAKES);
 
-/* Queue a gossip_store message for the peer: the subdaemon on the
- * other end simply forwards it to the peer. */
-void queue_peer_from_store(struct peer *peer,
-			   const struct broadcastable *bcast);
-
 /* We have an update for one of our channels (or unknown). */
 void tell_lightningd_peer_update(struct daemon *daemon,
 				 const struct node_id *source_peer,

@@ -8,7 +8,6 @@
 #include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
@@ -391,149 +390,6 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	return off;
 }
 
-void gossip_store_mark_dying(struct gossip_store *gs,
-			     const struct broadcastable *bcast,
-			     int type)
-{
-	const u8 *msg;
-	be16 flags;
-
-	/* Should never get here during loading! */
-	assert(gs->writable);
-
-	/* Should never try to overwrite version */
-	assert(bcast->index);
-
-	/* Sanity check, that this is a channel announcement */
-	msg = gossip_store_get(tmpctx, gs, bcast->index);
-	if (fromwire_peektype(msg) != type) {
-		status_broken("gossip_store incorrect dying msg not %u @%u of %"PRIu64": %s",
-			      type, bcast->index, gs->len, tal_hex(tmpctx, msg));
-		return;
-	}
-
-	if (pread(gs->fd, &flags, sizeof(flags), bcast->index) != sizeof(flags)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not read to mark dying at %u/%"PRIu64": %s",
-			      bcast->index, gs->len, strerror(errno));
-	}
-
-	flags |= cpu_to_be16(GOSSIP_STORE_DYING_BIT);
-	if (pwrite(gs->fd, &flags, sizeof(flags), bcast->index) != sizeof(flags))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing flags to dying @%u: %s",
-			      bcast->index, strerror(errno));
-}
-
-/* Returns index of following entry. */
-static u32 flag_by_index(struct gossip_store *gs, u32 index, int flag, int type)
-{
-	struct {
-		beint16_t beflags;
-		beint16_t belen;
-	} hdr;
-
-	/* Should never get here during loading! */
-	assert(gs->writable);
-
-	/* Should never try to overwrite version */
-	assert(index);
-
-	/* FIXME: debugging a gs->len overrun issue reported in #6270 */
-	if (pread(gs->fd, &hdr, sizeof(hdr), index) != sizeof(hdr)) {
-		status_broken("gossip_store pread fail during flag %u @%u type: %i"
-			      " gs->len: %"PRIu64, flag, index, type, gs->len);
-		return index;
-	}
-	if (index + sizeof(struct gossip_hdr) +
-	    be16_to_cpu(hdr.belen) > gs->len) {
-		status_broken("gossip_store overrun during flag-%u @%u type: %i"
-			      " gs->len: %"PRIu64, flag, index, type, gs->len);
-		return index;
-	}
-
-	const u8 *msg = gossip_store_get(tmpctx, gs, index);
-	if(fromwire_peektype(msg) != type) {
-		status_broken("asked to flag-%u type %i @%u but store contains "
-			      "%i (gs->len=%"PRIu64"): %s",
-			      flag, type, index, fromwire_peektype(msg),
-			      gs->len, tal_hex(tmpctx, msg));
-		return index;
-	}
-
-	assert((be16_to_cpu(hdr.beflags) & flag) == 0);
-	hdr.beflags |= cpu_to_be16(flag);
-	if (pwrite(gs->fd, &hdr.beflags, sizeof(hdr.beflags), index) != sizeof(hdr.beflags))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing flags to delete @%u: %s",
-			      index, strerror(errno));
-
-	return index + sizeof(struct gossip_hdr) + be16_to_cpu(hdr.belen);
-}
-
-void gossip_store_del(struct gossip_store *gs,
-		      u64 offset,
-		      int type)
-{
-	u32 next_index;
-
-	assert(offset > sizeof(struct gossip_hdr));
-	next_index = flag_by_index(gs, offset - sizeof(struct gossip_hdr),
-				   GOSSIP_STORE_DELETED_BIT,
-				   type);
-
-	/* For a channel_announcement, we need to delete amount too */
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT)
-		flag_by_index(gs, next_index,
-			      GOSSIP_STORE_DELETED_BIT,
-			      WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
-}
-
-void gossip_store_flag(struct gossip_store *gs,
-		       u64 offset,
-		       u16 flag,
-		       int type)
-{
-	assert(offset > sizeof(struct gossip_hdr));
-
-	flag_by_index(gs, offset - sizeof(struct gossip_hdr), flag, type);
-}
-
-void gossip_store_delete(struct gossip_store *gs,
-			 struct broadcastable *bcast,
-			 int type)
-{
-	if (!bcast->index)
-		return;
-
-	gossip_store_del(gs, bcast->index + sizeof(struct gossip_hdr), type);
-
-	/* Reset index. */
-	bcast->index = 0;
-}
-
-void gossip_store_mark_channel_deleted(struct gossip_store *gs,
-				       const struct short_channel_id *scid)
-{
-	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, false, NULL);
-}
-
-u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset)
-{
-	struct gossip_hdr hdr;
-
-	assert(offset > sizeof(struct gossip_hdr));
-
-	if (pread(gs->fd, &hdr, sizeof(hdr), offset - sizeof(hdr)) != sizeof(hdr)) {
-		status_broken("gossip_store overrun during get_timestamp @%"PRIu64
-			      " gs->len: %"PRIu64, offset, gs->len);
-		return 0;
-	}
-
-	return be32_to_cpu(hdr.timestamp);
-}
-
 static const u8 *gossip_store_get_with_hdr(const tal_t *ctx,
 					   struct gossip_store *gs,
 					   u64 offset,
@@ -575,6 +431,111 @@ static const u8 *gossip_store_get_with_hdr(const tal_t *ctx,
 	return msg;
 }
 
+static bool check_msg_type(struct gossip_store *gs, u32 index, int flag, int type)
+{
+	struct gossip_hdr hdr;
+	const u8 *msg = gossip_store_get_with_hdr(tmpctx, gs, index, &hdr);
+
+	if (fromwire_peektype(msg) == type)
+		return true;
+
+	status_broken("asked to flag-%u type %i @%u but store contains "
+		      "%i (gs->len=%"PRIu64"): %s",
+		      flag, type, index, fromwire_peektype(msg),
+		      gs->len, tal_hex(tmpctx, msg));
+	return false;
+}
+
+/* Returns index of following entry. */
+static u32 flag_by_index(struct gossip_store *gs, u32 index, int flag, int type)
+{
+	struct {
+		beint16_t beflags;
+		beint16_t belen;
+	} hdr;
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
+	/* Should never try to overwrite version */
+	assert(index);
+
+	/* FIXME: debugging a gs->len overrun issue reported in #6270 */
+	if (pread(gs->fd, &hdr, sizeof(hdr), index) != sizeof(hdr)) {
+		status_broken("gossip_store pread fail during flag %u @%u type: %i"
+			      " gs->len: %"PRIu64, flag, index, type, gs->len);
+		return index;
+	}
+	if (index + sizeof(struct gossip_hdr) +
+	    be16_to_cpu(hdr.belen) > gs->len) {
+		status_broken("gossip_store overrun during flag-%u @%u type: %i"
+			      " gs->len: %"PRIu64, flag, index, type, gs->len);
+		return index;
+	}
+
+	if (!check_msg_type(gs, index, flag, type))
+		return index;
+
+	assert((be16_to_cpu(hdr.beflags) & flag) == 0);
+	hdr.beflags |= cpu_to_be16(flag);
+	if (pwrite(gs->fd, &hdr.beflags, sizeof(hdr.beflags), index) != sizeof(hdr.beflags))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing flags to delete @%u: %s",
+			      index, strerror(errno));
+
+	return index + sizeof(struct gossip_hdr) + be16_to_cpu(hdr.belen);
+}
+
+void gossip_store_del(struct gossip_store *gs,
+		      u64 offset,
+		      int type)
+{
+	u32 next_index;
+
+	assert(offset > sizeof(struct gossip_hdr));
+	next_index = flag_by_index(gs, offset - sizeof(struct gossip_hdr),
+				   GOSSIP_STORE_DELETED_BIT,
+				   type);
+
+	/* For a channel_announcement, we need to delete amount too */
+	if (type == WIRE_CHANNEL_ANNOUNCEMENT)
+		flag_by_index(gs, next_index,
+			      GOSSIP_STORE_DELETED_BIT,
+			      WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
+}
+
+void gossip_store_flag(struct gossip_store *gs,
+		       u64 offset,
+		       u16 flag,
+		       int type)
+{
+	assert(offset > sizeof(struct gossip_hdr));
+
+	flag_by_index(gs, offset - sizeof(struct gossip_hdr), flag, type);
+}
+
+void gossip_store_mark_channel_deleted(struct gossip_store *gs,
+				       const struct short_channel_id *scid)
+{
+	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
+			 0, false, NULL);
+}
+
+u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset)
+{
+	struct gossip_hdr hdr;
+
+	assert(offset > sizeof(struct gossip_hdr));
+
+	if (pread(gs->fd, &hdr, sizeof(hdr), offset - sizeof(hdr)) != sizeof(hdr)) {
+		status_broken("gossip_store overrun during get_timestamp @%"PRIu64
+			      " gs->len: %"PRIu64, offset, gs->len);
+		return 0;
+	}
+
+	return be32_to_cpu(hdr.timestamp);
+}
+
 void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timestamp)
 {
 	struct gossip_hdr hdr;
@@ -596,27 +557,6 @@ void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timesta
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing header to re-timestamp @%"PRIu64": %s",
 			      offset, strerror(errno));
-}
-
-const u8 *gossip_store_get(const tal_t *ctx,
-			   struct gossip_store *gs,
-			   u64 offset)
-{
-	struct gossip_hdr hdr;
-
-	return gossip_store_get_with_hdr(ctx, gs, offset, &hdr);
-}
-
-int gossip_store_readonly_fd(struct gossip_store *gs)
-{
-	int fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
-
-	/* Skip over version header */
-	if (fd != -1 && lseek(fd, 1, SEEK_SET) != 1) {
-		close_noerr(fd);
-		fd = -1;
-	}
-	return fd;
 }
 
 u32 gossip_store_load(struct gossip_store *gs)
