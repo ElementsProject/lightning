@@ -17,8 +17,8 @@
 #include <wire/peer_wire.h>
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-/* We write it as major version 0, minor version 12 */
-#define GOSSIP_STORE_VER ((0 << 5) | 12)
+/* We write it as major version 0, minor version 13 */
+#define GOSSIP_STORE_VER ((0 << 5) | 13)
 
 struct gossip_store {
 	/* This is false when we're loading */
@@ -107,22 +107,82 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
  * v10 removed any remaining non-htlc-max channel_update.
  * v11 mandated channel_updates use the htlc_maximum_msat field
  * v12 added the zombie flag for expired channel updates
+ * v13 removed private gossip entries
  */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion >= 9 && oldversion <= 11;
+	return oldversion >= 9 && oldversion <= 12;
+}
+
+/* On upgrade, do best effort on private channels: hand them to
+ * lightningd as if we just receive them, before removing from the
+ * store */
+static void give_lightningd_canned_private_update(struct routing_state *rstate,
+						  const u8 *msg)
+{
+	u8 *update;
+	secp256k1_ecdsa_signature signature;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id short_channel_id;
+	u32 timestamp;
+	u8 message_flags, channel_flags;
+	u16 cltv_expiry_delta;
+	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
+	u32 fee_base_msat, fee_proportional_millionths;
+
+	if (!fromwire_gossip_store_private_update_obs(tmpctx, msg, &update)) {
+		status_broken("Could not parse private update %s",
+			      tal_hex(tmpctx, msg));
+		return;
+	}
+	if (!fromwire_channel_update(update,
+				     &signature,
+				     &chain_hash,
+				     &short_channel_id,
+				     &timestamp,
+				     &message_flags,
+				     &channel_flags,
+				     &cltv_expiry_delta,
+				     &htlc_minimum_msat,
+				     &fee_base_msat,
+				     &fee_proportional_millionths,
+				     &htlc_maximum_msat)) {
+		status_broken("Could not parse inner private update %s",
+			      tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* From NULL source (i.e. trust us!) */
+	tell_lightningd_peer_update(rstate,
+				    NULL,
+				    short_channel_id,
+				    fee_base_msat,
+				    fee_proportional_millionths,
+				    cltv_expiry_delta,
+				    htlc_minimum_msat,
+				    htlc_maximum_msat);
 }
 
 static bool upgrade_field(u8 oldversion,
 			  struct routing_state *rstate,
 			  u8 **msg)
 {
+	int type = fromwire_peektype(*msg);
 	assert(can_upgrade(oldversion));
 
-	if (oldversion == 10) {
+	if (oldversion <= 10) {
 		/* Remove old channel_update with no htlc_maximum_msat */
-		if (fromwire_peektype(*msg) == WIRE_CHANNEL_UPDATE
+		if (type == WIRE_CHANNEL_UPDATE
 		    && tal_bytelen(*msg) == 130) {
+			*msg = tal_free(*msg);
+		}
+	}
+	if (oldversion <= 12) {
+		/* Remove private entries */
+		if (type == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS) {
+			*msg = tal_free(*msg);
+		} else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS) {
+			give_lightningd_canned_private_update(rstate, *msg);
 			*msg = tal_free(*msg);
 		}
 	}
@@ -468,9 +528,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 			goto unlink_disable;
 
 		/* We track location of all these message types. */
-		if (msgtype == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL
-		    || msgtype == WIRE_GOSSIP_STORE_PRIVATE_UPDATE
-		    || msgtype == WIRE_CHANNEL_ANNOUNCEMENT
+		if (msgtype == WIRE_CHANNEL_ANNOUNCEMENT
 		    || msgtype == WIRE_CHANNEL_UPDATE
 		    || msgtype == WIRE_NODE_ANNOUNCEMENT) {
 			omap = tal(offmap, struct offset_map);
@@ -579,7 +637,7 @@ u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
 {
 	/* A local update for an unannounced channel: not broadcastable, but
 	 * otherwise the same as a normal channel_update */
-	const u8 *pupdate = towire_gossip_store_private_update(tmpctx, update);
+	const u8 *pupdate = towire_gossip_store_private_update_obs(tmpctx, update);
 	return gossip_store_add(gs, pupdate, 0, false, false, false, NULL);
 }
 
@@ -785,7 +843,7 @@ const u8 *gossip_store_get_private_update(const tal_t *ctx,
 	const u8 *pmsg = gossip_store_get(tmpctx, gs, offset);
 	u8 *msg;
 
-	if (!fromwire_gossip_store_private_update(ctx, pmsg, &msg))
+	if (!fromwire_gossip_store_private_update_obs(ctx, pmsg, &msg))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to decode private update @%"PRIu64": %s",
 			      offset, tal_hex(tmpctx, pmsg));
@@ -845,25 +903,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		spam = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_RATELIMIT_BIT);
 
 		switch (fromwire_peektype(msg)) {
-		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: {
-			u8 *priv_chan_ann;
-			struct amount_sat sat;
-			if (!fromwire_gossip_store_private_channel(msg, msg,
-								   &sat,
-								   &priv_chan_ann)) {
-				bad = "Bad private_channel";
-				goto badmsg;
-			}
-
-			if (!routing_add_private_channel(rstate, NULL,
-							 sat, priv_chan_ann,
-							 gs->len)) {
-				bad = "Bad add_private_channel";
-				goto badmsg;
-			}
-			stats[0]++;
-			break;
-		}
 		case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
 			if (!fromwire_gossip_store_channel_amount(msg,
 								  &satoshis)) {
@@ -904,12 +943,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			remember_chan_dying(rstate, &scid, deadline, gs->len);
 			break;
 		}
-		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:
-			if (!fromwire_gossip_store_private_update(tmpctx, msg, &msg)) {
-				bad = "invalid gossip_store_private_update";
-				goto badmsg;
-			}
-			/* fall thru */
 		case WIRE_CHANNEL_UPDATE:
 			if (!routing_add_channel_update(rstate,
 							take(msg), gs->len,
@@ -929,6 +962,10 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				break;
 			}
 			stats[2]++;
+			break;
+		/* FIXME: Don't actually put these in! */
+		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS:
+		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS:
 			break;
 		default:
 			bad = "Unknown message";

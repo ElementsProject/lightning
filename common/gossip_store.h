@@ -15,7 +15,7 @@ struct gossip_rcvd_filter;
 /* First byte of file is the version.
  *
  * Top three bits mean incompatible change.
- * As of this writing, major == 0, minor == 11.
+ * As of this writing, major == 0, minor == 13.
  */
 #define GOSSIP_STORE_MAJOR_VERSION_MASK 0xE0
 #define GOSSIP_STORE_MINOR_VERSION_MASK 0x1F

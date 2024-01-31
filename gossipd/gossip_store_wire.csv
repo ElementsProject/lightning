@@ -9,14 +9,14 @@ msgtype,gossip_store_channel_amount,4101
 msgdata,gossip_store_channel_amount,satoshis,amount_sat,
 
 # Mimics a channel_announce, except signatures are all-zero
-msgtype,gossip_store_private_channel,4104
-msgdata,gossip_store_private_channel,satoshis,amount_sat,
-msgdata,gossip_store_private_channel,len,u16,
-msgdata,gossip_store_private_channel,announcement,u8,len
+msgtype,gossip_store_private_channel_obs,4104
+msgdata,gossip_store_private_channel_obs,satoshis,amount_sat,
+msgdata,gossip_store_private_channel_obs,len,u16,
+msgdata,gossip_store_private_channel_obs,announcement,u8,len
 
-msgtype,gossip_store_private_update,4102
-msgdata,gossip_store_private_update,len,u16,
-msgdata,gossip_store_private_update,update,u8,len
+msgtype,gossip_store_private_update_obs,4102
+msgdata,gossip_store_private_update_obs,len,u16,
+msgdata,gossip_store_private_update_obs,update,u8,len
 
 msgtype,gossip_store_delete_chan,4103
 msgdata,gossip_store_delete_chan,scid,short_channel_id,

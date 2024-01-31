@@ -743,7 +743,7 @@ static bool extract_scid(int gosstore_fd, size_t off, u16 type,
 	/* For delete_chan scid immediately follows type */
 	if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 		off += 2;
-	else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE)
+	else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS)
 		/* Prepend header */
 		off += 2 + 2 + update_scid_off;
 	else if (type == WIRE_CHANNEL_UPDATE)
@@ -841,7 +841,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 		/* If we see a channel_announcement, we don't care until we
 		 * see the channel_update */
 		if (type == WIRE_CHANNEL_UPDATE
-		    || type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE) {
+		    || type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS) {
 			/* This can fail if entry not fully written yet. */
 			if (!extract_scid(gosstore_fd, off, type, &scid)) {
 				gosstore_channels_off = off;

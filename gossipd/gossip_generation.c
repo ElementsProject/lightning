@@ -720,7 +720,7 @@ static u8 *prev_update(const tal_t *ctx,
 					   chan->half[direction].bcast.index));
 
 	/* If it's a private update, unwrap */
-	if (!fromwire_gossip_store_private_update(ctx, prev, &prev))
+	if (!fromwire_gossip_store_private_update_obs(ctx, prev, &prev))
 		tal_steal(ctx, prev);
 	return prev;
 }
