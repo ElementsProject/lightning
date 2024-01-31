@@ -155,7 +155,7 @@ u8 *gossmap_node_get_features(const tal_t *ctx,
 			      const struct gossmap_node *n);
 
 /* Returns details from channel_update (must be gossmap_chan_set, and
- * does not work for local_updatechan! */
+ * does not work for local_updatechan)! */
 void gossmap_chan_get_update_details(const struct gossmap *map,
 				     const struct gossmap_chan *chan,
 				     int dir,
