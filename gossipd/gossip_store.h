@@ -32,13 +32,12 @@ u32 gossip_store_load(struct gossip_store *gs);
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
- * @spam: true if this message is rate-limited and squelched to peers.
  * @dying: true if this message is for a dying channel.
  * @addendum: another message to append immediately after this
  *            (for appending amounts to channel_announcements for internal use).
  */
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool spam, bool dying,
+		     u32 timestamp, bool dying,
 		     const u8 *addendum);
 
 

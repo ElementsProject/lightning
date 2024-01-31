@@ -31,10 +31,6 @@ class GossmapStats(object):
         return hc0 + hc1
 
     # Now a bunch of predefined specific filter methods
-    def filter_nodes_ratelimited(self, nodes: Optional[Iterable[GossmapNode]] = None) -> List[GossmapNode]:
-        """ Filters nodes being marked by cln as ratelimited, when they send out too many updates. """
-        return self.filter_nodes(lambda n: n.hdr is not None and n.hdr.ratelimit, nodes)
-
     def filter_nodes_unannounced(self, nodes: Optional[Iterable[GossmapNode]] = None) -> List[GossmapNode]:
         """ Filters nodes that are only known by a channel, i.e. missing a node_announcement.
             Usually happens when a peer has been offline for a while. """
@@ -123,10 +119,6 @@ class GossmapStats(object):
     def filter_halfchannels_disabled(self, channels: Optional[Iterable[GossmapChannel]] = None) -> List[GossmapHalfchannel]:
         """ Filters half-channels that are disabled. """
         return self.filter_halfchannels(lambda hc: hc.disabled, channels)
-
-    def filter_halfchannels_ratelimited(self, channels: Optional[Iterable[GossmapChannel]] = None) -> List[GossmapHalfchannel]:
-        """ Filters half-channels that are being marked as ratelimited for sending out too many updates. """
-        return self.filter_halfchannels(lambda hc: hc.hdr.ratelimit, channels)
 
     def quantiles_nodes_channel_count(self, tiles=100, nodes: Optional[Iterable[GossmapNode]] = None) -> List[float]:
         if nodes is None:

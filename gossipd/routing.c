@@ -73,19 +73,6 @@ static u8 update_tokens(const struct routing_state *rstate,
 	return num_tokens;
 }
 
-static bool ratelimit(const struct routing_state *rstate,
-		      u8 *tokens, u32 prev_timestamp, u32 new_timestamp)
-{
-	*tokens = update_tokens(rstate, *tokens, prev_timestamp, new_timestamp);
-
-	/* Now, if we can afford it, pass this message. */
-	if (*tokens >= TOKENS_PER_MSG) {
-		*tokens -= TOKENS_PER_MSG;
-		return true;
-	}
-	return false;
-}
-
 static const struct node_id *
 pending_node_announce_keyof(const struct pending_node_announce *a)
 {
@@ -355,7 +342,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     announce,
 					     node->bcast.timestamp,
 					     false,
-					     false,
 					     NULL);
 	if (node->rgraph.index == initial_bcast_index){
 		node->rgraph.index = node->bcast.index;
@@ -367,7 +353,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 		node->rgraph.index = gossip_store_add(rstate->daemon->gs,
 						      announce,
 						      node->rgraph.timestamp,
-						      true,
 						      false,
 						      NULL);
 	}
@@ -583,28 +568,11 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		if (!routing_add_node_announcement(rstate,
 						   pna->node_announcement,
 						   pna->index,
-						   pna->source_peer, NULL,
-						   false))
+						   pna->source_peer, NULL))
 			status_unusual("pending node_announcement %s too old?",
 				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
 		pna->node_announcement = tal_free(pna->node_announcement);
-	}
-	if (pna->spam.node_announcement) {
-		SUPERVERBOSE(
-		    "Processing deferred node_announcement for node %s",
-		    type_to_string(pna, struct node_id, nodeid));
-
-		/* Can fail it timestamp is now too old */
-		if (!routing_add_node_announcement(rstate,
-						   pna->spam.node_announcement,
-						   pna->spam.index,
-						   NULL, NULL,
-						   true))
-			status_unusual("pending node_announcement %s too old?",
-				       tal_hex(tmpctx, pna->spam.node_announcement));
-		/* Never send this again. */
-		pna->spam.node_announcement = tal_free(pna->spam.node_announcement);
 	}
 
 	/* We don't need to catch any more node_announcements, since we've
@@ -647,7 +615,6 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		chan->bcast.index = gossip_store_add(rstate->daemon->gs,
 						     channel_announce,
 						     chan->bcast.timestamp,
-						     false,
 						     false,
 						     addendum);
 }
@@ -1084,8 +1051,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				u32 index,
 				/* NULL if it's us */
 				const struct node_id *source_peer,
-				bool ignore_timestamp,
-				bool force_spam_flag)
+				bool ignore_timestamp)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1101,7 +1067,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct unupdated_channel *uc;
 	u8 direction;
 	struct amount_sat sat;
-	bool spam;
 	bool dying;
 
 	/* Make sure we own msg, even if we don't save it. */
@@ -1168,20 +1133,12 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	hc = &chan->half[direction];
 
 	if (is_halfchan_defined(hc) && !ignore_timestamp) {
-		/* The gossip_store should contain a single broadcastable entry
-		 * and potentially one rate-limited entry. Any more is a bug */
-		if (index){
-			if (!force_spam_flag){
-				status_broken("gossip_store broadcastable "
+		/* The gossip_store should contain a single broadcastable entry: any more is a bug */
+		if (index) {
+			status_broken("gossip_store broadcastable "
 					      "channel_update %u replaces %u!",
 					      index, hc->bcast.index);
-				return false;
-			} else if (hc->bcast.index != hc->rgraph.index){
-				status_broken("gossip_store rate-limited "
-					      "channel_update %u replaces %u!",
-					      index, hc->rgraph.index);
-				return false;
-			}
+			return false;
 		}
 
 		if (timestamp <= hc->rgraph.timestamp) {
@@ -1202,39 +1159,16 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			/* Ignoring != failing */
 			return true;
 		}
-
-		/* Make sure it's not spamming us */
-		if (!local_direction(rstate, chan, NULL)
-		    && !ratelimit(rstate,
-				  &hc->tokens, hc->bcast.timestamp, timestamp)) {
-			status_peer_debug(source_peer,
-					  "Spammy update for %s/%u flagged"
-					  " (last %u, now %u)",
-					  type_to_string(tmpctx,
-							 struct short_channel_id,
-							 &short_channel_id),
-					  direction,
-					  hc->bcast.timestamp, timestamp);
-			spam = true;
-		} else {
-			spam = false;
-		}
-	} else {
-		spam = false;
 	}
-	if (force_spam_flag)
-		spam = true;
 
 	/* Delete any prior entries (noop if they don't exist) */
 	delete_spam_update(rstate, hc);
-	if (!spam)
-		gossip_store_delete(rstate->daemon->gs, &hc->bcast,
-				    WIRE_CHANNEL_UPDATE);
+	gossip_store_delete(rstate->daemon->gs, &hc->bcast,
+			    WIRE_CHANNEL_UPDATE);
 
 	/* Update timestamp(s) */
 	hc->rgraph.timestamp = timestamp;
-	if (!spam)
-		hc->bcast.timestamp = timestamp;
+	hc->bcast.timestamp = timestamp;
 
 	/* If this is a peer's update to one of our local channels, tell lightningd. */
 	if (node_id_eq(&chan->nodes[!direction]->id, &rstate->daemon->id)) {
@@ -1266,15 +1200,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index) {
-		if (!spam)
-			hc->bcast.index = index;
+		hc->bcast.index = index;
 		hc->rgraph.index = index;
 	} else {
 		hc->rgraph.index
 			= gossip_store_add(rstate->daemon->gs, update, timestamp,
-					   spam, dying, NULL);
-		if (!spam)
-			hc->bcast.index = hc->rgraph.index;
+					   dying, NULL);
+		hc->bcast.index = hc->rgraph.index;
 
 		peer_supplied_good_gossip(rstate->daemon, source_peer, 1);
 	}
@@ -1439,8 +1371,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return towire_warningfmt(rstate, NULL, "%s", err);
 	}
 
-	routing_add_channel_update(rstate, take(serialized), 0, source_peer, force,
-				   false);
+	routing_add_channel_update(rstate, take(serialized), 0, source_peer, force);
 	return NULL;
 }
 
@@ -1526,8 +1457,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
 				   const struct node_id *source_peer TAKES,
-				   bool *was_unknown,
-				   bool force_spam_flag)
+				   bool *was_unknown)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -1537,7 +1467,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	u8 alias[32];
 	u8 *features, *addresses;
 	struct tlv_node_ann_tlvs *na_tlv;
-	bool spam;
 
 	if (was_unknown)
 		*was_unknown = false;
@@ -1586,40 +1515,24 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 		SUPERVERBOSE("Deferring node_announcement for node %s",
 			     type_to_string(tmpctx, struct node_id, &node_id));
-		/* a pending spam node announcement is possible when loading
-		 * from the store */
-		if (index && force_spam_flag) {
-			tal_free(pna->spam.node_announcement);
-			pna->spam.node_announcement = tal_dup_talarr(pna, u8, msg);
-			pna->spam.index = index;
-		} else {
-			tal_free(pna->node_announcement);
-			tal_free(pna->source_peer);
-			pna->node_announcement = tal_dup_talarr(pna, u8, msg);
-			pna->source_peer = tal_dup_or_null(pna, struct node_id, source_peer);
-			pna->timestamp = timestamp;
-			pna->index = index;
-		}
+		tal_free(pna->node_announcement);
+		tal_free(pna->source_peer);
+		pna->node_announcement = tal_dup_talarr(pna, u8, msg);
+		pna->source_peer = tal_dup_or_null(pna, struct node_id, source_peer);
+		pna->timestamp = timestamp;
+		pna->index = index;
 		return true;
 	}
 
 	if (node->bcast.index) {
 		u32 redundant_time;
 
-		/* The gossip_store should contain a single broadcastable entry
-		 * and potentially one rate-limited entry. Any more is a bug */
-		if (index){
-			if (!force_spam_flag){
-				status_broken("gossip_store broadcastable "
-					      "node_announcement %u replaces %u!",
-					      index, node->bcast.index);
-				return false;
-			} else if (node->bcast.index != node->rgraph.index){
-				status_broken("gossip_store rate-limited "
-					      "node_announcement %u replaces %u!",
-					      index, node->rgraph.index);
-				return false;
-			}
+		/* The gossip_store should contain a single broadcastable entry: Any more is a bug */
+		if (index) {
+			status_broken("gossip_store broadcastable "
+				      "node_announcement %u replaces %u!",
+				      index, node->bcast.index);
+			return false;
 		}
 
 		if (node->rgraph.timestamp >= timestamp) {
@@ -1640,56 +1553,25 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			/* Ignoring != failing */
 			return true;
 		}
-
-		/* Make sure it's not spamming us. */
-		if (!ratelimit(rstate,
-			       &node->tokens, node->bcast.timestamp, timestamp)) {
-			status_peer_debug(source_peer,
-					  "Spammy nannounce for %s flagged"
-					  " (last %u, now %u)",
-					  type_to_string(tmpctx,
-							 struct node_id,
-							 &node_id),
-					  node->bcast.timestamp, timestamp);
-			spam = true;
-		} else {
-			spam = false;
-		}
-	} else {
-		spam = false;
 	}
-	if (force_spam_flag)
-		spam = true;
 
 	/* Routing graph always references the latest message. */
 	node->rgraph.timestamp = timestamp;
-	if (!spam) {
-		node->bcast.timestamp = timestamp;
-		/* remove prior spam update if one exists */
-		if (node->rgraph.index != node->bcast.index) {
-			gossip_store_delete(rstate->daemon->gs, &node->rgraph,
-					    WIRE_NODE_ANNOUNCEMENT);
-		}
-		/* Harmless if it was never added */
-		gossip_store_delete(rstate->daemon->gs, &node->bcast,
-				    WIRE_NODE_ANNOUNCEMENT);
-	/* Remove prior spam update. */
-	} else if (node->rgraph.index != node->bcast.index) {
-		gossip_store_delete(rstate->daemon->gs, &node->rgraph,
-				    WIRE_NODE_ANNOUNCEMENT);
-	}
+	node->bcast.timestamp = timestamp;
+
+	/* Harmless if it was never added */
+	gossip_store_delete(rstate->daemon->gs, &node->bcast,
+			    WIRE_NODE_ANNOUNCEMENT);
 
 	/* Don't add to the store if it was loaded from the store. */
 	if (index) {
 		node->rgraph.index = index;
-		if (!spam)
-			node->bcast.index = index;
+		node->bcast.index = index;
 	} else {
 		node->rgraph.index
 			= gossip_store_add(rstate->daemon->gs, msg, timestamp,
-					   spam, false, NULL);
-		if (!spam)
-			node->bcast.index = node->rgraph.index;
+					   false, NULL);
+		node->bcast.index = node->rgraph.index;
 
 		peer_supplied_good_gossip(rstate->daemon, source_peer, 1);
 	}
@@ -1765,7 +1647,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	}
 
 	/* May still fail, if we don't know the node. */
-	routing_add_node_announcement(rstate, serialized, 0, source_peer, was_unknown, false);
+	routing_add_node_announcement(rstate, serialized, 0, source_peer, was_unknown);
 	return NULL;
 }
 
@@ -1956,7 +1838,7 @@ void routing_channel_spent(struct routing_state *rstate,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
-	index = gossip_store_add(rstate->daemon->gs, msg, 0, false, false, NULL);
+	index = gossip_store_add(rstate->daemon->gs, msg, 0, false, NULL);
 
 	/* Mark it dying, so we don't gossip it */
 	gossip_store_mark_dying(rstate->daemon->gs, &chan->bcast,
