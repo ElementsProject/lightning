@@ -409,6 +409,10 @@ static void send_channel_announce_sigs(struct channel *channel)
 	if (!channel_state_can_add_htlc(channel->state))
 		return;
 
+	/* Wait until we've exchanged reestablish messages */
+	if (!channel->reestablished)
+		return;
+
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
 
@@ -835,45 +839,47 @@ void channel_gossip_init_done(struct lightningd *ld)
 	}
 }
 
-/* Peer has connected. */
-/* FIXME: We really want "peer has reestablished */
-void channel_gossip_peer_connected(struct peer *peer)
+/* Peer has connected and successfully reestablished channel. */
+void channel_gossip_channel_reestablished(struct channel *channel)
 {
-	struct channel *channel;
+	channel->reestablished = true;
 
-	list_for_each(&peer->channels, channel, list) {
-		/* Ignore unsaved channels */
-		if (!channel->channel_gossip)
-			continue;
+	/* Ignore unsaved channels */
+	if (!channel->channel_gossip)
+		return;
 
-		switch (channel->channel_gossip->state) {
-		case CGOSSIP_NOT_USABLE:
-			continue;
-		case CGOSSIP_PRIVATE:
-		case CGOSSIP_NOT_DEEP_ENOUGH:
-			send_private_cupdate(channel, true);
-			check_channel_gossip(channel);
-			continue;
-		case CGOSSIP_NEED_PEER_SIGS:
-			/* BOLT #7:
-			 * - upon reconnection (once the above timing
-			 *  requirements have been met):
-			 * ...
-			 *   - if it has NOT received an
-			 *     `announcement_signatures` message:
-			 *     - SHOULD retransmit the
-			 *       `announcement_signatures` message.
-			 */
-			send_private_cupdate(channel, true);
-			send_channel_announce_sigs(channel);
-			check_channel_gossip(channel);
-			continue;
-		case CGOSSIP_ANNOUNCED:
-			check_channel_gossip(channel);
-			continue;
-		}
-		fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
+	switch (channel->channel_gossip->state) {
+	case CGOSSIP_NOT_USABLE:
+		return;
+	case CGOSSIP_PRIVATE:
+	case CGOSSIP_NOT_DEEP_ENOUGH:
+		send_private_cupdate(channel, true);
+		check_channel_gossip(channel);
+		return;
+	case CGOSSIP_NEED_PEER_SIGS:
+		/* BOLT #7:
+		 * - upon reconnection (once the above timing
+		 *  requirements have been met):
+		 * ...
+		 *   - if it has NOT received an
+		 *     `announcement_signatures` message:
+		 *     - SHOULD retransmit the
+		 *       `announcement_signatures` message.
+		 */
+		send_private_cupdate(channel, true);
+		send_channel_announce_sigs(channel);
+		check_channel_gossip(channel);
+		return;
+	case CGOSSIP_ANNOUNCED:
+		check_channel_gossip(channel);
+		return;
 	}
+	fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
+}
+
+void channel_gossip_channel_disconnect(struct channel *channel)
+{
+	channel->reestablished = false;
 }
 
 /* We *could* send channel_updates for private channels, or

@@ -84,15 +84,15 @@ void channel_fail_transient(struct channel *channel UNNEEDED,
 			    bool disconnect UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
+/* Generated stub for channel_gossip_channel_disconnect */
+void channel_gossip_channel_disconnect(struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_gossip_channel_disconnect called!\n"); abort(); }
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
 /* Generated stub for channel_gossip_node_announce */
 void channel_gossip_node_announce(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_node_announce called!\n"); abort(); }
-/* Generated stub for channel_gossip_peer_connected */
-void channel_gossip_peer_connected(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "channel_gossip_peer_connected called!\n"); abort(); }
 /* Generated stub for channel_gossip_startup_done */
 void channel_gossip_startup_done(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_startup_done called!\n"); abort(); }

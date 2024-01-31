@@ -43,8 +43,11 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
  * disappointed.  */
 void channel_gossip_init_done(struct lightningd *ld);
 
-/* Peer has connected. */
-void channel_gossip_peer_connected(struct peer *peer);
+/* Peer has connected and successfully reestablished channel. */
+void channel_gossip_channel_reestablished(struct channel *channel);
+
+/* Peer has disconnected */
+void channel_gossip_channel_disconnect(struct channel *channel);
 
 /* Gossipd sent us this channel_update about the peer's side of the channle */
 void channel_gossip_set_remote_update(struct lightningd *ld,

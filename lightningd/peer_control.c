@@ -1401,7 +1401,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		}
 	}
 
-	channel_gossip_peer_connected(peer);
 	return;
 
 send_error:
@@ -1933,9 +1932,13 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	 * and not free when no more channels. */
 	p = peer_by_id(ld, &id);
 	if (p) {
+		struct channel *channel;
 		assert(p->connectd_counter == connectd_counter);
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->connected = PEER_DISCONNECTED;
+
+		list_for_each(&p->channels, channel, list)
+			channel_gossip_channel_disconnect(channel);
 	}
 
 	/* If you were trying to connect, it failed. */

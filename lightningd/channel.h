@@ -283,6 +283,9 @@ struct channel {
 	/* Block height we saw closing tx at */
 	u32 *close_blockheight;
 
+	/* Channeld said we've successfully exchanged reestablish. */
+	bool reestablished;
+
 	/* Last known state_change cause */
 	enum state_change state_change_cause;
 

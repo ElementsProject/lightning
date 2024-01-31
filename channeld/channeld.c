@@ -5113,6 +5113,10 @@ static void peer_reconnect(struct peer *peer,
 
 	/* Now stop, we've been polite long enough. */
 	if (reestablish_only) {
+		/* We've reestablished! */
+		wire_sync_write(MASTER_FD,
+				take(towire_channeld_reestablished(NULL)));
+
 		/* If we were successfully closing, we still go to closingd. */
 		if (shutdown_complete(peer)) {
 			send_shutdown_complete(peer);
@@ -5125,6 +5129,9 @@ static void peer_reconnect(struct peer *peer,
 	}
 
 	tal_free(send_tlvs);
+
+	/* We've reestablished! */
+	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL)));
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually
@@ -5673,6 +5680,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_GOT_INFLIGHT:
 	case WIRE_CHANNELD_SPLICE_STATE_ERROR:
 	case WIRE_CHANNELD_LOCAL_ANCHOR_INFO:
+	case WIRE_CHANNELD_REESTABLISHED:
 		break;
 	}
 	master_badmsg(-1, msg);
