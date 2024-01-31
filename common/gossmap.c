@@ -1249,6 +1249,8 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 	const size_t htlc_maximum_off = fee_prop_off + 4;
 
 	assert(gossmap_chan_set(chan, dir));
+	/* Not allowed on local updates! */
+	assert(chan->cann_off < map->map_size);
 
 	if (timestamp)
 		*timestamp = map_be32(map, timestamp_off);

@@ -266,14 +266,27 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "direction", dir);
 		json_add_bool(response, "public", !c->private);
 
-		gossmap_chan_get_update_details(gossmap, c, dir,
-						&timestamp,
-						&message_flags,
-						&channel_flags,
-						&fee_base_msat,
-						&fee_proportional_millionths,
-						&htlc_minimum_msat,
-						&htlc_maximum_msat);
+		if (c->private) {
+			/* Local additions don't have a channel_update
+			 * in gossmap.  This is deprecated anyway, but
+			 * fill in values from entry we added. */
+			timestamp = time_now().ts.tv_sec;
+			message_flags = (ROUTING_OPT_HTLC_MAX_MSAT|ROUTING_OPT_DONT_FORWARD);
+			channel_flags = node_id_idx(&node_id[dir], &node_id[!dir]);
+			fee_base_msat = c->half[dir].base_fee;
+			fee_proportional_millionths = c->half[dir].proportional_fee;
+			htlc_minimum_msat = amount_msat(fp16_to_u64(c->half[dir].htlc_min));
+			htlc_maximum_msat = amount_msat(fp16_to_u64(c->half[dir].htlc_max));
+		} else {
+			gossmap_chan_get_update_details(gossmap, c, dir,
+							&timestamp,
+							&message_flags,
+							&channel_flags,
+							&fee_base_msat,
+							&fee_proportional_millionths,
+							&htlc_minimum_msat,
+							&htlc_maximum_msat);
+		}
 
 		json_add_amount_sat_msat(response, "amount_msat", capacity);
 		json_add_num(response, "message_flags", message_flags);
