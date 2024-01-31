@@ -304,6 +304,39 @@ static void get_nannounce_parts(const u8 *node_announcement,
 		parts[2] = NULL;
 }
 
+/* Get timestamp of a (valid!) node_announcement  */
+static u32 get_nannounce_timestamp(const u8 *node_announcement)
+{
+	const u8 *p;
+	u16 flen;
+	size_t len;
+	u32 timestamp;
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 257 (`node_announcement`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`u16`:`flen`]
+	 *    * [`flen*byte`:`features`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	len = tal_count(node_announcement);
+	p = node_announcement;
+
+	/* Note: 2 bytes for `type` field */
+	fromwire_u16(&p, &len);
+	fromwire(&p, &len, NULL, 64);
+	flen = fromwire_u16(&p, &len);
+	fromwire(&p, &len, NULL, flen);
+
+	timestamp = fromwire_u32(&p, &len);
+	assert(p != NULL);
+
+	return timestamp;
+}
+
 /* Is nann1 same as nann2 (not sigs and timestamps)? */
 bool node_announcement_same(const u8 *nann1, const u8 *nann2)
 {
@@ -379,16 +412,24 @@ static const struct wireaddr *gather_addresses(const tal_t *ctx,
 }
 
 u8 *unsigned_node_announcement(const tal_t *ctx,
-			       struct lightningd *ld)
+			       struct lightningd *ld,
+			       const u8 *prev)
 {
 	secp256k1_ecdsa_signature sig;
 	const struct wireaddr *addrs;
+	u32 timestamp = time_now().ts.tv_sec;
 
 	addrs = gather_addresses(tmpctx, ld);
+	/* Even if we're quick, don't duplicate timestamps! */
+	if (prev) {
+		u32 old_timestamp = get_nannounce_timestamp(prev);
+		if (timestamp <= old_timestamp)
+			timestamp = old_timestamp + 1;
+	}
 
 	memset(&sig, 0, sizeof(sig));
 	return create_nannounce(tmpctx, ld, &sig,
-				addrs, time_now().ts.tv_sec,
+				addrs, timestamp,
 				ld->lease_rates);
 }
 
