@@ -51,6 +51,7 @@ HTABLE_DEFINE_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
 struct gossmap {
 	/* The file descriptor and filename to monitor */
 	int fd;
+	/* NULL means we don't own fd */
 	const char *fname;
 
 	/* The memory map of the file: u8 for arithmetic portability */
@@ -582,8 +583,12 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 
 static void reopen_store(struct gossmap *map, size_t ended_off)
 {
-	int fd = open(map->fname, O_RDONLY);
+	int fd;
 
+	if (!map->fname)
+		errx(1, "Need to reopen, but not fname!");
+
+	fd = open(map->fname, O_RDONLY);
 	if (fd < 0)
 		err(1, "Failed to reopen %s", map->fname);
 
@@ -646,10 +651,6 @@ static bool map_catchup(struct gossmap *map, size_t *num_rejected)
 
 static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
 {
-	map->fd = open(map->fname, O_RDONLY);
-	if (map->fd < 0)
-		return false;
-
 	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local = NULL;
 	/* If this fails, we fall back to read */
@@ -659,9 +660,6 @@ static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
 
 	/* We only support major version 0 */
 	if (GOSSIP_STORE_MAJOR_VERSION(map_u8(map, 0)) != 0) {
-		close(map->fd);
-		if (map->mmap)
-			munmap(map->mmap, map->map_size);
 		errno = EINVAL;
 		return false;
 	}
@@ -695,6 +693,9 @@ static void destroy_map(struct gossmap *map)
 
 	for (size_t i = 0; i < tal_count(map->node_arr); i++)
 		free(map->node_arr[i].chan_idxs);
+
+	if (map->fname)
+		close(map->fd);
 }
 
 /* Local modifications.  We only expect a few, so we use a simple
@@ -964,10 +965,26 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 {
 	map = tal(ctx, struct gossmap);
 	map->fname = tal_strdup(map, filename);
-	if (load_gossip_store(map, num_channel_updates_rejected))
-		tal_add_destructor(map, destroy_map);
-	else
-		map = tal_free(map);
+	map->fd = open(map->fname, O_RDONLY);
+	if (map->fd < 0)
+		return tal_free(map);
+	tal_add_destructor(map, destroy_map);
+
+	if (!load_gossip_store(map, num_channel_updates_rejected))
+		return tal_free(map);
+	return map;
+}
+
+struct gossmap *gossmap_load_fd(const tal_t *ctx, int fd,
+				size_t *num_channel_updates_rejected)
+{
+	map = tal(ctx, struct gossmap);
+	map->fname = NULL;
+	map->fd = fd;
+	tal_add_destructor(map, destroy_map);
+
+	if (!load_gossip_store(map, num_channel_updates_rejected))
+		return tal_free(map);
 	return map;
 }
 
@@ -1192,6 +1209,26 @@ u8 *gossmap_chan_get_features(const tal_t *ctx,
 
 	map_copy(map, c->cann_off + feature_len_off + 2, ret, feature_len);
 	return ret;
+}
+
+/* Return the channel_update (or NULL if !gossmap_chan_set) */
+u8 *gossmap_chan_get_update(const tal_t *ctx,
+			    const struct gossmap *map,
+			    const struct gossmap_chan *chan,
+			    int dir)
+{
+	u16 len;
+	u8 *msg;
+
+	if (chan->cupdate_off[dir] == 0)
+		return NULL;
+
+	len = map_be16(map, chan->cupdate_off[dir] - sizeof(struct gossip_hdr)
+		       + offsetof(struct gossip_hdr, len));
+	msg = tal_arr(ctx, u8, len);
+
+	map_copy(map, chan->cupdate_off[dir], msg, len);
+	return msg;
 }
 
 /* BOLT #7:

@@ -44,6 +44,10 @@ struct gossmap_chan {
 struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 			     size_t *num_channel_updates_rejected);
 
+/* Version which uses existing fd */
+struct gossmap *gossmap_load_fd(const tal_t *ctx, int fd,
+				size_t *num_channel_updates_rejected);
+
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map, size_t *num_channel_updates_rejected);
@@ -132,6 +136,12 @@ u8 *gossmap_chan_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_chan *c);
 
+/* Do we have a node_announcement for this onde ? */
+static inline bool gossmap_node_announced(const struct gossmap_node *node)
+{
+	return node->nann_off != 0;
+}
+
 /* Get the announcement msg (if any) for this node. */
 u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
@@ -156,6 +166,12 @@ int gossmap_node_get_feature(const struct gossmap *map,
 u8 *gossmap_node_get_features(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_node *n);
+
+/* Return the channel_update (or NULL if !gossmap_chan_set) */
+u8 *gossmap_chan_get_update(const tal_t *ctx,
+			    const struct gossmap *map,
+			    const struct gossmap_chan *chan,
+			    int dir);
 
 /* Returns details from channel_update (must be gossmap_chan_set, and
  * does not work for local_updatechan)! */
