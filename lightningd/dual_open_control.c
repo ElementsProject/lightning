@@ -1576,10 +1576,14 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 
 		/* Get connectd to send warning, and kill subd. */
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_final_msg(NULL,
-								  &channel->peer->id,
-								  channel->peer->connectd_counter,
-								  warning)));
+			      take(towire_connectd_peer_send_msg(NULL,
+								 &channel->peer->id,
+								 channel->peer->connectd_counter,
+								 warning)));
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_discard_peer(NULL,
+								&channel->peer->id,
+								channel->peer->connectd_counter)));
 		channel_fail_transient(channel, true, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
