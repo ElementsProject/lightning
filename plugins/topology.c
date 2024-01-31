@@ -266,7 +266,7 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "direction", dir);
 		json_add_bool(response, "public", !gossmap_chan_is_localmod(gossmap, c));
 
-		if (c->private) {
+		if (gossmap_chan_is_localmod(gossmap, c)) {
 			/* Local additions don't have a channel_update
 			 * in gossmap.  This is deprecated anyway, but
 			 * fill in values from entry we added. */
