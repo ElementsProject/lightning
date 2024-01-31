@@ -64,8 +64,7 @@ static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
 }
 #endif /* !HAVE_PWRITEV */
 
-static bool append_msg(int fd, const u8 *msg, u32 timestamp,
-		       bool dying, u64 *len)
+static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 {
 	struct gossip_hdr hdr;
 	u32 msglen;
@@ -77,8 +76,6 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	msglen = tal_count(msg);
 	hdr.len = cpu_to_be16(msglen);
 	hdr.flags = 0;
-	if (dying)
-		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_DYING_BIT);
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
 	hdr.timestamp = cpu_to_be32(timestamp);
 
@@ -310,7 +307,7 @@ static u32 gossip_store_compact_offline(struct daemon *daemon)
 	oldlen = lseek(old_fd, SEEK_END, 0);
 	newlen = lseek(new_fd, SEEK_END, 0);
 	append_msg(old_fd, towire_gossip_store_ended(tmpctx, newlen),
-		   0, false, &oldlen);
+		   0, &oldlen);
 	close(old_fd);
 	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
 		     deleted, count);
@@ -367,22 +364,15 @@ struct gossip_store *gossip_store_new(struct daemon *daemon)
 	return gs;
 }
 
-u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp,
-		     bool dying, const u8 *addendum)
+u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg, u32 timestamp)
 {
 	u64 off = gs->len;
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, dying, &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
-			      strerror(errno));
-		return 0;
-	}
-	if (addendum && !append_msg(gs->fd, addendum, 0, false, &gs->len)) {
-		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
@@ -512,13 +502,6 @@ void gossip_store_flag(struct gossip_store *gs,
 	assert(offset > sizeof(struct gossip_hdr));
 
 	flag_by_index(gs, offset - sizeof(struct gossip_hdr), flag, type);
-}
-
-void gossip_store_mark_channel_deleted(struct gossip_store *gs,
-				       const struct short_channel_id *scid)
-{
-	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, false, NULL);
 }
 
 u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset)

@@ -29,17 +29,14 @@ struct gossip_store *gossip_store_new(struct daemon *daemon);
 u32 gossip_store_load(struct gossip_store *gs);
 
 /**
- * Add a gossip message to the gossip_store (and optional addendum)
+ * Append a gossip message to the gossip_store
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
- * @dying: true if this message is for a dying channel.
- * @addendum: another message to append immediately after this
- *            (for appending amounts to channel_announcements for internal use).
  */
-u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool dying,
-		     const u8 *addendum);
+u64 gossip_store_add(struct gossip_store *gs,
+		     const u8 *gossip_msg,
+		     u32 timestamp);
 
 
 /**
@@ -62,13 +59,6 @@ void gossip_store_flag(struct gossip_store *gs,
 		       u64 offset,
 		       u16 flag,
 		       int type);
-
-/**
- * Mark that the channel is about to be deleted, for convenience of
- * others mapping the gossip_store.
- */
-void gossip_store_mark_channel_deleted(struct gossip_store *gs,
-				       const struct short_channel_id *scid);
 
 /**
  * Direct store accessor: get timestamp header for a record.
