@@ -81,13 +81,12 @@ msgdata,channeld_init,reestablish_only,bool,
 msgdata,channeld_init,experimental_upgrade,bool,
 msgdata,channeld_init,num_inflights,u16,
 msgdata,channeld_init,inflights,inflight,num_inflights
+msgdata,channeld_init,scid_alias,short_channel_id,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
-# alias != NULL if zeroconf and short_channel_id == NULL
 # short_channel_id != NULL once we have 3+ confirmations
 msgtype,channeld_funding_depth,1002
 msgdata,channeld_funding_depth,short_channel_id,?short_channel_id,
-msgdata,channeld_funding_depth,alias_local,?short_channel_id,
 msgdata,channeld_funding_depth,depth,u32,
 msgdata,channeld_funding_depth,splicing,bool,
 msgdata,channeld_funding_depth,txid,bitcoin_txid,

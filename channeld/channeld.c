@@ -139,6 +139,9 @@ struct peer {
 	/* Which direction of the channel do we control? */
 	u16 channel_direction;
 
+	/* Local scid alias */
+	struct short_channel_id local_alias;
+
 	/* The scriptpubkey to use for shutting down. */
 	u32 *final_index;
 	struct ext_key *final_ext_key;
@@ -5272,6 +5275,7 @@ static void peer_reconnect(struct peer *peer,
 	    && next_commitment_number == 1) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
+		tlvs->short_channel_id = &peer->local_alias;
 		status_debug("Retransmitting channel_ready for channel %s",
 		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
@@ -5554,7 +5558,7 @@ static void peer_reconnect(struct peer *peer,
 static void handle_funding_depth(struct peer *peer, const u8 *msg)
 {
 	u32 depth;
-	struct short_channel_id *scid, *alias_local;
+	struct short_channel_id *scid;
 	struct tlv_channel_ready_tlvs *tlvs;
 	struct pubkey point;
 	bool splicing;
@@ -5563,7 +5567,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	if (!fromwire_channeld_funding_depth(tmpctx,
 					     msg,
 					     &scid,
-					     &alias_local,
 					     &depth,
 					     &splicing,
 					     &txid))
@@ -5594,15 +5597,15 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			status_debug("handle_funding_depth: Setting short_channel_ids[LOCAL] to %s",
 				type_to_string(tmpctx,
 					       struct short_channel_id,
-					       (scid ? scid : alias_local)));
+					       (scid ? scid : &peer->local_alias)));
 			/* If we know an actual short_channel_id prefer to use
 			 * that, otherwise fill in the alias. From channeld's
 			 * point of view switching from zeroconf to an actual
 			 * funding scid is just a reorg. */
 			if (scid)
 				peer->short_channel_ids[LOCAL] = *scid;
-			else if (alias_local)
-				peer->short_channel_ids[LOCAL] = *alias_local;
+			else
+				peer->short_channel_ids[LOCAL] = peer->local_alias;
 		}
 
 		if (!peer->channel_ready[LOCAL]) {
@@ -5612,7 +5615,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 				     type_to_string(tmpctx, struct pubkey,
 						    &peer->next_local_per_commit));
 			tlvs = tlv_channel_ready_tlvs_new(tmpctx);
-			tlvs->short_channel_id = alias_local;
+			tlvs->short_channel_id = &peer->local_alias;
 
 			/* Need to retrieve the first point again, even if we
 			 * moved on, as channel_ready explicitly includes the
@@ -6166,7 +6169,8 @@ static void init_channel(struct peer *peer)
 				    &pbases,
 				    &reestablish_only,
 				    &peer->experimental_upgrade,
-				    &peer->splice_state->inflights)) {
+				    &peer->splice_state->inflights,
+				    &peer->local_alias)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 

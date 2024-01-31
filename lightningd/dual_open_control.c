@@ -33,7 +33,6 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
-#include <sodium/randombytes.h>
 
 struct commit_rcvd {
 	struct channel *channel;
@@ -1464,12 +1463,6 @@ wallet_commit_channel(struct lightningd *ld,
 		channel->shutdown_scriptpubkey[LOCAL]
 			= p2tr_for_keyidx(channel, channel->peer->ld,
 					    channel->final_key_idx);
-
-	 /* Can't have gotten their alias for this channel yet. */
-	channel->alias[REMOTE] = NULL;
-	/* We do generate one ourselves however. */
-	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
-	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
 
 	channel->remote_upfront_shutdown_script
 		= tal_steal(channel, remote_upfront_shutdown_script);
@@ -4055,6 +4048,7 @@ bool peer_start_dualopend(struct peer *peer,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth,
 				    peer->ld->config.require_confirmed_inputs,
+				    channel->alias[LOCAL],
 				    peer->ld->dev_any_channel_type);
 	subd_send_msg(channel->owner, take(msg));
 	return true;
@@ -4168,7 +4162,8 @@ bool peer_restart_dualopend(struct peer *peer,
 					      NULL : &inflight->lease_amt,
 				      channel->type,
 				      channel->req_confirmed_ins[LOCAL],
-				      channel->req_confirmed_ins[REMOTE]);
+				      channel->req_confirmed_ins[REMOTE],
+				      channel->alias[LOCAL]);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

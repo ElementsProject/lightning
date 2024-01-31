@@ -227,6 +227,9 @@ struct state {
 	/* Does this negotation require confirmed inputs? */
 	bool require_confirmed_inputs[NUM_SIDES];
 
+	/* Our alias */
+	struct short_channel_id local_alias;
+
 	bool dev_accept_any_channel_type;
 };
 
@@ -3869,6 +3872,7 @@ static void send_channel_ready(struct state *state)
 	/* Figure out the next local commit */
 	hsm_per_commitment_point(1, &next_local_per_commit);
 
+	tlvs->short_channel_id = &state->local_alias;
 	msg = towire_channel_ready(NULL, &state->channel_id,
 				    &next_local_per_commit, tlvs);
 	peer_write(state->pps, take(msg));
@@ -4382,6 +4386,7 @@ int main(int argc, char *argv[])
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth,
 				    &state->require_confirmed_inputs[LOCAL],
+				    &state->local_alias,
 				    &state->dev_accept_any_channel_type)) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
@@ -4446,7 +4451,8 @@ int main(int argc, char *argv[])
 					     &requested_lease,
 					     &state->channel_type,
 					     &state->require_confirmed_inputs[LOCAL],
-					     &state->require_confirmed_inputs[REMOTE])) {
+					     &state->require_confirmed_inputs[REMOTE],
+					     &state->local_alias)) {
 
 		bool ok;
 
