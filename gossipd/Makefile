@@ -54,7 +54,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
-	common/private_channel_announcement.o	\
 	common/random_select.o			\
 	common/setup.o				\
 	common/status.o				\
