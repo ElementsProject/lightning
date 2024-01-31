@@ -14,13 +14,18 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
  * @gm: the gossmap_manage context
  * @announce: the channel_announcement message
  * @source_peer: peer who sent this (NULL if it's from lightningd)
+ * @known_amount: if non-NULL, do not ask lightningd to look up UTXO.
  *
- * Returns an error string if it wasn't redundant or included.
+ * Returns an error string if it wasn't redundant or included.  Lightningd
+ * suppresses lookups if it generated the announcement, partially because it's
+ * redundant, but also because in our tests the UTXO is often spent by the time
+ * it processes the lookup!
  */
 const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 						struct gossmap_manage *gm,
 						const u8 *announce TAKES,
-						const struct node_id *source_peer TAKES);
+						const struct node_id *source_peer TAKES,
+						const struct amount_sat *known_amount);
 
 
 /**

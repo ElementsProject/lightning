@@ -812,8 +812,9 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 	u8 *goss;
 	const u8 *errmsg;
 	const char *err;
+	struct amount_sat *known_amount;
 
-	if (!fromwire_gossipd_addgossip(msg, msg, &goss))
+	if (!fromwire_gossipd_addgossip(msg, msg, &goss, &known_amount))
 		master_badmsg(WIRE_GOSSIPD_ADDGOSSIP, msg);
 
 	switch (fromwire_peektype(goss)) {

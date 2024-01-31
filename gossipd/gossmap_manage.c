@@ -371,7 +371,8 @@ static void peer_warning(struct gossmap_manage *gm,
 const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 						struct gossmap_manage *gm,
 						const u8 *announce TAKES,
-						const struct node_id *source_peer TAKES)
+						const struct node_id *source_peer TAKES,
+						const struct amount_sat *known_amount)
 {
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
@@ -426,6 +427,19 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 								   &bitcoin_key_2));
 	pca->channel_announcement = tal_dup_talarr(pca, u8, announce);
 	pca->source_peer = tal_dup_or_null(pca, struct node_id, source_peer);
+
+	/* Are we supposed to add immediately without checking with lightningd?
+	 * Unless we already got it from a peer and we're processing now!
+	 */
+	if (known_amount
+	    && !uintmap_get(&gm->pending_ann_map, scid.u64)
+	    && !uintmap_get(&gm->early_ann_map, scid.u64)) {
+		/* Set with timestamp 0 (we will update once we have a channel_update) */
+		gossip_store_add(gm->daemon->gs, announce, 0, false,
+				 towire_gossip_store_channel_amount(tmpctx, *known_amount));
+		tal_free(pca);
+		return NULL;
+	}
 
 	/* FIXME: Flood protection! */
 	/* Don't know blockheight yet, or not yet deep enough?  Don't even ask */
