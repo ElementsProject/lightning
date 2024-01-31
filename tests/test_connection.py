@@ -111,7 +111,7 @@ def test_remote_addr(node_factory, bitcoind):
 
     def_port = default_ln_port(l2.info["network"])
 
-    # when we restart l1 with a channel and reconnect, node_annoucement update
+    # when we restart l1 with a channel and reconnect, node_announcement update
     # must not yet be send as we need the same `remote_addr` confirmed from a
     # another peer we have a channel with.
     # Note: In this state l2 stores remote_addr as reported by l1
@@ -125,7 +125,7 @@ def test_remote_addr(node_factory, bitcoind):
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
     assert len(l2.rpc.getinfo()['address']) == 0
 
-    # connect second node. This will trigger `node_annoucement` update.
+    # connect second node. This will trigger `node_announcement` update.
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
     l2.daemon.wait_for_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
@@ -146,7 +146,7 @@ def test_remote_addr(node_factory, bitcoind):
 
 
 def test_remote_addr_disabled(node_factory, bitcoind):
-    """Simply tests that IP address discovery annoucements can be turned off
+    """Simply tests that IP address discovery announcements can be turned off
 
        We perform logic tests on L2, setup:
         l1 --> [l2] <-- l3
@@ -179,7 +179,7 @@ def test_remote_addr_disabled(node_factory, bitcoind):
     l2.daemon.wait_for_log(f"{l3.info['id']}.*Already have funding locked in")
 
     # if ip discovery would have been enabled, we would have send an updated
-    # node_annoucement by now. Check we didn't...
+    # node_announcement by now. Check we didn't...
     bitcoind.generate_block(6)  # ugly, but we need to wait for gossip...
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address")
 
@@ -225,7 +225,7 @@ def test_remote_addr_port(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     # if ip discovery would have been enabled, we would have send an updated
-    # node_annoucement by now. Check we didn't...
+    # node_announcement by now. Check we didn't...
     l2.daemon.wait_for_logs(["Already have funding locked in",
                              "Update our node_announcement for discovered address"])
     info = l2.rpc.getinfo()

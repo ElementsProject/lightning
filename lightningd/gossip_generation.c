@@ -125,6 +125,10 @@ u8 *unsigned_channel_update(const tal_t *ctx,
 
 	/* Make sure timestamp changes! */
 	timestamp = time_now().ts.tv_sec;
+	/* FIXME: @endothermicdev points out that our clock could be
+	 * wrong once, and now we'll keep producing future timestamps.
+	 * We could sanity check that old_timestamp is within 2 weeks and
+	 * discard? */
 	if (old_timestamp && timestamp <= *old_timestamp)
 		timestamp = *old_timestamp + 1;
 
@@ -347,7 +351,7 @@ static const struct wireaddr *gather_addresses(const tal_t *ctx,
 {
 	struct wireaddr *addrs;
 
-	/* Note: If no announceable, tal_dup_talarr returns NULL! */
+	/* Note: If ld->announceable is NULL, tal_dup_talarr returns NULL! */
 	addrs = tal_dup_talarr(ctx, struct wireaddr, ld->announceable);
 	if (!addrs)
 		addrs = tal_arr(ctx, struct wireaddr, 0);

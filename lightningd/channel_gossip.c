@@ -925,7 +925,7 @@ const u8 *channel_gossip_update_for_error(const tal_t *ctx,
  *    - MUST set the `short_channel_id` to either an `alias` it has
  *      received from the peer, or the real channel `short_channel_id`.
  */
-/* But we used to get this wrong!  Sot this is the only place where we
+/* But we used to get this wrong!  So this is the only place where we
  * look up by *remote* id.  It's not unique, but it is unique for a
  * specific peer. */
 static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
