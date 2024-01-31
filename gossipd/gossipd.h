@@ -53,6 +53,9 @@ struct daemon {
 	/* Routing information */
 	struct routing_state *rstate;
 
+	/* Manager of writing to the gossip_store */
+	struct gossmap_manage *gm;
+
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 

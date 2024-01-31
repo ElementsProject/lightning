@@ -3,19 +3,19 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
-#include <common/gossmap.h>
 #include <common/gossip_store.h>
+#include <common/gossmap.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossmap_manage.h>
+#include <gossipd/gossip_store.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/gossip_store.h>
+#include <gossipd/gossmap_manage.h>
 #include <gossipd/seeker.h>
 #include <gossipd/sigcheck.h>
 #include <gossipd/txout_failures.h>
@@ -419,6 +419,24 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 static void bad_gossip(const struct node_id *source_peer, const char *str)
 {
 	status_peer_debug(source_peer, "Bad gossip order: %s", str);
+}
+
+/* Minimal gossmap-only transition constructor */
+struct gossmap_manage *gossmap_manage_new_gossmap_only(const tal_t *ctx,
+						       struct daemon *daemon)
+{
+	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
+
+	gm->fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
+	if (gm->fd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Opening gossip_store store: %s",
+			      strerror(errno));
+	gm->raw_gossmap = gossmap_load_fd(gm, gm->fd, report_bad_update, NULL, gm);
+	assert(gm->raw_gossmap);
+	gm->daemon = daemon;
+
+	return gm;
 }
 
 /* Send peer a warning message, if non-NULL. */
