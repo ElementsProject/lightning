@@ -29,18 +29,9 @@ struct gossip_store {
 	/* Offset of current EOF */
 	u64 len;
 
-	/* Counters for entries in the gossip_store entries. This is used to
-	 * decide whether we should rewrite the on-disk store or not.
-	 * Note: count includes deleted. */
-	size_t count, deleted;
-
 	/* Handle to the routing_state to retrieve additional information,
 	 * should it be needed */
 	struct routing_state *rstate;
-
-	/* Disable compaction if we encounter an error during a prior
-	 * compaction */
-	bool disable_compaction;
 
 	/* Timestamp of store when we opened it (0 if we created it) */
 	u32 timestamp;
@@ -326,7 +317,6 @@ close_old:
 struct gossip_store *gossip_store_new(struct routing_state *rstate)
 {
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
-	gs->count = gs->deleted = 0;
 	gs->writable = true;
 	gs->timestamp = gossip_store_compact_offline(rstate);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_CREAT, 0600);
@@ -335,7 +325,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 			      "Opening gossip_store store: %s",
 			      strerror(errno));
 	gs->rstate = rstate;
-	gs->disable_compaction = false;
 	gs->len = sizeof(gs->version);
 
 	tal_add_destructor(gs, gossip_store_destroy);
@@ -368,244 +357,6 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate)
 	return gs;
 }
 
-/* Returns bytes transferred, or 0 on error */
-static size_t transfer_store_msg(int from_fd, size_t from_off,
-				 int to_fd, size_t to_off,
-				 int *type)
-{
-	struct gossip_hdr hdr;
-	u16 flags, msglen;
-	u8 *msg;
-	const u8 *p;
-	size_t tmplen;
-
-	*type = -1;
-	if (pread(from_fd, &hdr, sizeof(hdr), from_off) != sizeof(hdr)) {
-		status_broken("Failed reading header from to gossip store @%zu"
-			      ": %s",
-			      from_off, strerror(errno));
-		return 0;
-	}
-
-	flags = be16_to_cpu(hdr.flags);
-	if (flags & GOSSIP_STORE_DELETED_BIT) {
-		status_broken("Can't transfer deleted msg from gossip store @%zu",
-			      from_off);
-		return 0;
-	}
-
-	msglen = be16_to_cpu(hdr.len);
-
-	/* FIXME: Reuse buffer? */
-	msg = tal_arr(tmpctx, u8, sizeof(hdr) + msglen);
-	memcpy(msg, &hdr, sizeof(hdr));
-	if (pread(from_fd, msg + sizeof(hdr), msglen, from_off + sizeof(hdr))
-	    != msglen) {
-		status_broken("Failed reading %u from to gossip store @%zu"
-			      ": %s",
-			      msglen, from_off, strerror(errno));
-		return 0;
-	}
-
-	if (pwrite(to_fd, msg, msglen + sizeof(hdr), to_off)
-	    != msglen + sizeof(hdr)) {
-		status_broken("Failed writing to gossip store: %s",
-			      strerror(errno));
-		return 0;
-	}
-
-	/* Can't use peektype here, since we have header on front */
-	p = msg + sizeof(hdr);
-	tmplen = msglen;
-	*type = fromwire_u16(&p, &tmplen);
-	if (!p)
-		*type = -1;
-	tal_free(msg);
-	return sizeof(hdr) + msglen;
-}
-
-/* We keep a htable map of old gossip_store offsets to new ones. */
-struct offset_map {
-	size_t from, to;
-};
-
-static size_t offset_map_key(const struct offset_map *omap)
-{
-	return omap->from;
-}
-
-static size_t hash_offset(size_t from)
-{
-	/* Crappy fast hash is "good enough" */
-	return (from >> 5) ^ from;
-}
-
-static bool offset_map_eq(const struct offset_map *omap, const size_t from)
-{
-	return omap->from == from;
-}
-HTABLE_DEFINE_TYPE(struct offset_map,
-		   offset_map_key, hash_offset, offset_map_eq, offmap);
-
-static void move_broadcast(struct offmap *offmap,
-			   struct broadcastable *bcast,
-			   const char *what)
-{
-	struct offset_map *omap;
-
-	if (!bcast->index)
-		return;
-
-	omap = offmap_get(offmap, bcast->index);
-	if (!omap)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not relocate %s at offset %u",
-			      what, bcast->index);
-	bcast->index = omap->to;
-	offmap_del(offmap, omap);
-}
-
-/**
- * Rewrite the on-disk gossip store, compacting it along the way
- *
- * Creates a new file, writes all the updates from the `broadcast_state`, and
- * then atomically swaps the files.
- */
-bool gossip_store_compact(struct gossip_store *gs)
-{
-	size_t count = 0, deleted = 0;
-	int fd;
-	u64 off, len = sizeof(gs->version), idx;
-	struct offmap *offmap;
-	struct gossip_hdr hdr;
-	struct offmap_iter oit;
-	struct node_map_iter nit;
-	struct offset_map *omap;
-
-	if (gs->disable_compaction)
-		return false;
-
-	status_debug(
-	    "Compacting gossip_store with %zu entries, %zu of which are stale",
-	    gs->count, gs->deleted);
-
-	fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
-
-	if (fd < 0) {
-		status_broken(
-		    "Could not open file for gossip_store compaction");
-		goto disable;
-	}
-
-	if (write(fd, &gs->version, sizeof(gs->version))
-	    != sizeof(gs->version)) {
-		status_broken("Writing version to store: %s", strerror(errno));
-		goto unlink_disable;
-	}
-
-	/* Walk old file, copy everything and remember new offsets. */
-	offmap = tal(tmpctx, struct offmap);
-	offmap_init_sized(offmap, gs->count);
-
-	/* Start by writing all channel announcements and updates. */
-	off = 1;
-	while (pread(gs->fd, &hdr, sizeof(hdr), off) == sizeof(hdr)) {
-		u16 msglen;
-		u32 wlen;
-		int msgtype;
-
-		msglen = be16_to_cpu(hdr.len);
-		if (be16_to_cpu(hdr.flags) & GOSSIP_STORE_DELETED_BIT) {
-			off += sizeof(hdr) + msglen;
-			deleted++;
-			continue;
-		}
-
-		count++;
-		wlen = transfer_store_msg(gs->fd, off, fd, len, &msgtype);
-		if (wlen == 0)
-			goto unlink_disable;
-
-		/* We track location of all these message types. */
-		if (msgtype == WIRE_CHANNEL_ANNOUNCEMENT
-		    || msgtype == WIRE_CHANNEL_UPDATE
-		    || msgtype == WIRE_NODE_ANNOUNCEMENT) {
-			omap = tal(offmap, struct offset_map);
-			omap->from = off;
-			omap->to = len;
-			offmap_add(offmap, omap);
-		}
-		len += wlen;
-		off += wlen;
-	}
-
-	/* OK, now we've written file successfully, we can move broadcasts. */
-	/* Remap node announcements. */
-	for (struct node *n = node_map_first(gs->rstate->nodes, &nit);
-	     n;
-	     n = node_map_next(gs->rstate->nodes, &nit)) {
-		move_broadcast(offmap, &n->bcast, "node_announce");
-	}
-
-	/* Remap channel announcements and updates */
-	for (struct chan *c = uintmap_first(&gs->rstate->chanmap, &idx);
-	     c;
-	     c = uintmap_after(&gs->rstate->chanmap, &idx)) {
-		move_broadcast(offmap, &c->bcast, "channel_announce");
-		move_broadcast(offmap, &c->half[0].bcast, "channel_update");
-		move_broadcast(offmap, &c->half[1].bcast, "channel_update");
-	}
-
-	/* That should be everything. */
-	omap = offmap_first(offmap, &oit);
-	if (omap)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: Entry at %zu->%zu not updated?",
-			      omap->from, omap->to);
-
-	if (count != gs->count - gs->deleted)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: Expected %zu msgs in new"
-			      " gossip store, got %zu",
-			      gs->count - gs->deleted, count);
-
-	if (deleted != gs->deleted)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossip_store: Expected %zu deleted msgs in old"
-			      " gossip store, got %zu",
-			      gs->deleted, deleted);
-
-	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) == -1)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Error swapping compacted gossip_store into place:"
-			      " %s",
-			      strerror(errno));
-
-	status_debug(
-	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
-	    deleted, count, len);
-
-	/* Write end marker now new one is ready */
-	append_msg(gs->fd, towire_gossip_store_ended(tmpctx, len),
-		   0, false, false, false, &gs->len);
-
-	gs->count = count;
-	gs->deleted = 0;
-	gs->len = len;
-	close(gs->fd);
-	gs->fd = fd;
-
-	return true;
-
-unlink_disable:
-	unlink(GOSSIP_STORE_TEMP_FILENAME);
-disable:
-	status_debug("Encountered an error while compacting, disabling "
-		     "future compactions.");
-	gs->disable_compaction = true;
-	return false;
-}
-
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 		     u32 timestamp, bool zombie,
 		     bool spam, bool dying, const u8 *addendum)
@@ -626,9 +377,6 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 		return 0;
 	}
 
-	gs->count++;
-	if (addendum)
-		gs->count++;
 	return off;
 }
 
@@ -708,7 +456,6 @@ static u32 flag_by_index(struct gossip_store *gs, u32 index, int flag, int type)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing flags to delete @%u: %s",
 			      index, strerror(errno));
-	gs->deleted++;
 
 	return index + sizeof(struct gossip_hdr) + be16_to_cpu(hdr.belen);
 }
@@ -916,6 +663,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	const char *bad;
 	size_t stats[] = {0, 0, 0, 0};
 	struct timeabs start = time_now();
+	size_t deleted = 0;
 	u8 *chan_ann = NULL;
 	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
@@ -940,9 +688,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 
 		/* Skip deleted entries */
 		if (be16_to_cpu(hdr.flags) & GOSSIP_STORE_DELETED_BIT) {
-			/* Count includes deleted! */
-			gs->count++;
-			gs->deleted++;
+			deleted++;
 			goto next;
 		}
 		spam = (be16_to_cpu(hdr.flags) & GOSSIP_STORE_RATELIMIT_BIT);
@@ -1013,13 +759,13 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto badmsg;
 		}
 
-		gs->count++;
 	next:
 		gs->len += sizeof(hdr) + msglen;
 		clean_tmpctx();
 	}
 
 	if (chan_ann) {
+		tal_free(chan_ann);
 		bad = "dangling channel_announcement";
 		goto corrupt;
 	}
@@ -1045,7 +791,6 @@ corrupt:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating new store file: %s", strerror(errno));
 	remove_all_gossip(rstate);
-	gs->count = gs->deleted = 0;
 	gs->len = 1;
 	gs->timestamp = 0;
 out:
@@ -1053,7 +798,7 @@ out:
 	status_debug("total store load time: %"PRIu64" msec",
 		     time_to_msec(time_between(time_now(), start)));
 	status_debug("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store (%zu deleted) in %"PRIu64" bytes",
-		     stats[0], stats[1], stats[2], stats[3], gs->deleted,
+		     stats[0], stats[1], stats[2], stats[3], deleted,
 		     gs->len);
 
 	return gs->timestamp;

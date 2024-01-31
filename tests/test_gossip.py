@@ -1236,11 +1236,6 @@ def test_gossip_store_load_announce_before_update(node_factory):
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 778 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
-    # Extra sanity check if we can.
-    l1.rpc.call('dev-compact-gossip-store')
-    l1.restart()
-    l1.rpc.call('dev-compact-gossip-store')
-
 
 def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
@@ -1258,11 +1253,6 @@ def test_gossip_store_load_amount_truncated(node_factory):
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement. Moving to gossip_store.corrupt and truncating'))
     wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1 bytes'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
-
-    # Extra sanity check if we can.
-    l1.rpc.call('dev-compact-gossip-store')
-    l1.restart()
-    l1.rpc.call('dev-compact-gossip-store')
 
 
 @pytest.mark.openchannel('v1')
@@ -1582,7 +1572,6 @@ def test_gossip_store_compact_noappend(node_factory, bitcoind):
     with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.tmp'), 'wb') as f:
         f.write(bytearray.fromhex("07deadbeef"))
 
-    l2.rpc.call('dev-compact-gossip-store')
     l2.restart()
     wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
     assert not l2.daemon.is_in_log('gossip_store:.*truncate')
@@ -1594,32 +1583,6 @@ def test_gossip_store_load_complex(node_factory, bitcoind):
     l2.restart()
 
     wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
-
-
-def test_gossip_store_compact(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
-
-    # Now compact store.
-    l2.rpc.call('dev-compact-gossip-store')
-
-    # Should still be connected.
-    time.sleep(1)
-    assert len(l2.rpc.listpeers()['peers']) == 2
-
-    # Should restart ok.
-    l2.restart()
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
-
-
-def test_gossip_store_compact_restart(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
-
-    # Should restart ok.
-    l2.restart()
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
-
-    # Now compact store.
-    l2.rpc.call('dev-compact-gossip-store')
 
 
 def test_gossip_store_load_no_channel_update(node_factory):
@@ -1652,8 +1615,6 @@ def test_gossip_store_load_no_channel_update(node_factory):
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
     # This should actually result in an empty store.
-    l1.rpc.call('dev-compact-gossip-store')
-
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
         assert bytearray(f.read()) == bytearray.fromhex("0d")
 
