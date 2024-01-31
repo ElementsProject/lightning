@@ -222,6 +222,7 @@ msgtype,dualopend_tx_sigs_sent,7012
 # dualopend->peer peer locked channel
 msgtype,dualopend_peer_locked,7018
 msgdata,dualopend_peer_locked,remote_per_commit,pubkey,
+msgdata,dualopend_peer_locked,remote_alias,?short_channel_id,
 
 # dualopend->master this channel has been locked
 msgtype,dualopend_channel_locked,7019

@@ -33,7 +33,8 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 
 /* Update the channel info on channel_ready */
 bool channel_on_channel_ready(struct channel *channel,
-			      struct pubkey *next_per_commitment_point);
+			      const struct pubkey *next_per_commitment_point,
+			      const struct short_channel_id *remote_alias);
 
 /* Record channel open (coin movement notifications) */
 void channel_record_open(struct channel *channel, u32 blockheight, bool record_push);
