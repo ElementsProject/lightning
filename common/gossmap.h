@@ -18,9 +18,8 @@ struct gossmap_node {
 
 struct gossmap_chan {
 	u32 cann_off;
-	u32 private: 1;
 	/* Technically redundant, but we have a hole anyway: from cann_off */
-	u32 plus_scid_off: 31;
+	u32 plus_scid_off;
 	/* Offsets of cupdates (0 if missing).  Logically inside half_chan,
 	 * but that would add padding. */
 	u32 cupdate_off[2];
@@ -85,6 +84,10 @@ void gossmap_apply_localmods(struct gossmap *map,
 void gossmap_remove_localmods(struct gossmap *map,
 			      const struct gossmap_localmods *localmods);
 
+/* Is this channel a localmod? */
+bool gossmap_chan_is_localmod(const struct gossmap *map,
+			      const struct gossmap_chan *c);
+
 /* Each channel has a unique (low) index. */
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node);
 u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan);
@@ -124,7 +127,7 @@ bool gossmap_chan_get_capacity(const struct gossmap *map,
 			       const struct gossmap_chan *c,
 			       struct amount_sat *amount);
 
-/* Get the announcement msg which created this chan */
+/* Get the announcement msg which created this chan (NULL for localmods) */
 u8 *gossmap_chan_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_chan *c);
@@ -180,9 +183,9 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map,
 				      int n);
 
 /* Can this channel send this amount? */
-bool gossmap_chan_capacity(const struct gossmap_chan *chan,
-			   int direction,
-			   struct amount_msat amount);
+bool gossmap_chan_has_capacity(const struct gossmap_chan *chan,
+			       int direction,
+			       struct amount_msat amount);
 
 /* Remove a channel from the map (warning! realloc can move gossmap_chan
  * and gossmap_node ptrs!) */

@@ -264,7 +264,7 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_node_id(response, "destination", &node_id[!dir]);
 		json_add_short_channel_id(response, "short_channel_id", &scid);
 		json_add_num(response, "direction", dir);
-		json_add_bool(response, "public", !c->private);
+		json_add_bool(response, "public", !gossmap_chan_is_localmod(gossmap, c));
 
 		if (c->private) {
 			/* Local additions don't have a channel_update
@@ -666,7 +666,7 @@ listpeerchannels_listincoming_done(struct command *cmd,
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
 		json_add_amount_msat(js, "incoming_capacity_msat",
 				     peer_capacity(gossmap, me, peer, ourchan));
-		json_add_bool(js, "public", !ourchan->private);
+		json_add_bool(js, "public", !gossmap_chan_is_localmod(gossmap, ourchan));
 		peer_features = gossmap_node_get_features(tmpctx, gossmap, peer);
 		if (peer_features)
 			json_add_hex_talarr(js, "peer_features", peer_features);
