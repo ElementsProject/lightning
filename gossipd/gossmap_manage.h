@@ -109,4 +109,15 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm);
 void gossmap_manage_new_peer(struct gossmap_manage *gm,
 			     const struct node_id *peer);
 
+/**
+ * gossmap_manage_get_node_addresses: get addresses for this node.
+ * @ctx: the allocation context
+ * @gm: the gossmap_manage context
+ * @node_id: the node_id to look up
+ *
+ * Returns NULL if we don't have node_announcement for it.
+ */
+struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
+						   struct gossmap_manage *gm,
+						   const struct node_id *node_id);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */

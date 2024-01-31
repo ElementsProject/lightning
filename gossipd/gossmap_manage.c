@@ -1075,3 +1075,49 @@ void gossmap_manage_new_peer(struct gossmap_manage *gm,
 	if (msg)
 		queue_peer_msg(gm->daemon, peer, take(msg));
 }
+
+struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
+						   struct gossmap_manage *gm,
+						   const struct node_id *node_id)
+{
+	struct gossmap_node *node;
+	u8 *nannounce;
+	struct node_id id;
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	u8 *addresses, *features;
+	u8 rgb_color[3], alias[32];
+	struct tlv_node_ann_tlvs *na_tlvs;
+	struct wireaddr *wireaddrs;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+
+	node = gossmap_find_node(gossmap, node_id);
+	if (!node)
+		return NULL;
+
+	nannounce = gossmap_node_get_announce(tmpctx, gossmap,
+					      node);
+	if (!nannounce)
+		return NULL;
+
+	if (!fromwire_node_announcement(tmpctx, nannounce,
+					&signature, &features,
+					&timestamp,
+					&id, rgb_color, alias,
+					&addresses,
+					&na_tlvs)) {
+		status_broken("Bad node_announcement for %s in gossip_store: %s",
+			      node_id_to_hexstr(tmpctx, node_id),
+			      tal_hex(tmpctx, nannounce));
+		return NULL;
+	}
+
+	wireaddrs = fromwire_wireaddr_array(ctx, addresses);
+	if (!wireaddrs) {
+		status_broken("Bad wireaddrs in node_announcement in gossip_store: %s",
+			      tal_hex(tmpctx, nannounce));
+		return NULL;
+	}
+
+	return wireaddrs;
+}
