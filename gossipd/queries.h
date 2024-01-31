@@ -53,10 +53,6 @@ bool query_short_channel_ids(struct daemon *daemon,
 			     const u8 *query_flags,
 			     void (*cb)(struct peer *peer_, bool complete));
 
-struct io_plan *dev_query_channel_range(struct io_conn *conn,
-					struct daemon *daemon,
-					const u8 *msg);
-
 /* This is a testing hack to allow us to artificially lower the maximum bytes
  * of short_channel_ids we'll encode, using dev_set_max_scids_encode_size. */
 void dev_set_max_scids_encode_size(struct daemon *daemon, const u8 *msg);

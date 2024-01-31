@@ -7,11 +7,10 @@ GOSSIPD_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
 	gossipd/gossip_store.h				\
 	gossipd/gossmap_manage.h			\
 	gossipd/queries.h				\
-	gossipd/routing.h				\
 	gossipd/txout_failures.h			\
 	gossipd/sigcheck.h				\
 	gossipd/seeker.h
-GOSSIPD_HEADERS := $(GOSSIPD_HEADERS_WSRC) gossipd/broadcast.h
+GOSSIPD_HEADERS := $(GOSSIPD_HEADERS_WSRC)
 
 GOSSIPD_SRC := $(GOSSIPD_HEADERS_WSRC:.h=.c)
 GOSSIPD_OBJS := $(GOSSIPD_SRC:.c=.o)
