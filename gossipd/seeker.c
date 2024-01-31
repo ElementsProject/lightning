@@ -209,17 +209,21 @@ static void disable_gossip_stream(struct seeker *seeker, struct peer *peer)
 
 static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 {
-	/* We seek some way back, to take into account propagation time */
-	const u32 polltime = GOSSIP_SEEKER_INTERVAL(seeker) * 10;
-	u32 start = seeker->daemon->rstate->last_timestamp;
+	u32 start;
 	u8 *msg;
 
-	if (start > polltime)
-		start -= polltime;
-	else
+	/* Modern timestamp_filter is a trinary: 0 = all, FFFFFFFF = none,
+	 * other = from now on */
+	if (seeker->daemon->gossip_store_populated) {
+		/* Just in case they care */
+		start = time_now().ts.tv_sec - GOSSIP_SEEKER_INTERVAL(seeker) * 10;
+	} else {
 		start = 0;
+	}
 
-	status_peer_debug(&peer->id, "seeker: starting gossip");
+	status_peer_debug(&peer->id, "seeker: starting gossip (%s)",
+			  seeker->daemon->gossip_store_populated
+			  ? "streaming" : "EVERTHING");
 
 	/* This is allowed even if they don't understand it (odd) */
 	msg = towire_gossip_timestamp_filter(NULL,

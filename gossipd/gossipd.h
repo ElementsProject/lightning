@@ -65,6 +65,9 @@ struct daemon {
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
 
+	/* Was there anything in the gossip store at startup? */
+	bool gossip_store_populated;
+
 	/* Override local time for gossip messages */
 	struct timeabs *dev_gossip_time;
 
