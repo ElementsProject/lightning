@@ -152,7 +152,7 @@ static void give_lightningd_canned_private_update(struct routing_state *rstate,
 	}
 
 	/* From NULL source (i.e. trust us!) */
-	tell_lightningd_peer_update(rstate,
+	tell_lightningd_peer_update(rstate->daemon,
 				    NULL,
 				    short_channel_id,
 				    fee_base_msat,

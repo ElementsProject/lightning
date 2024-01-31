@@ -549,6 +549,27 @@ static void gossip_refresh_network(struct daemon *daemon)
 	route_prune(daemon->rstate);
 }
 
+void tell_lightningd_peer_update(struct daemon *daemon,
+				 const struct node_id *source_peer,
+				 struct short_channel_id scid,
+				 u32 fee_base_msat,
+				 u32 fee_ppm,
+				 u16 cltv_delta,
+				 struct amount_msat htlc_minimum,
+				 struct amount_msat htlc_maximum)
+{
+	struct peer_update remote_update;
+	u8* msg;
+	remote_update.scid = scid;
+	remote_update.fee_base = fee_base_msat;
+	remote_update.fee_ppm = fee_ppm;
+	remote_update.cltv_delta = cltv_delta;
+	remote_update.htlc_minimum_msat = htlc_minimum;
+	remote_update.htlc_maximum_msat = htlc_maximum;
+	msg = towire_gossipd_remote_channel_update(NULL, source_peer, &remote_update);
+	daemon_conn_send(daemon->master, take(msg));
+}
+
 static void tell_master_local_cupdates(struct daemon *daemon)
 {
 	struct chan_map_iter i;

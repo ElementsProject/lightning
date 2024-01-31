@@ -1123,27 +1123,6 @@ static bool is_chan_dying(struct routing_state *rstate,
 	return false;
 }
 
-void tell_lightningd_peer_update(struct routing_state *rstate,
-				 const struct node_id *source_peer,
-				 struct short_channel_id scid,
-				 u32 fee_base_msat,
-				 u32 fee_ppm,
-				 u16 cltv_delta,
-				 struct amount_msat htlc_minimum,
-				 struct amount_msat htlc_maximum)
-{
-	struct peer_update remote_update;
-	u8* msg;
-	remote_update.scid = scid;
-	remote_update.fee_base = fee_base_msat;
-	remote_update.fee_ppm = fee_ppm;
-	remote_update.cltv_delta = cltv_delta;
-	remote_update.htlc_minimum_msat = htlc_minimum;
-	remote_update.htlc_maximum_msat = htlc_maximum;
-	msg = towire_gossipd_remote_channel_update(NULL, source_peer, &remote_update);
-	daemon_conn_send(rstate->daemon->master, take(msg));
-}
-
 /* Is this channel_update different from prev (not sigs and timestamps)? */
 static bool cupdate_different(struct gossip_store *gs,
 			      const struct half_chan *hc,
@@ -1217,7 +1196,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			if (index)
 				return false;
 			/* Allow ld to process a private channel update */
-			tell_lightningd_peer_update(rstate, source_peer,
+			tell_lightningd_peer_update(rstate->daemon, source_peer,
 						    short_channel_id, fee_base_msat,
 						    fee_proportional_millionths,
 						    expiry, htlc_minimum,
@@ -1330,7 +1309,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* If this is a peer's update to one of our local channels, tell lightningd. */
 	if (node_id_eq(&chan->nodes[!direction]->id, &rstate->daemon->id)) {
 		/* give lightningd the channel's inbound info to store to db */
-		tell_lightningd_peer_update(rstate,
+		tell_lightningd_peer_update(rstate->daemon,
 					    /* Note: we can get public
 					     * channel_updates from other than
 					     * direct peer!  So tell lightningd
@@ -1561,7 +1540,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		 * check signature assuming it's from that peer, and if it's valid, hand to ld */
 		if (source_peer
 		    && sigcheck_channel_update(tmpctx, source_peer, &signature, serialized) == NULL) {
-			tell_lightningd_peer_update(rstate, source_peer,
+			tell_lightningd_peer_update(rstate->daemon, source_peer,
 						    short_channel_id, fee_base_msat,
 						    fee_proportional_millionths,
 						    expiry, htlc_minimum,

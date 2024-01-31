@@ -397,13 +397,4 @@ const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate);
 
 void remove_all_gossip(struct routing_state *rstate);
 
-/* We have an update for one of our channels (or unknown). */
-void tell_lightningd_peer_update(struct routing_state *rstate,
-				 const struct node_id *source_peer,
-				 struct short_channel_id scid,
-				 u32 fee_base_msat,
-				 u32 fee_ppm,
-				 u16 cltv_delta,
-				 struct amount_msat htlc_minimum,
-				 struct amount_msat htlc_maximum);
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
