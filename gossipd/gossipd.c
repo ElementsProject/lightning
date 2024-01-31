@@ -331,47 +331,6 @@ static void handle_local_channel_announcement(struct daemon *daemon, const u8 *m
 }
 
 
-/* channeld (via lightningd) tells us about (as-yet?) unannounce channel.
- * It needs us to put it in gossip_store. */
-static void handle_local_private_channel(struct daemon *daemon, const u8 *msg)
-{
-	struct node_id id;
-	struct amount_sat capacity;
-	u8 *features;
-	struct short_channel_id scid;
-	const u8 *cannounce;
-	struct chan *zombie;
-
-	if (!fromwire_gossipd_local_private_channel(msg, msg,
-						    &id, &capacity, &scid,
-						    &features))
-		master_badmsg(WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL, msg);
-
-	status_debug("received private channel announcement from channeld for %s",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
-	cannounce = private_channel_announcement(tmpctx,
-						 &scid,
-						 &daemon->id,
-						 &id,
-						 features);
-	/* If there is already a zombie announcement for this channel in the
-	 * store we can disregard this one. */
-	zombie = get_channel(daemon->rstate, &scid);
-	if (zombie && (zombie->half[0].zombie || zombie->half[1].zombie)){
-		status_debug("received channel announcement for %s,"
-			     " but it is a zombie; discarding",
-			     type_to_string(tmpctx, struct short_channel_id,
-				            &scid));
-		return;
-	}
-
-	if (!routing_add_private_channel(daemon->rstate, &id, capacity,
-					 cannounce, 0)) {
-		status_peer_broken(&id, "bad add_private_channel %s",
-				   tal_hex(tmpctx, cannounce));
-	}
-}
-
 /* lightningd tells us it has discovered and verified new `remote_addr`.
  * We can use this to update our node announcement. */
 static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
@@ -1162,10 +1121,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
 		handle_local_channel_announcement(daemon, msg);
-		goto done;
-
-	case WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL:
-		handle_local_private_channel(daemon, msg);
 		goto done;
 
 	case WIRE_GOSSIPD_DISCOVERED_IP:

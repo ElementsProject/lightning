@@ -171,7 +171,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
-	case WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:

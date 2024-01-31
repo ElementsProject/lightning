@@ -963,10 +963,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			}
 			stats[2]++;
 			break;
-		/* FIXME: Don't actually put these in! */
-		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS:
-		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS:
-			break;
 		default:
 			bad = "Unknown message";
 			goto badmsg;
