@@ -88,6 +88,10 @@ void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *wh
 /* Generated stub for channel_update_feerates */
 void channel_update_feerates(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_update_feerates called!\n"); abort(); }
+/* Generated stub for channel_update_for_error */
+const u8 *channel_update_for_error(const tal_t *ctx UNNEEDED,
+				   struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_update_for_error called!\n"); abort(); }
 /* Generated stub for channel_update_reserve */
 void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct channel_config *their_config UNNEEDED,
@@ -296,9 +300,6 @@ bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
-/* Generated stub for get_channel_update */
-const u8 *get_channel_update(struct channel *channel UNNEEDED)
-{ fprintf(stderr, "get_channel_update called!\n"); abort(); }
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }

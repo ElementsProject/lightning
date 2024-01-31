@@ -491,7 +491,8 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 		  hout->key.id);
 
 	hout->failmsg = towire_temporary_channel_failure(hout,
-							 get_channel_update(hout->key.channel));
+							 channel_update_for_error(tmpctx,
+										  hout->key.channel));
 
 	/* Assign a temporary state (we're about to free it!) so checks
 	 * are happy that it has a failure message */
@@ -529,7 +530,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	if (tal_count(failmsg)) {
 		/* It's our job to append the channel_update */
 		if (fromwire_peektype(failmsg) & UPDATE) {
-			const u8 *update = get_channel_update(hout->key.channel);
+			const u8 *update = channel_update_for_error(tmpctx, hout->key.channel);
 			towire(&failmsg, update, tal_bytelen(update));
 		}
 		hout->failmsg = tal_steal(hout, failmsg);
@@ -626,7 +627,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
 			 channel_state_name(out));
 		return towire_temporary_channel_failure(ctx,
-							get_channel_update(out));
+							channel_update_for_error(tmpctx, out));
 	}
 
 	if (!topology_synced(out->peer->ld->topology)) {
@@ -749,7 +750,8 @@ static void forward_htlc(struct htlc_in *hin,
 					 next->old_feerate_base,
 					 next->old_feerate_ppm)) {
 			failmsg = towire_fee_insufficient(tmpctx, hin->msat,
-							  get_channel_update(next));
+							  channel_update_for_error(tmpctx,
+										   next));
 			goto fail;
 		}
 		log_info(hin->key.channel->log,
@@ -763,7 +765,7 @@ static void forward_htlc(struct htlc_in *hin,
 		    || amount_msat_less(amt_to_forward, next->old_htlc_minimum_msat)
 		    || amount_msat_greater(amt_to_forward, next->old_htlc_maximum_msat)) {
 			failmsg = towire_temporary_channel_failure(tmpctx,
-								   get_channel_update(next));
+								   channel_update_for_error(tmpctx, next));
 			goto fail;
 		}
 		log_info(hin->key.channel->log,
@@ -773,7 +775,7 @@ static void forward_htlc(struct htlc_in *hin,
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
 			ld->config.cltv_expiry_delta)) {
 		failmsg = towire_incorrect_cltv_expiry(tmpctx, cltv_expiry,
-						       get_channel_update(next));
+						       channel_update_for_error(tmpctx, next));
 		goto fail;
 	}
 
@@ -792,7 +794,7 @@ static void forward_htlc(struct htlc_in *hin,
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology));
 		failmsg = towire_expiry_too_soon(tmpctx,
-						 get_channel_update(next));
+						 channel_update_for_error(tmpctx, next));
 		goto fail;
 	}
 
