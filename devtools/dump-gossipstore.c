@@ -113,12 +113,12 @@ int main(int argc, char *argv[])
 			printf("t=%u node_announcement: %s\n",
 			       be32_to_cpu(hdr.timestamp),
 			       tal_hex(msg, msg));
-		} else if (fromwire_gossip_store_private_channel(msg, msg, &sat,
+		} else if (fromwire_gossip_store_private_channel_obs(msg, msg, &sat,
 								 &inner)) {
 			printf("private channel_announcement: %s %s\n",
 			       type_to_string(tmpctx, struct amount_sat, &sat),
 			       tal_hex(msg, inner));
-		} else if (fromwire_gossip_store_private_update(msg, msg,
+		} else if (fromwire_gossip_store_private_update_obs(msg, msg,
 								&inner)) {
 			printf("private channel_update: %s\n",
 			       tal_hex(msg, inner));

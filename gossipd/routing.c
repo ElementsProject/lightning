@@ -883,8 +883,8 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 		update_type = WIRE_CHANNEL_UPDATE;
 		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
 	} else {
-		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE;
-		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL;
+		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS;
+		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS;
 	}
 
 	/* If these aren't in the store, these are noops. */
@@ -1333,7 +1333,7 @@ static void delete_spam_update(struct routing_state *rstate,
 	gossip_store_delete(rstate->gs, &hc->rgraph,
 			    update_is_public
 			    ? WIRE_CHANNEL_UPDATE
-			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
 	hc->rgraph.index = hc->bcast.index;
 	hc->rgraph.timestamp = hc->bcast.timestamp;
 }
@@ -1348,14 +1348,14 @@ static bool is_chan_dying(struct routing_state *rstate,
 	return false;
 }
 
-static void tell_lightningd_peer_update(struct routing_state *rstate,
-					const struct node_id *source_peer,
-					struct short_channel_id scid,
-					u32 fee_base_msat,
-					u32 fee_ppm,
-					u16 cltv_delta,
-					struct amount_msat htlc_minimum,
-					struct amount_msat htlc_maximum)
+void tell_lightningd_peer_update(struct routing_state *rstate,
+				 const struct node_id *source_peer,
+				 struct short_channel_id scid,
+				 u32 fee_base_msat,
+				 u32 fee_ppm,
+				 u16 cltv_delta,
+				 struct amount_msat htlc_minimum,
+				 struct amount_msat htlc_maximum)
 {
 	struct peer_update remote_update;
 	u8* msg;
@@ -1532,7 +1532,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		gossip_store_delete(rstate->gs, &hc->bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_UPDATE
-				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
 
 	/* Update timestamp(s) */
 	hc->rgraph.timestamp = timestamp;
@@ -1609,7 +1609,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		gossip_store_delete(rstate->gs, &chan->bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_ANNOUNCEMENT
-				    : WIRE_GOSSIP_STORE_PRIVATE_CHANNEL);
+				    : WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS);
 		chan->bcast.index =
 			gossip_store_add(rstate->gs, zombie_announcement,
 					 chan->bcast.timestamp,
@@ -1627,12 +1627,12 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			gossip_store_delete(rstate->gs, &chan->half[!direction].rgraph,
 					    is_chan_public(chan)
 					    ? WIRE_CHANNEL_UPDATE
-					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
 		}
 		gossip_store_delete(rstate->gs, &chan->half[!direction].bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_UPDATE
-				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
 		chan->half[!direction].bcast.index =
 			gossip_store_add(rstate->gs, zombie_update[0],
 					 chan->half[!direction].bcast.timestamp,
@@ -2219,7 +2219,7 @@ bool routing_add_private_channel(struct routing_state *rstate,
 	/* Create new (unannounced) channel */
 	chan = new_chan(rstate, &scid, &node_id[0], &node_id[1], capacity);
 	if (!index) {
-		u8 *msg = towire_gossip_store_private_channel(tmpctx,
+		u8 *msg = towire_gossip_store_private_channel_obs(tmpctx,
 							      capacity,
 							      chan_ann);
 		index = gossip_store_add(rstate->gs, msg, 0, false, false, false,
