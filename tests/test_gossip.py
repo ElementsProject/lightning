@@ -1168,7 +1168,7 @@ def test_gossip_store_load(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 778 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/0 cannounce/cupdate/nannounce/delete from store in 800 bytes, now 778 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
@@ -1236,7 +1236,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 778 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/1 cannounce/cupdate/nannounce/delete from store in 950 bytes, now 778 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
@@ -1253,8 +1253,8 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: dangling channel_announcement. Moving to gossip_store.corrupt and truncating'))
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: channel_announcement without amount \(offset 1\). Moving to gossip_store.corrupt and truncating'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 467 bytes, now 1 bytes \(populated=false\)'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
@@ -1614,7 +1614,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.start()
 
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossipd: gossip_store: Read 1/0/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 628 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/0/1/0 cannounce/cupdate/nannounce/delete from store in 650 bytes, now 628 bytes'))
     assert not os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
@@ -1629,9 +1629,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     # These appear before we're fully started, so will already in log:
-    l2.daemon.is_in_log(r'gossip_store_compact_offline: 2 deleted, 9 copied')
-
-    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/3/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\)')
+    assert l2.daemon.is_in_log('gossip_store: Read 2/4/3/2 cannounce/cupdate/nannounce/delete from store')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):

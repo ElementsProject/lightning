@@ -412,6 +412,7 @@ bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	u32 *dev_gossip_time;
+	struct chan_dying *dying;
 
 	if (!fromwire_gossipd_init(daemon, msg,
 				     &chainparams,
@@ -431,13 +432,13 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 		tal_free(dev_gossip_time);
 	}
 
-	daemon->gs = gossip_store_new(daemon);
-	/* Gossmap manager starts up */
-	daemon->gm = gossmap_manage_new(daemon, daemon);
+	daemon->gs = gossip_store_new(daemon,
+				      daemon,
+				      &daemon->gossip_store_populated,
+				      &dying);
 
-	/* Load stored gossip messages (FIXME: API sucks)*/
-	daemon->gossip_store_populated =
-		(gossip_store_load(daemon->gs) != 0);
+	/* Gossmap manager starts up */
+	daemon->gm = gossmap_manage_new(daemon, daemon, take(dying));
 
 	/* Fire up the seeker! */
 	daemon->seeker = new_seeker(daemon);

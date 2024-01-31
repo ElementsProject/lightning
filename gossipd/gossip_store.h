@@ -13,20 +13,43 @@
  */
 
 struct gossip_store;
-struct broadcastable;
 struct daemon;
-struct routing_state;
 
-struct gossip_store *gossip_store_new(struct daemon *daemon);
+/* For channels we find dying in the store, on load.  They are < 12
+ * blocks closed. */
+struct chan_dying {
+	struct short_channel_id scid;
+	/* Offset of dying marker in the gossip_store */
+	u64 gossmap_offset;
+	/* Blockheight where it's supposed to be deleted. */
+	u32 deadline;
+};
 
 /**
- * Load the initial gossip store, if any.
- *
- * @param gs  The `gossip_store` to read from
- *
- * Returns the last-modified time of the store, or 0 if it was created new.
+ * Load the gossip_store
+ * @ctx: the context to allocate from
+ * @daemon: the daemon context
+ * @populated: set to false if store is empty/obviously partial.
+ * @dying: an array of channels we found dying markers for.
  */
-u32 gossip_store_load(struct gossip_store *gs);
+struct gossip_store *gossip_store_new(const tal_t *ctx,
+				      struct daemon *daemon,
+				      bool *populated,
+				      struct chan_dying **dying);
+
+/**
+ * Get the fd from the gossip_store.
+ * @gs: the gossip_store.
+ *
+ * Used by gossmap_manage to create a gossmap.
+ */
+int gossip_store_get_fd(const struct gossip_store *gs);
+
+/**
+ * Get the (refreshed!) gossmap from the gossip_store.
+ * @gs: gossip store
+ */
+struct gossmap *gossip_store_gossmap(struct gossip_store *gs);
 
 /**
  * Append a gossip message to the gossip_store
