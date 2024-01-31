@@ -176,6 +176,16 @@ msgtype,hsmd_cannouncement_sig_reply,102
 msgdata,hsmd_cannouncement_sig_reply,node_signature,secp256k1_ecdsa_signature,
 msgdata,hsmd_cannouncement_sig_reply,bitcoin_signature,secp256k1_ecdsa_signature,
 
+msgtype,hsmd_sign_any_cannouncement_req,4
+msgdata,hsmd_sign_any_cannouncement_req,calen,u16,
+msgdata,hsmd_sign_any_cannouncement_req,ca,u8,calen
+msgdata,hsmd_sign_any_cannouncement_req,peerid,node_id,
+msgdata,hsmd_sign_any_cannouncement_req,channel_dbid,u64,
+			      
+msgtype,hsmd_sign_any_cannouncement_reply,104
+msgdata,hsmd_sign_any_cannouncement_reply,node_signature,secp256k1_ecdsa_signature,
+msgdata,hsmd_sign_any_cannouncement_reply,bitcoin_signature,secp256k1_ecdsa_signature,
+
 msgtype,hsmd_cupdate_sig_req,3
 msgdata,hsmd_cupdate_sig_req,culen,u16,
 msgdata,hsmd_cupdate_sig_req,cu,u8,culen
