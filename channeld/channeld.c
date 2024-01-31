@@ -660,6 +660,7 @@ static bool channel_announcement_negotiate(struct peer *peer)
 		 * announcement to MASTER. */
 		wire_sync_write(MASTER_FD,
 			        take(towire_channeld_got_announcement(NULL,
+				&peer->short_channel_ids[REMOTE],
 			        &peer->announcement_node_sigs[REMOTE],
 			        &peer->announcement_bitcoin_sigs[REMOTE])));
 
