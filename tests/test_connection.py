@@ -3785,6 +3785,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
 
     bitcoind.generate_block(100, wait_for_mempool=txid)
     # This works even if they disconnect and listpeerchannels() is empty:
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'] == [])
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
     # TEST 2: Cheat from post-upgrade.
@@ -3817,6 +3818,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
 
     bitcoind.generate_block(100, wait_for_mempool=txid)
     # This works even if they disconnect and listpeers() is empty:
+    wait_for(lambda: len(l1.rpc.listpeerchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
     # TEST 3: Unilateral close from pre-upgrade
@@ -3852,6 +3854,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.generate_block(100, wait_for_mempool=txid)
 
     # This works even if they disconnect and listpeerchannels() is empty:
+    wait_for(lambda: len(l1.rpc.listpeerchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels']) == 0)
 
     # TEST 4: Unilateral close from post-upgrade
