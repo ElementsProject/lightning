@@ -313,6 +313,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->lease_commit_sig = NULL;
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
+	channel->last_stable_connection = 0;
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -449,7 +450,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat htlc_maximum_msat,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
-			    struct peer_update *peer_update STEALS)
+			    struct peer_update *peer_update STEALS,
+			    u64 last_stable_connection)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -600,6 +602,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->close_blockheight = NULL;
 	channel->state_change_cause = reason;
 	channel->ignore_fee_limits = ignore_fee_limits;
+	channel->last_stable_connection = last_stable_connection;
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 
