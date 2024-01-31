@@ -6,6 +6,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
+	lightningd/channel_gossip.c		\
 	lightningd/closing_control.c		\
 	lightningd/coin_mvts.c			\
 	lightningd/dual_open_control.c		\
