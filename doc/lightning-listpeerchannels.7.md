@@ -133,6 +133,10 @@ On success, an object containing **channels** is returned.  It is an array of ob
 
     - **state** (string): Status of the HTLC (one of "RCVD\_ADD\_HTLC", "RCVD\_ADD\_COMMIT", "SENT\_ADD\_REVOCATION", "SENT\_ADD\_ACK\_COMMIT", "RCVD\_ADD\_ACK\_REVOCATION", "SENT\_REMOVE\_HTLC", "SENT\_REMOVE\_COMMIT", "RCVD\_REMOVE\_REVOCATION", "RCVD\_REMOVE\_ACK\_COMMIT", "SENT\_REMOVE\_ACK\_REVOCATION")
 
+If **peer\_connected** is *true*:
+
+  - **reestablished** (boolean, optional): True if we have successfully exchanged reestablish messages this connection
+
 If **close\_to** is present:
 
   - **close\_to\_addr** (string, optional): The bitcoin address we will close to (present if close\_to\_addr is a standardized address)
@@ -215,4 +219,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:a7fc3b30593a04b6b04c1516aeb2039f6ab4e29cf12f81b306a8a068273c3604)
+[comment]: # ( SHA256STAMP:8cad14f36d38722182a8fdccc393e93d121d97999d2487decfa09d53c991a8ae)

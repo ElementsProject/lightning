@@ -3840,6 +3840,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'u64'},
                         {'name': 'out_fulfilled_msat',
                          'type': 'msat'},
+                        {'name': 'reestablished',
+                         'type': 'boolean'},
                         {'name': 'close_to_addr',
                          'type': 'string'},
                         {'name': 'last_tx_fee_msat',
