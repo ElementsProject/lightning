@@ -183,9 +183,12 @@ struct lightningd {
 	/* Setup: And the bitset for each, whether to listen, announce or both */
 	enum addr_listen_announce *proposed_listen_announce;
 
-	/* Actual bindings and announceables from gossipd */
+	/* Actual bindings and announceables from connectd */
 	struct wireaddr_internal *binding;
 	struct wireaddr *announceable;
+
+	/* Current node announcement (if any) */
+	const u8 *node_announcement;
 
 	/* Lease rates to advertize, set by json_setleaserates */
 	struct lease_rates *lease_rates;

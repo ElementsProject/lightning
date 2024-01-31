@@ -633,6 +633,17 @@ static void tell_master_local_cupdates(struct daemon *daemon)
 								  &c->scid,
 								  cupdate)));
 	}
+
+	/* Tell lightningd about our current node_announcement, if any */
+	if (me->bcast.index) {
+		const u8 *nannounce;
+		nannounce = gossip_store_get(tmpctx,
+					     daemon->rstate->gs,
+					     me->bcast.index);
+		daemon_conn_send(daemon->master,
+				 take(towire_gossipd_init_nannounce(NULL,
+								    nannounce)));
+	}
 }
 
 struct peer *first_random_peer(struct daemon *daemon,
@@ -721,7 +732,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	tal_add_destructor(daemon->connectd, master_or_connectd_gone);
 
 	/* Tell it about all our local (public) channel_update messages,
-	 * so it doesn't unnecessarily regenerate them. */
+	 * and node_announcement, so it doesn't unnecessarily regenerate them. */
 	tell_master_local_cupdates(daemon);
 
 	/* OK, we are ready. */
@@ -967,6 +978,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_CUPDATE:
+	case WIRE_GOSSIPD_INIT_NANNOUNCE:
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:

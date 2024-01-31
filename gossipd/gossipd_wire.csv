@@ -24,6 +24,11 @@ msgdata,gossipd_init_cupdate,scid,short_channel_id,
 msgdata,gossipd_init_cupdate,len,u16,
 msgdata,gossipd_init_cupdate,cupdate,u8,len
 
+# Gossipd tells us our node_announcement before init_reply.
+msgtype,gossipd_init_nannounce,3102
+msgdata,gossipd_init_nannounce,len,u16,
+msgdata,gossipd_init_nannounce,nannounce,u8,len
+
 msgtype,gossipd_init_reply,3100
 
 # In developer mode, we can mess with time.

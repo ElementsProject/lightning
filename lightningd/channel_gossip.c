@@ -1032,6 +1032,11 @@ void channel_gossip_node_announce(struct lightningd *ld)
 
 	nannounce = unsigned_node_announcement(tmpctx, ld);
 
+	/* Don't bother with duplicates */
+	if (ld->node_announcement
+	    && node_announcement_same(ld->node_announcement, nannounce))
+		return;
+
 	/* Ask hsmd to sign it (synchronous) */
 	msg = hsm_sync_req(tmpctx, ld,
 			   take(towire_hsmd_node_announcement_sig_req(NULL,

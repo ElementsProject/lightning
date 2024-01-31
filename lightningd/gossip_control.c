@@ -138,6 +138,19 @@ static void handle_init_cupdate(struct lightningd *ld, const u8 *msg)
 	channel_gossip_update_from_gossipd(channel, take(update));
 }
 
+static void handle_init_nannounce(struct lightningd *ld, const u8 *msg)
+{
+	u8 *nannounce;
+
+	if (!fromwire_gossipd_init_nannounce(ld, msg, &nannounce)) {
+		fatal("Gossip gave bad GOSSIPD_INIT_NANNOUNCE %s",
+		      tal_hex(msg, msg));
+	}
+
+	assert(!ld->node_announcement);
+	ld->node_announcement = nannounce;
+}
+
 static void handle_peer_update_data(struct lightningd *ld, const u8 *msg)
 {
 	struct peer_update update;
@@ -179,6 +192,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 
 	case WIRE_GOSSIPD_INIT_CUPDATE:
 		handle_init_cupdate(gossip->ld, msg);
+		break;
+	case WIRE_GOSSIPD_INIT_NANNOUNCE:
+		handle_init_nannounce(gossip->ld, msg);
 		break;
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
