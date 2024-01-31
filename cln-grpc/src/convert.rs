@@ -1168,6 +1168,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             out_offered_msat: c.out_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_payments_fulfilled: c.out_payments_fulfilled, // Rule #2 for type u64?
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
+            last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
             // Field: ListPeerChannels.channels[].htlcs[]
             htlcs: c.htlcs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             close_to_addr: c.close_to_addr, // Rule #2 for type string?
@@ -1222,6 +1223,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             last_commitment_txid: c.last_commitment_txid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             close_cause: c.close_cause as i32,
+            last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
         }
     }
 }

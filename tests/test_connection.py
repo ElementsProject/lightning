@@ -4456,3 +4456,34 @@ def test_offline_fd_check(node_factory):
     # if get_node starts it, it'll expect an address, so do it manually.
     l1 = node_factory.get_node(options={"offline": None}, start=False)
     l1.daemon.start()
+
+
+def test_last_stable_connection(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+
+    # We wait a minute to be stable.
+    STABLE_TIME = 60
+    assert 'last_stable_connection' not in only_one(l1.rpc.listpeerchannels()['channels'])
+    assert 'last_stable_connection' not in only_one(l2.rpc.listpeerchannels()['channels'])
+
+    recon_time = time.time()
+
+    # This take a minute, so don't fail if TIMEOUT is set to 10.
+    wait_for(lambda: 'last_stable_connection' in only_one(l1.rpc.listpeerchannels()['channels']), timeout=STABLE_TIME + 15)
+    l1stable = only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection']
+    wait_for(lambda: 'last_stable_connection' in only_one(l2.rpc.listpeerchannels()['channels']))
+    l2stable = only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection']
+
+    # Disconnect, and/or restart then reconnect.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    recon_time = time.time()
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] == l1stable
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] == l2stable
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] != l1stable, timeout=STABLE_TIME + 15)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] != l2stable)
+
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['last_stable_connection'] > recon_time + STABLE_TIME
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] > recon_time + STABLE_TIME

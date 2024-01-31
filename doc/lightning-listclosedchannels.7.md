@@ -53,6 +53,7 @@ On success, an object containing **closedchannels** is returned.  It is an array
 - **funding\_pushed\_msat** (msat, optional): How much `opener` pushed immediate (if non-zero)
 - **last\_commitment\_txid** (hash, optional): The final commitment tx's txid (or mutual close, if we accepted it).  Not present for some very old, small channels pre-0.7.0.
 - **last\_commitment\_fee\_msat** (msat, optional): The fee on `last_commitment_txid`
+- **last\_stable\_connection** (u64, optional): Last time we reestablished the open channel and stayed connected for 1 minute *(added v24.02)*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -76,4 +77,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning> Lightning
 
-[comment]: # ( SHA256STAMP:1437321ab48ffcf8c5aa437db53eef72f5ed62dd1da7900483c86482e533a461)
+[comment]: # ( SHA256STAMP:559d917217fe6d765d8bf019e46bf03d37dae9a437e530b1456252bcb901cbc9)

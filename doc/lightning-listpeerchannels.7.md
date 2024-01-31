@@ -116,6 +116,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **out\_offered\_msat** (msat, optional): Total amount of outgoing payment attempts
 - **out\_payments\_fulfilled** (u64, optional): Number of successful outgoing payment attempts
 - **out\_fulfilled\_msat** (msat, optional): Total amount of successful outgoing payment attempts
+- **last\_stable\_connection** (u64, optional): Last time we reestablished the open channel and stayed connected for 1 minute *(added v24.02)*
 - **htlcs** (array of objects, optional): current HTLCs in this channel:
   - **direction** (string): Whether it came from peer, or is going to peer (one of "in", "out")
   - **id** (u64): Unique ID for this htlc on this channel in this direction
@@ -219,4 +220,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:8cad14f36d38722182a8fdccc393e93d121d97999d2487decfa09d53c991a8ae)
+[comment]: # ( SHA256STAMP:c2ab91a2357b83264415f923b9d5195e5294a17b7424d9e75ac9ea704bea8fc5)
