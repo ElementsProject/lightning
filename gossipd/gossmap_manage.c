@@ -6,6 +6,7 @@
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <errno.h>
@@ -80,7 +81,13 @@ struct gossmap_manage {
 
 	/* Blockheights of scids to remove */
 	struct dying_channel *dying_channels;
+
+	/* Occasional check for dead channels */
+	struct oneshot *prune_timer;
 };
+
+/* Timer recursion */
+static void start_prune_timer(struct gossmap_manage *gm);
 
 static void enqueue_cupdate(struct pending_cupdate ***queue,
 			    struct short_channel_id scid,
@@ -208,6 +215,93 @@ static void remove_channel(struct gossmap_manage *gm,
 	}
 }
 
+static u32 get_timestamp(struct gossmap *gossmap,
+			 const struct gossmap_chan *chan,
+			 int dir)
+{
+	u32 timestamp;
+
+	/* 0 is sufficient for our needs */
+	if (!gossmap_chan_set(chan, dir))
+		return 0;
+
+	gossmap_chan_get_update_details(gossmap, chan, dir,
+					&timestamp,
+					NULL, NULL, NULL, NULL, NULL, NULL);
+	return timestamp;
+}
+
+/* Every half a week we look for dead channels (faster in dev) */
+static void prune_network(struct gossmap_manage *gm)
+{
+	u64 now = gossip_time_now(gm->daemon).ts.tv_sec;
+	/* Anything below this highwater mark ought to be pruned */
+	const s64 highwater = now - GOSSIP_PRUNE_INTERVAL(gm->daemon->dev_fast_gossip_prune);
+	const struct gossmap_node *me;
+	struct gossmap *gossmap;
+
+	/* We reload this every time we delete a channel: that way we can tell if it's
+	 * time to remove a node! */
+	gossmap = gossmap_manage_get_gossmap(gm);
+	me = gossmap_find_node(gossmap, &gm->daemon->id);
+
+	/* Now iterate through all channels and see if it is still alive */
+	for (size_t i = 0; i < gossmap_max_chan_idx(gossmap); i++) {
+		struct gossmap_chan *chan = gossmap_chan_byidx(gossmap, i);
+		u32 timestamp[2];
+		struct short_channel_id scid;
+
+		if (!chan)
+			continue;
+
+		/* BOLT #7:
+		 * - if the `timestamp` of the latest `channel_update` in
+		 *   either direction is older than two weeks (1209600 seconds):
+		 *    - MAY prune the channel.
+		 */
+		/* This is a fancy way of saying "both ends must refresh!" */
+		timestamp[0] = get_timestamp(gossmap, chan, 0);
+		timestamp[1] = get_timestamp(gossmap, chan, 1);
+
+		if (timestamp[0] >= highwater && timestamp[1] >= highwater)
+			continue;
+
+		scid = gossmap_chan_scid(gossmap, chan);
+
+		/* Is it one of mine? */
+		if (gossmap_nth_node(gossmap, chan, 0) == me
+		    || gossmap_nth_node(gossmap, chan, 1) == me) {
+			int local = (gossmap_nth_node(gossmap, chan, 1) == me);
+			status_unusual("Pruning local channel %s from gossip_store: local channel_update time %u, remote %u",
+				       type_to_string(tmpctx, struct short_channel_id,
+						      &scid),
+				       timestamp[local], timestamp[!local]);
+		}
+
+		status_debug("Pruning channel %s from network view (ages %u and %u)",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &scid),
+			     timestamp[0], timestamp[1]);
+
+		remove_channel(gm, gossmap, chan, scid);
+
+		gossmap = gossmap_manage_get_gossmap(gm);
+		me = gossmap_find_node(gossmap, &gm->daemon->id);
+	}
+
+	/* Note: some nodes may have been left with no channels!  Gossmap will
+	 * remove them on next refresh. */
+	start_prune_timer(gm);
+}
+
+static void start_prune_timer(struct gossmap_manage *gm)
+{
+	/* Schedule next run now */
+	gm->prune_timer = new_reltimer(&gm->daemon->timers, gm,
+				       time_from_sec(GOSSIP_PRUNE_INTERVAL(gm->daemon->dev_fast_gossip_prune)/4),
+				       prune_network, gm);
+}
+
 static void reprocess_queued_msgs(struct gossmap_manage *gm);
 
 static void report_bad_update(struct gossmap *map,
@@ -244,6 +338,7 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	gm->txf = txout_failures_new(gm, daemon);
 	gm->dying_channels = tal_arr(gm, struct dying_channel, 0);
 
+	start_prune_timer(gm);
 	return gm;
 }
 
