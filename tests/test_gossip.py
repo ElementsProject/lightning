@@ -178,7 +178,7 @@ def test_announce_dns_suppressed(node_factory, bitcoind):
 
 
 def test_announce_and_connect_via_dns(node_factory, bitcoind):
-    """ Test that DNS annoucements propagate and can be used when connecting.
+    """ Test that DNS announcements propagate and can be used when connecting.
 
         - First node announces only a FQDN like 'localhost.localdomain'.
         - Second node gets a channel with first node.

@@ -49,7 +49,7 @@ void channel_gossip_channel_reestablished(struct channel *channel);
 /* Peer has disconnected */
 void channel_gossip_channel_disconnect(struct channel *channel);
 
-/* Gossipd sent us this channel_update about the peer's side of the channle */
+/* Gossipd sent us this channel_update about the peer's side of the channel */
 void channel_gossip_set_remote_update(struct lightningd *ld,
 				      const struct peer_update *update TAKES,
 				      const struct node_id *source);
