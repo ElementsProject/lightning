@@ -36,7 +36,6 @@
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
 #include <common/per_peer_state.h>
-#include <common/private_channel_announcement.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
@@ -128,16 +127,8 @@ struct peer {
 	/* Current blockheight */
 	u32 our_blockheight;
 
-	/* Announcement related information */
-	struct node_id node_ids[NUM_SIDES];
+	/* FIXME: Remove this. */
 	struct short_channel_id short_channel_ids[NUM_SIDES];
-	secp256k1_ecdsa_signature announcement_node_sigs[NUM_SIDES];
-	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
-	bool have_sigs[NUM_SIDES];
-	bool send_duplicate_announce_sigs;
-
-	/* Which direction of the channel do we control? */
-	u16 channel_direction;
 
 	/* Local scid alias */
 	struct short_channel_id local_alias;
@@ -175,17 +166,11 @@ struct peer {
 	/* If set, don't fire commit counter when this hits 0 */
 	u32 *dev_disable_commit;
 
-	/* If set, send channel_announcement after 1 second, not 30 */
-	bool dev_fast_gossip;
-
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
 	u64 revocations_received;
 	u8 channel_flags;
-
-	bool announce_depth_reached;
-	bool channel_local_active;
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
@@ -205,27 +190,16 @@ struct peer {
 	/* We allow a 'tx-sigs' message between reconnect + channel_ready */
 	bool tx_sigs_allowed;
 
-	/* Have we announced the real scid with a
-	 * local_channel_announcement? This can be different from the
-	 * `channel_local_active` flag in case we are using zeroconf,
-	 * in which case we'll have announced the channels with the
-	 * two aliases (LOCAL and REMOTE) but not with the real scid
-	 * just yet. If we get a funding depth change, with a scid,
-	 * and the two flags not equal we know we have to announce the
-	 * channel with the real scid. */
-	bool gossip_scid_announced;
-
 	/* --experimental-upgrade-protocol */
 	bool experimental_upgrade;
 };
 
-static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
 	const char *update = billboard_message(tmpctx, peer->channel_ready,
-					       peer->have_sigs,
+					       NULL,
 					       peer->shutdown_sent,
 					       peer->depth_togo,
 					       num_channel_htlcs(peer->channel));
@@ -407,272 +381,6 @@ static void set_channel_type(struct channel *channel, const u8 *type)
 			take(towire_channeld_upgraded(NULL, channel->type)));
 }
 
-/* Tell gossipd to create channel_update (then it goes into
- * gossip_store, then streams out to peers, or sends it directly if
- * it's a private channel) */
-static void send_channel_update(struct peer *peer, bool enable)
-{
-	u8 *msg;
-
-	/* Only send an update if we told gossipd */
-	if (!peer->channel_local_active)
-		return;
-
-	assert(peer->short_channel_ids[LOCAL].u64);
-
-	msg = towire_channeld_local_channel_update(NULL, enable);
-	wire_sync_write(MASTER_FD, take(msg));
-}
-
-/* Tell gossipd and the other side what parameters we expect should
- * they route through us */
-static void send_channel_initial_update(struct peer *peer)
-{
-	/* If `stfu` is already active then the channel is being mutated quickly
-	 * after creation. These mutations (ie. splice) must announce the
-	 * channel when they finish anyway, so it is safe to skip it here */
-	if (!is_stfu_active(peer) && !peer->want_stfu)
-		send_channel_update(peer, true);
-}
-
-/**
- * Add a channel locally and send a channel update to the peer
- *
- * Send a local_add_channel message to gossipd in order to make the channel
- * usable locally, and also tell our peer about our parameters via a
- * channel_update message. The peer may accept the update and use the contained
- * information to route incoming payments through the channel. The
- * channel_update is not preceeded by a channel_announcement and won't make much
- * sense to other nodes, so we don't tell gossipd about it.
- */
-static void make_channel_local_active(struct peer *peer)
-{
-	u8 *msg;
-	const u8 *annfeatures = get_agreed_channelfeatures(tmpctx,
-							   peer->our_features,
-							   peer->their_features);
-
-	/* Tell lightningd to tell gossipd about local channel. */
-	msg = towire_channeld_local_private_channel(NULL,
-						    peer->channel->funding_sats,
-						    annfeatures);
- 	wire_sync_write(MASTER_FD, take(msg));
-
-	/* Under CI, because blocks come so fast, we often find that the
-	 * peer sends its first channel_update before the above message has
-	 * reached it. */
-	notleak(new_reltimer(&peer->timers, peer,
-			     time_from_sec(5),
-			     send_channel_initial_update, peer));
-}
-
-static void send_announcement_signatures(struct peer *peer)
-{
-	/* First 2 + 256 byte are the signatures and msg type, skip them */
-	size_t offset = 258;
-	struct sha256_double hash;
-	const u8 *msg, *ca, *req;
-	struct pubkey mykey;
-
-	status_debug("Exchanging announcement signatures.");
-	ca = create_channel_announcement(tmpctx, peer);
-	req = towire_hsmd_cannouncement_sig_req(tmpctx, ca);
-
-	msg = hsm_req(tmpctx, req);
-	if (!fromwire_hsmd_cannouncement_sig_reply(msg,
-				  &peer->announcement_node_sigs[LOCAL],
-				  &peer->announcement_bitcoin_sigs[LOCAL]))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cannouncement_sig_resp: %s",
-			      strerror(errno));
-
-	/* Double-check that HSM gave valid signatures. */
-	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-	if (!pubkey_from_node_id(&mykey, &peer->node_ids[LOCAL]))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not convert my id '%s' to pubkey",
-			      type_to_string(tmpctx, struct node_id,
-					     &peer->node_ids[LOCAL]));
-	if (!check_signed_hash(&hash, &peer->announcement_node_sigs[LOCAL],
-			       &mykey)) {
-		/* It's ok to fail here, the channel announcement is
-		 * unique, unlike the channel update which may have
-		 * been replaced in the meantime. */
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "HSM returned an invalid node signature");
-	}
-
-	if (!check_signed_hash(&hash, &peer->announcement_bitcoin_sigs[LOCAL],
-			       &peer->channel->funding_pubkey[LOCAL])) {
-		/* It's ok to fail here, the channel announcement is
-		 * unique, unlike the channel update which may have
-		 * been replaced in the meantime. */
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "HSM returned an invalid bitcoin signature");
-	}
-
-	msg = towire_announcement_signatures(
-	    NULL, &peer->channel_id, &peer->short_channel_ids[LOCAL],
-	    &peer->announcement_node_sigs[LOCAL],
-	    &peer->announcement_bitcoin_sigs[LOCAL]);
-	peer_write(peer->pps, take(msg));
-}
-
-/* Tentatively create a channel_announcement, possibly with invalid
- * signatures. The signatures need to be collected first, by asking
- * the HSM and by exchanging announcement_signature messages. */
-static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
-{
-	int first, second;
-	u8 *cannounce, *features
-		= get_agreed_channelfeatures(tmpctx, peer->our_features,
-					     peer->their_features);
-
-	if (peer->channel_direction == 0) {
-		first = LOCAL;
-		second = REMOTE;
-	} else {
-		first = REMOTE;
-		second = LOCAL;
-	}
-
-	cannounce = towire_channel_announcement(
-	    ctx, &peer->announcement_node_sigs[first],
-	    &peer->announcement_node_sigs[second],
-	    &peer->announcement_bitcoin_sigs[first],
-	    &peer->announcement_bitcoin_sigs[second],
-	    features,
-	    &chainparams->genesis_blockhash,
-	    &peer->short_channel_ids[LOCAL],
-	    &peer->node_ids[first],
-	    &peer->node_ids[second],
-	    &peer->channel->funding_pubkey[first],
-	    &peer->channel->funding_pubkey[second]);
-	return cannounce;
-}
-
-/* Once we have both, we'd better make sure we agree what they are! */
-static void check_short_ids_match(struct peer *peer)
-{
-	assert(peer->have_sigs[LOCAL]);
-	assert(peer->have_sigs[REMOTE]);
-
-	if (!short_channel_id_eq(&peer->short_channel_ids[LOCAL],
-				 &peer->short_channel_ids[REMOTE]))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "We disagree on short_channel_ids:"
-				 " I have %s, you say %s",
-				 type_to_string(peer, struct short_channel_id,
-						&peer->short_channel_ids[LOCAL]),
-				 type_to_string(peer, struct short_channel_id,
-						&peer->short_channel_ids[REMOTE]));
-}
-
-static void announce_channel(struct peer *peer)
-{
-	u8 *cannounce;
-
-	/* If we splice quickly enough, the initial channel announcement may
-	 * still be pending. This old announcement is made stale by splicing,
-	 * so we ommit it. */
-	if (!peer->have_sigs[LOCAL] || !peer->have_sigs[REMOTE])
-		return;
-
-	cannounce = create_channel_announcement(tmpctx, peer);
-
-	wire_sync_write(MASTER_FD,
-			take(towire_channeld_local_channel_announcement(NULL,
-									cannounce)));
-	send_channel_update(peer, true);
-}
-
-static void announce_channel_if_not_stfu(struct peer *peer)
-{
-	if (!is_stfu_active(peer) && !peer->want_stfu)
-		announce_channel(peer);
-}
-
-/* Returns true if an announcement was sent */
-static bool channel_announcement_negotiate(struct peer *peer)
-{
-	bool sent_announcement = false;
-
-	/* Don't do any announcement work if we're shutting down */
-	if (peer->shutdown_sent[LOCAL])
-		return false;
-
-	/* Can't do anything until funding is locked. */
-	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
-		return false;
-
-	/* Don't announce channel if we're in stfu mode */
-	if (peer->want_stfu || is_stfu_active(peer))
-		return false;
-
-	if (!peer->channel_local_active) {
-		peer->channel_local_active = true;
-		make_channel_local_active(peer);
-	} else if(!peer->gossip_scid_announced) {
-		/* So we know a short_channel_id, i.e., a point on
-		 * chain, but haven't added it to our local view of
-		 * the gossip yet. We need to add it now (and once
-		 * only), so our `channel_update` we'll send a couple
-		 * of lines down has something to attach to. */
-		peer->gossip_scid_announced = true;
-		make_channel_local_active(peer);
-	}
-
-	/* BOLT #7:
-	 *
-	 * A node:
-	 *   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
-	 *     - MUST send the `announcement_signatures` message.
-	 *       - MUST NOT send `announcement_signatures` messages until `channel_ready`
-	 *       has been sent and received AND the funding transaction has at least six confirmations.
-	 *   - otherwise:
-	 *     - MUST NOT send the `announcement_signatures` message.
-	 */
-	if (!(peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
-		return false;
-
-	/* BOLT #7:
-	 *
-	 *      - MUST NOT send `announcement_signatures` messages until `channel_ready`
-	 *      has been sent and received AND the funding transaction has at least six confirmations.
- 	 */
-	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
-		/* When we reenable the channel, we will also send the announcement to remote peer, and
-		 * receive the remote announcement reply. But we will rebuild the channel with announcement
-		 * from the DB directly, other than waiting for the remote announcement reply.
-		 */
-		send_announcement_signatures(peer);
-		peer->have_sigs[LOCAL] = true;
-		billboard_update(peer);
-		sent_announcement = true;
-	}
-
-	/* If we've completed the signature exchange, we can send a real
-	 * announcement, otherwise we send a temporary one */
-	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
-		check_short_ids_match(peer);
-
-		/* After making sure short_channel_ids match, we can send remote
-		 * announcement to MASTER. */
-		wire_sync_write(MASTER_FD,
-			        take(towire_channeld_got_announcement(NULL,
-				&peer->short_channel_ids[REMOTE],
-			        &peer->announcement_node_sigs[REMOTE],
-			        &peer->announcement_bitcoin_sigs[REMOTE])));
-
-		/* Give other nodes time to notice new block. */
-		notleak(new_reltimer(&peer->timers, peer,
-				     time_from_sec(GOSSIP_ANNOUNCE_DELAY(peer->dev_fast_gossip)),
-				     announce_channel_if_not_stfu, peer));
-	}
-
-	return sent_announcement;
-}
-
 static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
 {
 	const u8 *msg;
@@ -740,10 +448,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 	peer->splice_state->locked_ready[LOCAL] = false;
 	peer->splice_state->locked_ready[REMOTE] = false;
 
-	peer->have_sigs[LOCAL] = false;
-	peer->have_sigs[REMOTE] = false;
-	peer->send_duplicate_announce_sigs = true;
-
 	peer->splice_state->last_short_channel_id = peer->short_channel_ids[LOCAL];
 	peer->short_channel_ids[LOCAL] = peer->splice_state->short_channel_id;
 	peer->short_channel_ids[REMOTE] = peer->splice_state->short_channel_id;
@@ -793,11 +497,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 						&inflight->outpoint.txid);
 	wire_sync_write(MASTER_FD, take(msg));
 
-	/* We must regossip the scid since it has changed */
-	peer->gossip_scid_announced = false;
-
-	if (channel_announcement_negotiate(peer))
-		send_channel_update(peer, true);
 	billboard_update(peer);
 
 	peer->splice_state->inflights = tal_free(peer->splice_state->inflights);
@@ -880,115 +579,29 @@ static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
 			take(towire_channeld_got_channel_ready(
 			    NULL, &peer->remote_per_commit, tlvs->short_channel_id)));
 
-	channel_announcement_negotiate(peer);
 	billboard_update(peer);
-	peer->send_duplicate_announce_sigs = true;
-}
-
-/* Checks that key is valid, and signed this hash
- *
- * FIXME: move this inside common/utils.h */
-static bool check_signed_hash_nodeid(const struct sha256_double *hash,
-				     const secp256k1_ecdsa_signature *signature,
-				     const struct node_id *id)
-{
-	struct pubkey key;
-
-	return pubkey_from_node_id(&key, id)
-		&& check_signed_hash(hash, signature, &key);
 }
 
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
 {
-	const u8 *cannounce;
 	struct channel_id chanid;
-	struct sha256_double hash;
 	struct short_channel_id remote_scid;
+	secp256k1_ecdsa_signature remote_node_sig, remote_bitcoin_sig;
 
 	if (!fromwire_announcement_signatures(msg,
 					      &chanid,
 					      &remote_scid,
-					      &peer->announcement_node_sigs[REMOTE],
-					      &peer->announcement_bitcoin_sigs[REMOTE]))
+					      &remote_node_sig,
+					      &remote_bitcoin_sig))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad announcement_signatures %s",
 				 tal_hex(msg, msg));
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * Once a node has received and sent `splice_locked`:
-	 *   - Until sending OR receiving of `revoke_and_ack`
-	 *     - MUST ignore `announcement_signatures` messages where
-	 *       `short_channel_id` matches the pre-splice short channel id. */
-	if (peer->splice_state->await_commitment_succcess
-	    && !short_channel_id_eq(&remote_scid,
-			   	    &peer->short_channel_ids[LOCAL])) {
-		status_info("Ignoring stale announcement_signatures: expected"
-			    " %s, got %s",
-			    type_to_string(tmpctx, struct short_channel_id,
-				           &peer->short_channel_ids[LOCAL]),
-			    type_to_string(tmpctx, struct short_channel_id,
-			    		   &remote_scid));
-		return;
-	}
-
-	peer->short_channel_ids[REMOTE] = remote_scid;
-
-	/* Make sure we agree on the channel ids */
-	if (!channel_id_eq(&chanid, &peer->channel_id)) {
-		peer_failed_err(peer->pps, &chanid,
-				"Wrong channel_id: expected %s, got %s",
-				type_to_string(tmpctx, struct channel_id,
-					       &peer->channel_id),
-				type_to_string(tmpctx, struct channel_id, &chanid));
-	}
-
-	/* BOLT 7:
-	 * - if the node_signature OR the bitcoin_signature is NOT correct:
-	 *  - MAY send a warning and close the connection, or send an error and fail the channel.
-	 *
-	 * In our case, we send an error and stop the open channel procedure. This approach is
-	 * considered overly strict since the peer can recover from it. However, this step is
-	 * optional. If the peer sends it, we assume that the signature must be correct.*/
-	 cannounce = create_channel_announcement(tmpctx, peer);
-
-	/* 2 byte msg type + 256 byte signatures */
-	int offset = 258;
-	sha256_double(&hash, cannounce + offset,
-		       tal_count(cannounce) - offset);
-
-	 if (!check_signed_hash_nodeid(&hash, &peer->announcement_node_sigs[REMOTE], &peer->node_ids[REMOTE])) {
-		peer_failed_warn(peer->pps, &chanid,
-					 "Bad node_signature %s hash %s"
-					 " on announcement_signatures %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							&peer->announcement_node_sigs[REMOTE]),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, cannounce));
-	}
-	if (!check_signed_hash(&hash, &peer->announcement_bitcoin_sigs[REMOTE], &peer->channel->funding_pubkey[REMOTE])) {
-		peer_failed_warn(peer->pps, &chanid,
-					 "Bad bitcoin_signature %s hash %s"
-					 " on announcement_signatures %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							&peer->announcement_bitcoin_sigs[REMOTE]),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, cannounce));
-	}
-	peer->have_sigs[REMOTE] = true;
-	billboard_update(peer);
-
-	if (!channel_announcement_negotiate(peer)
-	    && peer->send_duplicate_announce_sigs
-	    && peer->have_sigs[LOCAL]) {
-		peer->send_duplicate_announce_sigs = false;
-		send_announcement_signatures(peer);
-	}
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_got_announcement(NULL,
+							      &remote_scid,
+							      &remote_node_sig,
+							      &remote_bitcoin_sig)));
 }
 
 static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
@@ -1229,10 +842,6 @@ static void maybe_send_shutdown(struct peer *peer)
 
 	/* DTODO: Ensure 'shutdown' rules around splice are followed once those
 	 * rules get settled on spec */
-
-	/* Send a disable channel_update so others don't try to route
-	 * over us */
-	send_channel_update(peer, false);
 
 	if (peer->shutdown_wrong_funding) {
 		tlvs = tlv_shutdown_tlvs_new(tmpctx);
@@ -2613,9 +2222,6 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	/* DTODO: Ensure `shutdown` follows new splice related rules once
 	 * completed in the spec */
 
-	/* Disable the channel. */
-	send_channel_update(peer, false);
-
 	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey,
 			       &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3764,8 +3370,6 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
 							      chan_output_index);
 		wire_sync_write(MASTER_FD, take(msg));
-
-		send_channel_update(peer, true);
 	}
 }
 
@@ -5641,12 +5245,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			peer->splice_state->locked_ready[LOCAL] = true;
 			check_mutual_splice_locked(peer);
 		}
-
-		peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
-
-		/* Send temporary or final announcements */
-		if (!splicing)
-			channel_announcement_negotiate(peer);
 	}
 
 	billboard_update(peer);
@@ -6070,9 +5668,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
 	case WIRE_CHANNELD_UPGRADED:
-	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
-	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
-	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
 	case WIRE_CHANNELD_ADD_INFLIGHT:
 	case WIRE_CHANNELD_UPDATE_INFLIGHT:
 	case WIRE_CHANNELD_GOT_INFLIGHT:
@@ -6103,8 +5698,6 @@ static void init_channel(struct peer *peer)
 	struct height_states *blockheight_states;
 	u32 minimum_depth, lease_expiry;
 	struct secret last_remote_per_commit_secret;
-	secp256k1_ecdsa_signature *remote_ann_node_sig;
-	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	struct penalty_base *pbases;
 	bool reestablish_only;
 	struct channel_type *channel_type;
@@ -6137,8 +5730,6 @@ static void init_channel(struct peer *peer)
 				    &local_msat,
 				    &points[LOCAL],
 				    &funding_pubkey[LOCAL],
-				    &peer->node_ids[LOCAL],
-				    &peer->node_ids[REMOTE],
 				    &peer->commit_msec,
 				    &peer->last_was_revoke,
 				    &peer->last_sent_commit,
@@ -6158,14 +5749,10 @@ static void init_channel(struct peer *peer)
 				    &peer->final_scriptpubkey,
 				    &peer->channel_flags,
 				    &fwd_msg,
-				    &peer->announce_depth_reached,
 				    &last_remote_per_commit_secret,
 				    &peer->their_features,
 				    &peer->remote_upfront_shutdown_script,
-				    &remote_ann_node_sig,
-				    &remote_ann_bitcoin_sig,
 				    &channel_type,
-				    &peer->dev_fast_gossip,
 				    &peer->dev_disable_commit,
 				    &pbases,
 				    &reestablish_only,
@@ -6216,20 +5803,6 @@ static void init_channel(struct peer *peer)
 		     type_to_string(tmpctx, struct height_states, blockheight_states),
 		     peer->our_blockheight);
 
-	if (remote_ann_node_sig && remote_ann_bitcoin_sig) {
-		peer->announcement_node_sigs[REMOTE] = *remote_ann_node_sig;
-		peer->announcement_bitcoin_sigs[REMOTE] = *remote_ann_bitcoin_sig;
-		peer->have_sigs[REMOTE] = true;
-
-		/* Before we store announcement into DB, we have made sure
-		 * remote short_channel_id matched the local. Now we initial
-		 * it directly!
-		 */
-		peer->short_channel_ids[REMOTE] = peer->short_channel_ids[LOCAL];
-		tal_free(remote_ann_node_sig);
-		tal_free(remote_ann_bitcoin_sig);
-	}
-
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
 	assert(peer->next_index[LOCAL] > 0);
@@ -6265,9 +5838,6 @@ static void init_channel(struct peer *peer)
 
 	update_view_from_inflights(peer);
 
-	peer->channel_direction = node_id_idx(&peer->node_ids[LOCAL],
-					      &peer->node_ids[REMOTE]);
-
 	/* Default desired feerate is the feerate we set for them last. */
 	if (peer->channel->opener == LOCAL)
 		peer->desired_feerate = channel_feerate(peer->channel, REMOTE);
@@ -6286,9 +5856,6 @@ static void init_channel(struct peer *peer)
 	if (fwd_msg)
 		peer_write(peer->pps, take(fwd_msg));
 
-	/* Reenable channel */
-	channel_announcement_negotiate(peer);
-
 	billboard_update(peer);
 }
 
@@ -6296,7 +5863,7 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 
-	int i, nfds;
+	int nfds;
 	fd_set fds_in, fds_out;
 	struct peer *peer;
 	bool developer;
@@ -6309,16 +5876,11 @@ int main(int argc, char *argv[])
 	peer->developer = developer;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
-	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
-	peer->announce_depth_reached = false;
-	peer->channel_local_active = false;
-	peer->gossip_scid_announced = false;
 	peer->from_master = msg_queue_new(peer, true);
 	peer->shutdown_sent[LOCAL] = false;
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
 	peer->last_empty_commitment = 0;
-	peer->send_duplicate_announce_sigs = false;
 	peer->want_stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
 	peer->stfu_wait_single_msg = false;
@@ -6326,15 +5888,6 @@ int main(int argc, char *argv[])
 	peer->update_queue = msg_queue_new(peer, false);
 	peer->splice_state = splice_state_new(peer);
 	peer->splicing = NULL;
-
-	/* We send these to HSM to get real signatures; don't have valgrind
-	 * complain. */
-	for (i = 0; i < NUM_SIDES; i++) {
-		memset(&peer->announcement_node_sigs[i], 0,
-		       sizeof(peer->announcement_node_sigs[i]));
-		memset(&peer->announcement_bitcoin_sigs[i], 0,
-		       sizeof(peer->announcement_bitcoin_sigs[i]));
-	}
 
 	/* Prepare the ecdh() function for use */
 	ecdh_hsmd_setup(HSM_FD, status_failed);

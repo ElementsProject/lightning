@@ -39,8 +39,6 @@ msgdata,channeld_init,opener,enum side,
 msgdata,channeld_init,local_msatoshi,amount_msat,
 msgdata,channeld_init,our_basepoints,basepoints,
 msgdata,channeld_init,our_funding_pubkey,pubkey,
-msgdata,channeld_init,local_node_id,node_id,
-msgdata,channeld_init,remote_node_id,node_id,
 msgdata,channeld_init,commit_msec,u32,
 msgdata,channeld_init,last_was_revoke,bool,
 msgdata,channeld_init,num_last_sent_commit,u16,
@@ -64,16 +62,12 @@ msgdata,channeld_init,final_scriptpubkey,u8,final_scriptpubkey_len
 msgdata,channeld_init,flags,u8,
 msgdata,channeld_init,init_peer_pkt_len,u16,
 msgdata,channeld_init,init_peer_pkt,u8,init_peer_pkt_len
-msgdata,channeld_init,reached_announce_depth,bool,
 msgdata,channeld_init,last_remote_secret,secret,
 msgdata,channeld_init,flen,u16,
 msgdata,channeld_init,their_features,u8,flen
 msgdata,channeld_init,upfront_shutdown_script_len,u16,
 msgdata,channeld_init,upfront_shutdown_script,u8,upfront_shutdown_script_len
-msgdata,channeld_init,remote_ann_node_sig,?secp256k1_ecdsa_signature,
-msgdata,channeld_init,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature,
 msgdata,channeld_init,desired_type,channel_type,
-msgdata,channeld_init,dev_fast_gossip,bool,
 msgdata,channeld_init,dev_disable_commit,?u32,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
@@ -333,21 +327,6 @@ msgdata,channeld_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channeld_send_error_reply,1108
-
-# Channeld: tell gossipd to make channel_update to enable/disable.
-msgtype,channeld_local_channel_update,1013
-msgdata,channeld_local_channel_update,enable,bool,
-
-# Channeld: tell gossipd about our channel_announcement
-msgtype,channeld_local_channel_announcement,1014
-msgdata,channeld_local_channel_announcement,len,u16,
-msgdata,channeld_local_channel_announcement,cannounce,u8,len
-
-# Channeld: tell gossipd about this (as-yet) unannounced channel
-msgtype,channeld_local_private_channel,1015
-msgdata,channeld_local_private_channel,capacity,amount_sat,
-msgdata,channeld_local_private_channel,len,u16,
-msgdata,channeld_local_private_channel,features,u8,len
 
 # Ask channeld to quiesce.
 msgtype,channeld_dev_quiesce,1009
