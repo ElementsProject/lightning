@@ -87,6 +87,9 @@ void channel_fail_transient(struct channel *channel UNNEEDED,
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
+/* Generated stub for channel_gossip_node_announce */
+void channel_gossip_node_announce(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "channel_gossip_node_announce called!\n"); abort(); }
 /* Generated stub for channel_gossip_peer_connected */
 void channel_gossip_peer_connected(struct peer *peer UNNEEDED)
 { fprintf(stderr, "channel_gossip_peer_connected called!\n"); abort(); }
@@ -951,9 +954,6 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossipd_discovered_ip */
-u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
 /* Generated stub for towire_hsmd_preapprove_invoice */
 u8 *towire_hsmd_preapprove_invoice(const tal_t *ctx UNNEEDED, const wirestring *invstring UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_invoice called!\n"); abort(); }
