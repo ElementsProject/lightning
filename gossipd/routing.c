@@ -216,21 +216,6 @@ static void destroy_routing_state(struct routing_state *rstate)
 		free_chan(rstate, chan);
 }
 
-/* We don't check this when loading from the gossip_store: that would break
- * our canned tests, and usually old gossip is better than no gossip */
-static bool timestamp_reasonable(struct routing_state *rstate, u32 timestamp)
-{
-	u64 now = gossip_time_now(rstate->daemon).ts.tv_sec;
-
-	/* More than one day ahead? */
-	if (timestamp > now + 24*60*60)
-		return false;
-	/* More than 2 weeks behind? */
-	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune))
-		return false;
-	return true;
-}
-
 static void memleak_help_routing_tables(struct htable *memtable,
 					struct routing_state *rstate)
 {
@@ -1200,7 +1185,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		return false;
 
 	/* Check timestamp is sane (unless from store). */
-	if (!index && !timestamp_reasonable(rstate, timestamp)) {
+	if (!index && !timestamp_reasonable(rstate->daemon, timestamp)) {
 		SUPERVERBOSE("Ignoring update timestamp %u for %s/%u",
 			     timestamp,
 			     type_to_string(tmpctx, struct short_channel_id,
@@ -1321,7 +1306,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Handle resurrection of zombie channels if the other side of the
 	 * zombie channel has a recent timestamp. */
-	if (zombie && timestamp_reasonable(rstate,
+	if (zombie && timestamp_reasonable(rstate->daemon,
 		chan->half[!direction].bcast.timestamp) &&
 		chan->half[!direction].bcast.index && !index) {
 		status_peer_debug(source_peer,
