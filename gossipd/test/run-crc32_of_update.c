@@ -45,9 +45,6 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx UNNEEDED,
 /* Generated stub for decode_short_ids */
 struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *encoded UNNEEDED)
 { fprintf(stderr, "decode_short_ids called!\n"); abort(); }
-/* Generated stub for find_peer */
-struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "find_peer called!\n"); abort(); }
 /* Generated stub for first_random_peer */
 struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 			       struct peer_node_id_map_iter *it UNNEEDED)

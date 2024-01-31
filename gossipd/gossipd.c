@@ -17,7 +17,6 @@
 #include <common/ecdh_hsmd.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/private_channel_announcement.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -144,15 +143,6 @@ void queue_peer_from_store(struct peer *peer,
 {
 	struct gossip_store *gs = peer->daemon->rstate->gs;
 	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
-}
-
-static void queue_priv_update(struct peer *peer,
-			      const struct broadcastable *bcast)
-{
-	struct gossip_store *gs = peer->daemon->rstate->gs;
-	queue_peer_msg(peer,
-		       take(gossip_store_get_private_update(NULL, gs,
-							    bcast->index)));
 }
 
 /*~ We don't actually keep node_announcements in memory; we keep them in
@@ -402,19 +392,6 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 		return;
 
 	for (chan = first_chan(me, &it); chan; chan = next_chan(me, &it)) {
-		/* Don't leak private channels, unless it's with you! */
-		if (!is_chan_public(chan)) {
-			int dir = half_chan_idx(me, chan);
-
-			if (node_id_eq(&chan->nodes[!dir]->id, &peer->id)
-			    && is_halfchan_defined(&chan->half[dir])) {
-				/* There's no announce for this, of course! */
-				/* Private channel updates are wrapped in the store. */
-				queue_priv_update(peer, &chan->half[dir].bcast);
-			}
-			continue;
-		}
-
 		tal_arr_expand(&chans, chan);
 	}
 
@@ -751,10 +728,6 @@ static void tell_master_local_cupdates(struct daemon *daemon)
 		struct half_chan *hc;
 		int direction;
 		const u8 *cupdate;
-
-		/* We don't provide update_channel for unannounced channels */
-		if (!is_chan_public(c))
-			continue;
 
 		if (!local_direction(daemon->rstate, c, &direction))
 			continue;

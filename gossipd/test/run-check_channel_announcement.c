@@ -67,9 +67,6 @@ u64 gossip_store_add(struct gossip_store *gs UNNEEDED, const u8 *gossip_msg UNNE
 		     u32 timestamp UNNEEDED, bool zombie UNNEEDED, bool spam UNNEEDED, bool dying UNNEEDED,
 		     const u8 *addendum UNNEEDED)
 { fprintf(stderr, "gossip_store_add called!\n"); abort(); }
-/* Generated stub for gossip_store_add_private_update */
-u64 gossip_store_add_private_update(struct gossip_store *gs UNNEEDED, const u8 *update UNNEEDED)
-{ fprintf(stderr, "gossip_store_add_private_update called!\n"); abort(); }
 /* Generated stub for gossip_store_delete */
 void gossip_store_delete(struct gossip_store *gs UNNEEDED,
 			 struct broadcastable *bcast UNNEEDED,
@@ -80,11 +77,6 @@ const u8 *gossip_store_get(const tal_t *ctx UNNEEDED,
 			   struct gossip_store *gs UNNEEDED,
 			   u64 offset UNNEEDED)
 { fprintf(stderr, "gossip_store_get called!\n"); abort(); }
-/* Generated stub for gossip_store_get_private_update */
-const u8 *gossip_store_get_private_update(const tal_t *ctx UNNEEDED,
-					  struct gossip_store *gs UNNEEDED,
-					  u64 offset UNNEEDED)
-{ fprintf(stderr, "gossip_store_get_private_update called!\n"); abort(); }
 /* Generated stub for gossip_store_mark_channel_deleted */
 void gossip_store_mark_channel_deleted(struct gossip_store *gs UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
@@ -126,10 +118,6 @@ void peer_supplied_good_gossip(struct daemon *daemon UNNEEDED,
 			       const struct node_id *source_peer UNNEEDED,
 			       size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
-/* Generated stub for status_failed */
-void status_failed(enum status_failreason code UNNEEDED,
-		   const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED,
 		const struct node_id *peer UNNEEDED,

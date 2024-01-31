@@ -27,9 +27,6 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 /* Generated stub for daemon_conn_send */
 void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
-/* Generated stub for find_peer */
-struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "find_peer called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_channel_update */
 bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct node_id *id UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *enable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED, bool *public UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
@@ -72,9 +69,6 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 /* Generated stub for node_has_broadcastable_channels */
 bool node_has_broadcastable_channels(const struct node *node UNNEEDED)
 { fprintf(stderr, "node_has_broadcastable_channels called!\n"); abort(); }
-/* Generated stub for queue_peer_msg */
-void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
-{ fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)

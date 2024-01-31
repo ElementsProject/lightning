@@ -453,10 +453,6 @@ static bool get_unannounced_nodes(const tal_t *ctx,
 	for (struct chan *c = uintmap_first(&rstate->chanmap, &offset);
 	     c;
 	     c = uintmap_after(&rstate->chanmap, &offset)) {
-		/* Local-only?  Don't ask. */
-		if (!is_chan_public(c))
-			continue;
-
 		if (c->nodes[0]->bcast.index && c->nodes[1]->bcast.index)
 			continue;
 

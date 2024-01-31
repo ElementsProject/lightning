@@ -5,7 +5,6 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
-#include <common/private_channel_announcement.h>
 #include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -633,14 +632,6 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	return off;
 }
 
-u64 gossip_store_add_private_update(struct gossip_store *gs, const u8 *update)
-{
-	/* A local update for an unannounced channel: not broadcastable, but
-	 * otherwise the same as a normal channel_update */
-	const u8 *pupdate = towire_gossip_store_private_update_obs(tmpctx, update);
-	return gossip_store_add(gs, pupdate, 0, false, false, false, NULL);
-}
-
 void gossip_store_mark_dying(struct gossip_store *gs,
 			     const struct broadcastable *bcast,
 			     int type)
@@ -833,20 +824,6 @@ const u8 *gossip_store_get(const tal_t *ctx,
 			      "gossip_store: bad checksum offset %"PRIu64": %s",
 			      offset, tal_hex(tmpctx, msg));
 
-	return msg;
-}
-
-const u8 *gossip_store_get_private_update(const tal_t *ctx,
-					  struct gossip_store *gs,
-					  u64 offset)
-{
-	const u8 *pmsg = gossip_store_get(tmpctx, gs, offset);
-	u8 *msg;
-
-	if (!fromwire_gossip_store_private_update_obs(ctx, pmsg, &msg))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to decode private update @%"PRIu64": %s",
-			      offset, tal_hex(tmpctx, pmsg));
 	return msg;
 }
 
