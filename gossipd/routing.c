@@ -16,6 +16,7 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
+#include <gossipd/sigcheck.h>
 #include <gossipd/txout_failures.h>
 
 #ifndef SUPERVERBOSE
@@ -579,96 +580,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	return chan;
 }
 
-/* Verify the signature of a channel_update message */
-static u8 *check_channel_update(const tal_t *ctx,
-				const struct node_id *node_id,
-				const secp256k1_ecdsa_signature *node_sig,
-				const u8 *update)
-{
-	/* 2 byte msg type + 64 byte signatures */
-	int offset = 66;
-	struct sha256_double hash;
-	sha256_double(&hash, update + offset, tal_count(update) - offset);
-
-	if (!check_signed_hash_nodeid(&hash, node_sig, node_id))
-		return towire_warningfmt(ctx, NULL,
-					 "Bad signature for %s hash %s"
-					 " on channel_update %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							node_sig),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, update));
-	return NULL;
-}
-
-static u8 *check_channel_announcement(const tal_t *ctx,
-	const struct node_id *node1_id, const struct node_id *node2_id,
-	const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
-	const secp256k1_ecdsa_signature *node1_sig,
-	const secp256k1_ecdsa_signature *node2_sig,
-	const secp256k1_ecdsa_signature *bitcoin1_sig,
-	const secp256k1_ecdsa_signature *bitcoin2_sig, const u8 *announcement)
-{
-	/* 2 byte msg type + 256 byte signatures */
-	int offset = 258;
-	struct sha256_double hash;
-	sha256_double(&hash, announcement + offset,
-		      tal_count(announcement) - offset);
-
-	if (!check_signed_hash_nodeid(&hash, node1_sig, node1_id)) {
-		return towire_warningfmt(ctx, NULL,
-					 "Bad node_signature_1 %s hash %s"
-					 " on channel_announcement %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							node1_sig),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, announcement));
-	}
-	if (!check_signed_hash_nodeid(&hash, node2_sig, node2_id)) {
-		return towire_warningfmt(ctx, NULL,
-					 "Bad node_signature_2 %s hash %s"
-					 " on channel_announcement %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							node2_sig),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, announcement));
-	}
-	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
-		return towire_warningfmt(ctx, NULL,
-					 "Bad bitcoin_signature_1 %s hash %s"
-					 " on channel_announcement %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							bitcoin1_sig),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, announcement));
-	}
-	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
-		return towire_warningfmt(ctx, NULL,
-					 "Bad bitcoin_signature_2 %s hash %s"
-					 " on channel_announcement %s",
-					 type_to_string(tmpctx,
-							secp256k1_ecdsa_signature,
-							bitcoin2_sig),
-					 type_to_string(tmpctx,
-							struct sha256_double,
-							&hash),
-					 tal_hex(tmpctx, announcement));
-	}
-	return NULL;
-}
-
 /* We allow node announcements for this node if it doesn't otherwise exist, so
  * we can process them once it does exist (a channel_announce is being
  * validated right now).
@@ -889,6 +800,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	struct chan *chan;
+	const char *err;
 
 	pending = tal(rstate, struct pending_cannouncement);
 	pending->source_peer = tal_dup_or_null(pending, struct node_id, source_peer);
@@ -990,17 +902,17 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	}
 
 	/* Note that if node_id_1 or node_id_2 are malformed, it's caught here */
-	warn = check_channel_announcement(rstate,
-					 &pending->node_id_1,
-					 &pending->node_id_2,
-					 &pending->bitcoin_key_1,
-					 &pending->bitcoin_key_2,
-					 &node_signature_1,
-					 &node_signature_2,
-					 &bitcoin_signature_1,
-					 &bitcoin_signature_2,
-					 pending->announce);
-	if (warn) {
+	err = sigcheck_channel_announcement(tmpctx,
+					    &pending->node_id_1,
+					    &pending->node_id_2,
+					    &pending->bitcoin_key_1,
+					    &pending->bitcoin_key_2,
+					    &node_signature_1,
+					    &node_signature_2,
+					    &bitcoin_signature_1,
+					    &bitcoin_signature_2,
+					    pending->announce);
+	if (err) {
 		/* BOLT #7:
 		 *
 		 * - if `bitcoin_signature_1`, `bitcoin_signature_2`,
@@ -1010,6 +922,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		 *   - MAY close the connection.
 		 *   - MUST ignore the message.
 		 */
+		warn = towire_warningfmt(rstate, NULL, "%s", err);
 		goto malformed;
 	}
 
@@ -1585,7 +1498,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	struct bitcoin_blkid chain_hash;
 	u8 direction;
 	struct pending_cannouncement *pending;
-	u8 *warn;
+	const char *err;
 
 	serialized = tal_dup_talarr(tmpctx, u8, update);
 	if (!fromwire_channel_update(serialized, &signature,
@@ -1647,7 +1560,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		/* This may be a local channel we don't know about.  If it's from a peer,
 		 * check signature assuming it's from that peer, and if it's valid, hand to ld */
 		if (source_peer
-		    && check_channel_update(tmpctx, source_peer, &signature, serialized) == NULL) {
+		    && sigcheck_channel_update(tmpctx, source_peer, &signature, serialized) == NULL) {
 			tell_lightningd_peer_update(rstate, source_peer,
 						    short_channel_id, fee_base_msat,
 						    fee_proportional_millionths,
@@ -1668,8 +1581,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return NULL;
 	}
 
-	warn = check_channel_update(rstate, owner, &signature, serialized);
-	if (warn) {
+	err = sigcheck_channel_update(tmpctx, owner, &signature, serialized);
+	if (err) {
 		/* BOLT #7:
 		 *
 		 * - if `signature` is not a valid signature, using `node_id`
@@ -1679,7 +1592,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		 *    - SHOULD send a `warning` and close the connection.
 		 *    - MUST NOT process the message further.
 		 */
-		return warn;
+		return towire_warningfmt(rstate, NULL, "%s", err);
 	}
 
 	routing_add_channel_update(rstate, take(serialized), 0, source_peer, force,
@@ -1956,7 +1869,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 			     bool *was_unknown)
 {
 	u8 *serialized;
-	struct sha256_double hash;
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	struct node_id node_id;
@@ -1966,6 +1878,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	struct wireaddr *wireaddrs;
 	size_t len = tal_count(node_ann);
 	struct tlv_node_ann_tlvs *na_tlv;
+	const char *err;
 
 	if (was_unknown)
 		*was_unknown = false;
@@ -1991,31 +1904,10 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		return NULL;
 	}
 
-	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
-	/* If node_id is invalid, it fails here */
-	if (!check_signed_hash_nodeid(&hash, &signature, &node_id)) {
-		/* BOLT #7:
-		 *
-		 * - if `signature` is not a valid signature, using
-                 *   `node_id` of the double-SHA256 of the entire
-                 *   message following the `signature` field
-                 *   (including unknown fields following
-                 *   `fee_proportional_millionths`):
-                 *     - SHOULD send a `warning` and close the connection.
-                 *     - MUST NOT process the message further.
-		 */
-		u8 *warn = towire_warningfmt(rstate, NULL,
-					    "Bad signature for %s hash %s"
-					    " on node_announcement %s",
-					    type_to_string(tmpctx,
-							   secp256k1_ecdsa_signature,
-							   &signature),
-					    type_to_string(tmpctx,
-							   struct sha256_double,
-							   &hash),
-					    tal_hex(tmpctx, node_ann));
-		return warn;
-	}
+	err = sigcheck_node_announcement(tmpctx, &node_id, &signature,
+					 serialized);
+	if (err)
+		return towire_warningfmt(rstate, NULL, "%s", err);
 
 	wireaddrs = fromwire_wireaddr_array(tmpctx, addresses);
 	if (!wireaddrs) {
@@ -2026,11 +1918,10 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *    - SHOULD send a `warning`.
 		 *    - MAY close the connection.
 		 */
-		u8 *warn = towire_warningfmt(rstate, NULL,
-					    "Malformed wireaddrs %s in %s.",
-					    tal_hex(tmpctx, wireaddrs),
-					    tal_hex(tmpctx, node_ann));
-		return warn;
+		return towire_warningfmt(rstate, NULL,
+					 "Malformed wireaddrs %s in %s.",
+					 tal_hex(tmpctx, wireaddrs),
+					 tal_hex(tmpctx, node_ann));
 	}
 
 	/* May still fail, if we don't know the node. */
