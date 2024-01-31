@@ -34,10 +34,6 @@ msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 msgtype,gossipd_dev_set_max_scids_encode_size,3030
 msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
 
-# gossipd->master: we're closing this channel.
-msgtype,gossipd_local_channel_close,3027
-msgdata,gossipd_local_channel_close,short_channel_id,short_channel_id,
-
 # Gossipd->master get this tx output please.
 msgtype,gossipd_get_txout,3018
 msgdata,gossipd_get_txout,short_channel_id,short_channel_id,
@@ -95,34 +91,6 @@ msgdata,gossipd_get_addrs,id,node_id,
 msgtype,gossipd_get_addrs_reply,3150
 msgdata,gossipd_get_addrs_reply,num,u16,
 msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num
-
-# Tell master a local channel update (so it can serve errors).
-msgtype,gossipd_got_local_channel_update,3151
-msgdata,gossipd_got_local_channel_update,scid,short_channel_id,
-msgdata,gossipd_got_local_channel_update,len,u16,
-msgdata,gossipd_got_local_channel_update,channel_update,u8,len
-
-# Send this channel_update.
-msgtype,gossipd_local_channel_update,3004
-msgdata,gossipd_local_channel_update,id,node_id,
-msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,
-msgdata,gossipd_local_channel_update,enable,bool,
-msgdata,gossipd_local_channel_update,cltv_expiry_delta,u16,
-msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
-msgdata,gossipd_local_channel_update,fee_base_msat,u32,
-msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
-msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
-msgdata,gossipd_local_channel_update,public,bool,
-
-# Send this channel_announcement
-msgtype,gossipd_local_channel_announcement,3006
-msgdata,gossipd_local_channel_announcement,id,node_id,
-msgdata,gossipd_local_channel_announcement,len,u16,
-msgdata,gossipd_local_channel_announcement,cannounce,u8,len
-
-# Tell gossipd we used the channel update (in case it was deferred)
-msgtype,gossipd_used_local_channel_update,3052
-msgdata,gossipd_used_local_channel_update,scid,short_channel_id,
 
 # Tell gossipd we have verified a new public IP by the remote_addr feature
 msgtype,gossipd_discovered_ip,3009

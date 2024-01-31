@@ -161,16 +161,12 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
 	case WIRE_GOSSIPD_NEW_LEASE_RATES:
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	case WIRE_GOSSIPD_GET_ADDRS:
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
-	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
@@ -183,9 +179,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 
 	case WIRE_GOSSIPD_INIT_CUPDATE:
 		handle_init_cupdate(gossip->ld, msg);
-		break;
-	/* FIXME: remove from gossipd_wire.csv */
-	case WIRE_GOSSIPD_GOT_LOCAL_CHANNEL_UPDATE:
 		break;
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);

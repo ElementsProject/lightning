@@ -35,20 +35,4 @@ bool nannounce_different(struct gossip_store *gs,
 /* Should we announce our own node?  Called at strategic places. */
 void maybe_send_own_node_announce(struct daemon *daemon, bool startup);
 
-/* Disable this local channel (lazily) */
-void local_disable_chan(struct daemon *daemon, const struct chan *chan, int direction);
-
-/* Re-enable this local channel */
-void local_enable_chan(struct daemon *daemon, const struct chan *chan, int direction);
-
-/* This is a refresh of a local channel which is > 13 days old. */
-void refresh_local_channel(struct daemon *daemon,
-			   struct chan *chan, int direction);
-
-/* channeld (via lightningd) asks us to update the local channel. */
-void handle_local_channel_update(struct daemon *daemon, const u8 *msg);
-
-/* lightningd tells us it used the last channel_update we sent. */
-void handle_used_local_channel_update(struct daemon *daemon, const u8 *msg);
-
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_GENERATION_H */

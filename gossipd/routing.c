@@ -2022,6 +2022,11 @@ void route_prune(struct routing_state *rstate)
 		    || chan->half[0].bcast.timestamp < highwater
 		    || !is_halfchan_defined(&chan->half[1])
 		    || chan->half[1].bcast.timestamp < highwater) {
+			if (local_direction(rstate, chan, NULL))
+				status_unusual("Pruning local channel %s from gossip_store: not refreshed in over two weeks",
+					       type_to_string(tmpctx, struct short_channel_id,
+							      &chan->scid));
+
 			status_debug(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(tmpctx, struct short_channel_id,

@@ -46,41 +46,6 @@ bool peer_node_id_eq(const struct peer *peer, const struct node_id *node_id)
 	return node_id_eq(&peer->id, node_id);
 }
 
-/*~ A channel consists of a `struct half_chan` for each direction, each of
- * which has a `flags` word from the `channel_update`; bit 1 is
- * ROUTING_FLAGS_DISABLED in the `channel_update`.  But we also keep a local
- * whole-channel flag which indicates it's not available; we use this when a
- * peer disconnects, and generate a `channel_update` to tell the world lazily
- * when someone asks. */
-static void peer_disable_channels(struct daemon *daemon, const struct node *node)
-{
-	/* If this peer had a channel with us, mark it disabled. */
-	struct chan_map_iter i;
-	const struct chan *c;
-
-	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		int direction;
-		if (!local_direction(daemon->rstate, c, &direction))
-			continue;
-		local_disable_chan(daemon, c, direction);
-	}
-}
-
-/*~ This cancels the soft-disables when the peer reconnects. */
-static void peer_enable_channels(struct daemon *daemon, const struct node *node)
-{
-	/* If this peer had a channel with us, mark it disabled. */
-	struct chan_map_iter i;
-	const struct chan *c;
-
-	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		int direction;
-		if (!local_direction(daemon->rstate, c, &direction))
-			continue;
-		local_enable_chan(daemon, c, direction);
-	}
-}
-
 /*~ Destroy a peer, usually because the per-peer daemon has exited.
  *
  * Were you wondering why we call this "destroy_peer" and not "peer_destroy"?
@@ -90,16 +55,10 @@ static void peer_enable_channels(struct daemon *daemon, const struct node *node)
  */
 static void destroy_peer(struct peer *peer)
 {
-	struct node *node;
-
 	/* Remove it from the peers table */
-	peer_node_id_map_del(peer->daemon->peers, peer);;
+	peer_node_id_map_del(peer->daemon->peers, peer);
 
-	/* If we have a channel with this peer, disable it. */
-	node = get_node(peer->daemon->rstate, &peer->id);
-	if (node)
-		peer_disable_channels(peer->daemon, node);
-
+	/* Sorry seeker, this one is gone. */
 	seeker_peer_gone(peer->daemon->seeker, peer);
 }
 
@@ -301,26 +260,6 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	return err;
 }
 
-static void handle_local_channel_announcement(struct daemon *daemon, const u8 *msg)
-{
-	u8 *cannouncement;
-	const u8 *err;
-	struct node_id id;
-
-	if (!fromwire_gossipd_local_channel_announcement(msg, msg,
-							 &id,
-							 &cannouncement))
-		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT, msg);
-
-	err = handle_channel_announcement_msg(daemon, &id, cannouncement);
-	if (err) {
-		status_peer_broken(&id, "invalid local_channel_announcement %s (%s)",
-				   tal_hex(tmpctx, msg),
-				   tal_hex(tmpctx, err));
-	}
-}
-
-
 /* lightningd tells us it has discovered and verified new `remote_addr`.
  * We can use this to update our node announcement. */
 static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
@@ -433,7 +372,6 @@ static void dump_our_gossip(struct daemon *daemon, struct peer *peer)
 static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct peer *peer = tal(daemon, struct peer);
-	struct node *node;
 
 	if (!fromwire_gossipd_new_peer(msg, &peer->id,
 				      &peer->gossip_queries_feature)) {
@@ -462,10 +400,6 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 	/* We keep a htable so we can find peer by id */
 	peer_node_id_map_add(daemon->peers, peer);
 	tal_add_destructor(peer, destroy_peer);
-
-	node = get_node(daemon->rstate, &peer->id);
-	if (node)
-		peer_enable_channels(daemon, node);
 
 	/* Send everything we know about our own channels */
 	dump_our_gossip(daemon, peer);
@@ -659,58 +593,13 @@ handled:
  */
 static void gossip_refresh_network(struct daemon *daemon)
 {
-	u64 now = gossip_time_now(daemon->rstate).ts.tv_sec;
-	s64 highwater;
-	struct node *n;
-
-	/* Send out 1 day before deadline */
-	highwater = now - (GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip)
-			   - GOSSIP_BEFORE_DEADLINE(daemon->rstate->dev_fast_gossip_prune));
-
 	/* Schedule next run now */
 	notleak(new_reltimer(&daemon->timers, daemon,
 			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune)/4),
 			     gossip_refresh_network, daemon));
 
-	/* Find myself in the network */
-	n = get_node(daemon->rstate, &daemon->id);
-	if (n) {
-		/* Iterate through all outgoing connection and check whether
-		 * it's time to re-announce */
-		struct chan_map_iter i;
-		struct chan *c;
-
-		for (c = first_chan(n, &i); c; c = next_chan(n, &i)) {
-			struct half_chan *hc;
-			int direction;
-
-			if (!local_direction(daemon->rstate, c, &direction))
-				continue;
-
-			hc = &c->half[direction];
-
-			if (!is_halfchan_defined(hc)) {
-				/* Connection is not announced yet, so don't even
-				 * try to re-announce it */
-				continue;
-			}
-
-			if (hc->bcast.timestamp > highwater) {
-				/* No need to send a keepalive update message */
-				continue;
-			}
-
-			status_debug("Sending keepalive channel_update"
-				     " for %s/%u",
-				     type_to_string(tmpctx,
-						    struct short_channel_id,
-						    &c->scid), direction);
-			refresh_local_channel(daemon, c, direction);
-		}
-	}
-
-	/* Now we've refreshed our channels, we can prune without clobbering
-	 * them */
+	/* Prune: I hope lightningd is keeping up with our own channel
+	 * refreshes! */
 	route_prune(daemon->rstate);
 }
 
@@ -1013,38 +902,6 @@ static void handle_outpoints_spent(struct daemon *daemon, const u8 *msg)
 	}
 }
 
-/*~ This is sent by lightningd when it kicks off 'closingd': we disable it
- * in both directions.
- *
- * We'll leave it to handle_outpoint_spent to delete the channel from our view
- * once the close gets confirmed. This avoids having strange states in which the
- * channel is list in our peer list but won't be returned when listing public
- * channels. This does not send out updates since that's triggered by the peer
- * connection closing.
- */
-static void handle_local_channel_close(struct daemon *daemon, const u8 *msg)
-{
-	struct short_channel_id scid;
-	struct chan *chan;
-	struct routing_state *rstate = daemon->rstate;
-	if (!fromwire_gossipd_local_channel_close(msg, &scid))
-		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE, msg);
-
-	chan = get_channel(rstate, &scid);
-	if (chan) {
-		int direction;
-
-		if (!local_direction(rstate, chan, &direction)) {
-			status_broken("Non-local channel close %s",
-				      type_to_string(tmpctx,
-						     struct short_channel_id,
-						     &scid));
-		} else {
-			local_disable_chan(daemon, chan, direction);
-		}
-	}
-}
-
 /*~ This routine handles all the commands from lightningd. */
 static struct io_plan *recv_req(struct io_conn *conn,
 				const u8 *msg,
@@ -1065,10 +922,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		handle_outpoints_spent(daemon, msg);
 		goto done;
 
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
-		handle_local_channel_close(daemon, msg);
-		goto done;
-
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		new_blockheight(daemon, msg);
 		goto done;
@@ -1083,18 +936,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIPD_GET_ADDRS:
 		return handle_get_address(conn, daemon, msg);
-
-	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
-		handle_used_local_channel_update(daemon, msg);
-		goto done;
-
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
-		handle_local_channel_update(daemon, msg);
-		goto done;
-
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
-		handle_local_channel_announcement(daemon, msg);
-		goto done;
 
 	case WIRE_GOSSIPD_DISCOVERED_IP:
 		handle_discovered_ip(daemon, msg);
@@ -1133,7 +974,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
-	case WIRE_GOSSIPD_GOT_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
 		break;
 	}
