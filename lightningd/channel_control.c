@@ -1057,10 +1057,12 @@ static void peer_got_announcement(struct channel *channel, const u8 *msg)
 {
 	secp256k1_ecdsa_signature remote_ann_node_sig;
 	secp256k1_ecdsa_signature remote_ann_bitcoin_sig;
+	struct short_channel_id unused;
 
 	if (!fromwire_channeld_got_announcement(msg,
-					       &remote_ann_node_sig,
-					       &remote_ann_bitcoin_sig)) {
+						&unused,
+						&remote_ann_node_sig,
+						&remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
 				       "bad channel_got_announcement %s",
 				       tal_hex(tmpctx, msg));

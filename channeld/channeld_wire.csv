@@ -323,6 +323,7 @@ msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
 
 # When we receive announcement_signatures for channel announce
 msgtype,channeld_got_announcement,1017
+msgdata,channeld_got_announcement,scid,short_channel_id,
 msgdata,channeld_got_announcement,remote_ann_node_sig,secp256k1_ecdsa_signature,
 msgdata,channeld_got_announcement,remote_ann_bitcoin_sig,secp256k1_ecdsa_signature,
 
