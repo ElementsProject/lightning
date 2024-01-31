@@ -1194,8 +1194,11 @@ def test_gossip_store_v10_upgrade(node_factory):
                                   "1ea7c2eadf8a29eb8690511a519b5656e29aa0a853771c4e38e65c5abf43d907295a915e69e451f4c7a0c3dc13dd943cfbe3ae88c0b96667cd7d58955dbfedcf43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b500015b8d9b440000009000000000000003e8000003e800000001"))
 
     l1.start()
-    # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Unupdated channel_announcement at 1.'))
+    # Channel "exists" but doesn't show in listchannels, as it has no updates.
+    assert l1.rpc.listchannels() == {'channels': []}
+    assert only_one(l1.rpc.listnodes('021bf3de4e84e3d52f9a3e36fbdcd2c4e8dbf203b9ce4fc07c2f03be6c21d0c675')['nodes'])
+    assert only_one(l1.rpc.listnodes('03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d2')['nodes'])
+    assert len(l1.rpc.listnodes()['nodes']) == 2
 
 
 def test_gossip_store_load_announce_before_update(node_factory):
@@ -1611,12 +1614,8 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.start()
 
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('gossip_store: Unupdated channel_announcement at 1. Moving to gossip_store.corrupt and truncating'))
-    assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
-
-    # This should actually result in an empty store.
-    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("0e")
+    wait_for(lambda: l1.daemon.is_in_log(r'gossipd: gossip_store: Read 1/0/1/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 628 bytes'))
+    assert not os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
 def test_gossip_store_compact_on_load(node_factory, bitcoind):

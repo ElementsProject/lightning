@@ -421,24 +421,6 @@ static void bad_gossip(const struct node_id *source_peer, const char *str)
 	status_peer_debug(source_peer, "Bad gossip order: %s", str);
 }
 
-/* Minimal gossmap-only transition constructor */
-struct gossmap_manage *gossmap_manage_new_gossmap_only(const tal_t *ctx,
-						       struct daemon *daemon)
-{
-	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
-
-	gm->fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
-	if (gm->fd < 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Opening gossip_store store: %s",
-			      strerror(errno));
-	gm->raw_gossmap = gossmap_load_fd(gm, gm->fd, report_bad_update, NULL, gm);
-	assert(gm->raw_gossmap);
-	gm->daemon = daemon;
-
-	return gm;
-}
-
 /* Send peer a warning message, if non-NULL. */
 static void peer_warning(struct gossmap_manage *gm,
 			 const struct node_id *source_peer,

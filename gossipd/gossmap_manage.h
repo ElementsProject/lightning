@@ -8,10 +8,6 @@ struct gossmap_manage;
 struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 					  struct daemon *daemon);
 
-/* Minimal gossmap-only transition constructor */
-struct gossmap_manage *gossmap_manage_new_gossmap_only(const tal_t *ctx,
-						       struct daemon *daemon);
-
 /**
  * gossmap_manage_channel_announcement: process an incoming channel_announcement
  * @ctx: tal context for return string

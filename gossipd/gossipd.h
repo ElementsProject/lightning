@@ -50,9 +50,6 @@ struct daemon {
 	/* Connection to connect daemon. */
 	struct daemon_conn *connectd;
 
-	/* Routing information */
-	struct routing_state *rstate;
-
 	/* Manager of writing to the gossip_store */
 	struct gossmap_manage *gm;
 
