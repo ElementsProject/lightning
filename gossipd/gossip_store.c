@@ -15,9 +15,12 @@
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
+/* Obsolete ZOMBIE bit */
+#define GOSSIP_STORE_ZOMBIE_BIT_V13 0x1000U
+
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-/* We write it as major version 0, minor version 13 */
-#define GOSSIP_STORE_VER ((0 << 5) | 13)
+/* We write it as major version 0, minor version 14 */
+#define GOSSIP_STORE_VER ((0 << 5) | 14)
 
 struct gossip_store {
 	/* Back pointer. */
@@ -59,7 +62,7 @@ static ssize_t gossip_pwritev(int fd, const struct iovec *iov, int iovcnt,
 #endif /* !HAVE_PWRITEV */
 
 static bool append_msg(int fd, const u8 *msg, u32 timestamp,
-		       bool zombie, bool spam, bool dying, u64 *len)
+		       bool spam, bool dying, u64 *len)
 {
 	struct gossip_hdr hdr;
 	u32 msglen;
@@ -73,8 +76,6 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	hdr.flags = 0;
 	if (spam)
 		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_RATELIMIT_BIT);
-	if (zombie)
-		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_ZOMBIE_BIT);
 	if (dying)
 		hdr.flags |= CPU_TO_BE16(GOSSIP_STORE_DYING_BIT);
 	hdr.crc = cpu_to_be32(crc32c(timestamp, msg, msglen));
@@ -97,10 +98,11 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
  * v11 mandated channel_updates use the htlc_maximum_msat field
  * v12 added the zombie flag for expired channel updates
  * v13 removed private gossip entries
+ * v14 removed zombie flags
  */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion >= 9 && oldversion <= 12;
+	return oldversion >= 9 && oldversion <= 13;
 }
 
 /* On upgrade, do best effort on private channels: hand them to
@@ -154,6 +156,7 @@ static void give_lightningd_canned_private_update(struct daemon *daemon,
 
 static bool upgrade_field(u8 oldversion,
 			  struct daemon *daemon,
+			  u16 hdr_flags,
 			  u8 **msg)
 {
 	int type = fromwire_peektype(*msg);
@@ -172,6 +175,12 @@ static bool upgrade_field(u8 oldversion,
 			*msg = tal_free(*msg);
 		} else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS) {
 			give_lightningd_canned_private_update(daemon, *msg);
+			*msg = tal_free(*msg);
+		}
+	}
+	if (oldversion <= 13) {
+		/* Discard any zombies */
+		if (hdr_flags & GOSSIP_STORE_ZOMBIE_BIT_V13) {
 			*msg = tal_free(*msg);
 		}
 	}
@@ -250,7 +259,8 @@ static u32 gossip_store_compact_offline(struct daemon *daemon)
 		}
 
 		if (oldversion != version) {
-			if (!upgrade_field(oldversion, daemon, &msg)) {
+			if (!upgrade_field(oldversion, daemon,
+					   be16_to_cpu(hdr.flags), &msg)) {
 				tal_free(msg);
 				goto close_and_delete;
 			}
@@ -299,7 +309,7 @@ static u32 gossip_store_compact_offline(struct daemon *daemon)
 	oldlen = lseek(old_fd, SEEK_END, 0);
 	newlen = lseek(new_fd, SEEK_END, 0);
 	append_msg(old_fd, towire_gossip_store_ended(tmpctx, newlen),
-		   0, false, false, false, &oldlen);
+		   0, false, false, &oldlen);
 	close(old_fd);
 	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
 		     deleted, count);
@@ -357,7 +367,7 @@ struct gossip_store *gossip_store_new(struct daemon *daemon)
 }
 
 u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
-		     u32 timestamp, bool zombie,
+		     u32 timestamp,
 		     bool spam, bool dying, const u8 *addendum)
 {
 	u64 off = gs->len;
@@ -365,12 +375,12 @@ u64 gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg,
 	/* Should never get here during loading! */
 	assert(gs->writable);
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, zombie, spam, dying, &gs->len)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, spam, dying, &gs->len)) {
 		status_broken("Failed writing to gossip store: %s",
 			      strerror(errno));
 		return 0;
 	}
-	if (addendum && !append_msg(gs->fd, addendum, 0, false, false, false, &gs->len)) {
+	if (addendum && !append_msg(gs->fd, addendum, 0, false, false, &gs->len)) {
 		status_broken("Failed writing addendum to gossip store: %s",
 			      strerror(errno));
 		return 0;
@@ -504,53 +514,7 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid)
 {
 	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, false, false, false, NULL);
-}
-
-static void mark_zombie(struct gossip_store *gs,
-			const struct broadcastable *bcast,
-			enum peer_wire expected_type)
-{
-	beint16_t beflags;
-	u32 index = bcast->index;
-
-	/* We assume flags is the first field! */
-	BUILD_ASSERT(offsetof(struct gossip_hdr, flags) == 0);
-
-	/* Should never get here during loading! */
-	assert(gs->writable);
-	assert(index);
-
-	const u8 *msg = gossip_store_get(tmpctx, gs, index);
-	assert(fromwire_peektype(msg) == expected_type);
-
-	if (pread(gs->fd, &beflags, sizeof(beflags), index) != sizeof(beflags))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed reading flags to zombie %s @%u: %s",
-			      peer_wire_name(expected_type),
-			      index, strerror(errno));
-
-	assert((be16_to_cpu(beflags) & GOSSIP_STORE_DELETED_BIT) == 0);
-	beflags |= cpu_to_be16(GOSSIP_STORE_ZOMBIE_BIT);
-	if (pwrite(gs->fd, &beflags, sizeof(beflags), index) != sizeof(beflags))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing flags to zombie %s @%u: %s",
-			      peer_wire_name(expected_type),
-			      index, strerror(errno));
-}
-
-/* Marks the length field of a channel_announcement with the zombie flag bit */
-void gossip_store_mark_channel_zombie(struct gossip_store *gs,
-				      struct broadcastable *bcast)
-{
-	mark_zombie(gs, bcast, WIRE_CHANNEL_ANNOUNCEMENT);
-}
-
-/* Marks the length field of a channel_update with the zombie flag bit */
-void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
-				      struct broadcastable *bcast)
-{
-	mark_zombie(gs, bcast, WIRE_CHANNEL_UPDATE);
+			 0, false, false, NULL);
 }
 
 u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset)
@@ -737,7 +701,7 @@ u32 gossip_store_load(struct gossip_store *gs)
 			if (!routing_add_channel_update(gs->daemon->rstate,
 							take(msg), gs->len,
 							NULL, false,
-							spam, false)) {
+							spam)) {
 				bad = "Bad channel_update";
 				goto badmsg;
 			}

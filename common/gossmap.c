@@ -651,9 +651,6 @@ static bool map_catchup(struct gossmap *map, bool *changed)
 		if (flags & GOSSIP_STORE_DELETED_BIT)
 			continue;
 
-		if (flags & GOSSIP_STORE_ZOMBIE_BIT)
-			continue;
-
 		/* Partial write, this can happen. */
 		if (map->map_end + reclen > map->map_size)
 			break;

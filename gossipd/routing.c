@@ -312,25 +312,6 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-static bool is_chan_zombie(struct chan *chan)
-{
-	if (chan->half[0].zombie || chan->half[1].zombie)
-		return true;
-	return false;
-}
-
-static bool is_node_zombie(struct node* node)
-{
-	struct chan_map_iter i;
-	struct chan *c;
-
-	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (!is_chan_zombie(c))
-			return false;
-	}
-	return true;
-}
-
 /* We can *send* a channel_announce for a channel attached to this node:
  * we only send once we have a channel_update. */
 bool node_has_broadcastable_channels(const struct node *node)
@@ -339,8 +320,6 @@ bool node_has_broadcastable_channels(const struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (is_chan_zombie(c))
-			continue;
 		if (is_halfchan_defined(&c->half[0])
 		    || is_halfchan_defined(&c->half[1]))
 			return true;
@@ -354,10 +333,6 @@ static bool node_announce_predates_channels(const struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		/* Zombies don't count! */
-		if (is_chan_zombie(c))
-			continue;
-
 		if (c->bcast.index < node->bcast.index)
 			return false;
 	}
@@ -381,7 +356,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     node->bcast.timestamp,
 					     false,
 					     false,
-					     false,
 					     NULL);
 	if (node->rgraph.index == initial_bcast_index){
 		node->rgraph.index = node->bcast.index;
@@ -393,7 +367,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 		node->rgraph.index = gossip_store_add(rstate->daemon->gs,
 						      announce,
 						      node->rgraph.timestamp,
-						      false,
 						      true,
 						      false,
 						      NULL);
@@ -490,7 +463,6 @@ static void init_half_chan(struct routing_state *rstate,
 	broadcastable_init(&c->bcast);
 	broadcastable_init(&c->rgraph);
 	c->tokens = TOKEN_MAX;
-	c->zombie = false;
 }
 
 static void bad_gossip_order(const u8 *msg,
@@ -677,7 +649,6 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 						     chan->bcast.timestamp,
 						     false,
 						     false,
-						     false,
 						     addendum);
 }
 
@@ -702,9 +673,8 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 static void remove_channel_from_store(struct routing_state *rstate,
 				      struct chan *chan)
 {
-	/* Put in tombstone marker. Zombie channels will have one already. */
-	if (!is_chan_zombie(chan))
-		gossip_store_mark_channel_deleted(rstate->daemon->gs, &chan->scid);
+	/* Put in tombstone marker. */
+	gossip_store_mark_channel_deleted(rstate->daemon->gs, &chan->scid);
 
 	/* Now delete old entries. */
 	delete_chan_messages_from_store(rstate, chan);
@@ -1115,8 +1085,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				/* NULL if it's us */
 				const struct node_id *source_peer,
 				bool ignore_timestamp,
-				bool force_spam_flag,
-				bool force_zombie_flag)
+				bool force_spam_flag)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1133,7 +1102,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u8 direction;
 	struct amount_sat sat;
 	bool spam;
-	bool zombie;
 	bool dying;
 
 	/* Make sure we own msg, even if we don't save it. */
@@ -1155,7 +1123,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (chan) {
 		uc = NULL;
 		sat = chan->sat;
-		zombie = is_chan_zombie(chan);
 		dying = is_chan_dying(rstate, &short_channel_id);
 	} else {
 		/* Maybe announcement was waiting for this update? */
@@ -1172,8 +1139,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return false;
 		}
 		sat = uc->sat;
-		/* When loading zombies from the store. */
-		zombie = force_zombie_flag;
 		dying = false;
 	}
 
@@ -1197,9 +1162,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		assert(!chan);
 		chan = new_chan(rstate, &short_channel_id,
 				&uc->id[0], &uc->id[1], sat);
-		/* Assign zombie flag if loading zombie from store */
-		if (force_zombie_flag)
-			chan->half[direction].zombie = true;
 	}
 
 	/* Discard older updates */
@@ -1302,68 +1264,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 						  uc->index);
 	}
 
-	/* Handle resurrection of zombie channels if the other side of the
-	 * zombie channel has a recent timestamp. */
-	if (zombie && timestamp_reasonable(rstate->daemon,
-		chan->half[!direction].bcast.timestamp) &&
-		chan->half[!direction].bcast.index && !index) {
-		status_peer_debug(source_peer,
-				  "Resurrecting zombie channel %s.",
-				  type_to_string(tmpctx,
-						 struct short_channel_id,
-						 &chan->scid));
-		const u8 *zombie_announcement = NULL;
-		const u8 *zombie_addendum = NULL;
-		const u8 *zombie_update[2] = {NULL, NULL};
-		/* Resurrection is a careful process. First delete the zombie-
-		 * flagged channel_announcement which has already been
-		 * tombstoned, and re-add to the store without zombie flag. */
-		zombie_announcement = gossip_store_get(tmpctx, rstate->daemon->gs,
-						       chan->bcast.index);
-		u32 offset = tal_count(zombie_announcement) +
-			sizeof(struct gossip_hdr);
-		/* The channel_announcement addendum reminds us of its size. */
-		zombie_addendum = gossip_store_get(tmpctx, rstate->daemon->gs,
-						   chan->bcast.index + offset);
-		gossip_store_delete(rstate->daemon->gs, &chan->bcast,
-				    WIRE_CHANNEL_ANNOUNCEMENT);
-		chan->bcast.index =
-			gossip_store_add(rstate->daemon->gs, zombie_announcement,
-					 chan->bcast.timestamp,
-					 false, false, false, zombie_addendum);
-		/* Deletion of the old addendum is optional. */
-		/* This opposing channel_update has been stashed away.  Now that
-		 * there are two valid updates, this one gets restored. */
-		/* FIXME: Handle spam case probably needs a helper f'n */
-		zombie_update[0] = gossip_store_get(tmpctx, rstate->daemon->gs,
-			chan->half[!direction].bcast.index);
-		if (chan->half[!direction].bcast.index != chan->half[!direction].rgraph.index) {
-			/* Don't forget the spam channel_update */
-			zombie_update[1] = gossip_store_get(tmpctx, rstate->daemon->gs,
-				chan->half[!direction].rgraph.index);
-			gossip_store_delete(rstate->daemon->gs, &chan->half[!direction].rgraph,
-					    WIRE_CHANNEL_UPDATE);
-		}
-		gossip_store_delete(rstate->daemon->gs, &chan->half[!direction].bcast,
-				    WIRE_CHANNEL_UPDATE);
-		chan->half[!direction].bcast.index =
-			gossip_store_add(rstate->daemon->gs, zombie_update[0],
-					 chan->half[!direction].bcast.timestamp,
-					 false, false, false, NULL);
-		if (zombie_update[1])
-			chan->half[!direction].rgraph.index =
-				gossip_store_add(rstate->daemon->gs, zombie_update[1],
-						 chan->half[!direction].rgraph.timestamp,
-						 false, true, false, NULL);
-		else
-			chan->half[!direction].rgraph.index = chan->half[!direction].bcast.index;
-
-		/* It's a miracle! */
-		chan->half[0].zombie = false;
-		chan->half[1].zombie = false;
-		zombie = false;
-	}
-
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index) {
 		if (!spam)
@@ -1372,7 +1272,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else {
 		hc->rgraph.index
 			= gossip_store_add(rstate->daemon->gs, update, timestamp,
-					   zombie, spam, dying, NULL);
+					   spam, dying, NULL);
 		if (!spam)
 			hc->bcast.index = hc->rgraph.index;
 
@@ -1540,7 +1440,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	}
 
 	routing_add_channel_update(rstate, take(serialized), 0, source_peer, force,
-				   false, false);
+				   false);
 	return NULL;
 }
 
@@ -1674,8 +1574,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		if (!pna) {
 			if (was_unknown)
 				*was_unknown = true;
-			/* Don't complain if it's a zombie node! */
-			if (!node || !is_node_zombie(node)) {
+			if (!node) {
 				bad_gossip_order(msg, source_peer,
 						 type_to_string(tmpctx, struct node_id,
 								&node_id));
@@ -1788,7 +1687,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	} else {
 		node->rgraph.index
 			= gossip_store_add(rstate->daemon->gs, msg, timestamp,
-					   false, spam, false, NULL);
+					   spam, false, NULL);
 		if (!spam)
 			node->bcast.index = node->rgraph.index;
 
@@ -1882,10 +1781,6 @@ void route_prune(struct routing_state *rstate)
 	for (struct chan *chan = uintmap_first(&rstate->chanmap, &idx);
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx)) {
-		/* These have been pruned already */
-		if (is_chan_zombie(chan))
-			continue;
-
 		/* BOLT #7:
 		 * - if the `timestamp` of the latest `channel_update` in
 		 *   either direction is older than two weeks (1209600 seconds):
@@ -2061,7 +1956,7 @@ void routing_channel_spent(struct routing_state *rstate,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
-	index = gossip_store_add(rstate->daemon->gs, msg, 0, false, false, false, NULL);
+	index = gossip_store_add(rstate->daemon->gs, msg, 0, false, false, NULL);
 
 	/* Mark it dying, so we don't gossip it */
 	gossip_store_mark_dying(rstate->daemon->gs, &chan->bcast,
