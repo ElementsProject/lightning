@@ -53,7 +53,7 @@ struct channel_gossip {
 
 /* FIXME: this is a hack!  We should wait 1 minute after connectd has
  * tried to connect to all peers. */
-static bool starting_up = true;
+static bool starting_up = true, gossipd_init_done = false;
 
 /* We send non-forwardable channel updates if we can. */
 static bool can_send_channel_update(const struct channel *channel)
@@ -802,6 +802,7 @@ void channel_gossip_init_done(struct lightningd *ld)
 	struct channel *channel;
 	struct peer_node_id_map_iter it;
 
+	gossipd_init_done = true;
 	for (peer = peer_node_id_map_first(ld->peers, &it);
 	     peer;
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
@@ -1028,6 +1029,11 @@ void channel_gossip_node_announce(struct lightningd *ld)
 	/* Everyone will ignore our node_announcement unless we have
 	 * announced a channel. */
 	if (!has_announced_channels(ld))
+		return;
+
+	/* Don't produce a node announcement until *after* gossipd has
+	 * told us it's finished. */
+	if (!gossipd_init_done)
 		return;
 
 	nannounce = unsigned_node_announcement(tmpctx, ld);
