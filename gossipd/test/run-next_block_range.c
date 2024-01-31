@@ -30,6 +30,9 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 			       struct peer_node_id_map_iter *it UNNEEDED)
 { fprintf(stderr, "first_random_peer called!\n"); abort(); }
+/* Generated stub for memleak_scan_intmap_ */
+void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
+{ fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,

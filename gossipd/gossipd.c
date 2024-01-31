@@ -716,6 +716,7 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
 	memleak_scan_htable(memtable, &daemon->peers->raw);
+	dev_seeker_memleak(memtable, daemon->seeker);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
