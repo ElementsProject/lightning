@@ -16,7 +16,7 @@
 #include <gossipd/seeker.h>
 
 #define GOSSIP_SEEKER_INTERVAL(seeker) \
-	DEV_FAST_GOSSIP((seeker)->daemon->rstate->dev_fast_gossip, 5, 60)
+	DEV_FAST_GOSSIP((seeker)->daemon->dev_fast_gossip, 5, 60)
 
 enum seeker_state {
 	/* Still streaming gossip from single peer. */

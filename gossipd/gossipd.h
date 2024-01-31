@@ -64,6 +64,15 @@ struct daemon {
 
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
+
+	/* Override local time for gossip messages */
+	struct timeabs *dev_gossip_time;
+
+	/* Speed up gossip. */
+	bool dev_fast_gossip;
+
+	/* Speed up pruning. */
+	bool dev_fast_gossip_prune;
 };
 
 struct range_query_reply {
@@ -147,5 +156,12 @@ void tell_lightningd_peer_update(struct daemon *daemon,
 				 u16 cltv_delta,
 				 struct amount_msat htlc_minimum,
 				 struct amount_msat htlc_maximum);
+
+/**
+ * Get the local time.
+ *
+ * This gets overridden in dev mode so we can use canned (stale) gossip.
+ */
+struct timeabs gossip_time_now(const struct daemon *daemon);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
