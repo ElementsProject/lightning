@@ -126,9 +126,6 @@ u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset);
  */
 void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timestamp);
 
-/* Exposed for dev-compact-gossip-store to force compaction. */
-bool gossip_store_compact(struct gossip_store *gs);
-
 /**
  * Get a readonly fd for the gossip_store.
  * @gs: the gossip store.

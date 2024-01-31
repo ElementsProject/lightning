@@ -745,15 +745,6 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 							      found_leak)));
 }
 
-static void dev_compact_store(struct daemon *daemon, const u8 *msg)
-{
-	bool done = gossip_store_compact(daemon->rstate->gs);
-
-	daemon_conn_send(daemon->master,
-			 take(towire_gossipd_dev_compact_store_reply(NULL,
-								    done)));
-}
-
 static void dev_gossip_set_time(struct daemon *daemon, const u8 *msg)
 {
 	u32 time;
@@ -895,12 +886,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			goto done;
 		}
 		/* fall thru */
-	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
-		if (daemon->developer) {
-			dev_compact_store(daemon, msg);
-			goto done;
-		}
-		/* fall thru */
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 		if (daemon->developer) {
 			dev_gossip_set_time(daemon, msg);
@@ -914,7 +899,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
-	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
