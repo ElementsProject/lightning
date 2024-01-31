@@ -54,6 +54,27 @@ void gossip_store_delete(struct gossip_store *gs,
 			 int type);
 
 /**
+ * Delete the record at this offset (offset is that of
+ * record, not header, unlike bcast->index!).
+ *
+ * In developer mode, checks that type is correct.
+ */
+void gossip_store_del(struct gossip_store *gs,
+		      u64 offset,
+		      int type);
+
+/**
+ * Add a flag the record at this offset (offset is that of
+ * record, not header, unlike bcast->index!).
+ *
+ * In developer mode, checks that type is correct.
+ */
+void gossip_store_flag(struct gossip_store *gs,
+		       u64 offset,
+		       u16 flag,
+		       int type);
+
+/**
  * Mark that the channel is about to be deleted, for convenience of
  * others mapping the gossip_store.
  */
@@ -90,6 +111,20 @@ void gossip_store_mark_dying(struct gossip_store *gs,
 const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset);
+
+/**
+ * Direct store accessor: get timestamp header for a record.
+ *
+ * Offset is *after* the header.
+ */
+u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset);
+
+/**
+ * Direct store accessor: set timestamp header for a record.
+ *
+ * Offset is *after* the header.
+ */
+void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timestamp);
 
 /* Exposed for dev-compact-gossip-store to force compaction. */
 bool gossip_store_compact(struct gossip_store *gs);
