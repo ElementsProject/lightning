@@ -1557,14 +1557,15 @@ bool peer_start_channeld(struct channel *channel,
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits)
 		log_unusual(channel->log, "Ignoring fee limits!");
 
-	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet,
-					 channel->dbid,
-					 &remote_ann_node_sig,
-					 &remote_ann_bitcoin_sig)) {
-		channel_internal_error(channel,
-				       "Could not load remote announcement"
-				       " signatures");
-		return false;
+	remote_ann_node_sig = tal(tmpctx, secp256k1_ecdsa_signature);
+	remote_ann_bitcoin_sig = tal(tmpctx, secp256k1_ecdsa_signature);
+
+	if (!wallet_remote_ann_sigs_load(channel->peer->ld->wallet,
+					 channel,
+					 remote_ann_node_sig,
+					 remote_ann_bitcoin_sig)) {
+		remote_ann_node_sig = tal_free(remote_ann_node_sig);
+		remote_ann_bitcoin_sig = tal_free(remote_ann_bitcoin_sig);
 	}
 
 	pbases = wallet_penalty_base_load_for_channel(
