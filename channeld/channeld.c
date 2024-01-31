@@ -1454,9 +1454,28 @@ static void get_per_commitment_point(u64 index, struct pubkey *point,
 static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 			       struct pubkey *point)
 {
+ 	const u8 *msg;
 	struct secret old_commit_secret;
 
-	get_per_commitment_point(revoke_index+2, point, &old_commit_secret);
+	/* Now that the master has persisted the new commitment advance the HSMD
+	 * and fetch the revocation secret for the old one. */
+	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX)) {
+		/* Prior to HSM_VERSION 5 we call get_per_commitment_point to
+		 * get the old_secret and next point.
+		 */
+		get_per_commitment_point(revoke_index+2, point, &old_commit_secret);
+	} else {
+		/* After HSM_VERSION 5 we explicitly revoke the commitment in case
+		 * the original revoke didn't complete.  The hsmd_revoke_commitment_tx
+		 * call is idempotent ...
+		 */
+		msg = towire_hsmd_revoke_commitment_tx(tmpctx, revoke_index);
+		msg = hsm_req(tmpctx, take(msg));
+		if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_commit_secret, point))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Reading revoke_commitment_tx reply: %s",
+				      tal_hex(tmpctx, msg));
+	}
 
 	return towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
 				     point);
