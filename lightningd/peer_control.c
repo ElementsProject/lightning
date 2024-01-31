@@ -2488,6 +2488,8 @@ static void setup_peer(struct peer *peer, u32 delay)
 
 	/* Make sure connectd knows to try reconnecting. */
 	if (connect) {
+		ld->num_startup_connects++;
+
 		/* To delay, make it seem like we just connected. */
 		if (delay > 0) {
 			peer->reconnect_delay = delay;
@@ -2510,6 +2512,10 @@ void setup_peers(struct lightningd *ld)
 		setup_peer(p, delay > 0 ? delay : 0);
 		delay++;
 	}
+
+	/* In case there are no peers at all to connect to */
+	if (ld->num_startup_connects == 0)
+		channel_gossip_startup_done(ld);
 }
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
