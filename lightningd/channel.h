@@ -310,6 +310,9 @@ struct channel {
 
 	/* Do we allow the peer to set any fee it wants? */
 	bool ignore_fee_limits;
+
+	/* Last time we had a stable connection, if any (0 = none) */
+	u64 last_stable_connection;
 };
 
 /* Is channel owned (and should be talking to peer) */
@@ -390,7 +393,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat htlc_maximum_msat,
 			    bool ignore_fee_limits,
 			    /* NULL or stolen */
-			    struct peer_update *peer_update STEALS);
+			    struct peer_update *peer_update STEALS,
+			    u64 last_stable_connection);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

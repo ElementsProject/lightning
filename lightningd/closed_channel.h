@@ -27,6 +27,7 @@ struct closed_channel {
 	const struct channel_type *type;
 	enum state_change state_change_cause;
 	bool leased;
+	u64 last_stable_connection;
 };
 
 #endif /* LIGHTNING_LIGHTNINGD_CLOSED_CHANNEL_H */

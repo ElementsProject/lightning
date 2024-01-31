@@ -1763,7 +1763,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   htlc_minimum_msat,
 			   htlc_maximum_msat,
 			   ignore_fee_limits,
-			   remote_update);
+			   remote_update,
+			   db_col_u64(stmt, "last_stable_connection"));
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1800,6 +1801,7 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	cc->our_msat = db_col_amount_msat(stmt, "msatoshi_local");
 	cc->msat_to_us_min = db_col_amount_msat(stmt, "msatoshi_to_us_min");
 	cc->msat_to_us_max = db_col_amount_msat(stmt, "msatoshi_to_us_max");
+	cc->last_stable_connection = db_col_u64(stmt, "last_stable_connection");
 	/* last_tx is null for stub channels used for recovering funds through
 	 * Static channel backups. */
 	if (!db_col_is_null(stmt, "last_tx"))
@@ -1845,6 +1847,7 @@ struct closed_channel **wallet_load_closed_channels(const tal_t *ctx,
 					", channel_type"
 					", state_change_reason"
 					", lease_commit_sig"
+					", last_stable_connection"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE state = ?;"));
@@ -1956,6 +1959,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", remote_cltv_expiry_delta"
 					", remote_htlc_minimum_msat"
 					", remote_htlc_maximum_msat"
+					", last_stable_connection"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2275,8 +2279,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_feerate_ppm=?," // 48
 					"  remote_cltv_expiry_delta=?," // 49
 					"  remote_htlc_minimum_msat=?," // 50
-					"  remote_htlc_maximum_msat=?" // 51
-					" WHERE id=?")); // 52
+					"  remote_htlc_maximum_msat=?,"
+					"  last_stable_connection=?"
+					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, chan->scid);
@@ -2372,6 +2377,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 		db_bind_null(stmt);
 	}
+	db_bind_u64(stmt, chan->last_stable_connection);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
