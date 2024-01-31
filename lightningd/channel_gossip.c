@@ -982,3 +982,68 @@ const struct peer_update *channel_gossip_get_remote_update(const struct channel 
 		return NULL;
 	return cg->peer_update;
 }
+
+static bool has_announced_channels(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		struct channel *channel;
+		list_for_each(&peer->channels, channel, list) {
+			/* Ignore unsaved channels */
+			if (!channel->channel_gossip)
+				continue;
+			if (channel->channel_gossip->state == CGOSSIP_ANNOUNCED)
+				return true;
+		}
+	}
+	return false;
+}
+
+static void node_announce_addgossip_reply(struct subd *gossipd,
+					  const u8 *reply,
+					  const int *fds UNUSED,
+					  void *unused)
+{
+	char *err;
+
+	if (!fromwire_gossipd_addgossip_reply(reply, reply, &err))
+		fatal("Reading node_announce_addgossip_reply: %s",
+		      tal_hex(tmpctx, reply));
+
+	if (strlen(err))
+		log_broken(gossipd->ld->log,
+			   "gossipd rejected our node announcement: %s", err);
+}
+
+void channel_gossip_node_announce(struct lightningd *ld)
+{
+	u8 *nannounce;
+	const u8 *msg;
+	secp256k1_ecdsa_signature sig;
+
+	/* Everyone will ignore our node_announcement unless we have
+	 * announced a channel. */
+	if (!has_announced_channels(ld))
+		return;
+
+	nannounce = unsigned_node_announcement(tmpctx, ld);
+
+	/* Ask hsmd to sign it (synchronous) */
+	msg = hsm_sync_req(tmpctx, ld,
+			   take(towire_hsmd_node_announcement_sig_req(NULL,
+								      nannounce)));
+	if (!fromwire_hsmd_node_announcement_sig_reply(msg, &sig))
+		fatal("Reading hsmd_node_announcement_sig_reply: %s",
+		      tal_hex(tmpctx, msg));
+
+	add_node_announcement_sig(nannounce, &sig);
+
+	/* Tell gossipd. */
+	subd_req(ld->gossip, ld->gossip,
+		 take(towire_gossipd_addgossip(NULL, nannounce)),
+		 -1, 0, node_announce_addgossip_reply, NULL);
+}

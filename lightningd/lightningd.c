@@ -236,6 +236,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * so we disable this by default for now. */
 	ld->announce_dns = false;
 
+	ld->lease_rates = NULL;
 	ld->remote_addr_v4 = NULL;
 	ld->remote_addr_v6 = NULL;
 	ld->discovered_ip_v4 = NULL;

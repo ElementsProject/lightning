@@ -77,4 +77,26 @@ const char *check_announce_sigs(const struct channel *channel,
 				const secp256k1_ecdsa_signature *remote_node_signature,
 				const secp256k1_ecdsa_signature *remote_bitcoin_signature);
 
+/**
+ * unsigned_node_announcement: create a current unsigned node announcement.
+ * @ctx: the context to allocate return from
+ * @ld: the lightningd struct.
+ */
+u8 *unsigned_node_announcement(const tal_t *ctx, struct lightningd *ld);
+
+/**
+ * add_node_announcement_sig: apply the signature to the node announcement
+ * @nannounce: the (unsigned) node announcement
+ * @sig: the signature (from hsm)
+ */
+void add_node_announcement_sig(u8 *nannounce,
+			       const secp256k1_ecdsa_signature *sig);
+
+/**
+ * node_announcement_same: are these two node_announcements the same?
+ *
+ * Ignoring timestamp and signatures.  Basically, is it redundant?
+ */
+bool node_announcement_same(const u8 *nann1, const u8 *nann2);
+
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_GENERATION_H */

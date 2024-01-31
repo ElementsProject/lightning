@@ -29,6 +29,9 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 					  const secp256k1_ecdsa_signature *node_sig,
 					  const secp256k1_ecdsa_signature *bitcoin_sig);
 
+/* If node_announcement has changed, send a new one. */
+void channel_gossip_node_announce(struct lightningd *ld);
+
 /* Gossipd told us about a channel update on one of our channels (on loading) */
 void channel_gossip_update_from_gossipd(struct channel *channel,
 					const u8 *channel_update TAKES);
