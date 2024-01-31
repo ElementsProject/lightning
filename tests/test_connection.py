@@ -1891,7 +1891,10 @@ def test_multifunding_simple(node_factory, bitcoind):
                      "amount": 50000}]
 
     l1.rpc.multifundchannel(destinations)
-    bitcoind.generate_block(6, wait_for_mempool=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Don't have others reject channel_announcement as too far in future.
+    sync_blockheight(bitcoind, [l1, l2, l3, l4])
+    bitcoind.generate_block(5)
 
     for node in [l1, l2, l3, l4]:
         node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
@@ -3471,6 +3474,8 @@ def test_wumbo_channels(node_factory, bitcoind):
     # Get that mined, and announced.
     bitcoind.generate_block(6, wait_for_mempool=1)
 
+    # Make sure l3 is ready to receive channel announcement!
+    sync_blockheight(bitcoind, [l1, l2, l3])
     # Connect l3, get gossip.
     l3.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
 

@@ -1090,6 +1090,8 @@ def test_gossip_lease_rates(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**6)
 
+    # Don't have l2 reject channel_announcement as too far in future.
+    sync_blockheight(bitcoind, [l1, l2])
     # Announce depth is ALWAYS 6 blocks
     bitcoind.generate_block(5)
 
