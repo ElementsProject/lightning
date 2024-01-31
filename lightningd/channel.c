@@ -254,6 +254,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->state = DUALOPEND_OPEN_INIT;
 	channel->owner = NULL;
 	channel->scb = NULL;
+	channel->reestablished = false;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_fmt(channel, "%s",
 					       "Empty channel init'd");
@@ -461,6 +462,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->peer = peer;
 	channel->dbid = dbid;
 	channel->unsaved_dbid = 0;
+	channel->reestablished = false;
 	channel->error = NULL;
 	channel->open_attempt = NULL;
 	channel->openchannel_signed_cmd = NULL;

@@ -1342,6 +1342,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_GOT_SHUTDOWN:
 		peer_got_shutdown(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_REESTABLISHED:
+		channel_gossip_channel_reestablished(sd->channel);
+		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
 		/* We expect 1 fd. */
 		if (!fds)
@@ -1654,6 +1657,10 @@ bool peer_start_channeld(struct channel *channel,
 		try_update_blockheight(ld, channel,
 				       get_block_height(ld->topology));
 	}
+
+	/* "Reestablished" if we've just opened. */
+	if (!reconnected)
+		channel_gossip_channel_reestablished(channel);
 
 	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
 	memset(&txid, 0, sizeof(txid));
