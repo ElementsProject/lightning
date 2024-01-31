@@ -162,15 +162,20 @@ static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 	channel_replace_update(channel, take(update));
 }
 
-const u8 *get_channel_update(struct channel *channel)
+const u8 *channel_update_for_error(const tal_t *ctx,
+				   struct channel *channel)
 {
+	if (!channel->channel_update)
+		return NULL;
+
 	/* Tell gossipd we're using it (if shutting down, might be NULL) */
-	if (channel->channel_update && channel->peer->ld->gossip) {
+	if (channel->peer->ld->gossip && channel->scid) {
 		subd_send_msg(channel->peer->ld->gossip,
 			      take(towire_gossipd_used_local_channel_update
 				   (NULL, channel->scid)));
 	}
-	return channel->channel_update;
+
+	return tal_dup_talarr(ctx, u8, channel->channel_update);
 }
 
 static void set_channel_remote_update(struct lightningd *ld,
