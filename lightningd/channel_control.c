@@ -1354,11 +1354,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
-	/* FIXME: remove from channeld_wire.csv */
-	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
-	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
-	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
-		break;
 	case WIRE_CHANNELD_SPLICE_CONFIRMED_INIT:
 		handle_splice_confirmed_init(sd->ld, sd->channel, msg);
 		break;
@@ -1440,9 +1435,8 @@ bool peer_start_channeld(struct channel *channel,
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
-	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
-	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;	struct penalty_base *pbases;
+	struct penalty_base *pbases;
 	u32 min_feerate, max_feerate, curr_blockheight;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
@@ -1484,16 +1478,9 @@ bool peer_start_channeld(struct channel *channel,
 
 	if (channel->scid) {
 		scid = *channel->scid;
-		reached_announce_depth
-			= is_scid_depth_announceable(&scid,
-						     get_block_height(ld->topology));
-		log_debug(channel->log, "Already have funding locked in%s",
-			  reached_announce_depth
-			  ? " (and ready to announce)" : "");
+		log_debug(channel->log, "Already have funding locked in");
 	} else {
-		log_debug(channel->log, "Waiting for funding confirmations");
 		memset(&scid, 0, sizeof(scid));
-		reached_announce_depth = false;
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
@@ -1521,17 +1508,6 @@ bool peer_start_channeld(struct channel *channel,
 	/* Warn once. */
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits)
 		log_unusual(channel->log, "Ignoring fee limits!");
-
-	remote_ann_node_sig = tal(tmpctx, secp256k1_ecdsa_signature);
-	remote_ann_bitcoin_sig = tal(tmpctx, secp256k1_ecdsa_signature);
-
-	if (!wallet_remote_ann_sigs_load(channel->peer->ld->wallet,
-					 channel,
-					 remote_ann_node_sig,
-					 remote_ann_bitcoin_sig)) {
-		remote_ann_node_sig = tal_free(remote_ann_node_sig);
-		remote_ann_bitcoin_sig = tal_free(remote_ann_bitcoin_sig);
-	}
 
 	pbases = wallet_penalty_base_load_for_channel(
 	    tmpctx, channel->peer->ld->wallet, channel->dbid);
@@ -1633,8 +1609,6 @@ bool peer_start_channeld(struct channel *channel,
 				       channel->our_msat,
 				       &channel->local_basepoints,
 				       &channel->local_funding_pubkey,
-				       &ld->id,
-				       &channel->peer->id,
 				       cfg->commit_time_ms,
 				       channel->last_was_revoke,
 				       channel->last_sent_commit,
@@ -1656,14 +1630,10 @@ bool peer_start_channeld(struct channel *channel,
 				       channel->shutdown_scriptpubkey[LOCAL],
 				       channel->channel_flags,
 				       fwd_msg,
-				       reached_announce_depth,
 				       &last_remote_per_commit_secret,
 				       channel->peer->their_features,
 				       channel->remote_upfront_shutdown_script,
-				       NULL,
-				       NULL,
 				       channel->type,
-				       ld->dev_fast_gossip,
 				       ld->dev_disable_commit == -1
 					     ? NULL
 					     : (u32 *)&ld->dev_disable_commit,
