@@ -1065,9 +1065,6 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossipd_addgossip */
 u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_gossipd_addgossip called!\n"); abort(); }
-/* Generated stub for towire_gossipd_discovered_ip */
-u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }

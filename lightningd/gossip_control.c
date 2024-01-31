@@ -357,9 +357,8 @@ static struct command_result *json_setleaserates(struct command *cmd,
 	if (!lease_rates_empty(rates))
 		cmd->ld->lease_rates = tal_steal(cmd->ld, rates);
 
-	/* Call gossipd, let them know we've got new rates */
-	subd_send_msg(cmd->ld->gossip,
-		      take(towire_gossipd_new_lease_rates(NULL, rates)));
+	/* This may generate a new node_announcement */
+	channel_gossip_node_announce(cmd->ld);
 
 	res = json_stream_success(cmd);
 	json_add_amount_sat_msat(res, "lease_fee_base_msat",

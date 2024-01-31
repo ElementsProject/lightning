@@ -494,6 +494,8 @@ static void send_channel_announcement(struct channel *channel)
 		 -1, 0, send_channel_announce_addgossip_reply, channel);
 	/* We can also send our first public channel_update now */
 	broadcast_public_cupdate(channel, true);
+	/* And maybe our first node_announcement */
+	channel_gossip_node_announce(ld);
 }
 
 static void set_gossip_state(struct channel *channel,
@@ -790,6 +792,8 @@ static void set_not_starting_up(struct lightningd *ld)
 {
 	starting_up = false;
 	log_debug(ld->log, "channel_gossip: no longer in startup mode");
+	/* Now we can create/update a node_announcement */
+	channel_gossip_node_announce(ld);
 }
 
 /* We also wait ten seconds *after* connection, for lease registration */
@@ -1054,6 +1058,10 @@ void channel_gossip_node_announce(struct lightningd *ld)
 		      tal_hex(tmpctx, msg));
 
 	add_node_announcement_sig(nannounce, &sig);
+
+	/* Update our cached copy. */
+	tal_free(ld->node_announcement);
+	ld->node_announcement = tal_steal(ld, nannounce);
 
 	/* Tell gossipd. */
 	subd_req(ld->gossip, ld->gossip,

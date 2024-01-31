@@ -1711,8 +1711,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 			log_debug(ld->log,
 				  "Update our node_announcement for discovered address: %s",
 				  fmt_wireaddr(tmpctx, best));
-			subd_send_msg(ld->gossip,
-				      towire_gossipd_discovered_ip(tmpctx, best));
+			channel_gossip_node_announce(ld);
 		}
 	}
 
