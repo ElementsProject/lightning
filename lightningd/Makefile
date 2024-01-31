@@ -15,6 +15,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/feerate.c			\
 	lightningd/forwards.c			\
 	lightningd/gossip_control.c		\
+	lightningd/gossip_generation.c		\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\
 	lightningd/htlc_set.c			\
