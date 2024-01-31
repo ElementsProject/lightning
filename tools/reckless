@@ -234,7 +234,7 @@ class Source(Enum):
                 # returns 0 if git repository
                 proc = run(['git', '-C', source, 'rev-parse'],
                            cwd=os.path.realpath(source), stdout=PIPE,
-                           stderr=PIPE, text=True, timeout=3)
+                           stderr=PIPE, text=True, timeout=5)
                 if proc.returncode == 0:
                     return cls(2)
                 return cls(1)
@@ -940,7 +940,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     try:
         test = run([Path(staged_src.source_loc).joinpath(staged_src.entry)],
                    cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
-                   text=True, timeout=3)
+                   text=True, timeout=10)
         for line in test.stderr.splitlines():
             test_log.append(line)
         returncode = test.returncode
@@ -1141,7 +1141,7 @@ def load_config(reckless_dir: Union[str, None] = None,
     net_conf = None
     # Does the lightning-cli already reference an explicit config?
     try:
-        active_config = lightning_cli('listconfigs', timeout=3)['configs']
+        active_config = lightning_cli('listconfigs', timeout=10)['configs']
         if 'conf' in active_config:
             net_conf = LightningBitcoinConfig(path=active_config['conf']
                                               ['value_str'])
