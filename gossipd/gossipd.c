@@ -86,10 +86,12 @@ void peer_supplied_good_gossip(struct daemon *daemon,
 
 /* Queue a gossip message for the peer: connectd simply forwards it to
  * the peer. */
-void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
+void queue_peer_msg(struct daemon *daemon,
+		    const struct node_id *peer,
+		    const u8 *msg TAKES)
 {
-	u8 *outermsg = towire_gossipd_send_gossip(NULL, &peer->id, msg);
-	daemon_conn_send(peer->daemon->connectd, take(outermsg));
+	u8 *outermsg = towire_gossipd_send_gossip(NULL, peer, msg);
+	daemon_conn_send(daemon->connectd, take(outermsg));
 
 	if (taken(msg))
 		tal_free(msg);
@@ -100,7 +102,8 @@ void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast)
 {
 	struct gossip_store *gs = peer->daemon->rstate->gs;
-	queue_peer_msg(peer, take(gossip_store_get(NULL, gs, bcast->index)));
+	queue_peer_msg(peer->daemon, &peer->id,
+		       take(gossip_store_get(NULL, gs, bcast->index)));
 }
 
 /*~ We don't actually keep node_announcements in memory; we keep them in
@@ -494,7 +497,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 
 handled_msg:
 	if (err)
-		queue_peer_msg(peer, take(err));
+		queue_peer_msg(peer->daemon, &peer->id, take(err));
 }
 
 /*~ connectd's input handler is very simple. */

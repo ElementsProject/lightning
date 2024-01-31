@@ -62,7 +62,9 @@ bool query_short_channel_ids(struct daemon *daemon UNNEEDED,
 			     void (*cb)(struct peer *peer_ UNNEEDED, bool complete))
 { fprintf(stderr, "query_short_channel_ids called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
-void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
+void queue_peer_msg(struct daemon *daemon UNNEEDED,
+		    const struct node_id *peer UNNEEDED,
+		    const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
 /* Generated stub for random_select */
 bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)

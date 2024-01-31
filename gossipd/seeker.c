@@ -204,7 +204,7 @@ static void disable_gossip_stream(struct seeker *seeker, struct peer *peer)
 					     &chainparams->genesis_blockhash,
 					     UINT32_MAX,
 					     UINT32_MAX);
-	queue_peer_msg(peer, take(msg));
+	queue_peer_msg(peer->daemon, &peer->id, take(msg));
 }
 
 static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
@@ -226,7 +226,7 @@ static void enable_gossip_stream(struct seeker *seeker, struct peer *peer)
 					     &chainparams->genesis_blockhash,
 					     start,
 					     UINT32_MAX);
-	queue_peer_msg(peer, take(msg));
+	queue_peer_msg(peer->daemon, &peer->id, take(msg));
 }
 
 static void normal_gossip_start(struct seeker *seeker, struct peer *peer)

@@ -147,7 +147,7 @@ bool query_short_channel_ids(struct daemon *daemon,
 	msg = towire_query_short_channel_ids(NULL,
 					     &chainparams->genesis_blockhash,
 					     encoded, tlvs);
-	queue_peer_msg(peer, take(msg));
+	queue_peer_msg(daemon, &peer->id, take(msg));
 	peer->scid_query_outstanding = true;
 	peer->scid_query_cb = cb;
 
@@ -320,7 +320,7 @@ static void send_reply_channel_range(struct peer *peer,
 					     first_blocknum,
 					     number_of_blocks,
 					     final, encoded_scids, tlvs);
-	queue_peer_msg(peer, take(msg));
+	queue_peer_msg(peer->daemon, &peer->id, take(msg));
 }
 
 /* Helper to get non-signature, non-timestamp parts of (valid!) channel_update */
@@ -617,7 +617,7 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 						 &chain_hash));
 		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
 		                                     number_of_blocks, false, NULL, NULL);
-		queue_peer_msg(peer, take(end));
+		queue_peer_msg(peer->daemon, &peer->id, take(end));
 		return NULL;
 	}
 
@@ -1052,7 +1052,7 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 		u8 *end = towire_reply_short_channel_ids_end(peer,
 							     &chainparams->genesis_blockhash,
 							     true);
-		queue_peer_msg(peer, take(end));
+		queue_peer_msg(peer->daemon, &peer->id, take(end));
 
 		/* We're done!  Clean up so we simply pass-through next time. */
 		peer->scid_queries = tal_free(peer->scid_queries);
@@ -1107,7 +1107,7 @@ bool query_channel_range(struct daemon *daemon,
 	msg = towire_query_channel_range(NULL, &chainparams->genesis_blockhash,
 					 first_blocknum, number_of_blocks,
 					 tlvs);
-	queue_peer_msg(peer, take(msg));
+	queue_peer_msg(peer->daemon, &peer->id, take(msg));
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
 	peer->range_blocks_outstanding = number_of_blocks;
