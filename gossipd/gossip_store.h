@@ -7,13 +7,14 @@
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <gossipd/routing.h>
 
 /**
  * gossip_store -- On-disk storage related information
  */
 
 struct gossip_store;
+struct broadcastable;
+struct daemon;
 struct routing_state;
 
 struct gossip_store *gossip_store_new(struct daemon *daemon);
