@@ -599,7 +599,7 @@ def test_gossip_persistence(node_factory, bitcoind):
     wait_for(lambda: non_public(l4) == [scid34])
 
 
-def test_routing_gossip_reconnect(node_factory):
+def test_routing_gossip_reconnect(node_factory, bitcoind):
     # Connect two peers, reconnect and then see if we resume the
     # gossip.
     disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
@@ -608,8 +608,14 @@ def test_routing_gossip_reconnect(node_factory):
                                                'may_reconnect': True},
                                               {'may_reconnect': True},
                                               {}])
+    # Make sure everyone is up to block height so we don't get bad gossip msgs!
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.openchannel(l2, CHANNEL_SIZE)
+
+    # Make sure everyone is up to block height so we don't get bad gossip msgs!
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
     # Now open new channels and everybody should sync
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
