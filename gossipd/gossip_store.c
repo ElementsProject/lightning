@@ -8,9 +8,12 @@
 #include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/routing.h>
+#include <gossipd/gossipd.h>
+#include <gossipd/gossmap_manage.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -627,8 +630,8 @@ u32 gossip_store_load(struct gossip_store *gs)
 	struct timeabs start = time_now();
 	size_t deleted = 0;
 	u8 *chan_ann = NULL;
-	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
+	/* FIXME: Do compaction here, and check checksums, etc then.. */
 	gs->writable = false;
 	while (pread(gs->fd, &hdr, sizeof(hdr), gs->len) == sizeof(hdr)) {
 		msglen = be16_to_cpu(hdr.len);
@@ -662,14 +665,6 @@ u32 gossip_store_load(struct gossip_store *gs)
 			/* Previous channel_announcement may have been deleted */
 			if (!chan_ann)
 				break;
-			if (!routing_add_channel_announcement(gs->daemon->rstate,
-							      take(chan_ann),
-							      satoshis,
-							      chan_ann_off,
-							      NULL)) {
-				bad = "Bad channel_announcement";
-				goto badmsg;
-			}
 			chan_ann = NULL;
 			stats[0]++;
 			break;
@@ -678,9 +673,8 @@ u32 gossip_store_load(struct gossip_store *gs)
 				bad = "channel_announcement without amount";
 				goto badmsg;
 			}
-			/* Save for channel_amount (next msg) */
+			/* Save for channel_amount (next msg) (not tmpctx, it gets cleaned!) */
 			chan_ann = tal_steal(gs, msg);
-			chan_ann_off = gs->len;
 			break;
 		case WIRE_GOSSIP_STORE_CHAN_DYING: {
 			struct short_channel_id scid;
@@ -690,26 +684,16 @@ u32 gossip_store_load(struct gossip_store *gs)
 				bad = "Bad gossip_store_chan_dying";
 				goto badmsg;
 			}
-			remember_chan_dying(gs->daemon->rstate, &scid, deadline, gs->len);
+			if (!gossmap_manage_channel_dying(gs->daemon->gm, gs->len, deadline, scid)) {
+				bad = "Invalid gossip_store_chan_dying";
+				goto badmsg;
+			}
 			break;
 		}
 		case WIRE_CHANNEL_UPDATE:
-			if (!routing_add_channel_update(gs->daemon->rstate,
-							take(msg), gs->len,
-							NULL, false)) {
-				bad = "Bad channel_update";
-				goto badmsg;
-			}
 			stats[1]++;
 			break;
 		case WIRE_NODE_ANNOUNCEMENT:
-			if (!routing_add_node_announcement(gs->daemon->rstate,
-							   take(msg), gs->len,
-							   NULL, NULL)) {
-				/* FIXME: This has been reported: routing.c
-				 * has logged, so ignore. */
-				break;
-			}
 			stats[2]++;
 			break;
 		default:
@@ -728,10 +712,6 @@ u32 gossip_store_load(struct gossip_store *gs)
 		goto corrupt;
 	}
 
-	bad = unfinalized_entries(tmpctx, gs->daemon->rstate);
-	if (bad)
-		goto corrupt;
-
 	goto out;
 
 badmsg:
@@ -748,7 +728,6 @@ corrupt:
 	if (gs->fd < 0 || !write_all(gs->fd, &gs->version, sizeof(gs->version)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating new store file: %s", strerror(errno));
-	remove_all_gossip(gs->daemon->rstate);
 	gs->len = 1;
 	gs->timestamp = 0;
 out:
