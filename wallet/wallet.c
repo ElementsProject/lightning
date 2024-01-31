@@ -1075,16 +1075,17 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
 	return htlc_sigs;
 }
 
-bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
-				 secp256k1_ecdsa_signature **remote_ann_node_sig,
-				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig)
+bool wallet_remote_ann_sigs_load(struct wallet *w,
+				 const struct channel *chan,
+				 secp256k1_ecdsa_signature *remote_ann_node_sig,
+				 secp256k1_ecdsa_signature *remote_ann_bitcoin_sig)
 {
 	struct db_stmt *stmt;
 	bool res;
 	stmt = db_prepare_v2(
 	    w->db, SQL("SELECT remote_ann_node_sig, remote_ann_bitcoin_sig"
 		       " FROM channels WHERE id = ?"));
-	db_bind_u64(stmt, id);
+	db_bind_u64(stmt, chan->dbid);
 	db_query_prepared(stmt);
 
 	res = db_step(stmt);
@@ -1096,29 +1097,31 @@ bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
 	if (db_col_is_null(stmt, "remote_ann_node_sig")
 	    || db_col_is_null(stmt, "remote_ann_bitcoin_sig")) {
 		db_col_ignore(stmt, "remote_ann_bitcoin_sig");
-		*remote_ann_node_sig = *remote_ann_bitcoin_sig = NULL;
 		tal_free(stmt);
-		return true;
+		return false;
 	}
 
-	/* the case left over is both sigs exist */
-	*remote_ann_node_sig = tal(ctx, secp256k1_ecdsa_signature);
-	*remote_ann_bitcoin_sig = tal(ctx, secp256k1_ecdsa_signature);
+	if (!db_col_signature(stmt, "remote_ann_node_sig", remote_ann_node_sig))
+		db_fatal(w->db, "Failed to decode remote_ann_node_sig for id %"PRIu64, chan->dbid);
 
-	if (!db_col_signature(stmt, "remote_ann_node_sig", *remote_ann_node_sig))
-		goto fail;
-
-	if (!db_col_signature(stmt, "remote_ann_bitcoin_sig", *remote_ann_bitcoin_sig))
-		goto fail;
+	if (!db_col_signature(stmt, "remote_ann_bitcoin_sig", remote_ann_bitcoin_sig))
+		db_fatal(w->db, "Failed to decode remote_ann_bitcoin_sig for id %"PRIu64, chan->dbid);
 
 	tal_free(stmt);
 	return true;
+}
 
-fail:
-	*remote_ann_node_sig = tal_free(*remote_ann_node_sig);
-	*remote_ann_bitcoin_sig = tal_free(*remote_ann_bitcoin_sig);
-	tal_free(stmt);
-	return false;
+void wallet_remote_ann_sigs_clear(struct wallet *w, const struct channel *chan)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db,
+			     SQL("UPDATE channels"
+				 " SET remote_ann_node_sig=?, remote_ann_bitcoin_sig=?"
+				 " WHERE id = ?"));
+	db_bind_null(stmt);
+	db_bind_null(stmt);
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
 }
 
 static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
@@ -2215,6 +2218,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 {
 	struct db_stmt *stmt;
 	u8 *last_sent_commit;
+	const struct peer_update *peer_update;
 	assert(chan->first_blocknum);
 
 	wallet_channel_config_save(w, &chan->our_config);
@@ -2353,12 +2357,13 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, chan->ignore_fee_limits);
-	if (chan->peer_update) {
-		db_bind_int(stmt, chan->peer_update->fee_base);
-		db_bind_int(stmt, chan->peer_update->fee_ppm);
-		db_bind_int(stmt, chan->peer_update->cltv_delta);
-		db_bind_amount_msat(stmt, &chan->peer_update->htlc_minimum_msat);
-		db_bind_amount_msat(stmt, &chan->peer_update->htlc_maximum_msat);
+	peer_update = chan->peer_update;
+	if (peer_update) {
+		db_bind_int(stmt, peer_update->fee_base);
+		db_bind_int(stmt, peer_update->fee_ppm);
+		db_bind_int(stmt, peer_update->cltv_delta);
+		db_bind_amount_msat(stmt, &peer_update->htlc_minimum_msat);
+		db_bind_amount_msat(stmt, &peer_update->htlc_maximum_msat);
 	} else {
 		db_bind_null(stmt);
 		db_bind_null(stmt);

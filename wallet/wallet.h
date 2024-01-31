@@ -1262,15 +1262,25 @@ bool wallet_forward_delete(struct wallet *w,
 /**
  * Load remote_ann_node_sig and remote_ann_bitcoin_sig
  *
- * @ctx: allocation context for the return value
  * @w: wallet containing the channel
- * @id: channel database id
+ * @chan: channel (must be in db)
  * @remote_ann_node_sig: location to load remote_ann_node_sig to
  * @remote_ann_bitcoin_sig: location to load remote_ann_bitcoin_sig to
+ *
+ * Returns false if the signatures were null.
  */
-bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
-				 secp256k1_ecdsa_signature **remote_ann_node_sig,
-				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig);
+bool wallet_remote_ann_sigs_load(struct wallet *w,
+				 const struct channel *chan,
+				 secp256k1_ecdsa_signature *remote_ann_node_sig,
+				 secp256k1_ecdsa_signature *remote_ann_bitcoin_sig);
+
+/**
+ * Null out remote_ann_node_sig and remote_ann_bitcoin_sig
+ *
+ * @w: wallet containing the channel
+ * @id: channel database id
+ */
+void wallet_remote_ann_sigs_clear(struct wallet *w, const struct channel *chan);
 
 /**
  * Get a list of transactions that we track in the wallet.
