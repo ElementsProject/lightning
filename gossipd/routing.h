@@ -52,20 +52,6 @@ struct chan {
 	struct amount_sat sat;
 };
 
-/* Shadow structure for local channels: owned by the chan above, but kept
- * separately to keep `struct chan` minimal since there may be millions
- * of non-local channels. */
-struct local_chan {
-	struct chan *chan;
-	int direction;
-
-	/* We soft-disable local channels when a peer disconnects */
-	bool local_disabled;
-
-	/* Timer if we're deferring an update. */
-	struct oneshot *channel_update_timer;
-};
-
 /* Use this instead of tal_free(chan)! */
 void free_chan(struct routing_state *rstate, struct chan *chan);
 
@@ -209,9 +195,6 @@ struct routing_state {
         /* A map of channel_announcements indexed by short_channel_ids:
 	 * we haven't got a channel_update for these yet. */
 	UINTMAP(struct unupdated_channel *) unupdated_chanmap;
-
-	/* Has one of our own channels been announced? */
-	bool local_channel_announced;
 
 	/* Cache for txout queries that failed. Allows us to skip failed
 	 * checks if we get another announcement for the same scid. */

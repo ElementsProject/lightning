@@ -172,7 +172,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_INIT:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
-	case WIRE_GOSSIPD_NEW_LEASE_RATES:
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
@@ -187,7 +186,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
-	case WIRE_GOSSIPD_DISCOVERED_IP:
 		break;
 
 	case WIRE_GOSSIPD_INIT_CUPDATE:
@@ -282,13 +280,9 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    chainparams,
 	    ld->our_features,
 	    &ld->id,
-	    ld->rgb,
-	    ld->alias,
-	    ld->announceable,
 	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
 	    ld->dev_fast_gossip,
-	    ld->dev_fast_gossip_prune,
-	    ld->config.ip_discovery);
+	    ld->dev_fast_gossip_prune);
 
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossipd_init_done, NULL);

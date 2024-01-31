@@ -2,6 +2,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/gossip_store.h>
@@ -11,9 +12,9 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
-#include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <gossipd/queries.h>
 #include <gossipd/routing.h>
 
 #ifndef SUPERVERBOSE
@@ -294,7 +295,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->daemon = daemon;
 	rstate->nodes = new_node_map(rstate);
 	rstate->gs = gossip_store_new(rstate);
-	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 
@@ -826,7 +826,6 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      u32 index)
 {
 	u8 *addendum = towire_gossip_store_channel_amount(tmpctx, chan->sat);
-	bool is_local = local_direction(rstate, chan, NULL);
 
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
@@ -840,7 +839,6 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 						     false,
 						     false,
 						     addendum);
-	rstate->local_channel_announced |= is_local;
 }
 
 static void delete_chan_messages_from_store(struct routing_state *rstate,
@@ -1270,6 +1268,24 @@ void tell_lightningd_peer_update(struct routing_state *rstate,
 	remote_update.htlc_maximum_msat = htlc_maximum;
 	msg = towire_gossipd_remote_channel_update(NULL, source_peer, &remote_update);
 	daemon_conn_send(rstate->daemon->master, take(msg));
+}
+
+/* Is this channel_update different from prev (not sigs and timestamps)? */
+static bool cupdate_different(struct gossip_store *gs,
+			      const struct half_chan *hc,
+			      const u8 *cupdate)
+{
+	const u8 *oparts[2], *nparts[2];
+	size_t osizes[2], nsizes[2];
+	const u8 *orig;
+
+	/* Get last one we have. */
+	orig = gossip_store_get(tmpctx, gs, hc->bcast.index);
+	get_cupdate_parts(orig, oparts, osizes);
+	get_cupdate_parts(cupdate, nparts, nsizes);
+
+	return !memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
+		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1]);
 }
 
 bool routing_add_channel_update(struct routing_state *rstate,
@@ -1710,6 +1726,84 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	return NULL;
 }
 
+/* Get non-signature, non-timestamp parts of (valid!) node_announcement,
+ * with TLV broken out separately  */
+static void get_nannounce_parts(const u8 *node_announcement,
+				const u8 *parts[3],
+				size_t sizes[3])
+{
+	size_t len, ad_len;
+	const u8 *flen, *ad_start;
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 257 (`node_announcement`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`u16`:`flen`]
+	 *    * [`flen*byte`:`features`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	/* Note: 2 bytes for `type` field */
+	/* We already checked it's valid before accepting */
+	assert(tal_count(node_announcement) > 2 + 64);
+	parts[0] = node_announcement + 2 + 64;
+
+	/* Read flen to get size */
+	flen = parts[0];
+	len = tal_count(node_announcement) - (2 + 64);
+	sizes[0] = 2 + fromwire_u16(&flen, &len);
+	assert(flen != NULL && len >= 4);
+
+	/* BOLT-0fe3485a5320efaa2be8cfa0e570ad4d0259cec3 #7:
+	 *
+	 *    * [`u32`:`timestamp`]
+	 *    * [`point`:`node_id`]
+	 *    * [`3*byte`:`rgb_color`]
+	 *    * [`32*byte`:`alias`]
+	 *    * [`u16`:`addrlen`]
+	 *    * [`addrlen*byte`:`addresses`]
+	 *    * [`node_ann_tlvs`:`tlvs`]
+	*/
+	parts[1] = node_announcement + 2 + 64 + sizes[0] + 4;
+
+	/* Find the end of the addresses */
+	ad_start = parts[1] + 33 + 3 + 32;
+	len = tal_count(node_announcement)
+		- (2 + 64 + sizes[0] + 4 + 33 + 3 + 32);
+	ad_len = fromwire_u16(&ad_start, &len);
+	assert(ad_start != NULL && len >= ad_len);
+
+	sizes[1] = 33 + 3 + 32 + 2 + ad_len;
+
+	/* Is there a TLV ? */
+	sizes[2] = len - ad_len;
+	if (sizes[2] != 0)
+		parts[2] = parts[1] + sizes[1];
+	else
+		parts[2] = NULL;
+}
+
+/* Is this node_announcement different from prev (not sigs and timestamps)? */
+static bool nannounce_different(struct gossip_store *gs,
+				const struct node *node,
+				const u8 *nannounce)
+{
+	const u8 *oparts[3], *nparts[3];
+	size_t osizes[3], nsizes[3];
+	const u8 *orig;
+
+	/* Get last one we have. */
+	orig = gossip_store_get(tmpctx, gs, node->bcast.index);
+	get_nannounce_parts(orig, oparts, osizes);
+	get_nannounce_parts(nannounce, nparts, nsizes);
+
+	return !memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
+		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1])
+		|| !memeq(oparts[2], osizes[2], nparts[2], nsizes[2]);
+}
+
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
@@ -1793,7 +1887,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	}
 
 	if (node->bcast.index) {
-		bool only_tlv_diff;
 		u32 redundant_time;
 
 		/* The gossip_store should contain a single broadcastable entry
@@ -1821,8 +1914,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Allow redundant updates once a day (faster in dev-fast-gossip-prune mode) */
 		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 14;
 		if (timestamp < node->bcast.timestamp + redundant_time
-		    && !nannounce_different(rstate->gs, node, msg,
-					    &only_tlv_diff)) {
+		    && !nannounce_different(rstate->gs, node, msg)) {
 			SUPERVERBOSE(
 			    "Ignoring redundant nannounce for %s"
 			    " (last %u, now %u)",

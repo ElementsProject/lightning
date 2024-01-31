@@ -9,7 +9,6 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
-#include <gossipd/gossip_generation.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
@@ -322,6 +321,30 @@ static void send_reply_channel_range(struct peer *peer,
 					     number_of_blocks,
 					     final, encoded_scids, tlvs);
 	queue_peer_msg(peer, take(msg));
+}
+
+/* Helper to get non-signature, non-timestamp parts of (valid!) channel_update */
+void get_cupdate_parts(const u8 *channel_update,
+		       const u8 *parts[2],
+		       size_t sizes[2])
+{
+	/* BOLT #7:
+	 *
+	 * 1. type: 258 (`channel_update`)
+	 * 2. data:
+	 *    * [`signature`:`signature`]
+	 *    * [`chain_hash`:`chain_hash`]
+	 *    * [`short_channel_id`:`short_channel_id`]
+	 *    * [`u32`:`timestamp`]
+	 *...
+	 */
+	/* Note: 2 bytes for `type` field */
+	/* We already checked it's valid before accepting */
+	assert(tal_count(channel_update) > 2 + 64 + 32 + 8 + 4);
+	parts[0] = channel_update + 2 + 64;
+	sizes[0] = 32 + 8;
+	parts[1] = channel_update + 2 + 64 + 32 + 8 + 4;
+	sizes[1] = tal_count(channel_update) - (64 + 2 + 32 + 8 + 4);
 }
 
 /* BOLT #7:

@@ -52,11 +52,6 @@ struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 /* Generated stub for fromwire_gossipd_dev_set_max_scids_encode_size */
 bool fromwire_gossipd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_dev_set_max_scids_encode_size called!\n"); abort(); }
-/* Generated stub for get_cupdate_parts */
-void get_cupdate_parts(const u8 *channel_update UNNEEDED,
-		       const u8 *parts[2] UNNEEDED,
-		       size_t sizes[2])
-{ fprintf(stderr, "get_cupdate_parts called!\n"); abort(); }
 /* Generated stub for get_node */
 struct node *get_node(struct routing_state *rstate UNNEEDED,
 		      const struct node_id *id UNNEEDED)
