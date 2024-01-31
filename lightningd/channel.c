@@ -17,6 +17,7 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <sodium/randombytes.h>
 #include <wallet/txfilter.h>
 #include <wire/peer_wire.h>
 
@@ -278,7 +279,10 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->closing_feerate_range = NULL;
 	channel->peer_update = NULL;
 	channel->channel_update = NULL;
-	channel->alias[LOCAL] = channel->alias[REMOTE] = NULL;
+	channel->alias[REMOTE] = NULL;
+	/* We don't even bother checking for clashes. */
+	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
 
 	channel->shutdown_scriptpubkey[REMOTE] = NULL;
 	channel->last_was_revoke = false;
@@ -397,7 +401,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_channel_ready,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
-			    struct short_channel_id *alias_local STEALS,
+			    struct short_channel_id *alias_local TAKES,
 			    struct short_channel_id *alias_remote STEALS,
 			    struct channel_id *cid,
 			    struct amount_msat our_msat,
@@ -508,7 +512,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->our_funds = our_funds;
 	channel->remote_channel_ready = remote_channel_ready;
 	channel->scid = tal_steal(channel, scid);
-	channel->alias[LOCAL] = tal_steal(channel, alias_local);
+	channel->alias[LOCAL] = tal_dup_or_null(channel, struct short_channel_id, alias_local);
 	channel->alias[REMOTE] = tal_steal(channel, alias_remote);  /* Haven't gotten one yet. */
 	channel->cid = *cid;
 	channel->our_msat = our_msat;

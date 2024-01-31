@@ -594,7 +594,6 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 		subd_send_msg(inflight->channel->owner,
 			      take(towire_channeld_funding_depth(
 					   NULL, &scid,
-					   inflight->channel->alias[LOCAL],
 					   depth, true, txid)));
 	}
 
@@ -1700,7 +1699,8 @@ bool peer_start_channeld(struct channel *channel,
 				       reestablish_only,
 				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
-						   inflights));
+						   inflights),
+				       channel->alias[LOCAL]);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
@@ -1719,7 +1719,7 @@ bool peer_start_channeld(struct channel *channel,
 	/* Artificial confirmation event for zeroconf */
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_funding_depth(
-			   NULL, channel->scid, channel->alias[LOCAL], 0, false,
+			   NULL, channel->scid, 0, false,
 			   &txid)));
 	return true;
 }
@@ -1742,7 +1742,7 @@ void channeld_tell_depth(struct channel *channel,
 
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_funding_depth(
-			  NULL, channel->scid, channel->alias[LOCAL], depth,
+			  NULL, channel->scid, depth,
 			  false, txid)));
 }
 
