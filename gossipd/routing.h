@@ -69,13 +69,6 @@ struct local_chan {
 /* Use this instead of tal_free(chan)! */
 void free_chan(struct routing_state *rstate, struct chan *chan);
 
-/* A local channel can exist which isn't announced: we abuse timestamp
- * to indicate this. */
-static inline bool is_chan_public(const struct chan *chan)
-{
-	return chan->bcast.timestamp != 0;
-}
-
 static inline bool is_halfchan_defined(const struct half_chan *hc)
 {
 	return hc->bcast.index != 0;
@@ -378,19 +371,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 				   const struct node_id *source_peer TAKES,
 				   bool *was_unknown,
 				   bool force_spam_flag);
-
-
-/**
- * Add a local channel.
- *
- * Entrypoint to add a local channel that was not learned through gossip. This
- * is the case for private channels or channels that have not yet reached
- * `announce_depth`.
- */
-bool routing_add_private_channel(struct routing_state *rstate,
-				 const struct node_id *id,
-				 struct amount_sat sat,
-				 const u8 *chan_ann, u64 index);
 
 /**
  * Get the local time.

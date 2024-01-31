@@ -508,11 +508,9 @@ static u8 *sign_and_timestamp_update(const tal_t *ctx,
 	/* Tell lightningd about this immediately (even if we're not actually
 	 * applying it now).  We choose not to send info about private
 	 * channels, even in errors. */
-	if (is_chan_public(chan)) {
-		msg = towire_gossipd_got_local_channel_update(NULL, &chan->scid,
-							      update);
-		daemon_conn_send(daemon->master, take(msg));
-	}
+	msg = towire_gossipd_got_local_channel_update(NULL, &chan->scid,
+						      update);
+	daemon_conn_send(daemon->master, take(msg));
 
 	return update;
 }
@@ -584,21 +582,6 @@ static void apply_update(struct daemon *daemon,
 			 u8 *update TAKES)
 {
 	u8 *msg;
-	struct peer *peer = find_peer(daemon, &chan->nodes[!direction]->id);
-
-	if (!is_chan_public(chan)) {
-		/* Save and restore taken state, for handle_channel_update */
-		bool update_taken = taken(update);
-
-		/* handle_channel_update will not put private updates in the
-		 * broadcast list, but we send it direct to the peer (if we
-		 * have one connected) now */
-		if (peer)
-			queue_peer_msg(peer, update);
-
-		if (update_taken)
-			take(update);
-	}
 
 	msg = handle_channel_update(daemon->rstate, update, NULL, NULL, true);
 	if (msg)
@@ -719,9 +702,6 @@ static u8 *prev_update(const tal_t *ctx,
 			  gossip_store_get(tmpctx, daemon->rstate->gs,
 					   chan->half[direction].bcast.index));
 
-	/* If it's a private update, unwrap */
-	if (!fromwire_gossip_store_private_update_obs(ctx, prev, &prev))
-		tal_steal(ctx, prev);
 	return prev;
 }
 
@@ -851,7 +831,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 		return;
 
 	/* Too early?  Defer (don't worry if it's unannounced). */
-	if (is_halfchan_defined(hc) && is_chan_public(chan)) {
+	if (is_halfchan_defined(hc)) {
 		u32 now = time_now().ts.tv_sec;
 		u32 next_time = hc->bcast.timestamp
 			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);

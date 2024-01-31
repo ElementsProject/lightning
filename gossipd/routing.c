@@ -389,20 +389,6 @@ static bool is_chan_zombie(struct chan *chan)
 	return false;
 }
 
-/* We've received a channel_announce for a channel attached to this node:
- * otherwise it's in the map only because it's a peer, or us. */
-static bool node_has_public_channels(struct node *node)
-{
-	struct chan_map_iter i;
-	struct chan *c;
-
-	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (is_chan_public(c) && !is_chan_zombie(c))
-			return true;
-	}
-	return false;
-}
-
 static bool is_node_zombie(struct node* node)
 {
 	struct chan_map_iter i;
@@ -423,8 +409,6 @@ bool node_has_broadcastable_channels(const struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (!is_chan_public(c))
-			continue;
 		if (is_chan_zombie(c))
 			continue;
 		if (is_halfchan_defined(&c->half[0])
@@ -440,9 +424,6 @@ static bool node_announce_predates_channels(const struct node *node)
 	struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (!is_chan_public(c))
-			continue;
-
 		/* Zombies don't count! */
 		if (is_chan_zombie(c))
 			continue;
@@ -760,11 +741,9 @@ static void catch_node_announcement(const tal_t *ctx,
 	struct pending_node_announce *pna;
 	struct node *node;
 
-	/* No need if we already know about the node.  We might, however, only
-	 * know about it because it's a peer (maybe with private or
-	 * not-yet-announced channels), so check for that too. */
+	/* No need if we already know about the node. */
 	node = get_node(rstate, nodeid);
-	if (node && node_has_public_channels(node))
+	if (node)
 		return;
 
 	/* We can have multiple channels announced at same time for nodes;
@@ -878,29 +857,19 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 static void delete_chan_messages_from_store(struct routing_state *rstate,
 					    struct chan *chan)
 {
-	int update_type, announcment_type;
-
-	if (is_chan_public(chan)) {
-		update_type = WIRE_CHANNEL_UPDATE;
-		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
-	} else {
-		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS;
-		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS;
-	}
-
 	/* If these aren't in the store, these are noops. */
 	gossip_store_delete(rstate->gs,
-			    &chan->bcast, announcment_type);
+			    &chan->bcast, WIRE_CHANNEL_ANNOUNCEMENT);
 	if (chan->half[0].rgraph.index != chan->half[0].bcast.index)
 		gossip_store_delete(rstate->gs,
-				    &chan->half[0].rgraph, update_type);
+				    &chan->half[0].rgraph, WIRE_CHANNEL_UPDATE);
 	gossip_store_delete(rstate->gs,
-			    &chan->half[0].bcast, update_type);
+			    &chan->half[0].bcast, WIRE_CHANNEL_UPDATE);
 	if (chan->half[1].rgraph.index != chan->half[1].bcast.index)
 		gossip_store_delete(rstate->gs,
-				    &chan->half[1].rgraph, update_type);
+				    &chan->half[1].rgraph, WIRE_CHANNEL_UPDATE);
 	gossip_store_delete(rstate->gs,
-			    &chan->half[1].bcast, update_type);
+			    &chan->half[1].bcast, WIRE_CHANNEL_UPDATE);
 }
 
 static void remove_channel_from_store(struct routing_state *rstate,
@@ -920,7 +889,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 				      u32 index,
 				      const struct node_id *source_peer)
 {
-	struct chan *oldchan;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	u8 *features;
@@ -931,7 +899,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 	struct unupdated_channel *uc;
-	const u8 *private_updates[2] = { NULL, NULL };
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(msg))
@@ -942,40 +909,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 		    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
 		    &scid, &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2))
 		return false;
-
-	/* The channel may already exist if it was non-public from
-	 * local_add_channel(); normally we don't accept new
-	 * channel_announcements.  See handle_channel_announcement. */
-	oldchan = get_channel(rstate, &scid);
-
-	/* private updates will exist in the store before the announce: we
-	 * can't index those for broadcast since they would predate it, so we
-	 * add fresh ones. */
-	if (oldchan) {
-		/* If this was in the gossip_store, gossip_store is bad! */
-		if (index) {
-			status_broken("gossip_store channel_announce"
-				      " %u replaces %u!",
-				      index, oldchan->bcast.index);
-			return false;
-		}
-
-		/* Reload any private updates */
-		if (oldchan->half[0].bcast.index)
-			private_updates[0]
-				= gossip_store_get_private_update(NULL,
-						   rstate->gs,
-						   oldchan->half[0].bcast.index);
-		if (oldchan->half[1].bcast.index)
-			private_updates[1]
-				= gossip_store_get_private_update(NULL,
-						   rstate->gs,
-						   oldchan->half[1].bcast.index);
-
-		/* We don't delete it from store until *after* we've put the
-		 * other one in! */
-		uintmap_del(&rstate->chanmap, oldchan->scid.u64);
-	}
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_talarr(uc, u8, msg);
@@ -992,23 +925,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* If a node_announcement comes along, save it for once we're updated */
 	catch_node_announcement(uc, rstate, &node_id_1);
 	catch_node_announcement(uc, rstate, &node_id_2);
-
-	/* If we had private updates, they'll immediately create the channel. */
-	if (private_updates[0])
-		routing_add_channel_update(rstate, take(private_updates[0]), 0,
-					   source_peer, false, false, false);
-	if (private_updates[1])
-		routing_add_channel_update(rstate, take(private_updates[1]), 0,
-					   source_peer, false, false, false);
-
-	/* Now we can finish cleanup of gossip store, so there's no window where
-	 * channel (or nodes) vanish. */
-	if (oldchan) {
-		/* Mark private messages deleted, but don't tombstone the channel! */
-		delete_chan_messages_from_store(rstate, oldchan);
-		free_chans_from_node(rstate, oldchan);
-		tal_free(oldchan);
-	}
 
 	return true;
 }
@@ -1083,7 +999,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
 	chan = get_channel(rstate, &pending->short_channel_id);
-	if (chan != NULL && is_chan_public(chan)) {
+	if (chan != NULL) {
 		SUPERVERBOSE("%s: %s already has public channel",
 			     __func__,
 			     type_to_string(tmpctx, struct short_channel_id,
@@ -1325,16 +1241,13 @@ static void update_pending(struct pending_cannouncement *pending,
 }
 
 static void delete_spam_update(struct routing_state *rstate,
-			       struct half_chan *hc,
-			       bool update_is_public)
+			       struct half_chan *hc)
 {
 	/* Spam updates will have a unique rgraph index */
 	if (hc->rgraph.index == hc->bcast.index)
 		return;
 	gossip_store_delete(rstate->gs, &hc->rgraph,
-			    update_is_public
-			    ? WIRE_CHANNEL_UPDATE
-			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
+			    WIRE_CHANNEL_UPDATE);
 	hc->rgraph.index = hc->bcast.index;
 	hc->rgraph.timestamp = hc->bcast.timestamp;
 }
@@ -1502,11 +1415,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return true;
 		}
 
-		/* Make sure it's not spamming us (private channel
-		 * updates are never considered spam, nor is anything
-		 * we send ourselves!) */
-		if (is_chan_public(chan)
-		    && !local_direction(rstate, chan, NULL)
+		/* Make sure it's not spamming us */
+		if (!local_direction(rstate, chan, NULL)
 		    && !ratelimit(rstate,
 				  &hc->tokens, hc->bcast.timestamp, timestamp)) {
 			status_peer_debug(source_peer,
@@ -1528,12 +1438,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		spam = true;
 
 	/* Delete any prior entries (noop if they don't exist) */
-	delete_spam_update(rstate, hc, is_chan_public(chan));
+	delete_spam_update(rstate, hc);
 	if (!spam)
 		gossip_store_delete(rstate->gs, &hc->bcast,
-				    is_chan_public(chan)
-				    ? WIRE_CHANNEL_UPDATE
-				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
+				    WIRE_CHANNEL_UPDATE);
 
 	/* Update timestamp(s) */
 	hc->rgraph.timestamp = timestamp;
@@ -1546,8 +1454,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		tell_lightningd_peer_update(rstate,
 					    /* Note: we can get public
 					     * channel_updates from other than
-					     * direct peer! */
-					    is_chan_public(chan) ? NULL : source_peer,
+					     * direct peer!  So tell lightningd
+					     * to trust us. */
+					    NULL,
 					    short_channel_id, fee_base_msat,
 					    fee_proportional_millionths,
 					    expiry, htlc_minimum,
@@ -1565,23 +1474,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 						  uc->channel_announce,
 						  timestamp,
 						  uc->index);
-	} else if (!is_chan_public(chan)) {
-		/* For private channels, we get updates without an announce: don't
-		 * broadcast them!  But save local ones to store anyway. */
-		assert(local_direction(rstate, chan, NULL));
-		/* Don't save if we're loading from store */
-		if (!index) {
-			hc->bcast.index
-				= gossip_store_add_private_update(rstate->gs,
-								  update);
-			/* No need to separately track spam for private
-			 * channels. */
-			hc->rgraph.index = hc->bcast.index;
-		} else {
-			hc->bcast.index = index;
-			hc->rgraph.index = index;
-		}
-		return true;
 	}
 
 	/* Handle resurrection of zombie channels if the other side of the
@@ -1608,9 +1500,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		zombie_addendum = gossip_store_get(tmpctx, rstate->gs,
 						   chan->bcast.index + offset);
 		gossip_store_delete(rstate->gs, &chan->bcast,
-				    is_chan_public(chan)
-				    ? WIRE_CHANNEL_ANNOUNCEMENT
-				    : WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS);
+				    WIRE_CHANNEL_ANNOUNCEMENT);
 		chan->bcast.index =
 			gossip_store_add(rstate->gs, zombie_announcement,
 					 chan->bcast.timestamp,
@@ -1626,14 +1516,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			zombie_update[1] = gossip_store_get(tmpctx, rstate->gs,
 				chan->half[!direction].rgraph.index);
 			gossip_store_delete(rstate->gs, &chan->half[!direction].rgraph,
-					    is_chan_public(chan)
-					    ? WIRE_CHANNEL_UPDATE
-					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
+					    WIRE_CHANNEL_UPDATE);
 		}
 		gossip_store_delete(rstate->gs, &chan->half[!direction].bcast,
-				    is_chan_public(chan)
-				    ? WIRE_CHANNEL_UPDATE
-				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS);
+				    WIRE_CHANNEL_UPDATE);
 		chan->half[!direction].bcast.index =
 			gossip_store_add(rstate->gs, zombie_update[0],
 					 chan->half[!direction].bcast.timestamp,
@@ -2122,9 +2008,6 @@ void route_prune(struct routing_state *rstate)
 	for (struct chan *chan = uintmap_first(&rstate->chanmap, &idx);
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx)) {
-		/* Local-only?  Don't prune. */
-		if (!is_chan_public(chan))
-			continue;
 		/* These have been pruned already */
 		if (is_chan_zombie(chan))
 			continue;
@@ -2168,78 +2051,6 @@ void route_prune(struct routing_state *rstate)
 		remove_channel_from_store(rstate, pruned[i]);
 		free_chan(rstate, pruned[i]);
 	}
-}
-
-bool routing_add_private_channel(struct routing_state *rstate,
-				 const struct node_id *id,
-				 struct amount_sat capacity,
-				 const u8 *chan_ann, u64 index)
-{
-	struct short_channel_id scid;
-	struct node_id node_id[2];
-	struct pubkey ignorekey;
-	struct chan *chan;
-	u8 *features;
-	secp256k1_ecdsa_signature ignoresig;
-	struct bitcoin_blkid chain_hash;
-
-	if (!fromwire_channel_announcement(tmpctx, chan_ann,
-					   &ignoresig,
-					   &ignoresig,
-					   &ignoresig,
-					   &ignoresig,
-					   &features,
-					   &chain_hash,
-					   &scid,
-					   &node_id[0],
-					   &node_id[1],
-					   &ignorekey,
-					   &ignorekey))
-		return false;
-
-	/* Happens on channeld restart. */
-	if (get_channel(rstate, &scid))
-		return true;
-
-	/* Make sure this id (if any) was allowed to create this */
-	if (id) {
-		struct node_id expected[2];
-		int cmp = node_id_cmp(&rstate->daemon->id, id);
-
-		if (cmp < 0) {
-			expected[0] = rstate->daemon->id;
-			expected[1] = *id;
-		} else if (cmp > 0) {
-			expected[0] = *id;
-			expected[1] = rstate->daemon->id;
-		} else {
-			/* lightningd sets id, so this is fatal */
-			status_failed(STATUS_FAIL_MASTER_IO,
-				      "private_channel peer was us?");
-		}
-
-		if (!node_id_eq(&node_id[0], &expected[0])
-		    || !node_id_eq(&node_id[1], &expected[1])) {
-			status_peer_broken(id, "private channel %s<->%s invalid",
-					   type_to_string(tmpctx, struct node_id,
-							  &node_id[0]),
-					   type_to_string(tmpctx, struct node_id,
-							  &node_id[1]));
-			return false;
-		}
-	}
-
-	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &node_id[0], &node_id[1], capacity);
-	if (!index) {
-		u8 *msg = towire_gossip_store_private_channel_obs(tmpctx,
-							      capacity,
-							      chan_ann);
-		index = gossip_store_add(rstate->gs, msg, 0, false, false, false,
-					 NULL);
-	}
-	chan->bcast.index = index;
-	return true;
 }
 
 struct timeabs gossip_time_now(const struct routing_state *rstate)

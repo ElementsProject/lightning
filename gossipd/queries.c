@@ -351,7 +351,7 @@ static void get_checksum_and_timestamp(struct routing_state *rstate,
 {
 	const struct half_chan *hc = &chan->half[direction];
 
-	if (!is_chan_public(chan) || !is_halfchan_defined(hc)) {
+	if (!is_halfchan_defined(hc)) {
 		*tstamp = *csum = 0;
 	} else {
 		const u8 *update = gossip_store_get(tmpctx, rstate->gs,
@@ -468,9 +468,6 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
 
 		/* FIXME: Store csum in header. */
 		chan = get_channel(rstate, &scid);
-		if (!is_chan_public(chan))
-			continue;
-
 		tal_arr_expand(&scids, scid);
 
 		/* Don't calc csums if we don't even care */
@@ -923,7 +920,7 @@ static bool maybe_send_query_responses_peer(struct peer *peer)
 		struct chan *chan;
 
 		chan = get_channel(rstate, &peer->scid_queries[i]);
-		if (!chan || !is_chan_public(chan))
+		if (!chan)
 			continue;
 
 		/* BOLT #7:
