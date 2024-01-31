@@ -239,7 +239,7 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 
 	/* If it's an unknown channel, ask someone about it */
 	if (unknown_scid.u64 != 0)
-		query_unknown_channel(peer->daemon, peer, &unknown_scid);
+		query_unknown_channel(peer->daemon, &peer->id, unknown_scid);
 
 	return NULL;
 }
@@ -252,7 +252,7 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	err = handle_node_announcement(peer->daemon->rstate, msg, &peer->id,
 				       &was_unknown);
 	if (was_unknown)
-		query_unknown_node(peer->daemon->seeker, peer);
+		query_unknown_node(peer->daemon, &peer->id, NULL);
 	return err;
 }
 

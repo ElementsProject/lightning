@@ -626,6 +626,18 @@ static void check_timestamps(struct seeker *seeker,
 	*stale |= query_flag;
 }
 
+static bool add_unknown_scid(struct seeker *seeker,
+			     struct short_channel_id scid,
+			     struct peer *peer)
+{
+	/* Check we're not already getting this one. */
+	if (!uintmap_add(&seeker->unknown_scids, scid.u64, true))
+		return false;
+
+	set_preferred_peer(seeker, peer);
+	return true;
+}
+
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
 			       const struct range_query_reply *replies)
@@ -647,7 +659,8 @@ static void process_scid_probe(struct peer *peer,
 			continue;
 		}
 
-		new_unknown_scids |= add_unknown_scid(seeker, &replies[i].scid,
+		new_unknown_scids |= add_unknown_scid(seeker,
+						      replies[i].scid,
 						      peer);
 	}
 
@@ -932,34 +945,26 @@ bool remove_unknown_scid(struct seeker *seeker,
 	return uintmap_del(&seeker->unknown_scids, scid->u64);
 }
 
-bool add_unknown_scid(struct seeker *seeker,
-		      const struct short_channel_id *scid,
-		      struct peer *peer)
-{
-	/* Check we're not already getting this one. */
-	if (!uintmap_add(&seeker->unknown_scids, scid->u64, true))
-		return false;
-
-	set_preferred_peer(seeker, peer);
-	return true;
-}
-
 /* This peer told us about an update to an unknown channel.  Ask it for a
  * channel_announcement. */
 void query_unknown_channel(struct daemon *daemon,
-			   struct peer *peer,
-			   const struct short_channel_id *id)
+			   const struct node_id *source_peer,
+			   struct short_channel_id unknown_scid)
 {
-	/* Too many, or duplicate? */
-	if (!add_unknown_scid(daemon->seeker, id, peer))
-		return;
+	add_unknown_scid(daemon->seeker,
+			 unknown_scid,
+			 source_peer ? find_peer(daemon, source_peer) : NULL);
 }
 
 /* This peer told us about an unknown node.  Start probing it. */
-void query_unknown_node(struct seeker *seeker, struct peer *peer)
+void query_unknown_node(struct daemon *daemon,
+			const struct node_id *source_peer,
+			const struct node_id *unknown_node)
 {
-	seeker->unknown_nodes = true;
-	set_preferred_peer(seeker, peer);
+	daemon->seeker->unknown_nodes = true;
+	if (source_peer)
+		set_preferred_peer(daemon->seeker,
+				   find_peer(daemon, source_peer));
 }
 
 /* Peer has died, NULL out any pointers we have */
