@@ -26,6 +26,9 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for find_peer */
+struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "find_peer called!\n"); abort(); }
 /* Generated stub for first_random_peer */
 struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 			       struct peer_node_id_map_iter *it UNNEEDED)
