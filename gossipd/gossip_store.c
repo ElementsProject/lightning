@@ -20,6 +20,9 @@
 #define GOSSIP_STORE_VER ((0 << 5) | 13)
 
 struct gossip_store {
+	/* Back pointer. */
+	struct daemon *daemon;
+
 	/* This is false when we're loading */
 	bool writable;
 
@@ -28,10 +31,6 @@ struct gossip_store {
 
 	/* Offset of current EOF */
 	u64 len;
-
-	/* Handle to the routing_state to retrieve additional information,
-	 * should it be needed */
-	struct routing_state *rstate;
 
 	/* Timestamp of store when we opened it (0 if we created it) */
 	u32 timestamp;
@@ -107,7 +106,7 @@ static bool can_upgrade(u8 oldversion)
 /* On upgrade, do best effort on private channels: hand them to
  * lightningd as if we just receive them, before removing from the
  * store */
-static void give_lightningd_canned_private_update(struct routing_state *rstate,
+static void give_lightningd_canned_private_update(struct daemon *daemon,
 						  const u8 *msg)
 {
 	u8 *update;
@@ -143,7 +142,7 @@ static void give_lightningd_canned_private_update(struct routing_state *rstate,
 	}
 
 	/* From NULL source (i.e. trust us!) */
-	tell_lightningd_peer_update(rstate->daemon,
+	tell_lightningd_peer_update(daemon,
 				    NULL,
 				    short_channel_id,
 				    fee_base_msat,
@@ -154,7 +153,7 @@ static void give_lightningd_canned_private_update(struct routing_state *rstate,
 }
 
 static bool upgrade_field(u8 oldversion,
-			  struct routing_state *rstate,
+			  struct daemon *daemon,
 			  u8 **msg)
 {
 	int type = fromwire_peektype(*msg);
@@ -172,7 +171,7 @@ static bool upgrade_field(u8 oldversion,
 		if (type == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL_OBS) {
 			*msg = tal_free(*msg);
 		} else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE_OBS) {
-			give_lightningd_canned_private_update(rstate, *msg);
+			give_lightningd_canned_private_update(daemon, *msg);
 			*msg = tal_free(*msg);
 		}
 	}
@@ -182,7 +181,7 @@ static bool upgrade_field(u8 oldversion,
 
 /* Read gossip store entries, copy non-deleted ones.  This code is written
  * as simply and robustly as possible! */
-static u32 gossip_store_compact_offline(struct routing_state *rstate)
+static u32 gossip_store_compact_offline(struct daemon *daemon)
 {
 	size_t count = 0, deleted = 0;
 	int old_fd, new_fd;
@@ -251,7 +250,7 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 		}
 
 		if (oldversion != version) {
-			if (!upgrade_field(oldversion, rstate, &msg)) {
+			if (!upgrade_field(oldversion, daemon, &msg)) {
 				tal_free(msg);
 				goto close_and_delete;
 			}
@@ -314,17 +313,17 @@ close_old:
 	return 0;
 }
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate)
+struct gossip_store *gossip_store_new(struct daemon *daemon)
 {
-	struct gossip_store *gs = tal(rstate, struct gossip_store);
+	struct gossip_store *gs = tal(daemon, struct gossip_store);
 	gs->writable = true;
-	gs->timestamp = gossip_store_compact_offline(rstate);
+	gs->timestamp = gossip_store_compact_offline(daemon);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_CREAT, 0600);
 	if (gs->fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Opening gossip_store store: %s",
 			      strerror(errno));
-	gs->rstate = rstate;
+	gs->daemon = daemon;
 	gs->len = sizeof(gs->version);
 
 	tal_add_destructor(gs, gossip_store_destroy);
@@ -654,7 +653,7 @@ int gossip_store_readonly_fd(struct gossip_store *gs)
 	return fd;
 }
 
-u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
+u32 gossip_store_load(struct gossip_store *gs)
 {
 	struct gossip_hdr hdr;
 	u32 msglen, checksum;
@@ -703,7 +702,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			/* Previous channel_announcement may have been deleted */
 			if (!chan_ann)
 				break;
-			if (!routing_add_channel_announcement(rstate,
+			if (!routing_add_channel_announcement(gs->daemon->rstate,
 							      take(chan_ann),
 							      satoshis,
 							      chan_ann_off,
@@ -731,11 +730,11 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				bad = "Bad gossip_store_chan_dying";
 				goto badmsg;
 			}
-			remember_chan_dying(rstate, &scid, deadline, gs->len);
+			remember_chan_dying(gs->daemon->rstate, &scid, deadline, gs->len);
 			break;
 		}
 		case WIRE_CHANNEL_UPDATE:
-			if (!routing_add_channel_update(rstate,
+			if (!routing_add_channel_update(gs->daemon->rstate,
 							take(msg), gs->len,
 							NULL, false,
 							spam, false)) {
@@ -745,7 +744,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			stats[1]++;
 			break;
 		case WIRE_NODE_ANNOUNCEMENT:
-			if (!routing_add_node_announcement(rstate,
+			if (!routing_add_node_announcement(gs->daemon->rstate,
 							   take(msg), gs->len,
 							   NULL, NULL, spam)) {
 				/* FIXME: This has been reported: routing.c
@@ -770,7 +769,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		goto corrupt;
 	}
 
-	bad = unfinalized_entries(tmpctx, rstate);
+	bad = unfinalized_entries(tmpctx, gs->daemon->rstate);
 	if (bad)
 		goto corrupt;
 
@@ -790,7 +789,7 @@ corrupt:
 	if (gs->fd < 0 || !write_all(gs->fd, &gs->version, sizeof(gs->version)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating new store file: %s", strerror(errno));
-	remove_all_gossip(rstate);
+	remove_all_gossip(gs->daemon->rstate);
 	gs->len = 1;
 	gs->timestamp = 0;
 out:
