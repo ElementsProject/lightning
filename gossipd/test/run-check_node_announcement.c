@@ -24,18 +24,6 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for daemon_conn_send */
-void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_local_channel_update */
-bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct node_id *id UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *enable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED, bool *public UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_used_local_channel_update */
-bool fromwire_gossipd_used_local_channel_update(const void *p UNNEEDED, struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_used_local_channel_update called!\n"); abort(); }
-/* Generated stub for fromwire_hsmd_cupdate_sig_reply */
-bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_cupdate_sig_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_node_announcement_sig_reply */
 bool fromwire_hsmd_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_node_announcement_sig_reply called!\n"); abort(); }
@@ -46,20 +34,11 @@ struct node *get_node(struct routing_state *rstate UNNEEDED,
 /* Generated stub for gossip_time_now */
 struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "gossip_time_now called!\n"); abort(); }
-/* Generated stub for handle_channel_update */
-u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *update TAKES UNNEEDED,
-			  const struct node_id *source_peer TAKES UNNEEDED,
-			  struct short_channel_id *unknown_scid UNNEEDED,
-			  bool force UNNEEDED)
-{ fprintf(stderr, "handle_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
 u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node_ann UNNEEDED,
 			     const struct node_id *source_peer TAKES UNNEEDED,
 			     bool *was_unknown UNNEEDED)
 { fprintf(stderr, "handle_node_announcement called!\n"); abort(); }
-/* Generated stub for master_badmsg */
-void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
-{ fprintf(stderr, "master_badmsg called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,
@@ -79,12 +58,6 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
-/* Generated stub for towire_gossipd_got_local_channel_update */
-u8 *towire_gossipd_got_local_channel_update(const tal_t *ctx UNNEEDED, const struct short_channel_id *scid UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_got_local_channel_update called!\n"); abort(); }
-/* Generated stub for towire_hsmd_cupdate_sig_req */
-u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
 /* Generated stub for towire_hsmd_node_announcement_sig_req */
 u8 *towire_hsmd_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
 { fprintf(stderr, "towire_hsmd_node_announcement_sig_req called!\n"); abort(); }
