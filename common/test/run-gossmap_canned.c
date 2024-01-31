@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
 
 	assert(short_channel_id_from_str("110x1x0", 7, &scid12));
 	assert(gossmap_find_chan(map, &scid12));
-	assert(!gossmap_find_chan(map, &scid12)->private);
+	assert(!gossmap_chan_is_localmod(map, gossmap_find_chan(map, &scid12)));
 	assert(gossmap_chan_get_capacity(map, gossmap_find_chan(map, &scid12),
 					 &capacity));
 	assert(amount_sat_eq(capacity, AMOUNT_SAT(1000000)));
