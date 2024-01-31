@@ -80,6 +80,20 @@ struct gossmap {
 
 	/* local messages, if any. */
 	const u8 *local;
+
+	/* Callbacks for different events: return false to fail. */
+	void (*cupdate_fail)(struct gossmap *map,
+			     const struct short_channel_id_dir *scidd,
+			     u16 cltv_expiry_delta,
+			     u32 fee_base_msat,
+			     u32 fee_proportional_millionths,
+			     void *cb_arg);
+	bool (*unknown_record)(struct gossmap *map,
+			       int type,
+			       size_t off,
+			       size_t msglen,
+			       void *cb_arg);
+	void *cb_arg;
 };
 
 /* Accessors for the gossmap */
@@ -155,6 +169,18 @@ static int map_feature_test(const struct gossmap *map,
 	if (bits & (1 << (OPTIONAL_FEATURE(compulsory_bit) % 8)))
 		return OPTIONAL_FEATURE(compulsory_bit);
 	return -1;
+}
+
+/* Helper callback which simply increments counter */
+static void cupdate_fail_inc_ctr(struct gossmap *map,
+				 const struct short_channel_id_dir *scidd,
+				 u16 cltv_expiry_delta,
+				 u32 fee_base_msat,
+				 u32 fee_proportional_millionths,
+				 void *cb_arg)
+{
+	size_t *num = cb_arg;
+	(*num)++;
 }
 
 /* These values can change across calls to gossmap_check. */
@@ -479,7 +505,7 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
  *     * [`u32`:`fee_proportional_millionths`]
  *     * [`u64`:`htlc_maximum_msat`]
  */
-static bool update_channel(struct gossmap *map, size_t cupdate_off)
+static void update_channel(struct gossmap *map, size_t cupdate_off)
 {
 	/* Note that first two bytes are message type */
 	const size_t scid_off = cupdate_off + 2 + (64 + 32);
@@ -490,44 +516,49 @@ static bool update_channel(struct gossmap *map, size_t cupdate_off)
 	const size_t fee_base_off = htlc_minimum_off + 8;
 	const size_t fee_prop_off = fee_base_off + 4;
 	const size_t htlc_maximum_off = fee_prop_off + 4;
-	struct short_channel_id scid;
+	struct short_channel_id_dir scidd;
 	struct gossmap_chan *chan;
 	struct half_chan hc;
 	u8 chanflags;
-	bool dumb_values;
+	u32 base_fee, proportional_fee;
+	u16 delay;
 
-	scid.u64 = map_be64(map, scid_off);
-	chan = gossmap_find_chan(map, &scid);
+	scidd.scid.u64 = map_be64(map, scid_off);
+	chan = gossmap_find_chan(map, &scidd.scid);
 	/* This can happen if channel gets deleted! */
 	if (!chan)
-		return false;
+		return;
 
 	/* We round this *down*, since too-low min is more conservative */
 	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
 	hc.htlc_max = u64_to_fp16(map_be64(map, htlc_maximum_off), true);
 
 	chanflags = map_u8(map, channel_flags_off);
-	hc.enabled = !(chanflags & 2);
-	hc.base_fee = map_be32(map, fee_base_off);
-	hc.proportional_fee = map_be32(map, fee_prop_off);
-	hc.delay = map_be16(map, cltv_expiry_delta_off);
+	hc.enabled = !(chanflags & ROUTING_FLAGS_DISABLED);
+	scidd.dir = (chanflags & ROUTING_FLAGS_DIRECTION);
+	base_fee = map_be32(map, fee_base_off);
+	proportional_fee = map_be32(map, fee_prop_off);
+	delay = map_be16(map, cltv_expiry_delta_off);
 
+	hc.base_fee = base_fee;
+	hc.proportional_fee = proportional_fee;
+	hc.delay = delay;
 	/* Check they fit: we turn off if not. */
-	if (hc.base_fee != map_be32(map, fee_base_off)
-	    || hc.proportional_fee != map_be32(map, fee_prop_off)
-	    || hc.delay != map_be16(map, cltv_expiry_delta_off)) {
-		dumb_values = true;
+	if (hc.base_fee != base_fee
+	    || hc.proportional_fee != proportional_fee
+	    || hc.delay != delay) {
+		if (map->cupdate_fail)
+			map->cupdate_fail(map, &scidd,
+					  delay, base_fee, proportional_fee,
+					  map->cb_arg);
 		hc.htlc_max = 0;
 		hc.enabled = false;
-	} else
-		dumb_values = false;
+	}
 
 	/* Preserve this */
 	hc.nodeidx = chan->half[chanflags & 1].nodeidx;
 	chan->half[chanflags & 1] = hc;
 	chan->cupdate_off[chanflags & 1] = cupdate_off;
-
-	return !dumb_values;
 }
 
 static void remove_channel_by_deletemsg(struct gossmap *map, size_t del_off)
@@ -581,7 +612,7 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 		n->nann_off = nann_off;
 }
 
-static void reopen_store(struct gossmap *map, size_t ended_off)
+static bool reopen_store(struct gossmap *map, size_t ended_off)
 {
 	int fd;
 
@@ -597,15 +628,16 @@ static void reopen_store(struct gossmap *map, size_t ended_off)
 
 	close(map->fd);
 	map->fd = fd;
-	gossmap_refresh(map, NULL);
+	return gossmap_refresh_mayfail(map, NULL);
 }
 
-static bool map_catchup(struct gossmap *map, size_t *num_rejected)
+/* Returns false only if unknown_cb returns false */
+static bool map_catchup(struct gossmap *map, bool *changed)
 {
 	size_t reclen;
-	bool changed = false;
-	size_t num_bad = 0;
 
+	if (changed)
+		*changed = false;
 	for (; map->map_end + sizeof(struct gossip_hdr) < map->map_size;
 	     map->map_end += reclen) {
 		struct gossip_hdr ghdr;
@@ -631,25 +663,33 @@ static bool map_catchup(struct gossmap *map, size_t *num_rejected)
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT)
 			add_channel(map, off);
 		else if (type == WIRE_CHANNEL_UPDATE)
-			num_bad += !update_channel(map, off);
+			update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
 			node_announcement(map, off);
-		else if (type == WIRE_GOSSIP_STORE_ENDED)
-			reopen_store(map, off);
-		else
+		else if (type == WIRE_GOSSIP_STORE_ENDED && map->fname) {
+			/* This can recurse! */
+			if (!reopen_store(map, off))
+				return false;
+		} else {
+			if (map->unknown_record
+			    && !map->unknown_record(map, type, off,
+						    reclen - sizeof(ghdr),
+						    map->cb_arg)) {
+				return false;
+			}
 			continue;
+		}
 
-		changed = true;
+		if (changed)
+			*changed = true;
 	}
 
-	if (num_rejected)
-		*num_rejected = num_bad;
-	return changed;
+	return true;
 }
 
-static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
+static bool load_gossip_store(struct gossmap *map)
 {
 	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local = NULL;
@@ -682,7 +722,7 @@ static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
 	map->freed_nodes = init_node_arr(map->node_arr, 0);
 
 	map->map_end = 1;
-	map_catchup(map, num_rejected);
+	map_catchup(map, NULL);
 	return true;
 }
 
@@ -939,7 +979,7 @@ void gossmap_remove_localmods(struct gossmap *map,
 	map->local = NULL;
 }
 
-bool gossmap_refresh(struct gossmap *map, size_t *num_rejected)
+bool gossmap_refresh_mayfail(struct gossmap *map, bool *updated)
 {
 	off_t len;
 
@@ -948,8 +988,11 @@ bool gossmap_refresh(struct gossmap *map, size_t *num_rejected)
 
 	/* If file has gotten larger, try rereading */
 	len = lseek(map->fd, 0, SEEK_END);
-	if (len == map->map_size)
-		return false;
+	if (len == map->map_size) {
+		if (updated)
+			*updated = false;
+		return true;
+	}
 
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
@@ -957,7 +1000,33 @@ bool gossmap_refresh(struct gossmap *map, size_t *num_rejected)
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
 		map->mmap = NULL;
-	return map_catchup(map, num_rejected);
+
+	return map_catchup(map, updated);
+}
+
+bool gossmap_refresh(struct gossmap *map, size_t *num_rejected)
+{
+	bool updated;
+	void (*old_cupdate_fail)(struct gossmap *map,
+				 const struct short_channel_id_dir *scidd,
+				 u16 cltv_expiry_delta,
+				 u32 fee_base_msat,
+				 u32 fee_proportional_millionths,
+				 void *cb_arg);
+
+	/* If they asked for counter, temporarily override cb */
+	old_cupdate_fail = map->cupdate_fail;
+	if (num_rejected) {
+		map->cupdate_fail = cupdate_fail_inc_ctr;
+		map->cb_arg = num_rejected;
+	}
+
+	/* This can only fail if you set unknown_cb, and it failed.  So wrong API! */
+	if (!gossmap_refresh_mayfail(map, &updated))
+		abort();
+
+	map->cupdate_fail = old_cupdate_fail;
+	return updated;
 }
 
 struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
@@ -969,21 +1038,42 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 	if (map->fd < 0)
 		return tal_free(map);
 	tal_add_destructor(map, destroy_map);
+	if (num_channel_updates_rejected) {
+		*num_channel_updates_rejected = 0;
+		map->cupdate_fail = cupdate_fail_inc_ctr;
+		map->cb_arg = num_channel_updates_rejected;
+	}
+	map->unknown_record = NULL;
 
-	if (!load_gossip_store(map, num_channel_updates_rejected))
+	if (!load_gossip_store(map))
 		return tal_free(map);
+	map->cupdate_fail = NULL;
 	return map;
 }
 
-struct gossmap *gossmap_load_fd(const tal_t *ctx, int fd,
-				size_t *num_channel_updates_rejected)
+struct gossmap *gossmap_load_fd_(const tal_t *ctx, int fd,
+				 void (*cupdate_fail)(struct gossmap *map,
+						      const struct short_channel_id_dir *scidd,
+						      u16 cltv_expiry_delta,
+						      u32 fee_base_msat,
+						      u32 fee_proportional_millionths,
+						      void *cb_arg),
+				 bool (*unknown_record)(struct gossmap *map,
+							int type,
+							size_t off,
+							size_t msglen,
+							void *cb_arg),
+				 void *cb_arg)
 {
 	map = tal(ctx, struct gossmap);
 	map->fname = NULL;
 	map->fd = fd;
+	map->cupdate_fail = cupdate_fail;
+	map->unknown_record = unknown_record;
+	map->cb_arg = cb_arg;
 	tal_add_destructor(map, destroy_map);
 
-	if (!load_gossip_store(map, num_channel_updates_rejected))
+	if (!load_gossip_store(map))
 		return tal_free(map);
 	return map;
 }
