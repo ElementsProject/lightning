@@ -125,26 +125,13 @@ def test_remote_addr(node_factory, bitcoind):
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
     assert len(l2.rpc.getinfo()['address']) == 0
 
-    # connect second node. This will not yet trigger `node_annoucement` update,
-    # as we again do not have a channel at the time we connected.
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
-
-    # fund channel and check we didn't send Update earlier already
-    l2.fundchannel(l3, wait_for_active=True)
-    bitcoind.generate_block(5)
-    assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
-    assert len(l2.rpc.getinfo()['address']) == 0
-
-    # restart, reconnect and re-check for updated node_annoucement. This time
-    # l2 sees that two different peers with channel reported the same `remote_addr`.
-    l3.restart()
+    # connect second node. This will trigger `node_annoucement` update.
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
     l2.daemon.wait_for_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
-    l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
 
     # check l1 sees the updated node announcement via CLI listnodes
+    l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
     address = l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses'][0]
     assert address['type'] == "ipv4"
     assert address['address'] == "127.0.0.1"

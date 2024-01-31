@@ -193,15 +193,9 @@ struct lightningd {
 	/* Lease rates to advertize, set by json_setleaserates */
 	struct lease_rates *lease_rates;
 
-	/* unverified remote_addr as reported by recent peers */
-	struct wireaddr *remote_addr_v4;
-	struct wireaddr *remote_addr_v6;
-	struct node_id remote_addr_v4_peer;
-	struct node_id remote_addr_v6_peer;
-
-	/* verified discovered IPs to be used for anouncement */
-	struct wireaddr *discovered_ip_v4;
-	struct wireaddr *discovered_ip_v6;
+	/* Popular discovered IPs to be used for announcement */
+	const struct wireaddr *discovered_ip_v4;
+	const struct wireaddr *discovered_ip_v6;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

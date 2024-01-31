@@ -238,8 +238,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	ld->lease_rates = NULL;
 	ld->node_announcement = NULL;
-	ld->remote_addr_v4 = NULL;
-	ld->remote_addr_v6 = NULL;
 	ld->discovered_ip_v4 = NULL;
 	ld->discovered_ip_v6 = NULL;
 	ld->listen = true;

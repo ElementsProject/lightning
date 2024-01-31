@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
@@ -1462,72 +1463,174 @@ peer_connected_hook_deserialize(struct peer_connected_hook_payload *payload,
 	return true;
 }
 
-/* Compare and store `remote_addr` and the `peer_id` that reported it.
- * If new address was reported by at least one other, do node_announcement */
-static void update_remote_addr(struct lightningd *ld,
-			       const struct wireaddr *remote_addr,
-			       const struct node_id peer_id)
+/* Have they/we committed funds to the channel? */
+static bool channel_state_relationship(enum channel_state state)
+{
+	switch (state) {
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CHANNELD_AWAITING_LOCKIN:
+		return false;
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+		return true;
+	}
+
+	abort();
+}
+
+/* We choose the most popular address we've given (if at least 2 give
+ * it), prefering peers which have a channel with us */
+struct discovered_addr {
+	bool preferred;
+	/* Port is uniformly set to our configured port in here. */
+	struct wireaddr addr;
+};
+
+static int daddr_cmp(const struct discovered_addr *a,
+		     const struct discovered_addr *b,
+		     void *unused)
+{
+	return wireaddr_cmp_type(&a->addr, &b->addr, NULL);
+}
+
+static const struct wireaddr *best_remote_addr(const tal_t *ctx,
+					       struct lightningd *ld,
+					       enum wire_addr_type atype)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+	struct discovered_addr *daddrs;
+	const struct wireaddr *best, *prev;
+	size_t best_score, cur_score, preferred_bonus;
+
+	daddrs = tal_arr(tmpctx, struct discovered_addr, 0);
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		struct discovered_addr daddr;
+		if (!peer->remote_addr)
+			continue;
+		if (peer->remote_addr->type != atype)
+			continue;
+		daddr.preferred = peer_any_channel(peer,
+						   channel_state_relationship,
+						   NULL);
+		daddr.addr = *peer->remote_addr;
+		daddr.addr.port = ld->config.ip_discovery_port;
+		log_debug(ld->log, "best_remote_addr: peer %s gave addr %s (%s)",
+			  type_to_string(tmpctx, struct node_id, &peer->id),
+			  fmt_wireaddr(tmpctx, &daddr.addr),
+			  daddr.preferred ? "preferred" : "no chan");
+		tal_arr_expand(&daddrs, daddr);
+	}
+
+	/* Sort into matching addresses */
+	asort(daddrs, tal_count(daddrs), daddr_cmp, NULL);
+
+	/* All the non-preferred peers cannot outvote 1 preferred peer */
+	preferred_bonus = tal_count(daddrs);
+	best_score = cur_score = 0;
+	best = prev = NULL;
+	for (size_t i = 0; i < tal_count(daddrs); i++) {
+		if (prev && !wireaddr_eq(prev, &daddrs[i].addr)) {
+			if (cur_score > best_score) {
+				best_score = cur_score;
+				best = prev;
+			}
+			cur_score = 0;
+		}
+		cur_score += daddrs[i].preferred ? preferred_bonus : 1;
+		prev = &daddrs[i].addr;
+	}
+	if (cur_score > best_score) {
+		best_score = cur_score;
+		best = prev;
+	}
+
+	if (!best) {
+		log_debug(ld->log,
+			  "node_address: no peers gave remote addresses");
+		return NULL;
+	}
+
+	/* Does it agree with what we already know? */
+	if (wireaddr_arr_contains(ld->announceable, best)) {
+		log_debug(ld->log,
+			  "node_address: best address already being announced");
+		return NULL;
+	}
+
+	/* This means we got it from one preferred peer and at least one other */
+	if (best_score > preferred_bonus) {
+		log_debug(ld->log,
+			  "node_address: %zu peers gave remote addresses,"
+			  " best score %zu (preferred)",
+			  tal_count(daddrs), best_score);
+		return tal_dup(ctx, struct wireaddr, best);
+	}
+
+	/* No preferred peers gave us addresses?  Use > 1 untrusted */
+	if (best_score < preferred_bonus && best_score > 1) {
+		log_debug(ld->log,
+			  "node_address: %zu peers gave remote addresses,"
+			  " best score %zu (no preferred)",
+			  tal_count(daddrs), best_score);
+		return tal_dup(ctx, struct wireaddr, best);
+	}
+
+	log_debug(ld->log,
+		  "node_address: %zu peers gave remote addresses,"
+		  " best score %zu: not using",
+		  tal_count(daddrs), best_score);
+	return NULL;
+}
+
+/* Consider `remote_addr` from peer: if it could change things, reconsider
+ * what our discoverd IP is.  Returns new address, or NULL. */
+static const struct wireaddr *update_remote_addr(struct lightningd *ld,
+						 const struct wireaddr *remote_addr)
 {
 	/* failsafe to prevent privacy leakage. */
 	if (ld->always_use_proxy ||
 	    ld->config.ip_discovery == OPT_AUTOBOOL_FALSE)
-		return;
+		return NULL;
 
 	switch (remote_addr->type) {
 	case ADDR_TYPE_IPV4:
-		/* init pointers first time */
-		if (ld->remote_addr_v4 == NULL) {
-			ld->remote_addr_v4 = tal_dup(ld, struct wireaddr,
-						     remote_addr);
-			ld->remote_addr_v4_peer = peer_id;
+		/* If it's telling us what we already know, don't reevaluate */
+		if (!ld->discovered_ip_v4
+		    || !wireaddr_eq(ld->discovered_ip_v4, remote_addr)) {
+			ld->discovered_ip_v4 = tal_free(ld->discovered_ip_v4);
+			ld->discovered_ip_v4 = best_remote_addr(ld, ld, ADDR_TYPE_IPV4);
+			return ld->discovered_ip_v4;
 		}
-		/* if updated by the same peer just remember the latest addr */
-		if (node_id_eq(&ld->remote_addr_v4_peer, &peer_id)) {
-			*ld->remote_addr_v4 = *remote_addr;
-			break;
-		}
-		/* tell gossip we have a valid update */
-		if (wireaddr_eq_without_port(ld->remote_addr_v4, remote_addr)) {
-			ld->discovered_ip_v4 = tal_dup(ld, struct wireaddr,
-						       ld->remote_addr_v4);
-			ld->discovered_ip_v4->port = ld->config.ip_discovery_port;
-			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
-							  tmpctx,
-							  ld->discovered_ip_v4));
-		}
-		/* store latest values */
-		*ld->remote_addr_v4 = *remote_addr;
-		ld->remote_addr_v4_peer = peer_id;
-		break;
+		return NULL;
 	case ADDR_TYPE_IPV6:
-		/* same code :s/4/6/ without the comments ;) */
-		if (ld->remote_addr_v6 == NULL) {
-			ld->remote_addr_v6 = tal_dup(ld, struct wireaddr,
-						     remote_addr);
-			ld->remote_addr_v6_peer = peer_id;
+		/* If it's telling us what we already know, don't reevaluate */
+		if (!ld->discovered_ip_v6
+		    || !wireaddr_eq(ld->discovered_ip_v6, remote_addr)) {
+			ld->discovered_ip_v6 = tal_free(ld->discovered_ip_v6);
+			ld->discovered_ip_v6 = best_remote_addr(ld, ld, ADDR_TYPE_IPV6);
+			return ld->discovered_ip_v6;
 		}
-		if (node_id_eq(&ld->remote_addr_v6_peer, &peer_id)) {
-			*ld->remote_addr_v6 = *remote_addr;
-			break;
-		}
-		if (wireaddr_eq_without_port(ld->remote_addr_v6, remote_addr)) {
-			ld->discovered_ip_v6 = tal_dup(ld, struct wireaddr,
-						       ld->remote_addr_v6);
-			ld->discovered_ip_v6->port = ld->config.ip_discovery_port;
-			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
-							  tmpctx,
-							  ld->discovered_ip_v6));
-		}
-		*ld->remote_addr_v6 = *remote_addr;
-		ld->remote_addr_v6_peer = peer_id;
-		break;
-
+		return NULL;
 	/* ignore all other cases */
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 	case ADDR_TYPE_DNS:
-		break;
+		return NULL;
 	}
+	abort();
 }
 
 REGISTER_PLUGIN_HOOK(peer_connected,
@@ -1590,9 +1693,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	/* Update peer address and direction */
 	peer->addr = hook_payload->addr;
 	peer->connected_incoming = hook_payload->incoming;
-	if (peer->remote_addr)
-		tal_free(peer->remote_addr);
-	peer->remote_addr = NULL;
+	peer->remote_addr = tal_free(peer->remote_addr);
 	hook_payload->peer_id = id;
 
 	/* If there's a connect command, use its id as basis for hook id */
@@ -1600,14 +1701,19 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
+		const struct wireaddr *best;
 		log_peer_debug(ld->log, &id, "Peer says it sees our address as: %s",
 			       fmt_wireaddr(tmpctx, hook_payload->remote_addr));
 		peer->remote_addr = tal_dup(peer, struct wireaddr,
 					    hook_payload->remote_addr);
-		/* Currently only from peers we have a channel with, until we
-		 * do stuff like probing for remote_addr to a random node. */
-		if (!list_empty(&peer->channels))
-			update_remote_addr(ld, hook_payload->remote_addr, id);
+		best = update_remote_addr(ld, peer->remote_addr);
+		if (best) {
+			log_debug(ld->log,
+				  "Update our node_announcement for discovered address: %s",
+				  fmt_wireaddr(tmpctx, best));
+			subd_send_msg(ld->gossip,
+				      towire_gossipd_discovered_ip(tmpctx, best));
+		}
 	}
 
 	plugin_hook_call_peer_connected(ld, cmd_id, hook_payload);
