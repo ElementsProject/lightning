@@ -30,6 +30,7 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
@@ -698,6 +699,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 
 	daemon->gs = gossip_store_new(daemon);
 	daemon->rstate = new_routing_state(daemon, daemon);
+
+	daemon->gm = gossmap_manage_new_gossmap_only(daemon, daemon);
 
 	/* Load stored gossip messages (FIXME: API sucks)*/
 	daemon->gossip_store_populated =

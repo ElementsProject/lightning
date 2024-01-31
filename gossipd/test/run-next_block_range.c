@@ -33,6 +33,46 @@ struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id 
 struct peer *first_random_peer(struct daemon *daemon UNNEEDED,
 			       struct peer_node_id_map_iter *it UNNEEDED)
 { fprintf(stderr, "first_random_peer called!\n"); abort(); }
+/* Generated stub for gossmap_chan_get_update_details */
+void gossmap_chan_get_update_details(const struct gossmap *map UNNEEDED,
+				     const struct gossmap_chan *chan UNNEEDED,
+				     int dir UNNEEDED,
+				     u32 *timestamp UNNEEDED,
+				     u8 *message_flags UNNEEDED,
+				     u8 *channel_flags UNNEEDED,
+				     u32 *fee_base_msat UNNEEDED,
+				     u32 *fee_proportional_millionths UNNEEDED,
+				     struct amount_msat *htlc_minimum_msat UNNEEDED,
+				     struct amount_msat *htlc_maximum_msat UNNEEDED)
+{ fprintf(stderr, "gossmap_chan_get_update_details called!\n"); abort(); }
+/* Generated stub for gossmap_chan_scid */
+struct short_channel_id gossmap_chan_scid(const struct gossmap *map UNNEEDED,
+					  const struct gossmap_chan *c UNNEEDED)
+{ fprintf(stderr, "gossmap_chan_scid called!\n"); abort(); }
+/* Generated stub for gossmap_find_chan */
+struct gossmap_chan *gossmap_find_chan(const struct gossmap *map UNNEEDED,
+				       const struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "gossmap_find_chan called!\n"); abort(); }
+/* Generated stub for gossmap_manage_get_gossmap */
+struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm UNNEEDED)
+{ fprintf(stderr, "gossmap_manage_get_gossmap called!\n"); abort(); }
+/* Generated stub for gossmap_max_node_idx */
+u32 gossmap_max_node_idx(const struct gossmap *map UNNEEDED)
+{ fprintf(stderr, "gossmap_max_node_idx called!\n"); abort(); }
+/* Generated stub for gossmap_node_byidx */
+struct gossmap_node *gossmap_node_byidx(const struct gossmap *map UNNEEDED, u32 idx UNNEEDED)
+{ fprintf(stderr, "gossmap_node_byidx called!\n"); abort(); }
+/* Generated stub for gossmap_nth_chan */
+struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map UNNEEDED,
+				      const struct gossmap_node *node UNNEEDED,
+				      u32 n UNNEEDED,
+				      int *which_half UNNEEDED)
+{ fprintf(stderr, "gossmap_nth_chan called!\n"); abort(); }
+/* Generated stub for gossmap_nth_node */
+struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
+				      const struct gossmap_chan *chan UNNEEDED,
+				      int n UNNEEDED)
+{ fprintf(stderr, "gossmap_nth_node called!\n"); abort(); }
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
@@ -69,9 +109,6 @@ void queue_peer_msg(struct daemon *daemon UNNEEDED,
 		    const struct node_id *peer UNNEEDED,
 		    const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
-/* Generated stub for random_select */
-bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)
-{ fprintf(stderr, "random_select called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
