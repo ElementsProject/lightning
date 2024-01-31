@@ -854,11 +854,11 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 static void updates_complete(struct chain_topology *topo)
 {
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &topo->prev_tip)) {
-		/* Tell watch code to re-evaluate all txs. */
-		watch_topology_changed(topo);
-
 		/* Tell lightningd about new block. */
 		notify_new_block(topo->bitcoind->ld, topo->tip->height);
+
+		/* Tell watch code to re-evaluate all txs. */
+		watch_topology_changed(topo);
 
 		/* Maybe need to rebroadcast. */
 		rebroadcast_txs(topo);
