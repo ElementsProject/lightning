@@ -28,6 +28,7 @@
             "type": "boolean",
             "description": "A boolean flag that is set to true if the peer is online"
           },
+          "reestablished": {},
           "state": {
             "type": "string",
             "enum": [
@@ -634,6 +635,7 @@
                       "alias": {},
                       "peer_id": {},
                       "peer_connected": {},
+                      "reestablished": {},
                       "state": {
                         "type": "string",
                         "enum": [
@@ -679,6 +681,7 @@
                       "status": {},
                       "peer_id": {},
                       "peer_connected": {},
+                      "reestablished": {},
                       "state": {
                         "type": "string",
                         "enum": [
@@ -705,6 +708,26 @@
         "allOf": [
           {
             "if": {
+              "properties": {
+                "peer_connected": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reestablished": {
+                  "type": "boolean",
+                  "description": "True if we have successfully exchanged reestablish messages this connection"
+                }
+              }
+            }
+          },
+          {
+            "if": {
               "required": [
                 "close_to"
               ]
@@ -716,6 +739,7 @@
                 "state": {},
                 "peer_id": {},
                 "peer_connected": {},
+                "reestablished": {},
                 "scratch_txid": {},
                 "channel_type": {},
                 "feerate": {},
@@ -807,6 +831,7 @@
                 "state": {},
                 "peer_id": {},
                 "peer_connected": {},
+                "reestablished": {},
                 "alias": {},
                 "scratch_txid": {},
                 "channel_type": {},
@@ -898,6 +923,7 @@
                 "alias": {},
                 "peer_id": {},
                 "peer_connected": {},
+                "reestablished": {},
                 "state": {},
                 "scratch_txid": {},
                 "channel_type": {},
@@ -991,6 +1017,7 @@
                 "state": {},
                 "peer_id": {},
                 "peer_connected": {},
+                "reestablished": {},
                 "scratch_txid": {},
                 "channel_type": {},
                 "feerate": {},

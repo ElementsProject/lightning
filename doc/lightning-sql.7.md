@@ -352,6 +352,7 @@ The following tables are currently supported:
     - `local_trimmed` (type `boolean`, sqltype `INTEGER`)
     - `status` (type `string`, sqltype `TEXT`)
     - `state` (type `string`, sqltype `TEXT`)
+  - `reestablished` (type `boolean`, sqltype `INTEGER`)
   - `close_to_addr` (type `string`, sqltype `TEXT`)
   - `last_tx_fee_msat` (type `msat`, sqltype `INTEGER`)
   - `direction` (type `u32`, sqltype `INTEGER`)
@@ -530,4 +531,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:5c5e14f8fde75b877080c0c10feb786f1d2fefbb61a62aecb8d003d1d54627e9)
+[comment]: # ( SHA256STAMP:f17b33523de930b61d6397a730c40b2254929cf38930629b9be66f3d52947d0e)

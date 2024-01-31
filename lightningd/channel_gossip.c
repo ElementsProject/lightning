@@ -410,8 +410,10 @@ static void send_channel_announce_sigs(struct channel *channel)
 		return;
 
 	/* Wait until we've exchanged reestablish messages */
-	if (!channel->reestablished)
+	if (!channel->reestablished) {
+		log_debug(channel->log, "channel_gossip: not sending channel_announcement_sigs until reestablished");
 		return;
+	}
 
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
@@ -843,6 +845,7 @@ void channel_gossip_init_done(struct lightningd *ld)
 void channel_gossip_channel_reestablished(struct channel *channel)
 {
 	channel->reestablished = true;
+	log_debug(channel->log, "channel_gossip: reestablished");
 
 	/* Ignore unsaved channels */
 	if (!channel->channel_gossip)
@@ -879,6 +882,7 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 
 void channel_gossip_channel_disconnect(struct channel *channel)
 {
+	log_debug(channel->log, "channel_gossip: NO LONGER reestablished");
 	channel->reestablished = false;
 }
 
