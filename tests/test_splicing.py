@@ -5,7 +5,7 @@ import pytest
 import unittest
 import time
 from utils import (
-    wait_for, TEST_NETWORK, first_scid, only_one
+    sync_blockheight, wait_for, TEST_NETWORK, first_scid, only_one
 )
 
 
@@ -313,7 +313,10 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
-    bitcoind.generate_block(6, wait_for_mempool=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Don't have l2, l3 reject channel_announcement as too far in future.
+    sync_blockheight(bitcoind, [l1, l2, l3])
+    bitcoind.generate_block(5)
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
