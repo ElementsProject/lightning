@@ -671,6 +671,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REQ:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
@@ -722,6 +723,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:
 		return bad_req_fmt(conn, c, c->msg_in,
 				   "Received an incoming message of type %s, "
 				   "which is not a request",

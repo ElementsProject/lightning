@@ -139,6 +139,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_ANCHORSPEND:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE:
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REQ:
 		return (client->capabilities & HSM_PERM_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -178,6 +179,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:
 		break;
 	}
 	return false;
@@ -972,7 +974,12 @@ static u8 *handle_get_output_scriptpubkey(struct hsmd_client *c,
  * defined in BOLT #7, and requires *two* signatures: one from this node's key
  * (to prove it's from us), and one from the bitcoin key used to create the
  * funding transaction (to prove we own the output). */
-static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
+static const char *handle_sign_cannouncement(const tal_t *ctx,
+					     const struct node_id *peer_id,
+					     u64 dbid,
+					     const u8 *ca,
+					     secp256k1_ecdsa_signature *node_sig,
+					     secp256k1_ecdsa_signature *bitcoin_sig)
 {
 	/*~ Our autogeneration code doesn't define field offsets, so we just
 	 * copy this from the spec itself.
@@ -992,10 +999,7 @@ static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
 	/* First type bytes are the msg type */
 	size_t offset = 2 + 256;
 	struct privkey node_pkey;
-	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
 	struct sha256_double hash;
-	u8 *reply;
-	u8 *ca;
 	struct pubkey funding_pubkey;
 	struct privkey funding_privkey;
 	struct secret channel_seed;
@@ -1009,8 +1013,28 @@ static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
 	 * mind if you fix this for him! */
 
 	/* FIXME: We should cache these. */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
+ 	get_channel_seed(peer_id, dbid, &channel_seed);
 	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
+
+	if (tal_count(ca) < offset)
+		return tal_fmt(ctx, "bad cannounce length %zu", tal_count(ca));
+
+	if (fromwire_peektype(ca) != WIRE_CHANNEL_ANNOUNCEMENT)
+		return tal_fmt(ctx, "Invalid channel announcement");
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
+
+	sign_hash(&node_pkey, &hash, node_sig);
+	sign_hash(&funding_privkey, &hash, bitcoin_sig);
+	return NULL;
+}
+
+static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
+{
+	u8 *ca;
+	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
+	const char *err;
 
 	/*~ fromwire_ routines which need to do allocation take a tal context
 	 * as their first field; tmpctx is good here since we won't need it
@@ -1018,23 +1042,32 @@ static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
 	if (!fromwire_hsmd_cannouncement_sig_req(tmpctx, msg_in, &ca))
 		return hsmd_status_malformed_request(c, msg_in);
 
-	if (tal_count(ca) < offset)
-		return hsmd_status_bad_request_fmt(
-		    c, msg_in, "bad cannounce length %zu", tal_count(ca));
+	err = handle_sign_cannouncement(tmpctx, &c->id, c->dbid, ca,
+					&node_sig, &bitcoin_sig);
+	if (err)
+		return hsmd_status_bad_request_fmt(c, msg_in, "%s", err);
 
-	if (fromwire_peektype(ca) != WIRE_CHANNEL_ANNOUNCEMENT)
-		return hsmd_status_bad_request_fmt(
-		    c, msg_in, "Invalid channel announcement");
+	return towire_hsmd_cannouncement_sig_reply(NULL, &node_sig, &bitcoin_sig);
+}
 
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
+/* This variant is used by modern lightningd to sign for a particular channel */
+static u8 *handle_any_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
+{
+	u8 *ca;
+	struct node_id peer_id;
+	u64 dbid;
+	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
+	const char *err;
 
-	sign_hash(&node_pkey, &hash, &node_sig);
-	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
+	if (!fromwire_hsmd_sign_any_cannouncement_req(tmpctx, msg_in, &ca, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
 
-	reply = towire_hsmd_cannouncement_sig_reply(NULL, &node_sig,
-						   &bitcoin_sig);
-	return reply;
+	err = handle_sign_cannouncement(tmpctx, &peer_id, dbid, ca,
+					&node_sig, &bitcoin_sig);
+	if (err)
+		return hsmd_status_bad_request_fmt(c, msg_in, "%s", err);
+
+	return towire_hsmd_sign_any_cannouncement_reply(NULL, &node_sig, &bitcoin_sig);
 }
 
 /*~ It's optional for nodes to send node_announcement, but it lets us set our
@@ -2026,6 +2059,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_get_channel_basepoints(client, msg);
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(client, msg);
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REQ:
+		return handle_any_cannouncement_sig(client, msg);
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(client, msg);
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
@@ -2110,6 +2145,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
+	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
