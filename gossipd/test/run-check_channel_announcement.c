@@ -54,14 +54,14 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for cupdate_different */
-bool cupdate_different(struct gossip_store *gs UNNEEDED,
-		       const struct half_chan *hc UNNEEDED,
-		       const u8 *cupdate UNNEEDED)
-{ fprintf(stderr, "cupdate_different called!\n"); abort(); }
 /* Generated stub for daemon_conn_send */
 void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
+/* Generated stub for get_cupdate_parts */
+void get_cupdate_parts(const u8 *channel_update UNNEEDED,
+		       const u8 *parts[2] UNNEEDED,
+		       size_t sizes[2])
+{ fprintf(stderr, "get_cupdate_parts called!\n"); abort(); }
 /* Generated stub for gossip_store_add */
 u64 gossip_store_add(struct gossip_store *gs UNNEEDED, const u8 *gossip_msg UNNEEDED,
 		     u32 timestamp UNNEEDED, bool zombie UNNEEDED, bool spam UNNEEDED, bool dying UNNEEDED,
@@ -98,12 +98,6 @@ void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
-/* Generated stub for nannounce_different */
-bool nannounce_different(struct gossip_store *gs UNNEEDED,
-			 const struct node *node UNNEEDED,
-			 const u8 *nannounce UNNEEDED,
-			 bool *only_missing_tlv UNNEEDED)
-{ fprintf(stderr, "nannounce_different called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,

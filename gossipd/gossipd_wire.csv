@@ -9,14 +9,9 @@ msgtype,gossipd_init,3000
 msgdata,gossipd_init,chainparams,chainparams,
 msgdata,gossipd_init,our_features,feature_set,
 msgdata,gossipd_init,id,node_id,
-msgdata,gossipd_init,rgb,u8,3
-msgdata,gossipd_init,alias,u8,32
-msgdata,gossipd_init,num_announceable,u16,
-msgdata,gossipd_init,announceable,wireaddr,num_announceable
 msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
-msgdata,gossipd_init,ip_discovery,u32,
 
 # Gossipd tells us all our public channel_updates before init_reply.
 msgtype,gossipd_init_cupdate,3101
@@ -85,10 +80,6 @@ msgdata,gossipd_addgossip,msg,u8,len
 msgtype,gossipd_addgossip_reply,3144
 msgdata,gossipd_addgossip_reply,err,wirestring,
 
-# Updated lease rates available
-msgtype,gossipd_new_lease_rates,3046
-msgdata,gossipd_new_lease_rates,rates,lease_rates,
-
 # Lightningd asks gossipd for any known addresses for that node.
 msgtype,gossipd_get_addrs,3050
 msgdata,gossipd_get_addrs,id,node_id,
@@ -96,10 +87,6 @@ msgdata,gossipd_get_addrs,id,node_id,
 msgtype,gossipd_get_addrs_reply,3150
 msgdata,gossipd_get_addrs_reply,num,u16,
 msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num
-
-# Tell gossipd we have verified a new public IP by the remote_addr feature
-msgtype,gossipd_discovered_ip,3009
-msgdata,gossipd_discovered_ip,discovered_ip,wireaddr,
 
 subtype,peer_update
 subtypedata,peer_update,scid,short_channel_id,

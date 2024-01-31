@@ -56,24 +56,6 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
-	/* Alias (not NUL terminated) and favorite color for node_announcement */
-	u8 alias[32];
-	u8 rgb[3];
-
-	/* What addresses we can actually announce. */
-	struct wireaddr *announceable;
-
-	/* verified remote_addr as reported by recent peers */
-	struct wireaddr *discovered_ip_v4;
-	struct wireaddr *discovered_ip_v6;
-	enum opt_autobool ip_discovery;
-
-	/* Timer until we can send an updated node_announcement */
-	struct oneshot *node_announce_timer;
-
-	/* Timer until we should force a new new node_announcement */
-	struct oneshot *node_announce_regen_timer;
-
 	/* Channels we have an announce for, but aren't deep enough. */
 	struct short_channel_id *deferred_txouts;
 
@@ -82,12 +64,6 @@ struct daemon {
 
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
-
-	/* The channel lease rates we're advertising */
-	const struct lease_rates *rates;
-
-	/* Any of our channel_updates we're deferring. */
-	struct list_head deferred_updates;
 };
 
 struct range_query_reply {

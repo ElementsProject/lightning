@@ -26,7 +26,6 @@
 #include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <errno.h>
-#include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
@@ -239,12 +238,6 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	if (unknown_scid.u64 != 0)
 		query_unknown_channel(peer->daemon, peer, &unknown_scid);
 
-	/*~ As a nasty compromise in the spec, we only forward `channel_announce`
-	 * once we have a `channel_update`; the channel isn't *usable* for
-	 * routing until you have both anyway.  For this reason, we might have
-	 * just sent out our own channel_announce, so we check if it's time to
-	 * send a node_announcement too. */
-	maybe_send_own_node_announce(peer->daemon, false);
 	return NULL;
 }
 
@@ -258,53 +251,6 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	if (was_unknown)
 		query_unknown_node(peer->daemon->seeker, peer);
 	return err;
-}
-
-/* lightningd tells us it has discovered and verified new `remote_addr`.
- * We can use this to update our node announcement. */
-static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
-{
-	struct wireaddr discovered_ip;
-	size_t count_announceable;
-
-	if (!fromwire_gossipd_discovered_ip(msg, &discovered_ip))
-		master_badmsg(WIRE_GOSSIPD_DISCOVERED_IP, msg);
-
-	switch (discovered_ip.type) {
-	case ADDR_TYPE_IPV4:
-		if (daemon->discovered_ip_v4 != NULL &&
-		    wireaddr_eq_without_port(daemon->discovered_ip_v4,
-					     &discovered_ip))
-			break;
-		tal_free(daemon->discovered_ip_v4);
-		daemon->discovered_ip_v4 = tal_dup(daemon, struct wireaddr,
-						 &discovered_ip);
-		goto update_node_annoucement;
-	case ADDR_TYPE_IPV6:
-		if (daemon->discovered_ip_v6 != NULL &&
-		    wireaddr_eq_without_port(daemon->discovered_ip_v6,
-					     &discovered_ip))
-			break;
-		tal_free(daemon->discovered_ip_v6);
-		daemon->discovered_ip_v6 = tal_dup(daemon, struct wireaddr,
-						 &discovered_ip);
-		goto update_node_annoucement;
-
-	/* ignore all other cases */
-	case ADDR_TYPE_TOR_V2_REMOVED:
-	case ADDR_TYPE_TOR_V3:
-	case ADDR_TYPE_DNS:
-		break;
-	}
-	return;
-
-update_node_annoucement:
-	count_announceable = tal_count(daemon->announceable);
-	if ((daemon->ip_discovery == OPT_AUTOBOOL_AUTO && count_announceable == 0) ||
-	     daemon->ip_discovery == OPT_AUTOBOOL_TRUE)
-		status_debug("Update our node_announcement for discovered address: %s",
-			     fmt_wireaddr(tmpctx, &discovered_ip));
-	maybe_send_own_node_announce(daemon, false);
 }
 
 /* Statistically, how many peers to we tell about each channel? */
@@ -688,13 +634,9 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &chainparams,
 				     &daemon->our_features,
 				     &daemon->id,
-				     daemon->rgb,
-				     daemon->alias,
-				     &daemon->announceable,
 				     &dev_gossip_time,
 				     &dev_fast_gossip,
-				     &dev_fast_gossip_prune,
-				     &daemon->ip_discovery)) {
+				     &dev_fast_gossip_prune)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -712,10 +654,6 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	 * be the gossip_store mtime. */
 	if (daemon->rstate->last_timestamp > timestamp)
 		daemon->rstate->last_timestamp = timestamp;
-
-	/* If that announced channels, we can announce ourselves (options
-	 * or addresses might have changed!) */
-	maybe_send_own_node_announce(daemon, true);
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
@@ -824,10 +762,6 @@ static void handle_txout_reply(struct daemon *daemon, const u8 *msg)
 
 	/* If we looking specifically for this, we no longer are. */
 	remove_unknown_scid(daemon->seeker, &scid, good);
-
-	/* Anywhere we might have announced a channel, we check if it's time to
-	 * announce ourselves (ie. if we just announced our own first channel) */
-	maybe_send_own_node_announce(daemon, false);
 }
 
 /*~ lightningd tells us when about a gossip message directly, when told to by
@@ -872,23 +806,6 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 err_extracted:
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_addgossip_reply(NULL, err)));
-}
-
-static void handle_new_lease_rates(struct daemon *daemon, const u8 *msg)
-{
-	struct lease_rates *rates = tal(daemon, struct lease_rates);
-
-	if (!fromwire_gossipd_new_lease_rates(msg, rates))
-		master_badmsg(WIRE_GOSSIPD_NEW_LEASE_RATES, msg);
-
-	daemon->rates = tal_free(daemon->rates);
-	if (!lease_rates_empty(rates))
-		daemon->rates = rates;
-	else
-		tal_free(rates);
-
-	/* Send the update over to the peer */
-	maybe_send_own_node_announce(daemon, false);
 }
 
 /*~ This is where lightningd tells us that a channel's funding transaction has
@@ -941,16 +858,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		inject_gossip(daemon, msg);
 		goto done;
 
-	case WIRE_GOSSIPD_NEW_LEASE_RATES:
-		handle_new_lease_rates(daemon, msg);
-		goto done;
-
 	case WIRE_GOSSIPD_GET_ADDRS:
 		return handle_get_address(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_DISCOVERED_IP:
-		handle_discovered_ip(daemon, msg);
-		goto done;
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		if (daemon->developer) {
 			dev_set_max_scids_encode_size(daemon, msg);
@@ -1012,14 +922,7 @@ int main(int argc, char *argv[])
 	daemon->peers = tal(daemon, struct peer_node_id_map);
 	peer_node_id_map_init(daemon->peers);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
-	daemon->node_announce_timer = NULL;
-	daemon->node_announce_regen_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
-	daemon->rates = NULL;
-	daemon->discovered_ip_v4 = NULL;
-	daemon->discovered_ip_v6 = NULL;
-	daemon->ip_discovery = OPT_AUTOBOOL_AUTO;
-	list_head_init(&daemon->deferred_updates);
 
 	/* Tell the ecdh() function how to talk to hsmd */
 	ecdh_hsmd_setup(HSM_FD, status_failed);
