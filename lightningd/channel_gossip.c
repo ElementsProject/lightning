@@ -351,6 +351,21 @@ static void stash_remote_announce_sigs(struct channel *channel,
 				       const secp256k1_ecdsa_signature *bitcoin_sig)
 {
 	struct channel_gossip *cg = channel->channel_gossip;
+	const char *err;
+
+	/* BOLT #7:
+	 * - if the `node_signature` OR the `bitcoin_signature` is NOT correct:
+	 *   - MAY send a `warning` and close the connection, or send an
+         *     `error` and fail the channel.
+	 */
+	err = check_announce_sigs(channel, scid, node_sig, bitcoin_sig);
+	if (err) {
+		channel_fail_transient(channel, true,
+				       "Bad gossip announcement_signatures for scid %s: %s",
+				       short_channel_id_to_str(tmpctx, &scid),
+				       err);
+		return;
+	}
 
 	tal_free(cg->remote_sigs);
 	cg->remote_sigs = tal(cg, struct remote_announce_sigs);
@@ -375,7 +390,6 @@ static bool apply_remote_sigs(struct channel *channel)
 		return false;
 	}
 
-	/* FIXME: check sigs are valid! */
 	wallet_announcement_save(channel->peer->ld->wallet,
 				 channel->dbid,
 				 &cg->remote_sigs->node_sig,
@@ -397,7 +411,7 @@ static void send_channel_announce_sigs(struct channel *channel)
 	if (!channel_state_can_add_htlc(channel->state))
 		return;
 
-	ca = create_channel_announcement(tmpctx, channel,
+	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
 
 	msg = hsm_sync_req(tmpctx, ld,
@@ -453,7 +467,7 @@ static void send_channel_announcement(struct channel *channel)
 	const u8 *ca, *msg;
 	struct channel_gossip *cg = channel->channel_gossip;
 
- 	ca = create_channel_announcement(tmpctx, channel,
+ 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL,
 					 &cg->remote_sigs->node_sig,
 					 &cg->remote_sigs->bitcoin_sig);
@@ -471,7 +485,7 @@ static void send_channel_announcement(struct channel *channel)
 	if (!ld->gossip)
 		return;
 
-	ca = create_channel_announcement(tmpctx, channel,
+	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 &local_node_sig,
 					 &local_bitcoin_sig,
 					 &cg->remote_sigs->node_sig,

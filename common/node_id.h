@@ -7,6 +7,8 @@
 #include <ccan/htable/htable_type.h>
 #include <common/pseudorand.h>
 
+struct sha256_double;
+
 struct node_id {
 	u8 k[PUBKEY_CMPR_LEN];
 };
@@ -63,4 +65,18 @@ static inline size_t node_id_hash(const struct node_id *id)
 {
 	return siphash24(siphash_seed(), id->k, sizeof(id->k));
 }
+
+/**
+ * check_signed_hash_nodeid - check a raw secp256k1 signature.
+ * @h: hash which was signed.
+ * @signature: signature.
+ * @id: node_id corresponding to private key used to sign.
+ *
+ * Returns true if the id, hash and signature are correct.  Changing any
+ * one of these will make it fail.
+ */
+bool check_signed_hash_nodeid(const struct sha256_double *hash,
+			      const secp256k1_ecdsa_signature *signature,
+			      const struct node_id *id);
+
 #endif /* LIGHTNING_COMMON_NODE_ID_H */

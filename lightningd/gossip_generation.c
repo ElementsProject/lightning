@@ -51,6 +51,7 @@ static void copysig_or_zero(secp256k1_ecdsa_signature *dst,
 
 u8 *create_channel_announcement(const tal_t *ctx,
 				const struct channel *channel,
+				struct short_channel_id scid,
 				const secp256k1_ecdsa_signature *local_node_signature,
 				const secp256k1_ecdsa_signature *local_bitcoin_signature,
 				const secp256k1_ecdsa_signature *remote_node_signature,
@@ -72,7 +73,7 @@ u8 *create_channel_announcement(const tal_t *ctx,
 	node_id[REMOTE] = channel->peer->id;
 	funding_pubkey[LOCAL] = channel->local_funding_pubkey;
 	funding_pubkey[REMOTE] = channel->channel_info.remote_fundingkey;
-	return create_channel_announcement_dir(ctx, features, *channel->scid,
+	return create_channel_announcement_dir(ctx, features, scid,
 					       node_signature, bitcoin_signature, node_id, funding_pubkey);
 }
 
@@ -204,4 +205,37 @@ bool channel_update_details(const u8 *channel_update,
 	if (enabled)
 		*enabled = !(channel_flags & ROUTING_FLAGS_DISABLED);
 	return true;
+}
+
+const char *check_announce_sigs(const struct channel *channel,
+				struct short_channel_id scid,
+				const secp256k1_ecdsa_signature *remote_node_signature,
+				const secp256k1_ecdsa_signature *remote_bitcoin_signature)
+{
+	struct sha256_double hash;
+	const u8 *cannounce;
+
+	cannounce = create_channel_announcement(tmpctx, channel, scid,
+						NULL, NULL, NULL, NULL);
+
+	/* BOLT #7:
+	 *
+	 * - MUST compute the double-SHA256 hash `h` of the message, beginning
+	 *   at offset 256, up to the end of the message.
+	 *     - Note: the hash skips the 4 signatures but hashes the rest of the
+	 *       message, including any future fields appended to the end.
+	 */
+	/* First two bytes are the msg type */
+	int offset = 258;
+	sha256_double(&hash, cannounce + offset, tal_count(cannounce) - offset);
+
+	if (!check_signed_hash_nodeid(&hash, remote_node_signature,
+				      &channel->peer->id))
+		return "invalid node_signature";
+
+	if (!check_signed_hash(&hash, remote_bitcoin_signature,
+			       &channel->channel_info.remote_fundingkey))
+		return "invalid bitcoin_signature";
+
+	return NULL;
 }
