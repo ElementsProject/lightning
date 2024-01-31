@@ -665,6 +665,9 @@ struct peer_fd *new_peer_fd(const tal_t *ctx UNNEEDED, int peer_fd UNNEEDED)
 /* Generated stub for new_uncommitted_channel */
 struct uncommitted_channel *new_uncommitted_channel(struct peer *peer UNNEEDED)
 { fprintf(stderr, "new_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for node_announcement_same */
+bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
+{ fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }

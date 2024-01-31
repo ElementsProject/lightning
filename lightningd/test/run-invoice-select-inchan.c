@@ -90,6 +90,9 @@ const struct peer_update *channel_gossip_get_remote_update(const struct channel 
 /* Generated stub for channel_gossip_peer_connected */
 void channel_gossip_peer_connected(struct peer *peer UNNEEDED)
 { fprintf(stderr, "channel_gossip_peer_connected called!\n"); abort(); }
+/* Generated stub for channel_gossip_startup_done */
+void channel_gossip_startup_done(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "channel_gossip_startup_done called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
 struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }

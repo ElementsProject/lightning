@@ -13,6 +13,9 @@ struct peer_update;
 void channel_gossip_init(struct channel *channel,
 			 const struct peer_update *remote_update TAKES);
 
+/* We've attempted reconnect to all peers. */
+void channel_gossip_startup_done(struct lightningd *ld);
+
 /* Something about channel/blockchain changed: update if required */
 void channel_gossip_update(struct channel *channel);
 

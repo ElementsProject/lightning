@@ -51,8 +51,6 @@ struct channel_gossip {
 	const struct peer_update *peer_update;
 };
 
-/* FIXME: this is a hack!  We should wait 1 minute after connectd has
- * tried to connect to all peers. */
 static bool starting_up = true, gossipd_init_done = false;
 
 /* We send non-forwardable channel updates if we can. */
@@ -794,6 +792,14 @@ static void set_not_starting_up(struct lightningd *ld)
 	log_debug(ld->log, "channel_gossip: no longer in startup mode");
 }
 
+/* We also wait ten seconds *after* connection, for lease registration */
+void channel_gossip_startup_done(struct lightningd *ld)
+{
+	notleak(new_reltimer(ld->timers, ld,
+			     time_from_sec(10),
+			     set_not_starting_up, ld));
+}
+
 /* Gossipd init is done: if you expected a channel_update, be
  * disappointed.  */
 void channel_gossip_init_done(struct lightningd *ld)
@@ -823,10 +829,6 @@ void channel_gossip_init_done(struct lightningd *ld)
 			send_channel_announcement(channel);
 		}
 	}
-
-	notleak(new_reltimer(ld->timers, ld,
-			     time_from_sec(60),
-			     set_not_starting_up, ld));
 }
 
 /* Peer has connected. */

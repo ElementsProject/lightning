@@ -172,6 +172,9 @@ struct lightningd {
 	/* Do we want to reconnect to other peers? */
 	bool reconnect;
 
+	/* How many outstanding startup connection attempts? */
+	size_t num_startup_connects;
+
 	/* Do we want to listen for other peers? */
 	bool listen;
 
