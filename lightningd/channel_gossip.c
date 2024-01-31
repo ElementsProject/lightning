@@ -1065,7 +1065,7 @@ void channel_gossip_node_announce(struct lightningd *ld)
 	if (!gossipd_init_done)
 		return;
 
-	nannounce = unsigned_node_announcement(tmpctx, ld);
+	nannounce = unsigned_node_announcement(tmpctx, ld, ld->node_announcement);
 
 	/* Don't bother with duplicates */
 	if (ld->node_announcement

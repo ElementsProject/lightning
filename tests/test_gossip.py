@@ -1073,10 +1073,6 @@ def test_gossip_lease_rates(node_factory, bitcoind):
                   'channel-fee-max-proportional-thousandths': 200}
     l1, l2 = node_factory.get_nodes(2, opts=[lease_opts, {}])
 
-    # These logs happen during startup, start looking from the beginning
-    l1.daemon.logsearch_start = 0
-    l2.daemon.logsearch_start = 0
-
     rates = l1.rpc.call('funderupdate')
     assert rates['channel_fee_max_base_msat'] == Millisatoshi('500000msat')
     assert rates['channel_fee_max_proportional_thousandths'] == 200

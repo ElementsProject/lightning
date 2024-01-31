@@ -81,8 +81,11 @@ const char *check_announce_sigs(const struct channel *channel,
  * unsigned_node_announcement: create a current unsigned node announcement.
  * @ctx: the context to allocate return from
  * @ld: the lightningd struct.
+ * @prev: optional previous announcement (to ensure we increase timestamp!)
  */
-u8 *unsigned_node_announcement(const tal_t *ctx, struct lightningd *ld);
+u8 *unsigned_node_announcement(const tal_t *ctx,
+			       struct lightningd *ld,
+			       const u8 *prev);
 
 /**
  * add_node_announcement_sig: apply the signature to the node announcement

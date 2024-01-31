@@ -1171,7 +1171,9 @@ u8 *unsigned_channel_update(const tal_t *ctx UNNEEDED,
 			    bool enabled UNNEEDED)
 { fprintf(stderr, "unsigned_channel_update called!\n"); abort(); }
 /* Generated stub for unsigned_node_announcement */
-u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED)
+u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
+			       struct lightningd *ld UNNEEDED,
+			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
 /* Generated stub for unwrap_onionreply */
 u8 *unwrap_onionreply(const tal_t *ctx UNNEEDED,
