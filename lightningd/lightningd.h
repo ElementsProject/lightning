@@ -187,6 +187,9 @@ struct lightningd {
 	struct wireaddr_internal *binding;
 	struct wireaddr *announceable;
 
+	/* Lease rates to advertize, set by json_setleaserates */
+	struct lease_rates *lease_rates;
+
 	/* unverified remote_addr as reported by recent peers */
 	struct wireaddr *remote_addr_v4;
 	struct wireaddr *remote_addr_v6;

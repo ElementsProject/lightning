@@ -336,6 +336,11 @@ static struct command_result *json_setleaserates(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	/* Save them for node_announcement generation */
+	cmd->ld->lease_rates = tal_free(cmd->ld->lease_rates);
+	if (!lease_rates_empty(rates))
+		cmd->ld->lease_rates = tal_steal(cmd->ld, rates);
+
 	/* Call gossipd, let them know we've got new rates */
 	subd_send_msg(cmd->ld->gossip,
 		      take(towire_gossipd_new_lease_rates(NULL, rates)));
