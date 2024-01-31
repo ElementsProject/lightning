@@ -259,7 +259,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->daemon = daemon;
 	rstate->nodes = new_node_map(rstate);
-	rstate->gs = gossip_store_new(rstate);
+	rstate->gs = gossip_store_new(daemon);
 	rstate->last_timestamp = 0;
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 

@@ -16,17 +16,16 @@
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(struct routing_state *rstate);
+struct gossip_store *gossip_store_new(struct daemon *daemon);
 
 /**
  * Load the initial gossip store, if any.
  *
- * @param rstate The routing state to load init.
  * @param gs  The `gossip_store` to read from
  *
  * Returns the last-modified time of the store, or 0 if it was created new.
  */
-u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
+u32 gossip_store_load(struct gossip_store *gs);
 
 /**
  * Add a gossip message to the gossip_store (and optional addendum)

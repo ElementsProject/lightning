@@ -668,7 +668,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 					   dev_fast_gossip_prune);
 
 	/* Load stored gossip messages, get last modified time of file */
-	timestamp = gossip_store_load(daemon->rstate, daemon->rstate->gs);
+	timestamp = gossip_store_load(daemon->rstate->gs);
 
 	/* If last_timestamp was > modified time of file, reduce it.
 	 * Usually it's capped to "now", but in the reload case it needs to
