@@ -498,6 +498,9 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 handled_msg:
 	if (err)
 		queue_peer_msg(peer->daemon, &peer->id, take(err));
+	else
+		/* Some peer gave us gossip, so we're not at zero. */
+		peer->daemon->gossip_store_populated = true;
 }
 
 /*~ connectd's input handler is very simple. */
@@ -674,7 +677,6 @@ bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	u32 *dev_gossip_time;
-	u32 timestamp;
 
 	if (!fromwire_gossipd_init(daemon, msg,
 				     &chainparams,
@@ -696,14 +698,9 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 
 	daemon->rstate = new_routing_state(daemon, daemon);
 
-	/* Load stored gossip messages, get last modified time of file */
-	timestamp = gossip_store_load(daemon->rstate->gs);
-
-	/* If last_timestamp was > modified time of file, reduce it.
-	 * Usually it's capped to "now", but in the reload case it needs to
-	 * be the gossip_store mtime. */
-	if (daemon->rstate->last_timestamp > timestamp)
-		daemon->rstate->last_timestamp = timestamp;
+	/* Load stored gossip messages (FIXME: API sucks)*/
+	daemon->gossip_store_populated =
+		(gossip_store_load(daemon->rstate->gs) != 0);
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,

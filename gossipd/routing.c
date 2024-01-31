@@ -242,7 +242,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->daemon = daemon;
 	rstate->nodes = new_node_map(rstate);
 	rstate->gs = gossip_store_new(daemon);
-	rstate->last_timestamp = 0;
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 
 	rstate->pending_cannouncements = tal(rstate, struct pending_cannouncement_map);
@@ -1375,9 +1374,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->rgraph.index
 			= gossip_store_add(rstate->gs, update, timestamp,
 					   zombie, spam, dying, NULL);
-		if (hc->bcast.timestamp > rstate->last_timestamp
-		    && hc->bcast.timestamp < time_now().ts.tv_sec)
-			rstate->last_timestamp = hc->bcast.timestamp;
 		if (!spam)
 			hc->bcast.index = hc->rgraph.index;
 
@@ -1794,9 +1790,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		node->rgraph.index
 			= gossip_store_add(rstate->gs, msg, timestamp,
 					   false, spam, false, NULL);
-		if (node->bcast.timestamp > rstate->last_timestamp
-		    && node->bcast.timestamp < time_now().ts.tv_sec)
-			rstate->last_timestamp = node->bcast.timestamp;
 		if (!spam)
 			node->bcast.index = node->rgraph.index;
 

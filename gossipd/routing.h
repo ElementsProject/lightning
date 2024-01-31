@@ -200,9 +200,6 @@ struct routing_state {
 	 * checks if we get another announcement for the same scid. */
 	struct txout_failures *txf;
 
-	/* Highest timestamp of gossip we accepted (before now) */
-	u32 last_timestamp;
-
 	/* Channels which are closed, but we're waiting 12 blocks */
 	struct dying_channel *dying_channels;
 };
