@@ -120,4 +120,14 @@ void gossmap_manage_new_peer(struct gossmap_manage *gm,
 struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
 						   struct gossmap_manage *gm,
 						   const struct node_id *node_id);
+
+/**
+ * gossmap_manage_tell_lightningd_locals: tell lightningd our latest updates.
+ * @daemon: the gossip daemon
+ * @gm: the gossmap_manage context
+ *
+ * Done before we reply to gossipd_init.
+ */
+void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
+					   struct gossmap_manage *gm);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */
