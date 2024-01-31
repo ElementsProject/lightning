@@ -23,9 +23,6 @@
 #define SUPERVERBOSE(...)
 #endif
 
-/* 365.25 * 24 * 60 / 10 */
-#define BLOCKS_PER_YEAR 52596
-
 struct pending_spam_node_announce {
 	u8 *node_announcement;
 	u32 index;
@@ -40,8 +37,6 @@ struct pending_node_announce {
 	u32 index;
 	/* If non-NULL this is peer to credit it with */
 	struct node_id *source_peer;
-	/* required for loading gossip store */
-	struct pending_spam_node_announce spam;
 };
 
 /* As per the below BOLT #7 quote, we delay forgetting a channel until 12
@@ -53,25 +48,6 @@ struct dying_channel {
 	/* Where the dying_channel marker is in the store. */
 	struct broadcastable marker;
 };
-
-/* We consider a reasonable gossip rate to be 2 per day, with burst of
- * 4 per day.  So we use a granularity of one hour. */
-#define TOKENS_PER_MSG 12
-#define TOKEN_MAX (12 * 4)
-
-static u8 update_tokens(const struct routing_state *rstate,
-			u8 tokens, u32 prev_timestamp, u32 new_timestamp)
-{
-	u64 num_tokens = tokens;
-
-	assert(new_timestamp >= prev_timestamp);
-
-	num_tokens += ((new_timestamp - prev_timestamp)
-		       / GOSSIP_TOKEN_TIME(rstate->daemon->dev_fast_gossip));
-	if (num_tokens > TOKEN_MAX)
-		num_tokens = TOKEN_MAX;
-	return num_tokens;
-}
 
 static const struct node_id *
 pending_node_announce_keyof(const struct pending_node_announce *a)
@@ -291,8 +267,6 @@ static struct node *new_node(struct routing_state *rstate,
 	memset(n->chan_arr, 0, sizeof(n->chan_arr));
 	n->chan_map = NULL;
 	broadcastable_init(&n->bcast);
-	broadcastable_init(&n->rgraph);
-	n->tokens = TOKEN_MAX;
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor2(n, destroy_node, rstate);
 
@@ -334,7 +308,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 	const u8 *announce;
 	announce = gossip_store_get(tmpctx, rstate->daemon->gs, node->bcast.index);
 
-	u32 initial_bcast_index = node->bcast.index;
 	gossip_store_delete(rstate->daemon->gs,
 			    &node->bcast,
 			    WIRE_NODE_ANNOUNCEMENT);
@@ -343,19 +316,6 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     node->bcast.timestamp,
 					     false,
 					     NULL);
-	if (node->rgraph.index == initial_bcast_index){
-		node->rgraph.index = node->bcast.index;
-	} else {
-		announce = gossip_store_get(tmpctx, rstate->daemon->gs, node->rgraph.index);
-		gossip_store_delete(rstate->daemon->gs,
-				    &node->rgraph,
-				    WIRE_NODE_ANNOUNCEMENT);
-		node->rgraph.index = gossip_store_add(rstate->daemon->gs,
-						      announce,
-						      node->rgraph.timestamp,
-						      false,
-						      NULL);
-	}
 }
 
 static void remove_chan_from_node(struct routing_state *rstate,
@@ -379,10 +339,6 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
-		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(rstate->daemon->gs,
-					    &node->rgraph,
-					    WIRE_NODE_ANNOUNCEMENT);
 		gossip_store_delete(rstate->daemon->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
@@ -396,15 +352,11 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
-		if (node->rgraph.index != node->bcast.index)
-			gossip_store_delete(rstate->daemon->gs,
-					    &node->rgraph,
-					    WIRE_NODE_ANNOUNCEMENT);
 		gossip_store_delete(rstate->daemon->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
-		node->rgraph.index = node->bcast.index = 0;
-		node->rgraph.timestamp = node->bcast.timestamp = 0;
+		node->bcast.index = 0;
+		node->bcast.timestamp = 0;
 	} else if (node_announce_predates_channels(node)) {
 		/* node announcement predates all channel announcements?
 		 * Move to end (we could, in theory, move to just past next
@@ -446,8 +398,6 @@ static void init_half_chan(struct routing_state *rstate,
 	struct half_chan *c = &chan->half[channel_idx];
 
 	broadcastable_init(&c->bcast);
-	broadcastable_init(&c->rgraph);
-	c->tokens = TOKEN_MAX;
 }
 
 static void bad_gossip_order(const u8 *msg,
@@ -544,8 +494,6 @@ static void catch_node_announcement(const tal_t *ctx,
 		pna->index = 0;
 		pna->refcount = 0;
 		pna->source_peer = NULL;
-		pna->spam.node_announcement = NULL;
-		pna->spam.index = 0;
 		pending_node_map_add(rstate->pending_node_map, pna);
 	}
 	pna->refcount++;
@@ -625,14 +573,8 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 	/* If these aren't in the store, these are noops. */
 	gossip_store_delete(rstate->daemon->gs,
 			    &chan->bcast, WIRE_CHANNEL_ANNOUNCEMENT);
-	if (chan->half[0].rgraph.index != chan->half[0].bcast.index)
-		gossip_store_delete(rstate->daemon->gs,
-				    &chan->half[0].rgraph, WIRE_CHANNEL_UPDATE);
 	gossip_store_delete(rstate->daemon->gs,
 			    &chan->half[0].bcast, WIRE_CHANNEL_UPDATE);
-	if (chan->half[1].rgraph.index != chan->half[1].bcast.index)
-		gossip_store_delete(rstate->daemon->gs,
-				    &chan->half[1].rgraph, WIRE_CHANNEL_UPDATE);
 	gossip_store_delete(rstate->daemon->gs,
 			    &chan->half[1].bcast, WIRE_CHANNEL_UPDATE);
 }
@@ -1006,18 +948,6 @@ static void update_pending(struct pending_cannouncement *pending,
 	}
 }
 
-static void delete_spam_update(struct routing_state *rstate,
-			       struct half_chan *hc)
-{
-	/* Spam updates will have a unique rgraph index */
-	if (hc->rgraph.index == hc->bcast.index)
-		return;
-	gossip_store_delete(rstate->daemon->gs, &hc->rgraph,
-			    WIRE_CHANNEL_UPDATE);
-	hc->rgraph.index = hc->bcast.index;
-	hc->rgraph.timestamp = hc->bcast.timestamp;
-}
-
 static bool is_chan_dying(struct routing_state *rstate,
 			  const struct short_channel_id *scid)
 {
@@ -1141,12 +1071,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return false;
 		}
 
-		if (timestamp <= hc->rgraph.timestamp) {
-			SUPERVERBOSE("Ignoring outdated update.");
-			/* Ignoring != failing */
-			return true;
-		}
-
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 2
 		    && !cupdate_different(rstate->daemon->gs, hc, update)) {
@@ -1161,13 +1085,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 	}
 
-	/* Delete any prior entries (noop if they don't exist) */
-	delete_spam_update(rstate, hc);
+	/* Delete any prior entry (noop if doesn't exist) */
 	gossip_store_delete(rstate->daemon->gs, &hc->bcast,
 			    WIRE_CHANNEL_UPDATE);
 
-	/* Update timestamp(s) */
-	hc->rgraph.timestamp = timestamp;
+	/* Update timestamp */
 	hc->bcast.timestamp = timestamp;
 
 	/* If this is a peer's update to one of our local channels, tell lightningd. */
@@ -1201,12 +1123,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index) {
 		hc->bcast.index = index;
-		hc->rgraph.index = index;
 	} else {
-		hc->rgraph.index
+		hc->bcast.index
 			= gossip_store_add(rstate->daemon->gs, update, timestamp,
 					   dying, NULL);
-		hc->bcast.index = hc->rgraph.index;
 
 		peer_supplied_good_gossip(rstate->daemon, source_peer, 1);
 	}
@@ -1229,14 +1149,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
 	return true;
-}
-
-bool would_ratelimit_cupdate(struct routing_state *rstate,
-			     const struct half_chan *hc,
-			     u32 timestamp)
-{
-	return update_tokens(rstate, hc->tokens, hc->bcast.timestamp, timestamp)
-		>= TOKENS_PER_MSG;
 }
 
 static const struct node_id *get_channel_owner(struct routing_state *rstate,
@@ -1535,12 +1447,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			return false;
 		}
 
-		if (node->rgraph.timestamp >= timestamp) {
-			SUPERVERBOSE("Ignoring node announcement, it's outdated.");
-			/* OK unless we're loading from store */
-			return index == 0;
-		}
-
 		/* Allow redundant updates once a day (faster in dev-fast-gossip-prune mode) */
 		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 14;
 		if (timestamp < node->bcast.timestamp + redundant_time
@@ -1556,7 +1462,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	}
 
 	/* Routing graph always references the latest message. */
-	node->rgraph.timestamp = timestamp;
 	node->bcast.timestamp = timestamp;
 
 	/* Harmless if it was never added */
@@ -1565,13 +1470,11 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	/* Don't add to the store if it was loaded from the store. */
 	if (index) {
-		node->rgraph.index = index;
 		node->bcast.index = index;
 	} else {
-		node->rgraph.index
+		node->bcast.index
 			= gossip_store_add(rstate->daemon->gs, msg, timestamp,
 					   false, NULL);
-		node->bcast.index = node->rgraph.index;
 
 		peer_supplied_good_gossip(rstate->daemon, source_peer, 1);
 	}

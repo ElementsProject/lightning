@@ -153,8 +153,6 @@ class GossmapStats(object):
         print("CONSISTENCY")
         print(f" - {len(self.filter_nodes_unannounced())} orphan nodes without a node_announcement, only known from a channel_announcement.")
         print(f" - {len(self.g.orphan_channel_updates)} orphan channel_updates without a prior channel_announcement.")
-        print(f" - {len(self.filter_nodes_ratelimited())} nodes marked as ratelimited. (sending too many updates).")
-        print(f" - {len(self.filter_halfchannels_ratelimited())} half-channels marked as ratelimited. (sending too many updates).")
         print(f" - {len(self.filter_channels_nosatoshis())} channels without capacity (missing WIRE_GOSSIP_STORE_CHANNEL_AMOUNT). Should be 0.")
         print("")
 
