@@ -75,7 +75,9 @@ void queue_peer_from_store(struct peer *peer UNNEEDED,
 			   const struct broadcastable *bcast UNNEEDED)
 { fprintf(stderr, "queue_peer_from_store called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
-void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
+void queue_peer_msg(struct daemon *daemon UNNEEDED,
+		    const struct node_id *peer UNNEEDED,
+		    const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED,
