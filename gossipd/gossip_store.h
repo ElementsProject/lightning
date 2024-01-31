@@ -51,14 +51,12 @@ void gossip_store_del(struct gossip_store *gs,
 
 /**
  * Add a flag the record at this offset (offset is that of
- * record, not header, unlike bcast->index!).
+ * record!).  Returns offset of *next* record.
  *
  * In developer mode, checks that type is correct.
  */
-void gossip_store_flag(struct gossip_store *gs,
-		       u64 offset,
-		       u16 flag,
-		       int type);
+u64 gossip_store_set_flag(struct gossip_store *gs,
+		       u64 offset, u16 flag, int type);
 
 /**
  * Direct store accessor: get timestamp header for a record.

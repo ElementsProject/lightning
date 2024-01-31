@@ -1112,9 +1112,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 
 		kill_spent_channel(gm, gossmap, gm->dying_channels[i].scid);
 		gossip_store_del(gm->daemon->gs,
-				 /* FIXME: fix API to give us pre-hdr offsets! */
-				 gm->dying_channels[i].gossmap_offset
-				 + sizeof(struct gossip_hdr),
+				 gm->dying_channels[i].gossmap_offset,
 				 WIRE_GOSSIP_STORE_CHAN_DYING);
 		tal_arr_remove(&gm->dying_channels, i);
 	}
@@ -1160,18 +1158,18 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	gossmap_manage_channel_dying(gm, off, deadline, scid);
 
 	/* Mark it dying, so we don't gossip it */
-	gossip_store_flag(gm->daemon->gs, chan->cann_off,
-			  GOSSIP_STORE_DYING_BIT,
-			  WIRE_CHANNEL_ANNOUNCEMENT);
+	gossip_store_set_flag(gm->daemon->gs, chan->cann_off,
+			      GOSSIP_STORE_DYING_BIT,
+			      WIRE_CHANNEL_ANNOUNCEMENT);
 	/* Channel updates too! */
 	for (int dir = 0; dir < 2; dir++) {
 		if (!gossmap_chan_set(chan, dir))
 			continue;
 
-		gossip_store_flag(gm->daemon->gs,
-				  chan->cupdate_off[dir],
-				  GOSSIP_STORE_DYING_BIT,
-				  WIRE_CHANNEL_UPDATE);
+		gossip_store_set_flag(gm->daemon->gs,
+				      chan->cupdate_off[dir],
+				      GOSSIP_STORE_DYING_BIT,
+				      WIRE_CHANNEL_UPDATE);
 	}
 }
 
