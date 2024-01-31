@@ -17,6 +17,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
@@ -682,6 +683,10 @@ bool depthcb_update_scid(struct channel *channel,
 		return false;
 	}
 
+	/* No change?  Great. */
+	if (channel->scid && short_channel_id_eq(channel->scid, &scid))
+		return true;
+
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
 				      TX_CHANNEL_FUNDING, channel->dbid);
@@ -696,17 +701,17 @@ bool depthcb_update_scid(struct channel *channel,
 		if (channel->minimum_depth == 0)
 			lockin_has_completed(channel, false);
 
-		wallet_channel_save(ld->wallet, channel);
-	} else if (!short_channel_id_eq(channel->scid, &scid)) {
+	} else {
 		/* We freaked out if required when original was
 		 * removed, so just update now */
 		log_info(channel->log, "Short channel id changed from %s->%s",
 			 type_to_string(tmpctx, struct short_channel_id, channel->scid),
 			 type_to_string(tmpctx, struct short_channel_id, &scid));
 		*channel->scid = scid;
-		wallet_channel_save(ld->wallet, channel);
+		channel_gossip_scid_changed(channel);
 	}
 
+	wallet_channel_save(ld->wallet, channel);
 	return true;
 }
 
@@ -886,12 +891,13 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 
 void lockin_has_completed(struct channel *channel, bool record_push)
 {
+	struct lightningd *ld = channel->peer->ld;
+
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
-	try_update_feerates(channel->peer->ld, channel);
+	try_update_feerates(ld, channel);
 
-	try_update_blockheight(channel->peer->ld, channel,
-			       get_block_height(channel->peer->ld->topology));
+	try_update_blockheight(ld, channel, get_block_height(ld->topology));
 
 	/* Emit an event for the channel open (or channel proposal if blockheight
 	 * is zero) */
@@ -920,10 +926,6 @@ void lockin_complete(struct channel *channel,
 			  channel_state_name(channel));
 		return;
 	}
-
-	log_debug(channel->log, "Moving channel state from %s to %s",
-		  channel_state_str(expected_state),
-		  channel_state_str(CHANNELD_NORMAL));
 
 	channel_set_state(channel,
 			  expected_state,
@@ -1057,10 +1059,10 @@ static void peer_got_announcement(struct channel *channel, const u8 *msg)
 {
 	secp256k1_ecdsa_signature remote_ann_node_sig;
 	secp256k1_ecdsa_signature remote_ann_bitcoin_sig;
-	struct short_channel_id unused;
+	struct short_channel_id scid;
 
 	if (!fromwire_channeld_got_announcement(msg,
-						&unused,
+						&scid,
 						&remote_ann_node_sig,
 						&remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
@@ -1069,9 +1071,9 @@ static void peer_got_announcement(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	wallet_announcement_save(channel->peer->ld->wallet, channel->dbid,
-				 &remote_ann_node_sig,
-				 &remote_ann_bitcoin_sig);
+	channel_gossip_got_announcement_sigs(channel, scid,
+					     &remote_ann_node_sig,
+					     &remote_ann_bitcoin_sig);
 }
 
 static void peer_got_shutdown(struct channel *channel, const u8 *msg)
@@ -1234,23 +1236,6 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
-static void handle_local_private_channel(struct channel *channel, const u8 *msg)
-{
-	struct amount_sat capacity;
-	u8 *features;
-
-	if (!fromwire_channeld_local_private_channel(msg, msg, &capacity,
-						     &features)) {
-		channel_internal_error(channel,
-				       "bad channeld_local_private_channel %s",
-				       tal_hex(channel, msg));
-		return;
-	}
-
-	tell_gossipd_local_private_channel(channel->peer->ld, channel,
-					   capacity, features);
-}
-
 static void forget_channel(struct channel *channel, const char *why)
 {
 	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
@@ -1301,21 +1286,6 @@ static void handle_channel_upgrade(struct channel *channel,
 		  channel->static_remotekey_start[REMOTE]);
 
 	wallet_channel_save(channel->peer->ld->wallet, channel);
-}
-
-static void handle_local_channel_update(struct channel *channel,
-					const u8 *msg)
-{
-	bool enable;
-
-	if (!fromwire_channeld_local_channel_update(msg, &enable)) {
-		channel_internal_error(channel,
-				       "bad channeld_local_channel_update %s",
-				       tal_hex(channel, msg));
-		return;
-	}
-
-	tell_gossipd_local_channel_update(channel->peer->ld, channel, enable);
 }
 
 static void handle_local_anchors(struct channel *channel, const u8 *msg)
@@ -1384,14 +1354,10 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+	/* FIXME: remove from channeld_wire.csv */
 	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
-		handle_local_channel_update(sd->channel, msg);
-		break;
 	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
-		tell_gossipd_local_channel_announce(sd->ld, sd->channel, msg);
-		break;
 	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
-		handle_local_private_channel(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SPLICE_CONFIRMED_INIT:
 		handle_splice_confirmed_init(sd->ld, sd->channel, msg);
@@ -1476,8 +1442,7 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
-	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
-	struct penalty_base *pbases;
+	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;	struct penalty_base *pbases;
 	u32 min_feerate, max_feerate, curr_blockheight;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
@@ -1695,8 +1660,8 @@ bool peer_start_channeld(struct channel *channel,
 				       &last_remote_per_commit_secret,
 				       channel->peer->their_features,
 				       channel->remote_upfront_shutdown_script,
-				       remote_ann_node_sig,
-				       remote_ann_bitcoin_sig,
+				       NULL,
+				       NULL,
 				       channel->type,
 				       ld->dev_fast_gossip,
 				       ld->dev_disable_commit == -1
@@ -1975,12 +1940,6 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			   /* Freed by callback */
 			   tal_steal(NULL, cc));
 	return command_still_pending(cmd);
-}
-
-void channel_replace_update(struct channel *channel, u8 *update TAKES)
-{
-	tal_free(channel->channel_update);
-	channel->channel_update = tal_dup_talarr(channel, u8, update);
 }
 
 static struct command_result *param_channel_for_splice(struct command *cmd,

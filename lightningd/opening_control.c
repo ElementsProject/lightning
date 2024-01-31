@@ -1506,6 +1506,9 @@ static struct channel *stub_chan(struct command *cmd,
 			      false,
 			      NULL);
 
+	/* We don't want to gossip about this, ever. */
+	channel->channel_gossip = tal_free(channel->channel_gossip);
+
 	return channel;
 }
 

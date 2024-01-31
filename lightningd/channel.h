@@ -301,13 +301,6 @@ struct channel {
 	/* Lease commited max part per thousandth channel fee (ppm * 1000) */
 	u16 lease_chan_max_ppt;
 
-	/* Channel incoming fee rates, cltv delta min/max htlc from
-	 * peer. Used to generate route hints, blinded paths. */
-	const struct peer_update *peer_update;
-
-	/* Latest channel_update, for use in error messages. */
-	u8 *channel_update;
-
 	/* `Channel-shell` of this channel
 	 * (Minimum information required to backup this channel). */
 	struct scb_chan *scb;
@@ -316,6 +309,7 @@ struct channel {
 	bool ignore_fee_limits;
 };
 
+/* Is channel owned (and should be talking to peer) */
 bool channel_is_connected(const struct channel *channel);
 
 /* For v2 opens, a channel that has not yet been committed/saved to disk */

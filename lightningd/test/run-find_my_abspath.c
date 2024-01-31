@@ -10,6 +10,10 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
+/* Generated stub for channel_gossip_notify_new_block */
+void channel_gossip_notify_new_block(struct lightningd *ld UNNEEDED,
+				     u32 block_height UNNEEDED)
+{ fprintf(stderr, "channel_gossip_notify_new_block called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)

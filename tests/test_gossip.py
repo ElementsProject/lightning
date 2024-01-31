@@ -15,7 +15,6 @@ import logging
 import math
 import os
 import pytest
-import re
 import struct
 import subprocess
 import time
@@ -270,8 +269,6 @@ def test_announce_dns_without_port(node_factory, bitcoind):
 
 
 def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
-    # Updates get backdated 5 seconds with --dev-fast-gossip.
-    backdate = 5
     l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False, opts={'log-level': 'io'})
     genesis_blockhash = chainparams['chain_hash']
 
@@ -311,14 +308,14 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Now timestamp which doesn't overlap (gives nothing).
     msgs = l4.query_gossip('gossip_timestamp_filter',
                            genesis_blockhash,
-                           '0', before_anything - backdate,
+                           '0', before_anything,
                            filters=['0109', '0107', '0012'])
     assert msgs == []
 
     # Now choose range which will only give first update.
     msgs = l4.query_gossip('gossip_timestamp_filter',
                            genesis_blockhash,
-                           before_anything - backdate,
+                           before_anything,
                            after_12 - before_anything + 1,
                            filters=['0109', '0107', '0012'])
 
@@ -332,7 +329,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Now choose range which will only give second update.
     msgs = l4.query_gossip('gossip_timestamp_filter',
                            genesis_blockhash,
-                           before_23 - backdate,
+                           before_23,
                            after_23 - before_23 + 1,
                            filters=['0109', '0107', '0012'])
 
@@ -1627,7 +1624,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0d"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1654,7 +1651,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("0c")
+        assert bytearray(f.read()) == bytearray.fromhex("0d")
 
 
 def test_gossip_store_compact_on_load(node_factory, bitcoind):
@@ -1668,15 +1665,9 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     # These appear before we're fully started, so will already in log:
-    # FIXME: this will change!
-    line = l2.daemon.is_in_log(r'gossip_store_compact_offline: .* deleted, .* copied')
-    m = re.search(r'gossip_store_compact_offline: (.*) deleted', line)
-    # We can have private re-tranmissions, but at minumum we had a deleted private
-    # channel message and two private updates, then two deleted updates.
-    assert int(m.group(1)) >= 5
+    l2.daemon.is_in_log(r'gossip_store_compact_offline: 2 deleted, 9 copied')
 
-    # FIXME: this will change!
-    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/[23]/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes')
+    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/3/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 2016 bytes')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):

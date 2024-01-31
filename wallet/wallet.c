@@ -16,6 +16,7 @@
 #include <db/utils.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
@@ -2357,7 +2358,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, chan->ignore_fee_limits);
-	peer_update = chan->peer_update;
+	peer_update = channel_gossip_get_remote_update(chan);
 	if (peer_update) {
 		db_bind_int(stmt, peer_update->fee_base);
 		db_bind_int(stmt, peer_update->fee_ppm);
@@ -2460,6 +2461,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_talarr(stmt, last_sent_commit);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
+
+	channel_gossip_update(chan);
 }
 
 void wallet_state_change_add(struct wallet *w,

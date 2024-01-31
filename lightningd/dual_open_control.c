@@ -22,6 +22,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/channel_gossip.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
@@ -1630,24 +1631,6 @@ static void handle_channel_closed(struct subd *dualopend,
 			  CLOSINGD_SIGEXCHANGE,
 			  REASON_UNKNOWN,
 			  "Start closingd");
-}
-
-static void handle_local_private_channel(struct subd *dualopend,
-					 const u8 *msg)
-{
-	struct amount_sat capacity;
-	u8 *features;
-
-	if (!fromwire_dualopend_local_private_channel(msg, msg, &capacity,
-						      &features)) {
-		channel_internal_error(dualopend->channel,
-				       "bad dualopend_local_private_channel %s",
-				       tal_hex(msg, msg));
-		return;
-	}
-
-	tell_gossipd_local_private_channel(dualopend->ld, dualopend->channel,
-					   capacity, features);
 }
 
 struct channel_send {
@@ -3433,6 +3416,9 @@ static void handle_commit_ready(struct subd *dualopend,
 
 	/* First time (not an RBF) */
 	if (channel->state == DUALOPEND_OPEN_INIT) {
+		/* Now we know if it's public or not, we can init channel_gossip */
+		assert(channel->channel_gossip == NULL);
+		channel_gossip_init(channel, NULL);
 		if (!(inflight = wallet_commit_channel(ld, channel,
 						       &funding,
 						       total_funding,
@@ -3643,8 +3629,8 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 			channel_fail_fallen_behind(dualopend, msg);
 			return 0;
+		/* FIXME: remove from dual_open_wire.csv */
 		case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
-			handle_local_private_channel(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_VALIDATE_INPUTS:
 			handle_validate_inputs(dualopend, msg);

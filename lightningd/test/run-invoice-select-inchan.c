@@ -84,6 +84,12 @@ void channel_fail_transient(struct channel *channel UNNEEDED,
 			    bool disconnect UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
+/* Generated stub for channel_gossip_get_remote_update */
+const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
+/* Generated stub for channel_gossip_peer_connected */
+void channel_gossip_peer_connected(struct peer *peer UNNEEDED)
+{ fprintf(stderr, "channel_gossip_peer_connected called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
 struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }
@@ -913,11 +919,6 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
-/* Generated stub for tell_gossipd_local_channel_update */
-void tell_gossipd_local_channel_update(struct lightningd *ld UNNEEDED,
-				       struct channel *channel UNNEEDED,
-				       bool enabled UNNEEDED)
-{ fprintf(stderr, "tell_gossipd_local_channel_update called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

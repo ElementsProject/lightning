@@ -25,6 +25,12 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
+/* Generated stub for channel_gossip_get_remote_update */
+const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
+/* Generated stub for channel_gossip_update */
+void channel_gossip_update(struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_gossip_update called!\n"); abort(); }
 /* Generated stub for channel_scid_or_local_alias */
 const struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
 { fprintf(stderr, "channel_scid_or_local_alias called!\n"); abort(); }
