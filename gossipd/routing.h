@@ -23,13 +23,6 @@ struct routing_state;
 struct half_chan {
 	/* Timestamp and index into store file - safe to broadcast */
 	struct broadcastable bcast;
-
-	/* Most recent gossip for the routing graph - may be rate-limited and
-	 * non-broadcastable. If there is no spam, rgraph == bcast. */
-	struct broadcastable rgraph;
-
-	/* Token bucket */
-	u8 tokens;
 };
 
 struct chan {
@@ -83,13 +76,6 @@ struct node {
 
 	/* Timestamp and index into store file */
 	struct broadcastable bcast;
-
-	/* Possibly spam flagged. Nonbroadcastable, but used for routing graph.
-	 * If there is no current spam, rgraph == bcast. */
-	struct broadcastable rgraph;
-
-	/* Token bucket */
-	u8 tokens;
 
 	/* Channels connecting us to other nodes */
 	/* For a small number of channels (by far the most common) we
@@ -352,11 +338,6 @@ void routing_channel_spent(struct routing_state *rstate,
  * This finally deletes channel past their deadline.
  */
 void routing_expire_channels(struct routing_state *rstate, u32 blockheight);
-
-/* Would we ratelimit a channel_update with this timestamp? */
-bool would_ratelimit_cupdate(struct routing_state *rstate,
-			     const struct half_chan *hc,
-			     u32 timestamp);
 
 /* Does this node have public channels? */
 bool node_has_broadcastable_channels(const struct node *node);

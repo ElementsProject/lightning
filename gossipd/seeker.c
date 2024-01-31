@@ -592,7 +592,7 @@ static bool want_update(struct seeker *seeker,
 	if (timestamp <= hc->bcast.timestamp)
 		return false;
 
-	return !would_ratelimit_cupdate(seeker->daemon->rstate, hc, timestamp);
+	return true;
 }
 
 /* They gave us timestamps.  Do we want updated versions? */

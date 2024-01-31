@@ -89,7 +89,6 @@ class GossipStoreMsgHeader(object):
         self.flags, self.length, self.crc, self.timestamp = struct.unpack('>HHII', buf)
         self.off = off
         self.deleted = (self.flags & GOSSIP_STORE_LEN_DELETED_BIT) != 0
-        self.ratelimit = (self.flags & GOSSIP_STORE_LEN_RATELIMIT_BIT) != 0
 
 
 class GossmapHalfchannel(object):
