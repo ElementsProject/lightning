@@ -141,6 +141,9 @@ struct channel {
 	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
 
+	/* Telling the world (or just our peer) about us */
+	struct channel_gossip *channel_gossip;
+
 	/* History */
 	struct logger *log;
 	struct billboard billboard;
