@@ -918,6 +918,7 @@ def listpeerchannels_channels2py(m):
         "out_offered_msat": amount2msat(m.out_offered_msat),  # PrimitiveField in generate_composite
         "out_payments_fulfilled": m.out_payments_fulfilled,  # PrimitiveField in generate_composite
         "out_fulfilled_msat": amount2msat(m.out_fulfilled_msat),  # PrimitiveField in generate_composite
+        "last_stable_connection": m.last_stable_connection,  # PrimitiveField in generate_composite
         "htlcs": [listpeerchannels_channels_htlcs2py(i) for i in m.htlcs],  # ArrayField[composite] in generate_composite
         "close_to_addr": m.close_to_addr,  # PrimitiveField in generate_composite
     })
@@ -967,6 +968,7 @@ def listclosedchannels_closedchannels2py(m):
         "last_commitment_txid": hexlify(m.last_commitment_txid),  # PrimitiveField in generate_composite
         "last_commitment_fee_msat": amount2msat(m.last_commitment_fee_msat),  # PrimitiveField in generate_composite
         "close_cause": str(m.close_cause),  # EnumField in generate_composite
+        "last_stable_connection": m.last_stable_connection,  # PrimitiveField in generate_composite
     })
 
 

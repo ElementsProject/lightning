@@ -1235,6 +1235,7 @@ message ListpeerchannelsChannels {
 	optional Amount out_offered_msat = 49;
 	optional uint64 out_payments_fulfilled = 50;
 	optional Amount out_fulfilled_msat = 51;
+	optional uint64 last_stable_connection = 56;
 	repeated ListpeerchannelsChannelsHtlcs htlcs = 52;
 	optional string close_to_addr = 53;
 }
@@ -1345,6 +1346,7 @@ message ListclosedchannelsClosedchannels {
 	optional bytes last_commitment_txid = 22;
 	optional Amount last_commitment_fee_msat = 23;
 	ListclosedchannelsClosedchannelsClose_cause close_cause = 24;
+	optional uint64 last_stable_connection = 25;
 }
 
 message ListclosedchannelsClosedchannelsAlias {

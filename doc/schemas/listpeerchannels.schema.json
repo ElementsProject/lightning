@@ -556,6 +556,11 @@
             "type": "msat",
             "description": "Total amount of successful outgoing payment attempts"
           },
+          "last_stable_connection": {
+            "type": "u64",
+            "added": "v24.02",
+            "description": "Last time we reestablished the open channel and stayed connected for 1 minute"
+          },
           "htlcs": {
             "type": "array",
             "description": "current HTLCs in this channel",
@@ -802,6 +807,7 @@
                 "out_payments_fulfilled": {},
                 "out_fulfilled_msat": {},
                 "out_msatoshi_fulfilled": {},
+                "last_stable_connection": {},
                 "htlcs": {},
                 "initial_feerate": {},
                 "last_feerate": {},
@@ -895,6 +901,7 @@
                 "out_payments_fulfilled": {},
                 "out_fulfilled_msat": {},
                 "out_msatoshi_fulfilled": {},
+                "last_stable_connection": {},
                 "htlcs": {},
                 "initial_feerate": {},
                 "last_feerate": {},
@@ -987,6 +994,7 @@
                 "out_payments_fulfilled": {},
                 "out_fulfilled_msat": {},
                 "out_msatoshi_fulfilled": {},
+                "last_stable_connection": {},
                 "htlcs": {},
                 "initial_feerate": {},
                 "last_feerate": {},
@@ -1080,6 +1088,7 @@
                 "out_payments_fulfilled": {},
                 "out_fulfilled_msat": {},
                 "out_msatoshi_fulfilled": {},
+                "last_stable_connection": {},
                 "htlcs": {},
                 "inflight": {},
                 "close_to_addr": {},

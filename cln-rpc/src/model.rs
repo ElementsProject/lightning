@@ -4676,6 +4676,8 @@ pub mod responses {
 	    pub out_payments_fulfilled: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_fulfilled_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_stable_connection: Option<u64>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub htlcs: Option<Vec<ListpeerchannelsChannelsHtlcs>>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -4788,6 +4790,8 @@ pub mod responses {
 	    pub last_commitment_fee_msat: Option<Amount>,
 	    // Path `ListClosedChannels.closedchannels[].close_cause`
 	    pub close_cause: ListclosedchannelsClosedchannelsClose_cause,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub last_stable_connection: Option<u64>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

@@ -865,6 +865,11 @@ static void json_add_channel(struct lightningd *ld,
 			json_object_end(response);
 		}
 		json_object_end(response);
+
+		if (channel->last_stable_connection != 0) {
+			json_add_u64(response, "last_stable_connection",
+				     channel->last_stable_connection);
+		}
 	}
 
 	json_add_string(response, "state", channel_state_name(channel));

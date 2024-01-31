@@ -76,6 +76,10 @@ static void json_add_closed_channel(struct json_stream *response,
 	}
 	json_add_string(response, "close_cause",
 			channel_change_state_reason_str(channel->state_change_cause));
+	if (channel->last_stable_connection != 0) {
+		json_add_u64(response, "last_stable_connection",
+			     channel->last_stable_connection);
+	}
 	json_object_end(response);
 }
 

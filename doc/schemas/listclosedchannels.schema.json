@@ -180,6 +180,11 @@
               "onchain"
             ],
             "description": "What caused the channel to close"
+          },
+          "last_stable_connection": {
+            "type": "u64",
+            "added": "v24.02",
+            "description": "Last time we reestablished the open channel and stayed connected for 1 minute"
           }
         }
       }

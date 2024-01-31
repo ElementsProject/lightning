@@ -939,6 +939,7 @@
             "ListClosedChannels.closedchannels[].funding_txid": 12,
             "ListClosedChannels.closedchannels[].last_commitment_fee_msat": 23,
             "ListClosedChannels.closedchannels[].last_commitment_txid": 22,
+            "ListClosedChannels.closedchannels[].last_stable_connection": 25,
             "ListClosedChannels.closedchannels[].leased": 14,
             "ListClosedChannels.closedchannels[].max_to_us_msat": 21,
             "ListClosedChannels.closedchannels[].min_to_us_msat": 20,
@@ -1147,6 +1148,7 @@
             "ListPeerChannels.channels[].inflight[]": 16,
             "ListPeerChannels.channels[].initial_feerate": 12,
             "ListPeerChannels.channels[].last_feerate": 13,
+            "ListPeerChannels.channels[].last_stable_connection": 56,
             "ListPeerChannels.channels[].max_accepted_htlcs": 40,
             "ListPeerChannels.channels[].max_to_us_msat": 25,
             "ListPeerChannels.channels[].max_total_htlc_in_msat": 30,
@@ -3676,6 +3678,10 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "ListClosedChannels.closedchannels[].last_stable_connection": {
+            "added": "v24.02",
+            "deprecated": false
+        },
         "ListClosedChannels.closedchannels[].leased": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -4406,6 +4412,10 @@
         },
         "ListPeerChannels.channels[].last_feerate": {
             "added": "v23.02",
+            "deprecated": false
+        },
+        "ListPeerChannels.channels[].last_stable_connection": {
+            "added": "v24.02",
             "deprecated": false
         },
         "ListPeerChannels.channels[].max_accepted_htlcs": {
