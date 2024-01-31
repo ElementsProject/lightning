@@ -77,7 +77,6 @@ COMMON_SRC_NOGEN :=				\
 	common/per_peer_state.c			\
 	common/permute_tx.c			\
 	common/ping.c				\
-	common/private_channel_announcement.c	\
 	common/psbt_internal.c			\
 	common/psbt_keypath.c			\
 	common/psbt_open.c			\
