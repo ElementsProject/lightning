@@ -67,7 +67,7 @@ static u8 update_tokens(const struct routing_state *rstate,
 	assert(new_timestamp >= prev_timestamp);
 
 	num_tokens += ((new_timestamp - prev_timestamp)
-		       / GOSSIP_TOKEN_TIME(rstate->dev_fast_gossip));
+		       / GOSSIP_TOKEN_TIME(rstate->daemon->dev_fast_gossip));
 	if (num_tokens > TOKEN_MAX)
 		num_tokens = TOKEN_MAX;
 	return num_tokens;
@@ -220,13 +220,13 @@ static void destroy_routing_state(struct routing_state *rstate)
  * our canned tests, and usually old gossip is better than no gossip */
 static bool timestamp_reasonable(struct routing_state *rstate, u32 timestamp)
 {
-	u64 now = gossip_time_now(rstate).ts.tv_sec;
+	u64 now = gossip_time_now(rstate->daemon).ts.tv_sec;
 
 	/* More than one day ahead? */
 	if (timestamp > now + 24*60*60)
 		return false;
 	/* More than 2 weeks behind? */
-	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune))
+	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune))
 		return false;
 	return true;
 }
@@ -251,10 +251,7 @@ static void memleak_help_routing_tables(struct htable *memtable,
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					struct daemon *daemon,
-					const u32 *dev_gossip_time TAKES,
-					bool dev_fast_gossip,
-					bool dev_fast_gossip_prune)
+					struct daemon *daemon)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->daemon = daemon;
@@ -272,20 +269,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
 
-	if (dev_gossip_time) {
-		assert(daemon->developer);
-		rstate->dev_gossip_time = tal(rstate, struct timeabs);
-		rstate->dev_gossip_time->ts.tv_sec = *dev_gossip_time;
-		rstate->dev_gossip_time->ts.tv_nsec = 0;
-	} else
-		rstate->dev_gossip_time = NULL;
-	rstate->dev_fast_gossip = dev_fast_gossip;
-	rstate->dev_fast_gossip_prune = dev_fast_gossip_prune;
 	tal_add_destructor(rstate, destroy_routing_state);
 	memleak_add_helper(rstate, memleak_help_routing_tables);
-
-	if (taken(dev_gossip_time))
-		tal_free(dev_gossip_time);
 
 	return rstate;
 }
@@ -771,7 +756,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_talarr(uc, u8, msg);
-	uc->added = gossip_time_now(rstate);
+	uc->added = gossip_time_now(rstate->daemon);
 	uc->index = index;
 	uc->sat = sat;
 	uc->scid = scid;
@@ -1261,7 +1246,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		}
 
 		/* Allow redundant updates once every 7 days */
-		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
+		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 2
 		    && !cupdate_different(rstate->gs, hc, update)) {
 			SUPERVERBOSE("Ignoring redundant update for %s/%u"
 				     " (last %u, now %u)",
@@ -1765,7 +1750,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		}
 
 		/* Allow redundant updates once a day (faster in dev-fast-gossip-prune mode) */
-		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 14;
+		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune) / 14;
 		if (timestamp < node->bcast.timestamp + redundant_time
 		    && !nannounce_different(rstate->gs, node, msg)) {
 			SUPERVERBOSE(
@@ -1910,9 +1895,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 
 void route_prune(struct routing_state *rstate)
 {
-	u64 now = gossip_time_now(rstate).ts.tv_sec;
+	u64 now = gossip_time_now(rstate->daemon).ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
-	const s64 highwater = now - GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune);
+	const s64 highwater = now - GOSSIP_PRUNE_INTERVAL(rstate->daemon->dev_fast_gossip_prune);
 	struct chan **pruned = tal_arr(tmpctx, struct chan *, 0);
 	u64 idx;
 
@@ -1968,14 +1953,6 @@ void route_prune(struct routing_state *rstate)
 		remove_channel_from_store(rstate, pruned[i]);
 		free_chan(rstate, pruned[i]);
 	}
-}
-
-struct timeabs gossip_time_now(const struct routing_state *rstate)
-{
-	if (rstate->dev_gossip_time)
-		return *rstate->dev_gossip_time;
-
-	return time_now();
 }
 
 const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate)

@@ -205,15 +205,6 @@ struct routing_state {
 
 	/* Channels which are closed, but we're waiting 12 blocks */
 	struct dying_channel *dying_channels;
-
-	/* Override local time for gossip messages */
-	struct timeabs *dev_gossip_time;
-
-	/* Speed up gossip. */
-	bool dev_fast_gossip;
-
-	/* Speed up pruning. */
-	bool dev_fast_gossip_prune;
 };
 
 /* Which direction are we?  False if neither. */
@@ -239,10 +230,7 @@ get_channel(const struct routing_state *rstate,
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					struct daemon *daemon,
-					const u32 *dev_gossip_time TAKES,
-					bool dev_fast_gossip,
-					bool dev_fast_gossip_prune);
+					struct daemon *daemon);
 
 /**
  * Add a new bidirectional channel from id1 to id2 with the given
@@ -352,13 +340,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 				   const struct node_id *source_peer TAKES,
 				   bool *was_unknown,
 				   bool force_spam_flag);
-
-/**
- * Get the local time.
- *
- * This gets overridden in dev mode so we can use canned (stale) gossip.
- */
-struct timeabs gossip_time_now(const struct routing_state *rstate);
 
 /**
  * Add to rstate->dying_channels

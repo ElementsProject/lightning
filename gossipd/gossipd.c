@@ -544,7 +544,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 {
 	/* Schedule next run now */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune)/4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune)/4),
 			     gossip_refresh_network, daemon));
 
 	/* Prune: I hope lightningd is keeping up with our own channel
@@ -647,11 +647,18 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 	exit(2);
 }
 
+struct timeabs gossip_time_now(const struct daemon *daemon)
+{
+	if (daemon->dev_gossip_time)
+		return *daemon->dev_gossip_time;
+
+	return time_now();
+}
+
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	u32 *dev_gossip_time;
-	bool dev_fast_gossip, dev_fast_gossip_prune;
 	u32 timestamp;
 
 	if (!fromwire_gossipd_init(daemon, msg,
@@ -659,16 +666,20 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &daemon->our_features,
 				     &daemon->id,
 				     &dev_gossip_time,
-				     &dev_fast_gossip,
-				     &dev_fast_gossip_prune)) {
+				     &daemon->dev_fast_gossip,
+				     &daemon->dev_fast_gossip_prune)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
-	daemon->rstate = new_routing_state(daemon,
-					   daemon,
-					   take(dev_gossip_time),
-					   dev_fast_gossip,
-					   dev_fast_gossip_prune);
+	if (dev_gossip_time) {
+		assert(daemon->developer);
+		daemon->dev_gossip_time = tal(daemon, struct timeabs);
+		daemon->dev_gossip_time->ts.tv_sec = *dev_gossip_time;
+		daemon->dev_gossip_time->ts.tv_nsec = 0;
+		tal_free(dev_gossip_time);
+	}
+
+	daemon->rstate = new_routing_state(daemon, daemon);
 
 	/* Load stored gossip messages, get last modified time of file */
 	timestamp = gossip_store_load(daemon->rstate->gs);
@@ -681,7 +692,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
-			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->rstate->dev_fast_gossip_prune) / 4),
+			     time_from_sec(GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune) / 4),
 			     gossip_refresh_network, daemon));
 
 	/* Fire up the seeker! */
@@ -754,10 +765,10 @@ static void dev_gossip_set_time(struct daemon *daemon, const u8 *msg)
 
 	if (!fromwire_gossipd_dev_set_time(msg, &time))
 		master_badmsg(WIRE_GOSSIPD_DEV_SET_TIME, msg);
-	if (!daemon->rstate->dev_gossip_time)
-		daemon->rstate->dev_gossip_time = tal(daemon->rstate, struct timeabs);
-	daemon->rstate->dev_gossip_time->ts.tv_sec = time;
-	daemon->rstate->dev_gossip_time->ts.tv_nsec = 0;
+	if (!daemon->dev_gossip_time)
+		daemon->dev_gossip_time = tal(daemon, struct timeabs);
+	daemon->dev_gossip_time->ts.tv_sec = time;
+	daemon->dev_gossip_time->ts.tv_nsec = 0;
 }
 
 /*~ We queue incoming channel_announcement pending confirmation from lightningd
@@ -928,6 +939,7 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
+	daemon->dev_gossip_time = NULL;
 	daemon->peers = tal(daemon, struct peer_node_id_map);
 	peer_node_id_map_init(daemon->peers);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
