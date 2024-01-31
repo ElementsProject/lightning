@@ -1940,8 +1940,11 @@ static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
 {
 	struct pubkey remote_per_commit;
 	struct channel *channel = dualopend->channel;
+	struct short_channel_id *remote_alias;
 
-	if (!fromwire_dualopend_peer_locked(msg, &remote_per_commit)) {
+	if (!fromwire_dualopend_peer_locked(msg, msg,
+					    &remote_per_commit,
+					    &remote_alias)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_PEER_LOCKED: %s",
 				       tal_hex(msg, msg));
@@ -1950,7 +1953,7 @@ static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
 
 	/* Updates channel with the next per-commit point etc, calls
 	 * channel_internal_error on failure */
-	if (!channel_on_channel_ready(channel, &remote_per_commit))
+	if (!channel_on_channel_ready(channel, &remote_per_commit, remote_alias))
 		return;
 
 	/* Remember that we got the lock-in */

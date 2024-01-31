@@ -936,7 +936,8 @@ void lockin_complete(struct channel *channel,
 }
 
 bool channel_on_channel_ready(struct channel *channel,
-			      struct pubkey *next_per_commitment_point)
+			      const struct pubkey *next_per_commitment_point,
+			      const struct short_channel_id *remote_alias)
 {
 	if (channel->remote_channel_ready) {
 		channel_internal_error(channel,
@@ -944,6 +945,13 @@ bool channel_on_channel_ready(struct channel *channel,
 		return false;
 	}
 	update_per_commit_point(channel, next_per_commitment_point);
+
+	/* FIXME: we should apply this even if it changed! */
+	if (channel->alias[REMOTE] == NULL) {
+		channel->alias[REMOTE]
+			= tal_dup_or_null(channel, struct short_channel_id,
+					  remote_alias);
+	}
 
 	log_debug(channel->log, "Got channel_ready");
 	channel->remote_channel_ready = true;
@@ -1034,11 +1042,10 @@ static void peer_got_channel_ready(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	if (!channel_on_channel_ready(channel, &next_per_commitment_point))
+	if (!channel_on_channel_ready(channel,
+				      &next_per_commitment_point,
+				      alias_remote))
 		return;
-
-	if (channel->alias[REMOTE] == NULL)
-		channel->alias[REMOTE] = tal_steal(channel, alias_remote);
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);

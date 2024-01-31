@@ -1563,7 +1563,7 @@ static u8 *handle_channel_ready(struct state *state, u8 *msg)
 	/* We save when the peer locks, so we do the right
 	 * thing on reconnects */
 	if (!state->channel_ready[REMOTE]) {
-		msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
+		msg = towire_dualopend_peer_locked(NULL, &remote_per_commit, tlvs->short_channel_id);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
