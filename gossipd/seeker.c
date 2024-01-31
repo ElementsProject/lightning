@@ -5,6 +5,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/decode_array.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
 #include <common/status.h>
@@ -974,4 +975,9 @@ void seeker_peer_gone(struct seeker *seeker, const struct peer *peer)
 
 	if (seeker->preferred_peer == peer)
 		seeker->preferred_peer = NULL;
+}
+
+void dev_seeker_memleak(struct htable *memtable, struct seeker *seeker)
+{
+	memleak_scan_uintmap(memtable, &seeker->stale_scids);
 }

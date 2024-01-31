@@ -25,4 +25,6 @@ bool add_unknown_scid(struct seeker *seeker,
 
 void seeker_peer_gone(struct seeker *seeker,
 		      const struct peer *peer);
+
+void dev_seeker_memleak(struct htable *memtable, struct seeker *seeker);
 #endif /* LIGHTNING_GOSSIPD_SEEKER_H */
