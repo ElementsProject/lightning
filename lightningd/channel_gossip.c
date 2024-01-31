@@ -841,10 +841,23 @@ void channel_gossip_init_done(struct lightningd *ld)
 	}
 }
 
+static void channel_reestablished_stable(struct channel *channel)
+{
+	channel->stable_conn_timer = NULL;
+	channel->last_stable_connection = time_now().ts.tv_sec;
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+
 /* Peer has connected and successfully reestablished channel. */
 void channel_gossip_channel_reestablished(struct channel *channel)
 {
 	channel->reestablished = true;
+	tal_free(channel->stable_conn_timer);
+	channel->stable_conn_timer = new_reltimer(channel->peer->ld->timers,
+						  channel, time_from_sec(60),
+						  channel_reestablished_stable,
+						  channel);
+
 	log_debug(channel->log, "channel_gossip: reestablished");
 
 	/* Ignore unsaved channels */
@@ -882,7 +895,7 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 
 void channel_gossip_channel_disconnect(struct channel *channel)
 {
-	log_debug(channel->log, "channel_gossip: NO LONGER reestablished");
+	channel->stable_conn_timer = tal_free(channel->stable_conn_timer);
 	channel->reestablished = false;
 }
 

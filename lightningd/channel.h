@@ -313,6 +313,7 @@ struct channel {
 
 	/* Last time we had a stable connection, if any (0 = none) */
 	u64 last_stable_connection;
+	struct oneshot *stable_conn_timer;
 };
 
 /* Is channel owned (and should be talking to peer) */
