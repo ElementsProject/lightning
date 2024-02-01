@@ -1,0 +1,68 @@
+---
+name: Fuzz Testing
+on:
+  schedule:
+    - cron:  '41 3 * * *'
+env:
+  # Makes the upload-artifact work more reliably at the cost
+  # of a bit of compile time.
+  RUST_PROFILE: release
+  SLOW_MACHINE: 1
+jobs:
+  prebuild:
+    name: Pre-build checks
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    env:
+      BOLTDIR: bolts
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+          # We're going to check BOLT quotes, so get the latest version
+          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
+      - name: Build
+        run: |
+          ./configure --enable-debugbuild --enable-rust
+          make -j 8
+  check-fuzz:
+    name: Run fuzz regression tests
+    runs-on: ubuntu-22.04
+    needs:
+      - prebuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+
+      - name: Build
+        run: |
+          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
+          make -j $(nproc) check-fuzz
+
