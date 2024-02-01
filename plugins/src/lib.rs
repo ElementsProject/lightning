@@ -5,7 +5,7 @@ use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
-use messages::{Configuration, NotificationTopic, FeatureBits};
+use messages::{Configuration, FeatureBits, NotificationTopic};
 use options::ConfigOption;
 use std::collections::HashMap;
 use std::future::Future;
@@ -43,11 +43,11 @@ where
     output: Option<O>,
 
     hooks: HashMap<String, Hook<S>>,
-    options: Vec<ConfigOption>,
+    options: HashMap<String, ConfigOption>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     notifications: Vec<NotificationTopic>,
-    custommessages : Vec<u16>,
+    custommessages: Vec<u16>,
     featurebits: FeatureBits,
     dynamic: bool,
     // Do we want the plugin framework to automatically register a logging handler?
@@ -65,7 +65,7 @@ where
     init_id: serde_json::Value,
     input: FramedRead<I, JsonRpcCodec>,
     output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
-    options: Vec<ConfigOption>,
+    options: HashMap<String, ConfigOption>,
     configuration: Configuration,
     rpcmethods: HashMap<String, AsyncCallback<S>>,
     hooks: HashMap<String, AsyncCallback<S>>,
@@ -99,7 +99,7 @@ where
     /// The state gets cloned for each request
     state: S,
     /// "options" field of "init" message sent by cln
-    options: Vec<ConfigOption>,
+    options: HashMap<String, ConfigOption>,
     /// "configuration" field of "init" message sent by cln
     configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
@@ -120,18 +120,18 @@ where
             output: Some(output),
             hooks: HashMap::new(),
             subscriptions: HashMap::new(),
-            options: vec![],
+            options: HashMap::new(),
             rpcmethods: HashMap::new(),
             notifications: vec![],
             featurebits: FeatureBits::default(),
             dynamic: false,
-            custommessages : vec![],
+            custommessages: vec![],
             logging: true,
         }
     }
 
     pub fn option(mut self, opt: options::ConfigOption) -> Builder<S, I, O> {
-        self.options.push(opt);
+        self.options.insert(opt.name().to_string(), opt);
         self
     }
 
@@ -245,7 +245,7 @@ where
 
     /// Tells lightningd explicitly to allow custommmessages of the provided
     /// type
-    pub fn custommessages(mut self, custommessages : Vec<u16>) -> Self {
+    pub fn custommessages(mut self, custommessages: Vec<u16>) -> Self {
         self.custommessages = custommessages;
         self
     }
@@ -369,7 +369,7 @@ where
             .collect();
 
         messages::GetManifestResponse {
-            options: self.options.clone(),
+            options: self.options.values().cloned().collect(),
             subscriptions: self.subscriptions.keys().map(|s| s.clone()).collect(),
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
@@ -377,7 +377,7 @@ where
             featurebits: self.featurebits.clone(),
             dynamic: self.dynamic,
             nonnumericids: true,
-            custommessages : self.custommessages.clone()
+            custommessages: self.custommessages.clone(),
         }
     }
 
@@ -387,7 +387,7 @@ where
 
         // Match up the ConfigOptions and fill in their values if we
         // have a matching entry.
-        for opt in self.options.iter_mut() {
+        for (_name, opt) in self.options.iter_mut() {
             let val = call.options.get(opt.name());
             opt.value = match (&opt, &opt.default(), &val) {
                 (_, OValue::String(_), Some(JValue::String(s))) => Some(OValue::String(s.clone())),
@@ -506,11 +506,7 @@ where
     S: Clone + Send,
 {
     pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.options
-            .iter()
-            .filter(|o| o.name() == name)
-            .next()
-            .map(|co| co.value.clone().unwrap_or(co.default().clone()))
+        self.options.get(name).and_then(|x| x.value.clone())
     }
 }
 
@@ -595,11 +591,7 @@ where
     }
 
     pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.options
-            .iter()
-            .filter(|o| o.name() == name)
-            .next()
-            .map(|co| co.value.clone().unwrap_or(co.default().clone()))
+        self.options.get(name).and_then(|x| x.value.clone())
     }
 
     /// return the cln configuration send to the
@@ -740,7 +732,7 @@ where
     S: Clone + Send,
 {
     pub fn options(&self) -> Vec<ConfigOption> {
-        self.options.clone()
+        self.options.values().cloned().collect()
     }
     pub fn configuration(&self) -> Configuration {
         self.configuration.clone()
