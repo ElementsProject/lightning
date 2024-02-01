@@ -12,16 +12,15 @@ async fn main() -> Result<(), anyhow::Error> {
     let state = ();
 
     if let Some(plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(options::ConfigOption::new(
-            "test-option",
-            options::Value::Integer(42),
-            "a test-option with default 42",
-        ))
-        .option(options::ConfigOption::new(
-            "opt-option",
-            options::Value::OptInteger,
-            "An optional option",
-        ))
+        .option(
+            options::ConfigOption::new_i64_with_default(
+                "test-option",
+                42,
+                "a test-option with default 42",
+            )
+            .build(),
+        )
+        .option(options::ConfigOption::new_opt_i64("opt-option", "An optional option").build())
         .rpcmethod("testmethod", "This is a test", testmethod)
         .rpcmethod(
             "testoptions",

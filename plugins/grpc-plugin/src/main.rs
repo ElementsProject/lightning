@@ -21,11 +21,11 @@ async fn main() -> Result<()> {
     let directory = std::env::current_dir()?;
 
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(options::ConfigOption::new(
+        .option(options::ConfigOption::new_i64_with_default(
             "grpc-port",
-            options::Value::Integer(-1),
+            -1,
             "Which port should the grpc plugin listen for incoming connections?",
-        ))
+        ).build())
         .configure()
         .await?
     {
