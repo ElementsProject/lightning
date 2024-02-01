@@ -209,6 +209,9 @@ msgdata,channeld_splice_init,psbt,wally_psbt,
 msgdata,channeld_splice_init,relative_amount,s64,
 msgdata,channeld_splice_init,feerate_per_kw,u32,
 msgdata,channeld_splice_init,force_feerate,bool,
+msgdata,channeld_splice_init,requested_sats,?amount_sat,
+# must go last because embedded tu32
+msgdata,channeld_splice_init,expected_rates,?lease_rates,
 
 # channeld->master: hello, I started a channel splice open
 msgtype,channeld_splice_confirmed_init,7205
@@ -279,6 +282,10 @@ msgdata,channeld_splice_funding_error,opener_error,bool,
 # channeld->master: A splice state error has occured
 msgtype,channeld_splice_state_error,7221
 msgdata,channeld_splice_state_error,state_error,wirestring,
+
+# channeld->master: A lease error has occured
+msgtype,channeld_splice_lease_error,7222
+msgdata,channeld_splice_lease_error,reason,wirestring,
 
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023

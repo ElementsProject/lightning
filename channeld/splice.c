@@ -30,6 +30,8 @@ struct splicing *splicing_new(const tal_t *ctx)
 	splicing->current_psbt = NULL;
 	splicing->received_tx_complete = false;
 	splicing->sent_tx_complete = false;
+	splicing->requested_sats = NULL;
+	splicing->expected_rates = NULL;
 
 	return splicing;
 }

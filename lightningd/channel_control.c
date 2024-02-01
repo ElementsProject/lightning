@@ -246,8 +246,8 @@ static void handle_splice_state_error(struct lightningd *ld,
 }
 
 static void handle_splice_feerate_error(struct lightningd *ld,
-					 struct channel *channel,
-					 const u8 *msg)
+					struct channel *channel,
+					const u8 *msg)
 {
 	struct splice_command *cc;
 	struct amount_msat fee;
@@ -284,6 +284,124 @@ static void handle_splice_feerate_error(struct lightningd *ld,
 	}
 }
 
+<<<<<<< HEAD
+=======
+static void handle_splice_lease_error(struct lightningd *ld,
+				      struct channel *channel,
+				      const u8 *msg)
+{
+	struct splice_command *cc;
+	char *error_msg;
+
+	if (!fromwire_channeld_splice_lease_error(tmpctx, msg, &error_msg)) {
+		channel_internal_error(channel,
+				       "bad fromwire_channeld_splice_lease_error %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	cc = splice_command_for_chan(ld, channel);
+	if (cc) {
+		was_pending(command_fail(cc->cmd,
+					 SPLICE_LEASE_ERROR,
+					 "%s", error_msg));
+	}
+	else {
+		log_peer_unusual(ld->log, &channel->peer->id, "Lease fails %s",
+				 error_msg);
+	}
+}
+
+static void handle_splice_abort(struct lightningd *ld,
+				struct channel *channel,
+				const u8 *msg)
+{
+	struct splice_command *cc;
+	struct peer *peer = channel->peer;
+	bool did_i_abort;
+	struct bitcoin_outpoint *outpoint;
+	struct channel_inflight *inflight;
+	char *reason;
+	u8 *error;
+	int fds[2];
+
+	if (!fromwire_channeld_splice_abort(tmpctx, msg, &did_i_abort,
+					    &outpoint, &reason)) {
+		channel_internal_error(channel,
+				       "bad fromwire_channeld_splice_abort %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	if (outpoint) {
+		inflight = list_tail(&channel->inflights,
+				     struct channel_inflight,
+				     list);
+
+		if (!bitcoin_outpoint_eq(outpoint,
+					 &inflight->funding->outpoint))
+			channel_internal_error(channel,
+					       "abort outpoint %s does not"
+					       " match ours %s",
+					       type_to_string(tmpctx,
+					       		      struct bitcoin_outpoint,
+					       		      outpoint),
+					       type_to_string(tmpctx,
+					       		      struct bitcoin_outpoint,
+					       		      &inflight->funding->outpoint));
+
+		wallet_inflight_del(ld->wallet, channel, inflight);
+	}
+
+	cc = splice_command_for_chan(ld, channel);
+	if (cc)
+		was_pending(command_fail(cc->cmd, SPLICE_ABORT, "%s", reason));
+	else
+		log_peer_unusual(ld->log, &peer->id, "Splice aborted"
+				 " %s", reason);
+
+	log_debug(channel->log,
+		  "Restarting channeld after tx_abort on %s channel",
+		  channel_state_name(channel));
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		log_broken(channel->log,
+			   "Failed to create socketpair: %s",
+			   strerror(errno));
+
+		error = towire_warningfmt(tmpctx, &channel->cid,
+					  "Trouble in paradise?");
+		log_peer_debug(ld->log, &channel->peer->id,
+			       "Telling connectd to send error %s",
+			       tal_hex(tmpctx, error));
+		/* Get connectd to send error and close. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_final_msg(NULL,
+			      					  &peer->id,
+								  peer->connectd_counter,
+								  error)));
+		return;
+	}
+	log_debug(channel->log, "made the socket pair");
+
+	if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL,
+						     true, false, NULL)) {
+		log_info(channel->log, "Sending the peer fd to connectd");
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_connect_subd(NULL,
+			      					     &peer->id,
+								     peer->connectd_counter,
+								     &channel->cid)));
+		subd_send_fd(ld->connectd, fds[1]);
+		log_info(channel->log, "Sent the peer fd to channeld");
+	}
+	else {
+		log_info(channel->log, "peer_start_channeld failed");
+		close(fds[1]);
+	}
+}
+
+>>>>>>> 5e9d69a96 (splice: Add support for liquidity ads)
 /* When channeld finishes processing the `splice_init` command, this is called */
 static void handle_splice_confirmed_init(struct lightningd *ld,
 					 struct channel *channel,
@@ -1363,6 +1481,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SPLICE_FEERATE_ERROR:
 		handle_splice_feerate_error(sd->ld, sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_SPLICE_LEASE_ERROR:
+		handle_splice_lease_error(sd->ld, sd->channel, msg);
+		break;
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
 		handle_splice_funding_error(sd->ld, sd->channel, msg);
 		break;
@@ -1983,6 +2104,8 @@ static struct command_result *json_splice_init(struct command *cmd,
 	s64 *relative_amount;
 	u32 *feerate_per_kw;
 	bool *force_feerate;
+	struct amount_sat *request_amt;
+	struct lease_rates *rates;
 	u8 *msg;
 
 	if (!param_check(cmd, buffer, params,
@@ -1991,6 +2114,8 @@ static struct command_result *json_splice_init(struct command *cmd,
 			 p_opt("initialpsbt", param_psbt, &initialpsbt),
 			 p_opt("feerate_per_kw", param_feerate, &feerate_per_kw),
 			 p_opt_def("force_feerate", param_bool, &force_feerate, false),
+			 p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
+			 p_opt("compact_lease", param_lease_hex, &rates),
 			 NULL))
 		return command_param_failed();
 
@@ -2007,6 +2132,11 @@ static struct command_result *json_splice_init(struct command *cmd,
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = opening_feerate(cmd->ld->topology);
 	}
+
+	if (!amount_sat_zero(*request_amt) && !rates)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Must pass in 'compact_lease' if requesting"
+				    " funds from peer");
 
 	if (!initialpsbt)
 		initialpsbt = create_psbt(cmd, 0, 0, 0);
@@ -2027,7 +2157,10 @@ static struct command_result *json_splice_init(struct command *cmd,
 	cc->channel = channel;
 
 	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
-					  *feerate_per_kw, *force_feerate);
+					  *feerate_per_kw, *force_feerate,
+					  amount_sat_zero(*request_amt) ?
+						NULL : request_amt,
+				  rates);
 
 	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);
