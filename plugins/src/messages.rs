@@ -1,4 +1,4 @@
-use crate::options::ConfigOption;
+use crate::options::UntypedConfigOption;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -171,7 +171,7 @@ impl NotificationTopic {
 
 #[derive(Serialize, Default, Debug)]
 pub(crate) struct GetManifestResponse {
-    pub(crate) options: Vec<ConfigOption>,
+    pub(crate) options: Vec<UntypedConfigOption>,
     pub(crate) rpcmethods: Vec<RpcMethod>,
     pub(crate) subscriptions: Vec<String>,
     pub(crate) notifications: Vec<NotificationTopic>,
@@ -180,7 +180,7 @@ pub(crate) struct GetManifestResponse {
     pub(crate) featurebits: FeatureBits,
     pub(crate) nonnumericids: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) custommessages : Vec<u16>
+    pub(crate) custommessages: Vec<u16>,
 }
 
 #[derive(Serialize, Default, Debug, Clone)]

@@ -6,7 +6,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
 use messages::{Configuration, FeatureBits, NotificationTopic};
-use options::ConfigOption;
+use options::UntypedConfigOption;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -43,7 +43,7 @@ where
     output: Option<O>,
 
     hooks: HashMap<String, Hook<S>>,
-    options: HashMap<String, ConfigOption>,
+    options: HashMap<String, UntypedConfigOption>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     notifications: Vec<NotificationTopic>,
@@ -65,7 +65,7 @@ where
     init_id: serde_json::Value,
     input: FramedRead<I, JsonRpcCodec>,
     output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
-    options: HashMap<String, ConfigOption>,
+    options: HashMap<String, UntypedConfigOption>,
     configuration: Configuration,
     rpcmethods: HashMap<String, AsyncCallback<S>>,
     hooks: HashMap<String, AsyncCallback<S>>,
@@ -99,7 +99,7 @@ where
     /// The state gets cloned for each request
     state: S,
     /// "options" field of "init" message sent by cln
-    options: HashMap<String, ConfigOption>,
+    options: HashMap<String, UntypedConfigOption>,
     /// "configuration" field of "init" message sent by cln
     configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
@@ -130,7 +130,7 @@ where
         }
     }
 
-    pub fn option(mut self, opt: options::ConfigOption) -> Builder<S, I, O> {
+    pub fn option(mut self, opt: options::UntypedConfigOption) -> Builder<S, I, O> {
         self.options.insert(opt.name().to_string(), opt);
         self
     }
@@ -389,23 +389,20 @@ where
         // have a matching entry.
         for (_name, opt) in self.options.iter_mut() {
             let val = call.options.get(opt.name());
-            opt.value = match (&opt, &opt.default(), &val) {
-                (_, OValue::String(_), Some(JValue::String(s))) => Some(OValue::String(s.clone())),
-                (_, OValue::OptString, Some(JValue::String(s))) => Some(OValue::String(s.clone())),
-                (_, OValue::OptString, None) => None,
 
-                (_, OValue::Integer(_), Some(JValue::Number(s))) => {
+            opt.value = match (&opt.value, &opt.default(), &val) {
+                (_, Some(OValue::String(_)), Some(JValue::String(s))) => {
+                    Some(OValue::String(s.clone()))
+                }
+                (_, None, Some(JValue::String(s))) => Some(OValue::String(s.clone())),
+                (_, None, None) => None,
+
+                (_, Some(OValue::Integer(_)), Some(JValue::Number(s))) => {
                     Some(OValue::Integer(s.as_i64().unwrap()))
                 }
-                (_, OValue::OptInteger, Some(JValue::Number(s))) => {
-                    Some(OValue::Integer(s.as_i64().unwrap()))
-                }
-                (_, OValue::OptInteger, None) => None,
-
-                (_, OValue::Boolean(_), Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
-                (_, OValue::OptBoolean, Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
-                (_, OValue::OptBoolean, None) => None,
-
+                (_, None, Some(JValue::Number(s))) => Some(OValue::Integer(s.as_i64().unwrap())),
+                (_, Some(OValue::Boolean(_)), Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
+                (_, None, Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
                 (o, _, _) => panic!("Type mismatch for option {:?}", o),
             }
         }
@@ -591,7 +588,7 @@ where
     }
 
     pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.options.get(name).and_then(|x| x.value.clone())
+        self.options.get(name).and_then(|c| c.value.clone())
     }
 
     /// return the cln configuration send to the
@@ -731,7 +728,7 @@ impl<S> Plugin<S>
 where
     S: Clone + Send,
 {
-    pub fn options(&self) -> Vec<ConfigOption> {
+    pub fn options(&self) -> Vec<UntypedConfigOption> {
         self.options.values().cloned().collect()
     }
     pub fn configuration(&self) -> Configuration {
