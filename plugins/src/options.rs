@@ -1,53 +1,184 @@
-use anyhow::Result;
-use serde::ser::{SerializeStruct, Serializer};
+use serde::ser::Serializer;
 use serde::Serialize;
 
-// Marker trait for possible values of options
+pub mod config_type {
+    pub struct Integer;
+    pub struct DefaultInteger;
+    pub struct String;
+    pub struct DefaultString;
+    pub struct Boolean;
+    pub struct DefaultBoolean;
+    pub struct Flag;
+}
+
+pub type IntegerConfigOption<'a> = ConfigOption<'a, config_type::Integer>;
+pub type StringConfigOption<'a> = ConfigOption<'a, config_type::String>;
+pub type BooleanConfigOption<'a> = ConfigOption<'a, config_type::Boolean>;
+
+pub type DefaultIntegerConfigOption<'a> = ConfigOption<'a, config_type::DefaultInteger>;
+pub type DefaultStringConfigOption<'a> = ConfigOption<'a, config_type::DefaultString>;
+pub type DefaultBooleanConfigOption<'a> = ConfigOption<'a, config_type::DefaultBoolean>;
+/// Config value is represented as a flag
+pub type FlagConfigOption<'a> = ConfigOption<'a, config_type::Flag>;
+
+
 pub trait OptionType {
-    fn convert_default(value: Option<&Self>) -> Option<Value>;
+    type OutputValue;
+    type DefaultValue;
+
+    fn convert_default(value: &Self::DefaultValue) -> Option<Value>;
+
+    fn from_value(value: &Option<Value>) -> Self::OutputValue;
+
+    fn get_value_type() -> ValueType;
 }
 
-impl OptionType for &str {
-    fn convert_default(value: Option<&Self>) -> Option<Value> {
-        value.map(|s| Value::String(s.to_string()))
+impl OptionType for config_type::DefaultString {
+    type OutputValue = String;
+    type DefaultValue = &'static str;
+
+    fn convert_default(value: &Self::DefaultValue) -> Option<Value> {
+        Some(Value::String(value.to_string()))
+    }
+
+    fn from_value(value: &Option<Value>) -> Self::OutputValue {
+        match value {
+            Some(Value::String(s)) => s.to_string(),
+            _ => panic!("Type mismatch. Expected string but found {:?}", value),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::String
     }
 }
 
-impl OptionType for String {
-    fn convert_default(value: Option<&Self>) -> Option<Value> {
-        value.map(|s| Value::String(s.clone()))
+impl OptionType for config_type::DefaultInteger {
+    type OutputValue = i64;
+    type DefaultValue = i64;
+
+    fn convert_default(value: &Self::DefaultValue) -> Option<Value> {
+        Some(Value::Integer(*value))
     }
-}
-impl OptionType for i64 {
-    fn convert_default(value: Option<&Self>) -> Option<Value> {
-        value.map(|i| Value::Integer(*i))
+
+    fn from_value(value: &Option<Value>) -> i64 {
+        match value {
+            Some(Value::Integer(i)) => *i,
+            _ => panic!("Type mismatch. Expected Integer but found {:?}", value),
+        }
     }
-}
-impl OptionType for bool {
-    fn convert_default(value: Option<&Self>) -> Option<Value> {
-        value.map(|b| Value::Boolean(*b))
+
+    fn get_value_type() -> ValueType {
+        ValueType::Integer
     }
 }
 
-impl OptionType for Option<String> {
-    fn convert_default(_value: Option<&Self>) -> Option<Value> {
-        None
+impl OptionType for config_type::DefaultBoolean {
+    type OutputValue = bool;
+    type DefaultValue = bool;
+
+    fn convert_default(value: &bool) -> Option<Value> {
+        Some(Value::Boolean(*value))
+    }
+    fn from_value(value: &Option<Value>) -> bool {
+        match value {
+            Some(Value::Boolean(b)) => *b,
+            _ => panic!("Type mismatch. Expected Boolean but found {:?}", value),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::Boolean
     }
 }
 
-impl OptionType for Option<&str> {
-    fn convert_default(_value: Option<&Self>) -> Option<Value> {
-        None
+impl OptionType for config_type::Flag {
+    type OutputValue = bool;
+    type DefaultValue = ();
+
+    fn convert_default(_value: &()) -> Option<Value> {
+        Some(Value::Boolean(false))
+    }
+
+    fn from_value(value: &Option<Value>) -> bool {
+        match value {
+            Some(Value::Boolean(b)) => *b,
+            _ => panic!("Type mismatch. Expected Boolean but found {:?}", value),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::Flag
     }
 }
-impl OptionType for Option<i64> {
-    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+
+impl OptionType for config_type::String {
+    type OutputValue = Option<String>;
+    type DefaultValue = ();
+
+    fn convert_default(_value: &()) -> Option<Value> {
         None
     }
+
+    fn from_value(value: &Option<Value>) -> Option<String> {
+        match value {
+            Some(Value::String(s)) => Some(s.to_string()),
+            None => None,
+            _ => panic!(
+                "Type mismatch. Expected Option<string> but found {:?}",
+                value
+            ),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::String
+    }
 }
-impl OptionType for Option<bool> {
-    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+
+impl OptionType for config_type::Integer {
+    type OutputValue = Option<i64>;
+    type DefaultValue = ();
+
+    fn convert_default(_value: &()) -> Option<Value> {
         None
+    }
+
+    fn from_value(value: &Option<Value>) -> Self::OutputValue {
+        match value {
+            Some(Value::Integer(i)) => Some(*i),
+            None => None,
+            _ => panic!(
+                "Type mismatch. Expected Option<Integer> but found {:?}",
+                value
+            ),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::Integer
+    }
+}
+impl OptionType for config_type::Boolean {
+    type OutputValue = Option<bool>;
+    type DefaultValue = ();
+
+    fn convert_default(_value: &()) -> Option<Value> {
+        None
+    }
+    fn from_value(value: &Option<Value>) -> Self::OutputValue {
+        match value {
+            Some(Value::Boolean(b)) => Some(*b),
+            None => None,
+            _ => panic!(
+                "Type mismatch. Expected Option<Boolean> but found {:?}",
+                value
+            ),
+        }
+    }
+
+    fn get_value_type() -> ValueType {
+        ValueType::Boolean
     }
 }
 
@@ -68,6 +199,19 @@ pub enum Value {
     String(String),
     Integer(i64),
     Boolean(bool),
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Value::String(s) => serializer.serialize_str(s),
+            Value::Integer(i) => serializer.serialize_i64(*i),
+            Value::Boolean(b) => serializer.serialize_bool(*b),
+        }
+    }
 }
 
 impl Value {
@@ -127,25 +271,27 @@ impl Value {
 
 #[derive(Clone, Debug)]
 pub struct ConfigOption<'a, V: OptionType> {
-    name: &'a str,
-    default: Option<V>,
-    value_type: ValueType,
-    description: &'a str,
+    /// The name of the `ConfigOption`.
+    pub name: &'a str,
+    /// The default value of the `ConfigOption`
+    pub default: V::DefaultValue,
+    pub description: &'a str,
+    pub deprecated: bool,
 }
 
 impl<V: OptionType> ConfigOption<'_, V> {
     pub fn build(&self) -> UntypedConfigOption {
         UntypedConfigOption {
             name: self.name.to_string(),
-            value_type: self.value_type.clone(),
-            default: OptionType::convert_default(self.default.as_ref()),
-            value: None,
+            value_type: V::get_value_type(),
+            default: <V as OptionType>::convert_default(&self.default),
             description: self.description.to_string(),
+            deprecated: self.deprecated,
         }
     }
 }
 
-impl ConfigOption<'_, &'static str> {
+impl DefaultStringConfigOption<'_> {
     pub const fn new_str_with_default(
         name: &'static str,
         default: &'static str,
@@ -153,25 +299,25 @@ impl ConfigOption<'_, &'static str> {
     ) -> Self {
         Self {
             name: name,
-            default: Some(default),
-            value_type: ValueType::String,
+            default: default,
             description: description,
+            deprecated: false,
         }
     }
 }
 
-impl ConfigOption<'_, Option<&str>> {
+impl StringConfigOption<'_> {
     pub const fn new_str_no_default(name: &'static str, description: &'static str) -> Self {
         Self {
             name,
-            default: None,
-            value_type: ValueType::String,
-            description,
+            default: (),
+            description : description,
+            deprecated: false,
         }
     }
 }
 
-impl ConfigOption<'_, i64> {
+impl DefaultIntegerConfigOption<'_> {
     pub const fn new_i64_with_default(
         name: &'static str,
         default: i64,
@@ -179,36 +325,36 @@ impl ConfigOption<'_, i64> {
     ) -> Self {
         Self {
             name: name,
-            default: Some(default),
-            value_type: ValueType::Integer,
+            default: default,
             description: description,
+            deprecated: false,
         }
     }
 }
 
-impl ConfigOption<'_, Option<i64>> {
+impl IntegerConfigOption<'_> {
     pub const fn new_i64_no_default(name: &'static str, description: &'static str) -> Self {
         Self {
             name: name,
-            default: None,
-            value_type: ValueType::Integer,
+            default: (),
             description: description,
+            deprecated: false,
         }
     }
 }
 
-impl ConfigOption<'_, Option<bool>> {
+impl BooleanConfigOption<'_> {
     pub const fn new_bool_no_default(name: &'static str, description: &'static str) -> Self {
         Self {
             name,
             description,
-            default: None,
-            value_type: ValueType::Boolean,
+            default: (),
+            deprecated: false,
         }
     }
 }
 
-impl ConfigOption<'_, bool> {
+impl DefaultBooleanConfigOption<'_> {
     pub const fn new_bool_with_default(
         name: &'static str,
         default: bool,
@@ -217,29 +363,38 @@ impl ConfigOption<'_, bool> {
         Self {
             name,
             description,
-            default: Some(default),
-            value_type: ValueType::Boolean,
-        }
-    }
-
-    pub const fn new_flag(name: &'static str, description: &'static str) -> Self {
-        Self {
-            name,
-            description,
-            default: Some(false),
-            value_type: ValueType::Flag,
+            default: default,
+            deprecated: false,
         }
     }
 }
 
+impl FlagConfigOption<'_> {
+    pub const fn new_flag(name: &'static str, description: &'static str) -> Self {
+        Self {
+            name,
+            description,
+            default: (),
+            deprecated: false,
+        }
+    }
+}
+
+fn is_false(b: &bool) -> bool {
+    *b == false
+}
+
 /// An stringly typed option that is passed to
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct UntypedConfigOption {
     name: String,
+    #[serde(rename = "type")]
     pub(crate) value_type: ValueType,
-    pub(crate) value: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     default: Option<Value>,
     description: String,
+    #[serde(skip_serializing_if = "is_false")]
+    deprecated: bool,
 }
 
 impl UntypedConfigOption {
@@ -248,38 +403,6 @@ impl UntypedConfigOption {
     }
     pub fn default(&self) -> &Option<Value> {
         &self.default
-    }
-}
-
-// When we serialize we don't add the value. This is because we only
-// ever serialize when we pass the option back to lightningd during
-// the getmanifest call.
-impl Serialize for UntypedConfigOption {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("ConfigOption", 4)?;
-        s.serialize_field("name", &self.name)?;
-        match &self.default {
-            Some(Value::String(ss)) => {
-                s.serialize_field("default", ss)?;
-            }
-            Some(Value::Integer(i)) => {
-                s.serialize_field("default", i)?;
-            }
-            Some(Value::Boolean(b)) => {
-                match self.value_type {
-                    ValueType::Boolean => s.serialize_field("default", b)?,
-                    ValueType::Flag => {}
-                    _ => {} // This should never happen
-                }
-            }
-            _ => {}
-        }
-        s.serialize_field("type", &self.value_type)?;
-        s.serialize_field("description", &self.description)?;
-        s.end()
     }
 }
 
@@ -298,6 +421,7 @@ where
 
 #[cfg(test)]
 mod test {
+
     use super::*;
 
     #[test]
@@ -335,7 +459,8 @@ mod test {
                 json!({
                     "name" : "name",
                     "description": "description",
-                    "type" : "flag"
+                    "type" : "flag",
+                    "default" : false
                 }),
             ),
         ];
@@ -348,20 +473,24 @@ mod test {
 
     #[test]
     fn const_config_option() {
-        const _: ConfigOption<bool> = ConfigOption::new_flag("flag-option", "A flag option");
-        const _: ConfigOption<bool> =
+        // The main goal of this test is to test compilation
+
+        // Initiate every type as a const
+        const _: FlagConfigOption =
+            ConfigOption::new_flag("flag-option", "A flag option");
+        const _: DefaultBooleanConfigOption =
             ConfigOption::new_bool_with_default("bool-option", false, "A boolean option");
-        const _: ConfigOption<Option<bool>> =
+        const _: BooleanConfigOption =
             ConfigOption::new_bool_no_default("bool-option", "A boolean option");
 
-        const _: ConfigOption<Option<i64>> =
+        const _: IntegerConfigOption =
             ConfigOption::new_i64_no_default("integer-option", "A flag option");
-        const _: ConfigOption<i64> =
+        const _: DefaultIntegerConfigOption =
             ConfigOption::new_i64_with_default("integer-option", 12, "A flag option");
 
-        const _: ConfigOption<Option<&str>> =
+        const _: StringConfigOption =
             ConfigOption::new_str_no_default("integer-option", "A flag option");
-        const _: ConfigOption<&str> =
+        const _: DefaultStringConfigOption =
             ConfigOption::new_str_with_default("integer-option", "erik", "A flag option");
     }
 
