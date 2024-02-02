@@ -1825,6 +1825,7 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
 impl From<responses::StopResponse> for pb::StopResponse {
     fn from(c: responses::StopResponse) -> Self {
         Self {
+            result: c.result.map(|v| v as i32),
         }
     }
 }

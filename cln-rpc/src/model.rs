@@ -5951,8 +5951,34 @@ pub mod responses {
 	    }
 	}
 
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum StopResult {
+	    #[serde(rename = "Shutdown complete")]
+	    SHUTDOWN_COMPLETE,
+	}
+
+	impl TryFrom<i32> for StopResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<StopResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(StopResult::SHUTDOWN_COMPLETE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum StopResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for StopResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            StopResult::SHUTDOWN_COMPLETE => "SHUTDOWN_COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct StopResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub result: Option<StopResult>,
 	}
 
 	impl TryFrom<Response> for StopResponse {
