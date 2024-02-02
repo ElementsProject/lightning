@@ -1971,11 +1971,10 @@
   "commando.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
-    "additionalProperties": false,
+    "additionalProperties": true,
     "required": [],
     "properties": {
       "any": {
-        "type": "object",
         "description": "the return depends on the *method* invoked"
       }
     }
@@ -4874,7 +4873,7 @@
       "stubs": {
         "type": "array",
         "items": {
-          "type": "string",
+          "type": "hash",
           "description": "Channel IDs of channels successfully inserted."
         }
       }

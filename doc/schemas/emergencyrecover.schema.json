@@ -9,7 +9,7 @@
     "stubs": {
       "type": "array",
       "items": {
-        "type": "string",
+        "type": "hash",
         "description": "Channel IDs of channels successfully inserted."
       }
     }
