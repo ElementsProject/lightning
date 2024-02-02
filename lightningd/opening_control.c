@@ -50,7 +50,8 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	if (peer) {
 		json_add_node_id(response, "peer_id", &peer->id);
 		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-		json_add_channel_type(response, "channel_type", uc->fc->channel_type);
+		if (uc->fc->channel_type)
+			json_add_channel_type(response, "channel_type", uc->fc->channel_type);
 	}
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
@@ -1174,13 +1175,17 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	if (ctype &&
-	    !cmd->ld->dev_any_channel_type &&
-	    !channel_type_accept(tmpctx,
-				 ctype->features,
-				 cmd->ld->our_features)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "channel_type not supported");
+	if (ctype) {
+		fc->channel_type = tal_steal(fc, ctype);
+		if (!cmd->ld->dev_any_channel_type &&
+		    !channel_type_accept(tmpctx,
+					 ctype->features,
+					 cmd->ld->our_features)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "channel_type not supported");
+		}
+	} else {
+		fc->channel_type = NULL;
 	}
 
 	if (push_msat && amount_msat_greater_sat(*push_msat, *amount))
