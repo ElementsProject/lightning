@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invreq",
+    "label"
+  ],
+  "properties": {
+    "invreq": {
+      "type": "string",
+      "description": "the bolt12 invoice_request string beginning with `lnr1`"
+    },
+    "label": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "the unique label to use for this invoice"
+    },
+    "amount_msat": {
+      "type": "msat",
+      "description": "required if the *offer* does not specify an amount at all, or specifies it in a different currency. Otherwise you may set it (e.g. to provide a tip), and if not it defaults to the amount contained in the offer (multiplied by *quantity* if any)"
+    },
+    "timeout": {
+      "type": "u32",
+      "description": "seconds to wait for the offering node to pay the invoice or return an error, default 90 seconds. This will also be the timeout on the invoice that is sent"
+    },
+    "quantity": {
+      "type": "u64",
+      "description": "quantity is is required if the offer specifies quantity_max, otherwise it is not allowed"
+    }
+  }
+}

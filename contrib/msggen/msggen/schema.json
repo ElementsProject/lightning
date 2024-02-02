@@ -669,6 +669,22 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "bkpr-channelsapy.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "start_time": {
+        "type": "u64",
+        "description": "UNIX timestamp (in seconds) to filter events after the provided timestamp. Defaults to zero"
+      },
+      "end_time": {
+        "type": "u64",
+        "description": "UNIX timestamp (in seconds) to filter events up to and at the provided timestamp. Defaults to max-int"
+      }
+    }
+  },
   "bkpr-channelsapy.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -793,6 +809,36 @@
       }
     }
   },
+  "bkpr-dumpincomecsv.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "csv_format"
+    ],
+    "properties": {
+      "csv_format": {
+        "type": "string",
+        "description": "CSV format to use. See RETURN VALUE for options"
+      },
+      "csv_file": {
+        "type": "string",
+        "description": "on-disk destination of the generated CSV file"
+      },
+      "consolidate_fees": {
+        "type": "boolean",
+        "description": "if true, we emit a single, consolidated event for any onchain-fees for a txid and account. Otherwise, events for every update to the onchain fee calculation for this account and txid will be printed. Defaults to true. Note that this means that the events emitted are non-stable, i.e. calling **dumpincomecsv** twice may result in different onchain fee events being emitted, depending on how much information we've logged for that transaction"
+      },
+      "start_time": {
+        "type": "u64",
+        "description": "UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero"
+      },
+      "end_time": {
+        "type": "u64",
+        "description": "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int"
+      }
+    }
+  },
   "bkpr-dumpincomecsv.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -815,6 +861,20 @@
           "quickbooks"
         ],
         "description": "Format to print csv as"
+      }
+    }
+  },
+  "bkpr-inspect.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "account"
+    ],
+    "properties": {
+      "account": {
+        "type": "string",
+        "description": "channel account to inspect"
       }
     }
   },
@@ -965,6 +1025,18 @@
             }
           }
         }
+      }
+    }
+  },
+  "bkpr-listaccountevents.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "account": {
+        "type": "string",
+        "description": "receive events for the specified account"
       }
     }
   },
@@ -1155,6 +1227,13 @@
         }
       }
     }
+  },
+  "bkpr-listbalances.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {}
   },
   "bkpr-listbalances.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1385,6 +1464,20 @@
             }
           }
         }
+      }
+    }
+  },
+  "check.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+      "command_to_check"
+    ],
+    "properties": {
+      "command_to_check": {
+        "type": "string",
+        "description": "name of the relevant command"
       }
     }
   },
@@ -4642,6 +4735,20 @@
       }
     }
   },
+  "disableoffer.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "offer_id"
+    ],
+    "properties": {
+      "offer_id": {
+        "type": "hash",
+        "description": "the id we use to identify this offer"
+      }
+    }
+  },
   "disableoffer.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -5432,6 +5539,83 @@
       }
     }
   },
+  "funderupdate.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "policy": {
+        "type": "string",
+        "enum": [
+          "match",
+          "available",
+          "fixed"
+        ],
+        "description": "funder plugin will use to decide how much captial to commit to a v2 open channel request.\n\tThere are three policy options, detailed below:\n\t* `match` -- Contribute *policy_mod* percent of their requested funds.\n\tValid *policy_mod* values are 0 to 200. If this is a channel lease\n\trequest, we match based on their requested funds. If it is not a\n\tchannel lease request (and *lease_only* is false), then we match\n\ttheir funding amount. Note: any lease match less than 100 will\n\tlikely fail, as clients will not accept a lease less than their request.\n\t* `available` -- Contribute *policy_mod* percent of our available\n\tnode wallet funds. Valid *policy_mod* values are 0 to 100.\n\t* `fixed` -- Contributes a fixed  *policy_mod* sats to v2 channel open requests.\n\tDefault is fixed"
+      },
+      "policy_mod": {
+        "type": "sat",
+        "description": "number or 'modification' to apply to the policy. Default is 0sats"
+      },
+      "leases_only": {
+        "type": "boolean",
+        "description": "only contribute funds to `option_will_fund` requests which pay to lease funds. It will fund any v2 open request using *policy* even if it's  they're not seeking to lease funds. Note that `option_will_fund` commits funds for 4032 blocks (~1mo). Must also set *lease_fee_base_msat*, *lease_fee_basis*, *funding_weight*, *channel_fee_max_base_msat*, and *channel_fee_max_proportional_thousandths* to advertise available channel leases. Defaults to *False*"
+      },
+      "min_their_funding_msat": {
+        "type": "msat",
+        "description": "minimum funding sats that we require in order to activate our contribution policy to the v2 open. Defaults to 10k sats"
+      },
+      "max_their_funding_msat": {
+        "type": "msat",
+        "description": "maximum funding sats that we will consider to activate our contribution policy to the v2 open. Any channel open above this will not be funded. Defaults to no max (`UINT_MAX`)"
+      },
+      "per_channel_min_msat": {
+        "type": "msat",
+        "description": "minimum amount that we will contribute to a channel open. Defaults to 10k sats"
+      },
+      "per_channel_max_msat": {
+        "type": "msat",
+        "description": "maximum amount that we will contribute to a channel open. Defaults to no max (`UINT_MAX`)"
+      },
+      "reserve_tank_msat": {
+        "type": "msat",
+        "description": "amount of sats to leave available in the node wallet. Defaults to zero sats"
+      },
+      "fuzz_percent": {
+        "type": "u32",
+        "description": "a percentage to fuzz the resulting contribution amount by. Valid values are 0 to 100. Note that turning this on with (match, 100) policy will randomly fail `option_will_fund` leases, as most clients expect an exact or greater match of their `requested_funds`. Defaults to 0% (no fuzz)"
+      },
+      "fund_probability": {
+        "type": "u32",
+        "description": "the percent of v2 channel open requests to apply our policy to. Valid values are integers from 0 (fund 0% of all open requests) to 100 (fund every request). Useful for randomizing opens that receive funds. Useful for randomizing opens that receive funds. Defaults to 100"
+      },
+      "lease_fee_base_msat": {
+        "type": "msat",
+        "description": "flat fee for a channel lease. Node will receive this much extra added to their channel balance, paid by the opening node. Defaults to 2k sats. Note that the minimum is 1sat"
+      },
+      "lease_fee_basis": {
+        "type": "u32",
+        "description": "a basis fee that's calculated as 1/10k of the total requested funds the peer is asking for. Node will receive the total of *lease_fee_basis* times requested funds / 10k satoshis added to their channel balance, paid by the opening node. Default is 0.65% (65 basis points)"
+      },
+      "funding_weight": {
+        "type": "u32",
+        "description": "to calculate the fee the peer will compensate your node for its contributing inputs to the funding transaction. The total fee is calculated as the `open_channel2`.`funding_feerate_perkw` times this *funding_weight* divided by 1000. Node will have this funding fee added to their channel balance, paid by the opening node. Default is 2 inputs + 1 P2WPKH output"
+      },
+      "channel_fee_max_base_msat": {
+        "type": "msat",
+        "description": "a commitment to a maximum `channel_fee_base_msat` that your node will charge for routing payments over this leased channel during the lease duration. Default is 5k sats"
+      },
+      "channel_fee_max_proportional_thousandths": {
+        "type": "u32",
+        "description": "a commitment to a maximum `channel_fee_proportional_millionths` that your node will charge for routing payments over this leased channel during the lease duration. Note that it's denominated in 'thousandths'. A setting of `1` is equal to 1k ppm; `5` is 5k ppm, etc. Default is 100 (100k ppm)"
+      },
+      "compact_lease": {
+        "type": "hex",
+        "description": "a compact description of the channel lease params. When opening a channel, passed in to `fundchannel` to indicate the terms we expect from the peer"
+      }
+    }
+  },
   "funderupdate.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -5949,6 +6133,25 @@
       }
     }
   },
+  "getlog.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "broken",
+          "unusual",
+          "info",
+          "debug",
+          "io"
+        ],
+        "description": "a string that represents the log level. The default is *info*"
+      }
+    }
+  },
   "getlog.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -6209,6 +6412,18 @@
             }
           }
         }
+      }
+    }
+  },
+  "help.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "command to get information about"
       }
     }
   },
@@ -6911,6 +7126,18 @@
             }
           }
         }
+      }
+    }
+  },
+  "listconfigs.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "config": {
+        "type": "string",
+        "description": "configuration option name to restrict return"
       }
     }
   },
@@ -13379,6 +13606,39 @@
       }
     }
   },
+  "multiwithdraw.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "outputs"
+    ],
+    "properties": {
+      "outputs": {
+        "type": "array",
+        "items": {
+          "type": "outputdesc"
+        },
+        "description": "an array containing objects of the form `{address: amount}`. The `amount` may be the string *all*, indicating that all onchain funds be sent to the specified address. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in  *btc*"
+      },
+      "feerate": {
+        "type": "feerate",
+        "description": "feerate used for the withdrawals. See NOTES in lightning-feerates(7) for possible values. The default is *normal*"
+      },
+      "minconf": {
+        "type": "u32",
+        "description": "minimum number of confirmations that used outputs should have. Default is 1",
+        "default": 1
+      },
+      "utxos": {
+        "type": "array",
+        "items": {
+          "type": "outpoint",
+          "description": "utxos to be used to be withdrawn from, as an array of `txid:vout`. These must be drawn from the node's available UTXO set"
+        }
+      }
+    }
+  },
   "multiwithdraw.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -13428,6 +13688,20 @@
       "bech32": {
         "type": "string",
         "description": "The bech32 (native segwit) address"
+      }
+    }
+  },
+  "notifications.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "enable"
+    ],
+    "properties": {
+      "enable": {
+        "type": "boolean",
+        "description": "whether to enable or disable notifications"
       }
     }
   },
@@ -13537,6 +13811,20 @@
       }
     }
   },
+  "openchannel_abort.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel_id"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": "channel id of the channel to be aborted"
+      }
+    }
+  },
   "openchannel_abort.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -13560,6 +13848,34 @@
       "reason": {
         "type": "string",
         "description": "usually \"Abort requested\", but if it happened to fail at the same time it could be different"
+      }
+    }
+  },
+  "openchannel_bump.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel_id",
+      "amount",
+      "initialpsbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": "id of the channel to RBF"
+      },
+      "amount": {
+        "type": "sat",
+        "description": "satoshi value that we will contribute to the channel. This value will be _added_ to the provided PSBT in the output which is encumbered by the 2-of-2 script for this channel"
+      },
+      "initialpsbt": {
+        "type": "string",
+        "description": "the funded, incomplete PSBT that specifies the UTXOs and change output for our channel contribution. It can be updated, see `openchannel_update`; *initialpsbt* must have at least one input. Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for every input. An error (code 309) will be returned if this requirement is not met"
+      },
+      "funding_feerate": {
+        "type": "feerate",
+        "description": "feerate for the funding transaction. Defaults to 1/64th greater than the last feerate used for this channel"
       }
     }
   },
@@ -13762,6 +14078,25 @@
       }
     }
   },
+  "openchannel_signed.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel_id",
+      "signed_psbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": "id of the channel"
+      },
+      "signed_psbt": {
+        "type": "string",
+        "description": "the PSBT returned from `openchannel_update` (where *commitments_secured* was true) with partial signatures or finalized witness stacks included for every input that we contributed to the PSBT"
+      }
+    }
+  },
   "openchannel_signed.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -13785,6 +14120,25 @@
       "txid": {
         "type": "txid",
         "description": "The txid of the **tx**"
+      }
+    }
+  },
+  "openchannel_update.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel_id",
+      "psbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "description": "id of the channel"
+      },
+      "psbt": {
+        "type": "string",
+        "description": "updated PSBT to be sent to the peer. May be identical to the PSBT last returned by either `openchannel_init` or `openchannel_update`"
       }
     }
   },
@@ -13862,6 +14216,20 @@
       "requires_confirmed_inputs": {
         "type": "boolean",
         "description": "Does peer require confirmed inputs in psbt?"
+      }
+    }
+  },
+  "parsefeerate.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "feerate_str"
+    ],
+    "properties": {
+      "feerate_str": {
+        "type": "string",
+        "description": "The feerate string to parse"
       }
     }
   },
@@ -14024,6 +14392,35 @@
       }
     }
   },
+  "plugin.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": true,
+    "required": [
+      "subcommand"
+    ],
+    "properties": {
+      "subcommand": {
+        "type": "string",
+        "enum": [
+          "start",
+          "stop",
+          "rescan",
+          "startdir",
+          "list"
+        ],
+        "description": "determines what action is taken"
+      },
+      "plugin": {
+        "type": "string",
+        "description": "*path* or *name* of a plugin executable to start or stop"
+      },
+      "directory": {
+        "type": "string",
+        "description": "*path* of a directory containing plugins"
+      }
+    }
+  },
   "plugin.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -14180,6 +14577,20 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "recover.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "hsmsecret"
+    ],
+    "properties": {
+      "hsmsecret": {
+        "type": "string",
+        "description": "either a codex32 secret starting with `cl1` as returned by `hsmtool getcodexsecret`, or a raw 64 character hex string"
+      }
+    }
+  },
   "recoverchannel.request.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -14209,6 +14620,48 @@
           "type": "string",
           "description": "Channel IDs of channels successfully inserted."
         }
+      }
+    }
+  },
+  "renepay.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "invstring"
+    ],
+    "properties": {
+      "invstring": {
+        "type": "string",
+        "description": "bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only"
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": "if the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix  *sat*, or an 1 to 11 decimal point number suffixed by *btc*"
+      },
+      "maxfee": {
+        "type": "msat",
+        "description": "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value"
+      },
+      "maxdelay": {
+        "type": "u32",
+        "description": "overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks"
+      },
+      "retry_for": {
+        "type": "u32",
+        "description": "measured in seconds specifies how much time it is allowed for the command to keep retrying the payment. Defaults to 60 seconds"
+      },
+      "description": {
+        "type": "string",
+        "description": "only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid"
+      },
+      "label": {
+        "type": "string",
+        "description": "used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)"
+      },
+      "dev_use_shadow": {
+        "hidden": true,
+        "type": "boolean"
       }
     }
   },
@@ -14263,6 +14716,18 @@
       "destination": {
         "type": "pubkey",
         "description": "the final destination of the payment"
+      }
+    }
+  },
+  "renepaystatus.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+      "invstring": {
+        "type": "string",
+        "description": "if specified, the command will return a list of payment attempts whose invoice matches *invstring*, otherwise all payments with be listed"
       }
     }
   },
@@ -14349,6 +14814,28 @@
       }
     }
   },
+  "reserveinputs.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "psbt"
+    ],
+    "properties": {
+      "psbt": {
+        "type": "string",
+        "description": "the PSBT to reserve inputs from"
+      },
+      "exclusive": {
+        "type": "boolean",
+        "description": "If set to *False*, existing reservations are simply extended, rather than causing failure"
+      },
+      "reserve": {
+        "type": "u32",
+        "description": "the number of blocks to reserve. By default, reservations are for the next 72 blocks (approximately 6 hours)"
+      }
+    }
+  },
   "reserveinputs.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
@@ -14427,6 +14914,44 @@
       "status": {
         "type": "string",
         "description": "Information about where message was queued"
+      }
+    }
+  },
+  "sendinvoice.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "invreq",
+      "label"
+    ],
+    "properties": {
+      "invreq": {
+        "type": "string",
+        "description": "the bolt12 invoice_request string beginning with `lnr1`"
+      },
+      "label": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ],
+        "description": "the unique label to use for this invoice"
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": "required if the *offer* does not specify an amount at all, or specifies it in a different currency. Otherwise you may set it (e.g. to provide a tip), and if not it defaults to the amount contained in the offer (multiplied by *quantity* if any)"
+      },
+      "timeout": {
+        "type": "u32",
+        "description": "seconds to wait for the offering node to pay the invoice or return an error, default 90 seconds. This will also be the timeout on the invoice that is sent"
+      },
+      "quantity": {
+        "type": "u64",
+        "description": "quantity is is required if the offer specifies quantity_max, otherwise it is not allowed"
       }
     }
   },
@@ -14753,6 +15278,48 @@
         }
       }
     ]
+  },
+  "sendonionmessage.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "first_id",
+      "blinding",
+      "hops"
+    ],
+    "properties": {
+      "first_id": {
+        "type": "pubkey",
+        "description": "the (presumably well-known) public key of the start of the path"
+      },
+      "blinding": {
+        "type": "pubkey",
+        "description": "blinding factor for this path"
+      },
+      "hops": {
+        "type": "array",
+        "description": "",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "node",
+            "tlv"
+          ],
+          "properties": {
+            "node": {
+              "type": "pubkey",
+              "description": "public key of the node"
+            },
+            "tlv": {
+              "type": "u8",
+              "description": "contains a hexidecimal TLV to include"
+            }
+          }
+        }
+      }
+    }
   },
   "sendonionmessage.schema.json": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -15248,6 +15815,25 @@
             "description": "for boolean options"
           }
         }
+      }
+    }
+  },
+  "setpsbtversion.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "psbt",
+      "version"
+    ],
+    "properties": {
+      "psbt": {
+        "type": "string",
+        "description": "the PSBT to change versions"
+      },
+      "version": {
+        "type": "u32",
+        "description": "the version to set"
       }
     }
   },
@@ -15806,6 +16392,24 @@
       "txid": {
         "type": "txid",
         "description": "the transaction id of *tx*"
+      }
+    }
+  },
+  "unreserveinputs.request.json": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "psbt"
+    ],
+    "properties": {
+      "psbt": {
+        "type": "string",
+        "description": "inputs to unreserve are the inputs specified in the passed-in *psbt*"
+      },
+      "reserve": {
+        "type": "u32",
+        "description": "the number of blocks to decrease reservation by; default is 72"
       }
     }
   },

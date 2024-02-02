@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invstring"
+  ],
+  "properties": {
+    "invstring": {
+      "type": "string",
+      "description": "bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only"
+    },
+    "amount_msat": {
+      "type": "msat",
+      "description": "if the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix  *sat*, or an 1 to 11 decimal point number suffixed by *btc*"
+    },
+    "maxfee": {
+      "type": "msat",
+      "description": "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value"
+    },
+    "maxdelay": {
+      "type": "u32",
+      "description": "overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks"
+    },
+    "retry_for": {
+      "type": "u32",
+      "description": "measured in seconds specifies how much time it is allowed for the command to keep retrying the payment. Defaults to 60 seconds"
+    },
+    "description": {
+      "type": "string",
+      "description": "only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid"
+    },
+    "label": {
+      "type": "string",
+      "description": "used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)"
+    },
+    "dev_use_shadow": {
+      "hidden": true,
+      "type": "boolean"
+    }
+  }
+}

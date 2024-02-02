@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "offer_id"
+  ],
+  "properties": {
+    "offer_id": {
+      "type": "hash",
+      "description": "the id we use to identify this offer"
+    }
+  }
+}
