@@ -13,9 +13,11 @@ import shutil
 from subprocess import Popen, PIPE, TimeoutExpired, run
 import tempfile
 import time
+import types
 from typing import Union
 from urllib.parse import urlparse
 from urllib.request import urlopen
+import venv
 
 
 logging.basicConfig(
@@ -590,16 +592,129 @@ class InferInstall():
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
 
-python3pip = Installer('python3pip', 'text/x-python', exe='python3',
-                       manager='pip', entry='{name}.py')
-python3pip.add_entrypoint('{name}')
-python3pip.add_entrypoint('__init__.py')
-python3pip.add_dependency_file('requirements.txt')
-python3pip.add_dependency_call(['pip', 'install', '-r', 'requirements.txt'])
+class InstallationFailure(Exception):
+    "raised when pip fails to complete dependency installation"
 
-python3pip3 = python3pip.copy()
-python3pip3.manager = 'pip3'
-python3pip3.dependency_call = [['pip3', 'install', '-r', 'requirements.txt']]
+
+def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
+    "Create a virtual environment, install dependencies and test plugin."
+    env_path = Path('.venv')
+    env_path_full = Path(staged_plugin.source_loc) / env_path
+    plugin_path = Path(staged_plugin.source_loc) / 'source'
+
+    # subdir should always be None at this point
+    if staged_plugin.subdir:
+        logging.warning("cloned plugin contains subdirectory")
+        plugin_path = plugin_path / staged_plugin.subdir
+
+    if shutil.which('poetry') and staged_plugin.deps == 'pyproject.toml':
+        logging.debug('configuring a python virtual environment (poetry) in '
+                      f'{env_path_full}')
+        # The virtual environment should be located with the plugin.
+        # This installs it to .venv instead of in the global location.
+        mod_poetry_env = os.environ
+        mod_poetry_env['POETRY_VIRTUALENVS_IN_PROJECT'] = 'true'
+        # This ensures poetry installs to a new venv even though one may
+        # already be active (i.e., under CI)
+        if 'VIRTUAL_ENV' in mod_poetry_env:
+            del mod_poetry_env['VIRTUAL_ENV']
+        # to avoid relocating and breaking the venv, symlink pyroject.toml
+        # to the location of poetry's .venv dir
+        (Path(staged_plugin.source_loc) / 'pyproject.toml') \
+            .symlink_to(plugin_path / 'pyproject.toml')
+        (Path(staged_plugin.source_loc) / 'poetry.lock') \
+            .symlink_to(plugin_path / 'poetry.lock')
+
+        # Avoid redirecting stdout in order to stream progress.
+        # Timeout excluded as armv7 grpcio build/install can take 1hr.
+        pip = run(['poetry', 'install', '--no-root'], check=False,
+                  cwd=staged_plugin.source_loc, env=mod_poetry_env)
+
+        (Path(staged_plugin.source_loc) / 'pyproject.toml').unlink()
+        (Path(staged_plugin.source_loc) / 'poetry.lock').unlink()
+
+    else:
+        builder = venv.EnvBuilder(with_pip=True)
+        builder.create(env_path_full)
+        logging.debug('configuring a python virtual environment (pip) in '
+                      f'{env_path_full}')
+        logging.debug(f'virtual environment created in {env_path_full}.')
+        if staged_plugin.deps == 'pyproject.toml':
+            pip = run(['bin/pip', 'install', str(plugin_path)],
+                      check=False, cwd=plugin_path)
+        elif staged_plugin.deps == 'requirements.txt':
+            pip = run([str(env_path_full / 'bin/pip'), 'install', '-r',
+                       str(plugin_path / 'requirements.txt')],
+                      check=False, cwd=plugin_path)
+        else:
+            logging.debug("no python dependency file")
+    if pip and pip.returncode != 0:
+        logging.debug("install to virtual environment failed")
+        print('error encountered installing dependencies')
+        raise InstallationFailure
+
+    staged_plugin.venv = env_path
+    print('dependencies installed successfully')
+    return staged_plugin
+
+
+def create_wrapper(plugin: InstInfo):
+    '''The wrapper will activate the virtual environment for this plugin and
+    then run the plugin from within the same process.'''
+    assert hasattr(plugin, 'venv')
+    venv_full_path = Path(plugin.source_loc) / plugin.venv
+    with open(Path(plugin.source_loc) / plugin.entry, 'w') as wrapper:
+        wrapper.write((f"#!{venv_full_path}/bin/python\n"
+                       "import sys\n"
+                       "import runpy\n\n"
+                       f"if '{plugin.source_loc}/source' not in sys.path:\n"
+                       f"    sys.path.append('{plugin.source_loc}/source')\n"
+                       f"if '{plugin.source_loc}' in sys.path:\n"
+                       f"    sys.path.remove('{plugin.source_loc}')\n"
+                       f"runpy.run_module(\"{plugin.name}\", "
+                       "{}, \"__main__\")"))
+    wrapper_file = Path(plugin.source_loc) / plugin.entry
+    wrapper_file.chmod(0o755)
+
+
+def install_to_python_virtual_environment(cloned_plugin: InstInfo):
+    '''Called during install in place of a subprocess.run list'''
+    # Delete symlink so that a venv wrapper can take it's place
+    (Path(cloned_plugin.source_loc) / cloned_plugin.entry).unlink()
+    # The original entrypoint is imported as a python module - ensure
+    # it has a .py extension. The wrapper can keep the original naming.
+    entry = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.entry
+    entry.rename(entry.with_suffix('.py'))
+    create_python3_venv(cloned_plugin)
+    if not hasattr(cloned_plugin, 'venv'):
+        raise InstallationFailure
+    logging.debug('virtual environment for cloned plugin: '
+                  f'{cloned_plugin.venv}')
+    create_wrapper(cloned_plugin)
+    return cloned_plugin
+
+
+python3venv = Installer('python3venv', 'text/x-python', exe='python3',
+                        manager='pip', entry='{name}.py')
+python3venv.add_entrypoint('{name}')
+python3venv.add_entrypoint('__init__.py')
+python3venv.add_dependency_file('requirements.txt')
+python3venv.dependency_call = install_to_python_virtual_environment
+
+poetryvenv = Installer('poetryvenv', 'text/x-python', exe='python3',
+                       manager='poetry', entry='{name}.py')
+poetryvenv.add_entrypoint('{name}')
+poetryvenv.add_entrypoint('__init__.py')
+poetryvenv.add_dependency_file('pyproject.toml')
+poetryvenv.dependency_call = install_to_python_virtual_environment
+
+pyprojectViaPip = Installer('pyprojectViaPip', 'text/x-python', exe='python3',
+                            manager='pip', entry='{name}.py')
+pyprojectViaPip.add_entrypoint('{name}')
+pyprojectViaPip.add_entrypoint('__init__.py')
+pyprojectViaPip.add_dependency_file('pyproject.toml')
+pyprojectViaPip.dependency_call = install_to_python_virtual_environment
+
 
 # Nodejs plugin installer
 nodejs = Installer('nodejs', 'application/javascript', exe='node',
@@ -608,7 +723,7 @@ nodejs.add_entrypoint('{name}')
 nodejs.add_dependency_call(['npm', 'install', '--omit=dev'])
 nodejs.add_dependency_file('package.json')
 
-INSTALLERS = {python3pip, python3pip3, nodejs}
+INSTALLERS = [python3venv, poetryvenv, pyprojectViaPip, nodejs]
 
 
 def help_alias(targets: list):
@@ -781,7 +896,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         cloned_src.source_loc = plugin_path
 
     # Relocate plugin to a staging directory prior to testing
-    staging_path = tmp_path / src.name / 'source'
+    staging_path = inst_path / 'source'
     shutil.copytree(str(plugin_path), staging_path)
     staged_src = cloned_src
     # Because the source files are copied to a 'source' directory, the
@@ -796,30 +911,38 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
 
     # try it out
     if INSTALLER.dependency_call:
-        for call in INSTALLER.dependency_call:
-            logging.debug(f"Install: invoking '{' '.join(call)}'")
-            if logging.root.level < logging.WARNING:
-                pip = Popen(call, cwd=staging_path, text=True)
-            else:
-                pip = Popen(call, cwd=staging_path, stdout=PIPE, stderr=PIPE,
-                            text=True)
-            pip.wait()
-            # FIXME: handle output of multiple calls
-
-        if pip.returncode == 0:
-            print('dependencies installed successfully')
+        if isinstance(INSTALLER.dependency_call, types.FunctionType):
+            try:
+                staged_src = INSTALLER.dependency_call(staged_src)
+            except InstallationFailure:
+                return None
         else:
-            print('error encountered installing dependencies')
-            if pip.stdout:
-                logging.debug(pip.stdout.read())
-            return None
+            for call in INSTALLER.dependency_call:
+                logging.debug(f"Install: invoking '{' '.join(call)}'")
+                if logging.root.level < logging.WARNING:
+                    pip = Popen(call, cwd=staging_path, text=True)
+                else:
+                    pip = Popen(call, cwd=staging_path, stdout=PIPE,
+                                stderr=PIPE, text=True)
+                pip.wait()
+                # FIXME: handle output of multiple calls
+
+            if pip.returncode == 0:
+                print('dependencies installed successfully')
+            else:
+                print('error encountered installing dependencies')
+                if pip.stdout:
+                    logging.debug(pip.stdout.read())
+                remove_dir(clone_path)
+                remove_dir(inst_path)
+                return None
     test_log = []
     try:
-        test = run([Path(staging_path).joinpath(cloned_src.entry)],
+        test = run([Path(staged_src.source_loc).joinpath(staged_src.entry)],
                    cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
                    text=True, timeout=3)
-        for line in test.stderr:
-            test_log.append(line.strip('\n'))
+        for line in test.stderr.splitlines():
+            test_log.append(line)
         returncode = test.returncode
     except TimeoutExpired:
         # If the plugin is still running, it's assumed to be okay.
@@ -829,10 +952,10 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         for line in test_log:
             logging.debug(f'  {line}')
         print('plugin testing failed')
+        remove_dir(clone_path)
+        remove_dir(inst_path)
         return None
 
-    # Find this cute little plugin a forever home
-    shutil.copytree(str(staging_path), inst_path)
     add_installation_metadata(staged_src, src)
     print(f'plugin installed: {inst_path}')
     remove_dir(clone_path)

@@ -2,10 +2,12 @@ from fixtures import *  # noqa: F401,F403
 import subprocess
 from pathlib import PosixPath, Path
 import socket
+from pyln.testing.utils import VALGRIND
 import pytest
 import os
 import shutil
 import time
+import unittest
 
 
 @pytest.fixture(autouse=True)
@@ -102,7 +104,7 @@ def get_reckless_node(node_factory):
 def check_stderr(stderr):
     def output_okay(out):
         for warning in ['[notice]', 'WARNING:', 'npm WARN',
-                        'npm notice', 'DEPRECATION:']:
+                        'npm notice', 'DEPRECATION:', 'Creating virtualenv']:
             if out.startswith(warning):
                 return True
         return False
@@ -189,6 +191,7 @@ def test_install(node_factory):
     assert os.path.exists(plugin_path)
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
     n = get_reckless_node(node_factory)
@@ -205,6 +208,7 @@ def test_local_dir_install(node_factory):
     assert os.path.exists(plugin_path)
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_disable_enable(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)
