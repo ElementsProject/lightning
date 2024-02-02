@@ -14,12 +14,12 @@ installation involves: finding the source plugin, copying,
 installing dependencies, testing, activating, and updating the
 lightningd config file. Reckless does all of these by invoking:
 
-**reckless** **install** *plugin\_name*
+**reckless** **install**[@*commit/tag*] *plugin\_name*
 
 reckless will exit early in the event that:
 
 - the plugin is not found in any available source repositories
-- dependencies are not sucessfully installed
+- dependencies are not successfully installed
 - the plugin fails to execute
 
 Reckless-installed plugins reside in the 'reckless' subdirectory
@@ -74,11 +74,14 @@ Available option flags:
 **-v**, **--verbose**
 	request additional debug output
 
+**--network**=*network*
+	specify bitcoin, regtest, liquid, liquid-regtest, litecoin, signet,
+	or testnet networks. (default: bitcoin)
+
 NOTES
 -----
 
-Reckless currently supports python plugins only. Additional language
-support will be provided in future releases.
+Reckless currently supports python and javascript plugins.
 
 Running the first time will prompt the user that their lightningd's
 bitcoin config will be appended (or created) to inherit the reckless
@@ -96,6 +99,10 @@ lightningd user to execute files located here.  If this is a problem,
 the option flag **reckless -d=<my\_alternate\_dir>** may be used to
 relocate the reckless directory from its default. Consider creating a
 permanent alias in this case.
+
+Python plugins are installed to their own virtual environments. The
+environment is activated by a wrapper (named the same as the plugin)
+which then imports and executes the actual plugin entrypoint.
 
 For Plugin Developers:
 
