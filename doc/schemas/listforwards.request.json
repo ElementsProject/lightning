@@ -5,6 +5,7 @@
   "properties": {
     "status": {
       "type": "string",
+      "description": "if specified, then only the forwards with the given status are returned",
       "enum": [
         "offered",
         "settled",
@@ -13,10 +14,12 @@
       ]
     },
     "in_channel": {
-      "type": "short_channel_id"
+      "type": "short_channel_id",
+      "description": "only the matching forwards on the given inbound channel are returned"
     },
     "out_channel": {
-      "type": "short_channel_id"
+      "type": "short_channel_id",
+      "description": "only the matching forwards on the given outbount channel are returned"
     },
     "index": {
       "type": "string",
@@ -25,17 +28,17 @@
         "created",
         "updated"
       ],
-      "description": ""
+      "description": "if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`"
     },
     "start": {
       "type": "u64",
       "added": "v23.11",
-      "description": ""
+      "description": "if `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)"
     },
     "limit": {
       "type": "u32",
       "added": "v23.11",
-      "description": ""
+      "description": "if `index` is specified, `limit` can be used to specify the maximum number of entries to return"
     }
   }
 }

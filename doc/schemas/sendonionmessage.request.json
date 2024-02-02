@@ -33,7 +33,7 @@
           },
           "tlv": {
             "type": "u8",
-            "description": "contains a hexidecimal TLV to include"
+            "description": "contains a hexadecimal TLV to include"
           }
         }
       }

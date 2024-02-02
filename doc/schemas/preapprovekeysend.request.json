@@ -11,17 +11,19 @@
   "properties": {
     "destination": {
       "type": "pubkey",
+      "description": "it is a 33 byte, hex-encoded, node ID of the node that the payment should go to",
       "added": "v23.02"
     },
     "payment_hash": {
       "type": "hex",
       "added": "v23.02",
-      "description": "the hash of the *payment_preimage* which will prove payment",
+      "description": "it is the unique identifier of a payment",
       "maxLength": 64,
       "minLength": 64
     },
     "amount_msat": {
       "type": "msat",
+      "description": "the amount to send in millisatoshi precision; it can be a whole number, or a whole number with suffix `msat` or `sat`, or a three decimal point number with suffix `sat`, or an 1 to 11 decimal point number suffixed by `btc`",
       "added": "v23.02"
     }
   }

@@ -8,6 +8,7 @@
   "properties": {
     "style": {
       "type": "string",
+      "description": "\t*perkw* - provide feerate in units of satoshis per 1000 weight (e.g. the minimum fee is usually `253perkw`)\t*perkb* - provide feerate in units of satoshis per 1000 virtual bytes (eg. the minimum fee is usually `1000perkb`)",
       "enum": [
         "perkb",
         "perkw"

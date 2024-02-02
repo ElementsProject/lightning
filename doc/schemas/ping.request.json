@@ -7,13 +7,16 @@
   "additionalProperties": false,
   "properties": {
     "id": {
-      "type": "pubkey"
+      "type": "pubkey",
+      "description": "The pubkey of the node to ping"
     },
     "len": {
-      "type": "u16"
+      "type": "u16",
+      "description": "the length of the ping. Defaults to 128"
     },
     "pongbytes": {
-      "type": "u16"
+      "type": "u16",
+      "description": "the length of the reply. A value of 65532 to 65535 means `don't reply`. Defaults to 128"
     }
   }
 }

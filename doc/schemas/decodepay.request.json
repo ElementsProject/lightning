@@ -8,10 +8,12 @@
   ],
   "properties": {
     "bolt11": {
-      "type": "string"
+      "type": "string",
+      "description": "bolt11 invoice to decode"
     },
     "description": {
-      "type": "string"
+      "type": "string",
+      "description": "description of the invoice to decode"
     }
   }
 }

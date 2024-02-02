@@ -7,7 +7,7 @@
   "properties": {
     "rune": {
       "type": "string",
-      "description": "optional rune to list"
+      "description": "if specified, only details of that rune will be returned"
     }
   }
 }

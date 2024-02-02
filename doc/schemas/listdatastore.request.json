@@ -8,14 +8,13 @@
       "oneOf": [
         {
           "type": "array",
-          "description": "key is an array of values (though a single value is treated as a one-element array), to form a heirarchy. Using the first element of the key as the plugin name (e.g. [ 'summary' ]) is recommended. A key can either have children or a value, never both: parents are created and removed automatically.",
+          "description": "all immediate children of the *key* (or root children) are returned.\t\tUsing the first element of the key as the plugin name (e.g. `[ 'summary' ]`) is recommended.\t\tAn array of values to form a hierarchy (though a single value is treated as a one-element array)",
           "items": {
             "type": "string"
           }
         },
         {
-          "type": "string",
-          "description": ""
+          "type": "string"
         }
       ]
     }

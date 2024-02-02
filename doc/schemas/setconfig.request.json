@@ -8,8 +8,22 @@
   "added": "v23.08",
   "properties": {
     "config": {
-      "type": "string"
+      "type": "string",
+      "description": "name of the config variable which should be set to the value of the variable"
     },
-    "val": {}
+    "val": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "description": "value of the config variable to be set or updated"
+    }
   }
 }

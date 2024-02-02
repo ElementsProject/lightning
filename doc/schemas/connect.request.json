@@ -8,15 +8,15 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": ""
+      "description": "the target node's public key. As a convenience, *id* may be of the form *id@host* or *id@host:port*. In this case, the *host* and *port* parameters must be omitted. This can fail if your C-lightning node is a fresh install that has not connected to any peers yet (your node has no gossip yet), or if the target *id* is a fresh install that has no channels yet (nobody will gossip about a node until it has one published channel)"
     },
     "host": {
       "type": "string",
-      "description": "The hostname of the node."
+      "description": "the peer's hostname or IP address.\tIf *host* is not specified (or doesn't work), the connection will be attempted to an IP belonging to *id* obtained through gossip with other already connected peers.\tIf *host* begins with a `/` it is interpreted as a local path and the connection will be made to that local socket (see **bind-addr** in lightningd-config(5))"
     },
     "port": {
       "type": "u16",
-      "description": "Port to try connecting to"
+      "description": "the peer's port number. If not specified, the *port* depends on the current network:\t- bitcoin **mainnet**: 9735.\t- bitcoin **testnet**: 19735.\t- bitcoin **signet**: 39735.\t- bitcoin **regtest**: 19846"
     }
   }
 }

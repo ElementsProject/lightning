@@ -10,63 +10,65 @@
   "properties": {
     "amount_msat": {
       "type": "msat_or_any",
-      "description": ""
-    },
-    "description": {
-      "type": "string",
-      "description": ""
+      "description": "the string `any`, which creates an invoice that can be paid with any amount. Otherwise it is a positive value in millisatoshi precision; it can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*"
     },
     "label": {
       "oneOf": [
         {
-          "type": "string",
-          "description": ""
+          "type": "string"
         },
         {
-          "type": "integer",
-          "description": ""
+          "type": "integer"
         }
-      ]
+      ],
+      "description": "a unique string or number (which is treated as a string, so `01` is different from `1`); it is never revealed to other nodes on the lightning  network, but it can be used to query the status of this invoice"
+    },
+    "description": {
+      "type": "string",
+      "description": "a short description of purpose of payment, e.g. *1 cup of coffee*. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to (unless *deschashonly* is true as described below). It must be UTF-8, and cannot use *\\u* JSON escape codes"
     },
     "expiry": {
       "type": "u64",
-      "description": ""
+      "description": "the time the invoice is valid for, in seconds. If no value is provided the default of 604800 (1 week) is used"
     },
     "fallbacks": {
       "type": "array",
-      "description": "",
+      "description": "one or more fallback addresses to include in the invoice (in order from most-preferred to least): note that these arrays are not currently tracked to fulfill the invoice",
       "items": {
         "type": "string"
       }
     },
     "preimage": {
       "type": "hex",
-      "description": ""
+      "description": "a 64-digit hex string to be used as payment preimage for the created invoice. By default, if unspecified, lightningd will generate a secure pseudorandom preimage seeded from an appropriate entropy source on your system. **IMPORTANT**: if you specify the *preimage*, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret. This parameter is an advanced feature intended for use with cutting-edge cryptographic protocols and should not be used unless explicitly needed"
     },
     "exposeprivatechannels": {
+      "description": "if specified, it overrides the default route hint logic, which will use unpublished channels only if there are no published channels",
       "oneOf": [
         {
           "type": "boolean",
-          "description": ""
+          "description": "if *True* unpublished channels are always considered as a route hint candidate; if *False*, never"
         },
         {
           "type": "array",
+          "description": "array of short channel ids (or a remote alias), only those specific channels will be considered candidates, even if they are public or dead-ends",
           "items": {
             "type": "short_channel_id"
           }
         },
         {
-          "type": "short_channel_id"
+          "type": "short_channel_id",
+          "description": "if it is a short channel id (e.g. *1x1x3*), only this specific channel will be considered candidate, even if it is public or dead-end"
         }
       ]
     },
     "cltv": {
       "type": "u32",
-      "description": ""
+      "description": "if specified, sets the *min_final_cltv_expiry* for the invoice. Otherwise, it's set to the parameter **cltv-final**"
     },
     "deschashonly": {
       "type": "boolean",
-      "description": ""
+      "description": "if True, then the bolt11 returned contains a hash of the *description*, rather than the *description* itself: this allows much longer descriptions, but they must be communicated via some other mechanism. Defaults to False"
     }
   }
 }

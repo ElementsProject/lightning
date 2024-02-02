@@ -9,37 +9,46 @@
   ],
   "properties": {
     "satoshi": {
-      "type": "msat_or_all"
+      "type": "msat_or_all",
+      "description": "the minimum satoshi value of the output(s) needed (or the string `all` meaning use all unreserved inputs). If a value, it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*"
     },
     "feerate": {
-      "type": "feerate"
+      "type": "feerate",
+      "description": "used for the transaction as initial feerate. The default is *normal*"
     },
     "startweight": {
-      "type": "u32"
+      "type": "u32",
+      "description": "the weight of the transaction before *fundpsbt* has added any inputs"
     },
     "minconf": {
-      "type": "u32"
+      "type": "u32",
+      "description": "the minimum number of confirmations that used outputs should have. Default is 1"
     },
     "reserve": {
       "type": "u32",
-      "description": "reserve is a number: if non-zero number then reserveinputs is called (successfully, with exclusive true) on the returned PSBT for this number of blocks (default: 72)."
+      "description": "if not zero, then *reserveinputs* is called (successfully, with *exclusive* true) on the returned PSBT for this number of blocks. Defaults to 72 blocks if unspecified"
     },
     "locktime": {
-      "type": "u32"
+      "type": "u32",
+      "description": "the locktime of the transaction. if not set, it is set to a recent block height"
     },
     "min_witness_weight": {
-      "type": "u32"
+      "type": "u32",
+      "description": "minimum weight to use for a UTXO's witness. If the actual witness weight is greater than the provided minimum, the actual witness weight will be used"
     },
     "excess_as_change": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "flag to add a change output for the excess sats"
     },
     "nonwrapped": {
       "added": "v23.02",
-      "type": "boolean"
+      "type": "boolean",
+      "description": "to signal to filter out any p2sh-wrapped inputs from funding this PSBT"
     },
     "opening_anchor_channel": {
       "added": "v23.08",
-      "type": "boolean"
+      "type": "boolean",
+      "description": "to signel that it needs emergency reserve for anchors so that we can lowball our commitment tx fees, and min-emergency-msat for reserving some sats for closing anchor channels"
     }
   }
 }

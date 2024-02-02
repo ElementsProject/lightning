@@ -7,7 +7,7 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "If supplied, limits the channels to just the peer with the given ID, if it exists."
+      "description": "if no *id* is supplied, then channel data on all historical channels are given. Supplying *id* will filter the results to only match channels to that peer. Note that prior to v23.05, old peers were forgotten"
     }
   }
 }

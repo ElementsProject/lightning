@@ -5,7 +5,8 @@
   "additionalProperties": false,
   "properties": {
     "id": {
-      "type": "pubkey"
+      "type": "pubkey",
+      "description": "The public key of the node to list"
     }
   }
 }

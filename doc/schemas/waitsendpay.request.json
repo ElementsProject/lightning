@@ -7,16 +7,20 @@
   ],
   "properties": {
     "payment_hash": {
-      "type": "hash"
+      "type": "hash",
+      "description": "the hash of the *payment_preimage*"
     },
     "timeout": {
-      "type": "u32"
+      "type": "u32",
+      "description": "a timeout in seconds, for this RPC command to return. If the *timeout* is provided and the given amount of time passes without the payment definitely succeeding or definitely failing, this command returns with a 200 error code (payment still in progress). If *timeout* is not provided this call will wait indefinitely. Indicating a *timeout* of 0 effectively makes this call a pollable query of the status of the payment"
     },
     "partid": {
-      "type": "u64"
+      "type": "u64",
+      "description": "unique ID within this (multi-part) payment. It must match that of the **sendpay** command"
     },
     "groupid": {
-      "type": "u64"
+      "type": "u64",
+      "description": "grouping key to disambiguate multiple attempts to pay the same payment_hash"
     }
   }
 }

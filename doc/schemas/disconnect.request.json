@@ -7,10 +7,12 @@
   ],
   "properties": {
     "id": {
-      "type": "pubkey"
+      "type": "pubkey",
+      "description": "the public key of the peer to terminate the connection.\tIt can be discovered in the output of the listpeers command, which returns a set of peers:\t{\t\t'peers': [\t\t\t{\t\t\t'id': '0563aea81...',\t\t\t'connected': true,\t\t\t...\t\t}\t\t]\t}"
     },
     "force": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "if set to True, it will disconnect even with an active channel"
     }
   }
 }

@@ -9,15 +9,15 @@
   "properties": {
     "message": {
       "type": "string",
-      "description": "Message to be checked against the signature."
+      "description": "Message to be checked against the signature"
     },
     "zbase": {
       "type": "string",
-      "description": "The Zbase32 encoded signature to verify."
+      "description": "The Zbase32 encoded signature to verify"
     },
     "pubkey": {
       "type": "pubkey",
-      "description": "The Zbase32 encoded signature to verify."
+      "description": "The Zbase32 encoded signature to verify"
     }
   }
 }

@@ -9,11 +9,11 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "id is the node id of the remote peer."
+      "description": "node id of the remote peer"
     },
     "psbt": {
       "type": "string",
-      "description": "the transaction to use for funding (does not need to be signed but must be otherwise complete)"
+      "description": "transaction to use for funding (does not need to be signed but must be otherwise complete)"
     }
   }
 }

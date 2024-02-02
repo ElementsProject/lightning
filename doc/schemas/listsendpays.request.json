@@ -5,10 +5,12 @@
   "additionalProperties": false,
   "properties": {
     "bolt11": {
-      "type": "string"
+      "type": "string",
+      "description": "bolt11 invoice"
     },
     "payment_hash": {
-      "type": "hash"
+      "type": "hash",
+      "description": "the hash of the payment_preimage"
     },
     "status": {
       "type": "string",
@@ -16,7 +18,8 @@
         "pending",
         "complete",
         "failed"
-      ]
+      ],
+      "description": "Whether the invoice has been paid, pending, or failed"
     },
     "index": {
       "type": "string",
@@ -25,17 +28,17 @@
         "created",
         "updated"
       ],
-      "description": ""
+      "description": "if neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`"
     },
     "start": {
       "type": "u64",
       "added": "v23.11",
-      "description": ""
+      "description": "if `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)"
     },
     "limit": {
       "type": "u32",
       "added": "v23.11",
-      "description": ""
+      "description": "if `index` is specified, `limit` can be used to specify the maximum number of entries to return"
     }
   }
 }
