@@ -27,6 +27,8 @@ class Version:
     @classmethod
     def from_str(cls, s: str) -> "Version":
         m = re.search(r'^v(\d+).(\d+).?(\d+)?(rc\d+)?', s)
+        if m is None:
+            raise ValueError(f"Could not parse version {s}")
         parts = [int(m.group(i)) for i in range(1, 4) if m.group(i) is not None]
         year, month = parts[0], parts[1]
         if len(parts) == 3:
