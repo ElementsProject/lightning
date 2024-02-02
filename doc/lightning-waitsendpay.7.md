@@ -4,7 +4,7 @@ lightning-waitsendpay -- Command for sending a payment via a route
 SYNOPSIS
 --------
 
-**waitsendpay** *payment\_hash* [*timeout*] [*partid*]
+**waitsendpay** *payment\_hash* [*timeout*] [*partid* *groupid*]
 
 DESCRIPTION
 -----------
@@ -12,18 +12,6 @@ DESCRIPTION
 The **waitsendpay** RPC command polls or waits for the status of an
 outgoing payment that was initiated by a previous **sendpay**
 invocation.
-
-The *partid* argument must match that of the **sendpay** command.
-
-Optionally the client may provide a *timeout*, an integer in seconds,
-for this RPC command to return. If the *timeout* is provided and the
-given amount of time passes without the payment definitely succeeding or
-definitely failing, this command returns with a 200 error code (payment
-still in progress). If *timeout* is not provided this call will wait
-indefinitely.
-
-Indicating a *timeout* of 0 effectively makes this call a pollable query
-of the status of the payment.
 
 If the payment completed with success, this command returns with
 success. Otherwise, if the payment completed with failure, this command
@@ -56,6 +44,9 @@ If **status** is "complete":
   - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash**
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On error, and even if the error occurred from a node other than the
 final destination, the route table will no longer be updated. Use the

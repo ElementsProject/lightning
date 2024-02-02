@@ -13,8 +13,11 @@ The **createonion** RPC command allows the caller to create a custom onion
 with custom payloads at each hop in the route. A custom onion can be used to
 implement protocol extensions that are not supported by Core Lightning directly.
 
-The *hops* parameter is a JSON list of dicts, each specifying a node and the
-payload destined for that node. The following is an example of a 3 hop onion:
+
+EXAMPLE USAGE
+-------------
+
+The following is an example of a 3 hop onion:
 
 ```json
 [
@@ -68,22 +71,7 @@ which the above *hops* parameter was generated:
    payload in `createonion` corresponds to the 2nd set of values from `getroute`.
  - The final payload is a copy of the last payload sans `channel`
 
-These rules are directly derived from the onion construction. Please refer
-[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md) for details and rationale.
-
-The *assocdata* parameter specifies the associated data that the onion should
-commit to. If the onion is to be used to send a payment later it MUST match
-the `payment_hash` of the payment in order to be valid.
-
-The optional *session\_key* parameter can be used to specify a secret that is
-used to generate the shared secrets used to encrypt the onion for each hop. It
-should only be used for testing or if a specific shared secret is
-important. If not specified it will be securely generated internally, and the
-shared secrets will be returned.
-
-The optional *onion\_size* parameter specifies a size different from the default
-payment onion (1300 bytes). May be used for custom protocols like trampoline
-routing.
+These rules are directly derived from the onion construction. Please refer BOLT 04 for details and rationale.
 
 RETURN VALUE
 ------------
@@ -97,8 +85,8 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-EXAMPLE
--------
+EXAMPLE JSON RESPONSE
+---------------------
 
 The following example is the result of calling *createonion* with the
 above hops parameter:
@@ -131,5 +119,7 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+
+[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)
 
 [comment]: # ( SHA256STAMP:faac7539bd94fe5e561350f36002895ad2f3d4539f8bb4688027b6a81ec6f70c)

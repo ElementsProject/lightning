@@ -27,6 +27,9 @@ If there is no matching *txid*, an error is reported. Note that this may
 happen due to incorrect usage, such as **txdiscard** or **txsend**
 already being called for *txid*.
 
+ERRORS
+------
+
 The following error codes may occur:
 
 - -1: An unknown *txid*.

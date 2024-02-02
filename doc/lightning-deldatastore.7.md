@@ -29,6 +29,9 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 The following error codes may occur:
 
 - 1200: the key does not exist

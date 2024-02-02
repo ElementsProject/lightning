@@ -12,15 +12,7 @@ DESCRIPTION
 The **listinvoices** RPC command gets the status of a specific invoice,
 if it exists, or the status of all invoices if given no argument.
 
-A specific invoice can be queried by providing either the `label`
-provided when creating the invoice, the `invstring` string representing
-the invoice, the `payment_hash` of the invoice, or the local `offer_id`
-this invoice was issued for. Only one of the query parameters can be used at once.
-
-`index` controls ordering, by `created` (default) or `updated`.  If
-`index` is specified, `start` may be specified to start from that
-value, which is generally returned from lightning-wait(7), and `limit`
-can be used to specify the maximum number of entries to return.
+Only one of the query parameters can be used from *label*, *invstring*, *payment_hash*, or *offer_id*
 
 RETURN VALUE
 ------------

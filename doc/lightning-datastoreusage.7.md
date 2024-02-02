@@ -14,6 +14,7 @@ total bytes that are stored under a certain *key* (or from the root),
 including the size of the *key*.
 
 All descendants of the *key* (or root) are taken into account.
+
 RETURN VALUE
 ------------
 

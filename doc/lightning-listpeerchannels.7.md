@@ -15,9 +15,6 @@ If no *id* is supplied, then channel data on all lightning nodes that are
 connected, or not connected but have open channels with this node, are
 returned.
 
-Supplying *id* will filter the results to only return channel data that match *id*,
-if one exists.
-
 RETURN VALUE
 ------------
 
@@ -198,6 +195,9 @@ The *state* field values (and *old\_state* / *new\_state*) are worth describing 
     know what happened (i.e. if it was a proper unilateral close by the
     peer, or a theft attempt).
 
+ERRORS
+------
+
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
 
@@ -211,8 +211,7 @@ Michael Hawkins <<michael.hawkins@protonmail.com>>.
 SEE ALSO
 --------
 
-lightning-connect(7), lightning-fundchannel\_start(7),
-lightning-setchannelfee(7)
+lightning-connect(7), lightning-fundchannel\_start(7)
 
 RESOURCES
 ---------

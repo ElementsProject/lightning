@@ -17,13 +17,8 @@ secret).
 
 As a special case, if *pubkey* is not specified, we will try every
 known node key (as per *listnodes*), and verification succeeds if it
-matches for any one of them.  Note: this is implemented far more
+matches for any one of them. Note: this is implemented far more
 efficiently than trying each one, so performance is not a concern.
-
-On failure, an error is returned and core lightning exit with the following error code:
-
-- -32602: Parameter missed or malformed;
-- 1301: *pubkey* not found in the graph.
 
 RETURN VALUE
 ------------
@@ -35,6 +30,14 @@ On success, an object is returned, containing:
 - **pubkey** (pubkey): the *pubkey* parameter, or the pubkey found by looking for known nodes
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
+
+On failure, an error is returned and core lightning exit with the following error code:
+
+- -32602: Parameter missed or malformed;
+- 1301: *pubkey* not found in the graph.
 
 AUTHOR
 ------

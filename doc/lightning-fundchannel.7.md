@@ -11,29 +11,15 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **fundchannel** RPC command opens a payment channel with a peer by
-committing a funding transaction to the blockchain as defined in BOLT
-\#2.
-If not already connected, **fundchannel** will automatically attempt
-to connect if C-lightning knows a way to contact the node (either from
-normal gossip, or from a previous **connect** call).
-This auto-connection can fail if C-lightning does not know how to contact
-the target node; see lightning-connect(7).
-Once the
-transaction is confirmed, normal channel operations may begin. Readiness
-is indicated by **listpeers** reporting a *state* of `CHANNELD_NORMAL`
-for the channel.
+The **fundchannel** RPC command opens a payment channel with a peer by committing a 
+funding transaction to the blockchain as defined in BOLT #2.
 
-*id* is the peer id obtained from **connect**.
+If not already connected, **fundchannel** will automatically attempt to connect if 
+Core Lightning knows a way to contact the node (either from normal gossip, or from 
+a previous **connect** call).
 
-*amount* is the amount in satoshis taken from the internal wallet to
-fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency-msat` as change). The string *all* can be used to specify all available
-funds (or 16777215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise, it is in
-satoshi precision; it can be a whole number, a whole number ending in
-*sat*, a whole number ending in *000msat*, or a number with 1 to 8
-decimal places ending in *btc*. The value cannot be less than the dust
-limit, currently set to 546, nor more than 16777215 satoshi (unless large
-channels were negotiated with the peer).
+This auto-connection can fail if Core Lightning does not know how to contact the 
+target node; see lightning-connect(7).
 
 *feerate* is an optional feerate used for the opening transaction and
 (unless *option\_anchors\_zero\_fee\_htlc\_tx* is negotiated), as initial feerate
@@ -116,6 +102,9 @@ On success, an object is returned, containing:
 - **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+-------
 
 The following error codes may occur:
 

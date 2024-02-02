@@ -12,19 +12,6 @@ DESCRIPTION
 The **createinvoice** RPC command signs and saves an invoice into the
 database.
 
-The *invstring* parameter is of bolt11 form, but the final signature
-is ignored.  Minimal sanity checks are done.  (Note: if
-**experimental-offers** is enabled, *invstring* can actually be an
-unsigned bolt12 invoice).
-
-The *label* must be a unique string or number (which is treated as a
-string, so "01" is different from "1"); it is never revealed to other
-nodes on the lightning network, but it can be used to query the status
-of this invoice.
-
-The *preimage* is the preimage to supply upon successful payment of
-the invoice.
-
 RETURN VALUE
 ------------
 
@@ -53,6 +40,9 @@ On success, an object is returned, containing:
 - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice (**experimental-offers** only).
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, an error is returned and no invoice is created. If the
 lightning process fails before responding, the caller should use

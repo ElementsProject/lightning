@@ -13,6 +13,7 @@ The **listnodes** command returns nodes the node has learned about via gossip me
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -57,12 +58,16 @@ If **option\_will\_fund** is present:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "nodes": [
@@ -84,7 +89,6 @@ EXAMPLE JSON RESPONSE
 }
 ```
 
-
 AUTHOR
 ------
 
@@ -93,7 +97,7 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 --------
 
-FIXME:
+lightning-listchannels(7)
 
 RESOURCES
 ---------

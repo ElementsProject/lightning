@@ -18,7 +18,6 @@ Note that the type **onchain\_fees** that are emitted are of opposite credit/deb
 produce the same list of events -- no previously emitted event will be
 subsequently updated, rather we add a new event to the list.
 
-
 RETURN VALUE
 ------------
 

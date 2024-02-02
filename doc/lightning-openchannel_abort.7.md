@@ -13,9 +13,6 @@ DESCRIPTION
 open with a specified peer. It uses the openchannel protocol
 which allows for interactive transaction construction.
 
-*channel\_id* is id of this channel.
-
-
 RETURN VALUE
 ------------
 
@@ -27,6 +24,9 @@ On success, an object is returned, containing:
 - **reason** (string): usually "Abort requested", but if it happened to fail at the same time it could be different
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

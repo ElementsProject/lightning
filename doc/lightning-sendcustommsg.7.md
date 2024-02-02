@@ -14,24 +14,9 @@ into the communication with the peer with the given `node_id`. This is
 intended as a low-level interface to implement custom protocol extensions on
 top, not for direct use by end-users.
 
-The message must be a hex encoded well-formed message, including the 2-byte
-type prefix, but excluding the length prefix which will be added by the RPC
-method. The message types may not be one of the internally handled
-types, since that may cause issues with the internal state tracking of
-Core Lightning. We do (as of *v23.11*) allow sending of even types, but note that peers (as per the spec) will disconnect on receiving unknown even types.
-
-The node specified by `node_id` must be a peer, i.e., it must have a direct
-connection with the node receiving the RPC call, and the connection must be
-established. For a method to send arbitrary messages over multiple hops,
-including hops that do not understand the custom message, see the
-`createonion` and `sendonion` RPC methods. Messages can only be injected if
-the connection is handled by `openingd` or `channeld`. Messages cannot be
-injected when the peer is handled by `onchaind` or `closingd` since these do
-not have a connection, or are synchronous daemons that do not handle
-spontaneous messages.
-
-On the reveiving end a plugin may implement the `custommsg` plugin hook and
-get notified about incoming messages, and allow additional unknown even types in their getmanifest response.
+On the receiving end a plugin may implement the `custommsg` plugin hook and
+get notified about incoming messages, and allow additional unknown even types 
+in their getmanifest response.
 
 RETURN VALUE
 ------------

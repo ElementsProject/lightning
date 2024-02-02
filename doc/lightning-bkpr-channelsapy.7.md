@@ -12,11 +12,6 @@ DESCRIPTION
 The **bkpr-channelsapy** RPC command lists stats on routing income, leasing income,
 and various calculated APYs for channel routed funds.
 
-The **start\_time** is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
-
-The **end\_time** is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
-
-
 RETURN VALUE
 ------------
 

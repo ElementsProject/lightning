@@ -12,10 +12,6 @@ DESCRIPTION
 The **check** RPC command verifies another command without actually 
 making any changes.
 
-The *command\_to\_check* is the name of the relevant command.
-
-*parameters* is the command's parameters.
-
 This is guaranteed to be safe, and will do all checks up to the point
 where something in the system would need to be altered (such as checking
 that channels are in the right state, peers connected, etc).

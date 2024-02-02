@@ -9,8 +9,6 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-*config* (optional) is a configuration option name to restrict return.
-
 The **listconfigs** RPC command to list all configuration options, or with *config* only one.
 
 The returned values reflect the current configuration, including
@@ -365,6 +363,8 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
 
 On failure, one of the following error codes may be returned:
 

@@ -12,38 +12,11 @@ DESCRIPTION
 
 The **getroute** RPC command attempts to find the best route for the
 payment of *amount\_msat* to lightning node *id*, such that the payment will
-arrive at *id* with *cltv*-blocks to spare (default 9).
-
-*amount\_msat* is in millisatoshi precision; it can be a whole number, or a
-whole number ending in *msat* or *sat*, or a number with three decimal
-places ending in *sat*, or a number with 1 to 11 decimal places ending
-in *btc*.  The 0 value is special: it ignores any *htlc\_minimum\_msat*
-setting on channels, and simply returns a possible route (if any) which
-is useful for simple probing.
+arrive at *id* with *cltv*.
 
 There are two considerations for how good a route is: how low the fees
 are, and how long your payment will get stuck in a delayed output if a
-node goes down during the process. The *riskfactor* non-negative
-floating-point field controls this tradeoff; it is the annual cost of
-your funds being stuck (as a percentage).
-
-For example, if you thought the convenience of keeping your funds liquid
-(not stuck) was worth 20% per annum interest, *riskfactor* would be 20.
-
-If you didn't care about risk, *riskfactor* would be zero.
-
-*fromid* is the node to start the route from: default is this node.
-
-*fuzzpercent* was used to distort fees to provide some randomization to the
-route generated, but it was not properly implemented and is ignored.
-
-*exclude* is a JSON array of short-channel-id/direction (e.g. [
-"564334x877x1/0", "564195x1292x0/1" ]) or node-id which should be excluded
-from consideration for routing. The default is not to exclude any channels
-or nodes. Note if the source or destination is excluded, the command result
-is undefined.
-
-*maxhops* is the maximum number of channels to return; default is 20.
+node goes down during the process. 
 
 RISKFACTOR EFFECT ON ROUTING
 ----------------------------

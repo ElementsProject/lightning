@@ -14,15 +14,7 @@ subsequently be used to fund channels managed by the Core Lightning node.
 
 The funding transaction needs to be confirmed before funds can be used.
 
-*addresstype* specifies the type of address wanted; currently *bech32*
-(e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet
-or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on
-bitcoin mainnet), or *p2tr* taproot addresses. The special value *all*
-generates all known address types for the same underlying key.
-
-If no *addresstype* is specified the address generated is a *bech32* address.
-
-To send an on-chain payment _from_ the Core Lightning node wallet, use `withdraw`. 
+To send an on-chain payment from the Core Lightning node wallet, use `withdraw`. 
 
 RETURN VALUE
 ------------

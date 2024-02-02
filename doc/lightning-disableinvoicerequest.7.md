@@ -3,6 +3,7 @@ lightning-disableinvoicerequest -- Command for removing an invoice request
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-offers only)**
 
 **disableinvoicerequest** *invreq\_id*
@@ -17,7 +18,6 @@ thus, no further payments made)..
 We currently don't support deletion of invoice\_requests, so they are
 not forgotten entirely (there may be payments which refer to this
 invoice\_request).
-
 
 RETURN VALUE
 ------------

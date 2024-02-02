@@ -12,8 +12,6 @@ DESCRIPTION
 `fundchannel_cancel` is a lower level RPC command. It allows channel opener
 to cancel a channel before funding broadcast with a connected peer.
 
-*id* is the node id of the remote peer with which to cancel.
-
 Note that the funding transaction MUST NOT be broadcast before
 `fundchannel_cancel`. Broadcasting transaction before `fundchannel_cancel`
 WILL lead to unrecoverable loss of funds.
@@ -31,6 +29,9 @@ On success, an object is returned, containing:
 - **cancelled** (string): A message indicating it was cancelled by RPC
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

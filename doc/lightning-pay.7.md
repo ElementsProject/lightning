@@ -12,56 +12,11 @@ DESCRIPTION
 -----------
 
 The **pay** RPC command attempts to find a route to the given
-destination, and send the funds it asks for. If the *bolt11* does not
-contain an amount, *amount\_msat* is required, otherwise if it is specified
-it must be *null*. *amount\_msat* is in millisatoshi precision; it can be a
-whole number, or a whole number with suffix *msat* or *sat*, or a three
-decimal point number with suffix *sat*, or an 1 to 11 decimal point
-number suffixed by *btc*.
-
-(Note: if **experimental-offers** is enabled, *bolt11* can actually be
-a bolt12 invoice, such as one received from lightningd-fetchinvoice(7)).
-
-The *label* field is used to attach a label to payments, and is returned
-in lightning-listpays(7) and lightning-listsendpays(7). The *riskfactor*
-is described in detail in lightning-getroute(7), and defaults to 10. The
-*maxfeepercent* limits the money paid in fees, and defaults to 0.5. The
-`maxfeepercent` is a percentage of the amount that is to be paid. The `exemptfee`
-option can be used for tiny payments which would be dominated by the fee
-leveraged by forwarding nodes. Setting `exemptfee` allows the
-`maxfeepercent` check to be skipped on fees that are smaller than
-`exemptfee` (default: 5000 millisatoshi).
-
-`localinvreqid` is used by offers to link a payment attempt to a local
-`invoice_request` offer created by lightningd-invoicerequest(7).  This ensures
-that we only make a single payment for an offer, and that the offer is
-marked `used` once paid.
-
-*maxfee* overrides both *maxfeepercent* and *exemptfee* defaults (and
-if you specify *maxfee* you cannot specify either of those), and
-creates an absolute limit on what fee we will pay.  This allows you to
-implement your own heuristics rather than the primitive ones used
-here.
-
-*description* is only required for bolt11 invoices which do not
-contain a description themselves, but contain a description hash:
-in this case *description* is required.
-*description* is then checked against the hash inside the invoice
-before it will be paid.
+destination, and send the funds it asks for. 
 
 The response will occur when the payment fails or succeeds. Once a
 payment has succeeded, calls to **pay** with the same *bolt11* will
 succeed immediately.
-
-Until *retry\_for* seconds passes (default: 60), the command will keep
-finding routes and retrying the payment. However, a payment may be
-delayed for up to `maxdelay` blocks by another node; clients should be
-prepared for this worst case.
-
-*exclude* is a JSON array of short-channel-id/direction (e.g. [
-"564334x877x1/0", "564195x1292x0/1" ]) or node-id which should be excluded
-from consideration for routing. The default is not to exclude any channels
-or nodes.
 
 When using *lightning-cli*, you may skip optional parameters by using
 *null*. Alternatively, use **-k** option to provide parameters by name.
@@ -113,6 +68,9 @@ The following warnings may also be returned:
 
 You can monitor the progress and retries of a payment using the
 lightning-paystatus(7) command.
+
+ERRORS
+------
 
 The following error codes may occur:
 

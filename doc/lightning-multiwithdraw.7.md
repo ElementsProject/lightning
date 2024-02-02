@@ -4,31 +4,13 @@ lightning-multiwithdraw -- Command for withdrawing to multiple addresses
 SYNOPSIS
 --------
 
-**multiwithdraw** *outputs*  [*feerate*] [*minconf*] [*utxos*]
+**multiwithdraw** *outputs* [*feerate*] [*minconf*] [*utxos*]
 
 DESCRIPTION
 -----------
 
 The **multiwithdraw** RPC command sends funds from Core Lightning's internal
-wallet to the addresses specified in *outputs*,
-which is an array containing objects of the form `{address: amount}`.
-The `amount` may be the string *"all"*, indicating that all onchain funds
-be sent to the specified address.
-Otherwise, it is in satoshi precision;
-it can be
-a whole number,
-a whole number ending in *sat*,
-a whole number ending in *000msat*,
-or a number with 1 to 8 decimal places ending in *btc*.
-
-*feerate* is an optional feerate: see NOTES in lightning-feerates(7)
-for possible values.  The default is *normal*.
-
-*minconf* specifies the minimum number of confirmations that used
-outputs should have. Default is 1.
-
-*utxos* specifies the utxos to be used to be withdrawn from, as an array
-of "txid:vout". These must be drawn from the node's available UTXO set.
+wallet to the addresses specified in *outputs*.
 
 RETURN VALUE
 ------------
@@ -40,6 +22,9 @@ On success, an object is returned, containing:
 - **txid** (txid): The txid of the **tx**
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, an error is reported and the withdrawal transaction is not
 created.

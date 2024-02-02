@@ -13,6 +13,7 @@ The **stop** is a RPC command to shut off the Core Lightning node.
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,

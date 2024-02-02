@@ -3,6 +3,7 @@ lightning-disableoffer -- Command for removing an offer
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-offers only)**
 
 **disableoffer** *offer\_id*
@@ -18,6 +19,7 @@ forgotten entirely (there may be invoices which refer to this offer).
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -47,6 +49,7 @@ On success, an object is returned, containing:
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
@@ -57,7 +60,6 @@ EXAMPLE JSON RESPONSE
 }
 
 ```
-
 
 AUTHOR
 ------

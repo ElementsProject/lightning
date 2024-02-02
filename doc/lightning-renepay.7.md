@@ -7,7 +7,6 @@ SYNOPSIS
 **renepay** *invstring* [*amount\_msat*] [*maxfee*] [*maxdelay*]
 [*retry\_for*] [*description*] [*label*]
 
-
 DESCRIPTION
 -----------
 
@@ -15,42 +14,12 @@ DESCRIPTION
 method for Multi-Path-Payments. This implementation has not been thoroughly
 tested and it should be used with caution.
 
-The **renepay** RPC command attempts to pay the invoice specified
-as *invstring*. Currently, **renepay** supports bolt11 invoices only.
-
 The response will occur when the payment fails or succeeds. Once a
 payment has succeeded, calls to **renepay** with the same *invstring*
 will not lead to a new payment attempt, but instead it will succeed immediately.
 
-If the *invstring* does not contain an amount,
-*amount\_msat* is required, otherwise if it is specified
-it must be *null*. *amount\_msat* is in millisatoshi precision; it can be a
-whole number, or a whole number with suffix *msat* or *sat*, or a three
-decimal point number with suffix *sat*, or an 1 to 11 decimal point
-number suffixed by *btc*.
-
-*maxfee* limits how much is paid fees and it is measured in millisatoshi
-by default, but also in this case the unit can be specified with a suffix: *msat*, *sat* or *btc*.
-The default value is 5 sats or 0.5% whichever is higher.
-
-*maxdelay* overrides the value of `max-locktime-blocks` for this payment.
-It serves to limit the locktime of funds in the payment HTLC measured in blocks.
-
-*retry\_for* measured in seconds (default: 60) specifies how much time it is
-allowed for the command to keep retrying the payment.
-
-*description* is only required for bolt11 invoices which do not
-contain a description themselves, but contain a description hash:
-in this case *description* is required.
-*description* is then checked against the hash inside the invoice
-before it will be paid.
-
-The *label* field is used to attach a label to payments, and is returned
-in lightning-listpays(7) and lightning-listsendpays(7).
-
 When using *lightning-cli*, you may skip optional parameters by using
 *null*. Alternatively, use **-k** option to provide parameters by name.
-
 
 OPTIMALITY
 ----------
@@ -114,6 +83,9 @@ On success, an object is returned, containing:
 You can monitor the progress and retries of a payment using the
 lightning-renepaystatus(7) command.
 
+ERRORS
+------
+
 The following error codes may occur:
 
 - -1: Catchall nonspecific error.
@@ -140,6 +112,7 @@ RESOURCES
 ---------
 
 - Main web site: <https://github.com/ElementsProject/lightning>
-- Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network*
-<https://arxiv.org/abs/2107.05322>
+
+- Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>
+
 [comment]: # ( SHA256STAMP:946ad2fc9ef6bb6dbab6613b9cb55d34ed5a15dd876efcaeaa41174f0bdc40b0)

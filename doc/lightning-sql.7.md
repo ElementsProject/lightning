@@ -26,38 +26,39 @@ TREATMENT OF TYPES
 ------------------
 
 The following types are supported in schemas, and this shows how they
-are presented in the database.  This matters: a JSON boolean is
+are presented in the database. This matters: a JSON boolean is
 represented as an integer in the database, so a query will return 0 or
 1, not true or false.
 
-* *hex*.  A hex string.
+* *hex*. A hex string.
   * JSON: a string
   * sqlite3: BLOB
 
 * *hash*/*secret*/*pubkey*/*txid*: just like *hex*.
 
-* *msat*/*integer*/*u64*/*u32*/*u16*/*u8*.  Normal numbers.
+* *msat*/*integer*/*u64*/*u32*/*u16*/*u8*. Normal numbers.
   * JSON: an unsigned integer
   * sqlite3: INTEGER
 
-* *boolean*.  True or false.
+* *boolean*. True or false.
   * JSON: literal **true** or **false**
   * sqlite3: INTEGER
 
-* *number*.  A floating point number (used for times in some places).
+* *number*. A floating point number (used for times in some places).
   * JSON: number
   * sqlite3: REAL
 
-* *string*.  Text.
+* *string*. Text.
   * JSON: string
   * sqlite3: TEXT
 
-* *short\_channel\_id*.  A short-channel-id of form 1x2x3.
+* *short\_channel\_id*. A short-channel-id of form 1x2x3.
   * JSON: string
   * sqlite3: TEXT
 
 PERMITTED SQLITE3 FUNCTIONS
 ---------------------------
+
 Writing to the database is not permitted, and limits are placed
 on various other query parameters.
 
@@ -80,9 +81,10 @@ Additionally, only the following functions are allowed:
 
 TABLES
 ------
+
 Note that the first column of every table is a unique integer called
 `rowid`: this is used for related tables to refer to specific rows in
-their parent.  sqlite3 usually has this as an implicit column, but we
+their parent. sqlite3 usually has this as an implicit column, but we
 make it explicit as the implicit version is not allowed to be used as
 a foreign key.
 
@@ -416,15 +418,19 @@ RETURN VALUE
 ------------
 
 [comment]: # (FIXME: we don't handle this schema in fromschema.py)
-On success, an object containing **rows** is returned.  It is an array.  Each array entry contains an array of values, each an integer, real number, string or *null*, depending on the sqlite3 type.
+On success, an object containing **rows** is returned.  It is an array. Each array entry contains an array of values, each an integer, real number, string or *null*, depending on the sqlite3 type.
 
 The object may contain **warning\_db\_failure** if the database fails partway through its operation.
 
+ERRORS
+------
+
 On failure, an error is returned.
 
-EXAMPLES
---------
-Here are some example using lightning-cli.  Note that you may need to
+EXAMPLE USAGE
+-------------
+
+Here are some example using lightning-cli. Note that you may need to
 use `-o` if you use queries which contain `=` (which make
 lightning-cli(1) default to keyword style):
 
@@ -506,7 +512,7 @@ $ lightning-cli sql -o "SELECT nodeid, alias, nodes_addresses.type, nodes_addres
 }
 ```
 
-Simple function usage, in this case COUNT.  Strings inside arrays need
+Simple function usage, in this case COUNT. Strings inside arrays need
 ", and ' to protect them from the shell:
 
 ```

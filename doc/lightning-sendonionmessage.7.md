@@ -12,11 +12,8 @@ DESCRIPTION
 -----------
 
 The **sendonionmessage** RPC command can be used to send a message via
-the lightning network.  These are currently used by *offers* to request
+the lightning network. These are currently used by *offers* to request
 and receive invoices.
-
-*hops* is an array of json objects: *id* as a public key of the node,
-and *tlv* contains a hexidecimal TLV to include.
 
 RETURN VALUE
 ------------

@@ -11,8 +11,8 @@ DESCRIPTION
 
 The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.
 
-- *psbt*: A string that represents psbt value.
-- *reserve*: an optional number of blocks to increase reservation of any of our inputs by; default is 72.
+- **psbt** (string): the fully signed psbt to be sent
+- **reserve** (u32, optional): number of blocks to increase reservation of any of our inputs by. Default is 72
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -30,13 +30,13 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
 - **tx** (hex): The raw transaction which was sent
 - **txid** (txid): The txid of the **tx**
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+ERRORS
+------
 
 On failure, one of the following error codes may be returned:
 
@@ -67,4 +67,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ba123ea4052af7850655f99ee85ed42c0254d7c15ba3861df0574fd58e4d8355)
+[comment]: # ( SHA256STAMP:e1ba1085f321e876c047232a3923fe3340481010c8c7dcf1d1dddaa723589134)

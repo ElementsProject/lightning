@@ -24,6 +24,9 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, an error is reported (from bitcoind), and the inputs from
 the transaction are unreserved.
 

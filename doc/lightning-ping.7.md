@@ -12,15 +12,9 @@ DESCRIPTION
 The **ping** command checks if the node with *id* is ready to talk.
 It currently only works for peers we have a channel with.
 
-It accepts the following parameters:
-
-- *id*: A string that represents the node id;
-- *len*: A integer that represents the length of the ping (default 128);
-- *pongbytes*: An integer that represents the length of the reply (default 128).
-  A value of 65532 to 65535 means "don't reply".
-
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -42,12 +36,16 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters or we're already waiting for a ping response from peer.
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "totlen": 132

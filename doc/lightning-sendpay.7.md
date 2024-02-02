@@ -17,7 +17,7 @@ route.
 
 Generally, a client would call lightning-getroute(7) to resolve a route,
 then use **sendpay** to send it. If it fails, it would call
-lightning-getroute(7) again to retry.  If the route is empty, a payment-to-self is attempted.
+lightning-getroute(7) again to retry. If the route is empty, a payment-to-self is attempted.
 
 The response will occur when the payment is on its way to the
 destination. The **sendpay** RPC command does not wait for definite
@@ -25,35 +25,6 @@ success or definite failure of the payment (except for already-succeeded
 payments, or to-self payments). Instead, use the
 **waitsendpay** RPC command to poll or wait for definite success or
 definite failure.
-
-The *label* and *bolt11* parameters, if provided, will be returned in
-*waitsendpay* and *listsendpays* results.
-
-The *amount\_msat* amount must be provided if *partid* is non-zero, or the payment is to-self, otherwise
-it must be equal to the final
-amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
-ending in *msat* or *sat*, or a number with three decimal places ending
-in *sat*, or a number with 1 to 11 decimal places ending in *btc*.
-
-The *payment\_secret* is the value that the final recipient requires to
-accept the payment, as defined by the `payment_data` field in BOLT 4
-and the `s` field in the BOLT 11 invoice format.  It is required if
-*partid* is non-zero.
-
-The *partid* value must not be provided for self-payments. If provided and non-zero, allows for multiple parallel
-partial payments with the same *payment\_hash*.  The *amount\_msat* amount
-(which must be provided) for each **sendpay** with matching
-*payment\_hash* must be equal, and **sendpay** will fail if there are differing values given.
-
-The *localinvreqid* value indicates that this payment is being made for a local
-invoice\_request: this ensures that we only send a payment for a single-use
-invoice\_request once.
-
-*groupid* allows you to attach a number which appears in **listsendpays** so
-payments can be identified as part of a logical group.  The *pay* plugin uses
-this to identify one attempt at a MPP payment, for example.
-
-*payment\_metadata* is placed in the final onion hop TLV.
 
 Once a payment has succeeded, calls to **sendpay** with the same
 *payment\_hash* but a different *amount\_msat* or destination will fail;
@@ -93,6 +64,9 @@ If **status** is "pending":
   - **message** (string): Monitor status with listpays or waitsendpay
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that

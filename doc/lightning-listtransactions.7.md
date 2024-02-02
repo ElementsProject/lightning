@@ -13,6 +13,7 @@ The **listtransactions** command returns transactions tracked in the wallet. Thi
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -44,12 +45,16 @@ On success, an object containing **transactions** is returned.  It is an array o
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "transactions": [

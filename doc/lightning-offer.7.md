@@ -106,6 +106,9 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, an error is returned and no offer is created. If the
 lightning process fails before responding, the caller should use
 lightning-listoffers(7) to query whether this offer was created or

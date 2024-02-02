@@ -12,31 +12,6 @@ DESCRIPTION
 The **connect** RPC command establishes a new connection with another
 node in the Lightning Network.
 
-*id* represents the target node's public key. As a convenience, *id* may
-be of the form *id@host* or *id@host:port*. In this case, the *host* and
-*port* parameters must be omitted.
-
-*host* is the peer's hostname or IP address.
-
-If not specified, the *port* depends on the current network:
-
-- bitcoin **mainnet**: 9735.
-- bitcoin **testnet**: 19735.
-- bitcoin **signet**: 39735.
-- bitcoin **regtest**: 19846.
-
-If *host* is not specified (or doesn't work), the connection will be attempted to an IP
-belonging to *id* obtained through gossip with other already connected
-peers.
-This can fail if your C-lightning node is a fresh install that has not
-connected to any peers yet (your node has no gossip yet),
-or if the target *id* is a fresh install that has no channels yet
-(nobody will gossip about a node until it has one published channel).
-
-If *host* begins with a */* it is interpreted as a local path, and the
-connection will be made to that local socket (see **bind-addr** in
-lightningd-config(5)).
-
 Connecting to a node is just the first step in opening a channel with
 another node. Once the peer is connected a channel can be opened with
 lightning-fundchannel(7).
