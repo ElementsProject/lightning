@@ -9,7 +9,13 @@
 #include <openssl/sha.h>
 #include <tests/fuzz/libfuzz.h>
 
-void init(int *argc, char ***argv) {}
+static EVP_MD *sha256_algo;
+
+void init(int *argc, char ***argv)
+{
+	sha256_algo = EVP_MD_fetch(NULL, "SHA-256", NULL);
+	assert(sha256_algo);
+}
 
 /* Test that splitting the data and hashing via multiple updates yields the same
  * result as not splitting the data. */
@@ -38,7 +44,7 @@ static void test_vs_openssl(const struct sha256 *expected, const u8 *data,
 	u8 openssl_hash[SHA256_DIGEST_LENGTH];
 	unsigned hash_size;
 
-	assert(EVP_Digest(data, size, openssl_hash, &hash_size, EVP_sha256(),
+	assert(EVP_Digest(data, size, openssl_hash, &hash_size, sha256_algo,
 			  NULL));
 	assert(hash_size == SHA256_DIGEST_LENGTH);
 	assert(memeq(expected, sizeof(*expected), openssl_hash,

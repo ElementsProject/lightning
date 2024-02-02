@@ -10,6 +10,8 @@
 #include <openssl/ripemd.h>
 #include <tests/fuzz/libfuzz.h>
 
+static EVP_MD *ripemd160_algo;
+
 /* Some versions of OpenSSL removed ripemd160 from the default provider. Check
  * and load the legacy provider if necessary. */
 void init(int *argc, char ***argv)
@@ -18,12 +20,15 @@ void init(int *argc, char ***argv)
 	u8 openssl_hash[RIPEMD160_DIGEST_LENGTH];
 	unsigned hash_size;
 
-	if (!EVP_Digest(data, sizeof(data), openssl_hash, &hash_size,
-			EVP_ripemd160(), NULL)) {
+	ripemd160_algo = EVP_MD_fetch(NULL, "RIPEMD-160", NULL);
+	if (!ripemd160_algo) {
 		OSSL_PROVIDER_load(NULL, "legacy");
-		assert(EVP_Digest(data, sizeof(data), openssl_hash, &hash_size,
-				  EVP_ripemd160(), NULL));
+		ripemd160_algo = EVP_MD_fetch(NULL, "RIPEMD-160", NULL);
+		assert(ripemd160_algo);
 	}
+
+	assert(EVP_Digest(data, sizeof(data), openssl_hash, &hash_size,
+			  ripemd160_algo, NULL));
 	assert(hash_size == RIPEMD160_DIGEST_LENGTH);
 }
 
@@ -54,7 +59,7 @@ static void test_vs_openssl(const struct ripemd160 *expected, const u8 *data,
 	u8 openssl_hash[RIPEMD160_DIGEST_LENGTH];
 	unsigned hash_size;
 
-	assert(EVP_Digest(data, size, openssl_hash, &hash_size, EVP_ripemd160(),
+	assert(EVP_Digest(data, size, openssl_hash, &hash_size, ripemd160_algo,
 			  NULL));
 	assert(hash_size == RIPEMD160_DIGEST_LENGTH);
 	assert(memeq(expected, sizeof(*expected), openssl_hash,
