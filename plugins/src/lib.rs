@@ -1,12 +1,12 @@
 use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::anyhow;
-use anyhow::Context;
+use anyhow::{Context, Result};
 use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
 use messages::{Configuration, FeatureBits, NotificationTopic};
-use options::UntypedConfigOption;
+use options::{OptionType, UntypedConfigOption};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -44,6 +44,7 @@ where
 
     hooks: HashMap<String, Hook<S>>,
     options: HashMap<String, UntypedConfigOption>,
+    option_values: HashMap<String, Option<options::Value>>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     notifications: Vec<NotificationTopic>,
@@ -66,6 +67,7 @@ where
     input: FramedRead<I, JsonRpcCodec>,
     output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
     options: HashMap<String, UntypedConfigOption>,
+    option_values: HashMap<String, Option<options::Value>>,
     configuration: Configuration,
     rpcmethods: HashMap<String, AsyncCallback<S>>,
     hooks: HashMap<String, AsyncCallback<S>>,
@@ -100,6 +102,7 @@ where
     state: S,
     /// "options" field of "init" message sent by cln
     options: HashMap<String, UntypedConfigOption>,
+    option_values: HashMap<String, Option<options::Value>>,
     /// "configuration" field of "init" message sent by cln
     configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
@@ -121,6 +124,9 @@ where
             hooks: HashMap::new(),
             subscriptions: HashMap::new(),
             options: HashMap::new(),
+            // Should not be configured by user.
+            // This values are set when parsing the init-call
+            option_values: HashMap::new(),
             rpcmethods: HashMap::new(),
             notifications: vec![],
             featurebits: FeatureBits::default(),
@@ -334,6 +340,7 @@ where
             notifications: self.notifications,
             subscriptions,
             options: self.options,
+            option_values: self.option_values,
             configuration,
             hooks: HashMap::new(),
         }))
@@ -390,26 +397,21 @@ where
 
         // Match up the ConfigOptions and fill in their values if we
         // have a matching entry.
-        for (_name, opt) in self.options.iter_mut() {
-            let val = call.options.get(opt.name());
+        for (name, option) in self.options.iter() {
+            let json_value = call.options.get(name);
+            let default_value = option.default();
 
-            opt.value = match (&opt.value, &opt.default(), &val) {
-                (_, Some(OValue::String(_)), Some(JValue::String(s))) => {
-                    Some(OValue::String(s.clone()))
-                }
-                (_, None, Some(JValue::String(s))) => Some(OValue::String(s.clone())),
-                (_, None, None) => None,
+            let option_value: Option<options::Value> = match (json_value, default_value) {
+                (None, None) => None,
+                (None, Some(default)) => Some(default.clone()),
+                (Some(JValue::String(s)), _) => Some(OValue::String(s.to_string())),
+                (Some(JValue::Number(i)), _) => Some(OValue::Integer(i.as_i64().unwrap())),
+                (Some(JValue::Bool(b)), _) => Some(OValue::Boolean(*b)),
+                _ => panic!("Type mismatch for option {}", name),
+            };
 
-                (_, Some(OValue::Integer(_)), Some(JValue::Number(s))) => {
-                    Some(OValue::Integer(s.as_i64().unwrap()))
-                }
-                (_, None, Some(JValue::Number(s))) => Some(OValue::Integer(s.as_i64().unwrap())),
-                (_, Some(OValue::Boolean(_)), Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
-                (_, None, Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
-                (o, _, _) => panic!("Type mismatch for option {:?}", o),
-            }
+            self.option_values.insert(name.to_string(), option_value);
         }
-
         Ok(call.configuration)
     }
 }
@@ -505,8 +507,19 @@ impl<S> Plugin<S>
 where
     S: Clone + Send,
 {
-    pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.options.get(name).and_then(|x| x.value.clone())
+    pub fn option_str(&self, name: &str) -> Result<Option<options::Value>> {
+        self.option_values
+            .get(name)
+            .ok_or(anyhow!("No option named {}", name))
+            .map(|c| c.clone())
+    }
+
+    pub fn option<OV: OptionType>(
+        &self,
+        config_option: &options::ConfigOption<OV>,
+    ) -> Result<OV::OutputValue> {
+        let value = self.option_str(config_option.name())?;
+        Ok(OV::from_value(&value))
     }
 }
 
@@ -529,6 +542,7 @@ where
         let plugin = Plugin {
             state,
             options: self.options,
+            option_values: self.option_values,
             configuration: self.configuration,
             wait_handle,
             sender,
@@ -590,8 +604,19 @@ where
         Ok(())
     }
 
-    pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.options.get(name).and_then(|c| c.value.clone())
+    pub fn option_str(&self, name: &str) -> Result<Option<options::Value>> {
+        self.option_values
+            .get(name)
+            .ok_or(anyhow!("No option named '{}'", name))
+            .map(|c| c.clone())
+    }
+
+    pub fn option<OV: OptionType>(
+        &self,
+        config_option: &options::ConfigOption<OV>,
+    ) -> Result<OV::OutputValue> {
+        let value = self.option_str(config_option.name())?;
+        Ok(OV::from_value(&value))
     }
 
     /// return the cln configuration send to the

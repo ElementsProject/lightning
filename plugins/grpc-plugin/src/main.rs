@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder};
 use log::{debug, warn};
@@ -14,6 +14,10 @@ struct PluginState {
     ca_cert: Vec<u8>,
 }
 
+const OPTION_GRPC_PORT : options::IntegerConfigOption = options::ConfigOption::new_i64_no_default(
+    "grpc-port", 
+    "Which port should the grpc plugin listen for incoming connections?");
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     debug!("Starting grpc plugin");
@@ -22,11 +26,7 @@ async fn main() -> Result<()> {
     let directory = std::env::current_dir()?;
 
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(options::ConfigOption::new_i64_with_default(
-            "grpc-port",
-            -1,
-            "Which port should the grpc plugin listen for incoming connections?",
-        ))
+        .option(OPTION_GRPC_PORT)
         .configure()
         .await?
     {
@@ -34,17 +34,15 @@ async fn main() -> Result<()> {
         None => return Ok(()),
     };
 
-    let bind_port = match plugin.option("grpc-port") {
-        Some(options::Value::Integer(-1)) => {
-            log::info!("`grpc-port` option is not configured, exiting.");
+    let bind_port = match plugin.option(&OPTION_GRPC_PORT).unwrap() {
+        Some(port) => port,
+        None => {
+            log::info!("'grpc-port' options i not configured. exiting.");
             plugin
-                .disable("`grpc-port` option is not configured.")
+                .disable("Missing 'grpc-port' option")
                 .await?;
-            return Ok(());
+            return Ok(())
         }
-        Some(options::Value::Integer(i)) => i,
-        None => return Err(anyhow!("Missing 'grpc-port' option")),
-        Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
     };
 
     let (identity, ca_cert) = tls::init(&directory)?;

@@ -47,7 +47,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
 async fn testoptions(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
     Ok(json!({
-        "opt-option": format!("{:?}", p.option("opt-option").unwrap())
+        "opt-option": format!("{:?}", p.option_str("opt-option").unwrap())
     }))
 }
 
