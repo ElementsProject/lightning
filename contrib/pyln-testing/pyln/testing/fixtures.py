@@ -348,6 +348,16 @@ def _extra_validator(is_request: bool):
         except TypeError:
             return False
 
+    def is_sat(checker, instance):
+        """sat fields can be raw integers, sats, btc."""
+        try:
+            # For plain integers, this gives the wrong value by 1000,
+            # but all we care about is the type here.
+            Millisatoshi(instance)
+            return True
+        except TypeError:
+            return False
+
     def is_msat_response(checker, instance):
         """A positive integer"""
         return type(instance) is int and instance >= 0
@@ -396,6 +406,7 @@ def _extra_validator(is_request: bool):
         "u16": is_u16,
         "u8": is_u8,
         "pubkey": is_pubkey,
+        "sat": is_sat,
         "msat": is_msat,
         "msat_or_all": is_msat_or_all,
         "msat_or_any": is_msat_or_any,
