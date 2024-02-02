@@ -130,8 +130,11 @@ where
         }
     }
 
-    pub fn option(mut self, opt: options::UntypedConfigOption) -> Builder<S, I, O> {
-        self.options.insert(opt.name().to_string(), opt);
+    pub fn option<V: options::OptionType>(
+        mut self,
+        opt: options::ConfigOption<V>,
+    ) -> Builder<S, I, O> {
+        self.options.insert(opt.name().to_string(), opt.build());
         self
     }
 
