@@ -5,13 +5,16 @@
   "additionalProperties": false,
   "properties": {
     "bolt11": {
-      "type": "string"
+      "type": "string",
+      "description": "bolt11 string to get the payment details"
     },
     "payment_hash": {
-      "type": "hash"
+      "type": "hash",
+      "description": "payment hash to get the payment details"
     },
     "status": {
       "type": "string",
+      "description": "to filter the payment by status",
       "enum": [
         "pending",
         "complete",

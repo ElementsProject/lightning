@@ -9,20 +9,23 @@
   "properties": {
     "payment_hash": {
       "type": "hash",
-      "description": "the hash of the *payment_preimage* which will prove payment"
+      "description": "the unique identifier of a payment"
     },
     "status": {
       "type": "string",
+      "description": "expected status of the payment. Only deletes if the payment status matches.  Deleting a `pending` payment will return an error",
       "enum": [
         "complete",
         "failed"
       ]
     },
     "partid": {
-      "type": "u64"
+      "type": "u64",
+      "description": "specific partid to delete (must be paired with *groupid*)"
     },
     "groupid": {
-      "type": "u64"
+      "type": "u64",
+      "description": "specific groupid to delete (must be paired with *partid*)"
     }
   }
 }

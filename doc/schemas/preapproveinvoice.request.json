@@ -9,6 +9,7 @@
   "properties": {
     "bolt11": {
       "type": "string",
+      "description": "bolt11 invoice to submit to the HSM to check",
       "added": "v23.02"
     }
   }

@@ -8,7 +8,7 @@
   "properties": {
     "message": {
       "type": "hex",
-      "description": "The raw, hex-encoded, gossip message to add to the local gossip view."
+      "description": "The raw, hex-encoded, gossip message to add to the local gossip view"
     }
   }
 }

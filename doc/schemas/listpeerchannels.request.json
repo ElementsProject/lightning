@@ -7,7 +7,7 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "If supplied, limits the channels to just the peer with the given ID, if it exists."
+      "description": "If supplied, limits the channels to just the peer with the given ID, if it exists"
     }
   }
 }

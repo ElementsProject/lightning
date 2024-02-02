@@ -13,8 +13,15 @@
       "description": ""
     },
     "label": {
-      "type": "string",
-      "description": ""
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "a unique string or number (which is treated as a string, so `01` is different from `1`); it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice"
     },
     "preimage": {
       "type": "hex",

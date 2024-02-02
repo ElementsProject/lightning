@@ -8,11 +8,11 @@
   "properties": {
     "blockheight": {
       "type": "u32",
-      "description": "The current block height (>= blockheight parameter)"
+      "description": "current blockheight of the blockchain if the value is greater than this number. If it is a present or past block height, then the command returns immediately"
     },
     "timeout": {
       "type": "u32",
-      "description": "If timeout seconds is reached without the specified blockheight being reached, this command will fail with a code of 2000."
+      "description": "only wait up to specified seconds. Defaults to 60 seconds"
     }
   }
 }

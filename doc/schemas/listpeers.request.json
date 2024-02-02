@@ -6,11 +6,17 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "If supplied, limits the result to just the peer with the given ID, if it exists."
+      "description": "if supplied, limits the result to just the peer with the given ID, if it exists"
     },
     "level": {
       "type": "string",
-      "description": "Supplying level will show log entries related to that peer at the given log level. Valid log levels are “io”, “debug”, “info”, and “unusual”."
+      "description": "supplying level will show log entries related to that peer at the given log level",
+      "enum": [
+        "io",
+        "debug",
+        "info",
+        "unusual"
+      ]
     }
   }
 }

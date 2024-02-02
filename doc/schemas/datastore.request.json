@@ -7,10 +7,11 @@
   ],
   "properties": {
     "key": {
+      "description": "a key can either have children or a value, never both: parents are created and removed automatically",
       "oneOf": [
         {
           "type": "array",
-          "description": "key is an array of values (though a single value is treated as a one-element array), to form a heirarchy. Using the first element of the key as the plugin name (e.g. [ 'summary' ]) is recommended. A key can either have children or a value, never both: parents are created and removed automatically.",
+          "description": "an array of values to form a hierarchy (though a single value is treated as a one-element array). Using the first element of the key as the plugin name (e.g. `[ 'summary' ]`) is recommended",
           "items": {
             "type": "string"
           }
@@ -22,26 +23,26 @@
     },
     "string": {
       "type": "string",
-      "description": ""
+      "description": "data to be saved in string format"
     },
     "hex": {
       "type": "hex",
-      "description": ""
+      "description": "data to be saved in hex format"
     },
     "mode": {
       "type": "string",
+      "description": "\t- `must-create`: fails if it already exists.\t- `must-replace`: fails if it doesn't already exist.\t- `create-or-replace`: never fails.\t- `must-append`: must already exist, append this to what's already there.\t- `create-or-append`: append if anything is there, otherwise create.\tDefault is `must-create`",
       "enum": [
         "must-create",
         "must-replace",
         "create-or-replace",
         "must-append",
         "create-or-append"
-      ],
-      "description": ""
+      ]
     },
     "generation": {
       "type": "u64",
-      "description": "If specified, means that the update will fail if the previously-existing data is not exactly that generation. This allows for simple atomicity. This is only legal with mode “must-replace” or “must-append”."
+      "description": "if specified, means that the update will fail if the previously-existing data is not exactly that generation. This allows for simple atomicity. This is only legal with *mode* `must-replace` or `must-append`"
     }
   }
 }

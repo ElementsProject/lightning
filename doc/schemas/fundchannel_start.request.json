@@ -9,27 +9,27 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "id is the peer id obtained from connect."
+      "description": "node id of the remote peer"
     },
     "amount": {
-      "type": "msat_or_all",
-      "description": "The amount that the channel will be funded."
+      "type": "sat",
+      "description": "satoshi value that the channel will be funded at. This value MUST be accurate, otherwise the negotiated commitment transactions will not encompass the correct channel value"
     },
     "feerate": {
       "type": "feerate",
-      "description": "Sets the feerate for the subsequent commitment transaction."
+      "description": "feerate for subsequent commitment transactions: see **fundchannel**. Note that this is ignored for channels with *option_anchors_zero_fee_htlc_tx* (we always use a low commitment fee for these)"
     },
     "announce": {
       "type": "boolean",
-      "description": "Whether or not to announce the channel."
+      "description": "whether or not to announce this channel"
     },
     "close_to": {
       "type": "string",
-      "description": "A bitcoin address to which the channel funds should be sent to on close."
+      "description": "bitcoin address to which the channel funds should be sent to on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`. Returns `close_to` set to closing script iff is negotiated"
     },
     "push_msat": {
       "type": "msat",
-      "description": "The amount of millisatoshis to push to the channel at open. This is a gift to the peer."
+      "description": "amount of millisatoshis to push to the channel peer at open. Note that this is a gift to the peer -- these satoshis are added to the initial balance of the peer at channel start and are largely unrecoverable once pushed"
     },
     "mindepth": {
       "type": "u32",

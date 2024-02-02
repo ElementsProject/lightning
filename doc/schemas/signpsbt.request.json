@@ -7,10 +7,12 @@
   ],
   "properties": {
     "psbt": {
-      "type": "string"
+      "type": "string",
+      "description": "the psbt to be signed"
     },
     "signonly": {
       "type": "array",
+      "description": "input numbers to sign",
       "items": {
         "type": "u32"
       }

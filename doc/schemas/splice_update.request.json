@@ -14,7 +14,7 @@
     },
     "psbt": {
       "type": "string",
-      "description": "the (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically"
+      "description": "the base 64 encoded PSBT returned from `splice_init` with any changes added by the user"
     }
   }
 }

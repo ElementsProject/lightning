@@ -7,26 +7,25 @@
     "label": {
       "oneOf": [
         {
-          "type": "string",
-          "description": ""
+          "type": "string"
         },
         {
-          "type": "integer",
-          "description": ""
+          "type": "integer"
         }
-      ]
+      ],
+      "description": "a label used a the creation of the invoice to get a specific invoice"
     },
     "invstring": {
       "type": "string",
-      "description": ""
+      "description": "the string value to query a specific invoice"
     },
     "payment_hash": {
       "type": "hex",
-      "description": ""
+      "description": "a payment_hash of the invoice to get the details of a specific invoice"
     },
     "offer_id": {
       "type": "string",
-      "description": ""
+      "description": "a local `offer_id` the invoice was issued for a specific invoice details"
     },
     "index": {
       "type": "string",
@@ -35,17 +34,17 @@
         "created",
         "updated"
       ],
-      "description": ""
+      "description": "if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`"
     },
     "start": {
       "type": "u64",
       "added": "v23.08",
-      "description": ""
+      "description": "if `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)"
     },
     "limit": {
       "type": "u32",
       "added": "v23.08",
-      "description": ""
+      "description": "if `index` is specified, `limit` can be used to specify the maximum number of entries to return"
     }
   }
 }

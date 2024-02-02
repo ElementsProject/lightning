@@ -5,11 +5,13 @@
   "required": [
     "scb"
   ],
-  "scb": {
-    "type": "array",
-    "description": "SCB of the channels in an array",
-    "items": {
-      "type": "hexstr"
+  "properties": {
+    "scb": {
+      "type": "array",
+      "description": "SCB of the channels in an array",
+      "items": {
+        "type": "hexstr"
+      }
     }
   }
 }

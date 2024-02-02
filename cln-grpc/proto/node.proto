@@ -135,8 +135,15 @@ message GetinfoBinding {
 }
 
 message ListpeersRequest {
+	// ListPeers.level
+	enum ListpeersLevel {
+		IO = 0;
+		DEBUG = 1;
+		INFO = 2;
+		UNUSUAL = 3;
+	}
 	optional bytes id = 1;
-	optional string level = 2;
+	optional ListpeersLevel level = 2;
 }
 
 message ListpeersResponse {
@@ -333,9 +340,11 @@ message SendpayRequest {
 	optional Amount amount_msat = 10;
 	optional string bolt11 = 5;
 	optional bytes payment_secret = 6;
-	optional uint32 partid = 7;
+	optional uint64 partid = 7;
 	optional bytes localinvreqid = 11;
 	optional uint64 groupid = 9;
+	optional bytes payment_metadata = 12;
+	optional string description = 13;
 }
 
 message SendpayResponse {
@@ -364,10 +373,10 @@ message SendpayResponse {
 }
 
 message SendpayRoute {
-	Amount amount_msat = 5;
 	bytes id = 2;
-	uint32 delay = 3;
 	string channel = 4;
+	uint32 delay = 3;
+	Amount amount_msat = 5;
 }
 
 message ListchannelsRequest {
@@ -485,7 +494,6 @@ message ConnectAddress {
 
 message CreateinvoiceRequest {
 	string invstring = 1;
-	string label = 2;
 	bytes preimage = 3;
 }
 
@@ -625,8 +633,8 @@ message DelinvoiceResponse {
 
 message InvoiceRequest {
 	AmountOrAny amount_msat = 10;
-	string description = 2;
 	string label = 3;
+	string description = 2;
 	optional uint64 expiry = 7;
 	repeated string fallbacks = 4;
 	optional bytes preimage = 5;
@@ -724,6 +732,7 @@ message SendonionRequest {
 	optional bytes destination = 9;
 	optional bytes localinvreqid = 13;
 	optional uint64 groupid = 11;
+	optional string description = 14;
 }
 
 message SendonionResponse {
@@ -933,7 +942,6 @@ message WaitanyinvoicePaid_outpoint {
 }
 
 message WaitinvoiceRequest {
-	string label = 1;
 }
 
 message WaitinvoiceResponse {
@@ -1011,7 +1019,7 @@ message NewaddrResponse {
 
 message WithdrawRequest {
 	string destination = 1;
-	optional AmountOrAll satoshi = 2;
+	AmountOrAll satoshi = 2;
 	optional Feerate feerate = 5;
 	optional uint32 minconf = 3;
 	repeated Outpoint utxos = 4;
@@ -1083,7 +1091,7 @@ message FundpsbtReservations {
 
 message SendpsbtRequest {
 	string psbt = 1;
-	optional bool reserve = 2;
+	optional uint32 reserve = 2;
 }
 
 message SendpsbtResponse {
@@ -1101,7 +1109,7 @@ message SignpsbtResponse {
 }
 
 message UtxopsbtRequest {
-	Amount satoshi = 1;
+	AmountOrAll satoshi = 1;
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	repeated Outpoint utxos = 4;

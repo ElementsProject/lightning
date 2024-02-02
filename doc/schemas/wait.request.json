@@ -11,6 +11,7 @@
   "properties": {
     "subsystem": {
       "type": "string",
+      "description": "the subsystem to get the next index value from",
       "enum": [
         "invoices",
         "forwards",
@@ -19,6 +20,7 @@
     },
     "indexname": {
       "type": "string",
+      "description": "the name of the index to get the next value for",
       "enum": [
         "created",
         "updated",
@@ -26,7 +28,8 @@
       ]
     },
     "nextvalue": {
-      "type": "u64"
+      "type": "u64",
+      "description": "the next value of the index"
     }
   }
 }

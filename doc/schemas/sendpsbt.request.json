@@ -7,10 +7,12 @@
   ],
   "properties": {
     "psbt": {
-      "type": "string"
+      "type": "string",
+      "description": "the fully signed psbt to be sent"
     },
     "reserve": {
-      "type": "boolean"
+      "type": "u32",
+      "description": "number of blocks to increase reservation of any of our inputs by. Default is 72"
     }
   }
 }

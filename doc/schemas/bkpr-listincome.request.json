@@ -7,15 +7,15 @@
   "properties": {
     "consolidate_fees": {
       "type": "boolean",
-      "description": "A brief description about consolidate_fees"
+      "description": "if true, we emit a single, consolidated event for any onchain-fees for a txid and account. Otherwise, events for every update to the onchain fee calculation for this account and txid will be printed. Defaults to true. Note that this means that the events emitted are non-stable, i.e. calling **listincome** twice may result in different onchain fee events being emitted, depending on how much information we've logged for that transaction"
     },
     "start_time": {
       "type": "u32",
-      "description": "Filters the events after the time"
+      "description": "UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero"
     },
     "end_time": {
       "type": "u32",
-      "description": "Filters the events up to the timestamp"
+      "description": "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int"
     }
   }
 }

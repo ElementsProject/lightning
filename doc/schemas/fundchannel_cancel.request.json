@@ -8,7 +8,7 @@
   "properties": {
     "id": {
       "type": "pubkey",
-      "description": "the node id of the remote peer with which to cancel"
+      "description": "node id of the remote peer with which to cancel"
     }
   }
 }

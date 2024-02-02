@@ -7,11 +7,11 @@
   "properties": {
     "invreq_id": {
       "type": "string",
-      "description": ""
+      "description": "a specific invoice can be queried by providing the `invreq_id`, which is presented by lightning-invoicerequest(7), or can be calculated from a bolt12 invoice"
     },
     "active_only": {
       "type": "boolean",
-      "description": ""
+      "description": "if it is *True* then only active invoice requests are returned. Default is *False*"
     }
   }
 }

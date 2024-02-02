@@ -195,12 +195,49 @@ pub mod requests {
 	        "getinfo"
 	    }
 	}
+	/// supplying level will show log entries related to that peer at the given log level
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	pub enum ListpeersLevel {
+	    #[serde(rename = "io")]
+	    IO,
+	    #[serde(rename = "debug")]
+	    DEBUG,
+	    #[serde(rename = "info")]
+	    INFO,
+	    #[serde(rename = "unusual")]
+	    UNUSUAL,
+	}
+
+	impl TryFrom<i32> for ListpeersLevel {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListpeersLevel, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListpeersLevel::IO),
+	    1 => Ok(ListpeersLevel::DEBUG),
+	    2 => Ok(ListpeersLevel::INFO),
+	    3 => Ok(ListpeersLevel::UNUSUAL),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersLevel", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListpeersLevel {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeersLevel::IO => "IO",
+	            ListpeersLevel::DEBUG => "DEBUG",
+	            ListpeersLevel::INFO => "INFO",
+	            ListpeersLevel::UNUSUAL => "UNUSUAL",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub level: Option<String>,
+	    pub level: Option<ListpeersLevel>,
 	}
 
 	impl From<ListpeersRequest> for Request {
@@ -245,10 +282,10 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
-	    pub amount_msat: Amount,
 	    pub id: PublicKey,
-	    pub delay: u16,
 	    pub channel: ShortChannelId,
+	    pub delay: u32,
+	    pub amount_msat: Amount,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -264,11 +301,15 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_secret: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u16>,
+	    pub partid: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub localinvreqid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_metadata: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	}
 
 	impl From<SendpayRequest> for Request {
@@ -450,7 +491,6 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoiceRequest {
 	    pub invstring: String,
-	    pub label: String,
 	    pub preimage: String,
 	}
 
@@ -471,6 +511,7 @@ pub mod requests {
 	        "createinvoice"
 	    }
 	}
+	/// 	- `must-create`: fails if it already exists.	- `must-replace`: fails if it doesn't already exist.	- `create-or-replace`: never fails.	- `must-append`: must already exist, append this to what's already there.	- `create-or-append`: append if anything is there, otherwise create.	Default is `must-create`
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DatastoreMode {
 	    #[serde(rename = "must-create")]
@@ -642,6 +683,7 @@ pub mod requests {
 	        "delexpiredinvoice"
 	    }
 	}
+	/// label of the invoice to be deleted. The caller should be particularly aware of the error case caused by the *status* changing just before this command is invoked!
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -703,8 +745,8 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceRequest {
 	    pub amount_msat: AmountOrAny,
-	    pub description: String,
 	    pub label: String,
+	    pub description: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub expiry: Option<u64>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
@@ -757,6 +799,7 @@ pub mod requests {
 	        "listdatastore"
 	    }
 	}
+	/// if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesIndex {
 	    #[serde(rename = "created")]
@@ -848,6 +891,8 @@ pub mod requests {
 	    pub localinvreqid: Option<Sha256>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	}
 
 	impl From<SendonionRequest> for Request {
@@ -867,6 +912,7 @@ pub mod requests {
 	        "sendonion"
 	    }
 	}
+	/// Whether the invoice has been paid, pending, or failed
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysStatus {
 	    #[serde(rename = "pending")]
@@ -899,6 +945,7 @@ pub mod requests {
 	    }
 	}
 
+	/// if neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysIndex {
 	    #[serde(rename = "created")]
@@ -1075,7 +1122,6 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoiceRequest {
-	    pub label: String,
 	}
 
 	impl From<WaitinvoiceRequest> for Request {
@@ -1123,6 +1169,7 @@ pub mod requests {
 	        "waitsendpay"
 	    }
 	}
+	/// it specifies the type of address wanted; currently *bech32* (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on bitcoin mainnet), or *p2tr* taproot addresses. The special value *all* generates all known address types for the same underlying key. Defaults to *bech32* address
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
@@ -1181,8 +1228,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WithdrawRequest {
 	    pub destination: String,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub satoshi: Option<AmountOrAll>,
+	    pub satoshi: AmountOrAll,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1287,7 +1333,7 @@ pub mod requests {
 	pub struct SendpsbtRequest {
 	    pub psbt: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<bool>,
+	    pub reserve: Option<u32>,
 	}
 
 	impl From<SendpsbtRequest> for Request {
@@ -1333,7 +1379,7 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct UtxopsbtRequest {
-	    pub satoshi: Amount,
+	    pub satoshi: AmountOrAll,
 	    pub feerate: Feerate,
 	    pub startweight: u32,
 	    pub utxos: Vec<Outpoint>,
@@ -1556,6 +1602,7 @@ pub mod requests {
 	        "disconnect"
 	    }
 	}
+	/// 	*perkw* - provide feerate in units of satoshis per 1000 weight (e.g. the minimum fee is usually `253perkw`)	*perkb* - provide feerate in units of satoshis per 1000 virtual bytes (eg. the minimum fee is usually `1000perkb`)
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum FeeratesStyle {
 	    #[serde(rename = "perkb")]
@@ -1722,6 +1769,7 @@ pub mod requests {
 	        "getroute"
 	    }
 	}
+	/// if specified, then only the forwards with the given status are returned
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsStatus {
 	    #[serde(rename = "offered")]
@@ -1758,6 +1806,7 @@ pub mod requests {
 	    }
 	}
 
+	/// if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsIndex {
 	    #[serde(rename = "created")]
@@ -1844,6 +1893,7 @@ pub mod requests {
 	        "listoffers"
 	    }
 	}
+	/// to filter the payment by status
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysStatus {
 	    #[serde(rename = "pending")]
@@ -2118,6 +2168,7 @@ pub mod requests {
 	        "waitblockheight"
 	    }
 	}
+	/// the subsystem to get the next index value from
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitSubsystem {
 	    #[serde(rename = "invoices")]
@@ -2150,6 +2201,7 @@ pub mod requests {
 	    }
 	}
 
+	/// the name of the index to get the next value for
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitIndexname {
 	    #[serde(rename = "created")]

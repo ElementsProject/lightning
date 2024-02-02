@@ -9,7 +9,7 @@
       "oneOf": [
         {
           "type": "array",
-          "description": "key is an array of values (though a single value is treated as a one-element array). Used as the starting point to traverse the datastore.",
+          "description": "key is an array of values (though a single value is treated as a one-element array). Used as the starting point to traverse the datastore",
           "items": {
             "type": "string"
           }

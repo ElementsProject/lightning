@@ -235,6 +235,12 @@
             "ONCHAIN": 8,
             "OPENINGD": 0
         },
+        "ListpeersLevel": {
+            "debug": 1,
+            "info": 2,
+            "io": 0,
+            "unusual": 3
+        },
         "ListpeersPeersChannelsHtlcsDirection": {
             "in": 0,
             "out": 1
@@ -1566,6 +1572,7 @@
         "SendonionRequest": {
             "SendOnion.amount_msat": 12,
             "SendOnion.bolt11": 7,
+            "SendOnion.description": 14,
             "SendOnion.destination": 9,
             "SendOnion.first_hop": 2,
             "SendOnion.groupid": 11,
@@ -1598,6 +1605,7 @@
         "SendpayRequest": {
             "SendPay.amount_msat": 10,
             "SendPay.bolt11": 5,
+            "SendPay.description": 13,
             "SendPay.groupid": 9,
             "SendPay.label": 3,
             "SendPay.localinvreqid": 11,
@@ -1605,6 +1613,7 @@
             "SendPay.msatoshi": 4,
             "SendPay.partid": 7,
             "SendPay.payment_hash": 2,
+            "SendPay.payment_metadata": 12,
             "SendPay.payment_secret": 6,
             "SendPay.route[]": 1
         },
@@ -5664,6 +5673,10 @@
             "added": "v23.11",
             "deprecated": false
         },
+        "SendOnion.description": {
+            "added": "v0.11.0",
+            "deprecated": false
+        },
         "SendOnion.destination": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5764,6 +5777,10 @@
             "added": "v23.11",
             "deprecated": false
         },
+        "SendPay.description": {
+            "added": "v0.11.0",
+            "deprecated": false
+        },
         "SendPay.destination": {
             "added": "pre-v0.10.1",
             "deprecated": false
@@ -5794,6 +5811,10 @@
         },
         "SendPay.payment_hash": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "SendPay.payment_metadata": {
+            "added": "v0.11.0",
             "deprecated": false
         },
         "SendPay.payment_preimage": {
