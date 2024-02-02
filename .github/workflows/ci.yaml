@@ -179,6 +179,33 @@ jobs:
           tar -xaf cln-${{ matrix.CFG }}.tar.bz2
           make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }}
 
+  check-fuzz:
+    name: Run fuzz regression tests
+    runs-on: ubuntu-22.04
+    needs:
+      - prebuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+
+      - name: Build
+        run: |
+          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
+          make -j $(nproc) check-fuzz
+
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
