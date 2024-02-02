@@ -3,14 +3,53 @@ use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
 
 // Marker trait for possible values of options
-pub trait OptionType {}
+pub trait OptionType {
+    fn convert_default(value: Option<&Self>) -> Option<Value>;
+}
 
-impl OptionType for String {}
-impl OptionType for i64 {}
-impl OptionType for bool {}
-impl OptionType for Option<String> {}
-impl OptionType for Option<i64> {}
-impl OptionType for Option<bool> {}
+impl OptionType for &str {
+    fn convert_default(value: Option<&Self>) -> Option<Value> {
+        value.map(|s| Value::String(s.to_string()))
+    }
+}
+
+impl OptionType for String {
+    fn convert_default(value: Option<&Self>) -> Option<Value> {
+        value.map(|s| Value::String(s.clone()))
+    }
+}
+impl OptionType for i64 {
+    fn convert_default(value: Option<&Self>) -> Option<Value> {
+        value.map(|i| Value::Integer(*i))
+    }
+}
+impl OptionType for bool {
+    fn convert_default(value: Option<&Self>) -> Option<Value> {
+        value.map(|b| Value::Boolean(*b))
+    }
+}
+
+impl OptionType for Option<String> {
+    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+        None
+    }
+}
+
+impl OptionType for Option<&str> {
+    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+        None
+    }
+}
+impl OptionType for Option<i64> {
+    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+        None
+    }
+}
+impl OptionType for Option<bool> {
+    fn convert_default(_value: Option<&Self>) -> Option<Value> {
+        None
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub enum ValueType {
@@ -87,118 +126,106 @@ impl Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct ConfigOption<V: OptionType> {
-    name: String,
+pub struct ConfigOption<'a, V: OptionType> {
+    name: &'a str,
     default: Option<V>,
     value_type: ValueType,
-    description: String,
+    description: &'a str,
 }
 
-impl ConfigOption<String> {
+impl<V: OptionType> ConfigOption<'_, V> {
     pub fn build(&self) -> UntypedConfigOption {
         UntypedConfigOption {
-            name: self.name.clone(),
+            name: self.name.to_string(),
             value_type: self.value_type.clone(),
-            default: self.default.as_ref().map(|s| Value::String(s.clone())),
-            description: self.description.clone(),
+            default: OptionType::convert_default(self.default.as_ref()),
             value: None,
+            description: self.description.to_string(),
         }
     }
+}
 
-    pub fn new_str_with_default<S1: AsRef<str>, S2: AsRef<str>, S3: AsRef<str>>(
-        name: S1,
-        default: S2,
-        description: S3,
+impl ConfigOption<'_, &'static str> {
+    pub const fn new_str_with_default(
+        name: &'static str,
+        default: &'static str,
+        description: &'static str,
     ) -> Self {
         Self {
-            name: name.as_ref().to_string(),
-            default: Some(default.as_ref().to_string()),
+            name: name,
+            default: Some(default),
             value_type: ValueType::String,
-            description: description.as_ref().to_string(),
+            description: description,
         }
     }
 }
 
-impl ConfigOption<i64> {
-    pub fn build(&self) -> UntypedConfigOption {
-        UntypedConfigOption {
-            name: self.name.clone(),
-            value_type: self.value_type.clone(),
-            default: self.default.map(|i| Value::Integer(i)),
-            description: self.description.clone(),
-            value: None,
+impl ConfigOption<'_, Option<&str>> {
+    pub const fn new_str_no_default(name: &'static str, description: &'static str) -> Self {
+        Self {
+            name,
+            default: None,
+            value_type: ValueType::String,
+            description,
         }
     }
+}
 
-    pub fn new_i64_with_default<A: AsRef<str>, C: AsRef<str>>(
-        name: A,
+impl ConfigOption<'_, i64> {
+    pub const fn new_i64_with_default(
+        name: &'static str,
         default: i64,
-        description: C,
+        description: &'static str,
     ) -> Self {
         Self {
-            name: name.as_ref().to_string(),
+            name: name,
             default: Some(default),
             value_type: ValueType::Integer,
-            description: description.as_ref().to_string(),
+            description: description,
         }
     }
 }
 
-impl ConfigOption<Option<i64>> {
-    pub fn new_opt_i64<S1: AsRef<str>, S2: AsRef<str>>(name: S1, description: S2) -> Self {
+impl ConfigOption<'_, Option<i64>> {
+    pub const fn new_i64_no_default(name: &'static str, description: &'static str) -> Self {
         Self {
-            name: name.as_ref().to_string(),
+            name: name,
             default: None,
             value_type: ValueType::Integer,
-            description: description.as_ref().to_string(),
-        }
-    }
-
-    pub fn build(&self) -> UntypedConfigOption {
-        UntypedConfigOption {
-            name: self.name.clone(),
-            value_type: self.value_type.clone(),
-            default: None,
-            description: self.description.clone(),
-            value: None,
+            description: description,
         }
     }
 }
 
-impl ConfigOption<bool> {
-    pub fn build(&self) -> UntypedConfigOption {
-        let default = match self.value_type {
-            ValueType::Flag => Some(Value::Boolean(false)),
-            ValueType::Boolean => self.default.map(|b| Value::Boolean(b)),
-            _ => panic!("Failed to build type"),
-        };
-
-        UntypedConfigOption {
-            name: self.name.clone(),
-            value_type: self.value_type.clone(),
-            default,
-            description: self.description.clone(),
-            value: None,
+impl ConfigOption<'_, Option<bool>> {
+    pub const fn new_bool_no_default(name: &'static str, description: &'static str) -> Self {
+        Self {
+            name,
+            description,
+            default: None,
+            value_type: ValueType::Boolean,
         }
     }
+}
 
-    pub fn new_bool_with_default<S1: AsRef<str>, S2: AsRef<str>>(
-        name: S1,
+impl ConfigOption<'_, bool> {
+    pub const fn new_bool_with_default(
+        name: &'static str,
         default: bool,
-        description: S2,
+        description: &'static str,
     ) -> Self {
         Self {
-            name: name.as_ref().to_string(),
-            description: description.as_ref().to_string(),
+            name,
+            description,
             default: Some(default),
             value_type: ValueType::Boolean,
         }
     }
 
-    pub fn new_flag<S1: AsRef<str>, S2: AsRef<str>>(name: S1, description: S2) -> Self {
+    pub const fn new_flag(name: &'static str, description: &'static str) -> Self {
         Self {
-            name: name.as_ref().to_string(),
-            description: description.as_ref().to_string(),
+            name,
+            description,
             default: Some(false),
             value_type: ValueType::Flag,
         }
@@ -256,7 +283,7 @@ impl Serialize for UntypedConfigOption {
     }
 }
 
-impl<V> ConfigOption<V>
+impl<V> ConfigOption<'_, V>
 where
     V: OptionType,
 {
@@ -320,9 +347,27 @@ mod test {
     }
 
     #[test]
+    fn const_config_option() {
+        const _: ConfigOption<bool> = ConfigOption::new_flag("flag-option", "A flag option");
+        const _: ConfigOption<bool> =
+            ConfigOption::new_bool_with_default("bool-option", false, "A boolean option");
+        const _: ConfigOption<Option<bool>> =
+            ConfigOption::new_bool_no_default("bool-option", "A boolean option");
+
+        const _: ConfigOption<Option<i64>> =
+            ConfigOption::new_i64_no_default("integer-option", "A flag option");
+        const _: ConfigOption<i64> =
+            ConfigOption::new_i64_with_default("integer-option", 12, "A flag option");
+
+        const _: ConfigOption<Option<&str>> =
+            ConfigOption::new_str_no_default("integer-option", "A flag option");
+        const _: ConfigOption<&str> =
+            ConfigOption::new_str_with_default("integer-option", "erik", "A flag option");
+    }
+
+    #[test]
     fn test_type_serialize() {
         assert_eq!(json!(ValueType::Integer), json!("int"));
-
         assert_eq!(json!(ValueType::Flag), json!("flag"));
     }
 }

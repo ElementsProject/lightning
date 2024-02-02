@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
             "grpc-port",
             -1,
             "Which port should the grpc plugin listen for incoming connections?",
-        ).build())
+        ))
         .configure()
         .await?
     {
