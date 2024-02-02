@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "feerate_str"
+  ],
+  "properties": {
+    "feerate_str": {
+      "type": "string",
+      "description": "The feerate string to parse"
+    }
+  }
+}

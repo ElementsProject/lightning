@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "level": {
+      "type": "string",
+      "enum": [
+        "broken",
+        "unusual",
+        "info",
+        "debug",
+        "io"
+      ],
+      "description": "a string that represents the log level. The default is *info*"
+    }
+  }
+}

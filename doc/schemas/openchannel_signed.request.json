@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "signed_psbt"
+  ],
+  "properties": {
+    "channel_id": {
+      "type": "hash",
+      "description": "id of the channel"
+    },
+    "signed_psbt": {
+      "type": "string",
+      "description": "the PSBT returned from `openchannel_update` (where *commitments_secured* was true) with partial signatures or finalized witness stacks included for every input that we contributed to the PSBT"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "start_time": {
+      "type": "u64",
+      "description": "UNIX timestamp (in seconds) to filter events after the provided timestamp. Defaults to zero"
+    },
+    "end_time": {
+      "type": "u64",
+      "description": "UNIX timestamp (in seconds) to filter events up to and at the provided timestamp. Defaults to max-int"
+    }
+  }
+}
