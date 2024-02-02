@@ -63,11 +63,10 @@ SEE ALSO
 
 lightning-pay(7), lightning-getroute(7), lightning-sendpay(7).
 
-[BOLT
-\#11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md).
-
 RESOURCES
 ---------
+
+[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)
 
 Main web site: <https://github.com/ElementsProject/lightning>
 

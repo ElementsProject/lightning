@@ -12,13 +12,6 @@ DESCRIPTION
 The **delinvoice** RPC command removes an invoice with *status* as given
 in **listinvoices**, or with *desconly* set, removes its description.
 
-The caller should be particularly aware of the error case caused by the
-*status* changing just before this command is invoked!
-
-If *desconly* is set, the invoice is not deleted, but has its
-description removed (this can save space with very large descriptions,
-as would be used with lightning-invoice(7) *deschashonly*.
-
 RETURN VALUE
 ------------
 

@@ -13,11 +13,6 @@ The **unreserveinputs** RPC command releases (or reduces reservation)
 on UTXOs which were previously marked as reserved, generally by
 lightning-reserveinputs(7).
 
-The inputs to unreserve are the inputs specified in the passed-in *psbt*.
-
-If *reserve* is specified, it is the number of blocks to decrease
-reservation by; default is 72.
-
 RETURN VALUE
 ------------
 
@@ -34,6 +29,9 @@ If **reserved** is *true*:
   - **reserved\_to\_block** (u32): what blockheight the reservation will expire
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, an error is reported and no UTXOs are unreserved.
 

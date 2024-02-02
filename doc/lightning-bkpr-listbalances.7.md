@@ -9,11 +9,9 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **bkpr-listbalances** RPC command is a list of all current and historical account balances. An account is either the on-chain *wallet* or a channel balance.
-Any funds sent to an *external* account will not be accounted for here.
+The **bkpr-listbalances** RPC command is a list of all current and historical account balances. An account is either the on-chain *wallet* or a channel balance. Any funds sent to an *external* account will not be accounted for here.
 
-Note that any channel that was recorded will be listed. Closed channel balances
-will be 0msat.
+Note that any channel that was recorded will be listed. Closed channel balances will be 0msat.
 
 RETURN VALUE
 ------------

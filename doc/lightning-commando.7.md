@@ -20,6 +20,9 @@ RETURN VALUE
 
 On success, the return depends on the *method* invoked.
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32600: Usually means peer is not connected

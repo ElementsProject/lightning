@@ -13,14 +13,13 @@ The **setconfig** RPC command allows you set the (dynamic) configuration option 
 
 This new value will *also* be written at the end of the config file, for persistence across restarts (and any old value commented out).
 
-You can see what options are dynamically adjustable using lightning-listconfigs(7).  Note that you can also adjust existing options for stopped plugins; they will have an effect when the plugin is restarted.
-
+You can see what options are dynamically adjustable using lightning-listconfigs(7). Note that you can also adjust existing options for stopped plugins; they will have an effect when the plugin is restarted.
 
 RETURN VALUE
 ------------
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
-On success, an object containing **config** is returned.  It is an object containing:
+On success, an object containing **config** is returned. It is an object containing:
 
 - **config** (string): name of the config variable which was set
 - **source** (string): source of configuration setting (`file`:`linenum`)

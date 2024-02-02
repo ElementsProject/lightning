@@ -13,15 +13,6 @@ The **preapprovekeysend** RPC command submits the *destination*, *payment\_hash*
 and *amount\_msat* parameters to the HSM to check that they are approved as a
 keysend payment.
 
-*destination* is a 33 byte, hex-encoded, node ID of the node that the payment should go to.
-
-*payment\_hash* is the unique identifier of a payment.
-
-*amount\_msat* is the amount to send in millisatoshi precision; it can
-be a whole number, or a whole number with suffix `msat` or `sat`, or a
-three decimal point number with suffix `sat`, or an 1 to 11 decimal
-point number suffixed by `btc`.
-
 Generally the **preapprovekeysend** request does not need to be made
 explicitly, it is automatically generated as part of a **keysend** request.
 

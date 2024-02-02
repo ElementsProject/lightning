@@ -13,18 +13,6 @@ The **listchannels** RPC command returns data on channels that are known
 to the node. Because channels may be bidirectional, up to 2 objects will
 be returned for each channel (one for each direction).
 
-Note that for local channels, listpeerchannels(7) gives much more detailed
-information: **listchannels** only shows public gossip information (previously it merged local information, but that was deprecated in *v24.02*).
-
-If *short\_channel\_id* is a short channel id, then only known channels with a
-matching *short\_channel\_id* are returned.  Otherwise, it must be null.
-
-If *source* is a node id, then only channels leading from that node id
-are returned.
-
-If *destination* is a node id, then only channels leading to that node id
-are returned.
-
 Only one of *short\_channel\_id*, *source* or *destination* can be supplied.
 If nothing is supplied, data on all lightning channels known to this
 node, are returned. These can be local channels or public channels
@@ -57,6 +45,9 @@ On success, an object containing **channels** is returned.  It is an array of ob
 
 If one of *short\_channel\_id*, *source* or *destination* is supplied and no
 matching channels are found, a "channels" object with an empty list is returned.
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

@@ -12,11 +12,6 @@ DESCRIPTION
 `fundchannel_complete` is a lower level RPC command. It allows a user to
 complete an initiated channel establishment with a connected peer.
 
-*id* is the node id of the remote peer.
-
-*psbt* is the transaction to use for funding (does not need to be
-signed but must be otherwise complete).
-
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed, as the commitment
 transactions for this channel are not secured until this command
@@ -33,6 +28,9 @@ On success, an object is returned, containing:
 - **commitments\_secured** (boolean): Indication that channel is safe to use (always *true*)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

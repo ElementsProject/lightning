@@ -13,23 +13,6 @@ DESCRIPTION
 RBF (Replace-By-Fee) for the specified channel. It uses the openchannel protocol
 which allows for interactive transaction construction.
 
-*id* is the id of the channel to RBF.
-
-*amount* is the satoshi value that we will contribute to the channel.
-This value will be _added_ to the provided PSBT in the output which is
-encumbered by the 2-of-2 script for this channel.
-
-*initialpsbt* is the funded, incomplete PSBT that specifies the UTXOs and
-change output for our channel contribution. It can be updated,
-see `openchannel_update`; *initialpsbt* must have at least one input.
-Must have the Non-Witness UTXO (PSBT\_IN\_NON\_WITNESS\_UTXO) set for
-every input. An error (code 309) will be returned if this requirement
-is not met.
-
-*funding\_feerate* is an optional field. Sets the feerate for the
-funding transaction. Defaults to 1/64th greater than the last
-feerate used for this channel.
-
 Warning: bumping a leased channel will lose the lease.
 
 RETURN VALUE
@@ -56,6 +39,9 @@ will return an error.
 
 If the channel is not in a state that is eligible for RBF, this command
 will return an error.
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

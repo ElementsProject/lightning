@@ -3,6 +3,7 @@ lightning-splice\_signed -- Command to initiate a channel to a peer
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-splicing only)**
 
 **splice\_signed** *channel\_id* *psbt* [*sign\_first*]
@@ -12,15 +13,6 @@ DESCRIPTION
 
 `splice_signed` is a low level RPC command which finishes the active channel
 splice associated with `channel_id`.
-
-*channel\_id* is the channel id of the channel being spliced.
-
-*psbt* is the final version of the psbt to complete the splice with.
-
-*sign\_first* is a flag that makes our node offer the final splice signature
-first (defaults to false). When false, the node will calculate who should
-sign first based off who is adding inputting the least sats to the splice as per
-spec.
 
 The *psbt* must have all signatures attached to all inputs that you have added
 to it or it will fail.
@@ -82,10 +74,12 @@ On success, an object is returned, containing:
 SEE ALSO
 --------
 
+lightning-splice_init(7), lightning-splice_update(7)
+
 AUTHOR
 ------
 
-@dusty\_daemon
+Dusty <<@dusty_daemon>> is mainly responsible.
 
 RESOURCES
 ---------

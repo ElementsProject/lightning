@@ -3,6 +3,7 @@ lightningd -- Daemon for running a Lightning Network node
 
 SYNOPSIS
 --------
+
 ```bash
 lightningd [--conf=<config-file>] [OPTIONS]
 ```

@@ -13,10 +13,6 @@ The **listclosedchannels** RPC command returns data on channels which
 are otherwise forgotten (more than 100 blocks after they're completely
 resolved onchain).
 
-If no *id* is supplied, then channel data on all historical channels are given.
-
-Supplying *id* will filter the results to only match channels to that peer.  Note that prior to v23.05, old peers were forgotten.
-
 RETURN VALUE
 ------------
 
@@ -55,7 +51,8 @@ On success, an object containing **closedchannels** is returned.  It is an array
 - **last\_commitment\_fee\_msat** (msat, optional): The fee on `last_commitment_txid`
 - **last\_stable\_connection** (u64, optional): Last time we reestablished the open channel and stayed connected for 1 minute *(added v24.02)*
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

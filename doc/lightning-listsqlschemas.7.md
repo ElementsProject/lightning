@@ -19,6 +19,7 @@ all tables are listed.
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -31,6 +32,7 @@ EXAMPLE JSON REQUEST
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "schemas": [

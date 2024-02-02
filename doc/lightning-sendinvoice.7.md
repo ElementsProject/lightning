@@ -18,22 +18,6 @@ If **fetchinvoice-noconnect** is not specified in the configuation, it
 will connect to the destination in the (currently common!) case where it
 cannot find a route which supports `option_onion_messages`.
 
-*invreq* is the bolt12 invoice\_request string beginning with "lnr1".
-
-*label* is the unique label to use for this invoice.
-
-*amount\_msat* is optional: it is required if the *offer* does not specify
-an amount at all, or specifies it in a different currency.  Otherwise
-you may set it (e.g. to provide a tip), and if not it defaults to the
-amount contained in the offer (multiplied by *quantity* if any).
-
-*timeout* is how many seconds to wait for the offering node to pay the
-invoice or return an error, default 90 seconds.  This will also be the
-timeout on the invoice that is sent.
-
-*quantity* is optional: it is required if the *offer* specifies
-*quantity\_max*, otherwise it is not allowed.
-
 RETURN VALUE
 ------------
 
@@ -58,6 +42,9 @@ If **status** is "paid":
   - **payment\_preimage** (secret): proof of payment
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 The following error codes may occur:
 

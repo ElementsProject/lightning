@@ -117,8 +117,8 @@ raw JSON and are passed through.  Other arguments are treated as strings.
 Some commands have optional arguments. You may use *null* to skip
 optional arguments to provide later arguments, although this is not encouraged.
 
-EXAMPLES
---------
+EXAMPLE USAGE
+-------------
 
 1. List commands:
 

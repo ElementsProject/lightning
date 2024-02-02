@@ -12,18 +12,6 @@ DESCRIPTION
 The **listforwards** RPC command displays all htlcs that have been
 attempted to be forwarded by the Core Lightning node.
 
-If *status* is specified, then only the forwards with the given status are returned.
-*status* can be either *offered* or *settled* or *failed* or *local\_failed*
-
-If *in\_channel* or *out\_channel* is specified, then only the matching forwards
-on the given in/out channel are returned.
-
-If neither *in\_channel* or *out\_channel* is specified,
-`index` controls ordering, by `created` (default) or `updated`.  If
-`index` is specified, `start` may be specified to start from that
-value, which is generally returned from lightning-wait(7), and `limit`
-can be used to specify the maximum number of entries to return.
-
 RETURN VALUE
 ------------
 

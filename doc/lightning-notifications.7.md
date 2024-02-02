@@ -16,10 +16,9 @@ disabled.
 Various commands, especially complex and slow ones, offer
 notifications which indicate their progress.
 
-- *enable*: *true* to enable notifications, *false* to disable them.
-
 EXAMPLE JSON REQUEST
 --------------------
+
 ```json
 {
   "id": 82,
@@ -60,12 +59,15 @@ On success, an empty object is returned.
 On success, if *enable* was *true*, notifications will be forwarded
 from then on.
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters.
 
-EXAMPLE NOTIFICATIONS
----------------------
+EXAMPLE JSON NOTIFICATIONS
+--------------------------
 
 ```json
 {

@@ -17,6 +17,7 @@ page is not found.
 
 EXAMPLE JSON REQUEST
 --------------------
+
 ```json
 {
   "id": 82,
@@ -38,6 +39,9 @@ On success, an object is returned, containing:
   - **verbose** (string): a full description of this command (including whether it's deprecated)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, one of the following error codes may be returned:
 

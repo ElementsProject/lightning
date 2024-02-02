@@ -12,26 +12,6 @@ DESCRIPTION
 The **withdraw** RPC command sends funds from Core Lightning's internal
 wallet to the address specified in *destination*.
 
-The address can be of any Bitcoin accepted type, including bech32.
-
-*satoshi* is the amount to be withdrawn from the internal wallet
-(expressed, as name suggests, in satoshi). The string *all* can be used
-to specify withdrawal of all available funds (but if we have
-any anchor channels, this will always leave at least `min-emergency-msat` as change).
-. Otherwise, it is in
-satoshi precision; it can be a whole number, a whole number ending in
-*sat*, a whole number ending in *000msat*, or a number with 1 to 8
-decimal places ending in *btc*.
-
-*feerate* is an optional feerate: see NOTES in lightning-feerates(7)
-for possible values.  The default is *normal*.
-
-*minconf* specifies the minimum number of confirmations that used
-outputs should have. Default is 1.
-
-*utxos* specifies the utxos to be used to be withdrawn from, as an array
-of "txid:vout". These must be drawn from the node's available UTXO set.
-
 RETURN VALUE
 ------------
 
@@ -43,6 +23,9 @@ On success, an object is returned, containing:
 - **psbt** (string): the PSBT representing the unsigned transaction
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, an error is reported and the withdrawal transaction is not
 created.

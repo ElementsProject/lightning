@@ -14,6 +14,7 @@ The **getinfo** gives a summary of the current running node.
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -72,12 +73,16 @@ The following warnings may also be returned:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters or some error happened during the command process.
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "id": "02bf811f7571754f0b51e6d41a8885f5561041a7b14fac093e4cffb95749de1a8d",

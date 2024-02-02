@@ -25,6 +25,9 @@ On success, an object is returned, containing:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 The following error codes may occur:
 
 - RUNE\_NOT\_AUTHORIZED (1501): rune is not for this node (or perhaps completely invalid)
@@ -34,8 +37,7 @@ The following error codes may occur:
 AUTHOR
 ------
 
-Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible
-for consolidating logic from commando.
+Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando.
 
 SEE ALSO
 --------
@@ -46,4 +48,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+
 [comment]: # ( SHA256STAMP:72ed36d7c47cf43b39c149da7d251c8bd40531b59591a50c4745f5d7aef5854e)

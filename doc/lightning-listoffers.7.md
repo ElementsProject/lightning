@@ -3,6 +3,7 @@ lightning-listoffers -- Command for listing offers
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-offers only)**
 
 **listoffers** [*offer\_id*] [*active\_only*]
@@ -11,11 +12,11 @@ DESCRIPTION
 -----------
 
 The **listoffers** RPC command list all offers, or with `offer_id`,
-only the offer with that offer\_id (if it exists).  If `active_only` is
-set and is true, only offers with `active` true are returned.
+only the offer with that offer\_id (if it exists).
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -43,6 +44,7 @@ On success, an object containing **offers** is returned.  It is an array of obje
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
   "offers": [

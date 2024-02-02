@@ -11,10 +11,9 @@ DESCRIPTION
 
 The **getlog** the RPC command to show logs, with optional log *level*.
 
-- *level*: A string that represents the log level (*broken*, *unusual*, *info*, *debug*, or *io*).  The default is *info*.
-
 EXAMPLE JSON REQUEST
 --------------------
+
 ```json
 {
   "id": 82,
@@ -57,6 +56,9 @@ On success, an object is returned, containing:
     - **node\_id** (pubkey, optional): The peer this is associated with
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, one of the following error codes may be returned:
 

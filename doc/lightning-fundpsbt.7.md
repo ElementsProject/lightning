@@ -12,38 +12,6 @@ DESCRIPTION
 `fundpsbt` is a low-level RPC command which creates a PSBT using unreserved
 inputs in the wallet, optionally reserving them as well.
 
-*satoshi* is the minimum satoshi value of the output(s) needed (or the
-string "all" meaning use all unreserved inputs).  If a value, it can
-be a whole number, a whole number ending in *sat*, a whole number
-ending in *000msat*, or a number with 1 to 8 decimal places ending in
-*btc*.
-
-*feerate* is an optional feerate: see NOTES in lightning-feerates(7)
-for possible values.  The default is *normal*.
-
-*startweight* is the weight of the transaction before *fundpsbt* has
-added any inputs.
-
-*minconf* specifies the minimum number of confirmations that used
-outputs should have. Default is 1.
-
-If *reserve* if not zero, then *reserveinputs* is called (successfully, with
-*exclusive* true) on the returned PSBT for this number of blocks (default
-72 blocks if unspecified).
-
-*locktime* is an optional locktime: if not set, it is set to a recent
-block height.
-
-*min\_witness\_weight* is an optional minimum weight to use for a UTXO's
-witness. If the actual witness weight is greater than the provided minimum,
-the actual witness weight will be used.
-
-*excess\_as\_change* is an optional boolean to flag to add a change output
-for the excess sats.
-
-*nonwrapped* is an optional boolean to signal to filter out any p2sh-wrapped
-inputs from funding this PSBT.
-
 EXAMPLE USAGE
 -------------
 
@@ -89,6 +57,9 @@ an additional output above the `dust_limit`, then an output is
 added to the PSBT for the excess amount. The *excess\_msat* will
 be zero. A *change\_outnum* will be returned with the index of
 the change output.
+
+ERRORS
+------
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:

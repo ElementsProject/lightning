@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **wait** RPC command returns once the index given by *indexname*
-in *subsystem* reaches or exceeds *nextvalue*.  All indexes start at 0, when no
+in *subsystem* reaches or exceeds *nextvalue*. All indexes start at 0, when no
 events have happened (**wait** with a *nextvalue* of 0 is a way of getting
 the current index, though naturally this is racy!).
 
@@ -40,12 +40,12 @@ Indices only monotoncally increase.
 USAGE
 -----
 
-The **wait** RPC is used to track changes in the system.  Consider
-tracking invoices being paid or expiring.  The simplest (and
+The **wait** RPC is used to track changes in the system. Consider
+tracking invoices being paid or expiring. The simplest (and
 inefficient method) would be:
 
 1. Call `listinvoices` to get the current state of all invoices, and
-   remember the highest `updated_index`.  Say it was 5.
+   remember the highest `updated_index`. Say it was 5.
 2. Call `wait invoices updated 6`.
 3. When it returns, call `listinvoices` again to see what changed.
 
@@ -59,6 +59,7 @@ This is obviously inefficient, so there are two optimizations:
 
 RETURN VALUE
 ------------
+
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
@@ -95,6 +96,9 @@ If **subsystem** is "sendpays":
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
 
@@ -103,8 +107,7 @@ with `code` being one of the following:
 AUTHOR
 ------
 
-Rusty Russell <<rusty@rustcorp.com.au>> is mainly
-responsible.
+Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 
 SEE ALSO
 --------
@@ -115,4 +118,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+
 [comment]: # ( SHA256STAMP:a6686d2d46b49984c3848305dc15129a7436dd48d95f6afd9ba0e2902b52fc5d)

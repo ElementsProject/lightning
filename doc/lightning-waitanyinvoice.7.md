@@ -15,20 +15,8 @@ any invoices paid prior to or including the *lastpay\_index*.
 
 This is usually called iteratively: once with no arguments, then
 repeatedly with the returned *pay\_index* entry. This ensures that no
-paid invoice is missed.
-
-The *pay\_index* is a monotonically-increasing number assigned to an
-invoice when it gets paid. The first valid *pay\_index* is 1; specifying
-*lastpay\_index* of 0 equivalent to not specifying a *lastpay\_index*.
-Negative *lastpay\_index* is invalid.
-
-If *timeout* is specified, wait at most that number of seconds, which
-must be an integer.
-If the specified *timeout* is reached, this command will return with an
-error.
-You can specify this to 0 so that **waitanyinvoice** will return
-immediately with an error if no pending invoice is available yet.
-If unspecified, this command will wait indefinitely.
+paid invoice is missed. The *pay\_index* is a monotonically-increasing number
+assigned to an invoice when it gets paid. The first valid *pay\_index* is 1.
 
 RETURN VALUE
 ------------
@@ -59,10 +47,12 @@ If **status** is "paid":
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-Possible errors are:
+ERRORS
+------
 
-* 904.
-  The *timeout* was reached without an invoice being paid.
+The following error codes may occur:
+
+- 904: The *timeout* was reached without an invoice being paid.
 
 AUTHOR
 ------

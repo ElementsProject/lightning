@@ -12,9 +12,6 @@ DESCRIPTION
 The **listdatastore** RPC command allows plugins to fetch data which was
 stored in the Core Lightning database.
 
-All immediate children of the *key* (or root children) are returned:
-a *key* with children won't have a *hex* or *generation* entry.
-
 RETURN VALUE
 ------------
 
@@ -28,6 +25,9 @@ On success, an object containing **datastore** is returned.  It is an array of o
 - **string** (string, optional): The data as a string, if it's valid utf-8
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 The following error codes may occur:
 

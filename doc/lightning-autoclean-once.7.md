@@ -14,17 +14,6 @@ single sweep to delete old entries.  This is a manual alternative (or
 addition) to the various `autoclean-...-age` parameters which
 cause autoclean to run once per hour: see lightningd-config(5).
 
-The *subsystem*s currently supported are:
-
-* `failedforwards`: routed payments which did not succeed (`failed` or `local_failed` in listforwards `status`).
-* `succeededforwards`: routed payments which succeeded (`settled` in listforwards `status`).
-* `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).
-* `succededpays`: payment attempts which succeeded (`complete` in listpays `status`).
-* `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).
-* `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).
-
-*age* is a non-zero number in seconds.
-
 RETURN VALUE
 ------------
 

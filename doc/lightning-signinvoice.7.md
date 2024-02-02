@@ -9,12 +9,9 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **signinvoice** RPC command signs an invoice.  Unlike
+The **signinvoice** RPC command signs an invoice. Unlike
 **createinvoice** it does not save the invoice into the database and
 thus does not require the preimage.
-
-The *invstring* parameter is of bolt11 form, but the final signature
-is ignored.  Minimal sanity checks are done.
 
 RETURN VALUE
 ------------
@@ -25,6 +22,9 @@ On success, an object is returned, containing:
 - **bolt11** (string): the bolt11 string
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
+
+ERRORS
+------
 
 On failure, an error is returned.
 

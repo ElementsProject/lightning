@@ -9,17 +9,11 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.  If *partid* and *groupid* are not specified, all payment parts with matchin status are deleted.
-
-- *payment\_hash*: The unique identifier of a payment.
-- *status*: Expected status of the payment.
-- *partid*: Specific partid to delete (must be paired with *groupid*)
-- *groupid*: Specific groupid to delete (must be paired with *partid*)
-
-Only deletes if the payment status matches.
+The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. If *partid* and *groupid* are not specified, all payment parts with matchin status are deleted.
 
 EXAMPLE JSON REQUEST
 ------------
+
 ```json
 {
   "id": 82,
@@ -30,6 +24,7 @@ EXAMPLE JSON REQUEST
   }
 }
 ```
+
 
 RETURN VALUE
 ------------
@@ -61,6 +56,9 @@ On success, an object containing **payments** is returned.  It is an array of ob
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+ERRORS
+------
+
 On failure, an error is returned. If the lightning process fails before responding, the
 caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.
 
@@ -72,6 +70,7 @@ The following error codes may occur:
 
 EXAMPLE JSON RESPONSE
 -----
+
 ```json
 {
    "payments": [

@@ -15,19 +15,6 @@ by adding a single output of amount *satoshi*.
 This is used to receive funds into the on-chain wallet interactively
 using PSBTs.
 
-*satoshi* is the satoshi value of the output. It can
-be a whole number, a whole number ending in *sat*, a whole number
-ending in *000msat*, or a number with 1 to 8 decimal places ending in
-*btc*.
-
-*initialpsbt* is a PSBT to add the output to. If not speciifed, a PSBT
-will be created automatically.
-
-*locktime* is an optional locktime: if not set, it is set to a recent
-block height (if no initial psbt is specified).
-
-If *destination* is not set, an internal address is generated.
-
 EXAMPLE USAGE
 -------------
 
@@ -53,7 +40,7 @@ On success, an object is returned, containing:
 AUTHOR
 ------
 
-@dusty\_daemon
+Dusty <<@dusty_daemon>> is mainly responsible.
 
 SEE ALSO
 --------

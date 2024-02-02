@@ -13,7 +13,7 @@ DESCRIPTION
 Segwit deposits in a wallet into a single Native Segwit P2WPKH address.
 
 *feerate* is an optional feerate: see NOTES in lightning-feerates(7)
-for possible values.  The default is *opening*.
+for possible values. The default is *opening*.
 
 *reservedok* tells the wallet to include all P2SH-wrapped inputs, including
 reserved ones.

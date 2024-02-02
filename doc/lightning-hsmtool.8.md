@@ -3,6 +3,7 @@ lightning-hsmtool -- Tool for working with software HSM secrets of lightningd
 
 SYNOPSIS
 --------
+
 ```bash
 lightning-hsmtool method [ARGUMENTS]...
 ```
@@ -92,6 +93,7 @@ to gain our eternal gratitude!
 
 AUTHOR
 ------
+
 ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of
 this man page, but many others did the hard work of actually implementing
 **lightning-hsmtool**.

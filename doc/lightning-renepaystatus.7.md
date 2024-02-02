@@ -12,8 +12,7 @@ DESCRIPTION
 
 The **renepaystatus** RPC command queries the payment plugin **renepay**
 for the status of previous payment attempts.
-If *invstring* is specified, the command will return a list of payment attempts
-whose invoice matches *invstring*, otherwise all payments with be listed.
+
 This command always succeeds.
 
 RETURN VALUE

@@ -62,8 +62,8 @@ to form valid JSON:
 * `!`: only passes if the *name* does *not* exist. e.g. `pnamedestination!`.
        Every other operator except `#` fails if *name* does not exist!
 
-EXAMPLES
---------
+EXAMPLE USAGE
+-------------
 
 This creates a fresh rune which can do anything:
 

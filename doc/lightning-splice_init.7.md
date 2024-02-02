@@ -3,6 +3,7 @@ lightning-splice\_init -- Command to initiate a channel to a peer
 
 SYNOPSIS
 --------
+
 **(WARNING: experimental-splicing only)**
 
 **splice\_init** *channel\_id* *relative\_amount* [*initalpsbt*] [*feerate\_per\_kw*] [*force\_feerate*]
@@ -12,22 +13,6 @@ DESCRIPTION
 
 `splice_init` is a low level RPC command which initiates a channel splice for a
 given channel specified by `channel_id`.
-
-*channel\_id* is the channel id of the channel to be spliced.
-
-*relative\_amount* is a positive or negative amount of satoshis to add or
-subtract from the channel.
-
-*initalpsbt* is the (optional) base 64 encoded PSBT to begin with. If not
-specified, one will be generated automatically.
-
-*feerate\_per\_kw* is the miner fee we promise our peer to pay for our side of
-the splice transaction. It is calculated by `feerate_per_kw` *
-our\_bytes\_in\_splice\_tx / 1000.
-
-*force\_feerate* is a boolean flag. By default splices will fail if the fee
-provided looks too high. This is to protect against accidentally setting your
-fee higher than intended. Set `force_feerate` to true to skip this saftey check.
 
 Note you may need to add a double dash (\-\-) after splice\_init if using a negative
 *relative\_amount* so it is not interpretted as a command modifier. For example:
@@ -100,10 +85,12 @@ On success, an object is returned, containing:
 SEE ALSO
 --------
 
+lightning-splice_signed(7), lightning-splice_update(7)
+
 AUTHOR
 ------
 
-@dusty\_daemon
+Dusty <<@dusty_daemon>> is mainly responsible.
 
 RESOURCES
 ---------

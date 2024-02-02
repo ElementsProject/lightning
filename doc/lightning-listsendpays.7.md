@@ -12,16 +12,10 @@ DESCRIPTION
 The **listsendpays** RPC command gets the status of all *sendpay*
 commands (which is also used by the *pay* command), or with *bolt11* or
 *payment\_hash* limits results to that specific payment. You cannot
-specify both. It is possible filter the payments also by *status*.
+specify both. It is possible to filter the payments also by *status*.
 
 Note that there may be more than one concurrent *sendpay*
 command per *pay*, so this command should be used with caution.
-
-If neither *bolt11* or *payment\_hash* is specified,
-`index` controls ordering, by `created` (default) or `updated`.  If
-`index` is specified, `start` may be specified to start from that
-value, which is generally returned from lightning-wait(7), and `limit`
-can be used to specify the maximum number of entries to return.
 
 RETURN VALUE
 ------------
