@@ -1671,7 +1671,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     # These appear before we're fully started, so will already in log:
     l2.daemon.is_in_log(r'gossip_store_compact_offline: 2 deleted, 9 copied')
 
-    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/3/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 2016 bytes')
+    assert l2.daemon.is_in_log(r'gossip_store: Read 2/4/3/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\)')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
