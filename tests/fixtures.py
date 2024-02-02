@@ -19,7 +19,7 @@ class LightningNode(utils.LightningNode):
         # Yes, we really want to test the local development version, not
         # something in out path.
         self.old_path = os.environ['PATH']
-        binpath = Path(__file__) / ".." / "lightningd"
+        binpath = Path(__file__).parent / ".." / "lightningd"
         os.environ['PATH'] = f"{binpath}:{self.old_path}"
 
         utils.LightningNode.__init__(self, *args, **kwargs)
