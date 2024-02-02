@@ -1,7 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "string",
-  "enum": [
-    "Shutdown complete"
-  ]
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "result"
+  ],
+  "properties": {
+    "result": {
+	"type": "string",
+	"added": "v24.05",
+	"enum": [
+	    "Shutdown complete"
+	]
+    }
+  }
 }

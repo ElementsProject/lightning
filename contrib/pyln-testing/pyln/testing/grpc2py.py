@@ -1515,6 +1515,7 @@ def wait2py(m):
 
 def stop2py(m):
     return remove_default({
+        "result": str(m.result),  # EnumField in generate_composite
     })
 
 

@@ -213,16 +213,17 @@ static struct command_result *prepare_stop_conn(struct command *cmd,
 
 	cmd->ld->stop_conn = cmd->jcon->conn;
 
-	/* This is the one place where result is a literal string. */
 	jout = json_out_new(tmpctx);
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
 	/* Copy input id token exactly */
 	memcpy(json_out_member_direct(jout, "id", strlen(cmd->id)),
 	       cmd->id, strlen(cmd->id));
+	json_out_start(jout, "result", '{');
 	json_out_addstr(jout, "result", why);
 	json_out_end(jout, '}');
-	json_out_finished(jout);
+	json_out_end(jout, '}');
+ 	json_out_finished(jout);
 
 	/* Add two \n */
 	memcpy(json_out_direct(jout, 2), "\n\n", strlen("\n\n"));
