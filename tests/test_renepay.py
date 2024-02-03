@@ -297,6 +297,10 @@ def start_channels(connections):
         scid = src.get_channel_scid(dst)
         scids.append(scid)
 
+    # Make sure they have all seen block so they don't complain about
+    # the coming gossip messages
+    sync_blockheight(bitcoind, nodes)
+
     bitcoind.generate_block(5)
 
     # Make sure everyone sees all channels, all other nodes
