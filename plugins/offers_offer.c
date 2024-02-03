@@ -166,7 +166,8 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 	jsmntok_t t = *tok;
 
 	*base = tal(cmd, struct recurrence_base);
-	if (json_tok_startswith(buffer, &t, "@")) {
+	if (command_deprecated_in_ok(cmd, "recurrence_base.at_prefix", "v24.02", "v24.05")
+	    && json_tok_startswith(buffer, &t, "@")) {
 		t.start++;
 		(*base)->start_any_period = false;
 	} else
@@ -174,7 +175,25 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 
 	if (!json_to_u64(buffer, &t, &(*base)->basetime))
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "not a valid basetime or @basetime");
+					     "not a valid basetime");
+	return NULL;
+}
+
+static struct command_result *param_recurrence_start_any_period(struct command *cmd,
+								const char *name,
+								const char *buffer,
+								const jsmntok_t *tok,
+								struct recurrence_base **base)
+{
+	bool *val;
+	struct command_result *res = param_bool(cmd, name, buffer, tok, &val);
+	if (res)
+		return res;
+
+	if (*val == false && !*base)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Cannot set to false without specifying recurrence_base!");
+	(*base)->start_any_period = false;
 	return NULL;
 }
 
@@ -303,6 +322,9 @@ struct command_result *json_offer(struct command *cmd,
 			 &offer->offer_recurrence_limit),
 		   p_opt_def("single_use", param_bool,
 			     &offinfo->single_use, false),
+		   p_opt("recurrence_start_any_period",
+			 param_recurrence_start_any_period,
+			 &offer->offer_recurrence_base),
 		   /* FIXME: hints support! */
 		   NULL))
 		return command_param_failed();
