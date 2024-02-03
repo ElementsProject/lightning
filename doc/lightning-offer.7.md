@@ -6,7 +6,8 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* [*issuer*] [*label*] [*quantity\_max*] [*absolute\_expiry*] [*recurrence*] [*recurrence\_base*] [*recurrence\_paywindow*] [*recurrence\_limit*] [*single\_use*]
+**offer** *amount* *description* [*issuer*] [*label*] [*quantity\_max*] [*absolute\_expiry*] [*recurrence*] [*recurrence\_base*] [*recurrence\_paywindow*] [*recurrence\_limit*] [*single\_use*] [*recurrence\_start\_any\
+_period*]
 
 DESCRIPTION
 -----------
@@ -61,12 +62,9 @@ offer.  The semantics of recurrence is fairly predictable, but fully
 documented in BOLT 12.  e.g. "4weeks".
 
 *recurrence\_base* is an optional time in seconds since the first day
-of 1970 UTC, optionally with a "@" prefix.  This indicates when the
+of 1970 UTC.  This indicates when the
 first period begins; without this, the recurrence periods start from
-the first invoice.  The "@" prefix means that the invoice must start
-by paying the first period; otherwise it is permitted to start at any
-period.  This is encoded in the offer.  e.g. "@1609459200" indicates
-you must start paying on the 1st January 2021.
+the first invoice.
 
 *recurrence\_paywindow* is an optional argument of form
 '-time+time[%]'.  The first time is the number of seconds before the
@@ -86,6 +84,11 @@ period which exists.  eg. "12" means there are 13 periods, from 0 to
 *single\_use* (default false) indicates that the offer is only valid
 once; we may issue multiple invoices, but as soon as one is paid all other
 invoices will be expired (i.e. only one person can pay this offer).
+
+*recurrence\_start\_any\_period* (default true) means that the invoice must
+start by paying during any period; otherwise it must start by paying
+at the first period.  Setting this to false only makes sense if
+*recurrence\_base* was provided.  This is encoded in the offer.
 
 RETURN VALUE
 ------------
