@@ -204,17 +204,6 @@ static int comp_by_name(const struct param *a, const struct param *b,
 	return strcmp(a->name, b->name);
 }
 
-static int comp_by_arg(const struct param *a, const struct param *b,
-		       void *unused)
-{
-	/* size_t could be larger than int: don't turn a 4bn difference into 0 */
-	if (a->arg > b->arg)
-		return 1;
-	else if (a->arg < b->arg)
-		return -1;
-	return 0;
-}
-
 /* This comparator is a bit different, but works well.
  * Return 0 if @a is optional and @b is required. Otherwise return 1.
  */
@@ -267,7 +256,6 @@ static void check_params(const struct param *params)
 
 	/* check for repeated names and args */
 	check_unique(copy, comp_by_name);
-	check_unique(copy, comp_by_arg);
 
 	tal_free(copy);
 }
