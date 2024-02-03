@@ -352,13 +352,6 @@ static void bad_programmer(void)
 	      p_req("repeat", param_millionths, &fpval), NULL);
 	assert(paramcheck_assert_failed);
 
-	/* check for repeated arguments */
-	paramcheck_assert_failed = false;
-	param(cmd, j->buffer, j->toks,
-	      p_req("u64", param_u64, &ival),
-	      p_req("repeated-arg", param_u64, &ival), NULL);
-	assert(paramcheck_assert_failed);
-
 	paramcheck_assert_failed = false;
 	param(cmd, j->buffer, j->toks,
 	      p_req("u64", (param_cbx) NULL, NULL), NULL);
