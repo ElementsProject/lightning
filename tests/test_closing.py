@@ -297,6 +297,12 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
+    # Make sure they all see all the gossip before close, otherwise they might
+    # get upset with "bad gossip!"
+    for n in [l1, l2, l3, l4]:
+        wait_for(lambda: len(n.rpc.listchannels()['channels']) == 6)
+        wait_for(lambda: ['alias' in node for node in n.rpc.listnodes()['nodes']] == [True] * 4)
+
     addr = chainparams['example_addr']
     l1.rpc.close(chan12, None, addr)
     l1.rpc.call('close', {'id': chan13, 'destination': addr})
