@@ -1148,7 +1148,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct node_id *id;
 	struct peer *peer;
 	bool *announce_channel;
-	u32 *feerate_per_kw, *mindepth;
+	u32 *feerate_non_anchor, feerate_anchor, *mindepth;
 	int fds[2];
 	struct amount_sat *amount, *reserve;
 	struct amount_msat *push_msat;
@@ -1165,7 +1165,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	if (!param_check(fc->cmd, buffer, params,
 			 p_req("id", param_node_id, &id),
 			 p_req("amount", param_sat, &amount),
-			 p_opt("feerate", param_feerate, &feerate_per_kw),
+			 p_opt("feerate", param_feerate, &feerate_non_anchor),
 			 p_opt_def("announce", param_bool, &announce_channel, true),
 			 p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
 			 p_opt("push_msat", param_msat, &push_msat),
@@ -1196,19 +1196,32 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_sat, amount));
 
 	fc->funding_sats = *amount;
-	if (!feerate_per_kw) {
-		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = opening_feerate(cmd->ld->topology);
-		if (!*feerate_per_kw) {
+	if (!feerate_non_anchor) {
+		/* For non-anchors, we default to a low feerate for first
+		 * commitment, and update it almost immediately.  That saves
+		 * money in the immediate-close case, which is probably soon
+		 * and thus current feerates are sufficient. */
+		feerate_non_anchor = tal(cmd, u32);
+		*feerate_non_anchor = opening_feerate(cmd->ld->topology);
+		if (!*feerate_non_anchor) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Cannot estimate fees");
 		}
 	}
 
-	if (*feerate_per_kw < get_feerate_floor(cmd->ld->topology)) {
+	feerate_anchor = unilateral_feerate(cmd->ld->topology, true);
+	/* Only complain here if we could possibly open one! */
+	if (!feerate_anchor
+	    && feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
 		return command_fail(cmd, LIGHTNINGD,
-				    "Feerate below feerate floor %u perkw",
-				    get_feerate_floor(cmd->ld->topology));
+				    "Cannot estimate fees");
+	}
+
+	if (*feerate_non_anchor < get_feerate_floor(cmd->ld->topology)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Feerate for non-anchor (%u perkw) below feerate floor %u perkw",
+				    *feerate_non_anchor, get_feerate_floor(cmd->ld->topology));
 	}
 
 	if (!topology_synced(cmd->ld->topology)) {
@@ -1324,8 +1337,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			fc->push,
 			fc->our_upfront_shutdown_script,
 			upfront_shutdown_script_wallet_index,
-			*feerate_per_kw,
-			unilateral_feerate(cmd->ld->topology, true),
+			*feerate_non_anchor,
+			feerate_anchor,
 			&tmp_channel_id,
 			fc->channel_flags,
 			fc->uc->reserve,
