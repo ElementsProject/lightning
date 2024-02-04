@@ -6,6 +6,7 @@
 #include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
@@ -34,6 +35,9 @@ struct pending_open {
 
 	const struct wally_psbt *psbt;
 };
+
+/* How much do we need to keep in reserve for anchor spends? */
+static struct amount_sat emergency_reserve;
 
 static struct pending_open *
 find_channel_pending_open(const struct channel_id *cid)
@@ -564,7 +568,7 @@ listfunds_success(struct command *cmd,
 		  const jsmntok_t *result,
 		  struct open_info *info)
 {
-	struct amount_sat available_funds, committed_funds, est_fee;
+	struct amount_sat available_funds, committed_funds, total_fee;
 	const jsmntok_t *outputs_tok, *tok;
 	struct out_req *req;
 	struct bitcoin_outpoint **avail_prev_outs;
@@ -583,9 +587,11 @@ listfunds_success(struct command *cmd,
 
 	available_funds = AMOUNT_SAT(0);
 	committed_funds = AMOUNT_SAT(0);
+	total_fee = AMOUNT_SAT(0);
 	avail_prev_outs = tal_arr(info, struct bitcoin_outpoint *, 0);
 	json_for_each_arr(i, tok, outputs_tok) {
 		struct funder_utxo *utxo;
+		struct amount_sat est_fee;
 		bool is_reserved;
 		struct bitcoin_outpoint *prev_out;
 		char *status;
@@ -639,6 +645,10 @@ listfunds_success(struct command *cmd,
 			plugin_err(cmd->plugin,
 				   "`listfunds` overflowed output values");
 
+		if (!amount_sat_add(&total_fee, total_fee, est_fee))
+			plugin_err(cmd->plugin,
+				   "`listfunds` overflowed fee values");
+
 		/* If this is an RBF, we keep track of available utxos */
 		if (info->prev_outs) {
 			/* if not previously reserved, it's committed */
@@ -659,6 +669,21 @@ listfunds_success(struct command *cmd,
 			tal_arr_expand(&avail_prev_outs, prev_out);
 		}
 	}
+
+	/* Even if we don't have an anchor channel yet, we might soon:
+	 * keep reserve, even after fee!  Assume two outputs, one for
+	 * change. */
+	if (!amount_sat_add(&total_fee, total_fee,
+			    amount_tx_fee(info->funding_feerate_perkw,
+					  BITCOIN_SCRIPTPUBKEY_P2WSH_LEN
+					  + change_weight()))) {
+		plugin_err(cmd->plugin,
+			   "fee value overflow for estimating total fee");
+	}
+
+	if (!amount_sat_sub(&available_funds, available_funds, total_fee)
+	    || !amount_sat_sub(&available_funds, available_funds, emergency_reserve))
+		available_funds = AMOUNT_SAT(0);
 
 	funding_err = calculate_our_funding(current_policy,
 					    info->id,
@@ -1467,6 +1492,7 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
 	const char *err;
+	struct amount_msat msat;
 
 	list_head_init(&pending_opens);
 
@@ -1477,6 +1503,13 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 	if (current_policy->rates)
 		tell_lightningd_lease_rates(p, current_policy->rates);
 
+	rpc_scan(p, "listconfigs",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:"
+		 "{min-emergency-msat:{value_msat:%}}}",
+		 JSON_SCAN(json_to_msat, &msat));
+
+	emergency_reserve = amount_msat_to_sat_round_down(msat);
 	plugin_set_memleak_handler(p, memleak_mark);
 
 	return NULL;

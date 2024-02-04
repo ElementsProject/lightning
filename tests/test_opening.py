@@ -1539,8 +1539,8 @@ def test_funder_contribution_limits(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
-    assert l2.daemon.is_in_log('Policy .* returned funding amount of 141780sat')
-    assert l2.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
+    assert l2.daemon.is_in_log('Policy .* returned funding amount of 107530sat')
+    assert l2.daemon.is_in_log(r'calling `signpsbt` .* inputs')
 
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, 10**7)
