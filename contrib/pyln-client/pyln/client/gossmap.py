@@ -152,7 +152,7 @@ class GossmapNodeId(object):
 
     def __lt__(self, other):
         if not isinstance(other, GossmapNodeId):
-            raise ValueError(f"Cannot compare GossmapNodeId with {type(other)}")
+            raise TypeError(f"Cannot compare GossmapNodeId with {type(other)}")
         return self.nodeid.__lt__(other.nodeid)  # yes, that works
 
     def __hash__(self):
@@ -268,7 +268,7 @@ class GossmapNode(object):
 
     def __lt__(self, other):
         if not isinstance(other, GossmapNode):
-            raise ValueError(f"Cannot compare GossmapNode with {type(other)}")
+            raise TypeError(f"Cannot compare GossmapNode with {type(other)}")
         return self.node_id.__lt__(other.node_id)
 
     def __hash__(self):
