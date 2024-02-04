@@ -135,7 +135,7 @@ class PublicKey(object):
                 )
 
         elif not isinstance(innerkey, coincurve.keys.PublicKey):
-            raise ValueError(
+            raise TypeError(
                 "Key must either be bytes or coincurve.keys.PublicKey"
             )
         self.key = innerkey

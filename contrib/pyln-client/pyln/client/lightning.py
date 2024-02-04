@@ -411,7 +411,7 @@ class UnixDomainSocketRpc(object):
         sock.close()
 
         if not isinstance(resp, dict):
-            raise ValueError("Malformed response, response is not a dictionary %s." % resp)
+            raise TypeError("Malformed response, response is not a dictionary %s." % resp)
         elif "error" in resp:
             raise RpcError(method, payload, resp['error'])
         elif "result" not in resp:

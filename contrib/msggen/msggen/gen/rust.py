@@ -75,7 +75,7 @@ def gen_field(field):
     elif isinstance(field, PrimitiveField):
         return gen_primitive(field)
     else:
-        raise ValueError(f"Unmanaged type {field}")
+        raise TypeError(f"Unmanaged type {field}")
 
 
 def gen_enum(e):

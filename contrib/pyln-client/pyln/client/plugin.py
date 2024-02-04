@@ -949,14 +949,14 @@ class Plugin(object):
         def verify_str(d: Dict[str, JSONType], key: str) -> str:
             v = d.get(key)
             if not isinstance(v, str):
-                raise ValueError("Wrong argument to init: expected {key} to be"
+                raise TypeError("Wrong argument to init: expected {key} to be"
                                  " a string, got {v}".format(key=key, v=v))
             return v
 
         def verify_bool(d: Dict[str, JSONType], key: str) -> bool:
             v = d.get(key)
             if not isinstance(v, bool):
-                raise ValueError("Wrong argument to init: expected {key} to be"
+                raise TypeError("Wrong argument to init: expected {key} to be"
                                  " a bool, got {v}".format(key=key, v=v))
             return v
 
