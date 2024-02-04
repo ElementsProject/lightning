@@ -461,40 +461,40 @@ static bool change_for_emergency(struct lightningd *ld,
 				 struct amount_sat *excess,
 				 struct amount_sat *change)
 {
-	struct amount_sat fee;
+	struct amount_sat needed = ld->emergency_sat, fee;
 
 	/* Only needed for anchor channels */
 	if (!have_anchor_channel)
 		return true;
 
-	/* Fine if rest of wallet has funds. */
+	/* Fine if rest of wallet has funds.  Otherwise it may reduce
+	 * needed amount. */
 	if (wallet_has_funds(ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
 			     get_block_height(ld->topology),
-			     ld->emergency_sat))
+			     &needed))
 		return true;
 
-	/* If we can afford with existing change output, great (or
+	/* If we can afford the rest with existing change output, great (or
 	 * ld->emergency_sat is 0) */
 	if (amount_sat_greater_eq(change_amount(*change,
 						feerate_per_kw, weight),
-				  ld->emergency_sat))
+				  needed))
 		return true;
 
 	/* Try splitting excess to add to change. */
 	fee = change_fee(feerate_per_kw, weight);
 	if (!amount_sat_sub(excess, *excess, fee)
-	    || !amount_sat_sub(excess, *excess, ld->emergency_sat))
+	    || !amount_sat_sub(excess, *excess, needed))
 		return false;
 
 	if (!amount_sat_add(change, *change, fee)
-	    || !amount_sat_add(change, *change, ld->emergency_sat))
+	    || !amount_sat_add(change, *change, needed))
 		abort();
 
 	/* We *will* get a change output now! */
-	assert(amount_sat_eq(change_amount(*change, feerate_per_kw,
-						weight),
-			     ld->emergency_sat));
+	assert(amount_sat_eq(change_amount(*change, feerate_per_kw, weight),
+			     needed));
 	return true;
 }
 

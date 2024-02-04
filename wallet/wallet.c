@@ -674,10 +674,9 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 bool wallet_has_funds(struct wallet *w,
 		      const struct utxo **excludes,
 		      u32 current_blockheight,
-		      struct amount_sat sats)
+		      struct amount_sat *needed)
 {
 	struct db_stmt *stmt;
-	struct amount_sat total = AMOUNT_SAT(0);
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  prev_out_tx"
@@ -712,17 +711,9 @@ bool wallet_has_funds(struct wallet *w,
 			continue;
 		}
 
-		/* Overflow Should Not Happen */
-		if (!amount_sat_add(&total, total, utxo->amount)) {
-			db_fatal(w->db, "Invalid value for %s: %s",
-				 type_to_string(tmpctx,
-						struct bitcoin_outpoint,
-						&utxo->outpoint),
-				 fmt_amount_sat(tmpctx, utxo->amount));
-		}
-
 		/* If we've found enough, answer is yes. */
-		if (amount_sat_greater_eq(total, sats)) {
+		if (!amount_sat_sub(needed, *needed, utxo->amount)) {
+			*needed = AMOUNT_SAT(0);
 			tal_free(stmt);
 			return true;
 		}
