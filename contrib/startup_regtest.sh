@@ -56,11 +56,11 @@ fi
 
 if [ -z "$LIGHTNING_BIN" ]; then
 	# Already installed maybe?  Prints
-	if [ ! "$(type lightning-cli >/dev/null 2>&1)" ]; then
+	if ! type lightning-cli >/dev/null 2>&1 ; then
 		echo lightning-cli: not found
 		return 1
 	fi
-	if [ ! "$(type lightningd >/dev/null 2>&1)" ]; then
+	if ! type lightningd >/dev/null 2>&1 ; then
 		echo lightningd: not found
 		return 1
 	fi
@@ -93,11 +93,11 @@ fi
 # shellcheck disable=SC2153
 if [ -z "$BITCOIN_BIN" ]; then
 	# Already installed maybe?  Prints
-	if [ ! "$(type bitcoin-cli >/dev/null 2>&1)" ]; then
+	if ! type bitcoin-cli >/dev/null 2>&1 ; then
 		echo bitcoin-cli: not found
 		return 1
 	fi
-	if [ ! "$(type bitcoind >/dev/null 2>&1)" ]; then
+	if ! type bitcoind >/dev/null 2>&1 ; then
 		echo bitcoind: not found
 		return 1
 	fi
