@@ -2680,3 +2680,27 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY]
     assert only_one(l1.rpc.listpeerchannels(l3.info['id'])['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
     assert only_one(l3.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
+
+
+@pytest.mark.xfail(strict=True)
+def test_multifunding_all_amount(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": "all"}]
+
+    l1.rpc.multifundchannel(destinations, minchannels=2)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    wait_for(lambda: [c['state'] for c in (l1.rpc.listpeerchannels()['channels'])] == ['CHANNELD_NORMAL', 'CHANNELD_NORMAL'])
+
+    inv = l2.rpc.invoice(5000, 'i1', 'i1')['bolt11']
+    l1.rpc.pay(inv)
+
+    inv2 = l3.rpc.invoice(100000, 'i2', 'i2')['bolt11']
+    l1.rpc.pay(inv2)
