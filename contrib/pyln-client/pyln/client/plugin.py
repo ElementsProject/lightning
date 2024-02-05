@@ -950,14 +950,14 @@ class Plugin(object):
             v = d.get(key)
             if not isinstance(v, str):
                 raise TypeError("Wrong argument to init: expected {key} to be"
-                                 " a string, got {v}".format(key=key, v=v))
+                                " a string, got {v}".format(key=key, v=v))
             return v
 
         def verify_bool(d: Dict[str, JSONType], key: str) -> bool:
             v = d.get(key)
             if not isinstance(v, bool):
                 raise TypeError("Wrong argument to init: expected {key} to be"
-                                 " a bool, got {v}".format(key=key, v=v))
+                                " a bool, got {v}".format(key=key, v=v))
             return v
 
         self.rpc_filename = verify_str(configuration, 'rpc-file')
