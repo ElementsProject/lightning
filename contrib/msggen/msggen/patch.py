@@ -178,7 +178,6 @@ class OverridePatch(Patch):
         'ListPeers.peers[].channels[].opener': "ChannelSide",
         'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
         'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
-        'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
         'ListPeers.peers[].channels[].htlcs[].state': "HtlcState",
         'ListPeerChannels.channels[].htlcs[].state': "HtlcState",
         'ListHtlcs.htlcs[].state': "HtlcState",
