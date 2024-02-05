@@ -16,7 +16,8 @@ RUN apk update && \
       libtool \
       net-tools \
       postgresql-dev \
-      py3-mako \
+      linux-headers \
+      py3-pip \
       python3 \
       python3-dev \
       sqlite-dev \
@@ -29,6 +30,9 @@ COPY . /source
 
 RUN git clone /source /repo --recursive && \
     cd /repo && \
+    python3 -m pip install poetry && \
+    poetry export --without-hashes --with=dev > requirements.txt && \
+    python3 -m pip install -r requirements.txt --ignore-installed --force && \
     ./configure --enable-static --prefix=/usr && \
     make -j $(nproc) && \
     make install
