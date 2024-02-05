@@ -10,39 +10,6 @@ static void destroy_wally_tx_input(struct wally_tx_input *in)
 	wally_tx_input_free(in);
 }
 
-static struct wally_tx_input *clone_input(const struct wally_tx_input *src)
-{
-	struct wally_tx_input *in;
-	int ret;
-
-	if (is_elements(chainparams)) {
-		ret = wally_tx_elements_input_init_alloc
-			(src->txhash, sizeof(src->txhash),
-			 src->index, src->sequence,
-			 src->script, src->script_len,
-			 src->witness,
-			 src->blinding_nonce, sizeof(src->blinding_nonce),
-			 src->entropy, sizeof(src->entropy),
-			 src->issuance_amount, src->issuance_amount_len,
-			 src->inflation_keys, src->inflation_keys_len,
-			 src->issuance_amount_rangeproof,
-			 src->issuance_amount_rangeproof_len,
-			 src->inflation_keys_rangeproof,
-			 src->inflation_keys_rangeproof_len,
-			 src->pegin_witness,
-			 &in);
-	} else {
-		ret = wally_tx_input_init_alloc(src->txhash, sizeof(src->txhash),
-						src->index, src->sequence,
-						src->script, src->script_len,
-						src->witness, &in);
-	}
-	assert(ret == WALLY_OK);
-
-	tal_add_destructor(in, destroy_wally_tx_input);
-	return in;
-}
-
 static void destroy_wally_tx_output(struct wally_tx_output *out)
 {
 	wally_tx_output_free(out);
@@ -62,7 +29,10 @@ struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
 		if (input != -1 && input != i)
 			continue;
-		txp->inputs[i] = clone_input(&wtx->inputs[i]);
+		if (wally_tx_input_clone_alloc(&wtx->inputs[i],
+					       &txp->inputs[i]) != WALLY_OK)
+			abort();
+		tal_add_destructor(txp->inputs[i], destroy_wally_tx_input);
 	}
 
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
