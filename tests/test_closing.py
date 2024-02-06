@@ -303,6 +303,12 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
         wait_for(lambda: len(n.rpc.listchannels()['channels']) == 6)
         wait_for(lambda: ['alias' in node for node in n.rpc.listnodes()['nodes']] == [True] * 4)
 
+    # If we don't wait for gossip to propagate, then we can get bad gossip msgs if it
+    # propagates after close!
+    for n in l1, l2, l3, l4:
+        wait_for(lambda: len(n.rpc.listchannels()['channels']) == 6)
+        wait_for(lambda: ['alias' in node for node in n.rpc.listnodes()['nodes']] == [True] * 4)
+
     addr = chainparams['example_addr']
     l1.rpc.close(chan12, None, addr)
     l1.rpc.call('close', {'id': chan13, 'destination': addr})
