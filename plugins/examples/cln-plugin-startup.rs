@@ -2,25 +2,28 @@
 //! plugins using the Rust API against Core Lightning.
 #[macro_use]
 extern crate serde_json;
-use cln_plugin::{messages, options, Builder, Error, Plugin};
+use cln_plugin::options::{DefaultIntegerConfigOption, IntegerConfigOption};
+use cln_plugin::{messages, Builder, Error, Plugin};
 use tokio;
 
 const TEST_NOTIF_TAG: &str = "test_custom_notification";
+
+const TEST_OPTION: DefaultIntegerConfigOption = DefaultIntegerConfigOption::new_i64_with_default(
+    "test-option",
+    42,
+    "a test-option with default 42",
+);
+
+const TEST_OPTION_NO_DEFAULT: IntegerConfigOption =
+    IntegerConfigOption::new_i64_no_default("opt-option", "An option without a default");
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let state = ();
 
     if let Some(plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(options::ConfigOption::new_i64_with_default(
-            "test-option",
-            42,
-            "a test-option with default 42",
-        ))
-        .option(options::ConfigOption::new_i64_no_default(
-            "opt-option",
-            "An optional option",
-        ))
+        .option(TEST_OPTION)
+        .option(TEST_OPTION_NO_DEFAULT)
         .rpcmethod("testmethod", "This is a test", testmethod)
         .rpcmethod(
             "testoptions",
@@ -46,8 +49,13 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 async fn testoptions(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
+    let test_option = p.option(&TEST_OPTION)?;
+    let test_option_no_default = p
+        .option(&TEST_OPTION_NO_DEFAULT)?;
+
     Ok(json!({
-        "opt-option": format!("{:?}", p.option_str("opt-option").unwrap())
+        "test-option": test_option,
+        "opt-option" : test_option_no_default
     }))
 }
 

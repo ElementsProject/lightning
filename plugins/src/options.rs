@@ -143,7 +143,6 @@ pub mod config_type {
     pub struct Flag;
 }
 
-
 /// Config values are represented as an i64. No default is used
 pub type IntegerConfigOption<'a> = ConfigOption<'a, config_type::Integer>;
 /// Config values are represented as a String. No default is used.
@@ -158,7 +157,6 @@ pub type DefaultStringConfigOption<'a> = ConfigOption<'a, config_type::DefaultSt
 pub type DefaultBooleanConfigOption<'a> = ConfigOption<'a, config_type::DefaultBoolean>;
 /// Config value is represented as a flag
 pub type FlagConfigOption<'a> = ConfigOption<'a, config_type::Flag>;
-
 
 pub trait OptionType {
     type OutputValue;
@@ -614,8 +612,7 @@ mod test {
         // The main goal of this test is to test compilation
 
         // Initiate every type as a const
-        const _: FlagConfigOption =
-            ConfigOption::new_flag("flag-option", "A flag option");
+        const _: FlagConfigOption = ConfigOption::new_flag("flag-option", "A flag option");
         const _: DefaultBooleanConfigOption =
             ConfigOption::new_bool_with_default("bool-option", false, "A boolean option");
         const _: BooleanConfigOption =
