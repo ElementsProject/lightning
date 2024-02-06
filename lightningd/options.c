@@ -759,9 +759,9 @@ static char *opt_force_featureset(const char *optarg,
 			return "Invalid feature number";
 
 		f = feature_set_for_feature(NULL, n);
-		if (strstarts(optarg, "-")
-		    && !feature_set_sub(ld->our_features, take(f)))
-			return "Feature unknown";
+		if (strstarts(optarg, "-")) {
+			feature_set_sub(ld->our_features, take(f));
+		}
 
 		if (strstarts(optarg, "+")
 		    && !feature_set_or(ld->our_features, take(f)))
