@@ -1258,10 +1258,7 @@ static char *opt_set_quiesce(struct lightningd *ld)
 
 static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
 {
-	/* Requires static_remotekey, but we always set that */
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX))));
+	/* FIXME: deprecated_apis! */
 	return NULL;
 }
 
@@ -1469,8 +1466,7 @@ static void register_opts(struct lightningd *ld)
 				 " channels.");
 	opt_register_early_noarg("--experimental-anchors",
 				 opt_set_anchor_zero_fee_htlc_tx, ld,
-				 "EXPERIMENTAL: enable option_anchors_zero_fee_htlc_tx"
-				 " to open zero-fee-anchor channels");
+				 opt_hidden);
 	clnopt_witharg("--announce-addr-dns", OPT_EARLY|OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->announce_dns,
@@ -1788,6 +1784,13 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 		ld->config = testnet_config;
 	else
 		ld->config = mainnet_config;
+
+	/* No anchors if we're elements */
+	if (chainparams->is_elements) {
+		feature_set_sub(ld->our_features,
+				feature_set_for_feature(tmpctx,
+							OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX)));
+	}
 
 	/* Set the ln_port given from chainparams */
 	ld->config.ip_discovery_port = chainparams->ln_port;

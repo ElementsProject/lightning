@@ -1590,8 +1590,8 @@ def test_ipv4_and_ipv6(node_factory):
 def test_feerates(node_factory, anchors):
     opts = {'log-level': 'io',
             'dev-no-fake-fees': True}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     l1 = node_factory.get_node(options=opts, start=False)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
@@ -2043,8 +2043,8 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
 def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
     """Don't return a feerate less than minrelaytxfee/mempoolminfee."""
     opts = {}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
     l1 = node_factory.get_node(options=opts)
 
     assert l1.rpc.feerates('perkb') == {
@@ -2254,6 +2254,7 @@ def test_list_features_only(node_factory):
                 'option_payment_secret/even',
                 'option_basic_mpp/odd',
                 'option_support_large_channel/odd',
+                'option_anchors_zero_fee_htlc_tx/odd',
                 'option_route_blinding/odd',
                 'option_shutdown_anysegwit/odd',
                 'option_channel_type/odd',

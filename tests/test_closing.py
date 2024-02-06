@@ -361,8 +361,10 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
 
     orate = feerate_for(21000)  # closing fee negotiation starts at 21000
     prate = feerate_for(20000)  # closing fee negotiation starts at 20000
-    opener, peer = node_factory.line_graph(2, opts=[{'feerates': (orate, orate, orate, orate)},
-                                                    {'feerates': (prate, prate, prate, prate)}])
+    opener, peer = node_factory.line_graph(2, opts=[{'feerates': (orate, orate, orate, orate),
+                                                     'dev-force-features': "-23"},
+                                                    {'feerates': (prate, prate, prate, prate),
+                                                     'dev-force-features': "-23"}])
 
     opener_id = opener.info['id']
     peer_id = peer.info['id']
@@ -501,8 +503,8 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     # Feerates identical so we don't get gratuitous commit to update them
     opts = {'dev-disable-commit-after': 1,
             'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # FIXME: | for dicts was added in Python 3.9 apparently.
     l1, l2 = node_factory.line_graph(2, opts=[{**opts, **{'may_fail': True,
@@ -632,8 +634,8 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
 
     opts = {'dev-disable-commit-after': 3,
             'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # First we need to get funds to l2, so suppress after second.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -764,11 +766,9 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
     their blockheight, the lessor fails the channel
     '''
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'experimental-anchors': None},
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'experimental-anchors': None}]
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
@@ -805,8 +805,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True, 'plugin': coin_mvt_plugin,
-            'dev-no-reconnect': None,
-            'experimental-anchors': None}
+            'dev-no-reconnect': None}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -909,8 +908,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-            'funder-lease-requests-only': False,
-            'experimental-anchors': None}
+            'funder-lease-requests-only': False}
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     # Allow l2 some warnings
@@ -1020,12 +1018,10 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_warning': True,
-             'experimental-anchors': None,
              'plugin': balance_snaps},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_broken_log': True,
-             'experimental-anchors': None,
              'plugin': balance_snaps}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
@@ -1192,21 +1188,25 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     balance_snaps = os.path.join(os.getcwd(), 'tests/plugins/balance_snaps.py')
 
+    opts = {'may_reconnect': True,
+            'dev-no-reconnect': None}
+    if anchors:
+        commitfee = 3755
+    else:
+        commitfee = 11005
+        opts = {**opts, 'dev-force-features': "-23"}
+
     l1, l2, l3, l4 = node_factory.line_graph(4,
                                              opts=[{'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
-                                                    'may_reconnect': True,
-                                                    'dev-no-reconnect': None},
+                                                    **opts},
                                                    {'plugin': [coin_mvt_plugin, balance_snaps],
                                                     'disable-mpp': None,
-                                                    'dev-no-reconnect': None,
-                                                    'may_reconnect': True,
+                                                    **opts,
                                                     'allow_broken_log': True},
                                                    {'plugin': [coin_mvt_plugin, balance_snaps],
-                                                    'dev-no-reconnect': None,
-                                                    'may_reconnect': True,
+                                                    **opts,
                                                     'allow_broken_log': True},
-                                                   {'dev-no-reconnect': None,
-                                                    'may_reconnect': True}],
+                                                   opts],
                                              wait_for_announce=True)
 
     channel_id = first_channel_id(l2, l3)
@@ -1257,7 +1257,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
 
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log('got commitsig .*: feerate 11005, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed')
+    l2.daemon.wait_for_log('got commitsig .*: feerate {}, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed'.format(commitfee))
 
     # l2 moves on for closed l3
     bitcoind.generate_block(1)
@@ -1403,9 +1403,9 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
             'allow_broken_log': True,
         }
     ]
-    if anchors:
+    if anchors is False:
         for opt in opts:
-            opt['experimental-anchors'] = None
+            opt['dev-force-features'] = "-23"
 
     l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=opts)
 
@@ -1586,8 +1586,8 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     to_self_delay = 10
     opts = {'dev-disable-commit-after': 1}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
@@ -1938,8 +1938,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor, chainparams, anchors)
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     opts = {'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # HTLC 1->2, 1 fails just after it's irrevocably committed
     disconnects = ['+WIRE_REVOKE_AND_ACK*3', 'permfail']
@@ -2063,8 +2063,8 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     opts = {'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # HTLC 1->2->3, 1->2 goes down after 2 gets preimage from 3.
     disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
@@ -2198,8 +2198,8 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainpara
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     opts = {'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
     l1_disconnects = ['=WIRE_UPDATE_FULFILL_HTLC', 'permfail']
     l2_disconnects = ['-WIRE_UPDATE_FULFILL_HTLC']
 
@@ -2328,8 +2328,8 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     opts = {'plugin': coin_mvt_plugin}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
 
@@ -3364,8 +3364,8 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     opts = {'may_reconnect': True,
             'dev-no-reconnect': None,
             'feerates': (7500, 7500, 7500, 7500)}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     # We change the feerate before it starts negotiating close, so it aims
     # for *higher* than last commit tx.
@@ -3739,10 +3739,8 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
     # Set feerates to lowball for now.
     l1, l2 = node_factory.line_graph(2, opts=[{'feerates': (1000,) * 4,
-                                               'experimental-anchors': None,
                                                'min-emergency-msat': 546000},
                                               {'feerates': (1000,) * 4,
-                                               'experimental-anchors': None,
                                                'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
     assert 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
 
@@ -3821,9 +3819,9 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
     opts = [{}, {}, {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}]
-    if anchors:
+    if anchors is False:
         for opt in opts:
-            opt['experimental-anchors'] = None
+            opt['dev-force-features'] = "-23"
 
     l1, l2, l3 = node_factory.line_graph(3, opts=opts)
 
@@ -3933,10 +3931,8 @@ def test_closing_minfee(node_factory, bitcoind):
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
     l1, l2, l3 = node_factory.line_graph(3, opts=[{},
-                                                  {'experimental-anchors': None,
-                                                   'min-emergency-msat': 546000},
-                                                  {'experimental-anchors': None,
-                                                   'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
+                                                  {'min-emergency-msat': 546000},
+                                                  {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
                                          wait_for_announce=True)
 
     # We splinter l2's funds so it's forced to use more than one UTXO to push.

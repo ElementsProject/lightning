@@ -355,8 +355,7 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'plugin': str(coin_mvt_plugin),
-            'disable-plugin': 'bookkeeper',
-            'experimental-anchors': None}
+            'disable-plugin': 'bookkeeper'}
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 

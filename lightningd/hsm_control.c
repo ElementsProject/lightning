@@ -160,7 +160,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	if (feature_offered(ld->our_features->bits[INIT_FEATURE],
 			    OPT_ANCHORS_ZERO_FEE_HTLC_TX)
 	    && !hsm_capable(ld, WIRE_HSMD_SIGN_ANCHORSPEND)) {
-		fatal("--experimental-anchors needs HSM capable of signing anchors!");
+		fatal("anchors needs HSM capable of signing anchors!");
 	}
 
 	if (feature_offered(ld->our_features->bits[INIT_FEATURE],

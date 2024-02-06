@@ -22,8 +22,7 @@ def find_next_feerate(node, peer):
 @pytest.mark.openchannel('v2')
 def test_queryrates(node_factory, bitcoind):
 
-    opts = {'dev-no-reconnect': None,
-            'experimental-anchors': None}
+    opts = {'dev-no-reconnect': None}
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -581,7 +580,6 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-            'experimental-anchors': None,
             'may_reconnect': True}
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
@@ -1554,13 +1552,11 @@ def test_inflight_dbload(node_factory, bitcoind):
     disconnects = ["@WIRE_COMMITMENT_SIGNED"]
 
     opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
-             'may_reconnect': True, 'disconnect': disconnects,
-             'experimental-anchors': None},
+             'may_reconnect': True, 'disconnect': disconnects},
             {'experimental-dual-fund': None, 'dev-no-reconnect': None,
              'may_reconnect': True, 'funder-policy': 'match',
              'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
-             'lease-fee-basis': 100,
-             'experimental-anchors': None}]
+             'lease-fee-basis': 100}]
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -1657,8 +1653,12 @@ def test_zeroconf_open(bitcoind, node_factory):
     # and use their own mindepth=6, while l2 uses mindepth=2 from the
     # plugin
     ret = l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
-    assert ret['channel_type'] == {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
-    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_type'] == {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
+    if TEST_NETWORK == 'regtest':
+        channel_type = {'bits': [12, 22, 50], 'names': ['static_remotekey/even', 'anchors_zero_fee_htlc_tx/even', 'zeroconf/even']}
+    else:
+        channel_type = {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
+    assert ret['channel_type'] == channel_type
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_type'] == channel_type
 
     assert l1.db.query('SELECT minimum_depth FROM channels WHERE minimum_depth != 1') == [{'minimum_depth': 0}]
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
@@ -1737,7 +1737,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     assert('short_channel_id' not in l2chan)
 
     # Channel is "proposed"
-    chan_val = 993888000 if chainparams['elements'] else 996363000
+    chan_val = 993888000 if chainparams['elements'] else 970073000
     l1_mvts = [
         {'type': 'chain_mvt', 'credit_msat': chan_val, 'debit_msat': 0, 'tags': ['channel_proposed', 'opener']},
         {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 20000000, 'tags': ['pushed'], 'fees_msat': '0msat'},
@@ -1875,12 +1875,10 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
 
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True,
-             'experimental-anchors': None},
+             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True,
-             'experimental-anchors': None}]
+             'may_reconnect': True}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
@@ -1938,12 +1936,10 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'rescan': 10, 'disable-plugin': 'bookkeeper',
-             'funding-confirms': 6, 'may_reconnect': True,
-             'experimental-anchors': None},
+             'funding-confirms': 6, 'may_reconnect': True},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True,
-             'experimental-anchors': None}]
+             'may_reconnect': True}]
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
@@ -2434,7 +2430,7 @@ def test_no_anchor_liquidity_ads(node_factory, bitcoind):
                'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
                'may_reconnect': True, 'funder-lease-requests-only': False}
     l1_opts = l2_opts.copy()
-    l1_opts['experimental-anchors'] = None
+    l2_opts['dev-no-anchors'] = None
     l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
 
     feerate = 2000
@@ -2465,8 +2461,8 @@ def test_no_anchor_liquidity_ads(node_factory, bitcoind):
 @pytest.mark.parametrize("anchors", [False, True])
 def test_commitment_feerate(bitcoind, node_factory, anchors):
     opts = {}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
@@ -2516,8 +2512,7 @@ def test_commitment_feerate(bitcoind, node_factory, anchors):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd has different tx costs')
 def test_anchor_min_emergency(bitcoind, node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-anchors': None},
-                                     fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 5000000 / 10**8)
