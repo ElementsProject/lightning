@@ -47,6 +47,7 @@ Core Lightning Documentation
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-delpay <lightning-delpay.7.md>
    lightning-deprecations <lightning-deprecations.7.md>
+   lightning-dev-forget-channel <lightning-dev-forget-channel.7.md>
    lightning-disableinvoicerequest <lightning-disableinvoicerequest.7.md>
    lightning-disableoffer <lightning-disableoffer.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
