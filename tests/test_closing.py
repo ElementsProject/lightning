@@ -2643,8 +2643,9 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('htlc 1: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION')
 
     # Restart with different feerate for second HTLC.
-    l1.set_feerates((5000, 5000, 5000, 3750))
-    l1.restart()
+    l1.stop()
+    l1.set_feerates((5000, 5000, 5000, 5000), wait_for_effect=False)
+    l1.start()
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
     p3 = executor.submit(l1.pay, l2, 800000000)
@@ -2658,23 +2659,40 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
 
+    # Elements still uses non-anchor version.
+    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+        expected = {'min_possible_feerate': 3750,
+                    'max_possible_feerate': 5005}
+    else:
+        expected = {'min_possible_feerate': 5005,
+                    'max_possible_feerate': 11005}
+
     # Both sides should have correct feerate
-    assert l1.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
-        'min_possible_feerate': 5005,
-        'max_possible_feerate': 11005
-    }]
-    assert l2.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
-        'min_possible_feerate': 5005,
-        'max_possible_feerate': 11005
-    }]
+    assert l1.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [expected]
+
+    assert l2.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [expected]
 
     bitcoind.generate_block(5)
-    # Three HTLCs, and one for the to-us output.
-    l1.daemon.wait_for_logs(['sendrawtx exit 0'] * 4)
 
-    # We use 3 blocks for "reasonable depth"
-    bitcoind.generate_block(3)
+    # We will, over the next few blocks, spend the to-us and the HTLCs.
+    # We don't have enough outputs, so the results are a bit random,
+    # but we will make progress every block!
+    mark = l1.daemon.logsearch_start
 
+    r = re.compile('sendrawtx exit 0')
+
+    def count_successful_txs():
+        l1.daemon.logs_catchup()
+        return sum([r.search(l) is not None for l in l1.daemon.logs[mark:]])
+
+    # First iteration we expect one HTLC-tx and the to-us, then two more htlc txs
+    num_successful = 1
+    while num_successful < 3 + 1:
+        wait_for(lambda: count_successful_txs() > num_successful)
+        num_successful = count_successful_txs()
+        bitcoind.generate_block(1)
+
+    # This takes at least 3 blocks: now payments can fail
     with pytest.raises(Exception):
         p1.result(10)
     with pytest.raises(Exception):
@@ -2682,9 +2700,12 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     with pytest.raises(Exception):
         p3.result(10)
 
-    # Two more for HTLC timeout tx to be spent.
-    bitcoind.generate_block(2)
-    l1.daemon.wait_for_logs(['sendrawtx exit 0'] * 3)
+    # Now we need the return-to-wallet spending the htlc tx.
+    bitcoind.generate_block(4)
+    while num_successful < 3 + 3 + 1:
+        wait_for(lambda: count_successful_txs() > num_successful)
+        num_successful = count_successful_txs()
+        bitcoind.generate_block(1)
 
     # Now, 100 blocks it should be done.
     bitcoind.generate_block(100)
@@ -2898,7 +2919,7 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     # until l4 says 'all outputs resolved'.
     while not l4.daemon.is_in_log('All outputs resolved'):
         bitcoind.generate_block(1)
-        assert bitcoind.rpc.getblockcount() < 200
+        assert bitcoind.rpc.getblockcount() < 250
         sync_blockheight(bitcoind, [l4, l5])
 
     # All payments should be long resolved.
@@ -2953,7 +2974,7 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     # until l5 says 'all outputs resolved'.
     while not l5.daemon.is_in_log('All outputs resolved'):
         bitcoind.generate_block(1)
-        assert bitcoind.rpc.getblockcount() < 200
+        assert bitcoind.rpc.getblockcount() < 250
         sync_blockheight(bitcoind, [l4, l5])
 
     # All payments should be long resolved.
@@ -2981,6 +3002,8 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**6)
+    # Give it some sats for anchor spend! (Extra for elements!)
+    l2.fundwallet(30000, mine_block=False)
 
     # This will fail at l2's end.
     t = executor.submit(l1.pay, l2, 200000000)
@@ -3574,11 +3597,9 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
 
 def test_close_twice(node_factory, executor):
     # First feerate is too low, second fixes it.
-    l1, l2 = node_factory.line_graph(2, opts=[{'allow_warning': True,
-                                               'may_reconnect': True},
-                                              {'allow_warning': True,
-                                               'may_reconnect': True,
-                                               'feerates': (15000, 15000, 15000, 15000)}])
+    l1, l2 = node_factory.line_graph(2, opts={'allow_warning': True,
+                                              'may_reconnect': True,
+                                              'feerates': (15000, 15000, 15000, 15000)})
 
     # This makes it disconnect, since feerate is too low.
     fut = executor.submit(l1.rpc.close, l2.info['id'], feerange=['253perkw', '500perkw'])
@@ -3978,7 +3999,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
 
 
 def test_closing_cpfp(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'min-emergency-msat': '2500sat'})
 
     # We want to ignore l1's change output
     change = only_one(l1.rpc.listfunds()['outputs'])
@@ -4004,4 +4025,8 @@ def test_closing_cpfp(node_factory, bitcoind):
     # They should now see a single additional output each
     sync_blockheight(bitcoind, [l1, l2])
     assert len(l1.rpc.listfunds()['outputs']) == 2
-    assert len(l2.rpc.listfunds()['outputs']) == 1
+    # This one will also have emergency change if anchors
+    if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
+        assert len(l2.rpc.listfunds()['outputs']) == 2
+    else:
+        assert len(l2.rpc.listfunds()['outputs']) == 1
