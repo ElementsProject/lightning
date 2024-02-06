@@ -67,18 +67,20 @@ def test_plugin_start(node_factory):
     l1.daemon.wait_for_log(r'Got a connect notification')
 
 
-def test_plugin_optional_opts(node_factory):
+def test_plugin_options_handle_defaults(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
     bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path), 'opt-option': 31337})
+    l1 = node_factory.get_node(options={"plugin": str(bin_path), 'opt-option': 31337, "test-option": 31338})
     opts = l1.rpc.testoptions()
-    print(opts)
+    assert opts["opt-option"] == 31337
+    assert opts["test-option"] == 31338
 
     # Do not set any value, should be None now
     l1 = node_factory.get_node(options={"plugin": str(bin_path)})
     opts = l1.rpc.testoptions()
-    print(opts)
+    assert opts["opt-option"] is None, "opt-option has no default"
+    assert opts["test-option"] == 42, "test-option has a default of 42"
 
 
 def test_grpc_connect(node_factory):
