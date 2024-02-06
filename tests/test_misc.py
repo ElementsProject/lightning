@@ -359,7 +359,14 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     # We hit deadline (we give 1 block grace), then mined another.
     assert blocks2 == -2
 
-    bitcoind.generate_block(1, wait_for_mempool=txid)
+    # If we try to reuse the same output as we used for the anchor spend, then
+    # bitcoind can reject it.  In that case we'll try again after we get change
+    # from anchor spend.
+    if txid not in bitcoind.rpc.getrawmempool():
+        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=1)
+    else:
+        bitcoind.generate_block(1)
 
     rawtx, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                   'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
@@ -424,7 +431,16 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
                                               'OUR_UNILATERAL/THEIR_HTLC')
     assert blocks == 0
-    bitcoind.generate_block(1, wait_for_mempool=txid)
+
+    # If we try to reuse the same output as we used for the anchor spend, then
+    # bitcoind can reject it.  In that case we'll try again after we get change
+    # from anchor spend.
+    if txid not in bitcoind.rpc.getrawmempool():
+        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=1)
+    else:
+        bitcoind.generate_block(1)
+
     rawtx, txid, blocks = l2.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
                                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
     assert blocks == 4
