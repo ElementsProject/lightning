@@ -906,11 +906,14 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_ZEROCONF),
 		OPTIONAL_FEATURE(OPT_CHANNEL_TYPE),
 		OPTIONAL_FEATURE(OPT_ROUTE_BLINDING),
+		/* Removed later for elements */
+		OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {
-		struct feature_set *f
-			= feature_set_for_feature(NULL, features[i]);
+		struct feature_set *f;
+
+		f = feature_set_for_feature(NULL, features[i]);
 		if (!ret)
 			ret = tal_steal(ctx, f);
 		else

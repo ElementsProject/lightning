@@ -461,7 +461,6 @@ specified multuple times. (Added in v23.08).
 * **min-emergency-msat**=*msat*
 
   This is the amount of funds to keep in the wallet to close anchor channels (which don't carry their own transaction fees).  It defaults to 25000sat, and is only maintained if there are any anchor channels (or, when opening an anchor channel).  This amount may be insufficient for multiple closes at once, however.
-  
 
 ### Cleanup control options:
 
@@ -793,15 +792,6 @@ protocol to update channel types.  At the moment, we only support setting
 this option.
 
 
-* **experimental-anchors**
-
-  Specifying this option turns on the `option_anchors_zero_fee_htlc_tx`
-feature, meaning we can open anchor-based channels.  This will become
-the default for new channels in future, after more testing.  Anchor-based
-channels use larger commitment transactions, with the trade-off that they
-don't have to use a worst-case fee, but can bump the commitment transaction
-if it's needed.  Note that this means that we need to keep
-some funds aside: see `min-emergency-msat`.
 
 BUGS
 ----

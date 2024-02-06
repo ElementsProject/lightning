@@ -939,10 +939,10 @@ class LightningNode(object):
         else:
             total_capacity = int(total_capacity)
 
-        self.fundwallet(total_capacity + 10000)
+        self.fundwallet(total_capacity + 35000)
 
         if remote_node.config('experimental-dual-fund'):
-            remote_node.fundwallet(total_capacity + 10000)
+            remote_node.fundwallet(total_capacity + 35000)
             # We cut the total_capacity in half, since the peer's
             # expected to contribute that same amount
             chan_capacity = total_capacity // 2
@@ -1273,6 +1273,25 @@ class LightningNode(object):
                 },
             }
         self.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_estimatesmartfee)
+
+        def mock_getmempoolinfo(r):
+            return {
+                'id': r['id'],
+                'error': None,
+                'result': {
+                    'mempoolminfee': Decimal(feerates[4] * 4) / 10**8,
+                    'minrelaytxfee': Decimal(feerates[4] * 4) / 10**8,
+                },
+            }
+
+        # Did they want to set minfee as well?
+        if len(feerates) > 4:
+            assert len(feerates) == 5
+            self.daemon.rpcproxy.mock_rpc('getmempoolinfo', mock_getmempoolinfo)
+
+            if wait_for_effect:
+                wait_for(lambda:
+                         self.rpc.feerates(style='perkb')['perkb']['floor'] == feerates[4] * 4)
 
         # Technically, this waits until it's called, not until it's processed.
         # We wait until all four levels have been called.

@@ -43,6 +43,9 @@ def expected_peer_features(extra=[]):
     if EXPERIMENTAL_SPLICING:
         features += [35]  # option_quiesce
         features += [163]  # option_experimental_splice
+    if TEST_NETWORK != 'liquid-regtest':
+        # Anchors, except for elements
+        features += [23]
     return hex_bits(features + extra)
 
 
@@ -57,6 +60,9 @@ def expected_node_features(extra=[]):
     if EXPERIMENTAL_SPLICING:
         features += [35]  # option_quiesce
         features += [163]  # option_experimental_splice
+    if TEST_NETWORK != 'liquid-regtest':
+        # Anchors, except for elements
+        features += [23]
     return hex_bits(features + extra)
 
 

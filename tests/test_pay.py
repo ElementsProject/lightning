@@ -755,8 +755,8 @@ def test_wait_sendpay(node_factory, executor):
 def test_sendpay_cant_afford(node_factory, anchors):
     # Set feerates the same so we don't have to wait for update.
     opts = {'feerates': (15000, 15000, 15000, 15000)}
-    if anchors:
-        opts['experimental-anchors'] = None
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
 
     l1, l2 = node_factory.line_graph(2, fundamount=10**6, opts=opts)
 
@@ -2686,17 +2686,16 @@ def test_lockup_drain(node_factory, bitcoind):
         l2.pay(l1, total // 2)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'Assumes anchors')
 def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """
-    feerate = 10000
 
     # elements txs are bigger so they become dusty faster
-    max_dust_limit_sat = 100000 if chainparams['elements'] else 50000
-    non_dust_htlc_val_sat = 20000 if chainparams['elements'] else 10000
-    htlc_val_sat = 10000 if chainparams['elements'] else 5000
+    max_dust_limit_sat = 1000 if chainparams['elements'] else 500
+    non_dust_htlc_val_sat = 2000 if chainparams['elements'] else 1000
+    htlc_val_sat = 250
 
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
-                                              'feerates': (feerate, feerate, feerate, feerate),
                                               'max-dust-htlc-exposure-msat': '{}sat'.format(max_dust_limit_sat),
                                               'allow_warning': True})
 
