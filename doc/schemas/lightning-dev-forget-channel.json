@@ -1,0 +1,120 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "rpc": "dev-forget-channel",
+  "title": "Command to remove the DB entries from the database after a close",
+  "warning": "For advanced users only",
+  "description": [
+    "The **dev-forget-channel** forgets the channel with given details. It will perform additional checks on whether it is safe to forget the channel, and only then remove the channel from the DB. Notice that this command is only available if CLN was started with --developer.",
+    "",
+    "Also see https://docs.corelightning.org/docs/faq#how-to-forget-about-a-channel"
+  ],
+  "request": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "The peer id of the channel to be forgotten. Checks if the channel is still active by checking its funding transaction."
+        ]
+      },
+      "short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The short channel id of the channel you want to remove."
+        ]
+      },
+      "channel_id": {
+        "type": "hash",
+        "description": [
+          "The channel id of the channel you want to remove."
+        ]
+      },
+      "force": {
+        "type": "boolean",
+        "description": [
+          "Ignores UTXO check for forced removal."
+        ],
+        "default": "False"
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "forced",
+      "funding_unspent",
+      "funding_txid"
+    ],
+    "properties": {
+      "forced": {
+        "type": "boolean",
+        "description": [
+          "If the command was forced or not."
+        ]
+      },
+      "funding_unspent": {
+        "type": "boolean",
+        "description": [
+          "The funding is spent or not in the channel."
+        ]
+      },
+      "funding_txid": {
+        "type": "txid",
+        "description": [
+          "The id of the funding transaction."
+        ]
+      }
+    }
+  },
+  "errors": [
+    "The following errors may be reported:",
+    "",
+    "- -32602: If the given parameters are missing or wrong.",
+    "- -1: Catch all nonspecific errors, eg. `Multiple channels: please specify short_channel_id.` OR `No channels matching that peer_id and that short_channel_id.`, etc."
+  ],
+  "example_json_request": [
+    {
+      "id": "example:dev-forget-channel#1",
+      "method": "dev-forget-channel",
+      "params": {
+        "id": "023d28435ce4b49f068c964aacbcb6dd114317a70f03e5a731ea72d25df1cff35b"
+      }
+    },
+    {
+      "id": "example:dev-forget-channel#2",
+      "method": "dev-forget-channel",
+      "params": {
+        "id": "0348e58210bbc128b1cc3cc1a520a654aaa01e5fe65c65341e21b61a1f09da94d5",
+        "short_channel_id": "337x1x0",
+        "force": true
+      }
+    }
+  ],
+  "example_json_response": [
+    {
+      "forced": false,
+      "funding_unspent": true,
+      "funding_txid": "g6efdfb11bee25aa8b2249055a4162e4bd5fa9134bc865c3f054ca666d7ab744"
+    },
+    {
+      "forced": true,
+      "funding_unspent": true,
+      "funding_txid": "b254f30a58adde9326b7e8a701f9d5b3c4db2160b58c5378afbe04448018ec8a"
+    }
+  ],
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-close(7)",
+    "lightning-listchannels(7)",
+    "lightning-listpeerchannels(7)",
+    "lightning-listfunds(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
