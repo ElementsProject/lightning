@@ -739,6 +739,13 @@ payment_listsendpays_previous(
 			pending_group_id = groupid;
 			if (partid > max_pending_partid)
 				max_pending_partid = partid;
+
+			if (!amount_msat_add(&pending_msat, pending_msat,
+					     this_msat))
+				plugin_err(pay_plugin->plugin,
+					   "%s (line %d) msat overflow.",
+					   __PRETTY_FUNCTION__, __LINE__);
+
 		} else
 			assert(streq(status, "failed"));
 	}
