@@ -34,6 +34,9 @@ class Patch(ABC):
         for m in service.methods:
             recurse(m.request)
             recurse(m.response)
+        for n in service.notifications:
+            recurse(n.request)
+            recurse(n.response)
 
 
 class VersionAnnotationPatch(Patch):

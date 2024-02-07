@@ -9027,6 +9027,74 @@
             "added": "pre-v0.10.1",
             "deprecated": false
         },
+        "block_added": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "block_added.hash": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "block_added.height": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "channel_open_failed": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "channel_open_failed.channel_id": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "channel_opened": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "channel_opened.channel_ready": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "channel_opened.funding_msat": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "channel_opened.funding_txid": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "channel_opened.id": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "connect.address": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.direction": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.id": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "custommsg": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "custommsg.payload": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "custommsg.peer_id": {
+            "added": "v24.05",
+            "deprecated": false
+        },
         "multifundchannel": {
             "added": "pre-v0.10.1",
             "deprecated": null
