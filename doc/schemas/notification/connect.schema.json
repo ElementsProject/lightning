@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v24.05",
+  "required" : [
+    "id",
+    "direction",
+    "address"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description" : "The id of the peer which sent the custom message",
+      "added" : "v24.05"
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "in",
+        "out"
+      ],
+      "added" : "v24.05"
+    },
+    "address" : {
+        "type" : "string",
+        "added" : "v24.05"
+    }
+  }
+}
