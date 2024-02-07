@@ -1532,6 +1532,16 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	scid = db_col_optional(tmpctx, stmt, "scid", short_channel_id);
 	alias[LOCAL] = db_col_optional(tmpctx, stmt, "alias_local",
 				       short_channel_id);
+	/* The value before was NULL, so we make one on the flight to make sure
+	 * that we do not crash. */
+	if (!alias[LOCAL]) {
+		alias[LOCAL] = tal(tmpctx, struct short_channel_id);
+
+		if (!mk_short_channel_id(alias[LOCAL], 1, 1, 1))
+			fatal("Failed to make short channel 1x1x1!");
+	}
+
+
 	alias[REMOTE] = db_col_optional(tmpctx, stmt, "alias_remote",
 					short_channel_id);
 
