@@ -135,9 +135,10 @@ class Field:
 class Service:
     """Top level class that wraps all the RPC methods.
     """
-    def __init__(self, name: str, methods=None):
-        self.name = name
-        self.methods = [] if methods is None else methods
+    def __init__(self, name: str, methods=None, notifications=None):
+        self.name: str = name
+        self.methods: List[Method] = [] if methods is None else methods
+        self.notifications: List[Notification] = [] if notifications is None else notifications
 
         # If we require linking with some external files we'll add
         # them here so the generator can use them.
@@ -166,7 +167,23 @@ class Service:
                 types.extend(gather_subfields(field))
             for field in method.response.fields:
                 types.extend(gather_subfields(field))
+
+        for notification in self.notifications:
+            types.extend([notification.request])
+            for field in notification.request.fields:
+                types.extend(gather_subfields(field))
+            for field in notification.response.fields:
+                types.extend(gather_subfields(field))
+
         return types
+
+
+class Notification:
+    def __init__(self, name: str, typename: str, request: Field, response: Field):
+        self.name = name
+        self.typename = typename
+        self.request = request
+        self.response = response
 
 
 class Method:
