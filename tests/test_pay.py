@@ -4360,9 +4360,12 @@ def test_offer(node_factory, bitcoind):
               ['10months', 'months', 10],
               ['1year', 'years', 1],
               ['10years', 'years', 10]]:
-        ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                    'description': 'quantity_max test',
-                                    'recurrence': r[0]})
+        ret = l1.rpc.call('offer', {
+            'amount': '100000sat',
+            'description': 'quantity_max test',
+            'recurrence': r[0],
+        })
+
         offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
         output = subprocess.check_output([bolt12tool, 'decode',
                                           offer['bolt12']]).decode('UTF-8')
@@ -4398,7 +4401,7 @@ def test_offer(node_factory, bitcoind):
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
-                                'recurrence_base': 1456740000,
+                                'recurrence_base': '1456740000',
                                 'recurrence_start_any_period': False})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
@@ -4409,7 +4412,7 @@ def test_offer(node_factory, bitcoind):
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
-                                'recurrence_base': 1456740000})
+                                'recurrence_base': '1456740000'})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
