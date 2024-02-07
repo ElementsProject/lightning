@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
-from msggen.gen.rpc.rust import RustGenerator
+from msggen.gen.rpc import RustGenerator, NotificationGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service, combine_schemas
 import logging
@@ -48,6 +48,10 @@ def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain, meta):
     fname = Path("cln-rpc") / "src" / "model.rs"
     dest = open(fname, "w")
     generator_chain.add_generator(RustGenerator(dest, meta))
+
+    fname = Path("cln-rpc") / "src" / "notifications.rs"
+    dest = open(fname, "w")
+    generator_chain.add_generator(NotificationGenerator(dest, meta))
 
 
 def load_msggen_meta():
