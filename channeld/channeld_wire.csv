@@ -75,7 +75,7 @@ msgdata,channeld_init,reestablish_only,bool,
 msgdata,channeld_init,experimental_upgrade,bool,
 msgdata,channeld_init,num_inflights,u16,
 msgdata,channeld_init,inflights,inflight,num_inflights
-msgdata,channeld_init,scid_alias,short_channel_id,
+msgdata,channeld_init,scid_alias,?short_channel_id,
 
 # channeld->lightningd: successfully negotated reestablishment.
 msgtype,channeld_reestablished,1101

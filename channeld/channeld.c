@@ -131,7 +131,7 @@ struct peer {
 	struct short_channel_id short_channel_ids[NUM_SIDES];
 
 	/* Local scid alias */
-	struct short_channel_id local_alias;
+	struct short_channel_id *local_alias;
 
 	/* The scriptpubkey to use for shutting down. */
 	u32 *final_index;
@@ -4899,7 +4899,7 @@ static void peer_reconnect(struct peer *peer,
 	    && next_commitment_number == 1) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
-		tlvs->short_channel_id = &peer->local_alias;
+		tlvs->short_channel_id = peer->local_alias;
 		status_debug("Retransmitting channel_ready for channel %s",
 		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
@@ -5228,15 +5228,18 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			status_debug("handle_funding_depth: Setting short_channel_ids[LOCAL] to %s",
 				type_to_string(tmpctx,
 					       struct short_channel_id,
-					       (scid ? scid : &peer->local_alias)));
+					       (scid ? scid : peer->local_alias)));
 			/* If we know an actual short_channel_id prefer to use
 			 * that, otherwise fill in the alias. From channeld's
 			 * point of view switching from zeroconf to an actual
 			 * funding scid is just a reorg. */
 			if (scid)
 				peer->short_channel_ids[LOCAL] = *scid;
-			else
-				peer->short_channel_ids[LOCAL] = peer->local_alias;
+			else {
+				if (peer->local_alias)
+					assert(mk_short_channel_id(peer->local_alias, 1, 1, 1));
+				peer->short_channel_ids[LOCAL] = *peer->local_alias;
+			}
 		}
 
 		if (!peer->channel_ready[LOCAL]) {
@@ -5246,7 +5249,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 				     type_to_string(tmpctx, struct pubkey,
 						    &peer->next_local_per_commit));
 			tlvs = tlv_channel_ready_tlvs_new(tmpctx);
-			tlvs->short_channel_id = &peer->local_alias;
+			tlvs->short_channel_id = peer->local_alias;
 
 			/* Need to retrieve the first point again, even if we
 			 * moved on, as channel_ready explicitly includes the
