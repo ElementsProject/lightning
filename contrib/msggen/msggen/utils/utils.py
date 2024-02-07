@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from importlib import resources
-from msggen.model import Method, CompositeField, Service
+from msggen.model import Method, CompositeField, Service, Notification, TypeName
 import functools
 from collections import OrderedDict
 
@@ -9,12 +9,26 @@ from collections import OrderedDict
 def combine_schemas(schema_dir: Path, dest: Path):
     """Enumerate all schema files, and combine it into a single JSON file."""
     bundle = OrderedDict()
-    files = sorted(list(schema_dir.iterdir()))
+    methods = OrderedDict()
+    notifications = OrderedDict()
 
+    # Parse methods
+    files = sorted(list(schema_dir.iterdir()))
     for f in files:
         if not f.name.endswith(".json"):
             continue
-        bundle[f.name] = json.load(f.open())
+        methods[f.name] = json.load(f.open())
+
+    # Parse notifications
+    notifications_dir = schema_dir / "notification"
+    files = sorted(list(notifications_dir.iterdir()))
+    for f in files:
+        if not f.name.endswith("json"):
+            continue
+        notifications[f.name] = json.load(f.open())
+
+    bundle["methods"] = methods
+    bundle["notifications"] = notifications
 
     with dest.open(mode='w') as f:
         json.dump(
@@ -39,10 +53,11 @@ def load_jsonrpc_method(name):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
     schema = get_schema_bundle()
+    methods = schema["methods"]
     req_file = f"{name.lower()}.request.json"
     resp_file = f"{name.lower()}.schema.json"
-    request = CompositeField.from_js(schema[req_file], path=name)
-    response = CompositeField.from_js(schema[resp_file], path=name)
+    request = CompositeField.from_js(methods[req_file], path=name)
+    response = CompositeField.from_js(methods[resp_file], path=name)
 
     # Normalize the method request and response typename so they no
     # longer conflict.
@@ -54,6 +69,24 @@ def load_jsonrpc_method(name):
         request=request,
         response=response,
     )
+
+
+def load_notification(name, typename: TypeName):
+    """Load a notification that can be received by a plug-in
+    """
+    typename = str(typename)
+
+    schema = get_schema_bundle()
+    notifications = schema["notifications"]
+    req_file = f"{name.lower()}.request.json"
+    resp_file = f"{name.lower()}.schema.json"
+    request = CompositeField.from_js(notifications[req_file], path=name)
+    response = CompositeField.from_js(notifications[resp_file], path=name)
+
+    request.typename = TypeName(f"Stream{typename}Request")
+    response.typename = TypeName(f"{typename}Notification")
+
+    return Notification(name, TypeName(typename), request, response)
 
 
 def load_jsonrpc_service():
@@ -147,7 +180,32 @@ def load_jsonrpc_service():
         "StaticBackup",
         "Bkpr-ListIncome",
     ]
+
+    notification_names = [
+        {
+            "name": "block_added",
+            "typename": "BlockAdded"
+        },
+        {
+            "name": "channel_open_failed",
+            "typename": "ChannelOpenFailed"
+        },
+        {
+            "name": "channel_opened",
+            "typename": "ChannelOpened"
+        },
+        {
+            "name": "connect",
+            "typename": "Connect"
+        },
+        {
+            "name": "custommsg",
+            "typename": "CustomMsg"
+        },
+    ]
+
     methods = [load_jsonrpc_method(name) for name in method_names]
-    service = Service(name="Node", methods=methods)
+    notifications = [load_notification(name=names["name"], typename=names["typename"]) for names in notification_names]
+    service = Service(name="Node", methods=methods, notifications=notifications)
     service.includes = ['primitives.proto']  # Make sure we have the primitives included.
     return service
