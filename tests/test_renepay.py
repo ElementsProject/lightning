@@ -6,6 +6,7 @@ import random
 import time
 import json
 import subprocess
+import os
 
 
 def test_simple(node_factory):
@@ -32,26 +33,26 @@ def test_direction_matters(node_factory):
     assert details['destination'] == l3.info['id']
 
 
-def test_shadow(node_factory):
-    '''Make sure we shadow correctly.'''
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         wait_for_announce=True,
-                                         opts=[{},
-                                               {'fee-base': 20, 'fee-per-satoshi': 20, 'cltv-delta': 20},
-                                               {'fee-base': 30, 'fee-per-satoshi': 30, 'cltv-delta': 30}])
+def test_shadow_routing(node_factory):
+    """
+    Test the value randomization through shadow routing
 
-    # Shadow doesn't always happen (50% chance)!
-    for i in range(20):
-        inv = l2.rpc.invoice(123000, f'test_renepay{i}', 'description')['bolt11']
-        details = l1.rpc.call('renepay', {'invstring': inv})
-        assert details['status'] == 'complete'
-        assert details['amount_msat'] == Millisatoshi(123000)
-        assert details['destination'] == l2.info['id']
+    Note there is a very low (0.5**10) probability that it fails.
+    """
+# We need l3 for random walk
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
-        line = l1.daemon.wait_for_log("No MPP, so added .*msat shadow fee")
-        if 'added 0msat' not in line:
-            break
-        assert i != 19
+    amount = 10000
+    total_amount = 0
+    n_payments = 10
+    for i in range(n_payments):
+        inv = l3.rpc.invoice(amount, "{}".format(i), "test")["bolt11"]
+        total_amount += l1.rpc.call('renepay',
+                                    {'invstring': inv, 'dev_use_shadow': True})["amount_sent_msat"]
+
+    assert total_amount > n_payments * amount
+    # Test that the added amount isn't absurd
+    assert total_amount < int((n_payments * amount) * (1 + 0.01))
 
 
 def test_mpp(node_factory):
@@ -430,3 +431,84 @@ def test_htlc_max(node_factory):
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices('inv')['invoices'])
     assert invoice['amount_received_msat'] >= Millisatoshi('1800000sat')
+
+
+def test_previous_sendpays(node_factory, bitcoind):
+    '''
+    Check that renepay can complete a payment that already started
+    '''
+    opts = [
+        {'disable-mpp': None, 'fee-base': 1000, 'fee-per-satoshi': 1000},
+    ]
+    l1, l2, l3, l4 = node_factory.line_graph(4,
+                                             wait_for_announce=True,
+                                             opts=opts * 4)
+
+    # First case, do not overpay a pending MPP payment
+    invstr = l3.rpc.invoice("100000sat", 'inv1', 'description')['bolt11']
+    inv = l1.rpc.decode(invstr)
+    route = l1.rpc.call('getroute',
+                        {'id': inv['payee'],
+                         'amount_msat': '50000sat',
+                         'riskfactor': 10})
+    # we start a MPP payment
+    l1.rpc.call('sendpay',
+                {'route': route['route'],
+                 'payment_hash': inv['payment_hash'],
+                 'payment_secret': inv['payment_secret'],
+                 'amount_msat': '100000sat',
+                 'groupid': 1,
+                 'partid': 1})
+    # while it is pending, we try to complete it with renepay
+    l1.rpc.call('renepay', {'invstring': invstr})
+    invoice = only_one(l3.rpc.listinvoices('inv1')['invoices'])
+    # the receive amount should be exact
+    assert invoice['amount_received_msat'] == Millisatoshi('100000sat')
+
+    # Second case, do not collide with failed sendpays
+    invstr = l3.rpc.invoice("100000sat", 'inv2', 'description')['bolt11']
+    inv = l1.rpc.decode(invstr)
+    route = l1.rpc.call('getroute',
+                        {'id': inv['payee'],
+                         'amount_msat': '50000sat',
+                         'riskfactor': 10})
+
+    # load a plugin that fails all HTLCs
+    l2.rpc.call("plugin",
+                {"subcommand": "start",
+                 "plugin": os.path.join(os.getcwd(), "tests/plugins/fail_htlcs.py")})
+    l2.daemon.wait_for_log(r'^(?=.*plugin-manager.*fail_htlcs.py).*')
+
+    # start a MPP payment that will fail at l2
+    l1.rpc.call('sendpay',
+                {'route': route['route'],
+                 'payment_hash': inv['payment_hash'],
+                 'payment_secret': inv['payment_secret'],
+                 'amount_msat': '100000sat',
+                 'groupid': 1,
+                 'partid': 1})
+    l2.daemon.wait_for_log(r'Failing htlc on purpose')
+    l1.wait_for_htlcs()
+
+    # another payment that fails
+    l1.rpc.call('sendpay',
+                {'route': route['route'],
+                 'payment_hash': inv['payment_hash'],
+                 'payment_secret': inv['payment_secret'],
+                 'amount_msat': '100000sat',
+                 'groupid': 2,
+                 'partid': 1})
+    l2.daemon.wait_for_log(r'Failing htlc on purpose')
+    l1.wait_for_htlcs()
+
+    # unload the fail_htlcs plugin
+    l2.rpc.call("plugin", {"subcommand": "stop", "plugin": "fail_htlcs.py"})
+    l2.daemon.wait_for_log(r'plugin-fail_htlcs.py: Killing plugin: stopped by lightningd via RPC')
+
+    # now renepay should be able to construct new sendpays that do not collide
+    # with the previously failed sendpays
+    l1.rpc.call('renepay',
+                {'invstring': invstr,
+                 'dev_use_shadow': False})
+    invoice = only_one(l3.rpc.listinvoices('inv2')['invoices'])
+    assert invoice['amount_received_msat'] == Millisatoshi('100000sat')
