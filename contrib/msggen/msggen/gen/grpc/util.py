@@ -36,4 +36,3 @@ typemap = {
 method_name_overrides = {
     "Connect": "ConnectPeer",
 }
-
