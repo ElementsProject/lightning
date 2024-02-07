@@ -581,6 +581,8 @@ const char *add_payflows(const tal_t *ctx, struct payment *p,
 
 		/* This can adjust amounts and final cltv for each flow,
 		 * to make it look like it's going elsewhere */
+		// FIXME adding shadow fees after flows_fit_amount could mean
+		// that we end up again with over-commitments
 		const u32 *final_cltvs = shadow_additions(
 		    tmpctx, pay_plugin->gossmap, p, flows, is_entire_payment);
 
