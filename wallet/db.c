@@ -16,6 +16,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
+#include <sodium/randombytes.h>
 #include <stddef.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
@@ -81,6 +82,8 @@ static void migrate_forwards_add_rowid(struct lightningd *ld,
 
 static void migrate_initialize_forwards_wait_indexes(struct lightningd *ld,
 						     struct db *db);
+static void migrate_initialize_alias_local(struct lightningd *ld,
+					   struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1017,6 +1020,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD remote_htlc_maximum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_htlc_minimum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD last_stable_connection BIGINT DEFAULT 0;"), NULL},
+    {NULL, migrate_initialize_alias_local},
 };
 
 /**
@@ -1962,4 +1966,34 @@ static void migrate_normalize_invstr(struct lightningd *ld, struct db *db)
 		tal_free(update_stmt);
 	}
 	tal_free(stmt);
+}
+
+/* We required local aliases to be set on established channels,
+ * but we forgot about already-existing ones in the db! */
+static void migrate_initialize_alias_local(struct lightningd *ld,
+					   struct db *db)
+{
+	struct db_stmt *stmt;
+	u64 *ids = tal_arr(tmpctx, u64, 0);
+
+	stmt = db_prepare_v2(db, SQL("SELECT id FROM channels"
+				     " WHERE scid IS NOT NULL"
+				     " AND alias_local IS NULL;"));
+	db_query_prepared(stmt);
+	while (db_step(stmt))
+		tal_arr_expand(&ids, db_col_u64(stmt, "id"));
+	tal_free(stmt);
+
+	for (size_t i = 0; i < tal_count(ids); i++) {
+		struct short_channel_id alias;
+		stmt = db_prepare_v2(db, SQL("UPDATE channels"
+					     " SET alias_local = ?"
+					     " WHERE id = ?;"));
+		/* We don't even check for clashes! */
+		randombytes_buf(&alias, sizeof(alias));
+		db_bind_short_channel_id(stmt, &alias);
+		db_bind_u64(stmt, ids[i]);
+		db_exec_prepared_v2(stmt);
+		tal_free(stmt);
+	}
 }
