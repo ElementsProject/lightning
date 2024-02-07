@@ -31,63 +31,16 @@
       "description": "the time the offer is valid until, in seconds since the first day of 1970 UTC"
     },
     "recurrence": {
-      "type": "object",
-      "required": [
-        "time_unit",
-        "period"
-      ],
-      "properties": {
-        "time_unit": {
-          "type": "u32",
-          "description": "a positive number referring to a time unit - 0 (seconds), 1 (days), 2 (months), 3 (years)"
-        },
-        "period": {
-          "type": "u32",
-          "description": "the positive number which the time unit refers to"
-        },
-        "time_unit_name": {
-          "type": "string",
-          "description": "the name of the specified time unit - either  \"seconds\", \"minutes\", \"hours\", \"days\", \"weeks\" or \"years\""
-        }
-      }
+      "type": "string",
+      "description": "A recurrence period with unit (matches '[0-9]+(seconds|minutes|hours|days|weeks|months|years)' "
     },
     "recurrence_base": {
-      "type": "object",
-      "required": [
-        "basetime",
-        "start_any_period"
-      ],
-      "properties": {
-        "basetime": {
-          "type": "u64",
-          "description": "time in seconds since the first day of 1970 UTC"
-        },
-        "start_any_period": {
-          "type": "boolean",
-          "description": "whether or not the invoice should start at any period"
-        }
-      }
+      "type": "string",
+      "description": "Time in seconds since the first day of 1970 UTC. If not prefixed with an '@' the offer will start in any period (no missed payments will be performed)"
     },
     "recurrence_paywindow": {
-      "type": "object",
-      "required": [
-        "seconds_before",
-        "seconds_after"
-      ],
-      "properties": {
-        "seconds_before": {
-          "type": "u32",
-          "description": "number of seconds before the start of a period in which an invoice and payment is valid"
-        },
-        "seconds_after": {
-          "type": "u32",
-          "description": "number of seconds after the start of a period in which an invoice and payment is valid"
-        },
-        "proportional_amount": {
-          "type": "boolean",
-          "description": "indicates whether the amount of the invoice will be scaled by the time remaining in the period"
-        }
-      }
+      "type": "string",
+      "description": "an optional argument of form '-time+time[%]'. The first time is the number of seconds before the start of a period in which an invoice and payment is valid, the second time is the number of seconds after the start of the period. For example -604800+86400 means you can fetch an pay the invoice 4 weeks before the given period starts, and up to 1 day afterwards. The optional % indicates that the amount of the invoice will be scaled by the time remaining in the period. If this is not specified, the default is that payment is allowed during the current and previous periods. This is encoded in the offer."
     },
     "recurrence_limit": {
       "type": "u64",
