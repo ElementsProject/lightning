@@ -1246,6 +1246,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("plugin", payload)
 
+    def sendcustommsg(self, peer_id, message):
+        """
+        Sending custom message {message} to {peer_id}.
+        """
+        payload = {
+            "node_id": peer_id,
+            "msg": message
+        }
+        return self.call("sendcustommsg", payload)
+
     def sendpay(self, route, payment_hash, label=None, amount_msat=None, bolt11=None, payment_secret=None, partid=None, groupid=None, payment_metadata=None):
         """
         Send along {route} in return for preimage of {payment_hash}.
