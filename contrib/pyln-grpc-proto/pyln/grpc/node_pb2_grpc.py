@@ -494,6 +494,31 @@ class NodeStub(object):
                 request_serializer=node__pb2.BkprlistincomeRequest.SerializeToString,
                 response_deserializer=node__pb2.BkprlistincomeResponse.FromString,
                 )
+        self.SubscribeBlockAdded = channel.unary_stream(
+                '/cln.Node/SubscribeBlockAdded',
+                request_serializer=node__pb2.StreamBlockAddedRequest.SerializeToString,
+                response_deserializer=node__pb2.BlockAddedNotification.FromString,
+                )
+        self.SubscribeChannelOpenFailed = channel.unary_stream(
+                '/cln.Node/SubscribeChannelOpenFailed',
+                request_serializer=node__pb2.StreamChannelOpenFailedRequest.SerializeToString,
+                response_deserializer=node__pb2.ChannelOpenFailedNotification.FromString,
+                )
+        self.SubscribeChannelOpened = channel.unary_stream(
+                '/cln.Node/SubscribeChannelOpened',
+                request_serializer=node__pb2.StreamChannelOpenedRequest.SerializeToString,
+                response_deserializer=node__pb2.ChannelOpenedNotification.FromString,
+                )
+        self.SubscribeConnect = channel.unary_stream(
+                '/cln.Node/SubscribeConnect',
+                request_serializer=node__pb2.StreamConnectRequest.SerializeToString,
+                response_deserializer=node__pb2.ConnectNotification.FromString,
+                )
+        self.SubscribeCustomMsg = channel.unary_stream(
+                '/cln.Node/SubscribeCustomMsg',
+                request_serializer=node__pb2.StreamCustomMsgRequest.SerializeToString,
+                response_deserializer=node__pb2.CustomMsgNotification.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -1075,6 +1100,36 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubscribeBlockAdded(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeChannelOpenFailed(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeChannelOpened(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeConnect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeCustomMsg(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1557,6 +1612,31 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BkprListIncome,
                     request_deserializer=node__pb2.BkprlistincomeRequest.FromString,
                     response_serializer=node__pb2.BkprlistincomeResponse.SerializeToString,
+            ),
+            'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeBlockAdded,
+                    request_deserializer=node__pb2.StreamBlockAddedRequest.FromString,
+                    response_serializer=node__pb2.BlockAddedNotification.SerializeToString,
+            ),
+            'SubscribeChannelOpenFailed': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeChannelOpenFailed,
+                    request_deserializer=node__pb2.StreamChannelOpenFailedRequest.FromString,
+                    response_serializer=node__pb2.ChannelOpenFailedNotification.SerializeToString,
+            ),
+            'SubscribeChannelOpened': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeChannelOpened,
+                    request_deserializer=node__pb2.StreamChannelOpenedRequest.FromString,
+                    response_serializer=node__pb2.ChannelOpenedNotification.SerializeToString,
+            ),
+            'SubscribeConnect': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeConnect,
+                    request_deserializer=node__pb2.StreamConnectRequest.FromString,
+                    response_serializer=node__pb2.ConnectNotification.SerializeToString,
+            ),
+            'SubscribeCustomMsg': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeCustomMsg,
+                    request_deserializer=node__pb2.StreamCustomMsgRequest.FromString,
+                    response_serializer=node__pb2.CustomMsgNotification.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -3197,5 +3277,90 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/BkprListIncome',
             node__pb2.BkprlistincomeRequest.SerializeToString,
             node__pb2.BkprlistincomeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubscribeBlockAdded(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeBlockAdded',
+            node__pb2.StreamBlockAddedRequest.SerializeToString,
+            node__pb2.BlockAddedNotification.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubscribeChannelOpenFailed(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeChannelOpenFailed',
+            node__pb2.StreamChannelOpenFailedRequest.SerializeToString,
+            node__pb2.ChannelOpenFailedNotification.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubscribeChannelOpened(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeChannelOpened',
+            node__pb2.StreamChannelOpenedRequest.SerializeToString,
+            node__pb2.ChannelOpenedNotification.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubscribeConnect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeConnect',
+            node__pb2.StreamConnectRequest.SerializeToString,
+            node__pb2.ConnectNotification.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubscribeCustomMsg(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeCustomMsg',
+            node__pb2.StreamCustomMsgRequest.SerializeToString,
+            node__pb2.CustomMsgNotification.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
