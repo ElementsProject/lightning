@@ -2287,7 +2287,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_cltv_expiry_delta=?," // 49
 					"  remote_htlc_minimum_msat=?," // 50
 					"  remote_htlc_maximum_msat=?," // 51
-					"  last_stable_connection=?" // 52
+					"  last_stable_connection=?," // 52
 					"  require_confirm_inputs_remote=?" // 53
 					" WHERE id=?")); // 54
 	db_bind_u64(stmt, chan->their_shachain.id);
