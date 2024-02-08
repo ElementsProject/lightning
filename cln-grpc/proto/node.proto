@@ -2769,3 +2769,50 @@ message BkprlistincomeIncome_events {
 	optional bytes txid = 9;
 	optional bytes payment_id = 10;
 }
+
+message StreamBlockAddedRequest {
+}
+
+message BlockAddedNotification {
+	bytes hash = 1;
+	uint32 height = 2;
+}
+
+message StreamChannelOpenFailedRequest {
+}
+
+message ChannelOpenFailedNotification {
+	bytes channel_id = 1;
+}
+
+message StreamChannelOpenedRequest {
+}
+
+message ChannelOpenedNotification {
+	optional bytes id = 1;
+	Amount funding_msat = 2;
+	bytes funding_txid = 3;
+	bool channel_ready = 4;
+}
+
+message StreamConnectRequest {
+}
+
+message ConnectNotification {
+	// connect.direction
+	enum ConnectDirection {
+		IN = 0;
+		OUT = 1;
+	}
+	bytes id = 1;
+	ConnectDirection direction = 2;
+	string address = 3;
+}
+
+message StreamCustomMsgRequest {
+}
+
+message CustomMsgNotification {
+	bytes peer_id = 1;
+	bytes payload = 2;
+}
