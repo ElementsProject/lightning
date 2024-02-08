@@ -145,12 +145,22 @@ class OptionalPatch(Patch):
         if not f.required:
             f.optional = True
 
-        added = self.version_to_number(f.added)
-        if added >= self.supported():
-            f.optional = True
-
         # Even if it's deprecated in future, reduce churn.
         if f.deprecated:
+            f.optional = True
+
+        # Set to optional if support has been added recently
+        # This ensures generated code will run both on
+        # newer and older versions of core lightning
+        #
+        # There is an exception though. If the entire struct
+        # has been added we dont' treat subfields as optional
+        if parent is not None:
+            if parent.added == f.added:
+                return
+
+        added = self.version_to_number(f.added)
+        if added >= self.supported():
             f.optional = True
 
 

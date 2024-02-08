@@ -548,8 +548,8 @@ message CreateinvoiceResponse {
 }
 
 message CreateinvoicePaid_outpoint {
-	optional bytes txid = 1;
-	optional uint32 outnum = 2;
+	bytes txid = 1;
+	uint32 outnum = 2;
 }
 
 message DatastoreRequest {
@@ -580,12 +580,12 @@ message DatastoreusageRequest {
 }
 
 message DatastoreusageResponse {
-	optional DatastoreusageDatastoreusage datastoreusage = 1;
+	DatastoreusageDatastoreusage datastoreusage = 1;
 }
 
 message DatastoreusageDatastoreusage {
-	optional string key = 1;
-	optional uint64 total_bytes = 2;
+	string key = 1;
+	uint64 total_bytes = 2;
 }
 
 message CreateonionRequest {
@@ -739,8 +739,8 @@ message ListinvoicesInvoices {
 }
 
 message ListinvoicesInvoicesPaid_outpoint {
-	optional bytes txid = 1;
-	optional uint32 outnum = 2;
+	bytes txid = 1;
+	uint32 outnum = 2;
 }
 
 message SendonionRequest {
@@ -972,8 +972,8 @@ message WaitanyinvoiceResponse {
 }
 
 message WaitanyinvoicePaid_outpoint {
-	optional bytes txid = 1;
-	optional uint32 outnum = 2;
+	bytes txid = 1;
+	uint32 outnum = 2;
 }
 
 message WaitinvoiceRequest {
@@ -1004,8 +1004,8 @@ message WaitinvoiceResponse {
 }
 
 message WaitinvoicePaid_outpoint {
-	optional bytes txid = 1;
-	optional uint32 outnum = 2;
+	bytes txid = 1;
+	uint32 outnum = 2;
 }
 
 message WaitsendpayRequest {
@@ -1232,9 +1232,9 @@ message ListpeerchannelsChannels {
 		DUALOPEND_OPEN_COMMITTED = 12;
 		DUALOPEND_OPEN_COMMIT_READY = 13;
 	}
-	optional bytes peer_id = 1;
-	optional bool peer_connected = 2;
-	optional ListpeerchannelsChannelsState state = 3;
+	bytes peer_id = 1;
+	bool peer_connected = 2;
+	ListpeerchannelsChannelsState state = 3;
 	optional bytes scratch_txid = 4;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
@@ -1249,7 +1249,7 @@ message ListpeerchannelsChannels {
 	repeated ListpeerchannelsChannelsInflight inflight = 16;
 	optional bytes close_to = 17;
 	optional bool private = 18;
-	optional ChannelSide opener = 19;
+	ChannelSide opener = 19;
 	optional ChannelSide closer = 20;
 	optional ListpeerchannelsChannelsFunding funding = 22;
 	optional Amount to_us_msat = 23;
@@ -1292,45 +1292,45 @@ message ListpeerchannelsChannels {
 }
 
 message ListpeerchannelsChannelsUpdates {
-	optional ListpeerchannelsChannelsUpdatesLocal local = 1;
+	ListpeerchannelsChannelsUpdatesLocal local = 1;
 	optional ListpeerchannelsChannelsUpdatesRemote remote = 2;
 }
 
 message ListpeerchannelsChannelsUpdatesLocal {
-	optional Amount htlc_minimum_msat = 1;
-	optional Amount htlc_maximum_msat = 2;
-	optional uint32 cltv_expiry_delta = 3;
-	optional Amount fee_base_msat = 4;
-	optional uint32 fee_proportional_millionths = 5;
+	Amount htlc_minimum_msat = 1;
+	Amount htlc_maximum_msat = 2;
+	uint32 cltv_expiry_delta = 3;
+	Amount fee_base_msat = 4;
+	uint32 fee_proportional_millionths = 5;
 }
 
 message ListpeerchannelsChannelsUpdatesRemote {
-	optional Amount htlc_minimum_msat = 1;
-	optional Amount htlc_maximum_msat = 2;
-	optional uint32 cltv_expiry_delta = 3;
-	optional Amount fee_base_msat = 4;
-	optional uint32 fee_proportional_millionths = 5;
+	Amount htlc_minimum_msat = 1;
+	Amount htlc_maximum_msat = 2;
+	uint32 cltv_expiry_delta = 3;
+	Amount fee_base_msat = 4;
+	uint32 fee_proportional_millionths = 5;
 }
 
 message ListpeerchannelsChannelsFeerate {
-	optional uint32 perkw = 1;
-	optional uint32 perkb = 2;
+	uint32 perkw = 1;
+	uint32 perkb = 2;
 }
 
 message ListpeerchannelsChannelsInflight {
-	optional bytes funding_txid = 1;
-	optional uint32 funding_outnum = 2;
-	optional string feerate = 3;
-	optional Amount total_funding_msat = 4;
-	optional Amount our_funding_msat = 5;
+	bytes funding_txid = 1;
+	uint32 funding_outnum = 2;
+	string feerate = 3;
+	Amount total_funding_msat = 4;
+	Amount our_funding_msat = 5;
 	optional bytes scratch_txid = 6;
 	optional sint64 splice_amount = 7;
 }
 
 message ListpeerchannelsChannelsFunding {
 	optional Amount pushed_msat = 1;
-	optional Amount local_funds_msat = 2;
-	optional Amount remote_funds_msat = 3;
+	Amount local_funds_msat = 2;
+	Amount remote_funds_msat = 3;
 	optional Amount fee_paid_msat = 4;
 	optional Amount fee_rcvd_msat = 5;
 }
@@ -1346,14 +1346,14 @@ message ListpeerchannelsChannelsHtlcs {
 		IN = 0;
 		OUT = 1;
 	}
-	optional ListpeerchannelsChannelsHtlcsDirection direction = 1;
-	optional uint64 id = 2;
-	optional Amount amount_msat = 3;
-	optional uint32 expiry = 4;
-	optional bytes payment_hash = 5;
+	ListpeerchannelsChannelsHtlcsDirection direction = 1;
+	uint64 id = 2;
+	Amount amount_msat = 3;
+	uint32 expiry = 4;
+	bytes payment_hash = 5;
 	optional bool local_trimmed = 6;
 	optional string status = 7;
-	optional HtlcState state = 8;
+	HtlcState state = 8;
 }
 
 message ListclosedchannelsRequest {
@@ -1696,9 +1696,9 @@ message FeeratesPerkb {
 }
 
 message FeeratesPerkbEstimates {
-	optional uint32 blockcount = 1;
-	optional uint32 feerate = 2;
-	optional uint32 smoothed_feerate = 3;
+	uint32 blockcount = 1;
+	uint32 feerate = 2;
+	uint32 smoothed_feerate = 3;
 }
 
 message FeeratesPerkw {
@@ -1716,9 +1716,9 @@ message FeeratesPerkw {
 }
 
 message FeeratesPerkwEstimates {
-	optional uint32 blockcount = 1;
-	optional uint32 feerate = 2;
-	optional uint32 smoothed_feerate = 3;
+	uint32 blockcount = 1;
+	uint32 feerate = 2;
+	uint32 smoothed_feerate = 3;
 }
 
 message FeeratesOnchain_fee_estimates {
@@ -2587,16 +2587,16 @@ message StopResponse {
 }
 
 message PreapprovekeysendRequest {
-	optional bytes destination = 1;
-	optional bytes payment_hash = 2;
-	optional Amount amount_msat = 3;
+	bytes destination = 1;
+	bytes payment_hash = 2;
+	Amount amount_msat = 3;
 }
 
 message PreapprovekeysendResponse {
 }
 
 message PreapproveinvoiceRequest {
-	optional string bolt11 = 1;
+	string bolt11 = 1;
 }
 
 message PreapproveinvoiceResponse {
