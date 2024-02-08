@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Optional
 from msggen import model
 
 
@@ -10,7 +11,7 @@ class Patch(ABC):
 
     """
 
-    def visit(self, field: model.Field) -> None:
+    def visit(self, field: model.Field, parent : Optional[model.Field] = None) -> None:
         """Gets called for each node in the model.
         """
         pass
@@ -22,15 +23,16 @@ class Patch(ABC):
         """
         def recurse(f: model.Field):
             # First recurse if we have further type definitions
+            self.visit(f)
+
             if isinstance(f, model.ArrayField):
-                self.visit(f.itemtype)
+                self.visit(f.itemtype, f)
                 recurse(f.itemtype)
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
-                    self.visit(c)
+                    self.visit(c, f)
                     recurse(c)
             # Now visit ourselves
-            self.visit(f)
         for m in service.methods:
             recurse(m.request)
             recurse(m.response)
@@ -56,7 +58,7 @@ class VersionAnnotationPatch(Patch):
         """
         self.meta = meta
 
-    def visit(self, f: model.Field) -> None:
+    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
         m = self.meta['model-field-versions'].get(f.path, {})
 
         # The following lines are used to backfill fields that predate
@@ -128,7 +130,12 @@ class OptionalPatch(Patch):
 
         return OptionalPatch.version_to_number('v0.10.1')
 
-    def visit(self, f: model.Field) -> None:
+    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
+        # Return if the optional field has been set already
+        if "optional" in dir(f):
+            if f.optional is not None:
+                return
+            
         # Default to false, and then overwrite it if required.
         f.optional = False
         if not f.required:
@@ -187,7 +194,7 @@ class OverridePatch(Patch):
         'FundChannel.channel_type.names[]': 'ChannelTypeName',
     }
 
-    def visit(self, f: model.Field) -> None:
+    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
         """For now just skips the fields we can't convert.
         """
         f.omitted = f.path in self.omit
