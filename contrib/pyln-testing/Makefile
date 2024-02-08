@@ -25,7 +25,7 @@ check-version:
 	[ "`poetry run python3 -c 'from pyln import $(PKG); print($(PKG).__version__)'`" = "$(VERSION)" ] || exit 1
 
 check-flake8:
-	flake8 --ignore=E501,E731,W503,E741  --exclude '*_pb2*.py,grpc2py.py' pyln tests
+	flake8 --ignore=E501,E731,W503,E741,E275  --exclude '*_pb2*.py,grpc2py.py' pyln tests
 
 check-pytest:
 	pytest tests
