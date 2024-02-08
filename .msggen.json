@@ -685,6 +685,19 @@
         "Bkpr-listincomeResponse": {
             "Bkpr-ListIncome.income_events[]": 1
         },
+        "BlockAddedNotification": {
+            "block_added.hash": 1,
+            "block_added.height": 2
+        },
+        "ChannelOpenFailedNotification": {
+            "channel_open_failed.channel_id": 1
+        },
+        "ChannelOpenedNotification": {
+            "channel_opened.channel_ready": 4,
+            "channel_opened.funding_msat": 2,
+            "channel_opened.funding_txid": 3,
+            "channel_opened.id": 1
+        },
         "CheckmessageRequest": {
             "CheckMessage.message": 1,
             "CheckMessage.pubkey": 3,
@@ -713,6 +726,11 @@
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
             "Connect.address.type": 1
+        },
+        "ConnectNotification": {
+            "connect.address": 3,
+            "connect.direction": 2,
+            "connect.id": 1
         },
         "ConnectRequest": {
             "Connect.host": 2,
@@ -766,6 +784,10 @@
         "CreateonionResponse": {
             "CreateOnion.onion": 1,
             "CreateOnion.shared_secrets[]": 2
+        },
+        "CustomMsgNotification": {
+            "custommsg.payload": 2,
+            "custommsg.peer_id": 1
         },
         "DatastoreRequest": {
             "Datastore.generation": 4,

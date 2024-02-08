@@ -123,6 +123,14 @@ class GrpcGenerator(IGenerator):
                 types.extend(gather_subfields(field))
             for field in method.response.fields:
                 types.extend(gather_subfields(field))
+
+        for notification in service.notifications:
+            types.extend([notification.request, notification.response])
+            for field in notification.request.fields:
+                types.extend(gather_subfields(field))
+            for field in notification.response.fields:
+                types.extend(gather_subfields(field))
+
         return types
 
     def generate_service(self, service: Service) -> None:
