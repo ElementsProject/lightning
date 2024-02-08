@@ -22,28 +22,22 @@ pub enum Notification {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BlockAddedNotification {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hash: Option<Sha256>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub height: Option<u32>,
+    pub hash: Sha256,
+    pub height: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChannelOpenFailedNotification {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub channel_id: Option<Sha256>,
+    pub channel_id: Sha256,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChannelOpenedNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub channel_ready: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub funding_msat: Option<Amount>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub funding_txid: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<PublicKey>,
+    pub channel_ready: bool,
+    pub funding_msat: Amount,
+    pub funding_txid: String,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -76,19 +70,15 @@ impl ToString for ConnectDirection {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ConnectNotification {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub address: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub direction: Option<ConnectDirection>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<PublicKey>,
+    // Path `connect.direction`
+    pub direction: ConnectDirection,
+    pub address: String,
+    pub id: PublicKey,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CustomMsgNotification {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub peer_id: Option<PublicKey>,
+    pub payload: String,
+    pub peer_id: PublicKey,
 }
 

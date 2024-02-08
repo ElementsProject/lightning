@@ -11,6 +11,7 @@ class NotificationGenerator(IGenerator):
 
     def __init__(self, dest: TextIO, meta: Dict[str, Any]):
         self.dest = dest
+        self.meta = meta
         self.logger = logging.getLogger(__name__)
         self.meta = meta
 
