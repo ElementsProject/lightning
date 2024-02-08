@@ -3,6 +3,7 @@
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -512,9 +513,50 @@ static const char *plugin_log_handle(struct plugin *plugin,
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
-	/* FIXME: Let plugin specify node_id? */
-	log_(plugin->log, level, NULL, call_notifier, "%.*s", msgtok->end - msgtok->start,
-	     plugin->buffer + msgtok->start);
+
+	/* Unescape log message. */
+	tal_t *ctx = tal(NULL, char);
+	const char *log_escaped = plugin->buffer + msgtok->start;
+	const size_t log_escaped_len = msgtok->end - msgtok->start;
+	struct json_escape *esc = json_escape_string_(ctx, log_escaped, log_escaped_len);
+	const char *log_msg = json_escape_unescape(ctx, esc);
+
+	/* Find last line. */
+	const char *log_msg2 = log_msg;
+	const char *last_msg;
+	while (true) {
+		const char *msg_end = strchr(log_msg2, '\n');
+		if (!msg_end) {
+			break;
+		}
+		int msg_len = msg_end - log_msg2;
+		if (msg_len > 0) {
+			last_msg = log_msg2;
+		}
+		log_msg2 = msg_end + 1;
+	}
+
+	/* Split to lines and log them separately. */
+	while (true) {
+		const char *msg_end = strchr(log_msg, '\n');
+		if (!msg_end) {
+			break;
+		}
+		int msg_len = msg_end - log_msg;
+		if (msg_len > 0) {
+			/* Call notifier only for the last message to avoid Python errors. */
+			bool call_notifier2 = call_notifier;
+			if (log_msg != last_msg) {
+				call_notifier2 = false;
+			}
+			/* FIXME: Let plugin specify node_id? */
+			log_(plugin->log, level, NULL, call_notifier2, "%.*s", msg_len, log_msg);
+		}
+		log_msg = msg_end + 1;
+	}
+
+	tal_free(ctx);
+
 	return NULL;
 }
 
