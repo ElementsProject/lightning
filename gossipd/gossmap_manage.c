@@ -791,6 +791,8 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 	if (!gossmap_find_chan(gossmap, &scid)
 	    && source_peer
 	    && sigcheck_channel_update(tmpctx, source_peer, &signature, update) == NULL) {
+		status_debug("gossip update for unknown channel %s",
+			     type_to_string(tmpctx, struct short_channel_id, &scid));
 		tell_lightningd_peer_update(gm->daemon, source_peer,
 					    scid, fee_base_msat,
 					    fee_proportional_millionths,

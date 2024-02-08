@@ -992,7 +992,7 @@ def test_reconnect_remote_sends_no_sigs(node_factory):
     l2.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
     l1msgs = [l.split()[4] for l in l1.daemon.logs[l1needle:] if 'WIRE_ANNOUNCEMENT_SIGNATURES' in l]
-    assert l1msgs == ['peer_out', 'peer_in']
+    assert l1msgs == ['Sending', 'peer_out', 'peer_in']
 
     # l2 only sends one.
     assert len([l for l in l2.daemon.logs[l2needle:] if 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES' in l]) == 1
