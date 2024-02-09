@@ -588,8 +588,8 @@ CHECK_GEN_ALL = \
 	$(PYTHON_GENERATED) \
 	$(ALL_GEN_HEADERS) \
 	$(ALL_GEN_SOURCES) \
+	$(MSGGEN_GEN_ALL) \
 	wallet/statements_gettextgen.po \
-	.msggen.json \
 	doc/index.rst
 
 gen:  $(CHECK_GEN_ALL)
@@ -706,6 +706,7 @@ clean: obsclean
 	$(RM) $(ALL_PROGRAMS)
 	$(RM) $(ALL_TEST_PROGRAMS)
 	$(RM) $(ALL_FUZZ_TARGETS)
+	$(RM) $(MSGGEN_GEN_ALL)
 	$(RM) ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
