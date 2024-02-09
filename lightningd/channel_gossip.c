@@ -28,6 +28,23 @@ enum channel_gossip_state {
 	CGOSSIP_ANNOUNCED,
 };
 
+static const char *channel_gossip_state_str(enum channel_gossip_state s)
+{
+	switch (s) {
+	case CGOSSIP_PRIVATE:
+		return "CGOSSIP_PRIVATE";
+	case CGOSSIP_NOT_USABLE:
+		return "CGOSSIP_NOT_USABLE";
+	case CGOSSIP_NOT_DEEP_ENOUGH:
+		return "CGOSSIP_NOT_DEEP_ENOUGH";
+	case CGOSSIP_NEED_PEER_SIGS:
+		return "CGOSSIP_NEED_PEER_SIGS";
+	case CGOSSIP_ANNOUNCED:
+		return "CGOSSIP_ANNOUNCED";
+	}
+	return "***INVALID***";
+}
+
 struct remote_announce_sigs {
 	struct short_channel_id scid;
 	secp256k1_ecdsa_signature node_sig;
@@ -774,18 +791,28 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 		return;
 	}
 
-	/* If we didn't think it was announced already, it is now! */
+	/* We might still want signatures from peer (we lost state?) */
 	switch (channel->channel_gossip->state) {
 	case CGOSSIP_PRIVATE:
 		log_broken(channel->log,
 			   "gossipd gave channel_update for private channel? update=%s",
 			   tal_hex(tmpctx, channel_update));
 		return;
-	case CGOSSIP_NOT_USABLE:
+	/* This happens: we step back a block when restarting.  We can
+	 * fast-forward in this case. */
 	case CGOSSIP_NOT_DEEP_ENOUGH:
-	case CGOSSIP_NEED_PEER_SIGS:
-		set_gossip_state(channel, CGOSSIP_ANNOUNCED);
+		set_gossip_state(channel, CGOSSIP_NEED_PEER_SIGS);
+		check_channel_gossip(channel);
 		break;
+
+	case CGOSSIP_NOT_USABLE:
+	case CGOSSIP_NEED_PEER_SIGS:
+		if (taken(channel_update))
+			tal_free(channel_update);
+		log_broken(channel->log,
+			   "gossipd gave us channel_update for channel in gossip_state %s",
+			   channel_gossip_state_str(channel->channel_gossip->state));
+		return;
 	case CGOSSIP_ANNOUNCED:
 		break;
 	}
