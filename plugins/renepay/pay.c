@@ -12,10 +12,12 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/uncertainty_network.h>
+#include <stdio.h>
 
 // TODO(eduardo): maybe there are too many debug_err and plugin_err and
 // plugin_log(...,LOG_BROKEN,...) that could be resolved with a command_fail
@@ -527,6 +529,8 @@ static struct command_result *json_paystatus(struct command *cmd,
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "paystatus");
 
+	// FIXME search payments by payment_hash, use the map
+	// use bolt11_decode
 	list_for_each(&pay_plugin->payments, p, list) {
 		if (invstring && !streq(invstring, p->invstr))
 			continue;
@@ -819,7 +823,7 @@ payment_listsendpays_previous(
 static struct command_result *json_pay(struct command *cmd, const char *buf,
 				       const jsmntok_t *params)
 {
-	/* Parse command line arguments */
+	/* === Parse command line arguments === */
 
 	const char *invstr;
 	struct amount_msat *msat;
@@ -874,153 +878,59 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		   NULL))
 		return command_param_failed();
 
-	/* Parse invoice */
+	/* === Parse invoice === */
 
-	/* Get payment */
+	char *fail;
+	struct bolt11 *b11 =
+	    bolt11_decode(tmpctx, invstr, plugin_feature_set(cmd->plugin),
+			  description, chainparams, &fail);
+	if (b11 == NULL)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11: %s", fail);
 
-	/* Start or continue payment */
- 	u64 invexpiry;
- 	struct amount_msat *invmsat;
-	struct sha256 payment_hash;
-	struct secret *payment_secret;
-	const u8 *payment_metadata;
-	struct node_id destination;
-	u16 final_cltv;
-	const struct route_info **routes = NULL;
+	// FIXME: add support for bol12 invoices
+	assert(!bolt12_has_prefix(invstr));
 
-	/* We might need to parse invstring to get amount */
-	if (!bolt12_has_prefix(invstr)) {
-		struct bolt11 *b11;
-		char *fail;
-
-		b11 =
-		    bolt11_decode(tmpctx, invstr, plugin_feature_set(cmd->plugin),
-				  description, chainparams, &fail);
-		if (b11 == NULL)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt11: %s", fail);
-
-		invmsat = b11->msat;
-		invexpiry = b11->timestamp + b11->expiry;
-
-		destination = b11->receiver_id;
-		payment_hash = b11->payment_hash;
-		payment_secret =
-			tal_dup_or_null(cmd, struct secret, b11->payment_secret);
-		if (b11->metadata)
-			payment_metadata = tal_dup_talarr(cmd, u8, b11->metadata);
-		else
-			payment_metadata = NULL;
-
-
-		final_cltv = b11->min_final_cltv_expiry;
-		/* Sanity check */
-		if (feature_offered(b11->features, OPT_VAR_ONION) &&
-		    !b11->payment_secret)
+	/* Sanity check */
+	if (feature_offered(b11->features, OPT_VAR_ONION) &&
+	    !b11->payment_secret)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11:"
+				    " sets feature var_onion with no secret");
+	/* BOLT #11:
+	 * A reader:
+	 *...
+	 * - MUST check that the SHA2 256-bit hash in the `h` field
+	 *   exactly matches the hashed description.
+	 */
+	if (!b11->description) {
+		if (!b11->description_hash)
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "Invalid bolt11:"
-			    " sets feature var_onion with no secret");
-		/* BOLT #11:
-		 * A reader:
-		 *...
-		 * - MUST check that the SHA2 256-bit hash in the `h` field
-		 *   exactly matches the hashed description.
-		 */
-		if (!b11->description) {
-			if (!b11->description_hash) {
-				return command_fail(cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "Invalid bolt11: missing description");
-			}
-			if (!description)
-				return command_fail(cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "bolt11 uses description_hash, but you did not provide description parameter");
-		}
+			    "Invalid bolt11: missing description");
 
-		routes = cast_const2(const struct route_info **,
-				     b11->routes);
-	} else {
-		// TODO(eduardo): check this, compare with `pay`
-		const struct tlv_invoice *b12;
-		char *fail;
-		b12 = invoice_decode(tmpctx, invstr, strlen(invstr),
-				     plugin_feature_set(cmd->plugin),
-				     chainparams, &fail);
-		if (b12 == NULL)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt12: %s", fail);
-		if (!pay_plugin->exp_offers)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "experimental-offers disabled");
-
-		if (!b12->offer_node_id)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing offer_node_id");
-		if (!b12->invoice_payment_hash)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing payment_hash");
-		if (!b12->invoice_created_at)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing created_at");
-		if (b12->invoice_amount) {
-			invmsat = tal(cmd, struct amount_msat);
-			*invmsat = amount_msat(*b12->invoice_amount);
-		} else
-			invmsat = NULL;
-
-		node_id_from_pubkey(&destination, b12->offer_node_id);
-		payment_hash = *b12->invoice_payment_hash;
-		if (b12->invreq_recurrence_counter && !label)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "recurring invoice requires a label");
-		/* FIXME payment_secret should be signature! */
-		{
-			struct sha256 merkle;
-
-			payment_secret = tal(cmd, struct secret);
-			merkle_tlv(b12->fields, &merkle);
-			memcpy(payment_secret, &merkle, sizeof(merkle));
-			BUILD_ASSERT(sizeof(*payment_secret) ==
-				     sizeof(merkle));
-		}
-		payment_metadata = NULL;
-		/* FIXME: blinded paths! */
-		final_cltv = 18;
-		/* BOLT-offers #12:
-		 * - if `relative_expiry` is present:
-		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `created_at` plus
-		 *     `seconds_from_creation`.
-		 * - otherwise:
-		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `created_at` plus
-		 * 7200.
-		 */
-		if (b12->invoice_relative_expiry)
-			invexpiry = *b12->invoice_created_at + *b12->invoice_relative_expiry;
-		else
-			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
+		if (!description)
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "bolt11 uses description_hash, but you did "
+			    "not provide description parameter");
 	}
 
-	// set the payment amount
-	if (invmsat) {
+	if (b11->msat) {
 		// amount is written in the invoice
-		if (msat) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "amount_msat parameter unnecessary");
-		}
-		msat = invmsat;
+		if (msat)
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "amount_msat parameter unnecessary");
+		msat = b11->msat;
 	} else {
 		// amount is not written in the invoice
-		if (!msat) {
+		if (!msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "amount_msat parameter required");
-		}
 	}
 
-	/* Default max fee is 5 sats, or 0.5%, whichever is *higher* */
+	// Default max fee is 5 sats, or 0.5%, whichever is *higher*
 	if (!maxfee) {
 		struct amount_msat fee = amount_msat_div(*msat, 200);
 		if (amount_msat_less(fee, AMOUNT_MSAT(5000)))
@@ -1029,8 +939,11 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	}
 
 	const u64 now_sec = time_now().ts.tv_sec;
-	if (now_sec > invexpiry)
-		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
+	if (now_sec > (b11->timestamp + b11->expiry))
+		return command_fail(cmd, PAY_INVOICE_EXPIRED,
+				    "Invoice expired");
+
+	/* === Get payment === */
 
 	/* Payment is allocated off cmd to start, in case we fail cmd
 	 * (e.g. already in progress, already succeeded).  Once it's
@@ -1041,38 +954,36 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 					      take(invstr),
 					      take(label),
 					      take(description),
-					      take(payment_secret),
-					      take(payment_metadata),
-					      take(routes),
-					      &destination,
-					      &payment_hash,
+					      b11->payment_secret,
+					      b11->metadata,
+					      b11->routes,
+					      &b11->receiver_id,
+					      &b11->payment_hash,
 					      *msat,
 					      *maxfee,
 					      *maxdelay,
 					      *retryfor,
-					      final_cltv,
+					      b11->min_final_cltv_expiry,
 					      *base_fee_penalty_millionths,
 					      *prob_cost_factor_millionths,
 					      *riskfactor_millionths,
 					      *min_prob_success_millionths,
 					      use_shadow);
 
-	/* We immediately add this payment to the payment list. */
+	// FIXME do we really need a list here?
 	list_add_tail(&pay_plugin->payments, &payment->list);
+
+	// FIXME shall we add a payment destructor?
 	tal_add_destructor(payment, destroy_payment);
 
-	plugin_log(pay_plugin->plugin,LOG_DBG,"Starting renepay");
+	/* === Start or continue payment === */
+
+	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
 	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
 
 	if (pay_plugin->gossmap == NULL)
 		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
 			   strerror(errno));
-
-	/* Free parameters which would be considered "leaks" by our fussy memleak code */
-	tal_free(msat);
-	tal_free(maxfee);
-	tal_free(maxdelay);
-	tal_free(retryfor);
 
 	/* To construct the uncertainty network we need to perform the following
 	 * steps:
@@ -1087,32 +998,30 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	 *
 	 * 4. check the uncertainty network invariants.
 	 * */
-	if(gossmap_changed)
+	if (gossmap_changed)
 		uncertainty_network_update(pay_plugin->gossmap,
 					   pay_plugin->chan_extra_map);
-
 
 	/* TODO(eduardo): We use a linear function to decide how to decay the
 	 * channel information. Other shapes could be used.
 	 * Also the choice of the proportional parameter TIMER_FORGET_SEC is
 	 * arbitrary.
 	 * Another idea is to measure time in blockheight. */
-	const double fraction = (now_sec - pay_plugin->last_time)*1.0/TIMER_FORGET_SEC;
+	const double fraction =
+	    (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
 	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
 					   fraction);
 	pay_plugin->last_time = now_sec;
 
-	if(!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
-		plugin_log(pay_plugin->plugin,
-			   LOG_BROKEN,
+	if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
+		plugin_log(pay_plugin->plugin, LOG_BROKEN,
 			   "uncertainty network invariants are violated");
 
 	/* Next, request listsendpays for previous payments that use the same
 	 * hash. */
-	struct out_req *req
-		= jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
-			payment_listsendpays_previous,
-			payment_listsendpays_previous, payment);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "listsendpays", payment_listsendpays_previous,
+	    payment_listsendpays_previous, payment);
 
 	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
 	return send_outreq(cmd->plugin, req);
