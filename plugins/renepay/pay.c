@@ -816,55 +816,77 @@ payment_listsendpays_previous(
 	return send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *json_pay(struct command *cmd,
-				       const char *buf,
+static struct command_result *json_pay(struct command *cmd, const char *buf,
 				       const jsmntok_t *params)
 {
+	/* Parse command line arguments */
+
 	const char *invstr;
-	const char *label;
-	const char *description;
-	struct sha256 * local_offer_id;
- 	u64 invexpiry;
- 	struct amount_msat *msat, *invmsat;
+	struct amount_msat *msat;
 	struct amount_msat *maxfee;
+	u32 *maxdelay;
+	u32 *retryfor;
+	const char *description;
+	const char *label;
+
+	// dev options
+	bool *use_shadow;
+
+	// MCF options
+	u64 *base_fee_penalty_millionths; // base fee to proportional fee
+	u64 *prob_cost_factor_millionths; // prob. cost to proportional fee
+	u64 *riskfactor_millionths; // delay to proportional proportional fee
+	u64 *min_prob_success_millionths; // target probability
+
+	if (!param(cmd, buf, params,
+		   p_req("invstring", param_invstring, &invstr),
+		   p_opt("amount_msat", param_msat, &msat),
+		   p_opt("maxfee", param_msat, &maxfee),
+
+		   p_opt_def("maxdelay", param_number, &maxdelay,
+			     /* maxdelay has a configuration default value named
+			      * "max-locktime-blocks", this is retrieved at
+			      * init. */
+			     pay_plugin->maxdelay_default),
+
+		   p_opt_def("retry_for", param_number, &retryfor,
+			     60), // 60 seconds
+		   p_opt("description", param_string, &description),
+		   p_opt("label", param_string, &label),
+
+		   // FIXME add support for offers
+		   // p_opt("localofferid", param_sha256, &local_offer_id),
+
+		   p_opt_dev("dev_use_shadow", param_bool, &use_shadow, true),
+
+		   // MCF options
+		   p_opt_dev("dev_base_fee_penalty", param_millionths,
+			     &base_fee_penalty_millionths,
+			     10000000), // default is 10.0
+		   p_opt_dev("dev_prob_cost_factor", param_millionths,
+			     &prob_cost_factor_millionths,
+			     10000000), // default is 10.0
+		   p_opt_dev("dev_riskfactor", param_millionths,
+			     &riskfactor_millionths, 1), // default is 1e-6
+		   p_opt_dev("dev_min_prob_success", param_millionths,
+			     &min_prob_success_millionths,
+			     900000), // default is 0.9
+		   NULL))
+		return command_param_failed();
+
+	/* Parse invoice */
+
+	/* Get payment */
+
+	/* Start or continue payment */
+ 	u64 invexpiry;
+ 	struct amount_msat *invmsat;
 	struct sha256 payment_hash;
 	struct secret *payment_secret;
 	const u8 *payment_metadata;
 	struct node_id destination;
-	u32 *maxdelay;
-	u32 *retryfor;
-	u64 *base_fee_penalty;
-	u64 *prob_cost_factor;
-	u64 *riskfactor_millionths;
-	u64 *min_prob_success_millionths;
-	bool *use_shadow;
 	u16 final_cltv;
 	const struct route_info **routes = NULL;
-
-	if (!param(cmd, buf, params,
-		   p_req("invstring", param_invstring, &invstr),
- 		   p_opt("amount_msat", param_msat, &msat),
- 		   p_opt("maxfee", param_msat, &maxfee),
-
-		   p_opt_def("maxdelay", param_number, &maxdelay,
-			     /* We're initially called to probe usage, before init! */
-			     pay_plugin ? pay_plugin->maxdelay_default : 0),
-
-
- 		   p_opt_def("retry_for", param_number, &retryfor, 60), // 60 seconds
- 		   p_opt("localofferid", param_sha256, &local_offer_id),
- 		   p_opt("description", param_string, &description),
- 		   p_opt("label", param_string, &label),
-		   // MCF parameters
-		   // TODO(eduardo): are these parameters read correctly?
-		   p_opt_dev("dev_base_fee_penalty", param_millionths, &base_fee_penalty,10),
- 		   p_opt_dev("dev_prob_cost_factor", param_millionths, &prob_cost_factor,10),
-		   p_opt_dev("dev_riskfactor", param_millionths,&riskfactor_millionths,1),
-		   p_opt_dev("dev_min_prob_success", param_millionths,
-		   	&min_prob_success_millionths,900000),// default is 90%
-		   p_opt_dev("dev_use_shadow", param_bool, &use_shadow, true),
-		   NULL))
-		return command_param_failed();
 
 	/* We might need to parse invstring to get amount */
 	if (!bolt12_has_prefix(invstr)) {
@@ -1019,7 +1041,6 @@ static struct command_result *json_pay(struct command *cmd,
 					      take(invstr),
 					      take(label),
 					      take(description),
-					      take(local_offer_id),
 					      take(payment_secret),
 					      take(payment_metadata),
 					      take(routes),
@@ -1030,8 +1051,8 @@ static struct command_result *json_pay(struct command *cmd,
 					      *maxdelay,
 					      *retryfor,
 					      final_cltv,
-					      *base_fee_penalty,
-					      *prob_cost_factor,
+					      *base_fee_penalty_millionths,
+					      *prob_cost_factor_millionths,
 					      *riskfactor_millionths,
 					      *min_prob_success_millionths,
 					      use_shadow);

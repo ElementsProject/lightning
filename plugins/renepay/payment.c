@@ -12,7 +12,6 @@ struct payment *payment_new(const tal_t *ctx,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
-			    const struct sha256 *local_offer_id TAKES,
 			    const struct secret *payment_secret TAKES,
 			    const u8 *payment_metadata TAKES,
 			    const struct route_info **routes TAKES,
@@ -24,8 +23,8 @@ struct payment *payment_new(const tal_t *ctx,
 			    u64 retryfor,
 			    u16 final_cltv,
 			    /* Tweakable in --developer mode */
-			    u64 base_fee_penalty,
-			    u64 prob_cost_factor,
+			    u64 base_fee_penalty_millionths,
+			    u64 prob_cost_factor_millionths,
 			    u64 riskfactor_millionths,
 			    u64 min_prob_success_millionths,
 			    bool use_shadow)
@@ -67,11 +66,10 @@ struct payment *payment_new(const tal_t *ctx,
 	p->label = tal_strdup_or_null(p, label);
 
 	p->delay_feefactor = riskfactor_millionths / 1e6;
-	p->base_fee_penalty = base_fee_penalty;
-	p->prob_cost_factor = prob_cost_factor;
+	p->base_fee_penalty = base_fee_penalty_millionths / 1e6;
+	p->prob_cost_factor = prob_cost_factor_millionths / 1e6;
 	p->min_prob_success = min_prob_success_millionths / 1e6;
 
-	p->local_offer_id = tal_dup_or_null(p, struct sha256, local_offer_id);
 	p->use_shadow = use_shadow;
 	p->groupid=1;
 

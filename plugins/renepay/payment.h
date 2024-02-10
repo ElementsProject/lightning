@@ -108,12 +108,6 @@ struct payment {
 	/* prob. cost =
 	 * 	- prob_cost_factor * log prob. */
 
-
-	/* If this is paying a local offer, this is the one (sendpay ensures we
-	 * don't pay twice for single-use offers) */
-	// TODO(eduardo): this is not being used!
-	struct sha256 *local_offer_id;
-
 	/* --developer allows disabling shadow route */
 	bool use_shadow;
 
@@ -127,7 +121,7 @@ struct payment *payment_new(const tal_t *ctx,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
-			    const struct sha256 *local_offer_id TAKES,
+			    // const struct sha256 *local_offer_id TAKES,
 			    const struct secret *payment_secret TAKES,
 			    const u8 *payment_metadata TAKES,
 			    const struct route_info **routes TAKES,
