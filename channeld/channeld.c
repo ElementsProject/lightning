@@ -1631,7 +1631,7 @@ static void send_revocation(struct peer *peer,
 	peer_write(peer->pps, take(msg));
 }
 
-static struct inflight *last_inflight(struct peer *peer)
+static struct inflight *last_inflight(const struct peer *peer)
 {
 	size_t count = tal_count(peer->splice_state->inflights);
 
@@ -1641,15 +1641,15 @@ static struct inflight *last_inflight(struct peer *peer)
 	return NULL;
 }
 
-static size_t last_inflight_index(struct peer *peer)
+static size_t last_inflight_index(const struct peer *peer)
 {
 	assert(tal_count(peer->splice_state->inflights) > 0);
 
 	return tal_count(peer->splice_state->inflights) - 1;
 }
 
-static u32 find_channel_funding_input(struct wally_psbt *psbt,
-				      struct bitcoin_outpoint *funding)
+static u32 find_channel_funding_input(const struct wally_psbt *psbt,
+				      const struct bitcoin_outpoint *funding)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct bitcoin_outpoint psbt_outpoint;
@@ -1695,7 +1695,7 @@ static bool missing_user_signatures(const struct peer *peer,
 				    const struct inflight *inflight)
 {
 	int sigs_needed;
-	u32 i, splice_funding_index;
+	u32 splice_funding_index;
 	const struct witness **outws;
 	enum tx_role our_role = inflight->i_am_initiator
 				? TX_INITIATOR : TX_ACCEPTER;
@@ -1706,7 +1706,7 @@ static bool missing_user_signatures(const struct peer *peer,
 	splice_funding_index = find_channel_funding_input(inflight->psbt,
 							  &peer->channel->funding);
 	sigs_needed = 0;
-	for (i = 0; i < inflight->psbt->num_inputs; i++) {
+	for (u32 i = 0; i < inflight->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in = &inflight->psbt->inputs[i];
 		u64 in_serial;
 
@@ -1734,7 +1734,7 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 	struct channel_id channel_id;
 	u8 *reason;
 
-	if (!msg || fromwire_peektype(msg) != WIRE_TX_ABORT)
+	if (fromwire_peektype(msg) != WIRE_TX_ABORT)
 		return;
 
 	if (have_i_signed_inflight(peer, inflight)) {
