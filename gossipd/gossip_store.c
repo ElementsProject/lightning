@@ -509,9 +509,14 @@ u64 gossip_store_set_flag(struct gossip_store *gs,
 	if (!check_msg_type(gs, offset, flag, type, &hdr))
 		return offset;
 
-	assert((be16_to_cpu(hdr.flags) & flag) == 0);
+	if (be16_to_cpu(hdr.flags) & flag) {
+		status_broken("gossip_store flag-%u @%"PRIu64" for %u already set!",
+			      flag, offset, type);
+	}
+
 	hdr.flags |= cpu_to_be16(flag);
 	if (pwrite(gs->fd, &hdr, sizeof(hdr), offset - sizeof(hdr)) != sizeof(hdr))
+
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing set flags @%"PRIu64": %s",
 			      offset, strerror(errno));
