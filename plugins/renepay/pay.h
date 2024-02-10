@@ -65,6 +65,7 @@ struct pay_plugin {
 
 	/* All the struct payment */
 	struct list_head payments;
+	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */
 	struct chan_extra_map *chan_extra_map;

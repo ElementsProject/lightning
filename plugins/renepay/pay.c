@@ -37,6 +37,7 @@ static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, pay_plugin);
 	memleak_scan_htable(memtable, &pay_plugin->chan_extra_map->raw);
+	memleak_scan_htable(memtable, &pay_plugin->payment_map->raw);
 }
 
 static const char *init(struct plugin *p,
@@ -61,6 +62,9 @@ static const char *init(struct plugin *p,
 		 );
 
 	list_head_init(&pay_plugin->payments);
+
+	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
+	payment_map_init(pay_plugin->payment_map);
 
 	pay_plugin->chan_extra_map = tal(pay_plugin,struct chan_extra_map);
 	chan_extra_map_init(pay_plugin->chan_extra_map);
@@ -511,6 +515,7 @@ static struct command_result *listpeerchannels_done(
 static void destroy_payment(struct payment *p)
 {
 	list_del_from(&pay_plugin->payments, &p->list);
+	payment_map_del(pay_plugin->payment_map, p);
 }
 
 static struct command_result *json_paystatus(struct command *cmd,
@@ -956,7 +961,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 					      take(description),
 					      b11->payment_secret,
 					      b11->metadata,
-					      b11->routes,
+					      cast_const2(const struct route_info**, b11->routes),
 					      &b11->receiver_id,
 					      &b11->payment_hash,
 					      *msat,
@@ -972,6 +977,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 	// FIXME do we really need a list here?
 	list_add_tail(&pay_plugin->payments, &payment->list);
+	payment_map_add(pay_plugin->payment_map, payment);
 
 	// FIXME shall we add a payment destructor?
 	tal_add_destructor(payment, destroy_payment);
