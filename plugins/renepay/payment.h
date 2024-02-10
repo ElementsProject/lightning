@@ -115,6 +115,31 @@ struct payment {
 	u64 groupid;
 };
 
+static inline const struct sha256 payment_hash(const struct payment *p)
+{
+	return p->payment_hash;
+}
+
+static inline size_t payment_hash64(const struct sha256 h)
+{
+	return ((u64) h.u.u32[1] << 32) ^ h.u.u32[0];
+}
+
+static inline bool payment_hash_eq(const struct payment *p,
+				   const struct sha256 h)
+{
+	return p->payment_hash.u.u32[0] == h.u.u32[0] &&
+	       p->payment_hash.u.u32[1] == h.u.u32[1] &&
+	       p->payment_hash.u.u32[2] == h.u.u32[2] &&
+	       p->payment_hash.u.u32[3] == h.u.u32[3] &&
+	       p->payment_hash.u.u32[4] == h.u.u32[4] &&
+	       p->payment_hash.u.u32[5] == h.u.u32[5] &&
+	       p->payment_hash.u.u32[6] == h.u.u32[6] &&
+	       p->payment_hash.u.u32[7] == h.u.u32[7];
+}
+
+HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
+		   payment_hash_eq, payment_map);
 
 struct payment *payment_new(const tal_t *ctx,
 			    struct command *cmd,
