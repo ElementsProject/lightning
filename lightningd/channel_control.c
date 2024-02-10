@@ -323,6 +323,7 @@ static void handle_splice_abort(struct lightningd *ld,
 					       		      &inflight->funding->outpoint));
 
 		wallet_inflight_del(ld->wallet, channel, inflight);
+		tal_free(inflight);
 	}
 
 	cc = splice_command_for_chan(ld, channel);
@@ -348,10 +349,14 @@ static void handle_splice_abort(struct lightningd *ld,
 			       tal_hex(tmpctx, error));
 		/* Get connectd to send error and close. */
 		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_final_msg(NULL,
-			      					  &peer->id,
-								  peer->connectd_counter,
-								  error)));
+			      take(towire_connectd_peer_send_msg(NULL,
+								 &peer->id,
+								 peer->connectd_counter,
+								 error)));
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_discard_peer(NULL,
+								&peer->id,
+								peer->connectd_counter)));
 		return;
 	}
 	log_debug(channel->log, "made the socket pair");
@@ -366,8 +371,7 @@ static void handle_splice_abort(struct lightningd *ld,
 								     &channel->cid)));
 		subd_send_fd(ld->connectd, fds[1]);
 		log_info(channel->log, "Sent the peer fd to channeld");
-	}
-	else {
+	} else {
 		log_info(channel->log, "peer_start_channeld failed");
 		close(fds[1]);
 	}

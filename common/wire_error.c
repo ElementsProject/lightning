@@ -84,7 +84,7 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 	struct channel_id dummy;
 	u8 *data;
 	size_t i;
-	char *tag;
+	const char *tag;
 
 	if (!channel_id)
 		channel_id = &dummy;
