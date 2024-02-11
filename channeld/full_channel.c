@@ -560,9 +560,29 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 					option_anchors_zero_fee_htlc_tx,
 					committed, adding, removing);
 
+	/* Scale the feerate up by a margin. This ensures that we have
+	 * some leeway even in rising fees. The calculation starts
+	 * with a 100% margin at very low fees, since they are likely
+	 * to rise, and can do so quickly, whereas on the higher fee
+	 * side, asking for a 100% margin is excessive, so ask for a
+	 * 10% margin. In-between these two regions we interpolate
+	 * linearly. Notice that minfeerate and maxfeerate are just
+	 * the markers of the linear interpolation, they don't have
+	 * to correspond to actual feerates seen in the network.
+	 *
+	 * See [CLN6974] for details and discussion.
+	 *
+	 * [CLN6974]: https://github.com/ElementsProject/lightning/issues/6974
+	 */
+	u64 minfeerate = 253, maxfeerate = 45000,
+	    min = feerate - minfeerate > maxfeerate ? maxfeerate
+						    : feerate - minfeerate;
+	double marginperc = 1 - min / (maxfeerate * 1.1);
+	u64 marginrate = 1 + marginperc;
+
 	/* Now, how much would it cost us if feerate increases 100% and we added
 	 * another HTLC? */
-	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1,
+	fee = commit_tx_base_fee(marginrate, untrimmed + 1,
 				 option_anchor_outputs,
 				 option_anchors_zero_fee_htlc_tx);
 	if (amount_msat_greater_eq_sat(remainder, fee))
