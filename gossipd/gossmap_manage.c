@@ -216,8 +216,12 @@ static bool any_cannounce_preceeds_offset(struct gossmap *gossmap,
 
 		if (chan == exclude_chan)
 			continue;
-		if (chan->cann_off < offset)
-			return true;
+		if (chan->cann_off > offset)
+			continue;
+		/* Dying channels don't help! */
+		if (gossmap_chan_is_dying(gossmap, chan))
+			continue;
+		return true;
 	}
 	return false;
 }
