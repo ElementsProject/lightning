@@ -804,6 +804,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_invbool,
 		     &ld->reconnect,
 		     "Disable automatic reconnect-attempts by this node, but accept incoming");
+	clnopt_noarg("--dev-no-reconnect-private", OPT_DEV,
+		     opt_set_invbool,
+		     &ld->reconnect_private,
+		     "Disable automatic reconnect-attempts to peers with private channel(s) only, but accept incoming");
 	clnopt_noarg("--dev-fast-reconnect", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_fast_reconnect,
