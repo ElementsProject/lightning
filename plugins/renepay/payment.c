@@ -8,6 +8,7 @@
 #include <plugins/renepay/payment.h>
 
 struct payment *payment_new(const tal_t *ctx,
+			    const struct sha256 *payment_hash,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
@@ -15,7 +16,6 @@ struct payment *payment_new(const tal_t *ctx,
 			    const u8 *payment_metadata TAKES,
 			    const struct route_info **routes TAKES,
 			    const struct node_id *destination,
-			    const struct sha256 *payment_hash,
 			    struct amount_msat amount,
 			    struct amount_msat maxfee,
 			    unsigned int maxdelay,
@@ -76,7 +76,89 @@ struct payment *payment_new(const tal_t *ctx,
 	p->next_partid=1;
 	p->progress_deadline = NULL;
 
+	p->cmd_array = tal_arr(p, struct command *, 0);
+
 	return p;
+}
+
+bool payment_update(struct payment *p,
+		    const char *invstr TAKES,
+		    const char *label TAKES,
+		    const char *description TAKES,
+		    const struct secret *payment_secret TAKES,
+		    const u8 *payment_metadata TAKES,
+		    const struct route_info **routes TAKES,
+		    const struct node_id *destination,
+		    struct amount_msat amount,
+		    struct amount_msat maxfee,
+		    unsigned int maxdelay,
+		    u64 retryfor,
+		    u16 final_cltv,
+		    /* Tweakable in --developer mode */
+		    u64 base_fee_penalty_millionths,
+		    u64 prob_cost_factor_millionths,
+		    u64 riskfactor_millionths,
+		    u64 min_prob_success_millionths,
+		    bool use_shadow)
+{
+	assert(p);
+
+	p->invstr = tal_free(p->invstr);
+	p->invstr = tal_strdup(p, invstr);
+
+	p->label = tal_free(p->label);
+	p->label = tal_strdup_or_null(p, label);
+
+	p->description = tal_free(p->description);
+	p->description = tal_strdup_or_null(p, description);
+
+	p->payment_secret = tal_free(p->payment_secret);
+	p->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
+
+	p->payment_metadata = tal_free(p->payment_metadata);
+	p->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
+
+	// FIXME (eduardo): I have no idea how take/takes/taken works, so double
+	// check payment_new and payment_update for memory blunders.
+	p->routes = tal_free(p->routes);
+	if (taken(routes))
+		p->routes = tal_steal(p, routes);
+	else {
+		/* Deep copy */
+		p->routes = tal_dup_talarr(p, const struct route_info *, routes);
+		for (size_t i = 0; i < tal_count(p->routes); i++)
+			p->routes[i] = tal_steal(p->routes, p->routes[i]);
+	}
+
+	p->destination = *destination;
+	p->amount = amount;
+	if (!amount_msat_add(&p->maxspend, amount, maxfee))
+		p->maxspend = AMOUNT_MSAT(UINT64_MAX);
+
+	p->maxdelay = maxdelay;
+	p->start_time = time_now();
+	p->stop_time = timeabs_add(p->start_time, time_from_sec(retryfor));
+	p->final_cltv=final_cltv;
+
+	p->delay_feefactor = riskfactor_millionths / 1e6;
+	p->base_fee_penalty = base_fee_penalty_millionths / 1e6;
+	p->prob_cost_factor = prob_cost_factor_millionths / 1e6;
+	p->min_prob_success = min_prob_success_millionths / 1e6;
+
+	p->use_shadow = use_shadow;
+
+	p->progress_deadline = tal_free(p->progress_deadline);
+
+	p->disabled_scids = tal_free(p->disabled_scids);
+	p->disabled_scids = tal_arr(p,struct short_channel_id,0);
+
+	// a new groupid
+	p->groupid ++;
+	p->next_partid=1;
+
+	p->local_gossmods = tal_free(p->local_gossmods);
+
+	return true;
 }
 
 /* Disable this scid for this payment, and tell me why! */
@@ -155,8 +237,10 @@ void payment_note(struct payment *p,
 	plugin_log(pay_plugin->plugin,
 		   lvl < LOG_UNUSUAL ? LOG_DBG : lvl, "%s", str);
 
-	if (p->cmd)
-		plugin_notify_message(p->cmd, lvl, "%s", str);
+	struct command *cmd = payment_command(p);
+	// FIXME: should we notifiy every cmd?
+	if (cmd)
+		plugin_notify_message(cmd, lvl, "%s", str);
 }
 
 void payflow_note(struct pay_flow *pf,
@@ -195,6 +279,7 @@ void payment_assert_delivering_all(const struct payment *p)
 	}
 }
 
+/* get me the result of this payment, not necessarily a completed payment */
 struct json_stream *payment_result(struct payment *p, struct command *cmd)
 {
 	struct json_stream *response = jsonrpc_stream_success(cmd);
@@ -228,11 +313,12 @@ struct json_stream *payment_result(struct payment *p, struct command *cmd)
 struct command_result *payment_success(struct payment *p)
 {
 	/* We only finish command once: its destructor clears this. */
-	if (!p->cmd)
+	struct command *cmd = payment_command(p);
+	if (!cmd)
 		return NULL;
 
 	struct json_stream *response
-		= jsonrpc_stream_success(p->cmd);
+		= jsonrpc_stream_success(cmd);
 
 	/* Any one succeeding is success. */
 	json_add_preimage(response, "payment_preimage", p->preimage);
@@ -246,7 +332,7 @@ struct command_result *payment_success(struct payment *p)
 	json_add_string(response, "status", "complete");
 	json_add_node_id(response, "destination", &p->destination);
 
-	return command_finished(p->cmd, response);
+	return command_finished(cmd, response);
 }
 
 struct command_result *payment_fail(
@@ -254,7 +340,7 @@ struct command_result *payment_fail(
 	enum jsonrpc_errcode code,
 	const char *fmt, ...)
 {
-	struct command *cmd;
+	struct command *cmd = payment_command(payment);
 
 	/* We usually get called because a flow failed, but we
 	 * can also get called because we couldn't route any more
@@ -262,7 +348,7 @@ struct command_result *payment_fail(
 	payment->status = PAYMENT_FAIL;
 
 	/* We only finish command once: its destructor clears this. */
- 	if (!payment->cmd)
+ 	if (!cmd)
  		return NULL;
 
 	va_list args;
@@ -271,11 +357,7 @@ struct command_result *payment_fail(
 	va_end(args);
 
 	/* Don't bother notifying command, it's about to get failure */
-	cmd = payment->cmd;
-	payment->cmd = NULL;
 	payment_note(payment, LOG_DBG, "%s", message);
-	/* Restore to keep destructor happy! */
-	payment->cmd = cmd;
 
 	return command_fail(cmd,code,"%s",message);
 }
@@ -351,7 +433,7 @@ void payment_reconsider(struct payment *payment)
 			/* fall thru */
 		case PAYMENT_SUCCESS:
 			/* Since we already succeeded, cmd must be NULL */
-			assert(payment->cmd == NULL);
+			assert(payment_commands_empty(payment));
 			break;
 		case PAYMENT_FAIL:
 			/* OK, they told us it failed, but also
@@ -380,7 +462,7 @@ void payment_reconsider(struct payment *payment)
 			/* fall thru */
 		case PAYMENT_FAIL:
 			/* Since we already failed, cmd must be NULL */
-			assert(payment->cmd == NULL);
+			assert(payment_commands_empty(payment));
 			break;
 		case PAYMENT_SUCCESS:
 			/* OK, they told us it failed, but also
@@ -409,7 +491,7 @@ void payment_reconsider(struct payment *payment)
 		break;
 	case PAYMENT_FAIL:
 	case PAYMENT_SUCCESS:
-		assert(!payment->cmd);
+		assert(!payment_commands_empty(payment));
 		plugin_log(pay_plugin->plugin, LOG_DBG, "payment already status %u!",
 			   payment->status);
 		return;
@@ -486,16 +568,23 @@ void payment_remove_flows(struct payment *p, enum pay_flow_state state)
 			list_del(&pf->list);
 	}
 }
+
+/* attach a command to this payment */
 bool payment_register_command(struct payment *p, struct command *cmd)
 {
-	// FIXME
-	return false;
+	tal_arr_expand(&p->cmd_array, cmd);
+	return true;
 }
 
-size_t payment_commands_count(const struct payment *p)
+/* are there pending commands on this payment? */
+bool payment_commands_empty(const struct payment *p)
 {
-	// FIXME
-	return 0;
+	return tal_count(p->cmd_array) == 0;
 }
 
-
+struct command *payment_command(struct payment *p)
+{
+	if(tal_count(p->cmd_array)==0)
+		return NULL;
+	return p->cmd_array[0];
+}

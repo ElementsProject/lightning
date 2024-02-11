@@ -27,8 +27,8 @@ struct payment {
 	/* Deadline for flow status collection. */
 	struct timemono *progress_deadline;
 
-	/* The command if still running */
-	struct command *cmd;
+	/* The commands if still running */
+	struct command **cmd_array;
 
 	/* Localmods to apply to gossip_map for our own use. */
 	struct gossmap_localmods *local_gossmods;
@@ -142,15 +142,14 @@ HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
 		   payment_hash_eq, payment_map);
 
 struct payment *payment_new(const tal_t *ctx,
+			    const struct sha256 *payment_hash,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
-			    // const struct sha256 *local_offer_id TAKES,
 			    const struct secret *payment_secret TAKES,
 			    const u8 *payment_metadata TAKES,
 			    const struct route_info **routes TAKES,
 			    const struct node_id *destination,
-			    const struct sha256 *payment_hash,
 			    struct amount_msat amount,
 			    struct amount_msat maxfee,
 			    unsigned int maxdelay,
@@ -162,6 +161,26 @@ struct payment *payment_new(const tal_t *ctx,
 			    u64 riskfactor_millionths,
 			    u64 min_prob_success_millionths,
 			    bool use_shadow);
+
+bool payment_update(struct payment *p,
+		    const char *invstr TAKES,
+		    const char *label TAKES,
+		    const char *description TAKES,
+		    const struct secret *payment_secret TAKES,
+		    const u8 *payment_metadata TAKES,
+		    const struct route_info **routes TAKES,
+		    const struct node_id *destination,
+		    struct amount_msat amount,
+		    struct amount_msat maxfee,
+		    unsigned int maxdelay,
+		    u64 retryfor,
+		    u16 final_cltv,
+		    /* Tweakable in --developer mode */
+		    u64 base_fee_penalty_millionths,
+		    u64 prob_cost_factor_millionths,
+		    u64 riskfactor_millionths,
+		    u64 min_prob_success_millionths,
+		    bool use_shadow);
 
 struct amount_msat payment_sent(const struct payment *p);
 struct amount_msat payment_delivered(const struct payment *p);
@@ -204,8 +223,16 @@ struct command_result *payment_fail(
 	const char *fmt, ...);
 
 struct command_result *payment_success(struct payment *p);
+
+/* get me the result of this payment, not necessarily a completed payment */
 struct json_stream *payment_result(struct payment *p, struct command *cmd);
-size_t payment_commands_count(const struct payment *p);
+
+/* are there pending commands on this payment? */
+bool payment_commands_empty(const struct payment *p);
+
+/* attach a command to this payment */
 bool payment_register_command(struct payment *p, struct command *cmd);
+
+struct command *payment_command(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

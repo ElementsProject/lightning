@@ -461,13 +461,6 @@ const char *try_paying(const tal_t *ctx,
 	return NULL;
 }
 
-static void destroy_cmd_payment_ptr(struct command *cmd,
-				    struct payment *payment)
-{
-	assert(payment->cmd == cmd);
-	payment->cmd = NULL;
-}
-
 static void gossmod_cb(struct gossmap_localmods *mods,
 		       const struct node_id *self,
 		       const struct node_id *peer,
@@ -536,9 +529,6 @@ static struct command_result *listpeerchannels_done(
 
 	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
 	tal_steal(pay_plugin->plugin, payment);
-	/* When we terminate cmd for any reason, clear it from payment so we don't do it again. */
-	assert(cmd == payment->cmd);
-	tal_add_destructor2(cmd, destroy_cmd_payment_ptr, payment);
 
 	/* This looks for a route, and if OK, fires off the sendpay commands */
 	errmsg = try_paying(tmpctx, payment, &ecode);
@@ -655,9 +645,6 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
 
 	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
 	tal_steal(pay_plugin->plugin, p);
-	assert(cmd == p->cmd);
-	/* When we terminate cmd for any reason, clear it from payment so we don't do it again. */
-	tal_add_destructor2(cmd, destroy_cmd_payment_ptr, p);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
 				    selfpay_success,
@@ -990,6 +977,8 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
 
 	/* === Get payment === */
+
+	// one payment_hash one payment is not assumed, it is enforced
 	struct payment *payment =
 	    payment_map_get(pay_plugin->payment_map, b11->payment_hash);
 
@@ -997,6 +986,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	{
 		payment = payment_new(
 			pay_plugin,
+			&b11->payment_hash,
 			take(invstr),
 			take(label),
 			take(description),
@@ -1004,7 +994,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			b11->metadata,
 			cast_const2(const struct route_info**, b11->routes),
 			&b11->receiver_id,
-			&b11->payment_hash,
 			*msat,
 			*maxfee,
 			*maxdelay,
@@ -1037,18 +1026,44 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	/* === Start or continue payment === */
 	if (payment->status == PAYMENT_SUCCESS) {
 		// this payment is already a success, we show the result
-		assert(payment_commands_count(payment) == 0);
+		assert(payment_commands_empty(payment));
 		struct json_stream *result = payment_result(payment, cmd);
 		return command_finished(cmd, result);
 	}
 
 	if (payment->status == PAYMENT_FAIL) {
 		// this payment already failed, we try again
-		assert(payment_commands_count(payment) == 0);
-		payment->status = PAYMENT_PENDING;
+		assert(payment_commands_empty(payment));
 		if (!payment_register_command(payment, cmd))
 			return command_fail(cmd, PLUGIN_ERROR,
 					    "failed to register command");
+
+		/* Last time we tried the payment failed, this time we try again
+		but we update the parameters. All parameters except the payment
+		hash are updated, hence we are silently allowing two invoices to
+		have the same payment_hash as long as the first failed. */
+		if (!payment_update(payment,
+				    take(invstr),
+				    take(label),
+				    take(description),
+				    b11->payment_secret,
+				    b11->metadata,
+				    cast_const2(const struct route_info**, b11->routes),
+				    &b11->receiver_id,
+				    *msat,
+				    *maxfee,
+				    *maxdelay,
+				    *retryfor,
+				    b11->min_final_cltv_expiry,
+				    *base_fee_penalty_millionths,
+				    *prob_cost_factor_millionths,
+				    *riskfactor_millionths,
+				    *min_prob_success_millionths,
+				    use_shadow))
+			return command_fail(
+			    cmd, PLUGIN_ERROR,
+			    "failed to update the payment parameters");
+
 		renepay_start(payment);
 		return command_still_pending(cmd);
 	}
