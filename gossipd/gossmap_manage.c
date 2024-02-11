@@ -222,12 +222,14 @@ static bool any_cannounce_preceeds_offset(struct gossmap *gossmap,
 	return false;
 }
 
-/* Are all channels associated with this node dying? */
-static bool all_node_channels_dying(struct gossmap *gossmap, const struct gossmap_node *n)
+/* Are all channels associated with this node dying?  (Perhaps ignoring one)*/
+static bool all_node_channels_dying(struct gossmap *gossmap,
+				    const struct gossmap_node *n,
+				    const struct gossmap_chan *ignore)
 {
 	for (size_t i = 0; i < n->num_chans; i++) {
 		const struct gossmap_chan *c = gossmap_nth_chan(gossmap, n, i, NULL);
-		if (!gossmap_chan_is_dying(gossmap, c))
+		if (c != ignore && !gossmap_chan_is_dying(gossmap, c))
 			return false;
 	}
 	return true;
@@ -268,6 +270,7 @@ static void remove_channel(struct gossmap_manage *gm,
 		struct gossmap_node *node;
 		const u8 *nannounce;
 		u32 timestamp;
+		u64 offset;
 
 		node = gossmap_nth_node(gossmap, chan, dir);
 
@@ -291,8 +294,16 @@ static void remove_channel(struct gossmap_manage *gm,
 		/* To maintain order, delete and re-add node_announcement */
 		nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
 		timestamp = gossip_store_get_timestamp(gm->daemon->gs, node->nann_off);
+
 		gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
-		gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+		offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+
+		/* Be sure to set DYING flag when we move (ignore current
+		 * channel, we haven't reloaded gossmap yet!) */
+		if (all_node_channels_dying(gossmap, node, chan))
+			gossip_store_set_flag(gm->daemon->gs, offset,
+					      GOSSIP_STORE_DYING_BIT,
+					      WIRE_NODE_ANNOUNCEMENT);
 	}
 }
 
@@ -1224,7 +1235,8 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 		if (dir == 1 && n == gossmap_nth_node(gossmap, chan, 0))
 			continue;
 
-		if (all_node_channels_dying(gossmap, n)) {
+		/* Are all (other) channels dying? */
+		if (all_node_channels_dying(gossmap, n, chan)) {
 			gossip_store_set_flag(gm->daemon->gs,
 					      n->nann_off,
 					      GOSSIP_STORE_DYING_BIT,
