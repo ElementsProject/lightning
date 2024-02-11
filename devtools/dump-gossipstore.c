@@ -12,7 +12,7 @@
 
 /* Current versions we support */
 #define GSTORE_MAJOR 0
-#define GSTORE_MINOR 12
+#define GSTORE_MINOR 14
 
 int main(int argc, char *argv[])
 {
