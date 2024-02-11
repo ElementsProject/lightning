@@ -82,6 +82,24 @@ u64 gossip_store_set_flag(struct gossip_store *gs,
 		       u64 offset, u16 flag, int type);
 
 /**
+ * Clear a flag the record at this offset (offset is that of
+ * record!).  OK if it's not currently set.
+ *
+ * In developer mode, checks that type is correct.
+ */
+void gossip_store_clear_flag(struct gossip_store *gs,
+			     u64 offset, u16 flag, int type);
+
+/**
+ * Get flags from the record at this offset (offset is that of
+ * record!).
+ *
+ * In developer mode, checks that type is correct.
+ */
+u16 gossip_store_get_flags(struct gossip_store *gs,
+			   u64 offset, int type);
+
+/**
  * Direct store accessor: get timestamp header for a record.
  *
  * Offset is *after* the header.
