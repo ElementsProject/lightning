@@ -1415,3 +1415,63 @@ struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
 
 	return wireaddrs;
 }
+
+void gossmap_check_dying(struct gossmap_manage *gm)
+{
+	struct gossmap *gossmap;
+
+	/* We reload this every time we delete a channel: that way we can tell if it's
+	 * time to remove a node! */
+	gossmap = gossmap_manage_get_gossmap(gm);
+
+	/* channel_updates should match channel. */
+	for (struct gossmap_chan *c = gossmap_first_chan(gossmap);
+	     c;
+	     c = gossmap_next_chan(gossmap, c)) {
+		bool dying = gossmap_chan_is_dying(gossmap, c);
+
+		for (int dir = 0; dir < 2; dir++) {
+			bool update_dying;
+			if (!gossmap_chan_set(c, dir))
+				continue;
+			update_dying = (gossip_store_get_flags(gm->daemon->gs, c->cupdate_off[dir],
+							       WIRE_CHANNEL_UPDATE) & GOSSIP_STORE_DYING_BIT);
+			if (update_dying != dying) {
+				status_broken("Bad gossip order: "
+					      "channel_update[%i] at %u says %s, channel is %s",
+					      dir, c->cupdate_off[dir],
+					      update_dying ? "dying" : "not dying",
+					      dying ? "dying" : "not dying");
+			}
+		}
+	}
+
+	/* Nodes should match iff no live channels. */
+	for (struct gossmap_node *n = gossmap_first_node(gossmap);
+	     n;
+	     n = gossmap_next_node(gossmap, n)) {
+		bool dying, all_chans_dying = true;
+
+		if (!gossmap_node_announced(n))
+			continue;
+
+		dying = (gossip_store_get_flags(gm->daemon->gs, n->nann_off,
+						WIRE_NODE_ANNOUNCEMENT) & GOSSIP_STORE_DYING_BIT);
+
+		for (size_t i = 0; i < n->num_chans; i++) {
+			struct gossmap_chan *c = gossmap_nth_chan(gossmap, n, i, NULL);
+			bool chan_dying = gossmap_chan_is_dying(gossmap, c);
+
+			if (!chan_dying)
+				all_chans_dying = false;
+		}
+
+		if (all_chans_dying != dying) {
+			status_broken("Bad gossip order: "
+				      "node_announce at %u says %s, all channels %s",
+				      n->nann_off,
+				      dying ? "dying" : "not dying",
+				      all_chans_dying ? "dying" : "not dying");
+		}
+	}
+}

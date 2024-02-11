@@ -491,6 +491,9 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
+	/* Check this while we're here! */
+	gossmap_check_dying(daemon->gm);
+
 	memtable = memleak_start(tmpctx);
 	memleak_ptr(memtable, msg);
 	/* Now delete daemon and those which it has pointers to. */

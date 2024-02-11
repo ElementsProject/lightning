@@ -123,4 +123,10 @@ struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
  */
 void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 					   struct gossmap_manage *gm);
+
+/**
+ * gossmap_check_dying: check that we have consistent dying flags.
+ * @gm: the gossmap_manage context.
+ */
+void gossmap_check_dying(struct gossmap_manage *gm);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */
