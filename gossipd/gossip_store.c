@@ -484,10 +484,11 @@ static const u8 *gossip_store_get_with_hdr(const tal_t *ctx,
 	return msg;
 }
 
-static bool check_msg_type(struct gossip_store *gs, u64 offset, int flag, int type)
+/* Populates hdr */
+static bool check_msg_type(struct gossip_store *gs, u64 offset, int flag, int type,
+			   struct gossip_hdr *hdr)
 {
-	struct gossip_hdr hdr;
-	const u8 *msg = gossip_store_get_with_hdr(tmpctx, gs, offset, &hdr);
+	const u8 *msg = gossip_store_get_with_hdr(tmpctx, gs, offset, hdr);
 
 	if (fromwire_peektype(msg) == type)
 		return true;
@@ -503,38 +504,46 @@ static bool check_msg_type(struct gossip_store *gs, u64 offset, int flag, int ty
 u64 gossip_store_set_flag(struct gossip_store *gs,
 			  u64 offset, u16 flag, int type)
 {
-	struct {
-		beint16_t beflags;
-		beint16_t belen;
-	} hdr;
-	u64 hdr_off = offset - sizeof(struct gossip_hdr);
+	struct gossip_hdr hdr;
 
-	/* Should never try to overwrite version */
-	assert(offset > sizeof(struct gossip_hdr));
-
-	/* FIXME: debugging a gs->len overrun issue reported in #6270 */
-	if (pread(gs->fd, &hdr, sizeof(hdr), hdr_off) != sizeof(hdr)) {
-		status_broken("gossip_store pread fail during flag %u @%"PRIu64" type: %i"
-			      " gs->len: %"PRIu64, flag, hdr_off, type, gs->len);
-		return offset;
-	}
-	if (offset + be16_to_cpu(hdr.belen) > gs->len) {
-		status_broken("gossip_store overrun during flag-%u @%"PRIu64" type: %i"
-			      " gs->len: %"PRIu64, flag, hdr_off, type, gs->len);
-		return offset;
-	}
-
-	if (!check_msg_type(gs, offset, flag, type))
+	if (!check_msg_type(gs, offset, flag, type, &hdr))
 		return offset;
 
-	assert((be16_to_cpu(hdr.beflags) & flag) == 0);
-	hdr.beflags |= cpu_to_be16(flag);
-	if (pwrite(gs->fd, &hdr.beflags, sizeof(hdr.beflags), hdr_off) != sizeof(hdr.beflags))
+	assert((be16_to_cpu(hdr.flags) & flag) == 0);
+	hdr.flags |= cpu_to_be16(flag);
+	if (pwrite(gs->fd, &hdr, sizeof(hdr), offset - sizeof(hdr)) != sizeof(hdr))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing flags to delete @%"PRIu64": %s",
+			      "Failed writing set flags @%"PRIu64": %s",
 			      offset, strerror(errno));
 
-	return offset + be16_to_cpu(hdr.belen) + sizeof(struct gossip_hdr);
+	return offset + be16_to_cpu(hdr.len) + sizeof(struct gossip_hdr);
+}
+
+u16 gossip_store_get_flags(struct gossip_store *gs,
+			   u64 offset, int type)
+{
+	struct gossip_hdr hdr;
+
+	if (!check_msg_type(gs, offset, -1, type, &hdr))
+		return 0;
+
+	return be16_to_cpu(hdr.flags);
+}
+
+void gossip_store_clear_flag(struct gossip_store *gs,
+			     u64 offset, u16 flag, int type)
+{
+	struct gossip_hdr hdr;
+
+	if (!check_msg_type(gs, offset, flag, type, &hdr))
+		return;
+
+	assert(be16_to_cpu(hdr.flags) & flag);
+	hdr.flags &= ~cpu_to_be16(flag);
+	if (pwrite(gs->fd, &hdr, sizeof(hdr), offset - sizeof(hdr)) != sizeof(hdr))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing clear flags @%"PRIu64": %s",
+			      offset, strerror(errno));
 }
 
 void gossip_store_del(struct gossip_store *gs,
