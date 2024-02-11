@@ -243,7 +243,7 @@ static bool all_node_channels_dying(struct gossmap *gossmap,
  * - Suppress future lookups in case we receive another channel_update.
  * - Put deleted tombstone in gossip_store.
  * - Mark records deleted in gossip_store.
- * - See if node_announcement(s) need to be removed, or moved.
+ * - See if node_announcement(s) need to be removed, marked dying, or moved.
  */
 static void remove_channel(struct gossmap_manage *gm,
 			   struct gossmap *gossmap,
@@ -272,8 +272,6 @@ static void remove_channel(struct gossmap_manage *gm,
 	/* Check for node_announcements which should no longer be there */
 	for (int dir = 0; dir < 2; dir++) {
 		struct gossmap_node *node;
-		const u8 *nannounce;
-		u32 timestamp;
 		u64 offset;
 
 		node = gossmap_nth_node(gossmap, chan, dir);
@@ -289,18 +287,26 @@ static void remove_channel(struct gossmap_manage *gm,
 		}
 
 		/* Maybe this was the last channel_announcement which preceeded node_announcement? */
-		if (chan->cann_off > node->nann_off)
-			continue;
+		if (chan->cann_off < node->nann_off
+		    && any_cannounce_preceeds_offset(gossmap, node, chan, node->nann_off)) {
+			const u8 *nannounce;
+			u32 timestamp;
 
-		if (any_cannounce_preceeds_offset(gossmap, node, chan, node->nann_off))
-			continue;
+			/* To maintain order, delete and re-add node_announcement */
+			nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
+			timestamp = gossip_store_get_timestamp(gm->daemon->gs, node->nann_off);
 
-		/* To maintain order, delete and re-add node_announcement */
-		nannounce = gossmap_node_get_announce(tmpctx, gossmap, node);
-		timestamp = gossip_store_get_timestamp(gm->daemon->gs, node->nann_off);
-
-		gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
-		offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+			gossip_store_del(gm->daemon->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
+			offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+		} else {
+			/* Are all remaining channels dying but we weren't?
+			 * Can happen if we removed this channel immediately
+			 * for our own channels, without marking them
+			 * dying. */
+			if (gossmap_chan_is_dying(gossmap, chan))
+				continue;
+			offset = node->nann_off;
+		}
 
 		/* Be sure to set DYING flag when we move (ignore current
 		 * channel, we haven't reloaded gossmap yet!) */
