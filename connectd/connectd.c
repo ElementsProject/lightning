@@ -49,6 +49,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
@@ -1851,8 +1852,11 @@ static void peer_send_msg(struct io_conn *conn,
 	/* This can happen if peer hung up on us (or wrong counter
 	 * if it reconnected). */
 	peer = peer_htable_get(daemon->peers, &id);
-	if (peer && peer->counter == counter)
+	if (peer && peer->counter == counter) {
+		status_debug("Sending %s from lightningd",
+			     peer_wire_name(fromwire_peektype(sendmsg)));
 		inject_peer_msg(peer, take(sendmsg));
+	}
 }
 
 static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
@@ -2175,8 +2179,11 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 			      fromwire_peektype(msg));
 
 	peer = peer_htable_get(daemon->peers, &dst);
-	if (peer)
+	if (peer) {
+		status_debug("Sending %s from gossipd",
+			     peer_wire_name(fromwire_peektype(gossip_msg)));
 		inject_peer_msg(peer, take(gossip_msg));
+	}
 
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }

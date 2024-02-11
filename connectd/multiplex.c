@@ -514,9 +514,15 @@ again:
 	/* Don't send back gossip they sent to us! */
 	if (msg) {
 		if (gossip_rcvd_filter_del(peer->gs.grf, msg)) {
+			status_peer_debug(&peer->id, "Gossip filter %s from gossip_store (next off = %zu)",
+					  peer_wire_name(fromwire_peektype(msg)),
+					  peer->gs.off);
 			msg = tal_free(msg);
 			goto again;
 		}
+		status_peer_debug(&peer->id, "Sending %s from gossip_store (next off = %zu)",
+				  peer_wire_name(fromwire_peektype(msg)),
+				  peer->gs.off);
 		status_peer_io(LOG_IO_OUT, &peer->id, msg);
 		return msg;
 	}
@@ -581,8 +587,11 @@ void send_custommsg(struct daemon *daemon, const u8 *msg)
 
 	/* Races can happen: this might be gone by now. */
 	peer = peer_htable_get(daemon->peers, &id);
-	if (peer)
+	if (peer) {
+		status_debug("Sending %s from custommsg",
+			     peer_wire_name(fromwire_peektype(custommsg)));
 		inject_peer_msg(peer, take(custommsg));
+	}
 }
 
 static void handle_ping_in(struct peer *peer, const u8 *msg)
@@ -693,15 +702,18 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 	 */
 	/* For us, this means we only sweep the gossip store for messages
 	 * if the first_timestamp is 0 */
-	if (first_timestamp == 0)
+	if (first_timestamp == 0) {
 		peer->gs.off = 1;
-	else if (first_timestamp == 0xFFFFFFFF)
+		status_peer_debug(&peer->id, "gossip_store zero timestamp off = %zu", peer->gs.off);
+	} else if (first_timestamp == 0xFFFFFFFF) {
 		peer->gs.off = peer->daemon->gossip_store_end;
-	else {
+		status_peer_debug(&peer->id, "gossip_store inf timestamp off = %zu", peer->gs.off);
+	} else {
 		/* We are actually a bit nicer than the spec, and we include
 		 * "recent" gossip here. */
 		update_recent_timestamp(peer->daemon);
 		peer->gs.off = peer->daemon->gossip_store_recent_off;
+		status_peer_debug(&peer->id, "gossip_store other timestamp off = %zu", peer->gs.off);
 	}
 
 	/* BOLT #7:
@@ -759,6 +771,8 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 
 	/* We remember these so we don't rexmit them */
 	gossip_rcvd_filter_add(peer->gs.grf, msg);
+	status_peer_debug(&peer->id, "Gossip filter adding %s",
+			  peer_wire_name(fromwire_peektype(msg)));
 
 	if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
 		handle_gossip_timestamp_filter_in(peer, msg);
