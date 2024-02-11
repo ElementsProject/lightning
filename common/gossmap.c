@@ -1093,6 +1093,19 @@ bool gossmap_chan_is_localmod(const struct gossmap *map,
 	return c->cann_off >= map->map_size;
 }
 
+bool gossmap_chan_is_dying(const struct gossmap *map,
+			   const struct gossmap_chan *c)
+{
+	struct gossip_hdr ghdr;
+	size_t off;
+
+	/* FIXME: put this flag in plus_scid_off instead? */
+	off = c->cann_off - sizeof(ghdr);
+	map_copy(map, off, &ghdr, sizeof(ghdr));
+
+	return ghdr.flags & CPU_TO_BE16(GOSSIP_STORE_DYING_BIT);
+}
+
 bool gossmap_chan_get_capacity(const struct gossmap *map,
 			       const struct gossmap_chan *c,
 			       struct amount_sat *amount)
