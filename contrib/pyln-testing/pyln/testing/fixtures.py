@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK
 from pyln.client import Millisatoshi
 from typing import Dict
 
@@ -12,6 +12,7 @@ import pytest  # type: ignore
 import re
 import shutil
 import string
+import subprocess
 import sys
 import tempfile
 import time
@@ -465,16 +466,24 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         teardown_checks.add_error(e)
 
     def map_node_error(nodes, f, msg):
+        ret = False
         for n in nodes:
             if n and f(n):
+                ret = True
                 teardown_checks.add_node_error(n, msg.format(n=n))
+        return ret
 
     map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
     map_node_error(nf.nodes, printCrashLog, "had crash.log files")
     map_node_error(nf.nodes, lambda n: not n.allow_broken_log and n.daemon.is_in_log(r'\*\*BROKEN\*\*'), "had BROKEN messages")
     map_node_error(nf.nodes, lambda n: not n.allow_warning and n.daemon.is_in_log(r' WARNING:'), "had warning messages")
     map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
-    map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages")
+
+    # On any bad gossip complaints, print out every nodes' gossip_store
+    if map_node_error(nf.nodes, checkBadGossip, "had bad gossip messages"):
+        for n in nf.nodes:
+            dumpGossipStore(n)
+
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('Bad reestablish'), "had bad reestablish")
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('bad hsm request'), "had bad hsm requests")
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log(r'Accessing a null column'), "Accessing a null column")
@@ -551,6 +560,14 @@ def checkReconnect(node):
     if node.daemon.is_in_log('Peer has reconnected'):
         return 1
     return 0
+
+
+def dumpGossipStore(node):
+    gs_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    gs = subprocess.run(['devtools/dump-gossipstore', '--print-deleted', gs_path],
+                        stdout=subprocess.PIPE)
+    print("GOSSIP STORE CONTENTS for {}:\n".format(node.daemon.prefix))
+    print(gs.stdout.decode())
 
 
 def checkBadGossip(node):
