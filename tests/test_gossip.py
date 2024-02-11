@@ -1960,9 +1960,9 @@ def test_gossip_not_dying(node_factory, bitcoind):
 
     l1.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
 
-    # We won't gossip the dead channel any more (but we still propagate node_announcement).  But connectd is not explicitly synced, so wait for "a bit".
+    # We won't gossip the dead channel any more, nor the node_announcements.  But connectd is not explicitly synced, so wait for "a bit".
     time.sleep(1)
-    assert len(get_gossip(l1)) == 2
+    assert get_gossip(l1) == []
 
 
 def test_dump_own_gossip(node_factory):

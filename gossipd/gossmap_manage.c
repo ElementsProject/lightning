@@ -220,6 +220,17 @@ static bool any_cannounce_preceeds_offset(struct gossmap *gossmap,
 	return false;
 }
 
+/* Are all channels associated with this node dying? */
+static bool all_node_channels_dying(struct gossmap *gossmap, const struct gossmap_node *n)
+{
+	for (size_t i = 0; i < n->num_chans; i++) {
+		const struct gossmap_chan *c = gossmap_nth_chan(gossmap, n, i, NULL);
+		if (!gossmap_chan_is_dying(gossmap, c))
+			return false;
+	}
+	return true;
+}
+
 /* To actually remove a channel:
  * - Suppress future lookups in case we receive another channel_update.
  * - Put deleted tombstone in gossip_store.
@@ -1160,6 +1171,26 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 				      chan->cupdate_off[dir],
 				      GOSSIP_STORE_DYING_BIT,
 				      WIRE_CHANNEL_UPDATE);
+	}
+
+	/* If all channels associated with either node are dying, node_announcement is dying
+	   too (so we don't broadcast) */
+	for (int dir = 0; dir < 2; dir++) {
+		struct gossmap_node *n = gossmap_nth_node(gossmap, chan, dir);
+
+		if (!gossmap_node_announced(n))
+			continue;
+
+		/* Don't get confused if a node has a channel with self! */
+		if (dir == 1 && n == gossmap_nth_node(gossmap, chan, 0))
+			continue;
+
+		if (all_node_channels_dying(gossmap, n)) {
+			gossip_store_set_flag(gm->daemon->gs,
+					      n->nann_off,
+					      GOSSIP_STORE_DYING_BIT,
+					      WIRE_NODE_ANNOUNCEMENT);
+		}
 	}
 }
 
