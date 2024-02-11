@@ -142,7 +142,6 @@ HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
 		   payment_hash_eq, payment_map);
 
 struct payment *payment_new(const tal_t *ctx,
-			    struct command *cmd,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
@@ -205,5 +204,8 @@ struct command_result *payment_fail(
 	const char *fmt, ...);
 
 struct command_result *payment_success(struct payment *p);
+struct json_stream *payment_result(struct payment *p, struct command *cmd);
+size_t payment_commands_count(const struct payment *p);
+bool payment_register_command(struct payment *p, struct command *cmd);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

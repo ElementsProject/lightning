@@ -8,7 +8,6 @@
 #include <plugins/renepay/payment.h>
 
 struct payment *payment_new(const tal_t *ctx,
-			    struct command *cmd,
 			    const char *invstr TAKES,
 			    const char *label TAKES,
 			    const char *description TAKES,
@@ -30,7 +29,6 @@ struct payment *payment_new(const tal_t *ctx,
 			    bool use_shadow)
 {
 	struct payment *p = tal(ctx,struct payment);
-	p->cmd = cmd;
 	p->paynotes = tal_arr(p, const char *, 0);
 
 	p->total_sent = AMOUNT_MSAT(0);
@@ -197,6 +195,36 @@ void payment_assert_delivering_all(const struct payment *p)
 	}
 }
 
+struct json_stream *payment_result(struct payment *p, struct command *cmd)
+{
+	struct json_stream *response = jsonrpc_stream_success(cmd);
+
+	json_add_sha256(response, "payment_hash", &p->payment_hash);
+	json_add_timeabs(response, "created_at", p->start_time);
+	json_add_amount_msat(response, "amount_msat", p->amount);
+	json_add_node_id(response, "destination", &p->destination);
+
+	// FIXME is this necessary?
+	json_add_u32(response, "parts", payment_parts(p));
+
+	switch (p->status) {
+	case PAYMENT_SUCCESS:
+		json_add_string(response, "status", "complete");
+		json_add_preimage(response, "payment_preimage", p->preimage);
+		json_add_amount_msat(response, "amount_sent_msat",
+				     p->total_sent);
+		break;
+	case PAYMENT_FAIL:
+		json_add_string(response, "status", "failed");
+		break;
+	case PAYMENT_PENDING:
+		json_add_string(response, "status", "pending");
+		break;
+	}
+	return response;
+}
+
+// FIXME success to be defined
 struct command_result *payment_success(struct payment *p)
 {
 	/* We only finish command once: its destructor clears this. */
@@ -458,3 +486,16 @@ void payment_remove_flows(struct payment *p, enum pay_flow_state state)
 			list_del(&pf->list);
 	}
 }
+bool payment_register_command(struct payment *p, struct command *cmd)
+{
+	// FIXME
+	return false;
+}
+
+size_t payment_commands_count(const struct payment *p)
+{
+	// FIXME
+	return 0;
+}
+
+

@@ -100,4 +100,12 @@ extern struct pay_plugin *pay_plugin;
 const char *try_paying(const tal_t *ctx,
 		       struct payment *payment,
 		       enum jsonrpc_errcode *ecode);
+
+struct command_result *
+payment_listsendpays_previous(
+		struct command *cmd,
+		const char *buf,
+		const jsmntok_t *result,
+		struct payment * payment);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_H */

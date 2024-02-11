@@ -88,6 +88,15 @@ static const char *init(struct plugin *p,
 	return NULL;
 }
 
+static void renepay_start(struct payment *payment)
+{
+	// TODO
+}
+static void renepay_continue(struct payment *payment)
+{
+	// TODO
+}
+
 /* Sometimes we don't know exactly who to blame... */
 static struct pf_result *handle_unhandleable_error(struct pay_flow *pf,
 						   const char *what)
@@ -682,7 +691,7 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
  * already have a pending payment running. We also collect the summary
  * about an eventual previous complete payment so we can return that
  * as a no-op. */
-static struct command_result *
+struct command_result *
 payment_listsendpays_previous(
 		struct command *cmd,
 		const char *buf,
@@ -978,90 +987,75 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,
 				    "Invoice expired");
 
+	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
+
 	/* === Get payment === */
+	struct payment *payment =
+	    payment_map_get(pay_plugin->payment_map, b11->payment_hash);
 
-	/* Payment is allocated off cmd to start, in case we fail cmd
-	 * (e.g. already in progress, already succeeded).  Once it's
-	 * actually started, it persists beyond the command, so we
-	 * tal_steal. */
-	struct payment *payment = payment_new(cmd,
-					      cmd,
-					      take(invstr),
-					      take(label),
-					      take(description),
-					      b11->payment_secret,
-					      b11->metadata,
-					      cast_const2(const struct route_info**,
-					 	          b11->routes),
-					      &b11->receiver_id,
-					      &b11->payment_hash,
-					      *msat,
-					      *maxfee,
-					      *maxdelay,
-					      *retryfor,
-					      b11->min_final_cltv_expiry,
-					      *base_fee_penalty_millionths,
-					      *prob_cost_factor_millionths,
-					      *riskfactor_millionths,
-					      *min_prob_success_millionths,
-					      use_shadow);
+	if(!payment)
+	{
+		payment = payment_new(
+			pay_plugin,
+			take(invstr),
+			take(label),
+			take(description),
+			b11->payment_secret,
+			b11->metadata,
+			cast_const2(const struct route_info**, b11->routes),
+			&b11->receiver_id,
+			&b11->payment_hash,
+			*msat,
+			*maxfee,
+			*maxdelay,
+			*retryfor,
+			b11->min_final_cltv_expiry,
+			*base_fee_penalty_millionths,
+			*prob_cost_factor_millionths,
+			*riskfactor_millionths,
+			*min_prob_success_millionths,
+			use_shadow);
 
-	// FIXME do we really need a list here?
-	list_add_tail(&pay_plugin->payments, &payment->list);
-	payment_map_add(pay_plugin->payment_map, payment);
+		if (!payment)
+			return command_fail(cmd, PLUGIN_ERROR,
+					    "failed to create a new payment");
+		if (!payment_register_command(payment, cmd))
+			return command_fail(cmd, PLUGIN_ERROR,
+					    "failed to register command");
 
-	// FIXME shall we add a payment destructor?
-	tal_add_destructor(payment, destroy_payment);
+		// FIXME do we really need a list here?
+		list_add_tail(&pay_plugin->payments, &payment->list);
+		payment_map_add(pay_plugin->payment_map, payment);
+
+		// FIXME shall we add a payment destructor?
+		tal_add_destructor(payment, destroy_payment);
+
+		renepay_start(payment);
+		return command_still_pending(cmd);
+	}
 
 	/* === Start or continue payment === */
+	if (payment->status == PAYMENT_SUCCESS) {
+		// this payment is already a success, we show the result
+		assert(payment_commands_count(payment) == 0);
+		struct json_stream *result = payment_result(payment, cmd);
+		return command_finished(cmd, result);
+	}
 
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
-	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
+	if (payment->status == PAYMENT_FAIL) {
+		// this payment already failed, we try again
+		assert(payment_commands_count(payment) == 0);
+		payment->status = PAYMENT_PENDING;
+		if (!payment_register_command(payment, cmd))
+			return command_fail(cmd, PLUGIN_ERROR,
+					    "failed to register command");
+		renepay_start(payment);
+		return command_still_pending(cmd);
+	}
 
-	if (pay_plugin->gossmap == NULL)
-		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
-			   strerror(errno));
-
-	/* To construct the uncertainty network we need to perform the following
-	 * steps:
-	 * 1. check that there is a 1-to-1 map between channels in gossmap
-	 * and the uncertainty network. We call `uncertainty_network_update`
-	 *
-	 * 2. add my local channels that could be private.
-	 * We call `update_uncertainty_network_from_listpeerchannels`.
-	 *
-	 * 3. add hidden/private channels listed in the routehints.
-	 * We call `uncertainty_network_add_routehints`.
-	 *
-	 * 4. check the uncertainty network invariants.
-	 * */
-	if (gossmap_changed)
-		uncertainty_network_update(pay_plugin->gossmap,
-					   pay_plugin->chan_extra_map);
-
-	/* TODO(eduardo): We use a linear function to decide how to decay the
-	 * channel information. Other shapes could be used.
-	 * Also the choice of the proportional parameter TIMER_FORGET_SEC is
-	 * arbitrary.
-	 * Another idea is to measure time in blockheight. */
-	const double fraction =
-	    (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
-	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
-					   fraction);
-	pay_plugin->last_time = now_sec;
-
-	if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
-		plugin_log(pay_plugin->plugin, LOG_BROKEN,
-			   "uncertainty network invariants are violated");
-
-	/* Next, request listsendpays for previous payments that use the same
-	 * hash. */
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", payment_listsendpays_previous,
-	    payment_listsendpays_previous, payment);
-
-	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
-	return send_outreq(cmd->plugin, req);
+	// else: this payment is pending we continue its execution
+	renepay_continue(payment);
+	return command_still_pending(cmd);
 }
 
 /* Terminates flow */
