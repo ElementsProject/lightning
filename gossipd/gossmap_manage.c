@@ -679,6 +679,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	const char *err;
 	int dir = (channel_flags & ROUTING_FLAGS_DIRECTION);
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+	u64 offset;
 
 	chan = gossmap_find_chan(gossmap, &scid);
 	if (!chan) {
@@ -727,7 +728,15 @@ static const char *process_channel_update(const tal_t *ctx,
 	}
 
 	/* OK, apply the new one */
-	gossip_store_add(gm->daemon->gs, update, timestamp);
+	offset = gossip_store_add(gm->daemon->gs, update, timestamp);
+
+	/* If channel is dying, make sure update is also marked dying! */
+	if (gossmap_chan_is_dying(gossmap, chan)) {
+		gossip_store_set_flag(gm->daemon->gs,
+				      offset,
+				      GOSSIP_STORE_DYING_BIT,
+				      WIRE_CHANNEL_UPDATE);
+	}
 
 	/* Now delete old */
 	if (gossmap_chan_set(chan, dir))
