@@ -172,6 +172,9 @@ struct lightningd {
 	/* Do we want to reconnect to other peers? */
 	bool reconnect;
 
+	/* Do we want to reconnect to other peers having only unannouced channels with us? */
+	bool reconnect_private;
+
 	/* How many outstanding startup connection attempts? */
 	size_t num_startup_connects;
 

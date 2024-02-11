@@ -243,6 +243,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->listen = true;
 	ld->autolisten = true;
 	ld->reconnect = true;
+	ld->reconnect_private = true;
 	ld->try_reexec = false;
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;

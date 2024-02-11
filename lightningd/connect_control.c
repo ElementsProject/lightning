@@ -391,6 +391,16 @@ void try_reconnect(const tal_t *ctx,
 {
 	if (!peer->ld->reconnect)
 		return;
+	if (!peer->ld->reconnect_private) {
+		u32 public_channels = 0;
+		struct channel *channel;
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+				public_channels++;
+		}
+		if (public_channels == 0)
+			return;
+	}
 
 	/* Did we last attempt to connect recently?  Enter backoff mode. */
 	if (time_less(time_between(time_now(), peer->last_connect_attempt),
