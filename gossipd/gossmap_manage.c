@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
@@ -24,6 +25,7 @@
 struct pending_cannounce {
 	const u8 *scriptpubkey;
 	const u8 *channel_announcement;
+	struct node_id node_id[2];
 	const struct node_id *source_peer;
 };
 
@@ -444,6 +446,24 @@ static void peer_warning(struct gossmap_manage *gm,
 		       take(towire_warningfmt(NULL, NULL, "%s", formatted)));
 }
 
+/* Subtle: if a new channel appears, it means those node announcements are no longer "dying" */
+static void node_announcements_not_dying(struct gossmap_manage *gm,
+					 const struct gossmap *gossmap,
+					 const struct pending_cannounce *pca)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(pca->node_id); i++) {
+		struct gossmap_node *n = gossmap_find_node(gossmap, &pca->node_id[i]);
+		if (!n || !gossmap_node_announced(n))
+			continue;
+		if (gossip_store_get_flags(gm->daemon->gs, n->nann_off, WIRE_NODE_ANNOUNCEMENT)
+		    & GOSSIP_STORE_DYING_BIT) {
+			gossip_store_clear_flag(gm->daemon->gs, n->nann_off,
+						GOSSIP_STORE_DYING_BIT,
+						WIRE_NODE_ANNOUNCEMENT);
+		}
+	}
+}
+
 const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 						struct gossmap_manage *gm,
 						const u8 *announce TAKES,
@@ -503,6 +523,8 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 								   &bitcoin_key_2));
 	pca->channel_announcement = tal_dup_talarr(pca, u8, announce);
 	pca->source_peer = tal_dup_or_null(pca, struct node_id, source_peer);
+	pca->node_id[0] = node_id_1;
+	pca->node_id[1] = node_id_2;
 
 	/* Are we supposed to add immediately without checking with lightningd?
 	 * Unless we already got it from a peer and we're processing now!
@@ -514,6 +536,8 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 		gossip_store_add(gm->daemon->gs, announce, 0);
 		gossip_store_add(gm->daemon->gs,
 				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0);
+
+		node_announcements_not_dying(gm, gossmap, pca);
 		tal_free(pca);
 		return NULL;
 	}
@@ -562,6 +586,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	u8 *outscript;
 	struct amount_sat sat;
 	struct pending_cannounce *pca;
+	struct gossmap *gossmap;
 
 	if (!fromwire_gossipd_get_txout_reply(msg, msg, &scid, &sat, &outscript))
 		master_badmsg(WIRE_GOSSIPD_GET_TXOUT_REPLY, msg);
@@ -610,10 +635,15 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	gossip_store_add(gm->daemon->gs, pca->channel_announcement, 0);
 	gossip_store_add(gm->daemon->gs,
 			 towire_gossip_store_channel_amount(tmpctx, sat), 0);
-	tal_free(pca);
 
 	/* If we looking specifically for this, we no longer are. */
 	remove_unknown_scid(gm->daemon->seeker, &scid, true);
+
+	gossmap = gossmap_manage_get_gossmap(gm);
+
+	/* If node_announcements were dying, they no longer are. */
+	node_announcements_not_dying(gm, gossmap, pca);
+	tal_free(pca);
 
 	/* When all pending requests are done, we reconsider queued messages */
 	reprocess_queued_msgs(gm);
