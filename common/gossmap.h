@@ -122,6 +122,10 @@ void gossmap_remove_localmods(struct gossmap *map,
 bool gossmap_chan_is_localmod(const struct gossmap *map,
 			      const struct gossmap_chan *c);
 
+/* Is this channel dying? */
+bool gossmap_chan_is_dying(const struct gossmap *map,
+			   const struct gossmap_chan *c);
+
 /* Each channel has a unique (low) index. */
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node);
 u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan);
