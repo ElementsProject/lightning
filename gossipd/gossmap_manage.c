@@ -871,12 +871,15 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 }
 
 static void process_node_announcement(struct gossmap_manage *gm,
+				      struct gossmap *gossmap,
 				      const struct gossmap_node *node,
 				      u32 timestamp,
 				      const struct node_id *node_id,
 				      const u8 *nannounce,
 				      const struct node_id *source_peer)
 {
+	u64 offset;
+
 	/* Do we have a later one?  If so, ignore */
 	if (gossmap_node_announced(node)) {
 		u32 prev_timestamp
@@ -888,7 +891,13 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	}
 
 	/* OK, apply the new one */
-	gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+	offset = gossip_store_add(gm->daemon->gs, nannounce, timestamp);
+	/* If all channels are dying, make sure this is marked too. */
+	if (all_node_channels_dying(gossmap, node, NULL)) {
+		gossip_store_set_flag(gm->daemon->gs, offset,
+				      GOSSIP_STORE_DYING_BIT,
+				      WIRE_NODE_ANNOUNCEMENT);
+	}
 
 	/* Now delete old */
 	if (gossmap_node_announced(node))
@@ -982,7 +991,7 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 		return NULL;
 	}
 
-	process_node_announcement(gm, node, timestamp, &node_id, nannounce, source_peer);
+	process_node_announcement(gm, gossmap, node, timestamp, &node_id, nannounce, source_peer);
 	return NULL;
 }
 
@@ -1090,7 +1099,7 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 				continue;
 			}
 
-			process_node_announcement(gm, node,
+			process_node_announcement(gm, gossmap, node,
 						  pnas[i]->timestamp,
 						  &pnas[i]->node_id,
 						  pnas[i]->nannounce,
