@@ -29,6 +29,13 @@
 
 #define INVALID_ID UINT64_MAX
 
+static struct command_result *
+payment_listsendpays_fail(
+		struct command *cmd,
+		const char *buf,
+		const jsmntok_t *result,
+		struct payment * payment);
+
 struct pay_plugin *pay_plugin;
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)
@@ -86,15 +93,6 @@ static const char *init(struct plugin *p,
 				   pay_plugin->chan_extra_map);
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;
-}
-
-static void renepay_start(struct payment *payment)
-{
-	// TODO
-}
-static void renepay_continue(struct payment *payment)
-{
-	// TODO
 }
 
 /* Sometimes we don't know exactly who to blame... */
@@ -595,7 +593,6 @@ static struct command_result *json_paystatus(struct command *cmd,
 			break;
 			case PAYMENT_FAIL:
 				json_add_string(ret,"status","failed");
-
 			break;
 			default:
 				json_add_string(ret,"status","pending");
@@ -669,6 +666,112 @@ static struct command_result *selfpay(struct command *cmd, struct payment *p)
 	p->next_partid = 2;
 	p->total_sent = p->amount;
 	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *renepay_command_finish(struct payment *payment,
+						     struct command *cmd)
+{
+	struct json_stream *result = payment_result(payment, cmd);
+	return command_finished(cmd, result);
+}
+
+static struct command_result *renepay_finish(struct payment *p)
+{
+	assert(!payment_commands_empty(p));
+	struct command *cmd = p->cmd_array[0];
+	for (size_t i = 1; i < tal_count(p->cmd_array); ++i) {
+		renepay_command_finish(p, p->cmd_array[i]);
+	}
+	tal_resize(&p->cmd_array, 0);
+	return renepay_command_finish(p, cmd);
+}
+
+struct command_result *renepay_success(struct payment *p);
+struct command_result *renepay_success(struct payment *p)
+{
+	p->status = PAYMENT_SUCCESS;
+	return renepay_finish(p);
+}
+
+static struct command_result *renepay_fail(struct payment *p)
+{
+	p->status = PAYMENT_FAIL;
+	return renepay_finish(p);
+}
+
+static struct command_result * renepay_start(struct payment *p)
+{
+	// sanity check
+	assert(amount_msat_zero(p->total_sent));
+	assert(amount_msat_zero(p->total_delivering));
+	assert(!p->preimage);
+	assert(list_empty(&p->flows));
+	assert(tal_count(p->cmd_array) == 1);
+
+	p->status = PAYMENT_PENDING;
+
+	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
+
+	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
+
+	if (pay_plugin->gossmap == NULL)
+		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
+			   strerror(errno));
+
+	/* To construct the uncertainty network we need to perform the following
+	 * steps:
+	 * 1. check that there is a 1-to-1 map between channels in gossmap
+	 * and the uncertainty network. We call `uncertainty_network_update`
+	 *
+	 * 2. add my local channels that could be private.
+	 * We call `update_uncertainty_network_from_listpeerchannels`.
+	 *
+	 * 3. add hidden/private channels listed in the routehints.
+	 * We call `uncertainty_network_add_routehints`.
+	 *
+	 * 4. check the uncertainty network invariants.
+	 * */
+	if (gossmap_changed)
+		uncertainty_network_update(pay_plugin->gossmap,
+					   pay_plugin->chan_extra_map);
+
+	/* FIXME: We use a linear function to decide how to decay the
+	 * channel information. Other shapes could be used.
+	 * Also the choice of the proportional parameter TIMER_FORGET_SEC is
+	 * arbitrary.
+	 * Another idea is to measure time in blockheight. */
+	const u64 now_sec = time_now().ts.tv_sec;
+	const double fraction =
+	    (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
+	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
+					   fraction);
+	pay_plugin->last_time = now_sec;
+
+	if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
+		plugin_err(pay_plugin->plugin,
+			   "uncertainty network invariants are violated");
+
+	/* Next, request listsendpays for previous payments that use the same
+	 * hash. */
+	struct command *cmd = p->cmd_array[0];
+	// FIXME does payment_listsendpays_fail actually works? Try that
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "listsendpays", payment_listsendpays_previous,
+	    payment_listsendpays_fail, p);
+
+	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
+	return send_outreq(cmd->plugin, req);
+}
+
+
+static struct command_result *payment_listsendpays_fail(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *err,
+							struct payment *payment)
+{
+	plugin_log(pay_plugin->plugin, LOG_DBG, "Failed listsendpays RPC: %.*s",
+		   json_tok_full_len(err), json_tok_full(buf, err));
+	return renepay_fail(payment);
 }
 
 /* Taken from ./plugins/pay.c
@@ -911,6 +1014,9 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 	/* === Parse invoice === */
 
+	// FIXME: add support for bol12 invoices
+	assert(!bolt12_has_prefix(invstr));
+
 	char *fail;
 	struct bolt11 *b11 =
 	    bolt11_decode(tmpctx, invstr, plugin_feature_set(cmd->plugin),
@@ -918,9 +1024,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	if (b11 == NULL)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
-
-	// FIXME: add support for bol12 invoices
-	assert(!bolt12_has_prefix(invstr));
 
 	/* Sanity check */
 	if (feature_offered(b11->features, OPT_VAR_ONION) &&
@@ -974,8 +1077,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,
 				    "Invoice expired");
 
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
-
 	/* === Get payment === */
 
 	// one payment_hash one payment is not assumed, it is enforced
@@ -985,7 +1086,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	if(!payment)
 	{
 		payment = payment_new(
-			pay_plugin,
+			tmpctx,
 			&b11->payment_hash,
 			take(invstr),
 			take(label),
@@ -1012,15 +1113,16 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			return command_fail(cmd, PLUGIN_ERROR,
 					    "failed to register command");
 
+		// good to go
+		payment = tal_steal(pay_plugin, payment);
+
 		// FIXME do we really need a list here?
 		list_add_tail(&pay_plugin->payments, &payment->list);
 		payment_map_add(pay_plugin->payment_map, payment);
 
-		// FIXME shall we add a payment destructor?
 		tal_add_destructor(payment, destroy_payment);
 
-		renepay_start(payment);
-		return command_still_pending(cmd);
+		return renepay_start(payment);
 	}
 
 	/* === Start or continue payment === */
@@ -1064,12 +1166,10 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			    cmd, PLUGIN_ERROR,
 			    "failed to update the payment parameters");
 
-		renepay_start(payment);
-		return command_still_pending(cmd);
+		return renepay_start(payment);
 	}
 
 	// else: this payment is pending we continue its execution
-	renepay_continue(payment);
 	return command_still_pending(cmd);
 }
 

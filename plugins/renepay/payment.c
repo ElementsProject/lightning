@@ -1,7 +1,8 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
-#include <ccan/ccan/tal/str/str.h>
+#include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/renepay/pay.h>
@@ -294,12 +295,15 @@ struct json_stream *payment_result(struct payment *p, struct command *cmd)
 
 	switch (p->status) {
 	case PAYMENT_SUCCESS:
+		assert(p->preimage);
+
 		json_add_string(response, "status", "complete");
 		json_add_preimage(response, "payment_preimage", p->preimage);
 		json_add_amount_msat(response, "amount_sent_msat",
 				     p->total_sent);
 		break;
 	case PAYMENT_FAIL:
+		// FIXME add paynotes so that people can learn why did it failed
 		json_add_string(response, "status", "failed");
 		break;
 	case PAYMENT_PENDING:
