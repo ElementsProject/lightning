@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
-from msggen.gen.rust import RustGenerator
+from msggen.gen.rpc.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
 from msggen.utils import load_jsonrpc_service, combine_schemas
 import logging
