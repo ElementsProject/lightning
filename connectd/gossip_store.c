@@ -138,8 +138,10 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 		/* Skip any timestamp filtered */
 		timestamp = be32_to_cpu(hdr.timestamp);
-		if (!timestamp_filter(timestamp_min, timestamp_max,
-				      timestamp)) {
+		/* Note: channel_announcements without a channel_update yet
+		 * will have 0 timestamp (we don't know).  Better to send them. */
+		if (timestamp &&
+		    !timestamp_filter(timestamp_min, timestamp_max, timestamp)) {
 			*off += r + msglen;
 			continue;
 		}
