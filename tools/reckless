@@ -147,13 +147,16 @@ class InstInfo:
         if self.srctype in [Source.DIRECTORY, Source.LOCAL_REPO]:
             depth = 5
         elif self.srctype == Source.GITHUB_REPO:
-            depth = 2
+            depth = 1
 
         def search_dir(self, sub: SourceDir, subdir: bool,
                        recursion: int) -> Union[SourceDir, None]:
             assert isinstance(recursion, int)
+            # carveout for archived plugins in lightningd/plugins
+            if recursion == 0 and 'archive' in sub.name.lower():
+                pass
             # If unable to search deeper, resort to matching directory name
-            if recursion < 1:
+            elif recursion < 1:
                 if sub.name.lower() == self.name.lower():
                     # Partial success (can't check for entrypoint)
                     self.name = sub.name
@@ -379,6 +382,42 @@ def populate_local_repo(path: str) -> list:
     return basedir.contents
 
 
+def source_element_from_repo_api(member: dict):
+    # api accessed via <repo>/contents/
+    if 'type' in member and 'name' in member and 'git_url' in member:
+        if member['type'] == 'dir':
+            return SourceDir(member['git_url'], srctype=Source.GITHUB_REPO,
+                             name=member['name'])
+        elif member['type'] == 'file':
+            # Likely a submodule
+            if member['size'] == 0:
+                return SourceDir(None, srctype=Source.GITHUB_REPO,
+                                 name=member['name'])
+            return SourceFile(member['name'])
+        elif member['type'] == 'commit':
+            # No path is given by the api here
+            return SourceDir(None, srctype=Source.GITHUB_REPO,
+                             name=member['name'])
+    # git_url with <repo>/tree/ presents results a little differently
+    elif 'type' in member and 'path' in member and 'url' in member:
+        if member['type'] not in ['tree', 'blob']:
+            logging.debug(f'  skipping {member["path"]} type={member["type"]}')
+        if member['type'] == 'tree':
+            return SourceDir(member['url'], srctype=Source.GITHUB_REPO,
+                             name=member['path'])
+        elif member['type'] == 'blob':
+            # This can be a submodule
+            if member['size'] == 0:
+                return SourceDir(member['git_url'], srctype=Source.GITHUB_REPO,
+                                 name=member['name'])
+            return SourceFile(member['path'])
+        elif member['type'] == 'commit':
+            # No path is given by the api here
+            return SourceDir(None, srctype=Source.GITHUB_REPO,
+                             name=member['name'])
+    return None
+
+
 def populate_github_repo(url: str) -> list:
     # FIXME: This probably contains leftover cruft.
     repo = url.split('/')
@@ -398,12 +437,17 @@ def populate_github_repo(url: str) -> list:
     repo_name = parsed_url.path.split('/')[start + 1]
 
     # Get details from the github API.
-    api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/contents/'
+    if API_GITHUB_COM in url:
+        api_url = url
+    else:
+        api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/contents/'
 
     git_url = api_url
     if "api.github.com" in git_url:
         # This lets us redirect to handle blackbox testing
+        logging.debug(f'fetching from gh API: {git_url}')
         git_url = (API_GITHUB_COM + git_url.split("api.github.com")[-1])
+    # Ratelimiting occurs for non-authenticated GH API calls at 60 in 1 hour.
     r = urlopen(git_url, timeout=5)
     if r.status != 200:
         return False
@@ -413,14 +457,8 @@ def populate_github_repo(url: str) -> list:
         tree = json.loads(r.read().decode())
     contents = []
     for sub in tree:
-        if 'type' in sub and 'name' in sub and 'git_url' in sub:
-            if sub['type'] == 'dir':
-                new_sub = SourceDir(sub['git_url'], srctype=Source.GITHUB_REPO,
-                                    name=sub['name'])
-                contents.append(new_sub)
-            elif sub['type'] == 'file':
-                new_file = SourceFile(sub['name'])
-                contents.append(new_file)
+        if source_element_from_repo_api(sub):
+            contents.append(source_element_from_repo_api(sub))
     return contents
 
 
