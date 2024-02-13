@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "clnrest"
-version = "23.11"
+version = "24.02"
 description = "Transforms RPC calls into REST APIs"
 authors = ["ShahanaFarooqui <sfarooqui@blockstream.com>"]
 
@@ -10,7 +10,7 @@ json5 = "^0.9.14"
 flask = "^2.3.3"
 flask-restx = "^1.1.0"
 gunicorn = "^21.2.0"
-pyln-client = "^23.8"
+pyln-client = "^24.2"
 flask-socketio = "^5.3.6"
 gevent = "^23.9.0.post1"
 gevent-websocket = "^0.10.1"
