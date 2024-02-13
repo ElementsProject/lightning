@@ -82,3 +82,27 @@ pub struct CustomMsgNotification {
     pub peer_id: PublicKey,
 }
 
+pub mod requests{
+use serde::{Serialize, Deserialize};
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamBlockAddedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamChannelOpenFailedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamChannelOpenedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamConnectRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamCustomMsgRequest {
+    }
+
+}

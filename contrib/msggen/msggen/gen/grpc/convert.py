@@ -152,7 +152,7 @@ class GrpcConverterGenerator(IGenerator):
                 camel_case += word.capitalize()
         return camel_case
 
-    def generate_requests(self, service):
+    def generate_requests(self, service: Service):
         for meth in service.methods:
             req = meth.request
             self.generate_composite("requests", req)
