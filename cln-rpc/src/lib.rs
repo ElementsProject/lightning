@@ -331,6 +331,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use self::notifications::CustomMsgNotification;
+
     use super::*;
     use crate::model::*;
     use crate::primitives::PublicKey;
@@ -552,5 +554,28 @@ mod test {
 
         assert_eq!(rpc_error.code.unwrap(), 666);
         assert_eq!(rpc_error.message, "MOCK_ERROR");
+    }
+
+    #[test]
+    fn serialize_custom_msg_notification() {
+        let msg = CustomMsgNotification {
+            peer_id : PublicKey::from_str("0364aeb75519be29d1af7b8cc6232dbda9fdabb79b66e4e1f6a223750954db210b").unwrap(),
+            payload : String::from("941746573749")
+        };
+
+        let notification = Notification::CustomMsg(msg);
+
+        assert_eq!(
+            serde_json::to_value(notification).unwrap(),
+            serde_json::json!(
+                {
+                    "custommsg" : {
+                        "peer_id" : "0364aeb75519be29d1af7b8cc6232dbda9fdabb79b66e4e1f6a223750954db210b",
+                        "payload" : "941746573749"
+                    }
+                }
+            )
+        );
+
     }
 }
