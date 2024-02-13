@@ -3,6 +3,114 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [24.02rc2] - 2024-02-13: "CODENAME"
+
+This release named by @USERNAME.
+
+
+### Added
+
+ - Protocol: `option_anchors_zero_fee_htlc_tx` enabled, no longer experimental. ([#6785])
+ - added a withdraw all to the end of test_onchain_their_unilateral_out to ensure that the unilateral close info is correct with anchors ([#6992])
+ - JSON-RPC: `listpeerchannels` field `last_stable_connection` showing when we last held an established channel for a minute or more. ([#6904])
+ - JSON-RPC: `listclosedchannels` field `last_stable_connection` showing when we last held an established channel for a minute or more. ([#6904])
+ - JSON-RPC: `listpeerchannels` new field `reestablished` set once we've exchanged `channel_reestablish` messages. ([#6904])
+ - JSON-RPC: `fundchannel`, `multifundchannel`, `fundchannel_start` and `openchannel_init`: new field `channel_type`. ([#6864])
+ - JSON-RPC: `fundchannel` and `multifundchannel` now take an optional `channel_type` parameter. ([#6864])
+ - JSON-RPC: `fundchannel_start` and `openchannel_init` now take an optional `channel_type` parameter. ([#6864])
+ - Added hsmd_revoke_commitment_tx to ensure synchronization of local state with remote signers. ([#7010])
+ - Added hsm_capabilities and hsm_is_capable to channeld. ([#7010])
+ - Plugins: `deprecated_oneshot` notifiction subscription to change deprecated status for a single command. ([#6936])
+ - Plugin: options and commands can specify deprecation start (and optional end) versions. ([#6936])
+ - Plugins: rpcmethods and options can set `deprecated` to a pair of version strings, not just a boolean. ([#6936])
+ - JSON-RPC: `deprecations` to enable/disable deprecated APIs from this caller. ([#6936])
+ - config: `i-promise-to-fix-broken-api-user` allows for a one-release re-enablement of long-deprecated features. ([#6936])
+ - hsmd: Added hsmd_forget_channel to enable explicit channel deletion. ([#6987]) ([#6988])
+ - tracing: It is now possible to inject a parent for the startup trace by setting the `CLN_TRACEPARENT` envvar ([#6912])
+ - Plugins: notification custommsg for receiving an unknown protocol message ([#6899])
+ - JSON-RPC: `listpeerchannels` now shows gossip update contents (even if channel unannounced). ([#6869])
+
+
+### Changed
+
+ - lightningd: Speed up blocksync by not parsing unused parts of the transactions ([#6984])
+ - core: Processing blocks should now be faster ([#6984])
+ - Config: `experimental-anchors` now does nothing (it's enabled by default). ([#6785])
+ - reckless installs python plugins in virtual environments ([#7018])
+ - Protocol: `option_gossip_queries` is now required (advertized by all but 16 nodes) ([#6864])
+ - Protocol: `option_gossip_queries` is now required (advertized by all but 11 nodes) ([#6864])
+ - Protocol: `option_data_loss_protect` is now required (advertized by all but 11 nodes) ([#6864])
+ - core: Processing blocks should now be faster ([#6983])
+ - Enable optimizations for libwally/libsecp256k1-zkp ([#6983])
+ - Update libwally to 1.0.0 ([#6983])
+ - pyln-client: no longer autoconverts _msat field to Millisatoshi class (leaves as ints). ([#6865])
+ - JSON-RPC: `listnodes` no longer shows private (peer) nodes: use listpeers ([#6869])
+ - startup_regtest.sh: `fund_nodes` will now make balanced channels ([#6898])
+ - startup_regtest.sh PATH_TO_LIGHTNING + PATH_TO_BITCOIN are no more. Use LIGHTNING_BIN and BITCOIN_DIR ([#6898])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - `listchannels` no longer uses local knowledge to set `active` to false if disconnected. ([#6869])
+ - JSON-RPC: `listchannels` listing private channels: use listpeerchannels ([#6869])
+
+
+### Removed
+
+ - Protocol: we no longer ratelimit gossip messages by channel, making our code far simpler. ([#6941])
+ - Config: `disable-ip-discovery` (deprecated in v23.02): use `announce-addr-discovered` ([#6936])
+ - wallet: removal of p2sh-segwit addresses; newaddr won't issue them, we won't watch them for new funds (deprecated in *23.02*) ([#6936])
+ - JSON-RPC: `invoice`, `sendonion`, `sendpay`, `pay`, `keysend`, `fetchinvoice`, `sendinvoice`: `msatoshi` argument (deprecated 0.12.0). Use `amount_msat`. ([#6936])
+
+
+### Fixed
+
+ - JSON-RPC: `close` with `destination` works even if prior `destination` was rejected. ([#7072])
+ - `channel_type` reflects option_zeroconf if explicitly negotiated. ([#6864])
+ - configure: We now respect the `PKG_CONFIG_PATH` environment variable ([#6967])
+ - Default bolt11 invoices are payable by LND nodes. ([#6957])
+ - channeld: We could crash `closingd` by sending it a `channeld` message ([#6937])
+ - `bkpr-listbalances` would crash for nodes on signet with payments in channels, because onchain events were using a different currency than inchannel events. ([#6888])
+ - Hsmtool: Fix segmentation fault when calling `getcodexsecret` without id. ([#6895])
+
+
+### EXPERIMENTAL
+
+ - JSON-RPC: Deprecated `offer` parameter `recurrence_base` with `@` prefix: use `recurrence_start_any_period`. ([#7034])
+ - JSON-RPC: Added `offer` parameter `recurrence_start_any_period`. ([#7034])
+ - Plugins: `funder` option "lease-fee-base-msat" removed (deprecated in v0.11, use "lease-fee-base-sat") ([#6936])
+
+
+
+[#6983]: https://github.com/ElementsProject/lightning/pull/6983
+[#7034]: https://github.com/ElementsProject/lightning/pull/7034
+[#6864]: https://github.com/ElementsProject/lightning/pull/6864
+[#7072]: https://github.com/ElementsProject/lightning/pull/7072
+[#6899]: https://github.com/ElementsProject/lightning/pull/6899
+[#6936]: https://github.com/ElementsProject/lightning/pull/6936
+[#6895]: https://github.com/ElementsProject/lightning/pull/6895
+[#6888]: https://github.com/ElementsProject/lightning/pull/6888
+[#6898]: https://github.com/ElementsProject/lightning/pull/6898
+[#6957]: https://github.com/ElementsProject/lightning/pull/6957
+[#6912]: https://github.com/ElementsProject/lightning/pull/6912
+[#6967]: https://github.com/ElementsProject/lightning/pull/6967
+[#6937]: https://github.com/ElementsProject/lightning/pull/6937
+[#6988]: https://github.com/ElementsProject/lightning/pull/6988
+[#6785]: https://github.com/ElementsProject/lightning/pull/6785
+[#7010]: https://github.com/ElementsProject/lightning/pull/7010
+[#6992]: https://github.com/ElementsProject/lightning/pull/6992
+[#6904]: https://github.com/ElementsProject/lightning/pull/6904
+[#7018]: https://github.com/ElementsProject/lightning/pull/7018
+[#6869]: https://github.com/ElementsProject/lightning/pull/6869
+[#6984]: https://github.com/ElementsProject/lightning/pull/6984
+[#6865]: https://github.com/ElementsProject/lightning/pull/6865
+[#6941]: https://github.com/ElementsProject/lightning/pull/6941
+[24.02]: https://github.com/ElementsProject/lightning/releases/tag/v24.02
+[24.02rc2]: https://github.com/ElementsProject/lightning/releases/tag/v24.02rc2
+
+
 ## [23.11] - 2023-11-28: "Bitcoin Orangepaper"
 
 This release named by Shahana Farooqui
@@ -57,7 +165,7 @@ This release named by Shahana Farooqui
 
 Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
-- Plugins: `clnrest` parameters `rest-port`, `rest-protocol`, `rest-host` and `rest-certs`: prefix `cln` to them ([#6876])
+ - Plugins: `clnrest` parameters `rest-port`, `rest-protocol`, `rest-host` and `rest-certs`: prefix `cln` to them ([#6876])
 
 
 ### Removed
@@ -149,7 +257,7 @@ Bugfix release for bad issues found since 23.08 which can't wait for 23.11, and 
 
  - Protocol: Fixed a wrong number type being used in routes ([#6642])
  - JSON-RPC: `showrunes` on a specific rune would always say `stored`: false. ([#6640])
- - MacOS: `clnrest` now works ([#6605]) 
+ - MacOS: `clnrest` now works ([#6605])
  - Build: test for `python3` or `python`, rather than assuming `python3` ([#6630])
 
 
@@ -417,7 +525,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: `close`, `fundchannel`, `fundpsbt`, `multifundchannel`, `multiwithdraw`, `txprepare`, `upgradewallet`, `withdraw` `feerate` (`feerange` for `close`) expressed as, "delayed_to_us", "htlc_resolution", "max_acceptable" or "min_acceptable".  Use explicit block counts or *slow*/*normal*/*urgent*/*minimum*. ([#6120])
  - Plugins: `estimatefees` returning feerates by name (e.g. "opening"); use `fee_floor` and `feerates`. ([#6120])
  - Protocol: Not setting `option_scid_alias` in `option_channel` `channel_type` for unannounced channels. ([#6136])
- 
+
 
 ### Removed
 
@@ -2759,6 +2867,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[24.02rc1]: https://github.com/ElementsProject/lightning/releases/tag/v24.02
 [23.11]: https://github.com/ElementsProject/lightning/releases/tag/v23.11
 [23.05]: https://github.com/ElementsProject/lightning/releases/tag/v23.05
 [23.02.1]: https://github.com/ElementsProject/lightning/releases/tag/v23.02.1
