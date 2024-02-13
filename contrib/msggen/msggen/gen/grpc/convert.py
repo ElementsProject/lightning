@@ -157,10 +157,18 @@ class GrpcConverterGenerator(IGenerator):
             req = meth.request
             self.generate_composite("requests", req)
 
-    def generate_responses(self, service):
+        for notification in service.notifications:
+            req = notification.request
+            self.generate_composite("notifications::requests", req)
+
+    def generate_responses(self, service: Service):
         for meth in service.methods:
             res = meth.response
             self.generate_composite("responses", res)
+
+        for notification in service.notifications:
+            res = notification.response
+            self.generate_composite("notifications", res)
 
     def generate(self, service: Service) -> None:
         self.write(
@@ -172,6 +180,7 @@ class GrpcConverterGenerator(IGenerator):
         use std::convert::From;
         #[allow(unused_imports)]
         use cln_rpc::model::{responses,requests};
+        use cln_rpc::notifications;
         use crate::pb;
         use std::str::FromStr;
         use bitcoin::hashes::sha256::Hash as Sha256;
