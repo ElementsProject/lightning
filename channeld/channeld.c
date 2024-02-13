@@ -2946,7 +2946,8 @@ static struct amount_sat check_balances(struct peer *peer,
 {
 	struct amount_sat min_initiator_fee, min_accepter_fee,
 			  max_initiator_fee, max_accepter_fee,
-			  funding_amount_res, min_multiplied;
+			  funding_amount_res, min_multiplied,
+			  penalty_fee;
 	struct amount_msat funding_amount,
 			   initiator_fee, accepter_fee;
 	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES],
@@ -3100,14 +3101,20 @@ static struct amount_sat check_balances(struct peer *peer,
 					 calc_weight(TX_ACCEPTER, psbt));
 	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt));
+	penalty_fee = amount_tx_fee(peer->feerate_penalty,
+				    calc_weight(TX_ACCEPTER, psbt));
 
 	/* Sometimes feerate_max is some absurdly high value, in that case we
 	 * give a fee warning based of a multiple of the min value. */
 	amount_sat_mul(&min_multiplied, min_accepter_fee, 5);
 	max_accepter_fee = SAT_MIN(min_multiplied, max_accepter_fee);
+	if (amount_sat_greater(penalty_fee, max_accepter_fee))
+		max_accepter_fee = penalty_fee;
 
 	amount_sat_mul(&min_multiplied, min_initiator_fee, 5);
 	max_initiator_fee = SAT_MIN(min_multiplied, max_initiator_fee);
+	if (amount_sat_greater(penalty_fee, max_initiator_fee))
+		max_initiator_fee = penalty_fee;
 
 	/* Check initiator fee */
 	if (amount_msat_less_sat(initiator_fee, min_initiator_fee)) {
