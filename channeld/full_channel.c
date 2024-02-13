@@ -1227,7 +1227,8 @@ u32 approx_max_feerate(const struct channel *channel)
 {
 	size_t num;
 	u64 weight;
-	struct amount_sat avail;
+	struct amount_msat avail;
+	struct balance balance;
 	const struct htlc **committed, **adding, **removing;
 	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
 	bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
@@ -1241,7 +1242,18 @@ u32 approx_max_feerate(const struct channel *channel)
 	weight = commit_tx_base_weight(num, option_anchor_outputs, option_anchors_zero_fee_htlc_tx);
 
 	/* Available is their view */
-	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
+	to_balance(&balance, channel->view[!channel->opener].owed[channel->opener]);
+
+	/* But take into account any pending added htlcs (conservatively, we ignore removed ones) */
+	for (size_t i = 0; i < tal_count(adding); i++)
+		balance_add_htlc(&balance, adding[i], channel->opener);
+
+	if (!balance_ok(&balance, &avail)) {
+		status_broken("Negative balance %"PRId64" after removing %zu htlcs!",
+			      balance.msat,
+			      tal_count(removing));
+		return 0;
+	}
 
 	/* BOLT #3:
 	 * If `option_anchors` applies to the commitment
@@ -1250,16 +1262,16 @@ u32 approx_max_feerate(const struct channel *channel)
 	 * `to_remote`).
 	 */
 	if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
-	    && !amount_sat_sub(&avail, avail, AMOUNT_SAT(660))) {
-		avail = AMOUNT_SAT(0);
+	    && !amount_msat_sub_sat(&avail, avail, AMOUNT_SAT(660))) {
+		avail = AMOUNT_MSAT(0);
 	} else {
 		/* We should never go below reserve. */
-		if (!amount_sat_sub(&avail, avail,
-				    channel->config[!channel->opener].channel_reserve))
-		avail = AMOUNT_SAT(0);
+		if (!amount_msat_sub_sat(&avail, avail,
+					 channel->config[!channel->opener].channel_reserve))
+		avail = AMOUNT_MSAT(0);
 	}
 
-	return avail.satoshis / weight * 1000; /* Raw: once-off reverse feerate*/
+	return avail.millisatoshis / weight; /* Raw: once-off reverse feerate*/
 }
 
 /* Is the sum of trimmed htlcs, as this new feerate, above our
@@ -1301,9 +1313,14 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	const struct htlc **committed, **adding, **removing;
 	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
 	bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+	struct balance balance;
+	struct amount_msat available;
 
 	gather_htlcs(tmpctx, channel, !channel->opener,
 		     &committed, &removing, &adding);
+
+	status_debug("Committed %zu, removing %zu, adding %zu",
+		     tal_count(committed), tal_count(removing), tal_count(adding));
 
 	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust_limit,
 					    option_anchor_outputs,
@@ -1354,15 +1371,30 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			      type_to_string(tmpctx, struct amount_sat,
 					     &channel->config[!channel->opener].channel_reserve));
 
-	status_debug("We need %s at feerate %u for %zu untrimmed htlcs: we have %s/%s",
+	/* The amount we have needs to take into account that we're
+	 * adding and removing htlcs */
+	to_balance(&balance, channel->view[!channel->opener].owed[channel->opener]);
+	for (size_t i = 0; i < tal_count(removing); i++)
+		balance_remove_htlc(&balance, removing[i], channel->opener);
+	for (size_t i = 0; i < tal_count(adding); i++)
+		balance_add_htlc(&balance, adding[i], channel->opener);
+
+	if (!balance_ok(&balance, &available)) {
+		status_broken("Negative balance %"PRId64" after removing %zu htlcs!",
+			      balance.msat,
+			      tal_count(removing));
+		return false;
+	}
+
+	status_debug("We need %s at feerate %u for %zu untrimmed htlcs: we have %s/%s (will have %s)",
 		     type_to_string(tmpctx, struct amount_sat, &needed),
 		     feerate_per_kw, untrimmed,
 		     type_to_string(tmpctx, struct amount_msat,
 				    &channel->view[LOCAL].owed[channel->opener]),
 		     type_to_string(tmpctx, struct amount_msat,
-				    &channel->view[REMOTE].owed[channel->opener]));
-	return amount_msat_greater_eq_sat(channel->view[!channel->opener].owed[channel->opener],
-					  needed);
+				    &channel->view[REMOTE].owed[channel->opener]),
+		     type_to_string(tmpctx, struct amount_msat, &available));
+	return amount_msat_greater_eq_sat(available, needed);
 }
 
 bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
