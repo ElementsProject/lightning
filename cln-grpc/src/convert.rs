@@ -6,6 +6,7 @@
 use std::convert::From;
 #[allow(unused_imports)]
 use cln_rpc::model::{responses,requests};
+use cln_rpc::notifications;
 use crate::pb;
 use std::str::FromStr;
 use bitcoin::hashes::sha256::Hash as Sha256;
@@ -2654,6 +2655,58 @@ impl From<responses::BkprlistincomeResponse> for pb::BkprlistincomeResponse {
 }
 
 #[allow(unused_variables)]
+impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
+    fn from(c: notifications::BlockAddedNotification) -> Self {
+        Self {
+            hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.hash).to_vec(), // Rule #2 for type hash
+            height: c.height, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::ChannelOpenFailedNotification> for pb::ChannelOpenFailedNotification {
+    fn from(c: notifications::ChannelOpenFailedNotification) -> Self {
+        Self {
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotification {
+    fn from(c: notifications::ChannelOpenedNotification) -> Self {
+        Self {
+            channel_ready: c.channel_ready, // Rule #2 for type boolean
+            funding_msat: Some(c.funding_msat.into()), // Rule #2 for type msat
+            funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
+            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::ConnectNotification> for pb::ConnectNotification {
+    fn from(c: notifications::ConnectNotification) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string
+            direction: c.direction as i32,
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::CustomMsgNotification> for pb::CustomMsgNotification {
+    fn from(c: notifications::CustomMsgNotification) -> Self {
+        Self {
+            payload: hex::decode(&c.payload).unwrap(), // Rule #2 for type hex
+            peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -3842,6 +3895,46 @@ impl From<requests::BkprlistincomeRequest> for pb::BkprlistincomeRequest {
     }
 }
 
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
+    fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamChannelOpenFailedRequest> for pb::StreamChannelOpenFailedRequest {
+    fn from(c: notifications::requests::StreamChannelOpenFailedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamChannelOpenedRequest> for pb::StreamChannelOpenedRequest {
+    fn from(c: notifications::requests::StreamChannelOpenedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamConnectRequest> for pb::StreamConnectRequest {
+    fn from(c: notifications::requests::StreamConnectRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamCustomMsgRequest> for pb::StreamCustomMsgRequest {
+    fn from(c: notifications::requests::StreamCustomMsgRequest) -> Self {
+        Self {
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -5004,6 +5097,46 @@ impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamBlockAddedRequest> for notifications::requests::StreamBlockAddedRequest {
+    fn from(c: pb::StreamBlockAddedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamChannelOpenFailedRequest> for notifications::requests::StreamChannelOpenFailedRequest {
+    fn from(c: pb::StreamChannelOpenFailedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamChannelOpenedRequest> for notifications::requests::StreamChannelOpenedRequest {
+    fn from(c: pb::StreamChannelOpenedRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamConnectRequest> for notifications::requests::StreamConnectRequest {
+    fn from(c: pb::StreamConnectRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamCustomMsgRequest> for notifications::requests::StreamCustomMsgRequest {
+    fn from(c: pb::StreamCustomMsgRequest) -> Self {
+        Self {
         }
     }
 }
