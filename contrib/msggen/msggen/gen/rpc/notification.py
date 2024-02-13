@@ -43,3 +43,10 @@ class NotificationGenerator(IGenerator):
         for notification in service.notifications:
             _, resp_decl = gen_composite(notification.response)
             self.write(resp_decl)
+
+        self.write("pub mod requests{\n")
+        self.write("    use serde::{Serialize, Deserialize};\n\n")
+        for notification in service.notifications:
+            _, req_decl = gen_composite(notification.request)
+            self.write(req_decl, numindent=1)
+        self.write("}\n")

@@ -138,7 +138,7 @@ class GrpcConverterGenerator(IGenerator):
         # with the 'title' method and join them together.
         return components[0] + ''.join(x.title() for x in components[1:])
 
-    def generate_requests(self, service):
+    def generate_requests(self, service : Service):
         for meth in service.methods:
             req = meth.request
             self.generate_composite("requests", req)
