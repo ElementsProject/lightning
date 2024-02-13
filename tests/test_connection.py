@@ -3376,9 +3376,9 @@ def test_feerate_spam(node_factory, chainparams):
     # Now change feerates to something l1 can't afford.
     l1.set_feerates((200000, 200000, 200000, 200000))
 
-    # It will raise as far as it can (30000)
+    # It will raise as far as it can (30551)
     if 'anchors_zero_fee_htlc_tx/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
-        maxfeerate = 30000
+        maxfeerate = 30551
     else:
         maxfeerate = 48000
     l1.daemon.wait_for_log('Setting REMOTE feerate to {}'.format(maxfeerate))
