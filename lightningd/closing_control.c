@@ -702,18 +702,19 @@ static struct command_result *json_close(struct command *cmd,
 	/* If we've set a local shutdown script for this peer, and it's not the
 	 * default upfront script, try to close to a different channel.
 	 * Error is an operator error */
-	if (close_to_script && channel->shutdown_scriptpubkey[LOCAL]
-			&& !memeq(close_to_script,
-				  tal_count(close_to_script),
-				  channel->shutdown_scriptpubkey[LOCAL],
-				  tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
+	if (close_to_script
+	    && channel->shutdown_scriptpubkey[LOCAL]
+	    && !memeq(close_to_script,
+		      tal_count(close_to_script),
+		      channel->shutdown_scriptpubkey[LOCAL],
+		      tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
 		u8 *default_close_to = NULL;
 		if (anysegwit)
 			default_close_to = p2tr_for_keyidx(tmpctx, cmd->ld,
-							  				   channel->final_key_idx);
+							   channel->final_key_idx);
 		else
-            default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
-							  					 channel->final_key_idx);
+			default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
+							     channel->final_key_idx);
 		if (!memeq(default_close_to, tal_count(default_close_to),
 			   channel->shutdown_scriptpubkey[LOCAL],
 			   tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
