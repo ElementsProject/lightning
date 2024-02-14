@@ -4034,7 +4034,6 @@ def test_closing_cpfp(node_factory, bitcoind):
         assert len(l2.rpc.listfunds()['outputs']) == 1
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
 def test_closing_no_anysegwit_retry(node_factory, bitcoind):
     """Sure, we reject the first time, but let them try again!"""
