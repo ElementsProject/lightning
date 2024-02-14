@@ -637,9 +637,9 @@ static struct command_result *json_close(struct command *cmd,
 	struct channel *channel;
 	unsigned int *timeout;
 	const u8 *close_to_script = NULL;
-	u32 *final_index;
-	u32 index_val;
-	bool close_script_set, wrong_funding_changed, *force_lease_close;
+	u32 final_key_idx;
+	struct ext_key final_ext_key;
+	bool *force_lease_close;
 	const char *fee_negotiation_step_str;
 	struct bitcoin_outpoint *wrong_funding;
 	u32 *feerate_range;
@@ -686,79 +686,66 @@ static struct command_result *json_close(struct command *cmd,
 				    channel->lease_expiry,
 				    get_block_height(cmd->ld->topology));
 
-	/* Set the wallet index to the default value; it is updated
-	 * below if the close_to_script is found to be in the
-	 * wallet. If the close_to_script is not in the wallet
-	 * final_index will be set to NULL instead.*/
+	/* Note: we don't change the channel until we're sure we succeed! */
 	assert(channel->final_key_idx <= UINT32_MAX);
-	index_val = (u32) channel->final_key_idx;
-	final_index = &index_val;
+
+	if (close_to_script) {
+		bool is_p2sh;
+
+		if (!tal_arr_eq(close_to_script, channel->shutdown_scriptpubkey[LOCAL])) {
+			const u8 *defp2tr, *defp2wpkh;
+			/* We cannot change the closing script once we've
+			 * started shutdown: onchaind relies on it for output
+			 * detection.  However, we now set it at channel
+			 * creation time, because we (ab)use it for the
+			 * penalty output for watchtowers.  So allow override
+			 * here if we're not already closing, unless it's not
+			 * the expected one, which would imply it was promised
+			 * in open_channel/accept_channel so cannot be
+			 * changed.*/
+			if (channel_state_closing(channel->state)) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Destination address %s does not match "
+						    "already-sent shutdown script %s",
+						    tal_hex(tmpctx, channel->shutdown_scriptpubkey[LOCAL]),
+						    tal_hex(tmpctx, close_to_script));
+			}
+
+			defp2tr = p2tr_for_keyidx(tmpctx, channel->peer->ld, channel->final_key_idx);
+			defp2wpkh = p2wpkh_for_keyidx(tmpctx, channel->peer->ld, channel->final_key_idx);
+
+			if (!tal_arr_eq(channel->shutdown_scriptpubkey[LOCAL], defp2tr)
+			    && !tal_arr_eq(channel->shutdown_scriptpubkey[LOCAL], defp2wpkh)) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Destination address %s does not match "
+						    "previous shutdown script %s",
+						    tal_hex(tmpctx, channel->shutdown_scriptpubkey[LOCAL]),
+						    tal_hex(tmpctx, close_to_script));
+			}
+		}
+
+		/* If they give a local address, adjust final_key_idx. */
+		if (!wallet_can_spend(cmd->ld->wallet, close_to_script,
+				      &final_key_idx, &is_p2sh)) {
+			final_key_idx = channel->final_key_idx;
+		}
+	} else {
+		close_to_script = tal_dup_talarr(tmpctx, u8, channel->shutdown_scriptpubkey[LOCAL]);
+		final_key_idx = channel->final_key_idx;
+	}
 
 	/* Don't send a scriptpubkey peer won't accept */
 	anysegwit = !chainparams->is_elements && feature_negotiated(cmd->ld->our_features,
 				       channel->peer->their_features,
 				       OPT_SHUTDOWN_ANYSEGWIT);
 
-	/* If we've set a local shutdown script for this peer, and it's not the
-	 * default upfront script, try to close to a different channel.
-	 * Error is an operator error */
-	if (close_to_script
-	    && channel->shutdown_scriptpubkey[LOCAL]
-	    && !memeq(close_to_script,
-		      tal_count(close_to_script),
-		      channel->shutdown_scriptpubkey[LOCAL],
-		      tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
-		u8 *default_close_to = NULL;
-		if (anysegwit)
-			default_close_to = p2tr_for_keyidx(tmpctx, cmd->ld,
-							   channel->final_key_idx);
-		else
-			default_close_to = p2wpkh_for_keyidx(tmpctx, cmd->ld,
-							     channel->final_key_idx);
-		if (!memeq(default_close_to, tal_count(default_close_to),
-			   channel->shutdown_scriptpubkey[LOCAL],
-			   tal_count(channel->shutdown_scriptpubkey[LOCAL]))) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Destination address %s does not match "
-					    "previous shutdown script %s",
-					    tal_hex(tmpctx, channel->shutdown_scriptpubkey[LOCAL]),
-					    tal_hex(tmpctx, close_to_script));
-		} else {
-			channel->shutdown_scriptpubkey[LOCAL] =
-				tal_free(channel->shutdown_scriptpubkey[LOCAL]);
-			channel->shutdown_scriptpubkey[LOCAL] =
-				tal_steal(channel, close_to_script);
-			close_script_set = true;
-		}
-	} else if (close_to_script && !channel->shutdown_scriptpubkey[LOCAL]) {
-		channel->shutdown_scriptpubkey[LOCAL]
-			= tal_steal(channel, cast_const(u8 *, close_to_script));
-		close_script_set = true;
-		/* Is the close script in our wallet? */
-		bool is_p2sh;
-		if (wallet_can_spend(
-			    cmd->ld->wallet,
-			    channel->shutdown_scriptpubkey[LOCAL],
-			    &index_val,
-			    &is_p2sh)) {
-			/* index_val has been set to the discovered wallet index */
-		} else {
-			final_index = NULL;
-		}
-	} else if (!channel->shutdown_scriptpubkey[LOCAL]) {
-		channel->shutdown_scriptpubkey[LOCAL]
-			= p2wpkh_for_keyidx(channel, cmd->ld, channel->final_key_idx);
-		/* We don't save the default to disk */
-		close_script_set = false;
-	} else
-		close_script_set = false;
-
-	if (!valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey[LOCAL],
-					 anysegwit, false)) {
+	/* In theory, this could happen if the peer had anysegwit when channel was
+	 * established, and doesn't now.  Doesn't happen, and if it did we could
+	 * provide a new address manually. */
+	if (!valid_shutdown_scriptpubkey(close_to_script, anysegwit, false)) {
 		/* Explicit check for future segwits. */
 		if (!anysegwit &&
-		    valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey
-						[LOCAL], true, false)) {
+		    valid_shutdown_scriptpubkey(close_to_script, true, false)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Peer does not allow v1+ shutdown addresses");
 		}
@@ -767,6 +754,16 @@ static struct command_result *json_close(struct command *cmd,
 				    "Invalid close destination");
 	}
 
+	if (bip32_key_from_parent(channel->peer->ld->bip32_base,
+				  final_key_idx,
+				  BIP32_FLAG_KEY_PUBLIC,
+				  &final_ext_key) != WALLY_OK) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not derive final_ext_key");
+	}
+
+	/* We change closing_fee_negotiation_step et al before we're sure, but it gets
+	 * overridden every time anyway */
 	if (fee_negotiation_step_str == NULL) {
 		channel->closing_fee_negotiation_step = 50;
 		channel->closing_fee_negotiation_step_unit =
@@ -818,17 +815,6 @@ static struct command_result *json_close(struct command *cmd,
 							    OPT_SHUTDOWN_WRONG_FUNDING)
 					    ? "yes" : "no");
 		}
-
-		wrong_funding_changed = true;
-		channel->shutdown_wrong_funding
-			= tal_steal(channel, wrong_funding);
-	} else {
-		if (channel->shutdown_wrong_funding) {
-			channel->shutdown_wrong_funding
-				= tal_free(channel->shutdown_wrong_funding);
-			wrong_funding_changed = true;
-		} else
-			wrong_funding_changed = false;
 	}
 
 	/* May already be set by previous close cmd. */
@@ -862,29 +848,14 @@ static struct command_result *json_close(struct command *cmd,
 				u8 *msg;
 				if (streq(channel->owner->name, "dualopend")) {
 					msg = towire_dualopend_send_shutdown(
-						NULL,
-						channel->shutdown_scriptpubkey[LOCAL]);
+						NULL, close_to_script);
 				} else {
-					struct ext_key ext_key_val;
-					struct ext_key *final_ext_key = NULL;
-					if (final_index) {
-						if (bip32_key_from_parent(
-							    channel->peer->ld->bip32_base,
-							    *final_index,
-							    BIP32_FLAG_KEY_PUBLIC,
-							    &ext_key_val) != WALLY_OK) {
-							return command_fail(
-								cmd, LIGHTNINGD,
-								"Could not derive final_ext_key");
-						}
-						final_ext_key = &ext_key_val;
-					}
 					msg = towire_channeld_send_shutdown(
 						NULL,
-						final_index,
-						final_ext_key,
-						channel->shutdown_scriptpubkey[LOCAL],
-						channel->shutdown_wrong_funding);
+						&final_key_idx,
+						&final_ext_key,
+						close_to_script,
+						wrong_funding);
 				}
 				subd_send_msg(channel->owner, take(msg));
 			}
@@ -905,13 +876,19 @@ static struct command_result *json_close(struct command *cmd,
 					    channel_state_name(channel));
 	}
 
+	/* Now we have queued everything, we can commit channel changes. */
+	tal_free(channel->shutdown_scriptpubkey[LOCAL]);
+	channel->shutdown_scriptpubkey[LOCAL] = tal_steal(channel, close_to_script);
+	channel->final_key_idx = final_key_idx;
+
+	tal_free(channel->shutdown_wrong_funding);
+	channel->shutdown_wrong_funding = tal_steal(channel, wrong_funding);
+
 	/* Register this command for later handling. */
 	register_close_command(cmd->ld, cmd, channel, *timeout);
 
-	/* If we set `channel->shutdown_scriptpubkey[LOCAL]` or
-	 * changed shutdown_wrong_funding, save it. */
-	if (close_script_set || wrong_funding_changed)
-		wallet_channel_save(cmd->ld->wallet, channel);
+	/* In case we changed anything, save it. */
+	wallet_channel_save(cmd->ld->wallet, channel);
 
 	/* Wait until close drops down to chain. */
 	return command_still_pending(cmd);
