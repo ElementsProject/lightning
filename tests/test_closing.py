@@ -4032,3 +4032,19 @@ def test_closing_cpfp(node_factory, bitcoind):
         assert len(l2.rpc.listfunds()['outputs']) == 2
     else:
         assert len(l2.rpc.listfunds()['outputs']) == 1
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
+def test_closing_no_anysegwit_retry(node_factory, bitcoind):
+    """Sure, we reject the first time, but let them try again!"""
+    # L2 says "no option_shutdown_anysegwit"
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                              {'may_reconnect': True,
+                                               'dev-force-features': -27}])
+
+    with pytest.raises(RpcError, match=r'Peer does not allow v1\+ shutdown addresses'):
+        l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
+
+    oldaddr = l1.rpc.newaddr()['bech32']
+    l1.rpc.close(l2.info['id'], destination=oldaddr)
