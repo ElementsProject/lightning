@@ -1,31 +1,54 @@
 lightning-addgossip -- Command for injecting a gossip message (low-level)
-===============================================================
+=========================================================================
 
 SYNOPSIS
 --------
 
-**addgossip** *message*
+**addgossip** *message* 
 
 DESCRIPTION
 -----------
 
-The **addgossip** RPC command injects a hex-encoded gossip message into
-the gossip daemon.  It may return an error if it is malformed, or may
-update its internal state using the gossip message.
+The **addgossip** RPC command injects a hex-encoded gossip message into the gossip daemon. It may return an error if it is malformed, or may update its internal state using the gossip message.
 
-Note that currently some paths will still silently reject the gossip: it
-is best effort.
+Note that currently some paths will still silently reject the gossip: it is best effort.
 
-This is particularly used by plugins which may receive channel\_update
-messages within error replies.
+This is particularly used by plugins which may receive channel\_update messages within error replies.
+
+- **message** (hex): The raw, hex-encoded, gossip message to add to the local gossip view.
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:addgossip#1",
+  "method": "addgossip",
+  "params": {
+    "message": "010078c3314666731e339c0b8434f7824797a084ed7ca3655991a672da068e2c44cb53b57b53a296c133bc879109a8931dc31e6913a4bda3d58559b99b95663e6d52775579447ef5526300e1bb89bc6af8557aa1c3810a91814eafad6d103f43182e17b16644cb38c1d58a8edd094303959a9f1f9d42ff6c32a21f9c118531f512c8679cabaccc6e39dbd95a4dac90e75a258893c3aa3f733d1b8890174d5ddea8003cadffe557773c54d2c07ca1d535c4bf85885f879ae466c16a516e8ffcfec1740e3f5c98ca9ce13f452e867befef5517f306ed6aa5119b79059bcc6f68f329986b665d16de7bc7df64e3537504c91eeabe0e59d3a2b68e4216ead2b0f6e3ef7c000006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f0000670000010000022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d590266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c0351802e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5702324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b"
+  }
+}
+{
+  "id": "example:addgossip#2",
+  "method": "addgossip",
+  "params": {
+    "message": "0102420526c8eb62ec6999bbee5f1de4841cab734374ec642b7deeb0259e76220bf82e97a241c907d5ff52019655f7f9a614c285bb35690f3a1a2b928d7b2349a79e06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f000067000001000065b32a0e010100060000000000000000000000010000000a000000003b023380"
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{}
+{}
+```
 
 AUTHOR
 ------
@@ -41,5 +64,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:b0793c2fa864b0ce3bc6f1618135f28ac551dfd1b8a0127caac73fd948e62d9d)

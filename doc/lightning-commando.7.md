@@ -4,21 +4,130 @@ lightning-commando -- Command to Send a Command to a Remote Peer
 SYNOPSIS
 --------
 
-**commando** *peer\_id* *method* [*params*] [*rune*]
+**commando** *peer\_id* *method* [*params*] [*rune*] [*filter*] 
 
 DESCRIPTION
 -----------
 
-The **commando** RPC command is a homage to bad 80s movies.  It also
-sends a directly-connected *peer\_id* a custom message, containing a
-request to run *method* (with an optional dictionary of *params*);
-generally the peer will only allow you to run a command if it has
-provided you with a *rune* which allows it.
+The **commando** RPC command is a homage to bad 80s movies. It also sends a directly-connected *peer\_id* a custom message, containing a request to run *method* (with an optional dictionary of *params*); generally the peer will only allow you to run a command if it has provided you with a *rune* which allows it.
+
+- **peer\_id** (pubkey): Peer to command.
+- **method** (string): Method to invoke on peer.
+- **params** (one of, optional):
+  - (array): Array of positional parameters.
+  - (object): Parameters for method.:
+- **rune** (string, optional): Rune to authorize the command.
+- **filter** (object, optional): Filter to peer to apply to any successful result.:
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:commando#1",
+  "method": "commando",
+  "params": {
+    "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+    "rune": "zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+    "method": "getinfo",
+    "params": {}
+  }
+}
+{
+  "id": "example:commando#2",
+  "method": "commando",
+  "params": {
+    "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+    "rune": "m_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv",
+    "method": "listpeers",
+    "params": [
+      "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "broken"
+    ]
+  }
+}
+{
+  "id": "example:commando#3",
+  "method": "commando",
+  "params": {
+    "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+    "rune": "b3hXuEM7Pqzk-C7HUw83xzvHOV7fmuGaWjdo-wHdfg89MCZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+    "method": "pay",
+    "params": {
+      "bolt11": "lnbcrt1pja05v6sp5n6gnm380ckkrnhzvytz0hvym0vcf0mlrk586nlp72cq7e2hhhffspp5cwhuvl4jhlqep3st2703z89jp7j6wucm8ytlj7rk9ckk0mv7whysdq5v3jhxcmjd9c8g6t0dceqxqyjw5qcqp99qxpqysgq40udwjtktkry0yyq9408q5vtmj534h88j5nn562lamam0rtfqfu3093t2dhhc63qnqe5maa5jc9ad5pm08q2k2udvp6skw9f6ez9c9qptatlau",
+      "amount_msat": 9999
+    }
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
 On success, the return depends on the *method* invoked.
+
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+  "alias": "JUNIORBEAM-v23.11-415-gd120eba",
+  "color": "0266e4",
+  "num_peers": 1,
+  "num_pending_channels": 0,
+  "num_active_channels": 0,
+  "num_inactive_channels": 0,
+  "address": [],
+  "binding": [
+    {
+      "type": "ipv4",
+      "address": "127.0.0.1",
+      "port": 42513
+    }
+  ],
+  "version": "v23.11-415-gd120eba",
+  "blockheight": 101,
+  "network": "regtest",
+  "fees_collected_msat": 0,
+  "lightning-dir": "/tmp/ltests-7u_8_rtu/test_commando_rune_1/lightning-1/regtest",
+  "our_features": {
+    "init": "08a0000a8a5961",
+    "node": "88a0000a8a5961",
+    "channel": "",
+    "invoice": "02000002024100"
+  }
+}
+{
+  "peers": [
+    {
+      "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+      "connected": true,
+      "num_channels": 0,
+      "netaddr": [
+        "127.0.0.1:40119"
+      ],
+      "features": "08a0000a8a5961",
+      "log": [
+        {
+          "type": "SKIPPED",
+          "num_skipped": 30
+        }
+      ]
+    }
+  ]
+}
+{
+  "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+  "payment_hash": "c3afc67eb2bfc190c60b579f111cb20fa5a7731b3917f978762e2d67ed9e75c9",
+  "created_at": 1708642714.8110592,
+  "parts": 1,
+  "amount_msat": 9999,
+  "amount_sent_msat": 9999,
+  "payment_preimage": "17632717785b1a833a296ba1831cb968602872e68881c2f324e06e87979296dc",
+  "status": "complete"
+}
+```
 
 ERRORS
 ------
@@ -30,17 +139,14 @@ On failure, one of the following error codes may be returned:
 - 19536: the remote commando plugin discovered an error.
 - 19537: the remote commando plugin said we weren't authorized.
 
-It can also fail if the peer does not respond, in which case it will simply
-hang awaiting a response.
+It can also fail if the peer does not respond, in which case it will simply hang awaiting a response.
 
 AUTHOR
 ------
 
-Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python
-commando.py plugin, the in-tree commando plugin, and this manual page.
+Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.
 
-Christian Decker came up with the name "commando", which almost
-excuses his previous adoption of the name "Eltoo".
+Christian Decker came up with the name "commando", which almost excuses his previous adoption of the name "Eltoo".
 
 SEE ALSO
 --------
@@ -51,5 +157,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:6f4406cae30cab813b3bf4e1242af914276716a057e558474e29340665ee8c2f)

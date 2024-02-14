@@ -1,28 +1,45 @@
 lightning-staticbackup -- Command for deriving getting SCB of all the existing channels
-======================================================================================
+=======================================================================================
 
 SYNOPSIS
 --------
 
-**staticbackup**
+**staticbackup** 
 
 DESCRIPTION
 -----------
 
 The **staticbackup** RPC command returns an object with SCB of all the channels in an array.
 
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:staticbackup#1",
+  "method": "staticbackup",
+  "params": "{}"
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
 - **scb** (array of hexs):
-  - SCB of a channel in TLV format
+  - (hex, optional): SCB of a channel in TLV format.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
 
+```json
+{
+  "scb": [
+    "0000000000000001c707da9b230e1655b0a6c082b8daf4fa44d9d1f68163ed4d531d45cf453dc651022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5900017f000001b2e3c707da9b230e1655b0a6c082b8daf4fa44d9d1f68163ed4d531d45cf453dc6510000000000000000000186a000021000"
+  ]
+}
+```
 
 AUTHOR
 ------
@@ -38,5 +55,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:2d991663ce45ada109fd8b0bfca5cee3c9f4f59503d63a5f5b1f669f83cefc67)

@@ -1,5 +1,5 @@
 lightning-blacklistrune -- Command to prevent a rune from working
-==============================================================
+=================================================================
 
 SYNOPSIS
 --------
@@ -9,22 +9,87 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
+Command *added* in v23.08.
+
 The **blacklistrune** RPC command allows you to effectively revoke the rune you have created (and any runes derived from that rune with additional restictions). Attempting to use these runes will be resulted in a `Blacklisted rune` error message.
 
 Destroy a rune like in olden times with the **destroyrune** command.
 
 All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted.
 
+- **start** (u64, optional): First rune unique id to blacklist.
+- **end** (u64, optional): Final rune unique id to blacklist (defaults to start).
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:blacklistrune#1",
+  "method": "blacklistrune",
+  "params": {
+    "start": 2
+  }
+}
+{
+  "id": "example:blacklistrune#2",
+  "method": "blacklistrune",
+  "params": {
+    "start": 5,
+    "end": 7
+  }
+}
+{
+  "id": "example:blacklistrune#3",
+  "method": "blacklistrune",
+  "params": {
+    "start": 3,
+    "end": 4
+  }
+}
+```
+
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
-On success, an object containing **blacklist** is returned.  It is an array of objects, where each object contains:
+On success, an object containing **blacklist** is returned. It is an array of objects, where each object contains:
 
-- **start** (u64): Unique id of first rune in this blacklist range
-- **end** (u64): Unique id of last rune in this blacklist range
+- **start** (u64): Unique id of first rune in this blacklist range.
+- **end** (u64): Unique id of last rune in this blacklist range.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "blacklist": [
+    {
+      "start": 2,
+      "end": 2
+    }
+  ]
+}
+{
+  "blacklist": [
+    {
+      "start": 2,
+      "end": 2
+    },
+    {
+      "start": 5,
+      "end": 7
+    }
+  ]
+}
+{
+  "blacklist": [
+    {
+      "start": 2,
+      "end": 7
+    }
+  ]
+}
+```
 
 AUTHOR
 ------
@@ -40,5 +105,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:7f9e7ab72e0e8d6e7cc59c560a274ffcfd5d257c73e37866d05ffa74d587fb3f)

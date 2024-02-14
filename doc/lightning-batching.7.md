@@ -4,24 +4,21 @@ lightning-batching -- Command to allow database batching.
 SYNOPSIS
 --------
 
-**batching** *enable*
+**batching** *enable* 
 
 DESCRIPTION
 -----------
 
-The **batching** RPC command allows (but does not guarantee!) database
-commitments to be deferred when multiple commands are issued on this RPC
-connection.  This is only useful if many commands are being given at once, in
-which case it can offer a performance improvement (the cost being that if
-there is a crash, it's unclear how many of the commands will have been
-persisted).
+The **batching** RPC command allows (but does not guarantee!) database commitments to be deferred when multiple commands are issued on this RPC connection. This is only useful if many commands are being given at once, in which case it can offer a performance improvement (the cost being that if there is a crash, it's unclear how many of the commands will have been persisted).
+
+- **enable** (boolean): Whether to enable or disable transaction batching. The default is False.
 
 EXAMPLE JSON REQUEST
 --------------------
 
 ```json
 {
-  "id": 82,
+  "id": "example:batching#1",
   "method": "batching",
   "params": {
     "enable": true
@@ -32,10 +29,14 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{}
+```
 
 ERRORS
 ------
@@ -53,5 +54,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:b0793c2fa864b0ce3bc6f1618135f28ac551dfd1b8a0127caac73fd948e62d9d)

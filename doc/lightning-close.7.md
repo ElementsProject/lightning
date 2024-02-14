@@ -4,54 +4,114 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* [*unilateraltimeout*] [*destination*] [*fee\_negotiation\_step*] [*wrong\_funding*] [*force\_lease\_closed*] [*feerange*]
+**close** *id* [*unilateraltimeout*] [*destination*] [*fee\_negotiation\_step*] [*wrong\_funding*] [*force\_lease\_closed*] [*feerange*] 
 
 DESCRIPTION
 -----------
 
-The **close** RPC command attempts to close the channel cooperatively
-with the peer, or unilaterally after *unilateraltimeout*, and the
-to-local output will be sent to the address specified in *destination*.
+The **close** RPC command attempts to close the channel cooperatively with the peer, or unilaterally after *unilateraltimeout*, and the to-local output will be sent to the address specified in *destination*.
 
-The peer needs to be live and connected in order to negotiate a mutual
-close. The default of unilaterally closing after 48 hours is usually a
-reasonable indication that you can no longer contact the peer.
+The peer needs to be live and connected in order to negotiate a mutual close. The default of unilaterally closing after 48 hours is usually a reasonable indication that you can no longer contact the peer.
+
+- **id** (string): Peer id, channel id or short\_channel\_id. If the given *id* is a peer ID (66 hex digits as a string), then it applies to the active channel of the direct peer corresponding to the given peer ID. If the given *id* is a channel ID (64 hex digits as a string, or the short channel ID *blockheight:txindex:outindex* form), then it applies to that channel.
+- **unilateraltimeout** (u32, optional): If it is not zero, the command will unilaterally close the channel when that number of seconds is reached. If *unilateraltimeout* is zero, then the command will wait indefinitely until the peer is online and can negotiate a mutual close. The default is 2 days (172800 seconds).
+- **destination** (string, optional): Any Bitcoin bech32 type. If the peer hasn't offered the option\_shutdown\_anysegwit feature, then taproot addresses (or other v1+ segwit) are not allowed. Tell your friends to upgrade! The default is a Core Lightning wallet address.
+- **fee\_negotiation\_step** (string, optional): It controls how closing fee negotiation is performed assuming the peer proposes a fee that is different than our estimate. (Note that modern peers use the quick-close protocol which does not allow negotiation: see *feerange* instead).
+ 
+ On every negotiation step we must give up some amount from our proposal towards the peer's proposal. This parameter can be an integer in which case it is interpreted as number of satoshis to step at a time. Or it can be an integer followed by `%` to designate a percentage of the interval to give up. A few examples, assuming the peer proposes a closing fee of 3000 satoshi and our estimate shows it must be 4000:
+     * `10`: our next proposal will be 4000-10=3990.
+     * `10%`: our next proposal will be 4000-(10% of (4000-3000))=3900.
+     * '1': our next proposal will be 3999. This is the most extreme case when we insist on our fee as much as possible.
+     * `100%`: our next proposal will be 3000. This is the most relaxed case when we quickly accept the peer's proposal. The default is `50%`.
+- **wrong\_funding** (outpoint, optional): It can only be specified if both sides have offered the `shutdown_wrong_funding` feature (enabled by the **experimental-shutdown-wrong-funding** option). It must be a transaction id followed by a colon then the output number. Instead of negotiating a shutdown to spend the expected funding transaction, the shutdown transaction will spend this output instead. This is only allowed if this peer opened the channel and the channel is unused: it can rescue openings which have been manually miscreated.
+- **force\_lease\_closed** (boolean, optional): If the channel has funds leased to the peer (option\_will\_fund), we prevent initiation of a mutual close unless this flag is passed in. The default is False.
+- **feerange** (array of feerates, optional): An optional array [ *min*, *max* ], indicating the minimum and maximum feerates to offer: the peer will obey these if it supports the quick-close protocol. *slow* and *unilateral\_close* are the defaults. Note that the maximum fee will be capped at the final commitment transaction fee (unless the experimental anchor-outputs option is negotiated).:
+  - (feerate, optional)
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:close#1",
+  "method": "close",
+  "params": {
+    "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+    "unilateraltimeout": 1,
+    "destination": null,
+    "fee_negotiation_step": null,
+    "force_lease_closed": null,
+    "feerange": null
+  }
+}
+{
+  "id": "example:close#2",
+  "method": "close",
+  "params": {
+    "id": "103x1x0",
+    "unilateraltimeout": null,
+    "destination": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
+    "fee_negotiation_step": null,
+    "force_lease_closed": null,
+    "feerange": null
+  }
+}
+{
+  "id": "example:close#3",
+  "method": "close",
+  "params": [
+    "107x1x0",
+    null,
+    "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg"
+  ]
+}
+```
 
 NOTES
 -----
 
-Prior to 0.7.2, **close** took two parameters: *force* and *timeout*.
-*timeout* was the number of seconds before *force* took effect (default,
-30), and *force* determined whether the result was a unilateral close or
-an RPC error (default). Even after the timeout, the channel would be
-closed if the peer reconnected.
+Prior to 0.7.2, **close** took two parameters: *force* and *timeout*. *timeout* was the number of seconds before *force* took effect (default, 30), and *force* determined whether the result was a unilateral close or an RPC error (default). Even after the timeout, the channel would be closed if the peer reconnected.
 
 NOTIFICATIONS
 -------------
 
-Notifications may be returned indicating what is going on, especially
-if the peer is offline and we are waiting.
+Notifications may be returned indicating what is going on, especially if the peer is offline and we are waiting.
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **type** (string): Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel (one of "mutual", "unilateral", "unopened")
+- **type** (string) (one of "mutual", "unilateral", "unopened"): Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel.
 
 If **type** is "mutual" or "unilateral":
+  - **tx** (hex): The raw bitcoin transaction used to close the channel (if it was open).
+  - **txid** (txid): The transaction id of the *tx* field.
 
-  - **tx** (hex): the raw bitcoin transaction used to close the channel (if it was open)
-  - **txid** (txid): the transaction id of the *tx* field
+A unilateral close may still occur at any time if the peer did not behave correctly during the close negotiation.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+Unilateral closes will return your funds after a delay. The delay will vary based on the peer *to\_self\_delay* setting, not your own setting.
 
-A unilateral close may still occur at any time if the peer did not
-behave correctly during the close negotiation.
+EXAMPLE JSON RESPONSE
+---------------------
 
-Unilateral closes will return your funds after a delay. The delay will
-vary based on the peer *to\_self\_delay* setting, not your own setting.
+```json
+{
+  "tx": "020000000001018d388ffcd216c92d25163a62096ce47d5c9bbd6270ced51c5a1484f89df33e5700000000009db0e28002a00f00000000000016001445503fa4b65ade3ffdb1a92057688456c9ffae1380130f0000000000220020be82765fdb17fd5568f2dd31c6cf1aabc620ef338995ec5d9a2f3e42f43ae4870400473044022058dcde893655f40fc8162a79596440ef3e304273f8d530401fc17bc92c58159b0220428900ca6537538ba237d569a4a09003d663a991aeb331a9f18dfe807ee78806014730440220111270eeed8b4b1a231d3ce6e0e0daad718623ad159a0fd3781fb18118a8fec70220539826ee7c76cad4116d1d8852329f80314b3434cf21c765d8004186451a4cd50147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9c3ed620",
+  "txid": "5d8d917dd7d39fe5a12f121457fc6d712b5e393ed4f16bc8f5976fc08cbbfecd",
+  "type": "unilateral"
+}
+{
+  "tx": "0200000000010132cbce7d5f96b4003c3b5c0eab2a29fef90bb6abb833ff312fa122f31e8301810000000000ffffffff02a0860100000000002251205779a060f200d40e8f871a40eb91614cc5bfa6d0a5f852e053400a7feff8615005b10d0000000000160014c9096d43f408ea526020262ccdad7c8516b92a81040047304402207e171d056e81cf8ad2d5a613ecbaa212d5dcbd0bf713145d18911d2cbe9d858802206222911660a26d7ffddc2563ae6d41d6ffad9fbd2fc26cf40eab501a31153b9e0147304402204ae7cdc68dc7966eab73f16a1978643336333d54ae0b6f87bc11a2c19174a9710220601e5276aee0825466cc272c4eb7d353b393ef0dd230d303f46772790dee19190147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae00000000",
+  "txid": "4a08e0508e2e39ea033fab5f77b318337f345550421799f6e0eb1b15a892eda4",
+  "type": "mutual"
+}
+{
+  "tx": "02000000000101233b513665836d240423f45ffcd1fe19aeb08d62303fa5382ad3285f770683a60000000000ffffffff02a086010000000000225120b47216ab60a0fad97de0ba9b8b370d281dfe55f552d82034e2a8d054c2246e4405b10d0000000000160014c9096d43f408ea526020262ccdad7c8516b92a81040047304402207a9e3ca258861b33827d91514690a757e76730ba8c15dd222340bb13d993a1a502204d0ae329273b69abe62df1ffccce808d5f1a29101a8ee95dae99888376dbaef801473044022033c03f406db9f1c9d924cfd8f6ea42d0962f0ab02e3217aef518aea517ca5ba40220076e2af9d40c676316a2765a86f9efd481de3fc4465ceba33b0782c505ae3452014752210212284c004a3d24146e54b2a24db48f650370a08e1fe9abe8ff41f92b09cd50542102a3032ef980cc735579aa5295d927b9a1bdbafc459f2da14163dc9bd530e0a21152ae00000000",
+  "txid": "d44a1374a30c1a936d2d4fdbe73c0ffff42fec8c27c6cbaec2758b3042f61d08",
+  "type": "mutual"
+}
+```
 
 AUTHOR
 ------
@@ -61,11 +121,9 @@ ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-disconnect(7), lightning-fundchannel(7), lightningd-config(5).
+lightning-disconnect(7), lightning-fundchannel(7), lightningd-config(5)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:958a08abbec73812611f72c25b656bc6095fe1d9ff7b5447d0da661151335871)

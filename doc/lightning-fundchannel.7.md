@@ -4,107 +4,145 @@ lightning-fundchannel -- Command for establishing a lightning channel
 SYNOPSIS
 --------
 
-**fundchannel** *id* *amount* [*feerate*] [*announce*] [*minconf*]
-[*utxos*] [*push\_msat*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
-[*reserve*] [*channel\_type*]
+**fundchannel** *id* *amount* [*feerate*] [*announce*] [*minconf*] [*push\_msat*] [*close\_to*] [*request\_amt*] [*compact\_lease*] [*utxos*] [*mindepth*] [*reserve*] [*channel\_type*] 
 
 DESCRIPTION
 -----------
 
-The **fundchannel** RPC command opens a payment channel with a peer by committing a 
-funding transaction to the blockchain as defined in BOLT #2.
+The **fundchannel** RPC command opens a payment channel with a peer by committing a funding transaction to the blockchain as defined in BOLT #2.
 
-If not already connected, **fundchannel** will automatically attempt to connect if 
-Core Lightning knows a way to contact the node (either from normal gossip, or from 
-a previous **connect** call).
+If not already connected, **fundchannel** will automatically attempt to connect if Core Lightning knows a way to contact the node (either from normal gossip, or from a previous **connect** call).
 
-This auto-connection can fail if Core Lightning does not know how to contact the 
-target node; see lightning-connect(7).
+This auto-connection can fail if Core Lightning does not know how to contact the target node; see lightning-connect(7).
 
-*feerate* is an optional feerate used for the opening transaction and
-(unless *option\_anchors\_zero\_fee\_htlc\_tx* is negotiated), as initial feerate
-for commitment and HTLC transactions (see NOTES in lightning-feerates(7)).
-The default is *normal*.
+Once the transaction is confirmed, normal channel operations may begin. Readiness is indicated by **listpeers** reporting a *state* of `CHANNELD_NORMAL` for the channel.
 
-*announce* is an optional flag that triggers whether to announce this
-channel or not. Defaults to `true`. An unannounced channel is considered
-private.
+- **id** (pubkey): Id is the peer id obtained from connect.
+- **amount** (msat\_or\_all): The amount in satoshis taken from the internal wallet to fund the channel (but if we have any anchor channels, this will always leave at least `min-emergency- msat` as change). The string *all* can be used to specify all available funds (or 16777215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi (unless large channels were negotiated with the peer).
+- **feerate** (feerate, optional): Used for the opening transaction and (unless *option\_anchors\_zero\_fee\_htlc\_tx* is negotiated), as initial feerate for commitment and HTLC transactions (see NOTES in lightning-feerates(7)). The default is *normal*.
+- **announce** (boolean, optional): Whether to announce this channel or not. An unannounced channel is considered private. The default is True.
+- **minconf** (u32, optional): The minimum number of confirmations that used outputs should have. The default is 1.
+- **push\_msat** (msat, optional): The amount of millisatoshis to push to the channel peer at open. Note that this is a gift to the peer -- these satoshis are added to the initial balance of the peer at channel start and are largely unrecoverable once pushed.
+- **close\_to** (string, optional): A Bitcoin address to which the channel funds should be sent to on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`. Returns `close_to` set to closing script iff is negotiated.
+- **request\_amt** (msat, optional): An amount of liquidity you'd like to lease from the peer. If peer supports `option_will_fund`, indicates to them to include this much liquidity into the channel. Must also pass in *compact\_lease*.
+- **compact\_lease** (string, optional): A compact representation of the peer's expected channel lease terms. If the peer's terms don't match this set, we will fail to open the channel.
+- **utxos** (array of outpoints, optional): The utxos to be used to fund the channel, as an array of `txid:vout`.:
+  - (outpoint, optional)
+- **mindepth** (u32, optional): Number of confirmations required before we consider the channel active.
+- **reserve** (msat, optional): The amount we want the peer to maintain on its side of the channel. It can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*. The default is 1% of the funding amount.
+- **channel\_type** (array of u32s, optional) *(added v24.02)*:
+  - (u32, optional): Represents the explicit channel type to request. There is currently no sanity checking on this value so if you use strange values and your channel breaks, you get to keep both pieces. BOLT 2 defines the following value types:
+ ``
+ The currently defined basic types are:
+   - no features (no bits set).
+   - `option_static_remotekey` (bit 12).
+   - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12).
+   - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12).
+ 
+ Each basic type has the following variations allowed:
+   - `option_scid_alias` (bit 46).
+   - `option_zeroconf` (bit 50).
+ ``
 
-*minconf* specifies the minimum number of confirmations that used
-outputs should have. Default is 1.
+EXAMPLE USAGE
+-------------
 
-*utxos* specifies the utxos to be used to fund the channel, as an array
-of "txid:vout".
+This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0 (you can use **listfunds** command to get txid and vout):
 
-*push\_msat* is the amount of millisatoshis to push to the channel peer at
-open. Note that this is a gift to the peer -- these satoshis are
-added to the initial balance of the peer at channel start and are largely
-unrecoverable once pushed.
-
-*close\_to* is a Bitcoin address to which the channel funds should be sent to
-on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`.
-Returns `close_to` set to closing script iff is negotiated.
-
-*request\_amt* is an amount of liquidity you'd like to lease from the peer.
-If peer supports `option_will_fund`, indicates to them to include this
-much liquidity into the channel. Must also pass in *compact\_lease*.
-
-*compact\_lease* is a compact representation of the peer's expected
-channel lease terms. If the peer's terms don't match this set, we will
-fail to open the channel.
-
-*reserve* is the amount we want the peer to maintain on its side of the channel.
-Default is 1% of the funding amount. It can be a whole number, a whole number
-ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8
-decimal places ending in *btc*.
-
-*channel\_type* *(added v24.02)* is an array of bit numbers, representing the explicit
-channel type to request.  There is currently no sanity checking on
-this value so if you use strange values and your channel breaks, you
-get to keep both pieces.  BOLT 2 defines the following value types:
-
-```
-The currently defined basic types are:
-  - no features (no bits set)
-  - `option_static_remotekey` (bit 12)
-  - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12)
-  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12)
-
-Each basic type has the following variations allowed:
-  - `option_scid_alias` (bit 46)
-  - `option_zeroconf` (bit 50)
+```shell
+lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='["bcc1...39c:0"]'
 ```
 
-EXAMPLE
--------
+EXAMPLE JSON REQUEST
+--------------------
 
-This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0
-(you can use **listfunds** command to get txid and vout):
-
-	lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='["bcc1...39c:0"]'
+```json
+{
+  "id": "example:fundchannel#1",
+  "method": "fundchannel",
+  "params": {
+    "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+    "amount": 1000000,
+    "feerate": null,
+    "announce": true,
+    "minconf": null,
+    "utxos": null,
+    "push_msat": null,
+    "close_to": null,
+    "request_amt": null,
+    "compact_lease": null,
+    "mindepth": null,
+    "reserve": null
+  }
+}
+{
+  "id": "example:fundchannel#2",
+  "method": "fundchannel",
+  "params": {
+    "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+    "amount": 10000000,
+    "feerate": null,
+    "announce": true,
+    "minconf": null,
+    "utxos": null,
+    "push_msat": 1000000000,
+    "close_to": null,
+    "request_amt": null,
+    "compact_lease": null,
+    "mindepth": null,
+    "reserve": null,
+    "channel_type": null
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **tx** (hex): The raw transaction which funded the channel
-- **txid** (txid): The txid of the transaction which funded the channel
-- **outnum** (u32): The 0-based output index showing which output funded the channel
-- **channel\_id** (hex): The channel\_id of the resulting channel (always 64 characters)
-- **channel\_type** (object): channel\_type as negotiated with peer *(added v24.02)*:
-  - **bits** (array of u32s): Each bit set in this channel\_type *(added v24.02)*:
-    - Bit number
-  - **names** (array of strings): Feature name for each bit set in this channel\_type *(added v24.02)*:
-    - Name of feature bit (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even")
-- **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+- **tx** (hex): The raw transaction which funded the channel.
+- **txid** (txid): The txid of the transaction which funded the channel.
+- **outnum** (u32): The 0-based output index showing which output funded the channel.
+- **channel\_id** (hash): The channel\_id of the resulting channel.
+- **channel\_type** (object): Channel\_type as negotiated with peer. *(added v24.02)*:
+  - **bits** (array of u32s): Each bit set in this channel\_type. *(added v24.02)*:
+    - (u32, optional): Bit number.
+  - **names** (array of strings): Feature name for each bit set in this channel\_type. *(added v24.02)*:
+    - (string, optional) (one of "static\_remotekey/even", "anchor\_outputs/even", "anchors\_zero\_fee\_htlc\_tx/even", "scid\_alias/even", "zeroconf/even"): Name of feature bit.
+- **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close\_to* parameter was specified and peer supports `option_upfront_shutdown_script`.
 - **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "tx": "020000000001014ca47b75e6982fce6b5ebb6e7ec163dc5b6bed1562934e6febe816103b2b207e0000000000fdffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd012f0f000000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a02473044022058fc4d51c8254d37b266d3db3f8fda7420882b6ec9226d66b8c0139f2707c09602205798d8ce23d4c692a7384362a2e0afd9703f062239a786d7a1840a28d3a1152e012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+  "txid": "6c0a3d8f32f556f3bd8b8c85413c4636a9513c6195abb925ea73c47183d40b7b",
+  "channel_id": "7b0bd48371c473ea25b9ab95613c51a936463c41858c8bbdf356f5328f3d0a6c",
+  "outnum": 0
+}
+{
+  "tx": "0200000000010141cfa0e9957c7c6d0bb5069d92937f9545e6e6ee9b4650f47f509d5ea65df4690100000000fdffffff0280969800000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd4118530b0000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a0247304402206488c7dfbc4180781ed0d5ca7ff2c8ce134480c349d03978765053a393229d9a022066c75dee1f19b410ea1c7756d0cb2c097e52b13f4d9bbd033efa4ed95d817e14012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+  "txid": "6aa1231b6356777468a55aea1f49dad6415592aef6c1e652f8a64357c7235301",
+  "channel_id": "015323c75743a6f852e6c1f6ae925541d6da491fea5aa568747756631b23a16a",
+  "channel_type": {
+    "bits": [
+      12,
+      22
+    ],
+    "names": [
+      "static_remotekey/even",
+      "anchors_zero_fee_htlc_tx/even"
+    ]
+  },
+  "outnum": 0
+}
+```
 
 ERRORS
--------
+------
 
 The following error codes may occur:
 
@@ -115,18 +153,14 @@ The following error codes may occur:
 - 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.
 - 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).
 
-Failure may also occur if **lightningd** and the peer cannot agree on
-channel parameters (funding limits, channel reserves, fees, etc.).
+Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.).
 
 SEE ALSO
 --------
 
-lightning-connect(7), lightning-listfunds(), lightning-listpeers(7),
-lightning-feerates(7), lightning-multifundchannel(7)
+lightning-connect(7), lightning-listfunds(), lightning-listpeers(7), lightning-feerates(7), lightning-multifundchannel(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:b890bd25970e8e1ef92812daa89a25ded100173f9ab411492a87d6cd268ee32d)

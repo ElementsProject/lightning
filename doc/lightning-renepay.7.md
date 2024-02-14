@@ -4,84 +4,107 @@ lightning-renepay -- Command for sending a payment to a BOLT11 invoice
 SYNOPSIS
 --------
 
-**renepay** *invstring* [*amount\_msat*] [*maxfee*] [*maxdelay*]
-[*retry\_for*] [*description*] [*label*]
+**renepay** *invstring* [*amount\_msat*] [*maxfee*] [*maxdelay*] [*retry\_for*] [*description*] [*label*] 
 
 DESCRIPTION
 -----------
 
-**renepay** is a new payment plugin based on Pickhardt-Richter optimization
-method for Multi-Path-Payments. This implementation has not been thoroughly
-tested and it should be used with caution.
+Command *added* in v23.08.
 
-The response will occur when the payment fails or succeeds. Once a
-payment has succeeded, calls to **renepay** with the same *invstring*
-will not lead to a new payment attempt, but instead it will succeed immediately.
+**renepay** is a new payment plugin based on Pickhardt-Richter optimization method for Multi-Path-Payments. This implementation has not been thoroughly tested and it should be used with caution.
 
-When using *lightning-cli*, you may skip optional parameters by using
-*null*. Alternatively, use **-k** option to provide parameters by name.
+The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **renepay** with the same *invstring* will not lead to a new payment attempt, but instead it will succeed immediately.
+
+When using *lightning-cli*, you may skip optional parameters by using *null*. Alternatively, use **-k** option to provide parameters by name.
+
+- **invstring** (string): Bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only.
+- **amount\_msat** (msat, optional): If the *invstring* does not contain an amount, *amount\_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*.
+- **maxfee** (msat, optional): *maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value.
+- **maxdelay** (u32, optional): Overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks.
+- **retry\_for** (u32, optional): Measured in seconds specifies how much time it is allowed for the command to keep retrying the payment. The default is 60 seconds.
+- **description** (string, optional): Only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid.
+- **label** (string, optional): Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7).
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:renepay#1",
+  "method": "renepay",
+  "params": {
+    "invstring": "lnbcrt1230n1pjmxj9jsp5suc4cag0lv3wemllkvms56e6ll0w867cczqfttuu8cpfl089f9kspp56wvxtdh8fxg5r5y3kg3klxceakqaydskwzatga25v95da8nzkmwqdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqkmyhymt0j7hy38vzqxx465s4ys0fg78flnjqfx4clvdq9mrmgglpcnjrrnhtk7maa87pfvjez88hke8w97zvuecwswaf9gzyqlsthegpza67eu"
+  }
+}
+{
+  "id": "example:renepay#2",
+  "method": "renepay",
+  "params": {
+    "invstring": "lnbcrt1pja0f9asp50kzadmeyy78eymjvhnlk5dznl3g5k5x8agh52ewjtg0jclas4ylspp5crsutd9hg05lxyhzphdcuyng6z3knrsdae83mxwawa842gz3vj3sdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqr5yzhxmup4muyaz6x8u2dy4qyu9t5qzuf5k9xayvj5kg7tve60gjk4jrv2l76exnj2xkuzhtwky23pkkxedzy6p9yrsgyqdwj7dv5gsp4zcw6v",
+    "amount_msat": 548925
+  }
+}
+```
 
 OPTIMALITY
 ----------
 
-**renepay** is based on the work by Pickhardt-Richter's
-*Optimally Reliable & Cheap Payment Flows on the Lightning Network*.
-Which means the payment command will prefer routes that have a higher
-probability of success while keeping fees low.
+**renepay** is based on the work by Pickhardt-Richter's *Optimally Reliable & Cheap Payment Flows on the Lightning Network*. Which means the payment command will prefer routes that have a higher probability of success while keeping fees low.
 
-The algorithm records some partial knowledge of the state of the Network
-deduced from the responses obtained after evey payment attempt.
-This knowledge is kept through different payment requests, but decays with time
-to account for the dynamics of the Network (after 1 hour all previous knowledge
-will be erased).
-Knowledge from previous payment attempts increases the reliability for
-subsequent ones.
+The algorithm records some partial knowledge of the state of the Network deduced from the responses obtained after evey payment attempt. This knowledge is kept through different payment requests, but decays with time to account for the dynamics of the Network (after 1 hour all previous knowledge will be erased). Knowledge from previous payment attempts increases the reliability for subsequent ones.
 
-Higher probabilities of success and lower fees cannot generally by optimized at
-once. Hence **renepay** combines the two in different amounts seeking solutions
-that satisfy *maxfee* bound and a target for 90% probability of success.
-*maxfee* is a hard bound, in the sense that the command will never attempt a
-payment when the fees exceed that value. While the probability target is not
-compulsory (but desirable), i.e. if the best route does not satisfy the
-90% probability target it will be tried anyways.
+Higher probabilities of success and lower fees cannot generally by optimized at once. Hence **renepay** combines the two in different amounts seeking solutions that satisfy *maxfee* bound and a target for 90% probability of success. *maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value. While the probability target is not compulsory (but desirable), i.e. if the best route does not satisfy the 90% probability target it will be tried anyways.
 
-When *maxfee* and the 90% probability bounds are satified, the algorithm will
-optimize the fees to its lowest value.
-
+When *maxfee* and the 90% probability bounds are satified, the algorithm will optimize the fees to its lowest value.
 
 RANDOMIZATION
 -------------
 
-To protect user privacy, the payment algorithm performs *shadow route*
-randomization.
-Which means the payment algorithm will virtually extend the route
-by adding delays and fees along it, making it appear to intermediate nodes
-that the route is longer than it actually is. This prevents intermediate
-nodes from reliably guessing their distance from the payee.
+To protect user privacy, the payment algorithm performs *shadow route* randomization. Which means the payment algorithm will virtually extend the route by adding delays and fees along it, making it appear to intermediate nodes that the route is longer than it actually is. This prevents intermediate nodes from reliably guessing their distance from the payee.
 
-Route randomization will never exceed *maxfee* of the payment.
-Route randomization and shadow routing will not take routes that would
-exceed *maxdelay*.
+Route randomization will never exceed *maxfee* of the payment. Route randomization and shadow routing will not take routes that would exceed *maxdelay*.
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash**
-- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
-- **created\_at** (number): the UNIX timestamp showing when this payment was initiated
-- **parts** (u32): how many attempts this took
-- **amount\_msat** (msat): amount the recipient received
-- **amount\_sent\_msat** (msat): total amount we sent (including fees)
-- **status** (string): status of payment (one of "complete", "pending", "failed")
-- **destination** (pubkey, optional): the final destination of the payment
+- **payment\_preimage** (secret): The proof of payment: SHA256 of this **payment\_hash**.
+- **payment\_hash** (hash): The hash of the *payment\_preimage* which will prove payment.
+- **created\_at** (number): The UNIX timestamp showing when this payment was initiated.
+- **parts** (u32): How many attempts this took.
+- **amount\_msat** (msat): Amount the recipient received.
+- **amount\_sent\_msat** (msat): Total amount we sent (including fees).
+- **status** (string) (one of "complete", "pending", "failed"): Status of payment.
+- **destination** (pubkey, optional): The final destination of the payment.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+You can monitor the progress and retries of a payment using the lightning-renepaystatus(7) command.
 
-You can monitor the progress and retries of a payment using the
-lightning-renepaystatus(7) command.
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "payment_preimage": "0a3fd704b34f47d6e306dbac78141753be83848d3a19725c972abfc367dcc591",
+  "payment_hash": "d39865b6e7499141d091b2236f9b19ed81d2361670bab475546168de9e62b6dc",
+  "created_at": 1706248370.6267352,
+  "parts": 1,
+  "amount_msat": 123000,
+  "amount_sent_msat": 123000,
+  "status": "complete",
+  "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+}
+{
+  "payment_preimage": "a635e92d024beebfc58519e6544888aa560ba3bcaba7e74924e4b8432eaa56f5",
+  "payment_hash": "c0e1c5b4b743e9f312e20ddb8e1268d0a3698e0dee4f1d99dd774f55205164a3",
+  "created_at": 1708631229.7841823,
+  "parts": 1,
+  "amount_msat": 548925,
+  "amount_sent_msat": 548925,
+  "status": "complete",
+  "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+}
+```
 
 ERRORS
 ------
@@ -93,8 +116,7 @@ The following error codes may occur:
 - 203: Permanent failure at destination.
 - 205: Unable to find a route.
 - 206: Payment routes are too expensive.
-- 207: Invoice expired. Payment took too long before expiration, or
-already expired at the time you initiated payment.
+- 207: Invoice expired. Payment took too long before expiration, or already expired at the time you initiated payment.
 - 210: Payment timed out without a payment in progress.
 - 212: Invoice is invalid.
 
@@ -106,13 +128,11 @@ Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-renepaystatus(7), lightning-listpays(7), lightning-invoice(7).
+lightning-renepaystatus(7), lightning-listpays(7), lightning-invoice(7)
 
 RESOURCES
 ---------
 
-- Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: <https://github.com/ElementsProject/lightning>
 
-- Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>
-
-[comment]: # ( SHA256STAMP:946ad2fc9ef6bb6dbab6613b9cb55d34ed5a15dd876efcaeaa41174f0bdc40b0)
+Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>

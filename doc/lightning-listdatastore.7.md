@@ -4,27 +4,73 @@ lightning-listdatastore -- Command for listing (plugin) data
 SYNOPSIS
 --------
 
-**listdatastore** [*key*]
+**listdatastore** [*key*] 
 
 DESCRIPTION
 -----------
 
-The **listdatastore** RPC command allows plugins to fetch data which was
-stored in the Core Lightning database.
+The **listdatastore** RPC command allows plugins to fetch data which was stored in the Core Lightning database.
+
+- **key** (one of, optional):
+  - (array of strings): All immediate children of the *key* (or root children) are returned.
+    Using the first element of the key as the plugin name (e.g. `[ 'summary' ]`) is recommended.
+    An array of values to form a hierarchy (though a single value is treated as a one-element array).
+    - (string, optional)
+  - (string)
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:listdatastore#1",
+  "method": "listdatastore",
+  "params": {
+    "key": [
+      "commando"
+    ]
+  }
+}
+{
+  "id": "example:listdatastore#2",
+  "method": "listdatastore",
+  "params": {
+    "key": "otherkey"
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
-On success, an object containing **datastore** is returned.  It is an array of objects, where each object contains:
+On success, an object containing **datastore** is returned. It is an array of objects, where each object contains:
 
 - **key** (array of strings):
-  - Part of the key added to the datastore
-- **generation** (u64, optional): The number of times this has been updated
-- **hex** (hex, optional): The hex data from the datastore
-- **string** (string, optional): The data as a string, if it's valid utf-8
+  - (string, optional): Part of the key added to the datastore.
+- **generation** (u64, optional): The number of times this has been updated.
+- **hex** (hex, optional): The hex data from the datastore.
+- **string** (string, optional): The data as a string, if it's valid utf-8.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "datastore": []
+}
+{
+  "datastore": [
+    {
+      "key": [
+        "otherkey"
+      ],
+      "generation": 0,
+      "hex": "6f7468657264617461",
+      "string": "otherdata"
+    }
+  ]
+}
+```
 
 ERRORS
 ------
@@ -47,5 +93,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:774755024cb431c96e74f5ca634cf8c03da853caa740c196b6ef24cdcf942874)

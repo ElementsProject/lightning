@@ -4,36 +4,107 @@ lightning-multiwithdraw -- Command for withdrawing to multiple addresses
 SYNOPSIS
 --------
 
-**multiwithdraw** *outputs* [*feerate*] [*minconf*] [*utxos*]
+**multiwithdraw** *outputs* [*feerate*] [*minconf*] [*utxos*] 
 
 DESCRIPTION
 -----------
 
-The **multiwithdraw** RPC command sends funds from Core Lightning's internal
-wallet to the addresses specified in *outputs*.
+The **multiwithdraw** RPC command sends funds from Core Lightning's internal wallet to the addresses specified in *outputs*.
+
+- **outputs** (array of outputdescs): An array containing objects of the form `{address: amount}`. The `amount` may be the string *all*, indicating that all onchain funds be sent to the specified address. Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*.:
+  - (outputdesc, optional)
+- **feerate** (feerate, optional): Feerate used for the withdrawals. See NOTES in lightning-feerates(7) for possible values. The default is *normal*.
+- **minconf** (u32, optional): Minimum number of confirmations that used outputs should have. The default is 1.
+- **utxos** (array of outpoints, optional):
+  - (outpoint, optional): Utxos to be used to be withdrawn from, as an array of `txid:vout`. These must be drawn from the node's available UTXO set.
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:multiwithdraw#1",
+  "method": "multiwithdraw",
+  "params": {
+    "outputs": [
+      {
+        "bcrt1qyusnugshkn6kh5vmdjpe8hylvxlxjy3ns0hmrs": "2222000msat"
+      },
+      {
+        "bcrt1q6r4vvt7uack33qf9n05umfxy8h5s2rdcmq7ra3": "3333000msat"
+      }
+    ],
+    "feerate": null,
+    "minconf": null,
+    "utxos": null
+  }
+}
+{
+  "id": "example:multiwithdraw#2",
+  "method": "multiwithdraw",
+  "params": {
+    "outputs": [
+      {
+        "BCRT1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KYGT080": 1000
+      },
+      {
+        "bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry": 1000
+      },
+      {
+        "bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56": 1000
+      },
+      {
+        "BCRT1SW50QT2UWHA": 1000
+      },
+      {
+        "bcrt1zw508d6qejxtdg4y5r3zarvaryv2wuatf": 1000
+      },
+      {
+        "bcrt1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvseswlauz7": 1000
+      },
+      {
+        "bcrt1pqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesyga46z": 1000
+      },
+      {
+        "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6": 1000
+      }
+    ],
+    "feerate": null,
+    "minconf": null,
+    "utxos": null
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **tx** (hex): The raw transaction which was sent
-- **txid** (txid): The txid of the **tx**
+- **tx** (hex): The raw transaction which was sent.
+- **txid** (txid): The txid of the **tx**.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "tx": "02000000000101b75863b811587b4c15bb94d9285c31d6369b8ff609e44de399936f8acb268f600000000000fdffffff03050d000000000000160014d0eac62fdcee2d1881259be9cda4c43de9050db8ae0800000000000016001427213e2217b4f56bd19b6c8393dc9f61be691233d4b5f5050000000022512063ffee4ea7d51e6cadf9086e286a2527922aaa25b8c53aebf32fa32a0a627f5a0247304402203a001463da125de5615ff1c18f9cd4a1d2a138c91d40189d350821ac8fb3ae4f02207a507eec27e15fe43476233cd9fe8b690ebd265073a58ed18ff79a1416886f18012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf66000000",
+  "txid": "94e803b98257855569d35b675d65fb4fa0061a8b5f828992e2104a2882bb18bf"
+}
+{
+  "tx": "02000000000101dc5a50dfbafc30697b930b44e763ff7a255475d17d975fa0e2003431312098cf0100000000fdffffff09e803000000000000225120000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433e803000000000000046002751ee8030000000000002a5128751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45d1b3a323f1433bd6e80300000000000022512079be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817983b939700000000002251200518e92cd94e0f62c06f126dff98b9abe79b7ed845a156d5245678e26554475de803000000000000160014751e76e8199196d454941c45d1b3a323f1433bd6e8030000000000002200201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262e803000000000000125210751e76e8199196d454941c45d1b3a323e803000000000000220020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e8643301407f0d9bc098c5439ff611507b6a7d403047ed4e0b883f293db19d4e109d350a24f790acb55547384ff2a23fcfde0eba9af7cebc321c19cfc4817ecd47d50c2cd854000000",
+  "txid": "062383a7c9a19a2768939087a5c89826a4ea3531080f20cc06aa1cbf431be505"
+}
+```
 
 ERRORS
 ------
 
-On failure, an error is reported and the withdrawal transaction is not
-created.
-
-The following error codes may occur:
+On failure, an error is reported and the withdrawal transaction is not created.
 
 - -1: Catchall nonspecific error.
-- 301: There are not enough funds in the internal wallet (including
-fees) to create the transaction.
+- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.
 - 302: The dust limit is not met.
 
 AUTHOR
@@ -44,12 +115,9 @@ ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7),
-lightning-txprepare(7), lightning-withdraw(7).
+lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7), lightning-txprepare(7), lightning-withdraw(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:ba123ea4052af7850655f99ee85ed42c0254d7c15ba3861df0574fd58e4d8355)

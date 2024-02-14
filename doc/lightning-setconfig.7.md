@@ -4,34 +4,101 @@ lightning-setconfig -- Dynamically change some config options
 SYNOPSIS
 --------
 
-**setconfig** *config* [*val*]
+**setconfig** *config* [*val*] 
 
 DESCRIPTION
 -----------
+
+Command *added* in v23.08.
 
 The **setconfig** RPC command allows you set the (dynamic) configuration option named by `config`: options which take a value (as separate from simple flag options) also need a `val` parameter.
 
 This new value will *also* be written at the end of the config file, for persistence across restarts (and any old value commented out).
 
-You can see what options are dynamically adjustable using lightning-listconfigs(7). Note that you can also adjust existing options for stopped plugins; they will have an effect when the plugin is restarted.
+You can see what options are dynamically adjustable using lightning- listconfigs(7). Note that you can also adjust existing options for stopped plugins; they will have an effect when the plugin is restarted.
+
+- **config** (string): Name of the config variable which should be set to the value of the variable.
+- **val** (one of, optional): Value of the config variable to be set or updated.:
+  - (string)
+  - (integer)
+  - (boolean)
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:setconfig#1",
+  "method": "setconfig",
+  "params": [
+    "autoclean-paidinvoices-age",
+    1
+  ]
+}
+{
+  "id": "example:setconfig#2",
+  "method": "setconfig",
+  "params": [
+    "test-dynamic-config",
+    "changed"
+  ]
+}
+{
+  "id": "example:setconfig#3",
+  "method": "setconfig",
+  "params": {
+    "config": "min-capacity-sat",
+    "val": 500000
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **config** is returned. It is an object containing:
 
-- **config** (string): name of the config variable which was set
-- **source** (string): source of configuration setting (`file`:`linenum`)
-- **dynamic** (boolean): whether this option is settable via setconfig (always *true*)
-- **plugin** (string, optional): the plugin this configuration setting is for
-- **set** (boolean, optional): for simple flag options
-- **value\_str** (string, optional): for string options
-- **value\_msat** (msat, optional): for msat options
-- **value\_int** (integer, optional): for integer options
-- **value\_bool** (boolean, optional): for boolean options
+- **config** (string): Name of the config variable which was set.
+- **source** (string): Source of configuration setting (`file`:`linenum`).
+- **dynamic** (boolean) (always *true*): Whether this option is settable via setconfig.
+- **plugin** (string, optional): The plugin this configuration setting is for.
+- **set** (boolean, optional): For simple flag options.
+- **value\_str** (string, optional): For string options.
+- **value\_msat** (msat, optional): For msat options.
+- **value\_int** (integer, optional): For integer options.
+- **value\_bool** (boolean, optional): For boolean options.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "config": {
+    "config": "autoclean-paidinvoices-age",
+    "value_int": 1,
+    "source": "/tmp/ltests-7u_8_rtu/test_autoclean_1/lightning-3/regtest/config:6",
+    "plugin": "~/lightning/plugins/autoclean",
+    "dynamic": true
+  }
+}
+{
+  "config": {
+    "config": "test-dynamic-config",
+    "value_str": "changed",
+    "source": "/tmp/ltests-7u_8_rtu/test_dynamic_option_python_plugin_1/lightning-1/regtest/config:2",
+    "plugin": "~/lightning/tests/plugins/dynamic_option.py",
+    "dynamic": true
+  }
+}
+{
+  "config": {
+    "config": "min-capacity-sat",
+    "value_int": 500000,
+    "source": "/tmp/ltests-nvfdbou2/test_setconfig_1/lightning-2/regtest/config:2",
+    "dynamic": true
+  }
+}
+```
 
 ERRORS
 ------
@@ -43,8 +110,7 @@ The following error codes may occur:
 AUTHOR
 ------
 
-Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this
-feature.
+Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature.
 
 SEE ALSO
 --------
@@ -55,5 +121,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:9acb35e4b599c17e776ed0bf37b2e55022968ca10cb9d467c2e3f1f8e8d88662)
