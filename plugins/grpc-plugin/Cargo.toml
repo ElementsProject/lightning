@@ -20,6 +20,7 @@ rcgen = { version = "0.10", features = ["pem", "x509-parser"] }
 cln-grpc = { version = "0.1", features = ["server"], path = "../../cln-grpc"}
 cln-plugin = { version = "0.1", path = "../../plugins" }
 cln-rpc = { version = "0.1", path = "../../cln-rpc" }
+serde_json = "1.0.113"
 
 [dependencies.tokio]
 features = ["net", "rt-multi-thread"]
