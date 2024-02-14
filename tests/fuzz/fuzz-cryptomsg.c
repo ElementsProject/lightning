@@ -75,7 +75,7 @@ static void test_encrypt_decrypt_equality(const u8 *msg)
 	tal_resize(&enc, tal_bytelen(enc) - CRYPTOMSG_HDR_SIZE);
 
 	dec = cryptomsg_decrypt_body(msg, &cs_in, enc);
-	assert(memeq(dec, tal_bytelen(dec), msg, tal_bytelen(msg)));
+	assert(tal_arr_eq(dec, msg));
 }
 
 /* Test header decryption of arbitrary bytes (should always fail). */

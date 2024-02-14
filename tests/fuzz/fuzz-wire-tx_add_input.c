@@ -35,8 +35,7 @@ static bool equal(const struct tx_add_input *x, const struct tx_add_input *y)
 	if (memcmp(x, y, upto_prevtx) != 0)
 		return false;
 
-	return memeq(x->prevtx, tal_bytelen(x->prevtx), y->prevtx,
-		     tal_bytelen(y->prevtx));
+	return tal_arr_eq(x->prevtx, y->prevtx);
 }
 
 void run(const u8 *data, size_t size)

@@ -296,9 +296,7 @@ struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 
 			/* Make sure we've got the right info! */
 			if (utxos[i]->scriptPubkey)
-				assert(memeq(utxos[i]->scriptPubkey,
-					     tal_bytelen(utxos[i]->scriptPubkey),
-					     scriptPubkey, tal_bytelen(scriptPubkey)));
+				assert(tal_arr_eq(utxos[i]->scriptPubkey, scriptPubkey));
 		} else {
 			scriptSig = NULL;
 			redeemscript = NULL;

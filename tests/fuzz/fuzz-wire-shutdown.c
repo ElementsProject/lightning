@@ -41,8 +41,7 @@ static bool equal(const struct shutdown *x, const struct shutdown *y)
 {
 	if (!channel_id_eq(&x->channel_id, &y->channel_id))
 		return false;
-	if (!memeq(x->scriptpubkey, tal_bytelen(x->scriptpubkey),
-		   y->scriptpubkey, tal_bytelen(y->scriptpubkey)))
+	if (!tal_arr_eq(x->scriptpubkey, y->scriptpubkey))
 		return false;
 
 	assert(x->tlvs && y->tlvs);

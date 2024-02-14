@@ -47,9 +47,7 @@ static bool equal(const struct update_add_htlc *x,
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(
-	    x->tlvs->blinding_point, tal_bytelen(x->tlvs->blinding_point),
-	    y->tlvs->blinding_point, tal_bytelen(y->tlvs->blinding_point));
+	return tal_arr_eq(x->tlvs->blinding_point, y->tlvs->blinding_point);
 }
 
 void run(const u8 *data, size_t size)

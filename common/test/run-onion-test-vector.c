@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 
 	expected = json_tok_bin_from_hex(tmpctx, json, json_get_member(json, toks, "onion"));
 	actual = serialize_onionpacket(tmpctx, op);
-	assert(memeq(expected, tal_bytelen(expected), actual, tal_bytelen(actual)));
+	assert(tal_arr_eq(expected, actual));
 
 	/* Now decode! */
 	op = parse_onionpacket(tmpctx, actual, tal_bytelen(actual), NULL);
@@ -187,8 +187,7 @@ int main(int argc, char *argv[])
 		json_to_secret(json, t, &mykey);
 		test_ecdh(&op->ephemeralkey, &ss);
 		rs = process_onionpacket(tmpctx, op, &ss, assoc_data, tal_bytelen(assoc_data), true);
-		assert(memeq(rs->raw_payload, tal_bytelen(rs->raw_payload),
-			     payloads[i], tal_bytelen(payloads[i])));
+		assert(tal_arr_eq(rs->raw_payload, payloads[i]));
 		if (rs->nextcase == ONION_FORWARD)
 			op = rs->next;
 		else

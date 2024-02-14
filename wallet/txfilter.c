@@ -20,9 +20,9 @@ static const u8 *scriptpubkey_keyof(const u8 *out)
 	return out;
 }
 
-static int scriptpubkey_eq(const u8 *a, const u8 *b)
+static bool scriptpubkey_eq(const u8 *a, const u8 *b)
 {
-	return memeq(a, tal_bytelen(a), b, tal_bytelen(b));
+	return tal_arr_eq(a, b);
 }
 
 HTABLE_DEFINE_TYPE(u8, scriptpubkey_keyof, scriptpubkey_hash, scriptpubkey_eq, scriptpubkeyset);

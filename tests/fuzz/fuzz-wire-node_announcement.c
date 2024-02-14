@@ -56,8 +56,7 @@ static bool equal(const struct node_announcement *x,
 {
 	if (memcmp(&x->signature, &y->signature, sizeof(x->signature)) != 0)
 		return false;
-	if (!memeq(x->features, tal_bytelen(x->features), y->features,
-		   tal_bytelen(y->features)))
+	if (!tal_arr_eq(x->features, y->features))
 		return false;
 	if (x->timestamp != y->timestamp)
 		return false;
@@ -67,8 +66,7 @@ static bool equal(const struct node_announcement *x,
 		return false;
 	if (memcmp(x->alias, y->alias, sizeof(x->alias)) != 0)
 		return false;
-	if (!memeq(x->addresses, tal_bytelen(x->addresses), y->addresses,
-		   tal_bytelen(y->addresses)))
+	if (!tal_arr_eq(x->addresses, y->addresses))
 		return false;
 
 	assert(x->tlvs && y->tlvs);

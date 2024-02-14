@@ -27,21 +27,17 @@ static struct init *decode(const tal_t *ctx, const void *p)
 
 static bool equal(const struct init *x, const struct init *y)
 {
-	if (!memeq(x->globalfeatures, tal_bytelen(x->globalfeatures),
-		   y->globalfeatures, tal_bytelen(y->globalfeatures)))
+	if (!tal_arr_eq(x->globalfeatures, y->globalfeatures))
 		return false;
-	if (!memeq(x->features, tal_bytelen(x->features), y->features,
-		   tal_bytelen(y->features)))
+	if (!tal_arr_eq(x->features, y->features))
 		return false;
 
 	assert(x->tlvs && y->tlvs);
 
-	if (!memeq(x->tlvs->networks, tal_bytelen(x->tlvs->networks),
-		   y->tlvs->networks, tal_bytelen(y->tlvs->networks)))
+	if (!tal_arr_eq(x->tlvs->networks, y->tlvs->networks))
 		return false;
 
-	return memeq(x->tlvs->remote_addr, tal_bytelen(x->tlvs->remote_addr),
-		     y->tlvs->remote_addr, tal_bytelen(y->tlvs->remote_addr));
+	return tal_arr_eq(x->tlvs->remote_addr, y->tlvs->remote_addr);
 }
 
 void run(const u8 *data, size_t size)

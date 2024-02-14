@@ -25,8 +25,7 @@ static struct your_peer_storage *decode(const tal_t *ctx, const void *p)
 static bool equal(const struct your_peer_storage *x,
 		  const struct your_peer_storage *y)
 {
-	return memeq(x->blob, tal_bytelen(x->blob), y->blob,
-		     tal_bytelen(y->blob));
+	return tal_arr_eq(x->blob, y->blob);
 }
 
 void run(const u8 *data, size_t size)

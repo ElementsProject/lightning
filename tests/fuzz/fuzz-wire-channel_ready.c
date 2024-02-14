@@ -35,9 +35,7 @@ static bool equal(const struct channel_ready *x, const struct channel_ready *y)
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(
-	    x->tlvs->short_channel_id, tal_bytelen(x->tlvs->short_channel_id),
-	    y->tlvs->short_channel_id, tal_bytelen(y->tlvs->short_channel_id));
+	return tal_arr_eq(x->tlvs->short_channel_id, y->tlvs->short_channel_id);
 }
 
 void run(const u8 *data, size_t size)

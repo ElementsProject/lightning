@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 		tal_resize(&enc, tal_bytelen(enc) - CRYPTOMSG_HDR_SIZE);
 
 		dec = cryptomsg_decrypt_body(enc, &cs_in, enc);
-		assert(memeq(dec, tal_bytelen(dec), msg, tal_bytelen(msg)));
+		assert(tal_arr_eq(dec, (u8 *)msg));
 	}
 	common_shutdown();
 	return 0;

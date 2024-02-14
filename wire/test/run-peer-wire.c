@@ -831,11 +831,6 @@ static bool tlv_networks_eq(const struct bitcoin_blkid *a,
 	return true;
 }
 
-static bool talarr_eq(const void *a, const void *b)
-{
-	return memeq(a, tal_bytelen(a), b, tal_bytelen(b));
-}
-
 static bool init_eq(const struct msg_init *a,
 		    const struct msg_init *b)
 {
@@ -843,7 +838,7 @@ static bool init_eq(const struct msg_init *a,
 		return false;
 
 	return eq_tlv(a, b, networks, tlv_networks_eq)
-		&& eq_tlv(a, b, remote_addr, talarr_eq);
+		&& eq_tlv(a, b, remote_addr, tal_arr_eq);
 }
 
 static bool update_fee_eq(const struct msg_update_fee *a,

@@ -62,6 +62,12 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 		(*(p))[n_] = (s);					\
 	} while(0)
 
+/* Checks if two tal_arr are equal: sizeof checks types are the same */
+#define tal_arr_eq(a, b) tal_arr_eq_((a), (b), sizeof((a) == (b)))
+
+/* Avoids double-evaluation in macro */
+bool tal_arr_eq_(const void *a, const void *b, size_t unused);
+
 /**
  * Remove an element from an array
  *

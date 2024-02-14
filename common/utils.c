@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
+#include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -74,6 +75,11 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len)
 	if (!hex_decode(str, len, data, hex_data_size(len)))
 		return NULL;
 	return data;
+}
+
+bool tal_arr_eq_(const void *a, const void *b, size_t unused)
+{
+	return memeq(a, tal_bytelen(a), b, tal_bytelen(b));
 }
 
 /* Use the POSIX C locale. */

@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
 
 		p2 = tal_arr(tmpctx, u8, 0);
 		towire_tlv_n1(&p2, tlv_n1);
-		assert(memeq(p2, tal_count(p2), orig_p, tal_count(orig_p)));
+		assert(tal_arr_eq(p2, orig_p));
 	}
 
 	/* BOLT #1:
@@ -632,8 +632,7 @@ int main(int argc, char *argv[])
 
 			u8 *p2 = tal_arr(tmpctx, u8, 0);
 			towire_tlv_n1(&p2, tlv_n1);
-			assert(memeq(orig_p, tal_count(orig_p),
-				     p2, tal_count(p2)));
+			assert(tal_arr_eq(orig_p, p2));
 		}
 	}
 	common_shutdown();

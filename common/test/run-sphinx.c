@@ -219,7 +219,7 @@ static void run_unit_tests(void)
 
 	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index);
 	printf("unwrapped %s\n", tal_hex(tmpctx, oreply));
-	assert(memeq(raw, tal_bytelen(raw), oreply, tal_bytelen(oreply)));
+	assert(tal_arr_eq(raw, oreply));
 	assert(origin_index == 4);
 }
 

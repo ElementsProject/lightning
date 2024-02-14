@@ -241,8 +241,7 @@ static void runtest(const char *filename)
 
 	if (oniontok) {
 		onion = json_tok_bin_from_hex(ctx, buffer, oniontok);
-		if (!memeq(onion, tal_bytelen(onion), serialized,
-			   tal_bytelen(serialized)))
+		if (!tal_arr_eq(onion, serialized))
 			errx(1,
 			     "Generated does not match the expected onion: \n"
 			     "generated: %s\n"

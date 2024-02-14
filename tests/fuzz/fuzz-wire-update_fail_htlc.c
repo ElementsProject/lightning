@@ -32,8 +32,7 @@ static bool equal(const struct update_fail_htlc *x,
 	if (memcmp(x, y, upto_reason) != 0)
 		return false;
 
-	return memeq(x->reason, tal_bytelen(x->reason), y->reason,
-		     tal_bytelen(y->reason));
+	return tal_arr_eq(x->reason, y->reason);
 }
 
 void run(const u8 *data, size_t size)

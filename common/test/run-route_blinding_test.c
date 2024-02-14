@@ -183,8 +183,7 @@ int main(int argc, char *argv[])
 						   json_get_member(json, t, "encoded_tlvs"));
 		expected = json_to_enctlvs(tmpctx, json,
 					   json_get_member(json, t, "tlvs"));
-		assert(memeq(expected, tal_bytelen(expected),
-			     enctlvs[i], tal_bytelen(enctlvs[i])));
+		assert(tal_arr_eq(expected, enctlvs[i]));
 	}
 
 	/* Now do the blinding. */
@@ -221,8 +220,7 @@ int main(int argc, char *argv[])
 		expected_enctlv = json_tok_bin_from_hex(tmpctx,json,
 							json_get_member(json, t,
 									"encrypted_data"));
-		assert(memeq(enctlv, tal_bytelen(enctlv),
-			     expected_enctlv, tal_bytelen(expected_enctlv)));
+		assert(tal_arr_eq(enctlv, expected_enctlv));
 
 		json_to_pubkey(json, json_get_member(json, t, "blinded_node_id"),
 			       &expected_alias);
