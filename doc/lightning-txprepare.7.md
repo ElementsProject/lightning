@@ -4,41 +4,88 @@ lightning-txprepare -- Command to prepare to withdraw funds from the internal wa
 SYNOPSIS
 --------
 
-**txprepare** *outputs* [*feerate*] [*minconf*] [*utxos*]
+**txprepare** *outputs* [*feerate*] [*minconf*] [*utxos*] 
 
 DESCRIPTION
 -----------
 
-The **txprepare** RPC command creates an unsigned transaction which
-spends funds from Core Lightning's internal wallet to the outputs specified
-in *outputs*.
+The **txprepare** RPC command creates an unsigned transaction which spends funds from Core Lightning's internal wallet to the outputs specified in *outputs*.
 
-**txprepare** is similar to the first part of a **withdraw** command, but
-supports multiple outputs and uses *outputs* as parameter. The second part
-is provided by **txsend**.
+**txprepare** is similar to the first part of a **withdraw** command, but supports multiple outputs and uses *outputs* as parameter. The second part is provided by **txsend**.
+
+- **outputs** (array of outputdescs): Format is like: [{destination1: amount1}, {destination2: amount2}] or [{destination: *all*}]. It supports any number of **confirmed** outputs.:
+  - (outputdesc, optional)
+- **feerate** (feerate, optional): Used for the transaction as initial feerate. The default is *normal*.
+- **minconf** (u32, optional): The minimum number of confirmations that used outputs should have. The default is 1.
+- **utxos** (array of outpoints, optional): To be used to fund the transaction, as an array of `txid:vout`. These must be drawn from the node's available UTXO set.:
+  - (outpoint, optional)
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:txprepare#1",
+  "method": "txprepare",
+  "params": {
+    "outputs": [
+      {
+        "bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm": 16777215
+      }
+    ],
+    "feerate": null,
+    "minconf": null,
+    "utxos": null
+  }
+}
+{
+  "id": "example:txprepare#2",
+  "method": "txprepare",
+  "params": {
+    "outputs": [
+      {
+        "bcrt1qyhu7rxj3rrlcj84jtzp2mk9d89xm9v2rx4d4h8au830axugx6mmqsuplng": "100000sat"
+      }
+    ],
+    "feerate": null,
+    "minconf": null,
+    "utxos": null
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **psbt** (string): the PSBT representing the unsigned transaction
-- **unsigned\_tx** (hex): the unsigned transaction
-- **txid** (txid): the transaction id of *unsigned\_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
+- **psbt** (string): The PSBT representing the unsigned transaction.
+- **unsigned\_tx** (hex): The unsigned transaction.
+- **txid** (txid): The transaction id of *unsigned\_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "unsigned_tx": "020000000142dc00d81359c3a551e170e3bf5262fa9cacc2eb2e283a10e579491cd86dce4b0000000000fdffffff02ffffff00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd42839800000000002251207836355fdc8a82dc4cb00a772c5554151d06384a4dd65e8d3f68ac08566b84be66000000",
+  "txid": "6e680cb76077f11c838cc7aee0c0aa360f9857f00856bb1614025a1af53739fc",
+  "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABATRHoQ9tEMHRHpf06v5uTEdjdMk1rccIaA6MNGMipNQWAAAAAAD9////AoCWmAEAAAAAFgAUAfrZCrzWZpfiWSFkci3kqV6+4WXzWm0oAQAAABYAFLnqitWTi465LGxeucwoSAj16NGbAkcwRAIgVtOsUaQaPgH86aW6e6qmJa1xVb8KWvc+HALGosqVVmQCIFi4JU8Gy+vl2a2/frY+71hitYIBB/tjsRP7fpgb8b9TASECHUIV5q1r2ownjOlAFPQASTlZxxNgBvi5O3hCRvajwdJlAAAAAQEfgJaYAQAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIELcANgTWcOlUeFw479SYvqcrMLrLig6EOV5SRzYbc5LAQ8EAAAAAAEQBP3///8AAQMI////AAAAAAABBCIAIFuM07kUz2fN2Ppic8kwNT3TZHZzT72WIQLC31O5CIDNAAEDCEKDmAAAAAAAAQQiUSB4NjVf3IqC3EywCncsVVQVHQY4Sk3WXo0/aKwIVmuEvgA="
+}
+{
+  "unsigned_tx": "0200000001a91077a134fb9fe4a8d13a482b718368bfd9ce3eff61ff7d96549480a1f97dca0100000000fdffffff02a08601000000000022002025f9e19a5118ff891eb25882add8ad394db2b143355b5b9fbc3c5fd37106d6f66173010000000000225120a2a01c7965289eee56b5cfcddb9856c70fa476c264d21f711c6a69af776ae40366000000",
+  "txid": "f11d436054607603e903fc69c4bd9b39ce97421341c7cf814ad025cb5bf59c1c",
+  "psbt": "cHNidP8BAgQCAAAAAQMEZgAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQDeAgAAAAABAYZ4QwAgPq6Os8kk073f5Yx4T9LXYfbOjAdkzMXfuBQdAAAAAAD9////AjPkAioBAAAAFgAUeOeqzyifepeJAMCl4vnnJ/TRptRADQMAAAAAABYAFAH62Qq81maX4lkhZHIt5KlevuFlAkcwRAIgYBFwmqWCrVkxxZ0/tte3z4lIem0L7MkhXzGAOvBWa6YCIFx7H4zOzxjixlZMi0DYYbIEflDjYHJXLfN1wVcXYuekASEDgztw/3Rks6vKGYMXJ83VEvQcNIjg3rJW6KdxEh26uwplAAAAAQEfQA0DAAAAAAAWABQB+tkKvNZml+JZIWRyLeSpXr7hZQEOIKkQd6E0+5/kqNE6SCtxg2i/2c4+/2H/fZZUlICh+X3KAQ8EAQAAAAEQBP3///8AAQMIoIYBAAAAAAABBCIAICX54ZpRGP+JHrJYgq3YrTlNsrFDNVtbn7w8X9NxBtb2AAEDCGFzAQAAAAAAAQQiUSCioBx5ZSie7la1z83bmFbHD6R2wmTSH3Ecammvd2rkAwA="
+}
+```
 
 ERRORS
 ------
 
 On failure, an error is reported and the transaction is not created.
 
-The following error codes may occur:
-
 - -1: Catchall nonspecific error.
-- 301: There are not enough funds in the internal wallet (including
-fees) to create the transaction.
+- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.
 - 302: The dust limit is not met.
 
 AUTHOR
@@ -49,12 +96,9 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-withdraw(7), lightning-txsend(7), lightning-txdiscard(7),
-lightning-feerates(7)
+lightning-withdraw(7), lightning-txsend(7), lightning-txdiscard(7), lightning-feerates(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:2711c2b658ca99c61153facb3a532ae3b3a5b8ac86419796e0bf2f7daa6e53c5)

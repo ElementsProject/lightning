@@ -1,49 +1,55 @@
 lightning-listoffers -- Command for listing offers
-=======================================================
+==================================================
 
 SYNOPSIS
 --------
 
 **(WARNING: experimental-offers only)**
 
-**listoffers** [*offer\_id*] [*active\_only*]
+**listoffers** [*offer\_id*] [*active\_only*] 
 
 DESCRIPTION
 -----------
 
-The **listoffers** RPC command list all offers, or with `offer_id`,
-only the offer with that offer\_id (if it exists).
+The **listoffers** RPC command list all offers, or with `offer_id`, only the offer with that offer\_id (if it exists).
+
+- **offer\_id** (hash, optional): Offer\_id to get details for (if it exists).
+- **active\_only** (boolean, optional): If set and is true, only offers with `active` true are returned.
 
 EXAMPLE JSON REQUEST
-------------
+--------------------
 
 ```json
 {
-  "id": 82,
+  "id": "example:listoffers#1",
   "method": "listoffers",
   "params": {
-	"active_only": false
+    "active_only": true
   }
+}
+{
+  "id": "example:listoffers#2",
+  "method": "listoffers",
+  "params": [
+    "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48"
+  ]
 }
 ```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
-On success, an object containing **offers** is returned.  It is an array of objects, where each object contains:
+On success, an object containing **offers** is returned. It is an array of objects, where each object contains:
 
-- **offer\_id** (hash): the id of this offer (merkle hash of non-signature fields)
-- **active** (boolean): whether this can still be used
-- **single\_use** (boolean): whether this expires as soon as it's paid
-- **bolt12** (string): the bolt12 encoding of the offer
-- **used** (boolean): True if an associated invoice has been paid
-- **label** (string, optional): the (optional) user-specified label
-
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+- **offer\_id** (hash): The id of this offer (merkle hash of non-signature fields).
+- **active** (boolean): Whether this can still be used.
+- **single\_use** (boolean): Whether this expires as soon as it's paid.
+- **bolt12** (string): The bolt12 encoding of the offer.
+- **used** (boolean): True if an associated invoice has been paid.
+- **label** (string, optional): The (optional) user-specified label.
 
 EXAMPLE JSON RESPONSE
------
+---------------------
 
 ```json
 {
@@ -64,9 +70,18 @@ EXAMPLE JSON RESPONSE
     }
   ]
 }
-
+{
+  "offers": [
+    {
+      "offer_id": "f61cca153d1948dade19349792d9bcdc9cef687fd27db0b553a67979f55aae48",
+      "active": true,
+      "single_use": false,
+      "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5rn5v4ehggrxdaezqvtdwdshg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s",
+      "used": false
+    }
+  ]
+}
 ```
-
 
 AUTHOR
 ------
@@ -76,11 +91,9 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-offer(7), lightning-listoffers(7).
+lightning-offer(7), lightning-listoffers(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:7eb4649206d076a15913b2ce993a1ff6d1a47b54ebbbd1b295dc5c2af5f0e6d7)

@@ -4,21 +4,39 @@ lightning-delexpiredinvoice -- Command for removing expired invoices
 SYNOPSIS
 --------
 
-**delexpiredinvoice** [*maxexpirytime*]
+**delexpiredinvoice** [*maxexpirytime*] 
 
 DESCRIPTION
 -----------
 
-The **delexpiredinvoice** RPC command removes all invoices that have
-expired on or before the given *maxexpirytime*.
+The **delexpiredinvoice** RPC command removes all invoices that have expired on or before the given *maxexpirytime*.
+
+- **maxexpirytime** (u64, optional): Invoice expiry time in seconds. If not specified then all expired invoices are deleted.
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:delexpiredinvoice#1",
+  "method": "delexpiredinvoice",
+  "params": {
+    "maxexpirytime": null
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{}
+```
 
 AUTHOR
 ------
@@ -34,5 +52,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:8e8ea93d37e6896251df4a07648383e72064aa75f0a415820f773178fc35083c)

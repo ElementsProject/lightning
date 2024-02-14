@@ -4,27 +4,59 @@ lightning-signmessage -- Command to create a signature from this node
 SYNOPSIS
 --------
 
-**signmessage** *message*
+**signmessage** *message* 
 
 DESCRIPTION
 -----------
 
-The **signmessage** RPC command creates a digital signature of
-*message* using this node's secret key. A receiver who knows your
-node's *id* and the *message* can be sure that the resulting signature could
-only be created by something with access to this node's secret key.
+The **signmessage** RPC command creates a digital signature of *message* using this node's secret key. A receiver who knows your node's *id* and the *message* can be sure that the resulting signature could only be created by something with access to this node's secret key.
+
+- **message** (string): Less than 65536 characters long message to be signed by the node.
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:signmessage#1",
+  "method": "signmessage",
+  "params": {
+    "message": "this is a test!"
+  }
+}
+{
+  "id": "example:signmessage#2",
+  "method": "signmessage",
+  "params": {
+    "message": "message for you"
+  }
+}
+```
 
 RETURN VALUE
 ------------
 
-[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **signature** (hex): The signature (always 128 characters)
-- **recid** (hex): The recovery id (0, 1, 2 or 3) (always 2 characters)
-- **zbase** (string): *signature* and *recid* encoded in a style compatible with **lnd**'s [SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)
+- **signature** (hex) (always 128 characters): The signature.
+- **recid** (hex) (always 2 characters): The recovery id (0, 1, 2 or 3).
+- **zbase** (string): *signature* and *recid* encoded in a style compatible with **lnd**'s [SignMessageRequest](https://api.lightning.community/#grpc-request- signmessagerequest).
 
-[comment]: # (GENERATE-FROM-SCHEMA-END)
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "signature": "a2ec227012795f9d6b80a3f5ea98374c6d2886917517c05336799923fcf37caf08344c0431275e1a8189da01b444ae978007fe70f0cc9009f38cabe074ade87d",
+  "recid": "00",
+  "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
+}
+{
+  "signature": "85843b010bc517b32eaafe70232e2c44bb5a354c74d2202390af1b272e4c6ac23ac3f97ea663d8b49116ad6c2d080515b43bcdf1ea4f38cdb18af0edf8209cd8",
+  "recid": "00",
+  "zbase": "d6naeqabbxntxc3qim98ye3qftnmsstijt4prebd1nztsj3qjticrqsd9f9kca6as1etpmmcfwrykfpw8xg9d41x8dg5dnzo7zhnb8ga"
+}
+```
 
 AUTHOR
 ------
@@ -42,5 +74,3 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)
-
-[comment]: # ( SHA256STAMP:485db85e3822babcb397b55f251e6797528c3b9e14743d2823e890e2b22432c0)

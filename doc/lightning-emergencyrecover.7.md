@@ -4,27 +4,52 @@ lightning-emergencyrecover -- Command for recovering channels from the emergency
 SYNOPSIS
 --------
 
-**emergencyrecover**
+**emergencyrecover** 
 
 DESCRIPTION
 -----------
 
-The **emergencyrecover** RPC command fetches data from the emergency.recover
-file and tries to reconnect to the peer and force him to close the channel.
-The data in this file has enough information to reconnect and sweep the funds.
+The **emergencyrecover** RPC command fetches data from the emergency.recover file and tries to reconnect to the peer and force him to close the channel. The data in this file has enough information to reconnect and sweep the funds.
 
-This recovery method is not spontaneous and it depends on the peer, so it should
-be used as a last resort to recover the funds stored in a channel in case of severe
-data loss.
+This recovery method is not spontaneous and it depends on the peer, so it should be used as a last resort to recover the funds stored in a channel in case of severe data loss.
+
+EXAMPLE JSON REQUEST
+--------------------
+
+```json
+{
+  "id": "example:emergencyrecover#1",
+  "method": "emergencyrecover",
+  "params": "{}"
+}
+{
+  "id": "example:emergencyrecover#2",
+  "method": "emergencyrecover",
+  "params": "{}"
+}
+```
 
 RETURN VALUE
 ------------
 
 On success, an object is returned, containing:
 
-- **stubs** (array of hexs):
-  - Each item is the channel ID of the channel successfully inserted
+- **stubs** (array of hashs):
+  - (hash, optional): Channel IDs of channels successfully inserted.
 
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{
+  "stubs": []
+}
+{
+  "stubs": [
+    "c00734472f344fdadd0bf787de182e5cf144ccda5d731b0f7c75befd1f1eff52"
+  ]
+}
+```
 
 AUTHOR
 ------
@@ -40,5 +65,3 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-
-[comment]: # ( SHA256STAMP:9cfaa9eb4609b36accc3e3b12a352c00ddd402307e4461f4df274146d12f6eb0)

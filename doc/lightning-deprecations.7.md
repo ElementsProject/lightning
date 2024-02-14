@@ -4,35 +4,44 @@ lightning-deprecations -- Command to enable/disable deprecated APIs
 SYNOPSIS
 --------
 
-**deprecations** *enable*
+**deprecations** *enable* 
 
 DESCRIPTION
 -----------
 
-(Added *v24.02*)
+Command *added* in v24.02.
 
-The **deprecations** RPC command overrides the global `allow-deprecated-apis` flag for further RPC commands on this same connection.  In particular, setting *enable* to `false` will neither accept deprecated parameters or commands, nor output
-deprecated fields.
+The **deprecations** RPC command is used to override global config option `allow-deprecated-apis` for further RPC commands on this same connection. This can be useful for developer testing to ensure you don't accidentally rely on deprecated features.
 
-This is equivalent to the config option `allow-deprecated-apis`, but can
-be used on useful for developer testing to ensure you don't accidentally rely on
-deprecated features.
-
+- **enable** (boolean): Flag to enable or disable deprecated APIs. Setting it to `false` will neither accept deprecated parameters or commands, nor output deprecated fields.
 
 EXAMPLE JSON REQUEST
 --------------------
+
 ```json
 {
-  "id": 82,
+  "id": "example:deprecations#1",
   "method": "deprecations",
   "params": {
-     "enable": false
+    "enable": false
   }
 }
 ```
 
 RETURN VALUE
 ------------
+
+On success, an empty object is returned.
+
+EXAMPLE JSON RESPONSE
+---------------------
+
+```json
+{}
+```
+
+ERRORS
+------
 
 On failure, one of the following error codes may be returned:
 
@@ -42,6 +51,11 @@ AUTHOR
 ------
 
 Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page.
+
+SEE ALSO
+--------
+
+lightningd-config(5), lightning-notifications(7)
 
 RESOURCES
 ---------
