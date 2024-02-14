@@ -152,8 +152,7 @@ class GrpcGenerator(IGenerator):
             name = str(notification.typename)
             self.write(
                 f"	rpc Subscribe{name}({notification.request.typename}) returns (stream {notification.response.typename}) {{}}\n",
-                cleanup=False,
-            )
+                cleanup=False)
 
         self.write(
             f"""}}
