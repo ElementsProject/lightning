@@ -1,3 +1,6 @@
+# A grpc model
+import re
+
 typemap = {
     "boolean": "bool",
     "hex": "bytes",
@@ -36,3 +39,23 @@ typemap = {
 method_name_overrides = {
     "Connect": "ConnectPeer",
 }
+
+
+def snake_to_camel(snake_str: str):
+    components = snake_str.split("_")
+    # We capitalize the first letter of each component except the first one
+    # with the 'capitalize' method and join them together, while preserving
+    # existing camel cases.
+    camel_case = components[0]
+    for word in components[1:]:
+        if not word.isupper():
+            camel_case += word[0].upper() + word[1:]
+        else:
+            camel_case += word.capitalize()
+    return camel_case
+
+
+def camel_to_snake(camel_case: str):
+    snake = re.sub(r"(?<!^)(?=[A-Z])", "_", camel_case).lower()
+    snake = snake.replace("-", "")
+    return snake
