@@ -642,8 +642,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		goto bad;
 	}
 
-	if (!memeq(outscript, tal_bytelen(outscript),
-		   pca->scriptpubkey, tal_bytelen(pca->scriptpubkey))) {
+	if (!tal_arr_eq(outscript, pca->scriptpubkey)) {
 		peer_warning(gm, pca->source_peer,
 			     "channel_announcement: txout %s expected %s, got %s",
 			     short_channel_id_to_str(tmpctx, &scid),

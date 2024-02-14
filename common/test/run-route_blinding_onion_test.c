@@ -158,8 +158,7 @@ int main(int argc, char *argv[])
 					       json_tok_bin_from_hex,
 					       &payload),
 				 JSON_SCAN(json_to_pubkey, &ids[i])) == NULL);
-		assert(memeq(payload, tal_bytelen(payload),
-			     onionhops[i], tal_bytelen(onionhops[i])));
+		assert(tal_arr_eq(payload, onionhops[i]));
 	}
 
 	/* Now, create onion! */
@@ -174,8 +173,7 @@ int main(int argc, char *argv[])
 			 JSON_SCAN_TAL(tmpctx,
 				       json_tok_bin_from_hex,
 				       &expected_onion)) == NULL);
-	assert(memeq(expected_onion, tal_bytelen(expected_onion),
-		     onion, tal_bytelen(onion)));
+	assert(tal_arr_eq(expected_onion, onion));
 
 	/* FIXME: unwrap and test! */
 #if 0
@@ -196,8 +194,7 @@ int main(int argc, char *argv[])
 				 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &expected_onion))
 		       == NULL);
 		serialized = serialize_onionpacket(tmpctx, op);
-		assert(memeq(expected_onion, tal_bytelen(expected_onion),
-			     serialized, tal_bytelen(serialized)));
+		assert(tal_arr_eq(expected_onion, serialized));
 
 		if (blinding) {
 			assert(unblind_onion(blinding, test_ecdh,
@@ -207,8 +204,7 @@ int main(int argc, char *argv[])
 		}
 		rs = process_onionpacket(tmpctx, op, &ss, associated_data,
 					 tal_bytelen(associated_data), true);
-		assert(memeq(rs->raw_payload, tal_bytelen(rs->raw_payload),
-			     onionhops[i], tal_bytelen(onionhops[i])));
+		assert(tal_arr_eq(rs->raw_payload, onionhops[i]));
 		if (rs->nextcase == ONION_FORWARD)
 			op = rs->next;
 		else

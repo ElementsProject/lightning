@@ -500,9 +500,7 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 		open_err_fatal(state, "Bad shutdown %s", tal_hex(msg, msg));
 
 	if (tal_count(state->upfront_shutdown_script[REMOTE])
-	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
-		      state->upfront_shutdown_script[REMOTE],
-		      tal_count(state->upfront_shutdown_script[REMOTE])))
+	    && !tal_arr_eq(scriptpubkey, state->upfront_shutdown_script[REMOTE]))
 		open_err_fatal(state,
 			      "scriptpubkey %s is not as agreed upfront (%s)",
 			   tal_hex(state, scriptpubkey),

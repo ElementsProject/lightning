@@ -106,8 +106,7 @@ static void test_b11(const char *b11str,
 				list);
 	list_for_each(&b11->extra_fields, b11_extra, list) {
 		assert(expect_extra->tag == b11_extra->tag);
-		assert(memeq(expect_extra->data, tal_bytelen(expect_extra->data),
-			     b11_extra->data, tal_bytelen(b11_extra->data)));
+		assert(tal_arr_eq(expect_extra->data, b11_extra->data));
 		expect_extra = list_next(&expect_b11->extra_fields,
 					 expect_extra, list);
 	}

@@ -34,8 +34,7 @@ static bool equal(const struct tx_add_output *x, const struct tx_add_output *y)
 	if (memcmp(x, y, upto_script) != 0)
 		return false;
 
-	return memeq(x->script, tal_bytelen(x->script), y->script,
-		     tal_bytelen(y->script));
+	return tal_arr_eq(x->script, y->script);
 }
 
 void run(const u8 *data, size_t size)

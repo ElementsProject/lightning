@@ -28,8 +28,7 @@ static bool equal(const struct tx_abort *x, const struct tx_abort *y)
 {
 	if (!channel_id_eq(&x->channel_id, &y->channel_id))
 		return false;
-	return memeq(x->data, tal_bytelen(x->data), y->data,
-		     tal_bytelen(y->data));
+	return tal_arr_eq(x->data, y->data);
 }
 
 void run(const u8 *data, size_t size)

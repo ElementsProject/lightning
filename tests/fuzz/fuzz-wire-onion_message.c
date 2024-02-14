@@ -27,8 +27,7 @@ static bool equal(const struct onion_message *x, const struct onion_message *y)
 {
 	if (memcmp(&x->blinding, &y->blinding, sizeof(x->blinding)) != 0)
 		return false;
-	return memeq(x->onionmsg, tal_bytelen(x->onionmsg), y->onionmsg,
-		     tal_bytelen(y->onionmsg));
+	return tal_arr_eq(x->onionmsg, y->onionmsg);
 }
 
 void run(const u8 *data, size_t size)

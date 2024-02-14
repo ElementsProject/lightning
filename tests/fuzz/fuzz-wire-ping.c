@@ -27,8 +27,7 @@ static bool equal(const struct ping *x, const struct ping *y)
 {
 	if (x->num_pong_bytes != y->num_pong_bytes)
 		return false;
-	return memeq(x->ignored, tal_bytelen(x->ignored), y->ignored,
-		     tal_bytelen(y->ignored));
+	return tal_arr_eq(x->ignored, y->ignored);
 }
 
 void run(const u8 *data, size_t size)

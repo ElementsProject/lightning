@@ -43,8 +43,7 @@ static bool timestamps_tlv_equal(
 		return false;
 	if (x->encoding_type != y->encoding_type)
 		return false;
-	return memeq(x->encoded_timestamps, tal_bytelen(x->encoded_timestamps),
-		     y->encoded_timestamps, tal_bytelen(y->encoded_timestamps));
+	return tal_arr_eq(x->encoded_timestamps, y->encoded_timestamps);
 }
 
 static bool equal(const struct reply_channel_range *x,
@@ -56,8 +55,7 @@ static bool equal(const struct reply_channel_range *x,
 	if (x->sync_complete != y->sync_complete)
 		return false;
 
-	if (!memeq(x->encoded_short_ids, tal_bytelen(x->encoded_short_ids),
-		   y->encoded_short_ids, tal_bytelen(y->encoded_short_ids)))
+	if (!tal_arr_eq(x->encoded_short_ids,  y->encoded_short_ids))
 		return false;
 
 	assert(x->tlvs && y->tlvs);
@@ -66,9 +64,7 @@ static bool equal(const struct reply_channel_range *x,
 				  y->tlvs->timestamps_tlv))
 		return false;
 
-	return memeq(
-	    x->tlvs->checksums_tlv, tal_bytelen(x->tlvs->checksums_tlv),
-	    y->tlvs->checksums_tlv, tal_bytelen(y->tlvs->checksums_tlv));
+	return tal_arr_eq(x->tlvs->checksums_tlv, y->tlvs->checksums_tlv);
 }
 
 void run(const u8 *data, size_t size)

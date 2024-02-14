@@ -36,13 +36,11 @@ static bool equal(struct commitment_signed *x, struct commitment_signed *y)
 	if (memcmp(x, y, upto_htlc_signature) != 0)
 		return false;
 
-	if (!memeq(x->htlc_signature, tal_bytelen(x->htlc_signature),
-		   y->htlc_signature, tal_bytelen(y->htlc_signature)))
+	if (!tal_arr_eq(x->htlc_signature, y->htlc_signature))
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(x->tlvs->splice_info, tal_bytelen(x->tlvs->splice_info),
-		     y->tlvs->splice_info, tal_bytelen(y->tlvs->splice_info));
+	return tal_arr_eq(x->tlvs->splice_info, y->tlvs->splice_info);
 }
 
 void run(const u8 *data, size_t size)

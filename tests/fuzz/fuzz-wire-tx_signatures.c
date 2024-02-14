@@ -42,8 +42,7 @@ static bool witnesses_equal(struct witness **x, struct witness **y)
 
 	for (size_t i = 0; i < tal_count(x); ++i) {
 		assert(x[i] && y[i]);
-		if (!memeq(x[i]->witness_data, tal_bytelen(x[i]->witness_data),
-			   y[i]->witness_data, tal_bytelen(y[i]->witness_data)))
+		if (!tal_arr_eq(x[i]->witness_data, y[i]->witness_data))
 			return false;
 	}
 	return true;
@@ -59,10 +58,8 @@ static bool equal(const struct tx_signatures *x, const struct tx_signatures *y)
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(x->tlvs->funding_outpoint_sig,
-		     tal_bytelen(x->tlvs->funding_outpoint_sig),
-		     y->tlvs->funding_outpoint_sig,
-		     tal_bytelen(y->tlvs->funding_outpoint_sig));
+	return tal_arr_eq(x->tlvs->funding_outpoint_sig,
+			  y->tlvs->funding_outpoint_sig);
 }
 
 void run(const u8 *data, size_t size)

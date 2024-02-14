@@ -38,8 +38,7 @@ static bool equal(const struct query_channel_range *x,
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(x->tlvs->query_option, tal_bytelen(x->tlvs->query_option),
-		     y->tlvs->query_option, tal_bytelen(y->tlvs->query_option));
+	return tal_arr_eq(x->tlvs->query_option, y->tlvs->query_option);
 }
 
 void run(const u8 *data, size_t size)

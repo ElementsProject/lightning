@@ -86,14 +86,11 @@ static bool equal(const struct accept_channel2 *x,
 
 	assert(x->tlvs && y->tlvs);
 
-	if (!memeq(x->tlvs->upfront_shutdown_script,
-		   tal_bytelen(x->tlvs->upfront_shutdown_script),
-		   y->tlvs->upfront_shutdown_script,
-		   tal_bytelen(y->tlvs->upfront_shutdown_script)))
+	if (!tal_arr_eq(x->tlvs->upfront_shutdown_script,
+			y->tlvs->upfront_shutdown_script))
 		return false;
 
-	if (!memeq(x->tlvs->channel_type, tal_bytelen(x->tlvs->channel_type),
-		   y->tlvs->channel_type, tal_bytelen(y->tlvs->channel_type)))
+	if (!tal_arr_eq(x->tlvs->channel_type, y->tlvs->channel_type))
 		return false;
 
 	if (!!x->tlvs->require_confirmed_inputs !=

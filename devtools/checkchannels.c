@@ -205,8 +205,7 @@ int main(int argc, char *argv[])
 		wscript = bitcoin_redeem_2of2(ctx, &local_fundingkey, &remote_fundingkey);
 		expect_scriptpubkey = scriptpubkey_p2wsh(ctx, wscript);
 
-		if (!memeq(expect_scriptpubkey, tal_bytelen(expect_scriptpubkey),
-			   scriptpubkey, tal_bytelen(scriptpubkey))) {
+		if (!tal_arr_eq(expect_scriptpubkey, scriptpubkey)) {
 			printf("*** FATAL *** outscript %s should be %s\n",
 			       tal_hex(ctx, scriptpubkey),
 			       tal_hex(ctx, expect_scriptpubkey));

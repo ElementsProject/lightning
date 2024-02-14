@@ -53,8 +53,7 @@ static bool equal(const struct channel_announcement *x,
 	if (!node_id_eq(&x->node_id_2, &y->node_id_2))
 		return false;
 
-	return memeq(x->features, tal_bytelen(x->features), y->features,
-		     tal_bytelen(y->features));
+	return tal_arr_eq(x->features, y->features);
 }
 
 void run(const u8 *data, size_t size)

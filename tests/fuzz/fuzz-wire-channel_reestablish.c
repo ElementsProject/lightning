@@ -44,26 +44,16 @@ static bool equal(const struct channel_reestablish *x,
 
 	assert(x->tlvs && y->tlvs);
 
-	if (!memeq(x->tlvs->next_funding, tal_bytelen(x->tlvs->next_funding),
-		   y->tlvs->next_funding, tal_bytelen(y->tlvs->next_funding)))
+	if (!tal_arr_eq(x->tlvs->next_funding, y->tlvs->next_funding))
 		return false;
-	if (!memeq(x->tlvs->next_to_send, tal_bytelen(x->tlvs->next_to_send),
-		   y->tlvs->next_to_send, tal_bytelen(y->tlvs->next_to_send)))
+	if (!tal_arr_eq(x->tlvs->next_to_send, y->tlvs->next_to_send))
 		return false;
-	if (!memeq(x->tlvs->desired_channel_type,
-		   tal_bytelen(x->tlvs->desired_channel_type),
-		   y->tlvs->desired_channel_type,
-		   tal_bytelen(y->tlvs->desired_channel_type)))
+	if (!tal_arr_eq(x->tlvs->desired_channel_type, y->tlvs->desired_channel_type))
 		return false;
-	if (!memeq(x->tlvs->current_channel_type,
-		   tal_bytelen(x->tlvs->current_channel_type),
-		   y->tlvs->current_channel_type,
-		   tal_bytelen(y->tlvs->current_channel_type)))
+	if (!tal_arr_eq(x->tlvs->current_channel_type, y->tlvs->current_channel_type))
 		return false;
-	return memeq(x->tlvs->upgradable_channel_type,
-		     tal_bytelen(x->tlvs->upgradable_channel_type),
-		     y->tlvs->upgradable_channel_type,
-		     tal_bytelen(y->tlvs->upgradable_channel_type));
+	return tal_arr_eq(x->tlvs->upgradable_channel_type,
+			  y->tlvs->upgradable_channel_type);
 }
 
 void run(const u8 *data, size_t size)

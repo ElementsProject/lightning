@@ -1579,7 +1579,7 @@ static bool bitcoin_tx_eq(const struct bitcoin_tx *tx1,
 	bool eq;
 	lin1 = linearize_tx(NULL, tx1);
 	lin2 = linearize_tx(lin1, tx2);
-	eq = memeq(lin1, tal_count(lin1), lin2, tal_count(lin2));
+	eq = tal_arr_eq(lin1, lin2);
 	tal_free(lin1);
 	return eq;
 }
@@ -1628,11 +1628,9 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK((c1->scid == NULL && c2->scid == NULL)
 	      || short_channel_id_eq(c1->scid, c2->scid));
 	CHECK(amount_msat_eq(c1->our_msat, c2->our_msat));
-	CHECK((c1->shutdown_scriptpubkey[REMOTE] == NULL && c2->shutdown_scriptpubkey[REMOTE] == NULL) || memeq(
+	CHECK((c1->shutdown_scriptpubkey[REMOTE] == NULL && c2->shutdown_scriptpubkey[REMOTE] == NULL) || tal_arr_eq(
 		      c1->shutdown_scriptpubkey[REMOTE],
-		      tal_count(c1->shutdown_scriptpubkey[REMOTE]),
-		      c2->shutdown_scriptpubkey[REMOTE],
-		      tal_count(c2->shutdown_scriptpubkey[REMOTE])));
+		      c2->shutdown_scriptpubkey[REMOTE]));
 	CHECK(bitcoin_outpoint_eq(&c1->funding, &c2->funding));
 	CHECK(pubkey_eq(&ci1->remote_fundingkey, &ci2->remote_fundingkey));
 	CHECK(pubkey_eq(&ci1->theirbase.revocation, &ci2->theirbase.revocation));
@@ -1669,10 +1667,8 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 		    &c2->last_sig, sizeof(c2->last_sig)));
 
 	CHECK(c1->final_key_idx == c2->final_key_idx);
-	CHECK(memeq(c1->shutdown_scriptpubkey[REMOTE],
-		    tal_count(c1->shutdown_scriptpubkey[REMOTE]),
-		    c2->shutdown_scriptpubkey[REMOTE],
-		    tal_count(c2->shutdown_scriptpubkey[REMOTE])));
+	CHECK(tal_arr_eq(c1->shutdown_scriptpubkey[REMOTE],
+			 c2->shutdown_scriptpubkey[REMOTE]));
 
 	CHECK(c1->last_was_revoke == c2->last_was_revoke);
 

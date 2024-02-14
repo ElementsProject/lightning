@@ -37,8 +37,7 @@ static bool equal(const struct closing_signed *x,
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return memeq(x->tlvs->fee_range, tal_bytelen(x->tlvs->fee_range),
-		     y->tlvs->fee_range, tal_bytelen(y->tlvs->fee_range));
+	return tal_arr_eq(x->tlvs->fee_range, y->tlvs->fee_range);
 }
 
 void run(const u8 *data, size_t size)

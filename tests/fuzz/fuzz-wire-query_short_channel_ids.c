@@ -38,9 +38,7 @@ query_flags_equal(const struct tlv_query_short_channel_ids_tlvs_query_flags *x,
 		return false;
 	if (x->encoding_type != y->encoding_type)
 		return false;
-	return memeq(
-	    x->encoded_query_flags, tal_bytelen(x->encoded_query_flags),
-	    y->encoded_query_flags, tal_bytelen(y->encoded_query_flags));
+	return tal_arr_eq(x->encoded_query_flags, y->encoded_query_flags);
 }
 
 static bool equal(const struct query_short_channel_ids *x,
@@ -49,8 +47,7 @@ static bool equal(const struct query_short_channel_ids *x,
 	if (memcmp(&x->chain_hash, &y->chain_hash, sizeof(x->chain_hash)) != 0)
 		return false;
 
-	if (!memeq(x->encoded_short_ids, tal_bytelen(x->encoded_short_ids),
-		   y->encoded_short_ids, tal_bytelen(y->encoded_short_ids)))
+	if (!tal_arr_eq(x->encoded_short_ids, y->encoded_short_ids))
 		return false;
 
 	assert(x->tlvs && y->tlvs);

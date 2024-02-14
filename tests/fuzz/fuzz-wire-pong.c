@@ -24,8 +24,7 @@ static struct pong *decode(const tal_t *ctx, const void *p)
 
 static bool equal(const struct pong *x, const struct pong *y)
 {
-	return memeq(x->ignored, tal_bytelen(x->ignored), y->ignored,
-		     tal_bytelen(y->ignored));
+	return tal_arr_eq(x->ignored, y->ignored);
 }
 
 void run(const u8 *data, size_t size)

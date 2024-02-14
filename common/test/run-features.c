@@ -120,8 +120,7 @@ static void test_featurebits_or(void)
 		set_feature_bit(&control, i);
 	}
 	u8 *result = featurebits_or(tmpctx, take(f1), f2);
-	assert(
-	    memeq(result, tal_bytelen(result), control, tal_bytelen(control)));
+	assert(tal_arr_eq(result, control));
 }
 
 static bool feature_set_eq(const struct feature_set *f1,
@@ -129,8 +128,7 @@ static bool feature_set_eq(const struct feature_set *f1,
 {
 	/* We assume minimal sizing */
 	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
-		if (!memeq(f1->bits[i], tal_bytelen(f1->bits[i]),
-			   f2->bits[i], tal_bytelen(f2->bits[i])))
+		if (!tal_arr_eq(f1->bits[i], f2->bits[i]))
 			return false;
 	}
 	return true;

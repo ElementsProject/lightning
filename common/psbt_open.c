@@ -133,8 +133,7 @@ static bool input_identical(const struct wally_psbt *a,
 	const u8 *b_in = linearize_input(tmpctx,
 					 &b->inputs[b_index]);
 
-	return memeq(a_in, tal_bytelen(a_in),
-		     b_in, tal_bytelen(b_in));
+	return tal_arr_eq(a_in, b_in);
 }
 
 static bool output_identical(const struct wally_psbt *a,
@@ -146,8 +145,7 @@ static bool output_identical(const struct wally_psbt *a,
 					   &a->outputs[a_index]);
 	const u8 *b_out = linearize_output(tmpctx,
 					   &b->outputs[b_index]);
-	return memeq(a_out, tal_bytelen(a_out),
-		     b_out, tal_bytelen(b_out));
+	return tal_arr_eq(a_out, b_out);
 }
 
 static void sort_inputs(struct wally_psbt *psbt)
