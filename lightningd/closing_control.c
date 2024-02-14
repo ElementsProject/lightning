@@ -692,7 +692,8 @@ static struct command_result *json_close(struct command *cmd,
 	if (close_to_script) {
 		bool is_p2sh;
 
-		if (!tal_arr_eq(close_to_script, channel->shutdown_scriptpubkey[LOCAL])) {
+		if (!tal_arr_eq(close_to_script, channel->shutdown_scriptpubkey[LOCAL])
+		    && !cmd->ld->dev_allow_shutdown_destination_change) {
 			const u8 *defp2tr, *defp2wpkh;
 			/* We cannot change the closing script once we've
 			 * started shutdown: onchaind relies on it for output

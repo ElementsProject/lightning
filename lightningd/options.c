@@ -911,6 +911,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_any_channel_type,
 		     "Allow sending any channel type, and accept any");
+	clnopt_noarg("--dev-allow-shutdown-destination-change", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_allow_shutdown_destination_change,
+		     "Allow destination override on close, even if risky");
 }
 
 static const struct config testnet_config = {
