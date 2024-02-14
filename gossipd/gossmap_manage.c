@@ -276,6 +276,10 @@ static void remove_channel(struct gossmap_manage *gm,
 
 		node = gossmap_nth_node(gossmap, chan, dir);
 
+		/* Don't get confused if a node has a channel with self! */
+		if (dir == 1 && node == gossmap_nth_node(gossmap, chan, 0))
+			continue;
+
 		/* If there was a node announcement, we might need to fix things up. */
 		if (!gossmap_node_announced(node))
 			continue;
