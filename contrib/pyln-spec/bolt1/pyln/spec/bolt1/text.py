@@ -10,7 +10,7 @@ The default TCP port depends on the network used. The most common networks are:
 
 - Bitcoin mainet with port number 9735 or the corresponding hexadecimal `0x2607`;
 - Bitcoin testnet with port number 19735 (`0x4D17`);
-- Bitcoin signet with port number 39735 (`0xF87`).
+- Bitcoin signet with port number 39735 (`0x9B37`).
 
 The Unicode code point for LIGHTNING <sup>[1](#reference-1)</sup>, and the port convention try to follow the Bitcoin Core convention.
 
