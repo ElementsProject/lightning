@@ -343,6 +343,9 @@ struct lightningd {
 	/* Tell openingd/dualopend to accept all, allow sending any. */
 	bool dev_any_channel_type;
 
+	/* Allow changing of shutdown output point even if dangerous */
+	bool dev_allow_shutdown_destination_change;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;
