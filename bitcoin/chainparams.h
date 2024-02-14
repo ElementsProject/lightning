@@ -29,7 +29,7 @@ struct chainparams {
 	 *
 	 * - Bitcoin mainet with port number 9735 or the corresponding hexadecimal `0x2607`;
 	 * - Bitcoin testnet with port number 19735 (`0x4D17`);
-	 * - Bitcoin signet with port number 39735 (`0xF87`).
+	 * - Bitcoin signet with port number 39735 (`0x9B37`).
 	 */
 	const int ln_port;
 	const char *cli;
