@@ -1150,7 +1150,6 @@ static void kill_spent_channel(struct gossmap_manage *gm,
 void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 {
 	u64 idx;
-	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 	for (struct pending_cannounce *pca = uintmap_first(&gm->early_ann_map.map, &idx);
 	     pca != NULL;
@@ -1180,9 +1179,14 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 	}
 
 	for (size_t i = 0; i < tal_count(gm->dying_channels); i++) {
+		struct gossmap *gossmap;
+
 		if (gm->dying_channels[i].deadline > new_blockheight)
 			continue;
 
+		/* Refresh gossmap each time in case we move things in the loop:
+		 * in particular, we might move a node_announcement twice! */
+		gossmap = gossmap_manage_get_gossmap(gm);
 		kill_spent_channel(gm, gossmap, gm->dying_channels[i].scid);
 		gossip_store_del(gm->daemon->gs,
 				 gm->dying_channels[i].gossmap_offset,
