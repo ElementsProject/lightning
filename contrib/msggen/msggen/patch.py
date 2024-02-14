@@ -11,7 +11,7 @@ class Patch(ABC):
 
     """
 
-    def visit(self, field: model.Field, parent : Optional[model.Field] = None) -> None:
+    def visit(self, field: model.Field, parent: Optional[model.Field] = None) -> None:
         """Gets called for each node in the model.
         """
         pass
@@ -58,7 +58,7 @@ class VersionAnnotationPatch(Patch):
         """
         self.meta = meta
 
-    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
         m = self.meta['model-field-versions'].get(f.path, {})
 
         # The following lines are used to backfill fields that predate
@@ -130,12 +130,12 @@ class OptionalPatch(Patch):
 
         return OptionalPatch.version_to_number('v0.10.1')
 
-    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
         # Return if the optional field has been set already
         if "optional" in dir(f):
             if f.optional is not None:
                 return
-            
+
         # Default to false, and then overwrite it if required.
         f.optional = False
         if not f.required:
@@ -158,6 +158,7 @@ class OptionalPatch(Patch):
         added = self.version_to_number(f.added)
         if added >= self.supported():
             f.optional = True
+
 
 class OverridePatch(Patch):
     """Allows omitting some fields and overriding the type of fields based on configuration.
@@ -203,7 +204,7 @@ class OverridePatch(Patch):
         'FundChannel.channel_type.names[]': 'ChannelTypeName',
     }
 
-    def visit(self, f: model.Field, parent : Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
         """For now just skips the fields we can't convert.
         """
         f.omitted = f.path in self.omit

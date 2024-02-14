@@ -1,4 +1,5 @@
 # A grpc model
+import re
 
 typemap = {
     'boolean': 'bool',
@@ -36,3 +37,9 @@ typemap = {
 method_name_overrides = {
     "Connect": "ConnectPeer",
 }
+
+
+def camel_to_snake(camel_case: str):
+    snake = re.sub(r'(?<!^)(?=[A-Z])', '_', camel_case).lower()
+    snake = snake.replace("-", "")
+    return snake
