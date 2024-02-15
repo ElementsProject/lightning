@@ -1,6 +1,8 @@
 # A grpc model
 import re
 
+from msggen.model import TypeName
+
 typemap = {
     'boolean': 'bool',
     'hex': 'bytes',
@@ -37,6 +39,19 @@ typemap = {
 method_name_overrides = {
     "Connect": "ConnectPeer",
 }
+
+
+def notification_typename_overrides(typename: str):
+    if isinstance(typename, TypeName):
+        return_class = TypeName
+    else:
+        return_class = str
+
+
+    if str(typename).startswith("Connect"):
+        return return_class(f"Peer{typename}")
+    else:
+        return typename
 
 
 def camel_to_snake(camel_case: str):
