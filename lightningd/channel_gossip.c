@@ -140,7 +140,8 @@ static void check_channel_gossip(const struct channel *channel)
 static void cupdate_timer_refresh(struct channel *channel);
 
 static void set_public_cupdate(struct channel *channel,
-			       const u8 *cupdate TAKES)
+			       const u8 *cupdate TAKES,
+			       bool refresh_later)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct channel_gossip *cg = channel->channel_gossip;
@@ -162,7 +163,7 @@ static void set_public_cupdate(struct channel *channel,
 	cg->refresh_timer = tal_free(cg->refresh_timer);
 
 	/* If enabled, we refresh, based on old timestamp */
-	if (!enabled)
+	if (!enabled || !refresh_later)
 		return;
 
 	due.ts.tv_sec = timestamp;
@@ -338,7 +339,8 @@ static void broadcast_public_cupdate(struct channel *channel,
 		return;
 
 	set_public_cupdate(channel,
-			   take(sign_update(NULL, channel->peer->ld, cupdate)));
+			   take(sign_update(NULL, channel->peer->ld, cupdate)),
+			   true);
 
 	subd_req(ld->gossip, ld->gossip,
 		 take(towire_gossipd_addgossip(NULL, cg->cupdate, NULL)),
@@ -817,7 +819,10 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 		break;
 	}
 
-	set_public_cupdate(channel, channel_update);
+	/* We don't set refresh timer if we're not ANNOUNCED, we're just saving updates
+	 * for later! */
+	set_public_cupdate(channel, channel_update,
+			   channel->channel_gossip->state == CGOSSIP_ANNOUNCED);
 	check_channel_gossip(channel);
 }
 
