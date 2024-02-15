@@ -2686,10 +2686,22 @@ impl From<notifications::ChannelOpenedNotification> for pb::ChannelOpenedNotific
 }
 
 #[allow(unused_variables)]
-impl From<notifications::ConnectNotification> for pb::ConnectNotification {
+impl From<notifications::ConnectAddress> for pb::PeerConnectAddress {
+    fn from(c: notifications::ConnectAddress) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string?
+            port: c.port.map(|v| v.into()), // Rule #2 for type u16?
+            socket: c.socket, // Rule #2 for type string?
+            item_type: c.item_type as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::ConnectNotification> for pb::PeerConnectNotification {
     fn from(c: notifications::ConnectNotification) -> Self {
         Self {
-            address: c.address, // Rule #2 for type string
+            address: Some(c.address.into()),
             direction: c.direction as i32,
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
         }

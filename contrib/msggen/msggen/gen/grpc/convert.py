@@ -1,5 +1,6 @@
 # A grpc model
 from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
+from msggen.gen.grpc.util import notification_typename_overrides
 from msggen.gen import IGenerator
 from typing import TextIO
 from textwrap import indent, dedent
@@ -12,14 +13,17 @@ class GrpcConverterGenerator(IGenerator):
         self.dest = dest
         self.logger = logging.getLogger("msggen.grpc.GrpcConversionGenerator")
 
-    def generate_array(self, prefix, field: ArrayField):
+    def generate_array(self, prefix, field: ArrayField, override):
         if isinstance(field.itemtype, CompositeField):
-            self.generate_composite(prefix, field.itemtype)
+            self.generate_composite(prefix, field.itemtype, override)
 
-    def generate_composite(self, prefix, field: CompositeField):
+    def generate_composite(self, prefix, field: CompositeField, override=None):
         """Generates the conversions from JSON-RPC to GRPC."""
         if field.omit():
             return
+
+        if override is None:
+            override = lambda x: x
 
         field.sort()
 
@@ -27,11 +31,11 @@ class GrpcConverterGenerator(IGenerator):
         # top-level field itself.
         for f in field.fields:
             if isinstance(f, ArrayField):
-                self.generate_array(prefix, f)
+                self.generate_array(prefix, f, override)
             elif isinstance(f, CompositeField):
-                self.generate_composite(prefix, f)
+                self.generate_composite(prefix, f, override)
 
-        pbname = self.to_camel_case(str(field.typename))
+        pbname = override(self.to_camel_case(str(override(field.typename))))
 
         # If any of the field accesses would result in a deprecated
         # warning we mark the construction here to allow deprecated
@@ -159,7 +163,9 @@ class GrpcConverterGenerator(IGenerator):
 
         for notification in service.notifications:
             req = notification.request
-            self.generate_composite("notifications::requests", req)
+            self.generate_composite(
+                "notifications::requests", req, notification_typename_overrides
+            )
 
     def generate_responses(self, service: Service):
         for meth in service.methods:
@@ -168,7 +174,9 @@ class GrpcConverterGenerator(IGenerator):
 
         for notification in service.notifications:
             res = notification.response
-            self.generate_composite("notifications", res)
+            self.generate_composite(
+                "notifications", res, notification_typename_overrides
+            )
 
     def generate(self, service: Service) -> None:
         self.write(

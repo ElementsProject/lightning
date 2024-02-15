@@ -68,11 +68,65 @@ impl ToString for ConnectDirection {
     }
 }
 
+/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ConnectAddressType {
+    #[serde(rename = "local socket")]
+    LOCAL_SOCKET = 0,
+    #[serde(rename = "ipv4")]
+    IPV4 = 1,
+    #[serde(rename = "ipv6")]
+    IPV6 = 2,
+    #[serde(rename = "torv2")]
+    TORV2 = 3,
+    #[serde(rename = "torv3")]
+    TORV3 = 4,
+}
+
+impl TryFrom<i32> for ConnectAddressType {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<ConnectAddressType, anyhow::Error> {
+        match c {
+    0 => Ok(ConnectAddressType::LOCAL_SOCKET),
+    1 => Ok(ConnectAddressType::IPV4),
+    2 => Ok(ConnectAddressType::IPV6),
+    3 => Ok(ConnectAddressType::TORV2),
+    4 => Ok(ConnectAddressType::TORV3),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectAddressType", o)),
+        }
+    }
+}
+
+impl ToString for ConnectAddressType {
+    fn to_string(&self) -> String {
+        match self {
+            ConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
+            ConnectAddressType::IPV4 => "IPV4",
+            ConnectAddressType::IPV6 => "IPV6",
+            ConnectAddressType::TORV2 => "TORV2",
+            ConnectAddressType::TORV3 => "TORV3",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ConnectAddress {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub socket: Option<String>,
+    // Path `connect.address.type`
+    #[serde(rename = "type")]
+    pub item_type: ConnectAddressType,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ConnectNotification {
     // Path `connect.direction`
     pub direction: ConnectDirection,
-    pub address: String,
+    pub address: ConnectAddress,
     pub id: PublicKey,
 }
 

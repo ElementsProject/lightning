@@ -512,7 +512,7 @@ class NodeStub(object):
         self.SubscribeConnect = channel.unary_stream(
                 '/cln.Node/SubscribeConnect',
                 request_serializer=node__pb2.StreamConnectRequest.SerializeToString,
-                response_deserializer=node__pb2.ConnectNotification.FromString,
+                response_deserializer=node__pb2.PeerConnectNotification.FromString,
                 )
         self.SubscribeCustomMsg = channel.unary_stream(
                 '/cln.Node/SubscribeCustomMsg',
@@ -1631,7 +1631,7 @@ def add_NodeServicer_to_server(servicer, server):
             'SubscribeConnect': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeConnect,
                     request_deserializer=node__pb2.StreamConnectRequest.FromString,
-                    response_serializer=node__pb2.ConnectNotification.SerializeToString,
+                    response_serializer=node__pb2.PeerConnectNotification.SerializeToString,
             ),
             'SubscribeCustomMsg': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeCustomMsg,
@@ -3344,7 +3344,7 @@ class Node(object):
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/cln.Node/SubscribeConnect',
             node__pb2.StreamConnectRequest.SerializeToString,
-            node__pb2.ConnectNotification.FromString,
+            node__pb2.PeerConnectNotification.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -389,6 +389,17 @@
             "failed": 2,
             "pending": 1
         },
+        "PeerConnectAddressType": {
+            "ipv4": 1,
+            "ipv6": 2,
+            "local socket": 0,
+            "torv2": 3,
+            "torv3": 4
+        },
+        "PeerConnectDirection": {
+            "in": 0,
+            "out": 1
+        },
         "PluginCommand": {
             "list": 4,
             "rescan": 2,
@@ -725,7 +736,11 @@
             "Connect.address.address": 3,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
-            "Connect.address.type": 1
+            "Connect.address.type": 1,
+            "connect.address.address": 3,
+            "connect.address.port": 4,
+            "connect.address.socket": 2,
+            "connect.address.type": 1
         },
         "ConnectNotification": {
             "connect.address": 3,
@@ -9094,6 +9109,22 @@
             "deprecated": null
         },
         "connect.address": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.address.address": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.address.port": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.address.socket": {
+            "added": "v24.05",
+            "deprecated": false
+        },
+        "connect.address.type": {
             "added": "v24.05",
             "deprecated": false
         },

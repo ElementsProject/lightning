@@ -22,9 +22,93 @@
       ],
       "added" : "v24.05"
     },
-    "address" : {
-        "type" : "string",
-        "added" : "v24.05"
+    "address": {
+      "type": "object",
+      "description": "Address information (mainly useful if **direction** is *out*)",
+      "additionalProperties": true,
+      "added" : "v24.05",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "added" : "v24.05",
+          "enum": [
+            "local socket",
+            "ipv4",
+            "ipv6",
+            "torv2",
+            "torv3"
+          ],
+          "description": "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "type": "string",
+                "added" : "v24.05",
+                "enum": [
+                  "local socket"
+                ]
+              }
+            }
+          },
+          "then": {
+            "additionalProperties": false,
+            "required": [
+              "socket"
+            ],
+            "properties": {
+              "type": {},
+              "socket": {
+                "type": "string",
+                "added" : "v24.05",
+                "description": "socket filename"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "type": "string",
+                "added" : "v24.05",
+                "enum": [
+                  "ipv4",
+                  "ipv6",
+                  "torv2",
+                  "torv3"
+                ]
+              }
+            }
+          },
+          "then": {
+            "additionalProperties": false,
+            "required": [
+              "address",
+              "port"
+            ],
+            "properties": {
+              "type": {},
+              "address": {
+                "type": "string",
+                "added" : "v24.05",
+                "description": "address in expected format for **type**"
+              },
+              "port": {
+                "type": "u16",
+                "added" : "v24.05",
+                "description": "port number"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
