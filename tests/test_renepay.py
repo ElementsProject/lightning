@@ -588,3 +588,39 @@ def test_previous_sendpays(node_factory, bitcoind):
     l1.rpc.call("renepay", {"invstring": invstr, "dev_use_shadow": False})
     invoice = only_one(l3.rpc.listinvoices("inv2")["invoices"])
     assert invoice["amount_received_msat"] == Millisatoshi("100000sat")
+
+
+def test_fees(node_factory):
+    """
+    Check that fees are correctly computed.
+    """
+    # made up some random fees for every node
+    opts = [
+        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 100},
+        {"disable-mpp": None, "fee-base": 2222, "fee-per-satoshi": 203},
+        {"disable-mpp": None, "fee-base": 3333, "fee-per-satoshi": 300},
+        {"disable-mpp": None, "fee-base": 2012, "fee-per-satoshi": 200},
+        {"disable-mpp": None, "fee-base": 1010, "fee-per-satoshi": 100},
+        {"disable-mpp": None, "fee-base": 1050, "fee-per-satoshi": 100},
+    ]
+    nodes = node_factory.line_graph(len(opts), wait_for_announce=True, opts=opts)
+    source = nodes[0]
+    dest = nodes[-1]
+
+    # check that once gossip is in sync, fees are paid correctly
+    invstr = dest.rpc.invoice("100000sat", "inv1", "description")["bolt11"]
+    source.rpc.call("renepay", {"invstring": invstr})
+    invoice = only_one(dest.rpc.listinvoices("inv1")["invoices"])
+    assert invoice["amount_received_msat"] == Millisatoshi("100000sat")
+
+    # if we update fee policy but gossip is not updated ...
+    nodes[2].rpc.dev_suppress_gossip()
+    nodes[2].rpc.setchannel(nodes[3].info["id"], 4000, 300, enforcedelay=0)
+
+    nodes[3].rpc.dev_suppress_gossip()
+    nodes[3].rpc.setchannel(nodes[4].info["id"], 3000, 350, enforcedelay=0)
+
+    invstr = dest.rpc.invoice("150000sat", "inv2", "description")["bolt11"]
+    source.rpc.call("renepay", {"invstring": invstr})
+    invoice = only_one(dest.rpc.listinvoices("inv2")["invoices"])
+    assert invoice["amount_received_msat"] == Millisatoshi("150000sat")

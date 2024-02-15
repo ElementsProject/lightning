@@ -135,6 +135,16 @@ static struct command_result *addgossip_done(struct command *cmd,
 	 * happen later. */
 	pay_flow_finished_adding_gossip(adg->pf);
 
+	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
+
+	if (pay_plugin->gossmap == NULL)
+		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
+			   strerror(errno));
+
+	if (gossmap_changed)
+		uncertainty_network_update(pay_plugin->gossmap,
+					   pay_plugin->chan_extra_map);
+
 	return command_still_pending(cmd);
 }
 
