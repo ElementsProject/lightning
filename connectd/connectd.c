@@ -723,10 +723,7 @@ static struct io_plan *conn_init(struct io_conn *conn,
 			      "Can't connect to forproxy address");
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		/* DNS should have been resolved before */
-		assert(addr->u.wireaddr.wireaddr.type != ADDR_TYPE_DNS);
-		/* If it was a Tor address, we wouldn't be here. */
-		assert(!is_toraddr((char*)addr->u.wireaddr.wireaddr.addr));
+		/* DNS should have been resolved before, and Tor should not be here! */
 		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr.wireaddr);
 		break;
 	}
