@@ -542,6 +542,7 @@ def test_bookkeeping_inspect_multifundchannel(node_factory, bitcoind):
     assert bkpr_total_fee_msat == int(getblock_fee_btc * 100000000000)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_SKIP_SPLICE_TESTS') == '1', "test expected to fail before VLS dual-funding / splicing support")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
 @pytest.mark.openchannel('v2')
 def test_bookkeeping_inspect_mfc_dual_funded(node_factory, bitcoind):

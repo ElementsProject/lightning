@@ -197,6 +197,8 @@ def test_search(node_factory):
     assert 'found testplugpass in source: https://github.com/lightningd/plugins' in r.stdout
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "no canned github server in gitlab CI")
 def test_install(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)
@@ -212,6 +214,7 @@ def test_install(node_factory):
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "no canned github server in gitlab CI")
 def test_poetry_install(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)
@@ -230,8 +233,7 @@ def test_poetry_install(node_factory):
     assert n.rpc.testmethod() == 'I live.'
 
 
-@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
-@unittest.skip("Broken")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "no canned github server in gitlab CI")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
     n = get_reckless_node(node_factory)
@@ -280,6 +282,8 @@ def test_disable_enable(node_factory):
     assert test_plugin in n.rpc.plugin_list()['plugins']
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "no canned github server in gitlab CI")
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_tag_install(node_factory):
     "install a plugin from a specific commit hash or tag"

@@ -187,17 +187,21 @@ def test_pay(node_factory):
     # Check payment of any-amount invoice.
     for i in range(5):
         label = "any{}".format(i)
-        inv2 = l2.rpc.invoice("any", label, "description")["bolt11"]
+        inv2x = l2.rpc.invoice("any", label, "description")
+        rhash = inv2x["payment_hash"]
+        inv2 = inv2x["bolt11"]
         # Must provide an amount!
         with pytest.raises(RpcError):
             l1.rpc.call("renepay", {"invstring": inv2, "dev_use_shadow": False})
 
+        amt = random.randint(1000, 999999)
+        l1.rpc.preapprovekeysend(l2.info["id"], rhash, amt)
         l1.rpc.call(
             "renepay",
             {
                 "invstring": inv2,
                 "dev_use_shadow": False,
-                "amount_msat": random.randint(1000, 999999),
+                "amount_msat": amt,
             },
         )
 
@@ -459,6 +463,7 @@ def test_fee_allocation(node_factory):
     )
 
     inv = l4.rpc.invoice("1500000sat", "inv", "description")
+    l1.rpc.preapprovekeysend(l4.info["id"], inv["payment_hash"], 1500000000 + 75000000)
     l1.rpc.call("renepay", {"invstring": inv["bolt11"], "maxfee": "75000sat"})
     l1.wait_for_htlcs()
     invoice = only_one(l4.rpc.listinvoices("inv")["invoices"])
@@ -507,7 +512,8 @@ def test_htlc_max(node_factory):
 
     inv = l6.rpc.invoice("800000sat", "inv", "description")
 
-    l1.rpc.call("renepay", {"invstring": inv["bolt11"]})
+    l1.rpc.preapproveinvoice(bolt11=inv["bolt11"]) # let the signer know this payment is coming
+    l1.rpc.call("renepay", {'invstring': inv['bolt11']})
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices("inv")["invoices"])
     assert invoice["amount_received_msat"] >= Millisatoshi("800000sat")
@@ -525,6 +531,7 @@ def test_previous_sendpays(node_factory, bitcoind):
     # First case, do not overpay a pending MPP payment
     invstr = l3.rpc.invoice("100000sat", "inv1", "description")["bolt11"]
     inv = l1.rpc.decode(invstr)
+    l1.rpc.preapproveinvoice(bolt11=invstr) # let the signer know this payment is coming
     route = l1.rpc.call(
         "getroute", {"id": inv["payee"], "amount_msat": "50000sat", "riskfactor": 10}
     )
@@ -549,6 +556,7 @@ def test_previous_sendpays(node_factory, bitcoind):
     # Second case, do not collide with failed sendpays
     invstr = l3.rpc.invoice("100000sat", "inv2", "description")["bolt11"]
     inv = l1.rpc.decode(invstr)
+    l1.rpc.preapproveinvoice(bolt11=invstr) # let the signer know this payment is coming
     route = l1.rpc.call(
         "getroute", {"id": inv["payee"], "amount_msat": "50000sat", "riskfactor": 10}
     )
@@ -625,6 +633,7 @@ def test_fees(node_factory):
 
     # check that once gossip is in sync, fees are paid correctly
     invstr = dest.rpc.invoice("100000sat", "inv1", "description")["bolt11"]
+    source.rpc.preapproveinvoice(bolt11=invstr) # let the signer know this payment is coming
     source.rpc.call("renepay", {"invstring": invstr})
     invoice = only_one(dest.rpc.listinvoices("inv1")["invoices"])
     assert invoice["amount_received_msat"] == Millisatoshi("100000sat")
@@ -637,6 +646,7 @@ def test_fees(node_factory):
     nodes[3].rpc.setchannel(nodes[4].info["id"], 3000, 350, enforcedelay=0)
 
     invstr = dest.rpc.invoice("150000sat", "inv2", "description")["bolt11"]
+    source.rpc.preapproveinvoice(bolt11=invstr) # let the signer know this payment is coming
     source.rpc.call("renepay", {"invstring": invstr})
     invoice = only_one(dest.rpc.listinvoices("inv2")["invoices"])
     assert invoice["amount_received_msat"] == Millisatoshi("150000sat")

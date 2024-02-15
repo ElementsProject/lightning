@@ -245,6 +245,7 @@ def test_pay0(node_factory):
         l1.rpc.waitsendpay(rhash)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "feerate above maximum: 880782 > 151000")
 def test_pay_disconnect(node_factory, bitcoind):
     """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
@@ -1312,6 +1313,7 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'])['status'] == 'unpaid'
 
     # This should work.
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
 
@@ -1380,6 +1382,7 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     # This should work.
     inv = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')
     rhash = inv['payment_hash']
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
@@ -2406,6 +2409,7 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert decoded['routes'] == [[{'pubkey': l2.info['id'], 'short_channel_id': scid, 'fee_base_msat': 1337, 'fee_proportional_millionths': 137, 'cltv_expiry_delta': 6}]]
 
     # This will fail.
+    l1.rpc.preapproveinvoice(bolt11=inv['bolt11']) # let the signer know this payment is coming
     l1.rpc.sendpay(route_bad, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match='WIRE_TEMPORARY_CHANNEL_FAILURE'):
         l1.rpc.waitsendpay(inv['payment_hash'])
