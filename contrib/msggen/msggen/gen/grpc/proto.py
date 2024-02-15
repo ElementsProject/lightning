@@ -4,7 +4,11 @@ from textwrap import dedent
 import logging
 
 from msggen.gen import IGenerator
-from msggen.gen.grpc.util import typemap, method_name_overrides
+from msggen.gen.grpc.util import (
+    typemap,
+    method_name_overrides,
+    notification_typename_overrides,
+)
 from msggen.model import (
     ArrayField,
     Field,
@@ -14,6 +18,8 @@ from msggen.model import (
     Service,
     MethodName,
     TypeName,
+    Notification,
+    Method,
 )
 
 
@@ -101,36 +107,29 @@ class GrpcGenerator(IGenerator):
         for i, v in sorted_enumerated_values:
             yield (i, v)
 
-    def gather_types(self, service):
+    def gather_method_types(self, methods: List[Method]):
         """Gather all types that might need to be defined."""
-
-        def gather_subfields(field: Field) -> List[Field]:
-            fields = [field]
-
-            if isinstance(field, CompositeField):
-                for f in field.fields:
-                    fields.extend(gather_subfields(f))
-            elif isinstance(field, ArrayField):
-                fields = []
-                fields.extend(gather_subfields(field.itemtype))
-
-            return fields
-
         types = []
-        for method in service.methods:
+        for method in methods:
             types.extend([method.request, method.response])
             for field in method.request.fields:
                 types.extend(gather_subfields(field))
             for field in method.response.fields:
                 types.extend(gather_subfields(field))
 
-        for notification in service.notifications:
+        return types
+
+    def gather_notification_types(self, notifications: List[Notification]):
+        """Gather all types that might need to be defined
+        to represent notifications
+        """
+        types = []
+        for notification in notifications:
             types.extend([notification.request, notification.response])
             for field in notification.request.fields:
                 types.extend(gather_subfields(field))
             for field in notification.response.fields:
                 types.extend(gather_subfields(field))
-
         return types
 
     def generate_service(self, service: Service) -> None:
@@ -150,41 +149,53 @@ class GrpcGenerator(IGenerator):
         self.write("\n")
         for notification in service.notifications:
             name = str(notification.typename)
+            response_type_name = notification_typename_overrides(
+                notification.response.typename
+            )
             self.write(
-                f"	rpc Subscribe{name}({notification.request.typename}) returns (stream {notification.response.typename}) {{}}\n",
-                cleanup=False)
+                f"	rpc Subscribe{name}({notification.request.typename}) returns (stream {response_type_name}) {{}}\n",
+                cleanup=False,
+            )
 
         self.write(
             f"""}}
         """
         )
 
-    def generate_enum(self, e: EnumField, indent=0):
+    def generate_enum(self, e: EnumField, indent=0, typename_override=None):
+        if typename_override is None:
+            typename_override = lambda x: x
+
         self.logger.debug(f"Generating enum {e}")
         prefix = "\t" * indent
         self.write(f"{prefix}// {e.path}\n", False)
-        self.write(f"{prefix}enum {e.typename} {{\n", False)
+        self.write(f"{prefix}enum {typename_override(e.typename)} {{\n", False)
 
-        for i, v in self.enumerate_enum(e.typename, e.variants):
+        for i, v in self.enumerate_enum(typename_override(e.typename), e.variants):
             self.logger.debug(f"Generating enum variant {v}")
             self.write(f"{prefix}\t{v.normalized()} = {i};\n", False)
 
         self.write(f"""{prefix}}}\n""", False)
 
-    def generate_message(self, message: CompositeField):
+    def generate_message(self, message: CompositeField, typename_override=None):
         if message.omit():
             return
 
+        # If override is not specified it is a function that returns itself
+        # This is equivalent to do not override
+        if typename_override is None:
+            typename_override = lambda x: x
+
         self.write(
             f"""
-        message {message.typename} {{
+        message {typename_override(message.typename)} {{
         """
         )
 
         # Declare enums inline so they are scoped correctly in C++
         for _, f in enumerate(message.fields):
             if isinstance(f, EnumField) and not f.override():
-                self.generate_enum(f, indent=1)
+                self.generate_enum(f, indent=1, typename_override=typename_override)
 
         for i, f in self.enumerate_fields(message.typename, message.fields):
             if f.omit():
@@ -199,12 +210,15 @@ class GrpcGenerator(IGenerator):
                 self.write(f"\trepeated {typename} {f.normalized()} = {i};\n", False)
             elif isinstance(f, PrimitiveField):
                 typename = f.override(typemap.get(f.typename, f.typename))
+                typename = typename_override(typename)
                 self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
             elif isinstance(f, EnumField):
                 typename = f.override(f.typename)
+                typename = typename_override(typename)
                 self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
             elif isinstance(f, CompositeField):
                 typename = f.override(f.typename)
+                typename = typename_override(typename)
                 self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
 
         self.write(
@@ -229,7 +243,26 @@ class GrpcGenerator(IGenerator):
 
         self.generate_service(service)
 
-        fields = self.gather_types(service)
+        method_fields = self.gather_method_types(service.methods)
+        notification_fields = self.gather_notification_types(service.notifications)
 
-        for message in [f for f in fields if isinstance(f, CompositeField)]:
+        for message in [f for f in method_fields if isinstance(f, CompositeField)]:
             self.generate_message(message)
+
+        for message in [
+            f for f in notification_fields if isinstance(f, CompositeField)
+        ]:
+            self.generate_message(message, notification_typename_overrides)
+
+
+def gather_subfields(field: Field) -> List[Field]:
+    fields = [field]
+
+    if isinstance(field, CompositeField):
+        for f in field.fields:
+            fields.extend(gather_subfields(f))
+    elif isinstance(field, ArrayField):
+        fields = []
+        fields.extend(gather_subfields(field.itemtype))
+
+    return fields

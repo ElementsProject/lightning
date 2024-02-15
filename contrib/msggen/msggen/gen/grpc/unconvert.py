@@ -12,17 +12,20 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         # TODO Temporarily disabled since the use of overrides is lossy
         # self.generate_responses(service)
 
-    def generate_composite(self, prefix, field: CompositeField) -> None:
+    def generate_composite(self, prefix, field: CompositeField, override=None) -> None:
         # First pass: generate any sub-fields before we generate the
         # top-level field itself.
         if field.omit():
             return
 
+        if override is None:
+            override = lambda x: x
+
         for f in field.fields:
             if isinstance(f, ArrayField):
-                self.generate_array(prefix, f)
+                self.generate_array(prefix, f, override)
             elif isinstance(f, CompositeField):
-                self.generate_composite(prefix, f)
+                self.generate_composite(prefix, f, override)
 
         has_deprecated = any([f.deprecated for f in field.fields])
         deprecated = ",deprecated" if has_deprecated else ""

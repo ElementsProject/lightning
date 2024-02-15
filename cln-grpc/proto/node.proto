@@ -108,7 +108,7 @@ service Node {
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
 	rpc SubscribeChannelOpened(StreamChannelOpenedRequest) returns (stream ChannelOpenedNotification) {}
-	rpc SubscribeConnect(StreamConnectRequest) returns (stream ConnectNotification) {}
+	rpc SubscribeConnect(StreamConnectRequest) returns (stream PeerConnectNotification) {}
 	rpc SubscribeCustomMsg(StreamCustomMsgRequest) returns (stream CustomMsgNotification) {}
 }
 
@@ -2804,15 +2804,30 @@ message ChannelOpenedNotification {
 message StreamConnectRequest {
 }
 
-message ConnectNotification {
+message PeerConnectNotification {
 	// connect.direction
-	enum ConnectDirection {
+	enum PeerConnectDirection {
 		IN = 0;
 		OUT = 1;
 	}
 	bytes id = 1;
-	ConnectDirection direction = 2;
-	string address = 3;
+	PeerConnectDirection direction = 2;
+	PeerConnectAddress address = 3;
+}
+
+message PeerConnectAddress {
+	// connect.address.type
+	enum PeerConnectAddressType {
+		LOCAL_SOCKET = 0;
+		IPV4 = 1;
+		IPV6 = 2;
+		TORV2 = 3;
+		TORV3 = 4;
+	}
+	PeerConnectAddressType item_type = 1;
+	optional string socket = 2;
+	optional string address = 3;
+	optional uint32 port = 4;
 }
 
 message StreamCustomMsgRequest {

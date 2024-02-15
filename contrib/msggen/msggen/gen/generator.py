@@ -3,6 +3,7 @@ Generator interface!
 
 author: https://github.com/vincenzopalazzo
 """
+
 from abc import ABC, abstractmethod
 
 from msggen.model import Service

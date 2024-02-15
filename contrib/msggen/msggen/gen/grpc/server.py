@@ -4,8 +4,12 @@ import logging
 from typing import TextIO, Optional
 from msggen.model import Service
 from msggen.gen.generator import IGenerator
-from msggen.gen.grpc.util import method_name_overrides, camel_to_snake, snake_to_camel
-
+from msggen.gen.grpc.util import (
+    method_name_overrides,
+    camel_to_snake,
+    snake_to_camel,
+    notification_typename_overrides,
+)
 from textwrap import indent, dedent
 
 
@@ -160,7 +164,9 @@ class GrpcServerGenerator(IGenerator):
         for notification in service.notifications:
             typename = str(notification.typename)
             snake_name = camel_to_snake(typename)
-            response_name = str(notification.response.typename)
+            response_name = notification_typename_overrides(
+                str(notification.response.typename)
+            )
             stream_request = f"Stream{typename}Request"
             stream_name = f"Subscribe{notification.typename}Stream"
             self.write(

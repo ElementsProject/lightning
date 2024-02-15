@@ -3231,7 +3231,7 @@ impl Node for Server
     }
 
 
-    type SubscribeConnectStream = NotificationStream<pb::ConnectNotification>;
+    type SubscribeConnectStream = NotificationStream<pb::PeerConnectNotification>;
 
     async fn subscribe_connect(
         &self,
