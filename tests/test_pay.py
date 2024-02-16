@@ -61,7 +61,9 @@ def test_pay(node_factory):
         # Must provide an amount!
         with pytest.raises(RpcError):
             l1.rpc.pay(inv2)
-        l1.dev_pay(inv2, random.randint(1000, 999999), dev_use_shadow=False)
+        # WORKAROUND - reduce the possible amount to avoid HTLC creation which
+        # fails the VLS balance check because the prior invoice was 0 amount.
+        l1.dev_pay(inv2, random.randint(1000, 499999), dev_use_shadow=False)
 
     # Should see 6 completed payments
     assert len(l1.rpc.listsendpays()['payments']) == 6
