@@ -331,7 +331,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use self::notifications::CustomMsgNotification;
+    use self::notifications::{BlockAddedNotification, CustomMsgNotification};
 
     use super::*;
     use crate::model::*;
@@ -576,6 +576,27 @@ mod test {
                 }
             )
         );
+
+    }
+
+    #[test]
+    fn serialize_block_added_notification() {
+        let block_added = BlockAddedNotification {
+            hash : crate::primitives::Sha256::from_str("000000000000000000000acab8abe0c67a52ed7e5a90a19c64930ff11fa84eca").unwrap(),
+            height : 830702
+        };
+
+        let notification = Notification::BlockAdded(block_added);
+
+        assert_eq!(
+            serde_json::to_value(notification).unwrap(),
+            serde_json::json!({
+                "block_added" : {
+                    "hash" : "000000000000000000000acab8abe0c67a52ed7e5a90a19c64930ff11fa84eca",
+                    "height" : 830702
+                }
+            })
+        )
 
     }
 }
