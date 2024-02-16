@@ -101,10 +101,14 @@ A notification for topic `connect` is sent every time a new connection to a peer
 
 ```json
 {
-  "connect": {
-    "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-    "direction": "in",
-    "address": "1.2.3.4:1234"
+  "connect" :  {
+    "address" : {
+      "address" : "127.0.0.1",
+      "port" : 38012,
+      "type" : "ipv4"
+  },
+  "direction" : "in",
+  "id" : "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
   }
 }
 ```
