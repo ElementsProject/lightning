@@ -12,7 +12,8 @@ RUN dnf update -y && \
 		libsq3-devel \
 		python3-devel \
 		python3-mako \
-		python3-pip \
+                python3-pip \
+                python3-virtualenv \
 		python3-setuptools \
 		redhat-lsb \
 		net-tools \
@@ -30,5 +31,7 @@ RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_
     mv bitcoin-$BITCOIN_VERSION/share/man/man1/* /usr/share/man/man1 && \
     rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
 
-RUN python3 -m pip install --force-reinstall -U pip setuptools && \
-    python3 -m pip install python-bitcoinlib pytest pytest-test-groups flake8 pytest-rerunfailures ephemeral-port-reserve
+ENV PATH=/opt/venv/bin:${PATH}
+RUN python3 -m pip install pip wheel && \
+    python3 -m virtualenv /opt/venv && \
+    /opt/venv/bin/python3 -m pip install --force-reinstall -U pip poetry wheel
