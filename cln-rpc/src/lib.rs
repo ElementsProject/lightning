@@ -597,6 +597,22 @@ mod test {
                 }
             })
         )
+    }
 
+    #[test]
+    fn deserialize_connect_notification() {
+        let connect_json = serde_json::json!({
+            "connect" :  {
+                "address" : {
+                    "address" : "127.0.0.1",
+                    "port" : 38012,
+                    "type" : "ipv4"
+                },
+                "direction" : "in",
+                "id" : "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            }
+        });
+
+        let _ : Notification = serde_json::from_value(connect_json).unwrap();
     }
 }
