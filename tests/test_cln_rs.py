@@ -401,3 +401,57 @@ def test_rust_plugin_subscribe_wildcard(node_factory):
     l2.connect(l1)
 
     l1.daemon.wait_for_log("Received notification connect")
+
+
+def test_grpc_block_added_notifications(node_factory, bitcoind):
+    grpc_port = reserve()
+
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
+
+    # Test the block_added notification
+    # Start listening to block added events over grpc
+    block_added_stream = l1.grpc.SubscribeBlockAdded(clnpb.StreamBlockAddedRequest())
+    bitcoind.generate_block(10)
+    for block_added_event in block_added_stream:
+        assert block_added_event.hash is not None
+        assert block_added_event.height is not None
+
+        # If we don't break out of the loop we'll
+        # be waiting for ever
+        break
+
+
+def test_grpc_connect_notification(node_factory):
+    grpc_port = reserve()
+
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
+    l2 = node_factory.get_node()
+
+    # Test the connect notification
+    connect_stream = l1.grpc.SubscribeConnect(clnpb.StreamConnectRequest())
+    l2.connect(l1)
+
+    for connect_event in connect_stream:
+        assert connect_event.id.hex() == l2.info["id"]
+        break
+
+
+def test_grpc_custommsg_notification(node_factory):
+    grpc_port = reserve()
+
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
+    l2 = node_factory.get_node()
+
+    # Test the connect notification
+    custommsg_stream = l1.grpc.SubscribeCustomMsg(clnpb.StreamCustomMsgRequest())
+    l2.connect(l1)
+
+    # Send the custom-msg to node l1
+    # The payload doesn't matter.
+    # It just needs to be valid hex which encodes to an odd BOLT-8 msg id
+    l2.rpc.sendcustommsg(l1.info["id"], "3131313174657374")
+
+    for custommsg in custommsg_stream:
+        assert custommsg.peer_id.hex() == l2.info["id"]
+        assert custommsg.payload.hex() == "3131313174657374"
+        assert custommsg.payload == b"1111test"
