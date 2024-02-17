@@ -187,6 +187,7 @@ class InstInfo:
                         found_entry = None
             for file in sub.contents:
                 if isinstance(file, SourceDir):
+                    assert file.relative
                     success = search_dir(self, file, True, recursion - 1)
                     if success:
                         return success
@@ -197,6 +198,10 @@ class InstInfo:
             if result != target:
                 if result.relative:
                     self.subdir = result.relative
+                else:
+                    # populate() should always assign a relative path
+                    # if not in the top-level source directory
+                    assert self.subdir == result.name
             return True
         return False
 
@@ -299,7 +304,7 @@ class SourceDir():
         return None
 
     def __repr__(self):
-        return f"<SourceDir: {self.name} ({self.location})>"
+        return f"<SourceDir: {self.name}, {self.location}, {self.relative}>"
 
     def __eq__(self, compared):
         if isinstance(compared, str):
@@ -363,7 +368,17 @@ def populate_local_repo(path: str) -> list:
             if child:
                 parentdir = child
             else:
-                child = SourceDir(p, srctype=Source.LOCAL_REPO)
+                if p == revpath[-1]:
+                    relative_path = None
+                elif parentdir.relative:
+                    relative_path = str(Path(parentdir.relative) /
+                                        parentdir.name)
+                else:
+                    relative_path = parentdir.name
+                child = SourceDir(p, srctype=Source.LOCAL_REPO,
+                                  relative=relative_path)
+                # ls-tree lists every file in the repo with full path.
+                # No need to populate each directory individually.
                 child.prepopulated = True
                 parentdir.contents.append(child)
                 parentdir = child
