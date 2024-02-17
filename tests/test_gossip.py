@@ -1966,6 +1966,7 @@ def test_close_12_block_delay(node_factory, bitcoind):
     wait_for(lambda: l4.rpc.listchannels(source=l2.info['id'])['channels'] == [])
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "skip until v24.02rc2")
 def test_gossip_not_dying(node_factory, bitcoind):
     l1 = node_factory.get_node()
     l2, l3 = node_factory.line_graph(2, wait_for_announce=True)
