@@ -152,7 +152,8 @@ class InstInfo:
         def search_dir(self, sub: SourceDir, subdir: bool,
                        recursion: int) -> Union[SourceDir, None]:
             assert isinstance(recursion, int)
-            # carveout for archived plugins in lightningd/plugins
+            # carveout for archived plugins in lightningd/plugins. Other repos
+            # are only searched by API at the top level.
             if recursion == 0 and 'archive' in sub.name.lower():
                 pass
             # If unable to search deeper, resort to matching directory name
@@ -791,10 +792,10 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
         source = src.source_loc
     else:
         return False
-    git = run(['git', 'clone', source, str(dest)], stdout=PIPE, stderr=PIPE,
-              text=True, check=False, timeout=60)
+    git = run(['git', 'clone', '--recurse-submodules', source, str(dest)],
+              stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=60)
     if git.returncode != 0:
-        for line in git.stderr:
+        for line in git.stderr.splitlines():
             logging.debug(line)
         if Path(dest).exists():
             remove_dir(str(dest))
@@ -1049,7 +1050,7 @@ def uninstall(plugin_name: str):
 
 def search(plugin_name: str) -> Union[InstInfo, None]:
     """searches plugin index for plugin"""
-    ordered_sources = RECKLESS_SOURCES
+    ordered_sources = RECKLESS_SOURCES.copy()
 
     for src in RECKLESS_SOURCES:
         # Search repos named after the plugin before collections
@@ -1220,7 +1221,7 @@ def load_config(reckless_dir: Union[str, None] = None,
 
 
 def get_sources_file() -> str:
-    return str(Path(RECKLESS_DIR) / '.sources')
+    return str(RECKLESS_DIR / '.sources')
 
 
 def sources_from_file() -> list:
@@ -1369,11 +1370,11 @@ if __name__ == '__main__':
     if LIGHTNING_DIR != Path.home().joinpath('.lightning'):
         LIGHTNING_CLI_CALL.append(f'--lightning-dir={LIGHTNING_DIR}')
     if args.reckless_dir:
-        RECKLESS_DIR = args.reckless_dir
+        RECKLESS_DIR = Path(args.reckless_dir)
     else:
         RECKLESS_DIR = Path(LIGHTNING_DIR) / 'reckless'
     LIGHTNING_CONFIG = args.conf
-    RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
+    RECKLESS_CONFIG = load_config(reckless_dir=str(RECKLESS_DIR),
                                   network=NETWORK)
     RECKLESS_SOURCES = load_sources()
     API_GITHUB_COM = 'https://api.github.com'
