@@ -136,9 +136,9 @@ where
         }
     }
 
-    pub fn option<V: options::OptionType>(
+    pub fn option<'a, V: options::OptionType<'a>>(
         mut self,
-        opt: options::ConfigOption<V>,
+        opt: options::ConfigOption<'a, V>,
     ) -> Builder<S, I, O> {
         self.options.insert(opt.name().to_string(), opt.build());
         self
@@ -514,9 +514,9 @@ where
             .map(|c| c.clone())
     }
 
-    pub fn option<OV: OptionType>(
+    pub fn option<'a, OV: OptionType<'a>>(
         &self,
-        config_option: &options::ConfigOption<OV>,
+        config_option: &options::ConfigOption<'a, OV>,
     ) -> Result<OV::OutputValue> {
         let value = self.option_str(config_option.name())?;
         Ok(OV::from_value(&value))
@@ -611,9 +611,9 @@ where
             .map(|c| c.clone())
     }
 
-    pub fn option<OV: OptionType>(
+    pub fn option<'a, OV: OptionType<'a>>(
         &self,
-        config_option: &options::ConfigOption<OV>,
+        config_option: &options::ConfigOption<'a, OV>,
     ) -> Result<OV::OutputValue> {
         let value = self.option_str(config_option.name())?;
         Ok(OV::from_value(&value))
