@@ -4980,7 +4980,7 @@ static void peer_reconnect(struct peer *peer,
 	local_next_funding = (send_tlvs ? send_tlvs->next_funding : NULL);
 	remote_next_funding = (recv_tlvs ? recv_tlvs->next_funding : NULL);
 
-	status_info("Splice resume check with local_next_funding: %s,"
+	status_debug("Splice resume check with local_next_funding: %s,"
 		    " remote_next_funding: %s, inflights: %zu",
 		    local_next_funding ? "sent" : "omitted",
 		    remote_next_funding ? "received" : "empty",
