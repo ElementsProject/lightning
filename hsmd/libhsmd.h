@@ -47,7 +47,7 @@ struct hsmd_client {
  * Returns the `hsmd_init_reply` with the information required by
  * `lightningd`.
  */
-u8 *hsmd_init(struct secret hsm_secret,
+u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version);
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
