@@ -47,7 +47,6 @@ def notification_typename_overrides(typename: str):
     else:
         return_class = str
 
-
     if str(typename).startswith("Connect"):
         return return_class(f"Peer{typename}")
     else:

@@ -155,7 +155,7 @@ class GrpcServerGenerator(IGenerator):
             typename = str(notification.typename)
             snake_name = camel_to_snake(typename)
             response_name = notification_typename_overrides(str(notification.response.typename))
-            stream_request= f"Stream{typename}Request"
+            stream_request = f"Stream{typename}Request"
             stream_name = f"Subscribe{notification.typename}Stream"
             self.write(f"""
 

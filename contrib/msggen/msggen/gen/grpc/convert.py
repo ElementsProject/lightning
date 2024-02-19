@@ -17,14 +17,14 @@ class GrpcConverterGenerator(IGenerator):
         if isinstance(field.itemtype, CompositeField):
             self.generate_composite(prefix, field.itemtype, override)
 
-    def generate_composite(self, prefix, field: CompositeField, override = None):
+    def generate_composite(self, prefix, field: CompositeField, override=None):
         """Generates the conversions from JSON-RPC to GRPC.
         """
         if field.omit():
             return
-        
+
         if override is None:
-            override = lambda x : x
+            override = lambda x: x
 
         # First pass: generate any sub-fields before we generate the
         # top-level field itself.
