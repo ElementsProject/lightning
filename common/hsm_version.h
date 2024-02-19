@@ -23,6 +23,6 @@
  * v5 with hsmd_revoke_commitment_tx: 5742538f87ef5d5bf55b66dc19e52c8683cfeb1b887d3e64ba530ba9a4d8e638
  * v5 with sign_any_cannouncement: 5fdb9068c43a21887dc03f7dce410d2e3eeff6277f0d49b4fc56595a798fd4a4
 */
-#define HSM_MIN_VERSION 3
+#define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 5
 #endif /* LIGHTNING_COMMON_HSM_VERSION_H */

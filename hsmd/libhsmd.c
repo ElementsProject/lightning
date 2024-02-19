@@ -2151,7 +2151,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	return hsmd_status_bad_request(client, msg, "Unknown request");
 }
 
-u8 *hsmd_init(struct secret hsm_secret,
+u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
@@ -2297,7 +2297,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 	 * incompatibility detection) with alternate implementations.
 	 */
 	return take(towire_hsmd_init_reply_v4(
-			    NULL, 4,
+			    NULL, hsmd_version,
 			    /* Capabilities arg needs to be a tal array */
 			    tal_dup_arr(tmpctx, u32, capabilities,
 					ARRAY_SIZE(capabilities), 0),
