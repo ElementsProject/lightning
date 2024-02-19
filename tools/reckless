@@ -380,11 +380,16 @@ def populate_local_dir(path: str) -> list:
     return contents
 
 
-def populate_local_repo(path: str) -> list:
+def populate_local_repo(path: str, parent=None) -> list:
     assert Path(os.path.realpath(path)).exists()
-    basedir = SourceDir('base')
+    if parent is None:
+        basedir = SourceDir('base')
+    else:
+        assert isinstance(parent, SourceDir)
+        basedir = parent
 
-    def populate_source_path(parent, mypath):
+    def populate_source_path(parent: SourceDir, mypath: PosixPath,
+                             relative: str = None):
         """`git ls-tree` lists all files with their full path.
         This populates all intermediate directories and the file."""
         parentdir = parent
@@ -405,6 +410,8 @@ def populate_local_repo(path: str) -> list:
             else:
                 if p == revpath[-1]:
                     relative_path = None
+                    if parentdir.relative:
+                        relative_path = parentdir.relative
                 elif parentdir.relative:
                     relative_path = str(Path(parentdir.relative) /
                                         parentdir.name)
@@ -420,6 +427,16 @@ def populate_local_repo(path: str) -> list:
         newfile = SourceFile(mypath.name)
         child.contents.append(newfile)
 
+    # Submodules contents are populated separately
+    proc = run(['git', '-C', path, 'submodule', 'status'],
+               stdout=PIPE, stderr=PIPE, text=True, timeout=5)
+    if proc.returncode != 0:
+        logging.debug(f"'git submodule status' of repo {path} failed")
+        return None
+    submodules = []
+    for sub in proc.stdout.splitlines():
+        submodules.append(sub.split()[1])
+
     # FIXME: Pass in tag or commit hash
     ver = 'HEAD'
     git_call = ['git', '-C', path, 'ls-tree', '--full-tree', '-r',
@@ -428,8 +445,21 @@ def populate_local_repo(path: str) -> list:
     if proc.returncode != 0:
         logging.debug(f'ls-tree of repo {path} failed')
         return None
+
     for filepath in proc.stdout.splitlines():
-        populate_source_path(basedir, Path(filepath))
+        if filepath in submodules:
+            if parent is None:
+                relative_path = filepath
+            elif basedir.relative:
+                relative_path = str(Path(basedir.relative) / filepath)
+            assert relative_path
+            submodule_dir = SourceDir(filepath, srctype=Source.LOCAL_REPO,
+                                      relative=relative_path)
+            populate_local_repo(Path(path) / filepath, parent=submodule_dir)
+            submodule_dir.prepopulated = True
+            basedir.contents.append(submodule_dir)
+        else:
+            populate_source_path(basedir, Path(filepath))
     return basedir.contents
 
 
