@@ -850,11 +850,28 @@ def help_alias(targets: list):
         sys.exit(1)
 
 
-def _source_search(name: str, source: str) -> Union[InstInfo, None]:
+def _source_search(name: str, src: str) -> Union[InstInfo, None]:
     """Identify source type, retrieve contents, and populate InstInfo
     if the relevant contents are found."""
-    root_dir = SourceDir(source)
+    root_dir = SourceDir(src)
     source = InstInfo(name, root_dir.location, None)
+
+    # If a local clone of a github source already exists, prefer searching
+    # that instead of accessing the github API.
+    if source.srctype == Source.GITHUB_REPO:
+        # Do we have a local copy already? Use that.
+        user, repo = Source.get_github_user_repo(src)
+        assert user
+        assert repo
+        local_clone_location = RECKLESS_DIR / '.remote_sources' / user / repo
+        if local_clone_location.exists():
+            # Make sure it's the correct remote source and fetch any updates.
+            if _git_update(source, local_clone_location):
+                logging.debug(f"Using local clone of {src}: "
+                              f"{local_clone_location}")
+                source.source_loc = local_clone_location
+                source.srctype = Source.GIT_LOCAL_CLONE
+
     if source.get_inst_details():
         return source
     return None
