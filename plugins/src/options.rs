@@ -134,12 +134,19 @@ use serde::ser::Serializer;
 use serde::Serialize;
 
 pub mod config_type {
+    #[derive(Clone, Debug)]
     pub struct Integer;
+    #[derive(Clone, Debug)]
     pub struct DefaultInteger;
+    #[derive(Clone, Debug)]
     pub struct String;
+    #[derive(Clone, Debug)]
     pub struct DefaultString;
+    #[derive(Clone, Debug)]
     pub struct Boolean;
+    #[derive(Clone, Debug)]
     pub struct DefaultBoolean;
+    #[derive(Clone, Debug)]
     pub struct Flag;
 }
 
@@ -158,7 +165,7 @@ pub type DefaultBooleanConfigOption<'a> = ConfigOption<'a, config_type::DefaultB
 /// Config value is represented as a flag
 pub type FlagConfigOption<'a> = ConfigOption<'a, config_type::Flag>;
 
-pub trait OptionType {
+pub trait OptionType<'a> {
     type OutputValue;
     type DefaultValue;
 
@@ -169,9 +176,9 @@ pub trait OptionType {
     fn get_value_type() -> ValueType;
 }
 
-impl OptionType for config_type::DefaultString {
+impl<'a> OptionType<'a> for config_type::DefaultString {
     type OutputValue = String;
-    type DefaultValue = &'static str;
+    type DefaultValue = &'a str;
 
     fn convert_default(value: &Self::DefaultValue) -> Option<Value> {
         Some(Value::String(value.to_string()))
@@ -189,7 +196,7 @@ impl OptionType for config_type::DefaultString {
     }
 }
 
-impl OptionType for config_type::DefaultInteger {
+impl<'a> OptionType<'a> for config_type::DefaultInteger {
     type OutputValue = i64;
     type DefaultValue = i64;
 
@@ -209,7 +216,7 @@ impl OptionType for config_type::DefaultInteger {
     }
 }
 
-impl OptionType for config_type::DefaultBoolean {
+impl<'a> OptionType<'a> for config_type::DefaultBoolean {
     type OutputValue = bool;
     type DefaultValue = bool;
 
@@ -228,7 +235,7 @@ impl OptionType for config_type::DefaultBoolean {
     }
 }
 
-impl OptionType for config_type::Flag {
+impl<'a> OptionType<'a> for config_type::Flag {
     type OutputValue = bool;
     type DefaultValue = ();
 
@@ -248,7 +255,7 @@ impl OptionType for config_type::Flag {
     }
 }
 
-impl OptionType for config_type::String {
+impl<'a> OptionType<'a> for config_type::String {
     type OutputValue = Option<String>;
     type DefaultValue = ();
 
@@ -272,7 +279,7 @@ impl OptionType for config_type::String {
     }
 }
 
-impl OptionType for config_type::Integer {
+impl<'a> OptionType<'a> for config_type::Integer {
     type OutputValue = Option<i64>;
     type DefaultValue = ();
 
@@ -295,7 +302,7 @@ impl OptionType for config_type::Integer {
         ValueType::Integer
     }
 }
-impl OptionType for config_type::Boolean {
+impl<'a> OptionType<'a> for config_type::Boolean {
     type OutputValue = Option<bool>;
     type DefaultValue = ();
 
@@ -406,7 +413,7 @@ impl Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct ConfigOption<'a, V: OptionType> {
+pub struct ConfigOption<'a, V: OptionType<'a>> {
     /// The name of the `ConfigOption`.
     pub name: &'a str,
     /// The default value of the `ConfigOption`
@@ -415,7 +422,7 @@ pub struct ConfigOption<'a, V: OptionType> {
     pub deprecated: bool,
 }
 
-impl<V: OptionType> ConfigOption<'_, V> {
+impl<'a, V: OptionType<'a>> ConfigOption<'a, V> {
     pub fn build(&self) -> UntypedConfigOption {
         UntypedConfigOption {
             name: self.name.to_string(),
@@ -427,11 +434,11 @@ impl<V: OptionType> ConfigOption<'_, V> {
     }
 }
 
-impl DefaultStringConfigOption<'_> {
+impl<'a> DefaultStringConfigOption<'a> {
     pub const fn new_str_with_default(
-        name: &'static str,
-        default: &'static str,
-        description: &'static str,
+        name: &'a str,
+        default: &'a str,
+        description: &'a str,
     ) -> Self {
         Self {
             name: name,
@@ -442,23 +449,19 @@ impl DefaultStringConfigOption<'_> {
     }
 }
 
-impl StringConfigOption<'_> {
-    pub const fn new_str_no_default(name: &'static str, description: &'static str) -> Self {
+impl<'a> StringConfigOption<'a> {
+    pub const fn new_str_no_default(name: &'a str, description: &'a str) -> Self {
         Self {
             name,
             default: (),
-            description : description,
+            description: description,
             deprecated: false,
         }
     }
 }
 
-impl DefaultIntegerConfigOption<'_> {
-    pub const fn new_i64_with_default(
-        name: &'static str,
-        default: i64,
-        description: &'static str,
-    ) -> Self {
+impl<'a> DefaultIntegerConfigOption<'a> {
+    pub const fn new_i64_with_default(name: &'a str, default: i64, description: &'a str) -> Self {
         Self {
             name: name,
             default: default,
@@ -468,8 +471,8 @@ impl DefaultIntegerConfigOption<'_> {
     }
 }
 
-impl IntegerConfigOption<'_> {
-    pub const fn new_i64_no_default(name: &'static str, description: &'static str) -> Self {
+impl<'a> IntegerConfigOption<'a> {
+    pub const fn new_i64_no_default(name: &'a str, description: &'a str) -> Self {
         Self {
             name: name,
             default: (),
@@ -479,8 +482,8 @@ impl IntegerConfigOption<'_> {
     }
 }
 
-impl BooleanConfigOption<'_> {
-    pub const fn new_bool_no_default(name: &'static str, description: &'static str) -> Self {
+impl<'a> BooleanConfigOption<'a> {
+    pub const fn new_bool_no_default(name: &'a str, description: &'a str) -> Self {
         Self {
             name,
             description,
@@ -490,12 +493,8 @@ impl BooleanConfigOption<'_> {
     }
 }
 
-impl DefaultBooleanConfigOption<'_> {
-    pub const fn new_bool_with_default(
-        name: &'static str,
-        default: bool,
-        description: &'static str,
-    ) -> Self {
+impl<'a> DefaultBooleanConfigOption<'a> {
+    pub const fn new_bool_with_default(name: &'a str, default: bool, description: &'a str) -> Self {
         Self {
             name,
             description,
@@ -505,8 +504,8 @@ impl DefaultBooleanConfigOption<'_> {
     }
 }
 
-impl FlagConfigOption<'_> {
-    pub const fn new_flag(name: &'static str, description: &'static str) -> Self {
+impl<'a> FlagConfigOption<'a> {
+    pub const fn new_flag(name: &'a str, description: &'a str) -> Self {
         Self {
             name,
             description,
@@ -542,9 +541,9 @@ impl UntypedConfigOption {
     }
 }
 
-impl<V> ConfigOption<'_, V>
+impl<'a, V> ConfigOption<'a, V>
 where
-    V: OptionType,
+    V: OptionType<'a>,
 {
     pub fn name(&self) -> &str {
         &self.name
