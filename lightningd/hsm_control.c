@@ -130,12 +130,6 @@ struct ext_key *hsm_init(struct lightningd *ld)
 					&ld->id, bip32_base,
 					&ld->bolt12_base)) {
 		/* nothing to do. */
-	} else if (fromwire_hsmd_init_reply_v2(msg,
-					       &ld->id, bip32_base,
-					       &ld->bolt12_base)) {
-		/* implicit version */
-		hsm_version = 3;
-		ld->hsm_capabilities = NULL;
 	} else {
 		if (ld->config.keypass)
 			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
