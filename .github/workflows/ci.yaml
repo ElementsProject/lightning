@@ -59,11 +59,11 @@ jobs:
       - name: Configure
         run: ./configure --enable-debugbuild --enable-rust
       - name: Check source
-        run: make -j 4 check-source BASE_REF="origin/${{ github.base_ref }}"
+        run: make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
-        run: make -j 4 check-gen-updated
+        run: make check-gen-updated
       - name: Check docs
-        run: make -j 4 check-doc
+        run: make check-doc
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
