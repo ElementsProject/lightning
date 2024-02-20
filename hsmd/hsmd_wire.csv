@@ -19,12 +19,6 @@ msgdata,hsmd_init,hsm_wire_min_version,u32,
 msgdata,hsmd_init,hsm_wire_max_version,u32,
 
 #include <common/bip32.h>
-# DEPRECATED after 23.05, remove in two versions!
-msgtype,hsmd_init_reply_v2,113
-msgdata,hsmd_init_reply_v2,node_id,node_id,
-msgdata,hsmd_init_reply_v2,bip32,ext_key,
-msgdata,hsmd_init_reply_v2,bolt12,pubkey,
-
 # Sorry: I should have put version in v2 :(
 msgtype,hsmd_init_reply_v4,114
 # This gets upgraded when the wire protocol changes in incompatible
