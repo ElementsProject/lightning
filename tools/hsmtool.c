@@ -474,7 +474,7 @@ static void get_words(struct words **words) {
 	for (size_t i = 0; i < ARRAY_SIZE(languages); i++) {
 		printf("  %zu) %s (%s)\n", i, languages[i].name, languages[i].abbr);
 	}
-	printf("Select [0-%zu]: ", ARRAY_SIZE(languages));
+	printf("Select [0-%zu]: ", ARRAY_SIZE(languages)-1);
 	fflush(stdout);
 
 	char *selected = NULL;
