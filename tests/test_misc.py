@@ -2812,11 +2812,25 @@ def test_emergencyrecover(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_recover_plugin(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True, options={'log-level': 'info', 'experimental-peer-storage': None},
-                               allow_warning=True,
-                               feerates=(7500, 7500, 7500, 7500))
-    l2 = node_factory.get_node(may_reconnect=True, options={'log-level': 'info', 'experimental-peer-storage': None},
-                               feerates=(7500, 7500, 7500, 7500), allow_broken_log=True, allow_bad_gossip=True)
+    l1 = node_factory.get_node(
+        may_reconnect=True,
+        allow_warning=True,
+        feerates=(7500, 7500, 7500, 7500),
+        options={
+            'log-level': 'info',
+            'experimental-peer-storage': None
+        },
+    )
+    l2 = node_factory.get_node(
+        may_reconnect=True,
+        feerates=(7500, 7500, 7500, 7500),
+        allow_broken_log=True,
+        allow_bad_gossip=True,
+        options={
+            'log-level': 'info',
+            'experimental-peer-storage': None
+        },
+    )
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.fundchannel(l1, 10**6)
@@ -2845,6 +2859,12 @@ def test_recover_plugin(node_factory, bitcoind):
 
     l2.start()
 
+    # Force a reconnect, so l2 learns that it went back in time.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Starting the node again causes it to reconnect, and discover
+    # that it lost state. This in turn causes the peer to close the
+    # channel for us. Here we wait for the close transaction.
     bitcoind.generate_block(5, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
