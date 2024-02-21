@@ -717,11 +717,9 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	/* Determine the wallet index for our_upfront_shutdown_script,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(payload->openingd->ld->wallet,
 			     our_upfront_shutdown_script,
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -1321,11 +1319,9 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	/* Determine the wallet index for our_upfront_shutdown_script,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(fc->cmd->ld->wallet,
 			     fc->our_upfront_shutdown_script,
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else

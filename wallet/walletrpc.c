@@ -664,12 +664,8 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 		const u8 *script = psbt->outputs[outndx].script;
 		const size_t script_len = psbt->outputs[outndx].script_len;
 		u32 index;
-		bool is_p2sh;
 
-		if (!script_len)
-			continue;
-
-		if (!wallet_can_spend(w, script, &index, &is_p2sh))
+		if (!wallet_can_spend(w, script, &index))
 			continue;
 
 		if (bip32_key_from_parent(
@@ -872,7 +868,6 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 	struct bitcoin_outpoint outpoint;
 	struct amount_sat amount;
 	u32 index;
-	bool is_p2sh;
 	const u8 *script;
 
 	/* If it's not going to an external address, ignore */
@@ -881,8 +876,8 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 
 	/* If it's going to our wallet, ignore */
 	script = wally_psbt_output_get_script(tmpctx,
-					    &psbt->outputs[outnum]);
-	if (wallet_can_spend(ld->wallet, script, &index, &is_p2sh))
+					      &psbt->outputs[outnum]);
+	if (wallet_can_spend(ld->wallet, script, &index))
 		return;
 
 	outpoint.txid = *txid;

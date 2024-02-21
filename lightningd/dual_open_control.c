@@ -698,11 +698,9 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	/* Determine the wallet index for our_shutdown_scriptpubkey,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(dualopend->ld->wallet,
 			     payload->our_shutdown_scriptpubkey,
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		our_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*our_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -3176,11 +3174,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	/* Determine the wallet index for our_upfront_shutdown_script,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(cmd->ld->wallet,
 			     oa->our_upfront_shutdown_script,
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -3776,11 +3772,9 @@ static struct command_result *json_queryrates(struct command *cmd,
 	/* Determine the wallet index for our_upfront_shutdown_script,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(cmd->ld->wallet,
 			     oa->our_upfront_shutdown_script,
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else
@@ -4126,11 +4120,9 @@ bool peer_restart_dualopend(struct peer *peer,
 	/* Determine the wallet index for the LOCAL shutdown_scriptpubkey,
 	 * NULL if not found. */
 	u32 found_wallet_index;
-	bool is_p2sh;
 	if (wallet_can_spend(peer->ld->wallet,
 			     channel->shutdown_scriptpubkey[LOCAL],
-			     &found_wallet_index,
-			     &is_p2sh)) {
+			     &found_wallet_index)) {
 		local_shutdown_script_wallet_index = tal(tmpctx, u32);
 		*local_shutdown_script_wallet_index = found_wallet_index;
 	} else
