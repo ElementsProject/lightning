@@ -455,3 +455,4 @@ def test_grpc_custommsg_notification(node_factory):
         assert custommsg.peer_id.hex() == l2.info["id"]
         assert custommsg.payload.hex() == "3131313174657374"
         assert custommsg.payload == b"1111test"
+        break
