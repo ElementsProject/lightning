@@ -80,13 +80,15 @@ static bool is_segwit_output(const tal_t *ctx,
 			     struct wally_tx_output *output,
 			     const u8 *redeemscript)
 {
-	const u8 *maybe_witness;
-	if (tal_bytelen(redeemscript) > 0)
-		maybe_witness = redeemscript;
-	else
-		maybe_witness = cln_wally_tx_output_get_script(ctx, output);
+	const u8 *maybe_witness = redeemscript;
+	size_t script_len = tal_bytelen(maybe_witness);
 
-	return is_known_segwit_scripttype(maybe_witness);
+	if (!script_len) {
+		maybe_witness = output->script;
+		script_len = output->script_len;
+        }
+
+	return is_known_segwit_scripttype(maybe_witness, script_len);
 }
 
 /* Return first non-handled message or NULL if connection is aborted */
@@ -627,7 +629,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			 * The receiving node: ...
 			 * - MAY fail the negotiation if `script`
 			 *   is non-standard */
-			if (!is_known_scripttype(scriptpubkey))
+			if (!is_known_scripttype(scriptpubkey, tal_bytelen(scriptpubkey)))
 				return tal_fmt(ctx, "Script is not standard");
 
 			/*

@@ -80,8 +80,12 @@ penalty_tx_create(const tal_t *ctx,
 
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);
 	assert((final_index == NULL) == (final_ext_key == NULL));
-	if (final_index)
-		psbt_add_keypath_to_last_output(tx, *final_index, final_ext_key, is_p2tr(final_scriptpubkey, NULL));
+	if (final_index) {
+		size_t script_len = tal_bytelen(final_scriptpubkey);
+		bool is_tr = is_p2tr(final_scriptpubkey, script_len, NULL);
+		psbt_add_keypath_to_last_output(tx, *final_index,
+						final_ext_key, is_tr);
+        }
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);

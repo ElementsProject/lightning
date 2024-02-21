@@ -799,14 +799,15 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 {
 	struct ext_key ext;
 	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	size_t script_len = tal_bytelen(script);
 	u32 i;
 
 	/* If not one of these, can't be for us. */
-	if (is_p2sh(script, NULL))
+	if (is_p2sh(script, script_len, NULL))
 		*output_is_p2sh = true;
-	else if (is_p2wpkh(script, NULL))
+	else if (is_p2wpkh(script, script_len, NULL))
 		*output_is_p2sh = false;
-	else if (is_p2tr(script, NULL))
+	else if (is_p2tr(script, script_len, NULL))
 		*output_is_p2sh = false;
 	else
 		return false;
@@ -4353,8 +4354,8 @@ bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockhe
 
 void wallet_utxoset_add(struct wallet *w,
 			const struct bitcoin_outpoint *outpoint,
-			const u32 blockheight,
-			const u32 txindex, const u8 *scriptpubkey,
+			const u32 blockheight, const u32 txindex,
+			const u8 *scriptpubkey, size_t scriptpubkey_len,
 			struct amount_sat sat)
 {
 	struct db_stmt *stmt;
@@ -4373,7 +4374,7 @@ void wallet_utxoset_add(struct wallet *w,
 	db_bind_int(stmt, blockheight);
 	db_bind_null(stmt);
 	db_bind_int(stmt, txindex);
-	db_bind_talarr(stmt, scriptpubkey);
+	db_bind_blob(stmt, scriptpubkey, scriptpubkey_len);
 	db_bind_amount_sat(stmt, &sat);
 	db_exec_prepared_v2(take(stmt));
 

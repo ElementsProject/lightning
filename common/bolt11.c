@@ -1133,6 +1133,7 @@ static void encode_f(u5 **data, const u8 *fallback)
 	struct bitcoin_address pkh;
 	struct ripemd160 sh;
 	struct sha256 wsh;
+	const size_t fallback_len = tal_bytelen(fallback);
 
 	/* BOLT #11:
 	 *
@@ -1140,15 +1141,15 @@ static void encode_f(u5 **data, const u8 *fallback)
 	 * witness version and program, OR to `17` followed by a
 	 * public key hash, OR to `18` followed by a script hash.
 	 */
-	if (is_p2pkh(fallback, &pkh)) {
+	if (is_p2pkh(fallback, fallback_len, &pkh)) {
 		push_fallback_addr(data, 17, &pkh, sizeof(pkh));
-	} else if (is_p2sh(fallback, &sh)) {
+	} else if (is_p2sh(fallback, fallback_len, &sh)) {
 		push_fallback_addr(data, 18, &sh, sizeof(sh));
-	} else if (is_p2wpkh(fallback, &pkh)) {
+	} else if (is_p2wpkh(fallback, fallback_len, &pkh)) {
 		push_fallback_addr(data, 0, &pkh, sizeof(pkh));
-	} else if (is_p2wsh(fallback, &wsh)) {
+	} else if (is_p2wsh(fallback, fallback_len, &wsh)) {
 		push_fallback_addr(data, 0, &wsh, sizeof(wsh));
-	} else if (tal_count(fallback) > 1
+	} else if (fallback_len > 1
 		   && fallback[0] >= 0x50
 		   && fallback[0] < (0x50+16)) {
 		/* Other (future) witness versions: turn OP_N into N */
@@ -1157,7 +1158,7 @@ static void encode_f(u5 **data, const u8 *fallback)
 	} else {
 		/* Copy raw. */
 		push_field(data, 'f',
-			   fallback, tal_count(fallback) * CHAR_BIT);
+			   fallback, fallback_len * CHAR_BIT);
 	}
 }
 

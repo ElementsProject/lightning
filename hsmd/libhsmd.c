@@ -548,7 +548,9 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			 * requires the HSM to find the pubkey, and we
 			 * skip doing that until now as a bit of a reduction
 			 * of complexity in the calling code */
-			psbt_input_add_pubkey(psbt, j, &pubkey, utxo->scriptPubkey && is_p2tr(utxo->scriptPubkey, NULL));
+			const size_t script_len = tal_bytelen(utxo->scriptPubkey);
+			psbt_input_add_pubkey(psbt, j, &pubkey,
+					      is_p2tr(utxo->scriptPubkey, script_len, NULL));
 
 			/* It's actually a P2WSH in this case. */
 			if (utxo->close_info && utxo->close_info->option_anchors) {

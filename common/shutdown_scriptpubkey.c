@@ -8,11 +8,11 @@
  *         push of 2 to 40 bytes
  *         (witness program versions 1 through 16)
  */
-static bool is_valid_witnessprog(const u8 *scriptpubkey)
+static bool is_valid_witnessprog(const u8 *scriptpubkey, size_t scriptpubkey_len)
 {
 	size_t pushlen;
 
-	if (tal_bytelen(scriptpubkey) < 2)
+	if (scriptpubkey_len < 2)
 		return false;
 
 	switch (scriptpubkey[0]) {
@@ -39,7 +39,7 @@ static bool is_valid_witnessprog(const u8 *scriptpubkey)
 
 	pushlen = scriptpubkey[1];
 	/* Must be all of the rest of scriptpubkey */
-	if (2 + pushlen != tal_bytelen(scriptpubkey)) {
+	if (2 + pushlen != scriptpubkey_len) {
 		return false;
 	}
 
@@ -50,13 +50,14 @@ bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
 				 bool allow_oldstyle)
 {
+	const size_t script_len = tal_bytelen(scriptpubkey);
 	if (allow_oldstyle) {
-		if (is_p2pkh(scriptpubkey, NULL)
-		    || is_p2sh(scriptpubkey, NULL))
+		if (is_p2pkh(scriptpubkey, script_len, NULL)
+		    || is_p2sh(scriptpubkey, script_len, NULL))
 			return true;
 	}
 
-	return is_p2wpkh(scriptpubkey, NULL)
-		|| is_p2wsh(scriptpubkey, NULL)
-		|| (anysegwit && is_valid_witnessprog(scriptpubkey));
+	return is_p2wpkh(scriptpubkey, script_len, NULL)
+		|| is_p2wsh(scriptpubkey, script_len, NULL)
+		|| (anysegwit && is_valid_witnessprog(scriptpubkey, script_len));
 }

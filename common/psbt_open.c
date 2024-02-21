@@ -382,6 +382,7 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 	u64 serial_id;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		const struct wally_map_item *redeem_script;
+		const struct wally_tx_output *txout;
 		struct wally_psbt_input *input = &psbt->inputs[i];
 
 		if (!psbt_get_serial_id(&input->unknowns, &serial_id))
@@ -391,13 +392,14 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 		if (!input->utxo)
 			return false;
 
-		/* If is P2SH, redeemscript must be present */
-		assert(psbt->inputs[i].index < input->utxo->num_outputs);
-		const u8 *outscript =
-			cln_wally_tx_output_get_script(tmpctx,
-				&input->utxo->outputs[psbt->inputs[i].index]);
-		redeem_script = wally_map_get_integer(&psbt->inputs[i].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
-		if (is_p2sh(outscript, NULL) && (!redeem_script || redeem_script->value_len == 0))
+		assert(input->index < input->utxo->num_outputs);
+		txout = &input->utxo->outputs[input->index];
+		if (!is_p2sh(txout->script, txout->script_len, NULL))
+			continue;
+		/* P2SH: redeemscript must be present */
+		const u32 key = 0x04; /* PSBT_IN_REDEEM_SCRIPT */
+		redeem_script = wally_map_get_integer(&input->psbt_fields, key);
+		if (!redeem_script || !redeem_script->value_len)
 			return false;
 	}
 

@@ -50,9 +50,12 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		/* One output is to us. */
 		bitcoin_tx_add_output(tx, script, NULL, to_us);
 		assert((local_wallet_index == NULL) == (local_wallet_ext_key == NULL));
-		if (local_wallet_index)
+		if (local_wallet_index) {
+			size_t script_len = tal_bytelen(script);
 			psbt_add_keypath_to_last_output(
-				tx, *local_wallet_index, local_wallet_ext_key, is_p2tr(script, NULL));
+				tx, *local_wallet_index, local_wallet_ext_key,
+				is_p2tr(script, script_len, NULL));
+                }
 		num_outputs++;
 	}
 

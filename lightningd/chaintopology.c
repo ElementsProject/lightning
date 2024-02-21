@@ -956,22 +956,21 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 	for (size_t i = 0; i < num_txs; i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		for (size_t n = 0; n < tx->wtx->num_outputs; n++) {
-			if (tx->wtx->outputs[n].features & skip_features)
+			const struct wally_tx_output *output;
+			output = &tx->wtx->outputs[n];
+			if (output->features & skip_features)
 				continue;
-			if (tx->wtx->outputs[n].script_len != BITCOIN_SCRIPTPUBKEY_P2WSH_LEN)
-				continue; /* Cannot possibly be a p2wsh utxo */
+			if (!is_p2wsh(output->script, output->script_len, NULL))
+				continue; /* We only care about p2wsh utxos */
 
 			struct amount_asset amt = bitcoin_tx_output_get_amount(tx, n);
 			if (!amount_asset_is_main(&amt))
 				continue; /* Ignore non-policy asset outputs */
 
-			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, n);
-			if (!is_p2wsh(script, NULL))
-				continue; /* We only care about p2wsh utxos */
-
 			struct bitcoin_outpoint outpoint = { b->txids[i], n };
 			wallet_utxoset_add(topo->ld->wallet, &outpoint,
-					   b->height, i, script,
+					   b->height, i,
+					   output->script, output->script_len,
 					   amount_asset_to_sat(&amt));
 		}
 	}
