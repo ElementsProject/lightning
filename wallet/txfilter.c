@@ -84,12 +84,8 @@ void txfilter_add_derkey(struct txfilter *filter,
 bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 {
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
-		const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, i);
-
-		if (!oscript)
-			continue;
-
-		if (scriptpubkeyset_get(&filter->scriptpubkeyset, oscript))
+		const struct wally_tx_output *txout = &tx->wtx->outputs[i];
+		if (txfilter_scriptpubkey_matches(filter, txout->script))
 			return true;
 	}
 	return false;
@@ -97,6 +93,8 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 
 bool txfilter_scriptpubkey_matches(const struct txfilter *filter, const u8 *scriptPubKey)
 {
+	if (!scriptPubKey)
+		return false;
 	return scriptpubkeyset_get(&filter->scriptpubkeyset, scriptPubKey) != NULL;
 }
 

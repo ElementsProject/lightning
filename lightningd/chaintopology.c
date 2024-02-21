@@ -61,6 +61,7 @@ static bool we_broadcast(const struct chain_topology *topo,
 
 static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
+	struct txfilter *filter = topo->bitcoind->ld->owned_txfilter;
 	size_t i;
 	struct amount_sat owned;
 
@@ -89,21 +90,22 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 
 		owned = AMOUNT_SAT(0);
 		txid = b->txids[i];
-		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
+		if (txfilter_match(filter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
 						     tx->wtx, is_coinbase, &b->height, &owned);
 			wallet_transaction_add(topo->ld->wallet, tx->wtx,
 					       b->height, i);
 			// invoice_check_onchain_payment(tx);
 			for (size_t k = 0; k < tx->wtx->num_outputs; k++) {
-				const u8 *oscript = bitcoin_tx_output_get_script(tmpctx, tx, k);
-				if (txfilter_scriptpubkey_matches(topo->bitcoind->ld->owned_txfilter, oscript)) {
+				const struct wally_tx_output *txout;
+				txout = &tx->wtx->outputs[k];
+				if (txfilter_scriptpubkey_matches(filter, txout->script)) {
 					struct amount_sat amount;
 					struct bitcoin_outpoint outpoint;
 					outpoint.txid = txid;
 					outpoint.n = k;
 					bitcoin_tx_output_get_amount_sat(tx, k, &amount);
-					invoice_check_onchain_payment(topo->ld, oscript, amount, &outpoint);
+					invoice_check_onchain_payment(topo->ld, txout->script, amount, &outpoint);
 				}
 			}
 

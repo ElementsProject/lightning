@@ -179,19 +179,15 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 {
 	struct amount_asset amt;
 	struct amount_sat fee = sat_in;
-	const u8 *oscript;
-	size_t scriptlen;
-	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
-		amt = bitcoin_tx_output_get_amount(tx, i);
-		oscript = bitcoin_tx_output_get_script(NULL, tx, i);
-		scriptlen = tal_bytelen(oscript);
-		tal_free(oscript);
 
-		if (chainparams->is_elements && scriptlen == 0)
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		const struct wally_tx_output *txout = &tx->wtx->outputs[i];
+		if (chainparams->is_elements && !txout->script_len)
 			continue;
 
 		/* Ignore outputs that are not denominated in our main
 		 * currency. */
+		amt = bitcoin_tx_output_get_amount(tx, i);
 		if (!amount_asset_is_main(&amt))
 			continue;
 
