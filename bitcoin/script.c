@@ -993,12 +993,8 @@ bool is_anchor_witness_script(const u8 *script, size_t script_len)
 
 bool scripteq(const u8 *s1, const u8 *s2)
 {
-	memcheck(s1, tal_count(s1));
-	memcheck(s2, tal_count(s2));
-
-	if (tal_count(s1) != tal_count(s2))
-		return false;
-	if (tal_count(s1) == 0)
-		return true;
-	return memcmp(s1, s2, tal_count(s1)) == 0;
+	size_t s1_len = tal_count(s1), s2_len = tal_count(s2);
+	memcheck(s1, s1_len);
+	memcheck(s2, s2_len);
+	return memeq(s1, s1_len, s2, s2_len);
 }
