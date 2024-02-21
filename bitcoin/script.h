@@ -13,9 +13,6 @@ struct ripemd160;
 struct rel_locktime;
 struct abs_locktime;
 
-/* To push 0-75 bytes onto stack. */
-#define OP_PUSHBYTES(val) (val)
-
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
