@@ -567,10 +567,10 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
  * @index: (out) the bip32 derivation index that matched the script
- * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
  */
-bool wallet_can_spend(struct wallet *w, const u8 *script,
-		      u32 *index, bool *output_is_p2sh);
+bool wallet_can_spend(struct wallet *w,
+		      const u8 *script,
+		      u32 *index);
 
 /**
  * wallet_get_newindex - get a new index from the wallet.

@@ -795,20 +795,21 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script,
-		      u32 *index, bool *output_is_p2sh)
+		      u32 *index)
 {
 	struct ext_key ext;
 	u64 bip32_max_index;
 	size_t script_len = tal_bytelen(script);
 	u32 i;
+	bool output_is_p2sh;
 
 	/* If not one of these, can't be for us. */
 	if (is_p2sh(script, script_len, NULL))
-		*output_is_p2sh = true;
+		output_is_p2sh = true;
 	else if (is_p2wpkh(script, script_len, NULL))
-		*output_is_p2sh = false;
+		output_is_p2sh = false;
 	else if (is_p2tr(script, script_len, NULL))
-		*output_is_p2sh = false;
+		output_is_p2sh = false;
 	else
 		return false;
 
@@ -822,7 +823,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 			abort();
 		}
 		s = scriptpubkey_p2wpkh_derkey(w, ext.pub_key);
-		if (*output_is_p2sh) {
+		if (output_is_p2sh) {
 			u8 *p2sh = scriptpubkey_p2sh(w, s);
 			tal_free(s);
 			s = p2sh;
@@ -2739,45 +2740,37 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 
 	if (total)
 		*total = AMOUNT_SAT(0);
-	for (size_t output = 0; output < wtx->num_outputs; output++) {
+	for (size_t i = 0; i < wtx->num_outputs; i++) {
+		const struct wally_tx_output *txout = &wtx->outputs[i];
 		struct utxo *utxo;
 		u32 index;
-		bool is_p2sh;
-		const u8 *script;
-		struct amount_asset asset =
-			wally_tx_output_get_amount(&wtx->outputs[output]);
+		struct amount_asset asset = wally_tx_output_get_amount(txout);
 		struct chain_coin_mvt *mvt;
 
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		script = cln_wally_tx_output_get_script(tmpctx,
-							&wtx->outputs[output]);
-		if (!script)
-			continue;
-
-		if (!wallet_can_spend(w, script, &index, &is_p2sh))
+		if (!wallet_can_spend(w, txout->script, &index))
 			continue;
 
 		utxo = tal(w, struct utxo);
 		utxo->keyindex = index;
-		utxo->is_p2sh = is_p2sh;
+		utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
 		utxo->amount = amount_asset_to_sat(&asset);
 		utxo->status = OUTPUT_STATE_AVAILABLE;
 		wally_txid(wtx, &utxo->outpoint.txid);
-		utxo->outpoint.n = output;
+		utxo->outpoint.n = i;
 		utxo->close_info = NULL;
 		utxo->is_in_coinbase = is_coinbase;
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
-		utxo->scriptPubkey = tal_dup_talarr(utxo, u8, script);
-
+		utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
 		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
-			  output,
+			  i,
 			  type_to_string(tmpctx, struct amount_sat,
 					 &utxo->amount),
-			  is_p2sh ? "P2SH" : "SEGWIT",
+			  utxo->is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->outpoint.txid),
 			  blockheight ? " CONFIRMED" : "",
@@ -2792,7 +2785,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			notify_chain_mvt(w->ld, mvt);
 		}
 
-		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
+		if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
 			/* In case we already know the output, make
 			 * sure we actually track its
 			 * blockheight. This can happen when we grab
@@ -2806,14 +2799,14 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		}
 
 		/* This is an unconfirmed change output, we should track it */
-		if (!is_p2sh && !blockheight)
-			txfilter_add_scriptpubkey(w->ld->owned_txfilter, script);
+		if (!utxo->is_p2sh && !blockheight)
+			txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
 
 		outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
 		if (total && !amount_sat_add(total, *total, utxo->amount))
 			fatal("Cannot add utxo output %zu/%zu %s + %s",
-			      output, wtx->num_outputs,
+			      i, wtx->num_outputs,
 			      type_to_string(tmpctx, struct amount_sat, total),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &utxo->amount));
