@@ -828,28 +828,22 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 			tal_free(s);
 			s = p2sh;
 		}
-		if (scripteq(s, script)) {
+		if (!scripteq(s, script)) {
+			/* Try taproot output now */
+			tal_free(s);
+			s = scriptpubkey_p2tr_derkey(w, ext.pub_key);
+			if (!scripteq(s, script))
+				s = tal_free(s);
+		}
+		tal_free(s);
+		if (s) {
 			/* If we found a used key in the keyscan_gap we should
 			 * remember that. */
 			if (i > bip32_max_index)
 				db_set_intvar(w->db, "bip32_max_index", i);
-			tal_free(s);
 			*index = i;
 			return true;
 		}
-		tal_free(s);
-		/* Try taproot output now */
-		s = scriptpubkey_p2tr_derkey(w, ext.pub_key);
-		if (scripteq(s, script)) {
-			/* If we found a used key in the keyscan_gap we should
-			 * remember that. */
-			if (i > bip32_max_index)
-				db_set_intvar(w->db, "bip32_max_index", i);
-			tal_free(s);
-			*index = i;
-			return true;
-		}
-		tal_free(s);
 	}
 	return false;
 }
