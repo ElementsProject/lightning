@@ -798,7 +798,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 		      u32 *index, bool *output_is_p2sh)
 {
 	struct ext_key ext;
-	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	u64 bip32_max_index;
 	size_t script_len = tal_bytelen(script);
 	u32 i;
 
@@ -812,6 +812,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	else
 		return false;
 
+	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	for (i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
 		u8 *s;
 
