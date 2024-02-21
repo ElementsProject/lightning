@@ -21,15 +21,15 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx,
 	if (is_p2sh(scriptpubkey, script_len, &sh))
 		return p2sh_to_base58(ctx, chainparams, &sh);
 
-	out = tal_arr(ctx, char, 73 + strlen(chainparams->onchain_hrp));
 	if (is_p2tr(scriptpubkey, script_len, NULL))
 		witver = 1;
 	else if (is_p2wpkh(scriptpubkey, script_len, NULL)
 		 || is_p2wsh(scriptpubkey, script_len, NULL))
 		witver = 0;
 	else {
-		return tal_free(out);
+		return NULL;
 	}
+	out = tal_arr(ctx, char, 73 + strlen(chainparams->onchain_hrp));
 	if (!segwit_addr_encode(out, chainparams->onchain_hrp, witver,
 				scriptpubkey + 2, script_len - 2))
 		return tal_free(out);
