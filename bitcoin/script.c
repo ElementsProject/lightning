@@ -10,6 +10,9 @@
 #include <common/utils.h>
 #include <sodium/randombytes.h>
 
+/* To push 0-75 bytes onto stack. */
+#define OP_PUSHBYTES(val) (val)
+
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
 {

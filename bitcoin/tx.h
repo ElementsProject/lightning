@@ -155,14 +155,6 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
 const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
 
 /**
- * Return `true` if the given output is a P2WSH output.
- *
- * This is useful if you want to peek at the script, without having to
- * extract it first.
- */
-bool bitcoin_tx_output_script_is_p2wsh(const struct bitcoin_tx *tx, int outnum);
-
-/**
  * Helper to get the script of a script's output as a tal_arr
  *
  * The script attached to a `wally_tx_output` is not a `tal_arr`, so in order to keep the
