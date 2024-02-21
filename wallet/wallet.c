@@ -815,11 +815,11 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	for (i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
+		const u32 flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
 		u8 *s;
 
 		if (bip32_key_from_parent(w->ld->bip32_base, i,
-					  BIP32_FLAG_KEY_PUBLIC, &ext)
-		    != WALLY_OK) {
+					  flags, &ext) != WALLY_OK) {
 			abort();
 		}
 		s = scriptpubkey_p2wpkh_derkey(w, ext.pub_key);
