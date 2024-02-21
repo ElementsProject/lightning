@@ -307,6 +307,13 @@ see lightning-hsmtool(8).
   The port number for the GRPC plugin to listen for incoming
 connections; default is not to activate the plugin at all.
 
+* **grpc-msg-buffer-size**=*number* [plugin `cln-grpc`]
+
+  The size of the buffer used by the GRPC-plugin. This buffer stores
+  notifications between receiving them from lightningd and forwarding
+  them over grpc. If buffer overflow occurs some notifications will not
+  be delivered.
+
 ### Lightning node customization options
 
 * **recover**=*hsmsecret*
