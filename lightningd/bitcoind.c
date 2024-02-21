@@ -756,19 +756,22 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 	for (size_t i = 0; i < tal_count(block->tx); i++) {
 		tx = block->tx[i];
 		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
-			const u8 *script = bitcoin_tx_output_get_script(NULL, tx, j);
-			struct amount_asset amount = bitcoin_tx_output_get_amount(tx, j);
-			if (amount_asset_is_main(&amount) && is_p2wsh(script, NULL)) {
+			const struct wally_tx_output *output;
+			output = &tx->wtx->outputs[j];
+
+			if (!is_p2wsh(output->script, output->script_len, NULL))
+				continue;
+
+			struct amount_asset amount = wally_tx_output_get_amount(output);
+			if (amount_asset_is_main(&amount)) {
 				/* This is an interesting output, remember it. */
 				o = tal(call->outpoints, struct filteredblock_outpoint);
 				bitcoin_txid(tx, &o->outpoint.txid);
 				o->outpoint.n = j;
 				o->amount = amount_asset_to_sat(&amount);
 				o->txindex = i;
-				o->scriptPubKey = tal_steal(o, script);
+				o->scriptPubKey = tal_dup_arr(o, u8, output->script, output->script_len, 0);
 				tal_arr_expand(&call->outpoints, o);
-			} else {
-				tal_free(script);
 			}
 		}
 	}

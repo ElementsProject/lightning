@@ -15,17 +15,18 @@ static void json_add_fallback(struct json_stream *response,
 			      const struct chainparams *chain)
 {
 	char *addr;
+	const size_t fallback_len = tal_bytelen(fallback);
 
 	json_object_start(response, fieldname);
-	if (is_p2pkh(fallback, NULL)) {
+	if (is_p2pkh(fallback, fallback_len, NULL)) {
 		json_add_string(response, "type", "P2PKH");
-	} else if (is_p2sh(fallback, NULL)) {
+	} else if (is_p2sh(fallback, fallback_len, NULL)) {
 		json_add_string(response, "type", "P2SH");
-	} else if (is_p2wpkh(fallback, NULL)) {
+	} else if (is_p2wpkh(fallback, fallback_len, NULL)) {
 		json_add_string(response, "type", "P2WPKH");
-	} else if (is_p2wsh(fallback, NULL)) {
+	} else if (is_p2wsh(fallback, fallback_len, NULL)) {
 		json_add_string(response, "type", "P2WSH");
-	} else if (is_p2tr(fallback, NULL)) {
+	} else if (is_p2tr(fallback, fallback_len, NULL)) {
 		json_add_string(response, "type", "P2TR");
 	}
 

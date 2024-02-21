@@ -2050,10 +2050,9 @@ static const size_t *match_htlc_output(const tal_t *ctx,
 				       u8 **htlc_scripts)
 {
 	size_t *matches = tal_arr(ctx, size_t, 0);
-	const u8 *script = tal_dup_arr(tmpctx, u8, out->script, out->script_len,
-				       0);
+
 	/* Must be a p2wsh output */
-	if (!is_p2wsh(script, NULL))
+	if (!is_p2wsh(out->script, out->script_len, NULL))
 		return matches;
 
 	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {
@@ -2062,7 +2061,7 @@ static const size_t *match_htlc_output(const tal_t *ctx,
 			continue;
 
 		sha256(&sha, htlc_scripts[i], tal_count(htlc_scripts[i]));
-		if (memeq(script + 2, tal_count(script) - 2, &sha, sizeof(sha)))
+		if (memeq(out->script + 2, out->script_len - 2, &sha, sizeof(sha)))
 			tal_arr_expand(&matches, i);
 	}
 	return matches;

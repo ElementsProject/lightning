@@ -159,25 +159,25 @@ u8 *bitcoin_wscript_anchor(const tal_t *ctx,
 			   const struct pubkey *funding_pubkey);
 
 /* Is this a pay to pubkey hash? (extract addr if not NULL) */
-bool is_p2pkh(const u8 *script, struct bitcoin_address *addr);
+bool is_p2pkh(const u8 *script, size_t script_len, struct bitcoin_address *addr);
 
 /* Is this a pay to script hash? (extract addr if not NULL) */
-bool is_p2sh(const u8 *script, struct ripemd160 *addr);
+bool is_p2sh(const u8 *script, size_t script_len, struct ripemd160 *addr);
 
 /* Is this (version 0) pay to witness script hash? (extract addr if not NULL) */
-bool is_p2wsh(const u8 *script, struct sha256 *addr);
+bool is_p2wsh(const u8 *script, size_t script_len, struct sha256 *addr);
 
 /* Is this (version 0) pay to witness pubkey hash? (extract addr if not NULL) */
-bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
+bool is_p2wpkh(const u8 *script, size_t script_len, struct bitcoin_address *addr);
 
 /* Is this a taproot output? (extract xonly_pubkey bytes if not NULL) */
-bool is_p2tr(const u8 *script, u8 xonly_pubkey[32]);
+bool is_p2tr(const u8 *script, size_t script_len, u8 xonly_pubkey[32]);
 
 /* Is this one of the above script types? */
-bool is_known_scripttype(const u8 *script);
+bool is_known_scripttype(const u8 *script, size_t script_len);
 
 /* Is this a witness script type? */
-bool is_known_segwit_scripttype(const u8 *script);
+bool is_known_segwit_scripttype(const u8 *script, size_t script_len);
 
 /* Is this a to-remote witness script (used for option_anchor_outputs)? */
 bool is_to_remote_anchored_witness_script(const u8 *script, size_t script_len);

@@ -993,8 +993,7 @@ static char *check_balances(const tal_t *ctx,
 
 static bool is_segwit_output(struct wally_tx_output *output)
 {
-	const u8 *script = cln_wally_tx_output_get_script(tmpctx, output);
-	return is_known_segwit_scripttype(script);
+	return is_known_segwit_scripttype(output->script, output->script_len);
 }
 
 static void set_remote_upfront_shutdown(struct state *state,
@@ -1973,7 +1972,7 @@ static bool run_tx_interactive(struct state *state,
 			 * The receiving node: ...
 			 * - MAY fail the negotiation if `script`
 			 *   is non-standard */
-			if (!is_known_scripttype(scriptpubkey)) {
+			if (!is_known_scripttype(scriptpubkey, tal_bytelen(scriptpubkey))) {
 				open_abort(state, "Script is not standard");
 				return false;
 			}

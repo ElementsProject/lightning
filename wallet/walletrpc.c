@@ -660,14 +660,13 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 {
 	tal_wally_start();
 	for (size_t outndx = 0; outndx < psbt->num_outputs; ++outndx) {
+		struct ext_key ext;
+		const u8 *script = psbt->outputs[outndx].script;
+		const size_t script_len = psbt->outputs[outndx].script_len;
 		u32 index;
 		bool is_p2sh;
-		const u8 *script;
-		struct ext_key ext;
 
-		script = wally_psbt_output_get_script(tmpctx,
-						    &psbt->outputs[outndx]);
-		if (!script)
+		if (!script_len)
 			continue;
 
 		if (!wallet_can_spend(w, script, &index, &is_p2sh))
@@ -678,7 +677,8 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 			abort();
 		}
 
-		psbt_output_set_keypath(index, &ext, is_p2tr(script, NULL),
+		psbt_output_set_keypath(index, &ext,
+					is_p2tr(script, script_len, NULL),
 					&psbt->outputs[outndx]);
 	}
 	tal_wally_end(psbt);

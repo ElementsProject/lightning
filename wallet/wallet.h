@@ -1146,8 +1146,8 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 
 void wallet_utxoset_add(struct wallet *w,
 			const struct bitcoin_outpoint *outpoint,
-			const u32 blockheight,
-			const u32 txindex, const u8 *scriptpubkey,
+			const u32 blockheight, const u32 txindex,
+			const u8 *scriptpubkey, size_t scriptpubkey_len,
 			struct amount_sat sat);
 
 /**
