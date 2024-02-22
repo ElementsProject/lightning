@@ -43,6 +43,7 @@ static void show_usage(const char *progname)
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 	       "<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
+	printf("	- generatehsmbyarg <path/to/new/hsm_secret> <language_id> <word list> <password>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
@@ -521,6 +522,60 @@ static void read_mnemonic(char *mnemonic) {
 	}
 }
 
+static int generate_hsm_byarg(const char *hsm_secret_path, int lang_id, char *word_list, char *passphrase)
+{
+	struct words *words;
+	struct wordlist_lang {
+		char *abbr;
+		char *name;
+	};
+	
+	struct wordlist_lang languages[] = {
+		{"en", "English"},
+		{"es", "Spanish"},
+		{"fr", "French"},
+		{"it", "Italian"},
+		{"jp", "Japanese"},
+		{"zhs", "Chinese Simplified"},
+		{"zht", "Chinese Traditional"},
+	};
+
+        if (lang_id < 0 || lang_id >= ARRAY_SIZE(languages)) {  
+		errx(ERROR_USAGE, "Invalid language selection, select one from the list [0-6].");
+	}
+		
+	bip39_get_wordlist(languages[lang_id].abbr, &words);
+
+	if (bip39_mnemonic_validate(words, word_list) != 0) {
+		errx(ERROR_USAGE, "Invalid mnemonic: \"%s\"", word_list);
+	}
+
+	u8 bip32_seed[BIP39_SEED_LEN_512];
+	size_t bip32_seed_len;
+
+	if (bip39_mnemonic_to_seed(word_list, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
+		errx(ERROR_LIBWALLY, "Unable to derive BIP32 seed from BIP39 mnemonic");
+
+	int fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
+	if (fd < 0) {
+		errx(ERROR_USAGE, "Unable to create hsm_secret file");
+	}
+	/* Write only the first 32 bytes, length of the (plaintext) seed in the
+	 * hsm_secret. */
+	if (!write_all(fd, bip32_seed, 32))
+		errx(ERROR_USAGE, "Error writing secret to hsm_secret file");
+
+	if (fsync(fd) != 0)
+		errx(ERROR_USAGE, "Error fsyncing hsm_secret file");
+
+	/* This should never fail if fsync succeeded. But paranoia is good, and bugs exist */
+	if (close(fd) != 0)
+		errx(ERROR_USAGE, "Error closing hsm_secret file");
+
+	printf("New hsm_secret file created at %s\n", hsm_secret_path);
+	printf("Use the `encrypt` command to encrypt the BIP32 seed if needed\n");
+	return 0;
+}
 static int generate_hsm(const char *hsm_secret_path)
 {
 	char mnemonic[BIP39_WORDLIST_LEN];
@@ -546,7 +601,7 @@ static int generate_hsm(const char *hsm_secret_path)
 
 	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
 		errx(ERROR_LIBWALLY, "Unable to derive BIP32 seed from BIP39 mnemonic");
-
+	
 	int fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0) {
 		errx(ERROR_USAGE, "Unable to create hsm_secret file");
@@ -759,6 +814,29 @@ int main(int argc, char *argv[])
 			errx(ERROR_USAGE, "hsm_secret file at %s already exists", hsm_secret_path);
 
 		return generate_hsm(hsm_secret_path);
+	}
+
+	if (streq(method, "generatehsmbyarg")) {
+		// argv[2] file, argv[3] lang_id, argv[4] word list, argv[5] passphrase
+		if (argc < 5 || argc > 6) {
+			show_usage(argv[0]);
+		}
+		
+		char *hsm_secret_path = argv[2];
+		int  lang_id = atoi(argv[3]);
+		char *word_list = argv[4];
+		char *passphrase = NULL;
+		if (argc==6) {
+			passphrase = argv[5];
+		}
+
+		/* if hsm_secret already exists we abort the process
+		 * we do not want to lose someone else's funds */
+		struct stat st;
+		if (stat(hsm_secret_path, &st) == 0)
+			errx(ERROR_USAGE, "hsm_secret file at %s already exists", hsm_secret_path);
+
+		return generate_hsm_byarg(hsm_secret_path, lang_id, word_list, passphrase);
 	}
 
 	if (streq(method, "dumponchaindescriptors")) {
