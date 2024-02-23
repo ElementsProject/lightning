@@ -141,12 +141,11 @@ MANPAGES := $(GENERATE_MARKDOWN) \
 
 MARKDOWN_WITH_SCHEMA := $(GENERATE_MARKDOWN:=.md)
 
-doc/schemas/lightning-sql.json: plugins/sql
-# Delete the old tables schema and generate the new ones.
-	@if [ "$$(jq '[.tables[] | startswith("The following tables are currently supported:")]' doc/schemas/lightning-sql.json | jq 'any')" = "true" ]; then \
-		jq 'del(.tables[] | select(startswith("The following tables are currently supported:")))' "$@" > "$@.tmp" && mv "$@.tmp" "$@"; \
-	fi
-	@plugins/sql --print-docs | jq --arg sqldata "$$(awk '{printf "%s\n", $$0}')" '.tables += [$$sqldata]' "$@" > "$@.tmp" && mv "$@.tmp" "$@";
+# - Read the json template from schemas/lightning-sql-template.json
+# - Generate the tables schema via plugins/sql
+# - Merge both and generate final schemas/lightning-sql.json
+doc/schemas/lightning-sql.json: doc/schemas/lightning-sql-template.json plugins/sql
+	@plugins/sql --print-docs | jq --arg sqldata "$$(awk '{printf "%s\n", $$0}')" '.tables += [$$sqldata]' $< > "$@.tmp" && mv "$@.tmp" "$@";
 
 doc-all: $(MANPAGES) doc/index.rst
 

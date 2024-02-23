@@ -57,6 +57,7 @@ tests/plugins/test_selfdisable_after_getmanifest
 
 # Ignore generated files
 devtools/features
+doc/schemas/lightning-sql.json
 doc/lightning*.[1578]
 doc/reckless*.[1578]
 *_sqlgen.[ch]
