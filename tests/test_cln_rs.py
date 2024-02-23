@@ -384,7 +384,6 @@ def test_grpc_decode(node_factory):
     print(res)
 
 
-@pytest.mark.xfail(strict=True)
 def test_rust_plugin_subscribe_wildcard(node_factory):
     """ Creates a plugin that loads the subscribe_wildcard plugin
     """
