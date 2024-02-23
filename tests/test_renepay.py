@@ -681,3 +681,38 @@ def test_htlcmax0(node_factory):
     l1.wait_for_htlcs()
     invoice = only_one(l6.rpc.listinvoices("inv")["invoices"])
     assert invoice["amount_received_msat"] >= Millisatoshi("600000sat")
+
+
+def test_concurrency(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[{}, {}, {}])
+    inv = l3.rpc.invoice("1000sat", "test_renepay", "description")["bolt11"]
+    p1 = subprocess.Popen(
+        [
+            "cli/lightning-cli",
+            "--network={}".format(TEST_NETWORK),
+            "--lightning-dir={}".format(l1.daemon.lightning_dir),
+            "-k",
+            "pay",
+            "bolt11={}".format(inv),
+        ],
+        stdout=subprocess.PIPE,
+    )
+    # make several other spurious requests
+    for i in range(4):
+        subprocess.Popen(
+            [
+                "cli/lightning-cli",
+                "--network={}".format(TEST_NETWORK),
+                "--lightning-dir={}".format(l1.daemon.lightning_dir),
+                "-k",
+                "pay",
+                "bolt11={}".format(inv),
+            ],
+            stdout=subprocess.PIPE,
+        )
+    p1.wait(timeout=60)
+    out1 = p1.stdout.read().decode()
+    assert out1["status"] == "complete"
+    assert out1["amount_msat"] == Millisatoshi("1000sat")
+    invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
+    assert invoice["amount_received_msat"] >= Millisatoshi("1000sat")
