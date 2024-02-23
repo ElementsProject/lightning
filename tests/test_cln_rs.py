@@ -382,3 +382,16 @@ def test_grpc_decode(node_factory):
         string=inv.bolt11
     ))
     print(res)
+
+
+@pytest.mark.xfail(strict=True)
+def test_rust_plugin_subscribe_wildcard(node_factory):
+    """ Creates a plugin that loads the subscribe_wildcard plugin
+    """
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-subscribe-wildcard"
+    l1 = node_factory.get_node(options={"plugin": bin_path})
+    l2 = node_factory.get_node()
+
+    l2.connect(l1)
+
+    l1.daemon.wait_for_log("Received notification connect")
