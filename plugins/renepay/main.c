@@ -14,6 +14,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <plugins/renepay/failure.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/success.h>
@@ -1315,9 +1316,11 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 	}
 }
 
+struct pay_flow *pay_flow_from_notification(const char *buf,
+					    const jsmntok_t *obj);
 /* See if this notification is about one of our flows. */
-static struct pay_flow *pay_flow_from_notification(const char *buf,
-						   const jsmntok_t *obj)
+struct pay_flow *pay_flow_from_notification(const char *buf,
+					    const jsmntok_t *obj)
 {
 	struct payflow_key key;
 	const char *err;
@@ -1339,13 +1342,13 @@ static struct pay_flow *pay_flow_from_notification(const char *buf,
 	return payflow_map_get(pay_plugin->payflow_map, &key);
 }
 
-
-
+struct pf_result *sendpay_failure(struct pay_flow *pf,
+				  enum jsonrpc_errcode errcode, const char *buf,
+				  const jsmntok_t *sub);
 /* Dummy return ensures all paths call pay_flow_* to close flow! */
-static struct pf_result *sendpay_failure(struct pay_flow *pf,
-					 enum jsonrpc_errcode errcode,
-					 const char *buf,
-					 const jsmntok_t *sub)
+struct pf_result *sendpay_failure(struct pay_flow *pf,
+				  enum jsonrpc_errcode errcode, const char *buf,
+				  const jsmntok_t *sub)
 {
 	const char *msg, *err;
 	u32 erridx, onionerr;
@@ -1393,34 +1396,6 @@ static struct pf_result *sendpay_failure(struct pay_flow *pf,
 	handle_sendpay_failure_flow(pf, msg, erridx, onionerr);
 
 	return handle_sendpay_failure_payment(pf, msg, erridx, onionerr, raw);
-}
-
-static struct command_result *notification_sendpay_failure(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *params)
-{
-	struct pay_flow *pf;
-	const char *err;
-	enum jsonrpc_errcode errcode;
-	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_failure");
-
-	pf = pay_flow_from_notification(buf, json_get_member(buf, sub, "data"));
-	if (!pf)
-		return notification_handled(cmd);
-
-	err = json_scan(tmpctx, buf, sub, "{code:%}",
-			JSON_SCAN(json_to_jsonrpc_errcode, &errcode));
-	if (err) {
-		plugin_err(pay_plugin->plugin,
-			   "Bad code (%s) in sendpay_failure: %.*s",
-			   err,
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-	}
-
-	sendpay_failure(pf, errcode, buf, sub);
-	return notification_handled(cmd);
 }
 
 static const struct plugin_command commands[] = {

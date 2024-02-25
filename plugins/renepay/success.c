@@ -4,29 +4,10 @@
  * the finish section. */
 
 #include "config.h"
+#include <plugins/renepay/json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>
 #include <plugins/renepay/success.h>
-
-const char *routekey_from_json(struct routekey *key, const char *buf,
-			       const jsmntok_t *params);
-const char *routekey_from_json(struct routekey *key, const char *buf,
-			       const jsmntok_t *params)
-{
-	// TODO
-	return NULL;
-}
-
-struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
-						    const char *buf,
-						    const jsmntok_t *sub);
-struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
-						    const char *buf,
-						    const jsmntok_t *sub)
-{
-	// TODO
-	return NULL;
-}
 
 struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,

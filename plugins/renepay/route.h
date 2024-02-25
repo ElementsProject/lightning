@@ -5,6 +5,7 @@
 #include <bitcoin/preimage.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_parse_simple.h>
 #include <common/route.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
