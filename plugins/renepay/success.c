@@ -5,7 +5,7 @@
 
 #include "config.h"
 #include <plugins/renepay/finish.h>
-#include <plugins/renepay/json.h>
+#include <plugins/renepay/parse_json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>
 #include <plugins/renepay/success.h>
@@ -14,19 +14,15 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params)
 {
-	const char *err;
 	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_success");
 
-	struct routekey key;
-	err = routekey_from_json(&key, buf, sub);
-	if (err)
+	struct routekey *key = tal_routekey_from_json(tmpctx, buf, sub);
+	if (!key)
 		plugin_err(pay_plugin->plugin,
-			   "Missing fields (%s) in notification: %.*s", err,
+			   "Unable to get routekey from sendpay_success: %.*s",
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
-	struct route *route =
-	    route_map_get(pay_plugin->route_map,
-			  &key); // TODO declare a route_map inside pay_plugin
+	struct route *route = route_map_get(pay_plugin->route_map, key);
 
 	if (!route)
 		/* This sendpay is not linked to any route in our database, we
@@ -36,16 +32,14 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 	route->result = tal_sendpay_result_from_json(route, buf, sub);
 	if (route->result == NULL)
 		plugin_err(pay_plugin->plugin,
-			   "Unable to parse sendpay_failure: %.*s",
+			   "Unable to parse sendpay_success: %.*s",
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
 
 	// update information
-	unetwork_route_success(pay_plugin->unetwork,
-			       route); // TODO: define unetwork
-	unetwork_remove_htlcs(pay_plugin->unetwork,
-			     route); // TODO: define unetwork
+	unetwork_route_success(pay_plugin->unetwork, route);
+	unetwork_remove_htlcs(pay_plugin->unetwork, route);
 
 	// finish if this payment is in progress
 	struct payment *payment = route->payment;
