@@ -14,6 +14,7 @@ service Node {
 	rpc SendPay(SendpayRequest) returns (SendpayResponse) {}
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
+	rpc AddPsbtOutput(AddpsbtoutputRequest) returns (AddpsbtoutputResponse) {}
 	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
 	rpc AutoCleanOnce(AutocleanonceRequest) returns (AutocleanonceResponse) {}
 	rpc AutoCleanStatus(AutocleanstatusRequest) returns (AutocleanstatusResponse) {}
@@ -358,6 +359,19 @@ message AddgossipRequest {
 }
 
 message AddgossipResponse {
+}
+
+message AddpsbtoutputRequest {
+	Amount satoshi = 1;
+	optional uint32 locktime = 2;
+	optional string initialpsbt = 3;
+	optional string destination = 4;
+}
+
+message AddpsbtoutputResponse {
+	string psbt = 1;
+	uint32 estimated_added_weight = 2;
+	uint32 outnum = 3;
 }
 
 message AutocleaninvoiceRequest {
