@@ -5,8 +5,8 @@
 #include <ccan/tal/tal.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <plugins/renepay/pay.h>
 #include <plugins/renepay/payment.h>
+#include <plugins/renepay/payplugin.h>
 
 struct payment *payment_new(const tal_t *ctx,
 			    const struct sha256 *payment_hash,

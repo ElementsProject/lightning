@@ -1,7 +1,7 @@
 #include "config.h"
 #include <common/bolt11.h>
 #include <common/gossmods_listpeerchannels.h>
-#include <plugins/renepay/pay.h>
+#include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/uncertainty_network.h>
 
 static bool chan_extra_check_invariants(struct chan_extra *ce)

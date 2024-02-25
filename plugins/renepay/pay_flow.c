@@ -8,8 +8,8 @@
 #include <plugins/libplugin.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/mcf.h>
-#include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
+#include <plugins/renepay/payplugin.h>
 
 // FIXME These macros are used in more than one place of the code, they could be
 // defined in a single header.

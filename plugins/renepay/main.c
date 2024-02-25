@@ -14,7 +14,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <plugins/renepay/pay.h>
+#include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/uncertainty_network.h>
 #include <stdio.h>
@@ -31,6 +31,13 @@
 
 static struct command_result *
 payment_listsendpays_fail(
+		struct command *cmd,
+		const char *buf,
+		const jsmntok_t *result,
+		struct payment * payment);
+
+struct command_result *
+payment_listsendpays_previous(
 		struct command *cmd,
 		const char *buf,
 		const jsmntok_t *result,

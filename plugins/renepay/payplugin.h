@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_PAY_H
-#define LIGHTNING_PLUGINS_RENEPAY_PAY_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
+#define LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H
 #include "config.h"
 #include <ccan/list/list.h>
 #include <common/node_id.h>
@@ -101,11 +101,4 @@ const char *try_paying(const tal_t *ctx,
 		       struct payment *payment,
 		       enum jsonrpc_errcode *ecode);
 
-struct command_result *
-payment_listsendpays_previous(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *result,
-		struct payment * payment);
-
-#endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_H */
+#endif /* LIGHTNING_PLUGINS_RENEPAY_PAYPLUGIN_H */
