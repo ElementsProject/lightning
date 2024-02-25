@@ -285,6 +285,14 @@ def addgossip2py(m):
     })
 
 
+def addpsbtoutput2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "estimated_added_weight": m.estimated_added_weight,  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
+    })
+
+
 def autocleaninvoice2py(m):
     return remove_default({
         "enabled": m.enabled,  # PrimitiveField in generate_composite
