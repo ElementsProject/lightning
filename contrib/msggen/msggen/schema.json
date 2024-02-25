@@ -79,7 +79,7 @@
         ],
         "properties": {
           "satoshi": {
-            "type": "sat",
+            "type": "msat",
             "description": [
               "The satoshi value of the output. It can be a whole number, a whole number ending in *sat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]

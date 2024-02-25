@@ -23,6 +23,7 @@ pub enum Request {
 	SendPay(requests::SendpayRequest),
 	ListChannels(requests::ListchannelsRequest),
 	AddGossip(requests::AddgossipRequest),
+	AddPsbtOutput(requests::AddpsbtoutputRequest),
 	AutoCleanInvoice(requests::AutocleaninvoiceRequest),
 	#[serde(rename = "autoclean-once")]
 	AutoCleanOnce(requests::AutocleanonceRequest),
@@ -150,6 +151,7 @@ pub enum Response {
 	SendPay(responses::SendpayResponse),
 	ListChannels(responses::ListchannelsResponse),
 	AddGossip(responses::AddgossipResponse),
+	AddPsbtOutput(responses::AddpsbtoutputResponse),
 	AutoCleanInvoice(responses::AutocleaninvoiceResponse),
 	#[serde(rename = "autoclean-once")]
 	AutoCleanOnce(responses::AutocleanonceResponse),
@@ -494,6 +496,34 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "addgossip"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AddpsbtoutputRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub initialpsbt: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub locktime: Option<u32>,
+	    pub satoshi: Amount,
+	}
+
+	impl From<AddpsbtoutputRequest> for Request {
+	    fn from(r: AddpsbtoutputRequest) -> Self {
+	        Request::AddPsbtOutput(r)
+	    }
+	}
+
+	impl IntoRequest for AddpsbtoutputRequest {
+	    type Response = super::responses::AddpsbtoutputResponse;
+	}
+
+	impl TypedRequest for AddpsbtoutputRequest {
+	    type Response = super::responses::AddpsbtoutputResponse;
+
+	    fn method(&self) -> &str {
+	        "addpsbtoutput"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4400,6 +4430,24 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AddGossip(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AddpsbtoutputResponse {
+	    pub estimated_added_weight: u32,
+	    pub outnum: u32,
+	    pub psbt: String,
+	}
+
+	impl TryFrom<Response> for AddpsbtoutputResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AddPsbtOutput(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

@@ -274,6 +274,38 @@ impl Node for Server
 
     }
 
+    async fn add_psbt_output(
+        &self,
+        request: tonic::Request<pb::AddpsbtoutputRequest>,
+    ) -> Result<tonic::Response<pb::AddpsbtoutputResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AddpsbtoutputRequest = req.into();
+        debug!("Client asked for add_psbt_output");
+        trace!("add_psbt_output request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AddPsbtOutput(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AddPsbtOutput: {:?}", e)))?;
+        match result {
+            Response::AddPsbtOutput(r) => {
+               trace!("add_psbt_output response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AddPsbtOutput",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn auto_clean_invoice(
         &self,
         request: tonic::Request<pb::AutocleaninvoiceRequest>,
