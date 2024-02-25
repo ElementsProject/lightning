@@ -113,6 +113,9 @@ struct payment {
 
 	/* Groupid, so listpays() can group them back together */
 	u64 groupid;
+
+	enum jsonrpc_errcode error_code;
+	const char *error_msg;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)
@@ -234,7 +237,5 @@ bool payment_commands_empty(const struct payment *p);
 bool payment_register_command(struct payment *p, struct command *cmd);
 
 struct command *payment_command(struct payment *p);
-
-void payment_finish(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

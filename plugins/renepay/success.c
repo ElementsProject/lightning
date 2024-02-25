@@ -4,6 +4,7 @@
  * the finish section. */
 
 #include "config.h"
+#include <plugins/renepay/finish.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>

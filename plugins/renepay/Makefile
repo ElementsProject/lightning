@@ -1,9 +1,10 @@
 PLUGIN_RENEPAY_SRC := plugins/renepay/main.c plugins/renepay/pay_flow.c plugins/renepay/flow.c plugins/renepay/mcf.c plugins/renepay/dijkstra.c \
 	plugins/renepay/payment.c plugins/renepay/uncertainty_network.c plugins/renepay/chan_extra.c plugins/renepay/route.c \
-	plugins/renepay/success.c plugins/renepay/unetwork.c plugins/renepay/failure.c plugins/renepay/json.c
+	plugins/renepay/success.c plugins/renepay/unetwork.c plugins/renepay/failure.c plugins/renepay/json.c \
+	plugins/renepay/finish.c
 PLUGIN_RENEPAY_HDRS := plugins/renepay/payplugin.h plugins/renepay/pay_flow.h plugins/renepay/flow.h plugins/renepay/mcf.h plugins/renepay/dijkstra.h \
 	plugins/renepay/payment.h plugins/renepay/uncertainty_network.h plugins/renepay/chan_extra.h plugins/renepay/route.h \
-	plugins/renepay/success.h plugins/renepay/unetwork.h plugins/renepay/failure.h plugins/renepay/json.h
+	plugins/renepay/success.h plugins/renepay/unetwork.h plugins/renepay/failure.h plugins/renepay/json.h plugins/renepay/finish.h
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
 
 # Make sure these depend on everything.

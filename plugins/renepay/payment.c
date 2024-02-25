@@ -592,8 +592,3 @@ struct command *payment_command(struct payment *p)
 		return NULL;
 	return p->cmd_array[0];
 }
-
-void payment_finish(struct payment *p)
-{
-	// TODO
-}
