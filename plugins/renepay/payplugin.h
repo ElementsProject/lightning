@@ -6,6 +6,7 @@
 #include <plugins/libplugin.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
+#include <plugins/renepay/unetwork.h>
 
 // TODO(eduardo): renepaystatus should be similar to paystatus
 
@@ -69,9 +70,11 @@ struct pay_plugin {
 
 	/* Per-channel metadata: some persists between payments */
 	struct chan_extra_map *chan_extra_map;
+	struct unetwork *unetwork;
 
 	/* Pending sendpays (to match notifications to). */
 	struct payflow_map * payflow_map;
+	struct route_map *route_map;
 
 	bool debug_mcf;
 	bool debug_payflow;

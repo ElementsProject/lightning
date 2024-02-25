@@ -235,4 +235,6 @@ bool payment_register_command(struct payment *p, struct command *cmd);
 
 struct command *payment_command(struct payment *p);
 
+void payment_finish(struct payment *p);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */

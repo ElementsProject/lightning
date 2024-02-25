@@ -14,8 +14,9 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/pay_flow.h>
+#include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/success.h>
 #include <plugins/renepay/uncertainty_network.h>
 #include <stdio.h>
 
@@ -83,6 +84,11 @@ static const char *init(struct plugin *p,
 
 	pay_plugin->payflow_map = tal(pay_plugin,struct payflow_map);
 	payflow_map_init(pay_plugin->payflow_map);
+
+	pay_plugin->route_map = tal(pay_plugin,struct route_map);
+	route_map_init(pay_plugin->route_map);
+
+	pay_plugin->unetwork = unetwork_new(pay_plugin);
 
 	pay_plugin->gossmap = gossmap_load(pay_plugin,
 					   GOSSIP_STORE_FILENAME,
@@ -1335,41 +1341,6 @@ static struct pay_flow *pay_flow_from_notification(const char *buf,
 
 
 
-static struct command_result *notification_sendpay_success(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *params)
-{
-	struct pay_flow *pf;
-	struct preimage preimage;
-	const char *err;
-	const jsmntok_t *sub = json_get_member(buf, params, "sendpay_success");
-
-	pf = pay_flow_from_notification(buf, sub);
-	if (!pf)
-		return notification_handled(cmd);
-
-	err = json_scan(tmpctx, buf, sub, "{payment_preimage:%}",
-			JSON_SCAN(json_to_preimage, &preimage));
-	if (err) {
-		plugin_err(pay_plugin->plugin,
-			   "Bad payment_preimage (%s) in sendpay_success: %.*s",
-			   err,
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-	}
-
-	payflow_note(pf, LOG_INFORM, "Success");
-
-	// 2. update information
-	uncertainty_network_flow_success(pay_plugin->chan_extra_map, pf);
-
-	// 3. mark as success (frees pf)
-	pay_flow_succeeded(pf, &preimage);
-
-	return notification_handled(cmd);
-}
-
 /* Dummy return ensures all paths call pay_flow_* to close flow! */
 static struct pf_result *sendpay_failure(struct pay_flow *pf,
 					 enum jsonrpc_errcode errcode,
@@ -1470,10 +1441,6 @@ static const struct plugin_command commands[] = {
 };
 
 static const struct plugin_notification notifications[] = {
-	// {
-	// 	"shutdown",
-	// 	notification_shutdown,
-	// },
 	{
 		"sendpay_success",
 		notification_sendpay_success,
