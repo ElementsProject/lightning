@@ -44,9 +44,9 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **psbt** (string): Unsigned PSBT which fulfills the parameters given
-- **estimated\_added\_weight** (u32): The estimated weight of the added output
-- **outnum** (u32): The 0-based number where the output was placed
+- **psbt** (string): The unsigned PSBT which fulfills the parameters given.
+- **estimated\_added\_weight** (u32): The estimated weight of the added output.
+- **outnum** (u32): The 0-based number where the output was placed.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -65,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6a31cc1575f9112d0582b5b9db560a5217d6e1a7bd33d399958e3aff7b022ac3)
+[comment]: # ( SHA256STAMP:0f2b1c781862eb37a4b7a1b30bfc58cbb82987ff8e03e6f54f82f8d5e1b233cf)

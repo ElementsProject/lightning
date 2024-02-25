@@ -8,17 +8,20 @@
   "added": "v23.11",
   "properties": {
     "satoshi": {
-      "type": "msat"
+      "type": "msat",
+      "description": "The satoshi value of the output. It can be a whole number, a whole number ending in sat, a whole number ending in 000msat, or a number with 1 to 8 decimal places ending in btc."
     },
     "locktime": {
-      "type": "u32"
+      "type": "u32",
+      "description": "An optional locktime: if not set, it is set to a recent block height (if no initial psbt is specified)."
     },
     "initialpsbt": {
       "type": "string",
-      "description": "the (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically"
+      "description": "The (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically."
     },
     "destination": {
-      "type": "string"
+      "type": "string",
+      "description": "If not set, an internal address is generated."
     }
   }
 }
