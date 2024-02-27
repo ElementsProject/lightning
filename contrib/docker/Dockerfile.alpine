@@ -30,9 +30,11 @@ COPY . /source
 
 RUN git clone /source /repo --recursive && \
     cd /repo && \
-    python3 -m pip install poetry && \
+    python3 -m venv /tmp/venv && \
+    . /tmp/venv/bin/activate && \
+    pip install -- poetry && \
     poetry export --without-hashes --with=dev > requirements.txt && \
-    python3 -m pip install -r requirements.txt --ignore-installed --force && \
+    pip install -r requirements.txt --ignore-installed --force && \
     ./configure --enable-static --prefix=/usr && \
     make -j $(nproc) && \
     make install
