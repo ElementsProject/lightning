@@ -690,9 +690,13 @@ static bool load_gossip_store(struct gossmap *map)
 {
 	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local = NULL;
+
+	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
+#ifndef __OpenBSD__
 	/* If this fails, we fall back to read */
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
+#endif /* __OpenBSD__ */
 		map->mmap = NULL;
 
 	/* We only support major version 0 */
@@ -994,8 +998,11 @@ bool gossmap_refresh_mayfail(struct gossmap *map, bool *updated)
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
 	map->map_size = len;
+	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
+#ifndef __OpenBSD__
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
+#endif /* __OpenBSD__ */
 		map->mmap = NULL;
 
 	return map_catchup(map, updated);
