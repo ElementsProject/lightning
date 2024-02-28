@@ -2231,12 +2231,9 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PreapprovekeysendRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
+	    pub destination: PublicKey,
+	    pub payment_hash: String,
+	    pub amount_msat: Amount,
 	}
 
 	impl From<PreapprovekeysendRequest> for Request {
@@ -2258,8 +2255,7 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PreapproveinvoiceRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt11: Option<String>,
+	    pub bolt11: String,
 	}
 
 	impl From<PreapproveinvoiceRequest> for Request {
@@ -3294,10 +3290,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
+	    pub txid: String,
+	    pub outnum: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3367,16 +3361,13 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreusageDatastoreusage {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub key: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub total_bytes: Option<u64>,
+	    pub key: String,
+	    pub total_bytes: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreusageResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub datastoreusage: Option<DatastoreusageDatastoreusage>,
+	    pub datastoreusage: DatastoreusageDatastoreusage,
 	}
 
 	impl TryFrom<Response> for DatastoreusageResponse {
@@ -3606,10 +3597,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListinvoicesInvoicesPaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
+	    pub txid: String,
+	    pub outnum: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4031,10 +4020,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitanyinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
+	    pub txid: String,
+	    pub outnum: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4109,10 +4096,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoicePaid_outpoint {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub outnum: Option<u32>,
+	    pub txid: String,
+	    pub outnum: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4542,62 +4527,44 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsUpdatesLocal {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_minimum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_maximum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub cltv_expiry_delta: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_base_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_proportional_millionths: Option<u32>,
+	    pub htlc_minimum_msat: Amount,
+	    pub htlc_maximum_msat: Amount,
+	    pub cltv_expiry_delta: u32,
+	    pub fee_base_msat: Amount,
+	    pub fee_proportional_millionths: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsUpdatesRemote {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_minimum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub htlc_maximum_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub cltv_expiry_delta: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_base_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub fee_proportional_millionths: Option<u32>,
+	    pub htlc_minimum_msat: Amount,
+	    pub htlc_maximum_msat: Amount,
+	    pub cltv_expiry_delta: u32,
+	    pub fee_base_msat: Amount,
+	    pub fee_proportional_millionths: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsUpdates {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local: Option<ListpeerchannelsChannelsUpdatesLocal>,
+	    pub local: ListpeerchannelsChannelsUpdatesLocal,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub remote: Option<ListpeerchannelsChannelsUpdatesRemote>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsFeerate {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub perkw: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub perkb: Option<u32>,
+	    pub perkw: u32,
+	    pub perkb: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsInflight {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_txid: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_outnum: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub total_funding_msat: Option<Amount>,
+	    pub funding_txid: String,
+	    pub funding_outnum: u32,
+	    pub feerate: String,
+	    pub total_funding_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub splice_amount: Option<i64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_funding_msat: Option<Amount>,
+	    pub our_funding_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub scratch_txid: Option<String>,
 	}
@@ -4606,10 +4573,8 @@ pub mod responses {
 	pub struct ListpeerchannelsChannelsFunding {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pushed_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub local_funds_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub remote_funds_msat: Option<Amount>,
+	    pub local_funds_msat: Amount,
+	    pub remote_funds_msat: Amount,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_paid_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -4655,32 +4620,26 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsHtlcs {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub direction: Option<ListpeerchannelsChannelsHtlcsDirection>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub id: Option<u64>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub expiry: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<Sha256>,
+	    // Path `ListPeerChannels.channels[].htlcs[].direction`
+	    pub direction: ListpeerchannelsChannelsHtlcsDirection,
+	    pub id: u64,
+	    pub amount_msat: Amount,
+	    pub expiry: u32,
+	    pub payment_hash: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub local_trimmed: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub status: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub state: Option<HtlcState>,
+	    // Path `ListPeerChannels.channels[].htlcs[].state`
+	    pub state: HtlcState,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannels {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub peer_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub peer_connected: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub state: Option<ListpeerchannelsChannelsState>,
+	    pub peer_id: PublicKey,
+	    pub peer_connected: bool,
+	    // Path `ListPeerChannels.channels[].state`
+	    pub state: ListpeerchannelsChannelsState,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub scratch_txid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -4715,8 +4674,8 @@ pub mod responses {
 	    pub close_to: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub private: Option<bool>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub opener: Option<ChannelSide>,
+	    // Path `ListPeerChannels.channels[].opener`
+	    pub opener: ChannelSide,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub closer: Option<ChannelSide>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -4787,8 +4746,7 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsResponse {
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub channels: Option<Vec<ListpeerchannelsChannels>>,
+	    pub channels: Vec<ListpeerchannelsChannels>,
 	}
 
 	impl TryFrom<Response> for ListpeerchannelsResponse {
@@ -5255,12 +5213,9 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkbEstimates {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub blockcount: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub smoothed_feerate: Option<u32>,
+	    pub blockcount: u32,
+	    pub feerate: u32,
+	    pub smoothed_feerate: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5291,12 +5246,9 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesPerkwEstimates {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub blockcount: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub feerate: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub smoothed_feerate: Option<u32>,
+	    pub blockcount: u32,
+	    pub feerate: u32,
+	    pub smoothed_feerate: u32,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -5403,10 +5355,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelChannel_type {
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub bits: Option<Vec<u32>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub names: Option<Vec<ChannelTypeName>>,
+	    pub bits: Vec<u32>,
+	    pub names: Vec<ChannelTypeName>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

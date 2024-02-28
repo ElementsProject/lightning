@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v24.05",
+  "required" : ["channel_id"],
+  "properties": {
+    "channel_id": {
+      "type": "hash",
+      "added" : "v24.05"
+    }
+  }
+}

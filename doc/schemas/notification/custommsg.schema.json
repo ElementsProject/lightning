@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "added": "v24.05",
+  "required" : [
+    "peer_id", "payload"
+  ],
+  "properties": {
+    "peer_id": {
+      "type": "pubkey",
+      "description" : "The id of the peer which sent the custom message",
+      "added" : "v24.05"
+    },
+    "payload": {
+      "type": "hex",
+      "description" : "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content",
+      "added" : "v24.05"
+    }
+  }
+}
+

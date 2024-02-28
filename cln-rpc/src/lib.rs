@@ -331,6 +331,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use self::notifications::{BlockAddedNotification, CustomMsgNotification};
+
     use super::*;
     use crate::model::*;
     use crate::primitives::PublicKey;
@@ -552,5 +554,65 @@ mod test {
 
         assert_eq!(rpc_error.code.unwrap(), 666);
         assert_eq!(rpc_error.message, "MOCK_ERROR");
+    }
+
+    #[test]
+    fn serialize_custom_msg_notification() {
+        let msg = CustomMsgNotification {
+            peer_id : PublicKey::from_str("0364aeb75519be29d1af7b8cc6232dbda9fdabb79b66e4e1f6a223750954db210b").unwrap(),
+            payload : String::from("941746573749")
+        };
+
+        let notification = Notification::CustomMsg(msg);
+
+        assert_eq!(
+            serde_json::to_value(notification).unwrap(),
+            serde_json::json!(
+                {
+                    "custommsg" : {
+                        "peer_id" : "0364aeb75519be29d1af7b8cc6232dbda9fdabb79b66e4e1f6a223750954db210b",
+                        "payload" : "941746573749"
+                    }
+                }
+            )
+        );
+
+    }
+
+    #[test]
+    fn serialize_block_added_notification() {
+        let block_added = BlockAddedNotification {
+            hash : crate::primitives::Sha256::from_str("000000000000000000000acab8abe0c67a52ed7e5a90a19c64930ff11fa84eca").unwrap(),
+            height : 830702
+        };
+
+        let notification = Notification::BlockAdded(block_added);
+
+        assert_eq!(
+            serde_json::to_value(notification).unwrap(),
+            serde_json::json!({
+                "block_added" : {
+                    "hash" : "000000000000000000000acab8abe0c67a52ed7e5a90a19c64930ff11fa84eca",
+                    "height" : 830702
+                }
+            })
+        )
+    }
+
+    #[test]
+    fn deserialize_connect_notification() {
+        let connect_json = serde_json::json!({
+            "connect" :  {
+                "address" : {
+                    "address" : "127.0.0.1",
+                    "port" : 38012,
+                    "type" : "ipv4"
+                },
+                "direction" : "in",
+                "id" : "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+            }
+        });
+
+        let _ : Notification = serde_json::from_value(connect_json).unwrap();
     }
 }
