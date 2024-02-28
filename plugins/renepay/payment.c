@@ -78,6 +78,7 @@ struct payment *payment_new(const tal_t *ctx,
 	p->progress_deadline = NULL;
 
 	p->cmd_array = tal_arr(p, struct command *, 0);
+	p->modifiers = tal_arr(p, const struct payment_modifier *, 0);
 
 	return p;
 }
@@ -591,4 +592,25 @@ struct command *payment_command(struct payment *p)
 	if(tal_count(p->cmd_array)==0)
 		return NULL;
 	return p->cmd_array[0];
+}
+
+void payment_clear_modifiers(struct payment *p)
+{
+	tal_resize(&p->modifiers, 0);
+}
+
+void payment_push_modifier(struct payment *p,
+			   const struct payment_modifier *mod)
+{
+	tal_arr_expand(&p->modifiers, mod);
+}
+
+const struct payment_modifier *payment_modifier_pop(struct payment *p)
+{
+	size_t n = tal_count(p->modifiers);
+	if (n == 0)
+		return NULL;
+	const struct payment_modifier *mod = p->modifiers[n - 1];
+	tal_resize(&p->modifiers, n - 1);
+	return mod;
 }

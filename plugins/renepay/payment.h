@@ -10,6 +10,8 @@ enum pay_flow_state;
 
 struct pay_flow;
 
+struct payment_modifier;
+
 enum payment_status {
         PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL
 };
@@ -116,7 +118,15 @@ struct payment {
 
 	enum jsonrpc_errcode error_code;
 	const char *error_msg;
+
+	// TODO make a list of modifiers?
+	const struct payment_modifier **modifiers;
 };
+
+void payment_clear_modifiers(struct payment *p);
+void payment_push_modifier(struct payment *p,
+			   const struct payment_modifier *mod);
+const struct payment_modifier *payment_modifier_pop(struct payment *p);
 
 static inline const struct sha256 payment_hash(const struct payment *p)
 {
