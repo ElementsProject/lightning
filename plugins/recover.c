@@ -11,6 +11,18 @@
 #include <plugins/libplugin.h>
 #include <unistd.h>
 
+/* How long to wait after startup before starting the timer loop */
+#define STARTUP_TIME 2
+
+/* Check peers for lost ones every 5 minutes */
+#define CHECK_PEER_INTERVAL 300
+
+/* How often to check recovery storage */
+#define CHECK_STORAGE_INTERVAL 300
+
+/* Interval to check for former peers in the gossip. */
+#define CHECK_GOSSIP_INTERVAL 300
+
 static struct plugin *plugin;
 static struct gossmap *global_gossmap;
 static struct plugin_timer *lost_state_timer, *find_exes_timer, *peer_storage_timer;
@@ -72,7 +84,9 @@ static struct command_result *after_restorefrompeer(struct command *cmd,
 {
 	plugin_log(plugin, LOG_DBG, "restorefrompeer called");
 
-	peer_storage_timer = plugin_timer(plugin, time_from_sec(5), do_find_peer_storage, cmd);
+	peer_storage_timer =
+	    plugin_timer(plugin, time_from_sec(CHECK_STORAGE_INTERVAL),
+			 do_find_peer_storage, cmd);
 	return command_still_pending(cmd);
 }
 
@@ -129,11 +143,14 @@ static void do_check_gossip (struct command *cmd)
 
 		}
 
-		peer_storage_timer = plugin_timer(plugin, time_from_sec(5), do_find_peer_storage, cmd);
+		peer_storage_timer =
+		    plugin_timer(plugin, time_from_sec(CHECK_STORAGE_INTERVAL),
+				 do_find_peer_storage, cmd);
 		return;
 	}
 
-	find_exes_timer = plugin_timer(plugin, time_from_sec(5), do_check_gossip, cmd);
+	find_exes_timer = plugin_timer(
+	    plugin, time_from_sec(CHECK_PEER_INTERVAL), do_check_gossip, cmd);
 	return;
 }
 
@@ -165,7 +182,8 @@ static void entering_recovery_mode(struct command *cmd)
 						  NULL);
 
 	send_outreq(plugin, req_emer_recovery);
-	find_exes_timer = plugin_timer(plugin, time_from_sec(5), do_check_gossip, cmd);
+	find_exes_timer = plugin_timer(
+	    plugin, time_from_sec(CHECK_GOSSIP_INTERVAL), do_check_gossip, cmd);
 	return;
 }
 
@@ -174,7 +192,6 @@ static struct command_result *after_listpeerchannels(struct command *cmd,
 					             const jsmntok_t *params,
 					             void *cb_arg UNUSED)
 {
-	plugin_log(plugin, LOG_DBG, "Listpeerchannels called");
 	const jsmntok_t *iter, *lost_statetok;
 	const jsmntok_t *channelstok = json_get_member(buf, params, "channels");
 	size_t i;
@@ -198,7 +215,9 @@ static struct command_result *after_listpeerchannels(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	lost_state_timer = plugin_timer(plugin, time_from_sec(2), do_check_lost_peer, NULL);
+	lost_state_timer =
+	    plugin_timer(plugin, time_from_sec(CHECK_PEER_INTERVAL),
+			 do_check_lost_peer, NULL);
 	return command_still_pending(cmd);
 }
 
@@ -232,7 +251,8 @@ static const char *init(struct plugin *p,
 	plugin = p;
 	plugin_log(p, LOG_DBG, "Recover Plugin Initialised!");
 	recovery = false;
-	lost_state_timer = plugin_timer(plugin, time_from_sec(2), do_check_lost_peer, NULL);
+	lost_state_timer = plugin_timer(plugin, time_from_sec(STARTUP_TIME),
+					do_check_lost_peer, NULL);
 	u32 num_peers;
 	size_t num_cupdates_rejected;
 
