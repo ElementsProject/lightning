@@ -652,6 +652,22 @@ static void send_routes_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
 
 /*****************************************************************************
+ * check_timeout
+ */
+static void check_timeout_cb(struct payment *payment)
+{
+	if (time_after(time_now(), payment->stop_time)) {
+		// TODO
+		// payment_set_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
+		payment_finish(payment);
+		return;
+	}
+	payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(check_timeout, check_timeout_cb);
+
+/*****************************************************************************
  * end
  *
  * A dummy modifier used to end the payment, just for testing.
