@@ -376,9 +376,8 @@ void payment_reconsider(struct payment *payment)
 {
 	struct pay_flow *i, *next;
 	bool have_state[NUM_PAY_FLOW] = {false};
-	enum jsonrpc_errcode final_error COMPILER_WANTS_INIT("gcc 12.3.0 -O3"), ecode;
+	enum jsonrpc_errcode final_error COMPILER_WANTS_INIT("gcc 12.3.0 -O3");
 	const char *final_msg COMPILER_WANTS_INIT("gcc 12.3.0 -O3");
-	const char *errmsg;
 
 	plugin_log(pay_plugin->plugin, LOG_DBG, "payment_reconsider");
 
@@ -558,10 +557,11 @@ void payment_reconsider(struct payment *payment)
 		return;
 	}
 
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Retrying payment");
-	errmsg = try_paying(tmpctx, payment, &ecode);
-	if (errmsg)
-		payment_fail(payment, ecode, "%s", errmsg);
+	// TODO: this is a deprecated
+	// plugin_log(pay_plugin->plugin, LOG_DBG, "Retrying payment");
+	// errmsg = try_paying(tmpctx, payment, &ecode);
+	// if (errmsg)
+	// 	payment_fail(payment, ecode, "%s", errmsg);
 }
 
 /* Remove all flows with the given state. */

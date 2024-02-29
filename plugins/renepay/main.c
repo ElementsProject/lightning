@@ -319,7 +319,8 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 }
 
 /* Kick off all pay_flows which are in state PAY_FLOW_NOT_STARTED */
-static void sendpay_new_flows(struct payment *p)
+void sendpay_new_flows(struct payment *p);
+void sendpay_new_flows(struct payment *p)
 {
 	struct pay_flow *pf;
 
@@ -392,85 +393,6 @@ static void sendpay_new_flows(struct payment *p)
 
 	/* Safety check. */
 	payment_assert_delivering_all(p);
-}
-
-const char *try_paying(const tal_t *ctx,
-		       struct payment *payment,
-		       enum jsonrpc_errcode *ecode)
-{
-	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-
-	struct amount_msat feebudget, fees_spent, remaining;
-
-	assert(payment->status == PAYMENT_PENDING);
-
-	/* Total feebudget  */
-	if (!amount_msat_sub(&feebudget, payment->maxspend, payment->amount))
-	{
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) could not substract maxspend=%s and amount=%s.",
-			   __PRETTY_FUNCTION__,
-			   __LINE__,
-			   fmt_amount_msat(tmpctx, payment->maxspend),
-			   fmt_amount_msat(tmpctx, payment->amount));
-	}
-
-	/* Fees spent so far */
-	if (!amount_msat_sub(&fees_spent, payment->total_sent, payment->total_delivering))
-	{
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) could not substract total_sent=%s and total_delivering=%s.",
-			   __PRETTY_FUNCTION__,
-			   __LINE__,
-			   fmt_amount_msat(tmpctx, payment->total_sent),
-			   fmt_amount_msat(tmpctx, payment->total_delivering));
-	}
-
-	/* Remaining fee budget. */
-	if (!amount_msat_sub(&feebudget, feebudget, fees_spent))
-	{
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) could not substract feebudget=%s and fees_spent=%s.",
-			   __PRETTY_FUNCTION__,
-			   __LINE__,
-			   fmt_amount_msat(tmpctx, feebudget),
-			   fmt_amount_msat(tmpctx, fees_spent));
-	}
-
-	/* How much are we still trying to send? */
-	if (!amount_msat_sub(&remaining, payment->amount, payment->total_delivering))
-	{
-		plugin_err(pay_plugin->plugin,
-			   "%s (line %d) could not substract amount=%s and total_delivering=%s.",
-			   __PRETTY_FUNCTION__,
-			   __LINE__,
-			   fmt_amount_msat(tmpctx, payment->amount),
-			   fmt_amount_msat(tmpctx, payment->total_delivering));
-	}
-
-	// plugin_log(pay_plugin->plugin,LOG_DBG,fmt_chan_extra_map(tmpctx,pay_plugin->chan_extra_map));
-
-	const char *err_msg;
-
-	/* We let this return an unlikely path, as it's better to try once
-	 * than simply refuse.  Plus, models are not truth! */
-	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
-	err_msg = add_payflows(tmpctx,
-			       payment,
-			       remaining, feebudget,
-			       /* is entire payment? */
-			       amount_msat_eq(remaining, AMOUNT_MSAT(0)),
-			       ecode);
-	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
-
-	/* MCF cannot find a feasible route, we stop. */
-	if (err_msg)
-		return err_msg;
-
-	/* Now begin making payments */
-	sendpay_new_flows(payment);
-
-	return NULL;
 }
 
 static void destroy_payment(struct payment *p)

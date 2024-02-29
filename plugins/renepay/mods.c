@@ -450,6 +450,66 @@ static void routehints_cb(struct payment *p)
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 
 /*****************************************************************************
+ * compute_routes
+ *
+ * Compute the payment routes.
+ */
+static void compute_routes_cb(struct payment *payment)
+{
+	assert(payment->status == PAYMENT_PENDING);
+
+	struct amount_msat feebudget, fees_spent, remaining;
+
+	/* Total feebudget  */
+	if (!amount_msat_sub(&feebudget, payment->maxspend, payment->amount))
+		plugin_err(pay_plugin->plugin, "%s: fee budget is negative?",
+			   __PRETTY_FUNCTION__);
+
+	/* Fees spent so far */
+	if (!amount_msat_sub(&fees_spent, payment->total_sent,
+			     payment->total_delivering))
+		plugin_err(pay_plugin->plugin,
+			   "%s: total_delivering is greater than total_sent?",
+			   __PRETTY_FUNCTION__);
+
+	/* Remaining fee budget. */
+	if (!amount_msat_sub(&feebudget, feebudget, fees_spent))
+		plugin_err(pay_plugin->plugin,
+			   "%s: fees_speng is greater than feebudget?",
+			   __PRETTY_FUNCTION__);
+
+	/* How much are we still trying to send? */
+	if (!amount_msat_sub(&remaining, payment->amount,
+			     payment->total_delivering))
+		plugin_err(pay_plugin->plugin,
+			   "%s: total_delivering is greater than amount?",
+			   __PRETTY_FUNCTION__);
+
+	/* We let this return an unlikely path, as it's better to try once
+	 * than simply refuse.  Plus, models are not truth! */
+	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
+	// TODO: add an algorithm selector here
+	// TODO: review add_payflows
+	enum jsonrpc_errcode errcode;
+	const char *err_msg =
+	    add_payflows(tmpctx, payment, remaining, feebudget,
+			 /* is entire payment? */
+			 amount_msat_eq(remaining, AMOUNT_MSAT(0)), &errcode);
+	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
+
+	/* Couldn't feasible route, we stop. */
+	if (err_msg) {
+		// TODO
+		// payment_set_fail(payment, errcode, "%s", err_msg);
+		payment_finish(payment);
+	}
+
+	payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
+
+/*****************************************************************************
  * end
  *
  * A dummy modifier used to end the payment, just for testing.
