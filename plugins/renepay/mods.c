@@ -432,6 +432,24 @@ static void refreshgossmap_cb(struct payment *p)
 REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
 
 /*****************************************************************************
+ * routehints
+ *
+ * Use route hints from the invoice to update the local gossmods and uncertainty
+ * network.
+ */
+// TODO check how this is done in pay.c
+static void routehints_cb(struct payment *p)
+{
+	// TODO(eduardo): are there route hints for B12?
+	// TODO: use unetwork instead of chan_extra_map
+	uncertainty_network_add_routehints(pay_plugin->chan_extra_map,
+					   p->routes, p);
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
+
+/*****************************************************************************
  * end
  *
  * A dummy modifier used to end the payment, just for testing.
