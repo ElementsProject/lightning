@@ -24,5 +24,6 @@ void payment_continue(struct payment *p);
 REGISTER_PAYMENT_MODIFIER_HEADER(end);
 REGISTER_PAYMENT_MODIFIER_HEADER(previous_sendpays);
 REGISTER_PAYMENT_MODIFIER_HEADER(initial_sanity_checks);
+REGISTER_PAYMENT_MODIFIER_HEADER(selfpay);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_MODS_H */

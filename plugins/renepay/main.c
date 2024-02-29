@@ -628,60 +628,6 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
-static struct command_result *selfpay_success(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *result,
-					      struct payment *p)
-{
-	struct preimage preimage;
-	const char *err;
-	err = json_scan(tmpctx, buf, result,
-			"{payment_preimage:%}",
-			JSON_SCAN(json_to_preimage, &preimage));
-	p->preimage = tal_dup(p, struct preimage, &preimage);
-	if (err)
-		plugin_err(cmd->plugin,
-			   "selfpay didn't have payment_preimage? %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	p->status = PAYMENT_SUCCESS;
-	payment_note(p, LOG_DBG, "Paid with self-pay.");
-	return payment_success(p);
-}
-
-/* Self-payment used in plugins/pay.c */
-static struct command_result *selfpay(struct command *cmd, struct payment *p)
-{
-	struct out_req *req;
-
-	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
-	tal_steal(pay_plugin->plugin, p);
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
-				    selfpay_success,
-				    forward_error, p);
-	/* Empty route means "to-self" */
-	json_array_start(req->js, "route");
-	json_array_end(req->js);
-	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
-	if (p->label)
-		json_add_string(req->js, "label", p->label);
-	json_add_amount_msat(req->js, "amount_msat", p->amount);
-	json_add_string(req->js, "bolt11", p->invstr);
-	if (p->payment_secret)
-		json_add_secret(req->js, "payment_secret", p->payment_secret);
-	json_add_u64(req->js, "groupid", p->groupid);
-	if (p->payment_metadata)
-		json_add_hex_talarr(req->js, "payment_metadata", p->payment_metadata);
-	if (p->description)
-		json_add_string(req->js, "description", p->description);
-
-	/* Pretend we have sent partid=1 with the total amount. */
-	p->next_partid = 2;
-	p->total_sent = p->amount;
-	return send_outreq(cmd->plugin, req);
-}
-
 static struct command_result *renepay_command_finish(struct payment *payment,
 						     struct command *cmd)
 {
@@ -947,11 +893,6 @@ payment_listsendpays_previous(
 		payment->groupid = max_group_id + 1;
 		payment->next_partid=1;
 	}
-
-	/* Bypass everything if we're doing (synchronous) self-pay */
-	if (node_id_eq(&pay_plugin->my_id, &payment->destination))
-		return selfpay(cmd, payment);
-
 
 	struct out_req *req;
 	/* Get local capacities... */

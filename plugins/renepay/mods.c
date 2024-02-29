@@ -141,8 +141,8 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 			    ",payment_preimage:%}",
 			    JSON_SCAN(json_to_u32, &complete_created_at),
 			    JSON_SCAN(json_to_preimage, &complete_preimage));
-			    // FIXME there is json_add_timeabs, but there isn't
-			    // json_to_timeabs
+			// FIXME there is json_add_timeabs, but there isn't
+			// json_to_timeabs
 			complete_parts++;
 		} else if (streq(status, "pending")) {
 			/* If we have more than one pending group, something
@@ -184,8 +184,7 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		p->groupid = complete_groupid;
 		p->preimage = tal_dup(p, struct preimage, &complete_preimage);
 
-		plugin_log(pay_plugin->plugin, LOG_DBG,
-			   "There are completed sendpays to this invoice.");
+		payment_note(p, LOG_DBG, "Payment completed by a previous sendpay.");
 		return payment_finish(p);
 	} else if (pending_group_id != INVALID_ID) {
 		/* Continue where we left off? */
@@ -255,6 +254,72 @@ static void initial_sanity_checks_cb(struct payment *p)
 }
 
 REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
+
+/*****************************************************************************
+ * selfpay
+ *
+ * Checks if the payment destination is the sender's node and perform a self
+ * payment.
+ */
+
+static struct command_result *selfpay_success(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      struct payment *p)
+{
+	struct preimage preimage;
+	const char *err;
+	err = json_scan(tmpctx, buf, result, "{payment_preimage:%}",
+			JSON_SCAN(json_to_preimage, &preimage));
+	if (err)
+		plugin_err(
+		    cmd->plugin, "selfpay didn't have payment_preimage? %.*s",
+		    json_tok_full_len(result), json_tok_full(buf, result));
+
+	p->preimage = tal_dup(p, struct preimage, &preimage);
+	p->status = PAYMENT_SUCCESS;
+	payment_note(p, LOG_DBG, "Paid with self-pay.");
+	return payment_finish(p);
+}
+
+static void selfpay_cb(struct payment *p)
+{
+	if (!node_id_eq(&pay_plugin->my_id, &p->destination)) {
+		payment_continue(p);
+		return;
+	}
+
+	struct command *cmd = payment_command(p);
+	if (!cmd)
+		plugin_err(pay_plugin->plugin,
+			   "Selfpay: cannot get a valid cmd.");
+	struct out_req *req;
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpay",
+				    selfpay_success, payment_rpc_failure, p);
+	/* Empty route means "to-self" */
+	json_array_start(req->js, "route");
+	json_array_end(req->js);
+	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
+	if (p->label)
+		json_add_string(req->js, "label", p->label);
+	json_add_amount_msat(req->js, "amount_msat", p->amount);
+	json_add_string(req->js, "bolt11", p->invstr);
+	if (p->payment_secret)
+		json_add_secret(req->js, "payment_secret", p->payment_secret);
+	json_add_u32(req->js, "groupid", p->groupid);
+	if (p->payment_metadata)
+		json_add_hex_talarr(req->js, "payment_metadata",
+				    p->payment_metadata);
+	if (p->description)
+		json_add_string(req->js, "description", p->description);
+
+	/* Pretend we have sent partid=1 with the total amount. */
+	p->next_partid = 2;
+	p->total_sent = p->amount;
+	send_outreq(cmd->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
 
 /*****************************************************************************
  * end
