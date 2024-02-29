@@ -473,84 +473,6 @@ const char *try_paying(const tal_t *ctx,
 	return NULL;
 }
 
-static void gossmod_cb(struct gossmap_localmods *mods,
-		       const struct node_id *self,
-		       const struct node_id *peer,
-		       const struct short_channel_id_dir *scidd,
-		       struct amount_msat htlcmin,
-		       struct amount_msat htlcmax,
-		       struct amount_msat spendable,
-		       struct amount_msat fee_base,
-		       u32 fee_proportional,
-		       u32 cltv_delta,
-		       bool enabled,
-		       bool is_local,
-		       const char *buf,
-		       const jsmntok_t *chantok,
-		       struct payment *payment)
-{
-	struct amount_msat min, max;
-
-	if (is_local) {
-		/* local channels can send up to what's spendable */
-		min = AMOUNT_MSAT(0);
-		max = spendable;
-	} else {
-		/* remote channels can send up no more than spendable */
-		min = htlcmin;
-		max = amount_msat_min(spendable, htlcmax);
-	}
-
-	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
-
-	gossmap_local_updatechan(mods, scidd->scid, min, max,
-				 fee_base.millisatoshis, /* Raw: gossmap */
-				 fee_proportional,
-				 cltv_delta,
-				 enabled,
-				 scidd->dir);
-
-	/* Also update uncertainty map */
-	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,
-							 buf, chantok,
-							 pay_plugin->chan_extra_map);
-}
-
-static struct command_result *listpeerchannels_done(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *result,
-		struct payment *payment)
-{
-	plugin_log(pay_plugin->plugin,LOG_DBG,"calling %s",__PRETTY_FUNCTION__);
-	const char *errmsg;
-	enum jsonrpc_errcode ecode;
-
-	payment->local_gossmods = gossmods_from_listpeerchannels(payment, &pay_plugin->my_id,
-								 buf, result, true,
-								 gossmod_cb, payment);
-
-	// TODO(eduardo): check that there won't be a prob. cost associated with
-	// any gossmap local chan. The same way there aren't fees to pay for my
-	// local channels.
-
-	// TODO(eduardo): are there route hints for B12?
-	// Add any extra hidden channel revealed by the routehints to the uncertainty network.
-	uncertainty_network_add_routehints(pay_plugin->chan_extra_map, payment->routes, payment);
-
-	/* From now on, we keep a record of the payment, so persist it beyond this cmd. */
-	tal_steal(pay_plugin->plugin, payment);
-
-	/* This looks for a route, and if OK, fires off the sendpay commands */
-	errmsg = try_paying(tmpctx, payment, &ecode);
-	if (errmsg)
-		return payment_fail(payment, ecode, "%s", errmsg);
-
-	return command_still_pending(cmd);
-}
-
-
 static void destroy_payment(struct payment *p)
 {
 	list_del_from(&pay_plugin->payments, &p->list);
@@ -894,11 +816,12 @@ payment_listsendpays_previous(
 		payment->next_partid=1;
 	}
 
+	// TODO this workflow is now deprecated
 	struct out_req *req;
 	/* Get local capacities... */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
-				    listpeerchannels_done,
-				    listpeerchannels_done, payment);
+	// req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+	// 			    listpeerchannels_done,
+	// 			    listpeerchannels_done, payment);
 	return send_outreq(cmd->plugin, req);
 }
 

@@ -1,8 +1,10 @@
 #include <common/amount.h>
+#include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <plugins/renepay/finish.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/uncertainty_network.h>
 
 #define INVALID_ID UINT32_MAX
 
@@ -184,7 +186,8 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		p->groupid = complete_groupid;
 		p->preimage = tal_dup(p, struct preimage, &complete_preimage);
 
-		payment_note(p, LOG_DBG, "Payment completed by a previous sendpay.");
+		payment_note(p, LOG_DBG,
+			     "Payment completed by a previous sendpay.");
 		return payment_finish(p);
 	} else if (pending_group_id != INVALID_ID) {
 		/* Continue where we left off? */
@@ -320,6 +323,85 @@ static void selfpay_cb(struct payment *p)
 }
 
 REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
+
+/*****************************************************************************
+ * getmychannels
+ *
+ * Calls listpeerchannels to get and updated state of the local channels.
+ */
+
+static void gossmod_cb(struct gossmap_localmods *mods,
+		       const struct node_id *self,
+		       const struct node_id *peer,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat htlcmin,
+		       struct amount_msat htlcmax,
+		       struct amount_msat spendable,
+		       struct amount_msat fee_base,
+		       u32 fee_proportional,
+		       u32 cltv_delta,
+		       bool enabled,
+		       bool is_local,
+		       const char *buf,
+		       const jsmntok_t *chantok,
+		       struct payment *payment)
+{
+	struct amount_msat min, max;
+
+	if (is_local) {
+		/* local channels can send up to what's spendable */
+		min = AMOUNT_MSAT(0);
+		max = spendable;
+	} else {
+		/* remote channels can send up no more than spendable */
+		min = htlcmin;
+		max = amount_msat_min(spendable, htlcmax);
+	}
+
+	/* FIXME: features? */
+	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
+
+	gossmap_local_updatechan(mods, scidd->scid, min, max,
+				 fee_base.millisatoshis, /* Raw: gossmap */
+				 fee_proportional,
+				 cltv_delta,
+				 enabled,
+				 scidd->dir);
+
+	/* Also update uncertainty map */
+	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,
+							 buf, chantok,
+							 pay_plugin->chan_extra_map);
+}
+
+static struct command_result *listpeerchannels_ok(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  struct payment *p)
+{
+	// FIXME: should local gossmods be global (ie. member of pay_plugin) or
+	// local (ie. member of payment)?
+	p->local_gossmods = gossmods_from_listpeerchannels(
+	    p, &pay_plugin->my_id, buf, result, gossmod_cb, p);
+
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static void getmychannels_cb(struct payment *p)
+{
+	struct command *cmd = payment_command(p);
+	if (!cmd)
+		plugin_err(pay_plugin->plugin,
+			   "getmychannels_pay_mod: cannot get a valid cmd.");
+
+	struct out_req *req =
+	    jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				  listpeerchannels_ok, payment_rpc_failure, p);
+	send_outreq(cmd->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
 
 /*****************************************************************************
  * end
