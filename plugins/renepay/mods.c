@@ -404,6 +404,34 @@ static void getmychannels_cb(struct payment *p)
 REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
 
 /*****************************************************************************
+ * refreshgossmap
+ *
+ * Update the gossmap.
+ */
+static void refreshgossmap_cb(struct payment *p)
+{
+	assert(pay_plugin->gossmap); // gossmap must be already initialized
+
+	size_t num_channel_updates_rejected;
+	bool gossmap_changed =
+	    gossmap_refresh(pay_plugin->gossmap, &num_channel_updates_rejected);
+
+	if (num_channel_updates_rejected)
+		plugin_log(pay_plugin->plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_channel_updates_rejected);
+
+	// TODO: use unetwork here instead of chan_extra_map
+	if (gossmap_changed)
+		uncertainty_network_update(pay_plugin->gossmap,
+					   pay_plugin->chan_extra_map);
+
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
+
+/*****************************************************************************
  * end
  *
  * A dummy modifier used to end the payment, just for testing.
