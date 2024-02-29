@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/amount.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
@@ -650,6 +651,58 @@ static void send_routes_cb(struct payment *payment)
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
+
+/*****************************************************************************
+ * wait_or_retry
+ *
+ */
+void payment_retry(struct payment *p);
+
+static void wait_or_retry_cb(struct payment *payment)
+{
+	if (amount_msat_less(payment->total_delivering, payment->amount)) {
+		/* We don't go back to payment_continue, we call instead
+		 * payment_retry that will repopulate the modifiers stack.
+		 * This step discards any modifier that comes after. */
+		payment_retry(payment);
+		return;
+	}
+	payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(wait_or_retry, wait_or_retry_cb);
+
+/*****************************************************************************
+ * waitblockheight
+ *
+ * FIXME: We use this mod to clear the real stack of function calls so that we
+ * don't get a stackoverflow. I am not sure if there is a more elegant way to
+ * achieve it with this model.
+ */
+
+static struct command_result *waitblockheight_ok(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct payment *payment)
+{
+	payment_continue(payment);
+	return command_still_pending(cmd);
+}
+
+static void waitblockheight_cb(struct payment *payment)
+{
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "waitblockheight", waitblockheight_ok,
+	    payment_rpc_failure, payment);
+
+	json_add_num(req->js, "blockheight", 0);
+	send_outreq(cmd->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(waitblockheight, waitblockheight_cb);
 
 /*****************************************************************************
  * check_timeout

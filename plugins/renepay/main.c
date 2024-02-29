@@ -378,6 +378,12 @@ static struct command_result *renepay_fail(struct payment *p)
 	return renepay_finish(p);
 }
 
+void payment_retry(struct payment *p);
+void payment_retry(struct payment *p)
+{
+	// TODO
+}
+
 static struct command_result * renepay_start(struct payment *p)
 {
 	p->status = PAYMENT_PENDING;
