@@ -715,13 +715,6 @@ static struct command_result *renepay_fail(struct payment *p)
 
 static struct command_result * renepay_start(struct payment *p)
 {
-	// sanity check
-	assert(amount_msat_zero(p->total_sent));
-	assert(amount_msat_zero(p->total_delivering));
-	assert(!p->preimage);
-	assert(list_empty(&p->flows));
-	assert(tal_count(p->cmd_array) == 1);
-
 	p->status = PAYMENT_PENDING;
 
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");

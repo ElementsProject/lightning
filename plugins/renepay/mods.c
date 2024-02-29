@@ -74,6 +74,23 @@ static void previous_sendpays_cb(struct payment *p)
 REGISTER_PAYMENT_MODIFIER(previous_sendpays, previous_sendpays_cb);
 
 /*****************************************************************************
+ * initial_sanity_checks
+ *
+ * Some checks on a payment about to start.
+ */
+static void initial_sanity_checks_cb(struct payment *p)
+{
+	assert(amount_msat_zero(p->total_sent));
+	assert(amount_msat_zero(p->total_delivering));
+	assert(!p->preimage);
+	assert(tal_count(p->cmd_array) == 1);
+
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
+
+/*****************************************************************************
  * end
  *
  * A dummy modifier used to end the payment, just for testing.
