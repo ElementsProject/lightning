@@ -17,8 +17,6 @@ void payment_continue(struct payment *payment)
 			   mod->name);
 		return mod->post_step_cb(payment);
 	}
-	plugin_err(pay_plugin->plugin,
-		   "Finished all modifiers but we have not come to conclusion");
 }
 
 /* Generic handler for RPC failures that should end up failing the payment. */
@@ -512,6 +510,146 @@ static void compute_routes_cb(struct payment *payment)
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
+
+/*****************************************************************************
+ * send_routes
+ *
+ * This payment modifier takes the payment routes and starts the payment request
+ * calling sendpay.
+ */
+
+static struct command_result *flow_sent(struct command *cmd, const char *buf,
+					const jsmntok_t *result,
+					struct pay_flow *pf)
+{
+	// TODO: put here the user interface messages
+	return command_still_pending(cmd);
+}
+
+/* sendpay really only fails immediately in two ways:
+ * 1. We screwed up and misused the API.
+ * 2. The first peer is disconnected.
+ */
+static struct command_result *flow_sendpay_failed(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *err,
+						  struct pay_flow *pf)
+{
+	// TODO check how pay.c handles this
+	struct payment *payment = pf->payment;
+	enum jsonrpc_errcode errcode;
+	const char *msg;
+
+	assert(payment);
+
+	if (json_scan(tmpctx, buf, err, "{code:%,message:%}",
+		      JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &msg)))
+		plugin_err(pay_plugin->plugin,
+			   "Unable to parse sendpay error: %.*s",
+			   json_tok_full_len(err), json_tok_full(buf, err));
+
+	if (errcode != PAY_TRY_OTHER_ROUTE)
+		plugin_err(pay_plugin->plugin,
+			   "Strange error from sendpay: %.*s",
+			   json_tok_full_len(err), json_tok_full(buf, err));
+
+	/* There is no new knowledge from this kind of failure.
+	 * We just disable this scid. */
+	// TODO: review this
+	payflow_disable_chan(pf, pf->path_scidds[0].scid, LOG_INFORM,
+			     "sendpay didn't like first hop: %s", msg);
+
+	// TODO: review this
+	pay_flow_failed(pf);
+	return command_still_pending(cmd);
+}
+
+static void send_routes_cb(struct payment *payment)
+{
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	// TODO: use struct route instead of struct pay_flow
+	struct pay_flow *pf;
+
+	/* Kick off all pay_flows which are in state PAY_FLOW_NOT_STARTED */
+	list_for_each(&payment->flows, pf, list)
+	{
+
+		if (pf->state != PAY_FLOW_NOT_STARTED)
+			continue;
+
+		struct out_req *req =
+		    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
+					  flow_sent, flow_sendpay_failed, pf);
+
+		json_array_start(req->js, "route");
+		for (size_t j = 0; j < tal_count(pf->path_nodes); j++) {
+			json_object_start(req->js, NULL);
+			json_add_node_id(req->js, "id", &pf->path_nodes[j]);
+			json_add_short_channel_id(req->js, "channel",
+						  &pf->path_scidds[j].scid);
+			json_add_amount_msat(req->js, "amount_msat",
+					     pf->amounts[j]);
+			json_add_num(req->js, "direction",
+				     pf->path_scidds[j].dir);
+			json_add_u32(req->js, "delay", pf->cltv_delays[j]);
+			json_add_string(req->js, "style", "tlv");
+			json_object_end(req->js);
+		}
+		json_array_end(req->js);
+
+		json_add_sha256(req->js, "payment_hash",
+				&payment->payment_hash);
+		json_add_secret(req->js, "payment_secret",
+				payment->payment_secret);
+
+		/* FIXME: sendpay has a check that we don't total more than
+		 * the exact amount, if we're setting partid (i.e. MPP).
+		 * However, we always set partid, and we add a shadow amount *if
+		 * we've only have one part*, so we have to use that amount
+		 * here.
+		 *
+		 * The spec was loosened so you are actually allowed
+		 * to overpay, so this check is now overzealous. */
+		if (amount_msat_greater(payflow_delivered(pf),
+					payment->amount)) {
+			json_add_amount_msat(req->js, "amount_msat",
+					     payflow_delivered(pf));
+		} else {
+			json_add_amount_msat(req->js, "amount_msat",
+					     payment->amount);
+		}
+
+		json_add_u64(req->js, "partid", pf->key.partid);
+
+		json_add_u64(req->js, "groupid", payment->groupid);
+		if (payment->payment_metadata)
+			json_add_hex_talarr(req->js, "payment_metadata",
+					    payment->payment_metadata);
+
+		/* FIXME: We don't need these three for all payments! */
+		if (payment->label)
+			json_add_string(req->js, "label", payment->label);
+		json_add_string(req->js, "bolt11", payment->invstr);
+		if (payment->description)
+			json_add_string(req->js, "description",
+					payment->description);
+
+		send_outreq(pay_plugin->plugin, req);
+
+		/* Now you're started! */
+		pf->state = PAY_FLOW_IN_PROGRESS;
+	}
+
+	/* Safety check. */
+	payment_assert_delivering_all(payment);
+
+	payment_continue(payment);
+}
+
+REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
 
 /*****************************************************************************
  * end
