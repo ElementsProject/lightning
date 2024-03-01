@@ -455,7 +455,7 @@ REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
  * each of those channels can bear.  */
 REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
 REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data);
-REGISTER_PAYMENT_MODIFIER_HEADER(check_preapproveinvoice, struct prepapproveinvoice_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(check_preapproveinvoice, struct preapproveinvoice_data);
 
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,

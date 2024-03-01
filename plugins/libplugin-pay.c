@@ -3754,6 +3754,8 @@ check_preapproveinvoice_allow(struct command *cmd,
 			      struct payment *p)
 {
 	/* On success, an empty object is returned. */
+//	struct preapproveinvoice_data *d
+
 	struct preapproveinvoice_data *d = payment_mod_check_preapproveinvoice_get_data(payment_root(p));
 	d->approved = true;
 	paymod_log(p, LOG_DBG, "Result from preapproveinvoice: allow");
@@ -3775,7 +3777,9 @@ static struct command_result *preapproveinvoice_rpc_failure(struct command *cmd,
 static void check_preapproveinvoice_start(struct preapproveinvoice_data *d UNUSED, struct payment *p)
 {
 	struct payment *root = payment_root(p);
-	struct preapproveinvoice_data *data = payment_mod_check_preapproveinvoice_get_data(root);
+
+	struct preapproveinvoice_data *data =
+	    payment_mod_check_preapproveinvoice_get_data(root);
 	/* If the root payment was used to send the
 	 * `preapproveinvoice` message to the signer, we don't need to
 	 * do that again. */
