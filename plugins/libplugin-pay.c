@@ -3818,6 +3818,11 @@ check_preapproveinvoice_allow(struct command *cmd,
 			      struct payment *p)
 {
 	/* On success, an empty object is returned. */
+//	struct preapproveinvoice_data *d
+
+	struct preapproveinvoice_data *d = payment_mod_check_preapproveinvoice_get_data(payment_root(p));
+	d->approved = true;
+	paymod_log(p, LOG_DBG, "Result from preapproveinvoice: allow");
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
@@ -3833,8 +3838,20 @@ static struct command_result *preapproveinvoice_rpc_failure(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static void check_preapproveinvoice_start(void *d UNUSED, struct payment *p)
+static void check_preapproveinvoice_start(struct preapproveinvoice_data *d UNUSED, struct payment *p)
 {
+	struct payment *root = payment_root(p);
+
+	struct preapproveinvoice_data *data =
+	    payment_mod_check_preapproveinvoice_get_data(root);
+	/* If the root payment was used to send the
+	 * `preapproveinvoice` message to the signer, we don't need to
+	 * do that again. */
+	if (data->approved) {
+		return payment_continue(p);
+	}
+
+	paymod_log(p, LOG_DBG, "Calling preapproveinvoice on signer for payment=%"PRIu64, root->id);
 	/* Ask the HSM if the invoice is OK to pay */
 	struct out_req *req;
 	req = jsonrpc_request_start(p->plugin, NULL, "preapproveinvoice",
@@ -3845,7 +3862,23 @@ static void check_preapproveinvoice_start(void *d UNUSED, struct payment *p)
 	(void) send_outreq(p->plugin, req);
 }
 
-REGISTER_PAYMENT_MODIFIER(check_preapproveinvoice, void *, NULL,
+static struct preapproveinvoice_data* preapproveinvoice_data_init(struct payment *p)
+{
+	struct preapproveinvoice_data *d;
+	/* Only keep state on the root. We will use the root's flag
+	 * for all payments. */
+	if (p == payment_root(p)) {
+		d = tal(p, struct preapproveinvoice_data);
+		d->approved = false;
+		return d;
+	} else {
+		return NULL;
+	}
+}
+
+REGISTER_PAYMENT_MODIFIER(check_preapproveinvoice,
+			  struct preapproveinvoice_data *,
+			  preapproveinvoice_data_init,
 			  check_preapproveinvoice_start);
 
 static struct route_exclusions_data *
