@@ -1,10 +1,13 @@
 #include "config.h"
+#include <ccan/bitmap/bitmap.h>
 #include <common/amount.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <plugins/renepay/finish.h>
+#include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/route.h>
 #include <plugins/renepay/uncertainty_network.h>
 
 #define INVALID_ID UINT32_MAX
@@ -457,6 +460,302 @@ REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
  *
  * Compute the payment routes.
  */
+static bitmap *make_disabled_bitmap(const tal_t *ctx,
+				    const struct gossmap *gossmap,
+				    const struct short_channel_id *scids)
+{
+	bitmap *disabled =
+	    tal_arrz(ctx, bitmap, BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &scids[i]);
+		if (c)
+			bitmap_set_bit(disabled, gossmap_chan_idx(gossmap, c));
+	}
+	return disabled;
+}
+
+static bool disable_htlc_violations_oneflow(struct payment *p,
+					    const struct flow *flow,
+					    const struct gossmap *gossmap,
+					    bitmap *disabled)
+{
+	bool disabled_some = false;
+	struct amount_msat *amounts = tal_flow_amounts(tmpctx, flow);
+
+	for (size_t i = 0; i < tal_count(flow->path); i++) {
+		const struct half_chan *h = flow_edge(flow, i);
+		struct short_channel_id scid;
+		const char *reason;
+
+		// FIXME: consider also the possibility of having an excessive
+		// number of HTLCs in a single channel (both halves), that could
+		// be also a reason for disabling it.
+		if (!h->enabled)
+			reason = "channel_update said it was disabled";
+		else if (amount_msat_greater_fp16(amounts[i],
+						  h->htlc_max))
+			reason = "htlc above maximum";
+		else if (amount_msat_less_fp16(amounts[i], h->htlc_min))
+			reason = "htlc below minimum";
+		else
+			continue;
+
+		scid = gossmap_chan_scid(gossmap, flow->path[i]);
+		payment_disable_chan(p, scid, LOG_INFORM, "%s", reason);
+		/* Add to existing bitmap */
+		bitmap_set_bit(disabled,
+			       gossmap_chan_idx(gossmap, flow->path[i]));
+		disabled_some = true;
+	}
+	return disabled_some;
+}
+
+/* If we can't use one of these flows because we hit limits, we disable that
+ * channel for future searches and return false */
+static bool disable_htlc_violations(struct payment *payment,
+				    struct flow **flows,
+				    const struct gossmap *gossmap,
+				    bitmap *disabled)
+{
+	bool disabled_some = false;
+
+	/* We continue through all of them, to disable many at once. */
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		disabled_some |= disable_htlc_violations_oneflow(
+		    payment, flows[i], gossmap, disabled);
+	}
+	return disabled_some;
+}
+
+static void attach_routes(struct payment *payment, struct route **routes)
+{
+	// TODO: implement
+}
+
+/* Routes are computed and saved in the payment for later use. */
+static const char *get_routes(struct payment *payment,
+			      struct amount_msat amount_to_deliver,
+			      struct amount_msat feebudget,
+			      bool is_entire_payment,
+			      enum jsonrpc_errcode *ecode)
+{
+	bitmap *disabled;
+	const struct gossmap_node *src, *dst;
+	char *fail = NULL;
+	char *errmsg;
+
+	disabled = make_disabled_bitmap(tmpctx, pay_plugin->gossmap,
+					payment->disabled_scids);
+	src = gossmap_find_node(pay_plugin->gossmap, &pay_plugin->my_id);
+	if (!src) {
+		*ecode = PAY_ROUTE_NOT_FOUND;
+		return tal_fmt(tmpctx, "We don't have any channels.");
+	}
+	dst = gossmap_find_node(pay_plugin->gossmap, &payment->destination);
+	if (!dst) {
+		*ecode = PAY_ROUTE_NOT_FOUND;
+		return tal_fmt(tmpctx,
+			       "Destination is unknown in the network gossip.");
+	}
+
+	/* probability "bugdet". We will prefer solutions whose probability of
+	 * success is above this value. */
+	// FIXME: features factors here look like to many, see issue #6852
+	double probability_budget = payment->min_prob_success;
+	double delay_feefactor = payment->delay_feefactor;
+	const double base_fee_penalty = payment->base_fee_penalty;
+	const double prob_cost_factor = payment->prob_cost_factor;
+
+	while (!amount_msat_zero(amount_to_deliver)) {
+
+		// TODO: choose an algorithm, could be something like
+		// payment->algorithm, that we set up based on command line
+		// options and that can be changed according to some conditions
+		// met during the payment process, eg. add "select_solver" pay
+		// mod.
+		struct flow **flows = minflow(
+		    tmpctx, pay_plugin->gossmap, src, dst,
+		    pay_plugin->chan_extra_map, disabled, amount_to_deliver,
+		    feebudget, probability_budget, delay_feefactor,
+		    base_fee_penalty, prob_cost_factor, &errmsg);
+
+		if (!flows) {
+			*ecode = PAY_ROUTE_NOT_FOUND;
+
+			/* We fail to allocate a portion of the payment, cleanup
+			 * previous payflows. */
+			// FIXME wouldn't it be better to put these payflows
+			// into a tal ctx with a destructor?
+
+			fail = tal_fmt(
+			    tmpctx,
+			    "minflow couldn't find a feasible flow for %s, %s",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &amount_to_deliver),
+			    errmsg);
+			goto function_fail;
+		}
+
+		/* `delivering` could be smaller than `amount_to_deliver`
+		 * because minflow does not count fees when constraining flows.
+		 * Try to redistribute the missing amount among the optimal
+		 * routes. */
+		struct amount_msat delivering;
+
+		if (!flows_fit_amount(tmpctx, &delivering, flows,
+				      amount_to_deliver, pay_plugin->gossmap,
+				      pay_plugin->chan_extra_map, &errmsg)) {
+			fail = tal_fmt(tmpctx,
+				       "flows_fit_amount failed with error: %s",
+				       errmsg);
+			goto function_fail;
+		}
+
+		/* Check the fees */
+		struct amount_msat fee;
+		// TODO: flows should have a final_amount and not an amount
+		// array
+		if (!flowset_fee(&fee, flows)) {
+			fail =
+			    tal_fmt(tmpctx, "flowset_fee failed with error: %s",
+				    errmsg);
+			goto function_fail;
+		}
+		if (amount_msat_greater(fee, feebudget)) {
+			*ecode = PAY_ROUTE_TOO_EXPENSIVE;
+			fail = tal_fmt(
+			    tmpctx,
+			    "Fee exceeds our fee budget, fee = %s (feebudget = "
+			    "%s)",
+			    type_to_string(tmpctx, struct amount_msat, &fee),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &feebudget));
+			goto function_fail;
+		}
+
+		/* Check the CLTV delay */
+		const u64 delay =
+		    flows_worst_delay(flows) + payment->final_cltv;
+		if (delay > payment->maxdelay) {
+			/* FIXME: What is a sane limit? */
+			if (delay_feefactor > 1000) {
+				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
+				fail = tal_fmt(tmpctx,
+					       "CLTV delay exceeds our CLTV "
+					       "budget, delay = %" PRIu64
+					       " (maxdelay = %u)",
+					       delay, payment->maxdelay);
+				goto function_fail;
+			}
+
+			delay_feefactor *= 2;
+			payment_note(payment, LOG_INFORM,
+				     "delay %" PRIu64
+				     " exceeds our max %u, so doubling "
+				     "delay_feefactor to %f",
+				     delay, payment->maxdelay, delay_feefactor);
+
+			continue; // retry
+		}
+
+		/* Compute the flows probability */
+		double prob =
+		    flowset_probability(tmpctx, flows, pay_plugin->gossmap,
+					pay_plugin->chan_extra_map, &errmsg);
+		if (prob < 0) {
+			fail = tal_fmt(
+			    tmpctx, "flowset_probability failed with error: %s",
+			    errmsg);
+			goto function_fail;
+		}
+
+		/* Now we check for min/max htlc violations, and
+		 * excessive htlc counts.  It would be more efficient
+		 * to do this inside minflow(), but the diagnostics here
+		 * are far better, since we can report min/max which
+		 * *actually* made us reconsider. */
+		if (disable_htlc_violations(payment, flows, pay_plugin->gossmap,
+					    disabled)) {
+			continue; // retry
+		}
+
+		/* This can adjust amounts and final cltv for each flow,
+		 * to make it look like it's going elsewhere */
+		// TODO: add shadow additions, but be aware that they change the
+		// flows. One idea could be to have them by default, and after
+		// we have a good flow we decide whether to keep them or not
+		// const u32 *final_cltvs = shadow_additions(
+		//    tmpctx, pay_plugin->gossmap, p, flows, is_entire_payment);
+		// convert_and_attach_flows(payment, pay_plugin->gossmap, flows,
+		//			 final_cltvs, &payment->next_partid);
+
+		/* OK, we are happy with these flows: convert to
+		 * routes in the current payment. */
+
+		// TODO review the payment_note
+		payment_note(payment, LOG_INFORM,
+			     "we have computed a set of %ld flows with "
+			     "probability %.3lf, fees %s and delay %ld",
+			     tal_count(flows), prob,
+			     type_to_string(tmpctx, struct amount_msat, &fee),
+			     delay);
+
+		u64 groupid = payment->groupid, partid = payment->next_partid;
+
+		struct route **routes = flows_to_routes(
+		    payment, payment, groupid, partid, payment->payment_hash,
+		    payment->final_cltv, pay_plugin->gossmap, flows);
+
+		payment->next_partid += tal_count(routes);
+
+		attach_routes(payment, routes);
+
+		/* For the next iteration get me the amount_to_deliver */
+		if (!amount_msat_sub(&amount_to_deliver, amount_to_deliver,
+				     delivering)) {
+			/* In the next iteration we search routes that allocate
+			 *	amount_to_deliver - delivering
+			 * If we have
+			 *	delivering > amount_to_deliver
+			 * it means we have made a mistake somewhere. */
+			plugin_err(pay_plugin->plugin,
+				   "amount_to_deliver = %s smaller than "
+				   "delivering = %s",
+				   fmt_amount_msat(tmpctx, amount_to_deliver),
+				   fmt_amount_msat(tmpctx, delivering));
+		}
+
+		/* For the next iteration get me the feebudget */
+		if (!amount_msat_sub(&feebudget, feebudget, fee)) {
+			plugin_err(
+			    pay_plugin->plugin,
+			    "amount_msat substraction feebudget-fee failed");
+		}
+
+		/* For the next iteration get me the probability_budget */
+		if (prob < 1e-10) {
+			// this last flow probability is too small for division
+			probability_budget = 1.0;
+		} else {
+			/* prob here is a conditional probability, the next
+			 * round of flows will have a conditional probability
+			 * prob2 and we would like that
+			 *	prob*prob2 >= probability_budget
+			 * hence probability_budget/prob becomes the next
+			 * iteration's target. */
+			probability_budget =
+			    MIN(1.0, probability_budget / prob);
+		}
+	}
+	return NULL;
+
+function_fail:
+	//	payment_remove_flows(p, PAY_FLOW_NOT_STARTED);
+
+	return fail;
+}
+
 static void compute_routes_cb(struct payment *payment)
 {
 	assert(payment->status == PAYMENT_PENDING);
@@ -495,9 +794,9 @@ static void compute_routes_cb(struct payment *payment)
 	// TODO: review add_payflows
 	enum jsonrpc_errcode errcode;
 	const char *err_msg =
-	    add_payflows(tmpctx, payment, remaining, feebudget,
-			 /* is entire payment? */
-			 amount_msat_eq(remaining, AMOUNT_MSAT(0)), &errcode);
+	    get_routes(payment, remaining, feebudget,
+		       /* is entire payment? */
+		       amount_msat_zero(payment->total_delivering), &errcode);
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */

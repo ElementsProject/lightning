@@ -69,4 +69,7 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
 double flow_probability(struct flow *flow, const struct gossmap *gossmap,
 			struct chan_extra_map *chan_extra_map);
 
+u64 flow_delay(const struct flow *flow);
+u64 flows_worst_delay(struct flow **flows);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

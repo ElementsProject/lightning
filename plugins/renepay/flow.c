@@ -495,6 +495,25 @@ function_fail:
 	return -1.;
 }
 
+u64 flow_delay(const struct flow *flow)
+{
+	u64 delay = 0;
+	for (size_t i = 0; i < tal_count(flow->path); i++)
+		delay += flow_edge(flow, i)->delay;
+	return delay;
+}
+
+u64 flows_worst_delay(struct flow **flows)
+{
+	u64 maxdelay = 0;
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		u64 delay = flow_delay(flows[i]);
+		if (delay > maxdelay)
+			maxdelay = delay;
+	}
+	return maxdelay;
+}
+
 #ifndef SUPERVERBOSE_ENABLED
 #undef SUPERVERBOSE
 #endif
