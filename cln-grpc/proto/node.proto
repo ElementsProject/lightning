@@ -1617,6 +1617,7 @@ message FetchinvoiceRequest {
 	optional string recurrence_label = 6;
 	optional double timeout = 7;
 	optional string payer_note = 8;
+	optional bool exposeid = 9;
 }
 
 message FetchinvoiceResponse {
