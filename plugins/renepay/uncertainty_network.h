@@ -5,6 +5,7 @@
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/payment.h>
+#include <plugins/renepay/route.h>
 
 struct pay_flow;
 struct route_info;
@@ -51,5 +52,11 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 void uncertainty_network_relax_fraction(
 		struct chan_extra_map* chan_extra_map,
 		double fraction);
+
+void commit_htlc_route(struct chan_extra_map *chan_extra_map,
+		       const struct route *route);
+
+void remove_htlc_route(struct chan_extra_map *chan_extra_map,
+		       struct route *route);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_UNCERTAINTY_NETWORK_H */

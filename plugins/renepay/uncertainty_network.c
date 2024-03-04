@@ -315,3 +315,66 @@ void uncertainty_network_relax_fraction(struct chan_extra_map *chan_extra_map,
 		}
 	}
 }
+
+void commit_htlc_route(struct chan_extra_map *chan_extra_map,
+		       const struct route *route)
+{
+	const size_t pathlen = tal_count(route->hops);
+	for (size_t i = 0; i < pathlen; i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {hop->scid, hop->direction};
+		struct chan_extra_half *h =
+		    get_chan_extra_half_by_scid(chan_extra_map, &scidd);
+		if (!h) {
+			plugin_err(pay_plugin->plugin,
+				   "%s could not resolve chan_extra_half",
+				   __PRETTY_FUNCTION__);
+		}
+		if (!amount_msat_add(&h->htlc_total, h->htlc_total,
+				     hop->amount)) {
+			plugin_err(pay_plugin->plugin,
+				   "%s could not add HTLC amounts, "
+				   "pf->amounts[%lld] = %s.",
+				   __PRETTY_FUNCTION__, i,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &hop->amount));
+		}
+		h->num_htlcs++;
+	}
+}
+
+void remove_htlc_route(struct chan_extra_map *chan_extra_map,
+		       struct route *route)
+{
+	const size_t pathlen = tal_count(route->hops);
+	for (size_t i = 0; i < pathlen; i++) {
+		const struct route_hop *hop = &route->hops[i];
+		struct short_channel_id_dir scidd = {hop->scid, hop->direction};
+		struct chan_extra_half *h =
+		    get_chan_extra_half_by_scid(chan_extra_map, &scidd);
+		if (!h) {
+			plugin_err(pay_plugin->plugin,
+				   "%s could not resolve chan_extra_half",
+				   __PRETTY_FUNCTION__);
+		}
+		if (!amount_msat_sub(&h->htlc_total, h->htlc_total,
+				     hop->amount)) {
+			plugin_err(pay_plugin->plugin,
+				   "%s could not substract HTLC amounts, "
+				   "half total htlc amount = %s, "
+				   "pf->amounts[%lld] = %s.",
+				   __PRETTY_FUNCTION__,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &h->htlc_total),
+				   i,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &hop->amount));
+		}
+		if (h->num_htlcs == 0) {
+			plugin_err(pay_plugin->plugin,
+				   "%s could not decrease HTLC count.",
+				   __PRETTY_FUNCTION__);
+		}
+		h->num_htlcs--;
+	}
+}

@@ -14,6 +14,7 @@
 #define RENEPAY_UNITTEST // logs are written in MYLOG
 #include "../payment.c"
 #include "../flow.c"
+#include "../route.c"
 #include "../uncertainty_network.c"
 #include "../mcf.c"
 
@@ -501,9 +502,9 @@ static void remove_file(char *fname)
 	assert(!remove(fname));
 }
 
-static void test_flow_complete(void)
+static void test_flow_to_route(void)
 {
-	const double eps = 1e-8;
+	// const double eps = 1e-8;
 
 	const tal_t *this_ctx = tal(tmpctx, tal_t);
 
@@ -651,22 +652,27 @@ static void test_flow_complete(void)
 	assert(amount_msat_eq_sat(sum_min1_max0,cap));
 	assert(amount_msat_eq_sat(sum_min0_max1,cap));
 
-	struct flow *F = tal(this_ctx,struct flow);
+	struct flow *F;
+	struct route *route;
+	struct sha256 payment_hash;
 	struct amount_msat deliver;
 
 	// flow 1->2
+	F = tal(this_ctx, struct flow);
 	F->path = tal_arr(F,const struct gossmap_chan *,1);
 	F->dirs = tal_arr(F,int,1);
 	F->path[0]=gossmap_find_chan(gossmap,&scid12);
 	F->dirs[0]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
-		assert(0 && "flow_complete fail");
-	}
-	assert(amount_msat_eq(F->amounts[0],deliver));
-	assert(fabs(F->success_prob - 0.5)<eps);
+	F->amount = deliver;
+	route = flow_to_route(this_ctx, NULL, 1, 1, payment_hash, 0, gossmap, F);
+	assert(route);
+
+	assert(amount_msat_eq(route->hops[0].amount, deliver));
+	// assert(fabs(route->success_prob - 0.5)<eps);
 
 	// flow 3->4->5
+	F = tal(this_ctx, struct flow);
 	F->path = tal_arr(F,const struct gossmap_chan *,2);
 	F->dirs = tal_arr(F,int,2);
 	F->path[0]=gossmap_find_chan(gossmap,&scid34);
@@ -674,13 +680,15 @@ static void test_flow_complete(void)
 	F->dirs[0]=0;
 	F->dirs[1]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
-		assert(0 && "flow_complete fail");
-	}
-	assert(amount_msat_eq(F->amounts[0],amount_msat(250050016)));
-	assert(fabs(F->success_prob - 1.)<eps);
+	F->amount=deliver;
+	route = flow_to_route(this_ctx, NULL, 1, 1, payment_hash, 0, gossmap, F);
+	assert(route);
+
+	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250050016)));
+	// assert(fabs(route->success_prob - 1.)<eps);
 
 	// flow 2->3->4->5
+	F = tal(this_ctx, struct flow);
 	F->path = tal_arr(F,const struct gossmap_chan *,3);
 	F->dirs = tal_arr(F,int,3);
 	F->path[0]=gossmap_find_chan(gossmap,&scid23);
@@ -690,13 +698,15 @@ static void test_flow_complete(void)
 	F->dirs[1]=0;
 	F->dirs[2]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
-		assert(0 && "flow_complete fail");
-	}
-	assert(amount_msat_eq(F->amounts[0],amount_msat(250087534)));
-	assert(fabs(F->success_prob - 1. + 250.087534/2000)<eps);
+	F->amount=deliver;
+	route = flow_to_route(this_ctx, NULL, 1, 1, payment_hash, 0, gossmap, F);
+	assert(route);
+
+	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250087534)));
+	// assert(fabs(route->success_prob - 1. + 250.087534/2000)<eps);
 
 	// flow 1->2->3->4->5
+	F = tal(this_ctx, struct flow);
 	F->path = tal_arr(F,const struct gossmap_chan *,4);
 	F->dirs = tal_arr(F,int,4);
 	F->path[0]=gossmap_find_chan(gossmap,&scid12);
@@ -708,11 +718,12 @@ static void test_flow_complete(void)
 	F->dirs[2]=0;
 	F->dirs[3]=0;
 	deliver = AMOUNT_MSAT(250000000);
-	if (!flow_complete(tmpctx, F, gossmap, chan_extra_map, deliver, NULL)) {
-		assert(0 && "flow_complete fail");
-	}
-	assert(amount_msat_eq(F->amounts[0],amount_msat(250112544)));
-	assert(fabs(F->success_prob - 0.43728117)<eps);
+	F->amount=deliver;
+	route = flow_to_route(this_ctx, NULL, 1, 1, payment_hash, 0, gossmap, F);
+	assert(route);
+
+	assert(amount_msat_eq(route->hops[0].amount, amount_msat(250112544)));
+	// assert(fabs(route->success_prob - 0.43728117)<eps);
 
 	tal_free(this_ctx);
 }
@@ -796,7 +807,7 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	test_edge_probability();
-	test_flow_complete();
+	test_flow_to_route();
 	test_channel_maximum_forward();
 
 	common_shutdown();

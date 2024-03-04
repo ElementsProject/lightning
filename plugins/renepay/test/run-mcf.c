@@ -3,7 +3,7 @@
 #define RENEPAY_UNITTEST // logs are written in /tmp/debug.txt
 #include "../payment.c"
 #include "../flow.c"
-#include "../pay_flow.c"
+#include "../route.c"
 #include "../uncertainty_network.c"
 #include "../mcf.c"
 
@@ -328,9 +328,10 @@ int main(int argc, char *argv[])
 	struct gossmap *gossmap;
 	struct node_id l1, l2, l3;
 	struct flow **flows;
-	struct pay_flow **payflows;
+	struct route **routes;
 	struct short_channel_id scid12, scid23;
 	struct chan_extra_map *chan_extra_map;
+	struct sha256 payment_hash;
 
 	char *errmsg;
 
@@ -375,10 +376,10 @@ int main(int argc, char *argv[])
 		assert(0 && "minflow failed");
 	}
 
-	payflows = flows_to_payflows(tmpctx, gossmap, flows, 1);
-	assert(payflows);
-	for (size_t i = 0; i < tal_count(payflows); i++) {
-		commit_htlc_payflow(chan_extra_map, payflows[i]);
+	routes = flows_to_routes(tmpctx, NULL, 1, 1, payment_hash, 10, gossmap, flows);
+	assert(routes);
+	for (size_t i = 0; i < tal_count(routes); i++) {
+		commit_htlc_route(chan_extra_map, routes[i]);
 	}
 
 	printf("%s\n",
@@ -431,8 +432,8 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(ce->half[1].known_max, AMOUNT_MSAT(1000000000)));
 
 	/* Clear that */
-	for (size_t i = 0; i < tal_count(payflows); i++) {
-		remove_htlc_payflow(chan_extra_map, payflows[i]);
+	for (size_t i = 0; i < tal_count(routes); i++) {
+		remove_htlc_route(chan_extra_map, routes[i]);
 	}
 
 	// /* Now try adding a local channel scid */

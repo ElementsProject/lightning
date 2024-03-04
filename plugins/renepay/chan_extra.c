@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
 #include <math.h>
