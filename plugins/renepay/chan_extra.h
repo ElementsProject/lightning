@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_RENEPAY_CHANEXTRA_H
-#define LIGHTNING_PLUGINS_RENEPAY_CHANEXTRA_H
+#ifndef LIGHTNING_PLUGINS_RENEPAY_CHAN_EXTRA_H
+#define LIGHTNING_PLUGINS_RENEPAY_CHAN_EXTRA_H
 
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
@@ -233,4 +233,4 @@ double edge_probability(const tal_t *ctx, struct amount_msat min,
 bool check_fee_inequality(struct amount_msat recv, struct amount_msat send,
 			  u64 base_fee, u64 proportional_fee);
 
-#endif /* LIGHTNING_PLUGINS_RENEPAY_CHANEXTRA_H */
+#endif /* LIGHTNING_PLUGINS_RENEPAY_CHAN_EXTRA_H */
