@@ -249,6 +249,7 @@ The following tables are currently supported:
 - `peerchannels` indexed by `peer_id` (see lightning-listpeerchannels(7))
   - `peer_id` (type `pubkey`, sqltype `BLOB`)
   - `peer_connected` (type `boolean`, sqltype `INTEGER`)
+  - `reestablished` (type `boolean`, sqltype `INTEGER`)
   - `state` (type `string`, sqltype `TEXT`)
   - `scratch_txid` (type `txid`, sqltype `BLOB`)
   - related table `peerchannels_channel_type_bits`, from JSON object `channel_type`
@@ -357,7 +358,6 @@ The following tables are currently supported:
     - `local_trimmed` (type `boolean`, sqltype `INTEGER`)
     - `status` (type `string`, sqltype `TEXT`)
     - `state` (type `string`, sqltype `TEXT`)
-  - `reestablished` (type `boolean`, sqltype `INTEGER`)
   - `close_to_addr` (type `string`, sqltype `TEXT`)
   - `last_tx_fee_msat` (type `msat`, sqltype `INTEGER`)
   - `direction` (type `u32`, sqltype `INTEGER`)
@@ -389,6 +389,7 @@ The following tables are currently supported:
   - `bolt11` (type `string`, sqltype `TEXT`)
   - `description` (type `string`, sqltype `TEXT`)
   - `bolt12` (type `string`, sqltype `TEXT`)
+  - `completed_at` (type `u64`, sqltype `INTEGER`)
   - `payment_preimage` (type `secret`, sqltype `BLOB`)
   - `erroronion` (type `hex`, sqltype `BLOB`)
 
@@ -540,4 +541,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:24eeff191907cb804299716293ef0733ef25cf8e74eb1808749aebbfd9e9fa9f)
+[comment]: # ( SHA256STAMP:5c2e41cab6704299c65a8537761f3864e6b3327c1bf9163b00afe723d1f84eb6)
