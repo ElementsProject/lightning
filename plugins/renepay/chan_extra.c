@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
