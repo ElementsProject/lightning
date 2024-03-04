@@ -25,8 +25,6 @@
 // sendpays.
 
 #define INVALID_ID UINT64_MAX
-#define MAX(a,b) ((a)>(b)? (a) : (b))
-#define MIN(a,b) ((a)<(b)? (a) : (b))
 
 struct pay_plugin *pay_plugin;
 
