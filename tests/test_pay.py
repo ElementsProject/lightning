@@ -5520,3 +5520,48 @@ def test_pay_partial_msat(node_factory, executor):
 
     l1pay.result(TIMEOUT)
     l3pay.result(TIMEOUT)
+
+
+def test_derive_pubid_bolt12(node_factory, bitcoind):
+    """ Fetch an invoice by exposing the new public key that it is requesting
+    the invoice."""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{'experimental-offers': None},
+                                           {'experimental-offers': None}])
+
+    offer = l2.rpc.call('offer', {'amount': '2sat',
+                                  'description': 'simple test'})
+    assert offer['created'] is True
+
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+    inv1_info = l1.rpc.call('decode', {'string': inv1['invoice']})
+
+    assert inv1_info["type"] == "bolt12 invoice", f"wrong invoice type {inv1_info['type']}"
+
+    invreq_metadata = inv1_info["invreq_metadata"]
+    invreq_payer_id = inv1_info["invreq_payer_id"]
+
+    payer_id_1 = l1.rpc.call("derivepayerid", {"metadata": invreq_metadata})["payer_id"]
+    payer_id_2 = l2.rpc.call("derivepayerid", {"metadata": invreq_metadata})["payer_id"]
+
+    assert payer_id_1 == invreq_payer_id, f"wrong value inside the invreq, payer_id {payer_id_1} != invreq_payer_id {invreq_payer_id}"
+    assert payer_id_2 != invreq_payer_id, f"wrong value inside the invreq, payer_id {payer_id_2} == invreq_payer_id {invreq_payer_id}"
+
+    pay_result = l1.rpc.pay(inv1['invoice'])
+
+    def calculate_payment_hash(preimage):
+        import hashlib
+
+        # Decode the hex-encoded preimage string to bytes
+        preimage_bytes = bytes.fromhex(preimage)
+
+        # Create a Sha256 object
+        hasher = hashlib.sha256()
+
+        # Write input message
+        hasher.update(preimage_bytes)
+
+        # Read hash digest and convert it to a hexadecimal string
+        return hasher.hexdigest()
+
+    assert pay_result['payment_hash'] == calculate_payment_hash(pay_result['payment_preimage'])
