@@ -24,7 +24,7 @@ RUN locale-gen en_US.UTF-8 && dpkg-reconfigure --frontend noninteractive tzdata
 
 RUN apt-get -qq update && \
     apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
-    build-essential libssl-dev libffi-dev \
+    jq build-essential libssl-dev libffi-dev \
     python3-dev cargo python3-pip
 
 COPY . .

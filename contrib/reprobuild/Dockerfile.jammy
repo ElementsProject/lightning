@@ -25,6 +25,7 @@ RUN apt-get update \
 	sudo \
 	unzip \
 	wget \
+    jq \
 	zip
 
 # Install Python3.10 (more reproducible than relying on python3-setuptools)

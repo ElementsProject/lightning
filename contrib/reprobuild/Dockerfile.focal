@@ -24,6 +24,7 @@ RUN apt-get update \
 	sudo \
 	unzip \
 	wget \
+    jq \
 	zip
 
 # install Python3.8 (more reproducible than relying on python3-setuptools)

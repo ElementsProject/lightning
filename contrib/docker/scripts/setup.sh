@@ -47,6 +47,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      unzip \
      valgrind \
      wget \
+     jq \
      xsltproc \
      zlib1g-dev
 

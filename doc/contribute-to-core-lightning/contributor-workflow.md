@@ -12,7 +12,7 @@ Install the following dependencies for best results:
 
 ```shell
 sudo apt update
-sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
+sudo apt install jq valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
 ```
 
 Re-run `configure` and build using `make`:

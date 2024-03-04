@@ -50,6 +50,7 @@ RUN apt-get -qq update && \
 	unzip \
 	valgrind \
 	wget \
+	jq \
 	xsltproc \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*

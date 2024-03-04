@@ -68,7 +68,8 @@ RUN apt-get update -qq && \
         libev-dev \
         libevent-dev \
         qemu-user-static \
-        wget
+        wget \
+        jq
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz \
     && tar xvf zlib-1.2.13.tar.gz \
