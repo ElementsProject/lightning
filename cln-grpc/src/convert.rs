@@ -658,6 +658,7 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             bolt11: c.bolt11, // Rule #2 for type string?
             description: c.description, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
+            completed_at: c.completed_at, // Rule #2 for type u64?
             payment_preimage: c.payment_preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }
@@ -1118,6 +1119,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
         Self {
             peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             peer_connected: c.peer_connected, // Rule #2 for type boolean?
+            reestablished: c.reestablished, // Rule #2 for type boolean?
             state: c.state.map(|v| v as i32),
             scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             updates: c.updates.map(|v| v.into()),
@@ -1576,7 +1578,7 @@ impl From<responses::FundchannelResponse> for pb::FundchannelResponse {
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
             outnum: c.outnum, // Rule #2 for type u32
-            channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: c.channel_type.map(|v| v.into()),
             close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             mindepth: c.mindepth, // Rule #2 for type u32?
@@ -1757,7 +1759,7 @@ impl From<responses::SetchannelChannels> for pb::SetchannelChannels {
     fn from(c: responses::SetchannelChannels) -> Self {
         Self {
             peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
-            channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
+            channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             fee_base_msat: Some(c.fee_base_msat.into()), // Rule #2 for type msat
             fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32
@@ -2016,6 +2018,7 @@ impl From<requests::CreateinvoiceRequest> for pb::CreateinvoiceRequest {
     fn from(c: requests::CreateinvoiceRequest) -> Self {
         Self {
             invstring: c.invstring, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string
             preimage: hex::decode(&c.preimage).unwrap(), // Rule #2 for type hex
         }
     }
@@ -2039,6 +2042,8 @@ impl From<requests::DatastoreRequest> for pb::DatastoreRequest {
 impl From<requests::DatastoreusageRequest> for pb::DatastoreusageRequest {
     fn from(c: requests::DatastoreusageRequest) -> Self {
         Self {
+            // Field: DatastoreUsage.key
+            key: c.key.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
     }
 }
@@ -2237,6 +2242,7 @@ impl From<requests::WaitanyinvoiceRequest> for pb::WaitanyinvoiceRequest {
 impl From<requests::WaitinvoiceRequest> for pb::WaitinvoiceRequest {
     fn from(c: requests::WaitinvoiceRequest) -> Self {
         Self {
+            label: c.label, // Rule #2 for type string
         }
     }
 }
@@ -2552,7 +2558,7 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             recurrence: c.recurrence, // Rule #2 for type string?
             recurrence_base: c.recurrence_base, // Rule #2 for type string?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #2 for type string?
-            recurrence_limit: c.recurrence_limit, // Rule #2 for type u64?
+            recurrence_limit: c.recurrence_limit, // Rule #2 for type u32?
             single_use: c.single_use, // Rule #2 for type boolean?
         }
     }
@@ -2811,6 +2817,7 @@ impl From<pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
     fn from(c: pb::CreateinvoiceRequest) -> Self {
         Self {
             invstring: c.invstring, // Rule #1 for type string
+            label: c.label, // Rule #1 for type string
             preimage: hex::encode(&c.preimage), // Rule #1 for type hex
         }
     }
@@ -2833,6 +2840,7 @@ impl From<pb::DatastoreRequest> for requests::DatastoreRequest {
 impl From<pb::DatastoreusageRequest> for requests::DatastoreusageRequest {
     fn from(c: pb::DatastoreusageRequest) -> Self {
         Self {
+            key: Some(c.key.into_iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -3025,6 +3033,7 @@ impl From<pb::WaitanyinvoiceRequest> for requests::WaitanyinvoiceRequest {
 impl From<pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
     fn from(c: pb::WaitinvoiceRequest) -> Self {
         Self {
+            label: c.label, // Rule #1 for type string
         }
     }
 }
@@ -3332,7 +3341,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             recurrence: c.recurrence, // Rule #1 for type string?
             recurrence_base: c.recurrence_base, // Rule #1 for type string?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #1 for type string?
-            recurrence_limit: c.recurrence_limit, // Rule #1 for type u64?
+            recurrence_limit: c.recurrence_limit, // Rule #1 for type u32?
             single_use: c.single_use, // Rule #1 for type boolean?
         }
     }

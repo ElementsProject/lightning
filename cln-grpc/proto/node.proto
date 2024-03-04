@@ -494,6 +494,7 @@ message ConnectAddress {
 
 message CreateinvoiceRequest {
 	string invstring = 1;
+	string label = 2;
 	bytes preimage = 3;
 }
 
@@ -551,6 +552,7 @@ message DatastoreResponse {
 }
 
 message DatastoreusageRequest {
+	repeated string key = 1;
 }
 
 message DatastoreusageResponse {
@@ -810,6 +812,7 @@ message ListsendpaysPayments {
 	optional string bolt11 = 10;
 	optional string description = 14;
 	optional string bolt12 = 11;
+	optional uint64 completed_at = 18;
 	optional bytes payment_preimage = 12;
 	optional bytes erroronion = 13;
 }
@@ -942,6 +945,7 @@ message WaitanyinvoicePaid_outpoint {
 }
 
 message WaitinvoiceRequest {
+	string label = 1;
 }
 
 message WaitinvoiceResponse {
@@ -1198,6 +1202,7 @@ message ListpeerchannelsChannels {
 	}
 	optional bytes peer_id = 1;
 	optional bool peer_connected = 2;
+	optional bool reestablished = 58;
 	optional ListpeerchannelsChannelsState state = 3;
 	optional bytes scratch_txid = 4;
 	optional ListpeerchannelsChannelsUpdates updates = 55;
@@ -1837,7 +1842,7 @@ message OfferRequest {
 	optional string recurrence = 7;
 	optional string recurrence_base = 8;
 	optional string recurrence_paywindow = 9;
-	optional uint64 recurrence_limit = 10;
+	optional uint32 recurrence_limit = 10;
 	optional bool single_use = 11;
 }
 

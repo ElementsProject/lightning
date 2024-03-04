@@ -195,7 +195,7 @@ pub mod requests {
 	        "getinfo"
 	    }
 	}
-	/// supplying level will show log entries related to that peer at the given log level
+	/// ['Supplying level will show log entries related to that peer at the given log level.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeersLevel {
 	    #[serde(rename = "io")]
@@ -491,6 +491,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoiceRequest {
 	    pub invstring: String,
+	    pub label: String,
 	    pub preimage: String,
 	}
 
@@ -511,7 +512,7 @@ pub mod requests {
 	        "createinvoice"
 	    }
 	}
-	/// 	- `must-create`: fails if it already exists.	- `must-replace`: fails if it doesn't already exist.	- `create-or-replace`: never fails.	- `must-append`: must already exist, append this to what's already there.	- `create-or-append`: append if anything is there, otherwise create.	Default is `must-create`
+	/// ['Write mode to determine how the record is updated:', '    * `must-create`: fails if it already exists.', "    * `must-replace`: fails if it doesn't already exist.", '    * `create-or-replace`: never fails.', "    * `must-append`: must already exist, append this to what's already there.", '    * `create-or-append`: append if anything is there, otherwise create.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DatastoreMode {
 	    #[serde(rename = "must-create")]
@@ -584,6 +585,8 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreusageRequest {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub key: Option<Vec<String>>,
 	}
 
 	impl From<DatastoreusageRequest> for Request {
@@ -683,7 +686,7 @@ pub mod requests {
 	        "delexpiredinvoice"
 	    }
 	}
-	/// label of the invoice to be deleted. The caller should be particularly aware of the error case caused by the *status* changing just before this command is invoked!
+	/// ['Label of the invoice to be deleted. The caller should be particularly aware of the error case caused by the *status* changing just before this command is invoked!']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -799,7 +802,7 @@ pub mod requests {
 	        "listdatastore"
 	    }
 	}
-	/// if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`
+	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesIndex {
 	    #[serde(rename = "created")]
@@ -912,7 +915,7 @@ pub mod requests {
 	        "sendonion"
 	    }
 	}
-	/// Whether the invoice has been paid, pending, or failed
+	/// ['Whether the invoice has been paid, pending, or failed.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysStatus {
 	    #[serde(rename = "pending")]
@@ -945,7 +948,7 @@ pub mod requests {
 	    }
 	}
 
-	/// if neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`
+	/// ['If neither bolt11 or payment_hash is specified, `index` controls ordering, by `created` (default) or `updated`.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysIndex {
 	    #[serde(rename = "created")]
@@ -1122,6 +1125,7 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoiceRequest {
+	    pub label: String,
 	}
 
 	impl From<WaitinvoiceRequest> for Request {
@@ -1169,7 +1173,7 @@ pub mod requests {
 	        "waitsendpay"
 	    }
 	}
-	/// it specifies the type of address wanted; currently *bech32* (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on bitcoin mainnet), or *p2tr* taproot addresses. The special value *all* generates all known address types for the same underlying key. Defaults to *bech32* address
+	/// ['It specifies the type of address wanted; currently *bech32* (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on bitcoin mainnet), or *p2tr* taproot addresses. The special value *all* generates all known address types for the same underlying key.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
@@ -1602,7 +1606,7 @@ pub mod requests {
 	        "disconnect"
 	    }
 	}
-	/// 	*perkw* - provide feerate in units of satoshis per 1000 weight (e.g. the minimum fee is usually `253perkw`)	*perkb* - provide feerate in units of satoshis per 1000 virtual bytes (eg. the minimum fee is usually `1000perkb`)
+	/// ['Fee rate style to use. This can be:', '    *perkw* - provide feerate in units of satoshis per 1000 weight (e.g. the minimum fee is usually `253perkw`).', '    *perkb* - provide feerate in units of satoshis per 1000 virtual bytes (eg. the minimum fee is usually `1000perkb`).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum FeeratesStyle {
 	    #[serde(rename = "perkb")]
@@ -1769,7 +1773,7 @@ pub mod requests {
 	        "getroute"
 	    }
 	}
-	/// if specified, then only the forwards with the given status are returned
+	/// ['If specified, then only the forwards with the given status are returned.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsStatus {
 	    #[serde(rename = "offered")]
@@ -1806,7 +1810,7 @@ pub mod requests {
 	    }
 	}
 
-	/// if neither *in_channel* nor *out_channel* is specified, it controls ordering. Defaults to `created`
+	/// ['If neither *in_channel* nor *out_channel* is specified, it controls ordering.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsIndex {
 	    #[serde(rename = "created")]
@@ -1893,7 +1897,7 @@ pub mod requests {
 	        "listoffers"
 	    }
 	}
-	/// to filter the payment by status
+	/// ['To filter the payment by status.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysStatus {
 	    #[serde(rename = "pending")]
@@ -1995,7 +1999,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence_paywindow: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_limit: Option<u64>,
+	    pub recurrence_limit: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub single_use: Option<bool>,
 	}
@@ -2168,7 +2172,7 @@ pub mod requests {
 	        "waitblockheight"
 	    }
 	}
-	/// the subsystem to get the next index value from
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitSubsystem {
 	    #[serde(rename = "invoices")]
@@ -2201,7 +2205,7 @@ pub mod requests {
 	    }
 	}
 
-	/// the name of the index to get the next value for
+	/// ['The name of the index to get the next value for.', '  `created` is incremented by one for every new object.', '  `updated` is incremented by one every time an object is changed.', '  `deleted` is incremented by one every time an object is deleted.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitIndexname {
 	    #[serde(rename = "created")]
@@ -2397,7 +2401,7 @@ pub mod responses {
 	    pub invoice: String,
 	}
 
-	/// Type of connection (until 23.08, `websocket` was also allowed)
+	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetinfoAddressType {
 	    #[serde(rename = "dns")]
@@ -2448,7 +2452,7 @@ pub mod responses {
 	    pub address: Option<String>,
 	}
 
-	/// Type of connection
+	/// ['Type of connection.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetinfoBindingType {
 	    #[serde(rename = "local socket")]
@@ -2612,7 +2616,7 @@ pub mod responses {
 	    pub data: Option<String>,
 	}
 
-	/// the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally
+	/// ['Current state of the channel:', '  * `OPENINGD`: The channel funding protocol with the peer is ongoing and both sides are negotiating parameters.', '  * `CHANNELD_AWAITING_LOCKIN`: The peer and you have agreed on channel parameters and are just waiting for the channel funding transaction to be confirmed deeply. Both you and the peer must acknowledge the channel funding transaction to be confirmed deeply before entering the next state.', '  * `CHANNELD_NORMAL`: The channel can be used for normal payments.', '  * `CHANNELD_SHUTTING_DOWN`: A mutual close was requested (by you or peer) and both of you are waiting for HTLCs in-flight to be either failed or succeeded. The channel can no longer be used for normal payments and forwarding. Mutual close will proceed only once all HTLCs in the channel have either been fulfilled or failed.', '  * `CLOSINGD_SIGEXCHANGE`: You and the peer are negotiating the mutual close onchain fee.', '  * `CLOSINGD_COMPLETE`: You and the peer have agreed on the mutual close onchain fee and are awaiting the mutual close getting confirmed deeply.', '  * `AWAITING_UNILATERAL`: You initiated a unilateral close, and are now waiting for the peer-selected unilateral close timeout to complete.', '  * `FUNDING_SPEND_SEEN`: You saw the funding transaction getting spent (usually the peer initiated a unilateral close) and will now determine what exactly happened (i.e. if it was a theft attempt).', '  * `ONCHAIN`: You saw the funding transaction getting spent and now know what happened (i.e. if it was a proper unilateral close by the peer, or a theft attempt).', '  * `CLOSED`: The channel closure has been confirmed deeply. The channel will eventually be removed from this array.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeersPeersChannelsState {
 	    #[serde(rename = "OPENINGD")]
@@ -2723,7 +2727,7 @@ pub mod responses {
 	    pub remote: Option<ShortChannelId>,
 	}
 
-	/// Whether it came from peer, or is going to peer
+	/// ['Whether it came from peer, or is going to peer.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeersPeersChannelsHtlcsDirection {
 	    #[serde(rename = "in")]
@@ -2990,7 +2994,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of the payment (could be complete if already sent previously)
+	/// ['Status of the payment (could be complete if already sent previously).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum SendpayStatus {
 	    #[serde(rename = "pending")]
@@ -3153,7 +3157,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel
+	/// ['Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum CloseType {
 	    #[serde(rename = "mutual")]
@@ -3208,7 +3212,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether they initiated connection or we did
+	/// ['Whether they initiated connection or we did.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ConnectDirection {
 	    #[serde(rename = "in")]
@@ -3237,7 +3241,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
+	/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ConnectAddressType {
 	    #[serde(rename = "local socket")]
@@ -3311,7 +3315,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether it has been paid, or can no longer be paid
+	/// ['Whether it has been paid, or can no longer be paid.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum CreateinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -3496,7 +3500,7 @@ pub mod responses {
 	    }
 	}
 
-	/// State of invoice
+	/// ['State of invoice.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -3623,7 +3627,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether it's paid, unpaid or unpayable
+	/// ["Whether it's paid, unpaid or unpayable."]
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListinvoicesInvoicesStatus {
 	    #[serde(rename = "unpaid")]
@@ -3715,7 +3719,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of the payment (could be complete if already sent previously)
+	/// ['Status of the payment (could be complete if already sent previously).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum SendonionStatus {
 	    #[serde(rename = "pending")]
@@ -3785,7 +3789,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of the payment
+	/// ['Status of the payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListsendpaysPaymentsStatus {
 	    #[serde(rename = "pending")]
@@ -3845,6 +3849,8 @@ pub mod responses {
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub completed_at: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_preimage: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3910,7 +3916,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of payment
+	/// ['Status of payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum PayStatus {
 	    #[serde(rename = "complete")]
@@ -3970,7 +3976,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Type of connection (until 23.08, `websocket` was also allowed)
+	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListnodesNodesAddressesType {
 	    #[serde(rename = "dns")]
@@ -4052,7 +4058,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether it's paid or expired
+	/// ["Whether it's paid or expired."]
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitanyinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -4130,7 +4136,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Whether it's paid or expired
+	/// ["Whether it's paid or expired."]
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitinvoiceStatus {
 	    #[serde(rename = "paid")]
@@ -4208,7 +4214,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of the payment
+	/// ['Status of the payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum WaitsendpayStatus {
 	    #[serde(rename = "complete")]
@@ -4313,7 +4319,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of payment
+	/// ['Status of payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum KeysendStatus {
 	    #[serde(rename = "complete")]
@@ -4515,7 +4521,7 @@ pub mod responses {
 	    }
 	}
 
-	/// the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally
+	/// ['The channel state, in particular `CHANNELD_NORMAL` means the channel can be used normally.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeerchannelsChannelsState {
 	    #[serde(rename = "OPENINGD")]
@@ -4676,7 +4682,7 @@ pub mod responses {
 	    pub remote: Option<ShortChannelId>,
 	}
 
-	/// Whether it came from peer, or is going to peer
+	/// ['Whether it came from peer, or is going to peer.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpeerchannelsChannelsHtlcsDirection {
 	    #[serde(rename = "in")]
@@ -4731,6 +4737,8 @@ pub mod responses {
 	    pub peer_id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub peer_connected: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reestablished: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub state: Option<ListpeerchannelsChannelsState>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -4862,7 +4870,7 @@ pub mod responses {
 	    pub remote: Option<ShortChannelId>,
 	}
 
-	/// What caused the channel to close
+	/// ['What caused the channel to close.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListclosedchannelsClosedchannelsClose_cause {
 	    #[serde(rename = "unknown")]
@@ -4963,7 +4971,7 @@ pub mod responses {
 	    }
 	}
 
-	/// the address type (if known)
+	/// ['The address type (if known).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DecodepayFallbacksType {
 	    #[serde(rename = "P2PKH")]
@@ -5058,7 +5066,7 @@ pub mod responses {
 	    }
 	}
 
-	/// what kind of object it decoded to
+	/// ['What kind of object it decoded to.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum DecodeType {
 	    #[serde(rename = "bolt12 offer")]
@@ -5466,7 +5474,7 @@ pub mod responses {
 	    pub tx: String,
 	    pub txid: String,
 	    pub outnum: u32,
-	    pub channel_id: String,
+	    pub channel_id: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_type: Option<FundchannelChannel_type>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5486,7 +5494,7 @@ pub mod responses {
 	    }
 	}
 
-	/// The features understood by the destination node
+	/// ['The features understood by the destination node.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum GetrouteRouteStyle {
 	    #[serde(rename = "tlv")]
@@ -5538,7 +5546,7 @@ pub mod responses {
 	    }
 	}
 
-	/// still ongoing, completed, failed locally, or failed after forwarding
+	/// ['Still ongoing, completed, failed locally, or failed after forwarding.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsForwardsStatus {
 	    #[serde(rename = "offered")]
@@ -5575,7 +5583,7 @@ pub mod responses {
 	    }
 	}
 
-	/// Either a legacy onion format or a modern tlv format
+	/// ['Either a legacy onion format or a modern tlv format.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsForwardsStyle {
 	    #[serde(rename = "legacy")]
@@ -5672,7 +5680,7 @@ pub mod responses {
 	    }
 	}
 
-	/// status of the payment
+	/// ['Status of the payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListpaysPaysStatus {
 	    #[serde(rename = "pending")]
@@ -5751,7 +5759,7 @@ pub mod responses {
 	    }
 	}
 
-	/// out if we offered this to the peer, in if they offered it
+	/// ['Out if we offered this to the peer, in if they offered it.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListhtlcsHtlcsDirection {
 	    #[serde(rename = "out")]
@@ -5867,7 +5875,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelChannels {
 	    pub peer_id: PublicKey,
-	    pub channel_id: String,
+	    pub channel_id: Sha256,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	    pub fee_base_msat: Amount,

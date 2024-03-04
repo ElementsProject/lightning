@@ -432,15 +432,16 @@ def _extra_validator(is_request: bool):
                                         type_checker=type_checker)
 
 
-def _load_schema(filename, is_request):
+def _load_schema(filename):
     """Load the schema from @filename and create a validator for it"""
     with open(filename, 'r') as f:
-        return _extra_validator(is_request)(json.load(f))
+        data = json.load(f)
+        return [_extra_validator(True)(data.get('request', {})), _extra_validator(False)(data.get('response', {}))]
 
 
 @pytest.fixture(autouse=True)
 def jsonschemas():
-    """Load schema files if they exist: returns request/response schemas by pairs"""
+    """Load schema file if it exist: returns request/response schemas by pairs"""
     try:
         schemafiles = os.listdir('doc/schemas')
     except FileNotFoundError:
@@ -448,20 +449,10 @@ def jsonschemas():
 
     schemas = {}
     for fname in schemafiles:
-        if fname.endswith('.schema.json'):
-            base = fname.rpartition('.schema')[0]
-            is_request = False
-            index = 1
-        elif fname.endswith('.request.json'):
-            base = fname.rpartition('.request')[0]
-            is_request = True
-            index = 0
-        else:
-            continue
-        if base not in schemas:
-            schemas[base] = [None, None]
-        schemas[base][index] = _load_schema(os.path.join('doc/schemas', fname),
-                                            is_request)
+        if fname.startswith('lightning-') and fname.endswith('.json'):
+            base = fname.replace('lightning-', '').replace('.json', '')
+            # Request is 0 and Response is 1
+            schemas[base] = _load_schema(os.path.join('doc/schemas', fname))
     return schemas
 
 

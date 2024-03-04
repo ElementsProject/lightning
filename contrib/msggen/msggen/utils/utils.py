@@ -39,10 +39,9 @@ def load_jsonrpc_method(name):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
     schema = get_schema_bundle()
-    req_file = f"{name.lower()}.request.json"
-    resp_file = f"{name.lower()}.schema.json"
-    request = CompositeField.from_js(schema[req_file], path=name)
-    response = CompositeField.from_js(schema[resp_file], path=name)
+    rpc_name = f"lightning-{name.lower()}.json"
+    request = CompositeField.from_js(schema[rpc_name]['request'], path=name)
+    response = CompositeField.from_js(schema[rpc_name]['response'], path=name)
 
     # Normalize the method request and response typename so they no
     # longer conflict.

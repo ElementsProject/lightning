@@ -234,12 +234,6 @@ class CompositeField(Field):
                 logger.warning(f"Unmanaged {fpath}, it doesn't have a type")
                 continue
 
-            elif ftype["type"] == ["string", "null"]:
-                # TODO Remove the `['string', 'null']` match once
-                # `listpeers.peers[].channels[].closer` no longer has this
-                # type
-                ftype["type"] = "string"
-
             # Peek into the type so we know how to decode it
             elif ftype["type"] in ["string", ["string", "null"]] and "enum" in ftype:
                 field = EnumField.from_js(ftype, fpath)
@@ -360,6 +354,7 @@ class PrimitiveField(Field):
         "msat",
         "msat_or_any",
         "msat_or_all",
+        "currency",
         "hex",
         "short_channel_id",
         "short_channel_id_dir",
@@ -372,6 +367,7 @@ class PrimitiveField(Field):
         "utxo",  # A string representing the tuple (txid, outnum)
         "outputdesc",  # A dict that maps an address to an amount (bitcoind style)
         "secret",
+        "bip340sig",
         "hash",
     ]
 
@@ -435,8 +431,10 @@ class Command:
         return f"Command[name={self.name}, fields=[{fieldnames}]]"
 
 
+OfferStringField = PrimitiveField("string", None, None, added=None, deprecated=None)
 InvoiceLabelField = PrimitiveField("string", None, None, added=None, deprecated=None)
 DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+DatastoreUsageKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added="v23.11", deprecated=None), dims=1, path=None, description=None, added="v23.11", deprecated=None)
 InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None, added=None, deprecated=None)
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 RoutehintListField = PrimitiveField(
@@ -470,6 +468,11 @@ overrides = {
     'Pay.exclude': PayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
+    'CreateInvoice.label': InvoiceLabelField,
+    'DatastoreUsage.key': DatastoreUsageKeyField,
+    'WaitInvoice.label': InvoiceLabelField,
+    'Offer.recurrence_base': OfferStringField,
+    'Offer.amount': OfferStringField
 }
 
 
