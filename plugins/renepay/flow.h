@@ -47,35 +47,7 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   const struct gossmap *const gossmap,
 			   struct chan_extra_map *chan_extra_map, char **fail);
 
-// TODO(eduardo): we probably don't need this. Instead we should have payflow
-// input.
-/* Once flow is completed, this can remove it from the extra_map */
-bool remove_completed_flow(const tal_t *ctx, const struct gossmap *gossmap,
-			   struct chan_extra_map *chan_extra_map,
-			   struct flow *flow, char **fail);
-
-// TODO(eduardo): we probably don't need this. Instead we should have payflow
-// input.
-bool remove_completed_flowset(const tal_t *ctx, const struct gossmap *gossmap,
-			      struct chan_extra_map *chan_extra_map,
-			      struct flow **flows, char **fail);
-
 bool flowset_fee(struct amount_msat *fee, struct flow **flows);
-
-// TODO(eduardo): we probably don't need this. Instead we should have payflow
-// input.
-/* Take the flows and commit them to the chan_extra's . */
-bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
-		 struct chan_extra_map *chan_extra_map, struct flow *flow,
-		 char **fail);
-
-// TODO(eduardo): we probably don't need this. Instead we should have payflow
-// input.
-/* Take the flows and commit them to the chan_extra's .
- * Returns the number of flows successfully commited. */
-size_t commit_flowset(const tal_t *ctx, const struct gossmap *gossmap,
-		    struct chan_extra_map *chan_extra_map, struct flow **flows,
-		    char **fail);
 
 /* flows should be a set of optimal routes delivering an amount that is
  * slighty less than amount_to_deliver. We will try to reallocate amounts in

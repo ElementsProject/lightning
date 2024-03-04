@@ -39,9 +39,8 @@
 
 #define MAX_SHADOW_LEN 3
 
-static void remove_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		struct pay_flow *pf)
+void remove_htlc_payflow(struct chan_extra_map *chan_extra_map,
+			 struct pay_flow *pf)
 {
 	for (size_t i = 0; i < tal_count(pf->path_scidds); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
@@ -74,9 +73,8 @@ static void remove_htlc_payflow(
 	}
 }
 
-static void commit_htlc_payflow(
-		struct chan_extra_map *chan_extra_map,
-		const struct pay_flow *pf)
+void commit_htlc_payflow(struct chan_extra_map *chan_extra_map,
+			 const struct pay_flow *pf)
 {
 	for (size_t i = 0; i < tal_count(pf->path_scidds); i++) {
 		struct chan_extra_half *h = get_chan_extra_half_by_scid(
@@ -284,6 +282,65 @@ static const char *flow_path_annotated(const tal_t *ctx,
 	return s;
 }
 
+struct pay_flow **flows_to_payflows(const tal_t *ctx, struct gossmap *gossmap,
+				    struct flow **flows, u32 final_cltv)
+{
+	const size_t N = tal_count(flows);
+	struct pay_flow **payflows = tal_arr(ctx, struct pay_flow *, N);
+	for (size_t i = 0; i < N; i++) {
+		payflows[i] =
+		    flow_to_payflow(payflows, gossmap, flows[i], final_cltv);
+		if (!payflows[i])
+			goto function_fail;
+	}
+	return payflows;
+
+function_fail:
+	return tal_free(payflows);
+}
+
+struct pay_flow *flow_to_payflow(const tal_t *ctx, struct gossmap *gossmap,
+				 struct flow *flow, u32 final_cltv)
+{
+	struct pay_flow *pf = tal(ctx, struct pay_flow);
+	const size_t plen = tal_count(flow->path);
+
+	/* Convert gossmap_chan into scids and nodes */
+	pf->path_scidds = tal_arr(pf, struct short_channel_id_dir, plen);
+	pf->path_nodes = tal_arr(pf, struct node_id, plen);
+	for (size_t j = 0; j < plen; j++) {
+		struct gossmap_node *n;
+		n = gossmap_nth_node(gossmap, flow->path[j], !flow->dirs[j]);
+		gossmap_node_get_id(gossmap, n, &pf->path_nodes[j]);
+		pf->path_scidds[j].scid =
+		    gossmap_chan_scid(gossmap, flow->path[j]);
+		pf->path_scidds[j].dir = flow->dirs[j];
+	}
+
+	/* Calculate cumulative delays (backwards) */
+	pf->cltv_delays = tal_arr(pf, u32, plen);
+	pf->cltv_delays[plen - 1] = final_cltv;
+
+	pf->amounts = tal_arr(pf, struct amount_msat, plen);
+	pf->amounts[plen - 1] = flow->amounts[plen - 1];
+
+	for (int i = (int)plen - 2; i >= 0; i--) {
+		const struct half_chan *h_ahead = flow_edge(flow, i + 1);
+
+		pf->cltv_delays[i] = pf->cltv_delays[i + 1] + h_ahead->delay;
+
+		pf->amounts[i] = pf->amounts[i + 1];
+		if (!amount_msat_add_fee(&pf->amounts[i], h_ahead->base_fee,
+					 h_ahead->proportional_fee))
+			goto function_fail;
+	}
+	pf->success_prob = flow->success_prob;
+	return pf;
+
+function_fail:
+	return tal_free(pf);
+}
+
 /* Calculates delays and converts to scids, and links to the payment.
  * Frees flows. */
 static void convert_and_attach_flows(struct payment *payment,
@@ -294,38 +351,16 @@ static void convert_and_attach_flows(struct payment *payment,
 {
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct flow *f = flows[i];
-		struct pay_flow *pf = tal(payment, struct pay_flow);
-		size_t plen;
-
-		plen = tal_count(f->path);
+		struct pay_flow *pf =
+		    flow_to_payflow(payment, gossmap, f, final_cltvs[i]);
+		assert(pf);
+		const size_t plen = tal_count(f->path);
 
 		pf->payment = payment;
 		pf->state = PAY_FLOW_NOT_STARTED;
 		pf->key.partid = (*next_partid)++;
 		pf->key.groupid = payment->groupid;
 		pf->key.payment_hash = payment->payment_hash;
-
-		/* Convert gossmap_chan into scids and nodes */
-		pf->path_scidds = tal_arr(pf, struct short_channel_id_dir, plen);
-		pf->path_nodes = tal_arr(pf, struct node_id, plen);
-		for (size_t j = 0; j < plen; j++) {
-			struct gossmap_node *n;
-			n = gossmap_nth_node(gossmap, f->path[j], !f->dirs[j]);
-			gossmap_node_get_id(gossmap, n, &pf->path_nodes[j]);
-			pf->path_scidds[j].scid
-				= gossmap_chan_scid(gossmap, f->path[j]);
-			pf->path_scidds[j].dir = f->dirs[j];
-		}
-
-		/* Calculate cumulative delays (backwards) */
-		pf->cltv_delays = tal_arr(pf, u32, plen);
-		pf->cltv_delays[plen-1] = final_cltvs[i];
-		for (int j = (int)plen-2; j >= 0; j--) {
-			pf->cltv_delays[j] = pf->cltv_delays[j+1]
-				+ f->path[j+1]->half[f->dirs[j+1]].delay;
-		}
-		pf->amounts = tal_steal(pf, f->amounts);
-		pf->success_prob = f->success_prob;
 
 		/* Payment keeps a list of its flows. */
 		list_add(&payment->flows, &pf->list);

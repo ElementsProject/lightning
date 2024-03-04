@@ -3,6 +3,7 @@
 #define RENEPAY_UNITTEST // logs are written in /tmp/debug.txt
 #include "../payment.c"
 #include "../flow.c"
+#include "../pay_flow.c"
 #include "../uncertainty_network.c"
 #include "../mcf.c"
 
@@ -327,6 +328,7 @@ int main(int argc, char *argv[])
 	struct gossmap *gossmap;
 	struct node_id l1, l2, l3;
 	struct flow **flows;
+	struct pay_flow **payflows;
 	struct short_channel_id scid12, scid23;
 	struct chan_extra_map *chan_extra_map;
 
@@ -372,10 +374,13 @@ int main(int argc, char *argv[])
 		printf("Minflow has failed with: %s", errmsg);
 		assert(0 && "minflow failed");
 	}
-	if(commit_flowset(tmpctx, gossmap,chan_extra_map,flows,NULL)<tal_count(flows))
-	{
-		assert(0 && "commit_flowset failed");
+
+	payflows = flows_to_payflows(tmpctx, gossmap, flows, 1);
+	assert(payflows);
+	for (size_t i = 0; i < tal_count(payflows); i++) {
+		commit_htlc_payflow(chan_extra_map, payflows[i]);
 	}
+
 	printf("%s\n",
 	       print_flows(tmpctx,"Flow via single path l1->l2->l3", gossmap, flows));
 
@@ -426,9 +431,8 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(ce->half[1].known_max, AMOUNT_MSAT(1000000000)));
 
 	/* Clear that */
-	if(!remove_completed_flowset(tmpctx, gossmap, chan_extra_map, flows,NULL))
-	{
-		assert(0 && "remove_completed_flowset failed");
+	for (size_t i = 0; i < tal_count(payflows); i++) {
+		remove_htlc_payflow(chan_extra_map, payflows[i]);
 	}
 
 	// /* Now try adding a local channel scid */

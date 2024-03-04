@@ -138,4 +138,16 @@ struct amount_msat payflow_delivered(const struct pay_flow *flow);
 /* At what cost? */
 struct amount_msat payflow_fee(const struct pay_flow *flow);
 
+void commit_htlc_payflow(struct chan_extra_map *chan_extra_map,
+			 const struct pay_flow *pf);
+
+void remove_htlc_payflow(struct chan_extra_map *chan_extra_map,
+			 struct pay_flow *pf);
+
+struct pay_flow *flow_to_payflow(const tal_t *ctx, struct gossmap *gossmap,
+				 struct flow *flow, u32 final_cltv);
+
+struct pay_flow **flows_to_payflows(const tal_t *ctx, struct gossmap *gossmap,
+				    struct flow **flows, u32 final_cltv);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAY_FLOW_H */
