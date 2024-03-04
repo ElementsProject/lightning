@@ -499,6 +499,9 @@
             "DatastoreUsage.datastoreusage.key": 1,
             "DatastoreUsage.datastoreusage.total_bytes": 2
         },
+        "DatastoreusageRequest": {
+            "DatastoreUsage.key": 1
+        },
         "DatastoreusageResponse": {
             "DatastoreUsage.datastoreusage": 1
         },
@@ -1215,6 +1218,7 @@
             "ListPeerChannels.channels[].peer_id": 1,
             "ListPeerChannels.channels[].private": 18,
             "ListPeerChannels.channels[].receivable_msat": 34,
+            "ListPeerChannels.channels[].reestablished": 58,
             "ListPeerChannels.channels[].scratch_txid": 4,
             "ListPeerChannels.channels[].short_channel_id": 8,
             "ListPeerChannels.channels[].spendable_msat": 33,
@@ -1415,6 +1419,7 @@
             "ListSendPays.payments[].amount_sent_msat": 8,
             "ListSendPays.payments[].bolt11": 10,
             "ListSendPays.payments[].bolt12": 11,
+            "ListSendPays.payments[].completed_at": 18,
             "ListSendPays.payments[].created_at": 7,
             "ListSendPays.payments[].created_index": 16,
             "ListSendPays.payments[].description": 14,
@@ -2210,6 +2215,10 @@
             "deprecated": false
         },
         "DatastoreUsage.datastoreusage.total_bytes": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "DatastoreUsage.key": {
             "added": "v23.11",
             "deprecated": false
         },
@@ -4693,6 +4702,10 @@
             "added": "v23.02",
             "deprecated": false
         },
+        "ListPeerChannels.channels[].reestablished": {
+            "added": "v24.02",
+            "deprecated": false
+        },
         "ListPeerChannels.channels[].scratch_txid": {
             "added": "v23.02",
             "deprecated": false
@@ -5238,6 +5251,10 @@
             "deprecated": false
         },
         "ListSendPays.payments[].bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "ListSendPays.payments[].completed_at": {
             "added": "pre-v0.10.1",
             "deprecated": false
         },

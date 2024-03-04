@@ -35,6 +35,7 @@ class Grpc2PyGenerator(IGenerator):
             'signature': "hexlify(m.{name})",
             'txid': "hexlify(m.{name})",
             'hash': "hexlify(m.{name})",
+            'bip340sig': "hexlify(m.{name})",
             'string': "m.{name}",
             'u8': "m.{name}",
             'u16': "m.{name}",
@@ -48,6 +49,7 @@ class Grpc2PyGenerator(IGenerator):
             'boolean': "m.{name}",
             'short_channel_id': "m.{name}",
             'msat': "amount2msat(m.{name})",
+            'currency': "m.{name}",
             'number': "m.{name}",
         }
 

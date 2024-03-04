@@ -512,6 +512,7 @@ def listsendpays_payments2py(m):
         "bolt11": m.bolt11,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+        "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
     })
@@ -872,6 +873,7 @@ def listpeerchannels_channels2py(m):
     return remove_default({
         "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
         "peer_connected": m.peer_connected,  # PrimitiveField in generate_composite
+        "reestablished": m.reestablished,  # PrimitiveField in generate_composite
         "state": str(m.state),  # EnumField in generate_composite
         "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
         "ignore_fee_limits": m.ignore_fee_limits,  # PrimitiveField in generate_composite

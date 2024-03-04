@@ -13,6 +13,7 @@ typemap = {
     'msat': 'Amount',
     'msat_or_all': 'AmountOrAll',
     'msat_or_any': 'AmountOrAny',
+    'currency': 'string',
     'number': 'double',
     'pubkey': 'bytes',
     'short_channel_id': 'string',
@@ -33,6 +34,7 @@ typemap = {
     "feerate": "Feerate",
     "outputdesc": "OutputDesc",
     "secret": "bytes",
+    "bip340sig": "bytes",
     "hash": "bytes",
 }
 

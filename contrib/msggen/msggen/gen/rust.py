@@ -22,6 +22,7 @@ typemap = {
     'msat': 'Amount',
     'msat_or_all': 'AmountOrAll',
     'msat_or_any': 'AmountOrAny',
+    'currency': 'String',
     'number': 'f64',
     'pubkey': 'PublicKey',
     'short_channel_id': 'ShortChannelId',
@@ -35,6 +36,7 @@ typemap = {
     'outputdesc': 'OutputDesc',
     'hash': 'Sha256',
     'secret': 'Secret',
+    'bip340sig': 'Secret',
     'integer': 'i64',
 }
 
