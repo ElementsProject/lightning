@@ -119,4 +119,15 @@ struct route **flows_to_routes(const tal_t *ctx, struct payment *payment,
 			       struct sha256 payment_hash, u32 final_cltv,
 			       struct gossmap *gossmap, struct flow **flows);
 
+static inline struct short_channel_id_dir
+hop_to_scidd(const struct route_hop *hop)
+{
+	struct short_channel_id_dir scidd;
+	scidd.scid = hop->scid;
+	scidd.dir = hop->direction;
+	return scidd;
+}
+
+const char *route_to_str(const tal_t *ctx, const struct route *route);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTE_H */

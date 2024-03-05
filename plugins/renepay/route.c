@@ -90,3 +90,17 @@ struct route **flows_to_routes(const tal_t *ctx, struct payment *payment,
 function_fail:
 	return tal_free(routes);
 }
+
+const char *route_to_str(const tal_t *ctx, const struct route *route)
+{
+	char *s = tal_strdup(ctx, "");
+	const size_t pathlen = tal_count(route->hops);
+	for (size_t i = 0; i < pathlen; i++) {
+		const struct short_channel_id_dir scidd =
+		    hop_to_scidd(&route->hops[i]);
+		tal_append_fmt(&s, "-%s->",
+			       type_to_string(tmpctx, struct short_channel_id,
+					      &scidd.scid));
+	}
+	return s;
+}
