@@ -224,9 +224,8 @@ bool channel_maximum_forward(struct amount_msat *max_forward,
  *
  * returns the probability that this forward request gets through.
  * */
-double edge_probability(const tal_t *ctx, struct amount_msat min,
-			struct amount_msat max, struct amount_msat in_flight,
-			struct amount_msat f, char **fail);
+double edge_probability(struct amount_msat min, struct amount_msat max,
+			struct amount_msat in_flight, struct amount_msat f);
 
 /* Checks BOLT 7 HTLC fee condition:
  *	recv >= base_fee + (send*proportional_fee)/1000000 */

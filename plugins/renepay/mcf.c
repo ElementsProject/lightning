@@ -1261,7 +1261,6 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 	       char **fail)
 {
 	tal_t *this_ctx = tal(ctx,tal_t);
-	char *errmsg;
 	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
 	assert(amount_msat_less(excess, AMOUNT_MSAT(1000)));
@@ -1428,15 +1427,21 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			}
 			excess = amount_msat(0);
 
-			// complete the flow path by adding real fees and
-			// probabilities.
-			if (!flow_complete(this_ctx, fp, gossmap,
-					   chan_extra_map, delivered,
-					   &errmsg)) {
+			if (!flow_assign_delivery(fp, gossmap, chan_extra_map,
+						  delivered)) {
 				if (fail)
-				*fail = tal_fmt(
-				    ctx, "flow_complete failed: %s",
-				    errmsg);
+					*fail =
+					    tal_fmt(ctx, "failed to add final "
+							 "amount to flow");
+				goto function_fail;
+			}
+			fp->success_prob =
+			    flow_probability(fp, gossmap, chan_extra_map);
+			if (fp->success_prob < 0) {
+				if (fail)
+					*fail =
+					    tal_fmt(ctx, "failed to compute "
+							 "flow probability");
 				goto function_fail;
 			}
 

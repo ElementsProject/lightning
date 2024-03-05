@@ -13,10 +13,7 @@ struct flow {
 	/* The directions to traverse. */
 	int *dirs;
 	/* Amounts for this flow (fees mean this shrinks across path). */
-
-	/* Probability of success (0-1) */
 	double success_prob;
-
 	struct amount_msat amount;
 };
 
@@ -37,12 +34,6 @@ double flow_edge_cost(const struct gossmap *gossmap,
 		      double mu,
 		      double basefee_penalty,
 		      double delay_riskfactor);
-
-/* Function to fill in amounts and success_prob for flow. */
-bool flow_complete(const tal_t *ctx, struct flow *flow,
-		   const struct gossmap *gossmap,
-		   struct chan_extra_map *chan_extra_map,
-		   struct amount_msat delivered, char **fail);
 
 /* Compute the prob. of success of a set of concurrent set of flows. */
 double flowset_probability(const tal_t *ctx, struct flow **flows,
@@ -68,5 +59,14 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 		      struct chan_extra_map *chan_extra_map, char **fail);
 
 struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow);
+
+/* Assign the delivered amount to the flow if it fits
+ the path maximum capacity. */
+bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
+			  struct chan_extra_map *chan_extra_map,
+			  struct amount_msat requested_amount);
+
+double flow_probability(struct flow *flow, const struct gossmap *gossmap,
+			struct chan_extra_map *chan_extra_map);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

@@ -740,36 +740,23 @@ get_chan_extra_half_by_chan_verify(const struct gossmap *gossmap,
  * This is the same as the probability of success of f when the bounds are
  * shifted by x amount, the new bounds be [MAX(0,a-x),b-x).
  */
-double edge_probability(const tal_t *ctx, struct amount_msat min,
-			struct amount_msat max, struct amount_msat in_flight,
-			struct amount_msat f, char **fail)
+double edge_probability(struct amount_msat min, struct amount_msat max,
+			struct amount_msat in_flight, struct amount_msat f)
 {
 	assert(amount_msat_less_eq(min, max));
 	assert(amount_msat_less_eq(in_flight, max));
-
-	const tal_t *this_ctx = tal(ctx, tal_t);
 
 	const struct amount_msat one = AMOUNT_MSAT(1);
 	struct amount_msat B = max; // =  max +1 - in_flight
 
 	// one past the last known value, makes computations simpler
-	if (!amount_msat_add(&B, B, one)) {
-		if (fail)
-			*fail = tal_fmt(ctx, "addition overflow");
+	if (!amount_msat_add(&B, B, one))
 		goto function_fail;
-	}
+
 	// in_flight cannot be greater than max
-	if (!amount_msat_sub(&B, B, in_flight)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "in_flight=%s cannot be greater than "
-			    "known_max+1=%s",
-			    type_to_string(this_ctx, struct amount_msat,
-					   &in_flight),
-			    type_to_string(this_ctx, struct amount_msat, &B));
+	if (!amount_msat_sub(&B, B, in_flight))
 		goto function_fail;
-	}
+
 	struct amount_msat A = min; // = MAX(0,min-in_flight);
 
 	if (!amount_msat_sub(&A, A, in_flight))
@@ -778,27 +765,19 @@ double edge_probability(const tal_t *ctx, struct amount_msat min,
 	struct amount_msat denominator; // = B-A
 
 	// B cannot be smaller than or equal A
-	if (!amount_msat_sub(&denominator, B, A) || amount_msat_less_eq(B, A)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "known_max+1=%s must be greater than known_min=%s",
-			    type_to_string(this_ctx, struct amount_msat, &B),
-			    type_to_string(this_ctx, struct amount_msat, &A));
+	if (!amount_msat_sub(&denominator, B, A) || amount_msat_less_eq(B, A))
 		goto function_fail;
-	}
+
 	struct amount_msat numerator; // MAX(0,B-f)
 
 	if (!amount_msat_sub(&numerator, B, f))
 		numerator = AMOUNT_MSAT(0);
 
-	tal_free(this_ctx);
 	return amount_msat_less_eq(f, A)
 		   ? 1.0
 		   : amount_msat_ratio(numerator, denominator);
 
 function_fail:
-	tal_free(this_ctx);
 	return -1;
 }
 

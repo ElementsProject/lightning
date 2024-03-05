@@ -150,8 +150,6 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 		      struct chan_extra_map *chan_extra_map, char **fail)
 {
 	tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
-
 	struct amount_msat total_deliver;
 	if (!flow_set_delivers(&total_deliver, flows)) {
 		if (fail)
@@ -235,13 +233,13 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 			goto function_fail;
 		}
 
-		if (!flow_complete(this_ctx, flows[i], gossmap, chan_extra_map,
-				   delivers, &errmsg)) {
+		if (!flow_assign_delivery(flows[i], gossmap, chan_extra_map,
+					  delivers)) {
 			if (fail)
 				*fail = tal_fmt(
 				    ctx,
-				    "(%s, line %d) flow_complete failed: %s",
-				    __PRETTY_FUNCTION__, __LINE__, errmsg);
+				    "(%s, line %d) flow_assign_delivery failed",
+				    __PRETTY_FUNCTION__, __LINE__);
 			goto function_fail;
 		}
 	}
@@ -263,85 +261,6 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 	}
 
 function_success:
-	tal_free(this_ctx);
-	return true;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
-}
-
-/* Helper function to fill in amounts and success_prob for flow
- *
- * @ctx: tal context for allocated objects that outlive this function call, eg.
- * fail
- * @flow: the flow we want to complete with precise amounts
- * @gossmap: state of the network
- * @chan_extra_map: state of the network
- * @delivered: how much we are supposed to deliver at destination
- * @fail: here we write verbose message errors in case of failure
- *
- * IMPORTANT: here we do not commit flows to chan_extra, flows are commited
- * after we send those htlc.
- *
- * IMPORTANT: flow->success_prob is misleading, because that's the prob. of
- * success provided that there are no other flows in the current MPP flow set.
- * */
-bool flow_complete(const tal_t *ctx, struct flow *flow,
-		   const struct gossmap *gossmap,
-		   struct chan_extra_map *chan_extra_map,
-		   struct amount_msat delivered, char **fail)
-{
-	assert(flow);
-	assert(gossmap);
-	assert(chan_extra_map);
-	tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
-
-	flow->success_prob = 1.0;
-
-	struct amount_msat max_deliverable;
-	if (!flow_maximum_deliverable(&max_deliverable, flow, gossmap,
-				      chan_extra_map)) {
-		if (fail)
-			*fail = tal_fmt(ctx, "flow_maximum_deliverable failed");
-		goto function_fail;
-	}
-	// we cannot deliver more than it is allowed by the liquidity
-	// constraints: HTLC max, fees, known_max
-	delivered = amount_msat_min(delivered, max_deliverable);
-	flow->amount = delivered;
-
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
-		const struct chan_extra_half *h = get_chan_extra_half_by_chan(
-		    gossmap, chan_extra_map, flow->path[i], flow->dirs[i]);
-
-		if (!h) {
-			if (fail)
-				*fail = tal_fmt(
-				    ctx, "channel not found in chan_extra_map");
-			goto function_fail;
-		}
-
-		double prob =
-		    edge_probability(this_ctx, h->known_min, h->known_max,
-				     h->htlc_total, delivered, &errmsg);
-		if (prob < 0) {
-			if (fail)
-				*fail = tal_fmt(
-				    ctx, "edge_probability failed: %s", errmsg);
-			goto function_fail;
-		}
-		flow->success_prob *= prob;
-
-		if (!amount_msat_add_fee(
-			&delivered, flow_edge(flow, i)->base_fee,
-			flow_edge(flow, i)->proportional_fee)) {
-			if (fail)
-				*fail = tal_fmt(ctx, "fee overflow");
-			goto function_fail;
-		}
-	}
 	tal_free(this_ctx);
 	return true;
 
@@ -383,7 +302,6 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	assert(gossmap);
 	assert(chan_extra_map);
 	tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
 	double prob = 1.0;
 
 	// TODO(eduardo): should it be better to use a map instead of an array
@@ -435,13 +353,12 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			}
 
 			double edge_prob =
-			    edge_probability(this_ctx, h->known_min, h->known_max,
-					     prev_flow, deliver, &errmsg);
+			    edge_probability(h->known_min, h->known_max,
+					     prev_flow, deliver);
 			if (edge_prob < 0) {
 				if (fail)
 				*fail = tal_fmt(ctx,
-						"edge_probability failed: %s",
-						errmsg);
+						"edge_probability failed");
 				goto function_fail;
 			}
 			prob *= edge_prob;
@@ -525,6 +442,57 @@ const struct half_chan *flow_edge(const struct flow *flow, size_t idx)
 	assert(flow);
 	assert(idx < tal_count(flow->path));
 	return &flow->path[idx]->half[flow->dirs[idx]];
+}
+
+/* Assign the delivered amount to the flow if it fits
+ the path maximum capacity. */
+bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
+			  struct chan_extra_map *chan_extra_map,
+			  struct amount_msat requested_amount)
+{
+	struct amount_msat max_deliverable;
+	if (!flow_maximum_deliverable(&max_deliverable, flow, gossmap,
+				      chan_extra_map))
+		return false;
+
+	flow->amount = amount_msat_min(requested_amount, max_deliverable);
+	return true;
+}
+
+/* Helper function to find the success_prob for a single flow
+ *
+ * IMPORTANT: flow->success_prob is misleading, because that's the prob. of
+ * success provided that there are no other flows in the current MPP flow set.
+ * */
+double flow_probability(struct flow *flow, const struct gossmap *gossmap,
+			struct chan_extra_map *chan_extra_map)
+{
+	assert(flow);
+	assert(gossmap);
+	assert(chan_extra_map);
+	const size_t pathlen = tal_count(flow->path);
+	struct amount_msat spend = flow->amount;
+	double prob = 1.0;
+
+	for (int i = (int)pathlen - 1; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i);
+		const struct chan_extra_half *eh = get_chan_extra_half_by_chan(
+		    gossmap, chan_extra_map, flow->path[i], flow->dirs[i]);
+
+		prob *= edge_probability(eh->known_min, eh->known_max,
+					 eh->htlc_total, spend);
+
+		if (prob < 0)
+			goto function_fail;
+		if (!amount_msat_add_fee(&spend, h->base_fee,
+					 h->proportional_fee))
+			goto function_fail;
+	}
+
+	return prob;
+
+function_fail:
+	return -1.;
 }
 
 #ifndef SUPERVERBOSE_ENABLED
