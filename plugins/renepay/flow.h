@@ -13,9 +13,11 @@ struct flow {
 	/* The directions to traverse. */
 	int *dirs;
 	/* Amounts for this flow (fees mean this shrinks across path). */
-	struct amount_msat *amounts;
+
 	/* Probability of success (0-1) */
 	double success_prob;
+
+	struct amount_msat amount;
 };
 
 /* Helper to access the half chan at flow index idx */
@@ -47,6 +49,12 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			   const struct gossmap *const gossmap,
 			   struct chan_extra_map *chan_extra_map, char **fail);
 
+/* How much do we need to send to make this flow arrive. */
+bool flow_spend(struct amount_msat *ret, struct flow *flow);
+
+/* How much do we pay in fees to make this flow arrive. */
+bool flow_fee(struct amount_msat *ret, struct flow *flow);
+
 bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
 /* flows should be a set of optimal routes delivering an amount that is
@@ -58,5 +66,7 @@ bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
 		      struct flow **flows, struct amount_msat amount_to_deliver,
 		      const struct gossmap *gossmap,
 		      struct chan_extra_map *chan_extra_map, char **fail);
+
+struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

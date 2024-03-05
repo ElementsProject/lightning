@@ -6,6 +6,7 @@
 #include <common/pseudorand.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
+#include <plugins/renepay/flow.h>
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>
@@ -73,6 +74,7 @@ void remove_htlc_payflow(struct chan_extra_map *chan_extra_map,
 	}
 }
 
+// TODO: remove this duplicate
 void commit_htlc_payflow(struct chan_extra_map *chan_extra_map,
 			 const struct pay_flow *pf)
 {
@@ -104,8 +106,8 @@ static u32 shadow_one_flow(const struct gossmap *gossmap,
 			   const struct flow *f,
 			   struct amount_msat *shadow_fee)
 {
-	size_t numpath = tal_count(f->amounts);
-	struct amount_msat amount = f->amounts[numpath-1];
+	size_t numpath = tal_count(f->path);
+	struct amount_msat amount = f->amount;
 	struct gossmap_node *n;
 	size_t hop;
 	struct gossmap_chan *chans[MAX_SHADOW_LEN];
@@ -149,43 +151,34 @@ static u32 shadow_one_flow(const struct gossmap *gossmap,
 			;
 
 	/* Shouldn't happen either */
-	if (!amount_msat_sub(shadow_fee, amount, f->amounts[numpath-1]))
+	if (!amount_msat_sub(shadow_fee, amount, f->amount))
 		plugin_err(pay_plugin->plugin,
 			   "Failed to calc shadow fee: %s - %s",
-			   fmt_amount_msat(tmpctx, amount),
-			   fmt_amount_msat(tmpctx, f->amounts[numpath-1]));
+			   type_to_string(tmpctx, struct amount_msat, &amount),
+			   type_to_string(tmpctx, struct amount_msat,
+					  &f->amount));
 
 	return shadow_delay;
 }
 
-static bool add_to_amounts(const struct gossmap *gossmap,
-			   struct flow *f,
+static bool add_to_amounts(const struct gossmap *gossmap, struct flow *f,
 			   struct amount_msat maxspend,
 			   struct amount_msat additional)
 {
-	struct amount_msat *amounts;
-	size_t num = tal_count(f->amounts);
-
-	/* Recalculate amounts backwards */
-	amounts = tal_arr(tmpctx, struct amount_msat, num);
-	if (!amount_msat_add(&amounts[num-1], f->amounts[num-1], additional))
+	struct amount_msat new_amount;
+	if (!amount_msat_add(&new_amount, f->amount, additional))
 		return false;
 
-	for (int i = num-2; i >= 0; i--) {
-		amounts[i] = amounts[i+1];
-		if (!amount_msat_add_fee(&amounts[i],
-					 flow_edge(f, i+1)->base_fee,
-					 flow_edge(f, i+1)->proportional_fee))
-			return false;
-	}
+	struct amount_msat spend;
+	if (!flow_spend(&spend, f))
+		return false;
 
 	/* Do we now exceed budget? */
-	if (amount_msat_greater(amounts[0], maxspend))
+	if (amount_msat_greater(spend, maxspend))
 		return false;
 
 	/* OK, replace amounts */
-	tal_free(f->amounts);
-	f->amounts = tal_steal(f, amounts);
+	f->amount = new_amount;
 	return true;
 }
 
@@ -240,12 +233,10 @@ static u32 *shadow_additions(const tal_t *ctx,
 					    shadow_fee)) {
 				payment_note(p, LOG_UNUSUAL,
 					     "No shadow fee for flow %zu/%zu:"
-					" fee would add %s to %s, exceeding budget %s.",
+					" fees exceed budget %s.",
 					i, tal_count(flows),
-					fmt_amount_msat(tmpctx, shadow_fee),
-					fmt_amount_msat(tmpctx,
-							flows[i]->amounts[0]),
-					fmt_amount_msat(tmpctx, p->maxspend));
+					type_to_string(tmpctx, struct amount_msat,
+						       &p->maxspend));
 			} else {
 				payment_note(p, LOG_DBG,
 					"No MPP, so added %s shadow fee",
@@ -322,7 +313,7 @@ struct pay_flow *flow_to_payflow(const tal_t *ctx, struct gossmap *gossmap,
 	pf->cltv_delays[plen - 1] = final_cltv;
 
 	pf->amounts = tal_arr(pf, struct amount_msat, plen);
-	pf->amounts[plen - 1] = flow->amounts[plen - 1];
+	pf->amounts[plen - 1] = flow->amount;
 
 	for (int i = (int)plen - 2; i >= 0; i--) {
 		const struct half_chan *h_ahead = flow_edge(flow, i + 1);
@@ -430,6 +421,7 @@ static u64 flows_worst_delay(struct flow **flows)
 	return maxdelay;
 }
 
+// TODO this is a feature for routes not flows
 /* FIXME: If only path has channels marked disabled, we should try... */
 static bool disable_htlc_violations_oneflow(struct payment *p,
 					    const struct flow *flow,
@@ -437,6 +429,8 @@ static bool disable_htlc_violations_oneflow(struct payment *p,
 					    bitmap *disabled)
 {
 	bool disabled_some = false;
+	struct amount_msat *amounts = tal_flow_amounts(tmpctx, flow);
+	assert(amounts);
 
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
 		const struct half_chan *h = &flow->path[i]->half[flow->dirs[i]];
@@ -445,9 +439,9 @@ static bool disable_htlc_violations_oneflow(struct payment *p,
 
 		if (!h->enabled)
 			reason = "channel_update said it was disabled";
-		else if (amount_msat_greater_fp16(flow->amounts[i], h->htlc_max))
+		else if (amount_msat_greater_fp16(amounts[i], h->htlc_max))
 			reason = "htlc above maximum";
-		else if (amount_msat_less_fp16(flow->amounts[i], h->htlc_min))
+		else if (amount_msat_less_fp16(amounts[i], h->htlc_min))
 			reason = "htlc below minimum";
 		else
 			continue;

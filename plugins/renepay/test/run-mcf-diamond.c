@@ -59,8 +59,8 @@ static const char* print_flows(
 			tal_append_fmt(&buff,"%s%s", j ? "->" : "",
 			       fmt_short_channel_id(this_ctx, scid));
 		}
-		delivered = flows[i]->amounts[tal_count(flows[i]->amounts)-1];
-		if (!amount_msat_sub(&fee, flows[i]->amounts[0], delivered))
+		delivered = flows[i]->amount;
+		if (!flow_fee(&fee, flows[i]))
 		{
 			abort();
 		}

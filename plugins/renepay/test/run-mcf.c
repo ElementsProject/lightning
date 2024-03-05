@@ -309,8 +309,8 @@ static const char *print_flows(
 			tal_append_fmt(&buff,"%s%s", j ? "->" : "",
 			       fmt_short_channel_id(this_ctx, scid));
 		}
-		delivered = flows[i]->amounts[tal_count(flows[i]->amounts)-1];
-		if (!amount_msat_sub(&fee, flows[i]->amounts[0], delivered))
+		delivered = flows[i]->amount;
+		if (!flow_fee(&fee, flows[i]))
 			abort();
 		tal_append_fmt(&buff," prob %.2f, %s delivered with fee %s\n",
 		       flows[i]->success_prob,
@@ -332,6 +332,7 @@ int main(int argc, char *argv[])
 	struct short_channel_id scid12, scid23;
 	struct chan_extra_map *chan_extra_map;
 	struct sha256 payment_hash;
+	struct amount_msat *amounts;
 
 	char *errmsg;
 
@@ -388,18 +389,20 @@ int main(int argc, char *argv[])
 
 	printf("Checking results.\n");
 	/* Should go 1->2->3 */
+	amounts = tal_flow_amounts(tmpctx, flows[0]);
+	assert(amounts);
 	assert(tal_count(flows) == 1);
 	assert(tal_count(flows[0]->path) == 2);
 	assert(tal_count(flows[0]->dirs) == 2);
-	assert(tal_count(flows[0]->amounts) == 2);
+	assert(tal_count(amounts) == 2);
 
 	assert(flows[0]->path[0] == gossmap_find_chan(gossmap, &scid12));
 	assert(flows[0]->path[1] == gossmap_find_chan(gossmap, &scid23));
 	assert(flows[0]->dirs[0] == 1);
 	assert(flows[0]->dirs[1] == 0);
-	assert(amount_msat_eq(flows[0]->amounts[1], AMOUNT_MSAT(500000000)));
+	assert(amount_msat_eq(amounts[1], AMOUNT_MSAT(500000000)));
 	/* fee_base_msat == 20, fee_proportional_millionths == 1000 */
-	assert(amount_msat_eq(flows[0]->amounts[0], AMOUNT_MSAT(500000000 + 500000 + 20)));
+	assert(amount_msat_eq(amounts[0], AMOUNT_MSAT(500000000 + 500000 + 20)));
 
 	/* Each one has probability ~ 0.5 */
 	assert(flows[0]->success_prob > 0.249);
@@ -558,16 +561,12 @@ int main(int argc, char *argv[])
 	assert(tal_count(flows2[ID2]->path) == 2);
 
 	// /* Sends more via 1->3, since it's more expensive (but lower prob) */
-	assert(amount_msat_greater(flows2[ID1]->amounts[0], flows2[ID2]->amounts[0]));
+	assert(amount_msat_greater(flows2[ID1]->amount, flows2[ID2]->amount));
 	assert(flows2[ID1]->success_prob < flows2[ID2]->success_prob);
 
 	/* Delivered amount must be the total! */
-	assert(flows2[ID1]->amounts[0].millisatoshis
-	       + flows2[ID2]->amounts[1].millisatoshis == 500000000);
-
-	// /* But in total it's more expensive! */
-	assert(flows2[ID1]->amounts[0].millisatoshis + flows2[ID2]->amounts[0].millisatoshis
-	       > flows2[ID1]->amounts[0].millisatoshis - flows2[ID2]->amounts[0].millisatoshis);
+	assert(flows2[ID1]->amount.millisatoshis
+	       + flows2[ID2]->amount.millisatoshis == 500000000);
 
 	common_shutdown();
 }

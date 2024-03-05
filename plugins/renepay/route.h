@@ -114,4 +114,9 @@ struct route *flow_to_route(const tal_t *ctx, struct payment *payment,
 			    u32 final_cltv, struct gossmap *gossmap,
 			    struct flow *flow);
 
+struct route **flows_to_routes(const tal_t *ctx, struct payment *payment,
+			       u32 groupid, u32 partid,
+			       struct sha256 payment_hash, u32 final_cltv,
+			       struct gossmap *gossmap, struct flow **flows);
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTE_H */

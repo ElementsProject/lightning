@@ -14,6 +14,26 @@
 #define SUPERVERBOSE_ENABLED 1
 #endif
 
+struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow)
+{
+	const size_t pathlen = tal_count(flow->path);
+	struct amount_msat *amounts = tal_arr(ctx, struct amount_msat, pathlen);
+	amounts[pathlen - 1] = flow->amount;
+
+	for (int i = (int)pathlen - 2; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i + 1);
+		amounts[i] = amounts[i + 1];
+		if (!amount_msat_add_fee(&amounts[i], h->base_fee,
+					 h->proportional_fee))
+			goto function_fail;
+	}
+
+	return amounts;
+
+function_fail:
+	return tal_free(amounts);
+}
+
 /* Returns the greatest amount we can deliver to the destination using this
  * route. It takes into account the current knowledge, pending HTLC,
  * htlc_max and fees. */
@@ -83,10 +103,7 @@ static bool flow_set_delivers(struct amount_msat *delivers, struct flow **flows)
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		size_t n = tal_count(flows[i]->amounts);
-		struct amount_msat this_final = flows[i]->amounts[n - 1];
-
-		if (!amount_msat_add(&final, this_final, final))
+		if (!amount_msat_add(&final, flows[i]->amount, final))
 			return false;
 	}
 	*delivers = final;
@@ -97,7 +114,7 @@ static bool flow_set_delivers(struct amount_msat *delivers, struct flow **flows)
  * node. */
 static inline struct amount_msat flow_delivers(const struct flow *flow)
 {
-	return flow->amounts[tal_count(flow->amounts) - 1];
+	return flow->amount;
 }
 
 /* Checks if the flows satisfy the liquidity bounds imposed by the known maximum
@@ -282,8 +299,6 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 	char *errmsg;
 
 	flow->success_prob = 1.0;
-	flow->amounts =
-	    tal_arr(flow, struct amount_msat, tal_count(flow->path));
 
 	struct amount_msat max_deliverable;
 	if (!flow_maximum_deliverable(&max_deliverable, flow, gossmap,
@@ -295,6 +310,7 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 	// we cannot deliver more than it is allowed by the liquidity
 	// constraints: HTLC max, fees, known_max
 	delivered = amount_msat_min(delivered, max_deliverable);
+	flow->amount = delivered;
 
 	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
 		const struct chan_extra_half *h = get_chan_extra_half_by_chan(
@@ -307,7 +323,6 @@ bool flow_complete(const tal_t *ctx, struct flow *flow,
 			goto function_fail;
 		}
 
-		flow->amounts[i] = delivered;
 		double prob =
 		    edge_probability(this_ctx, h->known_min, h->known_max,
 				     h->htlc_total, delivered, &errmsg);
@@ -383,7 +398,18 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 
 	for (size_t i = 0; i < tal_count(flows); ++i) {
 		const struct flow *f = flows[i];
-		for (size_t j = 0; j < tal_count(f->path); ++j) {
+		const size_t pathlen = tal_count(f->path);
+		struct amount_msat *amounts = tal_flow_amounts(this_ctx, f);
+		if (!amounts)
+		{
+			if (fail)
+			*fail = tal_fmt(
+			    ctx,
+			    "failed to compute amounts along the path");
+			goto function_fail;
+		}
+
+		for (size_t j = 0; j < pathlen; ++j) {
 			const struct chan_extra_half *h =
 			    get_chan_extra_half_by_chan(gossmap, chan_extra_map,
 							f->path[j], f->dirs[j]);
@@ -397,7 +423,7 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 			const u32 c_idx = gossmap_chan_idx(gossmap, f->path[j]);
 			const int c_dir = f->dirs[j];
 
-			const struct amount_msat deliver = f->amounts[j];
+			const struct amount_msat deliver = amounts[j];
 
 			struct amount_msat prev_flow;
 			if (!amount_msat_add(&prev_flow, h->htlc_total,
@@ -438,23 +464,56 @@ double flowset_probability(const tal_t *ctx, struct flow **flows,
 	return -1;
 }
 
+bool flow_spend(struct amount_msat *ret, struct flow *flow)
+{
+	assert(ret);
+	assert(flow);
+	const size_t pathlen = tal_count(flow->path);
+	struct amount_msat spend = flow->amount;
+
+	for (int i = (int)pathlen - 2; i >= 0; i--) {
+		const struct half_chan *h = flow_edge(flow, i + 1);
+		if (!amount_msat_add_fee(&spend, h->base_fee,
+					 h->proportional_fee))
+			goto function_fail;
+	}
+
+	*ret = spend;
+	return true;
+
+function_fail:
+	return false;
+}
+
+bool flow_fee(struct amount_msat *ret, struct flow *flow)
+{
+	assert(ret);
+	assert(flow);
+	struct amount_msat fee;
+	struct amount_msat spend;
+	if (!flow_spend(&spend, flow))
+		goto function_fail;
+	if (!amount_msat_sub(&fee, spend, flow->amount))
+		goto function_fail;
+
+	*ret = fee;
+	return true;
+
+function_fail:
+	return false;
+}
+
 bool flowset_fee(struct amount_msat *ret, struct flow **flows)
 {
 	assert(ret);
 	assert(flows);
 	struct amount_msat fee = AMOUNT_MSAT(0);
-
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct amount_msat this_fee;
-		size_t n = tal_count(flows[i]->amounts);
-
-		if (!amount_msat_sub(&this_fee, flows[i]->amounts[0],
-				     flows[i]->amounts[n - 1])) {
+		if (!flow_fee(&this_fee, flows[i]))
 			return false;
-		}
-		if (!amount_msat_add(&fee, this_fee, fee)) {
+		if (!amount_msat_add(&fee, this_fee, fee))
 			return false;
-		}
 	}
 	*ret = fee;
 	return true;
