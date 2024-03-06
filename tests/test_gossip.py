@@ -2033,3 +2033,82 @@ def test_listchannels_deprecated_local(node_factory, bitcoind):
     # Either order
     vals = [(c['active'], c['public'], c['short_channel_id']) for c in l2.rpc.listchannels()['channels']]
     assert vals == [(True, True, l1l2)] * 2 + [(True, False, l2l3)] * 2 or vals == [(True, False, l2l3)] * 2 + [(True, True, l1l2)] * 2
+
+
+def test_private_channel_receive(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10_000_000)
+    # setup 2 nodes with 1 private and 1 public channel
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid_pub, _ = l1.fundchannel(l2, 1_000_000)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
+    scid_priv, _ = l1.fundchannel(
+        l2, 1_000_000, announce_channel=False, push_msat=500_000_000)
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    l1.wait_channel_active(scid_pub)
+    l1.wait_local_channel_active(scid_priv)
+    invoice = l1.rpc.invoice(10_000, "test_private_channel_receive", "test")
+    # craft route with a private channel where source peer
+    # is not the same as sendpay caller
+    routestep1 = {
+        'amount_msat': 11_000,
+        'id': l2.info['id'],
+        'delay': 12,
+        'channel': scid_pub
+    }
+    routestep2 = {
+        'amount_msat': 10_000,
+        'id': l1.info['id'],
+        'delay': 6,
+        'channel': scid_priv
+    }
+    l1.rpc.sendpay([routestep1, routestep2], invoice["payment_hash"],
+                   payment_secret=invoice["payment_secret"])
+    # FAIL: l2 pretends to not know private channel
+    l1.rpc.waitsendpay(invoice["payment_hash"])
+    # this will be in log when waitsendpay fails with WIRE_UNKNOWN_NEXT_PEER
+    assert not l2.daemon.is_in_log(
+        r'No peer channel with scid={}'.format(scid_priv))
+    invoices = l1.rpc.listinvoices("test_private_channel_receive")["invoices"]
+    assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
+
+
+def test_public_channel_receive(node_factory, bitcoind):
+    # same as test_private_channel_receive but with 2 public channels
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10_000_000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid_pub, _ = l1.fundchannel(l2, 1_000_000)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
+    scid_pub_2, _ = l1.fundchannel(l2, 1_000_000, push_msat=500_000_000)
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    l1.wait_channel_active(scid_pub)
+    l1.wait_local_channel_active(scid_pub_2)
+    invoice = l1.rpc.invoice(10_000, "test_public_channel_receive", "test")
+    routestep1 = {
+        'amount_msat': 11_000,
+        'id': l2.info['id'],
+        'delay': 12,
+        'channel': scid_pub
+    }
+    routestep2 = {
+        'amount_msat': 10_000,
+        'id': l1.info['id'],
+        'delay': 6,
+        'channel': scid_pub_2
+    }
+    l1.rpc.sendpay([routestep1, routestep2], invoice["payment_hash"],
+                   payment_secret=invoice["payment_secret"])
+    l1.rpc.waitsendpay(invoice["payment_hash"])
+    assert not l2.daemon.is_in_log(
+        r'No peer channel with scid={}'.format(scid_pub_2))
+    invoices = l1.rpc.listinvoices("test_public_channel_receive")["invoices"]
+    assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
