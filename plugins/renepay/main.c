@@ -31,20 +31,6 @@
 
 #define INVALID_ID UINT64_MAX
 
-static struct command_result *
-payment_listsendpays_fail(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *result,
-		struct payment * payment);
-
-struct command_result *
-payment_listsendpays_previous(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *result,
-		struct payment * payment);
-
 struct pay_plugin *pay_plugin;
 
 static void memleak_mark(struct plugin *p, struct htable *memtable)
@@ -384,248 +370,48 @@ void payment_retry(struct payment *p)
 	// TODO
 }
 
-static struct command_result * renepay_start(struct payment *p)
+static struct command_result * payment_start(struct payment *p)
 {
 	p->status = PAYMENT_PENDING;
-
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
+	struct command *cmd = payment_command(p);
+	assert(p);
 
-	bool gossmap_changed = gossmap_refresh(pay_plugin->gossmap, NULL);
+	// TODO: can we make a list of payment modifiers instead?
+	/* We have a stack of payment modifiers, they will be executed in
+	 * last-in-first-out order. */
+	payment_clear_modifiers(p);
+	payment_push_modifier(p, &wait_or_retry_pay_mod);
+	payment_push_modifier(p, &send_routes_pay_mod);
+	payment_push_modifier(p, &compute_routes_pay_mod);
+	// add shadow route
+	payment_push_modifier(p, &routehints_pay_mod);
+	payment_push_modifier(p, &getmychannels_pay_mod);
+	payment_push_modifier(p, &refreshgossmap_pay_mod);
+	// add knowledge decay
+	payment_push_modifier(p, &selfpay_pay_mod);
+	// add check pre-approved invoice
+	payment_push_modifier(p, &previous_sendpays_pay_mod);
+	payment_push_modifier(p, &initial_sanity_checks_pay_mod);
+	payment_continue(p);
 
-	if (pay_plugin->gossmap == NULL)
-		plugin_err(pay_plugin->plugin, "Failed to refresh gossmap: %s",
-			   strerror(errno));
+	return command_still_pending(cmd);
 
-	/* To construct the uncertainty network we need to perform the following
-	 * steps:
-	 * 1. check that there is a 1-to-1 map between channels in gossmap
-	 * and the uncertainty network. We call `uncertainty_network_update`
-	 *
-	 * 2. add my local channels that could be private.
-	 * We call `update_uncertainty_network_from_listpeerchannels`.
-	 *
-	 * 3. add hidden/private channels listed in the routehints.
-	 * We call `uncertainty_network_add_routehints`.
-	 *
-	 * 4. check the uncertainty network invariants.
-	 * */
-	if (gossmap_changed)
-		uncertainty_network_update(pay_plugin->gossmap,
-					   pay_plugin->chan_extra_map);
+	// /* FIXME: We use a linear function to decide how to decay the
+	//  * channel information. Other shapes could be used.
+	//  * Also the choice of the proportional parameter TIMER_FORGET_SEC is
+	//  * arbitrary.
+	//  * Another idea is to measure time in blockheight. */
+	// const u64 now_sec = time_now().ts.tv_sec;
+	// const double fraction =
+	//     (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
+	// uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
+	// 				   fraction);
+	// pay_plugin->last_time = now_sec;
 
-	/* FIXME: We use a linear function to decide how to decay the
-	 * channel information. Other shapes could be used.
-	 * Also the choice of the proportional parameter TIMER_FORGET_SEC is
-	 * arbitrary.
-	 * Another idea is to measure time in blockheight. */
-	const u64 now_sec = time_now().ts.tv_sec;
-	const double fraction =
-	    (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
-	uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
-					   fraction);
-	pay_plugin->last_time = now_sec;
-
-	if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
-		plugin_err(pay_plugin->plugin,
-			   "uncertainty network invariants are violated");
-
-	/* Next, request listsendpays for previous payments that use the same
-	 * hash. */
-	struct command *cmd = p->cmd_array[0];
-	// FIXME does payment_listsendpays_fail actually works? Try that
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", payment_listsendpays_previous,
-	    payment_listsendpays_fail, p);
-
-	json_add_sha256(req->js, "payment_hash", &p->payment_hash);
-	return send_outreq(cmd->plugin, req);
-}
-
-
-static struct command_result *payment_listsendpays_fail(struct command *cmd,
-							const char *buf,
-							const jsmntok_t *err,
-							struct payment *payment)
-{
-	plugin_log(pay_plugin->plugin, LOG_DBG, "Failed listsendpays RPC: %.*s",
-		   json_tok_full_len(err), json_tok_full(buf, err));
-	return renepay_fail(payment);
-}
-
-/* Taken from ./plugins/pay.c
- *
- * We are interested in any prior attempts to pay this payment_hash /
- * invoice so we can set the `groupid` correctly and ensure we don't
- * already have a pending payment running. We also collect the summary
- * about an eventual previous complete payment so we can return that
- * as a no-op. */
-struct command_result *
-payment_listsendpays_previous(
-		struct command *cmd,
-		const char *buf,
-		const jsmntok_t *result,
-		struct payment * payment)
-{
-	size_t i;
-	const jsmntok_t *t, *arr;
-
-	/* Group ID of the pending payment, this will be the one
-	 * who's result gets replayed if we end up suspending. */
-	u64 pending_group_id = INVALID_ID;
-	u64 max_pending_partid=0;
-	u64 max_group_id = 0;
-	struct amount_msat pending_sent = AMOUNT_MSAT(0),
-			   pending_msat = AMOUNT_MSAT(0);
-
-	/* Metadata for a complete payment, if one exists. */
-	u32 complete_parts = 0;
-	struct preimage complete_preimage;
-	struct amount_msat complete_sent = AMOUNT_MSAT(0),
-			   complete_msat = AMOUNT_MSAT(0);
-	u32 complete_created_at;
-
-	arr = json_get_member(buf, result, "payments");
-	if (!arr || arr->type != JSMN_ARRAY)
-		return command_fail(
-		    cmd, LIGHTNINGD,
-		    "Unexpected non-array result from listsendpays: %.*s",
-		    json_tok_full_len(result),
-		    json_tok_full(buf, result));
-
-	json_for_each_arr(i, t, arr)
-	{
-		u64 partid = 0, groupid;
-		struct amount_msat this_msat, this_sent;
-		const char *status;
-
-		// TODO: we assume amount_msat is always present, but according
-		// to the documentation this field is optional. How do I
-		// interpret if amount_msat is missing?
-		const char *err =
-		json_scan(tmpctx,buf,t,
-			  "{status:%"
-			  ",partid?:%"
-			  ",groupid:%"
-			  ",amount_msat:%"
-			  ",amount_sent_msat:%}",
-			  JSON_SCAN_TAL(tmpctx, json_strdup, &status),
-			  JSON_SCAN(json_to_u64,&partid),
-			  JSON_SCAN(json_to_u64,&groupid),
-			  JSON_SCAN(json_to_msat,&this_msat),
-			  JSON_SCAN(json_to_msat,&this_sent));
-
-		if(err)
-			plugin_err(pay_plugin->plugin,
-				   "%s json_scan of listsendpay returns the following error: %s",
-				   __PRETTY_FUNCTION__,
-				   err);
-
-		/* If we decide to create a new group, we base it on max_group_id */
-		if (groupid > max_group_id)
-			max_group_id = groupid;
-
-		/* status could be completed, pending or failed */
-		if (streq(status, "complete")) {
-			/* Now we know the payment completed. */
-			if(!amount_msat_add(&complete_msat,complete_msat,this_msat))
-				plugin_err(pay_plugin->plugin,"%s (line %d) msat overflow.",
-					__PRETTY_FUNCTION__,__LINE__);
-			if(!amount_msat_add(&complete_sent,complete_sent,this_sent))
-				plugin_err(pay_plugin->plugin,"%s (line %d) msat overflow.",
-					__PRETTY_FUNCTION__,__LINE__);
-			json_scan(tmpctx, buf, t,
-				  "{created_at:%"
-				  ",payment_preimage:%}",
-				  JSON_SCAN(json_to_u32, &complete_created_at),
-				  JSON_SCAN(json_to_preimage, &complete_preimage));
-			complete_parts++;
-
-			plugin_log(pay_plugin->plugin,LOG_DBG,
-				   "this part is complete then "
-				   "complete_msat = %s",
-				   fmt_amount_msat(tmpctx, complete_msat));
-		} else if (streq(status, "pending")) {
-			/* If we have more than one pending group, something went wrong! */
-			if (pending_group_id != INVALID_ID
-			    && groupid != pending_group_id)
-				return command_fail(cmd, PAY_STATUS_UNEXPECTED,
-						    "Multiple pending groups for this payment?");
-			pending_group_id = groupid;
-			if (partid > max_pending_partid)
-				max_pending_partid = partid;
-
-			if (!amount_msat_add(&pending_msat, pending_msat,
-					     this_msat) ||
-			    !amount_msat_add(&pending_sent, pending_sent,
-					     this_sent))
-				plugin_err(pay_plugin->plugin,
-					   "%s (line %d) msat overflow.",
-					   __PRETTY_FUNCTION__, __LINE__);
-
-		} else
-			assert(streq(status, "failed"));
-	}
-
-	if (complete_parts != 0) {
-		/* There are completed sendpays, we don't need to do anything
-		 * but summarize the result. */
-		struct json_stream *ret = jsonrpc_stream_success(cmd);
-		json_add_preimage(ret, "payment_preimage", &complete_preimage);
-		json_add_string(ret, "status", "complete");
-		json_add_amount_msat(ret, "amount_msat", complete_msat);
-		json_add_amount_msat(ret, "amount_sent_msat",complete_sent);
-		json_add_node_id(ret, "destination", &payment->destination);
-		json_add_sha256(ret, "payment_hash", &payment->payment_hash);
-		json_add_u32(ret, "created_at", complete_created_at);
-		json_add_num(ret, "parts", complete_parts);
-
-		/* This payment was already completed, we don't keep record of
-		 * it twice: payment will be freed with cmd */
-		return command_finished(cmd, ret);
-	} else if (pending_group_id != INVALID_ID) {
-		/* Continue where we left off? */
-		payment->groupid = pending_group_id;
-		payment->next_partid = max_pending_partid+1;
-
-		payment->total_sent = pending_sent;
-		payment->total_delivering = pending_msat;
-
-		plugin_log(pay_plugin->plugin,LOG_DBG,
-			   "There are pending sendpays to this invoice. "
-			   "groupid = %"PRIu64" "
-			   "delivering = %s, "
-			   "last_partid = %"PRIu64,
-			   pending_group_id,
-			   fmt_amount_msat(tmpctx, payment->total_delivering),
-			   max_pending_partid);
-
-		if(amount_msat_greater_eq(payment->total_delivering,payment->amount))
-		{
-			/* Pending payment already pays the full amount, we
-			 * better stop. */
-			return command_fail(cmd, PAY_IN_PROGRESS,
-					    "Payment is pending with full amount already commited");
-		}
-	}else
-	{
-		/* There are no pending nor completed sendpays, get me the last
-		 * sendpay group. */
-		/* FIXME: use groupid 0 to have sendpay assign an unused groupid,
-		 * as this is theoretically racy against other plugins paying the
-		 * same thing!
-		 * *BUT* that means we have to create one flow first, so we
-		 * can match the others. */
-		payment->groupid = max_group_id + 1;
-		payment->next_partid=1;
-	}
-
-	// TODO this workflow is now deprecated
-	struct out_req *req;
-	/* Get local capacities... */
-	// req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
-	// 			    listpeerchannels_done,
-	// 			    listpeerchannels_done, payment);
-	return send_outreq(cmd->plugin, req);
+	// if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
+	// 	plugin_err(pay_plugin->plugin,
+	// 		   "uncertainty network invariants are violated");
 }
 
 static struct command_result *json_pay(struct command *cmd, const char *buf,
@@ -796,7 +582,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 		tal_add_destructor(payment, destroy_payment);
 
-		return renepay_start(payment);
+		return payment_start(payment);
 	}
 
 	/* === Start or continue payment === */
@@ -840,7 +626,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			    cmd, PLUGIN_ERROR,
 			    "failed to update the payment parameters");
 
-		return renepay_start(payment);
+		return payment_start(payment);
 	}
 
 	// else: this payment is pending we continue its execution
@@ -974,32 +760,6 @@ static void handle_sendpay_failure_flow(struct pay_flow *pf,
 						    pay_plugin->chan_extra_map,
 						    &pf->path_scidds[erridx]));
 	}
-}
-
-struct pay_flow *pay_flow_from_notification(const char *buf,
-					    const jsmntok_t *obj);
-/* See if this notification is about one of our flows. */
-struct pay_flow *pay_flow_from_notification(const char *buf,
-					    const jsmntok_t *obj)
-{
-	struct payflow_key key;
-	const char *err;
-
-	/* Single part payment?  No partid */
-	key.partid = 0;
-	err = json_scan(tmpctx, buf, obj, "{partid?:%,groupid:%,payment_hash:%}",
-			JSON_SCAN(json_to_u64, &key.partid),
-			JSON_SCAN(json_to_u64, &key.groupid),
-			JSON_SCAN(json_to_sha256, &key.payment_hash));
-	if (err) {
-		plugin_err(pay_plugin->plugin,
-			   "Missing fields (%s) in notification: %.*s",
-			   err,
-			   json_tok_full_len(obj),
-			   json_tok_full(buf, obj));
-	}
-
-	return payflow_map_get(pay_plugin->payflow_map, &key);
 }
 
 struct pf_result *sendpay_failure(struct pay_flow *pf,
