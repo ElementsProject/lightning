@@ -1046,7 +1046,8 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
 		*num_channel_updates_rejected = 0;
 		map->cupdate_fail = cupdate_fail_inc_ctr;
 		map->cb_arg = num_channel_updates_rejected;
-	}
+	} else
+		map->cupdate_fail = NULL;
 	map->unknown_record = NULL;
 
 	if (!load_gossip_store(map))
