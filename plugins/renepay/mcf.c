@@ -1230,6 +1230,8 @@ struct list_data
 
 static inline uint64_t pseudorand_interval(uint64_t a, uint64_t b)
 {
+	if (a == b)
+		return b;
 	assert(b > a);
 	return a + pseudorand(b - a);
 }
