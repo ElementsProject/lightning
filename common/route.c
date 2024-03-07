@@ -33,33 +33,33 @@ bool route_can_carry(const struct gossmap *map,
 }
 
 /* Squeeze total costs into a u32 */
-static u32 costs_to_score(struct amount_msat cost,
+static u32 costs_to_score(struct amount_msat fee,
 			  struct amount_msat risk)
 {
-	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
+	u64 costs = fee.millisatoshis + risk.millisatoshis; /* Raw: score */
 	if (costs > 0xFFFFFFFF)
 		costs = 0xFFFFFFFF;
 	return costs;
 }
 
 /* Prioritize distance over costs */
-u64 route_score_shorter(u32 distance,
-			struct amount_msat cost,
+u64 route_score_shorter(struct amount_msat fee,
 			struct amount_msat risk,
+			struct amount_msat total UNUSED,
 			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED)
 {
-	return costs_to_score(cost, risk) + ((u64)distance << 32);
+	return costs_to_score(fee, risk) + ((u64)1 << 32);
 }
 
 /* Prioritize costs over distance */
-u64 route_score_cheaper(u32 distance,
-			struct amount_msat cost,
+u64 route_score_cheaper(struct amount_msat fee,
 			struct amount_msat risk,
+			struct amount_msat total UNUSED,
 			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED)
 {
-	return ((u64)costs_to_score(cost, risk) << 32) + distance;
+	return ((u64)costs_to_score(fee, risk) << 32) + 1;
 }
 
 /* Recursive version: return false if we can't get there.

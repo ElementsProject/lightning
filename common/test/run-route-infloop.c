@@ -47,10 +47,10 @@ void towire_tlv(u8 **pptr UNNEEDED,
 /* Node id 03942f5fe67645fdce4584e7f159c1f0a396b05fbc15f0fb7d6e83c553037b1c73 */
 static struct gossmap *gossmap;
 
-static u64 capacity_bias(const struct gossmap *map,
-			 const struct gossmap_chan *c,
-			 int dir,
-			 struct amount_msat amount)
+static double capacity_bias(const struct gossmap *map,
+			    const struct gossmap_chan *c,
+			    int dir,
+			    struct amount_msat amount)
 {
 	struct amount_sat capacity;
 	u64 amtmsat = amount.millisatoshis; /* Raw: lengthy math */
@@ -64,22 +64,41 @@ static u64 capacity_bias(const struct gossmap *map,
 	return -log((capmsat + 1 - amtmsat) / (capmsat + 1));
 }
 
-static u64 route_score(u32 distance,
-		       struct amount_msat cost,
+/* Prioritize costs over distance, but bias to larger channels. */
+static u64 route_score(struct amount_msat fee,
 		       struct amount_msat risk,
+		       struct amount_msat total,
 		       int dir,
 		       const struct gossmap_chan *c)
 {
-	u64 cmsat = cost.millisatoshis; /* Raw: lengthy math */
-	u64 rmsat = risk.millisatoshis; /* Raw: lengthy math */
-	u64 bias = capacity_bias(gossmap, c, dir, cost);
+	double score;
+	struct amount_msat msat;
 
-	/* Smoothed harmonic mean to avoid division by 0 */
-	u64 costs = (cmsat * rmsat * bias) / (cmsat + rmsat + bias + 1);
+	/* These two are comparable, so simply sum them. */
+	if (!amount_msat_add(&msat, fee, risk))
+		msat = AMOUNT_MSAT(-1ULL);
 
-	if (costs > 0xFFFFFFFF)
-		costs = 0xFFFFFFFF;
-	return costs;
+	/* Slight tiebreaker bias: 1 msat per distance */
+	if (!amount_msat_add(&msat, msat, AMOUNT_MSAT(1)))
+		msat = AMOUNT_MSAT(-1ULL);
+
+	/* Percent penalty at different channel capacities:
+	 * 1%: 1%
+	 * 10%: 11%
+	 * 25%: 29%
+	 * 50%: 69%
+	 * 75%: 138%
+	 * 90%: 230%
+	 * 95%: 300%
+	 * 99%: 461%
+	 */
+	score = (capacity_bias(gossmap, c, dir, total) + 1)
+		* msat.millisatoshis; /* Raw: Weird math */
+	if (score > 0xFFFFFFFF)
+		return 0xFFFFFFFF;
+
+	/* Cast unnecessary, but be explicit! */
+	return (u64)score;
 }
 
 int main(int argc, char *argv[])
@@ -92,9 +111,9 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	/* 8388607 crashes, use half that so we don't break CI! */
+	/* This used to crash! */
 	if (!argv[1])
-		amt = 8388607 / 2;
+		amt = 8388607;
 	else
 		amt = atol(argv[1]);
 	gossmap = gossmap_load(tmpctx, "tests/data/routing_gossip_store", NULL);
