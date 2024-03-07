@@ -765,21 +765,21 @@ static double capacity_bias(const struct gossmap *map,
 }
 
 /* Prioritize costs over distance, but bias to larger channels. */
-static u64 route_score(u32 distance,
-		       struct amount_msat cost,
+static u64 route_score(struct amount_msat fee,
 		       struct amount_msat risk,
+		       struct amount_msat total,
 		       int dir,
 		       const struct gossmap_chan *c)
 {
-	double costs;
+	double score;
 	struct amount_msat msat;
 
 	/* These two are comparable, so simply sum them. */
-	if (!amount_msat_add(&msat, cost, risk))
+	if (!amount_msat_add(&msat, fee, risk))
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Slight tiebreaker bias: 1 msat per distance */
-	if (!amount_msat_add(&msat, msat, amount_msat(distance)))
+	if (!amount_msat_add(&msat, msat, AMOUNT_MSAT(1)))
 		msat = AMOUNT_MSAT(-1ULL);
 
 	/* Percent penalty at different channel capacities:
@@ -792,11 +792,13 @@ static u64 route_score(u32 distance,
 	 * 95%: 300%
 	 * 99%: 461%
 	 */
-	costs = (capacity_bias(global_gossmap, c, dir, cost) + 1)
+	score = (capacity_bias(global_gossmap, c, dir, total) + 1)
 		* msat.millisatoshis; /* Raw: Weird math */
-	if (costs > 0xFFFFFFFF)
+	if (score > 0xFFFFFFFF)
 		return 0xFFFFFFFF;
-	return (u64)costs;
+
+	/* Cast unnecessary, but be explicit! */
+	return (u64)score;
 }
 
 static struct route_hop *route(const tal_t *ctx,

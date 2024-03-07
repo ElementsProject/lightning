@@ -43,16 +43,16 @@ bool route_can_carry_even_disabled(const struct gossmap *map,
 				   void *unused);
 
 /* Shortest path, with lower amount tiebreak */
-u64 route_score_shorter(u32 distance,
-			struct amount_msat cost,
+u64 route_score_shorter(struct amount_msat fee,
 			struct amount_msat risk,
+			struct amount_msat total,
 			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED);
 
 /* Cheapest path, with shorter path tiebreak */
-u64 route_score_cheaper(u32 distance,
-			struct amount_msat cost,
+u64 route_score_cheaper(struct amount_msat fee,
 			struct amount_msat risk,
+			struct amount_msat total,
 			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED);
 
