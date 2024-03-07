@@ -23,8 +23,8 @@ struct payment {
 	/* Overall, how are we going? */
 	enum payment_status status;
 
-	/* The flows we are managing. */
-	struct list_head flows;
+	/* A place to put the payment routes before calling sendpay. */
+	struct route **routes;
 
 	/* Deadline for flow status collection. */
 	struct timemono *progress_deadline;

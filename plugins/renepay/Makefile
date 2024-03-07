@@ -1,6 +1,5 @@
 PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/main.c			\
-	plugins/renepay/pay_flow.c		\
 	plugins/renepay/flow.c			\
 	plugins/renepay/mcf.c			\
 	plugins/renepay/dijkstra.c		\
@@ -17,7 +16,6 @@ PLUGIN_RENEPAY_SRC :=				\
 
 PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/payplugin.h		\
-	plugins/renepay/pay_flow.h		\
 	plugins/renepay/flow.h			\
 	plugins/renepay/mcf.h			\
 	plugins/renepay/dijkstra.h		\

@@ -58,7 +58,9 @@ struct payment *payment_new(const tal_t *ctx,
 	p->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
 	p->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
 	p->status=PAYMENT_PENDING;
-	list_head_init(&p->flows);
+
+	p->routes = NULL;
+
 	p->final_cltv=final_cltv;
 	// p->list=
 	p->description = tal_strdup_or_null(p, description);

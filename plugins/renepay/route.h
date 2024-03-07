@@ -132,4 +132,19 @@ hop_to_scidd(const struct route_hop *hop)
 
 const char *route_to_str(const tal_t *ctx, const struct route *route);
 
+static inline struct amount_msat route_delivers(const struct route *route)
+{
+	assert(route);
+	assert(route->hops);
+	assert(tal_count(route->hops)>0);
+	return route->hops[tal_count(route->hops) - 1].amount;
+}
+static inline struct amount_msat route_sends(const struct route *route)
+{
+	assert(route);
+	assert(route->hops);
+	assert(tal_count(route->hops)>0);
+	return route->hops[0].amount;
+}
+
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTE_H */

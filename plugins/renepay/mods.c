@@ -23,6 +23,47 @@ void payment_continue(struct payment *payment)
 	}
 }
 
+static void route_remove(struct route *route)
+{
+	remove_htlc_route(pay_plugin->unetwork, route);
+	route_map_del(pay_plugin->route_map, route);
+}
+
+static void route_failed(struct route *route)
+{
+	assert(route);
+	assert(route->payment);
+	struct payment *payment = route->payment;
+	if (!amount_msat_sub(&payment->total_delivering,
+			     payment->total_delivering,
+			     route_delivers(route)) ||
+	    !amount_msat_sub(&payment->total_sent, payment->total_sent,
+			     route_sends(route))) {
+		plugin_err(pay_plugin, "%s: amount_msat substraction failed",
+			   __PRETTY_FUNCTION__);
+	}
+	route_remove(route);
+	// TODO: free? maybe not yet
+}
+
+static void route_pending(struct route *route)
+{
+	assert(route);
+	assert(route->payment);
+	struct payment *payment = route->payment;
+	if (!amount_msat_sub(&payment->total_delivering,
+			     payment->total_delivering,
+			     route_delivers(route)) ||
+	    !amount_msat_sub(&payment->total_sent, payment->total_sent,
+			     route_sends(route))) {
+		plugin_err(pay_plugin, "%s: amount_msat substraction failed",
+			   __PRETTY_FUNCTION__);
+	}
+	commit_htlc_route(pay_plugin->unetwork, route);
+	route_map_add(pay_plugin->route_map, route);
+	// TODO: change ownership to pay_plugin? maybe not
+}
+
 /* Generic handler for RPC failures that should end up failing the payment. */
 static struct command_result *payment_rpc_failure(struct command *cmd,
 						  const char *buffer,
@@ -528,11 +569,6 @@ static bool disable_htlc_violations(struct payment *payment,
 	return disabled_some;
 }
 
-static void attach_routes(struct payment *payment, struct route **routes)
-{
-	// TODO: implement
-}
-
 /* Routes are computed and saved in the payment for later use. */
 static const char *get_routes(struct payment *payment,
 			      struct amount_msat amount_to_deliver,
@@ -707,6 +743,8 @@ static const char *get_routes(struct payment *payment,
 		    payment, payment, groupid, partid, payment->payment_hash,
 		    payment->final_cltv, pay_plugin->gossmap, flows);
 
+		payment_append_routes(routes);
+
 		payment->next_partid += tal_count(routes);
 
 		attach_routes(payment, routes);
@@ -818,9 +856,9 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
  * calling sendpay.
  */
 
-static struct command_result *flow_sent(struct command *cmd, const char *buf,
-					const jsmntok_t *result,
-					struct pay_flow *pf)
+static struct command_result *sendpay_done(struct command *cmd, const char *buf,
+					   const jsmntok_t *result,
+					   struct route *route)
 {
 	// TODO: put here the user interface messages
 	return command_still_pending(cmd);
@@ -830,13 +868,13 @@ static struct command_result *flow_sent(struct command *cmd, const char *buf,
  * 1. We screwed up and misused the API.
  * 2. The first peer is disconnected.
  */
-static struct command_result *flow_sendpay_failed(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *err,
-						  struct pay_flow *pf)
+static struct command_result *sendpay_failed(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *err,
+					     struct route *route)
 {
 	// TODO check how pay.c handles this
-	struct payment *payment = pf->payment;
+	struct payment *payment = route->payment;
 	enum jsonrpc_errcode errcode;
 	const char *msg;
 
@@ -861,7 +899,7 @@ static struct command_result *flow_sendpay_failed(struct command *cmd,
 			     "sendpay didn't like first hop: %s", msg);
 
 	// TODO: review this
-	pay_flow_failed(pf);
+	route_failed(route);
 	return command_still_pending(cmd);
 }
 
@@ -870,31 +908,27 @@ static void send_routes_cb(struct payment *payment)
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 
-	// TODO: use struct route instead of struct pay_flow
-	struct pay_flow *pf;
-
-	/* Kick off all pay_flows which are in state PAY_FLOW_NOT_STARTED */
-	list_for_each(&payment->flows, pf, list)
-	{
-
-		if (pf->state != PAY_FLOW_NOT_STARTED)
-			continue;
+	for(size_t i=0;i<tal_count(payment->routes);i++){
+		struct route * route = payment->routes[i];
 
 		struct out_req *req =
 		    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
-					  flow_sent, flow_sendpay_failed, pf);
+					  sendpay_done, sendpay_failed, route);
 
 		json_array_start(req->js, "route");
-		for (size_t j = 0; j < tal_count(pf->path_nodes); j++) {
+		const size_t pathlen = tal_count(route->hops);
+
+		for (size_t j = 0; j < pathlen; j++) {
+			const route_hop *hop = &route->hops[j];
+
 			json_object_start(req->js, NULL);
-			json_add_node_id(req->js, "id", &pf->path_nodes[j]);
+			json_add_node_id(req->js, "id", &hop->node_id);
 			json_add_short_channel_id(req->js, "channel",
-						  &pf->path_scidds[j].scid);
+						  &hop->scid);
 			json_add_amount_msat(req->js, "amount_msat",
-					     pf->amounts[j]);
-			json_add_num(req->js, "direction",
-				     pf->path_scidds[j].dir);
-			json_add_u32(req->js, "delay", pf->cltv_delays[j]);
+					     hop->amount);
+			json_add_num(req->js, "direction", hop->direction);
+			json_add_u32(req->js, "delay", hop->delay);
 			json_add_string(req->js, "style", "tlv");
 			json_object_end(req->js);
 		}
@@ -913,35 +947,38 @@ static void send_routes_cb(struct payment *payment)
 		 *
 		 * The spec was loosened so you are actually allowed
 		 * to overpay, so this check is now overzealous. */
-		if (amount_msat_greater(payflow_delivered(pf),
+		if (amount_msat_greater(route_delivers(route),
 					payment->amount)) {
 			json_add_amount_msat(req->js, "amount_msat",
-					     payflow_delivered(pf));
+					     route_delivers(route));
 		} else {
 			json_add_amount_msat(req->js, "amount_msat",
 					     payment->amount);
 		}
 
-		json_add_u64(req->js, "partid", pf->key.partid);
+		json_add_u64(req->js, "partid", route->key.partid);
 
-		json_add_u64(req->js, "groupid", payment->groupid);
+		json_add_u64(req->js, "groupid", route->key.groupid);
+
+		/* FIXME: some of these fields might not be required for all
+		 * payment parts. */
+		json_add_string(req->js, "bolt11", payment->invstr);
+
 		if (payment->payment_metadata)
 			json_add_hex_talarr(req->js, "payment_metadata",
 					    payment->payment_metadata);
-
-		/* FIXME: We don't need these three for all payments! */
 		if (payment->label)
 			json_add_string(req->js, "label", payment->label);
-		json_add_string(req->js, "bolt11", payment->invstr);
 		if (payment->description)
 			json_add_string(req->js, "description",
 					payment->description);
 
 		send_outreq(pay_plugin->plugin, req);
 
-		/* Now you're started! */
-		pf->state = PAY_FLOW_IN_PROGRESS;
+		route_pending(route);
 	}
+
+	payment->routes = tal_free(payment->routes);
 
 	/* Safety check. */
 	payment_assert_delivering_all(payment);
