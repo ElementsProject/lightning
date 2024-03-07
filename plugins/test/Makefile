@@ -22,6 +22,13 @@ plugins/test/run-route-overlong:		\
 	common/node_id.o			\
 	common/route.o
 
+plugins/test/run-route-calc:			\
+	common/fp16.o				\
+	common/gossmap.o			\
+	common/node_id.o			\
+	common/route.o				\
+	gossipd/gossip_store_wiregen.o
+
 $(PLUGIN_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WIRE_OBJS) $(PLUGIN_TEST_COMMON_OBJS)
 
 $(PLUGIN_TEST_OBJS): $(PLUGIN_FUNDER_HEADER) $(PLUGIN_FUNDER_SRC)

@@ -1,5 +1,7 @@
 /* Without this, gheap is *really* slow!  Comment out for debugging. */
+#ifndef TESTING
 #define NDEBUG
+#endif
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/dijkstra.h>
