@@ -469,7 +469,8 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 	node_id_from_pubkey(&local_nodeid, &local_id);
 	node_id_from_pubkey(&dstid, node_id);
 
-	mods = gossmods_from_listpeerchannels(tmpctx, &local_nodeid, buf, listpeerchannels,
+	mods = gossmods_from_listpeerchannels(tmpctx, &local_nodeid,
+					      buf, listpeerchannels, false,
 					      gossmod_add_localchan, NULL);
 
 	gossmap = get_gossmap(plugin);

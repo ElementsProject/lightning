@@ -161,7 +161,7 @@ listpeerchannels_getroute_done(struct command *cmd,
 
 	/* Get local knowledge */
 	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
-					      buf, result,
+					      buf, result, true,
 					      gossmod_add_localchan, NULL);
 
 	/* Overlay local knowledge for dijkstra */
@@ -397,7 +397,7 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 	if (command_deprecated_in_ok(cmd, "include_private", "v24.02", "v24.08")) {
 		connected = local_connected(opts, buf, result);
 		mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
-						      buf, result,
+						      buf, result, false,
 						      gossmod_add_unknown_localchan,
 						      gossmap);
 		gossmap_apply_localmods(gossmap, mods);
@@ -617,7 +617,7 @@ listpeerchannels_listincoming_done(struct command *cmd,
 
 	/* Get local knowledge */
 	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
-					      buffer, result,
+					      buffer, result, false,
 					      gossmod_add_localchan,
 					      NULL);
 

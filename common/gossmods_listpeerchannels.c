@@ -35,6 +35,7 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 				const struct node_id *self,
 				const char *buf,
 				const jsmntok_t *toks,
+				bool zero_rates,
 				void (*cb)(struct gossmap_localmods *mods,
 					   const struct node_id *self,
 					   const struct node_id *peer,
@@ -132,6 +133,16 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		/* Cut htlc max to spendable. */
 		if (amount_msat_less(spendable, htlc_max[LOCAL]))
 			htlc_max[LOCAL] = spendable;
+
+		/* We route better if we know we won't charge
+		 * ourselves fees (though if fees are a signal on what
+		 * channel we prefer to use, this ignores that
+		 * signal!) */
+		if (zero_rates) {
+			fee_base[LOCAL] = AMOUNT_MSAT(0);
+			fee_proportional[LOCAL] = 0;
+			cltv_delta[LOCAL] = 0;
+		}
 
 		/* We add both directions */
 		cb(mods, self, &dst, &scidd, htlc_min[LOCAL], htlc_max[LOCAL],
