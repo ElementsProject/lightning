@@ -932,6 +932,11 @@ static struct command_result *json_pay(struct command *cmd,
 		routes = cast_const2(const struct route_info **,
 				     b11->routes);
 	} else {
+		/* FIXME We have not yet added support for BOLT12 invoices,
+		 * refuse to pay. */
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "BOLT12 invoices are not yet supported.");
+
 		// TODO(eduardo): check this, compare with `pay`
 		const struct tlv_invoice *b12;
 		char *fail;
