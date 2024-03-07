@@ -747,10 +747,10 @@ static bool payment_route_can_carry_even_disabled(const struct gossmap *map,
  * \mu*fee(amt) which is the linearized version which for small amounts and
  * suitable value of \mu should be good enough)
  */
-static u64 capacity_bias(const struct gossmap *map,
-			 const struct gossmap_chan *c,
-			 int dir,
-			 struct amount_msat amount)
+static double capacity_bias(const struct gossmap *map,
+			    const struct gossmap_chan *c,
+			    int dir,
+			    struct amount_msat amount)
 {
 	struct amount_sat capacity;
 	u64 amtmsat = amount.millisatoshis; /* Raw: lengthy math */
@@ -773,14 +773,15 @@ static u64 route_score(u32 distance,
 {
 	u64 cmsat = cost.millisatoshis; /* Raw: lengthy math */
 	u64 rmsat = risk.millisatoshis; /* Raw: lengthy math */
-	u64 bias = capacity_bias(global_gossmap, c, dir, cost);
+	/* We multiply this, so 1 is neutral, higher is a penalty. */
+	double bias = capacity_bias(global_gossmap, c, dir, cost) + 1;
 
 	/* Smoothed harmonic mean to avoid division by 0 */
-	u64 costs = (cmsat * rmsat * bias) / (cmsat + rmsat + bias + 1);
+	double costs = (cmsat * rmsat * bias) / (cmsat + rmsat + bias + 1);
 
 	if (costs > 0xFFFFFFFF)
-		costs = 0xFFFFFFFF;
-	return costs;
+		return 0xFFFFFFFF;
+	return (u64)costs;
 }
 
 static struct route_hop *route(const tal_t *ctx,
