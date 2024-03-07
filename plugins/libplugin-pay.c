@@ -771,14 +771,29 @@ static u64 route_score(u32 distance,
 		       int dir,
 		       const struct gossmap_chan *c)
 {
-	u64 cmsat = cost.millisatoshis; /* Raw: lengthy math */
-	u64 rmsat = risk.millisatoshis; /* Raw: lengthy math */
-	/* We multiply this, so 1 is neutral, higher is a penalty. */
-	double bias = capacity_bias(global_gossmap, c, dir, cost) + 1;
+	double costs;
+	struct amount_msat msat;
 
-	/* Smoothed harmonic mean to avoid division by 0 */
-	double costs = (cmsat * rmsat * bias) / (cmsat + rmsat + bias + 1);
+	/* These two are comparable, so simply sum them. */
+	if (!amount_msat_add(&msat, cost, risk))
+		msat = AMOUNT_MSAT(-1ULL);
 
+	/* Slight tiebreaker bias: 1 msat per distance */
+	if (!amount_msat_add(&msat, msat, amount_msat(distance)))
+		msat = AMOUNT_MSAT(-1ULL);
+
+	/* Percent penalty at different channel capacities:
+	 * 1%: 1%
+	 * 10%: 11%
+	 * 25%: 29%
+	 * 50%: 69%
+	 * 75%: 138%
+	 * 90%: 230%
+	 * 95%: 300%
+	 * 99%: 461%
+	 */
+	costs = (capacity_bias(global_gossmap, c, dir, cost) + 1)
+		* msat.millisatoshis; /* Raw: Weird math */
 	if (costs > 0xFFFFFFFF)
 		return 0xFFFFFFFF;
 	return (u64)costs;
