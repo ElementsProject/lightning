@@ -38,7 +38,7 @@ common/test/run-json:					\
 	wire/peer_wiregen.o				\
 	wire/towire.o
 
-common/test/run-route common/test/run-route-specific:	\
+common/test/run-route common/test/run-route-specific common/test/run-route-infloop:	\
 	common/amount.o					\
 	common/dijkstra.o				\
 	common/fp16.o					\
