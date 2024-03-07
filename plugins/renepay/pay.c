@@ -490,7 +490,7 @@ static struct command_result *listpeerchannels_done(
 	enum jsonrpc_errcode ecode;
 
 	payment->local_gossmods = gossmods_from_listpeerchannels(payment, &pay_plugin->my_id,
-								 buf, result,
+								 buf, result, true,
 								 gossmod_cb, payment);
 
 	// TODO(eduardo): check that there won't be a prob. cost associated with

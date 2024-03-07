@@ -963,7 +963,7 @@ payment_listpeerchannels_success(struct command *cmd,
 				 struct payment *p)
 {
 	p->mods = gossmods_from_listpeerchannels(p, p->local_id,
-						 buffer, toks,
+						 buffer, toks, true,
 						 gossmod_add_localchan,
 						 NULL);
 	return payment_getroute(p);
@@ -3389,7 +3389,7 @@ static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 	/* We may still need local mods! */
 	if (!p->mods)
 		p->mods = gossmods_from_listpeerchannels(p, p->local_id,
-							 buffer, toks,
+							 buffer, toks, true,
 							 gossmod_add_localchan,
 							 NULL);
 

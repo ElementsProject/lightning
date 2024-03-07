@@ -13,6 +13,7 @@ struct node_id;
  * @ctx: context to allocate return from
  * @buf: the JSON buffer from listpeerchannels
  * @toks: the JSON tokens
+ * @zero_rates: set fees and cltv delay for these channels to 0 (better for routing)
  * @cb: optional per-channel callback.
  * @cbarg: arg for @cb.
  *
@@ -24,6 +25,7 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 							  const struct node_id *self,
 							  const char *buf,
 							  const jsmntok_t *toks,
+							  bool zero_rates,
 							  void (*cb)(struct gossmap_localmods *mods,
 								     const struct node_id *self_,
 								     const struct node_id *peer,
@@ -39,8 +41,8 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 								     void *cbarg_),
 							  void *cbarg);
 
-#define gossmods_from_listpeerchannels(ctx, self, buf, toks, cb, cbarg) \
-	gossmods_from_listpeerchannels_((ctx), (self), (buf), (toks), \
+#define gossmods_from_listpeerchannels(ctx, self, buf, toks, zero_rates, cb, cbarg) \
+	gossmods_from_listpeerchannels_((ctx), (self), (buf), (toks), (zero_rates), \
 					typesafe_cb_preargs(void, void *, (cb), (cbarg), \
 							    struct gossmap_localmods *, \
 							    const struct node_id *, \

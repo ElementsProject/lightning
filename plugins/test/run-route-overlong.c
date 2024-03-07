@@ -54,6 +54,7 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx UNNEE
 							  const struct node_id *self UNNEEDED,
 							  const char *buf UNNEEDED,
 							  const jsmntok_t *toks UNNEEDED,
+							  bool zero_rates UNNEEDED,
 							  void (*cb)(struct gossmap_localmods *mods UNNEEDED,
 								     const struct node_id *self_ UNNEEDED,
 								     const struct node_id *peer UNNEEDED,
