@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "cln-grpc-plugin"
-version = "0.1.4"
+version = "0.1.5"
 
 description = "A Core Lightning plugin that re-exposes the JSON-RPC over grpc. Authentication is done via mTLS."
 license = "MIT"
