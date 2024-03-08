@@ -9,11 +9,8 @@ jobs:
   release_rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: katyo/publish-crates@v2
         with:
           path: './cln-rpc'
