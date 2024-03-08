@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [24.02.1] - 2024-03-08: "uint needs signature"
+
+This release named by Erik de Smedt (@ErikDeSmedt).
+
+### Changed
+
+ - Plugins: `pay` route algorithm doesn't bias against our own "expensive" channels any more. ([#7127])
+ - pay: Prevent repeating the preapproveinvoice check ([#7121])
+
+### Fixed
+
+ - Plugins: `pay` would occasionally crash on routing. ([#7127])
+ - Plugins: `pay` route algorithm fixed and refined to balance fees and capacity far better. ([#7127])
+ - renepay: bugfix situation with htlcmax=htlcmin
+
+[#7121]: https://github.com/ElementsProject/lightning/pull/7121
+[#7127]: https://github.com/ElementsProject/lightning/pull/7127
+
+
 ## [24.02] - 2024-02-27: "uint needs signature"
 
 This release named by Erik de Smedt (@ErikDeSmedt).
