@@ -66,7 +66,7 @@ jobs:
         poetry build --no-interaction
 
     - name: Publish distribution 📦 to Test PyPI
-      if: github.repository == 'ElementsProject/lightning' && github.ref == "refs/heads/master"
+      if: github.repository == 'ElementsProject/lightning' && github.ref == 'refs/heads/master'
       env:
         POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
