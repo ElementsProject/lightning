@@ -1,6 +1,6 @@
 [package]
 name = "cln-rpc"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 license = "MIT"
 description = "An async RPC client for Core Lightning."
