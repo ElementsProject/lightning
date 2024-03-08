@@ -1,6 +1,7 @@
 ---
 name: "Release Rust 🦀"
 on:
+  workflow_dispatch:
   push:
     branches:
       - "master"
