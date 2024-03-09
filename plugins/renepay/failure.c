@@ -1,7 +1,6 @@
 #include "config.h"
 #include <common/jsonrpc_errors.h>
 #include <plugins/renepay/failure.h>
-#include <plugins/renepay/finish.h>
 #include <plugins/renepay/parse_json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>

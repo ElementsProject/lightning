@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_RENEPAY_ROUTE_H
 
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/preimage.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/tal/str/str.h>

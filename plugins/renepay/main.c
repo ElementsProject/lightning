@@ -15,7 +15,6 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <plugins/renepay/failure.h>
-#include <plugins/renepay/pay_flow.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/success.h>
 #include <plugins/renepay/uncertainty_network.h>

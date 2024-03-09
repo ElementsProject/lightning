@@ -3,7 +3,6 @@
 #include <common/amount.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
-#include <plugins/renepay/finish.h>
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
