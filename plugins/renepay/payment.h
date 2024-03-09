@@ -3,18 +3,8 @@
 #include "config.h"
 #include <common/gossmap.h>
 #include <plugins/libplugin.h>
-#include <plugins/renepay/pay_flow.h>
 
-/* FIXME: this shouldn't be here, the dependency tree is a little messed-up. */
-enum pay_flow_state;
-
-struct pay_flow;
-
-struct payment_modifier;
-
-enum payment_status {
-        PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL
-};
+enum payment_status { PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL };
 
 #define INVALID_STATE UINT64_MAX
 
@@ -24,9 +14,6 @@ struct payment {
 
 	/* Overall, how are we going? */
 	enum payment_status status;
-
-	/* A place to put the payment routes before calling sendpay. */
-	struct route **routes;
 
 	/* Deadline for flow status collection. */
 	struct timemono *progress_deadline;
@@ -56,7 +43,7 @@ struct payment {
 	const char *invstr;
 
 	/* Extracted routehints */
-	const struct route_info **routes;
+	const struct route_info **routehints;
 
 	/* How much, what, where */
 	struct amount_msat amount;
@@ -89,7 +76,6 @@ struct payment {
 	/* Description and labels, if any. */
 	const char *description, *label;
 
-
 	/* Penalty for CLTV delays */
 	double delay_feefactor;
 
@@ -121,22 +107,13 @@ struct payment {
 	enum jsonrpc_errcode error_code;
 	const char *error_msg;
 
-	// TODO make a list of modifiers?
-	const struct payment_modifier **modifiers;
-
-	/* TODO add a temporary "inbox" for sendpay notifications */
-
-	/* A place to put the payment routes before calling sendpay. */
-	struct route **tmp_routes;
+	struct route **routes_to_send;
+	struct route **routes_pending;
+	struct route **routes_completed;
 
 	/* Position in the payment virtual machine */
 	u64 exec_state;
 };
-
-void payment_clear_modifiers(struct payment *p);
-void payment_push_modifier(struct payment *p,
-			   const struct payment_modifier *mod);
-const struct payment_modifier *payment_modifier_pop(struct payment *p);
 
 static inline const struct sha256 payment_hash(const struct payment *p)
 {
@@ -145,7 +122,7 @@ static inline const struct sha256 payment_hash(const struct payment *p)
 
 static inline size_t payment_hash64(const struct sha256 h)
 {
-	return ((u64) h.u.u32[1] << 32) ^ h.u.u32[0];
+	return ((u64)h.u.u32[1] << 32) ^ h.u.u32[0];
 }
 
 static inline bool payment_hash_eq(const struct payment *p,
@@ -164,98 +141,59 @@ static inline bool payment_hash_eq(const struct payment *p,
 HTABLE_DEFINE_TYPE(struct payment, payment_hash, payment_hash64,
 		   payment_hash_eq, payment_map);
 
-struct payment *payment_new(const tal_t *ctx,
-			    const struct sha256 *payment_hash,
-			    const char *invstr TAKES,
-			    const char *label TAKES,
-			    const char *description TAKES,
-			    const struct secret *payment_secret TAKES,
-			    const u8 *payment_metadata TAKES,
-			    const struct route_info **routes TAKES,
-			    const struct node_id *destination,
-			    struct amount_msat amount,
-			    struct amount_msat maxfee,
-			    unsigned int maxdelay,
-			    u64 retryfor,
-			    u16 final_cltv,
-			    /* Tweakable in --developer mode */
-			    u64 base_fee_penalty,
-			    u64 prob_cost_factor,
-			    u64 riskfactor_millionths,
-			    u64 min_prob_success_millionths,
-			    bool use_shadow);
+struct payment *payment_new(
+    const tal_t *ctx, const struct sha256 *payment_hash,
+    const char *invstr TAKES, const char *label TAKES,
+    const char *description TAKES, const struct secret *payment_secret TAKES,
+    const u8 *payment_metadata TAKES, const struct route_info **routes TAKES,
+    const struct node_id *destination, struct amount_msat amount,
+    struct amount_msat maxfee, unsigned int maxdelay, u64 retryfor,
+    u16 final_cltv,
+    /* Tweakable in --developer mode */
+    u64 base_fee_penalty, u64 prob_cost_factor, u64 riskfactor_millionths,
+    u64 min_prob_success_millionths, bool use_shadow);
 
-bool payment_update(struct payment *p,
-		    const char *invstr TAKES,
-		    const char *label TAKES,
-		    const char *description TAKES,
+bool payment_update(struct payment *p, const char *invstr TAKES,
+		    const char *label TAKES, const char *description TAKES,
 		    const struct secret *payment_secret TAKES,
 		    const u8 *payment_metadata TAKES,
 		    const struct route_info **routes TAKES,
 		    const struct node_id *destination,
-		    struct amount_msat amount,
-		    struct amount_msat maxfee,
-		    unsigned int maxdelay,
-		    u64 retryfor,
-		    u16 final_cltv,
+		    struct amount_msat amount, struct amount_msat maxfee,
+		    unsigned int maxdelay, u64 retryfor, u16 final_cltv,
 		    /* Tweakable in --developer mode */
 		    u64 base_fee_penalty_millionths,
-		    u64 prob_cost_factor_millionths,
-		    u64 riskfactor_millionths,
-		    u64 min_prob_success_millionths,
-		    bool use_shadow);
+		    u64 prob_cost_factor_millionths, u64 riskfactor_millionths,
+		    u64 min_prob_success_millionths, bool use_shadow);
 
 struct amount_msat payment_sent(const struct payment *p);
 struct amount_msat payment_delivered(const struct payment *p);
 struct amount_msat payment_amount(const struct payment *p);
 struct amount_msat payment_fees(const struct payment *p);
 
-/* These log at LOG_DBG, append to notes, and send command notification */
-void payment_note(struct payment *p,
-		  enum log_level lvl,
-		  const char *fmt, ...);
-void payflow_note(struct pay_flow *pf,
-		  enum log_level lvl,
-		  const char *fmt, ...);
-void payment_assert_delivering_incomplete(const struct payment *p);
 void payment_assert_delivering_all(const struct payment *p);
-
-/* A flow has changed state, or we've hit a timeout: do something! */
-void payment_reconsider(struct payment *p);
 
 u64 payment_parts(const struct payment *payment);
 
-/* Disable this scid for this payment, and tell me why! */
-void payflow_disable_chan(struct pay_flow *pf,
-			  struct short_channel_id scid,
-			  enum log_level lvl,
-			  const char *fmt, ...);
-
-/* Sometimes, disabling chan is independent of a flow. */
-void payment_disable_chan(struct payment *p,
-			  struct short_channel_id scid,
-			  enum log_level lvl,
-			  const char *fmt, ...);
-
-/* Remove all flows with the given state. */
-void payment_remove_flows(struct payment *p, enum pay_flow_state state);
-
-struct command_result *payment_fail(
-	struct payment *payment,
-	enum jsonrpc_errcode code,
-	const char *fmt, ...);
-
-struct command_result *payment_success(struct payment *p);
+/* attach a command to this payment */
+bool payment_register_command(struct payment *p, struct command *cmd);
+/* are there pending commands on this payment? */
+bool payment_commands_empty(const struct payment *p);
+struct command *payment_command(struct payment *p);
 
 /* get me the result of this payment, not necessarily a completed payment */
 struct json_stream *payment_result(struct payment *p, struct command *cmd);
 
-/* are there pending commands on this payment? */
-bool payment_commands_empty(const struct payment *p);
+/* flag the payment as success and write the preimage as proof */
+void payment_success(struct payment *p, const struct preimage *preimage);
 
-/* attach a command to this payment */
-bool payment_register_command(struct payment *p, struct command *cmd);
+/* flag the payment as failed and write the reason */
+void payment_fail(struct payment *payment, enum jsonrpc_errcode code,
+		  const char *fmt, ...);
 
-struct command *payment_command(struct payment *p);
+/* These log at LOG_DBG, append to notes, and send command notification */
+void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...);
+
+struct command_result *payment_finish(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_PAYMENT_H */
