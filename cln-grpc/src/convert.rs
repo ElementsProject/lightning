@@ -357,6 +357,17 @@ impl From<responses::AddgossipResponse> for pb::AddgossipResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::AddpsbtoutputResponse> for pb::AddpsbtoutputResponse {
+    fn from(c: responses::AddpsbtoutputResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            estimated_added_weight: c.estimated_added_weight, // Rule #2 for type u32?
+            outnum: c.outnum, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AutocleaninvoiceResponse> for pb::AutocleaninvoiceResponse {
     fn from(c: responses::AutocleaninvoiceResponse) -> Self {
         Self {
@@ -1961,6 +1972,18 @@ impl From<requests::AddgossipRequest> for pb::AddgossipRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::AddpsbtoutputRequest> for pb::AddpsbtoutputRequest {
+    fn from(c: requests::AddpsbtoutputRequest) -> Self {
+        Self {
+            satoshi: c.satoshi.map(|f| f.into()), // Rule #2 for type msat?
+            locktime: c.locktime, // Rule #2 for type u32?
+            initialpsbt: c.initialpsbt, // Rule #2 for type string?
+            destination: c.destination, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::AutocleaninvoiceRequest> for pb::AutocleaninvoiceRequest {
     fn from(c: requests::AutocleaninvoiceRequest) -> Self {
         Self {
@@ -2751,6 +2774,18 @@ impl From<pb::AddgossipRequest> for requests::AddgossipRequest {
     fn from(c: pb::AddgossipRequest) -> Self {
         Self {
             message: hex::encode(&c.message), // Rule #1 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
+    fn from(c: pb::AddpsbtoutputRequest) -> Self {
+        Self {
+            satoshi: c.satoshi.map(|a| a.into()), // Rule #1 for type msat?
+            locktime: c.locktime, // Rule #1 for type u32?
+            initialpsbt: c.initialpsbt, // Rule #1 for type string?
+            destination: c.destination, // Rule #1 for type string?
         }
     }
 }

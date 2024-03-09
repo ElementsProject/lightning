@@ -57,6 +57,8 @@ def load_jsonrpc_method(name):
 
 
 def load_jsonrpc_service():
+    # FIXME: Maybe this list should be located somewhere other than utils so
+    #  it's more intuitive to remember to update when new RPC calls are added?
     method_names = [
         "Getinfo",
         "ListPeers",
@@ -64,6 +66,7 @@ def load_jsonrpc_service():
         "SendPay",
         "ListChannels",
         "AddGossip",
+        "AddPsbtOutput",
         "AutoCleanInvoice",
         "CheckMessage",
         "Close",

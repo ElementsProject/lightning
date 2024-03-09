@@ -9,6 +9,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd-config.5 \
 	doc/lightningd-rpc.7 \
 	doc/lightning-addgossip.7 \
+	doc/lightning-addpsbtoutput.7 \
 	doc/lightning-autoclean-once.7 \
 	doc/lightning-autoclean-status.7 \
 	doc/lightning-batching.7 \
@@ -52,7 +53,6 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-fundchannel_complete.7 \
 	doc/lightning-fundchannel_cancel.7 \
 	doc/lightning-funderupdate.7 \
-	doc/lightning-addpsbtoutput.7 \
 	doc/lightning-fundpsbt.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-hsmtool.8 \

@@ -360,6 +360,17 @@
         "AddgossipRequest": {
             "AddGossip.message": 1
         },
+        "AddpsbtoutputRequest": {
+            "AddPsbtOutput.destination": 4,
+            "AddPsbtOutput.initialpsbt": 3,
+            "AddPsbtOutput.locktime": 2,
+            "AddPsbtOutput.satoshi": 1
+        },
+        "AddpsbtoutputResponse": {
+            "AddPsbtOutput.estimated_added_weight": 2,
+            "AddPsbtOutput.outnum": 3,
+            "AddPsbtOutput.psbt": 1
+        },
         "AutocleaninvoiceRequest": {
             "AutoCleanInvoice.cycle_seconds": 2,
             "AutoCleanInvoice.expired_by": 1
@@ -1852,6 +1863,38 @@
         },
         "AddGossip.message": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "AddPsbtOutput": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.destination": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.estimated_added_weight": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.initialpsbt": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.locktime": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.outnum": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.psbt": {
+            "added": "v23.11",
+            "deprecated": false
+        },
+        "AddPsbtOutput.satoshi": {
+            "added": "v23.11",
             "deprecated": false
         },
         "AutoCleanInvoice": {
