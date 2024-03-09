@@ -12,15 +12,55 @@
 
 #define INVALID_ID UINT32_MAX
 
-void payment_continue(struct payment *payment)
+#define OP_NULL ((u64)NULL)
+#define OP_CALL 1
+#define OP_IF 2
+typedef const struct payment_modifier *modifier_ptr;
+typedef bool (*)(struct payment *) condition_ptr;
+
+static void *payment_virtual_program[];
+
+/* Advance the payment virtual machine */
+struct command_result *payment_continue(struct payment *payment)
 {
-	const struct payment_modifier *mod = payment_modifier_pop(payment);
-	if (mod != NULL) {
-		/* There is another modifier, so call it. */
+	assert(payment->exec_state != INVALID_STATE);
+	u64 op = (u64)payment_virtual_program[payment->exec_state++];
+
+	if (op == OP_NULL) {
+		plugin_err(pay_plugin->plugin,
+			   "payment_continue reached the end of the virtual "
+			   "machine execution.");
+	} else if (op == OP_CALL) {
+		modifier_ptr mod = (modifier_ptr)
+		    payment_virtual_program[payment->exec_state++];
+
+		if (mod == NULL)
+			plugin_err(pay_plugin->plugin,
+				   "payment_continue expected payment_modifier "
+				   "but NULL found");
+
 		plugin_log(pay_plugin->plugin, LOG_DBG, "Calling modifier %s",
 			   mod->name);
 		return mod->post_step_cb(payment);
+	} else if (op == OP_IF) {
+		condition_ptr cond = (condition_ptr)
+		    payment_virtual_program[payment->exec_state++];
+
+		if (cond == NULL)
+			plugin_err(pay_plugin->plugin,
+				   "payment_continue expected pointer to "
+				   "condition but NULL found");
+
+		const u64 position_iftrue =
+		    (u64)payment_virtual_program[payment->exec_state++];
+
+		if (cond(payment))
+			payment->exec_state = position_iftrue;
+
+		return payment_continue(payment);
 	}
+	plugin_err(pay_plugin->plugin, "payment_continue op code not defined");
+	return NULL;
 }
 
 static void route_remove(struct route *route)
@@ -1071,3 +1111,19 @@ static void end_cb(struct payment *payment)
 }
 
 REGISTER_PAYMENT_MODIFIER(end, end_cb);
+
+// TODO
+static void *payment_virtual_program[] = {
+	OP_CALL, previous_sendpays_mod, // 0
+	OP_CALL, selfpay_pay_mod,       // 2
+	OP_CALL, refreshgossmap_pay_mod,// 4
+	OP_CALL, getmychannels_pay_mod, // 6
+	OP_CALL, routehints_pay_mod,    // 8
+
+	OP_CALL, compute_routes_pay_mod,// 10
+	OP_CALL, send_routes_pay_mod,   // 12
+	OP_CALL, collect_results_pay_mod,// 14
+	OP_IF, payment_ifretry, (void*)10,// 16
+	OP_IF, payment_iftrue, (void*)14 ,//19
+	NULL // 22
+};

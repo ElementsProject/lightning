@@ -30,6 +30,7 @@ struct payment *payment_new(const tal_t *ctx,
 			    bool use_shadow)
 {
 	struct payment *p = tal(ctx,struct payment);
+	p->exec_state = INVALID_STATE;
 	p->paynotes = tal_arr(p, const char *, 0);
 
 	p->total_sent = AMOUNT_MSAT(0);
@@ -107,6 +108,7 @@ bool payment_update(struct payment *p,
 {
 	assert(p);
 
+	p->exec_state = INVALID_STATE;
 	p->invstr = tal_free(p->invstr);
 	p->invstr = tal_strdup(p, invstr);
 

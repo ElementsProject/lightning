@@ -16,6 +16,8 @@ enum payment_status {
         PAYMENT_PENDING, PAYMENT_SUCCESS, PAYMENT_FAIL
 };
 
+#define INVALID_STATE UINT64_MAX
+
 struct payment {
 	/* Inside pay_plugin->payments list */
 	struct list_node list;
@@ -121,6 +123,14 @@ struct payment {
 
 	// TODO make a list of modifiers?
 	const struct payment_modifier **modifiers;
+
+	/* TODO add a temporary "inbox" for sendpay notifications */
+
+	/* A place to put the payment routes before calling sendpay. */
+	struct route **tmp_routes;
+
+	/* Position in the payment virtual machine */
+	u64 exec_state;
 };
 
 void payment_clear_modifiers(struct payment *p);
