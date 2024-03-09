@@ -307,11 +307,10 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		payment->next_partid = 1;
 	}
 
-	payment_continue(payment);
-	return command_still_pending(cmd);
+	return payment_continue(payment);
 }
 
-static void previous_sendpays_cb(struct payment *payment)
+static struct command_result *previous_sendpays_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
@@ -321,7 +320,7 @@ static void previous_sendpays_cb(struct payment *payment)
 	    payment_rpc_failure, payment);
 
 	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
-	send_outreq(cmd->plugin, req);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(previous_sendpays, previous_sendpays_cb);
@@ -331,14 +330,14 @@ REGISTER_PAYMENT_MODIFIER(previous_sendpays, previous_sendpays_cb);
  *
  * Some checks on a payment about to start.
  */
-static void initial_sanity_checks_cb(struct payment *payment)
+static struct command_result *initial_sanity_checks_cb(struct payment *payment)
 {
 	assert(amount_msat_zero(payment->total_sent));
 	assert(amount_msat_zero(payment->total_delivering));
 	assert(!payment->preimage);
 	assert(tal_count(payment->cmd_array) == 1);
 
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(initial_sanity_checks, initial_sanity_checks_cb);
@@ -370,7 +369,7 @@ static struct command_result *selfpay_success(struct command *cmd,
 	return payment_finish(payment);
 }
 
-static void selfpay_cb(struct payment *payment)
+static struct command_result *selfpay_cb(struct payment *payment)
 {
 	if (!node_id_eq(&pay_plugin->my_id, &payment->destination)) {
 		payment_continue(payment);
@@ -406,7 +405,7 @@ static void selfpay_cb(struct payment *payment)
 	/* Pretend we have sent partid=1 with the total amount. */
 	payment->next_partid = 2;
 	payment->total_sent = payment->amount;
-	send_outreq(cmd->plugin, req);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
@@ -471,11 +470,10 @@ static struct command_result *listpeerchannels_ok(struct command *cmd,
 	payment->local_gossmods = gossmods_from_listpeerchannels(
 	    payment, &pay_plugin->my_id, buf, result, gossmod_cb, payment);
 
-	payment_continue(payment);
-	return command_still_pending(cmd);
+	return payment_continue(payment);
 }
 
-static void getmychannels_cb(struct payment *payment)
+static struct command_result *getmychannels_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	if (!cmd)
@@ -485,7 +483,7 @@ static void getmychannels_cb(struct payment *payment)
 	struct out_req *req = jsonrpc_request_start(
 	    cmd->plugin, cmd, "listpeerchannels", listpeerchannels_ok,
 	    payment_rpc_failure, payment);
-	send_outreq(cmd->plugin, req);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
@@ -495,7 +493,7 @@ REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
  *
  * Update the gossmap.
  */
-static void refreshgossmap_cb(struct payment *payment)
+static struct command_result *refreshgossmap_cb(struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 
@@ -513,7 +511,7 @@ static void refreshgossmap_cb(struct payment *payment)
 		uncertainty_network_update(pay_plugin->gossmap,
 					   pay_plugin->chan_extra_map);
 
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
@@ -525,13 +523,13 @@ REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
  * network.
  */
 // TODO check how this is done in pay.c
-static void routehints_cb(struct payment *payment)
+static struct command_result *routehints_cb(struct payment *payment)
 {
 	// TODO(eduardo): are there route hints for B12?
 	// TODO: use unetwork instead of chan_extra_map
 	uncertainty_network_add_routehints(pay_plugin->chan_extra_map,
 					   payment->routes, payment);
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
@@ -574,8 +572,7 @@ static bool disable_htlc_violations_oneflow(struct payment *p,
 		// be also a reason for disabling it.
 		if (!h->enabled)
 			reason = "channel_update said it was disabled";
-		else if (amount_msat_greater_fp16(amounts[i],
-						  h->htlc_max))
+		else if (amount_msat_greater_fp16(amounts[i], h->htlc_max))
 			reason = "htlc above maximum";
 		else if (amount_msat_less_fp16(amounts[i], h->htlc_min))
 			reason = "htlc below minimum";
@@ -884,7 +881,7 @@ static void compute_routes_cb(struct payment *payment)
 		payment_finish(payment);
 	}
 
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
@@ -943,13 +940,13 @@ static struct command_result *sendpay_failed(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static void send_routes_cb(struct payment *payment)
+static struct command_result *send_routes_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
 
-	for(size_t i=0;i<tal_count(payment->routes);i++){
-		struct route * route = payment->routes[i];
+	for (size_t i = 0; i < tal_count(payment->routes); i++) {
+		struct route *route = payment->routes[i];
 
 		struct out_req *req =
 		    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
@@ -1023,30 +1020,10 @@ static void send_routes_cb(struct payment *payment)
 	/* Safety check. */
 	payment_assert_delivering_all(payment);
 
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
-
-/*****************************************************************************
- * wait_or_retry
- *
- */
-void payment_retry(struct payment *p);
-
-static void wait_or_retry_cb(struct payment *payment)
-{
-	if (amount_msat_less(payment->total_delivering, payment->amount)) {
-		/* We don't go back to payment_continue, we call instead
-		 * payment_retry that will repopulate the modifiers stack.
-		 * This step discards any modifier that comes after. */
-		payment_retry(payment);
-		return;
-	}
-	payment_continue(payment);
-}
-
-REGISTER_PAYMENT_MODIFIER(wait_or_retry, wait_or_retry_cb);
 
 /*****************************************************************************
  * waitblockheight
@@ -1061,11 +1038,10 @@ static struct command_result *waitblockheight_ok(struct command *cmd,
 						 const jsmntok_t *result,
 						 struct payment *payment)
 {
-	payment_continue(payment);
-	return command_still_pending(cmd);
+	return payment_continue(payment);
 }
 
-static void waitblockheight_cb(struct payment *payment)
+static struct command_result *waitblockheight_cb(struct payment *payment)
 {
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
@@ -1075,7 +1051,7 @@ static void waitblockheight_cb(struct payment *payment)
 	    payment_rpc_failure, payment);
 
 	json_add_num(req->js, "blockheight", 0);
-	send_outreq(cmd->plugin, req);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(waitblockheight, waitblockheight_cb);
@@ -1083,15 +1059,13 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, waitblockheight_cb);
 /*****************************************************************************
  * check_timeout
  */
-static void check_timeout_cb(struct payment *payment)
+static struct command_result *check_timeout_cb(struct payment *payment)
 {
 	if (time_after(time_now(), payment->stop_time)) {
-		// TODO
-		// payment_set_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
-		payment_finish(payment);
-		return;
+		payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
+		return payment_finish(payment);
 	}
-	payment_continue(payment);
+	return payment_continue(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(check_timeout, check_timeout_cb);
@@ -1101,13 +1075,11 @@ REGISTER_PAYMENT_MODIFIER(check_timeout, check_timeout_cb);
  *
  * A dummy modifier used to end the payment, just for testing.
  */
-static void end_cb(struct payment *payment)
+static struct command_result *end_cb(struct payment *payment)
 {
-	// TODO flag a payment as failed
-	// payment_set_fail(
-	//     payment, LIGHTNINGD,
-	//     "Failing the payment on purpose (call to end_pay_mod)");
-	payment_finish(payment);
+	payment_fail(payment, LIGHTNINGD,
+		     "Failing the payment on purpose (call to end_pay_mod)");
+	return payment_finish(payment);
 }
 
 REGISTER_PAYMENT_MODIFIER(end, end_cb);
