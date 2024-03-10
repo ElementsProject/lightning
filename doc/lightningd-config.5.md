@@ -132,6 +132,12 @@ This is not valid within the per-network configuration file.
 
   The bitcoind(1) RPC port to connect to.
 
+* **bitcoin-rpcclienttimeout**=*SECONDS* [plugin `bcli`]
+
+  The bitcoind(1) RPC client timeout in seconds. Default is set to 60
+instead of 900 to match bitcoin-retry-timeout default. When set
+explicitly, the higher value of it and bitcoin-retry-timeout is used.
+
 * **bitcoin-retry-timeout**=*SECONDS* [plugin `bcli`]
 
   Number of seconds to keep trying a bitcoin-cli(1) command. If the
