@@ -83,9 +83,7 @@ Get dependencies:
 sudo apt-get update
 sudo apt-get install -y \
   autoconf automake build-essential git libtool libsqlite3-dev \
-  python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
-pip3 install --upgrade pip
-pip3 install --user poetry
+  python3 python3-poetry net-tools zlib1g-dev libsodium-dev gettext
 ```
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
