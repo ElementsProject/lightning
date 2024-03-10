@@ -6,6 +6,7 @@ from pathlib import Path
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from pyln.testing.gossip import GossipStore
+from pyln.testing.version import Version
 from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
@@ -598,6 +599,7 @@ class LightningD(TailableProc):
         self.rpcproxy = bitcoindproxy
         self.env['CLN_PLUGIN_LOG'] = "cln_plugin=trace,cln_rpc=trace,cln_grpc=trace,debug"
 
+        self.early_opts = {}
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
             'lightning-dir': lightning_dir,
@@ -612,6 +614,11 @@ class LightningD(TailableProc):
             # Make sure we don't touch any existing config files in the user's $HOME
             'bitcoin-datadir': lightning_dir,
         }
+
+        # Options that must be early in the command line can be stored
+        # in `early_args`. They will be passed first to the
+        # executable.
+        self.early_opts = {}
 
         if grpc_port is not None:
             opts['grpc-port'] = grpc_port
@@ -633,8 +640,11 @@ class LightningD(TailableProc):
         # Log to stdout so we see it in failure cases, and log file for TailableProc.
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
         self.opts['log-prefix'] = self.prefix + ' '
-        # In case you want specific ordering!
-        self.early_opts = ['--developer']
+
+    @property
+    def version(self) -> Version:
+        v = subprocess.check_output([self.executable, "--version"]).decode('ASCII')
+        return Version.from_str(v)
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -644,9 +654,12 @@ class LightningD(TailableProc):
 
     @property
     def cmd_line(self):
+        if self.version >= Version.from_str('v23.11'):
+            # Starting with v23.11 we ahve the `--developer` flag
+            self.early_opts = {'developer': None}
 
         opts = []
-        for k, v in self.opts.items():
+        for k, v in list(self.early_opts.items()) + list(self.opts.items()):
             if v is None:
                 opts.append("--{}".format(k))
             elif isinstance(v, list):
@@ -655,7 +668,7 @@ class LightningD(TailableProc):
             else:
                 opts.append("--{}={}".format(k, v))
 
-        return self.cmd_prefix + [self.executable] + self.early_opts + opts
+        return self.cmd_prefix + [self.executable] + opts
 
     def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
