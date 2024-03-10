@@ -15,6 +15,11 @@
     "commitments_secured": {
       "type": "boolean",
       "description": "whether or not the commitments were secured"
+    },
+    "signatures_secured": {
+      "added": "v24.02",
+      "type": "boolean",
+      "description": "whether or not the peer sent us their signatures for this splice"
     }
   }
 }

@@ -104,6 +104,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-sendcustommsg.7 \
 	doc/lightning-signinvoice.7 \
 	doc/lightning-signmessage.7 \
+	doc/lightning-splice.7 \
 	doc/lightning-splice_init.7 \
 	doc/lightning-splice_update.7 \
 	doc/lightning-splice_signed.7 \

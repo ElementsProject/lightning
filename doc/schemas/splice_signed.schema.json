@@ -15,6 +15,11 @@
     "txid": {
       "type": "txid",
       "description": "The txid is of the final transaction"
+    },
+    "psbt": {
+      "added": "v24.02",
+      "type": "string",
+      "description": "The psbt of the final transaction"
     }
   }
 }
