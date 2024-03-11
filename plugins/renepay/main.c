@@ -474,7 +474,9 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 	/* === Parse invoice === */
 
 	// FIXME: add support for bol12 invoices
-	assert(!bolt12_has_prefix(invstr));
+	if (bolt12_has_prefix(invstr))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "BOLT12 invoices are not yet supported.");
 
 	char *fail;
 	struct bolt11 *b11 =
