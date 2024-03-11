@@ -276,56 +276,41 @@ static struct command_result *json_paystatus(struct command *cmd,
 
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "paystatus");
+	if(invstring)
+	{
+		/* select the payment that matches this invoice */
 
-	// FIXME search payments by payment_hash, use the map
-	// use bolt11_decode
-	list_for_each(&pay_plugin->payments, p, list) {
-		if (invstring && !streq(invstring, p->invstr))
-			continue;
+		if (bolt12_has_prefix(invstring))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "BOLT12 invoices are not yet supported.");
 
-		json_object_start(ret, NULL);
-		if (p->label != NULL)
-			json_add_string(ret, "label", p->label);
+		char *fail;
+		struct bolt11 *b11 =
+		    bolt11_decode(tmpctx, invstring, plugin_feature_set(cmd->plugin),
+				  NULL, chainparams, &fail);
+		if (b11 == NULL)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt11: %s", fail);
 
-		if (p->invstr)
-			json_add_invstring(ret,p->invstr);
+		struct payment *payment =
+		    payment_map_get(pay_plugin->payment_map, b11->payment_hash);
 
-		json_add_amount_msat(ret, "amount_msat", p->amount);
-		json_add_sha256(ret, "payment_hash", &p->payment_hash);
-		json_add_node_id(ret, "destination", &p->destination);
-
-		if (p->description)
-			json_add_string(ret, "description", p->description);
-
-		json_add_timeabs(ret,"created_at",p->start_time);
-		json_add_u64(ret,"groupid",p->groupid);
-
-		switch(p->status)
+		if(payment)
 		{
-			case PAYMENT_SUCCESS:
-				json_add_string(ret,"status","complete");
-				assert(p->preimage);
-				json_add_preimage(ret,"payment_preimage",p->preimage);
-				json_add_amount_msat(ret, "amount_sent_msat", p->total_sent);
-
-			break;
-			case PAYMENT_FAIL:
-				json_add_string(ret,"status","failed");
-			break;
-			default:
-				json_add_string(ret,"status","pending");
+			json_object_start(ret, NULL);
+			json_add_payment(ret, payment);
+			json_object_end(ret);
 		}
-
-		json_array_start(ret, "notes");
-		for (size_t i = 0; i < tal_count(p->paynotes); i++)
-			json_add_string(ret, NULL, p->paynotes[i]);
-		json_array_end(ret);
-		json_object_end(ret);
-
-		// TODO(eduardo): maybe we should add also:
-		// - payment_secret?
-		// - payment_metadata?
-		// - number of parts?
+	}else
+	{
+		/* show all payments */
+		// TODO: loop over the payment_map, remove pay_plugin->payments
+		// list
+		list_for_each(&pay_plugin->payments, p, list) {
+			json_object_start(ret, NULL);
+			json_add_payment(ret, p);
+			json_object_end(ret);
+		}
 	}
 	json_array_end(ret);
 
