@@ -295,11 +295,10 @@ void payment_note(struct payment *p, enum log_level lvl, const char *fmt, ...)
 	plugin_log(pay_plugin->plugin, lvl < LOG_UNUSUAL ? LOG_DBG : lvl, "%s",
 		   str);
 
-	// TODO test this
-	// FIXME notify every cmd
-	struct command *cmd = payment_command(p);
-	if (cmd)
+	for (size_t i = 0; i < tal_count(p->cmd_array); i++) {
+		struct command *cmd = p->cmd_array[i];
 		plugin_notify_message(cmd, lvl, "%s", str);
+	}
 }
 
 static struct command_result *my_command_finish(struct payment *p,

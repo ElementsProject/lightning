@@ -630,7 +630,11 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		return payment_start(payment);
 	}
 
-	// else: this payment is pending we continue its execution
+	// else: this payment is pending we continue its execution, we merge all
+	// calling cmds into a single payment request
+	if (!payment_register_command(payment, cmd))
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "failed to register command");
 	return command_still_pending(cmd);
 }
 
