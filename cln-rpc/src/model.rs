@@ -1138,7 +1138,7 @@ pub mod requests {
 	    fn try_from(c: i32) -> Result<NewaddrAddresstype, anyhow::Error> {
 	        match c {
 	    0 => Ok(NewaddrAddresstype::BECH32),
-	    1 => Ok(NewaddrAddresstype::P2TR),
+	    3 => Ok(NewaddrAddresstype::P2TR),
 	    2 => Ok(NewaddrAddresstype::ALL),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum NewaddrAddresstype", o)),
 	        }
