@@ -496,7 +496,9 @@ REGISTER_PAYMENT_MODIFIER(getmychannels, getmychannels_cb);
  *
  * Update the gossmap.
  */
-static struct command_result *refreshgossmap_cb(struct payment *payment)
+static struct command_result *
+refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
+		    const jsmntok_t *result UNUSED, struct payment *payment)
 {
 	assert(pay_plugin->gossmap); // gossmap must be already initialized
 
@@ -509,12 +511,20 @@ static struct command_result *refreshgossmap_cb(struct payment *payment)
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
 
-	// TODO: use unetwork here instead of chan_extra_map
 	if (gossmap_changed)
-		uncertainty_network_update(pay_plugin->gossmap,
-					   pay_plugin->chan_extra_map);
-
+		unetwork_update(pay_plugin->unetwork, pay_plugin->gossmap);
 	return payment_continue(payment);
+}
+
+static struct command_result *refreshgossmap_cb(struct payment *payment)
+{
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "waitblockheight", refreshgossmap_done,
+	    payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(refreshgossmap, refreshgossmap_cb);
@@ -1159,10 +1169,10 @@ REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 void *payment_virtual_program[] = {
 	/*0*/ OP_CALL, &previous_sendpays_pay_mod,
 	/*2*/ OP_CALL, &selfpay_pay_mod,
-	/*4*/ OP_CALL, &refreshgossmap_pay_mod,
-	/*6*/ OP_CALL, &getmychannels_pay_mod,
-	/*8*/ OP_CALL, &routehints_pay_mod,
+	/*4*/ OP_CALL, &getmychannels_pay_mod,
+	/*6*/ OP_CALL, &routehints_pay_mod,
 	/* do */
+		/*8*/ OP_CALL, &refreshgossmap_pay_mod,
 		/*10*/ OP_CALL, &compute_routes_pay_mod,
 		/*12*/ OP_CALL, &send_routes_pay_mod,
 		/*do*/
@@ -1171,6 +1181,6 @@ void *payment_virtual_program[] = {
 		/*while*/
 		/*18*/ OP_IF, &nothaveresults_pay_cond, (void *)14,
 	/* while */
-	/*21*/ OP_IF, &retry_pay_cond, (void *)10,
+	/*21*/ OP_IF, &retry_pay_cond, (void *)8,
 	/*24*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
 	/*26*/ NULL};
