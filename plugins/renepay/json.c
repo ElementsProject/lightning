@@ -1,4 +1,5 @@
-#include <plugins/renepay/parse_json.h>
+#include <common/json_stream.h>
+#include <plugins/renepay/json.h>
 
 /* See if this notification is about one of our flows. */
 struct routekey *tal_routekey_from_json(const tal_t *ctx, const char *buf,
@@ -12,9 +13,6 @@ struct routekey *tal_routekey_from_json(const tal_t *ctx, const char *buf,
 
 	if (hashtok == NULL || groupidtok == NULL)
 		goto fail;
-
-	json_to_u64(buf, partidtok,
-		    &key->partid);
 
 	if (!json_to_u64(buf, groupidtok, &key->groupid))
 		goto fail;
@@ -165,3 +163,53 @@ fail:
 	return tal_free(result);
 }
 
+// TODO add verbose option to include more or less details or change the schema,
+// checkout docs/schema/renepay.schema.json and
+// docs/schema/renepaystatus.schema.json
+void json_add_payment(struct json_stream *s, const struct payment *payment)
+{
+	assert(s);
+	assert(payment);
+
+	if (payment->label != NULL)
+		json_add_string(s, "label", payment->label);
+	if (payment->invstr != NULL)
+		json_add_invstring(s, payment->invstr);
+
+	json_add_amount_msat(s, "amount_msat", payment->amount);
+	json_add_sha256(s, "payment_hash", &payment->payment_hash);
+	json_add_node_id(s, "destination", &payment->destination);
+
+	if (payment->description)
+		json_add_string(s, "description", payment->description);
+
+	json_add_timeabs(s, "created_at", payment->start_time);
+	json_add_u64(s, "groupid", payment->groupid);
+
+	switch (payment->status) {
+	case PAYMENT_SUCCESS:
+		assert(payment->preimage);
+
+		json_add_string(s, "status", "complete");
+		json_add_preimage(s, "payment_preimage", payment->preimage);
+		json_add_amount_msat(s, "amount_sent_msat",
+				     payment->total_sent);
+		break;
+	case PAYMENT_FAIL:
+		json_add_string(s, "status", "failed");
+		break;
+	case PAYMENT_PENDING:
+		json_add_string(s, "status", "pending");
+		break;
+	}
+
+	json_array_start(s, "notes");
+	for (size_t i = 0; i < tal_count(payment->paynotes); i++)
+		json_add_string(s, NULL, payment->paynotes[i]);
+	json_array_end(s);
+
+	// TODO(eduardo): maybe we should add also:
+	// - payment_secret?
+	// - payment_metadata?
+	// - number of parts?
+}

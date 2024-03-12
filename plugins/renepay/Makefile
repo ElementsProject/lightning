@@ -11,7 +11,7 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/unetwork.c		\
 	plugins/renepay/failure.c		\
 	plugins/renepay/mods.c			\
-	plugins/renepay/parse_json.c
+	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/payplugin.h		\
@@ -26,7 +26,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/unetwork.h		\
 	plugins/renepay/failure.h		\
 	plugins/renepay/mods.h			\
-	plugins/renepay/parse_json.c
+	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
 

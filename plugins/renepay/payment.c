@@ -38,16 +38,13 @@ struct payment *payment_new(
 	p->payment_hash = *payment_hash;
 
 	assert(invstr);
-	// TODO: check TAKES/STEALS/ wathever
 	p->invstr = tal_strdup(p, invstr);
 
-	// TODO: check TAKES/STEALS/ wathever
 	p->label = tal_strdup_or_null(p, label);
 	p->description = tal_strdup_or_null(p, description);
 	p->payment_secret = tal_dup_or_null(p, struct secret, payment_secret);
 	p->payment_metadata = tal_dup_talarr(p, u8, payment_metadata);
 
-	// TODO: check taken, shouldn't it be if_taken()?
 	if (taken(routehints))
 		p->routehints = tal_steal(p, routehints);
 	else {
