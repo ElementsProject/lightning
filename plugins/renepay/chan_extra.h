@@ -154,10 +154,9 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 			    char **fail);
 
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
-bool chan_extra_set_liquidity(const tal_t *ctx,
-			      struct chan_extra_map *chan_extra_map,
+bool chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			      const struct short_channel_id_dir *scidd,
-			      struct amount_msat x, char **fail);
+			      struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
 bool chan_extra_sent_success(const tal_t *ctx,

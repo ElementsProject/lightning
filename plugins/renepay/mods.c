@@ -419,6 +419,49 @@ REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
  * Calls listpeerchannels to get and updated state of the local channels.
  */
 
+static void
+unetwork_update_from_listpeerchannels(struct unetwork *unetwork,
+				      const struct short_channel_id_dir *scidd,
+				      struct amount_msat max, bool enabled,
+				      const char *buf, const jsmntok_t *chantok)
+{
+	if (!enabled)
+		return;
+
+	struct amount_msat capacity;
+	const char *errmsg = json_scan(tmpctx, buf, chantok, "{total_msat:%}",
+				       JSON_SCAN(json_to_msat, &capacity));
+	if (errmsg)
+		goto error;
+
+	if (!unetwork_add_channel(pay_plugin->unetwork, scidd->scid,
+				  capacity)) {
+		errmsg = tal_fmt(
+		    tmpctx,
+		    "Unable to find/add scid=%s in the uncertainty network",
+		    type_to_string(tmpctx, struct short_channel_id,
+				   &scidd->scid));
+		goto error;
+	}
+	// FIXME this does not include pending HTLC of ongoing payments!
+	if (!unetwork_set_liquidity(pay_plugin->unetwork, scidd, max)) {
+		errmsg = tal_fmt(
+		    tmpctx,
+		    "Unable to set liquidity to channel scidd=%s in the "
+		    "uncertainty network.",
+		    type_to_string(tmpctx, struct short_channel_id_dir, scidd));
+		goto error;
+	}
+	return;
+
+error:
+	plugin_log(
+	    pay_plugin->plugin, LOG_UNUSUAL,
+	    "Failed to update local channel %s from listpeerchannels rpc: %s",
+	    type_to_string(tmpctx, struct short_channel_id, &scidd->scid),
+	    errmsg);
+}
+
 static void gossmod_cb(struct gossmap_localmods *mods,
 		       const struct node_id *self,
 		       const struct node_id *peer,
@@ -457,16 +500,20 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 				 enabled,
 				 scidd->dir);
 
-	/* Also update uncertainty map */
-	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,
-							 buf, chantok,
-							 pay_plugin->chan_extra_map);
+	/* Is it disabled? */
+	if (!enabled)
+		payment_disable_chan(payment, scidd->scid, LOG_DBG,
+				     "listpeerchannels says not enabled");
+
+	/* Also update the uncertainty network */
+	unetwork_update_from_listpeerchannels(
+	    pay_plugin->unetwork, scidd, max, enabled, buf, chantok);
 }
 
-static struct command_result *listpeerchannels_ok(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *result,
-						  struct payment *payment)
+static struct command_result *getmychannels_done(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct payment *payment)
 {
 	// FIXME: should local gossmods be global (ie. member of pay_plugin) or
 	// local (ie. member of payment)?
@@ -484,7 +531,7 @@ static struct command_result *getmychannels_cb(struct payment *payment)
 			   "getmychannels_pay_mod: cannot get a valid cmd.");
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listpeerchannels", listpeerchannels_ok,
+	    cmd->plugin, cmd, "listpeerchannels", getmychannels_done,
 	    payment_rpc_failure, payment);
 	return send_outreq(cmd->plugin, req);
 }

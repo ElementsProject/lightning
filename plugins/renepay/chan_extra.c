@@ -420,6 +420,8 @@ function_fail:
 	return false;
 }
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
+// FIXME for being this low level API, I thinkg it's too much to have verbose
+// error messages
 static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 				      int dir, struct amount_msat x,
 				      char **fail)
@@ -467,22 +469,19 @@ function_fail:
 	tal_free(this_ctx);
 	return false;
 }
-bool chan_extra_set_liquidity(const tal_t *ctx,
-			      struct chan_extra_map *chan_extra_map,
+bool chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
 			      const struct short_channel_id_dir *scidd,
-			      struct amount_msat x, char **fail)
+			      struct amount_msat x)
 {
 	assert(scidd);
 	assert(chan_extra_map);
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
-	if (!ce) {
-		if (fail)
-			*fail = chan_extra_not_found_error(ctx, &scidd->scid);
+	if (!ce)
 		goto function_fail;
-	}
-	if (!chan_extra_set_liquidity_(ctx, ce, scidd->dir, x, fail)) {
+
+	if (!chan_extra_set_liquidity_(NULL, ce, scidd->dir, x, NULL))
 		goto function_fail;
-	}
+
 	return true;
 
 function_fail:
