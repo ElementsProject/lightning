@@ -364,7 +364,7 @@ static struct command_result *selfpay_success(struct command *cmd,
 			JSON_SCAN(json_to_preimage, &preimage));
 	if (err)
 		plugin_err(
-		    cmd->plugin, "selfpay didn't have payment_preimage? %.*s",
+		    cmd->plugin, "selfpay didn't have payment_preimage: %.*s",
 		    json_tok_full_len(result), json_tok_full(buf, result));
 
 	payment->preimage = tal_dup(payment, struct preimage, &preimage);
@@ -376,8 +376,7 @@ static struct command_result *selfpay_success(struct command *cmd,
 static struct command_result *selfpay_cb(struct payment *payment)
 {
 	if (!node_id_eq(&pay_plugin->my_id, &payment->destination)) {
-		payment_continue(payment);
-		return;
+		return payment_continue(payment);
 	}
 
 	struct command *cmd = payment_command(payment);
@@ -406,9 +405,9 @@ static struct command_result *selfpay_cb(struct payment *payment)
 	if (payment->description)
 		json_add_string(req->js, "description", payment->description);
 
-	/* Pretend we have sent partid=1 with the total amount. */
-	payment->next_partid = 2;
+	payment->next_partid++;
 	payment->total_sent = payment->amount;
+	payment->total_delivering = payment->amount;
 	return send_outreq(cmd->plugin, req);
 }
 
