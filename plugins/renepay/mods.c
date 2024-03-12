@@ -7,31 +7,30 @@
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>
-#include <plugins/renepay/uncertainty_network.h>
+#include <unistd.h>
 
 #define INVALID_ID UINT32_MAX
 
-#define OP_NULL ((u64)NULL)
-#define OP_CALL 1
-#define OP_IF 2
-typedef const struct payment_modifier *modifier_ptr;
-typedef bool (*)(struct payment *) condition_ptr;
+#define OP_NULL NULL
+#define OP_CALL (void*)1
+#define OP_IF (void*)2
 
-static void *payment_virtual_program[];
+void *payment_virtual_program[];
 
 /* Advance the payment virtual machine */
 struct command_result *payment_continue(struct payment *payment)
 {
 	assert(payment->exec_state != INVALID_STATE);
-	u64 op = (u64)payment_virtual_program[payment->exec_state++];
+	void *op = payment_virtual_program[payment->exec_state++];
 
 	if (op == OP_NULL) {
 		plugin_err(pay_plugin->plugin,
 			   "payment_continue reached the end of the virtual "
 			   "machine execution.");
 	} else if (op == OP_CALL) {
-		modifier_ptr mod = (modifier_ptr)
-		    payment_virtual_program[payment->exec_state++];
+		const struct payment_modifier *mod =
+		    (const struct payment_modifier *)
+			payment_virtual_program[payment->exec_state++];
 
 		if (mod == NULL)
 			plugin_err(pay_plugin->plugin,
@@ -40,20 +39,24 @@ struct command_result *payment_continue(struct payment *payment)
 
 		plugin_log(pay_plugin->plugin, LOG_DBG, "Calling modifier %s",
 			   mod->name);
-		return mod->post_step_cb(payment);
+		return mod->step_cb(payment);
 	} else if (op == OP_IF) {
-		condition_ptr cond = (condition_ptr)
-		    payment_virtual_program[payment->exec_state++];
+		const struct payment_condition *cond =
+		    (const struct payment_condition *)
+			payment_virtual_program[payment->exec_state++];
 
 		if (cond == NULL)
 			plugin_err(pay_plugin->plugin,
 				   "payment_continue expected pointer to "
 				   "condition but NULL found");
 
+		plugin_log(pay_plugin->plugin, LOG_DBG,
+			   "Calling payment condition %s", cond->name);
+
 		const u64 position_iftrue =
 		    (u64)payment_virtual_program[payment->exec_state++];
 
-		if (cond(payment))
+		if (cond->condition_cb(payment))
 			payment->exec_state = position_iftrue;
 
 		return payment_continue(payment);
@@ -116,11 +119,9 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 	else
 		errcode = LIGHTNINGD;
 
-	// TODO flag a payment as failed
-	// payment_set_fail(
-	//     payment, errcode,
-	//     "Failing a partial payment due to a failed RPC call: %.*s",
-	//     json_tok_full_len(toks), json_tok_full(buffer, toks));
+	payment_fail(payment, errcode,
+		     "Failing a partial payment due to a failed RPC call: %.*s",
+		     json_tok_full_len(toks), json_tok_full(buffer, toks));
 	return payment_finish(payment);
 }
 
@@ -131,14 +132,14 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
  * the current payment hash has already being used in previous failed, pending
  * or completed attempts.
  */
-// TODO: function test this previous_sendpays_pay_mod
 
-static struct command_result *listsendpays_ok(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *result,
-					      struct payment *payment)
+static struct command_result *previous_sendpays_done(struct command *cmd,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     struct payment *payment)
 {
 	size_t i;
+	const char *err;
 	const jsmntok_t *t, *arr;
 	u32 max_group_id = 0;
 
@@ -159,11 +160,10 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 
 	arr = json_get_member(buf, result, "payments");
 	if (!arr || arr->type != JSMN_ARRAY) {
-		// TODO
-		// payment_set_fail(
-		//     payment, LIGHTNINGD,
-		//     "Unexpected non-array result from listsendpays: %.*s",
-		//     json_tok_full_len(result), json_tok_full(buf, result));
+		payment_fail(
+		    payment, LIGHTNINGD,
+		    "Unexpected non-array result from listsendpays: %.*s",
+		    json_tok_full_len(result), json_tok_full(buf, result));
 		return payment_finish(payment);
 	}
 
@@ -173,21 +173,20 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		struct amount_msat this_msat, this_sent;
 		const char *status;
 
-		// TODO: we assume amount_msat is always present, but according
+		// FIXME we assume amount_msat is always present, but according
 		// to the documentation this field is optional. How do I
 		// interpret if amount_msat is missing?
-		const char *err =
-		    json_scan(tmpctx, buf, t,
-			      "{status:%"
-			      ",partid?:%"
-			      ",groupid:%"
-			      ",amount_msat:%"
-			      ",amount_sent_msat:%}",
-			      JSON_SCAN_TAL(tmpctx, json_strdup, &status),
-			      JSON_SCAN(json_to_u32, &partid),
-			      JSON_SCAN(json_to_u32, &groupid),
-			      JSON_SCAN(json_to_msat, &this_msat),
-			      JSON_SCAN(json_to_msat, &this_sent));
+		err = json_scan(tmpctx, buf, t,
+				"{status:%"
+				",partid?:%"
+				",groupid:%"
+				",amount_msat:%"
+				",amount_sent_msat:%}",
+				JSON_SCAN_TAL(tmpctx, json_strdup, &status),
+				JSON_SCAN(json_to_u32, &partid),
+				JSON_SCAN(json_to_u32, &groupid),
+				JSON_SCAN(json_to_msat, &this_msat),
+				JSON_SCAN(json_to_msat, &this_sent));
 
 		if (err)
 			plugin_err(pay_plugin->plugin,
@@ -204,10 +203,9 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		if (streq(status, "complete")) {
 			if (complete_groupid != INVALID_ID &&
 			    groupid != complete_groupid) {
-				// TODO
-				// payment_set_fail(payment, PAY_STATUS_UNEXPECTED,
-				// 		 "Multiple complete groupids "
-				// 		 "for this payment?");
+				payment_fail(payment, PAY_STATUS_UNEXPECTED,
+					     "Multiple complete groupids for "
+					     "this payment.");
 				return payment_finish(payment);
 			}
 			complete_groupid = groupid;
@@ -219,12 +217,19 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 				plugin_err(pay_plugin->plugin,
 					   "%s (line %d) amount_msat overflow.",
 					   __PRETTY_FUNCTION__, __LINE__);
-			json_scan(
+			err = json_scan(
 			    tmpctx, buf, t,
 			    "{created_at:%"
 			    ",payment_preimage:%}",
 			    JSON_SCAN(json_to_u32, &complete_created_at),
 			    JSON_SCAN(json_to_preimage, &complete_preimage));
+
+			if (err)
+				plugin_err(pay_plugin->plugin,
+					   "%s trying to parse created_at and "
+					   "payment_preimage returns the "
+					   "following error: %s",
+					   __PRETTY_FUNCTION__, err);
 			// FIXME there is json_add_timeabs, but there isn't
 			// json_to_timeabs
 			complete_parts++;
@@ -233,10 +238,9 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 			 * went wrong! */
 			if (pending_group_id != INVALID_ID &&
 			    groupid != pending_group_id) {
-				// TODO
-				// payment_set_fail(payment, PAY_STATUS_UNEXPECTED,
-				// 		 "Multiple pending groups for "
-				// 		 "this payment?");
+				payment_fail(payment, PAY_STATUS_UNEXPECTED,
+					     "Multiple pending groups for this "
+					     "payment.");
 				return payment_finish(payment);
 			}
 			pending_group_id = groupid;
@@ -293,10 +297,9 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 					   payment->amount)) {
 			/* Pending payment already pays the full amount, we
 			 * better stop. */
-			// TODO
-			// payment_set_fail(payment, PAY_IN_PROGRESS,
-			// 		 "Payment is pending with full amount "
-			// 		 "already commited");
+			payment_fail(payment, PAY_IN_PROGRESS,
+				     "Payment is pending with full amount "
+				     "already commited");
 			return payment_finish(payment);
 		}
 	} else {
@@ -304,6 +307,8 @@ static struct command_result *listsendpays_ok(struct command *cmd,
 		 * sendpay group. */
 		payment->groupid = max_group_id + 1;
 		payment->next_partid = 1;
+		payment->total_sent = AMOUNT_MSAT(0);
+		payment->total_delivering = AMOUNT_MSAT(0);
 	}
 
 	return payment_continue(payment);
@@ -315,7 +320,7 @@ static struct command_result *previous_sendpays_cb(struct payment *payment)
 	assert(cmd);
 
 	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "listsendpays", listsendpays_ok,
+	    cmd->plugin, cmd, "listsendpays", previous_sendpays_done,
 	    payment_rpc_failure, payment);
 
 	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
@@ -1072,29 +1077,101 @@ REGISTER_PAYMENT_MODIFIER(check_timeout, check_timeout_cb);
 /*****************************************************************************
  * end
  *
- * A dummy modifier used to end the payment, just for testing.
+ * The default ending of a payment.
  */
+static struct command_result *end_done(struct command *cmd UNUSED,
+				       const char *buf UNUSED,
+				       const jsmntok_t *result UNUSED,
+				       struct payment *payment)
+{
+	payment_fail(payment, PAY_STOPPED_RETRYING,
+		     "Payment execution ended without success.");
+	return payment_finish(payment);
+}
 static struct command_result *end_cb(struct payment *payment)
 {
-	payment_fail(payment, LIGHTNINGD,
-		     "Failing the payment on purpose (call to end_pay_mod)");
-	return payment_finish(payment);
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req =
+	    jsonrpc_request_start(cmd->plugin, cmd, "waitblockheight", end_done,
+				  payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(end, end_cb);
 
-// TODO
-static void *payment_virtual_program[] = {
-	OP_CALL, previous_sendpays_mod, // 0
-	OP_CALL, selfpay_pay_mod,       // 2
-	OP_CALL, refreshgossmap_pay_mod,// 4
-	OP_CALL, getmychannels_pay_mod, // 6
-	OP_CALL, routehints_pay_mod,    // 8
+/*****************************************************************************
+ * alwaystrue
+ *
+ * A funny payment condition that always returns true.
+ */
+static bool alwaystrue_cb(const struct payment *payment)
+{
+	return true;
+}
 
-	OP_CALL, compute_routes_pay_mod,// 10
-	OP_CALL, send_routes_pay_mod,   // 12
-	OP_CALL, collect_results_pay_mod,// 14
-	OP_IF, payment_ifretry, (void*)10,// 16
-	OP_IF, payment_iftrue, (void*)14 ,//19
-	NULL // 22
-};
+REGISTER_PAYMENT_CONDITION(alwaystrue, alwaystrue_cb);
+
+/*****************************************************************************
+ * nothaveresults
+ *
+ * A payment condition that returns true if the payment has not yet collected
+ * enough results to decide whether the payment has succeed, failed or need
+ * retrying.
+ */
+static bool nothaveresults_cb(const struct payment *payment)
+{
+	return !payment->have_results;
+}
+
+REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);
+
+/*****************************************************************************
+ * retry
+ *
+ * A payment condition that returns true if we should retry the payment.
+ */
+static bool retry_cb(const struct payment *payment)
+{
+	return payment->retry;
+}
+
+REGISTER_PAYMENT_CONDITION(retry, retry_cb);
+
+/*****************************************************************************
+ * Virtual machine
+ *
+ * The plugin API is based on function calls. This makes is difficult to
+ * summarize all payment steps into one function, because the workflow is
+ * distributed across multiple functions. The default pay plugin implements a
+ * "state machine" for each payment attempt/part and that improves a lot the
+ * code readability and modularity. Based on that idea renepay has its own state
+ * machine for the whole payment. We go one step further by adding not just
+ * function calls (or payment modifiers with OP_CALL) but also conditions with
+ * OP_IF that allows for instance to have loops.
+ * Renepay's "program" is nicely summarized in the following set of
+ * instructions:
+ */
+// TODO
+// add shadow route
+// add knowledge decay
+// add check pre-approved invoice
+void *payment_virtual_program[] = {
+	/*0*/ OP_CALL, &previous_sendpays_pay_mod,
+	/*2*/ OP_CALL, &selfpay_pay_mod,
+	/*4*/ OP_CALL, &refreshgossmap_pay_mod,
+	/*6*/ OP_CALL, &getmychannels_pay_mod,
+	/*8*/ OP_CALL, &routehints_pay_mod,
+	/* do */
+		/*10*/ OP_CALL, &compute_routes_pay_mod,
+		/*12*/ OP_CALL, &send_routes_pay_mod,
+		/*do*/
+			/*14*/ OP_CALL, &sleep_pay_mod,
+			/*16*/ OP_CALL, &collect_results_pay_mod,
+		/*while*/
+		/*18*/ OP_IF, &nothaveresults_pay_cond, (void *)14,
+	/* while */
+	/*21*/ OP_IF, &retry_pay_cond, (void *)10,
+	/*24*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+	/*26*/ NULL};
