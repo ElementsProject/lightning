@@ -11,7 +11,6 @@ struct route *new_route(const tal_t *ctx, struct payment *payment, u32 groupid,
 	route->key.groupid = groupid;
 	route->key.payment_hash = payment_hash;
 
-	route->payment_preimage = NULL;
 	route->final_error = LIGHTNINGD;
 	route->final_msg = NULL;
 	route->hops = NULL;

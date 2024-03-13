@@ -947,6 +947,136 @@ static struct command_result *check_timeout_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(check_timeout, check_timeout_cb);
 
 /*****************************************************************************
+ * collect_results
+ */
+static struct command_result *
+collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
+		     const jsmntok_t *result UNUSED, struct payment *payment)
+{
+	payment->have_results = false;
+	payment->retry = false;
+
+	/* pending sendpay callbacks should be zero */
+	if (payment->pending_sendpay_callbacks)
+		payment_continue(payment);
+
+	/* all sendpays have been sent, look for success */
+	const struct preimage *payment_preimage = NULL;
+	enum jsonrpc_errcode final_error = LIGHTNINGD;
+	const char *final_msg = NULL;
+
+	const size_t ncompleted = tal_count(payment->routes_completed);
+	for (size_t i = 0; i < ncompleted; i++) {
+		const struct route *r = payment->routes_completed[i];
+		const struct amount_msat sends = route_sends(r);
+		const struct amount_msat delivers = route_delivers(r);
+
+		/* We shouldn't have previous payment attempts (different
+		 * groupid), because we don't start the payment if there are
+		 * pending sendpays with older groupids. */
+		if (payment->groupid != r->key.groupid) {
+			plugin_err(pay_plugin->plugin,
+				   "%s: current groupid=%" PRIu64
+				   ", but recieved a sendpay result with "
+				   "groupid=%" PRIu64,
+				   __PRETTY_FUNCTION__, payment->groupid,
+				   r->key.groupid);
+		}
+
+		assert(r->result->status == SENDPAY_COMPLETE ||
+		       r->result->status == SENDPAY_FAILED);
+		if (r->result->status == SENDPAY_COMPLETE &&
+		    !payment_preimage) {
+			assert(r->result->payment_preimage);
+			payment_preimage =
+			    tal_dup(tmpctx, struct preimage, r->result->payment_preimage);
+		}
+
+		if (r->result->status == SENDPAY_FAILED) {
+			if (!amount_msat_sub(&payment->total_sent,
+					     payment->total_sent, sends) ||
+			    !amount_msat_sub(&payment->total_delivering,
+					     payment->total_delivering,
+					     delivers)) {
+				plugin_err(pay_plugin->plugin,
+					   "%s: this route amount does not add "
+					   "up to the payment total.",
+					   __PRETTY_FUNCTION__);
+			}
+
+			if (r->final_msg) {
+				final_error = r->final_error;
+				final_msg = tal_strdup(tmpctx, r->final_msg);
+			}
+		}
+		tal_free(r);
+	}
+	tal_resize(payment->routes_completed, 0);
+
+	if (payment_preimage) {
+		/* If we have the preimate that means one succeed, we
+		 * inmediately finish the payment. */
+		if (!amount_msat_greater_eq(payment->total_delivering,
+					    payment->amount)) {
+			plugin_err(pay_plugin->plugin,
+				   "%s: received a success sendpay for this "
+				   "payment but the total delivering amount %s "
+				   "is less than the payment amount %s.",
+				   __PRETTY_FUNCTION__,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &payment->total_delivering),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &payment->amount));
+		}
+		payment_success(payment, take(payment_preimage));
+		return payment_finish(payment);
+	}
+	if (final_msg) {
+		/* We received a sendpay result with a final error message, we
+		 * inmediately finish the payment. */
+		payment_fail(payment, final_error, "%s", final_msg);
+		return payment_finish(payment);
+	}
+
+	if (amount_msat_greater_eq(payment->total_delivering,
+				   payment->amount)) {
+		/* There are no succeeds but we are still pending delivering the
+		 * entire payment. We still need to collect more results. */
+		payment->have_results = false;
+		payment->retry = false;
+	} else {
+		/* We have some failures so that now we are short of
+		 * total_delivering, we may retry. */
+		payment->have_results = true;
+
+		// FIXME: we seem to always retry here if we don't fail
+		// inmediately. But I am going to leave this variable here,
+		// cause we might decide in the future to put some conditions on
+		// retries, like a maximum number of retries.
+		payment->retry = true;
+	}
+
+	// FIXME: do we need to check for timeout? We might endup in an
+	// infinite loop of collect results.
+
+	return payment_continue(payment);
+}
+static struct command_result *collect_results_cb(struct payment *payment)
+{
+	// make a dummy call to waitblockheight to move the state
+	// machine by one step keeping the stack clean
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "waitblockheight", collect_results_done,
+	    payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(cmd->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(collect_results, collect_results_cb);
+
+/*****************************************************************************
  * end
  *
  * The default ending of a payment.

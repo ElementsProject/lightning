@@ -29,9 +29,10 @@ struct payment_result {
 	/* DB internal id */
 	u64 id;
 
+	struct preimage *payment_preimage;
+
 	enum sendpay_result_status status;
 	struct amount_msat amount_sent;
-	struct preimage *payment_preimage;
 	u32 code;
 	const char *failcodename;
 	enum onion_wire failcode;
@@ -45,8 +46,6 @@ struct payment_result {
 
 /* Describes a payment route. It points to a unique sendpay and payment. */
 struct route {
-	const struct preimage *payment_preimage;
-
 	enum jsonrpc_errcode final_error;
 	const char *final_msg;
 

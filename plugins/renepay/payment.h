@@ -95,7 +95,7 @@ struct payment {
 	enum payment_status status;
 
 	/* Payment preimage, in case of success. */
-	const struct preimage *preimage;
+	struct preimage *preimage;
 
 	/* Final error code and message, in case of failure. */
 	enum jsonrpc_errcode error_code;
@@ -130,6 +130,10 @@ struct payment {
 
 	/* Channels we decided to disable for various reasons. */
 	struct short_channel_id *disabled_scids;
+
+	/* pending sendpay callbacks, we need these to complete before we can
+	 * decide wether to retry or fail the payment. */
+	size_t pending_sendpay_callbacks;
 
 	/* Flag to indicate wether we have collected enough results to make a
 	 * decision on the payment progress. */
@@ -232,7 +236,7 @@ struct command *payment_command(struct payment *p);
 struct json_stream *payment_result(struct payment *p, struct command *cmd);
 
 /* flag the payment as success and write the preimage as proof */
-void payment_success(struct payment *p, const struct preimage *preimage);
+void payment_success(struct payment *p, const struct preimage *preimage TAKES);
 
 /* flag the payment as failed and write the reason */
 void payment_fail(struct payment *payment, enum jsonrpc_errcode code,

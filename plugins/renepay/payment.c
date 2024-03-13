@@ -97,6 +97,7 @@ struct payment *payment_new(
 	p->local_gossmods = NULL;
 	p->local_unetwork = unetwork_new(p);
 	p->disabled_scids = tal_arr(p, struct short_channel_id, 0);
+	p->pending_sendpay_callbacks = 0;
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
@@ -185,6 +186,7 @@ bool payment_update(
 	assert(p->disabled_scids);
 	tal_resize(&p->disabled_scids, 0);
 
+	p->pending_sendpay_callbacks = 0;
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
@@ -286,7 +288,8 @@ struct command *payment_command(struct payment *p)
 	return p->cmd_array[0];
 }
 
-void payment_success(struct payment *payment, const struct preimage *preimage)
+void payment_success(struct payment *payment,
+		     const struct preimage *preimage TAKES)
 {
 	assert(payment);
 	assert(preimage);
