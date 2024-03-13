@@ -10,15 +10,6 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-// TODO(eduardo): a hard coded constant to indicate a limit on any channel
-// capacity. Channels for which the capacity is unknown (because they are not
-// announced) use this value. It makes sense, because if we don't even know the
-// channel capacity the liquidity could be anything but it will never be greater
-// than the global number of msats.
-// It remains to be checked if this value does not lead to overflow somewhere in
-// the code.
-#define MAX_CAP (AMOUNT_MSAT(21000000 * MSAT_PER_BTC))
-
 /* Any implementation needs to keep some data on channels which are
  * in-use (or about which we have extra information).  We use a hash
  * table here, since most channels are not in use. */

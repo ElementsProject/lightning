@@ -95,6 +95,7 @@ struct payment *payment_new(
 	p->next_partid = 1;
 	p->cmd_array = tal_arr(p, struct command *, 0);
 	p->local_gossmods = NULL;
+	p->local_unetwork = unetwork_new(p);
 	p->disabled_scids = tal_arr(p, struct short_channel_id, 0);
 	p->have_results = false;
 	p->retry = false;
@@ -111,6 +112,7 @@ static void payment_cleanup(struct payment *p)
 	p->exec_state = INVALID_STATE;
 	tal_resize(&p->cmd_array, 0);
 	p->local_gossmods = tal_free(p->local_gossmods);
+	p->local_unetwork = tal_free(p->local_unetwork);
 	tal_resize(&p->disabled_scids, 0);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 	tal_resize(&p->routes_to_send, 0);
@@ -178,6 +180,7 @@ bool payment_update(
 	assert(tal_count(p->cmd_array) == 0);
 
 	p->local_gossmods = tal_free(p->local_gossmods);
+	p->local_unetwork = unetwork_new(p);
 
 	assert(p->disabled_scids);
 	tal_resize(&p->disabled_scids, 0);

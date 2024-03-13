@@ -69,11 +69,9 @@ struct pay_plugin {
 	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */
-	struct chan_extra_map *chan_extra_map;
 	struct unetwork *unetwork;
 
 	/* Pending sendpays (to match notifications to). */
-	struct payflow_map * payflow_map;
 	struct route_map *route_map;
 
 	bool debug_mcf;

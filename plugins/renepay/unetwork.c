@@ -61,3 +61,10 @@ bool unetwork_set_liquidity(struct unetwork *unetwork,
 {
 	return chan_extra_set_liquidity(unetwork->chan_extra_map, scidd, amount);
 }
+
+const struct chan_extra *
+unetwork_find_channel(struct unetwork *unetwork,
+		      const struct short_channel_id scid)
+{
+	return chan_extra_map_get(unetwork->chan_extra_map, scid);
+}
