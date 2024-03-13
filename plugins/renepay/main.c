@@ -15,20 +15,16 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <plugins/renepay/failure.h>
+#include <plugins/renepay/mods.h>
+#include <plugins/renepay/json.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/success.h>
-#include <plugins/renepay/uncertainty_network.h>
 #include <stdio.h>
-
-// TODO(eduardo): maybe there are too many debug_err and plugin_err and
-// plugin_log(...,LOG_BROKEN,...) that could be resolved with a command_fail
 
 // TODO(eduardo): notice that pending attempts performed with another
 // pay plugin are not considered by the uncertainty network in renepay,
 // it would be nice if listsendpay would give us the route of pending
 // sendpays.
-
-#define INVALID_ID UINT64_MAX
 
 struct pay_plugin *pay_plugin;
 
@@ -65,16 +61,8 @@ static const char *init(struct plugin *p,
 	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
 	payment_map_init(pay_plugin->payment_map);
 
-	pay_plugin->chan_extra_map = tal(pay_plugin,struct chan_extra_map);
-	chan_extra_map_init(pay_plugin->chan_extra_map);
-
-	pay_plugin->payflow_map = tal(pay_plugin,struct payflow_map);
-	payflow_map_init(pay_plugin->payflow_map);
-
 	pay_plugin->route_map = tal(pay_plugin,struct route_map);
 	route_map_init(pay_plugin->route_map);
-
-	pay_plugin->unetwork = unetwork_new(pay_plugin);
 
 	pay_plugin->gossmap = gossmap_load(pay_plugin,
 					   GOSSIP_STORE_FILENAME,
@@ -87,9 +75,9 @@ static const char *init(struct plugin *p,
 		plugin_log(p, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
+	pay_plugin->unetwork = unetwork_new(pay_plugin);
+	unetwork_update(pay_plugin->unetwork, pay_plugin->gossmap);
 
-	uncertainty_network_update(pay_plugin->gossmap,
-				   pay_plugin->chan_extra_map);
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;
 }
@@ -317,91 +305,20 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
-static struct command_result *renepay_command_finish(struct payment *payment,
-						     struct command *cmd)
-{
-	struct json_stream *result = payment_result(payment, cmd);
-	return command_finished(cmd, result);
-}
-
-static struct command_result *renepay_finish(struct payment *p)
-{
-	assert(!payment_commands_empty(p));
-	struct command *cmd = p->cmd_array[0];
-	for (size_t i = 1; i < tal_count(p->cmd_array); ++i) {
-		renepay_command_finish(p, p->cmd_array[i]);
-	}
-	tal_resize(&p->cmd_array, 0);
-	return renepay_command_finish(p, cmd);
-}
-
-struct command_result *renepay_success(struct payment *p);
-struct command_result *renepay_success(struct payment *p)
-{
-	p->status = PAYMENT_SUCCESS;
-	return renepay_finish(p);
-}
-
-static struct command_result *renepay_fail(struct payment *p)
-{
-	p->status = PAYMENT_FAIL;
-	return renepay_finish(p);
-}
-
-void payment_retry(struct payment *p);
-void payment_retry(struct payment *p)
-{
-	// TODO
-}
-
 static struct command_result * payment_start(struct payment *p)
 {
+	assert(p);
 	p->status = PAYMENT_PENDING;
 	plugin_log(pay_plugin->plugin, LOG_DBG, "Starting renepay");
-	struct command *cmd = payment_command(p);
-	assert(p);
-
-	// TODO: can we make a list of payment modifiers instead?
-	/* We have a stack of payment modifiers, they will be executed in
-	 * last-in-first-out order. */
-	payment_clear_modifiers(p);
-	payment_push_modifier(p, &wait_or_retry_pay_mod);
-	payment_push_modifier(p, &send_routes_pay_mod);
-	payment_push_modifier(p, &compute_routes_pay_mod);
-	// add shadow route
-	payment_push_modifier(p, &routehints_pay_mod);
-	payment_push_modifier(p, &getmychannels_pay_mod);
-	payment_push_modifier(p, &refreshgossmap_pay_mod);
-	// add knowledge decay
-	payment_push_modifier(p, &selfpay_pay_mod);
-	// add check pre-approved invoice
-	payment_push_modifier(p, &previous_sendpays_pay_mod);
-	payment_push_modifier(p, &initial_sanity_checks_pay_mod);
-	payment_continue(p);
-
-	return command_still_pending(cmd);
-
-	// /* FIXME: We use a linear function to decide how to decay the
-	//  * channel information. Other shapes could be used.
-	//  * Also the choice of the proportional parameter TIMER_FORGET_SEC is
-	//  * arbitrary.
-	//  * Another idea is to measure time in blockheight. */
-	// const u64 now_sec = time_now().ts.tv_sec;
-	// const double fraction =
-	//     (now_sec - pay_plugin->last_time) * 1.0 / TIMER_FORGET_SEC;
-	// uncertainty_network_relax_fraction(pay_plugin->chan_extra_map,
-	// 				   fraction);
-	// pay_plugin->last_time = now_sec;
-
-	// if (!uncertainty_network_check_invariants(pay_plugin->chan_extra_map))
-	// 	plugin_err(pay_plugin->plugin,
-	// 		   "uncertainty network invariants are violated");
+	p->exec_state = 0;
+	return payment_continue(p);
 }
 
 static struct command_result *json_pay(struct command *cmd, const char *buf,
 				       const jsmntok_t *params)
 {
 	/* === Parse command line arguments === */
+	// TODO check if we leak some of these temporary variables
 
 	const char *invstr;
 	struct amount_msat *msat;
@@ -458,7 +375,7 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 
 	/* === Parse invoice === */
 
-	// FIXME: add support for bol12 invoices
+	// FIXME: add support for bolt12 invoices
 	if (bolt12_has_prefix(invstr))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "BOLT12 invoices are not yet supported.");
@@ -566,39 +483,21 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		list_add_tail(&pay_plugin->payments, &payment->list);
 		payment_map_add(pay_plugin->payment_map, payment);
 
-		tal_add_destructor(payment, destroy_payment);
-
 		return payment_start(payment);
 	}
 
 	/* === Start or continue payment === */
 	if (payment->status == PAYMENT_SUCCESS) {
 		// this payment is already a success, we show the result
-		assert(payment_commands_empty(payment));
-		struct json_stream *result = payment_result(payment, cmd);
+		struct json_stream *result = jsonrpc_stream_success(cmd);
+		json_add_payment(result, payment);
 		return command_finished(cmd, result);
 	}
 
 	if (payment->status == PAYMENT_FAIL) {
-		// this payment already failed, we try again
-		assert(payment_commands_empty(payment));
-		if (!payment_register_command(payment, cmd))
-			return command_fail(cmd, PLUGIN_ERROR,
-					    "failed to register command");
-
-		/* Last time we tried the payment failed, this time we try again
-		but we update the parameters. All parameters except the payment
-		hash are updated, hence we are silently allowing two invoices to
-		have the same payment_hash as long as the first failed. */
+		// FIXME: should we refuse to pay if the invoices are different?
+		// or should we consider this a new payment?
 		if (!payment_update(payment,
-				    take(invstr),
-				    take(label),
-				    take(description),
-				    b11->payment_secret,
-				    b11->metadata,
-				    cast_const2(const struct route_info**, b11->routes),
-				    &b11->receiver_id,
-				    *msat,
 				    *maxfee,
 				    *maxdelay,
 				    *retryfor,
@@ -612,6 +511,12 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 			    cmd, PLUGIN_ERROR,
 			    "failed to update the payment parameters");
 
+		// this payment already failed, we try again
+		assert(payment_commands_empty(payment));
+		if (!payment_register_command(payment, cmd))
+			return command_fail(cmd, PLUGIN_ERROR,
+					    "failed to register command");
+
 		return payment_start(payment);
 	}
 
@@ -621,191 +526,6 @@ static struct command_result *json_pay(struct command *cmd, const char *buf,
 		return command_fail(cmd, PLUGIN_ERROR,
 				    "failed to register command");
 	return command_still_pending(cmd);
-}
-
-/* Terminates flow */
-static struct pf_result *handle_sendpay_failure_payment(struct pay_flow *pf STEALS,
-							const char *message,
-							u32 erridx,
-							enum onion_wire onionerr,
-							const u8 *raw)
-{
-	struct short_channel_id errscid;
-	const u8 *update;
-
-	assert(pf);
-
-	/* Final node is usually a hard failure */
-	if (erridx == tal_count(pf->path_scidds)) {
-		if (onionerr == WIRE_MPP_TIMEOUT) {
-			return pay_flow_failed(pf);
-		}
-
-		payflow_note(pf, LOG_INFORM,
-			     "final destination permanent failure");
-		return pay_flow_failed_final(pf, PAY_DESTINATION_PERM_FAIL, message);
-	}
-
-	errscid = pf->path_scidds[erridx].scid;
-	switch (onionerr) {
-	/* These definitely mean eliminate channel */
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-	/* FIXME: lnd returns this for disconnected peer, so don't disable perm! */
-	case WIRE_UNKNOWN_NEXT_PEER:
-	case WIRE_CHANNEL_DISABLED:
-	/* These mean node is weird, but we eliminate channel here too */
-	case WIRE_INVALID_REALM:
-	case WIRE_TEMPORARY_NODE_FAILURE:
-	case WIRE_PERMANENT_NODE_FAILURE:
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-	/* These shouldn't happen, but eliminate channel */
-	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_ONION_HMAC:
-	case WIRE_INVALID_ONION_KEY:
-	case WIRE_INVALID_ONION_PAYLOAD:
-	case WIRE_INVALID_ONION_BLINDING:
-	case WIRE_EXPIRY_TOO_FAR:
-		payflow_disable_chan(pf, errscid, LOG_UNUSUAL,
-				     "%s",
-				     onion_wire_name(onionerr));
-		return pay_flow_failed(pf);
-
-	/* These can be fixed (maybe) by applying the included channel_update */
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-	case WIRE_FEE_INSUFFICIENT:
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-	case WIRE_EXPIRY_TOO_SOON:
-		plugin_log(pay_plugin->plugin,LOG_DBG,"sendpay_failure, apply channel_update");
-		/* FIXME: Check scid! */
-		// TODO(eduardo): check
-		update = channel_update_from_onion_error(tmpctx, raw);
-		if (update)
-			return submit_update(pf, update, errscid);
-
-		payflow_disable_chan(pf, errscid,
-				     LOG_UNUSUAL, "missing channel_update");
-		return pay_flow_failed(pf);
-
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		/* These also contain a channel_update, but in this case it's simply
-		 * advisory, not necessary. */
-		update = channel_update_from_onion_error(tmpctx, raw);
-		if (update)
-			return submit_update(pf, update, errscid);
-
-		return pay_flow_failed(pf);
-
-	/* These should only come from the final distination. */
-	case WIRE_MPP_TIMEOUT:
-	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		break;
-	}
-
-	payflow_disable_chan(pf, errscid,
-			     LOG_UNUSUAL, "unexpected error code %u",
-			     onionerr);
-	return pay_flow_failed(pf);
-}
-
-static void handle_sendpay_failure_flow(struct pay_flow *pf,
-					const char *msg,
-					u32 erridx,
-					u32 onionerr)
-{
-	assert(pf);
-
-	/* we know that all channels before erridx where able to commit to this payment */
-	uncertainty_network_channel_can_send(
-			pay_plugin->chan_extra_map,
-			pf,
-			erridx);
-
-	/* Insufficient funds (not from final, that's weird!) */
-	if((enum onion_wire)onionerr == WIRE_TEMPORARY_CHANNEL_FAILURE
-	   && erridx < tal_count(pf->path_scidds))
-	{
-		const char *old_state =
-		    fmt_chan_extra_details(tmpctx, pay_plugin->chan_extra_map,
-					   &pf->path_scidds[erridx]);
-
-		char *fail;
-		if (!chan_extra_cannot_send(tmpctx, pay_plugin->chan_extra_map,
-					    &pf->path_scidds[erridx],
-					    &fail)) {
-			plugin_err(pay_plugin->plugin,
-				   "chan_extra_cannot_send failed: %s", fail);
-		}
-
-		payflow_note(pf, LOG_INFORM,
-			     "Failure to forward amount %s in channel %s, "
-			     "state change %s -> %s",
-			     fmt_amount_msat(tmpctx, pf->amounts[erridx]),
-			     fmt_short_channel_id_dir(tmpctx,
-						      &pf->path_scidds[erridx]),
-			     old_state,
-			     fmt_chan_extra_details(tmpctx,
-						    pay_plugin->chan_extra_map,
-						    &pf->path_scidds[erridx]));
-	}
-}
-
-struct pf_result *sendpay_failure(struct pay_flow *pf,
-				  enum jsonrpc_errcode errcode, const char *buf,
-				  const jsmntok_t *sub);
-/* Dummy return ensures all paths call pay_flow_* to close flow! */
-struct pf_result *sendpay_failure(struct pay_flow *pf,
-				  enum jsonrpc_errcode errcode, const char *buf,
-				  const jsmntok_t *sub)
-{
-	const char *msg, *err;
-	u32 erridx, onionerr;
-	const u8 *raw;
-
-	/* Only one code is really actionable */
-	switch (errcode) {
-	case PAY_UNPARSEABLE_ONION:
-		return handle_unhandleable_error(pf, "Unparsable onion reply");
-
-	case PAY_TRY_OTHER_ROUTE:
-		break;
-	case PAY_DESTINATION_PERM_FAIL:
-		break;
-	default:
-		return pay_flow_failed_final(pf,
-					     errcode,
-					     "Unexpected errorcode from sendpay_failure");
-	}
-
-	/* Extract remaining fields for feedback */
-	raw = NULL;
- 	err = json_scan(tmpctx, buf, sub,
-			"{message:%"
-			",data:{erring_index:%"
-			",failcode:%"
-			",raw_message?:%}}",
-			JSON_SCAN_TAL(tmpctx, json_strdup, &msg),
-			JSON_SCAN(json_to_u32, &erridx),
-			JSON_SCAN(json_to_u32, &onionerr),
-			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &raw));
-	if (err)
-		return handle_unhandleable_error(pf, err);
-
-	/* Answer must be sane: but note, erridx can be final node! */
-	if (erridx > tal_count(pf->path_scidds)) {
-		plugin_err(pay_plugin->plugin,
-			   "Erring channel %u/%zu in path %s",
-			   erridx, tal_count(pf->path_scidds),
-			   flow_path_to_str(tmpctx, pf));
-	}
-
-	payflow_note(pf, LOG_INFORM, "Failed at node #%u (%s): %s",
-		     erridx, onion_wire_name(onionerr), msg);
-	handle_sendpay_failure_flow(pf, msg, erridx, onionerr);
-
-	return handle_sendpay_failure_payment(pf, msg, erridx, onionerr, raw);
 }
 
 static const struct plugin_command commands[] = {
