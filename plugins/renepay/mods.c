@@ -902,35 +902,32 @@ static struct command_result *send_routes_cb(struct payment *payment)
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
 
 /*****************************************************************************
- * waitblockheight
+ * sleep
  *
- * FIXME: We use this mod to clear the real stack of function calls so that we
- * don't get a stackoverflow. I am not sure if there is a more elegant way to
- * achieve it with this model.
+ * The payment main thread sleeps for some time.
  */
 
-static struct command_result *waitblockheight_ok(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *result,
-						 struct payment *payment)
+static void sleep_done(struct payment *payment)
 {
-	return payment_continue(payment);
+	payment->waitresult_timer = NULL;
+	// TODO: is this compulsory?
+	timer_complete(pay_plugin->plugin);
+	payment_continue(payment);
 }
 
-static struct command_result *waitblockheight_cb(struct payment *payment)
+static struct command_result *sleep_cb(struct payment *payment)
 {
+	// FIXME time duration is hardcoded, we could have this as a
+	// plugin wide option with default value at 10 millisecons.
+	assert(payment->waitresult_timer == NULL);
+	payment->waitresult_timer = plugin_timer(
+	    pay_plugin->plugin, time_from_msec(10), sleep_done, payment);
 	struct command *cmd = payment_command(payment);
 	assert(cmd);
-
-	struct out_req *req = jsonrpc_request_start(
-	    cmd->plugin, cmd, "waitblockheight", waitblockheight_ok,
-	    payment_rpc_failure, payment);
-
-	json_add_num(req->js, "blockheight", 0);
-	return send_outreq(cmd->plugin, req);
+	return command_still_pending(cmd);
 }
 
-REGISTER_PAYMENT_MODIFIER(waitblockheight, waitblockheight_cb);
+REGISTER_PAYMENT_MODIFIER(sleep, sleep_cb);
 
 /*****************************************************************************
  * check_timeout
@@ -1108,19 +1105,16 @@ REGISTER_PAYMENT_MODIFIER(end, end_cb);
  *
  * A funny payment condition that always returns true.
  */
-static bool alwaystrue_cb(const struct payment *payment)
-{
-	return true;
-}
+static bool alwaystrue_cb(const struct payment *payment) { return true; }
 
 REGISTER_PAYMENT_CONDITION(alwaystrue, alwaystrue_cb);
 
 /*****************************************************************************
  * nothaveresults
  *
- * A payment condition that returns true if the payment has not yet collected
- * enough results to decide whether the payment has succeed, failed or need
- * retrying.
+ * A payment condition that returns true if the payment has not yet
+ * collected enough results to decide whether the payment has succeed,
+ * failed or need retrying.
  */
 static bool nothaveresults_cb(const struct payment *payment)
 {
@@ -1134,10 +1128,7 @@ REGISTER_PAYMENT_CONDITION(nothaveresults, nothaveresults_cb);
  *
  * A payment condition that returns true if we should retry the payment.
  */
-static bool retry_cb(const struct payment *payment)
-{
-	return payment->retry;
-}
+static bool retry_cb(const struct payment *payment) { return payment->retry; }
 
 REGISTER_PAYMENT_CONDITION(retry, retry_cb);
 
@@ -1145,35 +1136,35 @@ REGISTER_PAYMENT_CONDITION(retry, retry_cb);
  * Virtual machine
  *
  * The plugin API is based on function calls. This makes is difficult to
- * summarize all payment steps into one function, because the workflow is
- * distributed across multiple functions. The default pay plugin implements a
- * "state machine" for each payment attempt/part and that improves a lot the
- * code readability and modularity. Based on that idea renepay has its own state
- * machine for the whole payment. We go one step further by adding not just
- * function calls (or payment modifiers with OP_CALL) but also conditions with
- * OP_IF that allows for instance to have loops.
- * Renepay's "program" is nicely summarized in the following set of
- * instructions:
+ * summarize all payment steps into one function, because the workflow
+ * is distributed across multiple functions. The default pay plugin
+ * implements a "state machine" for each payment attempt/part and that
+ * improves a lot the code readability and modularity. Based on that
+ * idea renepay has its own state machine for the whole payment. We go
+ * one step further by adding not just function calls (or payment
+ * modifiers with OP_CALL) but also conditions with OP_IF that allows
+ * for instance to have loops. Renepay's "program" is nicely summarized
+ * in the following set of instructions:
  */
 // TODO
 // add shadow route
 // add knowledge decay
 // add check pre-approved invoice
 void *payment_virtual_program[] = {
-	/*0*/ OP_CALL, &previous_sendpays_pay_mod,
-	/*2*/ OP_CALL, &selfpay_pay_mod,
-	/*4*/ OP_CALL, &getmychannels_pay_mod,
-	/*6*/ OP_CALL, &routehints_pay_mod,
-	/* do */
-		/*8*/ OP_CALL, &refreshgossmap_pay_mod,
-		/*10*/ OP_CALL, &compute_routes_pay_mod,
-		/*12*/ OP_CALL, &send_routes_pay_mod,
-		/*do*/
-			/*14*/ OP_CALL, &sleep_pay_mod,
-			/*16*/ OP_CALL, &collect_results_pay_mod,
-		/*while*/
-		/*18*/ OP_IF, &nothaveresults_pay_cond, (void *)14,
-	/* while */
-	/*21*/ OP_IF, &retry_pay_cond, (void *)8,
-	/*24*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
-	/*26*/ NULL};
+    /*0*/ OP_CALL, &previous_sendpays_pay_mod,
+    /*2*/ OP_CALL, &selfpay_pay_mod,
+    /*4*/ OP_CALL, &getmychannels_pay_mod,
+    /*6*/ OP_CALL, &routehints_pay_mod,
+    /* do */
+	    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
+	    /*10*/ OP_CALL, &compute_routes_pay_mod,
+	    /*12*/ OP_CALL, &send_routes_pay_mod,
+	    /*do*/
+		    /*14*/ OP_CALL, &sleep_pay_mod,
+		    /*16*/ OP_CALL, &collect_results_pay_mod,
+	    /*while*/
+	    /*18*/ OP_IF, &nothaveresults_pay_cond, (void *)14,
+    /* while */
+    /*21*/ OP_IF, &retry_pay_cond, (void *)8,
+    /*24*/ OP_CALL, &end_pay_mod, /* safety net, default failure if reached */
+    /*26*/ NULL};
