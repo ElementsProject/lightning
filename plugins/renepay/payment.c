@@ -97,7 +97,7 @@ struct payment *payment_new(
 	p->local_gossmods = NULL;
 	p->local_unetwork = unetwork_new(p);
 	p->disabled_scids = tal_arr(p, struct short_channel_id, 0);
-	p->pending_sendpay_callbacks = 0;
+	p->pending_routes = 0;
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
@@ -186,7 +186,7 @@ bool payment_update(
 	assert(p->disabled_scids);
 	tal_resize(&p->disabled_scids, 0);
 
-	p->pending_sendpay_callbacks = 0;
+	p->pending_routes = 0;
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
@@ -240,19 +240,6 @@ struct amount_msat payment_fees(const struct payment *p)
 		    type_to_string(tmpctx, struct amount_msat, &sent),
 		    type_to_string(tmpctx, struct amount_msat, &delivered));
 	return fees;
-}
-
-void payment_assert_delivering_all(const struct payment *p)
-{
-	assert(p);
-	if (amount_msat_less(p->total_delivering, p->amount)) {
-		plugin_err(
-		    pay_plugin->plugin,
-		    "Strange, delivering (%s) is less than amount (%s)",
-		    type_to_string(tmpctx, struct amount_msat,
-				   &p->total_delivering),
-		    type_to_string(tmpctx, struct amount_msat, &p->amount));
-	}
 }
 
 u64 payment_parts(const struct payment *payment)

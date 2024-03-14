@@ -90,7 +90,7 @@ function_fail:
 	return tal_free(routes);
 }
 
-const char *route_to_str(const tal_t *ctx, const struct route *route)
+const char *fmt_route_path(const tal_t *ctx, const struct route *route)
 {
 	char *s = tal_strdup(ctx, "");
 	const size_t pathlen = tal_count(route->hops);

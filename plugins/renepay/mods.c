@@ -66,46 +66,130 @@ struct command_result *payment_continue(struct payment *payment)
 	return NULL;
 }
 
-static void route_remove(struct route *route)
+static void route_completed(struct route *route)
 {
-	remove_htlc_route(pay_plugin->unetwork, route);
-	route_map_del(pay_plugin->route_map, route);
-}
-
-static void route_failed(struct route *route)
-{
+	// FIXME: every route must end here
 	assert(route);
 	assert(route->payment);
 	struct payment *payment = route->payment;
-	if (!amount_msat_sub(&payment->total_delivering,
-			     payment->total_delivering,
-			     route_delivers(route)) ||
-	    !amount_msat_sub(&payment->total_sent, payment->total_sent,
-			     route_sends(route))) {
-		plugin_err(pay_plugin, "%s: amount_msat substraction failed",
-			   __PRETTY_FUNCTION__);
+
+	/* If the route's groupid is the same as the payment's, then we are
+	 * allowed to modify the total amounts. Otherwise we would be
+	 * considering older payment attempts. But we shouldn't be trying a
+	 * payment with a certain groupid as long as there are pending sendpays
+	 * with a different groupid. */
+	assert(payment->groupid == route->key.groupid);
+
+	assert(route->result);
+	if (route->result->status == SENDPAY_FAILED)
+		if (!amount_msat_sub(&payment->total_delivering,
+				     payment->total_delivering,
+				     route_delivers(route)) ||
+		    !amount_msat_sub(&payment->total_sent, payment->total_sent,
+				     route_sends(route))) {
+			plugin_err(
+			    pay_plugin->plugin,
+			    "%s: routes do not add up to payment total amount.",
+			    __PRETTY_FUNCTION__);
+		}
+
+	unetwork_remove_htlcs(pay_plugin->unetwork, route);
+	route_map_del(pay_plugin->route_map, route);
+	tal_free(route);
+}
+
+static void payment_collect_results(struct payment *payment,
+				    struct preimage **payment_preimage,
+				    enum jsonrpc_errcode *final_error,
+				    const char **final_msg)
+{
+	assert(payment);
+	assert(payment->routes_completed);
+	const size_t ncompleted = tal_count(payment->routes_completed);
+	for (size_t i = 0; i < ncompleted; i++) {
+		struct route *r = payment->routes_completed[i];
+		assert(r);
+		assert(r->result);
+
+		/* We should never start a new groupid while there are pending
+		 * onions with a different groupid. */
+		if (payment->groupid != r->key.groupid) {
+			plugin_err(pay_plugin->plugin,
+				   "%s: current groupid=%" PRIu64
+				   ", but recieved a sendpay result with "
+				   "groupid=%" PRIu64,
+				   __PRETTY_FUNCTION__, payment->groupid,
+				   r->key.groupid);
+		}
+
+		assert(r->result->status == SENDPAY_COMPLETE ||
+		       r->result->status == SENDPAY_FAILED);
+		if (r->result->status == SENDPAY_COMPLETE && payment_preimage) {
+			assert(r->result->payment_preimage);
+			*payment_preimage =
+			    tal_dup(payment, struct preimage,
+				    r->result->payment_preimage);
+		}
+
+		if (r->result->status == SENDPAY_FAILED) {
+			if (r->final_msg) {
+				if (final_error)
+					*final_error = r->final_error;
+
+				if (final_msg)
+					*final_msg =
+					    tal_strdup(tmpctx, r->final_msg);
+			}
+		}
+		route_completed(r);
 	}
-	route_remove(route);
-	// TODO: free? maybe not yet
+	tal_resize(payment->routes_completed, 0);
+}
+
+static void route_end_thread(struct route *route)
+{
+	// FIXME: this should be called after a route returns:
+	// -> sendpay rpc fails
+	// -> sendpay fails
+	// -> sendpay suceeds
+	assert(route);
+	assert(route->payment);
+	struct payment *payment = route->payment;
+
+	tal_arr_expand(&payment->routes_completed, route);
+	if(payment->exec_state == INVALID_STATE)
+	{
+		/* We are not in the middle of a payment execution. We process
+		 * the results inmediately. */
+		payment_collect_results(payment, NULL, NULL, NULL);
+	}
 }
 
 static void route_pending(struct route *route)
 {
+	// FIXME: every route must start here
 	assert(route);
 	assert(route->payment);
 	struct payment *payment = route->payment;
-	if (!amount_msat_sub(&payment->total_delivering,
+
+	assert(payment->groupid == route->key.groupid);
+	if (!amount_msat_add(&payment->total_delivering,
 			     payment->total_delivering,
 			     route_delivers(route)) ||
-	    !amount_msat_sub(&payment->total_sent, payment->total_sent,
+	    !amount_msat_add(&payment->total_sent, payment->total_sent,
 			     route_sends(route))) {
-		plugin_err(pay_plugin, "%s: amount_msat substraction failed",
+		plugin_err(pay_plugin->plugin,
+			   "%s: amount_msat addition overflow.",
 			   __PRETTY_FUNCTION__);
 	}
-	commit_htlc_route(pay_plugin->unetwork, route);
+	assert(route->result==NULL);
+	route->result = tal(route, struct payment_result);
+	route->result->status = SENDPAY_PENDING;
+	unetwork_commit_htlcs(pay_plugin->unetwork, route);
 	route_map_add(pay_plugin->route_map, route);
-	// TODO: change ownership to pay_plugin? maybe not
+	payment->pending_routes++;
 }
+
 
 /* Generic handler for RPC failures that should end up failing the payment. */
 static struct command_result *payment_rpc_failure(struct command *cmd,
@@ -256,6 +340,11 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 					   "%s (line %d) amount_msat overflow.",
 					   __PRETTY_FUNCTION__, __LINE__);
 
+			/* FIXME: pending sendpays should be considered just as
+			 * the routes that we send. Because when they succeed we
+			 * succeed the payment, and when they fail we need to
+			 * substract from the total. */
+
 		} else
 			assert(streq(status, "failed"));
 	}
@@ -281,6 +370,7 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		/* Continue where we left off? */
 		payment->groupid = pending_group_id;
 		payment->next_partid = max_pending_partid + 1;
+
 		payment->total_sent = pending_sent;
 		payment->total_delivering = pending_msat;
 
@@ -765,15 +855,19 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
 /*****************************************************************************
  * send_routes
  *
- * This payment modifier takes the payment routes and starts the payment request
- * calling sendpay.
+ * This payment modifier takes the payment routes and starts the payment
+ * request calling sendpay.
  */
 
-static struct command_result *sendpay_done(struct command *cmd, const char *buf,
-					   const jsmntok_t *result,
+static struct command_result *sendpay_done(struct command *cmd,
+					   const char *buf UNUSED,
+					   const jsmntok_t *result UNUSED,
 					   struct route *route)
 {
-	// TODO: put here the user interface messages
+	assert(route);
+	assert(route->payment);
+	struct payment *payment = route->payment;
+	payment->pending_routes--;
 	return command_still_pending(cmd);
 }
 
@@ -783,56 +877,64 @@ static struct command_result *sendpay_done(struct command *cmd, const char *buf,
  */
 static struct command_result *sendpay_failed(struct command *cmd,
 					     const char *buf,
-					     const jsmntok_t *err,
+					     const jsmntok_t *tok,
 					     struct route *route)
 {
-	// TODO check how pay.c handles this
+	assert(route);
+	assert(route->payment);
 	struct payment *payment = route->payment;
+	payment->pending_routes--;
+
 	enum jsonrpc_errcode errcode;
 	const char *msg;
+	const char *err;
 
-	assert(payment);
-
-	if (json_scan(tmpctx, buf, err, "{code:%,message:%}",
-		      JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
-		      JSON_SCAN_TAL(tmpctx, json_strdup, &msg)))
+	err = json_scan(tmpctx, buf, tok, "{code:%,message:%}",
+			JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
+			JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
+	if (err)
 		plugin_err(pay_plugin->plugin,
-			   "Unable to parse sendpay error: %.*s",
-			   json_tok_full_len(err), json_tok_full(buf, err));
+			   "Unable to parse sendpay error: %s, json: %.*s", err,
+			   json_tok_full_len(tok), json_tok_full(buf, tok));
 
-	if (errcode != PAY_TRY_OTHER_ROUTE)
-		plugin_err(pay_plugin->plugin,
+	// FIXME: add an error description
+	payment_note(payment, LOG_INFORM,
+		     "Sendpay failed: partid=%" PRIu64
+		     " errorcode:%d message=%s",
+		     route->key.partid, errcode, msg);
+
+	if (errcode != PAY_TRY_OTHER_ROUTE) {
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
 			   "Strange error from sendpay: %.*s",
-			   json_tok_full_len(err), json_tok_full(buf, err));
+			   json_tok_full_len(tok), json_tok_full(buf, tok));
+	}
 
 	/* There is no new knowledge from this kind of failure.
 	 * We just disable this scid. */
-	// TODO: review this
-	payflow_disable_chan(pf, pf->path_scidds[0].scid, LOG_INFORM,
+	payment_disable_chan(payment, route->hops[0].scid, LOG_INFORM,
 			     "sendpay didn't like first hop: %s", msg);
 
-	// TODO: review this
-	route_failed(route);
+	assert(route->result);
+	route->result->status = SENDPAY_FAILED;
+	// FIXME: add some error information to route->result
+	route_end_thread(route);
 	return command_still_pending(cmd);
 }
 
-static struct command_result *send_routes_cb(struct payment *payment)
+static struct command_result *send_routes_done(struct command *cmd,
+					       const char *buf UNUSED,
+					       const jsmntok_t *result UNUSED,
+					       struct payment *payment)
 {
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
-
-	for (size_t i = 0; i < tal_count(payment->routes); i++) {
-		struct route *route = payment->routes[i];
-
+	for (size_t i = 0; i < tal_count(payment->routes_to_send); i++) {
+		struct route *route = payment->routes_to_send[i];
 		struct out_req *req =
 		    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
 					  sendpay_done, sendpay_failed, route);
-
 		json_array_start(req->js, "route");
 		const size_t pathlen = tal_count(route->hops);
-
 		for (size_t j = 0; j < pathlen; j++) {
-			const route_hop *hop = &route->hops[j];
+			const struct route_hop *hop = &route->hops[j];
 
 			json_object_start(req->js, NULL);
 			json_add_node_id(req->js, "id", &hop->node_id);
@@ -846,7 +948,6 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			json_object_end(req->js);
 		}
 		json_array_end(req->js);
-
 		json_add_sha256(req->js, "payment_hash",
 				&payment->payment_hash);
 		json_add_secret(req->js, "payment_secret",
@@ -854,8 +955,8 @@ static struct command_result *send_routes_cb(struct payment *payment)
 
 		/* FIXME: sendpay has a check that we don't total more than
 		 * the exact amount, if we're setting partid (i.e. MPP).
-		 * However, we always set partid, and we add a shadow amount *if
-		 * we've only have one part*, so we have to use that amount
+		 * However, we always set partid, and we add a shadow amount if
+		 * we've only have one part, so we have to use that amount
 		 * here.
 		 *
 		 * The spec was loosened so you are actually allowed
@@ -868,9 +969,7 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			json_add_amount_msat(req->js, "amount_msat",
 					     payment->amount);
 		}
-
 		json_add_u64(req->js, "partid", route->key.partid);
-
 		json_add_u64(req->js, "groupid", route->key.groupid);
 
 		/* FIXME: some of these fields might not be required for all
@@ -888,15 +987,46 @@ static struct command_result *send_routes_cb(struct payment *payment)
 
 		send_outreq(pay_plugin->plugin, req);
 
+		payment_note(payment, LOG_INFORM,
+			     "Sent route request: partid=%" PRIu64
+			     " amount=%s prob=%.3lf fees=%s delay=%u path=%s",
+			     route->key.partid,
+			     fmt_amount_msat(tmpctx, route_delivers(route)),
+			     route->success_prob,
+			     fmt_amount_msat(tmpctx, route_fees(route)),
+			     route_delay(route), fmt_route_path(tmpctx, route));
+
 		route_pending(route);
 	}
-
-	payment->routes = tal_free(payment->routes);
+	tal_resize(&payment->routes_to_send, 0);
 
 	/* Safety check. */
-	payment_assert_delivering_all(payment);
+	if (amount_msat_less(payment->total_delivering, payment->amount)) {
+		plugin_err(pay_plugin->plugin,
+			   "Strange, delivering (%s) is less than amount (%s)",
+			   type_to_string(tmpctx, struct amount_msat,
+					  &payment->total_delivering),
+			   type_to_string(tmpctx, struct amount_msat,
+					  &payment->amount));
+	}
 
 	return payment_continue(payment);
+}
+
+static struct command_result *send_routes_cb(struct payment *payment)
+{
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+
+	payment->have_results = false;
+	payment->retry = false;
+	assert(payment->pending_routes==0);
+
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "waitblockheight", send_routes_done,
+	    payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
@@ -954,61 +1084,15 @@ collect_results_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	payment->retry = false;
 
 	/* pending sendpay callbacks should be zero */
-	if (payment->pending_sendpay_callbacks)
-		payment_continue(payment);
+	if (payment->pending_routes)
+		return payment_continue(payment);
 
 	/* all sendpays have been sent, look for success */
-	const struct preimage *payment_preimage = NULL;
+	struct preimage *payment_preimage = NULL;
 	enum jsonrpc_errcode final_error = LIGHTNINGD;
 	const char *final_msg = NULL;
 
-	const size_t ncompleted = tal_count(payment->routes_completed);
-	for (size_t i = 0; i < ncompleted; i++) {
-		const struct route *r = payment->routes_completed[i];
-		const struct amount_msat sends = route_sends(r);
-		const struct amount_msat delivers = route_delivers(r);
-
-		/* We shouldn't have previous payment attempts (different
-		 * groupid), because we don't start the payment if there are
-		 * pending sendpays with older groupids. */
-		if (payment->groupid != r->key.groupid) {
-			plugin_err(pay_plugin->plugin,
-				   "%s: current groupid=%" PRIu64
-				   ", but recieved a sendpay result with "
-				   "groupid=%" PRIu64,
-				   __PRETTY_FUNCTION__, payment->groupid,
-				   r->key.groupid);
-		}
-
-		assert(r->result->status == SENDPAY_COMPLETE ||
-		       r->result->status == SENDPAY_FAILED);
-		if (r->result->status == SENDPAY_COMPLETE &&
-		    !payment_preimage) {
-			assert(r->result->payment_preimage);
-			payment_preimage =
-			    tal_dup(tmpctx, struct preimage, r->result->payment_preimage);
-		}
-
-		if (r->result->status == SENDPAY_FAILED) {
-			if (!amount_msat_sub(&payment->total_sent,
-					     payment->total_sent, sends) ||
-			    !amount_msat_sub(&payment->total_delivering,
-					     payment->total_delivering,
-					     delivers)) {
-				plugin_err(pay_plugin->plugin,
-					   "%s: this route amount does not add "
-					   "up to the payment total.",
-					   __PRETTY_FUNCTION__);
-			}
-
-			if (r->final_msg) {
-				final_error = r->final_error;
-				final_msg = tal_strdup(tmpctx, r->final_msg);
-			}
-		}
-		tal_free(r);
-	}
-	tal_resize(payment->routes_completed, 0);
+	payment_collect_results(payment, &payment_preimage, &final_error, &final_msg);
 
 	if (payment_preimage) {
 		/* If we have the preimate that means one succeed, we

@@ -133,7 +133,7 @@ struct payment {
 
 	/* pending sendpay callbacks, we need these to complete before we can
 	 * decide wether to retry or fail the payment. */
-	size_t pending_sendpay_callbacks;
+	size_t pending_routes;
 
 	/* Flag to indicate wether we have collected enough results to make a
 	 * decision on the payment progress. */
@@ -221,8 +221,6 @@ struct amount_msat payment_sent(const struct payment *p);
 struct amount_msat payment_delivered(const struct payment *p);
 struct amount_msat payment_amount(const struct payment *p);
 struct amount_msat payment_fees(const struct payment *p);
-
-void payment_assert_delivering_all(const struct payment *p);
 
 u64 payment_parts(const struct payment *payment);
 

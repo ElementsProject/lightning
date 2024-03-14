@@ -27,10 +27,9 @@ enum sendpay_result_status {
  * which are already present in the `struct payment` itself. */
 struct payment_result {
 	/* DB internal id */
+	// TODO check all this variables
 	u64 id;
-
 	struct preimage *payment_preimage;
-
 	enum sendpay_result_status status;
 	struct amount_msat amount_sent;
 	u32 code;
@@ -130,7 +129,7 @@ hop_to_scidd(const struct route_hop *hop)
 	return scidd;
 }
 
-const char *route_to_str(const tal_t *ctx, const struct route *route);
+const char *fmt_route_path(const tal_t *ctx, const struct route *route);
 
 static inline struct amount_msat route_delivers(const struct route *route)
 {
@@ -145,6 +144,22 @@ static inline struct amount_msat route_sends(const struct route *route)
 	assert(route->hops);
 	assert(tal_count(route->hops)>0);
 	return route->hops[0].amount;
+}
+static inline struct amount_msat route_fees(const struct route *route)
+{
+	struct amount_msat fees;
+	if (!amount_msat_sub(&fees, route_sends(route),
+			     route_delivers(route))) {
+		assert(0 && "route sends is greater than delivers");
+	}
+	return fees;
+}
+static inline u32 route_delay(const struct route *route)
+{
+	assert(route);
+	const size_t pathlen = tal_count(route->hops);
+	assert(route->hops[0].delay > route->hops[pathlen - 1].delay);
+	return route->hops[0].delay - route->hops[pathlen - 1].delay;
 }
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ROUTE_H */
