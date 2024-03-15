@@ -1471,17 +1471,6 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 				     point);
 }
 
-static u8 *make_revocation_msg_from_secret(const struct peer *peer,
-					   u64 revoke_index,
-					   struct pubkey *point,
-					   const struct secret *old_commit_secret,
-					   const struct pubkey *next_point)
-{
-	*point = *next_point;
-	return towire_revoke_and_ack(peer, &peer->channel_id,
-				     old_commit_secret, next_point);
-}
-
 /* Convert changed htlcs into parts which lightningd expects. */
 static void marshall_htlc_info(const tal_t *ctx,
 			       const struct htlc **changed_htlcs,
@@ -1548,8 +1537,6 @@ static void send_revocation(struct peer *peer,
 	struct added_htlc *added;
 	const u8 *msg;
 	const u8 *msg_for_master;
-	struct secret old_secret2;
-	struct pubkey next_point2;
 
 	/* Marshall it now before channel_sending_revoke_and_ack changes htlcs */
 	/* FIXME: Make infrastructure handle state post-revoke_and_ack! */
@@ -1592,17 +1579,8 @@ static void send_revocation(struct peer *peer,
 
 	/* Now that the master has persisted the new commitment advance the HSMD
 	 * and fetch the revocation secret for the old one. */
-	msg = towire_hsmd_revoke_commitment_tx(tmpctx, peer->next_index[LOCAL] - 2);
-	msg = hsm_req(tmpctx, take(msg));
-	if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_secret2, &next_point2))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading revoke_commitment_tx reply: %s",
-			      tal_hex(tmpctx, msg));
-
-	/* Revoke previous commit, get new point. */
-	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-2,
-					      &peer->next_local_per_commit,
-					      &old_secret2, &next_point2);
+	msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2,
+				  &peer->next_local_per_commit);
 
 	/* Now we can finally send revoke_and_ack to peer */
 	peer_write(peer->pps, take(msg));
