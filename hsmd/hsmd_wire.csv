@@ -324,10 +324,12 @@ msgdata,hsmd_sign_splice_tx,input_index,u32,
 msgtype,hsmd_sign_tx_reply,112
 msgdata,hsmd_sign_tx_reply,sig,bitcoin_signature,
 
-# Openingd/channeld/onchaind asks for Nth per_commitment_point, if > 2, gets N-2 secret.
+# Openingd/channeld/onchaind asks for Nth per_commitment_point
+# Prior to HSM_VERSION 6 we will return an old_commitment_secret
 msgtype,hsmd_get_per_commitment_point,18
 msgdata,hsmd_get_per_commitment_point,n,u64,
 
+# IMPORTANT - Beginning HSM_VERSION 6 we never return an old_commitment_secret
 msgtype,hsmd_get_per_commitment_point_reply,118
 msgdata,hsmd_get_per_commitment_point_reply,per_commitment_point,pubkey,
 msgdata,hsmd_get_per_commitment_point_reply,old_commitment_secret,?secret,
