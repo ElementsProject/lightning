@@ -457,7 +457,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
-	const u32 our_minversion = 4, our_maxversion = 5;
+	const u32 our_minversion = 4, our_maxversion = 6;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
