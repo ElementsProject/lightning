@@ -1420,11 +1420,8 @@ static void start_commit_timer(struct peer *peer)
 }
 
 /* Fetch the requested point. The secret is no longer returned, use
- * revoke_commitment.
- *
- * NOTE - Because the internals of this call also release the secret
- * from a revoked commitment it is an error to call this past the next
- * commitment.
+ * revoke_commitment instead.  It is legal to call this on any
+ * commitment (including distant future).
  */
 static void get_per_commitment_point(u64 index, struct pubkey *point)
 {
