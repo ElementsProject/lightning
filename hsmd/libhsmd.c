@@ -15,6 +15,9 @@
 #include <sodium/utils.h>
 #include <wally_psbt.h>
 
+/* The negotiated protocol version ends up in here. */
+u64 hsmd_mutual_version;
+
 /* If they specify --dev-force-privkey it ends up in here. */
 struct privkey *dev_force_privkey;
 /* If they specify --dev-force-bip32-seed it ends up in here. */
