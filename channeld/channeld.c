@@ -1455,23 +1455,17 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 
 	/* Now that the master has persisted the new commitment advance the HSMD
 	 * and fetch the revocation secret for the old one. */
-	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX)) {
-		/* Prior to HSM_VERSION 5 we call get_per_commitment_point to
-		 * get the old_secret and next point.
-		 */
-		get_per_commitment_point(revoke_index+2, point, &old_commit_secret);
-	} else {
-		/* After HSM_VERSION 5 we explicitly revoke the commitment in case
-		 * the original revoke didn't complete.  The hsmd_revoke_commitment_tx
-		 * call is idempotent ...
-		 */
-		msg = towire_hsmd_revoke_commitment_tx(tmpctx, revoke_index);
-		msg = hsm_req(tmpctx, take(msg));
-		if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_commit_secret, point))
-			status_failed(STATUS_FAIL_HSM_IO,
-				      "Reading revoke_commitment_tx reply: %s",
-				      tal_hex(tmpctx, msg));
-	}
+
+	/* After HSM_VERSION 5 we explicitly revoke the commitment in case
+	 * the original revoke didn't complete.  The hsmd_revoke_commitment_tx
+	 * call is idempotent ...
+	 */
+	msg = towire_hsmd_revoke_commitment_tx(tmpctx, revoke_index);
+	msg = hsm_req(tmpctx, take(msg));
+	if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_commit_secret, point))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading revoke_commitment_tx reply: %s",
+			      tal_hex(tmpctx, msg));
 
 	return towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
 				     point);
@@ -1598,19 +1592,12 @@ static void send_revocation(struct peer *peer,
 
 	/* Now that the master has persisted the new commitment advance the HSMD
 	 * and fetch the revocation secret for the old one. */
-	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX)) {
-		/* Prior to HSM_VERSION 5 we use the old_secret
-		 * received earlier from validate_commitment_tx. */
-		old_secret2 = *old_secret;
-		next_point2 = *next_point;
-	} else {
-		msg = towire_hsmd_revoke_commitment_tx(tmpctx, peer->next_index[LOCAL] - 2);
-		msg = hsm_req(tmpctx, take(msg));
-		if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_secret2, &next_point2))
-			status_failed(STATUS_FAIL_HSM_IO,
-				      "Reading revoke_commitment_tx reply: %s",
-				      tal_hex(tmpctx, msg));
-	}
+	msg = towire_hsmd_revoke_commitment_tx(tmpctx, peer->next_index[LOCAL] - 2);
+	msg = hsm_req(tmpctx, take(msg));
+	if (!fromwire_hsmd_revoke_commitment_tx_reply(msg, &old_secret2, &next_point2))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading revoke_commitment_tx reply: %s",
+			      tal_hex(tmpctx, msg));
 
 	/* Revoke previous commit, get new point. */
 	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-2,
@@ -2102,10 +2089,8 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		tal_steal(commitsigs, result);
 	}
 
-	// If the HSM doesn't support WIRE_HSMD_REVOKE_COMMITMENT_TX we'd better
-	// have the old_secret at this point.
-	if (!hsm_is_capable(peer->hsm_capabilities, WIRE_HSMD_REVOKE_COMMITMENT_TX))
-		assert(old_secret);
+	/* We no longer receive old_secret from hsmd_validate_commitment_tx */
+	assert(!old_secret);
 
 	send_revocation(peer, &commit_sig, htlc_sigs, changed_htlcs, txs[0],
 			old_secret, &next_point, commitsigs);
