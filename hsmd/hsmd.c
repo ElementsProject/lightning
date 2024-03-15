@@ -511,8 +511,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		discard_key(take(hsm_encryption_key));
 
 	/* Define the minimum common max version for the hsmd one */
-	u64 mutual_version = maxversion < our_maxversion ? maxversion : our_maxversion;
-	return req_reply(conn, c, hsmd_init(hsm_secret, mutual_version,
+	hsmd_mutual_version = maxversion < our_maxversion ? maxversion : our_maxversion;
+	return req_reply(conn, c, hsmd_init(hsm_secret, hsmd_mutual_version,
 					    bip32_key_version));
 }
 
