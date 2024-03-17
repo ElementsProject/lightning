@@ -305,7 +305,7 @@
                       "splice_amount": {
                         "type": "integer",
                         "added": "v23.08",
-                        "description": "The amouont of sats we're splicing in or out"
+                        "description": "The amount of sats we're splicing in or out"
                       },
                       "scratch_txid": {
                         "type": "txid",

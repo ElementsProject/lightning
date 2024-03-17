@@ -68,7 +68,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **funding\_outnum** (u32): The 0-based output number of the funding transaction which opens the channel
   - **feerate** (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
   - **total\_funding\_msat** (msat): total amount in the channel
-  - **splice\_amount** (integer): The amouont of sats we're splicing in or out *(added v23.08)*
+  - **splice\_amount** (integer): The amount of sats we're splicing in or out *(added v23.08)*
   - **our\_funding\_msat** (msat): amount we have in the channel
   - **scratch\_txid** (txid, optional): The commitment transaction txid we would use if we went onchain now
 - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
@@ -221,4 +221,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:02dbb15d46497d33808d1bc021cb604529546b94f46d8de285d7b47f4615a516)
+[comment]: # ( SHA256STAMP:27dac0fd7ddb3fa596a5cab7209cf1ab07e1d59b590fb2a371fb95ef23c68643)
