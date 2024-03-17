@@ -252,6 +252,13 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		return payment_finish(payment);
 	}
 
+	/* TODO: I think this has a bug. If there is a pending sendpay with some
+	 * groupid we want to know the highest partid for all sendpays with that
+	 * same groupid. Doing a single scan we might fail. Eg. suppose the
+	 * groupid=1 has a partid=1 which is pending, but also partid=2 which
+	 * failed, since there is no guaranteed order in this list we might
+	 * first scan {groupid=1, partid=2, status=failed} and then {groupid=1,
+	 * partid=1, status=pending}. */
 	json_for_each_arr(i, t, arr)
 	{
 		u32 partid = 0, groupid;
@@ -371,6 +378,13 @@ static struct command_result *previous_sendpays_done(struct command *cmd,
 		payment->groupid = pending_group_id;
 		payment->next_partid = max_pending_partid + 1;
 
+		/* TODO: instead of adding up here, I suggest to match all
+		 * pending sendpays with routes in our database, if the sendpay
+		 * was sent with another command then we create a new route.
+		 * This is needed because there must be a one-to-one
+		 * correspondence between pending senpays in lightningd and the
+		 * routes we are tracking in the plugin, so that when we get a
+		 * failure or success notification we can act accordingly. */
 		payment->total_sent = pending_sent;
 		payment->total_delivering = pending_msat;
 
@@ -774,33 +788,27 @@ static struct command_result *routehints_cb(struct payment *payment)
 
 REGISTER_PAYMENT_MODIFIER(routehints, routehints_cb);
 
-		/* For the next iteration get me the probability_budget */
-		if (prob < 1e-10) {
-			// this last flow probability is too small for division
-			probability_budget = 1.0;
-		} else {
-			/* prob here is a conditional probability, the next
-			 * round of flows will have a conditional probability
-			 * prob2 and we would like that
-			 *	prob*prob2 >= probability_budget
-			 * hence probability_budget/prob becomes the next
-			 * iteration's target. */
-			probability_budget =
-			    MIN(1.0, probability_budget / prob);
-		}
+/*****************************************************************************
+ * compute_routes
+ *
+ * Compute the payment routes.
+ */
+
+static void payment_append_routes(struct payment *payment,
+				  struct route **routes TAKES)
+{
+	const size_t N = tal_count(routes);
+	for (size_t i = 0; i < N; i++) {
+		routes[i] = tal_steal(payment, routes[i]);
+		tal_arr_expand(&payment->routes_to_send, routes[i]);
 	}
-	return NULL;
-
-function_fail:
-	//	payment_remove_flows(p, PAY_FLOW_NOT_STARTED);
-
-	return fail;
+	tal_free(routes);
 }
 
-static void compute_routes_cb(struct payment *payment)
+static struct command_result *
+compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
+		    const jsmntok_t *result UNUSED, struct payment *payment)
 {
-	assert(payment->status == PAYMENT_PENDING);
-
 	struct amount_msat feebudget, fees_spent, remaining;
 
 	/* Total feebudget  */
@@ -818,7 +826,7 @@ static void compute_routes_cb(struct payment *payment)
 	/* Remaining fee budget. */
 	if (!amount_msat_sub(&feebudget, feebudget, fees_spent))
 		plugin_err(pay_plugin->plugin,
-			   "%s: fees_speng is greater than feebudget?",
+			   "%s: fees_spent is greater than feebudget?",
 			   __PRETTY_FUNCTION__);
 
 	/* How much are we still trying to send? */
@@ -828,26 +836,74 @@ static void compute_routes_cb(struct payment *payment)
 			   "%s: total_delivering is greater than amount?",
 			   __PRETTY_FUNCTION__);
 
-	/* We let this return an unlikely path, as it's better to try once
-	 * than simply refuse.  Plus, models are not truth! */
+	// FIXME think about the uncertainty network, we cannot afford to have a
+	// local uncertainty network for each payment because when a route
+	// thread returns some knowledge we need to update the uncertainty
+	// network and that information might be split among the local and the
+	// global.
+	// FIXME check that routes and the uncertainty network can talk to each
+	// other without the need of the gossmap, because some channels might be
+	// in the local gossmap.
+
+	enum jsonrpc_errcode errcode;
+	const char *err_msg;
+
+	assert(payment->routes_to_send);
+	/* In a normal execution we are not expecting to have previously
+	 * computed routed here. */
+	assert(tal_count(payment->routes_to_send) == 0);
+
 	gossmap_apply_localmods(pay_plugin->gossmap, payment->local_gossmods);
 	// TODO: add an algorithm selector here
-	// TODO: review add_payflows
-	enum jsonrpc_errcode errcode;
-	const char *err_msg =
-	    get_routes(payment, remaining, feebudget,
-		       /* is entire payment? */
-		       amount_msat_zero(payment->total_delivering), &errcode);
+	/* We let this return an unlikely path, as it's better to try  once than
+	 * simply refuse.  Plus, models are not truth! */
+	struct route **routes = get_routes(
+		tmpctx,
+		&pay_plugin->my_id,
+		&payment->destination,
+		pay_plugin->gossmap,
+		pay_plugin->unetwork,
+		&payment->disabled_scids,
+		remaining,
+
+		feebudget,
+		payment->min_prob_success,
+		payment->delay_feefactor,
+		payment->base_fee_penalty,
+		payment->prob_cost_factor,
+
+		&errcode,
+		&err_msg);
+
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */
 	if (err_msg) {
-		// TODO
-		// payment_set_fail(payment, errcode, "%s", err_msg);
-		payment_finish(payment);
+		payment_fail(payment, errcode, "%s", err_msg);
+		return payment_finish(payment);
 	}
 
+	payment_append_routes(payment, take(routes));
+
 	return payment_continue(payment);
+}
+
+static struct command_result *compute_routes_cb(struct payment *payment)
+{
+	assert(payment->status == PAYMENT_PENDING);
+
+	if (time_after(time_now(), payment->stop_time)) {
+		payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
+		return payment_finish(payment);
+	}
+
+	struct command *cmd = payment_command(payment);
+	assert(cmd);
+	struct out_req *req = jsonrpc_request_start(
+	    cmd->plugin, cmd, "waitblockheight", compute_routes_done,
+	    payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(cmd->plugin, req);
 }
 
 REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
