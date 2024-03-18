@@ -294,17 +294,36 @@ done
 # Now fill in any unset vars.
 set_defaults
 
-# We assume warning flags don't affect congfigurator that much!
-echo -n "Compiling $CONFIGURATOR..."
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
-echo "done"
-
 if [ "$ASAN" = "1" ]; then
     if [ "$VALGRIND" = "1" ]; then
 	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
 	exit 1
     fi
+
+    # Test for buggy clang https://github.com/llvm/llvm-project/issues/81470
+    cat > /tmp/asan-test.$$.c <<EOF
+int main(int argc, char *argv[]) {
+	(void)argc;
+	(void)argv;
+return __builtin_choose_expr(1, 0, "garbage");}
+EOF
+    $CC $CSANFLAGS $CDEBUGFLAGS $COPTFLAGS -o /tmp/asan-test.$$ /tmp/asan-test.$$.c
+    # I get 219/1000 failures :(
+    for i in `seq 100`; do
+	if ! /tmp/asan-test.$$ 2>/dev/null; then
+	    echo "WARNING: ASAN compilatin bug detected: DISABLING" >&2
+	    CSANFLAGS=$(echo "$CSANFLAGS" | sed 's/-fsanitize=address//')
+	    ASAN=0
+	    break
+	fi
+    done
 fi
+
+
+# We assume warning flags don't affect congfigurator that much!
+echo -n "Compiling $CONFIGURATOR..."
+$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+echo "done"
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
 	case "$CC" in
