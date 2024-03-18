@@ -134,20 +134,18 @@ psbt_to_witnesses(const tal_t *ctx,
 		if (input_index_to_ignore == i)
 			continue;
 
-		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+		/* BOLT #2:
 		 * - if is the *initiator*:
 		 *   - MUST send even `serial_id`s
 		 */
 		if (wtx_s && serial_id % 2 == side_to_stack) {
 
-			/* BOLT-e299850cb5ebd8bd9c55763bbc498fcdf94a9567 #2:
+			/* BOLT #2:
 			 *
 			 * The `witness_data` is encoded as per bitcoin's
 			 * wire protocol (a CompactSize number of elements,
 			 * with each element a CompactSize length and that
-			 * many bytes following.  Each `witness_data` field
-			 * contains all of the witness elements for a single input,
-			 * including the leading counter of elements.
+			 * many bytes following).
 			 */
 			struct witness *wit = tal(witnesses, struct witness);
 			wit->witness_data = tal_arr(wit, u8, 0);

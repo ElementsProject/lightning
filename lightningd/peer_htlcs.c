@@ -94,7 +94,7 @@ static bool htlc_out_update_state(struct channel *channel,
 	return true;
 }
 
-/* BOLT-route-blinding #4:
+/* BOLT #4:
  *   - if `blinding_point` is set in the incoming `update_add_htlc`:
  *     - MUST return an `invalid_onion_blinding` error.
  *   - if `current_blinding_point` is set in the onion payload and it is not the
@@ -800,16 +800,16 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 *   - if the `cltv_expiry` is unreasonably far in the future:
+	 *  - if the `cltv_expiry` is more than `max_htlc_cltv` in the future:
 	 *     - return an `expiry_too_far` error.
 	 */
 	if (get_block_height(ld->topology)
-	    + ld->config.locktime_max < outgoing_cltv_value) {
+	    + ld->config.max_htlc_cltv < outgoing_cltv_value) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv %u too far from current %u + max %u",
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology),
-			  ld->config.locktime_max);
+			  ld->config.max_htlc_cltv);
 		failmsg = towire_expiry_too_far(tmpctx);
 		goto fail;
 	}

@@ -1193,7 +1193,7 @@ static struct amount_sat calculate_reserve(struct channel_config *their_config,
 {
 	struct amount_sat reserve, dust_limit;
 
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
+	/* BOLT #2
 	 *
 	 * The channel reserve is fixed at 1% of the total channel balance
 	 * rounded down (sum of `funding_satoshis` from `open_channel2`
@@ -1852,7 +1852,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 					      &channel->funding.txid,
 					      channel->remote_channel_ready);
 
-		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
+		/* BOLT #2
 		 * The receiving node:  ...
 		 * - MUST fail the channel if:
 		 *   - the `witness_stack` weight lowers the
@@ -2200,7 +2200,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 					      &channel->funding.txid,
 					      channel->remote_channel_ready);
 
-		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
+		/* BOLT #2
 		 * The receiving node:  ...
 		 * - MUST fail the channel if:
 		 *   - the `witness_stack` weight lowers the
@@ -2316,11 +2316,11 @@ static void handle_validate_rbf(struct subd *dualopend,
 	inputs_present = tal_arr(tmpctx, bool, candidate_psbt->num_inputs);
 	memset(inputs_present, true, tal_bytelen(inputs_present));
 
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	/* BOLT #2:
 	 * The receiving node: ...
 	 *    - MUST fail the negotiation if: ...
-	 *    - the transaction does not share a common input with
-	 *    all previous funding transactions
+	 *    - the transaction does not share at least one input with
+	 *    each previous funding transaction
 	 */
 	list_for_each(&channel->inflights, inflight, list) {
 		/* Remove every non-matching input from set */
@@ -2366,9 +2366,9 @@ static void handle_validate_rbf(struct subd *dualopend,
 	assert(inflight);
 	last_fee = psbt_compute_fee(inflight->funding_psbt);
 
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	/* BOLT #2:
 	 * The receiving node: ...
-	 * - if is an RBF attempt:
+	 * - if this is an RBF attempt:
 	 *   - MUST fail the negotiation if:
 	 *   - the transaction's total fees is less than the last
 	 *   successfully negotiated transaction's fees
@@ -2538,15 +2538,21 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
 
+	/* BOLT #2:
+	 * The sender:
+	 *   - MUST set `feerate` greater than or equal to 25/24 times the
+	 *     `feerate` of the previously constructed transaction, rounded
+	 *     down.
+	 */
 	last_feerate_perkw = channel_last_funding_feerate(channel);
-	next_feerate_min = last_feerate_perkw * 65 / 64;
+	next_feerate_min = last_feerate_perkw * 25 / 24;
 	assert(next_feerate_min > last_feerate_perkw);
 	if (!feerate_per_kw_funding) {
 		feerate_per_kw_funding = tal(cmd, u32);
 		*feerate_per_kw_funding = next_feerate_min;
 	} else if (*feerate_per_kw_funding < next_feerate_min)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Next feerate must be at least 1/64th"
+				    "Next feerate must be at least 1/24th"
 				    " greater than the last. Min req %u,"
 				    " you proposed %u",
 				    next_feerate_min,

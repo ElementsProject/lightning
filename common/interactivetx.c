@@ -25,14 +25,14 @@
 #include <common/wire_error.h>
 
 /*
- * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+ * BOLT #2:
  * The receiving node: ...
  * - MUST fail the negotiation if: ...
  *  - if has received 4096 `tx_add_input` messages during this negotiation
  */
 #define MAX_TX_ADD_INPUT_MSG_RCVD 4096
 /*
- * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+ * BOLT #2:
  * The receiving node: ...
  * - MUST fail the negotiation if: ...
  *  - it has received 4096 `tx_add_output` messages during this negotiation
@@ -40,7 +40,7 @@
 #define MAX_TX_ADD_OUTPUT_MSG_RCVD 4096
 
 /*
- * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+ * BOLT #2:
  * The receiving node: ...
  * - MUST fail the negotiation if: ...
  *  - there are more than 252 inputs
@@ -429,7 +429,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       tal_hex(ctx, msg));
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - if has received 4096 `tx_add_input`
@@ -440,7 +440,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       " received %d",
 					       MAX_TX_ADD_INPUT_MSG_RCVD);
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the `serial_id` has the wrong parity
@@ -450,7 +450,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "Invalid serial_id rcvd. %"PRIu64,
 					       serial_id);
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the `serial_id` is already included in
@@ -489,9 +489,9 @@ char *process_interactivetx_updates(const tal_t *ctx,
 							      tx));
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 *   The receiving node: ...
-			 *    - MUST fail the negotiation if:
+			 *    - MUST fail the negotiation if:...
 			 *    - the `prevtx` and `prevtx_vout` are
 			 *    identical to a previously added (and not
 			 *    removed) input's
@@ -506,7 +506,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 							      &outpoint));
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *  - there are more than 252 inputs
@@ -518,7 +518,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       MAX_FUNDING_INPUTS);
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node:
 			 *  - MUST add all received inputs to the transaction
 			 */
@@ -549,7 +549,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "Parsing tx_remove_input %s",
 					       tal_hex(ctx, msg));
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node:  ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the input or output identified by the
@@ -562,7 +562,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "serial_id: %"PRIu64,
 					       serial_id);
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node:  ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the `serial_id` does not correspond
@@ -592,7 +592,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       tal_hex(ctx, msg));
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - it has received 4096 `tx_add_output`
@@ -604,7 +604,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       " received (%d)",
 					       MAX_TX_ADD_OUTPUT_MSG_RCVD);
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the `serial_id` has the wrong parity
@@ -614,7 +614,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "Invalid serial_id rcvd. %"PRIu64,
 					       serial_id);
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the `serial_id` is already included
@@ -625,7 +625,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       " %"PRIu64, serial_id);
 			amt = amount_sat(value);
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node: ...
 			 * - MAY fail the negotiation if `script`
 			 *   is non-standard */
@@ -633,7 +633,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 				return tal_fmt(ctx, "Script is not standard");
 
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *  - there are more than 252 outputs
@@ -661,7 +661,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 						 "Parsing tx_remove_output %s",
 						 tal_hex(ctx, msg));
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the input or output identified by the
@@ -674,7 +674,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "serial_id: %"PRIu64,
 					       serial_id);
 
-			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			/* BOLT #2:
 			 * The receiving node: ...
 			 * - MUST fail the negotiation if: ...
 			 *   - the `serial_id` does not correspond to a
