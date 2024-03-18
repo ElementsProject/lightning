@@ -162,7 +162,7 @@ On success, an object is returned, containing:
   - **watchtime-blocks** (object, optional):
     - **value\_int** (u32): field from config or cmdline, or default
     - **source** (string): source of configuration setting
-  - **max-locktime-blocks** (object, optional):
+  - **max-locktime-blocks** (object, optional) **deprecated in v24.05, removed after v24.11**:
     - **value\_int** (u32): field from config or cmdline, or default
     - **source** (string): source of configuration setting
   - **funding-confirms** (object, optional):
@@ -437,7 +437,6 @@ EXAMPLE JSON RESPONSE
    "pid-file": "/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/lightningd-testne...",
    "ignore-fee-limits": true,
    "watchtime-blocks": 6,
-   "max-locktime-blocks": 2016,
    "funding-confirms": 1,
    "commit-fee-min": 0,
    "commit-fee-max": 0,
@@ -479,4 +478,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:89743916ac51dc00d774c4d3c33715521846b36bc77e0b2083a262ef32b130f4)
+[comment]: # ( SHA256STAMP:bf156a3f3e9beccd90062687c4e8abd242c340ebbd328d5e9fe99db8b4b78f98)

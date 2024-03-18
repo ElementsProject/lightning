@@ -7578,6 +7578,10 @@
           },
           "max-locktime-blocks": {
             "type": "object",
+            "deprecated": [
+              "v24.05",
+              "v24.11"
+            ],
             "additionalProperties": false,
             "required": [
               "value_int",
