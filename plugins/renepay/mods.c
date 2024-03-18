@@ -8,6 +8,7 @@
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/route.h>
+#include <plugins/renepay/routebuilder.h>
 #include <unistd.h>
 
 #define INVALID_ID UINT32_MAX
@@ -859,18 +860,14 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	 * simply refuse.  Plus, models are not truth! */
 	struct route **routes = get_routes(
 		tmpctx,
+		payment,
 		&pay_plugin->my_id,
 		&payment->destination,
 		pay_plugin->gossmap,
 		pay_plugin->unetwork,
-		&payment->disabled_scids,
 		remaining,
-
+		payment->final_cltv,
 		feebudget,
-		payment->min_prob_success,
-		payment->delay_feefactor,
-		payment->base_fee_penalty,
-		payment->prob_cost_factor,
 
 		&errcode,
 		&err_msg);
@@ -878,7 +875,7 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
 	/* Couldn't feasible route, we stop. */
-	if (err_msg) {
+	if (!routes) {
 		payment_fail(payment, errcode, "%s", err_msg);
 		return payment_finish(payment);
 	}
@@ -1295,6 +1292,10 @@ void *payment_virtual_program[] = {
     /*2*/ OP_CALL, &selfpay_pay_mod,
     /*4*/ OP_CALL, &getmychannels_pay_mod,
     /*6*/ OP_CALL, &routehints_pay_mod,
+    // TODO: add a channel filter, for example disable channels that have
+    // htlcmax < 0.1% of payment amount, or base fee > 100msat, or
+    // proportional_fee > 10%, or capacity < 10% payment amount
+    // TODO shadow_additions
     /* do */
 	    /*8*/ OP_CALL, &refreshgossmap_pay_mod,
 	    /*10*/ OP_CALL, &compute_routes_pay_mod,

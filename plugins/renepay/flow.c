@@ -36,70 +36,106 @@ function_fail:
 
 /* Returns the greatest amount we can deliver to the destination using this
  * route. It takes into account the current knowledge, pending HTLC,
- * htlc_max and fees. */
-static bool flow_maximum_deliverable(struct amount_msat *max_deliverable,
-				     const struct flow *flow,
-				     const struct gossmap *gossmap,
-				     struct chan_extra_map *chan_extra_map)
+ * htlc_max and fees.
+ *
+ * It fails if the maximum that we can
+ * deliver at node i is smaller than the minimum required to forward the least
+ * amount greater than zero to the next node. */
+enum renepay_errorcode
+flow_maximum_deliverable(struct amount_msat *max_deliverable,
+			 const struct flow *flow,
+			 const struct gossmap *gossmap,
+			 struct chan_extra_map *chan_extra_map,
+			 const struct gossmap_chan **bad_channel)
 {
 	assert(tal_count(flow->path) > 0);
 	assert(tal_count(flow->dirs) > 0);
 	assert(tal_count(flow->path) == tal_count(flow->dirs));
 	struct amount_msat x;
+	enum renepay_errorcode err;
 
-	if (!channel_liquidity(&x, gossmap, chan_extra_map, flow->path[0],
-			       flow->dirs[0]))
-		return false;
+	err = channel_liquidity(&x, gossmap, chan_extra_map, flow->path[0],
+			       flow->dirs[0]);
+	if(err){
+		if(bad_channel)*bad_channel = flow->path[0];
+		return err;
+	}
 	x = amount_msat_min(x, channel_htlc_max(flow->path[0], flow->dirs[0]));
+
+	if(amount_msat_zero(x))
+	{
+		if(bad_channel)*bad_channel = flow->path[0];
+		return RENEPAY_BAD_CHANNEL;
+	}
 
 	for (size_t i = 1; i < tal_count(flow->path); ++i) {
 		// ith node can forward up to 'liquidity_cap' because of the ith
 		// channel liquidity bound
 		struct amount_msat liquidity_cap;
 
-		if (!channel_liquidity(&liquidity_cap, gossmap, chan_extra_map,
-				       flow->path[i], flow->dirs[i]))
-			return false;
+		err = channel_liquidity(&liquidity_cap, gossmap, chan_extra_map,
+				       flow->path[i], flow->dirs[i]);
+		if(err) {
+			if(bad_channel)*bad_channel = flow->path[i];
+			return err;
+		}
 
 		/* ith node can receive up to 'x', therefore he will not forward
 		 * more than 'forward_cap' that we compute below inverting the
 		 * fee equation. */
 		struct amount_msat forward_cap;
-		if (!channel_maximum_forward(&forward_cap, flow->path[i],
-					     flow->dirs[i], x))
-			return false;
-
+		err = channel_maximum_forward(&forward_cap, flow->path[i],
+					     flow->dirs[i], x);
+		if(err)
+		{
+			if(bad_channel)*bad_channel = flow->path[i];
+			return err;
+		}
 		struct amount_msat x_new =
 		    amount_msat_min(forward_cap, liquidity_cap);
 		x_new = amount_msat_min(
 		    x_new, channel_htlc_max(flow->path[i], flow->dirs[i]));
 
-		if (!amount_msat_less_eq(x_new, x))
-			return false;
-
-		// safety check: amounts decrease along the route
+		/* safety check: amounts decrease along the route */
 		assert(amount_msat_less_eq(x_new, x));
 
+		if(amount_msat_zero(x_new))
+		{
+			if(bad_channel)*bad_channel = flow->path[i];
+			return RENEPAY_BAD_CHANNEL;
+		}
+
+		/* safety check: the max liquidity in the next hop + fees cannot
+		 be greater than the max liquidity in the current hop, IF the
+		 next hop is non-zero. */
 		struct amount_msat x_check = x_new;
-
-		if (!amount_msat_zero(x_new) &&
-		    !amount_msat_add_fee(&x_check, flow_edge(flow, i)->base_fee,
-					 flow_edge(flow, i)->proportional_fee))
-			return false;
-
-		// safety check: the max liquidity in the next hop + fees cannot
-		// be greater than then max liquidity in the current hop, IF the
-		// next hop is non-zero.
+		assert(
+		    amount_msat_add_fee(&x_check, flow_edge(flow, i)->base_fee,
+					flow_edge(flow, i)->proportional_fee));
 		assert(amount_msat_less_eq(x_check, x));
 
 		x = x_new;
 	}
+	assert(!amount_msat_zero(x));
 	*max_deliverable = x;
-	return true;
+	return RENEPAY_NOERROR;
 }
 
+/* Returns the smallest amount we can send so that the destination can get one
+ * HTLC of any size. It takes into account htlc_min and fees.
+ * */
+// static enum renepay_errorcode
+// flow_minimum_sendable(struct amount_msat *min_sendable UNUSED,
+// 		      const struct flow *flow UNUSED,
+// 		      const struct gossmap *gossmap UNUSED,
+// 		      struct chan_extra_map *chan_extra_map UNUSED)
+// {
+// 	// TODO
+// 	return RENEPAY_NOERROR;
+// }
+
 /* How much do we deliver to destination using this set of routes */
-static bool flow_set_delivers(struct amount_msat *delivers, struct flow **flows)
+bool flowset_delivers(struct amount_msat *delivers, struct flow **flows)
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
@@ -110,164 +146,27 @@ static bool flow_set_delivers(struct amount_msat *delivers, struct flow **flows)
 	return true;
 }
 
-/* How much this flow (route with amounts) is delivering to the destination
- * node. */
-static inline struct amount_msat flow_delivers(const struct flow *flow)
-{
-	return flow->amount;
-}
-
 /* Checks if the flows satisfy the liquidity bounds imposed by the known maximum
  * liquidity and pending HTLCs.
  *
  * FIXME The function returns false even in the case of failure. The caller has
  * no way of knowing the difference between a failure of evaluation and a
  * negative answer. */
-static bool check_liquidity_bounds(struct flow **flows,
-				   const struct gossmap *gossmap,
-				   struct chan_extra_map *chan_extra_map)
-{
-	bool check = true;
-	for (size_t i = 0; i < tal_count(flows); ++i) {
-		struct amount_msat max_deliverable;
-		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
-					      gossmap, chan_extra_map))
-			return false;
-		struct amount_msat delivers = flow_delivers(flows[i]);
-		check &= amount_msat_less_eq(delivers, max_deliverable);
-	}
-	return check;
-}
-
-/* flows should be a set of optimal routes delivering an amount that is
- * slighty less than amount_to_deliver. We will try to reallocate amounts in
- * these flows so that it delivers the exact amount_to_deliver to the
- * destination.
- * Returns how much we are delivering at the end. */
-bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
-		      struct flow **flows, struct amount_msat amount_to_deliver,
-		      const struct gossmap *gossmap,
-		      struct chan_extra_map *chan_extra_map, char **fail)
-{
-	tal_t *this_ctx = tal(ctx, tal_t);
-	struct amount_msat total_deliver;
-	if (!flow_set_delivers(&total_deliver, flows)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "(%s, line %d) flow_set_delivers failed",
-			    __PRETTY_FUNCTION__, __LINE__);
-		goto function_fail;
-	}
-	if (amount_msat_greater_eq(total_deliver, amount_to_deliver)) {
-		*amount_allocated = total_deliver;
-		goto function_success;
-	}
-
-	struct amount_msat deficit;
-	if (!amount_msat_sub(&deficit, amount_to_deliver, total_deliver)) {
-		// this should not happen, because we already checked that
-		// total_deliver<amount_to_deliver
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "(%s, line %d) unexpected amount_msat_sub failure",
-			    __PRETTY_FUNCTION__, __LINE__);
-		goto function_fail;
-	}
-
-	/* FIXME Current algorithm assigns as much of the deficit as possible to
-	 * the list of routes, we can improve this lets say in order to maximize
-	 * the probability. If the deficit is very small with respect to the
-	 * amount each flow carries then optimization here will not make much
-	 * difference. */
-	for (size_t i = 0; i < tal_count(flows) && !amount_msat_zero(deficit);
-	     ++i) {
-		struct amount_msat max_deliverable;
-		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
-					      gossmap, chan_extra_map)) {
-			if (fail)
-				*fail =
-				    tal_fmt(ctx,
-					    "(%s, line %d) "
-					    "flow_maximum_deliverable failed",
-					    __PRETTY_FUNCTION__, __LINE__);
-
-			goto function_fail;
-		}
-		struct amount_msat delivers = flow_delivers(flows[i]);
-
-		struct amount_msat diff;
-		if (!amount_msat_sub(&diff, max_deliverable, delivers)) {
-			// this should never happen, a precondition of this
-			// function is that the flows already respect the
-			// liquidity bounds.
-			if (fail)
-				*fail = tal_fmt(ctx,
-						"(%s, line %d) unexpected "
-						"amount_msat_sub failure",
-						__PRETTY_FUNCTION__, __LINE__);
-
-			goto function_fail;
-		}
-
-		if (amount_msat_zero(diff))
-			continue;
-
-		diff = amount_msat_min(diff, deficit);
-
-		if (!amount_msat_sub(&deficit, deficit, diff)) {
-			// this should never happen
-			if (fail)
-				*fail = tal_fmt(ctx,
-						"(%s, line %d) unexpected "
-						"amount_msat_sub failure",
-						__PRETTY_FUNCTION__, __LINE__);
-			goto function_fail;
-		}
-		if (!amount_msat_add(&delivers, delivers, diff)) {
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "(%s, line %d) amount_msat_add overflow",
-				    __PRETTY_FUNCTION__, __LINE__);
-			goto function_fail;
-		}
-
-		if (!flow_assign_delivery(flows[i], gossmap, chan_extra_map,
-					  delivers)) {
-			if (fail)
-				*fail = tal_fmt(
-				    ctx,
-				    "(%s, line %d) flow_assign_delivery failed",
-				    __PRETTY_FUNCTION__, __LINE__);
-			goto function_fail;
-		}
-	}
-	if (!check_liquidity_bounds(flows, gossmap, chan_extra_map)) {
-		// this should not happen if our algorithm is correct
-		if (fail)
-			*fail = tal_fmt(ctx,
-					"(%s, line %d) liquidity bounds not "
-					"satisfied or failed check",
-					__PRETTY_FUNCTION__, __LINE__);
-		goto function_fail;
-	}
-	if (!flow_set_delivers(amount_allocated, flows)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "(%s, line %d) flow_set_delivers failed",
-			    __PRETTY_FUNCTION__, __LINE__);
-		goto function_fail;
-	}
-
-function_success:
-	tal_free(this_ctx);
-	return true;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
-}
+// static bool check_liquidity_bounds(struct flow **flows,
+// 				   const struct gossmap *gossmap,
+// 				   struct chan_extra_map *chan_extra_map)
+// {
+// 	bool check = true;
+// 	for (size_t i = 0; i < tal_count(flows); ++i) {
+// 		struct amount_msat max_deliverable;
+// 		if (!flow_maximum_deliverable(&max_deliverable, flows[i],
+// 					      gossmap, chan_extra_map))
+// 			return false;
+// 		struct amount_msat delivers = flow_delivers(flows[i]);
+// 		check &= amount_msat_less_eq(delivers, max_deliverable);
+// 	}
+// 	return check;
+// }
 
 /* Compute the prob. of success of a set of concurrent set of flows.
  *
@@ -450,11 +349,11 @@ bool flow_assign_delivery(struct flow *flow, const struct gossmap *gossmap,
 			  struct chan_extra_map *chan_extra_map,
 			  struct amount_msat requested_amount)
 {
-	struct amount_msat max_deliverable;
-	if (!flow_maximum_deliverable(&max_deliverable, flow, gossmap,
-				      chan_extra_map))
+	struct amount_msat max_deliverable = AMOUNT_MSAT(0);
+	if (flow_maximum_deliverable(&max_deliverable, flow, gossmap,
+				      chan_extra_map, NULL))
 		return false;
-
+	assert(!amount_msat_zero(max_deliverable));
 	flow->amount = amount_msat_min(requested_amount, max_deliverable);
 	return true;
 }

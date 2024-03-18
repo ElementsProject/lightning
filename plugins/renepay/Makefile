@@ -4,9 +4,9 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/mcf.c			\
 	plugins/renepay/dijkstra.c		\
 	plugins/renepay/payment.c		\
-	plugins/renepay/uncertainty_network.c	\
 	plugins/renepay/chan_extra.c		\
 	plugins/renepay/route.c			\
+	plugins/renepay/routebuilder.c		\
 	plugins/renepay/success.c		\
 	plugins/renepay/unetwork.c		\
 	plugins/renepay/failure.c		\
@@ -19,13 +19,14 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/mcf.h			\
 	plugins/renepay/dijkstra.h		\
 	plugins/renepay/payment.h		\
-	plugins/renepay/uncertainty_network.h	\
 	plugins/renepay/chan_extra.h		\
 	plugins/renepay/route.h			\
+	plugins/renepay/routebuilder.h		\
 	plugins/renepay/success.h		\
 	plugins/renepay/unetwork.h		\
 	plugins/renepay/failure.h		\
 	plugins/renepay/mods.h			\
+	plugins/renepay/errorcodes.h		\
 	plugins/renepay/json.c
 
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)

@@ -6,6 +6,7 @@
 #include <common/amount.h>
 #include <common/gossmap.h>
 #include <plugins/renepay/chan_extra.h>
+#include <plugins/renepay/errorcodes.h>
 
 /* An actual partial flow. */
 struct flow {
@@ -48,17 +49,21 @@ bool flow_fee(struct amount_msat *ret, struct flow *flow);
 
 bool flowset_fee(struct amount_msat *fee, struct flow **flows);
 
-/* flows should be a set of optimal routes delivering an amount that is
- * slighty less than amount_to_deliver. We will try to reallocate amounts in
- * these flows so that it delivers the exact amount_to_deliver to the
- * destination.
- * Returns how much we are delivering at the end. */
-bool flows_fit_amount(const tal_t *ctx, struct amount_msat *amount_allocated,
-		      struct flow **flows, struct amount_msat amount_to_deliver,
-		      const struct gossmap *gossmap,
-		      struct chan_extra_map *chan_extra_map, char **fail);
+bool flowset_delivers(struct amount_msat *delivers, struct flow **flows);
+
+static inline struct amount_msat flow_delivers(const struct flow *flow)
+{
+	return flow->amount;
+}
 
 struct amount_msat *tal_flow_amounts(const tal_t *ctx, const struct flow *flow);
+
+enum renepay_errorcode
+flow_maximum_deliverable(struct amount_msat *max_deliverable,
+			 const struct flow *flow,
+			 const struct gossmap *gossmap,
+			 struct chan_extra_map *chan_extra_map,
+			 const struct gossmap_chan **bad_channel);
 
 /* Assign the delivered amount to the flow if it fits
  the path maximum capacity. */
@@ -71,5 +76,10 @@ double flow_probability(struct flow *flow, const struct gossmap *gossmap,
 
 u64 flow_delay(const struct flow *flow);
 u64 flows_worst_delay(struct flow **flows);
+
+struct flow **
+flows_ensure_liquidity_constraints(const tal_t *ctx, struct flow **flows TAKES,
+				   const struct gossmap *gossmap,
+				   struct chan_extra_map *chan_extra_map);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_FLOW_H */

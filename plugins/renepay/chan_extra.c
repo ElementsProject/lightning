@@ -127,7 +127,7 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 
 /* Based on the knowledge that we have and HTLCs, returns the greatest
  * amount that we can send through this channel. */
-bool channel_liquidity(struct amount_msat *liquidity,
+enum renepay_errorcode channel_liquidity(struct amount_msat *liquidity,
 		       const struct gossmap *gossmap,
 		       struct chan_extra_map *chan_extra_map,
 		       const struct gossmap_chan *chan, const int dir)
@@ -135,12 +135,12 @@ bool channel_liquidity(struct amount_msat *liquidity,
 	const struct chan_extra_half *h =
 	    get_chan_extra_half_by_chan(gossmap, chan_extra_map, chan, dir);
 	if (!h)
-		return false;
+		return RENEPAY_CHANNEL_NOT_FOUND;
 	struct amount_msat value_liquidity = h->known_max;
 	if (!amount_msat_sub(&value_liquidity, value_liquidity, h->htlc_total))
-		return false;
+		return RENEPAY_AMOUNT_OVERFLOW;
 	*liquidity = value_liquidity;
-	return true;
+	return RENEPAY_NOERROR;
 }
 
 /* Checks BOLT 7 HTLC fee condition:
@@ -199,7 +199,7 @@ bool check_fee_inequality(struct amount_msat recv, struct amount_msat send,
  *  with send+1, send+2, etc. But we know that it is enough to try up to
  *  send+1 because Bound(recv, send) < Bound_simple(recv) + 2.
  * */
-bool channel_maximum_forward(struct amount_msat *max_forward,
+enum renepay_errorcode channel_maximum_forward(struct amount_msat *max_forward,
 			     const struct gossmap_chan *chan, const int dir,
 			     struct amount_msat recv)
 {
@@ -213,13 +213,13 @@ bool channel_maximum_forward(struct amount_msat *max_forward,
 	// special case, when recv - base_fee <= 0, we cannot forward anything
 	if (x_msat <= b) {
 		*max_forward = amount_msat(0);
-		return true;
+		return RENEPAY_NOERROR;
 	}
 
 	x_msat -= b;
 
 	if (mul_overflows_u64(one_million, x_msat))
-		return false;
+		return RENEPAY_AMOUNT_OVERFLOW;
 
 	struct amount_msat best_send =
 	    AMOUNT_MSAT_INIT((one_million * x_msat) / (one_million + p));
@@ -230,7 +230,7 @@ bool channel_maximum_forward(struct amount_msat *max_forward,
 	for (size_t i = 0; i < 10; ++i) {
 		struct amount_msat next_send;
 		if (!amount_msat_add(&next_send, best_send, amount_msat(1)))
-			return false;
+			return RENEPAY_AMOUNT_OVERFLOW;
 
 		if (check_fee_inequality(recv, next_send, b, p))
 			best_send = next_send;
@@ -238,7 +238,7 @@ bool channel_maximum_forward(struct amount_msat *max_forward,
 			break;
 	}
 	*max_forward = best_send;
-	return true;
+	return RENEPAY_NOERROR;
 }
 
 /* This helper function preserves the uncertainty network invariant after the

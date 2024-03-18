@@ -6,6 +6,7 @@
 #include <ccan/htable/htable_type.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
+#include <plugins/renepay/errorcodes.h>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -178,10 +179,11 @@ get_chan_extra_half_by_chan(const struct gossmap *gossmap,
 
 /* Based on the knowledge that we have and HTLCs, returns the greatest
  * amount that we can send through this channel. */
-bool channel_liquidity(struct amount_msat *liquidity,
-		       const struct gossmap *gossmap,
-		       struct chan_extra_map *chan_extra_map,
-		       const struct gossmap_chan *chan, const int dir);
+enum renepay_errorcode channel_liquidity(struct amount_msat *liquidity,
+					 const struct gossmap *gossmap,
+					 struct chan_extra_map *chan_extra_map,
+					 const struct gossmap_chan *chan,
+					 const int dir);
 
 /* Helpers to get the htlc_max and htlc_min of a channel. */
 static inline struct amount_msat
@@ -202,9 +204,10 @@ channel_htlc_min(const struct gossmap_chan *chan, const int dir)
  * output
  * @max_forward: how much can we ask this channel to forward to the next hop
  * */
-bool channel_maximum_forward(struct amount_msat *max_forward,
-			     const struct gossmap_chan *chan, const int dir,
-			     struct amount_msat recv);
+enum renepay_errorcode channel_maximum_forward(struct amount_msat *max_forward,
+					       const struct gossmap_chan *chan,
+					       const int dir,
+					       struct amount_msat recv);
 
 /* Assume a uniform distribution:
  * @min, @max: the bounds of liquidity
