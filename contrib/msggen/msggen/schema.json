@@ -14695,6 +14695,10 @@
             },
             "max-locktime-blocks": {
               "type": "object",
+              "deprecated": [
+                "v24.05",
+                "v24.11"
+              ],
               "additionalProperties": false,
               "required": [
                 "value_int",
@@ -16404,7 +16408,6 @@
           "pid-file": "/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/lightningd-testne...",
           "ignore-fee-limits": true,
           "watchtime-blocks": 6,
-          "max-locktime-blocks": 2016,
           "funding-confirms": 1,
           "commit-fee-min": 0,
           "commit-fee-max": 0,

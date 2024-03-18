@@ -159,10 +159,19 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 		 JSON_SCAN(json_to_node_id, &my_id));
 
 	accepted_extra_tlvs = notleak(tal_arr(NULL, u64, 0));
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	maxdelay_default = 2016;
 	/* accept-htlc-tlv-types deprecated in v23.08, but still grab it! */
+	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(p, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:{"
-		 "max-locktime-blocks:{value_int:%},"
+		 "max-locktime-blocks?:{value_int:%},"
 		 "accept-htlc-tlv-types?:{value_str:%},"
 		 "accept-htlc-tlv-type:{values_int:%}}}",
 		 JSON_SCAN(json_to_u32, &maxdelay_default),

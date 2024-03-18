@@ -575,10 +575,19 @@ static const char *init(struct plugin *p,
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
 
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	maxdelay_default = 2016;
+	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
-		 "{max-locktime-blocks:{value_int:%},"
+		 "{max-locktime-blocks?:{value_int:%},"
 		 "experimental-offers:{set:%}}}",
 		 JSON_SCAN(json_to_number, &maxdelay_default),
 		 JSON_SCAN(json_to_bool, &exp_offers));

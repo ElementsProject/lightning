@@ -685,6 +685,15 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_max_htlc_cltv(const char *arg, struct lightningd *ld)
+{
+	if (!opt_deprecated_ok(ld, "max-locktime-blocks", NULL,
+			       "v24.05", "v24.11"))
+		return "--max-locktime-blocks has been deprecated (BOLT #4 says 2016)";
+
+	return opt_set_u32(arg, &ld->config.max_htlc_cltv);
+}
+
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -954,9 +963,14 @@ static const struct config testnet_config = {
 	/* 6 blocks to catch cheating attempts. */
 	.locktime_blocks = 6,
 
-	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
-	/* FIXME Convince lnd to use more reasonable defaults... */
-	.locktime_max = 14 * 24 * 6,
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 1,
@@ -1019,9 +1033,14 @@ static const struct config mainnet_config = {
 	/* ~one day to catch cheating attempts. */
 	.locktime_blocks = 6 * 24,
 
-	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
-	/* FIXME Convince lnd to use more reasonable defaults... */
-	.locktime_max = 14 * 24 * 6,
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 3,
@@ -1512,9 +1531,8 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--watchtime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
-	clnopt_witharg("--max-locktime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
-			 &ld->config.locktime_max,
-			 "Maximum blocks funds may be locked for");
+	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
+			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
