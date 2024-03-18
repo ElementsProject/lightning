@@ -48,7 +48,7 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 	if (!encmsg)
 		return false;
 
-	/* BOLT-onion-message #4:
+	/* BOLT #4:
 	 *  - if it is not the final node according to the onion encryption:
 	 *...
 	 *    - if the `encrypted_data_tlv` contains `path_id`:
@@ -57,7 +57,7 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 	if (encmsg->path_id)
 		return false;
 
-	/* BOLT-onion-message #4:
+	/* BOLT #4:
 	 * - SHOULD forward the message using `onion_message` to the next peer
 	 *   indicated by `next_node_id`.
 	 */
@@ -159,7 +159,7 @@ bool onion_message_parse(const tal_t *ctx,
 
 		*final_om = NULL;
 
-		/* BOLT-onion-message #4:
+		/* BOLT #4:
 		 * - if it is not the final node according to the onion encryption:
 		 *   - if the `onionmsg_tlv` contains other tlv fields than `encrypted_recipient_data`:
 		 *     - MUST ignore the message.

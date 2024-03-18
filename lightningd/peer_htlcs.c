@@ -93,7 +93,7 @@ static bool htlc_out_update_state(struct channel *channel,
 	return true;
 }
 
-/* BOLT-route-blinding #4:
+/* BOLT #4:
  *   - if `blinding_point` is set in the incoming `update_add_htlc`:
  *     - MUST return an `invalid_onion_blinding` error.
  *   - if `current_blinding_point` is set in the onion payload and it is not the

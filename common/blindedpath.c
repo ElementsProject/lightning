@@ -174,7 +174,7 @@ static u8 *decrypt_encmsg_raw(const tal_t *ctx,
 	 */
 	subkey_from_hmac("rho", ss, &rho);
 
-	/* BOLT-onion-message #4:
+	/* BOLT #4:
 	 *- If the `encrypted_data` field is missing or cannot
 	 *  be decrypted:
 	 *   - MUST return an error
@@ -204,7 +204,7 @@ struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
 	const u8 *cursor = decrypt_encmsg_raw(tmpctx, blinding, ss, enctlv);
 	size_t maxlen = tal_bytelen(cursor);
 
-	/* BOLT-onion-message #4:
+	/* BOLT #4:
 	 *
 	 * - MUST return an error if `encrypted_recipient_data` does not decrypt
 	 *   using the blinding point as described in

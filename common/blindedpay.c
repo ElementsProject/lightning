@@ -18,7 +18,7 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 		bool first = (i == 0);
 		bool final = (i == tal_count(onions) - 1);
 
-		/* BOLT-blinded-payments #4:
+		/* BOLT #4:
 		 * - For every node inside a blinded route:
 		 *   - MUST include the `encrypted_recipient_data` provided by the
 		 *     recipient
@@ -27,6 +27,7 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 		 *       recipient in `current_blinding_point`
 		 *   - If it is the final node:
 		 *     - MUST include `amt_to_forward`, `outgoing_cltv_value` and `total_amount_msat`.
+		 *...
 		 *   - MUST NOT include any other tlv field.
 		 */
 		onions[i] = onion_blinded_hop(onions,
