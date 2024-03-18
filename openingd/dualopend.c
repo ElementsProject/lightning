@@ -564,11 +564,18 @@ static void check_channel_id(struct state *state,
 					      id_in));
 }
 
+/* BOLT #2:
+ * The receiving node:
+ *...
+ *  - MUST fail the negotiation if:
+ *...
+ *    - the `sats` amount is less than the `dust_limit`
+ */
 static bool is_dust(struct tx_state *tx_state,
 		    struct amount_sat amount)
 {
-	return !amount_sat_greater(amount, tx_state->localconf.dust_limit)
-		|| !amount_sat_greater(amount, tx_state->remoteconf.dust_limit);
+	return amount_sat_less(amount, tx_state->localconf.dust_limit)
+		|| amount_sat_less(amount, tx_state->remoteconf.dust_limit);
 }
 
 static char *validate_inputs(struct state *state,
