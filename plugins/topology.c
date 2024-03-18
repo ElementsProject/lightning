@@ -364,10 +364,12 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 					  const struct short_channel_id_dir *scidd,
 					  struct amount_msat min,
 					  struct amount_msat max,
+					  struct amount_msat spendable,
 					  struct amount_msat fee_base,
 					  u32 fee_proportional,
 					  u32 cltv_delta,
 					  bool enabled,
+					  bool is_local,
 					  const char *buf UNUSED,
 					  const jsmntok_t *chantok UNUSED,
 					  struct gossmap *gossmap)
@@ -375,9 +377,9 @@ static void gossmod_add_unknown_localchan(struct gossmap_localmods *mods,
 	if (gossmap_find_chan(gossmap, &scidd->scid))
 		return;
 
-	gossmod_add_localchan(mods, self, peer, scidd, min, max,
+	gossmod_add_localchan(mods, self, peer, scidd, min, max, spendable,
 			      fee_base, fee_proportional, cltv_delta, enabled,
-			      buf, chantok, gossmap);
+			      is_local, buf, chantok, gossmap);
 }
 
 /* FIXME: We don't need this listpeerchannels at all if not deprecated! */

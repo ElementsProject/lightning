@@ -624,3 +624,14 @@ def test_fees(node_factory):
     source.rpc.call("renepay", {"invstring": invstr})
     invoice = only_one(dest.rpc.listinvoices("inv2")["invoices"])
     assert invoice["amount_received_msat"] == Millisatoshi("150000sat")
+
+
+def test_local_htlcmax0(node_factory):
+    """Testing a simple pay route when local channels have htlcmax=0."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1.rpc.setchannel(l2.info["id"], htlcmax=0)
+    inv = l3.rpc.invoice(123000, "test_renepay", "description")["bolt11"]
+    details = l1.rpc.call("renepay", {"invstring": inv})
+    assert details["status"] == "complete"
+    assert details["amount_msat"] == Millisatoshi(123000)
+    assert details["destination"] == l3.info["id"]
