@@ -88,7 +88,7 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_DUAL_FUND,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 	/* FIXME: Currently not explicitly signalled, but we do
 	 * support it for zeroconf */
