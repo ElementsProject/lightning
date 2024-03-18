@@ -1,10 +1,11 @@
 --- wire/peer_wire.csv	2021-05-09 15:44:59.166135652 +0930
 +++ wire/peer_wire.csv.raw	2021-05-11 09:59:31.695459756 +0930
-@@ -244,6 +140,17 @@
+@@ -244,8 +140,18 @@
  msgdata,channel_reestablish,next_revocation_number,u64,
  msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
  msgdata,channel_reestablish,my_current_per_commitment_point,point,
-+msgdata,channel_reestablish,tlvs,channel_reestablish_tlvs,
+ tlvtype,channel_reestablish_tlvs,next_funding,0
+ tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
 +tlvtype,channel_reestablish_tlvs,next_funding,0
 +tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
 +tlvtype,channel_reestablish_tlvs,next_to_send,1
