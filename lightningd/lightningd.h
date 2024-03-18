@@ -18,8 +18,8 @@ struct config {
 	/* How long do we want them to lock up their funds? (blocks) */
 	u32 locktime_blocks;
 
-	/* How long do we let them lock up our funds? (blocks) */
-	u32 locktime_max;
+	/* How long do we let them lock up our funds? (blocks: 2016 by spec) */
+	u32 max_htlc_cltv;
 
 	/* How many confirms until we consider an anchor "settled". */
 	u32 anchor_confirms;

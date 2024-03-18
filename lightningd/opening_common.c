@@ -139,7 +139,7 @@ void channel_config(struct lightningd *ld,
 		    struct amount_msat *min_effective_htlc_capacity)
 {
 	/* FIXME: depend on feerate. */
-	*max_to_self_delay = ld->config.locktime_max;
+	*max_to_self_delay = ld->config.max_htlc_cltv;
 
 	/* Take minimal effective capacity from config min_capacity_sat */
 	if (!amount_sat_to_msat(min_effective_htlc_capacity,

@@ -408,7 +408,7 @@ use the RPC call lightning-setchannel(7).
 we tell our peer that this is how long they'll have to wait if they
 perform a unilateral close.
 
-* **max-locktime-blocks**=*BLOCKS*
+* (deprecated in v23.05) **max-locktime-blocks**=*BLOCKS*
 
   The longest our funds can be delayed (ie. the longest
 **watchtime-blocks** our peer can ask for, and also the longest HTLC

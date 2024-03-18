@@ -331,8 +331,8 @@ def test_balance(node_factory):
 @pytest.mark.openchannel('v2')
 def test_bad_opening(node_factory):
     # l1 asks for a too-long locktime
-    l1 = node_factory.get_node(options={'watchtime-blocks': 100})
-    l2 = node_factory.get_node(options={'max-locktime-blocks': 99})
+    l1 = node_factory.get_node(options={'watchtime-blocks': 2017})
+    l2 = node_factory.get_node()
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     assert ret['id'] == l2.info['id']
@@ -344,7 +344,7 @@ def test_bad_opening(node_factory):
     with pytest.raises(RpcError):
         l1.rpc.fundchannel(l2.info['id'], 10**6)
 
-    l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
+    l2.daemon.wait_for_log('to_self_delay 2017 larger than 2016')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
@@ -1117,9 +1117,8 @@ def test_funding_all_too_much(node_factory):
 @pytest.mark.openchannel('v2')
 def test_funding_fail(node_factory, bitcoind):
     """Add some funds, fund a channel without enough funds"""
-    # Previous runs with same bitcoind can leave funds!
-    max_locktime = 5 * 6 * 24
-    l1 = node_factory.get_node(random_hsm=True, options={'max-locktime-blocks': max_locktime})
+    max_locktime = 2016
+    l1 = node_factory.get_node()
     l2 = node_factory.get_node(options={'watchtime-blocks': max_locktime + 1})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
