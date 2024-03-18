@@ -2538,15 +2538,21 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
 
+	/* BOLT #2:
+	 * The sender:
+	 *   - MUST set `feerate` greater than or equal to 25/24 times the
+	 *     `feerate` of the previously constructed transaction, rounded
+	 *     down.
+	 */
 	last_feerate_perkw = channel_last_funding_feerate(channel);
-	next_feerate_min = last_feerate_perkw * 65 / 64;
+	next_feerate_min = last_feerate_perkw * 25 / 24;
 	assert(next_feerate_min > last_feerate_perkw);
 	if (!feerate_per_kw_funding) {
 		feerate_per_kw_funding = tal(cmd, u32);
 		*feerate_per_kw_funding = next_feerate_min;
 	} else if (*feerate_per_kw_funding < next_feerate_min)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Next feerate must be at least 1/64th"
+				    "Next feerate must be at least 1/24th"
 				    " greater than the last. Min req %u,"
 				    " you proposed %u",
 				    next_feerate_min,
