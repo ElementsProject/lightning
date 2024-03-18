@@ -2586,7 +2586,7 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 
 static bool is_initiators_serial(const struct wally_map *unknowns)
 {
-	/* BOLT-f15b6b0feeffc2acd1a8466537810bbb3f824f9f #2:
+	/* BOLT #2:
 	 * The sending node: ...
 	 *   - if is the *initiator*:
 	 *     - MUST send even `serial_id`s
@@ -2824,18 +2824,24 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
 {
 	size_t weight = 0;
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * The initiator:
-	 *   ...
-	 * - MUST pay for the common fields.
+	/* BOLT #2:
+	 * The *initiator* is responsible for paying the fees for the following fields,
+	 * to be referred to as the `common fields`.
+	 *
+	 *   - version
+	 *   - segwit marker + flag
+	 *   - input count
+	 *   - output count
+	 *   - locktime
 	 */
 	if (role == TX_INITIATOR)
 		weight += bitcoin_tx_core_weight(psbt->num_inputs,
 						 psbt->num_outputs);
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * Each node:
-	 * - MUST pay for their own added inputs and outputs.
+	/* BOLT #2:
+	 * The rest of the transaction bytes' fees are the responsibility of
+	 * the peer who contributed that input or output via `tx_add_input` or
+	 * `tx_add_output`, at the agreed upon `feerate`.
 	 */
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (is_initiators_serial(&psbt->inputs[i].unknowns)) {

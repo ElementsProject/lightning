@@ -99,7 +99,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define COMPULSORY_FEATURE(x)	((x) & 0xFFFFFFFE)
 #define OPTIONAL_FEATURE(x)	((x) | 1)
 
-/* BOLT-a526652801a541ed33b34d000a3b686a857c811f #9:
+/* BOLT #9:
  *
  * | Bits  | Name                              |...
  * | 0/1   | `option_data_loss_protect`        |... IN ...
@@ -116,9 +116,12 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 22/23 | `option_anchors_zero_fee_htlc_tx` |... IN ...
  * | 24/25 | `option_route_blinding`           |...IN9 ...
  * | 26/27 | `option_shutdown_anysegwit`       |... IN ...
+ * | 28/29 | `option_dual_fund`                |... IN ...
+ * | 38/39 | `option_onion_messages`           |... IN ...
  * | 44/45 | `option_channel_type`             |... IN ...
+ * | 46/47 | `option_scid_alias`               | ... IN ...
  * | 48/49 | `option_payment_metadata`         |...  9 ...
- * | 62/63 | `option_splice`                   |... IN ...
+ * | 50/51 | `option_zeroconf`                 | ... IN ...
  */
 #define OPT_DATA_LOSS_PROTECT			0
 #define OPT_INITIAL_ROUTING_SYNC		2
@@ -134,8 +137,12 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_ANCHORS_ZERO_FEE_HTLC_TX		22
 #define OPT_ROUTE_BLINDING 			24
 #define OPT_SHUTDOWN_ANYSEGWIT			26
+#define OPT_DUAL_FUND 				28
+#define OPT_ONION_MESSAGES			38
 #define OPT_CHANNEL_TYPE			44
+#define OPT_SCID_ALIAS				46
 #define OPT_PAYMENT_METADATA			48
+#define OPT_ZEROCONF				50
 
 /* BOLT-splice #9:
  * | 62/63 | `option_splice` |  ... IN ...
@@ -143,28 +150,10 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SPLICE				62
 #define OPT_EXPERIMENTAL_SPLICE			162
 
-/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
- * | 28/29 | `option_dual_fund` | ... IN9 ...
- */
-#define OPT_DUAL_FUND 				28
-
-/* BOLT-519be05f61e2c35ddf95b731203f89b4ee0946c3 #9:
- * | 46/47 | `option_scid_alias`              | ... IN ...
- * | 50/51 | `option_eroconf`                | ... IN ...
- */
-#define OPT_SCID_ALIAS                          46
-#define OPT_ZEROCONF                            50
-
 /* BOLT-quiescent #9:
  * | 34/35 | `option_quiesce` | ... IN ...
  */
 #define OPT_QUIESCE 				34
-
-/* BOLT-offers #9:
- *
- * | 38/39 | `option_onion_messages` |... IN ...
- */
-#define OPT_ONION_MESSAGES			38
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 
