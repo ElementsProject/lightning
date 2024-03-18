@@ -179,7 +179,7 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
-		/* BOLT-channel-type #2:
+		/* BOLT #2:
 		 *   - if `channel_type` has `option_scid_alias` set:
 		 *       - MUST NOT use the real `short_channel_id` in
 		 *         BOLT 11 `r` fields.

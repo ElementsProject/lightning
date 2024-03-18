@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 	/* Make it use our session key! */
 	sphinx_path->session_key = &session_key;
 
-	/* BOLT-onion-message #4:
+	/* BOLT #4:
 	 * - SHOULD set `onion_message_packet` `len` to 1366 or 32834.
 	 */
 	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE,

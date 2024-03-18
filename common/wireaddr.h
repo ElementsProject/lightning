@@ -23,11 +23,8 @@ struct sockaddr_un;
  *       * version 3 ([prop224](https://gitweb.torproject.org/torspec.git/tree/proposals/224-rend-spec-ng.txt))
  *         onion service addresses; Encodes:
  *            `[32:32_byte_ed25519_pubkey] || [2:checksum] || [1:version]`,
- *             where `checksum = sha3(".onion checksum" || pubkey || version)[:2]`
- */
-
-/* BOLT-hostnames #7:
- *   * `5`: DNS hostname; data = `[byte:len][len*byte:hostname][u16:port]` (length up to 258)
+ *             where `checksum = sha3(".onion checksum" || pubkey || version)[:2]`.
+ *   * `5`: DNS hostname; data = `[1:hostname_len][hostname_len:hostname][2:port]` (length up to 258)
  */
 
 #define	TOR_V2_ADDRLEN 10

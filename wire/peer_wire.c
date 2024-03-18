@@ -176,7 +176,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 */
 		/* fall thru */
 	case WIRE_WARNING:
-		/* BOLT-warning #1:
+		/* BOLT #1:
 		 * 1. type: 1 (`warning`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]

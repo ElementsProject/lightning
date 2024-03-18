@@ -7,7 +7,7 @@
  * only onion tlv payloads. */
 #define ROUTING_MAX_HOPS 20
 
-/* BOLT-f3a9f7f4e9e7a5a2997f3129e13d94090091846a #7:
+/* BOLT #7:
  *
  * The `channel_flags` bitfield...individual bits:
  *...

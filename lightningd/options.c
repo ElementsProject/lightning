@@ -349,7 +349,7 @@ static char *opt_add_addr_withtype(const char *arg,
 					       arg + strlen("dns:"),
 					       arg);
 			}
-			/* BOLT-hostnames #7:
+			/* BOLT #7:
 			 * The origin node:
 			 * ...
 			 *   - MUST NOT announce more than one `type 5` DNS hostname.
