@@ -42,8 +42,8 @@ struct channel_config {
 	/* BOLT #2:
 	 *
 	 * `max_htlc_value_in_flight_msat` is a cap on total value of
-	 * outstanding HTLCs, which allows a node to limit its exposure to
-	 * HTLCs */
+	 * outstanding HTLCs offered by the remote node, which allows the
+	 * local node to limit its exposure to HTLCs */
 	struct amount_msat max_htlc_value_in_flight;
 
 	/* BOLT #2:
@@ -69,7 +69,7 @@ struct channel_config {
 	/* BOLT #2:
 	 *
 	 * similarly, `max_accepted_htlcs` limits the number of outstanding
-	 * HTLCs the other node can offer. */
+	 * HTLCs the remote node can offer. */
 	u16 max_accepted_htlcs;
 
 	/* BOLT-TBD #X
