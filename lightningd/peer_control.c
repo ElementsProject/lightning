@@ -924,12 +924,12 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
 				tal_fmt(tmpctx, "%d%s", last_feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
 
-		/* BOLT-9e7723387c8859b511e178485605a0b9133b9869 #2:
-		 * - MUST set `funding_feerate_perkw` greater than or equal to
-		 *   65/64 times the last sent `funding_feerate_perkw`
-		 *   rounded down.
+		/* BOLT #2:
+		 * - MUST set `feerate` greater than or equal to 25/24
+		 * times the `feerate` of the previously constructed
+		 * transaction, rounded down.
 		 */
-		next_feerate = last_feerate * 65 / 64;
+		next_feerate = last_feerate * 25 / 24;
 		assert(next_feerate > last_feerate);
 		json_add_string(response, "next_feerate",
 				tal_fmt(tmpctx, "%d%s", next_feerate,

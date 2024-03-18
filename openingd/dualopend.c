@@ -3359,15 +3359,14 @@ static bool check_funding_feerate(u32 proposed_next_feerate,
 				  u32 last_feerate)
 {
 	/*
-	 * BOLT-9e7723387c8859b511e178485605a0b9133b9869 #2:
+	 * BOLT #2:
 	 *
 	 * The recipient:  ...
-	 * - MUST fail the negotiation if:
-	 *   - the `funding_feerate_perkw` is not greater than 65/64 times
-	 *   `funding_feerate_perkw` of the last successfully negotiated
-	 *   open attempt
+	 *   - MUST respond with `tx_abort` if:
+	 *     - the `feerate` is not greater than or equal to 25/24 times `feerate`
+	 *       of the last successfully constructed transaction
 	 */
-	u32 next_min = last_feerate * 65 / 64;
+	u32 next_min = last_feerate * 25 / 24;
 
 	if (next_min < last_feerate) {
 		status_broken("Overflow calculating next feerate. last %u",
