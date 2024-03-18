@@ -198,11 +198,11 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *    * [`32*byte`:`temporary_channel_id`]
 		 */
 	case WIRE_OPEN_CHANNEL2:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 64 (`open_channel2`)
 		 * 2. data:
 		 *    * [`chain_hash`:`chain_hash`]
-		 *    * [`channel_id`:`zerod_channel_id`]
+		 *    * [`channel_id`:`temporary_channel_id`]
 		 */
 
 		/* Skip over chain_hash */
@@ -210,43 +210,43 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 
 	/* These have them at the start */
 	case WIRE_TX_ADD_INPUT:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 66 (`tx_add_input`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_ADD_OUTPUT:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 67 (`tx_add_output`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_REMOVE_INPUT:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 68 (`tx_remove_input`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_REMOVE_OUTPUT:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 69 (`tx_remove_output`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_COMPLETE:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 70 (`tx_complete`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_SIGNATURES:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 71 (`tx_signatures`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_ABORT:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 74 (`tx_abort`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
@@ -276,19 +276,19 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_ACCEPT_CHANNEL2:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 65 (`accept_channel2`)
 		 * 2. data:
-		 *     * [`channel_id`:`channel_id`]
+		 *     * [`channel_id`:`temporary_channel_id`]
 		 */
 	case WIRE_TX_INIT_RBF:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 72 (`tx_init_rbf`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_TX_ACK_RBF:
-		/* BOLT-dualfund #2:
+		/* BOLT #2:
 		 * 1. type: 73 (`tx_ack_rbf`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
