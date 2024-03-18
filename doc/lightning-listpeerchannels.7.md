@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **listpeerchannels** RPC command returns data on channels of the network, with the possibility to filter the channels by node id.
+The **listpeerchannels** RPC command returns data on this node's channels, with the possibility to filter the channels by the id of a remote node.
 
 If no *id* is supplied, then channel data on all lightning nodes that are
 connected, or not connected but have open channels with this node, are
