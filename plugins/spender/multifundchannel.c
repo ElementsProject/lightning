@@ -1422,7 +1422,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 	}
 
 	/* If we've got v2 opens, we need to use a min weight of 110. */
-	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
+	/* BOLT-WHERE? #3:
 	 * The minimum witness weight for an input is 110.
 	 */
 	if (dest_count(mfc, OPEN_CHANNEL) > 0) {
