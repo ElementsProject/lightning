@@ -985,9 +985,31 @@ static char *check_balances(const tal_t *ctx,
 	return NULL;
 }
 
-static bool is_segwit_output(struct wally_tx_output *output)
+/*
+ * BOLT #2:
+ * The receiving node: ...
+ *   - MUST fail the negotiation if: ...
+ *   - the `scriptPubKey` of the `prevtx_vout` output
+ *     of `prevtx` is not exactly a 1-byte push opcode
+ *     (for the numeric values `0` to `16`) followed
+ *     by a data push between 2 and 40 bytes
+ */
+static bool is_segwit_output(const struct wally_tx_output *output)
 {
-	return is_known_segwit_scripttype(output->script, output->script_len);
+	const u8 *script = output->script;
+	size_t len = output->script_len;
+	u8 opcode, push;
+
+	opcode = fromwire_u8(&script, &len);
+	if (opcode != OP_0 && (opcode < OP_1 || opcode > OP_16))
+		return false;
+
+	push = fromwire_u8(&script, &len);
+	if (push < 2 || push > 40)
+		return false;
+
+	/* And there should be that many bytes and nothing else */
+	return fromwire(&script, &len, NULL, push) != NULL && len == 0;
 }
 
 static void set_remote_upfront_shutdown(struct state *state,
@@ -1784,12 +1806,15 @@ static bool run_tx_interactive(struct state *state,
 					   outpoint.n);
 				return false;
 			}
+
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
-			 *   - the `prevtx_out` input of `prevtx` is
-			 *   not an `OP_0` to `OP_16` followed by a single push
+			 *   - the `scriptPubKey` of the `prevtx_vout` output
+			 *     of `prevtx` is not exactly a 1-byte push opcode
+			 *     (for the numeric values `0` to `16`) followed
+			 *     by a data push between 2 and 40 bytes
 			 */
 			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n])) {
 				open_abort(state,
