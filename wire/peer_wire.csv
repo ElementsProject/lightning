@@ -285,7 +285,8 @@ msgdata,channel_reestablish,next_commitment_number,u64,
 msgdata,channel_reestablish,next_revocation_number,u64,
 msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
 msgdata,channel_reestablish,my_current_per_commitment_point,point,
-msgdata,channel_reestablish,tlvs,channel_reestablish_tlvs,
+tlvtype,channel_reestablish_tlvs,next_funding,0
+tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
 tlvtype,channel_reestablish_tlvs,next_funding,0
 tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
 tlvtype,channel_reestablish_tlvs,next_to_send,1
