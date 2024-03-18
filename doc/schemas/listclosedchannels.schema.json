@@ -155,7 +155,7 @@
           },
           "min_to_us_msat": {
             "type": "msat",
-            "description": "Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain."
+            "description": "Least amount owed to us ever.  If the peer were to successfully steal from us, this is the amount we would still retain."
           },
           "max_to_us_msat": {
             "type": "msat",

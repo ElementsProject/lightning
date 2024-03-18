@@ -71,7 +71,7 @@ static bool update_parent_psbt(const tal_t *ctx,
 	struct wally_psbt *clone, *new_node_copy;
 
 	/* Clone the parent, so we don't make any changes to it
-	 * until we've succesfully done everything */
+	 * until we've successfully done everything */
 
 	/* Only failure is alloc, should we even check? */
 	tal_wally_start();
