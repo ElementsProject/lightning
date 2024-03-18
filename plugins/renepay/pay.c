@@ -458,19 +458,39 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 		       const struct node_id *self,
 		       const struct node_id *peer,
 		       const struct short_channel_id_dir *scidd,
-		       struct amount_msat min,
-		       struct amount_msat max,
+		       struct amount_msat htlcmin,
+		       struct amount_msat htlcmax,
+		       struct amount_msat spendable,
 		       struct amount_msat fee_base,
 		       u32 fee_proportional,
 		       u32 cltv_delta,
 		       bool enabled,
+		       bool is_local,
 		       const char *buf,
 		       const jsmntok_t *chantok,
 		       struct payment *payment)
 {
-	/* Add to gossmap like normal */
-	gossmod_add_localchan(mods, self, peer, scidd, min, max,
-			      fee_base, fee_proportional, cltv_delta, enabled, buf, chantok, NULL);
+	struct amount_msat min, max;
+
+	if (is_local) {
+		/* local channels can send up to what's spendable */
+		min = AMOUNT_MSAT(0);
+		max = spendable;
+	} else {
+		/* remote channels can send up no more than spendable */
+		min = htlcmin;
+		max = amount_msat_min(spendable, htlcmax);
+	}
+
+	/* FIXME: features? */
+	gossmap_local_addchan(mods, self, peer, &scidd->scid, NULL);
+
+	gossmap_local_updatechan(mods, &scidd->scid, min, max,
+				 fee_base.millisatoshis, /* Raw: gossmap */
+				 fee_proportional,
+				 cltv_delta,
+				 enabled,
+				 scidd->dir);
 
 	/* Also update uncertainty map */
 	uncertainty_network_update_from_listpeerchannels(payment, scidd, max, enabled,

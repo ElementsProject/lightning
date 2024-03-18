@@ -30,12 +30,14 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 								     const struct node_id *self_,
 								     const struct node_id *peer,
 								     const struct short_channel_id_dir *scidd,
-								     struct amount_msat min,
-								     struct amount_msat max,
+								     struct amount_msat htlcmin,
+								     struct amount_msat htlcmax,
+								     struct amount_msat spendable,
 								     struct amount_msat fee_base,
 								     u32 fee_proportional,
 								     u32 cltv_delta,
 								     bool enabled,
+								     bool is_local,
 								     const char *buf_,
 								     const jsmntok_t *chantok,
 								     void *cbarg_),
@@ -51,8 +53,10 @@ struct gossmap_localmods *gossmods_from_listpeerchannels_(const tal_t *ctx,
 							    struct amount_msat,	\
 							    struct amount_msat,	\
 							    struct amount_msat,	\
+							    struct amount_msat,	\
 							    u32,	\
 							    u32,	\
+							    bool,	\
 							    bool,	\
 							    const char *, \
 							    const jsmntok_t *), \
@@ -63,12 +67,14 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   const struct node_id *self,
 			   const struct node_id *peer,
 			   const struct short_channel_id_dir *scidd,
-			   struct amount_msat min,
-			   struct amount_msat max,
+			   struct amount_msat htlcmin,
+			   struct amount_msat htlcmax,
+			   struct amount_msat spendable,
 			   struct amount_msat fee_base,
 			   u32 fee_proportional,
 			   u32 cltv_delta,
 			   bool enabled,
+			   bool is_local,
 			   const char *buf UNUSED,
 			   const jsmntok_t *chantok UNUSED,
 			   void *cbarg UNUSED);
