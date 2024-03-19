@@ -755,6 +755,7 @@
         },
         "FetchinvoiceRequest": {
             "FetchInvoice.amount_msat": 2,
+            "FetchInvoice.exposeid": 9,
             "FetchInvoice.offer": 1,
             "FetchInvoice.payer_note": 8,
             "FetchInvoice.quantity": 3,
@@ -3116,6 +3117,10 @@
         },
         "FetchInvoice.changes.vendor_removed": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "FetchInvoice.exposeid": {
+            "added": "v24.05",
             "deprecated": false
         },
         "FetchInvoice.invoice": {

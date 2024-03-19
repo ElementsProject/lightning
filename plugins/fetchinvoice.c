@@ -911,6 +911,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
+	bool *exposeid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("offer", param_offer, &sent->offer),
@@ -921,6 +922,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("recurrence_label", param_string, &rec_label),
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   p_opt("payer_note", param_string, &payer_note),
+		   p_opt_def("exposeid", param_bool, &exposeid, false),
 		   NULL))
 		return command_param_failed();
 
@@ -1089,6 +1091,8 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	json_add_bool(req->js, "savetodb", false);
 	if (rec_label)
 		json_add_string(req->js, "recurrence_label", rec_label);
+	if (exposeid)
+		json_add_bool(req->js, "exposeid", *exposeid);
 	return send_outreq(cmd->plugin, req);
 }
 
