@@ -448,6 +448,7 @@ def test_checkrune(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
 
+@pytest.mark.xfail(strict=True)
 def test_rune_pay_amount(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
@@ -460,7 +461,7 @@ def test_rune_pay_amount(node_factory):
     inv2 = l2.rpc.invoice(amount_msat='any', label='inv2', description='description2')['bolt11']
 
     # Rune requires amount_msat < 10,000!
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -468,7 +469,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # As a named parameter!
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -476,7 +477,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Can't get around it this way!
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -484,7 +485,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Nor this way, using a string!
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat is not an integer') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -492,7 +493,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Too much!
-    with pytest.raises(RpcError, match='Not permitted:') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat is greater or equal to 10000') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
