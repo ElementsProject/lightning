@@ -1068,6 +1068,12 @@ int main(int argc, char *argv[])
 
 	trace_span_start("lightningd/startup", argv);
 
+	/*~ What happens in strange locales should stay there. */
+	setup_locale();
+
+	/*~ This handles --dev-debug-self really early, which we otherwise ignore */
+	daemon_developer_mode(argv);
+
 	/*~ We fork out new processes very very often; every channel gets its
 	 * own process, for example, and we have `hsmd` and `gossipd` and
 	 * the plugins as well.
@@ -1105,9 +1111,6 @@ int main(int argc, char *argv[])
 	 * and hit the 1024 limit.
 	 */
 	closefrom_limit(4096);
-
-	/*~ What happens in strange locales should stay there. */
-	setup_locale();
 
 	/*~ This sets up SIGCHLD to make sigchld_rfd readable. */
 	sigchld_rfd = setup_sig_handlers();

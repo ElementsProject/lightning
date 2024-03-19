@@ -784,6 +784,11 @@ static char *opt_force_featureset(const char *optarg,
 	return NULL;
 }
 
+static char *opt_ignore(void *unused)
+{
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
@@ -915,6 +920,11 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,
 		     "Allow destination override on close, even if risky");
+	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
+	clnopt_noarg("--dev-debug-self", OPT_DEV,
+		     opt_ignore,
+		     NULL,
+		     "Fire up a terminal window with a debugger in it on initialization");
 }
 
 static const struct config testnet_config = {

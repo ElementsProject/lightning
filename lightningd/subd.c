@@ -258,7 +258,7 @@ static int subd(const char *path, const char *name,
 		if (io_logging)
 			args[num_args++] = "--log-io";
 		if (debugging)
-			args[num_args++] = "--debugger";
+			args[num_args++] = "--dev-debug-self";
 		if (developer)
 			args[num_args++] = "--developer";
 		execv(args[0], args);

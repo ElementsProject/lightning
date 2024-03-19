@@ -41,7 +41,7 @@ There are four kinds of tests:
 
   `PYTHONPATH=contrib/pyln-client:contrib/pyln-testing:contrib/pyln-proto:contrib/pyln-grpc-proto py.test -v tests/`
 
-  You can also append `-k TESTNAME` to run a single test.  Environment variables `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging subdaemons on individual tests.
+  You can also append `-k TESTNAME` to run a single test.  Environment variables `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging subdaemons on individual tests, and `DEBUG_LIGHTNINGD` for attaching a debugger to each `lightningd` instance created.
 
 - **pylightning tests** - will check contrib pylightning for codestyle and run the tests in `contrib/pylightning/tests` afterwards:
 
