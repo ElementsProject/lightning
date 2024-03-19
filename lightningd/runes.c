@@ -758,12 +758,17 @@ static const char *check_condition(const tal_t *ctx,
 
 		if (cinfo->params->type == JSMN_OBJECT) {
 			json_for_each_obj(i, t, cinfo->params) {
-				char *pmemname = tal_fmt(tmpctx,
+				char *pmemname = tal_fmt(ctx,
 							 "pname%.*s",
 							 t->end - t->start,
 							 cinfo->buf + t->start);
 				size_t off = strlen("pname");
-				/* Remove punctuation! */
+
+				/* First, add version with underscores intact. */
+				strmap_add(&cinfo->cached_params,
+					   tal_strdup(ctx, pmemname), t+1);
+
+				/* Now with punctuation removed: */
 				for (size_t n = off; pmemname[n]; n++) {
 					if (cispunct(pmemname[n]))
 						continue;

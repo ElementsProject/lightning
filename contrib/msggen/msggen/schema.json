@@ -4847,7 +4847,7 @@
                 "    * per: how often the rune can be used, with suffix \"sec\" (default), \"min\", \"hour\", \"day\" or \"msec\", \"usec\" or \"nsec\". e.g. \"per=5sec\".",
                 "    * rate: the rate limit, per minute, e.g. \"rate=60\" is equivalent to \"per=1sec\".",
                 "    * pnum: the number of parameters. e.g. \"pnum<2\".",
-                "    * pnameX: the parameter named X (with any punctuation like `_` removed). e.g. \"pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\".",
+                "    * pnameX: the parameter named X e.g. \"pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\".  NOTE: until v24.05, X had to remove underscores from the parameter name (e.g. `pnameamount_msat` had to be specified as `pnameamountmsat`) but that is now fixed.",
                 "    * parrN: the N'th parameter. e.g. \"parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\"."
               ],
               "items": {
