@@ -448,7 +448,6 @@ def test_checkrune(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
 
-@pytest.mark.xfail(strict=True)
 def test_rune_pay_amount(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
