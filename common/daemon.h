@@ -22,7 +22,7 @@ const char *backtrace_symname(const tal_t *ctx, const void *addr);
 void daemon_shutdown(void);
 
 /* If --developer is set, set up extra developer checks, kick in a
- * debugger if they set --debugger, and return true.   */
+ * debugger if they set --dev-debug-self, and return true.   */
 bool daemon_developer_mode(char *argv[]);
 
 #endif /* LIGHTNING_COMMON_DAEMON_H */

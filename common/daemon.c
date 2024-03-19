@@ -196,7 +196,7 @@ bool daemon_developer_mode(char *argv[])
 	bool developer = false, debug = false;
 
 	for (int i = 1; argv[i]; i++) {
-		if (streq(argv[i], "--debugger"))
+		if (streq(argv[i], "--dev-debug-self"))
 			debug = true;
 		else if (streq(argv[i], "--developer"))
 			developer = true;

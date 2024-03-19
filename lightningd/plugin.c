@@ -1985,7 +1985,7 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	cmd = tal_arr(tmpctx, char *, 1);
 	cmd[0] = p->cmd;
 	if (debugging(p))
-		tal_arr_expand(&cmd, "--debugger");
+		tal_arr_expand(&cmd, "--dev-debug-self");
 	if (p->plugins->ld->developer)
 		tal_arr_expand(&cmd, "--developer");
 	tal_arr_expand(&cmd, NULL);

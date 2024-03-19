@@ -789,6 +789,8 @@ class LightningNode(object):
             self.daemon.opts["dev-no-version-checks"] = None
         if os.getenv("DEBUG_SUBD"):
             self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
+        if os.getenv("DEBUG_LIGHTNINGD"):
+            self.daemon.opts["dev-debug-self"] = None
         if valgrind:
             self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
             self.daemon.opts["dev-no-plugin-checksum"] = None
