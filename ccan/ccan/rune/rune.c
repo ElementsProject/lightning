@@ -345,6 +345,8 @@ static const char *rune_alt_single(const tal_t *ctx,
 				 memmem(fieldval_str, fieldval_strlen,
 					alt->value, strlen(alt->value)));
 	case RUNE_COND_INT_LESS:
+		if (!fieldval_str && !fieldval_int)
+			return tal_fmt(ctx, "%s not present", alt->fieldname);
 		err = integer_compare_valid(ctx, fieldval_int,
 					    alt, &runeval_int);
 		if (err)
@@ -352,6 +354,8 @@ static const char *rune_alt_single(const tal_t *ctx,
 		return cond_test(ctx, alt, "is greater or equal to",
 				 *fieldval_int < runeval_int);
 	case RUNE_COND_INT_GREATER:
+		if (!fieldval_str && !fieldval_int)
+			return tal_fmt(ctx, "%s not present", alt->fieldname);
 		err = integer_compare_valid(ctx, fieldval_int,
 					    alt, &runeval_int);
 		if (err)

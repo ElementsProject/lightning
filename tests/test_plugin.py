@@ -2939,21 +2939,21 @@ def test_commando_rune_pay_amount(node_factory):
     inv2 = l2.rpc.invoice(amount_msat='any', label='inv2', description='description2')['bolt11']
 
     # Rune requires amount_msat!
-    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat not present'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params={'bolt11': inv1})
 
     # As a named parameter!
-    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat not present'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
                         params=[inv1])
 
     # Can't get around it this way!
-    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat is not an integer field'):
+    with pytest.raises(RpcError, match='Invalid rune: Not permitted: pnameamountmsat not present'):
         l2.rpc.commando(peer_id=l1.info['id'],
                         rune=rune,
                         method='pay',
