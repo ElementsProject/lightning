@@ -5477,3 +5477,46 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
 
     # And you should also be able to getroute (and have it ignore htlc_min/max constraints!)
     l1.rpc.getroute(l3.info['id'], amount_msat=0, riskfactor=1)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_pay_partial_msat(node_factory, executor):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    inv = l3.rpc.invoice(100000000, "inv", "inv")
+
+    with pytest.raises(RpcError, match="partial_msat must be less or equal to total amount 10000000"):
+        l2.rpc.pay(inv['bolt11'], partial_msat=100000001)
+
+    # This will fail with an MPP timeout.
+    with pytest.raises(RpcError, match="failed: WIRE_MPP_TIMEOUT"):
+        l2.rpc.pay(inv['bolt11'], partial_msat=90000000)
+
+    # This will work like normal.
+    l2.rpc.pay(inv['bolt11'], partial_msat=100000000)
+
+    # Make sure l3 can pay to l2 now.
+    wait_for(lambda: only_one(l3.rpc.listpeerchannels()['channels'])['spendable_msat'] > 1001)
+
+    # Now we can combine together to pay l2:
+    inv = l2.rpc.invoice('any', "inv", "inv")
+
+    # If we specify different totals, this *won't work*
+    l1pay = executor.submit(l1.rpc.pay, inv['bolt11'], amount_msat=10000, partial_msat=9000)
+    l3pay = executor.submit(l3.rpc.pay, inv['bolt11'], amount_msat=10001, partial_msat=1001)
+
+    # BOLT #4:
+    # - SHOULD fail the entire HTLC set if `total_msat` is not
+    #   the same for all HTLCs in the set.
+    with pytest.raises(RpcError, match="failed: WIRE_FINAL_INCORRECT_HTLC_AMOUNT"):
+        l3pay.result(TIMEOUT)
+    with pytest.raises(RpcError, match="failed: WIRE_FINAL_INCORRECT_HTLC_AMOUNT"):
+        l1pay.result(TIMEOUT)
+
+    # But same amount, will combine forces!
+    l1pay = executor.submit(l1.rpc.pay, inv['bolt11'], amount_msat=10000, partial_msat=9000)
+    l3pay = executor.submit(l3.rpc.pay, inv['bolt11'], amount_msat=10000, partial_msat=1000)
+
+    l1pay.result(TIMEOUT)
+    l3pay.result(TIMEOUT)

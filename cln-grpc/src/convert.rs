@@ -2215,6 +2215,7 @@ impl From<requests::PayRequest> for pb::PayRequest {
             exclude: c.exclude.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             description: c.description, // Rule #2 for type string?
+            partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
         }
     }
 }
@@ -3006,6 +3007,7 @@ impl From<pb::PayRequest> for requests::PayRequest {
             exclude: Some(c.exclude.into_iter().map(|s| s.into()).collect()), // Rule #4
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             description: c.description, // Rule #1 for type string?
+            partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
         }
     }
 }
