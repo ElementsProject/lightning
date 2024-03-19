@@ -1056,6 +1056,8 @@ pub mod requests {
 	    pub maxfee: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partial_msat: Option<Amount>,
 	}
 
 	impl From<PayRequest> for Request {

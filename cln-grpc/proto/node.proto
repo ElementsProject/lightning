@@ -860,6 +860,7 @@ message PayRequest {
 	repeated string exclude = 10;
 	optional Amount maxfee = 11;
 	optional string description = 12;
+	optional Amount partial_msat = 15;
 }
 
 message PayResponse {

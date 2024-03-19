@@ -1021,7 +1021,7 @@ static struct command_result *json_pay(struct command *cmd,
 	char *b11_fail, *b12_fail;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
-	struct amount_msat *exemptfee, *msat, *maxfee;
+	struct amount_msat *exemptfee, *msat, *maxfee, *partial;
 	const char *label, *description;
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
@@ -1054,6 +1054,7 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt("description", param_escaped_string, &description),
+		   p_opt("partial_msat", param_msat, &partial),
 		   p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
 		      NULL))
 		return command_param_failed();
@@ -1199,8 +1200,21 @@ static struct command_result *json_pay(struct command *cmd,
 		p->final_amount = *msat;
 	}
 
-	/* FIXME: Allow partial payment! */
-	p->our_amount = p->final_amount;
+	if (partial) {
+		if (amount_msat_greater(*partial, p->final_amount)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "partial_msat must be less or equal to total amount %s",
+					    fmt_amount_msat(tmpctx, p->final_amount));
+		}
+		if (node_id_eq(&my_id, p->destination)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "partial_msat not supported (yet?) for self-pay");
+		}
+
+		p->our_amount = *partial;
+	} else {
+		p->our_amount = p->final_amount;
+	}
 
 	/* We replace real final values if we're using a blinded path */
 	if (p->blindedpath) {

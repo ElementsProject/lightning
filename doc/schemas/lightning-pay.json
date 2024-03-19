@@ -102,6 +102,13 @@
         "description": [
           "It is only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid."
         ]
+      },
+      "partial_msat": {
+        "type": "msat",
+        "added": "v23.05",
+        "description": [
+          "Explicitly state that you are only paying some part of the invoice.  Presumably someone else is paying the rest (otherwise the payment will time out at the recipient).  Note that this is currently not supported for self-payment (please file an issue if you need this)"
+        ]
       }
     }
   },

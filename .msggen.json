@@ -1532,6 +1532,7 @@
             "Pay.maxfee": 11,
             "Pay.maxfeepercent": 4,
             "Pay.msatoshi": 2,
+            "Pay.partial_msat": 15,
             "Pay.retry_for": 5,
             "Pay.riskfactor": 8
         },
@@ -5572,6 +5573,10 @@
         },
         "Pay.maxfeepercent": {
             "added": "pre-v0.10.1",
+            "deprecated": false
+        },
+        "Pay.partial_msat": {
+            "added": "v23.05",
             "deprecated": false
         },
         "Pay.parts": {
