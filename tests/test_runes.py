@@ -460,7 +460,7 @@ def test_rune_pay_amount(node_factory):
     inv2 = l2.rpc.invoice(amount_msat='any', label='inv2', description='description2')['bolt11']
 
     # Rune requires amount_msat < 10,000!
-    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: parameter amountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -468,7 +468,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # As a named parameter!
-    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: parameter amountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -476,7 +476,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Can't get around it this way!
-    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat not present') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: parameter amountmsat not present') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -484,7 +484,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Nor this way, using a string!
-    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat is not an integer') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: parameter amountmsat is not an integer') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -492,7 +492,7 @@ def test_rune_pay_amount(node_factory):
     assert exc_info.value.error['code'] == 0x5de
 
     # Too much!
-    with pytest.raises(RpcError, match='Not permitted: pnameamountmsat is greater or equal to 10000') as exc_info:
+    with pytest.raises(RpcError, match='Not permitted: parameter amountmsat is greater or equal to 10000') as exc_info:
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune,
                          method='pay',
@@ -671,3 +671,50 @@ def test_id_migration(node_factory):
 
     # Our migration should have removed this row now
     assert l1.db_query("SELECT * FROM vars WHERE name = 'runes_uniqueid';") == []
+
+
+def test_rune_error_messages(node_factory):
+    l1 = node_factory.get_node()
+
+    rune1 = l1.rpc.createrune(restrictions=[['method=pay'],
+                                            ['pnum=1']])['rune']
+    with pytest.raises(RpcError, match='Not permitted: number of parameters is not equal to 1'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune1,
+                         method='pay',
+                         params=['xxx', 12000])
+    with pytest.raises(RpcError, match='Not permitted: number of parameters is not equal to 1'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune1,
+                         method='pay',
+                         params={'bolt11': 'xxx', 'amount_msat': 17})
+
+    rune2 = l1.rpc.createrune(restrictions=[['method=pay'],
+                                            ['parr1=17']])['rune']
+
+    with pytest.raises(RpcError, match='Not permitted: parameter #1 is not equal to 17'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune2,
+                         method='pay',
+                         params=['xxx', 12000])
+
+    with pytest.raises(RpcError, match='Not permitted: parameter #1 not present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune2,
+                         method='pay',
+                         params={'bolt11': 'xxx', 'amount_msat': 12000})
+
+    rune3 = l1.rpc.createrune(restrictions=[['method=pay'],
+                                            ['pnamebolt11=xxx']])['rune']
+
+    with pytest.raises(RpcError, match='Not permitted: parameter bolt11 is not equal to xxx'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune3,
+                         method='pay',
+                         params={'bolt11': 'yyy', 'amount_msat': 12000})
+    with pytest.raises(RpcError, match='Not permitted: parameter bolt11 not present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune3,
+                         method='pay',
+                         params=['xxx', 12000])
+
