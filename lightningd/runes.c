@@ -849,6 +849,14 @@ static struct command_result *json_checkrune(struct command *cmd,
 	/* Just in case they manage to make us speak non-JSON, escape! */
 	if (err) {
 		err = json_escape(tmpctx, err)->s;
+
+		/* Turn runespeak into english! */
+		if (strstarts(err, "pname"))
+			err = tal_strcat(tmpctx, "parameter ", err + strlen("pname"));
+		else if (strstarts(err, "parr"))
+			err = tal_strcat(tmpctx, "parameter #", err + strlen("parr"));
+		else if (strstarts(err, "pnum"))
+			err = tal_strcat(tmpctx, "number of parameters", err + strlen("pnum"));
 		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
 	}
 
