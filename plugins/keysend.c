@@ -152,7 +152,7 @@ static void check_preapprovekeysend_start(void *d UNUSED, struct payment *p)
 				    &preapprovekeysend_rpc_failure, p);
 	json_add_node_id(req->js, "destination", p->destination);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
-	json_add_amount_msat(req->js, "amount_msat", p->amount);
+	json_add_amount_msat(req->js, "amount_msat", p->our_amount);
 	(void) send_outreq(p->plugin, req);
 }
 
@@ -278,7 +278,9 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->payment_metadata = NULL;
 	p->blindedpath = NULL;
 	p->blindedpay = NULL;
-	p->amount = *msat;
+	/* FIXME: We could allow partial keysends, too, but we'd have to allow
+	 * caller to provide keysend secret */
+	p->our_amount = p->final_amount = *msat;
 	p->routes = tal_steal(p, hints);
 	// 22 is the Rust-Lightning default and the highest minimum we know of.
 	p->min_final_cltv_expiry = 22;
@@ -297,7 +299,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		    "We are the destination. Keysend cannot be used to send funds to yourself");
 	}
 
-	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
+	if (!amount_msat_fee(&p->constraints.fee_budget, p->our_amount, 0,
 			     *maxfee_pct_millionths / 100)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,

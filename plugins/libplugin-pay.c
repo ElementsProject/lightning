@@ -98,7 +98,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
 		p->destination = parent->destination;
-		p->amount = parent->amount;
+		p->final_amount = parent->final_amount;
+		p->our_amount = parent->our_amount;
 		p->label = parent->label;
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
@@ -310,7 +311,7 @@ void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 	p->getroute->destination = p->destination;
 	p->getroute->max_hops = ROUTING_MAX_HOPS;
 	p->getroute->cltv = root->min_final_cltv_expiry;
-	p->getroute->amount = p->amount;
+	p->getroute->amount = p->our_amount;
 
 	p->start_constraints = tal_dup(p, struct payment_constraints, &p->constraints);
 
@@ -458,7 +459,7 @@ static void payment_exclude_longest_delay(struct payment *p)
 static struct amount_msat payment_route_fee(struct payment *p)
 {
 	struct amount_msat fee;
-	if (!amount_msat_sub(&fee, p->route[0].amount, p->amount)) {
+	if (!amount_msat_sub(&fee, p->route[0].amount, p->our_amount)) {
 		paymod_log(
 		    p,
 		    LOG_BROKEN,
@@ -466,7 +467,7 @@ static struct amount_msat payment_route_fee(struct payment *p)
 		    "to deliver %s",
 		    type_to_string(tmpctx, struct amount_msat,
 				   &p->route[0].amount),
-		    type_to_string(tmpctx, struct amount_msat, &p->amount));
+		    type_to_string(tmpctx, struct amount_msat, &p->our_amount));
 		abort();
 	}
 	return fee;
@@ -627,7 +628,7 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 		if (!hint->enabled)
 			tal_arr_expand(&res, hint->scid);
 
-		else if (amount_msat_greater(p->amount,
+		else if (amount_msat_greater(p->our_amount,
 					     hint->estimated_capacity))
 			tal_arr_expand(&res, hint->scid);
 
@@ -1657,7 +1658,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_object_end(req->js);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
-	json_add_amount_msat(req->js, "amount_msat", p->amount);
+	json_add_amount_msat(req->js, "amount_msat", p->our_amount);
 
 	json_array_start(req->js, "shared_secrets");
 	secrets = p->createonion_response->shared_secrets;
@@ -1716,7 +1717,6 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	u32 cltv = p->start_block + next->delay + 1;
 	u64 msat = next->amount.millisatoshis; /* Raw: TLV payload generation*/
 	struct tlv_field **fields;
-	struct payment *root = payment_root(p);
 
 	/* This is the information of the node processing this payload, while
 	 * `next` are the instructions to include in the payload, which is
@@ -1739,7 +1739,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 		assert(final);
 		tlvstream_set_tlv_payload_data(
 			fields, payment_secret,
-			root->amount.millisatoshis); /* Raw: TLV payload generation*/
+			p->final_amount.millisatoshis); /* Raw: TLV payload generation*/
 	}
 	if (payment_metadata != NULL) {
 		assert(final);
@@ -1751,6 +1751,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 static void payment_add_blindedpath(const tal_t *ctx,
 				    struct createonion_hop *hops,
 				    const struct blinded_path *bpath,
+				    struct amount_msat our_amt,
 				    struct amount_msat final_amt,
 				    u32 final_cltv)
 {
@@ -1824,6 +1825,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 	if (root->blindedpath) {
 		payment_add_blindedpath(cr->hops, cr->hops + hopcount - 1,
 					root->blindedpath,
+					root->blindedouramount,
 					root->blindedfinalamount,
 					root->blindedfinalcltv);
 		tal_append_fmt(&routetxt, "%s -> blinded path (%zu hops)",
@@ -1971,7 +1973,7 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	json_add_amount_msat(s, "amount_msat", p->amount);
+	json_add_amount_msat(s, "amount_msat", p->our_amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
 
@@ -2025,11 +2027,11 @@ void json_add_payment_success(struct json_stream *js,
 	else
 		json_add_num(js, "parts", 1);
 
-	json_add_amount_msat(js, "amount_msat", p->amount);
+	json_add_amount_msat(js, "amount_msat", p->our_amount);
 	if (result)
 		json_add_amount_msat(js, "amount_sent_msat", result->sent);
 	else
-		json_add_amount_msat(js, "amount_sent_msat", p->amount);
+		json_add_amount_msat(js, "amount_sent_msat", p->our_amount);
 
 	if (result && result->leafstates != PAYMENT_STEP_SUCCESS)
 		json_add_string(js, "warning_partial_completion",
@@ -2155,7 +2157,7 @@ static void payment_finished(struct payment *p)
 				json_add_string(ret, "status", "failed");
 			}
 
-			json_add_amount_msat(ret, "amount_msat", p->amount);
+			json_add_amount_msat(ret, "amount_msat", p->our_amount);
 			json_add_amount_msat(ret, "amount_sent_msat",
 					     result.sent);
 
@@ -2429,7 +2431,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		    "Retrying %s/%d (%s), new partid %d. %d attempts left\n",
 		    type_to_string(tmpctx, struct sha256, p->payment_hash),
 		    p->partid,
-		    type_to_string(tmpctx, struct amount_msat, &p->amount),
+		    type_to_string(tmpctx, struct amount_msat, &p->our_amount),
 		    subpayment->partid,
 		    rdata->retries - 1);
 	}
@@ -2665,7 +2667,7 @@ static bool routehint_excluded(struct payment *p,
 
 		/* Check our capacity fits.  */
 		struct amount_msat needed_capacity;
-		if (!route_msatoshi(&needed_capacity, p->amount,
+		if (!route_msatoshi(&needed_capacity, p->our_amount,
 				    r + 1, tal_count(routehint) - i - 1))
 			return true;
 		/* Why do we scan the hints again if
@@ -2797,7 +2799,7 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 	p->temp_exclusion = tal_free(p->temp_exclusion);
 
 	if (d->current_routehint != NULL) {
-		if (!route_msatoshi(&p->getroute->amount, p->amount,
+		if (!route_msatoshi(&p->getroute->amount, p->our_amount,
 				    d->current_routehint,
 				    tal_count(d->current_routehint))) {
 		}
@@ -2953,7 +2955,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		struct route_hop *prev_hop;
 		for (ssize_t i = 0; i < tal_count(routehint); i++) {
 			prev_hop = &p->route[tal_count(p->route)-1];
-			if (!route_msatoshi(&dest_amount, p->amount,
+			if (!route_msatoshi(&dest_amount, p->our_amount,
 				    routehint + i + 1,
 					    tal_count(routehint) - i - 1)) {
 				/* Just let it fail, since we couldn't stitch
@@ -3182,14 +3184,14 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 
 		/* If the capacity is insufficient to pass the amount
 		 * it's not a plausible extension. */
-		if (amount_msat_greater_sat(p->amount, capacity))
+		if (amount_msat_greater_sat(p->our_amount, capacity))
 			continue;
 
 		if (curr.cltv_expiry_delta > cons->cltv_budget)
 			continue;
 
 		if (!amount_msat_fee(
-			    &fee, p->amount, curr.fee_base_msat,
+			    &fee, p->our_amount, curr.fee_base_msat,
 			    curr.fee_proportional_millionths)) {
 			/* Fee computation failed... */
 			continue;
@@ -3328,10 +3330,10 @@ static void direct_pay_override(struct payment *p) {
 	}
 
 	if (hint && hint->enabled &&
-	    amount_msat_greater(hint->estimated_capacity, p->amount)) {
+	    amount_msat_greater(hint->estimated_capacity, p->our_amount)) {
 		/* Now build a route that consists only of this single hop */
 		p->route = tal_arr(p, struct route_hop, 1);
-		p->route[0].amount = p->amount;
+		p->route[0].amount = p->our_amount;
 		p->route[0].delay = p->getroute->cltv;
 		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
@@ -3638,13 +3640,13 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 		struct tlv_field **fields = &hop->tlv_payload->fields;
 		tlvstream_set_tlv_payload_data(
 			    fields, root->payment_secret,
-			    root->amount.millisatoshis); /* Raw: onion payload */
+			    root->final_amount.millisatoshis); /* Raw: onion payload */
 	} else if (p->step == PAYMENT_STEP_FAILED && !p->abort) {
-		if (amount_msat_greater(p->amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
+		if (amount_msat_greater(p->our_amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
 			struct payment *a, *b;
 			/* Random number in the range [90%, 110%] */
 			double rand = pseudorand_double() * 0.2 + 0.9;
-			u64 mid = p->amount.millisatoshis / 2 * rand; /* Raw: multiplication */
+			u64 mid = p->our_amount.millisatoshis / 2 * rand; /* Raw: multiplication */
 			bool ok;
 			/* Use the start constraints, not the ones updated by routes and shadow-routes. */
 			struct payment_constraints *pconstraints = p->start_constraints;
@@ -3663,11 +3665,11 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 			a = payment_new(p, NULL, p, p->modifiers);
 			b = payment_new(p, NULL, p, p->modifiers);
 
-			a->amount.millisatoshis = mid;  /* Raw: split. */
-			b->amount.millisatoshis -= mid; /* Raw: split. */
+			a->our_amount.millisatoshis = mid;  /* Raw: split. */
+			b->our_amount.millisatoshis -= mid; /* Raw: split. */
 
-			double multiplier = amount_msat_ratio(a->amount,
-							      p->amount);
+			double multiplier = amount_msat_ratio(a->our_amount,
+							      p->our_amount);
 			assert(multiplier >= 0.4 && multiplier < 0.6);
 
 			/* Adjust constraints since we don't want to double our
@@ -3695,10 +3697,10 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 				   "new partid %"PRIu32" (%s)",
 				   a->partid,
 				   type_to_string(tmpctx, struct amount_msat,
-						  &a->amount),
+						  &a->our_amount),
 				   b->partid,
 				   type_to_string(tmpctx, struct amount_msat,
-						  &b->amount));
+						  &b->our_amount));
 
 			/* Take note that we now have an additional split that
 			 * may end up using an HTLC. */
@@ -3708,7 +3710,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 				   "Lower limit of adaptive splitter reached "
 				   "(%s < %s), not splitting further.",
 				   type_to_string(tmpctx, struct amount_msat,
-						  &p->amount),
+						  &p->our_amount),
 				   type_to_string(tmpctx, struct amount_msat,
 						  &MPP_ADAPTIVE_LOWER_LIMIT));
 		}
