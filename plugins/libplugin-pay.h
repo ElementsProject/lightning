@@ -195,6 +195,7 @@ struct payment {
 	/* Blinded path (for bolt12) */
 	struct blinded_path *blindedpath;
 	struct blinded_payinfo *blindedpay;
+	struct amount_msat blindedouramount;
 	struct amount_msat blindedfinalamount;
 	u32 blindedfinalcltv;
 
@@ -211,7 +212,9 @@ struct payment {
 	struct createonion_response *createonion_response;
 
 	/* Target amount to be delivered at the destination */
-	struct amount_msat amount;
+	struct amount_msat final_amount;
+	/* Amount we are trying to deliver with this payment (usually the same) */
+	struct amount_msat our_amount;
 
 	/* tal_arr of route_hops we decoded from the `getroute` call. Exposed
 	 * here so it can be amended by mixins. */
