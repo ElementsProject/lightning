@@ -1675,8 +1675,6 @@ pub mod requests {
 	    pub timeout: Option<f64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_note: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub exposeid: Option<bool>,
 	}
 
 	impl From<FetchinvoiceRequest> for Request {
