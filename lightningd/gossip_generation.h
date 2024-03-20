@@ -38,7 +38,7 @@ u8 *create_channel_announcement(const tal_t *ctx,
  */
 u8 *unsigned_channel_update(const tal_t *ctx,
 			    const struct channel *channel,
-			    const struct short_channel_id *scid,
+			    struct short_channel_id scid,
 			    const u32 *old_timestamp,
 			    bool forwardable,
 			    bool enabled);

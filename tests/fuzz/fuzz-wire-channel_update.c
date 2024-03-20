@@ -20,7 +20,7 @@ struct channel_update {
 static void *encode(const tal_t *ctx, const struct channel_update *s)
 {
 	return towire_channel_update(
-	    ctx, &s->signature, &s->chain_hash, &s->short_channel_id,
+	    ctx, &s->signature, &s->chain_hash, s->short_channel_id,
 	    s->timestamp, s->message_flags, s->channel_flags,
 	    s->cltv_expiry_delta, s->htlc_minimum_msat, s->fee_base_msat,
 	    s->fee_proportional_millionths, s->htlc_maximum_msat);

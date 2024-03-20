@@ -92,15 +92,15 @@ struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx);
 bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,
 			   const struct node_id *n2,
-			   const struct short_channel_id *scid,
+			   struct short_channel_id scid,
 			   const u8 *features)
-	NON_NULL_ARGS(1,2,3,4);
+	NON_NULL_ARGS(1,2,3);
 
 /* Create a local-only channel_update: can apply to lcoal-only or
  * normal channels.  Returns false if amounts don't fit in our
  * internal representation (implies channel unusable anyway). */
 bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
-			      const struct short_channel_id *scid,
+			      struct short_channel_id scid,
 			      struct amount_msat htlc_min,
 			      struct amount_msat htlc_max,
 			      u32 base_fee,

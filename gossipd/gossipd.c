@@ -464,8 +464,8 @@ static void new_blockheight(struct daemon *daemon, const u8 *msg)
 
 	/* Check if we can now send any deferred queries. */
 	for (size_t i = 0; i < tal_count(daemon->deferred_txouts); i++) {
-		const struct short_channel_id *scid
-			= &daemon->deferred_txouts[i];
+		const struct short_channel_id scid
+			= daemon->deferred_txouts[i];
 
 		if (!is_scid_depth_announceable(scid,
 						daemon->current_blockheight))

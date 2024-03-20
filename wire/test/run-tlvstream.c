@@ -360,7 +360,7 @@ static bool tlv_n1_eq(const struct tlv_n1 *a, const struct tlv_n1 *b)
 	if (a->tlv2) {
 		if (!b->tlv2)
 			return false;
-		if (!short_channel_id_eq(a->tlv2, b->tlv2))
+		if (!short_channel_id_eq(*a->tlv2, *b->tlv2))
 			return false;
 	} else if (b->tlv2)
 		return false;

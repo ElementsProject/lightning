@@ -53,7 +53,7 @@ static bool can_carry(const struct gossmap *map,
 		switch (excludes[i]->type) {
 		case EXCLUDE_CHANNEL:
 			scid = gossmap_chan_scid(map, c);
-			if (short_channel_id_eq(&excludes[i]->u.chan_id.scid, &scid)
+			if (short_channel_id_eq(excludes[i]->u.chan_id.scid, scid)
 			    && dir == excludes[i]->u.chan_id.dir)
 				return false;
 			continue;
@@ -78,7 +78,7 @@ static void json_add_route_hop(struct json_stream *js,
 	/* Imitate what getroute/sendpay use */
 	json_object_start(js, fieldname);
 	json_add_node_id(js, "id", &r->node_id);
-	json_add_short_channel_id(js, "channel", &r->scid);
+	json_add_short_channel_id(js, "channel", r->scid);
 	json_add_num(js, "direction", r->direction);
 	json_add_amount_msat(js, "amount_msat", r->amount);
 	json_add_num(js, "delay", r->delay);
@@ -261,7 +261,7 @@ static void json_add_halfchan(struct json_stream *response,
 		json_object_start(response, NULL);
 		json_add_node_id(response, "source", &node_id[dir]);
 		json_add_node_id(response, "destination", &node_id[!dir]);
-		json_add_short_channel_id(response, "short_channel_id", &scid);
+		json_add_short_channel_id(response, "short_channel_id", scid);
 		json_add_num(response, "direction", dir);
 		json_add_bool(response, "public", !gossmap_chan_is_localmod(gossmap, c));
 
@@ -650,7 +650,7 @@ listpeerchannels_listincoming_done(struct command *cmd,
 		json_object_start(js, NULL);
 		gossmap_node_get_id(gossmap, peer, &peer_id);
 		json_add_node_id(js, "id", &peer_id);
-		json_add_short_channel_id(js, "short_channel_id", &scid);
+		json_add_short_channel_id(js, "short_channel_id", scid);
 		json_add_amount_msat(js, "fee_base_msat",
 				     amount_msat(ourchan->half[!dir].base_fee));
 		json_add_amount_msat(js, "htlc_min_msat",

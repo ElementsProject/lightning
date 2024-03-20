@@ -311,7 +311,7 @@ void json_add_outpoint(struct json_stream *result, const char *fieldname,
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
-			       const struct short_channel_id *id);
+			       struct short_channel_id id);
 
 /* JSON serialize a network address for a node */
 void json_add_address(struct json_stream *response, const char *fieldname,

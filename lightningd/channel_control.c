@@ -767,7 +767,7 @@ bool depthcb_update_scid(struct channel *channel,
 	}
 
 	/* No change?  Great. */
-	if (channel->scid && short_channel_id_eq(channel->scid, &scid))
+	if (channel->scid && short_channel_id_eq(*channel->scid, scid))
 		return true;
 
 	if (!channel->scid) {
@@ -976,7 +976,7 @@ void lockin_has_completed(struct channel *channel, bool record_push)
 	 * is zero) */
 	channel_record_open(channel,
 			    channel->scid ?
-			    short_channel_id_blocknum(channel->scid) : 0,
+			    short_channel_id_blocknum(*channel->scid) : 0,
 			    record_push);
 }
 
@@ -1695,7 +1695,7 @@ bool peer_start_channeld(struct channel *channel,
 				       htlcs,
 				       channel->scid != NULL,
 				       channel->remote_channel_ready,
-				       &scid,
+				       scid,
 				       reconnected,
 				       /* Anything that indicates we are or have
 					* shut down */
@@ -1718,7 +1718,7 @@ bool peer_start_channeld(struct channel *channel,
 				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
 						   inflights),
-				       channel->alias[LOCAL]);
+				       *channel->alias[LOCAL]);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

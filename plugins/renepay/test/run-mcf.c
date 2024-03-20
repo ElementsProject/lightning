@@ -402,7 +402,7 @@ int main(int argc, char *argv[])
 
 	/* Should have filled in some extra data! */
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scid12);
-	assert(short_channel_id_eq(&ce->scid, &scid12));
+	assert(short_channel_id_eq(ce->scid, scid12));
 	/* l1->l2 dir is 1 */
 	assert(ce->half[1].num_htlcs == 1);
 	assert(amount_msat_eq(ce->half[1].htlc_total, AMOUNT_MSAT(500000000 + 500000 + 20)));
@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(ce->half[0].known_max, AMOUNT_MSAT(1000000000)));
 
 	ce = chan_extra_map_get(chan_extra_map, scid23);
-	assert(short_channel_id_eq(&ce->scid, &scid23));
+	assert(short_channel_id_eq(ce->scid, scid23));
 	/* l2->l3 dir is 0 */
 	assert(ce->half[0].num_htlcs == 1);
 	assert(amount_msat_eq(ce->half[0].htlc_total, AMOUNT_MSAT(500000000)));
@@ -438,8 +438,8 @@ int main(int argc, char *argv[])
 	assert(short_channel_id_from_str("111x1x1", 7, &scid13));
 
 	/* 400,000sat channel from 1->3, basefee 0, ppm 1000, delay 5 */
-	assert(gossmap_local_addchan(mods, &l1, &l3, &scid13, NULL));
-	assert(gossmap_local_updatechan(mods, &scid13,
+	assert(gossmap_local_addchan(mods, &l1, &l3, scid13, NULL));
+	assert(gossmap_local_updatechan(mods, scid13,
 					AMOUNT_MSAT(0),
 					AMOUNT_MSAT(400000000),
 					0, 1000, 5,

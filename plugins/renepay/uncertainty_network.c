@@ -66,9 +66,9 @@ static void add_hintchan(
 				    MAX_CAP);
 		/* FIXME: features? */
 		gossmap_local_addchan(local_gossmods,
-				      src, dst, &scid, NULL);
+				      src, dst, scid, NULL);
 		gossmap_local_updatechan(local_gossmods,
-					 &scid,
+					 scid,
 					 /* We assume any HTLC is allowed */
 					 AMOUNT_MSAT(0), MAX_CAP,
 					 fee_base_msat, fee_proportional_millionths,

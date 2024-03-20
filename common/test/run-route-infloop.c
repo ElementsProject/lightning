@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 		if (!c->half[dir].enabled)
 			continue;
 		scid = gossmap_chan_scid(gossmap, c);
-		assert(gossmap_local_updatechan(localmods, &scid,
+		assert(gossmap_local_updatechan(localmods, scid,
 						amount_msat(fp16_to_u64(c->half[dir].htlc_min)),
 						amount_msat(fp16_to_u64(c->half[dir].htlc_max)),
 						0, 0, 0, true, dir));

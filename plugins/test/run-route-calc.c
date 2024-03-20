@@ -112,7 +112,7 @@ void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname 
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
-			       const struct short_channel_id *id UNNEEDED)
+			       struct short_channel_id id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *js UNNEEDED,
@@ -289,7 +289,7 @@ static void write_to_store(int store_fd, const u8 *msg)
 static void update_connection(int store_fd,
 			      const struct node_id *from,
 			      const struct node_id *to,
-			      const struct short_channel_id *scid,
+			      struct short_channel_id scid,
 			      struct amount_msat min,
 			      struct amount_msat max,
 			      u32 base_fee, s32 proportional_fee,
@@ -366,14 +366,14 @@ static struct short_channel_id_dir add_connection(int store_fd, char from, char 
 					  &dummy_sig, &dummy_sig,
 					  /* features */ NULL,
 					  &chainparams->genesis_blockhash,
-					  &scidd.scid,
+					  scidd.scid,
 					  ids[0], ids[1],
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);
 	msg = towire_gossip_store_channel_amount(tmpctx, capacity);
 	write_to_store(store_fd, msg);
 
-	update_connection(store_fd, &from_id, &to_id, &scidd.scid,
+	update_connection(store_fd, &from_id, &to_id, scidd.scid,
 			  AMOUNT_MSAT(0),
 			  amount_msat(capacity.satoshis * 1000),
 			  base_fee, proportional_fee,
@@ -492,7 +492,7 @@ int main(int argc, char *argv[])
 		assert(tal_count(r) == ARRAY_SIZE(path));
 
 		for (size_t j = 0; j < ARRAY_SIZE(path); j++) {
-			assert(short_channel_id_eq(&r[j].scid, &path[j].scid));
+			assert(short_channel_id_eq(r[j].scid, path[j].scid));
 			assert(r[j].direction == path[j].dir);
 		}
 

@@ -178,10 +178,9 @@ void db_bind_pubkey(struct db_stmt *stmt, const struct pubkey *pk)
 	db_bind_blob(stmt, der, PUBKEY_CMPR_LEN);
 }
 
-void db_bind_short_channel_id(struct db_stmt *stmt,
-			      const struct short_channel_id *id)
+void db_bind_short_channel_id(struct db_stmt *stmt, struct short_channel_id scid)
 {
-	db_bind_u64(stmt, id->u64);
+	db_bind_u64(stmt, scid.u64);
 }
 
 void db_bind_short_channel_id_arr(struct db_stmt *stmt,
@@ -191,7 +190,7 @@ void db_bind_short_channel_id_arr(struct db_stmt *stmt,
 	size_t num = tal_count(id);
 
 	for (size_t i = 0; i < num; ++i)
-		towire_short_channel_id(&ser, &id[i]);
+		towire_short_channel_id(&ser, id[i]);
 
 	db_bind_talarr(stmt, ser);
 }
@@ -401,10 +400,11 @@ void db_col_pubkey(struct db_stmt *stmt,
 	assert(ok);
 }
 
-void db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
-				 struct short_channel_id *dest)
+struct short_channel_id db_col_short_channel_id(struct db_stmt *stmt, const char *colname)
 {
-	dest->u64 = db_col_u64(stmt, colname);
+	struct short_channel_id scid;
+	scid.u64 = db_col_u64(stmt, colname);
+	return scid;
 }
 
 void *db_col_optional_(tal_t *dst,
@@ -435,7 +435,7 @@ db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *
 
 	while (len != 0) {
 		struct short_channel_id scid;
-		fromwire_short_channel_id(&ser, &len, &scid);
+		scid = fromwire_short_channel_id(&ser, &len);
 		tal_arr_expand(&ret, scid);
 	}
 

@@ -80,7 +80,7 @@ void json_add_bolt11(struct json_stream *response,
 						 &b11->routes[i][n].pubkey);
                                 json_add_short_channel_id(response,
                                                           "short_channel_id",
-                                                          &b11->routes[i][n]
+                                                          b11->routes[i][n]
                                                           .short_channel_id);
                                 json_add_u64(response, "fee_base_msat",
                                              b11->routes[i][n].fee_base_msat);

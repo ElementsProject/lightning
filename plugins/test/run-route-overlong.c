@@ -109,7 +109,7 @@ void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname 
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
-			       const struct short_channel_id *id UNNEEDED)
+			       struct short_channel_id id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *js UNNEEDED,
@@ -286,7 +286,7 @@ static void write_to_store(int store_fd, const u8 *msg)
 static void update_connection(int store_fd,
 			      const struct node_id *from,
 			      const struct node_id *to,
-			      const struct short_channel_id *scid,
+			      struct short_channel_id scid,
 			      struct amount_msat min,
 			      struct amount_msat max,
 			      u32 base_fee, s32 proportional_fee,
@@ -321,7 +321,7 @@ static void update_connection(int store_fd,
 static void add_connection(int store_fd,
 			   const struct node_id *from,
 			   const struct node_id *to,
-			   const struct short_channel_id *scid,
+			   struct short_channel_id scid,
 			   struct amount_msat min,
 			   struct amount_msat max,
 			   u32 base_fee, s32 proportional_fee,
@@ -402,7 +402,7 @@ int main(int argc, char *argv[])
 
 		if (!mk_short_channel_id(&scid, i, i-1, 0))
 			abort();
-		add_connection(store_fd, &ids[i-1], &ids[i], &scid,
+		add_connection(store_fd, &ids[i-1], &ids[i], scid,
 			       AMOUNT_MSAT(0),
 			       AMOUNT_MSAT(1000000 * 1000),
 			       0, 0, 0);
@@ -415,7 +415,7 @@ int main(int argc, char *argv[])
 			continue;
 		if (!mk_short_channel_id(&scid, i, 1, 0))
 			abort();
-		add_connection(store_fd, &ids[1], &ids[i], &scid,
+		add_connection(store_fd, &ids[1], &ids[i], scid,
 			       AMOUNT_MSAT(0),
 			       AMOUNT_MSAT(1000000 * 1000),
 			       1 << i, 0, 0);

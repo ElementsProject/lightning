@@ -619,7 +619,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	}
 	/* scid is NULL when opening a new channel so we don't
 	 * need to set error in that case as well */
-	if (is_stub_scid(scid))
+	if (scid && is_stub_scid(*scid))
 		channel->error = towire_errorfmt(peer->ld,
 						 &channel->cid,
 						 "We can't be together anymore.");
@@ -675,7 +675,7 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 }
 
 struct channel *any_channel_by_scid(struct lightningd *ld,
-				    const struct short_channel_id *scid,
+				    struct short_channel_id scid,
 				    bool privacy_leak_ok)
 {
 	struct peer *p;
@@ -693,7 +693,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			 *   channel.
 			 */
 			if (chan->alias[LOCAL] &&
-			    short_channel_id_eq(scid, chan->alias[LOCAL]))
+			    short_channel_id_eq(scid, *chan->alias[LOCAL]))
 				return chan;
 			/* BOLT #2:
 			 * - if `channel_type` has `option_scid_alias` set:
@@ -704,7 +704,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			    && channel_type_has(chan->type, OPT_SCID_ALIAS))
 				continue;
 			if (chan->scid
-			    && short_channel_id_eq(scid, chan->scid))
+			    && short_channel_id_eq(scid, *chan->scid))
 				return chan;
 		}
 	}
@@ -768,24 +768,24 @@ struct channel *find_channel_by_id(const struct peer *peer,
 }
 
 struct channel *find_channel_by_scid(const struct peer *peer,
-				     const struct short_channel_id *scid)
+				     struct short_channel_id scid)
 {
 	struct channel *c;
 
 	list_for_each(&peer->channels, c, list) {
-		if (c->scid && short_channel_id_eq(c->scid, scid))
+		if (c->scid && short_channel_id_eq(*c->scid, scid))
 			return c;
 	}
 	return NULL;
 }
 
 struct channel *find_channel_by_alias(const struct peer *peer,
-				      const struct short_channel_id *alias,
+				      struct short_channel_id alias,
 				      enum side side)
 {
 	struct channel *c;
 	list_for_each(&peer->channels, c, list) {
-		if (c->alias[side] && short_channel_id_eq(c->alias[side], alias))
+		if (c->alias[side] && short_channel_id_eq(*c->alias[side], alias))
 			return c;
 	}
 	return NULL;
@@ -901,7 +901,7 @@ void channel_fail_permanent(struct channel *channel,
 {
 	/* Don't do anything if it's an stub channel because
 	 * peer has already closed it unilatelrally. */
-	if (is_stub_scid(channel->scid))
+	if (channel->scid && is_stub_scid(*channel->scid))
 		return;
 
 	struct lightningd *ld = channel->peer->ld;
@@ -1095,14 +1095,14 @@ bool channel_is_connected(const struct channel *channel)
 	return channel->owner && channel->owner->talks_to_peer;
 }
 
-const struct short_channel_id *
+struct short_channel_id
 channel_scid_or_local_alias(const struct channel *chan)
 {
 	assert(chan->scid != NULL || chan->alias[LOCAL] != NULL);
 	if (chan->scid != NULL)
-		return chan->scid;
+		return *chan->scid;
 	else
-		return chan->alias[LOCAL];
+		return *chan->alias[LOCAL];
 }
 
 const u8 *channel_update_for_error(const tal_t *ctx,

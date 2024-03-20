@@ -269,7 +269,7 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 	json_add_node_id(stream, "peer_id", peer_id);
 	json_add_channel_id(stream, "channel_id", cid);
 	if (scid)
-		json_add_short_channel_id(stream, "short_channel_id", scid);
+		json_add_short_channel_id(stream, "short_channel_id", *scid);
 	else
 		json_add_null(stream, "short_channel_id");
 	json_add_timeiso(stream, "timestamp", timestamp);
@@ -318,7 +318,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	 * the the sender is using probably using the REMOTE
 	 * alias. The LOCAL one is controlled by us, and we keep it
 	 * stable. */
-	cur->channel_in = *channel_scid_or_local_alias(in->key.channel);
+	cur->channel_in = channel_scid_or_local_alias(in->key.channel);
 
 	cur->msat_in = in->msat;
 	if (scid_out) {

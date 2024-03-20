@@ -67,7 +67,7 @@ extern const u64 *FROMWIRE_TLV_ANY_TYPE;
 /* Generic primitive setters for tlvstreams. */
 void tlvstream_set_raw(struct tlv_field **stream, u64 type, const void *value TAKES, size_t valuelen);
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
-				    struct short_channel_id *value);
+				    struct short_channel_id value);
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
 void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value);
 

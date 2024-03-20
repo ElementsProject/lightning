@@ -440,8 +440,8 @@ static void check_mutual_splice_locked(struct peer *peer)
 	    || !peer->splice_state->locked_ready[REMOTE])
 		return;
 
-	if (short_channel_id_eq(&peer->short_channel_ids[LOCAL],
-				&peer->splice_state->short_channel_id))
+	if (short_channel_id_eq(peer->short_channel_ids[LOCAL],
+				peer->splice_state->short_channel_id))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Duplicate splice_locked events detected");
 
@@ -599,7 +599,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_got_announcement(NULL,
-							      &remote_scid,
+							      remote_scid,
 							      &remote_node_sig,
 							      &remote_bitcoin_sig)));
 }

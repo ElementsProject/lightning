@@ -181,7 +181,7 @@ json_add_routefail_info(struct json_stream *js,
 		json_add_node_id(js, "erring_node", erring_node);
 
 	if (erring_channel != NULL) {
-		json_add_short_channel_id(js, "erring_channel", erring_channel);
+		json_add_short_channel_id(js, "erring_channel", *erring_channel);
 		json_add_num(js, "erring_direction", channel_dir);
 	}
 
@@ -342,7 +342,7 @@ static struct routing_failure*
 immediate_routing_failure(const tal_t *ctx,
 			  const struct lightningd *ld,
 			  enum onion_wire failcode,
-			  const struct short_channel_id *channel0,
+			  struct short_channel_id channel0,
 			  const struct node_id *dstid)
 {
 	struct routing_failure *routing_failure;
@@ -355,7 +355,7 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->erring_node =
 	    tal_dup(routing_failure, struct node_id, &ld->id);
 	routing_failure->erring_channel =
-	    tal_dup(routing_failure, struct short_channel_id, channel0);
+	    tal_dup(routing_failure, struct short_channel_id, &channel0);
 	routing_failure->channel_dir = node_id_idx(&ld->id, dstid);
 	routing_failure->msg = NULL;
 
@@ -797,11 +797,11 @@ static struct channel *
 find_channel_for_htlc_add(struct lightningd *ld,
 			  struct command *cmd,
 			  const struct node_id *node,
-			  const struct short_channel_id *scid_or_alias,
+			  struct short_channel_id scid_or_alias,
 			  const struct amount_msat *amount)
 {
 	struct channel *channel;
-	const struct short_channel_id *scid;
+	struct short_channel_id scid;
 	struct peer *peer = peer_by_id(ld, node);
 	if (!peer)
 		return NULL;
@@ -818,7 +818,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 
 	/* We used to ignore scid: now all-zero means "any" */
 	if (!channel
-	    && (memeqzero(scid_or_alias, sizeof(*scid_or_alias))
+	    && (memeqzero(&scid_or_alias, sizeof(scid_or_alias))
 		|| command_deprecated_in_ok(cmd,
 					    "channel.ignored",
 					    "v0.12", "v24.02"))) {
@@ -831,7 +831,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 	}
 
 	log_debug(ld->log, "No channel found for selector %s (%s)",
-		  fmt_short_channel_id(tmpctx, *scid_or_alias),
+		  fmt_short_channel_id(tmpctx, scid_or_alias),
 		  fmt_amount_msat(tmpctx, *amount));
 	return NULL;
 
@@ -839,9 +839,9 @@ found:
 	scid = channel_scid_or_local_alias(channel);
 	log_debug(
 	    ld->log, "Selected channel %s (%s) for selector %s (%s)",
-	    fmt_short_channel_id(tmpctx, *scid),
+	    fmt_short_channel_id(tmpctx, scid),
 	    fmt_amount_msat(tmpctx, channel->our_msat),
-	    fmt_short_channel_id(tmpctx, *scid_or_alias),
+	    fmt_short_channel_id(tmpctx, scid_or_alias),
 	    fmt_amount_msat(tmpctx, *amount));
 
 	return channel;
@@ -1062,7 +1062,7 @@ send_payment_core(struct lightningd *ld,
 		return ret;
 
 	channel = find_channel_for_htlc_add(ld, cmd, &first_hop->node_id,
-					    &first_hop->scid, &msat);
+					    first_hop->scid, &msat);
 	if (!channel) {
 		struct json_stream *data
 			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,

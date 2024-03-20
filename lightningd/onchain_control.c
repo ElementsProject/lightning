@@ -1574,7 +1574,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 	/* This could be a mutual close, but it doesn't matter.
 	 * We don't need this for stub channels as well */
-	if (!is_stub_scid(channel->scid))
+	if (!channel->scid || !is_stub_scid(*channel->scid))
 		bitcoin_txid(channel->last_tx, &our_last_txid);
 	else
 	/* Dummy txid for stub channel to make valgrind happy. */

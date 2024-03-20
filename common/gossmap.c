@@ -25,7 +25,7 @@ static bool chanidx_eq_id(const ptrint_t *pidx,
 			  struct short_channel_id scid)
 {
 	struct short_channel_id pidxid = chanidx_id(pidx);
-	return short_channel_id_eq(&pidxid, &scid);
+	return short_channel_id_eq(pidxid, scid);
 }
 static size_t scid_hash(const struct short_channel_id scid)
 {
@@ -785,10 +785,10 @@ static size_t insert_local_space(struct gossmap_localmods *localmods,
 }
 
 static struct localmod *find_localmod(struct gossmap_localmods *localmods,
-				      const struct short_channel_id *scid)
+				      struct short_channel_id scid)
 {
 	for (size_t i = 0; i < tal_count(localmods->mods); i++)
-		if (short_channel_id_eq(&localmods->mods[i].scid, scid))
+		if (short_channel_id_eq(localmods->mods[i].scid, scid))
 			return &localmods->mods[i];
 	return NULL;
 }
@@ -796,7 +796,7 @@ static struct localmod *find_localmod(struct gossmap_localmods *localmods,
 bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,
 			   const struct node_id *n2,
-			   const struct short_channel_id *scid,
+			   struct short_channel_id scid,
 			   const u8 *features)
 {
 	be16 be16;
@@ -818,7 +818,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	if (node_id_cmp(n1, n2) > 0)
 		return gossmap_local_addchan(localmods, n2, n1, scid, features);
 
-	mod.scid = *scid;
+	mod.scid = scid;
 	mod.updates_set[0] = mod.updates_set[1] = false;
 
 	/* We create fake local channel_announcement. */
@@ -848,7 +848,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	off += 32;
 
 	/* Set scid */
-	be64 = be64_to_cpu(scid->u64);
+	be64 = be64_to_cpu(scid.u64);
 	memcpy(localmods->local + off, &be64, sizeof(be64));
 	off += sizeof(be64);
 
@@ -866,7 +866,7 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 
 /* Insert a local-only channel_update. */
 bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
-			      const struct short_channel_id *scid,
+			      struct short_channel_id scid,
 			      struct amount_msat htlc_min,
 			      struct amount_msat htlc_max,
 			      u32 base_fee,
@@ -884,7 +884,7 @@ bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
 
 		tal_resize(&localmods->mods, nmods + 1);
 		mod = &localmods->mods[nmods];
-		mod->scid = *scid;
+		mod->scid = scid;
 		mod->updates_set[0] = mod->updates_set[1] = false;
 		mod->local_off = 0xFFFFFFFF;
 	}

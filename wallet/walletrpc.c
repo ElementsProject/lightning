@@ -370,7 +370,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 			if (c->scid)
 				json_add_short_channel_id(response,
 							  "short_channel_id",
-							  c->scid);
+							  *c->scid);
 
 			json_add_amount_msat(response,
 					     "our_amount_msat",

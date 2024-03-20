@@ -221,7 +221,7 @@ void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
-				  const u8 *scriptPubkey UNNEEDED)
+				  const u8 *scriptpubkey UNNEEDED)
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
@@ -483,7 +483,7 @@ void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname 
 /* Generated stub for json_add_short_channel_id */
 void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
-			       const struct short_channel_id *id UNNEEDED)
+			       struct short_channel_id id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *js UNNEEDED,
@@ -1004,7 +1004,7 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
 /* Generated stub for towire_announcement_signatures */
-u8 *towire_announcement_signatures(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, const secp256k1_ecdsa_signature *node_signature UNNEEDED, const secp256k1_ecdsa_signature *bitcoin_signature UNNEEDED)
+u8 *towire_announcement_signatures(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, struct short_channel_id short_channel_id UNNEEDED, const secp256k1_ecdsa_signature *node_signature UNNEEDED, const secp256k1_ecdsa_signature *bitcoin_signature UNNEEDED)
 { fprintf(stderr, "towire_announcement_signatures called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
@@ -1165,7 +1165,7 @@ void try_reconnect(const tal_t *ctx UNNEEDED,
 /* Generated stub for unsigned_channel_update */
 u8 *unsigned_channel_update(const tal_t *ctx UNNEEDED,
 			    const struct channel *channel UNNEEDED,
-			    const struct short_channel_id *scid UNNEEDED,
+			    struct short_channel_id scid UNNEEDED,
 			    const u32 *old_timestamp UNNEEDED,
 			    bool forwardable UNNEEDED,
 			    bool enabled UNNEEDED)
@@ -1626,7 +1626,7 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(c1->their_shachain.id == c2->their_shachain.id);
 	CHECK_MSG(node_id_eq(&p1->id, &p2->id), "NodeIDs do not match");
 	CHECK((c1->scid == NULL && c2->scid == NULL)
-	      || short_channel_id_eq(c1->scid, c2->scid));
+	      || short_channel_id_eq(*c1->scid, *c2->scid));
 	CHECK(amount_msat_eq(c1->our_msat, c2->our_msat));
 	CHECK((c1->shutdown_scriptpubkey[REMOTE] == NULL && c2->shutdown_scriptpubkey[REMOTE] == NULL) || tal_arr_eq(
 		      c1->shutdown_scriptpubkey[REMOTE],

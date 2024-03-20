@@ -89,7 +89,7 @@ static bool channel_announceable(const struct channel *channel,
 {
 	if (!channel->scid)
 		return false;
-	return is_scid_depth_announceable(channel->scid, block_height);
+	return is_scid_depth_announceable(*channel->scid, block_height);
 }
 
 static void check_channel_gossip(const struct channel *channel)
@@ -123,7 +123,7 @@ static void check_channel_gossip(const struct channel *channel)
 		assert(channel->scid);
 		/* If we have sigs, they don't match */
 		if (cg->remote_sigs)
-			assert(!channel->scid || !short_channel_id_eq(&cg->remote_sigs->scid, channel->scid));
+			assert(!channel->scid || !short_channel_id_eq(cg->remote_sigs->scid, *channel->scid));
 		assert(!cg->refresh_timer);
 		return;
 	case CGOSSIP_ANNOUNCED:
@@ -242,7 +242,11 @@ static void send_private_cupdate(struct channel *channel, bool even_if_redundant
 {
 	struct channel_gossip *cg = channel->channel_gossip;
 	const u8 *cupdate;
-	const struct short_channel_id *scid;
+	struct short_channel_id scid;
+
+	/* Only useful channels: not if closing */
+	if (!channel_state_can_add_htlc(channel->state))
+		return;
 
 	/* BOLT #7:
 	 *
@@ -256,13 +260,9 @@ static void send_private_cupdate(struct channel *channel, bool even_if_redundant
 	/* We prefer their alias, if possible: they might not have seen the block which
 	 * mined the funding tx yet, so the scid would be meaningless to them. */
 	if (channel->alias[REMOTE])
-		scid = channel->alias[REMOTE];
+		scid = *channel->alias[REMOTE];
 	else
-		scid = channel->scid;
-
-	/* Only useful channels: not if closing */
-	if (!channel_state_can_add_htlc(channel->state))
-		return;
+		scid = *channel->scid;
 
 	/* We always set "enabled" on unannounced channels, since if peer
 	 * receives it, that's what it means */
@@ -328,7 +328,7 @@ static void broadcast_public_cupdate(struct channel *channel,
 		enable = ok_if_disconnected;
 	}
 
-	cupdate = unsigned_channel_update(tmpctx, channel, channel->scid,
+	cupdate = unsigned_channel_update(tmpctx, channel, *channel->scid,
 					  have_old ? &old_timestamp : NULL,
 					  true,
 					  enable);
@@ -401,7 +401,7 @@ static bool apply_remote_sigs(struct channel *channel)
 	if (!cg->remote_sigs)
 		return false;
 
-	if (!short_channel_id_eq(&cg->remote_sigs->scid, channel->scid)) {
+	if (!short_channel_id_eq(cg->remote_sigs->scid, *channel->scid)) {
 		log_debug(channel->log, "We have remote sigs, but wrong scid!");
 		return false;
 	}
@@ -462,7 +462,7 @@ static void send_channel_announce_sigs(struct channel *channel)
 	}
 
 	msg = towire_announcement_signatures(NULL,
-					     &channel->cid, channel->scid,
+					     &channel->cid, *channel->scid,
 					     &local_node_sig, &local_bitcoin_sig);
 	msg_to_peer(channel, take(msg));
 }
@@ -720,8 +720,8 @@ void channel_gossip_scid_changed(struct channel *channel)
 		/* Maybe remote announcement signatures now apply?  If not,
 		 * free them */
 		if (cg->remote_sigs
-		    && !short_channel_id_eq(&cg->remote_sigs->scid,
-					    channel->scid)) {
+		    && !short_channel_id_eq(cg->remote_sigs->scid,
+					    *channel->scid)) {
 			cg->remote_sigs = tal_free(cg->remote_sigs);
 		}
 
@@ -975,7 +975,7 @@ static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
 
 	list_for_each(&p->channels, chan, list) {
 		if (chan->alias[REMOTE]
-		    && short_channel_id_eq(&scid, chan->alias[REMOTE])) {
+		    && short_channel_id_eq(scid, *chan->alias[REMOTE])) {
 			return chan;
 		}
 	}
@@ -992,7 +992,7 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 	struct channel *channel;
 	struct channel_gossip *cg;
 
-	channel = any_channel_by_scid(ld, &update->scid, true);
+	channel = any_channel_by_scid(ld, update->scid, true);
 	if (!channel) {
 		channel = lookup_by_peer_remote_alias(ld, source, update->scid);
 		if (channel)

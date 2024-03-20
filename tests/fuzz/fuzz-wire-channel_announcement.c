@@ -25,7 +25,7 @@ static void *encode(const tal_t *ctx, const struct channel_announcement *s)
 	return towire_channel_announcement(
 	    ctx, &s->node_signature_1, &s->node_signature_2,
 	    &s->bitcoin_signature_1, &s->bitcoin_signature_2, s->features,
-	    &s->chain_hash, &s->short_channel_id, &s->node_id_1, &s->node_id_2,
+	    &s->chain_hash, s->short_channel_id, &s->node_id_1, &s->node_id_2,
 	    &s->bitcoin_key_1, &s->bitcoin_key_2);
 }
 
