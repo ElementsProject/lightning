@@ -243,7 +243,7 @@ static u8 *get_scid_array(const tal_t *ctx,
 	json_for_each_arr(i, t, arr) {
 		struct short_channel_id scid;
 		assert(json_to_short_channel_id(test_vector, t, &scid));
-		encoding_add_short_channel_id(&encoded, &scid);
+		encoding_add_short_channel_id(&encoded, scid);
 	}
 	assert(json_tok_streq(test_vector, encoding, "UNCOMPRESSED"));
 

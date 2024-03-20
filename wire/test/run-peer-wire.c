@@ -245,7 +245,7 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->bitcoin_signature_2,
 					   s->features,
 					   &s->chain_hash,
-					   &s->short_channel_id,
+					   s->short_channel_id,
 					   &s->node_id_1,
 					   &s->node_id_2,
 					   &s->bitcoin_key_1,
@@ -405,7 +405,7 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 	return towire_channel_update(ctx,
 				     &s->signature,
 				     &s->chain_hash,
-				     &s->short_channel_id,
+				     s->short_channel_id,
 				     s->timestamp,
 				     s->message_flags,
 				     s->channel_flags,
@@ -464,7 +464,7 @@ static void *towire_struct_announcement_signatures(const tal_t *ctx,
 {
 	return towire_announcement_signatures(ctx,
 				     &s->channel_id,
-				     &s->short_channel_id,
+				     s->short_channel_id,
 				     &s->announcement_node_signature,
 				     &s->announcement_bitcoin_signature);
 }
@@ -756,11 +756,17 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 	return eq_upto(a, b, features)
 		&& eq_var(a, b, features)
 		&& eq_field(a, b, chain_hash)
-		&& short_channel_id_eq(&a->short_channel_id,
-				       &b->short_channel_id)
+		&& short_channel_id_eq(a->short_channel_id,
+				       b->short_channel_id)
 		&& eq_field(a, b, node_id_1)
 		&& eq_field(a, b, node_id_2)
 		&& eq_between(a, b, bitcoin_key_1, bitcoin_key_2);
+}
+
+static bool short_channel_id_ptr_eq(const struct short_channel_id *ap,
+				    const struct short_channel_id *bp)
+{
+	return short_channel_id_eq(*ap, *bp);
 }
 
 static bool channel_ready_eq(const struct msg_channel_ready *a,
@@ -769,14 +775,14 @@ static bool channel_ready_eq(const struct msg_channel_ready *a,
 	if (!eq_upto(a, b, tlvs))
 		return false;
 
-	return eq_tlv(a, b, short_channel_id, short_channel_id_eq);
+	return eq_tlv(a, b, short_channel_id, short_channel_id_ptr_eq);
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
 			      const struct msg_announcement_signatures *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+		short_channel_id_eq(a->short_channel_id, b->short_channel_id);
 }
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
@@ -878,7 +884,7 @@ static bool channel_update_eq(const struct msg_channel_update *a,
 			      const struct msg_channel_update *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+		short_channel_id_eq(a->short_channel_id, b->short_channel_id);
 }
 
 static bool accept_channel_eq(const struct msg_accept_channel *a,

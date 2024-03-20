@@ -275,7 +275,7 @@ static u8 canned_map[] = {
 };
 
 static void check_cannounce(const u8 *cannounce,
-			    const struct short_channel_id *scid,
+			    struct short_channel_id scid,
 			    const struct node_id *n1,
 			    const struct node_id *n2)
 {
@@ -293,7 +293,7 @@ static void check_cannounce(const u8 *cannounce,
 					     &actual_n1,
 					     &actual_n2,
 					     &k, &k));
-	assert(short_channel_id_eq(&actual_scid, scid));
+	assert(short_channel_id_eq(actual_scid, scid));
 	if (node_id_cmp(n1, n2) < 0) {
 		assert(node_id_eq(&actual_n1, n1));
 		assert(node_id_eq(&actual_n2, n2));
@@ -376,6 +376,6 @@ int main(int argc, char *argv[])
 
 	cann = gossmap_chan_get_announce(tmpctx, map,
 					 gossmap_find_chan(map, &scid12));
-	check_cannounce(cann, &scid12, &l1, &l2);
+	check_cannounce(cann, scid12, &l1, &l2);
 	common_shutdown();
 }

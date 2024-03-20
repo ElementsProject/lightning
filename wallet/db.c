@@ -1589,7 +1589,7 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 		stmt = db_prepare_v2(db, SQL("UPDATE channels"
 					     " SET scid = ?"
 					     " WHERE short_channel_id = ?"));
-		db_bind_short_channel_id(stmt, &scid);
+		db_bind_short_channel_id(stmt, scid);
 		db_bind_text(stmt, scids[i]);
 		db_exec_prepared_v2(stmt);
 
@@ -1644,7 +1644,7 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 		update_stmt = db_prepare_v2(db, SQL("UPDATE payments SET"
 						    " failscid = ?"
 						    " WHERE id = ?"));
-		db_bind_short_channel_id(update_stmt, &scid);
+		db_bind_short_channel_id(update_stmt, scid);
 		db_bind_u64(update_stmt, db_col_u64(stmt, "id"));
 		db_exec_prepared_v2(update_stmt);
 		tal_free(update_stmt);
@@ -1991,7 +1991,7 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 					     " WHERE id = ?;"));
 		/* We don't even check for clashes! */
 		randombytes_buf(&alias, sizeof(alias));
-		db_bind_short_channel_id(stmt, &alias);
+		db_bind_short_channel_id(stmt, alias);
 		db_bind_u64(stmt, ids[i]);
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);

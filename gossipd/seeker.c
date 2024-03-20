@@ -488,7 +488,7 @@ static bool get_unannounced_nodes(const tal_t *ctx,
 	/* Sort them into order, and remove duplicates! */
 	asort(*scids, num, cmp_scid, NULL);
 	for (size_t i = 1; i < tal_count(*scids); i++) {
-		if (short_channel_id_eq(&(*scids)[i], &(*scids)[i-1])) {
+		if (short_channel_id_eq((*scids)[i], (*scids)[i-1])) {
 			tal_arr_remove(scids, i);
 		}
 	}

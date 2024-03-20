@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 		v = tal_arr(tmpctx, u8, 0);
 		if (!mk_short_channel_id(&scid, 1, 2, 3))
 			abort();
-		towire_short_channel_id(&v, &scid);
+		towire_short_channel_id(&v, scid);
 		tlv2 = tlv(2, v, tal_bytelen(v));
 
 		node_id_from_hexstr("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518", strlen("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"), &nid);

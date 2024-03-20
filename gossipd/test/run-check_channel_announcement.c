@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 						&bitcoin_signature_2,
 						NULL,
 						&chain_hash,
-						&short_channel_id,
+						short_channel_id,
 						&node_id_1,
 						&node_id_2,
 						&bitcoin_key_1,

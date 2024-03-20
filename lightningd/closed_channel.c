@@ -20,15 +20,15 @@ static void json_add_closed_channel(struct json_stream *response,
 	json_add_channel_id(response, "channel_id", &channel->cid);
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id",
-					  channel->scid);
+					  *channel->scid);
 	if (channel->alias[LOCAL] || channel->alias[REMOTE]) {
 		json_object_start(response, "alias");
 		if (channel->alias[LOCAL])
 			json_add_short_channel_id(response, "local",
-						  channel->alias[LOCAL]);
+						  *channel->alias[LOCAL]);
 		if (channel->alias[REMOTE])
 			json_add_short_channel_id(response, "remote",
-						  channel->alias[REMOTE]);
+						  *channel->alias[REMOTE]);
 		json_object_end(response);
 	}
 	json_add_string(response, "opener",

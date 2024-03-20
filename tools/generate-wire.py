@@ -195,7 +195,8 @@ class Type(FieldSet):
         'amount_sat',
         'amount_msat',
         'bigsize',
-        'varint'
+        'varint',
+        'short_channel_id'
     ]
 
     typedefs = [

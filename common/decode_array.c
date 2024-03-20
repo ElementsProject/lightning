@@ -52,7 +52,7 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 		scids = tal_arr(ctx, struct short_channel_id, 0);
 		while (max) {
 			struct short_channel_id scid;
-			fromwire_short_channel_id(&encoded, &max, &scid);
+			scid = fromwire_short_channel_id(&encoded, &max);
 			tal_arr_expand(&scids, scid);
 		}
 

@@ -856,7 +856,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 						    listchannels_one_done,
 						    forward_error,
 						    dbq);
-			json_add_short_channel_id(req->js, "short_channel_id", &scid);
+			json_add_short_channel_id(req->js, "short_channel_id", scid);
 			return send_outreq(cmd->plugin, req);
 		} else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN) {
 			/* This can fail if entry not fully written yet. */

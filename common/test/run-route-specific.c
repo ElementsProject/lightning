@@ -82,7 +82,7 @@ static void update_connection(int store_fd,
 	msg = towire_channel_update(tmpctx,
 				    &dummy_sig,
 				    &chainparams->genesis_blockhash,
-				    &scid, 0,
+				    scid, 0,
 				    ROUTING_OPT_HTLC_MAX_MSAT,
 				    node_id_idx(from, to)
 				    + (disable ? ROUTING_FLAGS_DISABLED : 0),
@@ -130,7 +130,7 @@ static void add_connection(int store_fd,
 					  &dummy_sig, &dummy_sig,
 					  /* features */ NULL,
 					  &chainparams->genesis_blockhash,
-					  &scid,
+					  scid,
 					  ids[0], ids[1],
 					  &dummy_key, &dummy_key);
 	write_to_store(store_fd, msg);

@@ -13,7 +13,7 @@ struct announcement_signatures {
 static void *encode(const tal_t *ctx, const struct announcement_signatures *s)
 {
 	return towire_announcement_signatures(
-	    ctx, &s->channel_id, &s->short_channel_id, &s->node_signature,
+	    ctx, &s->channel_id, s->short_channel_id, &s->node_signature,
 	    &s->bitcoin_signature);
 }
 

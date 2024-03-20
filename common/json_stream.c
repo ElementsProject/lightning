@@ -477,7 +477,7 @@ void json_add_outpoint(struct json_stream *result, const char *fieldname,
 
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
-			       const struct short_channel_id *scid)
+			       struct short_channel_id scid)
 {
 	json_add_str_fmt(response, fieldname, "%dx%dx%d",
 			 short_channel_id_blocknum(scid),

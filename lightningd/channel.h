@@ -739,7 +739,7 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 /* Includes both real scids and aliases.  If !privacy_leak_ok, then private
  * channels' real scids are not included. */
 struct channel *any_channel_by_scid(struct lightningd *ld,
-				    const struct short_channel_id *scid,
+				    struct short_channel_id scid,
 				    bool privacy_leak_ok);
 
 /* Get channel by channel_id */
@@ -752,11 +752,11 @@ struct channel *find_channel_by_id(const struct peer *peer,
 
 /* Find this channel within peer */
 struct channel *find_channel_by_scid(const struct peer *peer,
-				     const struct short_channel_id *scid);
+				     struct short_channel_id scid);
 
 /* Find a channel by its alias, either local or remote. */
 struct channel *find_channel_by_alias(const struct peer *peer,
-				      const struct short_channel_id *alias,
+				      struct short_channel_id alias,
 				      enum side side);
 
 /* Do we have any channel with option_anchors_zero_fee_htlc_tx?  (i.e. we
@@ -779,7 +779,7 @@ static inline bool channel_has(const struct channel *channel, int f)
  * don't have a scid yet, e.g., for `zeroconf` channels, so we resort
  * to referencing it by the local alias, which we have in that case.
  */
-const struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan);
+struct short_channel_id channel_scid_or_local_alias(const struct channel *chan);
 
 void get_channel_basepoints(struct lightningd *ld,
 			    const struct node_id *peer_id,

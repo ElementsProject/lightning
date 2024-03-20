@@ -122,7 +122,7 @@ static void json_add_sendpay_result(struct json_stream *s, const struct payment_
 
 		if (r->erring_channel)
 			json_add_short_channel_id(s, "erring_channel",
-						  r->erring_channel);
+						  *r->erring_channel);
 
 		if (r->erring_direction)
 			json_add_num(s, "erring_direction",
@@ -779,7 +779,7 @@ static void on_payment_failure(struct payment *payment)
 				if (failure->erring_channel)
 					json_add_short_channel_id(
 					    ret, "erring_channel",
-					    failure->erring_channel);
+					    *failure->erring_channel);
 
 				if (failure->erring_direction)
 					json_add_num(

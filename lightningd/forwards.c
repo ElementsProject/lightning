@@ -100,7 +100,7 @@ void json_add_forwarding_fields(struct json_stream *response,
 	/* Only for forward_event */
 	if (payment_hash)
 		json_add_sha256(response, "payment_hash", payment_hash);
-	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
+	json_add_short_channel_id(response, "in_channel", cur->channel_in);
 
 #ifdef COMPAT_V0121
 	if (cur->htlc_id_in != HTLC_INVALID_ID)
@@ -110,7 +110,7 @@ void json_add_forwarding_fields(struct json_stream *response,
 	/* This can be unknown if we failed before channel lookup */
 	if (cur->channel_out.u64 != 0) {
 		json_add_short_channel_id(response, "out_channel",
-					  &cur->channel_out);
+					  cur->channel_out);
 		if (cur->htlc_id_out)
 			json_add_u64(response, "out_htlc_id", *cur->htlc_id_out);
 	}
@@ -292,7 +292,7 @@ static struct command_result *json_delforward(struct command *cmd,
 #endif
 
 	if (!wallet_forward_delete(cmd->ld->wallet,
-				   chan_in, htlc_id, *status))
+				   *chan_in, htlc_id, *status))
 		return command_fail(cmd, DELFORWARD_NOT_FOUND,
 				    "Could not find that forward");
 

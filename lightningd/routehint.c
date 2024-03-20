@@ -8,10 +8,10 @@
 #include <lightningd/routehint.h>
 
 static bool scid_in_arr(const struct short_channel_id *scidarr,
-			const struct short_channel_id *scid)
+			struct short_channel_id scid)
 {
 	for (size_t i = 0; i < tal_count(scidarr); i++)
-		if (short_channel_id_eq(&scidarr[i], scid))
+		if (short_channel_id_eq(scidarr[i], scid))
 			return true;
 
 	return false;
@@ -93,7 +93,7 @@ routehint_candidates(const tal_t *ctx,
 		}
 
 		/* Note: listincoming returns real scid or local alias if no real scid. */
-		candidate.c = any_channel_by_scid(ld, &r->short_channel_id, true);
+		candidate.c = any_channel_by_scid(ld, r->short_channel_id, true);
 		if (!candidate.c) {
 			log_debug(ld->log, "%s: channel not found in peer %s",
 				  fmt_short_channel_id(tmpctx, r->short_channel_id),
@@ -147,9 +147,9 @@ routehint_candidates(const tal_t *ctx,
 		if (hints) {
 			log_debug(ld->log, "We have hints!");
 			/* Allow specification by alias, too */
-			if (!scid_in_arr(hints, &r->short_channel_id)
+			if (!scid_in_arr(hints, r->short_channel_id)
 			    && (!candidate.c->alias[REMOTE]
-				|| !scid_in_arr(hints, candidate.c->alias[REMOTE]))) {
+				|| !scid_in_arr(hints, *candidate.c->alias[REMOTE]))) {
 				log_debug(ld->log, "scid %s not in hints",
 					  fmt_short_channel_id(tmpctx,
 							       r->short_channel_id));

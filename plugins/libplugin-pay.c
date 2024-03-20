@@ -357,7 +357,7 @@ static void channel_hints_update(struct payment *p,
 	/* Try and look for an existing hint: */
 	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
 		struct channel_hint *hint = &root->channel_hints[i];
-		if (short_channel_id_eq(&hint->scid.scid, &scid) &&
+		if (short_channel_id_eq(hint->scid.scid, scid) &&
 		    hint->scid.dir == direction) {
 			bool modified = false;
 			/* Prefer to disable a channel. */
@@ -491,7 +491,7 @@ static struct channel_hint *payment_chanhints_get(struct payment *p,
 	struct channel_hint *curhint;
 	for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
 		curhint = &root->channel_hints[j];
-		if (short_channel_id_eq(&curhint->scid.scid, &h->scid) &&
+		if (short_channel_id_eq(curhint->scid.scid, h->scid) &&
 		    curhint->scid.dir == h->direction) {
 			return curhint;
 		}
@@ -639,11 +639,11 @@ static const struct node_id *payment_get_excluded_nodes(const tal_t *ctx,
 
 /* FIXME: This is slow! */
 static const struct channel_hint *find_hint(const struct channel_hint *hints,
-					    const struct short_channel_id *scid,
+					    struct short_channel_id scid,
 					    int dir)
 {
 	for (size_t i = 0; i < tal_count(hints); i++) {
-		if (short_channel_id_eq(scid, &hints[i].scid.scid)
+		if (short_channel_id_eq(scid, hints[i].scid.scid)
 		    && dir == hints[i].scid.dir)
 			return &hints[i];
 	}
@@ -687,7 +687,7 @@ static bool payment_route_check(const struct gossmap *gossmap,
 		return false;
 
 	scid = gossmap_chan_scid(gossmap, c);
-	hint = find_hint(payment_root(p)->channel_hints, &scid, dir);
+	hint = find_hint(payment_root(p)->channel_hints, scid, dir);
 	if (!hint)
 		return true;
 
@@ -1640,7 +1640,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_add_amount_msat(req->js, "amount_msat", first->amount);
 	json_add_num(req->js, "delay", first->delay);
 	json_add_node_id(req->js, "id", &first->node_id);
-	json_add_short_channel_id(req->js, "channel", &first->scid);
+	json_add_short_channel_id(req->js, "channel", first->scid);
 	json_object_end(req->js);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
@@ -1719,7 +1719,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	if (!final)
 		tlvstream_set_short_channel_id(fields,
 					       TLV_PAYLOAD_SHORT_CHANNEL_ID,
-					       &next->scid);
+					       next->scid);
 
 	if (payment_secret != NULL) {
 		assert(final);
@@ -2158,7 +2158,7 @@ static void payment_finished(struct payment *p)
 				if (failure->erring_channel)
 					json_add_short_channel_id(
 					    ret, "erring_channel",
-					    failure->erring_channel);
+					    *failure->erring_channel);
 
 				if (failure->erring_direction)
 					json_add_num(
@@ -2635,7 +2635,7 @@ static bool routehint_excluded(struct payment *p,
 			    return true;
 
 		for (size_t j = 0; j < tal_count(chans); j++)
-			if (short_channel_id_eq(&chans[j].scid, &r->short_channel_id))
+			if (short_channel_id_eq(chans[j].scid, r->short_channel_id))
 				return true;
 
 		/* Skip the capacity check if this is the last hop
@@ -2664,7 +2664,7 @@ static bool routehint_excluded(struct payment *p,
 		 * channel, which is greater than the destination.
 		 */
 		for (size_t j = 0; j < tal_count(hints); j++) {
-			if (!short_channel_id_eq(&hints[j].scid.scid, &r->short_channel_id))
+			if (!short_channel_id_eq(hints[j].scid.scid, r->short_channel_id))
 				continue;
 			/* We exclude on equality because we set the estimate
 			 * to the smallest failed attempt.  */
@@ -3304,7 +3304,7 @@ static void direct_pay_override(struct payment *p) {
 	 * sufficient capacity. Look it up in the channel_hints. */
 	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
 		struct short_channel_id_dir *cur = &root->channel_hints[i].scid;
-		if (short_channel_id_eq(&cur->scid, &d->chan->scid) &&
+		if (short_channel_id_eq(cur->scid, d->chan->scid) &&
 		    cur->dir == d->chan->dir) {
 			hint = &root->channel_hints[i];
 			break;

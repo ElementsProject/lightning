@@ -894,7 +894,7 @@ static void json_add_channel(struct lightningd *ld,
 
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id",
-					  channel->scid);
+					  *channel->scid);
 
 	/* If there is any way we can use the channel we'd better have
 	 * a direction attached. Technically we could always add it,
@@ -997,10 +997,10 @@ static void json_add_channel(struct lightningd *ld,
 		json_object_start(response, "alias");
 		if (channel->alias[LOCAL])
 			json_add_short_channel_id(response, "local",
-						  channel->alias[LOCAL]);
+						  *channel->alias[LOCAL]);
 		if (channel->alias[REMOTE])
 			json_add_short_channel_id(response, "remote",
-						  channel->alias[REMOTE]);
+						  *channel->alias[REMOTE]);
 		json_object_end(response);
 	}
 
@@ -2027,7 +2027,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 					  struct channel *channel)
 {
 	/* This is stub channel, we don't activate anything! */
-	if (is_stub_scid(channel->scid))
+	if (channel->scid && is_stub_scid(*channel->scid))
 		return DELETE_WATCH;
 
 	/* We only use this to watch the current funding tx */
@@ -2432,7 +2432,7 @@ command_find_channel(struct command *cmd,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Channel id not found");
 	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
-		*channel = any_channel_by_scid(ld, &scid, true);
+		*channel = any_channel_by_scid(ld, scid, true);
 		if (!*channel)
 			return command_fail_badparam(cmd, name, buffer, tok,
 						     "Short channel id not found");
@@ -3053,7 +3053,8 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	json_add_string(response, "channel_id",
 			fmt_channel_id(tmpctx, &channel->cid));
 	if (channel->scid)
-		json_add_short_channel_id(response, "short_channel_id", channel->scid);
+		json_add_short_channel_id(response, "short_channel_id",
+					  *channel->scid);
 
 	json_add_amount_msat(response, "fee_base_msat",
 			     amount_msat(channel->feerate_base));
@@ -3382,7 +3383,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 		if (scid) {
 			if (!channel->scid)
 				continue;
-			if (!short_channel_id_eq(channel->scid, scid))
+			if (!short_channel_id_eq(*channel->scid, *scid))
 				continue;
 		}
 		if (forget->channel) {

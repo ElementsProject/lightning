@@ -258,7 +258,7 @@ static void remove_channel(struct gossmap_manage *gm,
 
 	/* Put in tombstone marker. */
 	gossip_store_add(gm->daemon->gs,
-			 towire_gossip_store_delete_chan(tmpctx, &scid),
+			 towire_gossip_store_delete_chan(tmpctx, scid),
 			 0);
 
 	/* Delete from store */
@@ -565,10 +565,10 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	}
 
 	/* Don't know blockheight yet, or not yet deep enough?  Don't even ask */
-	if (!is_scid_depth_announceable(&scid, blockheight)) {
+	if (!is_scid_depth_announceable(scid, blockheight)) {
 		/* Don't expect to be more than 12 blocks behind! */
 		if (blockheight != 0
-		    && short_channel_id_blocknum(&scid) > blockheight + 12) {
+		    && short_channel_id_blocknum(scid) > blockheight + 12) {
 			return tal_fmt(ctx,
 				       "Bad gossip order: ignoring channel_announcement %s at blockheight %u",
 				       fmt_short_channel_id(tmpctx, scid),
@@ -596,7 +596,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	/* Ask lightningd about this scid: see
 	 * gossmap_manage_handle_get_txout_reply */
 	daemon_conn_send(gm->daemon->master,
-			 take(towire_gossipd_get_txout(NULL, &scid)));
+			 take(towire_gossipd_get_txout(NULL, scid)));
 	return NULL;
 }
 
@@ -1154,7 +1154,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 		scid.u64 = idx;
 
 		/* Stop when we are at unreachable heights */
-		if (!is_scid_depth_announceable(&scid, new_blockheight))
+		if (!is_scid_depth_announceable(scid, new_blockheight))
 			break;
 
 		map_del(&gm->early_ann_map, scid);
@@ -1171,7 +1171,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 		/* Ask lightningd about this scid: see
 		 * gossmap_manage_handle_get_txout_reply */
 		daemon_conn_send(gm->daemon->master,
-				 take(towire_gossipd_get_txout(NULL, &scid)));
+				 take(towire_gossipd_get_txout(NULL, scid)));
 	}
 
 	for (size_t i = 0; i < tal_count(gm->dying_channels); i++) {
@@ -1226,7 +1226,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 		     fmt_short_channel_id(tmpctx, scid));
 
 	/* Save to gossip_store in case we restart */
-	msg = towire_gossip_store_chan_dying(tmpctx, &cd.scid, cd.deadline);
+	msg = towire_gossip_store_chan_dying(tmpctx, cd.scid, cd.deadline);
 	cd.gossmap_offset = gossip_store_add(gm->daemon->gs, msg, 0);
 	tal_arr_expand(&gm->dying_channels, cd);
 
@@ -1355,13 +1355,13 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 		if (cupdate)
 			daemon_conn_send(daemon->master,
 					 take(towire_gossipd_init_cupdate(NULL,
-									  &scid,
+									  scid,
 									  cupdate)));
 		cupdate = gossmap_chan_get_update(tmpctx, gossmap, chan, 1);
 		if (cupdate)
 			daemon_conn_send(daemon->master,
 					 take(towire_gossipd_init_cupdate(NULL,
-									  &scid,
+									  scid,
 									  cupdate)));
 	}
 

@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 			if (!short_channel_id_from_str(argv[i], strlen(argv[i]),
 						       &scid))
 				errx(1, "Invalid short_channel_id %s", argv[i]);
-			towire_short_channel_id(&data, &scid);
+			towire_short_channel_id(&data, scid);
 		}
 	} else {
 		data = tal_hexdata(NULL, argv[2], strlen(argv[2]));

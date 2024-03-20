@@ -315,7 +315,7 @@ static void sendpay_new_flows(struct payment *p)
 			json_add_node_id(req->js, "id",
 					 &pf->path_nodes[j]);
 			json_add_short_channel_id(req->js, "channel",
-						  &pf->path_scidds[j].scid);
+						  pf->path_scidds[j].scid);
 			json_add_amount_msat(req->js, "amount_msat",
 						  pf->amounts[j]);
 			json_add_num(req->js, "direction",

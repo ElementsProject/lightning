@@ -66,7 +66,7 @@ void tlvstream_set_raw(struct tlv_field **stream, u64 type, const void *value TA
 }
 
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
-				    struct short_channel_id *value)
+				    struct short_channel_id value)
 {
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_short_channel_id(&ser, value);

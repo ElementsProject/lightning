@@ -12,8 +12,12 @@
 struct short_channel_id {
 	u64 u64;
 };
-/* Define short_channel_id_eq (no padding) */
-STRUCTEQ_DEF(short_channel_id, 0, u64);
+
+static inline bool short_channel_id_eq(struct short_channel_id a,
+				       struct short_channel_id b)
+{
+	return a.u64 == b.u64;
+}
 
 /* BOLT #7:
  *
@@ -32,32 +36,32 @@ struct short_channel_id_dir {
 	int dir;
 };
 
-static inline u32 short_channel_id_blocknum(const struct short_channel_id *scid)
+static inline u32 short_channel_id_blocknum(struct short_channel_id scid)
 {
-	return scid->u64 >> 40;
+	return scid.u64 >> 40;
 }
 
-static inline bool is_stub_scid(const struct short_channel_id *scid)
+static inline bool is_stub_scid(struct short_channel_id scid)
 {
-	return scid ? scid->u64 >> 40 == 1 &&
-		((scid->u64 >> 16) & 0x00FFFFFF) == 1 &&
-		(scid->u64 & 0xFFFF) == 1 : false;
+	return scid.u64 >> 40 == 1 &&
+		((scid.u64 >> 16) & 0x00FFFFFF) == 1 &&
+		(scid.u64 & 0xFFFF) == 1;
 }
 
-static inline u32 short_channel_id_txnum(const struct short_channel_id *scid)
+static inline u32 short_channel_id_txnum(struct short_channel_id scid)
 {
-	return (scid->u64 >> 16) & 0x00FFFFFF;
+	return (scid.u64 >> 16) & 0x00FFFFFF;
 }
 
-static inline u16 short_channel_id_outnum(const struct short_channel_id *scid)
+static inline u16 short_channel_id_outnum(struct short_channel_id scid)
 {
-	return scid->u64 & 0xFFFF;
+	return scid.u64 & 0xFFFF;
 }
 
 /* Subtly, at block N, depth is 1, hence the -1 here. eg. 103x1x0 is announceable
  * when height is 108. */
 static inline bool
-is_scid_depth_announceable(const struct short_channel_id *scid,
+is_scid_depth_announceable(struct short_channel_id scid,
 			  unsigned int height)
 {
 	return short_channel_id_blocknum(scid) + ANNOUNCE_MIN_DEPTH - 1
@@ -80,8 +84,7 @@ char *fmt_short_channel_id_dir(const tal_t *ctx,
 
 /* Marshal/unmarshal */
 void towire_short_channel_id(u8 **pptr,
-			     const struct short_channel_id *short_channel_id);
-void fromwire_short_channel_id(const u8 **cursor, size_t *max,
-			       struct short_channel_id *short_channel_id);
+			     struct short_channel_id short_channel_id);
+struct short_channel_id fromwire_short_channel_id(const u8 **cursor, size_t *max);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

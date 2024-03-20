@@ -1151,7 +1151,7 @@ static u8 *handle_channel_update_sig(struct hsmd_client *c, const u8 *msg_in)
 	sign_hash(&node_pkey, &hash, &sig);
 
 	cu = towire_channel_update(tmpctx, &sig, &chain_hash,
-				   &scid, timestamp, message_flags, channel_flags,
+				   scid, timestamp, message_flags, channel_flags,
 				   cltv_expiry_delta, htlc_minimum,
 				   fee_base_msat, fee_proportional_mill,
 				   htlc_maximum);

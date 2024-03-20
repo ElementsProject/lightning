@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
 								   &pubkey,
 								   &pubkey))
 					errx(1, "bad channel_announcement");
-			        if (!short_channel_id_eq(&scid, &scidsats[scidi].scid))
+			        if (!short_channel_id_eq(scid, scidsats[scidi].scid))
 					errx(1, "scid of channel_announcement does not match scid in csv");
 				if (last_announce)
 					errx(1, "Expected update before announce");
@@ -209,8 +209,8 @@ int main(int argc, char *argv[])
 			/* We assume update immediately follows announcement */
 			timestamp = get_update_timestamp(inmsg, &scid);
 			if (last_announce) {
-				if (scidsats && !short_channel_id_eq(&scid,
-							 &scidsats[scidi].scid))
+				if (scidsats && !short_channel_id_eq(scid,
+							 scidsats[scidi].scid))
 					errx(1, "scid of channel_update does not match scid in csv");
 
 				/* Now we have timestamp, write out announce */

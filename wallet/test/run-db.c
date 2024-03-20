@@ -32,7 +32,7 @@ const struct peer_update *channel_gossip_get_remote_update(const struct channel 
 void channel_gossip_update(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_update called!\n"); abort(); }
 /* Generated stub for channel_scid_or_local_alias */
-const struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
+struct short_channel_id channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
 { fprintf(stderr, "channel_scid_or_local_alias called!\n"); abort(); }
 /* Generated stub for connect_htlc_in */
 void connect_htlc_in(struct htlc_in_map *map UNNEEDED, struct htlc_in *hin UNNEEDED)

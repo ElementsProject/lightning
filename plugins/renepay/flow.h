@@ -57,9 +57,9 @@ static inline size_t hash_scid(const struct short_channel_id scid)
 }
 
 static inline bool chan_extra_eq_scid(const struct chan_extra *cd,
-				      const struct short_channel_id scid)
+				      struct short_channel_id scid)
 {
-	return short_channel_id_eq(&scid, &cd->scid);
+	return short_channel_id_eq(scid, cd->scid);
 }
 
 HTABLE_DEFINE_TYPE(struct chan_extra,

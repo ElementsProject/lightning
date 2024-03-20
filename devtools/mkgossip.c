@@ -119,7 +119,7 @@ static u32 crc32_of_update(const u8 *channel_update)
 }
 
 static void print_update(const struct bitcoin_blkid *chainhash,
-			 const struct short_channel_id *scid,
+			 struct short_channel_id scid,
 			 const struct update_opts *opts,
 			 bool is_lesser_key,
 			 const struct privkey *privkey)
@@ -147,7 +147,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	printf("type=channel_update\n");
 	printf("   signature=%s\n", sig_notation(privkey, &hash, &sig));
 	printf("   chain_hash=%s\n", tal_hexstr(NULL, chainhash, sizeof(*chainhash)));
-	printf("   short_channel_id=%s\n", fmt_short_channel_id(NULL, *scid));
+	printf("   short_channel_id=%s\n", fmt_short_channel_id(NULL, scid));
 	printf("   timestamp=%u\n", opts->timestamp);
 	printf("   message_flags=%u\n",
 	       ROUTING_OPT_HTLC_MAX_MSAT);
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 						&bitcoinsig[lesser_key],
 						&bitcoinsig[!lesser_key],
 						features, &chainhash,
-						&scid,
+						scid,
 						&nodeid[lesser_key],
 						&nodeid[!lesser_key],
 						&bitcoin[lesser_key],
@@ -341,12 +341,12 @@ int main(int argc, char *argv[])
 	       fmt_pubkey(NULL, &bitcoin[!lesser_key]));
 
 	printf("\n#Node 1:\n");
-	print_update(&chainhash, &scid, &opts[0], lesser_key == 0,
+	print_update(&chainhash, scid, &opts[0], lesser_key == 0,
 		     &node_privkey[0]);
 	print_nannounce(&nodeid[0], &opts[0], &node_privkey[0]);
 
 	printf("\n#Node 2:\n");
-	print_update(&chainhash, &scid, &opts[1], lesser_key == 1,
+	print_update(&chainhash, scid, &opts[1], lesser_key == 1,
 		     &node_privkey[1]);
 
 	print_nannounce(&nodeid[1], &opts[1], &node_privkey[1]);

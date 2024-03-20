@@ -20,9 +20,9 @@ void gossmod_add_localchan(struct gossmap_localmods *mods,
 			   void *cbarg UNUSED)
 {
 	/* FIXME: features? */
-	gossmap_local_addchan(mods, self, peer, &scidd->scid, NULL);
+	gossmap_local_addchan(mods, self, peer, scidd->scid, NULL);
 
-	gossmap_local_updatechan(mods, &scidd->scid, min, max,
+	gossmap_local_updatechan(mods, scidd->scid, min, max,
 				 fee_base.millisatoshis, /* Raw: gossmap */
 				 fee_proportional,
 				 cltv_delta,

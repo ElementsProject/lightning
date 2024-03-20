@@ -1142,7 +1142,7 @@ bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w,
 			   const struct bitcoin_outpoint *outpoint);
 
 struct outpoint *wallet_outpoint_for_scid(const tal_t *ctx, struct wallet *w,
-					  const struct short_channel_id *scid);
+					  struct short_channel_id scid);
 
 void wallet_utxoset_add(struct wallet *w,
 			const struct bitcoin_outpoint *outpoint,
@@ -1260,7 +1260,7 @@ const struct forwarding *wallet_forwarded_payments_get(const tal_t *ctx,
  * Returns false if not found
  */
 bool wallet_forward_delete(struct wallet *w,
-			   const struct short_channel_id *chan_in,
+			   struct short_channel_id chan_in,
 			   const u64 *htlc_id,
 			   enum forward_status state);
 

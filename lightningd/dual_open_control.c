@@ -1042,7 +1042,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
 		inflight->channel->scid = tal_dup(inflight->channel, struct short_channel_id, &scid);
 		wallet_channel_save(ld->wallet, inflight->channel);
-	} else if (!short_channel_id_eq(inflight->channel->scid, &scid)) {
+	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
 		/* We freaked out if required when original was
 		 * removed, so just update now */
 		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
@@ -1962,7 +1962,7 @@ static void handle_channel_locked(struct subd *dualopend,
 			  REASON_UNKNOWN,
 			  "Lockin complete");
 	channel_record_open(channel,
-			    short_channel_id_blocknum(channel->scid),
+			    short_channel_id_blocknum(*channel->scid),
 			    true);
 
 	/* Empty out the inflights */
@@ -4005,7 +4005,7 @@ bool peer_start_dualopend(struct peer *peer,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth,
 				    peer->ld->config.require_confirmed_inputs,
-				    channel->alias[LOCAL],
+				    *channel->alias[LOCAL],
 				    peer->ld->dev_any_channel_type);
 	subd_send_msg(channel->owner, take(msg));
 	return true;
@@ -4118,7 +4118,7 @@ bool peer_restart_dualopend(struct peer *peer,
 				      channel->type,
 				      channel->req_confirmed_ins[LOCAL],
 				      channel->req_confirmed_ins[REMOTE],
-				      channel->alias[LOCAL]);
+				      *channel->alias[LOCAL]);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;
