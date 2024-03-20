@@ -885,10 +885,8 @@ char *account_get_balance(const tal_t *ctx,
 			return tal_fmt(ctx,
 				"%s channel balance is negative? %s - %s",
 				bal->currency,
-				type_to_string(ctx, struct amount_msat,
-					       &bal->credit),
-				type_to_string(ctx, struct amount_msat,
-					       &bal->debit));
+				fmt_amount_msat(ctx, bal->credit),
+				fmt_amount_msat(ctx, bal->debit));
 	}
 
 	return NULL;
@@ -1806,7 +1804,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 					     events[i]->debit)) {
 				err = tal_fmt(ctx, "Overflow adding withdrawal debits for"
 					      " txid: %s",
-					      type_to_string(ctx, struct bitcoin_txid,
+					      fmt_bitcoin_txid(ctx,
 							     txid));
 				goto finished;
 			}
@@ -1815,7 +1813,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 					     events[i]->credit)) {
 				err = tal_fmt(ctx, "Overflow adding deposit credits for"
 					      " txid: %s",
-					      type_to_string(ctx, struct bitcoin_txid,
+					      fmt_bitcoin_txid(ctx,
 							     txid));
 				goto finished;
 			}
@@ -1859,9 +1857,9 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 	if (!amount_msat_sub(&fees_msat, withdraw_msat, deposit_msat)) {
 		err = tal_fmt(ctx, "Err subtracting withdraw %s from deposit %s"
 			      " for txid %s",
-			      type_to_string(ctx, struct amount_msat, &withdraw_msat),
-			      type_to_string(ctx, struct amount_msat, &deposit_msat),
-			      type_to_string(ctx, struct bitcoin_txid, txid));
+			      fmt_amount_msat(ctx, withdraw_msat),
+			      fmt_amount_msat(ctx, deposit_msat),
+			      fmt_bitcoin_txid(ctx, txid));
 		goto finished;
 	}
 

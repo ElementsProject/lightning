@@ -113,7 +113,7 @@ static void try_update_blockheight(struct lightningd *ld,
 		return;
 
 	log_debug(channel->log, "attempting update blockheight %s",
-		  type_to_string(tmpctx, struct channel_id, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid));
 
 	if (!topology_synced(ld->topology)) {
 		log_debug(channel->log, "chain not synced,"
@@ -315,12 +315,10 @@ static void handle_splice_abort(struct lightningd *ld,
 			channel_internal_error(channel,
 					       "abort outpoint %s does not"
 					       " match ours %s",
-					       type_to_string(tmpctx,
-					       		      struct bitcoin_outpoint,
-					       		      outpoint),
-					       type_to_string(tmpctx,
-					       		      struct bitcoin_outpoint,
-					       		      &inflight->funding->outpoint));
+					       fmt_bitcoin_outpoint(tmpctx,
+								    outpoint),
+					       fmt_bitcoin_outpoint(tmpctx,
+								    &inflight->funding->outpoint));
 
 		wallet_inflight_del(ld->wallet, channel, inflight);
 		tal_free(inflight);
@@ -462,9 +460,7 @@ static void handle_splice_lookup_tx(struct lightningd *ld,
 	if (!tx) {
 		channel_internal_error(channel,
 				       "channel control unable to find txid %s",
-				       type_to_string(tmpctx,
-				       		      struct bitcoin_txid,
-				       		      &txid));
+				       fmt_bitcoin_txid(tmpctx, &txid));
 		return;
 	}
 
@@ -527,17 +523,16 @@ static void check_utxo_block(struct bitcoind *bitcoind UNUSED,
 						 "tx: %s. Unsent tx discarded "
 						 "%s.",
 						 info->err_msg,
-						 type_to_string(tmpctx,
-								struct wally_tx,
-								info->final_tx->wtx)));
+						 fmt_wally_tx(tmpctx,
+							      info->final_tx->wtx)));
 
 		log_unusual(info->channel->log,
 			    "Error broadcasting splice "
 			    "tx: %s. Unsent tx discarded "
 			    "%s.",
 			    info->err_msg,
-			    type_to_string(tmpctx, struct wally_tx,
-			    		   info->final_tx->wtx));
+			    fmt_wally_tx(tmpctx,
+					 info->final_tx->wtx));
 	}
 	else
 		handle_tx_broadcast(info);
@@ -580,7 +575,7 @@ static void send_splice_tx(struct channel *channel,
 	log_debug(channel->log,
 		  "Broadcasting splice tx %s for channel %s.",
 		  tal_hex(tmpctx, tx_bytes),
-		  type_to_string(tmpctx, struct channel_id, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid));
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 
@@ -623,9 +618,7 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 	if (!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
-				       type_to_string(tmpctx,
-				       		      struct bitcoin_txid,
-				       		      &txid));
+				       fmt_bitcoin_txid(tmpctx, &txid));
 
 	inflight->remote_tx_sigs = true;
 	wallet_inflight_save(ld->wallet, inflight);
@@ -673,7 +666,7 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
 		log_info(inflight->channel->log, "Splice inflight event but not"
 			 " in AWAITING_SPLICE, ending watch of txid %s",
-			 type_to_string(tmpctx, struct bitcoin_txid, txid));
+			 fmt_bitcoin_txid(tmpctx, txid));
 		return DELETE_WATCH;
 	}
 
@@ -684,7 +677,7 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 
 	if (inflight->channel->owner) {
 		log_info(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			type_to_string(tmpctx, struct short_channel_id, &scid));
+			fmt_short_channel_id(tmpctx, scid));
 		subd_send_msg(inflight->channel->owner,
 			      take(towire_channeld_funding_depth(
 					   NULL, &scid,
@@ -700,8 +693,8 @@ void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight)
 {
 	log_info(inflight->channel->log, "Watching splice inflight %s",
-		 type_to_string(tmpctx, struct bitcoin_txid,
-		 		&inflight->funding->outpoint.txid));
+		 fmt_bitcoin_txid(tmpctx,
+				  &inflight->funding->outpoint.txid));
 	watch_txid(inflight, ld->topology,
 		   &inflight->funding->outpoint.txid,
 		   splice_depth_cb, inflight);
@@ -735,9 +728,7 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	if (!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
-				       type_to_string(tmpctx,
-				       		      struct bitcoin_txid,
-				       		      &txid));
+				       fmt_bitcoin_txid(tmpctx, &txid));
 
 	/* Signing a splice after it has confirmed is safe and can happen during
 	 * reestablish if one node is late seeing blocks */
@@ -798,8 +789,8 @@ bool depthcb_update_scid(struct channel *channel,
 		/* We freaked out if required when original was
 		 * removed, so just update now */
 		log_info(channel->log, "Short channel id changed from %s->%s",
-			 type_to_string(tmpctx, struct short_channel_id, channel->scid),
-			 type_to_string(tmpctx, struct short_channel_id, &scid));
+			 fmt_short_channel_id(tmpctx, *channel->scid),
+			 fmt_short_channel_id(tmpctx, scid));
 		*channel->scid = scid;
 		channel_gossip_scid_changed(channel);
 	}
@@ -854,8 +845,8 @@ static void handle_add_inflight(struct lightningd *ld,
 				force_sign_first);
 
 	log_debug(channel->log, "lightningd adding inflight with txid %s",
-		  type_to_string(tmpctx, struct bitcoin_txid,
-		  		 &inflight->funding->outpoint.txid));
+		  fmt_bitcoin_txid(tmpctx,
+				   &inflight->funding->outpoint.txid));
 
 	wallet_inflight_add(ld->wallet, inflight);
 
@@ -885,17 +876,13 @@ static void handle_update_inflight(struct lightningd *ld,
 	if (!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " update_inflight txid %s",
-				       type_to_string(tmpctx,
-						      struct bitcoin_txid,
-						      &txid));
+				       fmt_bitcoin_txid(tmpctx, &txid));
 
 	if (!!last_tx != !!last_sig)
 		channel_internal_error(channel, "Must set last_tx and last_sig"
 				       " together at the same time for"
 				       " update_inflight txid %s",
-				       type_to_string(tmpctx,
-						      struct bitcoin_txid,
-						      &txid));
+				       fmt_bitcoin_txid(tmpctx, &txid));
 
 	if (last_tx) {
 		tal_free(inflight->last_tx);
@@ -909,11 +896,9 @@ static void handle_update_inflight(struct lightningd *ld,
 	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
 		channel_internal_error(channel,
 				       "Unable to combine PSBTs: %s, %s",
-				       type_to_string(tmpctx,
-						      struct wally_psbt,
+				       fmt_wally_psbt(tmpctx,
 						      inflight->funding_psbt),
-				       type_to_string(tmpctx,
-						      struct wally_psbt,
+				       fmt_wally_psbt(tmpctx,
 						      psbt));
 		tal_wally_end(inflight->funding_psbt);
 		return;
@@ -936,18 +921,14 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 		if (!amount_msat_add(&start_balance,
 				     channel->our_msat, channel->push))
 			fatal("Unable to add push_msat (%s) + our_msat (%s)",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->push),
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->our_msat));
+			      fmt_amount_msat(tmpctx, channel->push),
+			      fmt_amount_msat(tmpctx, channel->our_msat));
 	} else {
 		if (!amount_msat_sub(&start_balance,
 				    channel->our_msat, channel->push))
 			fatal("Unable to sub our_msat (%s) - push (%s)",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->our_msat),
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->push));
+			      fmt_amount_msat(tmpctx, channel->our_msat),
+			      fmt_amount_msat(tmpctx, channel->push));
 	}
 
 	/* If it's not in a block yet, send a proposal */
@@ -1078,9 +1059,7 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	if(!inflight)
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " locked_txid %s",
-				       type_to_string(tmpctx,
-				       		      struct bitcoin_txid,
-				       		      &locked_txid));
+				       fmt_bitcoin_txid(tmpctx, &locked_txid));
 
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
@@ -1117,8 +1096,7 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	txw = splice_inflight_txwatch(channel, inflight);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
-			    type_to_string(tmpctx, struct bitcoin_txid,
-			    		   &locked_txid));
+			    fmt_bitcoin_txid(tmpctx, &locked_txid));
 	tal_free(txw);
 }
 
@@ -1777,7 +1755,7 @@ void channeld_tell_depth(struct channel *channel,
 	if (!channel->owner) {
 		log_debug(channel->log,
 			  "Funding tx %s confirmed, but peer disconnected",
-			  type_to_string(tmpctx, struct bitcoin_txid, txid));
+			  fmt_bitcoin_txid(tmpctx, txid));
 		return;
 	}
 
@@ -1884,8 +1862,7 @@ void channel_notify_new_block(struct lightningd *ld,
 			    "We are fundee and can forget channel without "
 			    "loss of funds.",
 			    block_height - channel->first_blocknum,
-			    type_to_string(tmpctx, struct bitcoin_txid,
-					   &channel->funding.txid));
+			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
 		/* And forget it. */
 		delete_channel(channel);
@@ -1969,8 +1946,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 				    "No channels being opened or "
 				    "awaiting lock-in for "
 				    "peer_id %s",
-				    type_to_string(tmpctx, struct node_id,
-						   &peer->id));
+				    fmt_node_id(tmpctx, &peer->id));
 	cc->cid = cancel_channel->cid;
 
 	if (cancel_channel->opener == REMOTE)
@@ -2033,8 +2009,7 @@ static struct command_result *param_channel_for_splice(struct command *cmd,
 	if (!*channel)
 		return command_fail(cmd, SPLICE_UNKNOWN_CHANNEL,
 				    "Unknown channel %s",
-				    type_to_string(tmpctx, struct channel_id,
-						   cid));
+				    fmt_channel_id(tmpctx, cid));
 
 	if (!feature_negotiated(cmd->ld->our_features,
 			        (*channel)->peer->their_features,

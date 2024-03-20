@@ -61,8 +61,7 @@ bool check_config_bounds(const tal_t *ctx,
 		*err_reason = tal_fmt(ctx,
 				      "channel_reserve_satoshis %s"
 				      " too large",
-				      type_to_string(ctx, struct amount_sat,
-						     &remoteconf->channel_reserve));
+				      fmt_amount_sat(ctx, remoteconf->channel_reserve));
 		return false;
 	}
 
@@ -77,8 +76,7 @@ bool check_config_bounds(const tal_t *ctx,
 	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
 		*err_reason = tal_fmt(ctx,
 				      "cannot add anchors to reserve %s",
-				      type_to_string(ctx, struct amount_sat,
-						     &reserve));
+				      fmt_amount_sat(ctx, reserve));
 		return false;
 	}
 
@@ -86,12 +84,9 @@ bool check_config_bounds(const tal_t *ctx,
 	if (!amount_sat_sub(&capacity, funding, reserve)) {
 		*err_reason = tal_fmt(ctx, "channel_reserve_satoshis %s"
 				      " and %s too large for funding %s",
-				      type_to_string(ctx, struct amount_sat,
-						     &remoteconf->channel_reserve),
-				      type_to_string(ctx, struct amount_sat,
-						     &localconf->channel_reserve),
-				      type_to_string(ctx, struct amount_sat,
-						     &funding));
+				      fmt_amount_sat(ctx, remoteconf->channel_reserve),
+				      fmt_amount_sat(ctx, localconf->channel_reserve),
+				      fmt_amount_sat(ctx, funding));
 		return false;
 	}
 
@@ -104,14 +99,10 @@ bool check_config_bounds(const tal_t *ctx,
 		*err_reason = tal_fmt(ctx, "channel_reserve_satoshis %s"
 				      " and %s plus fee %s too large for "
 				      "funding %s",
-				      type_to_string(tmpctx, struct amount_sat,
-					      	     &remoteconf->channel_reserve),
-				      type_to_string(tmpctx, struct amount_sat,
-						     &localconf->channel_reserve),
-				      type_to_string(tmpctx, struct amount_sat,
-						     &fee),
-				      type_to_string(tmpctx, struct amount_sat,
-						     &funding));
+				      fmt_amount_sat(tmpctx, remoteconf->channel_reserve),
+				      fmt_amount_sat(tmpctx, localconf->channel_reserve),
+				      fmt_amount_sat(tmpctx, fee),
+				      fmt_amount_sat(tmpctx, funding));
 		return false;
 	}
 
@@ -127,12 +118,9 @@ bool check_config_bounds(const tal_t *ctx,
 		*err_reason = tal_fmt(ctx, "htlc_minimum_msat %s"
 				      " too large for funding %s"
 				      " capacity_msat %s",
-				      type_to_string(ctx, struct amount_msat,
-						     &remoteconf->htlc_minimum),
-				      type_to_string(ctx, struct amount_sat,
-						     &funding),
-				      type_to_string(ctx, struct amount_sat,
-						     &capacity));
+				      fmt_amount_msat(ctx, remoteconf->htlc_minimum),
+				      fmt_amount_sat(ctx, funding),
+				      fmt_amount_sat(ctx, capacity));
 		return false;
 	}
 
@@ -148,18 +136,12 @@ bool check_config_bounds(const tal_t *ctx,
 				      " reserves %s/%s,"
 				      " max_htlc_value_in_flight_msat is %s,"
 				      " channel capacity is %s, which is below %s",
-				      type_to_string(ctx, struct amount_sat,
-						     &funding),
-				      type_to_string(ctx, struct amount_sat,
-						     &remoteconf->channel_reserve),
-				      type_to_string(ctx, struct amount_sat,
-						     &localconf->channel_reserve),
-				      type_to_string(ctx, struct amount_msat,
-						     &remoteconf->max_htlc_value_in_flight),
-				      type_to_string(ctx, struct amount_sat,
-						     &capacity),
-				      type_to_string(ctx, struct amount_sat,
-						     &min_effective_htlc_capacity_sat));
+				      fmt_amount_sat(ctx, funding),
+				      fmt_amount_sat(ctx, remoteconf->channel_reserve),
+				      fmt_amount_sat(ctx, localconf->channel_reserve),
+				      fmt_amount_msat(ctx, remoteconf->max_htlc_value_in_flight),
+				      fmt_amount_sat(ctx, capacity),
+				      fmt_amount_sat(ctx, min_effective_htlc_capacity_sat));
 		return false;
 	}
 

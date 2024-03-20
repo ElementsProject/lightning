@@ -555,8 +555,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		    "payment_hash: SHA256(%s)=%s != %s. Ignoring keysend.",
 		    tal_hexstr(tmpctx,
 			       preimage_field->value, preimage_field->length),
-		    type_to_string(tmpctx, struct sha256, &ki->payment_hash),
-		    type_to_string(tmpctx, struct sha256, &payment_hash));
+		    fmt_sha256(tmpctx, &ki->payment_hash),
+		    fmt_sha256(tmpctx, &payment_hash));
 		tal_free(ki);
 		return htlc_accepted_continue(cmd, NULL);
 	}
@@ -573,7 +573,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 				    &htlc_accepted_invoice_failed,
 				    ki);
 
-	plugin_log(cmd->plugin, LOG_INFORM, "Inserting a new invoice for keysend with payment_hash %s", type_to_string(tmpctx, struct sha256, &payment_hash));
+	plugin_log(cmd->plugin, LOG_INFORM, "Inserting a new invoice for keysend with payment_hash %s", fmt_sha256(tmpctx, &payment_hash));
 	json_add_string(req->js, "amount_msat", "any");
 	json_add_string(req->js, "label", ki->label);
 	if (desc_field) {

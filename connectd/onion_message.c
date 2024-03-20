@@ -90,9 +90,7 @@ void handle_onion_message(struct daemon *daemon,
 		if (!next_peer) {
 			status_peer_debug(&peer->id,
 					  "onion msg: unknown next peer %s",
-					  type_to_string(tmpctx,
-							 struct pubkey,
-							 &next_node));
+					  fmt_pubkey(tmpctx, &next_node));
 			return;
 		}
 		inject_peer_msg(next_peer, take(next_onion_msg));

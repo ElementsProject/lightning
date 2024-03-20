@@ -58,7 +58,7 @@ static const char* print_flows(
 				= gossmap_chan_scid(gossmap,
 						    flows[i]->path[j]);
 			tal_append_fmt(&buff,"%s%s", j ? "->" : "",
-			       type_to_string(this_ctx, struct short_channel_id, &scid));
+			       fmt_short_channel_id(this_ctx, scid));
 		}
 		delivered = flows[i]->amounts[tal_count(flows[i]->amounts)-1];
 		if (!amount_msat_sub(&fee, flows[i]->amounts[0], delivered))
@@ -67,8 +67,8 @@ static const char* print_flows(
 		}
 		tal_append_fmt(&buff," prob %.2f, %s delivered with fee %s\n",
 		       flows[i]->success_prob,
-		       type_to_string(this_ctx, struct amount_msat, &delivered),
-		       type_to_string(this_ctx, struct amount_msat, &fee));
+		       fmt_amount_msat(this_ctx, delivered),
+		       fmt_amount_msat(this_ctx, fee));
 	}
 
 	tal_free(this_ctx);

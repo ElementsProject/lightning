@@ -207,8 +207,8 @@ void uncertainty_network_flow_success(
 			     "Success forwarding amount %s in channel %s, "
 			     "state change %s -> %s",
 			     fmt_amount_msat(tmpctx, pf->amounts[i]),
-			     type_to_string(tmpctx, struct short_channel_id_dir,
-					    &pf->path_scidds[i]),
+			     fmt_short_channel_id_dir(tmpctx,
+						      &pf->path_scidds[i]),
 			     old_state,
 			     fmt_chan_extra_details(tmpctx,
 						    pay_plugin->chan_extra_map,
@@ -263,8 +263,7 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 			    tmpctx,
 			    "Failed to update channel from listpeerchannels "
 			    "scid=%s, missing total_msat",
-			    type_to_string(tmpctx, struct short_channel_id,
-					   &scidd->scid));
+			    fmt_short_channel_id(tmpctx, scidd->scid));
 			goto error;
 		}
 		if (!json_to_msat(buf, totaltok, &capacity)) {
@@ -272,8 +271,7 @@ void uncertainty_network_update_from_listpeerchannels(struct payment *p,
 			    tmpctx,
 			    "Failed to update channel from listpeerchannels "
 			    "scid=%s, cannot parse total_msat",
-			    type_to_string(tmpctx, struct short_channel_id,
-					   &scidd->scid));
+			    fmt_short_channel_id(tmpctx, scidd->scid));
 			goto error;
 		}
 
@@ -312,9 +310,7 @@ void uncertainty_network_relax_fraction(struct chan_extra_map *chan_extra_map,
 			plugin_err(pay_plugin->plugin,
 				   "chan_extra_relax_fraction failed for "
 				   "channel %s: %s",
-				   type_to_string(tmpctx,
-						  struct short_channel_id,
-						  &ce->scid),
+				   fmt_short_channel_id(tmpctx, ce->scid),
 				   fail);
 		}
 	}

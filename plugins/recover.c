@@ -138,7 +138,8 @@ static void do_check_gossip (struct command *cmd)
 
 			json_add_node_id(req->js, "id", &peer_id);
 
-			plugin_log(plugin, LOG_DBG, "Connecting to: %s", type_to_string(tmpctx, struct node_id, &peer_id));
+			plugin_log(plugin, LOG_DBG, "Connecting to: %s",
+				   fmt_node_id(tmpctx, &peer_id));
 			send_outreq(plugin, req);
 
 		}

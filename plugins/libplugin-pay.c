@@ -255,10 +255,8 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 			paymod_err(
 			    p,
 			    "Number overflow summing partial payments: %s + %s",
-			    type_to_string(tmpctx, struct amount_msat,
-					   &res.sent),
-			    type_to_string(tmpctx, struct amount_msat,
-					   &cres.sent));
+			    fmt_amount_msat(tmpctx, res.sent),
+			    fmt_amount_msat(tmpctx, cres.sent));
 
 		/* Bubble up the first preimage we see. */
 		if (res.preimage == NULL && cres.preimage != NULL)
@@ -387,13 +385,11 @@ static void channel_hints_update(struct payment *p,
 					   "Updated a channel hint for %s: "
 					   "enabled %s, "
 					   "estimated capacity %s",
-					   type_to_string(tmpctx,
-						struct short_channel_id_dir,
+					   fmt_short_channel_id_dir(tmpctx,
 						&hint->scid),
 					   hint->enabled ? "true" : "false",
-					   type_to_string(tmpctx,
-						struct amount_msat,
-						&hint->estimated_capacity));
+					   fmt_amount_msat(tmpctx,
+						hint->estimated_capacity));
 			return;
 		}
 	}
@@ -416,10 +412,9 @@ static void channel_hints_update(struct payment *p,
 	paymod_log(
 	    p, LOG_DBG,
 	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
-	    type_to_string(tmpctx, struct short_channel_id_dir, &newhint.scid),
+	    fmt_short_channel_id_dir(tmpctx, &newhint.scid),
 	    newhint.enabled ? "true" : "false",
-	    type_to_string(tmpctx, struct amount_msat,
-			   &newhint.estimated_capacity));
+	    fmt_amount_msat(tmpctx, newhint.estimated_capacity));
 }
 
 static void payment_exclude_most_expensive(struct payment *p)
@@ -465,9 +460,8 @@ static struct amount_msat payment_route_fee(struct payment *p)
 		    LOG_BROKEN,
 		    "gossipd returned a route with a negative fee: sending %s "
 		    "to deliver %s",
-		    type_to_string(tmpctx, struct amount_msat,
-				   &p->route[0].amount),
-		    type_to_string(tmpctx, struct amount_msat, &p->our_amount));
+		    fmt_amount_msat(tmpctx, p->route[0].amount),
+		    fmt_amount_msat(tmpctx, p->our_amount));
 		abort();
 	}
 	return fee;
@@ -557,17 +551,14 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 				   "Could not update the channel hint "
 				   "for %s. Could be a concurrent "
 				   "`getroute` call.",
-				   type_to_string(tmpctx,
-						  struct short_channel_id_dir,
-						  &curhint->scid));
+				   fmt_short_channel_id_dir(tmpctx,
+							    &curhint->scid));
 			paymod_log(
 			    p, LOG_DBG,
 			    "Capacity: estimated_capacity=%s, hop_amount=%s. "
 			    "local=%s%s",
-			    type_to_string(tmpctx, struct amount_msat,
-					   &curhint->estimated_capacity),
-			    type_to_string(tmpctx, struct amount_msat,
-					   &curhop->amount),
+			    fmt_amount_msat(tmpctx, curhint->estimated_capacity),
+			    fmt_amount_msat(tmpctx, curhop->amount),
 			    curhint->local ? "Y" : "N",
 			    curhint->local ?
 			    tal_fmt(tmpctx, " HTLC Budget: htlc_budget=%d",
@@ -882,8 +873,7 @@ static struct command_result *payment_getroute(struct payment *p)
 		put_gossmap(p);
 		payment_fail(
 			p, "Unknown destination %s",
-			type_to_string(tmpctx, struct node_id,
-				       p->getroute->destination));
+			fmt_node_id(tmpctx, p->getroute->destination));
 
 		/* Let payment_finished_ handle this, so we mark it as pending */
 		return command_still_pending(p->cmd);
@@ -927,9 +917,8 @@ static struct command_result *payment_getroute(struct payment *p)
 		p->route = tal_free(p->route);
 		payment_fail(
 		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
-		    type_to_string(tmpctx, struct amount_msat, &fee),
-		    type_to_string(tmpctx, struct amount_msat,
-				   &p->constraints.fee_budget));
+		    fmt_amount_msat(tmpctx, fee),
+		    fmt_amount_msat(tmpctx, p->constraints.fee_budget));
 		return command_still_pending(p->cmd);
 	}
 
@@ -1161,16 +1150,15 @@ static void report_tampering(struct payment *p,
 		paymod_log(p, LOG_UNUSUAL,
 			   "Node #%zu (%s) claimed we sent them invalid %s",
 			   report_pos + 1,
-			   type_to_string(tmpctx, struct node_id, id),
+			   fmt_node_id(tmpctx, id),
 			   style);
 	} else {
 		paymod_log(p, LOG_UNUSUAL,
 			   "Node #%zu (%s) claimed #%zu (%s) sent them invalid %s",
 			   report_pos + 1,
-			   type_to_string(tmpctx, struct node_id, id),
+			   fmt_node_id(tmpctx, id),
 			   report_pos,
-			   type_to_string(tmpctx, struct node_id,
-					  &p->route[report_pos-1].node_id),
+			   fmt_node_id(tmpctx, &p->route[report_pos-1].node_id),
 			   style);
 	}
 }
@@ -1244,7 +1232,7 @@ handle_final_failure(struct command *cmd,
 
 	paymod_log(p, LOG_DBG,
 		   "Final node %s reported %04x (%s) on route %s",
-		   type_to_string(tmpctx, struct node_id, final_id),
+		   fmt_node_id(tmpctx, final_id),
 		   failcode, onion_wire_name(failcode),
 		   p->routetxt);
 
@@ -1317,7 +1305,7 @@ handle_final_failure(struct command *cmd,
 strange_error:
 	paymod_log(p, LOG_UNUSUAL,
 		   "Final node %s reported strange error code %04x (%s)",
-		   type_to_string(tmpctx, struct node_id, final_id),
+		   fmt_node_id(tmpctx, final_id),
 		   failcode, describe_failcode(tmpctx, failcode));
 
 error:
@@ -1343,10 +1331,9 @@ handle_intermediate_failure(struct command *cmd,
 
 	paymod_log(p, LOG_DBG,
 		   "Intermediate node %s reported %04x (%s) at %s on route %s",
-		   type_to_string(tmpctx, struct node_id, errnode),
+		   fmt_node_id(tmpctx, errnode),
 		   failcode, onion_wire_name(failcode),
-		   type_to_string(tmpctx, struct short_channel_id,
-				  &errchan->scid),
+		   fmt_short_channel_id(tmpctx, errchan->scid),
 		   p->routetxt);
 
 	/* We use an exhaustive switch statement here so you get a compile
@@ -1423,7 +1410,7 @@ handle_intermediate_failure(struct command *cmd,
 strange_error:
 	paymod_log(p, LOG_UNUSUAL,
 		   "Intermediate node %s reported strange error code %04x (%s)",
-		   type_to_string(tmpctx, struct node_id, errnode),
+		   fmt_node_id(tmpctx, errnode),
 		   failcode, describe_failcode(tmpctx, failcode));
 
 error:
@@ -1817,8 +1804,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 					      &p->route[i + 1], false,
 					      NULL, NULL);
 		tal_append_fmt(&routetxt, "%s -> ",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &p->route[i].scid));
+			       fmt_short_channel_id(tmpctx, p->route[i].scid));
 	}
 
 	/* If we're headed to a blinded path, connect that now. */
@@ -1829,8 +1815,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 					root->blindedfinalamount,
 					root->blindedfinalcltv);
 		tal_append_fmt(&routetxt, "%s -> blinded path (%zu hops)",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &p->route[hopcount-1].scid),
+			       fmt_short_channel_id(tmpctx,
+						    p->route[hopcount-1].scid),
 			       tal_count(root->blindedpath->path));
 	} else {
 		/* Final hop */
@@ -1840,8 +1826,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 			root->payment_secret,
 			root->payment_metadata);
 		tal_append_fmt(&routetxt, "%s",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &p->route[hopcount - 1].scid));
+			       fmt_short_channel_id(tmpctx,
+						    p->route[hopcount - 1].scid));
 	}
 
 	paymod_log(p, LOG_DBG,
@@ -2400,7 +2386,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		    p, LOG_INFORM,
 		    "Payment deadline expired, not retrying (partial-)payment "
 		    "%s/%d",
-		    type_to_string(tmpctx, struct sha256, p->payment_hash),
+		    fmt_sha256(tmpctx, p->payment_hash),
 		    p->partid);
 		root->abort = true;
 		return payment_continue(p);
@@ -2429,9 +2415,9 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		paymod_log(
 		    p, LOG_DBG,
 		    "Retrying %s/%d (%s), new partid %d. %d attempts left\n",
-		    type_to_string(tmpctx, struct sha256, p->payment_hash),
+		    fmt_sha256(tmpctx, p->payment_hash),
 		    p->partid,
-		    type_to_string(tmpctx, struct amount_msat, &p->our_amount),
+		    fmt_amount_msat(tmpctx, p->our_amount),
 		    subpayment->partid,
 		    rdata->retries - 1);
 	}
@@ -2585,14 +2571,14 @@ static struct route_info **filter_routehints(struct gossmap *map,
 				       "Removed routehint %zu because "
 				       "entrypoint %s is unknown. ",
 				       i,
-				       type_to_string(tmpctx, struct node_id,
-						      &hints[i][0].pubkey));
+				       fmt_node_id(tmpctx,
+						   &hints[i][0].pubkey));
 			plugin_log(p->plugin, LOG_DBG,
 				   "Removed routehint %zu because "
 				   "entrypoint %s is unknown. ",
 				   i,
-				   type_to_string(tmpctx, struct node_id,
-						  &hints[i][0].pubkey));
+				   fmt_node_id(tmpctx,
+					       &hints[i][0].pubkey));
 			tal_arr_remove(&hints, i);
 			i--;
 			continue;
@@ -2609,14 +2595,14 @@ static struct route_info **filter_routehints(struct gossmap *map,
 				       "Removed routehint %zu because "
 				       "entrypoint %s is unreachable. ",
 				       i,
-				       type_to_string(tmpctx, struct node_id,
-						      &hints[i][0].pubkey));
+				       fmt_node_id(tmpctx,
+						   &hints[i][0].pubkey));
 			plugin_log(p->plugin, LOG_DBG,
 				       "Removed routehint %zu because "
 				       "entrypoint %s is unreachable. ",
 				       i,
-				       type_to_string(tmpctx, struct node_id,
-						      &hints[i][0].pubkey));
+				       fmt_node_id(tmpctx,
+						   &hints[i][0].pubkey));
 			tal_arr_remove(&hints, i);
 			i--;
 		}
@@ -2810,10 +2796,9 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 			       tal_count(d->current_routehint));
 		paymod_log(
 		    p, LOG_DBG, "Using routehint %s (%s) cltv_delta=%d",
-		    type_to_string(tmpctx, struct node_id,
-				   &d->current_routehint->pubkey),
-		    type_to_string(tmpctx, struct short_channel_id,
-				   &d->current_routehint->short_channel_id),
+		    fmt_node_id(tmpctx, &d->current_routehint->pubkey),
+		    fmt_short_channel_id(tmpctx,
+					 d->current_routehint->short_channel_id),
 		    d->current_routehint->cltv_expiry_delta);
 
 		/* Exclude the entrypoint to the routehint, so we don't end up
@@ -2881,7 +2866,7 @@ static void routehint_check_reachable(struct payment *p)
 		    p,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
-		    type_to_string(tmpctx, struct node_id, p->destination));
+		    fmt_node_id(tmpctx, p->destination));
 		put_gossmap(p);
 		return;
 	}
@@ -3072,8 +3057,8 @@ static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 		    p, LOG_INFORM,
 		    "Payment fee constraint %s is below exemption threshold, "
 		    "allowing a maximum fee of %s",
-		    type_to_string(tmpctx, struct amount_msat, &p->constraints.fee_budget),
-		    type_to_string(tmpctx, struct amount_msat, &d->amount));
+		    fmt_amount_msat(tmpctx, p->constraints.fee_budget),
+		    fmt_amount_msat(tmpctx, d->amount));
 		p->constraints.fee_budget = d->amount;
 		p->start_constraints->fee_budget = d->amount;
 	}
@@ -3233,9 +3218,8 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 		    p, LOG_DBG,
 		    "Adding shadow_route hop over channel %s: adding %s "
 		    "in fees and %d CLTV delta",
-		    type_to_string(tmpctx, struct short_channel_id,
-				   &best->short_channel_id),
-		    type_to_string(tmpctx, struct amount_msat, &best_fee),
+		    fmt_short_channel_id(tmpctx, best->short_channel_id),
+		    fmt_amount_msat(tmpctx, best_fee),
 		    best->cltv_expiry_delta);
 
 		d->destination = best->pubkey;
@@ -3259,12 +3243,11 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 				   "for shadow route extension. "
 				   "payment fee budget %s, modifier "
 				   "fee budget %s, shadow fee to add %s",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &p->constraints.fee_budget),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &d->constraints.fee_budget),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &best_fee));
+				   fmt_amount_msat(tmpctx,
+						   p->constraints.fee_budget),
+				   fmt_amount_msat(tmpctx,
+						   d->constraints.fee_budget),
+				   fmt_amount_msat(tmpctx, best_fee));
 	}
 
 next:
@@ -3341,8 +3324,7 @@ static void direct_pay_override(struct payment *p) {
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",
-			   type_to_string(tmpctx, struct short_channel_id_dir,
-					  &hint->scid));
+			   fmt_short_channel_id_dir(tmpctx, &hint->scid));
 
 		payment_set_step(p, PAYMENT_STEP_GOT_ROUTE);
 	}
@@ -3696,11 +3678,9 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 				   "new partid %"PRIu32" (%s), "
 				   "new partid %"PRIu32" (%s)",
 				   a->partid,
-				   type_to_string(tmpctx, struct amount_msat,
-						  &a->our_amount),
+				   fmt_amount_msat(tmpctx, a->our_amount),
 				   b->partid,
-				   type_to_string(tmpctx, struct amount_msat,
-						  &b->our_amount));
+				   fmt_amount_msat(tmpctx, b->our_amount));
 
 			/* Take note that we now have an additional split that
 			 * may end up using an HTLC. */
@@ -3709,10 +3689,9 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 			paymod_log(p, LOG_INFORM,
 				   "Lower limit of adaptive splitter reached "
 				   "(%s < %s), not splitting further.",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &p->our_amount),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &MPP_ADAPTIVE_LOWER_LIMIT));
+				   fmt_amount_msat(tmpctx, p->our_amount),
+				   fmt_amount_msat(tmpctx,
+						   MPP_ADAPTIVE_LOWER_LIMIT));
 		}
 	}
 	payment_continue(p);
@@ -3787,7 +3766,7 @@ payee_incoming_limit_count(struct command *cmd,
 		why = tal_fmt(tmpctx,
 			      "Destination %s has %zd channels, "
 			      "assuming %d HTLCs per channel",
-			      type_to_string(tmpctx, struct node_id,
+			      fmt_node_id(tmpctx,
 					     p->destination),
 			      num_channels,
 			      ASSUMED_MAX_HTLCS_PER_CHANNEL);

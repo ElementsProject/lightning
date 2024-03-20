@@ -293,15 +293,14 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	/* Final id should be us! */
 	if (!pubkey_from_node_id(&me, &cmd->ld->id))
 		fatal("My id %s is invalid?",
-		      type_to_string(tmpctx, struct node_id, &cmd->ld->id));
+		      fmt_node_id(tmpctx, &cmd->ld->id));
 
 	path->first_node_id = ids[0];
 	if (!pubkey_eq(&ids[nhops-1], &me))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Final of ids must be this node (%s), not %s",
-				    type_to_string(tmpctx, struct pubkey, &me),
-				    type_to_string(tmpctx, struct pubkey,
-						   &ids[nhops-1]));
+				    fmt_pubkey(tmpctx, &me),
+				    fmt_pubkey(tmpctx, &ids[nhops-1]));
 
 	randombytes_buf(&first_blinding, sizeof(first_blinding));
 	if (!pubkey_from_privkey(&first_blinding, &path->blinding))

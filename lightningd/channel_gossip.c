@@ -1022,15 +1022,14 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 	    && !node_id_eq(source, &channel->peer->id)) {
 		log_unusual(ld->log, "Bad gossip order: %s sent us a channel update for a "
 			    "channel owned by %s (%s)",
-			    type_to_string(tmpctx, struct node_id, source),
-			    type_to_string(tmpctx, struct node_id,
-					   &channel->peer->id),
-			    type_to_string(tmpctx, struct short_channel_id, &update->scid));
+			    fmt_node_id(tmpctx, source),
+			    fmt_node_id(tmpctx, &channel->peer->id),
+			    fmt_short_channel_id(tmpctx, update->scid));
 		return;
 	}
 
 	log_debug(ld->log, "updating channel %s with inbound settings",
-		  type_to_string(tmpctx, struct short_channel_id, &update->scid));
+		  fmt_short_channel_id(tmpctx, update->scid));
 	tal_free(cg->peer_update);
 	cg->peer_update = tal_dup(cg, struct peer_update, update);
 	wallet_channel_save(ld->wallet, channel);

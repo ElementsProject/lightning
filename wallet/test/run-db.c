@@ -58,6 +58,9 @@ void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 /* Generated stub for find_peer_by_dbid */
 struct peer *find_peer_by_dbid(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "find_peer_by_dbid called!\n"); abort(); }
+/* Generated stub for fmt_channel_id */
+char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for forward_index_created */
 u64 forward_index_created(struct lightningd *ld UNNEEDED,
 			  enum forward_status status UNNEEDED,

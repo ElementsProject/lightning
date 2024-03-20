@@ -58,8 +58,7 @@ penalty_tx_create(const tal_t *ctx,
 	if (!pubkey_from_secret(&remote_per_commitment_secret, &remote_per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed derive from per_commitment_secret %s",
-			      type_to_string(tmpctx, struct secret,
-					     &remote_per_commitment_secret));
+			      fmt_secret(tmpctx, &remote_per_commitment_secret));
 
 	if (!derive_keyset(&remote_per_commitment_point,
 			   &basepoints[REMOTE],
@@ -95,8 +94,8 @@ penalty_tx_create(const tal_t *ctx,
 	if (!amount_sat_add(&min_out, dust_limit, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot add dust_limit %s and fee %s",
-			      type_to_string(tmpctx, struct amount_sat, &dust_limit),
-			      type_to_string(tmpctx, struct amount_sat, &fee));
+			      fmt_amount_sat(tmpctx, dust_limit),
+			      fmt_amount_sat(tmpctx, fee));
 
 	if (amount_sat_less(to_them_sats, min_out)) {
 		/* FIXME: We should use SIGHASH_NONE so others can take it */
@@ -112,7 +111,7 @@ penalty_tx_create(const tal_t *ctx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			   "TX can't afford minimal feerate"
 			   "; setting output to %s",
-			   type_to_string(tmpctx, struct amount_sat, &amt));
+			   fmt_amount_sat(tmpctx, amt));
 	}
 	bitcoin_tx_output_set_amount(tx, 0, amt);
 	bitcoin_tx_finalize(tx);

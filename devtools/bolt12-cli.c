@@ -70,7 +70,7 @@ static void print_offer_chains(const struct bitcoin_blkid *chains)
 {
 	printf("offer_chains:");
 	for (size_t i = 0; i < tal_count(chains); i++) {
-		printf(" %s", type_to_string(tmpctx, struct bitcoin_blkid, &chains[i]));
+		printf(" %s", fmt_bitcoin_blkid(tmpctx, &chains[i]));
 	}
 	printf("\n");
 }
@@ -84,7 +84,7 @@ static void print_hex(const char *fieldname, const u8 *bin)
 static void print_invreq_chain(const struct bitcoin_blkid *chain)
 {
 	printf("invreq_chain: %s\n",
-	       type_to_string(tmpctx, struct bitcoin_blkid, chain));
+	       fmt_bitcoin_blkid(tmpctx, chain));
 }
 
 static bool print_offer_amount(const struct bitcoin_blkid *chains,
@@ -117,9 +117,8 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 			ch = chainparams_by_chainhash(&chains[0]);
 			if (!ch) {
 				currency = tal_fmt(tmpctx, "UNKNOWN CHAINHASH %s",
-						   type_to_string(tmpctx,
-								  struct bitcoin_blkid,
-								  &chains[0]));
+						   fmt_bitcoin_blkid(tmpctx,
+								     &chains[0]));
 				ok = false;
 			} else
 				currency = ch->lightning_hrp;
@@ -165,7 +164,7 @@ static bool print_utf8(const char *fieldname, const char *description)
 static void print_node_id(const char *fieldname, const struct pubkey *node_id)
 {
 	printf("%s: %s\n",
-	       fieldname, type_to_string(tmpctx, struct pubkey, node_id));
+	       fieldname, fmt_pubkey(tmpctx, node_id));
 }
 
 static void print_u64(const char *fieldname, u64 max)
@@ -271,14 +270,14 @@ static bool print_blindedpaths(const char *fieldname,
 		printf("%s %zu/%zu: blinding %s",
 		       fieldname,
 		       i, tal_count(paths),
-		       type_to_string(tmpctx, struct pubkey,
+		       fmt_pubkey(tmpctx,
 				      &paths[i]->blinding));
 		printf("%s %zu/%zu: path ",
 		       fieldname,
 		       i, tal_count(paths));
 		for (size_t j = 0; j < tal_count(p); j++) {
 			printf(" %s:%s",
-			       type_to_string(tmpctx, struct pubkey,
+			       fmt_pubkey(tmpctx,
 					      &p[j]->blinded_node_id),
 			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
 			if (blindedpay) {
@@ -322,7 +321,7 @@ static bool print_signature(const char *messagename,
 	}
 	printf("%s: %s\n",
 	       fieldname,
-	       type_to_string(tmpctx, struct bip340sig, sig));
+	       fmt_bip340sig(tmpctx, sig));
 	return true;
 }
 
@@ -353,7 +352,7 @@ static bool print_recurrence_counter_with_base(const u32 *recurrence_counter,
 static void print_hash(const char *fieldname, const struct sha256 *hash)
 {
 	printf("%s: %s\n",
-	       fieldname, type_to_string(tmpctx, struct sha256, hash));
+	       fieldname, fmt_sha256(tmpctx, hash));
 }
 
 static void print_relative_expiry(u64 *created_at, u32 *relative)

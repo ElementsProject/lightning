@@ -110,13 +110,13 @@ static struct command_result *try_route(struct command *cmd,
 	if (!src)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: unknown source node_id (no public channels?)",
-				    type_to_string(tmpctx, struct node_id, info->source));
+				    fmt_node_id(tmpctx, info->source));
 
 	dst = gossmap_find_node(gossmap, info->destination);
 	if (!dst)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: unknown destination node_id (no public channels?)",
-				    type_to_string(tmpctx, struct node_id, info->destination));
+				    fmt_node_id(tmpctx, info->destination));
 
 	dij = dijkstra(tmpctx, gossmap, dst, *info->msat,
 		       *info->riskfactor_millionths / 1000000.0,
@@ -511,8 +511,7 @@ static void json_add_node(struct json_stream *js,
 			plugin_log(plugin, LOG_BROKEN,
 				   "Cannot parse stored node_announcement"
 				   " for %s at %u: %s",
-				   type_to_string(tmpctx, struct node_id,
-						  &node_id),
+				   fmt_node_id(tmpctx, &node_id),
 				   n->nann_off,
 				   tal_hex(tmpctx, nannounce));
 			goto out;

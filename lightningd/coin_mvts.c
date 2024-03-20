@@ -145,9 +145,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 			if (report_chan_balance(chan)) {
 				bal = tal(snap, struct account_balance);
 				bal->bip173_name = chainparams->lightning_hrp;
-				bal->acct_id = type_to_string(bal,
-							   struct channel_id,
-							   &chan->cid);
+				bal->acct_id = fmt_channel_id(bal, &chan->cid);
 				bal->balance = chan->our_msat;
 				tal_arr_expand(&snap->accts, bal);
 			}

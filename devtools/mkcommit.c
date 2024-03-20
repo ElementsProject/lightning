@@ -100,29 +100,29 @@ static void print_basepoints(const char *desc,
 
 	printf("## %s\n", desc);
 	printf("# funding_privkey=%s\n",
-	       type_to_string(NULL, struct secret, &secrets->funding_privkey.secret));
+	       fmt_secret(NULL, &secrets->funding_privkey.secret));
 	printf("funding_pubkey=%s\n",
-	       type_to_string(NULL, struct pubkey, fundingkey));
+	       fmt_pubkey(NULL, fundingkey));
 	printf("# revocation_basepoint_secret=%s\n",
-	       type_to_string(NULL, struct secret,
+	       fmt_secret(NULL,
 			      &secrets->revocation_basepoint_secret));
 	printf("revocation_basepoint=%s\n",
-	       type_to_string(NULL, struct pubkey, &basepoints->revocation));
+	       fmt_pubkey(NULL, &basepoints->revocation));
 	printf("# payment_basepoint_secret=%s\n",
-	       type_to_string(NULL, struct secret,
+	       fmt_secret(NULL,
 			      &secrets->payment_basepoint_secret));
 	printf("payment_basepoint=%s\n",
-	       type_to_string(NULL, struct pubkey, &basepoints->payment));
+	       fmt_pubkey(NULL, &basepoints->payment));
 	printf("# delayed_payment_basepoint_secret=%s\n",
-	       type_to_string(NULL, struct secret,
+	       fmt_secret(NULL,
 			      &secrets->delayed_payment_basepoint_secret));
 	printf("delayed_payment_basepoint=%s\n",
-	       type_to_string(NULL, struct pubkey, &basepoints->delayed_payment));
+	       fmt_pubkey(NULL, &basepoints->delayed_payment));
 	printf("# htlc_basepoint_secret=%s\n",
-	       type_to_string(NULL, struct secret,
+	       fmt_secret(NULL,
 			      &secrets->htlc_basepoint_secret));
 	printf("htlc_basepoint=%s\n",
-	       type_to_string(NULL, struct pubkey, &basepoints->htlc));
+	       fmt_pubkey(NULL, &basepoints->htlc));
 	if (!per_commit_secret(shaseed, &per_commitment_secret, commitnum))
 		errx(1, "Bad deriving %s per_commitment_secret #%"PRIu64,
 		     desc, commitnum);
@@ -130,13 +130,13 @@ static void print_basepoints(const char *desc,
 		errx(1, "Bad deriving %s per_commitment_point #%"PRIu64,
 		     desc, commitnum);
 	printf("# shachain seed=%s\n",
-	       type_to_string(NULL, struct sha256, shaseed));
+	       fmt_sha256(NULL, shaseed));
 	printf("# per_commitment_secret %"PRIu64"=%s\n",
 	       commitnum,
-	       type_to_string(NULL, struct secret,  &per_commitment_secret));
+	       fmt_secret(NULL,  &per_commitment_secret));
 	printf("per_commitment_point %"PRIu64"=%s\n\n",
 	       commitnum,
-	       type_to_string(NULL, struct pubkey, &per_commitment_point));
+	       fmt_pubkey(NULL, &per_commitment_point));
 }
 
 static int parse_config(char *argv[],
@@ -196,9 +196,9 @@ static int parse_htlc(char *argv[], struct existing_htlc ***htlcs)
 
 	printf("# HTLC %"PRIu64": %s amount=%s preimage=%s payment_hash=%s cltv=%u\n",
 	       exist->id, argv[0],
-	       type_to_string(tmpctx, struct amount_msat, &exist->amount),
-	       type_to_string(tmpctx, struct preimage, exist->payment_preimage),
-	       type_to_string(tmpctx, struct sha256, &exist->payment_hash),
+	       fmt_amount_msat(tmpctx, exist->amount),
+	       fmt_preimage(tmpctx, exist->payment_preimage),
+	       fmt_sha256(tmpctx, &exist->payment_hash),
 	       exist->cltv_expiry);
 
 	tal_arr_expand(htlcs, exist);
@@ -230,7 +230,7 @@ static char *sig_notation(const struct sha256_double *hash,
 			  const struct bitcoin_signature *sig)
 {
 	const char *pstr = tal_hexstr(NULL, privkey->secret.data, sizeof(privkey->secret.data));
-	const char *hstr = type_to_string(NULL, struct sha256_double, hash);
+	const char *hstr = fmt_sha256_double(NULL, hash);
 
 	if (verbose)
 		return tal_fmt(NULL,
@@ -430,9 +430,9 @@ int main(int argc, char *argv[])
 
 	printf("## local_commitment\n"
 	       "# input amount %s, funding_wscript %s, pubkey %s\n",
-	       type_to_string(NULL, struct amount_sat, &funding_amount),
+	       fmt_amount_sat(NULL, funding_amount),
 	       tal_hex(NULL, funding_wscript),
-	       type_to_string(NULL, struct pubkey, &funding_localkey));
+	       fmt_pubkey(NULL, &funding_localkey));
 	printf("# unsigned local commitment tx: %s\n",
 	       tal_hex(NULL, linearize_tx(NULL, local_txs[0])));
 
@@ -541,9 +541,9 @@ int main(int argc, char *argv[])
 
 	printf("## remote_commitment\n"
 	       "# input amount %s, funding_wscript %s, key %s\n",
-	       type_to_string(NULL, struct amount_sat, &funding_amount),
+	       fmt_amount_sat(NULL, funding_amount),
 	       tal_hex(NULL, funding_wscript),
-	       type_to_string(NULL, struct pubkey, &funding_remotekey));
+	       fmt_pubkey(NULL, &funding_remotekey));
 	printf("# unsigned remote commitment tx: %s\n",
 	       tal_hex(NULL, linearize_tx(NULL, remote_txs[0])));
 

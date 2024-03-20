@@ -491,8 +491,7 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 		return io_close(conn);
 
 	status_debug("Websocket connection in from %s",
-		     type_to_string(tmpctx, struct wireaddr_internal,
-				    &conn_in_arg.addr));
+		     fmt_wireaddr_internal(tmpctx, &conn_in_arg.addr));
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, childmsg) != 0)
 		goto fail;
@@ -598,8 +597,7 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 	/* This shouldn't happen: lightningd should not give invalid ids! */
 	if (!pubkey_from_node_id(&outkey, &connect->id)) {
 		status_broken("Connection out to invalid id %s",
-			      type_to_string(tmpctx, struct node_id,
-					     &connect->id));
+			      fmt_node_id(tmpctx, &connect->id));
 		return io_close(conn);
 	}
 
@@ -680,8 +678,8 @@ static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 
 	add_errors_to_error_list(connect,
 		       tal_fmt(tmpctx, "%s: %s: %s",
-		       type_to_string(tmpctx, struct wireaddr_internal,
-				      &connect->addrs[connect->addrnum]),
+		       fmt_wireaddr_internal(tmpctx,
+					     &connect->addrs[connect->addrnum]),
 		       connect->connstate, errstr));
 	connect->addrnum++;
 	connect->conn = NULL;
@@ -834,9 +832,7 @@ static void try_connect_one_addr(struct connecting *connect)
 			if (!use_dns) {  /* ignore DNS when we can't use it */
 				tal_append_fmt(&connect->errors,
 					       "%s: dns disabled. ",
-					       type_to_string(tmpctx,
-							      struct wireaddr_internal,
-							      addr));
+					       fmt_wireaddr_internal(tmpctx, addr));
 				goto next;
 			}
 			/* Resolve with getaddrinfo */
@@ -852,9 +848,7 @@ static void try_connect_one_addr(struct connecting *connect)
 			if (gai_err != 0) {
 				tal_append_fmt(&connect->errors,
 					       "%s: getaddrinfo error '%s'. ",
-					       type_to_string(tmpctx,
-							      struct wireaddr_internal,
-							      addr),
+					       fmt_wireaddr_internal(tmpctx, addr),
 					       gai_strerror(gai_err));
 				goto next;
 			}
@@ -890,9 +884,7 @@ static void try_connect_one_addr(struct connecting *connect)
 		if (!connect->daemon->proxyaddr) {
 			tal_append_fmt(&connect->errors,
 				       "%s: need a proxy. ",
-				       type_to_string(tmpctx,
-						      struct wireaddr_internal,
-						      addr));
+				       fmt_wireaddr_internal(tmpctx, addr));
 			goto next;
 		}
 		af = connect->daemon->proxyaddr->ai_family;
@@ -901,8 +893,7 @@ static void try_connect_one_addr(struct connecting *connect)
 	if (af == -1) {
 		tal_append_fmt(&connect->errors,
 			       "%s: not supported. ",
-			       type_to_string(tmpctx, struct wireaddr_internal,
-					      addr));
+			       fmt_wireaddr_internal(tmpctx, addr));
 		goto next;
 	}
 
@@ -910,8 +901,7 @@ static void try_connect_one_addr(struct connecting *connect)
 	if (fd < 0) {
 		tal_append_fmt(&connect->errors,
 			       "%s: opening %i socket gave %s. ",
-			       type_to_string(tmpctx, struct wireaddr_internal,
-					      addr),
+			       fmt_wireaddr_internal(tmpctx, addr),
 			       af, strerror(errno));
 		goto next;
 	}
@@ -993,9 +983,7 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 		const char *es = strerror(errno);
 		*errstr = tal_fmt(ctx, "Failed to create socket for %s%s: %s",
 				  is_websocket ? "websocket " : "",
-				  type_to_string(tmpctx,
-						 struct wireaddr_internal,
-						 wi),
+				  fmt_wireaddr_internal(tmpctx, wi),
 				  es);
 		status_debug("Failed to create %u socket: %s", domain, es);
 		return NULL;
@@ -1010,9 +998,7 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 		const char *es = strerror(errno);
 		*errstr = tal_fmt(ctx, "Failed to bind socket for %s%s: %s",
 				  is_websocket ? "websocket " : "",
-				  type_to_string(tmpctx,
-						 struct wireaddr_internal,
-						 wi),
+				  fmt_wireaddr_internal(tmpctx, wi),
 				  es);
 		status_debug("Failed to bind %u socket: %s", domain, es);
 		goto fail;
@@ -1021,7 +1007,7 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 	*errstr = NULL;
 	status_debug("Created %slistener on %s",
 		     is_websocket ? "websocket ": "",
-		     type_to_string(tmpctx, struct wireaddr_internal, wi));
+		     fmt_wireaddr_internal(tmpctx, wi));
 	return listen_fd_new(ctx, wi, fd, listen_mayfail, is_websocket);
 
 fail:
@@ -1431,8 +1417,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid id for me %s",
-			      type_to_string(tmpctx, struct node_id,
-					     &daemon->id));
+			      fmt_node_id(tmpctx, &daemon->id));
 
 	/* Resolve Tor proxy address if any: we need an addrinfo to connect()
 	 * to. */
@@ -1526,9 +1511,8 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 				}
 				errmsg = tal_fmt(tmpctx,
 						 "Failed to listen on socket %s: %s",
-						 type_to_string(tmpctx,
-								struct wireaddr_internal,
-								&daemon->listen_fds[i]->wi),
+						 fmt_wireaddr_internal(tmpctx,
+								       &daemon->listen_fds[i]->wi),
 						 strerror(errno));
 				break;
 			}
@@ -1604,8 +1588,8 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 				a.u.wireaddr.is_websocket = false;
 				a.u.wireaddr.wireaddr = new_addrs[j];
 				status_peer_debug(id, "Resolved %s to %s", hostnames[i],
-						  type_to_string(tmpctx, struct wireaddr,
-								 &a.u.wireaddr.wireaddr));
+						  fmt_wireaddr(tmpctx,
+							       &a.u.wireaddr.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
 			/* Other seeds will likely have the same information. */

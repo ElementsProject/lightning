@@ -194,9 +194,8 @@ json_multiwithdraw(struct command *cmd,
 			return command_fail(cmd, FUND_OUTPUT_IS_DUST,
 					    "Output %s would be "
 					    "dust.",
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   &mw->outputs[i].amount));
+					    fmt_amount_sat(tmpctx,
+							   mw->outputs[i].amount));
 
 	/* Begin.  */
 	return start_mw(mw);
@@ -380,8 +379,7 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 					       FUND_CANNOT_AFFORD,
 					       "Overflow in amount sum.");
 		json_add_string(req->js, "satoshi",
-				type_to_string(tmpctx, struct amount_sat,
-					       &sum));
+				fmt_amount_sat(tmpctx, sum));
 	}
 	json_add_string(req->js, "feerate", mw->feerate);
 	json_add_u64(req->js, "startweight", startweight);
@@ -468,9 +466,7 @@ mw_after_fundpsbt(struct command *cmd,
 		if (amount_sat_less(excess_sat, chainparams->dust_limit))
 			return mw_fail(mw, FUND_OUTPUT_IS_DUST,
 				       "Output 'all' %s would be dust.",
-				       type_to_string(tmpctx,
-						      struct amount_sat,
-						      &excess_sat));
+				       fmt_amount_sat(tmpctx, excess_sat));
 
 		/* Transfer the excess to the 'all' output.  */
 		mw->outputs[all_index].amount = excess_sat;

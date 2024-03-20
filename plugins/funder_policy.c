@@ -43,7 +43,7 @@ const char *funder_policy_desc(const tal_t *ctx,
 		struct amount_sat amt = amount_sat(policy->mod);
 		return tal_fmt(ctx, "%s (%s)",
 			       funder_opt_name(policy->opt),
-			       type_to_string(ctx, struct amount_sat, &amt));
+			       fmt_amount_sat(ctx, amt));
 	} else
 		return tal_fmt(ctx, "%s (%"PRIu64"%%)",
 			       funder_opt_name(policy->opt), policy->mod);
@@ -239,10 +239,8 @@ calculate_our_funding(struct funder_policy *policy,
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "No space available in channel."
 			       " channel_max %s, their_funding %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &channel_max),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &their_funding));
+			       fmt_amount_sat(tmpctx, channel_max),
+			       fmt_amount_sat(tmpctx, their_funding));
 	}
 
 	/* Figure out actual available funds, given our requested
@@ -253,10 +251,8 @@ calculate_our_funding(struct funder_policy *policy,
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "Reserve tank too low."
 			       " available_funds %s, reserve_tank requires %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &available_funds),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &policy->reserve_tank));
+			       fmt_amount_sat(tmpctx, available_funds),
+			       fmt_amount_sat(tmpctx, policy->reserve_tank));
 	}
 
 	/* Are they funding enough ? */
@@ -265,10 +261,8 @@ calculate_our_funding(struct funder_policy *policy,
 		return tal_fmt(tmpctx, "Peer's funding too little."
 			       " their_funding %s,"
 			       " min_their_funding requires %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &their_funding),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &policy->min_their_funding));
+			       fmt_amount_sat(tmpctx, their_funding),
+			       fmt_amount_sat(tmpctx, policy->min_their_funding));
 	}
 
 	/* Are they funding too much ? */
@@ -277,10 +271,8 @@ calculate_our_funding(struct funder_policy *policy,
 		return tal_fmt(tmpctx, "Peer's funding too much."
 			       " their_funding %s,"
 			       " max_their_funding requires %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      &their_funding),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &policy->max_their_funding));
+			       fmt_amount_sat(tmpctx, their_funding),
+			       fmt_amount_sat(tmpctx, policy->max_their_funding));
 	}
 
 	/* What's our amount, given our policy */
@@ -317,12 +309,10 @@ calculate_our_funding(struct funder_policy *policy,
 		    && amount_sat_less(*our_funding, requested_lease)) {
 			return tal_fmt(tmpctx, "New amount (%s) is less than"
 				       " last (%s); peer requested a lease (%s)",
-				       type_to_string(tmpctx, struct amount_sat,
-						      our_funding),
-				       type_to_string(tmpctx, struct amount_sat,
-						      our_last_funding),
-				       type_to_string(tmpctx, struct amount_sat,
-						      &requested_lease));
+				       fmt_amount_sat(tmpctx, *our_funding),
+				       fmt_amount_sat(tmpctx,
+						      *our_last_funding),
+				       fmt_amount_sat(tmpctx, requested_lease));
 		}
 	}
 
@@ -333,10 +323,8 @@ calculate_our_funding(struct funder_policy *policy,
 		return tal_fmt(tmpctx, "Can't meet our min channel requirement."
 			       " our_funding %s,"
 			       " per_channel_min requires %s",
-			       type_to_string(tmpctx, struct amount_sat,
-					      our_funding),
-			       type_to_string(tmpctx, struct amount_sat,
-					      &policy->per_channel_min));
+			       fmt_amount_sat(tmpctx, *our_funding),
+			       fmt_amount_sat(tmpctx, policy->per_channel_min));
 	}
 
 	return NULL;

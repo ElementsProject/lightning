@@ -297,10 +297,8 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 	if (!channel_id_eq(&channel_id, &peer->channel_id)) {
 		peer_failed_err(peer->pps, &channel_id,
 				"Wrong stfu channel_id: expected %s, got %s",
-				type_to_string(tmpctx, struct channel_id,
-					       &peer->channel_id),
-				type_to_string(tmpctx, struct channel_id,
-					       &channel_id));
+				fmt_channel_id(tmpctx, &peer->channel_id),
+				fmt_channel_id(tmpctx, &channel_id));
 	}
 
 	/* Sanity check */
@@ -464,8 +462,8 @@ static void check_mutual_splice_locked(struct peer *peer)
 	peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = 0;
 
 	status_debug("mutual splice_locked, scid LOCAL & REMOTE updated to: %s",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &peer->splice_state->short_channel_id));
+		     fmt_short_channel_id(tmpctx,
+					  peer->splice_state->short_channel_id));
 
 	inflight = NULL;
 	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++)
@@ -478,11 +476,11 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 "Unable to find inflight txid amoung %zu"
 				 " inflights. new funding txid: %s",
 				 tal_count(peer->splice_state->inflights),
-				 type_to_string(tmpctx, struct bitcoin_txid,
-		     		    &peer->splice_state->locked_txid));
+				 fmt_bitcoin_txid(tmpctx,
+						  &peer->splice_state->locked_txid));
 
 	status_debug("mutual splice_locked, updating change from: %s",
-		     type_to_string(tmpctx, struct channel, peer->channel));
+		     fmt_channel(tmpctx, peer->channel));
 
 	error = channel_update_funding(peer->channel, &inflight->outpoint,
 				       inflight->amnt,
@@ -493,7 +491,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 				 error);
 
 	status_debug("mutual splice_locked, channel updated to: %s",
-		     type_to_string(tmpctx, struct channel, peer->channel));
+		     fmt_channel(tmpctx, peer->channel));
 
 	/* ensure the signer is locking at the same time */
 	lock_signer_outpoint(&inflight->outpoint);
@@ -525,8 +523,7 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 				"Wrong splice lock channel id in %s "
 				"(expected %s)",
 				tal_hex(tmpctx, msg),
-				type_to_string(msg, struct channel_id,
-					       &peer->channel_id));
+				fmt_channel_id(msg, &peer->channel_id));
 
 	/* If we've `mutual_splice_locked` but our peer hasn't, we can ignore
 	 * this message harmlessly */
@@ -568,8 +565,7 @@ static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
 		peer_failed_err(peer->pps, &chanid,
 				"Wrong channel id in %s (expected %s)",
 				tal_hex(tmpctx, msg),
-				type_to_string(msg, struct channel_id,
-					       &peer->channel_id));
+				fmt_channel_id(msg, &peer->channel_id));
 
 	peer->tx_sigs_allowed = false;
 	peer->channel_ready[REMOTE] = true;
@@ -577,8 +573,7 @@ static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
 	if (tlvs->short_channel_id != NULL) {
 		status_debug(
 		    "Peer told us that they'll use alias=%s for this channel",
-		    type_to_string(tmpctx, struct short_channel_id,
-				   tlvs->short_channel_id));
+		    fmt_short_channel_id(tmpctx, *tlvs->short_channel_id));
 		peer->short_channel_ids[REMOTE] = *tlvs->short_channel_id;
 	}
 	wire_sync_write(MASTER_FD,
@@ -974,12 +969,10 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 
 	status_debug("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
 		     commit_index,
-		     type_to_string(tmpctx, struct bitcoin_signature,
-				    commit_sig),
-		     type_to_string(tmpctx, struct bitcoin_tx, txs[0]),
+		     fmt_bitcoin_signature(tmpctx, commit_sig),
+		     fmt_bitcoin_tx(tmpctx, txs[0]),
 		     tal_hex(tmpctx, funding_wscript),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->channel->funding_pubkey[LOCAL]));
+		     fmt_pubkey(tmpctx, &peer->channel->funding_pubkey[LOCAL]));
 	dump_htlcs(peer->channel, "Sending commit_sig");
 
 	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].htlc,
@@ -1013,12 +1006,10 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 				      tal_hex(tmpctx, msg));
 
 		status_debug("Creating HTLC signature %s for tx %s wscript %s key %s",
-			     type_to_string(tmpctx, struct bitcoin_signature,
-					    &htlc_sigs[i]),
-			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
+			     fmt_bitcoin_signature(tmpctx, &htlc_sigs[i]),
+			     fmt_bitcoin_tx(tmpctx, txs[1+i]),
 			     tal_hex(tmpctx, wscript),
-			     type_to_string(tmpctx, struct pubkey,
-					    &local_htlckey));
+			     fmt_pubkey(tmpctx, &local_htlckey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscript,
 				    &local_htlckey,
 				    &htlc_sigs[i]));
@@ -1341,9 +1332,9 @@ static void send_commit(struct peer *peer)
 			     " feechange %s (%s)"
 			     " blockheight %s (%s)",
 			     want_fee_update(peer, NULL) ? "wanted": "not wanted",
-			     type_to_string(tmpctx, struct fee_states, peer->channel->fee_states),
+			     fmt_fee_states(tmpctx, peer->channel->fee_states),
 			     want_blockheight_update(peer, NULL) ? "wanted" : "not wanted",
-			     type_to_string(tmpctx, struct height_states, peer->channel->blockheight_states));
+			     fmt_height_states(tmpctx, peer->channel->blockheight_states));
 
 		/* Covers the case where we've just been told to shutdown. */
 		maybe_send_shutdown(peer);
@@ -1713,9 +1704,7 @@ static bool missing_user_signatures(const struct peer *peer,
 		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
 			status_broken("PSBT input %"PRIu32" missing serial_id"
 				      " %s", i,
-				      type_to_string(tmpctx,
-						     struct wally_psbt,
-						     inflight->psbt));
+				      fmt_wally_psbt(tmpctx, inflight->psbt));
 			return true;
 		}
 		if (in_serial % 2 == our_role && i != splice_funding_index)
@@ -1890,10 +1879,8 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		if (!channel_id_eq(&active_id, cs_tlv->splice_info)) {
 			status_info("Ignoring stale commit_sig for channel_id"
 				    " %s, as %s is locked in now.",
-				    type_to_string(tmpctx, struct channel_id,
-				    		   cs_tlv->splice_info),
-				    type_to_string(tmpctx, struct channel_id,
-				    		   &active_id));
+				    fmt_channel_id(tmpctx, cs_tlv->splice_info),
+				    fmt_channel_id(tmpctx, &active_id));
 			return NULL;
 		}
 	}
@@ -1964,11 +1951,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving remote_htlckey");
 	status_debug("Derived key %s from basepoint %s, point %s",
-		     type_to_string(tmpctx, struct pubkey, &remote_htlckey),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->channel->basepoints[REMOTE].htlc),
-		     type_to_string(tmpctx, struct pubkey,
-				    local_per_commit));
+		     fmt_pubkey(tmpctx, &remote_htlckey),
+		     fmt_pubkey(tmpctx, &peer->channel->basepoints[REMOTE].htlc),
+		     fmt_pubkey(tmpctx, local_per_commit));
 	/* BOLT #2:
 	 *
 	 * A receiving node:
@@ -1987,20 +1972,16 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 " %s, splice_info: %s, race_await_commit: %s,"
 				 " inflight splice count: %zu",
 				 local_index,
-				 type_to_string(msg, struct bitcoin_signature,
-						&commit_sig),
-				 type_to_string(msg, struct bitcoin_tx, txs[0]),
+				 fmt_bitcoin_signature(msg, &commit_sig),
+				 fmt_bitcoin_tx(msg, txs[0]),
 				 tal_hex(msg, funding_wscript),
-				 type_to_string(msg, struct pubkey,
-						&peer->channel->funding_pubkey
-						[REMOTE]),
+				 fmt_pubkey(msg,
+					    &peer->channel->funding_pubkey[REMOTE]),
 				 channel_feerate(peer->channel, LOCAL),
-				 type_to_string(tmpctx, struct channel_id,
-				 		&active_id),
+				 fmt_channel_id(tmpctx,	&active_id),
 				 cs_tlv && cs_tlv->splice_info
-				 	? type_to_string(tmpctx,
-				 		       struct channel_id,
-				 		       cs_tlv->splice_info)
+				 	? fmt_channel_id(tmpctx,
+							 cs_tlv->splice_info)
 				 	: "N/A",
 				 peer->splice_state->await_commitment_succcess ? "yes"
 				 					: "no",
@@ -2038,11 +2019,10 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				  &remote_htlckey, &htlc_sigs[i]))
 			peer_failed_warn(peer->pps, &peer->channel_id,
 					 "Bad commit_sig signature %s for htlc %s wscript %s key %s",
-					 type_to_string(msg, struct bitcoin_signature, &htlc_sigs[i]),
-					 type_to_string(msg, struct bitcoin_tx, txs[1+i]),
+					 fmt_bitcoin_signature(msg, &htlc_sigs[i]),
+					 fmt_bitcoin_tx(msg, txs[1+i]),
 					 tal_hex(msg, wscript),
-					 type_to_string(msg, struct pubkey,
-							&remote_htlckey));
+					 fmt_pubkey(msg, &remote_htlckey));
 	}
 
 	status_debug("Received commit_sig with %zu htlc sigs",
@@ -2254,15 +2234,14 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	if (!pubkey_from_privkey(&privkey, &per_commit_point)) {
 		peer_failed_err(peer->pps, &peer->channel_id,
 				"Bad privkey %s",
-				type_to_string(msg, struct privkey, &privkey));
+				fmt_privkey(msg, &privkey));
 	}
 	if (!pubkey_eq(&per_commit_point, &peer->old_remote_per_commit)) {
 		peer_failed_err(peer->pps, &peer->channel_id,
 				"Wrong privkey %s for %"PRIu64" %s",
-				type_to_string(msg, struct privkey, &privkey),
+				fmt_privkey(msg, &privkey),
 				peer->next_index[LOCAL]-2,
-				type_to_string(msg, struct pubkey,
-					       &peer->old_remote_per_commit));
+				fmt_pubkey(msg, &peer->old_remote_per_commit));
 	}
 
 	/* We start timer even if this returns false: we might have delayed
@@ -2285,10 +2264,8 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	peer->remote_per_commit = next_per_commit;
 	status_debug("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
 		     side_to_str(peer->channel->opener),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->remote_per_commit),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->old_remote_per_commit));
+		     fmt_pubkey(tmpctx, &peer->remote_per_commit),
+		     fmt_pubkey(tmpctx, &peer->old_remote_per_commit));
 
 	peer->splice_state->await_commitment_succcess = false;
 
@@ -2578,8 +2555,7 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 		/* Log this event as unusual.  */
 		status_unusual("Got repeated WIRE_CHANNEL_REESTABLISH "
 			       "for channel %s, ignoring: %s",
-			       type_to_string(tmpctx, struct channel_id,
-					      &peer->channel_id),
+			       fmt_channel_id(tmpctx, &peer->channel_id),
 			       tal_hex(tmpctx, msg));
 		/* This is a mitigation for a known bug in some peer software
 		 * that sometimes double-sends a reestablish message.
@@ -2606,8 +2582,7 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 			"Peer sent unexpected message %u, (%s) "
 			"for nonexistent channel %s",
 			WIRE_CHANNEL_REESTABLISH, "WIRE_CHANNEL_REESTABLISH",
-			type_to_string(tmpctx, struct channel_id,
-				       &channel_id));
+			fmt_channel_id(tmpctx, &channel_id));
 }
 
 static bool is_initiators_serial(const struct wally_map *unknowns)
@@ -3098,10 +3073,8 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Our" : "Your",
-				 type_to_string(tmpctx, struct amount_msat,
-				 		&initiator_fee),
-				 type_to_string(tmpctx, struct amount_sat,
-				 		&min_initiator_fee));
+				 fmt_amount_msat(tmpctx, initiator_fee),
+				 fmt_amount_sat(tmpctx, min_initiator_fee));
 	}
 	if (!peer->splicing->force_feerate && opener
 		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
@@ -3111,10 +3084,8 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
-				 type_to_string(tmpctx, struct amount_msat,
-				 		&initiator_fee),
-				 type_to_string(tmpctx, struct amount_sat,
-				 		&max_initiator_fee));
+				 fmt_amount_msat(tmpctx, initiator_fee),
+				 fmt_amount_sat(tmpctx, max_initiator_fee));
 	}
 	/* Check accepter fee */
 	if (amount_msat_less_sat(accepter_fee, min_accepter_fee)) {
@@ -3124,10 +3095,8 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Your" : "Our",
-				 type_to_string(tmpctx, struct amount_msat,
-				 		&accepter_fee),
-				 type_to_string(tmpctx, struct amount_sat,
-				 		&min_accepter_fee));
+				 fmt_amount_msat(tmpctx, accepter_fee),
+				 fmt_amount_sat(tmpctx, min_accepter_fee));
 	}
 	if (!peer->splicing->force_feerate && !opener
 		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
@@ -3137,10 +3106,8 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
-				 type_to_string(tmpctx, struct amount_msat,
-				 		&accepter_fee),
-				 type_to_string(tmpctx, struct amount_sat,
-				 		&max_accepter_fee));
+				 fmt_amount_msat(tmpctx, accepter_fee),
+				 fmt_amount_sat(tmpctx, max_accepter_fee));
 	}
 
 	/* BOLT-??? #2:
@@ -3176,12 +3143,11 @@ static struct amount_sat check_balances(struct peer *peer,
 			      "splice error: msat of total funding %s should"
 			      " always add up to a full sat. original local bal"
 			      " %s, original remote bal %s,",
-			      type_to_string(tmpctx, struct amount_msat,
-			      		     &funding_amount),
-			      type_to_string(tmpctx, struct amount_msat,
-			      		     &peer->channel->view->owed[LOCAL]),
-			      type_to_string(tmpctx, struct amount_msat,
-			      		     &peer->channel->view->owed[REMOTE]));
+			      fmt_amount_msat(tmpctx, funding_amount),
+			      fmt_amount_msat(tmpctx,
+					      peer->channel->view->owed[LOCAL]),
+			      fmt_amount_msat(tmpctx,
+					      peer->channel->view->owed[REMOTE]));
 	}
 
 	return funding_amount_res;
@@ -3324,12 +3290,10 @@ static void resume_splice_negotiation(struct peer *peer,
 			      "my signature: %s "
 			      "psbt: %s",
 			      splice_funding_index,
-			      type_to_string(tmpctx, struct pubkey,
-			      		     &peer->channel->funding_pubkey[LOCAL]),
-			      type_to_string(tmpctx, struct bitcoin_signature,
-			      		     &splice_sig),
-			      type_to_string(tmpctx, struct wally_psbt,
-			      		     current_psbt));
+			      fmt_pubkey(tmpctx,
+					 &peer->channel->funding_pubkey[LOCAL]),
+			      fmt_bitcoin_signature(tmpctx, &splice_sig),
+			      fmt_wally_psbt(tmpctx, current_psbt));
 
 	txsig_tlvs = tlv_txsigs_tlvs_new(tmpctx);
 	der_len = signature_to_der(der, &splice_sig);
@@ -3433,15 +3397,9 @@ static void resume_splice_negotiation(struct peer *peer,
 				      "signature: %s "
 				      "psbt: %s",
 				      splice_funding_index,
-				      type_to_string(tmpctx,
-				      		     struct pubkey,
-				      		     their_pubkey),
-				      type_to_string(tmpctx,
-				      		     struct bitcoin_signature,
-				      		     &their_sig),
-				      type_to_string(tmpctx,
-				      		     struct wally_psbt,
-				      		     current_psbt));
+				      fmt_pubkey(tmpctx, their_pubkey),
+				      fmt_bitcoin_signature(tmpctx, &their_sig),
+				      fmt_wally_psbt(tmpctx, current_psbt));
 		}
 
 		psbt_input_set_witscript(current_psbt,
@@ -3463,8 +3421,7 @@ static void resume_splice_negotiation(struct peer *peer,
 			if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
 				status_broken("PSBT input %zu missing serial_id"
 					      " %s", i,
-					      type_to_string(tmpctx,
-							     struct wally_psbt,
+					      fmt_wally_psbt(tmpctx,
 							     current_psbt));
 				return;
 			}
@@ -4122,10 +4079,8 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Signed PSBT txid %s does not match"
 			      " current_psbt_txid %s",
-			      type_to_string(tmpctx, struct bitcoin_txid,
-			      		     &signed_psbt_txid),
-			      type_to_string(tmpctx, struct bitcoin_txid,
-			      		     &current_psbt_txid));
+			      fmt_bitcoin_txid(tmpctx, &signed_psbt_txid),
+			      fmt_bitcoin_txid(tmpctx, &current_psbt_txid));
 
 	peer->splicing->current_psbt = tal_free(peer->splicing->current_psbt);
 
@@ -4686,10 +4641,8 @@ static void check_current_dataloss_fields(struct peer *peer,
 				"bad reestablish: your_last_per_commitment_secret %"PRIu64
 				": %s should be %s",
 				next_revocation_number,
-				type_to_string(tmpctx, struct secret,
-					       last_local_per_commit_secret),
-				type_to_string(tmpctx, struct secret,
-					       &old_commit_secret));
+				fmt_secret(tmpctx, last_local_per_commit_secret),
+				fmt_secret(tmpctx, &old_commit_secret));
 
 	if (!remote_current_per_commitment_point) {
 		status_debug("option_static_remotekey: fields are correct");
@@ -4708,17 +4661,17 @@ static void check_current_dataloss_fields(struct peer *peer,
 		if (!pubkey_eq(remote_current_per_commitment_point,
 				&peer->old_remote_per_commit)) {
 			peer_failed_warn(peer->pps,
-					&peer->channel_id,
-					"bad reestablish: remote's "
-					"my_current_per_commitment_point %"PRIu64
-					"is %s; expected %s (new is %s).",
-					next_commitment_number - 1,
-					type_to_string(tmpctx, struct pubkey,
-						       remote_current_per_commitment_point),
-					 type_to_string(tmpctx, struct pubkey,
-							&peer->old_remote_per_commit),
-					 type_to_string(tmpctx, struct pubkey,
-							&peer->remote_per_commit));
+					 &peer->channel_id,
+					 "bad reestablish: remote's "
+					 "my_current_per_commitment_point %"PRIu64
+					 "is %s; expected %s (new is %s).",
+					 next_commitment_number - 1,
+					 fmt_pubkey(tmpctx,
+						    remote_current_per_commitment_point),
+					 fmt_pubkey(tmpctx,
+						    &peer->old_remote_per_commit),
+					 fmt_pubkey(tmpctx,
+						    &peer->remote_per_commit));
 		}
 	} else {
 		/* We've sent a commit sig but haven't gotten a revoke+ack back */
@@ -4730,12 +4683,12 @@ static void check_current_dataloss_fields(struct peer *peer,
 					 "my_current_per_commitment_point %"PRIu64
 					 "is %s; expected %s (old is %s).",
 					 next_commitment_number - 1,
-					 type_to_string(tmpctx, struct pubkey,
-							remote_current_per_commitment_point),
-					 type_to_string(tmpctx, struct pubkey,
-							&peer->remote_per_commit),
-					 type_to_string(tmpctx, struct pubkey,
-							&peer->old_remote_per_commit));
+					 fmt_pubkey(tmpctx,
+						    remote_current_per_commitment_point),
+					 fmt_pubkey(tmpctx,
+						    &peer->remote_per_commit),
+					 fmt_pubkey(tmpctx,
+						    &peer->old_remote_per_commit));
 		}
 	}
 
@@ -4966,8 +4919,7 @@ static void peer_reconnect(struct peer *peer,
 		peer_failed_err(peer->pps,
 				&channel_id,
 				"bad reestablish msg for unknown channel %s: %s",
-				type_to_string(tmpctx, struct channel_id,
-					       &channel_id),
+				fmt_channel_id(tmpctx, &channel_id),
 				tal_hex(msg, msg));
 	}
 
@@ -5018,26 +4970,21 @@ static void peer_reconnect(struct peer *peer,
 					" txid %s that matches our current"
 					" active funding txid %s. Should be %s"
 					" or NULL",
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       remote_next_funding),
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       &peer->channel->funding.txid),
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       &inflight->outpoint.txid));
+					fmt_bitcoin_txid(tmpctx,
+							 remote_next_funding),
+					fmt_bitcoin_txid(tmpctx,
+							 &peer->channel->funding.txid),
+					fmt_bitcoin_txid(tmpctx,
+							 &inflight->outpoint.txid));
 		} else { /* remote_next_funding set but unrecognized */
 			peer_failed_err(peer->pps,
 					&peer->channel_id,
 					"Invalid reestablish with unrecognized"
 					" next_funding txid %s, should be %s",
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       remote_next_funding),
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       &inflight->outpoint.txid));
+					fmt_bitcoin_txid(tmpctx,
+							 remote_next_funding),
+					fmt_bitcoin_txid(tmpctx,
+							 &inflight->outpoint.txid));
 		}
 	} else if (remote_next_funding) { /* No current inflight */
 		if (bitcoin_txid_eq(remote_next_funding,
@@ -5070,7 +5017,7 @@ static void peer_reconnect(struct peer *peer,
 
 		tlvs->short_channel_id = &peer->local_alias;
 		status_debug("Retransmitting channel_ready for channel %s",
-		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
+		             fmt_channel_id(tmpctx, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
 		msg = towire_channel_ready(NULL,
 					    &peer->channel_id,
@@ -5387,17 +5334,14 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			peer->splice_state->short_channel_id = *scid;
 			status_debug("Current channel id is %s, "
 				     "splice_short_channel_id now set to %s",
-				      type_to_string(tmpctx,
-				      		     struct short_channel_id,
-				      		     &peer->short_channel_ids[LOCAL]),
-				      type_to_string(tmpctx,
-				      		     struct short_channel_id,
-				      		     &peer->splice_state->short_channel_id));
+				      fmt_short_channel_id(tmpctx,
+							   peer->short_channel_ids[LOCAL]),
+				      fmt_short_channel_id(tmpctx,
+							   peer->splice_state->short_channel_id));
 		} else {
 			status_debug("handle_funding_depth: Setting short_channel_ids[LOCAL] to %s",
-				type_to_string(tmpctx,
-					       struct short_channel_id,
-					       (scid ? scid : &peer->local_alias)));
+				fmt_short_channel_id(tmpctx,
+						     (scid ? *scid : peer->local_alias)));
 			/* If we know an actual short_channel_id prefer to use
 			 * that, otherwise fill in the alias. From channeld's
 			 * point of view switching from zeroconf to an actual
@@ -5412,8 +5356,8 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			status_debug("channel_ready: sending commit index"
 				     " %"PRIu64": %s",
 				     peer->next_index[LOCAL],
-				     type_to_string(tmpctx, struct pubkey,
-						    &peer->next_local_per_commit));
+				     fmt_pubkey(tmpctx,
+						&peer->next_local_per_commit));
 			tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 			tlvs->short_channel_id = &peer->local_alias;
 
@@ -5480,7 +5424,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 			     &htlc_fee, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
-		     type_to_string(tmpctx, struct amount_msat, &amount),
+		     fmt_amount_msat(tmpctx, amount),
 		     cltv_expiry,
 		     channel_add_err_name(e));
 
@@ -5520,9 +5464,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failwiremsg = towire_amount_below_minimum(inmsg, amount, NULL);
 		failstr = tal_fmt(inmsg, "HTLC too small (%s minimum)",
-				  type_to_string(tmpctx,
-						 struct amount_msat,
-						 &peer->channel->config[REMOTE].htlc_minimum));
+				  fmt_amount_msat(tmpctx,
+						  peer->channel->config[REMOTE].htlc_minimum));
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
@@ -5990,15 +5933,13 @@ static void init_channel(struct peer *peer)
 		     " feerates %s range %u-%u"
 		     " blockheights %s, our current %u",
 		     side_to_str(opener),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->remote_per_commit),
-		     type_to_string(tmpctx, struct pubkey,
-				    &peer->old_remote_per_commit),
+		     fmt_pubkey(tmpctx, &peer->remote_per_commit),
+		     fmt_pubkey(tmpctx, &peer->old_remote_per_commit),
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received,
-		     type_to_string(tmpctx, struct fee_states, fee_states),
+		     fmt_fee_states(tmpctx, fee_states),
 		     peer->feerate_min, peer->feerate_max,
-		     type_to_string(tmpctx, struct height_states, blockheight_states),
+		     fmt_height_states(tmpctx, blockheight_states),
 		     peer->our_blockheight);
 
 	/* First commit is used for opening: if we've sent 0, we're on

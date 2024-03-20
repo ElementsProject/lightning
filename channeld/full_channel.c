@@ -424,10 +424,8 @@ static bool get_room_above_reserve(const struct channel *channel,
 		status_debug("%s cannot afford htlc: would make balance %s"
 			     " below reserve %s",
 			     side_to_str(side),
-			     type_to_string(tmpctx, struct amount_msat,
-					    remainder),
-			     type_to_string(tmpctx, struct amount_sat,
-					    &reserve));
+			     fmt_amount_msat(tmpctx, *remainder),
+			     fmt_amount_sat(tmpctx, reserve));
 		return false;
 	}
 	return true;
@@ -570,8 +568,8 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 
 	status_debug("Adding HTLC would leave us only %s: we need %s for"
 		     " another HTLC if fees increase by 100%% to %uperkw",
-		     type_to_string(tmpctx, struct amount_msat, &remainder),
-		     type_to_string(tmpctx, struct amount_sat, &fee),
+		     fmt_amount_msat(tmpctx, remainder),
+		     fmt_amount_sat(tmpctx, fee),
 		     feerate + feerate);
 	return false;
 }
@@ -775,10 +773,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		if (channel->opener== sender) {
 			if (amount_msat_less_sat(remainder, fee)) {
 				status_debug("Cannot afford fee %s with %s above reserve",
-					     type_to_string(tmpctx, struct amount_sat,
-							    &fee),
-					     type_to_string(tmpctx, struct amount_msat,
-							    &remainder));
+					     fmt_amount_sat(tmpctx, fee),
+					     fmt_amount_msat(tmpctx, remainder));
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 			}
 
@@ -819,12 +815,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				*htlc_fee = fee;
 			if (amount_msat_less_sat(remainder, fee)) {
 				status_debug("Funder could not afford own fee %s with %s above reserve",
-					     type_to_string(tmpctx,
-							    struct amount_sat,
-							    &fee),
-					     type_to_string(tmpctx,
-							    struct amount_msat,
-							    &remainder));
+					     fmt_amount_sat(tmpctx, fee),
+					     fmt_amount_msat(tmpctx, remainder));
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 			}
 			fee = fee_for_htlcs(channel,
@@ -836,13 +828,9 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			if (htlc_fee && amount_sat_greater(fee, *htlc_fee))
 				*htlc_fee = fee;
 			if (amount_msat_less_sat(remainder, fee)) {
-				status_debug("Funder could not afford peer's fee %s with %s above reserve",
-					     type_to_string(tmpctx,
-							    struct amount_sat,
-							    &fee),
-					     type_to_string(tmpctx,
-							    struct amount_msat,
-							    &remainder));
+				status_debug("Funder could not afford peer's fee `%s with %s above reserve",
+					     fmt_amount_sat(tmpctx, fee),
+					     fmt_amount_msat(tmpctx, remainder));
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 			}
 		}
@@ -1192,8 +1180,8 @@ static int change_htlcs(struct channel *channel,
 				      "%s: %s balance underflow: %s -> %"PRId64,
 				      side_to_str(sidechanged),
 				      side_to_str(i),
-				      type_to_string(tmpctx, struct amount_msat,
-						     &channel->view[sidechanged].owed[i]),
+				      fmt_amount_msat(tmpctx,
+						      channel->view[sidechanged].owed[i]),
 				      owed[i].msat);
 		}
 	}
@@ -1349,8 +1337,7 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	    && !amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot add 660 sats to %s for anchor",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &fee));
+			      fmt_amount_sat(tmpctx, fee));
 
 	/* BOLT #2:
 	 *
@@ -1366,10 +1353,9 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			    channel->config[!channel->opener].channel_reserve))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot add fee %s and reserve %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &fee),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->config[!channel->opener].channel_reserve));
+			      fmt_amount_sat(tmpctx, fee),
+			      fmt_amount_sat(tmpctx,
+					     channel->config[!channel->opener].channel_reserve));
 
 	/* The amount we have needs to take into account that we're
 	 * adding and removing htlcs */
@@ -1387,13 +1373,13 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	}
 
 	status_debug("We need %s at feerate %u for %zu untrimmed htlcs: we have %s/%s (will have %s)",
-		     type_to_string(tmpctx, struct amount_sat, &needed),
+		     fmt_amount_sat(tmpctx, needed),
 		     feerate_per_kw, untrimmed,
-		     type_to_string(tmpctx, struct amount_msat,
-				    &channel->view[LOCAL].owed[channel->opener]),
-		     type_to_string(tmpctx, struct amount_msat,
-				    &channel->view[REMOTE].owed[channel->opener]),
-		     type_to_string(tmpctx, struct amount_msat, &available));
+		     fmt_amount_msat(tmpctx,
+				     channel->view[LOCAL].owed[channel->opener]),
+		     fmt_amount_msat(tmpctx,
+				     channel->view[REMOTE].owed[channel->opener]),
+		     fmt_amount_msat(tmpctx, available));
 	return amount_msat_greater_eq_sat(available, needed);
 }
 
@@ -1620,11 +1606,9 @@ bool channel_force_htlcs(struct channel *channel,
 			     " payment_hash=%s %s",
 			     i, tal_count(htlcs),
 			     htlcs[i]->id,
-			     type_to_string(tmpctx, struct amount_msat,
-					    &htlcs[i]->amount),
+			     fmt_amount_msat(tmpctx, htlcs[i]->amount),
 			     htlcs[i]->cltv_expiry,
-			     type_to_string(tmpctx, struct sha256,
-					    &htlcs[i]->payment_hash),
+			     fmt_sha256(tmpctx, &htlcs[i]->payment_hash),
 			     htlcs[i]->payment_preimage ? "(have preimage)"
 			     : htlcs[i]->failed ? "(failed)" : "");
 

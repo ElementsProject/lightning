@@ -330,8 +330,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 		printf("# signature for output #%zi (%s for htlc #%"PRIu64")\n",
 		       i, htlc_owner(htlc) == LOCAL ? "htlc-timeout" : "htlc-success", htlc->id);
 		printf("remote_htlc_signature = %s\n",
-		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
-				      &remotehtlcsig[i].s));
+		       fmt_secp256k1_ecdsa_signature(tmpctx,
+						     &remotehtlcsig[i].s));
 
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -340,8 +340,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      SIGHASH_ALL,
 			      &localhtlcsig);
 		printf("# local_htlc_signature = %s\n",
-		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
-				      &localhtlcsig.s));
+		       fmt_secp256k1_ecdsa_signature(tmpctx,
+						     &localhtlcsig.s));
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_timeout_tx_add_witness(htlc_tx[i],
 						    local_htlckey,
@@ -403,7 +403,7 @@ static void report(struct bitcoin_tx *tx,
 		      SIGHASH_ALL,
 		      &remotesig);
 	printf("remote_signature = %s\n",
-	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &remotesig.s));
+	       fmt_secp256k1_ecdsa_signature(tmpctx, &remotesig.s));
 	sign_tx_input(tx, 0,
 		      NULL,
 		      wscript,
@@ -411,7 +411,7 @@ static void report(struct bitcoin_tx *tx,
 		      SIGHASH_ALL,
 		      &localsig);
 	printf("# local_signature = %s\n",
-	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &localsig.s));
+	       fmt_secp256k1_ecdsa_signature(tmpctx, &localsig.s));
 
 	witness =
 	    bitcoin_witness_2of2(tx, &localsig, &remotesig,
@@ -618,51 +618,42 @@ int main(int argc, const char *argv[])
 	local_funding_privkey.secret = secret_from_hex("30ff4956bbdd3222d44cc5e8a1261dab1e07957bdac5ae88fe3261ef321f374901");
 	x_remote_funding_privkey.secret = secret_from_hex("1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e1301");
 	SUPERVERBOSE("INTERNAL: remote_funding_privkey: %s01\n",
-		     type_to_string(tmpctx, struct privkey,
-				    &x_remote_funding_privkey));
+		     fmt_privkey(tmpctx, &x_remote_funding_privkey));
 	x_local_payment_basepoint_secret = secret_from_hex("1111111111111111111111111111111111111111111111111111111111111111");
 	SUPERVERBOSE("INTERNAL: local_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct secret,
-				    &x_local_payment_basepoint_secret));
+		     fmt_secret(tmpctx, &x_local_payment_basepoint_secret));
 	x_remote_revocation_basepoint_secret = secret_from_hex("2222222222222222222222222222222222222222222222222222222222222222");
 	SUPERVERBOSE("INTERNAL: remote_revocation_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct secret,
-				    &x_remote_revocation_basepoint_secret));
+		     fmt_secret(tmpctx, &x_remote_revocation_basepoint_secret));
 	x_local_delayed_payment_basepoint_secret = secret_from_hex("3333333333333333333333333333333333333333333333333333333333333333");
 	SUPERVERBOSE("INTERNAL: local_delayed_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct secret,
-				    &x_local_delayed_payment_basepoint_secret));
+		     fmt_secret(tmpctx, &x_local_delayed_payment_basepoint_secret));
 	x_remote_payment_basepoint_secret = secret_from_hex("4444444444444444444444444444444444444444444444444444444444444444");
 	SUPERVERBOSE("INTERNAL: remote_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct secret,
-				    &x_remote_payment_basepoint_secret));
+		     fmt_secret(tmpctx, &x_remote_payment_basepoint_secret));
 	x_local_per_commitment_secret = secret_from_hex("0x1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100");
 	SUPERVERBOSE("x_local_per_commitment_secret: %s\n",
-		     type_to_string(tmpctx, struct secret,
-				    &x_local_per_commitment_secret));
+		     fmt_secret(tmpctx, &x_local_per_commitment_secret));
 
 	if (!pubkey_from_secret(&x_remote_revocation_basepoint_secret,
 				&x_remote_revocation_basepoint))
  		abort();
 	SUPERVERBOSE("# From remote_revocation_basepoint_secret\n"
 		     "INTERNAL: remote_revocation_basepoint: %s\n",
-		     type_to_string(tmpctx, struct pubkey,
-				    &x_remote_revocation_basepoint));
+		     fmt_pubkey(tmpctx, &x_remote_revocation_basepoint));
 
 	if (!pubkey_from_secret(&x_local_delayed_payment_basepoint_secret,
 				&x_local_delayed_payment_basepoint))
 		abort();
 	SUPERVERBOSE("# From local_delayed_payment_basepoint_secret\n"
 		     "INTERNAL: local_delayed_payment_basepoint: %s\n",
-		     type_to_string(tmpctx, struct pubkey,
-				    &x_local_delayed_payment_basepoint));
+		     fmt_pubkey(tmpctx, &x_local_delayed_payment_basepoint));
 
 	if (!pubkey_from_secret(&x_local_per_commitment_secret,
 				&x_local_per_commitment_point))
 		abort();
 	SUPERVERBOSE("INTERNAL: local_per_commitment_point: %s\n",
-		     type_to_string(tmpctx, struct pubkey,
-				    &x_local_per_commitment_point));
+		     fmt_pubkey(tmpctx, &x_local_per_commitment_point));
 
 	if (!pubkey_from_secret(&x_local_payment_basepoint_secret,
 				&local_payment_basepoint))
@@ -684,7 +675,7 @@ int main(int argc, const char *argv[])
 				   &x_remote_htlcsecretkey))
 		abort();
 	SUPERVERBOSE("INTERNAL: remote_secretkey: %s\n",
-		     type_to_string(tmpctx, struct privkey, &x_remote_htlcsecretkey));
+		     fmt_privkey(tmpctx, &x_remote_htlcsecretkey));
 
 	if (!derive_simple_privkey(&x_local_delayed_payment_basepoint_secret,
 				   &x_local_delayed_payment_basepoint,
@@ -693,14 +684,13 @@ int main(int argc, const char *argv[])
 		abort();
 	SUPERVERBOSE("# From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint\n"
 		     "INTERNAL: local_delayed_secretkey: %s\n",
-		     type_to_string(tmpctx, struct privkey,
-				    &x_local_delayed_secretkey));
+		     fmt_privkey(tmpctx, &x_local_delayed_secretkey));
 
 	/* These two needed to calculate obscuring factor */
 	printf("local_payment_basepoint: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &local_payment_basepoint));
+	       fmt_pubkey(tmpctx, &local_payment_basepoint));
 	printf("remote_payment_basepoint: %s\n",
-	       type_to_string(tmpctx, struct pubkey,&remote_payment_basepoint));
+	       fmt_pubkey(tmpctx,&remote_payment_basepoint));
 	cn_obscurer = commit_number_obscurer(&local_payment_basepoint,
 					     &remote_payment_basepoint);
 	printf("# obscured commitment transaction number = 0x%"PRIx64" ^ %"PRIu64"\n",
@@ -708,16 +698,16 @@ int main(int argc, const char *argv[])
 
 
 	printf("local_funding_privkey: %s01\n",
-	       type_to_string(tmpctx, struct privkey, &local_funding_privkey));
+	       fmt_privkey(tmpctx, &local_funding_privkey));
 	if (!pubkey_from_privkey(&local_funding_privkey, &local_funding_pubkey))
 		abort();
 	printf("local_funding_pubkey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &local_funding_pubkey));
+	       fmt_pubkey(tmpctx, &local_funding_pubkey));
 
 	if (!pubkey_from_privkey(&x_remote_funding_privkey, &remote_funding_pubkey))
 		abort();
 	printf("remote_funding_pubkey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &remote_funding_pubkey));
+	       fmt_pubkey(tmpctx, &remote_funding_pubkey));
 
 	if (!derive_simple_privkey(&x_local_htlc_basepoint_secret,
 				   &local_payment_basepoint,
@@ -725,14 +715,14 @@ int main(int argc, const char *argv[])
 				   &local_htlcsecretkey))
 		abort();
 	printf("local_secretkey: %s\n",
-	       type_to_string(tmpctx, struct privkey, &local_htlcsecretkey));
+	       fmt_privkey(tmpctx, &local_htlcsecretkey));
 
 	if (!derive_simple_key(&local_payment_basepoint,
 			       &x_local_per_commitment_point,
 			       &localkey))
 		abort();
 	printf("localkey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &localkey));
+	       fmt_pubkey(tmpctx, &localkey));
 
 	if (option_static_remotekey)
 		remotekey = remote_payment_basepoint;
@@ -743,7 +733,7 @@ int main(int argc, const char *argv[])
 			abort();
 	}
 	printf("remotekey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &remotekey));
+	       fmt_pubkey(tmpctx, &remotekey));
 
 	if (!pubkey_from_privkey(&local_htlcsecretkey, &local_htlckey))
 		abort();
@@ -753,14 +743,14 @@ int main(int argc, const char *argv[])
 		abort();
 	assert(pubkey_eq(&tmpkey, &local_htlckey));
 	printf("local_htlckey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &local_htlckey));
+	       fmt_pubkey(tmpctx, &local_htlckey));
 
 	if (!derive_simple_key(&remote_htlc_basepoint,
 			       &x_local_per_commitment_point,
 			       &remote_htlckey))
 		abort();
 	printf("remote_htlckey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &remote_htlckey));
+	       fmt_pubkey(tmpctx, &remote_htlckey));
 
 	if (!pubkey_from_privkey(&x_local_delayed_secretkey, &local_delayedkey))
 		abort();
@@ -770,14 +760,14 @@ int main(int argc, const char *argv[])
 		abort();
 	assert(pubkey_eq(&tmpkey, &local_delayedkey));
 	printf("local_delayedkey: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &local_delayedkey));
+	       fmt_pubkey(tmpctx, &local_delayedkey));
 
 	if (!derive_revocation_key(&x_remote_revocation_basepoint,
 				   &x_local_per_commitment_point,
 				   &remote_revocation_key))
 		abort();
 	printf("remote_revocation_key: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &remote_revocation_key));
+	       fmt_pubkey(tmpctx, &remote_revocation_key));
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &local_funding_pubkey,
 				      &remote_funding_pubkey);

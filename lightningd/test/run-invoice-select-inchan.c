@@ -257,6 +257,12 @@ struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
+/* Generated stub for fmt_channel_id */
+char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
+/* Generated stub for fmt_node_id */
+char *fmt_node_id(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fmt_node_id called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,

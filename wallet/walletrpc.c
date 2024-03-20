@@ -282,9 +282,8 @@ static void json_add_utxo(struct json_stream *response,
 	if (!out)
 		log_broken(wallet->log,
 			   "Could not encode utxo %s%s!",
-			   type_to_string(tmpctx,
-					  struct bitcoin_outpoint,
-					  &utxo->outpoint),
+			   fmt_bitcoin_outpoint(tmpctx,
+						&utxo->outpoint),
 			   utxo->close_info ? " (has close_info)" : "");
 	else
 		json_add_string(response, "address", out);
@@ -612,8 +611,8 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 			if (only_inputs)
 				return command_fail(cmd, LIGHTNINGD,
 						    "Aborting PSBT signing. UTXO %s is unknown (and specified by signonly)",
-						    type_to_string(tmpctx, struct bitcoin_outpoint,
-								   &outpoint));
+						    fmt_bitcoin_outpoint(tmpctx,
+									 &outpoint));
 			continue;
 		}
 
@@ -621,8 +620,8 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld->topology)))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Aborting PSBT signing. UTXO %s is not reserved",
-					    type_to_string(tmpctx, struct bitcoin_outpoint,
-							   &utxo->outpoint));
+					    fmt_bitcoin_outpoint(tmpctx,
+								 &utxo->outpoint));
 
 		/* If the psbt doesn't have the UTXO info yet, add it.
 		 * We only add the witness_utxo for this */
@@ -729,8 +728,7 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	if (!psbt_set_version(psbt, 2)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not set PSBT version: %s",
-					 type_to_string(tmpctx, struct wally_psbt,
-					 	psbt));
+					 fmt_wally_psbt(tmpctx, psbt));
 	}
 
 	/* Sanity check! */
@@ -785,15 +783,13 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	if (!combined_psbt) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Unable to combine signed psbt: %s",
-				    type_to_string(tmpctx, struct wally_psbt,
-						   signed_psbt));
+				    fmt_wally_psbt(tmpctx, signed_psbt));
 	}
 
 	if (!psbt_set_version(combined_psbt, psbt_version)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Signed PSBT unable to have version set: %s",
-					 type_to_string(tmpctx, struct wally_psbt,
-					 	combined_psbt));
+					 fmt_wally_psbt(tmpctx, combined_psbt));
 	}
 
 	response = json_stream_success(cmd);
@@ -916,8 +912,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 					 "Error broadcasting transaction: %s."
 					 " Unsent tx discarded %s",
 					 msg,
-					 type_to_string(tmpctx, struct wally_tx,
-							sending->wtx)));
+					 fmt_wally_tx(tmpctx, sending->wtx)));
 		return;
 	}
 
@@ -973,8 +968,7 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	if (!sending->wtx)
 		return command_fail(cmd, LIGHTNINGD,
 				    "PSBT not finalizeable %s",
-				    type_to_string(tmpctx, struct wally_psbt,
-						   psbt));
+				    fmt_wally_psbt(tmpctx, psbt));
 
 	/* We have to find/locate the utxos that are ours on this PSBT,
 	 * so that we know who to mark as used.

@@ -559,7 +559,7 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
 {
 	if (utxo->status != OUTPUT_STATE_RESERVED)
 		fatal("UTXO %s is not reserved",
-		      type_to_string(tmpctx, struct bitcoin_outpoint,
+		      fmt_bitcoin_outpoint(tmpctx,
 				     &utxo->outpoint));
 
 	if (utxo->reserved_til <= current_height + unreserve) {
@@ -1676,7 +1676,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		last_tx = db_col_psbt_to_tx(tmpctx, stmt, "last_tx");
 		if (!last_tx)
 			db_fatal(w->db, "Failed to decode channel %s psbt %s",
-				 type_to_string(tmpctx, struct channel_id, &cid),
+				 fmt_channel_id(tmpctx, &cid),
 				 tal_hex(tmpctx, db_col_arr(tmpctx, stmt,
 							    "last_tx", u8)));
 		last_sig = tal(tmpctx, struct bitcoin_signature);
@@ -2543,7 +2543,7 @@ struct state_change_entry *wallet_state_change_get(struct wallet *w,
 static void wallet_peer_save(struct wallet *w, struct peer *peer)
 {
 	const char *addr =
-	    type_to_string(tmpctx, struct wireaddr_internal, &peer->addr);
+	    fmt_wireaddr_internal(tmpctx, &peer->addr);
 	struct db_stmt *stmt =
 	    db_prepare_v2(w->db, SQL("SELECT id FROM peers WHERE node_id = ?"));
 
@@ -2762,11 +2762,9 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
 		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
 			  i,
-			  type_to_string(tmpctx, struct amount_sat,
-					 &utxo->amount),
+			  fmt_amount_sat(tmpctx, utxo->amount),
 			  utxo->is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(tmpctx, struct bitcoin_txid,
-					 &utxo->outpoint.txid),
+			  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
 			  blockheight ? " CONFIRMED" : "",
 			  is_coinbase ? " COINBASE" : "");
 
@@ -2801,9 +2799,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		if (total && !amount_sat_add(total, *total, utxo->amount))
 			fatal("Cannot add utxo output %zu/%zu %s + %s",
 			      i, wtx->num_outputs,
-			      type_to_string(tmpctx, struct amount_sat, total),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &utxo->amount));
+			      fmt_amount_sat(tmpctx, *total),
+			      fmt_amount_sat(tmpctx, utxo->amount));
 
 		wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
 		tal_free(utxo);
@@ -3154,8 +3151,8 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 		   " is missing a resolution:"
 		   " subsituting temporary node failure",
 		   hin->key.id, htlc_state_name(hin->hstate),
-		   type_to_string(tmpctx, struct amount_msat, &hin->msat),
-		   type_to_string(tmpctx, struct node_id,
+		   fmt_amount_msat(tmpctx, hin->msat),
+		   fmt_node_id(tmpctx,
 				  &hin->key.channel->peer->id));
 #endif
 }
@@ -4185,9 +4182,9 @@ bool wallet_sanity_check(struct wallet *w)
 					   "!= %s. "
 					   "Are you on the right network? "
 					   "(--network={one of %s})",
-				   type_to_string(w, struct bitcoin_blkid,
+				   fmt_bitcoin_blkid(w,
 						  &chainhash),
-				   type_to_string(w, struct bitcoin_blkid,
+				   fmt_bitcoin_blkid(w,
 						  &chainparams->genesis_blockhash),
 				   chainparams_get_network_names(tmpctx));
 			return false;
@@ -4216,8 +4213,8 @@ bool wallet_sanity_check(struct wallet *w)
 					   "match HSM: %s "
 					   "!= %s. "
 					   "Did your hsm_secret change?",
-				   type_to_string(tmpctx, struct node_id, &id),
-				   type_to_string(tmpctx, struct node_id,
+				   fmt_node_id(tmpctx, &id),
+				   fmt_node_id(tmpctx,
 						  &w->ld->id));
 			return false;
 		}
@@ -4974,8 +4971,8 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
 	if (!amount_msat_add(&total, total, deleted))
 		db_fatal(w->db, "Adding forward fees %s + %s overflowed",
-			 type_to_string(tmpctx, struct amount_msat, &total),
-			 type_to_string(tmpctx, struct amount_msat, &deleted));
+			 fmt_amount_msat(tmpctx, total),
+			 fmt_amount_msat(tmpctx, deleted));
 
 	return total;
 }
@@ -5139,10 +5136,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->msat_out = db_col_amount_msat(stmt, "out_msatoshi");
 			if (!amount_msat_sub(&cur->fee, cur->msat_in, cur->msat_out)) {
 				log_broken(w->log, "Forwarded in %s less than out %s!",
-					   type_to_string(tmpctx, struct amount_msat,
-							  &cur->msat_in),
-					   type_to_string(tmpctx, struct amount_msat,
-							  &cur->msat_out));
+					   fmt_amount_msat(tmpctx, cur->msat_in),
+					   fmt_amount_msat(tmpctx, cur->msat_out));
 				cur->fee = AMOUNT_MSAT(0);
 			}
 		}
@@ -5548,7 +5543,7 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	if (!db_step(stmt))
 		fatal("%s: unknown offer_id %s",
 		      __func__,
-		      type_to_string(tmpctx, struct sha256, offer_id));
+		      fmt_sha256(tmpctx, offer_id));
 
 	status = offer_status_in_db(db_col_int(stmt, "status"));
 	tal_free(stmt);
@@ -5556,7 +5551,7 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	if (!offer_status_active(status))
 		fatal("%s: offer_id %s not active: status %i",
 		      __func__,
-		      type_to_string(tmpctx, struct sha256, offer_id),
+		      fmt_sha256(tmpctx, offer_id),
 		      status);
 
 	if (!offer_status_used(status)) {
@@ -5715,7 +5710,7 @@ void wallet_invoice_request_mark_used(struct db *db, const struct sha256 *invreq
 	if (!db_step(stmt))
 		fatal("%s: unknown invreq_id %s",
 		      __func__,
-		      type_to_string(tmpctx, struct sha256, invreq_id));
+		      fmt_sha256(tmpctx, invreq_id));
 
 	status = offer_status_in_db(db_col_int(stmt, "status"));
 	tal_free(stmt);
@@ -5723,7 +5718,7 @@ void wallet_invoice_request_mark_used(struct db *db, const struct sha256 *invreq
 	if (!offer_status_active(status))
 		fatal("%s: invreq_id %s not active: status %i",
 		      __func__,
-		      type_to_string(tmpctx, struct sha256, invreq_id),
+		      fmt_sha256(tmpctx, invreq_id),
 		      status);
 
 	if (!offer_status_used(status)) {

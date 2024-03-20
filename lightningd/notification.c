@@ -423,15 +423,15 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 			/* some 'journal entries' don't have a txid */
 			if (id->tx_txid)
 				json_add_string(stream, "txid",
-						type_to_string(tmpctx, struct bitcoin_txid,
-							       id->tx_txid));
+						fmt_bitcoin_txid(tmpctx,
+								 id->tx_txid));
 			/* some chain ledger entries aren't associated with a utxo
 			 * e.g. journal updates (due to penalty/state loss) and
 			 * chain_fee entries */
 			if (id->outpoint) {
 				json_add_string(stream, "utxo_txid",
-						type_to_string(tmpctx, struct bitcoin_txid,
-							       &id->outpoint->txid));
+						fmt_bitcoin_txid(tmpctx,
+								 &id->outpoint->txid));
 				json_add_u32(stream, "vout", id->outpoint->n);
 			}
 
@@ -439,13 +439,13 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 			if (id->payment_hash)
 				json_add_sha256(stream, "payment_hash", id->payment_hash);
 			return;
-		case CHANNEL_MVT:
-			/* push funding / leases don't have a payment_hash */
-			if (id->payment_hash)
-				json_add_sha256(stream, "payment_hash", id->payment_hash);
-			if (id->part_id)
-				json_add_u64(stream, "part_id", *id->part_id);
-			return;
+	case CHANNEL_MVT:
+		/* push funding / leases don't have a payment_hash */
+		if (id->payment_hash)
+			json_add_sha256(stream, "payment_hash", id->payment_hash);
+		if (id->part_id)
+			json_add_u64(stream, "part_id", *id->part_id);
+		return;
 	}
 	abort();
 }
@@ -531,10 +531,10 @@ void notify_balance_snapshot(struct lightningd *ld,
 }
 
 static void json_add_block_added_fields(struct json_stream *stream,
-					   const struct block *block)
+					const struct block *block)
 {
 	json_add_string(stream, "hash",
-			type_to_string(tmpctx, struct bitcoin_blkid, &block->blkid));
+			fmt_bitcoin_blkid(tmpctx, &block->blkid));
 	json_add_u32(stream, "height", block->height);
 }
 

@@ -205,7 +205,7 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
 		status_peer_debug(&peer->id,
 				  "sent query_short_channel_ids chainhash %s",
-				  type_to_string(tmpctx, struct bitcoin_blkid, &chain));
+				  fmt_bitcoin_blkid(tmpctx, &chain));
 		return towire_reply_short_channel_ids_end(peer, &chain, 0);
 	}
 
@@ -633,8 +633,7 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
 		status_peer_debug(&peer->id,
 				  "query_channel_range with chainhash %s",
-				  type_to_string(tmpctx, struct bitcoin_blkid,
-						 &chain_hash));
+				  fmt_bitcoin_blkid(tmpctx, &chain_hash));
 		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
 		                                     number_of_blocks, false, NULL, NULL);
 		queue_peer_msg(peer->daemon, &peer->id, take(end));

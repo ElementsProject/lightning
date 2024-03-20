@@ -515,7 +515,7 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		hsm_unilateral_close_privkey(privkey, utxo->close_info);
 		pubkey_from_privkey(privkey, pubkey);
 		hsmd_status_debug("Derived public key %s from unilateral close",
-			     type_to_string(tmpctx, struct pubkey, pubkey));
+				  fmt_pubkey(tmpctx, pubkey));
 	} else {
 		/* Simple case: just get derive via HD-derivation */
 		bitcoin_key(privkey, pubkey, utxo->keyindex);
@@ -572,10 +572,8 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 				hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				    "Received wally_err attempting to "
 				    "sign input %zu with key %s. PSBT: %s",
-				    j, type_to_string(tmpctx, struct pubkey,
-						   &pubkey),
-				    type_to_string(tmpctx, struct wally_psbt,
-						   psbt));
+				    j, fmt_pubkey(tmpctx, &pubkey),
+				    fmt_wally_psbt(tmpctx, psbt));
 			}
 			tal_wally_end(psbt);
 		}
@@ -630,10 +628,8 @@ static u8 *handle_check_pubkey(struct hsmd_client *c, const u8 *msg_in)
 				   "BIP32 derivation index %u differed:"
 				   " they got %s, we got %s",
 				   index,
-				   type_to_string(tmpctx, struct pubkey,
-						  &their_pubkey),
-				   type_to_string(tmpctx, struct pubkey,
-						  &our_pubkey));
+				   fmt_pubkey(tmpctx, &their_pubkey),
+				   fmt_pubkey(tmpctx, &our_pubkey));
 	}
 
 	return towire_hsmd_check_pubkey_reply(NULL, true);
@@ -1624,10 +1620,8 @@ static u8 *handle_sign_anchorspend(struct hsmd_client *c, const u8 *msg_in)
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Received wally_err attempting to "
 				    "sign anchor key %s. PSBT: %s",
-				    type_to_string(tmpctx, struct pubkey,
-						   &local_funding_pubkey),
-				    type_to_string(tmpctx, struct wally_psbt,
-						   psbt));
+				    fmt_pubkey(tmpctx, &local_funding_pubkey),
+				    fmt_wally_psbt(tmpctx, psbt));
 	}
 
 	return towire_hsmd_sign_anchorspend_reply(NULL, psbt);

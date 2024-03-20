@@ -207,7 +207,7 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 	mvt = new_chain_coin_mvt(ctx, NULL, NULL, out, NULL, 0,
 				 take(new_tag_arr(NULL, CHANNEL_PROPOSED)),
 				 amount, true, output_val, 0);
-	mvt->account_name = type_to_string(mvt, struct channel_id, chan_id);
+	mvt->account_name = fmt_channel_id(mvt, chan_id);
 	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	/* If we're the opener, add to the tag list */
@@ -235,7 +235,7 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 	mvt = new_chain_coin_mvt(ctx, NULL, NULL, out, NULL, blockheight,
 				 take(new_tag_arr(NULL, CHANNEL_OPEN)), amount,
 				 true, output_val, 0);
-	mvt->account_name = type_to_string(mvt, struct channel_id, chan_id);
+	mvt->account_name = fmt_channel_id(mvt, chan_id);
 	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	/* If we're the opener, add to the tag list */
@@ -423,8 +423,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
-	mvt->account_id = type_to_string(mvt, struct channel_id,
-					 &chan_mvt->chan_id);
+	mvt->account_id = fmt_channel_id(mvt, &chan_mvt->chan_id);
 	/* channel moves don't have external events! */
 	mvt->originating_acct = NULL;
 	mvt->hrp_name = tal_strdup(mvt, hrp_name);

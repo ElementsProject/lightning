@@ -96,7 +96,7 @@ void payflow_disable_chan(struct pay_flow *pf,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	payflow_note(pf, lvl, "disabling %s: %s",
-		     type_to_string(tmpctx, struct short_channel_id, &scid),
+		     fmt_short_channel_id(tmpctx, scid),
 		     str);
 	tal_arr_expand(&pf->payment->disabled_scids, scid);
 }
@@ -113,7 +113,7 @@ void payment_disable_chan(struct payment *p,
 	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	payment_note(p, lvl, "disabling %s: %s",
-		     type_to_string(tmpctx, struct short_channel_id, &scid),
+		     fmt_short_channel_id(tmpctx, scid),
 		     str);
 	tal_arr_expand(&p->disabled_scids, scid);
 }
@@ -139,8 +139,8 @@ struct amount_msat payment_fees(const struct payment *p)
 
 	if(!amount_msat_sub(&fees,sent,delivered))
 		plugin_err(pay_plugin->plugin, "Strange, sent amount (%s) is less than delivered (%s), aborting.",
-			   type_to_string(tmpctx,struct amount_msat,&sent),
-			   type_to_string(tmpctx,struct amount_msat,&delivered));
+			   fmt_amount_msat(tmpctx, sent),
+			   fmt_amount_msat(tmpctx, delivered));
 	return fees;
 }
 
@@ -184,8 +184,8 @@ void payment_assert_delivering_incomplete(const struct payment *p)
 	{
 		plugin_err(pay_plugin->plugin,
 			"Strange, delivering (%s) is not smaller than amount (%s)",
-			type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
-			type_to_string(tmpctx,struct amount_msat,&p->amount));
+			fmt_amount_msat(tmpctx, p->total_delivering),
+			fmt_amount_msat(tmpctx, p->amount));
 	}
 }
 void payment_assert_delivering_all(const struct payment *p)
@@ -194,8 +194,8 @@ void payment_assert_delivering_all(const struct payment *p)
 	{
 		plugin_err(pay_plugin->plugin,
 			"Strange, delivering (%s) is less than amount (%s)",
-			type_to_string(tmpctx,struct amount_msat,&p->total_delivering),
-			type_to_string(tmpctx,struct amount_msat,&p->amount));
+			fmt_amount_msat(tmpctx, p->total_delivering),
+			fmt_amount_msat(tmpctx, p->amount));
 	}
 }
 
@@ -297,15 +297,12 @@ void payment_reconsider(struct payment *payment)
 						 i->payment_preimage)) {
 					plugin_err(pay_plugin->plugin,
 						   "Impossible preimage clash for %s: %s and %s?",
-						   type_to_string(tmpctx,
-								  struct sha256,
-								  &payment->payment_hash),
-						   type_to_string(tmpctx,
-								  struct preimage,
-								  payment->preimage),
-						   type_to_string(tmpctx,
-								  struct preimage,
-								  i->payment_preimage));
+						   fmt_sha256(tmpctx,
+							      &payment->payment_hash),
+						   fmt_preimage(tmpctx,
+								payment->preimage),
+						   fmt_preimage(tmpctx,
+								i->payment_preimage));
 				}
 			} else {
 				payment->preimage = tal_dup(payment, struct preimage,
@@ -337,13 +334,9 @@ void payment_reconsider(struct payment *payment)
 			plugin_log(pay_plugin->plugin, LOG_BROKEN,
 				   "Destination %s succeeded payment %s"
 				   " (preimage %s) after previous final failure?",
-				   type_to_string(tmpctx, struct node_id,
-						  &payment->destination),
-				   type_to_string(tmpctx, struct sha256,
-						  &payment->payment_hash),
-				   type_to_string(tmpctx,
-						  struct preimage,
-						  payment->preimage));
+				   fmt_node_id(tmpctx, &payment->destination),
+				   fmt_sha256(tmpctx, &payment->payment_hash),
+				   fmt_preimage(tmpctx, payment->preimage));
 			break;
 		}
 
@@ -370,9 +363,9 @@ void payment_reconsider(struct payment *payment)
 			plugin_log(pay_plugin->plugin, LOG_BROKEN,
 				   "Destination %s failed payment %s with %u/%s"
 				   " after previous success?",
-				   type_to_string(tmpctx, struct node_id,
+				   fmt_node_id(tmpctx,
 						  &payment->destination),
-				   type_to_string(tmpctx, struct sha256,
+				   fmt_sha256(tmpctx,
 						  &payment->payment_hash),
 				   final_error, final_msg);
 			break;
@@ -401,7 +394,7 @@ void payment_reconsider(struct payment *payment)
 	if (have_state[PAY_FLOW_FAILED_GOSSIP_PENDING]) {
 		plugin_log(pay_plugin->plugin, LOG_DBG,
 			   "%s waiting on addgossip return",
-			   type_to_string(tmpctx, struct sha256,
+			   fmt_sha256(tmpctx,
 					  &payment->payment_hash));
 		return;
 	}

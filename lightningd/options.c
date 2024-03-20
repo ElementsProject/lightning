@@ -405,7 +405,7 @@ static char *opt_add_addr_withtype(const char *arg,
 		if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
 			return tal_fmt(tmpctx, "Duplicate %s address %s",
 				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
-				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
+				       fmt_wireaddr_internal(tmpctx, &wi));
 	}
 
 	tal_arr_expand(&ld->proposed_listen_announce, ala);

@@ -110,9 +110,9 @@ static struct sha256 *H(const void *tag, const void *msg)
 
 	printf("test: H(tag=%s,msg=%s) -> SHA256(%s|%s|msg) -> %s\n",
 	       tal_hex(tmpctx, tag), tal_hex(tmpctx, msg),
-	       type_to_string(tmpctx, struct sha256, taghash),
-	       type_to_string(tmpctx, struct sha256, taghash),
-	       type_to_string(tmpctx, struct sha256, ret));
+	       fmt_sha256(tmpctx, taghash),
+	       fmt_sha256(tmpctx, taghash),
+	       fmt_sha256(tmpctx, ret));
 	return ret;
 }
 
@@ -193,16 +193,16 @@ int main(int argc, char *argv[])
 			    H(concat(LnNonce, tlv1), tlv_type(tlv1))));
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv1-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv1),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
-		 type_to_string(tmpctx, struct sha256, leaf[0]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv1)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
+		 fmt_sha256(tmpctx, leaf[0]));
 	json_out("],");
 
 	m = leaf[0];
 
 	json_out("\"branches\": [],");
 	json_out("\"merkle\": \"%s\"",
-		 type_to_string(tmpctx, struct sha256, m));
+		 fmt_sha256(tmpctx, m));
 	json_out("},");
 
 	/* Create, linearize (populates ->fields) */
@@ -226,14 +226,14 @@ int main(int argc, char *argv[])
 
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv1-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv1),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
-		 type_to_string(tmpctx, struct sha256, leaf[0]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv1)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
+		 fmt_sha256(tmpctx, leaf[0]));
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv2-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv2),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv2)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
-		 type_to_string(tmpctx, struct sha256, leaf[1]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv2)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
+		 fmt_sha256(tmpctx, leaf[1]));
 	json_out("],");
 
 	json_out("\"branches\": [");
@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
 	m = H(LnBranch, ordered(leaf[0], leaf[1]));
 
 	json_out("\"merkle\": \"%s\"",
-		 type_to_string(tmpctx, struct sha256, m));
+		 fmt_sha256(tmpctx, m));
 	json_out("},");
 
 	n1->tlv2 = tal(n1, struct short_channel_id);
@@ -268,19 +268,19 @@ int main(int argc, char *argv[])
 				      H(concat(LnNonce, tlv1), tlv_type(tlv3))));
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,1)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv1),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
-		 type_to_string(tmpctx, struct sha256, leaf[0]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv1)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
+		 fmt_sha256(tmpctx, leaf[0]));
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,2)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv2),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv2)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
-		 type_to_string(tmpctx, struct sha256, leaf[1]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv2)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
+		 fmt_sha256(tmpctx, leaf[1]));
 	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,3)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv3),
-		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv3)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv3))),
-		 type_to_string(tmpctx, struct sha256, leaf[2]));
+		 fmt_sha256(tmpctx, H(LnLeaf, tlv3)),
+		 fmt_sha256(tmpctx, H(concat(LnNonce, tlv1), tlv_type(tlv3))),
+		 fmt_sha256(tmpctx, leaf[2]));
 	json_out("],");
 
 	json_out("\"branches\": [");
@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 	      ordered(H(LnBranch, ordered(leaf[0], leaf[1])),
 		      leaf[2]));
 	json_out("\"merkle\": \"%s\"",
-		 type_to_string(tmpctx, struct sha256, m));
+		 fmt_sha256(tmpctx, m));
 	json_out("},");
 
 	n1->tlv3 = tal(n1, struct tlv_n1_tlv3);
@@ -375,12 +375,12 @@ int main(int argc, char *argv[])
 				    H(concat(LnNonce, fieldwires[0]), tlv_type(fieldwires[i]))));
 		json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,%u)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }%s",
 			 tal_hex(tmpctx, fieldwires[i]),
-			 type_to_string(tmpctx, struct sha256,
+			 fmt_sha256(tmpctx,
 					H(LnLeaf, fieldwires[i])),
 			 tlv_type(fieldwires[i])[0], /* Works becuase they're all 1-byte types! */
-			 type_to_string(tmpctx, struct sha256,
+			 fmt_sha256(tmpctx,
 					H(concat(LnNonce, fieldwires[0]), tlv_type(fieldwires[i]))),
-			 type_to_string(tmpctx, struct sha256, leaf[i]),
+			 fmt_sha256(tmpctx, leaf[i]),
 			 i == ARRAY_SIZE(fieldwires) - 1 ? "" : ",");
 	}
 	json_out("],");
@@ -420,10 +420,10 @@ int main(int argc, char *argv[])
 
 	json_out("],");
 	json_out("\"merkle\": \"%s\",",
-		 type_to_string(tmpctx, struct sha256, m));
+		 fmt_sha256(tmpctx, m));
 	json_out("\"signature_tag\": \"lightninginvoice_requestsignature\",");
-	json_out("\"H(signature_tag,merkle)\": \"%s\",", type_to_string(tmpctx, struct sha256, &sha));
-	json_out("\"signature\": \"%s\"", type_to_string(tmpctx, struct bip340sig, invreq->signature));
+	json_out("\"H(signature_tag,merkle)\": \"%s\",", fmt_sha256(tmpctx, &sha));
+	json_out("\"signature\": \"%s\"", fmt_bip340sig(tmpctx, invreq->signature));
 	json_out("}]");
 
 	assert(sha256_eq(&test_m, m));

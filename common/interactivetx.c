@@ -484,9 +484,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					      NULL))
 				return tal_fmt(ctx,
 					       "Invalid tx sent. Not SegWit %s",
-					       type_to_string(ctx,
-							      struct bitcoin_tx,
-							      tx));
+					       fmt_bitcoin_tx(ctx, tx));
 
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -501,9 +499,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 				return tal_fmt(ctx,
 					       "Unable to add input %s- "
 					       "already present",
-					       type_to_string(ctx,
-							      struct bitcoin_outpoint,
-							      &outpoint));
+					       fmt_bitcoin_outpoint(ctx, &outpoint));
 
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -528,9 +524,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			if (!in)
 				return tal_fmt(ctx,
 					       "Unable to add input %s",
-					       type_to_string(ctx,
-							      struct bitcoin_outpoint,
-							      &outpoint));
+					       fmt_bitcoin_outpoint(ctx, &outpoint));
 
 			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);

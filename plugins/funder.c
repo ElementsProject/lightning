@@ -81,7 +81,7 @@ unreserve_done(struct command *cmd UNUSED,
 {
 	plugin_log(open->p, LOG_DBG,
 		   "`unreserveinputs` for channel %s completed. %*.s",
-		   type_to_string(tmpctx, struct channel_id, &open->channel_id),
+		   fmt_channel_id(tmpctx, &open->channel_id),
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
 
@@ -96,7 +96,7 @@ static void unreserve_psbt(struct pending_open *open)
 
 	plugin_log(open->p, LOG_DBG,
 		   "Calling `unreserveinputs` for channel %s",
-		   type_to_string(tmpctx, struct channel_id,
+		   fmt_channel_id(tmpctx,
 				  &open->channel_id));
 
 	req = jsonrpc_request_start(open->p, NULL,
@@ -207,7 +207,7 @@ remember_channel_utxos(struct command *cmd,
 	struct out_req *req;
 	u8 *utxos_bin;
 	char *chan_key = tal_fmt(cmd, "funder/%s",
-				 type_to_string(cmd, struct channel_id,
+				 fmt_channel_id(cmd,
 						&open->channel_id));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
@@ -247,7 +247,7 @@ signpsbt_done(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "`signpsbt` done for channel %s",
-		   type_to_string(tmpctx, struct channel_id,
+		   fmt_channel_id(tmpctx,
 				  &open->channel_id));
 	err = json_scan(tmpctx, buf, result,
 			"{signed_psbt:%}",
@@ -299,20 +299,20 @@ json_openchannel2_sign_call(struct command *cmd,
 	if (!open) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "nothing to sign for channel %s",
-			   type_to_string(tmpctx, struct channel_id, &cid));
+			   fmt_channel_id(tmpctx, &cid));
 		return command_hook_cont_psbt(cmd, psbt);
 	}
 
 	if (!psbt_has_our_input(psbt)) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "no inputs to sign for channel %s",
-			   type_to_string(tmpctx, struct channel_id, &cid));
+			   fmt_channel_id(tmpctx, &cid));
 		return command_hook_cont_psbt(cmd, psbt);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "openchannel_sign PSBT is %s",
-		   type_to_string(tmpctx, struct wally_psbt, psbt));
+		   fmt_wally_psbt(tmpctx, psbt));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "signpsbt",
@@ -334,7 +334,7 @@ json_openchannel2_sign_call(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "calling `signpsbt` for channel %s for %zu input%s",
-		   type_to_string(tmpctx, struct channel_id,
+		   fmt_channel_id(tmpctx,
 				  &open->channel_id), count,
 		   count == 1 ? "" : "s");
 	return send_outreq(cmd->plugin, req);
@@ -364,7 +364,7 @@ json_openchannel2_changed_call(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "openchannel_changed PSBT is %s",
-		   type_to_string(tmpctx, struct wally_psbt, psbt));
+		   fmt_wally_psbt(tmpctx, psbt));
 
 	/* FIXME: do we have any additions or updates to make based
 	 * on their changes? */
@@ -467,10 +467,8 @@ psbt_fund_failed(struct command *cmd,
 		   "Unable to secure %s from wallet,"
 		   " continuing channel open to %s"
 		   " without our participation. err %.*s",
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding),
-		   type_to_string(tmpctx, struct node_id,
-				  &info->id),
+		   fmt_amount_sat(tmpctx, info->our_funding),
+		   fmt_node_id(tmpctx, &info->id),
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
@@ -696,8 +694,7 @@ listfunds_success(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Policy %s returned funding amount of %s. %s",
 		   funder_policy_desc(tmpctx, current_policy),
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding),
+		   fmt_amount_sat(tmpctx, info->our_funding),
 		   funding_err ? funding_err : "");
 
 	if (amount_sat_zero(info->our_funding))
@@ -705,11 +702,9 @@ listfunds_success(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Funding channel %s with %s (their input %s)",
-		   type_to_string(tmpctx, struct channel_id, &info->cid),
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding),
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->their_funding));
+		   fmt_channel_id(tmpctx, &info->cid),
+		   fmt_amount_sat(tmpctx, info->our_funding),
+		   fmt_amount_sat(tmpctx, info->their_funding));
 
 	/* If there's prevouts, we compose a psbt with those first,
 	 * then add more funds for anything missing */
@@ -732,8 +727,7 @@ listfunds_success(struct command *cmd,
 		json_add_bool(req->js, "nonwrapped", true);
 	}
 	json_add_string(req->js, "satoshi",
-			type_to_string(tmpctx, struct amount_sat,
-				       &info->our_funding));
+			fmt_amount_sat(tmpctx, info->our_funding));
 	json_add_string(req->js, "feerate",
 			tal_fmt(tmpctx, "%"PRIu64"%s",
 				info->funding_feerate_perkw,
@@ -762,7 +756,7 @@ listfunds_failed(struct command *cmd,
 		   "Unable to fetch wallet funds info."
 		   " Continuing channel open to %s"
 		   " without our participation. err %.*s",
-		   type_to_string(tmpctx, struct node_id,
+		   fmt_node_id(tmpctx,
 				  &info->id),
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
@@ -1068,7 +1062,7 @@ json_rbf_channel_call(struct command *cmd,
 				    &datastore_list_fail,
 				    info);
 	chan_key = tal_fmt(cmd, "funder/%s",
-			   type_to_string(cmd, struct channel_id,
+			   fmt_channel_id(cmd,
 					  &info->cid));
 	json_add_string(req->js, "key", chan_key);
 	return send_outreq(cmd->plugin, req);
@@ -1093,7 +1087,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Cleaning up inflights for peer id %s",
-		   type_to_string(tmpctx, struct node_id, &id));
+		   fmt_node_id(tmpctx, &id));
 
 	cleanup_peer_pending_opens(&id);
 
@@ -1117,7 +1111,7 @@ delete_channel_from_datastore(struct command *cmd,
 				    NULL);
 	json_add_string(req->js, "key",
 			tal_fmt(cmd, "funder/%s",
-				type_to_string(cmd, struct channel_id, cid)));
+				fmt_channel_id(cmd, cid)));
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -1153,7 +1147,7 @@ static struct command_result *json_channel_state_changed(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Cleaning up datastore for channel_id %s",
-		   type_to_string(tmpctx, struct channel_id, &cid));
+		   fmt_channel_id(tmpctx, &cid));
 
 	return delete_channel_from_datastore(cmd, &cid);
 }
@@ -1179,7 +1173,7 @@ static struct command_result *json_channel_open_failed(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Cleaning up inflight for channel_id %s",
-		   type_to_string(tmpctx, struct channel_id, &cid));
+		   fmt_channel_id(tmpctx, &cid));
 
 	open = find_channel_pending_open(&cid);
 	if (open)
@@ -1460,7 +1454,7 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 
 	mval = amount_msat(rates->lease_fee_base_sat * 1000);
 	json_out_addstr(jout, "lease_fee_base_msat",
-			type_to_string(tmpctx, struct amount_msat, &mval));
+			fmt_amount_msat(tmpctx, mval));
 	json_out_add(jout, "lease_fee_basis", false,
 		     "%d", rates->lease_fee_basis);
 
@@ -1469,7 +1463,7 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 
 	mval = amount_msat(rates->channel_fee_max_base_msat);
 	json_out_addstr(jout, "channel_fee_max_base_msat",
-			type_to_string(tmpctx, struct amount_msat, &mval));
+			fmt_amount_msat(tmpctx, mval));
 	json_out_add(jout, "channel_fee_max_proportional_thousandths", false,
 		     "%d", rates->channel_fee_max_proportional_thousandths);
 

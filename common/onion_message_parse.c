@@ -114,7 +114,7 @@ bool onion_message_parse(const tal_t *ctx,
 	if (!rs) {
 		status_peer_debug(peer,
 				  "onion_message_parse: can't process onionpacket ss=%s",
-				  type_to_string(tmpctx, struct secret, &onion_ss));
+				  fmt_secret(tmpctx, &onion_ss));
 		return false;
 	}
 

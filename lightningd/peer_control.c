@@ -344,7 +344,7 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 	channel_fail_permanent(inflight->channel,
 			       REASON_UNKNOWN,
 			       "Inflight tx %s confirmed after mutual close",
-			       type_to_string(tmpctx, struct bitcoin_txid, txid));
+			       fmt_bitcoin_txid(tmpctx, txid));
 	return DELETE_WATCH;
 }
 
@@ -906,7 +906,7 @@ static void json_add_channel(struct lightningd *ld,
 			     node_id_idx(&ld->id, &channel->peer->id));
 
 	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &channel->cid));
+			fmt_channel_id(tmpctx, &channel->cid));
 	json_add_txid(response, "funding_txid", &channel->funding.txid);
 	json_add_num(response, "funding_outnum", channel->funding.n);
 
@@ -1022,10 +1022,8 @@ static void json_add_channel(struct lightningd *ld,
 			    channel->our_funds)) {
 		log_broken(channel->log,
 			   "Overflow subtracing funding %s, our funds %s",
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding_sats),
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->our_funds));
+			   fmt_amount_sat(tmpctx, channel->funding_sats),
+			   fmt_amount_sat(tmpctx, channel->our_funds));
 		peer_funded_sats = AMOUNT_SAT(0);
 	}
 
@@ -1037,8 +1035,7 @@ static void json_add_channel(struct lightningd *ld,
 			log_broken(channel->log,
 				   "Can't convert channel->push %s to sats"
 				   " (lease fees?)",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &channel->push));
+				   fmt_amount_msat(tmpctx, channel->push));
 			funds = AMOUNT_SAT(0);
 		}
 
@@ -1093,8 +1090,7 @@ static void json_add_channel(struct lightningd *ld,
 	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {
 		log_broken(channel->log,
 			   "Overflow converting funding %s",
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding_sats));
+			   fmt_amount_sat(tmpctx, channel->funding_sats));
 		funding_msat = AMOUNT_MSAT(0);
 	}
 	json_add_amount_msat(response, "to_us_msat", channel->our_msat);
@@ -1235,11 +1231,11 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_add_string(stream, "direction", payload->incoming ? "in" : "out");
 	json_add_string(
 	    stream, "addr",
-	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
+	    fmt_wireaddr_internal(stream, &payload->addr));
 	if (payload->remote_addr)
 		json_add_string(
 		    stream, "remote_addr",
-		    type_to_string(stream, struct wireaddr, payload->remote_addr));
+		    fmt_wireaddr(stream, payload->remote_addr));
 	/* Since this is start of hook, peer is always in table! */
 	json_add_hex_talarr(stream, "features",
 			    peer_by_id(payload->ld, &payload->peer_id)
@@ -1536,7 +1532,7 @@ static const struct wireaddr *best_remote_addr(const tal_t *ctx,
 		daddr.addr = *peer->remote_addr;
 		daddr.addr.port = ld->config.ip_discovery_port;
 		log_debug(ld->log, "best_remote_addr: peer %s gave addr %s (%s)",
-			  type_to_string(tmpctx, struct node_id, &peer->id),
+			  fmt_node_id(tmpctx, &peer->id),
 			  fmt_wireaddr(tmpctx, &daddr.addr),
 			  daddr.preferred ? "preferred" : "no chan");
 		tal_arr_expand(&daddrs, daddr);
@@ -1884,7 +1880,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	/* Weird message?  Log and reply with error. */
 	log_peer_unusual(ld->log, &peer->id,
 			 "Unknown channel %s for %s",
-			 type_to_string(tmpctx, struct channel_id,
+			 fmt_channel_id(tmpctx,
 					&channel_id),
 			 peer_wire_name(msgtype));
 	error = towire_errorfmt(tmpctx, &channel_id,
@@ -1991,10 +1987,9 @@ void update_channel_from_inflight(struct lightningd *ld,
 				       " an invalid satoshi amount wrapping,"
 				       " channel: %s, initial funds: %s, splice"
 				       " banace change: %s",
-				       type_to_string(tmpctx, struct channel_id,
+				       fmt_channel_id(tmpctx,
 						      &channel->cid),
-				       type_to_string(tmpctx, struct amount_sat,
-						      &channel->our_funds),
+				       fmt_amount_sat(tmpctx, channel->our_funds),
 				       inflight->funding->splice_amnt);
 	}
 
@@ -2042,7 +2037,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	channel->depth = depth;
 
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
-		  type_to_string(tmpctx, struct bitcoin_txid, txid),
+		  fmt_bitcoin_txid(tmpctx, txid),
 		  depth, channel->minimum_depth);
 
 	/* Reorged out? */
@@ -2062,7 +2057,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		case CHANNELD_AWAITING_LOCKIN:
 			/* That's not entirely unexpected in early states */
 			log_debug(channel->log, "Funding tx %s reorganized out!",
-				  type_to_string(tmpctx, struct bitcoin_txid, txid));
+				  fmt_bitcoin_txid(tmpctx, txid));
 			channel->scid = tal_free(channel->scid);
 			return KEEP_WATCHING;
 
@@ -2076,7 +2071,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 
 				str = tal_fmt(tmpctx,
 					      "Funding tx %s reorganized out, but %s...",
-					      type_to_string(tmpctx, struct bitcoin_txid, txid),
+					      fmt_bitcoin_txid(tmpctx, txid),
 					      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
 
 				/* Log even if not connected! */
@@ -2122,7 +2117,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		/* If not awaiting lockin/announce, it doesn't care any more */
 		log_debug(channel->log,
 			  "Funding tx %s confirmed, but peer in state %s",
-			  type_to_string(tmpctx, struct bitcoin_txid, txid),
+			  fmt_bitcoin_txid(tmpctx, txid),
 			  channel_state_name(channel));
 		return DELETE_WATCH;
 
@@ -2192,7 +2187,7 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	log_debug(channel->log, "Watching for funding txid: %s",
-		type_to_string(tmpctx, struct bitcoin_txid, &channel->funding.txid));
+		fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 	watch_txid(channel, ld->topology,
 		   &channel->funding.txid, funding_depth_cb, channel);
 
@@ -2223,9 +2218,7 @@ static void json_add_peer(struct lightningd *ld,
 	if (p->connected == PEER_CONNECTED) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
-				type_to_string(tmpctx,
-					       struct wireaddr_internal,
-					       &p->addr));
+				fmt_wireaddr_internal(tmpctx, &p->addr));
 		json_array_end(response);
 		/* If peer reports our IP remote_addr, add that here */
 		if (p->remote_addr)
@@ -3059,7 +3052,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &channel->peer->id);
 	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &channel->cid));
+			fmt_channel_id(tmpctx, &channel->cid));
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id", channel->scid);
 

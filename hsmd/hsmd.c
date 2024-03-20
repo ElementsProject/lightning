@@ -129,7 +129,7 @@ static struct io_plan *bad_req_fmt(struct io_conn *conn,
 	}
 
 	/*~ Nobody should give us bad requests; it's a sign something is broken */
-	status_broken("%s: %s", type_to_string(tmpctx, struct node_id, &c->id), str);
+	status_broken("%s: %s", fmt_node_id(tmpctx, &c->id), str);
 
 	/*~ Note the use of NULL as the ctx arg to towire_hsmstatus_: only
 	 * use NULL as the allocation when we're about to immediately free it
@@ -192,8 +192,7 @@ static struct client *new_client(const tal_t *ctx,
 		if (!node_id_valid(id))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Invalid node id %s",
-				      type_to_string(tmpctx, struct node_id,
-						     id));
+				      fmt_node_id(tmpctx, id));
 	} else {
 		memset(&c->id, 0, sizeof(c->id));
 	}

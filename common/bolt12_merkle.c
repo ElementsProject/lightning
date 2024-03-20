@@ -50,7 +50,7 @@ static void h_simpletag_ctx(struct sha256_ctx *sctx, const char *tag)
 	sha256_update(sctx, &sha, sizeof(sha));
 	SUPERVERBOSE("tag=SHA256(%s) -> %s",
 		     tal_hexstr(tmpctx, tag, strlen(tag)),
-		     type_to_string(tmpctx, struct sha256, &sha));
+		     fmt_sha256(tmpctx, &sha));
 }
 
 
@@ -73,7 +73,7 @@ static void h_lnnonce_ctx(struct sha256_ctx *sctx, const struct tlv_field *field
 	sha256_update_tlvfield(&inner_sctx, &fields[0]);
 	sha256_done(&inner_sctx, &sha);
 	SUPERVERBOSE(") -> %s\n",
-		     type_to_string(tmpctx, struct sha256, &sha));
+		     fmt_sha256(tmpctx, &sha));
 
 	sha256_init(sctx);
 	sha256_update(sctx, &sha, sizeof(sha));
@@ -92,7 +92,7 @@ static void calc_nonce(const struct sha256_ctx *lnnonce_ctx,
 	sha256_update_bigsize(&ctx, field->numtype);
 
 	sha256_done(&ctx, hash);
-	SUPERVERBOSE(") = %s\n", type_to_string(tmpctx, struct sha256, hash));
+	SUPERVERBOSE(") = %s\n", fmt_sha256(tmpctx, hash));
 }
 
 static void calc_lnleaf(const struct tlv_field *field, struct sha256 *hash)
@@ -104,7 +104,7 @@ static void calc_lnleaf(const struct tlv_field *field, struct sha256 *hash)
 	SUPERVERBOSE(",");
 	sha256_update_tlvfield(&sctx, field);
 	sha256_done(&sctx, hash);
-	SUPERVERBOSE(") -> %s\n", type_to_string(tmpctx, struct sha256, hash));
+	SUPERVERBOSE(") -> %s\n", fmt_sha256(tmpctx, hash));
 }
 
 /* BOLT-offers #12:
@@ -130,7 +130,7 @@ static struct sha256 *merkle_pair(const tal_t *ctx,
 
 	res = tal(ctx, struct sha256);
 	sha256_done(&sctx, res);
-	SUPERVERBOSE(") -> %s\n", type_to_string(tmpctx, struct sha256, res));
+	SUPERVERBOSE(") -> %s\n", fmt_sha256(tmpctx, res));
 	return res;
 }
 

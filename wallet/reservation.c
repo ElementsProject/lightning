@@ -69,9 +69,8 @@ static void reserve_and_report(struct json_stream *response,
 					 current_height,
 					 reserve)) {
 			fatal("Unable to reserve %s!",
-			      type_to_string(tmpctx,
-					     struct bitcoin_outpoint,
-					     &utxos[i]->outpoint));
+			      fmt_bitcoin_outpoint(tmpctx,
+						   &utxos[i]->outpoint));
 		}
 		json_add_reservestatus(response, utxos[i], oldstatus, old_res,
 				       current_height);
@@ -102,9 +101,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	if (!psbt_set_version(psbt, 2)) {
 		return command_fail(cmd, LIGHTNINGD,
 					"Failed to set version for PSBT: %s",
-					type_to_string(tmpctx,
-						   struct wally_psbt,
-						   psbt));
+					fmt_wally_psbt(tmpctx, psbt));
 	}
 
 	current_height = get_block_height(cmd->ld->topology);
@@ -119,16 +116,14 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 		if (*exclusive && utxo_is_reserved(utxo, current_height)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s already reserved",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
-							   &utxo->outpoint));
+					    fmt_bitcoin_outpoint(tmpctx,
+								 &utxo->outpoint));
 		}
 		if (utxo->status == OUTPUT_STATE_SPENT)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s already spent",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
-							   &utxo->outpoint));
+					    fmt_bitcoin_outpoint(tmpctx,
+								 &utxo->outpoint));
 		tal_arr_expand(&utxos, utxo);
 	}
 
@@ -169,8 +164,7 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 	if (!psbt_set_version(psbt, 2)) {
 		log_broken(cmd->ld->log,
 			"Unable to set version for PSBT: %s",
-			type_to_string(tmpctx, struct wally_psbt,
-                          psbt));
+			fmt_wally_psbt(tmpctx, psbt));
 	}
 
 	/* We should also add the utxo info for these inputs!
@@ -191,8 +185,7 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		} else
 			log_broken(cmd->ld->log,
 				   "No transaction found for UTXO %s",
-				   type_to_string(tmpctx, struct bitcoin_txid,
-						  &txid));
+				   fmt_bitcoin_txid(tmpctx, &txid));
 	}
 
 	if (command_check_only(cmd))
@@ -596,14 +589,10 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Could not afford %s using all %zu available UTXOs: %s short",
 				    all ? "all"
-				    : type_to_string(tmpctx,
-						     struct amount_sat,
-						     amount),
+				    : fmt_amount_sat(tmpctx, *amount),
 				    tal_count(utxos),
 				    all ? "all"
-				    : type_to_string(tmpctx,
-						     struct amount_sat,
-						     &diff));
+				    : fmt_amount_sat(tmpctx, diff));
 	}
 
 	tal_free(excluded);
@@ -704,9 +693,8 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	if (amount_sat_less(*amount, chainparams->dust_limit))
 		return command_fail(cmd, FUND_OUTPUT_IS_DUST,
 				    "Receive amount is below dust limit (%s)",
-				    type_to_string(tmpctx,
-				    		   struct amount_sat,
-				    		   &chainparams->dust_limit));
+				    fmt_amount_sat(tmpctx,
+						   chainparams->dust_limit));
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
@@ -794,15 +782,13 @@ static struct command_result *param_txout(struct command *cmd,
 		if (!utxo) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unknown UTXO %s",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
+					    fmt_bitcoin_outpoint(tmpctx,
 							   &outpoint));
 		}
 		if (utxo->status == OUTPUT_STATE_SPENT) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Already spent UTXO %s",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
+					    fmt_bitcoin_outpoint(tmpctx,
 							   &outpoint));
 		}
 
@@ -862,14 +848,12 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		if (!*reserved_ok && utxo_is_reserved(utxo, current_height))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "UTXO %s already reserved",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
+					    fmt_bitcoin_outpoint(tmpctx,
 							   &utxo->outpoint));
 		if (utxo_is_csv_locked(utxo, current_height))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "UTXO %s is csv locked (%u)",
-					    type_to_string(tmpctx,
-							   struct bitcoin_outpoint,
+					    fmt_bitcoin_outpoint(tmpctx,
 							   &utxo->outpoint),
 					    utxo->close_info->csv);
 
@@ -891,9 +875,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		    || amount_sat_less(excess, chainparams->dust_limit)) {
 			return command_fail(cmd, FUND_CANNOT_AFFORD,
 					    "Could not afford anything using UTXOs totalling %s with weight %u at feerate %u",
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   &input),
+					    fmt_amount_sat(tmpctx, input),
 					    *weight, *feerate_per_kw);
 		}
 		*excess_as_change = false;
@@ -902,12 +884,8 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 				       *feerate_per_kw, *weight, &excess)) {
 			return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Could not afford %s using UTXOs totalling %s with weight %u at feerate %u",
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   amount),
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   &input),
+					    fmt_amount_sat(tmpctx, *amount),
+					    fmt_amount_sat(tmpctx, input),
 					    *weight, *feerate_per_kw);
 		}
 	}

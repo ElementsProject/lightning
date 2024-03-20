@@ -25,7 +25,7 @@ static bool blind_node(const struct privkey *blinding,
 	if (!blindedpath_get_alias(ss, node, node_alias))
 		return false;
 	SUPERVERBOSE("\t\"blinded_node_id\": \"%s\",\n",
-		     type_to_string(tmpctx, struct pubkey, node_alias));
+		     fmt_pubkey(tmpctx, node_alias));
 
 	/* BOLT #4:
 	 *  - `E(i+1) = SHA256(E(i) || ss(i)) * E(i)`
@@ -34,7 +34,7 @@ static bool blind_node(const struct privkey *blinding,
 	if (!pubkey_from_privkey(blinding, &blinding_pubkey))
 		return false;
 	SUPERVERBOSE("\t\"E\": \"%s\",\n",
-		     type_to_string(tmpctx, struct pubkey, &blinding_pubkey));
+		     fmt_pubkey(tmpctx, &blinding_pubkey));
 
 	/* BOLT #4:
 	 *  - `e(i+1) = SHA256(E(i) || ss(i)) * e(i)`
@@ -42,10 +42,10 @@ static bool blind_node(const struct privkey *blinding,
 	 */
 	blinding_hash_e_and_ss(&blinding_pubkey, ss, &h);
 	SUPERVERBOSE("\t\"H(E || ss)\": \"%s\",\n",
-		     type_to_string(tmpctx, struct sha256, &h));
+		     fmt_sha256(tmpctx, &h));
 	blinding_next_privkey(blinding, &h, next_blinding);
 	SUPERVERBOSE("\t\"next_e\": \"%s\",\n",
-		     type_to_string(tmpctx, struct privkey, next_blinding));
+		     fmt_privkey(tmpctx, next_blinding));
 
 	return true;
 }
@@ -72,7 +72,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 			   NULL, NULL) != 1)
 		return NULL;
 	SUPERVERBOSE("\t\"ss\": \"%s\",\n",
-		     type_to_string(tmpctx, struct secret, &ss));
+		     fmt_secret(tmpctx, &ss));
 
 	/* This calculates the node's alias, and next blinding */
 	if (!blind_node(blinding, &ss, node, node_alias, next_blinding))
@@ -86,7 +86,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	 */
 	subkey_from_hmac("rho", &ss, &rho);
 	SUPERVERBOSE("\t\"rho\": \"%s\",\n",
-		     type_to_string(tmpctx, struct secret, &rho));
+		     fmt_secret(tmpctx, &rho));
 
 	/* BOLT #4:
 	 * - MUST encrypt each `encrypted_data_tlv(i)` with ChaCha20-Poly1305 using
@@ -228,8 +228,7 @@ bool blindedpath_get_alias(const struct secret *ss,
 	 */
 	subkey_from_hmac("blinded_node_id", ss, &node_id_blinding);
 	SUPERVERBOSE("\t\"HMAC256('blinded_node_id', ss)\": \"%s\",\n",
-		     type_to_string(tmpctx, struct secret,
-				    &node_id_blinding));
+		     fmt_secret(tmpctx, &node_id_blinding));
 
 	*alias = *my_id;
 	return secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,

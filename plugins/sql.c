@@ -849,7 +849,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 			}
 
 			plugin_log(cmd->plugin, LOG_DBG, "Refreshing channel: %s",
-				   type_to_string(tmpctx, struct short_channel_id, &scid));
+				   fmt_short_channel_id(tmpctx, scid));
 			/* FIXME: sqlite 3.24.0 (2018-06-04) added UPSERT, but
 			 * we don't require it. */
 			delete_channel_from_db(cmd, scid);
@@ -866,7 +866,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 				break;
 			}
 			plugin_log(cmd->plugin, LOG_DBG, "Deleting channel: %s",
-				   type_to_string(tmpctx, struct short_channel_id, &scid));
+				   fmt_short_channel_id(tmpctx, scid));
 			delete_channel_from_db(cmd, scid);
 		}
 	}

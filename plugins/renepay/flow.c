@@ -23,7 +23,7 @@ static char *chan_extra_not_found_error(const tal_t *ctx,
 {
 	return tal_fmt(ctx,
 		       "chan_extra for scid=%s not found in chan_extra_map",
-		       type_to_string(ctx, struct short_channel_id, scid));
+		       fmt_short_channel_id(ctx, *scid));
 }
 
 bool chan_extra_is_busy(const struct chan_extra *const ce)
@@ -43,12 +43,12 @@ const char *fmt_chan_extra_map(const tal_t *ctx,
 	    ch=chan_extra_map_next(chan_extra_map,&it))
 	{
 		const char *scid_str =
-			type_to_string(this_ctx,struct short_channel_id,&ch->scid);
+			fmt_short_channel_id(this_ctx, ch->scid);
 		for(int dir=0;dir<2;++dir)
 		{
 			tal_append_fmt(&buff,"%s[%d]:(%s,%s)\n",scid_str,dir,
-				type_to_string(this_ctx,struct amount_msat,&ch->half[dir].known_min),
-				type_to_string(this_ctx,struct amount_msat,&ch->half[dir].known_max));
+				fmt_amount_msat(this_ctx, ch->half[dir].known_min),
+				fmt_amount_msat(this_ctx, ch->half[dir].known_max));
 		}
 	}
 	tal_free(this_ctx);
@@ -517,9 +517,8 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 		if(fail)
 		*fail = tal_fmt(
 		    ctx, "cannot substract capacity=%s and known_min=%s",
-		    type_to_string(ctx, struct amount_msat, &ce->capacity),
-		    type_to_string(ctx, struct amount_msat,
-				   &ce->half[!dir].known_min));
+		    fmt_amount_msat(ctx, ce->capacity),
+		    fmt_amount_msat(ctx, ce->half[!dir].known_min));
 		goto function_fail;
 	}
 	if (!amount_msat_sub(&new_known_min, ce->capacity,
@@ -527,9 +526,8 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 		if(fail)
 		*fail = tal_fmt(
 		    ctx, "cannot substract capacity=%s and known_max=%s",
-		    type_to_string(ctx, struct amount_msat, &ce->capacity),
-		    type_to_string(ctx, struct amount_msat,
-				   &ce->half[!dir].known_max));
+		    fmt_amount_msat(ctx, ce->capacity),
+		    fmt_amount_msat(ctx, ce->half[!dir].known_max));
 		goto function_fail;
 	}
 
@@ -555,8 +553,8 @@ static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 		    ctx,
 		    "can send amount (%s) is larger than the "
 		    "channel's capacity (%s)",
-		    type_to_string(ctx, struct amount_msat, &x),
-		    type_to_string(ctx, struct amount_msat, &ce->capacity));
+		    fmt_amount_msat(ctx, x),
+		    fmt_amount_msat(ctx, ce->capacity));
 		goto function_fail;
 	}
 
@@ -636,10 +634,8 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 		if(fail)
 		*fail = tal_fmt(
 		    ctx, "htlc_total=%s is less than 0msats in channel %s",
-		    type_to_string(this_ctx, struct amount_msat,
-				   &ce->half[scidd->dir].htlc_total),
-		    type_to_string(this_ctx, struct short_channel_id,
-				   &scidd->scid));
+		    fmt_amount_msat(this_ctx, ce->half[scidd->dir].htlc_total),
+		    fmt_short_channel_id(this_ctx, scidd->scid));
 		goto function_fail;
 	}
 
@@ -690,8 +686,8 @@ static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 		    ctx,
 		    "tried to set liquidity (%s) to a value greater than "
 		    "channel's capacity (%s)",
-		    type_to_string(this_ctx, struct amount_msat, &x),
-		    type_to_string(this_ctx, struct amount_msat, &ce->capacity));
+		    fmt_amount_msat(this_ctx, x),
+		    fmt_amount_msat(this_ctx, ce->capacity));
 		goto function_fail;
 	}
 
@@ -775,8 +771,8 @@ bool chan_extra_sent_success(const tal_t *ctx,
 		    ctx,
 		    "sent success (%s) is larger than the "
 		    "channel's capacity (%s)",
-		    type_to_string(this_ctx, struct amount_msat, &x),
-		    type_to_string(this_ctx, struct amount_msat, &ce->capacity));
+		    fmt_amount_msat(this_ctx, x),
+		    fmt_amount_msat(this_ctx, ce->capacity));
 		goto function_fail;
 	}
 
@@ -1019,8 +1015,8 @@ static double edge_probability(const tal_t *ctx, struct amount_msat min,
 		if(fail)
 		*fail = tal_fmt(ctx,
 			"in_flight=%s cannot be greater than known_max+1=%s",
-			type_to_string(this_ctx, struct amount_msat, &in_flight),
-			type_to_string(this_ctx, struct amount_msat, &B)
+			fmt_amount_msat(this_ctx, in_flight),
+			fmt_amount_msat(this_ctx, B)
 		);
 		goto function_fail;
 	}
@@ -1036,8 +1032,8 @@ static double edge_probability(const tal_t *ctx, struct amount_msat min,
 	{
 		if(fail)
 		*fail = tal_fmt(ctx,"known_max+1=%s must be greater than known_min=%s",
-			type_to_string(this_ctx, struct amount_msat, &B),
-			type_to_string(this_ctx, struct amount_msat, &A));
+			fmt_amount_msat(this_ctx, B),
+			fmt_amount_msat(this_ctx, A));
 		goto function_fail;
 	}
 	struct amount_msat numerator; // MAX(0,B-f)
@@ -1078,11 +1074,9 @@ bool remove_completed_flow(const tal_t *ctx, const struct gossmap *gossmap,
 				    "could not substract HTLC amounts, "
 				    "total htlc amount = %s, "
 				    "flow->amounts[%zu] = %s.",
-				    type_to_string(this_ctx, struct amount_msat,
-						   &h->htlc_total),
+				    fmt_amount_msat(this_ctx, h->htlc_total),
 				    i,
-				    type_to_string(this_ctx, struct amount_msat,
-						   &flow->amounts[i]));
+				    fmt_amount_msat(this_ctx, flow->amounts[i]));
 			goto function_fail;
 		}
 		if (h->num_htlcs == 0)
@@ -1142,8 +1136,7 @@ bool commit_flow(const tal_t *ctx, const struct gossmap *gossmap,
 				    "could not add HTLC amounts, "
 				    "flow->amounts[%zu] = %s.",
 				    i,
-				    type_to_string(this_ctx, struct amount_msat,
-						   &flow->amounts[i]));
+				    fmt_amount_msat(this_ctx, flow->amounts[i]));
 			goto function_fail;
 		}
 		h->num_htlcs++;

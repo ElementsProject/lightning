@@ -407,8 +407,8 @@ int main(int argc, char *argv[])
 			       AMOUNT_MSAT(1000000 * 1000),
 			       0, 0, 0);
 		SUPERVERBOSE("Joining %s to %s, fee %u\n",
-			     type_to_string(tmpctx, struct node_id, &ids[i-1]),
-			     type_to_string(tmpctx, struct node_id, &ids[i]),
+			     fmt_node_id(tmpctx, &ids[i-1]),
+			     fmt_node_id(tmpctx, &ids[i]),
 			     0);
 
 		if (i <= 2)
@@ -420,8 +420,8 @@ int main(int argc, char *argv[])
 			       AMOUNT_MSAT(1000000 * 1000),
 			       1 << i, 0, 0);
 		SUPERVERBOSE("Joining %s to %s, fee %u\n",
-			     type_to_string(tmpctx, struct node_id, &ids[1]),
-			     type_to_string(tmpctx, struct node_id, &ids[i]),
+			     fmt_node_id(tmpctx, &ids[1]),
+			     fmt_node_id(tmpctx, &ids[i]),
 			     1 << i);
 	}
 
@@ -431,8 +431,8 @@ int main(int argc, char *argv[])
 		struct route_hop *r;
 		const char *errmsg;
 		SUPERVERBOSE("%s -> %s:\n",
-			     type_to_string(tmpctx, struct node_id, &ids[0]),
-			     type_to_string(tmpctx, struct node_id, &ids[NUM_NODES-1]));
+			     fmt_node_id(tmpctx, &ids[0]),
+			     fmt_node_id(tmpctx, &ids[NUM_NODES-1]));
 
 		src = gossmap_find_node(global_gossmap, &ids[0]);
 		dst = gossmap_find_node(global_gossmap, &ids[NUM_NODES-1]);

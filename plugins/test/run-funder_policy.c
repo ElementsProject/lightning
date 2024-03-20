@@ -523,10 +523,8 @@ int main(int argc, const char *argv[])
 		if (!amount_sat_eq(cases[i].exp_our_funds, our_funds)) {
 			fprintf(stderr, "FAIL policy: %s. expected %s, got %s\n",
 				funder_policy_desc(NULL, &cases[i].policy),
-				type_to_string(NULL, struct amount_sat,
-					       &cases[i].exp_our_funds),
-				type_to_string(NULL, struct amount_sat,
-					       &our_funds));
+				fmt_amount_sat(NULL, cases[i].exp_our_funds),
+				fmt_amount_sat(NULL, our_funds));
 			ok = false;
 		}
 		if (cases[i].expect_err != (err != NULL)) {
