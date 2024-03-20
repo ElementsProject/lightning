@@ -2682,7 +2682,6 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     assert only_one(l3.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
 
 
-@pytest.mark.xfail(strict=True)
 def test_multifunding_all_amount(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3)
 
