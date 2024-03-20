@@ -59,7 +59,7 @@ struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_e
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
 /* Generated stub for fmt_amount_sat */
-const char *fmt_amount_sat(const tal_t *ctx UNNEEDED, struct amount_sat sat UNNEEDED)
+char *fmt_amount_sat(const tal_t *ctx UNNEEDED, struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "fmt_amount_sat called!\n"); abort(); }
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)

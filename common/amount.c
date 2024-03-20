@@ -59,7 +59,7 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 		       append_unit ? "btc" : "");
 }
 
-const char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat)
+char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat)
 {
 	return tal_fmt(ctx, "%"PRIu64"msat", msat.millisatoshis);
 }
@@ -84,7 +84,7 @@ const char *fmt_amount_sat_btc(const tal_t *ctx,
 		       append_unit ? "btc" : "");
 }
 
-const char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat)
+char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat)
 {
 	return tal_fmt(ctx, "%"PRIu64"sat", sat.satoshis);
 }

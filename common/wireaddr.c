@@ -218,7 +218,7 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 }
 
 char *fmt_wireaddr_internal(const tal_t *ctx,
-			       const struct wireaddr_internal *a)
+			    const struct wireaddr_internal *a)
 {
 	switch (a->itype) {
 	case ADDR_INTERNAL_SOCKNAME:

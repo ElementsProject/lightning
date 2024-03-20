@@ -21,10 +21,10 @@ static u64 forward_index_inc(struct lightningd *ld,
 {
 	return wait_index_increment(ld, WAIT_SUBSYSTEM_FORWARD, idx,
 				    "status", forward_status_name(status),
-				    "in_channel", short_channel_id_to_str(tmpctx, &in_channel),
+				    "in_channel", fmt_short_channel_id(tmpctx, in_channel),
 				    "=in_htlc_id", tal_fmt(tmpctx, "%"PRIu64, in_htlc_id),
 				    "=in_msat", in_amount ? tal_fmt(tmpctx, "%"PRIu64, in_amount->millisatoshis) : NULL, /* Raw: JSON output */
-				    "out_channel", out_channel ? short_channel_id_to_str(tmpctx, out_channel): NULL,
+				    "out_channel", out_channel ? fmt_short_channel_id(tmpctx, *out_channel): NULL,
 				    NULL);
 }
 

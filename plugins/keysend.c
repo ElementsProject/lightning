@@ -81,7 +81,7 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 			    p,
 			    "Recipient %s reported an invalid payload, this "
 			    "usually means they don't support keysend.",
-			    node_id_to_hexstr(tmpctx, p->destination));
+			    fmt_node_id(tmpctx, p->destination));
 		}
 	}
 

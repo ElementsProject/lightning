@@ -238,7 +238,7 @@ static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 }
 
 /* FIXME: This should reference HTLCs somehow, and feerates! */
-static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
+char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 {
 	return tal_fmt(ctx, "{ funding=%s,"
 		       " opener=%s,"

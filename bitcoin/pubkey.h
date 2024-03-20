@@ -23,7 +23,8 @@ STRUCTEQ_DEF(pubkey, 0, pubkey.data);
 bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
-char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key);
+char *fmt_pubkey(const tal_t *ctx, const struct pubkey *key);
+char *fmt_secp256k1_pubkey(const tal_t *ctx, const secp256k1_pubkey *key);
 
 /* Point from secret */
 bool pubkey_from_secret(const struct secret *secret, struct pubkey *key);

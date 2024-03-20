@@ -17,6 +17,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for fmt_node_id */
+char *fmt_node_id(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fmt_node_id called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
@@ -81,9 +84,6 @@ const char *log_level_name(enum log_level level UNNEEDED)
 bool log_level_parse(const char *levelstr UNNEEDED, size_t len UNNEEDED,
 		     enum log_level *level UNNEEDED)
 { fprintf(stderr, "log_level_parse called!\n"); abort(); }
-/* Generated stub for node_id_to_hexstr */
-char *node_id_to_hexstr(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "node_id_to_hexstr called!\n"); abort(); }
 /* Generated stub for notify_warning */
 void notify_warning(struct lightningd *ld UNNEEDED, struct log_entry *l UNNEEDED)
 { fprintf(stderr, "notify_warning called!\n"); abort(); }

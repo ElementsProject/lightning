@@ -71,10 +71,12 @@ bool WARN_UNUSED_RESULT mk_short_channel_id(struct short_channel_id *scid,
 bool WARN_UNUSED_RESULT short_channel_id_from_str(const char *str, size_t strlen,
 						  struct short_channel_id *dst);
 
-char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
-
 bool WARN_UNUSED_RESULT short_channel_id_dir_from_str(const char *str, size_t strlen,
 						      struct short_channel_id_dir *scidd);
+
+char *fmt_short_channel_id(const tal_t *ctx, struct short_channel_id scid);
+char *fmt_short_channel_id_dir(const tal_t *ctx,
+			       const struct short_channel_id_dir *scidd);
 
 /* Marshal/unmarshal */
 void towire_short_channel_id(u8 **pptr,

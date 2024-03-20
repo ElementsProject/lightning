@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_COMMON_TYPE_TO_STRING_H
 #define LIGHTNING_COMMON_TYPE_TO_STRING_H
 #include "config.h"
-#include "utils.h"
 #include <common/autodata.h>
+#include <common/utils.h>
 
 /* This must match the type_to_string_ cases. */
 union printable_types {
@@ -58,20 +58,13 @@ const char *type_to_string_(const tal_t *ctx, const char *typename,
 	};								\
 	AUTODATA(type_to_string, &ttos_##typename)
 
-#define REGISTER_TYPE_TO_HEXSTR(typename)				\
-	static const char *fmt_##typename##_(const tal_t *ctx,		\
-					     union printable_types u)	\
-	{								\
-		return tal_hexstr(ctx, u.typename, sizeof(*u.typename)); \
-	}								\
-	static struct type_to_string ttos_##typename = {		\
-		#typename, fmt_##typename##_				\
-	};								\
-	AUTODATA(type_to_string, &ttos_##typename)
-
 struct type_to_string {
 	const char *typename;
 	const char *(*fmt)(const tal_t *ctx, union printable_types u);
 };
 AUTODATA_TYPE(type_to_string, struct type_to_string);
+
+char *fmt_sha256(const tal_t *ctx, const struct sha256 *sha256);
+char *fmt_ripemd160(const tal_t *ctx, const struct ripemd160 *ripemd160);
+
 #endif /* LIGHTNING_COMMON_TYPE_TO_STRING_H */

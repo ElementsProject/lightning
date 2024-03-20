@@ -160,7 +160,7 @@ static bool map_add(struct cannounce_map *map,
 			status_unusual("%s being flooded by %s: dropping some",
 				       map->name,
 				       pca->source_peer
-				       ? node_id_to_hexstr(tmpctx, pca->source_peer)
+				       ? fmt_node_id(tmpctx, pca->source_peer)
 				       : "unknown");
 			map->flood_reported = true;
 		}
@@ -574,7 +574,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 		    && short_channel_id_blocknum(&scid) > blockheight + 12) {
 			return tal_fmt(ctx,
 				       "Bad gossip order: ignoring channel_announcement %s at blockheight %u",
-				       short_channel_id_to_str(tmpctx, &scid),
+				       fmt_short_channel_id(tmpctx, scid),
 				       blockheight);
 		}
 
@@ -589,7 +589,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	}
 
 	status_debug("channel_announcement: Adding %s to pending...",
-		     short_channel_id_to_str(tmpctx, &scid));
+		     fmt_short_channel_id(tmpctx, scid));
 	if (!map_add(&gm->pending_ann_map, scid, pca)) {
 		/* Already pending?  Ignore */
 		tal_free(pca);
@@ -617,7 +617,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		master_badmsg(WIRE_GOSSIPD_GET_TXOUT_REPLY, msg);
 
 	status_debug("channel_announcement: got reply for %s...",
-		     short_channel_id_to_str(tmpctx, &scid));
+		     fmt_short_channel_id(tmpctx, scid));
 
 	pca = map_del(&gm->pending_ann_map, scid);
 	if (!pca) {
@@ -628,7 +628,7 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		/* Was it deleted because we saw channel close? */
 		if (!in_txout_failures(gm->txf, scid))
 			status_broken("get_txout_reply with unknown scid %s?",
-				      short_channel_id_to_str(tmpctx, &scid));
+				      fmt_short_channel_id(tmpctx, scid));
 		return;
 	}
 
@@ -642,14 +642,14 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	if (tal_count(outscript) == 0) {
 		peer_warning(gm, pca->source_peer,
 			     "channel_announcement: no unspent txout %s",
-			     short_channel_id_to_str(tmpctx, &scid));
+			     fmt_short_channel_id(tmpctx, scid));
 		goto bad;
 	}
 
 	if (!tal_arr_eq(outscript, pca->scriptpubkey)) {
 		peer_warning(gm, pca->source_peer,
 			     "channel_announcement: txout %s expected %s, got %s",
-			     short_channel_id_to_str(tmpctx, &scid),
+			     fmt_short_channel_id(tmpctx, scid),
 			     tal_hex(tmpctx, pca->scriptpubkey),
 			     tal_hex(tmpctx, outscript));
 		goto bad;
@@ -717,7 +717,7 @@ static const char *process_channel_update(const tal_t *ctx,
 		/* Don't send them warning, it can happen. */
 		bad_gossip(source_peer,
 			   tal_fmt(tmpctx, "Unknown channel %s",
-				   short_channel_id_to_str(tmpctx, &scid)));
+				   fmt_short_channel_id(tmpctx, scid)));
 		return NULL;
 	}
 
@@ -733,7 +733,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	/* Don't allow private updates on public channels! */
 	if (message_flags & ROUTING_OPT_DONT_FORWARD) {
 		return tal_fmt(ctx, "Do not set DONT_FORWARD on public channel_updates (%s)",
-			       short_channel_id_to_str(tmpctx, &scid));
+			       fmt_short_channel_id(tmpctx, scid));
 	}
 
 	/* Do we have same or earlier update? */
@@ -1000,7 +1000,7 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 		bad_gossip(source_peer,
 			   tal_fmt(tmpctx,
 				   "node_announcement: unknown node %s",
-				   node_id_to_hexstr(tmpctx, &node_id)));
+				   fmt_node_id(tmpctx, &node_id)));
 		return NULL;
 	}
 
@@ -1108,7 +1108,7 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 				bad_gossip(pnas[i]->source_peer,
 					   tal_fmt(tmpctx,
 						   "node_announcement: unknown node %s",
-						   node_id_to_hexstr(tmpctx, &pnas[i]->node_id)));
+						   fmt_node_id(tmpctx, &pnas[i]->node_id)));
 				continue;
 			}
 
@@ -1170,7 +1170,7 @@ void gossmap_manage_new_block(struct gossmap_manage *gm, u32 new_blockheight)
 		}
 
 		status_debug("gossmap_manage: new block, adding %s to pending...",
-			     short_channel_id_to_str(tmpctx, &scid));
+			     fmt_short_channel_id(tmpctx, scid));
 
 		/* Ask lightningd about this scid: see
 		 * gossmap_manage_handle_get_txout_reply */
@@ -1408,7 +1408,7 @@ struct wireaddr *gossmap_manage_get_node_addresses(const tal_t *ctx,
 					&addresses,
 					&na_tlvs)) {
 		status_broken("Bad node_announcement for %s in gossip_store: %s",
-			      node_id_to_hexstr(tmpctx, node_id),
+			      fmt_node_id(tmpctx, node_id),
 			      tal_hex(tmpctx, nannounce));
 		return NULL;
 	}

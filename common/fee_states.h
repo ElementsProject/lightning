@@ -90,4 +90,7 @@ bool fee_states_valid(const struct fee_states *fee_states, enum side opener);
 bool feerate_changes_done(const struct fee_states *fee_states,
 			  bool ignore_uncommitted);
 
+char *fmt_fee_states(const tal_t *ctx,
+		     const struct fee_states *fee_states);
+
 #endif /* LIGHTNING_COMMON_FEE_STATES_H */

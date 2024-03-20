@@ -752,7 +752,7 @@ fundchannel_complete_ok(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_complete %s done.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	channel_id_tok = json_get_member(buf, result, "channel_id");
 	if (!channel_id_tok)
@@ -778,7 +778,7 @@ fundchannel_complete_err(struct command *cmd,
 		   "mfc %"PRIu64", dest %u: "
 		   "failed! fundchannel_complete %s: %.*s",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
+		   fmt_node_id(tmpctx, &dest->id),
 		   json_tok_full_len(error), json_tok_full(buf, error));
 
 	fail_destination_tok(dest, buf, error);
@@ -795,7 +795,7 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_complete %s.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	req = jsonrpc_request_start(cmd->plugin,
 				    cmd,
@@ -1053,7 +1053,7 @@ fundchannel_start_ok(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_start %s done.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	/* May not be set */
 	dest->close_to_script = NULL;
@@ -1085,7 +1085,7 @@ fundchannel_start_err(struct command *cmd,
 		   "mfc %"PRIu64", dest %u: "
 		   "failed! fundchannel_start %s: %.*s.",
 		   dest->mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
+		   fmt_node_id(tmpctx, &dest->id),
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 	/*
@@ -1114,7 +1114,7 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_start %s.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	req = jsonrpc_request_start(cmd->plugin,
 				    cmd,
@@ -1594,7 +1594,7 @@ connect_err(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: failed! connect %s: %.*s.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
+		   fmt_node_id(tmpctx, &dest->id),
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
@@ -1610,7 +1610,7 @@ connect_dest(struct multifundchannel_destination *dest)
 	const char *id;
 	struct out_req *req;
 
-	id = node_id_to_hexstr(tmpctx, &dest->id);
+	id = fmt_node_id(tmpctx, &dest->id);
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: connect %s.",
 		   mfc->id, dest->index, id);

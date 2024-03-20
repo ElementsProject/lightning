@@ -323,7 +323,7 @@ static const char *decode_n(struct bolt11 *b11,
 		if (!pubkey_from_node_id(&k, &b11->receiver_id))
 			return tal_fmt(
 			    b11, "invalid public key %s",
-			    node_id_to_hexstr(tmpctx, &b11->receiver_id));
+			    fmt_node_id(tmpctx, &b11->receiver_id));
 	}
 
 	return err;

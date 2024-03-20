@@ -838,7 +838,7 @@ find_channel_for_htlc_add(struct lightningd *ld,
 	}
 
 	log_debug(ld->log, "No channel found for selector %s (%s)",
-		  short_channel_id_to_str(tmpctx, scid_or_alias),
+		  fmt_short_channel_id(tmpctx, *scid_or_alias),
 		  type_to_string(tmpctx, struct amount_msat, amount));
 	return NULL;
 
@@ -846,9 +846,9 @@ found:
 	scid = channel_scid_or_local_alias(channel);
 	log_debug(
 	    ld->log, "Selected channel %s (%s) for selector %s (%s)",
-	    short_channel_id_to_str(tmpctx, scid),
+	    fmt_short_channel_id(tmpctx, *scid),
 	    type_to_string(tmpctx, struct amount_msat, &channel->our_msat),
-	    short_channel_id_to_str(tmpctx, scid_or_alias),
+	    fmt_short_channel_id(tmpctx, *scid_or_alias),
 	    type_to_string(tmpctx, struct amount_msat, amount));
 
 	return channel;

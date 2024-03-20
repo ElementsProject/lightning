@@ -401,7 +401,7 @@ static void handle_splice_confirmed_init(struct lightningd *ld,
 	}
 
 	struct json_stream *response = json_stream_success(cc->cmd);
-	json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
+	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
 
 	was_pending(command_success(cc->cmd, response));
 }
@@ -434,7 +434,7 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 	}
 
 	struct json_stream *response = json_stream_success(cc->cmd);
-	json_add_string(response, "psbt", psbt_to_b64(tmpctx, psbt));
+	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
 	json_add_bool(response, "commitments_secured", commitments_secured);
 
 	was_pending(command_success(cc->cmd, response));

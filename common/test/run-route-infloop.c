@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 
 		gossmap_node_get_id(gossmap, nodes[i], &them);
 
-		printf("%s,", node_id_to_hexstr(tmpctx, &them));
+		printf("%s,", fmt_node_id(tmpctx, &them));
 		if (!r) {
 			printf("0,0.0,");
 		} else {
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 			       r[0].amount.millisatoshis - amt,
 			       r[0].delay - final_delay);
 			for (size_t j = 0; j < tal_count(r); j++)
-				printf(",%s/%u", short_channel_id_to_str(tmpctx, &r[j].scid), r[j].direction);
+				printf(",%s/%u", fmt_short_channel_id(tmpctx, r[j].scid), r[j].direction);
 		}
 		printf("\n");
 	}

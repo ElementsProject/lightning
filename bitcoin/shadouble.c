@@ -15,7 +15,12 @@ void sha256_double_done(struct sha256_ctx *shactx, struct sha256_double *res)
 	sha256_done(shactx, &res->sha);
 	sha256(&res->sha, &res->sha, sizeof(res->sha));
 }
-REGISTER_TYPE_TO_HEXSTR(sha256_double);
+
+char *fmt_sha256_double(const tal_t *ctx, const struct sha256_double *shad)
+{
+	return tal_hexstr(ctx, shad, sizeof(*shad));
+}
+REGISTER_TYPE_TO_STRING(sha256_double, fmt_sha256_double);
 
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
 {

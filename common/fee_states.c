@@ -157,8 +157,8 @@ bool fee_states_valid(const struct fee_states *fee_states, enum side opener)
 	return fee_states->feerate[last_fee_state(opener)] != NULL;
 }
 
-static const char *fmt_fee_states(const tal_t *ctx,
-				  const struct fee_states *fee_states)
+char *fmt_fee_states(const tal_t *ctx,
+		     const struct fee_states *fee_states)
 {
 	char *ret = tal_strdup(ctx, "{");
 	for (enum htlc_state i = 0; i < ARRAY_SIZE(fee_states->feerate); i++) {

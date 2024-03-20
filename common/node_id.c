@@ -34,11 +34,11 @@ bool node_id_valid(const struct node_id *id)
 }
 
 /* Convert to hex string of SEC1 encoding */
-char *node_id_to_hexstr(const tal_t *ctx, const struct node_id *id)
+char *fmt_node_id(const tal_t *ctx, const struct node_id *id)
 {
 	return tal_hexstr(ctx, id->k, sizeof(id->k));
 }
-REGISTER_TYPE_TO_STRING(node_id, node_id_to_hexstr);
+REGISTER_TYPE_TO_STRING(node_id, fmt_node_id);
 
 /* Convert from hex string of SEC1 encoding */
 bool node_id_from_hexstr(const char *str, size_t slen, struct node_id *id)

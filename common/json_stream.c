@@ -604,7 +604,7 @@ void json_add_psbt(struct json_stream *stream,
 		   const struct wally_psbt *psbt TAKES)
 {
 	const char *psbt_b64;
-	psbt_b64 = psbt_to_b64(NULL, psbt);
+	psbt_b64 = fmt_wally_psbt(NULL, psbt);
 	json_add_string(stream, fieldname, take(psbt_b64));
 	if (taken(psbt))
 		tal_free(psbt);

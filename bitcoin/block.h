@@ -53,4 +53,7 @@ void fromwire_chainparams(const u8 **cursor, size_t *max,
 			  const struct chainparams **chainparams);
 void towire_chainparams(u8 **cursor, const struct chainparams *chainparams);
 
+char *fmt_bitcoin_blkid(const tal_t *ctx,
+			const struct bitcoin_blkid *blkid);
+
 #endif /* LIGHTNING_BITCOIN_BLOCK_H */

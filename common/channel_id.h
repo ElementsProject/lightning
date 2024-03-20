@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/tal.h>
 
 struct bitcoin_outpoint;
 struct pubkey;
@@ -35,6 +36,8 @@ void derive_channel_id_v2(struct channel_id *channel_id,
 /* For v2 channel establishment */
 void derive_tmp_channel_id(struct channel_id *channel_id,
 			   const struct pubkey *opener_basepoint);
+
+char *fmt_channel_id(const tal_t *ctx, const struct channel_id *channel_id);
 
 /* Marshalling/unmarshalling functions */
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);

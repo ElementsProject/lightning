@@ -147,8 +147,8 @@ struct height_states *fromwire_height_states(const tal_t *ctx, const u8 **cursor
 	return states;
 }
 
-static const char *fmt_height_states(const tal_t *ctx,
-				     const struct height_states *states)
+char *fmt_height_states(const tal_t *ctx,
+			const struct height_states *states)
 {
 	char *ret = tal_strdup(ctx, "{");
 	for (enum htlc_state i = 0; i < ARRAY_SIZE(states->height); i++) {
