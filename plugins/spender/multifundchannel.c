@@ -1267,6 +1267,19 @@ after_fundpsbt(struct command *cmd,
 		    || !amount_msat_to_sat(&all->amount, msat))
 			goto fail;
 
+		/* Subtract amounts we're using for the other outputs */
+		for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
+			if (mfc->destinations[i].all)
+				continue;
+			if (!amount_sat_sub(&all->amount,
+					    all->amount,
+					    mfc->destinations[i].amount)) {
+				return mfc_fail(mfc, JSONRPC2_INVALID_PARAMS,
+						"Insufficient funds for `all`"
+						" output");
+			}
+		}
+
 		/* Remove the 'all' flag.  */
 		all->all = false;
 
