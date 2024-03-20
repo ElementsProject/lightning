@@ -169,16 +169,13 @@ PLUGIN_COMMON_OBJS :=				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
-	common/scb_wiregen.o			\
 	common/setup.o				\
 	common/status_levels.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
 	common/wireaddr.o			\
-	wire/channel_type_wiregen.o		\
 	wire/fromwire.o				\
-	wire/onion_wiregen.o			\
 	wire/peer_wiregen.o			\
 	wire/tlvstream.o			\
 	wire/towire.o
@@ -194,11 +191,11 @@ ALL_PROGRAMS += $(C_PLUGINS)
 # Make all plugins depend on all plugin headers, for simplicity.
 $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
 
-plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12_wiregen.o bitcoin/block.o common/blindedpay.o common/blindedpath.o common/hmac.o common/blinding.o common/onion_encode.o common/gossmods_listpeerchannels.o
+plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12_wiregen.o bitcoin/block.o common/blindedpay.o common/blindedpath.o common/hmac.o common/blinding.o common/onion_encode.o common/gossmods_listpeerchannels.o wire/onion_wiregen.o
 
 plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
-plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/scb_wiregen.o wire/channel_type_wiregen.o
 
 plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
