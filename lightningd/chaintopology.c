@@ -930,7 +930,7 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 
 			bitcoin_tx_input_get_outpoint(tx, j, &outpoint);
 
-			if (wallet_outpoint_spend(topo->ld->wallet, tmpctx,
+			if (wallet_outpoint_spend(tmpctx, topo->ld->wallet,
 						  b->height, &outpoint))
 				record_wallet_spend(topo->ld, &outpoint,
 						    &b->txids[i], b->height);

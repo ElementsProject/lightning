@@ -560,7 +560,7 @@ static struct command_result *json_listtransactions(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	txs = wallet_transactions_get(cmd->ld->wallet, cmd);
+	txs = wallet_transactions_get(cmd, cmd->ld->wallet);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "transactions");

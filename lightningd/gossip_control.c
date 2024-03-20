@@ -83,35 +83,36 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 
 static void get_txout(struct subd *gossip, const u8 *msg)
 {
-	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
+	struct short_channel_id scid;
 	struct outpoint *op;
 	u32 blockheight;
 	struct chain_topology *topo = gossip->ld->topology;
 
-	if (!fromwire_gossipd_get_txout(msg, scid))
+	if (!fromwire_gossipd_get_txout(msg, &scid))
 		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
 		      tal_hex(msg, msg));
 
 	/* FIXME: Block less than 6 deep? */
-	blockheight = short_channel_id_blocknum(scid);
+	blockheight = short_channel_id_blocknum(&scid);
 
-	op = wallet_outpoint_for_scid(gossip->ld->wallet, scid, scid);
-
+	op = wallet_outpoint_for_scid(tmpctx, gossip->ld->wallet, &scid);
 	if (op) {
 		subd_send_msg(gossip,
-			      towire_gossipd_get_txout_reply(
-				  scid, scid, op->sat, op->scriptpubkey));
-		tal_free(scid);
+			      take(towire_gossipd_get_txout_reply(
+					   NULL, &scid, op->sat, op->scriptpubkey)));
 	} else if (wallet_have_block(gossip->ld->wallet, blockheight)) {
 		/* We should have known about this outpoint since its header
 		 * is in the DB. The fact that we don't means that this is
 		 * either a spent outpoint or an invalid one. Return a
 		 * failure. */
 		subd_send_msg(gossip, take(towire_gossipd_get_txout_reply(
-						   NULL, scid, AMOUNT_SAT(0), NULL)));
-		tal_free(scid);
+						   NULL, &scid, AMOUNT_SAT(0), NULL)));
 	} else {
-		bitcoind_getfilteredblock(topo->bitcoind, short_channel_id_blocknum(scid), got_filteredblock, scid);
+		/* Make a pointer of a copy of scid here, for got_filteredblock */
+		bitcoind_getfilteredblock(topo->bitcoind,
+					  short_channel_id_blocknum(&scid),
+					  got_filteredblock,
+					  tal_dup(gossip, struct short_channel_id, &scid));
 	}
 }
 

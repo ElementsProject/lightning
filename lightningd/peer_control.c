@@ -1156,7 +1156,7 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_num(response, "max_accepted_htlcs",
 		     channel->our_config.max_accepted_htlcs);
 
-	state_changes = wallet_state_change_get(ld->wallet, tmpctx, channel->dbid);
+	state_changes = wallet_state_change_get(tmpctx, ld->wallet, channel->dbid);
 	json_array_start(response, "state_changes");
 	for (size_t i = 0; i < tal_count(state_changes); i++) {
 		json_object_start(response, NULL);

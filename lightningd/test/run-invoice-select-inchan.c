@@ -1043,8 +1043,8 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
 /* Generated stub for wallet_state_change_get */
-struct state_change_entry *wallet_state_change_get(struct wallet *w UNNEEDED,
-						   const tal_t *ctx UNNEEDED,
+struct state_change_entry *wallet_state_change_get(const tal_t *ctx UNNEEDED,
+						   struct wallet *w UNNEEDED,
 						   u64 channel_id UNNEEDED)
 { fprintf(stderr, "wallet_state_change_get called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
