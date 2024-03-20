@@ -4860,7 +4860,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 						    *channel_scid_or_local_alias(in->key.channel),
 						    in->key.id,
 						    in->msat,
-						    out ? channel_scid_or_local_alias(out->key.channel) : NULL);
+						    scid_out);
 		id = 0;
 		goto notify;
 	}
@@ -4886,7 +4886,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				   *channel_scid_or_local_alias(in->key.channel),
 				   in->key.id,
 				   in->msat,
-				   out ? channel_scid_or_local_alias(out->key.channel) : NULL);
+				   scid_out);
 
 	db_bind_u64(stmt, id);
 	db_bind_u64(stmt, in->key.id);
