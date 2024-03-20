@@ -16,7 +16,6 @@
 #include <common/psbt_keypath.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/type_to_string.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <onchaind/onchain_types.h>
 #include <onchaind/onchaind_wiregen.h>

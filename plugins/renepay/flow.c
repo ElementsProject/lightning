@@ -4,7 +4,6 @@
 #include <ccan/tal/tal.h>
 #include <common/fp16.h>
 #include <common/overflows.h>
-#include <common/type_to_string.h>
 #include <math.h>
 #include <plugins/renepay/flow.h>
 #include <stdio.h>

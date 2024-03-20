@@ -7,7 +7,6 @@
 #include "../hmac.c"
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
-#include "../type_to_string.c"
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_id.h>

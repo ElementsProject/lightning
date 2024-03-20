@@ -1,7 +1,8 @@
 #include "config.h"
 #include <inttypes.h>
 #include <stdio.h>
-#include <common/type_to_string.h>
+#include <stdbool.h>
+
 static bool print_superverbose;
 #define SUPERVERBOSE(...)					\
 	do { if (print_superverbose) printf(__VA_ARGS__); } while(0)

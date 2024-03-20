@@ -9,7 +9,6 @@
 #include <common/onionreply.h>
 #include <common/route.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/invoice.h>

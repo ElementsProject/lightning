@@ -14,7 +14,6 @@
 #include <common/json_param.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

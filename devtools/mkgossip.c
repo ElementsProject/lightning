@@ -13,7 +13,6 @@
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>

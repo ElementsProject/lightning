@@ -6,7 +6,6 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/route.h>
-#include <common/type_to_string.h>
 #include <devtools/clean_topo.h>
 #include <inttypes.h>
 #include <stdio.h>

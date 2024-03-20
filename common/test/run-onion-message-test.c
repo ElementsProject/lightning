@@ -15,7 +15,6 @@ static void maybe_print(const char *fmt, ...);
 #include "../onion_encode.c"
 #include "../onion_message_parse.c"
 #include "../sphinx.c"
-#include "../type_to_string.c"
 #include "../../wire/onion_wiregen.c"
 #include "../../wire/peer_wiregen.c"
 #include <common/ecdh.h>

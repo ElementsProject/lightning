@@ -6,7 +6,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <wally_psbt.h>
 #include <wire/wire.h>
 
@@ -754,10 +754,15 @@ char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 	return s;
 }
 
-REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);
-REGISTER_TYPE_TO_STRING(bitcoin_txid, fmt_bitcoin_txid);
-REGISTER_TYPE_TO_STRING(bitcoin_outpoint, fmt_bitcoin_outpoint);
-REGISTER_TYPE_TO_STRING(wally_tx, fmt_wally_tx);
+char *fmt_sha256(const tal_t *ctx, const struct sha256 *sha256)
+{
+	return tal_hexstr(ctx, sha256, sizeof(*sha256));
+}
+
+char *fmt_ripemd160(const tal_t *ctx, const struct ripemd160 *ripemd160)
+{
+	return tal_hexstr(ctx, ripemd160, sizeof(*ripemd160));
+}
 
 void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 			   struct bitcoin_txid *txid)

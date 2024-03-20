@@ -9,7 +9,6 @@
 #include <common/fee_states.h>
 #include <common/onionreply.h>
 #include <common/trace.h>
-#include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>

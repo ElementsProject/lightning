@@ -11,7 +11,6 @@
 #include <common/memleak.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
 

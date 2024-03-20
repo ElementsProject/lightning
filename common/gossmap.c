@@ -9,7 +9,6 @@
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>

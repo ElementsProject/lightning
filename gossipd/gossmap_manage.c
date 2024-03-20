@@ -8,7 +8,6 @@
 #include <common/gossmap.h>
 #include <common/status.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>

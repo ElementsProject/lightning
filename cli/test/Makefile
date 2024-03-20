@@ -20,7 +20,6 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/setup.o				\
 	common/utils.o				\
 	common/version.o			\
-	common/type_to_string.o			\
 	common/permute_tx.o
 
 $(CLI_TEST_PROGRAMS): libccan.a $(BITCOIN_OBJS) $(WIRE_OBJS) $(CLI_TEST_COMMON_OBJS)

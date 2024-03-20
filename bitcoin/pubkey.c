@@ -4,7 +4,7 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 #ifndef SUPERVERBOSE
@@ -69,7 +69,6 @@ char *fmt_pubkey(const tal_t *ctx, const struct pubkey *key)
 	pubkey_to_der(der, key);
 	return tal_hexstr(ctx, der, sizeof(der));
 }
-REGISTER_TYPE_TO_STRING(pubkey, fmt_pubkey);
 
 char *fmt_secp256k1_pubkey(const tal_t *ctx, const secp256k1_pubkey *key)
 {
@@ -81,7 +80,6 @@ char *fmt_secp256k1_pubkey(const tal_t *ctx, const secp256k1_pubkey *key)
 	assert(outlen == sizeof(der));
 	return tal_hexstr(ctx, der, sizeof(der));
 }
-REGISTER_TYPE_TO_STRING(secp256k1_pubkey, fmt_secp256k1_pubkey);
 
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 {

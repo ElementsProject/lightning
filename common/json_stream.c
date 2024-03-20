@@ -20,7 +20,6 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
-#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>

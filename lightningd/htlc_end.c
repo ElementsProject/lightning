@@ -4,7 +4,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/htlc.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
 

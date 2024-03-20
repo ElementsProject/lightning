@@ -5,7 +5,6 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <math.h>
 #include <plugins/renepay/dijkstra.h>

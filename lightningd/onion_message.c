@@ -4,7 +4,6 @@
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/onion_message.h>

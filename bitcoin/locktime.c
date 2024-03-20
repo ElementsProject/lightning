@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <bitcoin/locktime.h>
 #include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
 
 #define SECONDS_POINT 500000000
 

@@ -16,7 +16,6 @@
 #include <common/overflows.h>
 #include <common/random_select.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <db/exec.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>

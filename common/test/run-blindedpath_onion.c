@@ -7,7 +7,6 @@
 #include "../onion_decode.c"
 #include "../onion_encode.c"
 #include "../sphinx.c"
-#include "../type_to_string.c"
 #include <common/setup.h>
 #include <wire/peer_wire.h>
 #include <stdio.h>

@@ -8,7 +8,6 @@
 #include <common/initial_channel.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
-#include <common/type_to_string.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
@@ -247,5 +246,3 @@ char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 		       fmt_channel_view(ctx, &channel->view[LOCAL]),
 		       fmt_channel_view(ctx, &channel->view[REMOTE]));
 }
-/* Magic comment. */
-REGISTER_TYPE_TO_STRING(channel, fmt_channel);

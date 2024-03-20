@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>

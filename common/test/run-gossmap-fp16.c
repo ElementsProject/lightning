@@ -1,7 +1,6 @@
 #include "config.h"
 #include "../fp16.c"
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <stdio.h>
 #include <wire/wire.h>
 

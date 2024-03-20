@@ -9,7 +9,6 @@ CONNECTD_TEST_COMMON_OBJS :=			\
 	common/features.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/type_to_string.o			\
 	common/utils.o
 
 ALL_C_SOURCES += $(CONNECTD_TEST_SRC)

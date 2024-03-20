@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
@@ -10,7 +11,6 @@
 #include <common/features.h>
 #include <common/iso4217.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>

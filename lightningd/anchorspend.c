@@ -7,7 +7,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>

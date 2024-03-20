@@ -8,7 +8,6 @@
 #include <common/keyset.h>
 #include <common/psbt_keypath.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 

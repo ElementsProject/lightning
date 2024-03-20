@@ -15,7 +15,6 @@
 #include <common/json_param.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

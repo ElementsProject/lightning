@@ -11,7 +11,6 @@
 #include <common/htlc_wire.h>
 #include <common/initial_commit_tx.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <stdio.h>
 
 static bool verbose = false;

@@ -4,7 +4,6 @@
 #include <ccan/opt/opt.h>
 #include <common/fp16.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <inttypes.h>
 #include <stdio.h>
 

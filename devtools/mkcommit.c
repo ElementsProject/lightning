@@ -23,7 +23,6 @@
 #include <common/htlc_wire.h>
 #include <common/key_derive.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <stdio.h>

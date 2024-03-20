@@ -16,7 +16,6 @@ ONCHAIND_TEST_COMMON_OBJS :=			\
 	common/psbt_keypath.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/type_to_string.o			\
 	common/utils.o
 
 $(ONCHAIND_TEST_PROGRAMS): $(ONCHAIND_TEST_COMMON_OBJS) $(BITCOIN_OBJS)

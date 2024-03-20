@@ -3,7 +3,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_stream.h>
-#include <common/type_to_string.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
 #include <secp256k1_schnorrsig.h>

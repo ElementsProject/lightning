@@ -30,7 +30,6 @@
  * WE ASSUME NO MALLEABILITY!  This requires segregated witness.
  */
 #include "config.h"
-#include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/lightningd.h>

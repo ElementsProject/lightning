@@ -12,7 +12,6 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/route.h>
-#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <plugins/libplugin.h>

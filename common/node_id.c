@@ -5,7 +5,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <common/node_id.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 /* Convert from pubkey to compressed pubkey. */
@@ -38,7 +38,6 @@ char *fmt_node_id(const tal_t *ctx, const struct node_id *id)
 {
 	return tal_hexstr(ctx, id->k, sizeof(id->k));
 }
-REGISTER_TYPE_TO_STRING(node_id, fmt_node_id);
 
 /* Convert from hex string of SEC1 encoding */
 bool node_id_from_hexstr(const char *str, size_t slen, struct node_id *id)

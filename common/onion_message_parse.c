@@ -6,7 +6,6 @@
 #include <common/onion_message_parse.h>
 #include <common/sphinx.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <wire/onion_wire.h>
 #include <wire/peer_wire.h>

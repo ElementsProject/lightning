@@ -2,7 +2,6 @@
 #include "../bigsize.c"
 #include "../blinding.c"
 #include "../hmac.c"
-#include "../type_to_string.c"
 #include <common/channel_id.h>
 #include <common/setup.h>
 #include <stdio.h>

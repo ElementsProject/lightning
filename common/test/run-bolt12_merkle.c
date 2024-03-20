@@ -1,7 +1,6 @@
 #define SUPERVERBOSE printf
 #include "config.h"
 /* Needed before including bolt12_merkle.c: */
-  #include <common/type_to_string.h>
   #include <stdio.h>
 #include "../bolt12_merkle.c"
 #include <assert.h>

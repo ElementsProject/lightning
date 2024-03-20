@@ -10,7 +10,6 @@
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/hsm_control.h>

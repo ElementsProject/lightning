@@ -29,7 +29,6 @@
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>

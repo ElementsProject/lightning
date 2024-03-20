@@ -19,7 +19,6 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/node_id.o			\
 	common/setup.o				\
 	common/timeout.o			\
-	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
 	db/bindings.o				\

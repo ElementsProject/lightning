@@ -5,7 +5,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
-#include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>

@@ -6,7 +6,6 @@
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
 #include <common/psbt_keypath.h>
-#include <common/type_to_string.h>
 #include <db/exec.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>

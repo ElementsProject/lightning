@@ -12,7 +12,6 @@ PLUGIN_TEST_COMMON_OBJS :=			\
 	common/autodata.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/type_to_string.o			\
 	common/utils.o
 
 plugins/test/run-route-overlong:		\
