@@ -24,4 +24,4 @@ $(WIRE_TEST_OBJS): $(WIRE_HEADERS) $(WIRE_SRC) $(WIRE_PRINT_SRC)
 
 wire-tests: $(WIRE_TEST_PROGRAMS:%=unittest/%)
 
-wire/test/run-peer-wire: wire/peer$(EXP)_wiregen.o common/bigsize.o
+wire/test/run-peer-wire: wire/peer_wiregen.o common/bigsize.o

@@ -24,8 +24,8 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/utils.o				\
 	common/wireaddr.o			\
 	gossipd/gossip_store_wiregen.o		\
-	wire/peer$(EXP)_wiregen.o		\
-	wire/onion$(EXP)_wiregen.o		\
+	wire/peer_wiregen.o			\
+	wire/onion_wiregen.o			\
 	wire/fromwire.o				\
 	wire/tlvstream.o			\
 	wire/towire.o
@@ -35,7 +35,7 @@ ALL_TEST_PROGRAMS += $(GOSSIPD_TEST_PROGRAMS)
 
 # Extra stuff needed for onion tests
 gossipd/test/run-onion_message:			\
-	wire/onion$(EXP)_wiregen.o		\
+	wire/onion_wiregen.o			\
 	common/blindedpath.o			\
 	common/blinding.o			\
 	common/hmac.o				\
