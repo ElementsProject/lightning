@@ -1802,9 +1802,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	inflight = channel_current_inflight(channel);
 	if (!inflight) {
 		channel_internal_error(channel,
-				       "No inflight found for channel %s",
-				       type_to_string(tmpctx, struct channel,
-						      channel));
+				       "No inflight found for channel");
 		return;
 	}
 
@@ -2134,9 +2132,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	inflight = channel_current_inflight(channel);
 	if (!inflight) {
 		channel_internal_error(channel,
-				       "No inflight found for channel %s",
-				       type_to_string(tmpctx, struct channel,
-						      channel));
+				       "No inflight found for channel");
 		return;
 	}
 
@@ -3535,9 +3531,7 @@ static void handle_commit_received(struct subd *dualopend,
 	inflight = channel_current_inflight(channel);
 	if (!inflight) {
 		channel_internal_error(channel,
-				       "No inflight found for channel %s",
-				       type_to_string(tmpctx, struct channel,
-						      channel));
+				       "No inflight found for channel");
 		return;
 	}
 
