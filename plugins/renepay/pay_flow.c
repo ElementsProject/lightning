@@ -60,9 +60,9 @@ static void remove_htlc_payflow(
 				   "half total htlc amount = %s, "
 				   "pf->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
-				   type_to_string(tmpctx, struct amount_msat, &h->htlc_total),
+				   fmt_amount_msat(tmpctx, h->htlc_total),
 				   i,
-				   type_to_string(tmpctx, struct amount_msat, &pf->amounts[i]));
+				   fmt_amount_msat(tmpctx, pf->amounts[i]));
 		}
 		if (h->num_htlcs == 0)
 		{
@@ -95,7 +95,7 @@ static void commit_htlc_payflow(
 				   "pf->amounts[%lld] = %s.",
 				   __PRETTY_FUNCTION__,
 				   i,
-				   type_to_string(tmpctx, struct amount_msat, &pf->amounts[i]));
+				   fmt_amount_msat(tmpctx, pf->amounts[i]));
 		}
 		h->num_htlcs++;
 	}
@@ -154,9 +154,8 @@ static u32 shadow_one_flow(const struct gossmap *gossmap,
 	if (!amount_msat_sub(shadow_fee, amount, f->amounts[numpath-1]))
 		plugin_err(pay_plugin->plugin,
 			   "Failed to calc shadow fee: %s - %s",
-			   type_to_string(tmpctx, struct amount_msat, &amount),
-			   type_to_string(tmpctx, struct amount_msat,
-					  &f->amounts[numpath-1]));
+			   fmt_amount_msat(tmpctx, amount),
+			   fmt_amount_msat(tmpctx, f->amounts[numpath-1]));
 
 	return shadow_delay;
 }
@@ -245,17 +244,14 @@ static u32 *shadow_additions(const tal_t *ctx,
 					     "No shadow fee for flow %zu/%zu:"
 					" fee would add %s to %s, exceeding budget %s.",
 					i, tal_count(flows),
-					type_to_string(tmpctx, struct amount_msat,
-						       &shadow_fee),
-					type_to_string(tmpctx, struct amount_msat,
-						       &flows[i]->amounts[0]),
-					type_to_string(tmpctx, struct amount_msat,
-						       &p->maxspend));
+					fmt_amount_msat(tmpctx, shadow_fee),
+					fmt_amount_msat(tmpctx,
+							flows[i]->amounts[0]),
+					fmt_amount_msat(tmpctx, p->maxspend));
 			} else {
 				payment_note(p, LOG_DBG,
 					"No MPP, so added %s shadow fee",
-					type_to_string(tmpctx, struct amount_msat,
-						       &shadow_fee));
+					fmt_amount_msat(tmpctx, shadow_fee));
 			}
 		}
 
@@ -279,9 +275,8 @@ static const char *flow_path_annotated(const tal_t *ctx,
 	char *s = tal_strdup(ctx, "");
 	for (size_t i = 0; i < tal_count(flow->path_scidds); i++) {
 		tal_append_fmt(&s, "-%s%s->",
-			       type_to_string(tmpctx,
-					      struct short_channel_id_dir,
-					      &flow->path_scidds[i]),
+			       fmt_short_channel_id_dir(tmpctx,
+							&flow->path_scidds[i]),
 			       fmt_chan_extra_details(tmpctx,
 						      pay_plugin->chan_extra_map,
 						      &flow->path_scidds[i]));
@@ -493,8 +488,7 @@ const char *add_payflows(const tal_t *ctx, struct payment *p,
 			fail = tal_fmt(
 			    ctx,
 			    "minflow couldn't find a feasible flow for %s, %s",
-			    type_to_string(tmpctx, struct amount_msat,
-					   &amount_to_deliver),
+			    fmt_amount_msat(tmpctx, amount_to_deliver),
 			    errmsg);
 			goto function_fail;
 		}
@@ -533,7 +527,7 @@ const char *add_payflows(const tal_t *ctx, struct payment *p,
 			     "we have computed a set of %ld flows with "
 			     "probability %.3lf, fees %s and delay %ld",
 			     tal_count(flows), prob,
-			     type_to_string(tmpctx, struct amount_msat, &fee),
+			     fmt_amount_msat(tmpctx, fee),
 			     delay);
 
 		if (amount_msat_greater(fee, feebudget)) {
@@ -542,9 +536,8 @@ const char *add_payflows(const tal_t *ctx, struct payment *p,
 			    ctx,
 			    "Fee exceeds our fee budget, "
 			    "fee = %s (maxfee = %s)",
-			    type_to_string(tmpctx, struct amount_msat, &fee),
-			    type_to_string(tmpctx, struct amount_msat,
-					   &feebudget));
+			    fmt_amount_msat(tmpctx, fee),
+			    fmt_amount_msat(tmpctx, feebudget));
 			goto function_fail;
 		}
 		if (delay > p->maxdelay) {
@@ -635,8 +628,8 @@ const char *flow_path_to_str(const tal_t *ctx, const struct pay_flow *flow)
 	char *s = tal_strdup(ctx, "");
 	for (size_t i = 0; i < tal_count(flow->path_scidds); i++) {
 		tal_append_fmt(&s, "-%s->",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &flow->path_scidds[i].scid));
+			       fmt_short_channel_id(tmpctx,
+						    flow->path_scidds[i].scid));
 	}
 	return s;
 }

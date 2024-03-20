@@ -505,8 +505,8 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	if (!amount_sat_sub(&amount, amount, fee))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot deduct htlc-timeout fee %s from tx %s",
-			      type_to_string(tmpctx, struct amount_sat, &fee),
-			      type_to_string(tmpctx, struct bitcoin_tx, tx));
+			      fmt_amount_sat(tmpctx, fee),
+			      fmt_bitcoin_tx(tmpctx, tx));
 
 set_amount:
 	bitcoin_tx_output_set_amount(tx, 0, amount);
@@ -535,9 +535,7 @@ static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 	if (!amount_sat_to_msat(&htlc_amount, out->sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Overflow in get_htlc_success_fee %s",
-			      type_to_string(tmpctx,
-					     struct amount_sat,
-					     &out->sat));
+			      fmt_amount_sat(tmpctx, out->sat));
 	tx = htlc_success_tx(tmpctx, chainparams,
 			     &out->outpoint,
 			     out->wscript,
@@ -568,11 +566,10 @@ static struct amount_sat get_htlc_success_fee(struct tracked_output *out)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "htlc_success_fee can't be found "
 			      "for tx %s (weight %zu, feerate %u-%u), signature %s, wscript %s",
-			      type_to_string(tmpctx, struct bitcoin_tx, tx),
+			      fmt_bitcoin_tx(tmpctx, tx),
 			      weight,
 			      min_possible_feerate, max_possible_feerate,
-			      type_to_string(tmpctx,
-					     struct bitcoin_signature,
+			      fmt_bitcoin_signature(tmpctx,
 					     out->remote_htlc_sig),
 			      tal_hex(tmpctx, out->wscript));
 	}
@@ -611,7 +608,7 @@ new_tracked_output(struct tracked_output ***outs,
 	struct tracked_output *out = tal(*outs, struct tracked_output);
 
 	status_debug("Tracking output %s: %s/%s",
-		     type_to_string(tmpctx, struct bitcoin_outpoint, outpoint),
+		     fmt_bitcoin_outpoint(tmpctx, outpoint),
 		     tx_type_name(tx_type),
 		     output_type_name(output_type));
 
@@ -637,8 +634,7 @@ new_tracked_output(struct tracked_output ***outs,
 static void ignore_output(struct tracked_output *out)
 {
 	status_debug("Ignoring output %s: %s/%s",
-		     type_to_string(tmpctx, struct bitcoin_outpoint,
-				    &out->outpoint),
+		     fmt_bitcoin_outpoint(tmpctx, &out->outpoint),
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type));
 
@@ -797,8 +793,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(tmpctx, struct bitcoin_txid,
-				    &out->resolved->txid));
+		     fmt_bitcoin_txid(tmpctx, &out->resolved->txid));
 
 	out->resolved->depth = 0;
 	out->resolved->tx_type = out->proposal->tx_type;
@@ -819,7 +814,7 @@ static void resolved_by_other(struct tracked_output *out,
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
-		     type_to_string(tmpctx, struct bitcoin_txid, txid));
+		     fmt_bitcoin_txid(tmpctx, txid));
 }
 
 static void unknown_spend(struct tracked_output *out,
@@ -833,8 +828,7 @@ static void unknown_spend(struct tracked_output *out,
 	status_broken("Unknown spend of %s/%s by %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
-		     type_to_string(tmpctx, struct bitcoin_txid,
-				    &tx_parts->txid));
+		     fmt_bitcoin_txid(tmpctx, &tx_parts->txid));
 }
 
 static u64 unmask_commit_number(const struct tx_parts *tx,
@@ -949,9 +943,7 @@ static void billboard_update(struct tracked_output **outs)
 				       "%u outputs unresolved: waiting confirmation that we spent %s (%s) using %s",
 				       num_not_irrevocably_resolved(outs),
 				       output_type_name(best->output_type),
-				       type_to_string(tmpctx,
-						      struct bitcoin_outpoint,
-						      &best->outpoint),
+				       fmt_bitcoin_outpoint(tmpctx, &best->outpoint),
 				       tx_type_name(best->proposal->tx_type));
 		} else {
 			peer_billboard(false,
@@ -959,9 +951,7 @@ static void billboard_update(struct tracked_output **outs)
 				       num_not_irrevocably_resolved(outs),
 				       best->proposal->depth_required - best->depth,
 				       output_type_name(best->output_type),
-				       type_to_string(tmpctx,
-						      struct bitcoin_outpoint,
-						      &best->outpoint),
+				       fmt_bitcoin_outpoint(tmpctx, &best->outpoint),
 				       tx_type_name(best->proposal->tx_type));
 		}
 		return;
@@ -1060,8 +1050,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 		    && preimage_item->witness_len == PUBKEY_CMPR_LEN) {
 			status_unusual("Our cheat attempt failed, they're "
 				       "taking our htlc out (%s)",
-				       type_to_string(tmpctx, struct amount_sat,
-						      &out->sat));
+				       fmt_amount_sat(tmpctx, out->sat));
 			return;
 		}
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1079,9 +1068,8 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 			      "%s/%s spent with bad preimage %s (ripemd not %s)",
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type),
-			      type_to_string(tmpctx, struct preimage, &preimage),
-			      type_to_string(tmpctx, struct ripemd160,
-					     &out->htlc.ripemd));
+			      fmt_preimage(tmpctx, &preimage),
+			      fmt_ripemd160(tmpctx, &out->htlc.ripemd));
 
 	/* we stash the payment_hash into the tracking_output so we
 	 * can pass it along, if needbe, to the coin movement tracker */
@@ -1091,7 +1079,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	status_debug("%s/%s gave us preimage %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
-		     type_to_string(tmpctx, struct preimage, &preimage));
+		     fmt_preimage(tmpctx, &preimage));
 	wire_sync_write(REQ_FD,
 			take(towire_onchaind_extracted_preimage(NULL,
 							       &preimage)));
@@ -1366,7 +1354,7 @@ static void output_spent(struct tracked_output ***outs,
 	wally_tx_input_get_txid(tx_parts->inputs[input_num], &txid);
 	/* Not interesting to us, so unwatch the tx and all its outputs */
 	status_debug("Notified about tx %s output %u spend, but we don't care",
-		     type_to_string(tmpctx, struct bitcoin_txid, &txid),
+		     fmt_bitcoin_txid(tmpctx, &txid),
 		     tx_parts->inputs[input_num]->index);
 
 	unwatch_txid(&tx_parts->txid);
@@ -1856,8 +1844,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 	if (!amount_sat_to_msat(&htlc_amount, out->sat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Overflow in our_htlc output %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &out->sat));
+			      fmt_amount_sat(tmpctx, out->sat));
 
 	assert(tal_count(matches));
 
@@ -1915,11 +1902,10 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 			      "%s%s",
 			      tal_count(matches),
 			      min_possible_feerate, max_possible_feerate,
-			      type_to_string(tmpctx, struct bitcoin_tx, tx),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &out->sat),
-			      type_to_string(tmpctx, struct bitcoin_signature,
-					     out->remote_htlc_sig),
+			      fmt_bitcoin_tx(tmpctx, tx),
+			      fmt_amount_sat(tmpctx, out->sat),
+			      fmt_bitcoin_signature(tmpctx,
+						    out->remote_htlc_sig),
 			      cltvs, wscripts,
 			      option_anchor_outputs
 			      ? " option_anchor_outputs" : "",
@@ -2234,18 +2220,12 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s",
 		     commit_num,
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_revocation_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_delayed_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_htlc_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_htlc_key));
+		     fmt_pubkey(tmpctx, &keyset->self_revocation_key),
+		     fmt_pubkey(tmpctx, &keyset->self_delayed_payment_key),
+		     fmt_pubkey(tmpctx, &keyset->self_payment_key),
+		     fmt_pubkey(tmpctx, &keyset->other_payment_key),
+		     fmt_pubkey(tmpctx, &keyset->self_htlc_key),
+		     fmt_pubkey(tmpctx, &keyset->other_htlc_key));
 
 	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL],
 					1, keyset);
@@ -2672,8 +2652,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 	if (!pubkey_from_secret(remote_per_commitment_secret, k))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed derive from per_commitment_secret %s",
-			      type_to_string(tmpctx, struct secret,
-					     remote_per_commitment_secret));
+			      fmt_secret(tmpctx,
+					 remote_per_commitment_secret));
 
 	status_debug("Deriving keyset %"PRIu64
 		     ": per_commit_point=%s"
@@ -2684,20 +2664,20 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
-		     type_to_string(tmpctx, struct pubkey,
-				    remote_per_commitment_point),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].htlc),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].htlc),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].delayed_payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].revocation));
+		     fmt_pubkey(tmpctx,
+				remote_per_commitment_point),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].htlc),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].htlc),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].delayed_payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].revocation));
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
@@ -2719,18 +2699,18 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		     " other_htlc_key: %s"
 		     " (static_remotekey = %"PRIu64"/%"PRIu64")",
 		     commit_num,
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_revocation_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_delayed_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_htlc_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_htlc_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_revocation_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_delayed_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->other_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_htlc_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->other_htlc_key),
 		     static_remotekey_start[LOCAL],
 		     static_remotekey_start[REMOTE]);
 
@@ -3012,20 +2992,20 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
-		     type_to_string(tmpctx, struct pubkey,
-				    remote_per_commitment_point),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].htlc),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].htlc),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[REMOTE].delayed_payment),
-		     type_to_string(tmpctx, struct pubkey,
-				    &basepoints[LOCAL].revocation));
+		     fmt_pubkey(tmpctx,
+				remote_per_commitment_point),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].htlc),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].htlc),
+		     fmt_pubkey(tmpctx,
+				&basepoints[REMOTE].delayed_payment),
+		     fmt_pubkey(tmpctx,
+				&basepoints[LOCAL].revocation));
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
@@ -3046,18 +3026,18 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s",
 		     commit_num,
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_revocation_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_delayed_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_payment_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->self_htlc_key),
-		     type_to_string(tmpctx, struct pubkey,
-				    &keyset->other_htlc_key));
+		     fmt_pubkey(tmpctx,
+				&keyset->self_revocation_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_delayed_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->other_payment_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->self_htlc_key),
+		     fmt_pubkey(tmpctx,
+				&keyset->other_htlc_key));
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs_info->htlcs, REMOTE);
@@ -3327,8 +3307,8 @@ static void handle_unknown_commitment(const struct tx_parts *tx,
 				   ks))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Deriving keyset for possible_remote_per_commitment_point %s",
-				      type_to_string(tmpctx, struct pubkey,
-						     possible_remote_per_commitment_point));
+				      fmt_pubkey(tmpctx,
+						 possible_remote_per_commitment_point));
 
 		local_scripts[0] = scriptpubkey_p2wpkh(tmpctx,
 						       &ks->other_payment_key);
@@ -3518,11 +3498,9 @@ int main(int argc, char *argv[])
 						  tal_count(tx->outputs))));
 
 	status_debug("Remote per-commit point: %s",
-		     type_to_string(tmpctx, struct pubkey,
-				    &remote_per_commit_point));
+		     fmt_pubkey(tmpctx, &remote_per_commit_point));
 	status_debug("Old remote per-commit point: %s",
-		     type_to_string(tmpctx, struct pubkey,
-				    &old_remote_per_commit_point));
+		     fmt_pubkey(tmpctx, &old_remote_per_commit_point));
 
 	trim_maximum_feerate(funding_sats, tx);
 

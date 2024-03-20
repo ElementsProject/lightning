@@ -339,7 +339,7 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 
 	log_info(ld->log, "Resolved invoice '%s' with amount %s in %zu htlcs",
 		 payload->label->s,
-		 type_to_string(tmpctx, struct amount_msat, &payload->msat),
+		 fmt_amount_msat(tmpctx, payload->msat),
 		 payload->set ? tal_count(payload->set->htlcs) : 0);
 	if (payload->set)
 		htlc_set_fulfill(payload->set, &payload->preimage);
@@ -404,10 +404,10 @@ invoice_check_payment(const tal_t *ctx,
 	if (!invoices_find_unpaid(ld->wallet->invoices, &inv_dbid, payment_hash)) {
 		if (invoices_find_by_rhash(ld->wallet->invoices, &inv_dbid, payment_hash)) {
 			*err = tal_fmt(ctx, "Already paid or expired invoice %s",
-				       type_to_string(tmpctx, struct sha256, payment_hash));
+				       fmt_sha256(tmpctx, payment_hash));
 		} else {
 			*err = tal_fmt(ctx, "Unknown invoice %s",
-				       type_to_string(tmpctx, struct sha256, payment_hash));
+				       fmt_sha256(tmpctx, payment_hash));
 		}
 		return NULL;
 	}
@@ -423,7 +423,7 @@ invoice_check_payment(const tal_t *ctx,
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
 	    && !payment_secret) {
 		*err = tal_fmt(ctx, "Attempt to pay %s without secret",
-			       type_to_string(tmpctx, struct sha256, &details->rhash));
+			       fmt_sha256(tmpctx, &details->rhash));
 		return tal_free(details);
 	}
 
@@ -436,8 +436,7 @@ invoice_check_payment(const tal_t *ctx,
 			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with wrong secret",
-				       type_to_string(tmpctx, struct sha256,
-						      &details->rhash));
+				       fmt_sha256(tmpctx, &details->rhash));
 			return tal_free(details);
 		}
 	}
@@ -454,20 +453,18 @@ invoice_check_payment(const tal_t *ctx,
 
 		if (amount_msat_less(msat, *details->msat)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s < %s",
-				       type_to_string(tmpctx, struct sha256,
-						      &details->rhash),
-				       type_to_string(tmpctx, struct amount_msat, &msat),
-				       type_to_string(tmpctx, struct amount_msat, details->msat));
+				       fmt_sha256(tmpctx, &details->rhash),
+				       fmt_amount_msat(tmpctx, msat),
+				       fmt_amount_msat(tmpctx, *details->msat));
 			return tal_free(details);
 		}
 
 		if (amount_msat_add(&twice, *details->msat, *details->msat)
 		    && amount_msat_greater(msat, twice)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s > %s",
-				       type_to_string(tmpctx, struct sha256,
-						      &details->rhash),
-				       type_to_string(tmpctx, struct amount_msat, &msat),
-				       type_to_string(tmpctx, struct amount_msat, &twice));
+				       fmt_sha256(tmpctx, &details->rhash),
+				       fmt_amount_msat(tmpctx, msat),
+				       fmt_amount_msat(tmpctx, twice));
 			/* BOLT #4:
 			 *
 			 * - if the amount paid is more than twice the amount
@@ -610,10 +607,10 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		if (!amount_sat_add(&cumulative_reserve,
 				    candidates[i].c->our_config.channel_reserve,
 				    candidates[i].c->channel_info.their_config.channel_reserve)
-			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding_sats)
-			|| !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
+		    || !amount_sat_to_msat(&capacity, candidates[i].c->funding_sats)
+		    || !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
 			log_broken(ld->log, "Channel %s capacity overflow!",
-					type_to_string(tmpctx, struct short_channel_id, candidates[i].c->scid));
+					fmt_short_channel_id(tmpctx, *candidates[i].c->scid));
 			continue;
 		}
 
@@ -621,9 +618,8 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		 * only one!  So bump it by 1 msat */
 		if (!amount_msat_add(&excess, excess, AMOUNT_MSAT(1))) {
 			log_broken(ld->log, "Channel %s excess overflow!",
-				   type_to_string(tmpctx,
-						  struct short_channel_id,
-						  candidates[i].c->scid));
+				   fmt_short_channel_id(tmpctx,
+							*candidates[i].c->scid));
 			continue;
 		}
 		excess_frac = amount_msat_ratio(excess, capacity);
@@ -687,9 +683,8 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 			log_broken(ld->log,
 				   "Gathered channel capacity overflow: "
 				   "%s + %s",
-				   type_to_string(tmpctx, struct amount_msat, &gathered),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &candidates[i].capacity));
+				   fmt_amount_msat(tmpctx, gathered),
+				   fmt_amount_msat(tmpctx, candidates[i].capacity));
 			continue;
 		}
 		tal_arr_expand(&routehints,
@@ -797,24 +792,20 @@ add_routehints(struct invoice_info *info,
 	}
 
 	log_debug(info->cmd->ld->log, "needed = %s, avail_capacity = %s, private_capacity = %s, offline_capacity = %s, deadend_capacity = %s",
-		  type_to_string(tmpctx, struct amount_msat, &needed),
-		  type_to_string(tmpctx, struct amount_msat, &avail_capacity),
-		  type_to_string(tmpctx, struct amount_msat, &private_capacity),
-		  type_to_string(tmpctx, struct amount_msat, &offline_capacity),
-		  type_to_string(tmpctx, struct amount_msat, &deadend_capacity));
+		  fmt_amount_msat(tmpctx, needed),
+		  fmt_amount_msat(tmpctx, avail_capacity),
+		  fmt_amount_msat(tmpctx, private_capacity),
+		  fmt_amount_msat(tmpctx, offline_capacity),
+		  fmt_amount_msat(tmpctx, deadend_capacity));
 
 	if (!amount_msat_add(&total, avail_capacity, offline_capacity)
 	    || !amount_msat_add(&total, total, deadend_capacity)
 	    || !amount_msat_add(&total, total, private_capacity))
 		fatal("Cannot add %s + %s + %s + %s",
-		      type_to_string(tmpctx, struct amount_msat,
-				     &avail_capacity),
-		      type_to_string(tmpctx, struct amount_msat,
-				     &offline_capacity),
-		      type_to_string(tmpctx, struct amount_msat,
-				     &deadend_capacity),
-		      type_to_string(tmpctx, struct amount_msat,
-				     &private_capacity));
+		      fmt_amount_msat(tmpctx, avail_capacity),
+		      fmt_amount_msat(tmpctx, offline_capacity),
+		      fmt_amount_msat(tmpctx, deadend_capacity),
+		      fmt_amount_msat(tmpctx, private_capacity));
 
 	/* If we literally didn't have capacity at all, warn. */
 	*warning_capacity = amount_msat_greater_eq(needed, total);

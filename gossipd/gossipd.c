@@ -119,7 +119,7 @@ static void connectd_new_peer(struct daemon *daemon, const u8 *msg)
 
 	if (find_peer(daemon, &peer->id)) {
 		status_broken("Peer %s already here?",
-			      type_to_string(tmpctx, struct node_id, &peer->id));
+			      fmt_node_id(tmpctx, &peer->id));
 		tal_free(find_peer(daemon, &peer->id));
 	}
 
@@ -159,7 +159,7 @@ static void connectd_peer_gone(struct daemon *daemon, const u8 *msg)
 	peer = find_peer(daemon, &id);
 	if (!peer)
 		status_broken("Peer %s already gone?",
-			      type_to_string(tmpctx, struct node_id, &id));
+			      fmt_node_id(tmpctx, &id));
 	tal_free(peer);
 }
 
@@ -201,7 +201,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	if (!peer) {
 		status_broken("connectd sent gossip msg %s from unknown peer %s",
 			      peer_wire_name(fromwire_peektype(msg)),
-			      type_to_string(tmpctx, struct node_id, &source));
+			      fmt_node_id(tmpctx, &source));
 		return;
 	}
 
@@ -284,7 +284,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "connectd sent unexpected gossip msg %s for peer %s",
 		      peer_wire_name(fromwire_peektype(msg)),
-		      type_to_string(tmpctx, struct node_id, &peer->id));
+		      fmt_node_id(tmpctx, &peer->id));
 
 handled_msg_errmsg:
 	if (errmsg)

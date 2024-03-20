@@ -140,8 +140,8 @@ static void json_add_label(struct json_stream *js,
 	char *label;
 
 	label = tal_fmt(tmpctx, "%s-%s-%u",
-			type_to_string(tmpctx, struct sha256, offer_id),
-			type_to_string(tmpctx, struct pubkey, payer_key),
+			fmt_sha256(tmpctx, offer_id),
+			fmt_pubkey(tmpctx, payer_key),
 			counter);
 	json_add_string(js, "label", label);
 }
@@ -717,8 +717,8 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	if (ir->invreq->offer_amount && ir->invreq->invreq_amount) {
 		if (amount_msat_less(amount_msat(*ir->invreq->invreq_amount), base_inv_amount)) {
 			return fail_invreq(cmd, ir, "Amount must be at least %s",
-					   type_to_string(tmpctx, struct amount_msat,
-							  &base_inv_amount));
+					   fmt_amount_msat(tmpctx,
+							   base_inv_amount));
 		}
 		/* BOLT-offers #12:
 		 *    - MAY fail the request if `invreq_amount`.`msat` greatly exceeds
@@ -728,8 +728,8 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 		if (amount_msat_greater(amount_msat_div(amount_msat(*ir->invreq->invreq_amount), 5),
 					base_inv_amount)) {
 			return fail_invreq(cmd, ir, "Amount vastly exceeds %s",
-					   type_to_string(tmpctx, struct amount_msat,
-							  &base_inv_amount));
+					   fmt_amount_msat(tmpctx,
+							   base_inv_amount));
 		}
 		base_inv_amount = amount_msat(*ir->invreq->invreq_amount);
 	}

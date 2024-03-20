@@ -130,8 +130,7 @@ static void handle_init_cupdate(struct lightningd *ld, const u8 *msg)
 	channel = any_channel_by_scid(ld, &scid, true);
 	if (!channel) {
 		log_broken(ld->log, "init_cupdate for unknown scid %s",
-			   type_to_string(tmpctx, struct short_channel_id,
-					  &scid));
+			   fmt_short_channel_id(tmpctx, scid));
 		return;
 	}
 

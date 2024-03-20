@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 
 		if (fromwire_gossip_store_channel_amount(msg, &sat)) {
 			printf("channel_amount: %s\n",
-			       type_to_string(tmpctx, struct amount_sat, &sat));
+			       fmt_amount_sat(tmpctx, sat));
 		} else if (fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT) {
 			printf("t=%u channel_announcement: %s\n",
 			       be32_to_cpu(hdr.timestamp),
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		} else if (fromwire_gossip_store_private_channel_obs(msg, msg, &sat,
 								 &inner)) {
 			printf("private channel_announcement: %s %s\n",
-			       type_to_string(tmpctx, struct amount_sat, &sat),
+			       fmt_amount_sat(tmpctx, sat),
 			       tal_hex(msg, inner));
 		} else if (fromwire_gossip_store_private_update_obs(msg, msg,
 								&inner)) {
@@ -120,12 +120,10 @@ int main(int argc, char *argv[])
 			       tal_hex(msg, inner));
 		} else if (fromwire_gossip_store_delete_chan(msg, &scid)) {
 			printf("delete channel: %s\n",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &scid));
+			       fmt_short_channel_id(tmpctx, scid));
 		} else if (fromwire_gossip_store_chan_dying(msg, &scid, &blockheight)) {
 			printf("dying channel: %s (deadline %u)\n",
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &scid),
+			       fmt_short_channel_id(tmpctx, scid),
 			       blockheight);
 		} else {
 			warnx("Unknown message %u",

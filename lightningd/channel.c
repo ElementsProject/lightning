@@ -361,18 +361,16 @@ struct amount_msat htlc_max_possible_send(const struct channel *channel)
 			    channel->channel_info.their_config.channel_reserve)) {
 		log_broken(channel->log, "%s: their reserve %s > funding %s!",
 			   __func__,
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding_sats),
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->channel_info.their_config.channel_reserve));
+			   fmt_amount_sat(tmpctx, channel->funding_sats),
+			   fmt_amount_sat(tmpctx,
+					  channel->channel_info.their_config.channel_reserve));
 		return AMOUNT_MSAT(0);
 	}
 
 	if (!amount_sat_to_msat(&lower_bound_msat, lower_bound)) {
 		log_broken(channel->log, "%s: impossible size channel %s!",
 			   __func__,
-			   type_to_string(tmpctx, struct amount_sat,
-					  &lower_bound));
+			   fmt_amount_sat(tmpctx, lower_bound));
 		return AMOUNT_MSAT(0);
 	}
 

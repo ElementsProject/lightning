@@ -339,8 +339,8 @@ static void add_amount_sent(struct plugin *p,
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_sent_msat for %s: %s + %s",
 			   invstring,
-			   type_to_string(tmpctx, struct amount_msat, &mpp->amount_sent),
-			   type_to_string(tmpctx, struct amount_msat, &sent));
+			   fmt_amount_msat(tmpctx, mpp->amount_sent),
+			   fmt_amount_msat(tmpctx, sent));
 
 	msattok = json_get_member(buf, t, "amount_msat");
 
@@ -366,8 +366,8 @@ static void add_amount_sent(struct plugin *p,
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_msat for %s: %s + %s",
 			   invstring,
-			   type_to_string(tmpctx, struct amount_msat, mpp->amount),
-			   type_to_string(tmpctx, struct amount_msat, &sent));
+			   fmt_amount_msat(tmpctx, *mpp->amount),
+			   fmt_amount_msat(tmpctx, sent));
 }
 
 static void add_new_entry(struct json_stream *ret,

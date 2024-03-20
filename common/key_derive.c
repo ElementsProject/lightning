@@ -49,9 +49,9 @@ bool derive_simple_key(const struct pubkey *basepoint,
 		return false;
 #ifdef SUPERVERBOSE
 	printf("# + basepoint (0x%s)\n",
-	       type_to_string(tmpctx, struct pubkey, basepoint));
+	       fmt_pubkey(tmpctx, basepoint));
 	printf("# = 0x%s\n",
-	       type_to_string(tmpctx, struct pubkey, key));
+	       fmt_pubkey(tmpctx, key));
 #endif
 	return true;
 }
@@ -141,7 +141,7 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 		return false;
 #ifdef SUPERVERBOSE
 	printf("# x revocation_basepoint = 0x%s\n",
-	       type_to_string(tmpctx, secp256k1_pubkey, &add[0]));
+	       fmt_secp256k1_pubkey(tmpctx, &add[0]));
 #endif
 
 	pubkey_to_der(der_keys, per_commitment_point);
@@ -160,7 +160,7 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 		return false;
 #ifdef SUPERVERBOSE
 	printf("# x per_commitment_point = 0x%s\n",
-	       type_to_string(tmpctx, secp256k1_pubkey, &add[1]));
+	       fmt_secp256k1_pubkey(tmpctx, &add[1]));
 #endif
 
 	args[0] = &add[0];
@@ -171,9 +171,9 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 
 #ifdef SUPERVERBOSE
 	printf("# 0x%s + 0x%s => 0x%s\n",
-	       type_to_string(tmpctx, secp256k1_pubkey, args[0]),
-	       type_to_string(tmpctx, secp256k1_pubkey, args[1]),
-	       type_to_string(tmpctx, struct pubkey, key));
+	       fmt_secp256k1_pubkey(tmpctx, args[0]),
+	       fmt_secp256k1_pubkey(tmpctx, args[1]),
+	       fmt_pubkey(tmpctx, key));
 #endif
 	return true;
 }

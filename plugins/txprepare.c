@@ -166,8 +166,7 @@ static struct command_result *signpsbt_done(struct command *cmd,
 				    "Signed tx changed txid? Had '%s' now '%s'",
 				    tal_hex(tmpctx,
 					    linearize_wtx(tmpctx, utx->tx)),
-				    type_to_string(tmpctx, struct wally_psbt,
-                           utx->psbt));
+				    fmt_wally_psbt(tmpctx, utx->psbt));
 	}
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpsbt",
@@ -194,9 +193,8 @@ static struct command_result *finish_txprepare(struct command *cmd,
 					    "Invalid output %zi (%s:%s)", i,
 					    tal_hex(tmpctx,
 						    txp->outputs[i].script),
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   &txp->outputs[i].amount));
+					    fmt_amount_sat(tmpctx,
+							   txp->outputs[i].amount));
 		psbt_add_output(txp->psbt, out, i);
 
 		if (txp->outputs[i].is_to_external)
@@ -396,7 +394,7 @@ static struct command_result *param_unreleased_txid(struct command *cmd,
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			    "not an unreleased txid '%s'",
-			    type_to_string(tmpctx, struct bitcoin_txid, txid));
+			    fmt_bitcoin_txid(tmpctx, txid));
 }
 
 static struct command_result *json_txdiscard(struct command *cmd,

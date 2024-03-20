@@ -229,6 +229,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
+/* Generated stub for fmt_channel_id */
+char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,

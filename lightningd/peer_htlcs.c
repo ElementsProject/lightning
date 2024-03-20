@@ -289,8 +289,7 @@ static bool check_fwd_amount(struct htlc_in *hin,
 	if (!amount_msat_fee(&fee, amt_to_forward,
 			     feerate_base, feerate_ppm)) {
 		log_broken(hin->key.channel->log, "Fee overflow forwarding %s!",
-			   type_to_string(tmpctx, struct amount_msat,
-					  &amt_to_forward));
+			   fmt_amount_msat(tmpctx, amt_to_forward));
 		return false;
 	}
 
@@ -301,9 +300,9 @@ static bool check_fwd_amount(struct htlc_in *hin,
 	log_debug(hin->key.channel->log, "HTLC %"PRIu64" incorrect amount:"
 		  " %s in, %s out, fee reqd %s",
 		  hin->key.id,
-		  type_to_string(tmpctx, struct amount_msat, &amt_in_htlc),
-		  type_to_string(tmpctx, struct amount_msat, &amt_to_forward),
-		  type_to_string(tmpctx, struct amount_msat, &fee));
+		  fmt_amount_msat(tmpctx, amt_in_htlc),
+		  fmt_amount_msat(tmpctx, amt_to_forward),
+		  fmt_amount_msat(tmpctx, fee));
 	return false;
 }
 
@@ -395,9 +394,8 @@ static void handle_localpay(struct htlc_in *hin,
 			  "HTLC %"PRIu64" final incorrect amount:"
 			  " %s in, %s expected",
 			  hin->key.id,
-			  type_to_string(tmpctx, struct amount_msat, &hin->msat),
-			  type_to_string(tmpctx, struct amount_msat,
-					 &amt_to_forward));
+			  fmt_amount_msat(tmpctx, hin->msat),
+			  fmt_amount_msat(tmpctx, amt_to_forward));
 		/* BOLT #4:
 		 * 1. type: 19 (`final_incorrect_htlc_amount`)
 		 * 2. data:
@@ -892,9 +890,9 @@ htlc_accepted_hook_try_resolve(struct htlc_accepted_hook_payload *request,
 		    request->channel->log,
 		    "Plugin returned a preimage (sha256(%s) = %s) that doesn't "
 		    "match the HTLC hash (%s) it tries to resolve.",
-		    type_to_string(tmpctx, struct preimage, payment_preimage),
-		    type_to_string(tmpctx, struct sha256, &payment_hash),
-		    type_to_string(tmpctx, struct sha256, &hin->payment_hash));
+		    fmt_preimage(tmpctx, payment_preimage),
+		    fmt_sha256(tmpctx, &payment_hash),
+		    fmt_sha256(tmpctx, &hin->payment_hash));
 
 		unknown_details = tal_arr(NULL, u8, 0);
 		towire_u16(&unknown_details, 0x400f);
@@ -1217,16 +1215,14 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 	if (p->forward_channel) {
 		log_debug(hp->channel->log,
 			  "Looking up channel by scid=%s to forward htlc_id=%" PRIu64,
-			  type_to_string(tmpctx, struct short_channel_id,
-					 p->forward_channel),
+			  fmt_short_channel_id(tmpctx, *p->forward_channel),
 			  hp->hin->key.id);
 
 		c = any_channel_by_scid(ld, p->forward_channel, false);
 
 		if (!c) {
 			log_unusual(hp->channel->log, "No peer channel with scid=%s",
-				    type_to_string(tmpctx, struct short_channel_id,
-						   p->forward_channel));
+				    fmt_short_channel_id(tmpctx, *p->forward_channel));
 			return NULL;
 		}
 
@@ -1243,12 +1239,12 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 		peer = peer_by_id(ld, &id);
 
 		log_debug(hp->channel->log, "Looking up peer by node_id=%s",
-			  type_to_string(tmpctx, struct node_id, &id));
+			  fmt_node_id(tmpctx, &id));
 
 		if (!peer) {
 			log_unusual(
 			    hp->channel->log, "No peer with node_id=%s",
-			    type_to_string(tmpctx, struct node_id, &id));
+			    fmt_node_id(tmpctx, &id));
 			return NULL;
 		}
 		c = NULL;
@@ -1260,26 +1256,25 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 			return NULL;
 		log_debug(hp->channel->log,
 			  "Chose channel %s for peer %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 channel_scid_or_local_alias(best)),
-			  type_to_string(tmpctx, struct node_id,
-					 &peer->id));
+			  fmt_short_channel_id(tmpctx,
+					       *channel_scid_or_local_alias(best)),
+			  fmt_node_id(tmpctx, &peer->id));
 	} else if (best != c) {
 		log_debug(hp->channel->log,
 			  "Chose a better channel than %s: %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 p->forward_channel),
-			  type_to_string(tmpctx, struct short_channel_id,
-					 channel_scid_or_local_alias(best)));
+			  fmt_short_channel_id(tmpctx,
+					       *p->forward_channel),
+			  fmt_short_channel_id(tmpctx,
+					       *channel_scid_or_local_alias(best)));
 	}
 
 	log_debug(hp->channel->log,
 		  "Decided to forward htlc_id=%" PRIu64
 		  " over channel with scid=%s with peer %s",
 		  hp->hin->key.id,
-		  type_to_string(tmpctx, struct short_channel_id,
-				 channel_scid_or_local_alias(best)),
-		  type_to_string(tmpctx, struct node_id, &best->peer->id));
+		  fmt_short_channel_id(tmpctx,
+				       *channel_scid_or_local_alias(best)),
+		  fmt_node_id(tmpctx, &best->peer->id));
 
 	return tal_dup(hp, struct channel_id, &best->cid);
 }
@@ -1390,7 +1385,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 			  "Rejecting their htlc %"PRIu64
 			  " since onion is unprocessable %s ss=%s",
 			  id, onion_wire_name(*badonion),
-			  type_to_string(tmpctx, struct secret, hin->shared_secret));
+			  fmt_secret(tmpctx, hin->shared_secret));
 		goto fail;
 	}
 
@@ -1644,7 +1639,7 @@ static void check_already_failed(const struct channel *channel, struct htlc_out 
 		   hout->key.id,
 		   hout->failonion ? tal_hex(tmpctx, hout->failonion->contents) : "(null)",
 		   hout->failmsg ? tal_hex(tmpctx, hout->failmsg) : "(null)",
-		   hout->preimage ? type_to_string(tmpctx, struct preimage, hout->preimage) : "(null)");
+		   hout->preimage ? fmt_preimage(tmpctx, hout->preimage) : "(null)");
 
 	if (hout->preimage) {
 		/* Log on both ours and theirs! */
@@ -1819,17 +1814,14 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 				     hin->msat)) {
 			channel_internal_error(channel,
 					       "Overflow our_msat %s + HTLC %s",
-					       type_to_string(tmpctx,
-							      struct amount_msat,
-							      &channel->our_msat),
-					       type_to_string(tmpctx,
-							      struct amount_msat,
-							      &hin->msat));
+					       fmt_amount_msat(tmpctx,
+							       channel->our_msat),
+					       fmt_amount_msat(tmpctx,
+							       hin->msat));
 		}
 		log_debug(channel->log, "Balance %s -> %s",
-			  type_to_string(tmpctx, struct amount_msat, &oldamt),
-			  type_to_string(tmpctx, struct amount_msat,
-					 &channel->our_msat));
+			  fmt_amount_msat(tmpctx, oldamt),
+			  fmt_amount_msat(tmpctx, channel->our_msat));
 		if (amount_msat_greater(channel->our_msat,
 					channel->msat_to_us_max))
 			channel->msat_to_us_max = channel->our_msat;
@@ -1872,18 +1864,15 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 				     hout->msat)) {
 			channel_internal_error(channel,
 					       "Underflow our_msat %s - HTLC %s",
-					       type_to_string(tmpctx,
-							      struct amount_msat,
-							      &channel->our_msat),
-					       type_to_string(tmpctx,
-							      struct amount_msat,
-							      &hout->msat));
+					       fmt_amount_msat(tmpctx,
+							       channel->our_msat),
+					       fmt_amount_msat(tmpctx,
+							       hout->msat));
 		}
 
 		log_debug(channel->log, "Balance %s -> %s",
-			  type_to_string(tmpctx, struct amount_msat, &oldamt),
-			  type_to_string(tmpctx, struct amount_msat,
-					 &channel->our_msat));
+			  fmt_amount_msat(tmpctx, oldamt),
+			  fmt_amount_msat(tmpctx, channel->our_msat));
 		if (amount_msat_less(channel->our_msat, channel->msat_to_us_min))
 			channel->msat_to_us_min = channel->our_msat;
 
@@ -1986,7 +1975,7 @@ static bool valid_commitment_tx(struct channel *channel,
 	if (tx->wtx->num_outputs == 0) {
 		channel_internal_error(channel,
 				       "channel_got_commitsig: zero output tx! %s",
-				       type_to_string(tmpctx, struct bitcoin_tx, tx));
+				       fmt_bitcoin_tx(tmpctx, tx));
 		return false;
 	}
 	return true;
@@ -2145,12 +2134,9 @@ static bool channel_added_their_htlc(struct channel *channel,
 		channel_internal_error(channel,
 				       "trying to add HTLC amount %s"
 				       " but minimum is %s",
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &added->amount),
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &channel->our_config.htlc_minimum));
+				       fmt_amount_msat(tmpctx, added->amount),
+				       fmt_amount_msat(tmpctx,
+						       channel->our_config.htlc_minimum));
 		return false;
 	}
 
@@ -2523,8 +2509,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad per_commitment_secret %s for %"PRIu64,
-				       type_to_string(msg, struct secret,
-						      &per_commitment_secret),
+				       fmt_secret(msg, &per_commitment_secret),
 				       revokenum);
 		return;
 	}
@@ -2890,9 +2875,8 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 		   " to %s"
 		   " is missing a resolution: %s.",
 		   hout->key.id, htlc_state_name(hout->hstate),
-		   type_to_string(tmpctx, struct amount_msat, &hout->msat),
-		   type_to_string(tmpctx, struct node_id,
-				  &hout->key.channel->peer->id),
+		   fmt_amount_msat(tmpctx, hout->msat),
+		   fmt_node_id(tmpctx, &hout->key.channel->peer->id),
 		   fix);
 }
 

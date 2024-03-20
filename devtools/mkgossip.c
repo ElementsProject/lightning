@@ -78,8 +78,7 @@ static char *sig_notation(const struct privkey *privkey,
 {
 	const char *pstr = tal_hexstr(NULL, privkey->secret.data,
 				      sizeof(privkey->secret.data));
-	const char *hstr =
-		type_to_string(NULL, struct sha256_double, hash);
+	const char *hstr = fmt_sha256_double(NULL, hash);
 
 	if (verbose)
 		return tal_fmt(NULL,

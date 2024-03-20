@@ -147,7 +147,7 @@ static void NORETURN negotiation_failed(struct state *state,
 static void set_reserve_absolute(struct state * state, const struct amount_sat dust_limit, struct amount_sat reserve_sat)
 {
 	status_debug("Setting their reserve to %s",
-		     type_to_string(tmpctx, struct amount_sat, &reserve_sat));
+		     fmt_amount_sat(tmpctx, reserve_sat));
 	if (state->allowdustreserve) {
 		state->localconf.channel_reserve = reserve_sat;
 	} else {
@@ -161,10 +161,8 @@ static void set_reserve_absolute(struct state * state, const struct amount_sat d
 		if (amount_sat_greater(dust_limit, reserve_sat)) {
 			status_debug("Their reserve is too small, bumping to "
 				     "dust_limit: %s < %s",
-				     type_to_string(tmpctx, struct amount_sat,
-						    &reserve_sat),
-				     type_to_string(tmpctx, struct amount_sat,
-						    &dust_limit));
+				     fmt_amount_sat(tmpctx, reserve_sat),
+				     fmt_amount_sat(tmpctx, dust_limit));
 			state->localconf.channel_reserve = dust_limit;
 		} else {
 			state->localconf.channel_reserve = reserve_sat;
@@ -249,10 +247,8 @@ static bool setup_channel_funder(struct state *state)
 				  chainparams->max_funding)) {
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < %s, not %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &chainparams->max_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &state->funding_sats));
+			      fmt_amount_sat(tmpctx, chainparams->max_funding),
+			      fmt_amount_sat(tmpctx, state->funding_sats));
 		return false;
 	}
 
@@ -441,12 +437,9 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	status_debug(
 	    "accept_channel: max_htlc_value_in_flight=%s, channel_reserve=%s, "
 	    "htlc_minimum=%s, minimum_depth=%d",
-	    type_to_string(tmpctx, struct amount_msat,
-			   &state->remoteconf.max_htlc_value_in_flight),
-	    type_to_string(tmpctx, struct amount_sat,
-			   &state->remoteconf.channel_reserve),
-	    type_to_string(tmpctx, struct amount_msat,
-			   &state->remoteconf.htlc_minimum),
+	    fmt_amount_msat(tmpctx, state->remoteconf.max_htlc_value_in_flight),
+	    fmt_amount_sat(tmpctx, state->remoteconf.channel_reserve),
+	    fmt_amount_msat(tmpctx, state->remoteconf.htlc_minimum),
 	    their_mindepth);
 
 	/* BOLT #2:
@@ -499,8 +492,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		/* In this case we exit, since we don't know what's going on. */
 		peer_failed_err(state->pps, &id_in,
 				"accept_channel ids don't match: sent %s got %s",
-				type_to_string(msg, struct channel_id, &id_in),
-				type_to_string(msg, struct channel_id,
+				fmt_channel_id(msg, &id_in),
+				fmt_channel_id(msg,
 					       &state->channel_id));
 
 	if (!state->allowdustreserve &&
@@ -509,10 +502,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		negotiation_failed(state,
 				   "dust limit %s"
 				   " would be above our reserve %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->remoteconf.dust_limit),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.channel_reserve));
+				   fmt_amount_sat(tmpctx, state->remoteconf.dust_limit),
+				   fmt_amount_sat(tmpctx, state->localconf.channel_reserve));
 		return NULL;
 	}
 
@@ -550,10 +541,9 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		    "Please increase the funding amount or reduce the "
 		    "max_accepted_htlcs to ensure at least one non-dust "
 		    "output.",
-		    type_to_string(tmpctx, struct amount_sat,
-				   &state->funding_sats),
+		    fmt_amount_sat(tmpctx, state->funding_sats),
 		    maxhtlcs,
-		    type_to_string(tmpctx, struct amount_sat, &mindust));
+		    fmt_amount_sat(tmpctx, mindust));
 		return NULL;
 	}
 
@@ -741,9 +731,9 @@ static bool funder_finalize_channel_setup(struct state *state,
 	/* You can tell this has been a problem before, since there's a debug
 	 * message here: */
 	status_debug("signature %s on tx %s using key %s",
-		     type_to_string(tmpctx, struct bitcoin_signature, sig),
-		     type_to_string(tmpctx, struct bitcoin_tx, *tx),
-		     type_to_string(tmpctx, struct pubkey,
+		     fmt_bitcoin_signature(tmpctx, sig),
+		     fmt_bitcoin_tx(tmpctx, *tx),
+		     fmt_pubkey(tmpctx,
 				    &state->our_funding_pubkey));
 
 	/* Now we give our peer the signature for their first commitment
@@ -805,9 +795,9 @@ static bool funder_finalize_channel_setup(struct state *state,
 	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed_err(state->pps, &id_in,
 				"funding_signed ids don't match: expected %s got %s",
-				type_to_string(msg, struct channel_id,
+				fmt_channel_id(msg,
 					       &state->channel_id),
-				type_to_string(msg, struct channel_id, &id_in));
+				fmt_channel_id(msg, &id_in));
 
 	/* BOLT #2:
 	 *
@@ -831,10 +821,10 @@ static bool funder_finalize_channel_setup(struct state *state,
 	if (!check_tx_sig(*tx, 0, NULL, wscript, &state->their_funding_pubkey, sig)) {
 		peer_failed_err(state->pps, &state->channel_id,
 				"Bad signature %s on tx %s using key %s (channel_type=%s)",
-				type_to_string(tmpctx, struct bitcoin_signature,
+				fmt_bitcoin_signature(tmpctx,
 					       sig),
-				type_to_string(tmpctx, struct bitcoin_tx, *tx),
-				type_to_string(tmpctx, struct pubkey,
+				fmt_bitcoin_tx(tmpctx, *tx),
+				fmt_pubkey(tmpctx,
 					       &state->their_funding_pubkey),
 				fmt_featurebits(tmpctx,
 						state->channel->type->features));
@@ -867,17 +857,15 @@ static u8 *funder_channel_complete(struct state *state)
 	/* Update the billboard about what we're doing*/
 	peer_billboard(false,
 		       "Funding channel con't: continuing with funding_txid %s",
-		       type_to_string(tmpctx, struct bitcoin_txid, &state->funding.txid));
+		       fmt_bitcoin_txid(tmpctx, &state->funding.txid));
 
 	/* We recalculate the local_msat from cached values; should
 	 * succeed because we checked it earlier */
 	if (!amount_sat_sub_msat(&local_msat, state->funding_sats, state->push_msat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "push_msat %s > funding %s?",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &state->push_msat),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &state->funding_sats));
+			      fmt_amount_msat(tmpctx, state->push_msat),
+			      fmt_amount_sat(tmpctx, state->funding_sats));
 
 	if (!funder_finalize_channel_setup(state, local_msat, &sig, &tx,
 					   &pbase))
@@ -997,9 +985,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
 		negotiation_failed(state,
 				   "Unknown chain-hash %s",
-				   type_to_string(tmpctx,
-						  struct bitcoin_blkid,
-						  &chain_hash));
+				   fmt_bitcoin_blkid(tmpctx, &chain_hash));
 		return NULL;
 	}
 
@@ -1015,8 +1001,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	    && amount_sat_greater(state->funding_sats, chainparams->max_funding)) {
 		negotiation_failed(state,
 				   "funding_satoshis %s too large",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding_sats));
+				   fmt_amount_sat(tmpctx, state->funding_sats));
 		return NULL;
 	}
 
@@ -1030,10 +1015,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		peer_failed_err(state->pps, &state->channel_id,
 				"Their push_msat %s"
 				" would be too large for funding_satoshis %s",
-				type_to_string(tmpctx, struct amount_msat,
-					       &state->push_msat),
-				type_to_string(tmpctx, struct amount_sat,
-					       &state->funding_sats));
+				fmt_amount_msat(tmpctx, state->push_msat),
+				fmt_amount_sat(tmpctx, state->funding_sats));
 		return NULL;
 	}
 
@@ -1077,10 +1060,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		negotiation_failed(state,
 				   "Our channel reserve %s"
 				   " would be below their dust %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->remoteconf.dust_limit));
+				   fmt_amount_sat(tmpctx, state->localconf.channel_reserve),
+				   fmt_amount_sat(tmpctx, state->remoteconf.dust_limit));
 		return NULL;
 	}
 
@@ -1216,9 +1197,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed_err(state->pps, &id_in,
 				"funding_created ids don't match: sent %s got %s",
-				type_to_string(msg, struct channel_id,
+				fmt_channel_id(msg,
 					       &state->channel_id),
-				type_to_string(msg, struct channel_id, &id_in));
+				fmt_channel_id(msg, &id_in));
 
 	/* Backwards/cross compat hack */
 	if (intuit_scid_alias_type(state, channel_flags,
@@ -1309,10 +1290,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		 * longer read C code. */
 		peer_failed_err(state->pps, &state->channel_id,
 				"Bad signature %s on tx %s using key %s",
-				type_to_string(tmpctx, struct bitcoin_signature,
+				fmt_bitcoin_signature(tmpctx,
 					       &theirsig),
-				type_to_string(tmpctx, struct bitcoin_tx, local_commit),
-				type_to_string(tmpctx, struct pubkey,
+				fmt_bitcoin_tx(tmpctx, local_commit),
+				fmt_pubkey(tmpctx,
 					       &their_funding_pubkey));
 	}
 

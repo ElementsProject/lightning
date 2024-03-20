@@ -387,7 +387,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 	if (!psbt_finalize(psbt))
 		fatal("Non-final PSBT from hsm: %s",
-		      type_to_string(tmpctx, struct wally_psbt, psbt));
+		      fmt_wally_psbt(tmpctx, psbt));
 
 	/* Update fee so we know for next time */
 	anch->anchor_spend_fee = fee;
@@ -415,12 +415,12 @@ static bool refresh_anchor_spend(struct channel *channel,
 		bitcoin_txid(replace, &txid);
 		log_info(channel->log, "RBF anchor %s commit tx spend %s: fee was %s now %s",
 			 anch->commit_side == LOCAL ? "local" : "remote",
-			 type_to_string(tmpctx, struct bitcoin_txid, &txid),
+			 fmt_bitcoin_txid(tmpctx, &txid),
 			 fmt_amount_sat(tmpctx, old_fee),
 			 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 		log_debug(channel->log, "RBF anchor spend: Old tx %s new %s",
-			  type_to_string(tmpctx, struct bitcoin_tx, *tx),
-			  type_to_string(tmpctx, struct bitcoin_tx, replace));
+			  fmt_bitcoin_tx(tmpctx, *tx),
+			  fmt_bitcoin_tx(tmpctx, replace));
 		tal_free(*tx);
 		*tx = replace;
 	}
@@ -443,7 +443,7 @@ static void create_and_broadcast_anchor(struct channel *channel,
 	bitcoin_txid(newtx, &txid);
 	log_info(channel->log, "Creating anchor spend for %s commit tx %s: we're paying fee %s",
 		 anch->commit_side == LOCAL ? "local" : "remote",
-		 type_to_string(tmpctx, struct bitcoin_txid, &txid),
+		 fmt_bitcoin_txid(tmpctx, &txid),
 		 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 
 	/* Send it! */

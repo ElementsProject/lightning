@@ -121,7 +121,7 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		       tag,
 		       channel_id_is_all(channel_id) ? "": " channel ",
 		       channel_id_is_all(channel_id) ? ""
-		       : type_to_string(tmpctx, struct channel_id, channel_id),
+		       : fmt_channel_id(tmpctx, channel_id),
 		       (int)tal_count(data), (char *)data);
 }
 

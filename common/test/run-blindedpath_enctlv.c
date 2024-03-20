@@ -163,17 +163,17 @@ int main(int argc, char *argv[])
 	printf("[{");
 	json_strfield("test name", "Simple encrypted_recipient_data for Alice, next is Bob");
 	json_strfield("node_privkey",
-		      type_to_string(tmpctx, struct privkey, &alice));
+		      fmt_privkey(tmpctx, &alice));
 	json_strfield("node_id",
-		      type_to_string(tmpctx, struct pubkey, &alice_id));
+		      fmt_pubkey(tmpctx, &alice_id));
 	json_strfield("blinding_secret",
-		      type_to_string(tmpctx, struct privkey, &blinding));
+		      fmt_privkey(tmpctx, &blinding));
 	json_strfield("blinding",
-		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
+		      fmt_pubkey(tmpctx, &blinding_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\"\n"
 	       "\t},\n",
-	       type_to_string(tmpctx, struct pubkey, &bob_id));
+	       fmt_pubkey(tmpctx, &bob_id));
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->next_node_id = &bob_id;
@@ -193,19 +193,19 @@ int main(int argc, char *argv[])
 	json_strfield("test name",
 		      "Blinding-key-override encrypted_recipient_data for Bob, next is Carol");
 	json_strfield("node_privkey",
-		      type_to_string(tmpctx, struct privkey, &bob));
+		      fmt_privkey(tmpctx, &bob));
 	json_strfield("node_id",
-		      type_to_string(tmpctx, struct pubkey, &bob_id));
+		      fmt_pubkey(tmpctx, &bob_id));
 	json_strfield("blinding_secret",
-		      type_to_string(tmpctx, struct privkey, &blinding));
+		      fmt_privkey(tmpctx, &blinding));
 	json_strfield("blinding",
-		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
+		      fmt_pubkey(tmpctx, &blinding_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
 	       "\t\t\"blinding\": \"%s\"\n"
 	       "\t},\n",
-	       type_to_string(tmpctx, struct pubkey, &carol_id),
-	       type_to_string(tmpctx, struct privkey, &override_blinding));
+	       fmt_pubkey(tmpctx, &carol_id),
+	       fmt_privkey(tmpctx, &override_blinding));
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->next_node_id = &carol_id;
@@ -225,18 +225,18 @@ int main(int argc, char *argv[])
 	printf("{");
 	json_strfield("test name", "Padded encrypted_recipient_data for Carol, next is Dave");
 	json_strfield("node_privkey",
-		      type_to_string(tmpctx, struct privkey, &carol));
+		      fmt_privkey(tmpctx, &carol));
 	json_strfield("node_id",
-		      type_to_string(tmpctx, struct pubkey, &carol_id));
+		      fmt_pubkey(tmpctx, &carol_id));
 	json_strfield("blinding_secret",
-		      type_to_string(tmpctx, struct privkey, &blinding));
+		      fmt_privkey(tmpctx, &blinding));
 	json_strfield("blinding",
-		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
+		      fmt_pubkey(tmpctx, &blinding_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
 	       "\t\t\"padding\": \"%s\"\n"
 	       "\t},\n",
-	       type_to_string(tmpctx, struct pubkey, &dave_id),
+	       fmt_pubkey(tmpctx, &dave_id),
 	       tal_hex(tmpctx, tal_arrz(tmpctx, u8, 35)));
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
@@ -255,17 +255,17 @@ int main(int argc, char *argv[])
 	printf("{");
 	json_strfield("test name", "Final enctlv for Dave");
 	json_strfield("node_privkey",
-		      type_to_string(tmpctx, struct privkey, &dave));
+		      fmt_privkey(tmpctx, &dave));
 	json_strfield("node_id",
-		      type_to_string(tmpctx, struct pubkey, &dave_id));
+		      fmt_pubkey(tmpctx, &dave_id));
 	json_strfield("blinding_secret",
-		      type_to_string(tmpctx, struct privkey, &blinding));
+		      fmt_privkey(tmpctx, &blinding));
 	json_strfield("blinding",
-		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
+		      fmt_pubkey(tmpctx, &blinding_pub));
 	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"self_id\": \"%s\"\n"
 	       "\t},\n",
-	       type_to_string(tmpctx, struct secret, &self_id));
+	       fmt_secret(tmpctx, &self_id));
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->path_id = tal_dup_arr(tlv, u8,

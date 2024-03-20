@@ -92,14 +92,14 @@ int main(int argc, char *argv[])
 	printf("expiry: %"PRIu64" (%s)\n",
 	       b11->expiry, fmt_time(ctx, b11->timestamp + b11->expiry));
 	printf("payee: %s\n",
-	       type_to_string(ctx, struct node_id, &b11->receiver_id));
+	       fmt_node_id(ctx, &b11->receiver_id));
 	printf("payment_hash: %s\n",
 	       tal_hexstr(ctx, &b11->payment_hash, sizeof(b11->payment_hash)));
 	printf("min_final_cltv_expiry: %u\n", b11->min_final_cltv_expiry);
         if (b11->msat) {
 		printf("msatoshi: %"PRIu64"\n", b11->msat->millisatoshis); /* Raw: raw int for backwards compat */
 		printf("amount_msat: %s\n",
-		       type_to_string(tmpctx, struct amount_msat, b11->msat));
+		       fmt_amount_msat(tmpctx, *b11->msat));
 	}
         if (b11->description)
                 printf("description: '%s'\n", b11->description);
@@ -153,10 +153,10 @@ int main(int argc, char *argv[])
 		printf("route: (node/chanid/fee/expirydelta) ");
 		for (size_t n = 0; n < tal_count(b11->routes[i]); n++) {
 			printf(" %s/%s/%u/%u/%u",
-			       type_to_string(ctx, struct node_id,
-					      &b11->routes[i][n].pubkey),
-			       type_to_string(ctx, struct short_channel_id,
-					      &b11->routes[i][n].short_channel_id),
+			       fmt_node_id(ctx,
+					   &b11->routes[i][n].pubkey),
+			       fmt_short_channel_id(ctx,
+						    b11->routes[i][n].short_channel_id),
 			       b11->routes[i][n].fee_base_msat,
 			       b11->routes[i][n].fee_proportional_millionths,
 			       b11->routes[i][n].cltv_expiry_delta);
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 	}
 
 	printf("signature: %s\n",
-	       type_to_string(ctx, secp256k1_ecdsa_signature, &b11->sig));
+	       fmt_secp256k1_ecdsa_signature(ctx, &b11->sig));
 	tal_free(ctx);
 	common_shutdown();
 	return NO_ERROR;

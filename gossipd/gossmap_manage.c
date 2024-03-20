@@ -379,14 +379,12 @@ static void prune_network(struct gossmap_manage *gm)
 		    || gossmap_nth_node(gossmap, chan, 1) == me) {
 			int local = (gossmap_nth_node(gossmap, chan, 1) == me);
 			status_unusual("Pruning local channel %s from gossip_store: local channel_update time %u, remote %u",
-				       type_to_string(tmpctx, struct short_channel_id,
-						      &scid),
+				       fmt_short_channel_id(tmpctx, scid),
 				       timestamp[local], timestamp[!local]);
 		}
 
 		status_debug("Pruning channel %s from network view (ages %u and %u)",
-			     type_to_string(tmpctx, struct short_channel_id,
-					    &scid),
+			     fmt_short_channel_id(tmpctx, scid),
 			     timestamp[0], timestamp[1]);
 
 		remove_channel(gm, gossmap, chan, scid);
@@ -418,7 +416,7 @@ static void report_bad_update(struct gossmap *map,
 			      struct gossmap_manage *gm)
 {
 	status_debug("Update for %s has silly values, disabling (cltv=%u, fee=%u+%u)",
-		     type_to_string(tmpctx, struct short_channel_id_dir, scidd),
+		     fmt_short_channel_id_dir(tmpctx, scidd),
 		     cltv_expiry_delta, fee_base_msat, fee_proportional_millionths);
 }
 
@@ -780,8 +778,7 @@ static const char *process_channel_update(const tal_t *ctx,
 
 	status_peer_debug(source_peer,
 			  "Received channel_update for channel %s/%d now %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 &scid),
+			  fmt_short_channel_id(tmpctx, scid),
 			  dir,
 			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 	return NULL;
@@ -918,7 +915,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 
 	status_peer_debug(source_peer,
 			  "Received node_announcement for node %s",
-			  type_to_string(tmpctx, struct node_id, node_id));
+			  fmt_node_id(tmpctx, node_id));
 }
 
 const char *gossmap_manage_node_announcement(const tal_t *ctx,
@@ -1136,13 +1133,13 @@ static void kill_spent_channel(struct gossmap_manage *gm,
 	chan = gossmap_find_chan(gossmap, &scid);
 	if (!chan) {
 		status_broken("Dying channel %s already deleted?",
-			      type_to_string(tmpctx, struct short_channel_id, &scid));
+			      fmt_short_channel_id(tmpctx, scid));
 		return;
 	}
 
 	status_debug("Deleting channel %s due to the funding outpoint being "
 		     "spent",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
+		     fmt_short_channel_id(tmpctx, scid));
 
 	remove_channel(gm, gossmap, chan, scid);
 }
@@ -1227,7 +1224,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	/* Remember locally so we can kill it in 12 blocks */
 	status_debug("channel %s closing soon due"
 		     " to the funding outpoint being spent",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
+		     fmt_short_channel_id(tmpctx, scid));
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &cd.scid, cd.deadline);

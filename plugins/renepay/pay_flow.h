@@ -75,7 +75,7 @@ static inline const char* fmt_payflow_key(
 		ctx,
 		"key: groupid=%"PRIu64", partid=%"PRIu64", payment_hash=%s",
 		k->groupid,k->partid,
-		type_to_string(ctx,struct sha256,&k->payment_hash));
+		fmt_sha256(ctx, &k->payment_hash));
 	return str;
 }
 

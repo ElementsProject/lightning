@@ -141,8 +141,8 @@ int main(int argc, char *argv[])
 	fee = amount_tx_fee(feerate_per_kw, weight);
 	if (!amount_sat_sub(&funding_amount, input.amount, fee))
 		errx(1, "Input %s can't afford fee %s",
-		     type_to_string(NULL, struct amount_sat, &input.amount),
-		     type_to_string(NULL, struct amount_sat, &fee));
+		     fmt_amount_sat(NULL, input.amount),
+		     fmt_amount_sat(NULL, fee));
 
 	/* Find the P2WPKH script from input pubkey */
 	input.scriptPubkey = scriptpubkey_p2wpkh(NULL, &inputkey);
@@ -165,11 +165,11 @@ int main(int argc, char *argv[])
 		printf("\t%s\n", tal_hex(NULL, witnesses[i]));
 	printf("# ]\n");
  	printf("# funding amount: %s\n",
-	       type_to_string(NULL, struct amount_sat, &funding_amount));
+	       fmt_amount_sat(NULL, funding_amount));
 
 	bitcoin_txid(tx, &txid);
  	printf("# funding txid: %s\n",
-	       type_to_string(NULL, struct bitcoin_txid, &txid));
+	       fmt_bitcoin_txid(NULL, &txid));
 
 	printf("tx: %s\n", tal_hex(NULL, linearize_tx(NULL, tx)));
 	common_shutdown();

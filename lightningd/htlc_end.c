@@ -179,10 +179,8 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 		if (amount_msat_less(hout->in->msat, hout->msat))
 			return corrupt(abortstr, "Input amount %s"
 				       " less than %s",
-				       type_to_string(tmpctx, struct amount_msat,
-						      &hout->in->msat),
-				       type_to_string(tmpctx, struct amount_msat,
-						      &hout->msat));
+				       fmt_amount_msat(tmpctx, hout->in->msat),
+				       fmt_amount_msat(tmpctx, hout->msat));
 		if (hout->in->cltv_expiry <= hout->cltv_expiry)
 			return corrupt(abortstr, "Input cltv_expiry %u"
 				       " less than %u",
@@ -306,12 +304,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 		if (!amount_msat_sub(&hout->fees, msat, final_msat))
 			return corrupt("new_htlc_out",
 				       "overflow subtract %s-%s",
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &msat),
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &final_msat));
+				       fmt_amount_msat(tmpctx, msat),
+				       fmt_amount_msat(tmpctx, final_msat));
 
 	}
 	hout->in = NULL;
@@ -322,12 +316,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 		if (!amount_msat_sub(&hout->fees, in->msat, msat))
 			return corrupt("new_htlc_out",
 				       "overflow subtract %s-%s",
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &in->msat),
-				       type_to_string(tmpctx,
-						      struct amount_msat,
-						      &msat));
+				       fmt_amount_msat(tmpctx, in->msat),
+				       fmt_amount_msat(tmpctx, msat));
 	}
 
 	return htlc_out_check(hout, "new_htlc_out");

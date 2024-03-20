@@ -57,7 +57,7 @@ static struct route_hop *least_cost(struct gossmap *map,
 	if (!amount_msat_sub(&fee, path[0].amount, sent))
 		abort();
 	printf("# path fee %s\n",
-	       type_to_string(tmpctx, struct amount_msat, &fee));
+	       fmt_amount_msat(tmpctx, fee));
 	tal_free(dij);
 	return path;
 }
@@ -110,8 +110,8 @@ int main(int argc, char *argv[])
 
 			gossmap_node_get_id(map, n, &srcid);
 			printf("# %s->%s\n",
-			       type_to_string(tmpctx, struct node_id, &srcid),
-			       type_to_string(tmpctx, struct node_id, &dstid));
+			       fmt_node_id(tmpctx, &srcid),
+			       fmt_node_id(tmpctx, &dstid));
 			tal_free(least_cost(map, n, dst));
 		}
 	} else {
@@ -128,11 +128,9 @@ int main(int argc, char *argv[])
 			exit(1);
 		for (size_t i = 0; i < tal_count(path); i++) {
 			printf("%s->%s via %s\n",
-			       type_to_string(tmpctx, struct node_id, &srcid),
-			       type_to_string(tmpctx, struct node_id,
-					      &path[i].node_id),
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &path[i].scid));
+			       fmt_node_id(tmpctx, &srcid),
+			       fmt_node_id(tmpctx, &path[i].node_id),
+			       fmt_short_channel_id(tmpctx, path[i].scid));
 			srcid = path[i].node_id;
 		}
 	}

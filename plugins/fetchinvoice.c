@@ -496,8 +496,7 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(r); i++) {
 		if (!pubkey_from_node_id(&nodes[i+1], &r[i].node_id)) {
 			plugin_err(plugin, "Could not convert nodeid %s",
-				   type_to_string(tmpctx, struct node_id,
-						  &r[i].node_id));
+				   fmt_node_id(tmpctx, &r[i].node_id));
 		}
 	}
 
@@ -537,8 +536,7 @@ send_modern_message(struct command *cmd,
 	if (!pubkey_from_privkey(&blinding_iter, &fwd_blinding))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not convert blinding %s to pubkey!",
-				    type_to_string(tmpctx, struct privkey,
-						   &blinding_iter));
+				    fmt_privkey(tmpctx, &blinding_iter));
 
 	/* We overallocate: this node (0) doesn't have payload or alias */
 	payloads = tal_arr(cmd, struct tlv_onionmsg_tlv *, nhops);
@@ -766,8 +764,7 @@ connect_direct(struct command *cmd,
 				      "Cannot find route, but"
 				      " fetchplugin-noconnect set:"
 				      " trying direct anyway to %s",
-				      type_to_string(tmpctx, struct pubkey,
-						     dst));
+				      fmt_pubkey(tmpctx, dst));
 		return cb(cmd, NULL, NULL, sent);
 	}
 

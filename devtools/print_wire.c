@@ -326,7 +326,7 @@ fail:
 	return false;
 }
 
-#define PRINTWIRE_TYPE_TO_STRING(T, N)					\
+#define PRINTWIRE_TYPE_TO_STRING(T, N, ADDR)				\
 	bool printwire_##N(const char *fieldname, const u8 **cursor,	\
 			   size_t *plen)				\
 	{								\
@@ -336,7 +336,7 @@ fail:
 			printf("**TRUNCATED " stringify(N) "\n");	\
 			return false;					\
 		}							\
-		const char *s = type_to_string(NULL, T, &v);		\
+		const char *s = fmt_##N(NULL, ADDR v);			\
 		printf("%s\n", s);					\
 		tal_free(s);						\
 		return true;						\
@@ -351,14 +351,16 @@ fail:
 			printf("**TRUNCATED " stringify(N) "\n");	\
 			return false;					\
 		}							\
-		const char *s = type_to_string(NULL, struct N, &v);	\
+		const char *s = fmt_##N(NULL, v);			\
 		printf("%s\n", s);					\
 		tal_free(s);						\
 		return true;						\
 	}
 
 #define PRINTWIRE_STRUCT_TYPE_TO_STRING(T) \
-	PRINTWIRE_TYPE_TO_STRING(struct T, T)
+	PRINTWIRE_TYPE_TO_STRING(struct T, T, &)
+#define PRINTWIRE_STRUCT_TYPE_TO_STRING_NOADDR_FMT(T) \
+	PRINTWIRE_TYPE_TO_STRING(struct T, T, )
 
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bip340sig)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_blkid)
@@ -369,7 +371,7 @@ PRINTWIRE_STRUCT_TYPE_TO_STRING(preimage)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(pubkey)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(sha256)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(secret)
-PRINTWIRE_STRUCT_TYPE_TO_STRING(short_channel_id)
+PRINTWIRE_STRUCT_TYPE_TO_STRING_NOADDR_FMT(short_channel_id)
 PRINTWIRE_ASSIGNABLE_STRUCT_TO_STRING(amount_sat)
 PRINTWIRE_ASSIGNABLE_STRUCT_TO_STRING(amount_msat)
-PRINTWIRE_TYPE_TO_STRING(secp256k1_ecdsa_signature, secp256k1_ecdsa_signature)
+PRINTWIRE_TYPE_TO_STRING(secp256k1_ecdsa_signature, secp256k1_ecdsa_signature, &)

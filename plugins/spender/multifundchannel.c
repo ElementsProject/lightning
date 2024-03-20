@@ -585,15 +585,14 @@ after_signpsbt(struct command *cmd,
 		/* It should be well-formed? */
 		plugin_err(mfc->cmd->plugin,
 			   "mfc: could not set PSBT version: %s",
-		   		type_to_string(tmpctx, struct wally_psbt,
-					mfc->psbt));
+		   		fmt_wally_psbt(tmpctx, mfc->psbt));
 	}
 
 	if (!psbt_finalize(psbt))
 		plugin_err(mfc->cmd->plugin,
 			   "mfc %"PRIu64": Signed PSBT won't finalize"
 			   "%s", mfc->id,
-			   type_to_string(tmpctx, struct wally_psbt, psbt));
+			   fmt_wally_psbt(tmpctx, psbt));
 
 
 	/* Replace the PSBT.  */
@@ -860,8 +859,7 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 		/* It should be well-formed? */
 		plugin_err(mfc->cmd->plugin,
 			   "mfc: could not set PSBT version: %s",
-		   		type_to_string(tmpctx, struct wally_psbt,
-					mfc->psbt));
+		   		fmt_wally_psbt(tmpctx, mfc->psbt));
 	}
 
 	/* Construct a deck of destinations.  */
@@ -906,11 +904,8 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 		if (v2_dest_count == 0)
 			dest->outnum = outnum;
 		tal_append_fmt(&content, "%s: %s",
-			       type_to_string(tmpctx, struct node_id,
-					      &dest->id),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &dest->amount));
+			       fmt_node_id(tmpctx, &dest->id),
+			       fmt_amount_sat(tmpctx, dest->amount));
 	}
 
 	if (v2_dest_count > 0) {
@@ -938,16 +933,14 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": funding tx %s: %s",
 		   mfc->id,
-		   type_to_string(tmpctx, struct bitcoin_txid,
-				  mfc->txid),
+		   fmt_bitcoin_txid(tmpctx, mfc->txid),
 		   content);
 
 	if (!psbt_set_version(mfc->psbt, psbt_version)) {
 		/* It should be well-formed? */
 		plugin_err(mfc->cmd->plugin,
 			   "mfc: could not set PSBT version: %s",
-		   		type_to_string(tmpctx, struct wally_psbt,
-					mfc->psbt));
+		   		fmt_wally_psbt(tmpctx, mfc->psbt));
 	}
 
 	/* Now we can feed the TXID and outnums to the peer.  */
@@ -1150,7 +1143,7 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	if (dest->reserve)
 		json_add_string(
 		    req->js, "reserve",
-		    type_to_string(tmpctx, struct amount_sat, dest->reserve));
+		    fmt_amount_sat(tmpctx, *dest->reserve));
 
 	send_outreq(cmd->plugin, req);
 }
@@ -1164,7 +1157,7 @@ perform_channel_start(struct multifundchannel_command *mfc)
 		   "mfc %"PRIu64": fundchannel_start parallel "
 		   "with PSBT %s",
 		   mfc->id,
-		   type_to_string(tmpctx, struct wally_psbt, mfc->psbt));
+		   fmt_wally_psbt(tmpctx, mfc->psbt));
 
 	mfc->pending = tal_count(mfc->destinations);
 
@@ -1396,8 +1389,7 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 			}
 		}
 		json_add_string(req->js, "satoshi",
-				type_to_string(tmpctx, struct amount_sat,
-					       &sum));
+				fmt_amount_sat(tmpctx, sum));
 	}
 	json_add_string(req->js, "feerate", tal_fmt(tmpctx, "%uperkw", feerate));
 

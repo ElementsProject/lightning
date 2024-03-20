@@ -193,8 +193,8 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 
 		if (!amount_sat_sub(&fee, fee, amount_asset_to_sat(&amt)))
 			fatal("Tx spends more than input %s? %s",
-			      type_to_string(tmpctx, struct amount_sat, &sat_in),
-			      type_to_string(tmpctx, struct bitcoin_tx, tx));
+			      fmt_amount_sat(tmpctx, sat_in),
+			      fmt_bitcoin_tx(tmpctx, tx));
 	}
 	return fee;
 }
@@ -218,8 +218,8 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 
 	log_debug(channel->log, "Their actual closing tx fee is %s"
 		 " vs previous %s: weight is %"PRIu64,
-		  type_to_string(tmpctx, struct amount_sat, &fee),
-		  type_to_string(tmpctx, struct amount_sat, &last_fee),
+		  fmt_amount_sat(tmpctx, fee),
+		  fmt_amount_sat(tmpctx, last_fee),
 		  weight);
 
 	if (!channel->ignore_fee_limits && !ld->config.ignore_fee_limits) {
@@ -233,7 +233,7 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 		if (amount_sat_less(fee, min_fee)) {
 			log_debug(channel->log, "... That's below our min %s"
 				  " for weight %"PRIu64" at feerate %u",
-				  type_to_string(tmpctx, struct amount_sat, &min_fee),
+				  fmt_amount_sat(tmpctx, min_fee),
 				  weight, min_feerate);
 			return false;
 		}
@@ -442,10 +442,8 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	if (!amount_sat_sub_msat(&their_msat,
 				 channel->funding_sats, channel->our_msat)) {
 		log_broken(channel->log, "our_msat overflow funding %s minus %s",
-			  type_to_string(tmpctx, struct amount_sat,
-					 &channel->funding_sats),
-			  type_to_string(tmpctx, struct amount_msat,
-					 &channel->our_msat));
+			  fmt_amount_sat(tmpctx, channel->funding_sats),
+			  fmt_amount_msat(tmpctx, channel->our_msat));
 		channel_fail_permanent(channel,
 				       REASON_LOCAL,
 				       "our_msat overflow on closing");

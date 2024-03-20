@@ -72,16 +72,14 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	if (!amount_sat_sub(&out_minus_fee[opener], out[opener], fee))
 		peer_failed_warn(pps, channel_id,
 				 "Funder cannot afford fee %s (%s and %s)",
-				 type_to_string(tmpctx, struct amount_sat, &fee),
-				 type_to_string(tmpctx, struct amount_sat,
-						&out[LOCAL]),
-				 type_to_string(tmpctx, struct amount_sat,
-						&out[REMOTE]));
+				 fmt_amount_sat(tmpctx, fee),
+				 fmt_amount_sat(tmpctx, out[LOCAL]),
+				 fmt_amount_sat(tmpctx, out[REMOTE]));
 
 	status_debug("Making close tx at = %s/%s fee %s",
-		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
-		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]),
-		     type_to_string(tmpctx, struct amount_sat, &fee));
+		     fmt_amount_sat(tmpctx, out[LOCAL]),
+		     fmt_amount_sat(tmpctx, out[REMOTE]),
+		     fmt_amount_sat(tmpctx, fee));
 
 	/* FIXME: We need to allow this! */
 	tx = create_close_tx(ctx,
@@ -102,11 +100,11 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				" dust_limit = %s"
 				" LOCAL = %s"
 				" REMOTE = %s",
-				type_to_string(tmpctx, struct amount_sat, &funding_sats),
-				type_to_string(tmpctx, struct amount_sat, &fee),
-				type_to_string(tmpctx, struct amount_sat, &dust_limit),
-				type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
-				type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
+				fmt_amount_sat(tmpctx, funding_sats),
+				fmt_amount_sat(tmpctx, fee),
+				fmt_amount_sat(tmpctx, dust_limit),
+				fmt_amount_sat(tmpctx, out[LOCAL]),
+				fmt_amount_sat(tmpctx, out[REMOTE]));
 
 	if (wrong_funding)
 		bitcoin_tx_input_set_outpoint(tx, 0, wrong_funding);
@@ -186,7 +184,7 @@ static void send_offer(struct per_peer_state *pps,
 			      tal_hex(tmpctx, msg));
 
 	status_debug("sending fee offer %s",
-		     type_to_string(tmpctx, struct amount_sat, &fee_to_offer));
+		     fmt_amount_sat(tmpctx, fee_to_offer));
 
 	/* Add the new close_tlvs with our fee range */
 	if (tlv_fees) {
@@ -195,9 +193,9 @@ static void send_offer(struct per_peer_state *pps,
 			= cast_const(struct tlv_closing_signed_tlvs_fee_range *,
 				     tlv_fees);
 		notify(LOG_INFORM, "Sending closing fee offer %s, with range %s-%s",
-		       type_to_string(tmpctx, struct amount_sat, &fee_to_offer),
-		       type_to_string(tmpctx, struct amount_sat, &tlv_fees->min_fee_satoshis),
-		       type_to_string(tmpctx, struct amount_sat, &tlv_fees->max_fee_satoshis));
+		       fmt_amount_sat(tmpctx, fee_to_offer),
+		       fmt_amount_sat(tmpctx, tlv_fees->min_fee_satoshis),
+		       fmt_amount_sat(tmpctx, tlv_fees->max_fee_satoshis));
 	} else
 		close_tlvs = NULL;
 
@@ -341,12 +339,10 @@ receive_offer(struct per_peer_state *pps,
 			peer_failed_warn(pps, channel_id,
 					 "Bad closing_signed signature for"
 					 " %s (and trimmed version %s)",
-					 type_to_string(tmpctx,
-							struct bitcoin_tx,
+					 fmt_bitcoin_tx(tmpctx,
 							tx),
 					 trimmed ?
-					 type_to_string(tmpctx,
-							struct bitcoin_tx,
+					 fmt_bitcoin_tx(tmpctx,
 							trimmed)
 					 : "NONE");
 		}
@@ -354,7 +350,7 @@ receive_offer(struct per_peer_state *pps,
 	}
 
 	status_debug("Received fee offer %s",
-		     type_to_string(tmpctx, struct amount_sat, &received_fee));
+		     fmt_amount_sat(tmpctx, received_fee));
 
 	if (tlv_fees) {
 		if (close_tlvs) {
@@ -366,14 +362,14 @@ receive_offer(struct per_peer_state *pps,
 
 	if (close_tlvs && close_tlvs->fee_range) {
 		notify(LOG_INFORM, "Received closing fee offer %s, with range %s-%s",
-		       type_to_string(tmpctx, struct amount_sat, &received_fee),
-		       type_to_string(tmpctx, struct amount_sat,
-				      &close_tlvs->fee_range->min_fee_satoshis),
-		       type_to_string(tmpctx, struct amount_sat,
-				      &close_tlvs->fee_range->max_fee_satoshis));
+		       fmt_amount_sat(tmpctx, received_fee),
+		       fmt_amount_sat(tmpctx,
+				      close_tlvs->fee_range->min_fee_satoshis),
+		       fmt_amount_sat(tmpctx,
+				      close_tlvs->fee_range->max_fee_satoshis));
 	} else {
 		notify(LOG_INFORM, "Received closing fee offer %s, without range",
-		       type_to_string(tmpctx, struct amount_sat, &received_fee));
+		       fmt_amount_sat(tmpctx, received_fee));
 	}
 
 	/* Master sorts out what is best offer, we just tell it any above min */
@@ -411,8 +407,8 @@ static void init_feerange(struct feerange *feerange,
 		feerange->higher_side = REMOTE;
 
 	status_debug("Feerange init %s-%s, %s higher",
-		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
-		     type_to_string(tmpctx, struct amount_sat, &feerange->max),
+		     fmt_amount_sat(tmpctx, feerange->min),
+		     fmt_amount_sat(tmpctx, feerange->max),
 		     feerange->higher_side == LOCAL ? "local" : "remote");
 }
 
@@ -434,9 +430,9 @@ static void adjust_feerange(struct feerange *feerange,
 
 	status_debug("Feerange %s update %s: now %s-%s",
 		     side == LOCAL ? "local" : "remote",
-		     type_to_string(tmpctx, struct amount_sat, &offer),
-		     type_to_string(tmpctx, struct amount_sat, &feerange->min),
-		     type_to_string(tmpctx, struct amount_sat, &feerange->max));
+		     fmt_amount_sat(tmpctx, offer),
+		     fmt_amount_sat(tmpctx, feerange->min),
+		     fmt_amount_sat(tmpctx, feerange->max));
 
 	if (!ok)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -483,8 +479,7 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 	if (!amount_sat_add(&min_plus_one, feerange->min, AMOUNT_SAT(1)))
 		peer_failed_warn(pps, channel_id,
 				 "Fee offer %s min too large",
-				 type_to_string(tmpctx, struct amount_sat,
-						&feerange->min));
+				 fmt_amount_sat(tmpctx, feerange->min));
 
 	if (amount_sat_greater_eq(min_plus_one, feerange->max))
 		return remote_offer;
@@ -501,12 +496,9 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 		peer_failed_warn(pps, channel_id,
 				 "Feerange %s-%s"
 				 " below minimum acceptable %s",
-				 type_to_string(tmpctx, struct amount_sat,
-						&feerange->min),
-				 type_to_string(tmpctx, struct amount_sat,
-						&feerange->max),
-				 type_to_string(tmpctx, struct amount_sat,
-						&min_fee_to_accept));
+				 fmt_amount_sat(tmpctx, feerange->min),
+				 fmt_amount_sat(tmpctx, feerange->max),
+				 fmt_amount_sat(tmpctx, min_fee_to_accept));
 
 	if (fee_negotiation_step_unit ==
 	    CLOSING_FEE_NEGOTIATION_STEP_UNIT_SATOSHI) {
@@ -630,7 +622,7 @@ static void calc_fee_bounds(size_t expected_weight,
 		*maxfee = amount_tx_fee(max_feerate, expected_weight);
 		status_debug("deriving max fee from rate %u -> %s",
 			     max_feerate,
-			     type_to_string(tmpctx, struct amount_sat, maxfee));
+			     fmt_amount_sat(tmpctx, *maxfee));
 	}
 
 	/* Can't exceed maxfee. */
@@ -640,25 +632,25 @@ static void calc_fee_bounds(size_t expected_weight,
 	if (amount_sat_less(*desiredfee, *minfee)) {
 		status_unusual("Our ideal fee is %s (%u sats/perkw),"
 			       " but our minimum is %s: using that",
-			       type_to_string(tmpctx, struct amount_sat, desiredfee),
+			       fmt_amount_sat(tmpctx, *desiredfee),
 			       desired_feerate,
-			       type_to_string(tmpctx, struct amount_sat, minfee));
+			       fmt_amount_sat(tmpctx, *minfee));
 		*desiredfee = *minfee;
 	}
 	if (amount_sat_greater(*desiredfee, *maxfee)) {
 		status_unusual("Our ideal fee is %s (%u sats/perkw),"
 			       " but our maximum is %s: using that",
-			       type_to_string(tmpctx, struct amount_sat, desiredfee),
+			       fmt_amount_sat(tmpctx, *desiredfee),
 			       desired_feerate,
-			       type_to_string(tmpctx, struct amount_sat, maxfee));
+			       fmt_amount_sat(tmpctx, *maxfee));
 		*desiredfee = *maxfee;
 	}
 
 	status_debug("Expected closing weight = %zu, fee %s (min %s, max %s)",
 		     expected_weight,
-		     type_to_string(tmpctx, struct amount_sat, desiredfee),
-		     type_to_string(tmpctx, struct amount_sat, minfee),
-		     type_to_string(tmpctx, struct amount_sat, maxfee));
+		     fmt_amount_sat(tmpctx, *desiredfee),
+		     fmt_amount_sat(tmpctx, *minfee),
+		     fmt_amount_sat(tmpctx, *maxfee));
 }
 
 /* We've received one offer; if we're opener, that means we've already sent one
@@ -695,26 +687,16 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 		peer_failed_warn(pps, channel_id,
 			       "Unable to agree on a feerate."
 			       " Our range %s-%s, other range %s-%s",
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &our_feerange->min_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &our_feerange->max_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &their_feerange->min_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &their_feerange->max_fee_satoshis));
+			       fmt_amount_sat(tmpctx, our_feerange->min_fee_satoshis),
+			       fmt_amount_sat(tmpctx, our_feerange->max_fee_satoshis),
+			       fmt_amount_sat(tmpctx, their_feerange->min_fee_satoshis),
+			       fmt_amount_sat(tmpctx, their_feerange->max_fee_satoshis));
 		return;
 	}
 
 	status_info("performing quickclose in range %s-%s",
-		    type_to_string(tmpctx, struct amount_sat,
-				   &overlap.min_fee_satoshis),
-		    type_to_string(tmpctx, struct amount_sat,
-				   &overlap.max_fee_satoshis));
+		    fmt_amount_sat(tmpctx, overlap.min_fee_satoshis),
+		    fmt_amount_sat(tmpctx, overlap.max_fee_satoshis));
 
 	/* BOLT #2:
 	 * - otherwise:
@@ -730,20 +712,11 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			peer_failed_warn(pps, channel_id,
 			       "Your fee %s was not in range:"
 			       " Our range %s-%s, other range %s-%s",
-			       type_to_string(tmpctx,
-					      struct amount_sat, &offer[REMOTE]),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &our_feerange->min_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &our_feerange->max_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &their_feerange->min_fee_satoshis),
-			       type_to_string(tmpctx,
-					      struct amount_sat,
-					      &their_feerange->max_fee_satoshis));
+			       fmt_amount_sat(tmpctx, offer[REMOTE]),
+			       fmt_amount_sat(tmpctx, our_feerange->min_fee_satoshis),
+			       fmt_amount_sat(tmpctx, our_feerange->max_fee_satoshis),
+			       fmt_amount_sat(tmpctx, their_feerange->min_fee_satoshis),
+			       fmt_amount_sat(tmpctx, their_feerange->max_fee_satoshis));
 			return;
 		}
 		/* Only reply if we didn't already completely agree. */
@@ -776,17 +749,13 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 				offer[LOCAL] = overlap.max_fee_satoshis;
 				status_unusual("Lowered offer to max allowable"
 					       " %s",
-					       type_to_string(tmpctx,
-							      struct amount_sat,
-							      &offer[LOCAL]));
+					       fmt_amount_sat(tmpctx, offer[LOCAL]));
 			} else if (amount_sat_less(offer[LOCAL],
 						   overlap.min_fee_satoshis)) {
 				offer[LOCAL] = overlap.min_fee_satoshis;
 				status_unusual("Increased offer to min allowable"
 					       " %s",
-					       type_to_string(tmpctx,
-							      struct amount_sat,
-							      &offer[LOCAL]));
+					       fmt_amount_sat(tmpctx, offer[LOCAL]));
 			}
 		}
 		send_offer(pps, chainparams,
@@ -824,10 +793,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			if (!amount_sat_eq(offer[LOCAL], offer[REMOTE])) {
 				peer_failed_warn(pps, channel_id,
 						 "Your fee %s was not equal to %s",
-			       type_to_string(tmpctx,
-					      struct amount_sat, &offer[REMOTE]),
-			       type_to_string(tmpctx,
-					      struct amount_sat, &offer[LOCAL]));
+						 fmt_amount_sat(tmpctx, offer[REMOTE]),
+						 fmt_amount_sat(tmpctx, offer[LOCAL]));
 				return;
 			}
 		}
@@ -835,7 +802,7 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 
 	peer_billboard(true, "We agreed on a closing fee of %"PRIu64" satoshi for tx:%s",
 		       offer[LOCAL],
-		       type_to_string(tmpctx, struct bitcoin_txid, closing_txid));
+		       fmt_bitcoin_txid(tmpctx, closing_txid));
 }
 
 int main(int argc, char *argv[])
@@ -933,26 +900,26 @@ int main(int argc, char *argv[])
 		     : "sat");
 
 	status_debug("out = %s/%s",
-		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
-		     type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
+		     fmt_amount_sat(tmpctx, out[LOCAL]),
+		     fmt_amount_sat(tmpctx, out[REMOTE]));
 	status_debug("dustlimit = %s",
-		     type_to_string(tmpctx, struct amount_sat, &our_dust_limit));
+		     fmt_amount_sat(tmpctx, our_dust_limit));
 	status_debug("fee = %s",
-		     type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
+		     fmt_amount_sat(tmpctx, offer[LOCAL]));
 	status_debug("fee negotiation step = %s", fee_negotiation_step_str);
 	if (wrong_funding)
 		status_unusual("Setting wrong_funding_txid to %s:%u",
-			       type_to_string(tmpctx, struct bitcoin_txid,
-					      &wrong_funding->txid),
+			       fmt_bitcoin_txid(tmpctx,
+						&wrong_funding->txid),
 			       wrong_funding->n);
 
 	peer_billboard(
 	    true,
 	    "Negotiating closing fee between %s and %s satoshi (ideal %s) "
 	    "using step %s",
-	    type_to_string(tmpctx, struct amount_sat, &min_fee_to_accept),
-	    type_to_string(tmpctx, struct amount_sat, &max_fee_to_accept),
-	    type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]),
+	    fmt_amount_sat(tmpctx, min_fee_to_accept),
+	    fmt_amount_sat(tmpctx, max_fee_to_accept),
+	    fmt_amount_sat(tmpctx, offer[LOCAL]),
 	    fee_negotiation_step_str);
 
 	/* BOLT #2:
@@ -982,9 +949,7 @@ int main(int argc, char *argv[])
 				peer_billboard(false, "Waiting for their initial"
 					       " closing fee offer:"
 					       " ours was %s",
-					       type_to_string(tmpctx,
-							      struct amount_sat,
-							      &offer[LOCAL]));
+					       fmt_amount_sat(tmpctx, offer[LOCAL]));
 			offer[REMOTE]
 				= receive_offer(pps, chainparams,
 						&channel_id, funding_pubkey,
@@ -1073,7 +1038,7 @@ int main(int argc, char *argv[])
 
 	peer_billboard(true, "We agreed on a closing fee of %"PRIu64" satoshi for tx:%s",
 		       offer[LOCAL],
-		       type_to_string(tmpctx, struct bitcoin_txid, &closing_txid));
+		       fmt_bitcoin_txid(tmpctx, &closing_txid));
 
 exit_thru_the_giftshop:
 	/* We don't listen for master commands, so always check memleak here */

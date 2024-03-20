@@ -749,21 +749,15 @@ static char *msat_net(const tal_t *ctx,
 		if (!amount_msat_sub(credit_net, credit, debit))
 			return tal_fmt(ctx, "unexpected fail, can't sub."
 				       " %s - %s",
-				       type_to_string(ctx, struct amount_msat,
-						      &credit),
-				       type_to_string(ctx, struct amount_msat,
-						      &debit));
+				       fmt_amount_msat(ctx, credit),
+				       fmt_amount_msat(ctx, debit));
 		*debit_net = AMOUNT_MSAT(0);
 	} else {
 		if (!amount_msat_sub(debit_net, debit, credit)) {
 			return tal_fmt(ctx, "unexpected fail, can't sub."
 				       " %s - %s",
-				       type_to_string(ctx,
-					       struct amount_msat,
-					       &debit),
-				       type_to_string(ctx,
-					       struct amount_msat,
-					       &credit));
+				       fmt_amount_msat(ctx, debit),
+				       fmt_amount_msat(ctx, credit));
 		}
 		*credit_net = AMOUNT_MSAT(0);
 	}
@@ -1005,8 +999,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 
 		plugin_log(cmd->plugin, LOG_DBG, "account %s has balance %s",
 			   acct_name,
-			   type_to_string(tmpctx, struct amount_msat,
-					  &snap_balance));
+			   fmt_amount_msat(tmpctx, snap_balance));
 
 		/* Find the account balances */
 		err = account_get_balance(cmd, db, acct_name,
@@ -1086,12 +1079,9 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   "Snapshot balance does not equal ondisk"
 				   " reported %s, off by (+%s/-%s) (account %s)"
 				   " Logging journal entry.",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &snap_balance),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &debit_diff),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &credit_diff),
+				   fmt_amount_msat(tmpctx, snap_balance),
+				   fmt_amount_msat(tmpctx, debit_diff),
+				   fmt_amount_msat(tmpctx, credit_diff),
 				   acct_name);
 
 
@@ -1151,8 +1141,7 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 				desc = tal_strdup(ctx, bolt11->description);
 			else if (bolt11->description_hash)
 				desc = tal_fmt(ctx, "%s",
-					       type_to_string(ctx,
-						      struct sha256,
+					       fmt_sha256(ctx,
 						      bolt11->description_hash));
 			else
 				desc = NULL;
@@ -1732,8 +1721,8 @@ static struct command_result *json_coin_moved(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_DBG, "coin_move %d (%s) %s -%s %s %"PRIu64,
 		   version,
 		   mvt_tag_str(tags[0]),
-		   type_to_string(tmpctx, struct amount_msat, &credit),
-		   type_to_string(tmpctx, struct amount_msat, &debit),
+		   fmt_amount_msat(tmpctx, credit),
+		   fmt_amount_msat(tmpctx, debit),
 		   mvt_type, timestamp);
 
 	if (streq(mvt_type, CHAIN_MOVE))

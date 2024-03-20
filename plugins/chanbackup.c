@@ -379,9 +379,8 @@ static struct command_result *peer_after_send_scb(struct command *cmd,
 				     	    cmd,
 				     	    tal_fmt(cmd,
 				     		    "chanbackup/peers/%s",
-						    type_to_string(tmpctx,
-								   struct node_id,
-								   nodeid)),
+						    fmt_node_id(tmpctx,
+								nodeid)),
 				     	    peer_after_listdatastore,
 				     	    nodeid);
 }
@@ -590,7 +589,7 @@ static struct command_result *failed_peer_restore(struct command *cmd,
 						  char *reason)
 {
 	plugin_log(cmd->plugin, LOG_DBG, "PeerStorageFailed!: %s: %s",
-		   type_to_string(tmpctx, struct node_id, node_id),
+		   fmt_node_id(tmpctx, node_id),
 		   reason);
 	return command_hook_success(cmd);
 }
@@ -641,9 +640,8 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	    cmd,
 					     	    tal_fmt(cmd,
 						    	    "chanbackup/peers/%s",
-					     	     	    type_to_string(tmpctx,
-						     		    	   struct node_id,
-								    	   &node_id)),
+					     	     	    fmt_node_id(tmpctx,
+									&node_id)),
 						    payload_deserialise,
 						    "create-or-replace",
 					     	    datastore_success,

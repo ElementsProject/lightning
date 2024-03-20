@@ -80,6 +80,9 @@ struct feature_set *feature_set_for_feature(const tal_t *ctx UNNEEDED, int featu
 bool feature_set_or(struct feature_set *a UNNEEDED,
 		    const struct feature_set *b TAKES UNNEEDED)
 { fprintf(stderr, "feature_set_or called!\n"); abort(); }
+/* Generated stub for fmt_node_id */
+char *fmt_node_id(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fmt_node_id called!\n"); abort(); }
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }

@@ -371,7 +371,7 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
 
 	derive_shaseed(&channel_seed, &shaseed);
-	printf("shaseed: %s\n", type_to_string(tmpctx, struct sha256, &shaseed));
+	printf("shaseed: %s\n", fmt_sha256(tmpctx, &shaseed));
 	for (u64 i = 0; i < depth; i++) {
 		if (!per_commit_secret(&shaseed, &per_commitment_secret, i))
 			errx(ERROR_KEYDERIV, "Could not derive secret #%"PRIu64, i);
@@ -381,7 +381,7 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 		if (!per_commit_point(&shaseed, &per_commitment_point, i))
 			errx(ERROR_KEYDERIV, "Could not derive point #%"PRIu64, i);
 		printf("commit point #%"PRIu64": %s\n",
-		       i, type_to_string(tmpctx, struct pubkey, &per_commitment_point));
+		       i, fmt_pubkey(tmpctx, &per_commitment_point));
 	}
 
 	return 0;
@@ -433,8 +433,7 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 		                              &basepoint, &basepoint_secret))
 			errx(ERROR_KEYDERIV, "Could not derive basepoints for dbid %"PRIu64
 			                     " and channel seed %s.", dbid,
-			                     type_to_string(tmpctx,
-			                                    struct secret, &channel_seed));
+			                     fmt_secret(tmpctx, &channel_seed));
 
 		pubkey_to_hash160(&basepoint, &pubkeyhash);
 		if (memcmp(pubkeyhash.u.u8, goal_pubkeyhash, 20) == 0) {
@@ -442,9 +441,9 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 			printf("pubkey hash : %s\n",
 			       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
 			printf("pubkey      : %s \n",
-			       type_to_string(tmpctx, struct pubkey, &basepoint));
+			       fmt_pubkey(tmpctx, &basepoint));
 			printf("privkey     : %s \n",
-			       type_to_string(tmpctx, struct secret, &basepoint_secret));
+			       fmt_secret(tmpctx, &basepoint_secret));
 			return 0;
 		}
 	}

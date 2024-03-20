@@ -137,15 +137,15 @@ int main(int argc, char *argv[])
 					base_secret.data))
 		abort();
 	printf("base_point: 0x%s\n",
-	       type_to_string(tmpctx, struct pubkey, &base_point));
+	       fmt_pubkey(tmpctx, &base_point));
 	printf("per_commitment_point: 0x%s\n",
-	       type_to_string(tmpctx, struct pubkey, &per_commitment_point));
+	       fmt_pubkey(tmpctx, &per_commitment_point));
 
 	/* FIXME: Annotate internal steps. */
 	if (!derive_simple_key(&base_point, &per_commitment_point, &pubkey))
 		abort();
 	printf("localkey: 0x%s\n",
-	       type_to_string(tmpctx, struct pubkey, &pubkey));
+	       fmt_pubkey(tmpctx, &pubkey));
 	if (!derive_simple_privkey(&base_secret, &base_point,
 				   &per_commitment_point, &privkey))
 		abort();
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 	if (!derive_revocation_key(&base_point, &per_commitment_point, &pubkey))
 		abort();
 	printf("revocationkey: 0x%s\n",
-	       type_to_string(tmpctx, struct pubkey, &pubkey));
+	       fmt_pubkey(tmpctx, &pubkey));
 	if (!derive_revocation_privkey(&base_secret, &per_commitment_secret,
 				       &base_point, &per_commitment_point,
 				       &privkey))

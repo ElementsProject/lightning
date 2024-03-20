@@ -98,8 +98,8 @@ static struct command_result *pay_done(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_INFORM,
 		   "Payed out %s for invreq %s: %.*s",
-		   type_to_string(tmpctx, struct amount_msat, &msat),
-		   type_to_string(tmpctx, struct sha256, &inv->invreq_id),
+		   fmt_amount_msat(tmpctx, msat),
+		   fmt_sha256(tmpctx, &inv->invreq_id),
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
 	return command_hook_success(cmd);
@@ -145,7 +145,7 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	/* Since the invreq_id hashes all fields < 160, we know it matches */
 	if (arr->size == 0)
 		return fail_inv(cmd, inv, "Unknown invoice_request %s",
-				type_to_string(tmpctx, struct sha256, &inv->invreq_id));
+				fmt_sha256(tmpctx, &inv->invreq_id));
 
 	activetok = json_get_member(buf, arr + 1, "active");
 	if (!activetok) {
@@ -186,8 +186,8 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 	amt = amount_msat(*inv->inv->invoice_amount);
 	plugin_log(cmd->plugin, LOG_INFORM,
 		   "Attempting payment of %s for invoice_request %s",
-		   type_to_string(tmpctx, struct amount_msat, &amt),
-		   type_to_string(tmpctx, struct sha256, &inv->invreq_id));
+		   fmt_amount_msat(tmpctx, amt),
+		   fmt_sha256(tmpctx, &inv->invreq_id));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "pay",
 				    pay_done, pay_error, inv);
