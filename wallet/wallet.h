@@ -663,8 +663,8 @@ void wallet_state_change_add(struct wallet *w,
 /**
  * Gets all state change history entries for a channel from the database
  */
-struct state_change_entry *wallet_state_change_get(struct wallet *w,
-						   const tal_t *ctx,
+struct state_change_entry *wallet_state_change_get(const tal_t *ctx,
+						   struct wallet *w,
 						   u64 channel_id);
 
 /**
@@ -1137,11 +1137,11 @@ bool wallet_have_block(struct wallet *w, u32 blockheight);
  *
  * @return true if found in our wallet's output set, false otherwise
  */
-bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx,
+bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w,
 			   const u32 blockheight,
 			   const struct bitcoin_outpoint *outpoint);
 
-struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
+struct outpoint *wallet_outpoint_for_scid(const tal_t *ctx, struct wallet *w,
 					  const struct short_channel_id *scid);
 
 void wallet_utxoset_add(struct wallet *w,
@@ -1220,13 +1220,12 @@ void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
 /**
  * List channels for which we had an onchaind running
  */
-u32 *wallet_onchaind_channels(struct wallet *w,
-			      const tal_t *ctx);
+u32 *wallet_onchaind_channels(const tal_t *ctx, struct wallet *w);
 
 /**
  * Get transactions that we'd like to replay for a channel.
  */
-struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
 					u32 channel_id);
 
 /**
@@ -1247,8 +1246,8 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w);
 /**
  * Retrieve a list of all forwarded_payments
  */
-const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx,
+const struct forwarding *wallet_forwarded_payments_get(const tal_t *ctx,
+						       struct wallet *w,
 						       enum forward_status state,
 						       const struct short_channel_id *chan_in,
 						       const struct short_channel_id *chan_out,
@@ -1295,7 +1294,7 @@ void wallet_remote_ann_sigs_clear(struct wallet *w, const struct channel *chan);
  * @param wallet: Wallet to load from.
  * @return A tal_arr of wallet annotated transactions
  */
-struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx);
+struct wallet_transaction *wallet_transactions_get(const tal_t *ctx, struct wallet *w);
 
 /**
  * Add a filteredblock to the blocks and utxoset tables.

@@ -160,7 +160,7 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 {
 	const struct forwarding *forwardings;
 
-	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status, chan_in, chan_out, listindex, liststart, listlimit);
+	forwardings = wallet_forwarded_payments_get(tmpctx, wallet, status, chan_in, chan_out, listindex, liststart, listlimit);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {

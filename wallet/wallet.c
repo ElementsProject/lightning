@@ -2506,8 +2506,8 @@ void wallet_state_change_add(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
-struct state_change_entry *wallet_state_change_get(struct wallet *w,
-						   const tal_t *ctx,
+struct state_change_entry *wallet_state_change_get(const tal_t *ctx,
+						   struct wallet *w,
 						   u64 channel_id)
 {
 	struct db_stmt *stmt;
@@ -4298,7 +4298,7 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 	db_exec_prepared_v2(take(stmt));
 }
 
-bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
+bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w, const u32 blockheight,
 			   const struct bitcoin_outpoint *outpoint)
 {
 	struct db_stmt *stmt;
@@ -4418,7 +4418,7 @@ bool wallet_have_block(struct wallet *w, u32 blockheight)
 	return result;
 }
 
-struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
+struct outpoint *wallet_outpoint_for_scid(const tal_t *ctx, struct wallet *w,
 					  const struct short_channel_id *scid)
 {
 	struct db_stmt *stmt;
@@ -4713,8 +4713,7 @@ void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
 	db_exec_prepared_v2(take(stmt));
 }
 
-u32 *wallet_onchaind_channels(struct wallet *w,
-			      const tal_t *ctx)
+u32 *wallet_onchaind_channels(const tal_t *ctx, struct wallet *w)
 {
 	struct db_stmt *stmt;
 	size_t count = 0;
@@ -4735,7 +4734,7 @@ u32 *wallet_onchaind_channels(struct wallet *w,
 	return channel_ids;
 }
 
-struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+struct channeltx *wallet_channeltxs_get(const tal_t *ctx, struct wallet *w,
 					u32 channel_id)
 {
 	struct db_stmt *stmt;
@@ -4976,8 +4975,8 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	return total;
 }
 
-const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx,
+const struct forwarding *wallet_forwarded_payments_get(const tal_t *ctx,
+						       struct wallet *w,
 						       enum forward_status status,
 						       const struct short_channel_id *chan_in,
 						       const struct short_channel_id *chan_out,
@@ -5280,7 +5279,7 @@ bool wallet_forward_delete(struct wallet *w,
 	return changed;
 }
 
-struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
+struct wallet_transaction *wallet_transactions_get(const tal_t *ctx, struct wallet *w)
 {
 	struct db_stmt *stmt;
 	struct wallet_transaction *txs = tal_arr(ctx, struct wallet_transaction, 0);

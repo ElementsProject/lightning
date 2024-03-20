@@ -1642,13 +1642,13 @@ void onchaind_replay_channels(struct lightningd *ld)
 	struct channel *chan;
 
 	db_begin_transaction(ld->wallet->db);
-	onchaind_ids = wallet_onchaind_channels(ld->wallet, ld);
+	onchaind_ids = wallet_onchaind_channels(tmpctx, ld->wallet);
 
 	for (size_t i = 0; i < tal_count(onchaind_ids); i++) {
 		log_info(ld->log, "Restarting onchaind for channel %d",
 			 onchaind_ids[i]);
 
-		txs = wallet_channeltxs_get(ld->wallet, onchaind_ids,
+		txs = wallet_channeltxs_get(onchaind_ids, ld->wallet,
 					    onchaind_ids[i]);
 		chan = channel_by_dbid(ld, onchaind_ids[i]);
 
@@ -1674,7 +1674,6 @@ void onchaind_replay_channels(struct lightningd *ld)
 		}
 		tal_free(txs);
 	}
-	tal_free(onchaind_ids);
 
 	db_commit_transaction(ld->wallet->db);
 }
