@@ -90,7 +90,7 @@ common/test/run-bolt12-format-string-test:		\
 	common/bech32_util.o				\
 	common/bolt12.o					\
 	common/node_id.o				\
-	wire/bolt12$(EXP)_wiregen.o			\
+	wire/bolt12_wiregen.o				\
 	wire/tlvstream.o				\
 	wire/towire.o
 
