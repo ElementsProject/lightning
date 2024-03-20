@@ -9,7 +9,6 @@
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>

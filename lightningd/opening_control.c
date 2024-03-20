@@ -13,7 +13,6 @@
 #include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/scb_wiregen.h>
-#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/permissions.h>

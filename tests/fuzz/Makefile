@@ -55,7 +55,6 @@ FUZZ_COMMON_OBJS := \
 	common/status.o					\
 	common/status_wire.o				\
 	common/status_wiregen.o				\
-	common/type_to_string.o				\
 	common/utils.o					\
 	common/version.o				\
 	wire/bolt12_wiregen.o				\

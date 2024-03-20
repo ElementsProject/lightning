@@ -1,7 +1,7 @@
 #include "config.h"
 #include <bitcoin/shadouble.h>
 #include <ccan/mem/mem.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 void sha256_double(struct sha256_double *shadouble, const void *p, size_t len)
@@ -20,7 +20,6 @@ char *fmt_sha256_double(const tal_t *ctx, const struct sha256_double *shad)
 {
 	return tal_hexstr(ctx, shad, sizeof(*shad));
 }
-REGISTER_TYPE_TO_STRING(sha256_double, fmt_sha256_double);
 
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
 {

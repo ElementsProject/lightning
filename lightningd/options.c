@@ -19,7 +19,6 @@
 #include <common/hsm_encryption.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/type_to_string.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <dirent.h>

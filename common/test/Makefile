@@ -31,7 +31,6 @@ common/test/run-json:					\
 	common/lease_rates.o				\
 	common/node_id.o				\
 	common/pseudorand.o				\
-	common/type_to_string.o				\
 	common/wireaddr.o				\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
@@ -74,7 +73,6 @@ common/test/run-bolt12_merkle:				\
 	common/bech32_util.o				\
 	common/bolt12.o					\
 	common/node_id.o				\
-	common/type_to_string.o				\
 	common/wireaddr.o				\
 	wire/bolt12_wiregen.o				\
 	wire/fromwire.o					\

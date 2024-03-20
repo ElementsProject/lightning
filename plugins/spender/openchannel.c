@@ -6,7 +6,6 @@
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
 #include <common/psbt_open.h>
-#include <common/type_to_string.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
 

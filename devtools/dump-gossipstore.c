@@ -3,7 +3,6 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <common/gossip_store.h>
-#include <common/type_to_string.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>

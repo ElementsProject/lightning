@@ -4,7 +4,6 @@
 #include <common/coin_mvt.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
-#include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>

@@ -7,7 +7,6 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/hsm_control.h>

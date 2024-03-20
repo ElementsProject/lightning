@@ -14,7 +14,9 @@
 /* BIP 125: Any nsequence < 0xFFFFFFFE is replacable.
  * And bitcoind uses this value. */
 #define BITCOIN_TX_RBF_SEQUENCE 0xFFFFFFFD
+
 struct wally_psbt;
+struct ripemd160;
 
 struct bitcoin_txid {
 	struct sha256_double shad;
@@ -290,6 +292,9 @@ char *fmt_bitcoin_outpoint(const tal_t *ctx,
 			   const struct bitcoin_outpoint *outpoint);
 char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx);
 
+/* For want of somewhere better to define them! */
+char *fmt_sha256(const tal_t *ctx, const struct sha256 *sha256);
+char *fmt_ripemd160(const tal_t *ctx, const struct ripemd160 *ripemd160);
 
 /* Various weights of transaction parts. */
 size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);

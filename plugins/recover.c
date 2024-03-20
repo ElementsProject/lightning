@@ -6,7 +6,6 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <unistd.h>

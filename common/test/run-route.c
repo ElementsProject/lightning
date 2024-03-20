@@ -6,7 +6,6 @@
 #include <common/gossip_store.h>
 #include <common/route.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <bitcoin/chainparams.h>
 #include <stdio.h>

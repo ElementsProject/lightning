@@ -25,7 +25,6 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/setup.o				\
 	common/utils.o				\
 	common/utxo.o				\
-	common/type_to_string.o			\
 	common/permute_tx.o			\
 	common/wireaddr.o			\
 

@@ -13,7 +13,6 @@
 #include <common/keyset.h>
 #include <common/memleak.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <stdio.h>
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "full_channel_error_names_gen.h"

@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
@@ -17,7 +18,7 @@
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
 #include <common/node_id.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>

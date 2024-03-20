@@ -56,7 +56,6 @@
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
-#include <common/type_to_string.h>
 #include <common/version.h>
 #include <db/exec.h>
 
@@ -1352,12 +1351,13 @@ int main(int argc, char *argv[])
 
 	/*~ Mark ourselves live.
 	 *
-	 * Note the use of type_to_string() here: it's a typesafe formatter,
-	 * often handed 'tmpctx' like here to allocate a throwaway string for
-	 * formatting.  json_escape() avoids printing weird characters in our
-	 * log.  And tal_hex() is a helper from utils which returns a hex string;
-	 * it's assumed that the argument was allocated with tal or tal_arr
-	 * so it can use tal_bytelen() to get the length. */
+	 * Note the use of fmt_node_id() here: most complex types have a
+	 * string formatter of this convention, usually handed 'tmpctx' like
+	 * here to allocate a throwaway string for formatting.  json_escape()
+	 * avoids printing weird characters in our log.  And tal_hex() is a
+	 * helper from utils which returns a hex string; it's assumed that the
+	 * argument was allocated with tal or tal_arr so it can use
+	 * tal_bytelen() to get the length. */
 	log_info(ld->log, "--------------------------------------------------");
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
 		 fmt_node_id(tmpctx, &ld->id),

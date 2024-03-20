@@ -5,7 +5,6 @@
 #include <common/initial_commit_tx.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <openingd/common.h>
 #include <wire/wire_sync.h>

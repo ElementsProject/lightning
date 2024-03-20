@@ -24,7 +24,6 @@
 #include <common/read_peer_msg.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>

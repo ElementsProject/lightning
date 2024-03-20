@@ -8,7 +8,7 @@
 #include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <secp256k1_schnorrsig.h>
 #include <wire/wire.h>
 
@@ -334,7 +334,6 @@ char *fmt_secp256k1_ecdsa_signature(const tal_t *ctx, const secp256k1_ecdsa_sign
 
 	return tal_hexstr(ctx, der, len);
 }
-REGISTER_TYPE_TO_STRING(secp256k1_ecdsa_signature, fmt_secp256k1_ecdsa_signature);
 
 char *fmt_bitcoin_signature(const tal_t *ctx,
 			    const struct bitcoin_signature *sig)
@@ -344,7 +343,6 @@ char *fmt_bitcoin_signature(const tal_t *ctx,
 
 	return tal_hexstr(ctx, der, len);
 }
-REGISTER_TYPE_TO_STRING(bitcoin_signature, fmt_bitcoin_signature);
 
 void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
 				struct bitcoin_signature *sig)
@@ -377,8 +375,6 @@ char *fmt_bip340sig(const tal_t *ctx, const struct bip340sig *bip340sig)
 {
 	return tal_hexstr(ctx, bip340sig->u8, sizeof(bip340sig->u8));
 }
-
-REGISTER_TYPE_TO_STRING(bip340sig, fmt_bip340sig);
 
 /* BIP-340:
  *

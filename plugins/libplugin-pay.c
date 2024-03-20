@@ -10,7 +10,6 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <math.h>
 #include <plugins/libplugin-pay.h>

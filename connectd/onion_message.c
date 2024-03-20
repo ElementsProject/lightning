@@ -9,7 +9,6 @@
 #include <common/onion_message_parse.h>
 #include <common/sphinx.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_wiregen.h>

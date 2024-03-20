@@ -94,7 +94,6 @@ COMMON_SRC_NOGEN :=				\
 	common/timeout.c			\
 	common/trace.c				\
 	common/tx_roles.c			\
-	common/type_to_string.c			\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\

@@ -11,7 +11,6 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/renepay/pay.h>
 #include <plugins/renepay/pay_flow.h>

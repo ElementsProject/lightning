@@ -5,7 +5,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/base32.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <common/wireaddr.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -243,7 +243,6 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 }
 	abort();
 }
-REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
 
 char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 {
@@ -279,7 +278,6 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 	tal_append_fmt(&ret, ":%u", a->port);
 	return ret;
 }
-REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
 
 /* Valid forms:
  *

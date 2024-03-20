@@ -142,7 +142,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/timeout.o			\
 	common/trace.o				\
 	common/tx_roles.o			\
-	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\

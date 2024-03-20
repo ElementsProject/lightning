@@ -13,7 +13,6 @@
 #include <common/gossip_store.h>
 #include <common/node_id.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <stdio.h>
 #include <wire/onion_wiregen.h>

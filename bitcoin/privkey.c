@@ -1,7 +1,7 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <ccan/str/hex/hex.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 char *fmt_privkey(const tal_t *ctx, const struct privkey *secret)
@@ -12,13 +12,11 @@ char *fmt_privkey(const tal_t *ctx, const struct privkey *secret)
 	strcat(str, "01");
 	return str;
 }
-REGISTER_TYPE_TO_STRING(privkey, fmt_privkey);
 
 char *fmt_secret(const tal_t *ctx, const struct secret *secret)
 {
 	return tal_hexstr(ctx, secret, sizeof(*secret));
 }
-REGISTER_TYPE_TO_STRING(secret, fmt_secret);
 
 bool secret_eq_consttime(const struct secret *a, const struct secret *b)
 {

@@ -14,7 +14,6 @@
 #include <common/initial_commit_tx.h>
 #include <common/setup.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/utxo.h>
 #include <stdio.h>
 

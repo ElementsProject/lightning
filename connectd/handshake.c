@@ -8,7 +8,6 @@
 #include <common/crypto_state.h>
 #include <common/ecdh.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>

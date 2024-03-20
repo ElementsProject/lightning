@@ -11,7 +11,6 @@
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <db/exec.h>
 #include <gossipd/gossipd_wiregen.h>

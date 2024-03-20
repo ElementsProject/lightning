@@ -1,6 +1,5 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
-#include <common/type_to_string.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>

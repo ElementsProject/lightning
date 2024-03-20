@@ -8,7 +8,6 @@
 #include <common/decode_array.h>
 #include <common/gossmap.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>

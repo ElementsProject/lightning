@@ -3,7 +3,6 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
-#include <common/type_to_string.h>
 #include <wire/wire.h>
 
 /* If we're the finder, it's like an HTLC we added, if they are, it's like
@@ -170,4 +169,3 @@ char *fmt_fee_states(const tal_t *ctx,
 	tal_append_fmt(&ret, " }");
 	return ret;
 }
-REGISTER_TYPE_TO_STRING(fee_states, fmt_fee_states);

@@ -2,7 +2,6 @@
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>

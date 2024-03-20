@@ -5,7 +5,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/node_id.h>
-#include <common/type_to_string.h>
 #include <wire/wire.h>
 
 #define EXTERNAL "external"

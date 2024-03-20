@@ -16,7 +16,6 @@
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/route.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <secp256k1_schnorrsig.h>

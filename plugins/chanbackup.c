@@ -13,7 +13,6 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/scb_wiregen.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <plugins/libplugin.h>

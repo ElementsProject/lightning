@@ -104,8 +104,7 @@ Everything should be declared static and const by default.  Note that `tal_free(
 
 ## Typesafety Is Worth Some Pain
 
-If code is typesafe, refactoring is as simple as changing a type and compiling to find where to refactor.  We rely on this, so most places in the code will break if you hand the wrong type, eg  
-`type_to_string` and `structeq`.
+If code is typesafe, refactoring is as simple as changing a type and compiling to find where to refactor.  We rely on this, so most places in the code will break if you hand the wrong type, eg `structeq` and `tal`.
 
 The two tools we have to help us are complicated macros in `ccan/typesafe_cb` allow you to create callbacks which must match the type of their argument, rather than using `void *`.  The other is `ARRAY_SIZE`, a macro which won't compile if you hand it a pointer instead of an actual array.
 

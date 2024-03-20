@@ -12,7 +12,6 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
-#include <common/type_to_string.h>
 #include <db/exec.h>
 #include <errno.h>
 #include <plugins/bkpr/account.h>

@@ -8,7 +8,6 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/shutdown_scriptpubkey.h>
-#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

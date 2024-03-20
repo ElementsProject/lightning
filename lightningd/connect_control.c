@@ -7,7 +7,6 @@
 #include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/permissions.h>

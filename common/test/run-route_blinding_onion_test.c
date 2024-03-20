@@ -13,7 +13,6 @@
 #include "../json_parse_simple.c"
 #include "../onion_encode.c"
 #include "../sphinx.c"
-#include "../type_to_string.c"
 #include "../../wire/onion_wiregen.c"
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>

@@ -10,7 +10,6 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>

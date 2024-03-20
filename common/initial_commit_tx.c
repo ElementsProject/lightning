@@ -5,7 +5,6 @@
 #include <common/keyset.h>
 #include <common/permute_tx.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 
 /* BOLT #3:
  *

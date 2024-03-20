@@ -20,7 +20,6 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/lease_rates.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/type_to_string.o			\
 	common/utils.o				\
 	common/wireaddr.o			\
 	gossipd/gossip_store_wiregen.o		\

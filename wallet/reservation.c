@@ -8,7 +8,6 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/key_derive.h>
-#include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>

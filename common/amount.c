@@ -5,7 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/overflows.h>
-#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <wire/wire.h>
 
@@ -64,13 +64,6 @@ char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat)
 	return tal_fmt(ctx, "%"PRIu64"msat", msat.millisatoshis);
 }
 
-static const char *fmt_amount_msat_ptr(const tal_t *ctx,
-				       const struct amount_msat *msat)
-{
-	return fmt_amount_msat(ctx, *msat);
-}
-REGISTER_TYPE_TO_STRING(amount_msat, fmt_amount_msat_ptr);
-
 const char *fmt_amount_sat_btc(const tal_t *ctx,
 			       struct amount_sat sat,
 			       bool append_unit)
@@ -88,13 +81,6 @@ char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat)
 {
 	return tal_fmt(ctx, "%"PRIu64"sat", sat.satoshis);
 }
-
-static const char *fmt_amount_sat_ptr(const tal_t *ctx,
-				      const struct amount_sat *sat)
-{
-	return fmt_amount_sat(ctx, *sat);
-}
-REGISTER_TYPE_TO_STRING(amount_sat, fmt_amount_sat_ptr);
 
 static bool breakup(const char *str, size_t slen,
 		    /* Length of first numeric part. */

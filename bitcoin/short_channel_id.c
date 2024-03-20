@@ -1,7 +1,6 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
 #include <stdio.h>
 #include <wire/wire.h>
 
@@ -86,15 +85,6 @@ char *fmt_short_channel_id_dir(const tal_t *ctx,
 	tal_free(scidstr);
 	return str;
 }
-
-static char *fmt_short_channel_id_ptr(const tal_t *ctx,
-				      const struct short_channel_id *scid)
-{
-	return fmt_short_channel_id(ctx, *scid);
-}
-
-REGISTER_TYPE_TO_STRING(short_channel_id, fmt_short_channel_id_ptr);
-REGISTER_TYPE_TO_STRING(short_channel_id_dir, fmt_short_channel_id_dir);
 
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id)

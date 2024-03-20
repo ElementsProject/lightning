@@ -2,7 +2,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
 #include <common/decode_array.h>
-#include <common/type_to_string.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
 #include <stdio.h>

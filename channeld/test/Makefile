@@ -22,7 +22,6 @@ CHANNELD_TEST_COMMON_OBJS :=			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/type_to_string.o			\
 	common/utils.o
 
 $(CHANNELD_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WIRE_OBJS) $(CHANNELD_TEST_COMMON_OBJS)

@@ -5,7 +5,6 @@
 #include "../onion_decode.c"
 #include "../sphinx.c"
 #include "../hmac.c"
-#include "../type_to_string.c"
 #include "../../wire/towire.c"
 #include "../../wire/fromwire.c"
 #include "../../wire/onion_wiregen.c"

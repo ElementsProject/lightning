@@ -12,7 +12,6 @@
 #include <common/channel_id.h>
 #include <common/node_id.h>
 #include <common/setup.h>
-#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>
