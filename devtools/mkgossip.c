@@ -149,7 +149,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	printf("type=channel_update\n");
 	printf("   signature=%s\n", sig_notation(privkey, &hash, &sig));
 	printf("   chain_hash=%s\n", tal_hexstr(NULL, chainhash, sizeof(*chainhash)));
-	printf("   short_channel_id=%s\n", short_channel_id_to_str(NULL, scid));
+	printf("   short_channel_id=%s\n", fmt_short_channel_id(NULL, *scid));
 	printf("   timestamp=%u\n", opts->timestamp);
 	printf("   message_flags=%u\n",
 	       ROUTING_OPT_HTLC_MAX_MSAT);
@@ -196,7 +196,7 @@ static void print_nannounce(const struct node_id *nodeid,
 	printf("   signature=%s\n", sig_notation(privkey, &hash, &sig));
 	printf("   features=%s\n", tal_hex(NULL, NULL));
 	printf("   timestamp=%u\n", opts->timestamp);
-	printf("   node_id=%s\n", node_id_to_hexstr(NULL, nodeid));
+	printf("   node_id=%s\n", fmt_node_id(NULL, nodeid));
 	printf("   rgb_color=%s\n", tal_hexstr(NULL, nodeid->k, 3));
 	printf("   alias=%s\n", tal_hexstr(NULL, alias, 32));
 	printf("   addresses=%s\n", tal_hex(NULL, opts->addresses));
@@ -332,15 +332,15 @@ int main(int argc, char *argv[])
 	       sig_notation(&funding_privkey[!lesser_key], &hash, &bitcoinsig[!lesser_key]));
 	printf("   features=%s\n", tal_hex(NULL, features));
 	printf("   chain_hash=%s\n", tal_hexstr(NULL, &chainhash, sizeof(chainhash)));
-	printf("   short_channel_id=%s\n", short_channel_id_to_str(NULL, &scid));
+	printf("   short_channel_id=%s\n", fmt_short_channel_id(NULL, scid));
 	printf("   node_id_1=%s\n",
-	       node_id_to_hexstr(NULL, &nodeid[lesser_key]));
+	       fmt_node_id(NULL, &nodeid[lesser_key]));
 	printf("   node_id_2=%s\n",
-	       node_id_to_hexstr(NULL, &nodeid[!lesser_key]));
+	       fmt_node_id(NULL, &nodeid[!lesser_key]));
 	printf("   bitcoin_key_1=%s\n",
-	       pubkey_to_hexstr(NULL, &bitcoin[lesser_key]));
+	       fmt_pubkey(NULL, &bitcoin[lesser_key]));
 	printf("   bitcoin_key_2=%s\n",
-	       pubkey_to_hexstr(NULL, &bitcoin[!lesser_key]));
+	       fmt_pubkey(NULL, &bitcoin[!lesser_key]));
 
 	printf("\n#Node 1:\n");
 	print_update(&chainhash, &scid, &opts[0], lesser_key == 0,

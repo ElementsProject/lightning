@@ -241,7 +241,7 @@ static bool printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 		}
 		for (size_t i = 0; i < tal_count(scids); i++)
 			printf(" %s",
-			       short_channel_id_to_str(tmpctx, &scids[i]));
+			       fmt_short_channel_id(tmpctx, scids[i]));
 	} else {
 		/* If it was unknown, that's different from corrupt */
 		if (len == 0

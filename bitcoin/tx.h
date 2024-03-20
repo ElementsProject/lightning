@@ -286,6 +286,10 @@ void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
 			       struct bitcoin_outpoint *outp);
 char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid);
+char *fmt_bitcoin_outpoint(const tal_t *ctx,
+			   const struct bitcoin_outpoint *outpoint);
+char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx);
+
 
 /* Various weights of transaction parts. */
 size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);

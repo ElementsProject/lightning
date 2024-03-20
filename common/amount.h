@@ -187,14 +187,14 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 				struct amount_msat msat,
 				bool append_unit);
 /* => 1234msat */
-const char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat);
+char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat);
 
 /* => 1.23456789btc (8 decimals!) */
 const char *fmt_amount_sat_btc(const tal_t *ctx,
 			       struct amount_sat sat,
 			       bool append_unit);
 /* => 1234sat */
-const char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat);
+char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat);
 
 /* Valid strings:
  *  [0-9]+ => millisatoshi.

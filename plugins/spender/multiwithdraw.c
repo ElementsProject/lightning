@@ -447,7 +447,7 @@ mw_after_fundpsbt(struct command *cmd,
 		   "multiwithdraw %"PRIu64": %s done: %s.",
 		   mw->id,
 		   mw->utxos ? "utxopsbt" : "fundpsbt",
-		   psbt_to_b64(tmpctx, mw->psbt));
+		   fmt_wally_psbt(tmpctx, mw->psbt));
 
 	/* Handle 'all'.  */
 	if (mw->has_all) {

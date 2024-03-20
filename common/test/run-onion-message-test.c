@@ -97,7 +97,7 @@ static void json_hex_talfield(const char *name, const u8 *val)
 
 static void json_pubkey(const char *name, const struct pubkey *key)
 {
-	json_strfield(name, pubkey_to_hexstr(tmpctx, key));
+	json_strfield(name, fmt_pubkey(tmpctx, key));
 }
 
 static bool enable_superverbose;

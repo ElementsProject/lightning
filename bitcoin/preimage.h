@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/tal.h>
 
 struct preimage {
 	u8 r[32];
@@ -13,4 +14,5 @@ STRUCTEQ_DEF(preimage, 0, r);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
 
+char *fmt_preimage(const tal_t *ctx, const struct preimage *preimage);
 #endif /* LIGHTNING_BITCOIN_PREIMAGE_H */

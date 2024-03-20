@@ -119,5 +119,6 @@ void json_add_bolt11(struct json_stream *response,
 
 	json_add_sha256(response, "payment_hash", &b11->payment_hash);
 
-	json_add_string(response, "signature", fmt_signature(tmpctx, &b11->sig));
+	json_add_string(response, "signature",
+			fmt_secp256k1_ecdsa_signature(tmpctx, &b11->sig));
 }

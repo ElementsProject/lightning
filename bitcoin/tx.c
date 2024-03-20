@@ -738,15 +738,15 @@ char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
 	return hexstr;
 }
 
-static char *fmt_bitcoin_outpoint(const tal_t *ctx,
-				  const struct bitcoin_outpoint *outpoint)
+char *fmt_bitcoin_outpoint(const tal_t *ctx,
+			   const struct bitcoin_outpoint *outpoint)
 {
 	return tal_fmt(ctx, "%s:%u",
 		       fmt_bitcoin_txid(tmpctx, &outpoint->txid),
 		       outpoint->n);
 }
 
-static char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
+char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 {
 	u8 *lin = linearize_wtx(ctx, tx);
 	char *s = tal_hex(ctx, lin);

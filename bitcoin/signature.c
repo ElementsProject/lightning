@@ -324,7 +324,7 @@ bool signature_from_der(const u8 *der, size_t len, struct bitcoin_signature *sig
 	return true;
 }
 
-char *fmt_signature(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
+char *fmt_secp256k1_ecdsa_signature(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
 {
 	u8 der[72];
 	size_t len = 72;
@@ -334,17 +334,17 @@ char *fmt_signature(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
 
 	return tal_hexstr(ctx, der, len);
 }
-REGISTER_TYPE_TO_STRING(secp256k1_ecdsa_signature, fmt_signature);
+REGISTER_TYPE_TO_STRING(secp256k1_ecdsa_signature, fmt_secp256k1_ecdsa_signature);
 
-static char *bitcoin_signature_to_hexstr(const tal_t *ctx,
-					 const struct bitcoin_signature *sig)
+char *fmt_bitcoin_signature(const tal_t *ctx,
+			    const struct bitcoin_signature *sig)
 {
 	u8 der[73];
 	size_t len = signature_to_der(der, sig);
 
 	return tal_hexstr(ctx, der, len);
 }
-REGISTER_TYPE_TO_STRING(bitcoin_signature, bitcoin_signature_to_hexstr);
+REGISTER_TYPE_TO_STRING(bitcoin_signature, fmt_bitcoin_signature);
 
 void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
 				struct bitcoin_signature *sig)
@@ -378,7 +378,7 @@ char *fmt_bip340sig(const tal_t *ctx, const struct bip340sig *bip340sig)
 	return tal_hexstr(ctx, bip340sig->u8, sizeof(bip340sig->u8));
 }
 
-REGISTER_TYPE_TO_HEXSTR(bip340sig);
+REGISTER_TYPE_TO_STRING(bip340sig, fmt_bip340sig);
 
 /* BIP-340:
  *

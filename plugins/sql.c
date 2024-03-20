@@ -768,7 +768,7 @@ static void delete_channel_from_db(struct command *cmd,
 			   tal_fmt(tmpctx,
 				   "DELETE FROM channels"
 				   " WHERE short_channel_id = '%s'",
-				   short_channel_id_to_str(tmpctx, &scid)),
+				   fmt_short_channel_id(tmpctx, scid)),
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(cmd->plugin, "Could not delete from channels: %s",
@@ -904,7 +904,7 @@ static void delete_node_from_db(struct command *cmd,
 			   tal_fmt(tmpctx,
 				   "DELETE FROM nodes"
 				   " WHERE nodeid = X'%s'",
-				   node_id_to_hexstr(tmpctx, id)),
+				   fmt_node_id(tmpctx, id)),
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(cmd->plugin, "Could not delete from nodes: %s",

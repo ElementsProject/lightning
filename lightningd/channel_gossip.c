@@ -355,7 +355,7 @@ static void cupdate_timer_refresh(struct channel *channel)
 	cg->refresh_timer = NULL;
 
 	log_debug(channel->log, "Sending keepalive channel_update for %s",
-		  short_channel_id_to_str(tmpctx, channel->scid));
+		  fmt_short_channel_id(tmpctx, *channel->scid));
 
 	/* Free old cupdate to force a new one to be generated */
 	cg->cupdate = tal_free(cg->cupdate);
@@ -379,7 +379,7 @@ static void stash_remote_announce_sigs(struct channel *channel,
 	if (err) {
 		channel_fail_transient(channel, true,
 				       "Bad gossip announcement_signatures for scid %s: %s",
-				       short_channel_id_to_str(tmpctx, &scid),
+				       fmt_short_channel_id(tmpctx, scid),
 				       err);
 		return;
 	}
@@ -391,8 +391,8 @@ static void stash_remote_announce_sigs(struct channel *channel,
 	cg->remote_sigs->bitcoin_sig = *bitcoin_sig;
 	log_debug(channel->log,
 		  "channel_gossip: received announcement sigs for %s (we have %s)",
-		  short_channel_id_to_str(tmpctx, &scid),
-		  channel->scid ? short_channel_id_to_str(tmpctx, channel->scid) : "none");
+		  fmt_short_channel_id(tmpctx, scid),
+		  channel->scid ? fmt_short_channel_id(tmpctx, *channel->scid) : "none");
 }
 
 static bool apply_remote_sigs(struct channel *channel)
@@ -716,7 +716,7 @@ void channel_gossip_scid_changed(struct channel *channel)
 	case CGOSSIP_NEED_PEER_SIGS:
 	case CGOSSIP_ANNOUNCED:
 		log_debug(channel->log, "channel_gossip: scid now %s",
-			  short_channel_id_to_str(tmpctx, channel->scid));
+			  fmt_short_channel_id(tmpctx, *channel->scid));
 		/* Start again. */
 		/* Maybe remote announcement signatures now apply?  If not,
 		 * free them */
@@ -1003,7 +1003,7 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 	if (!channel) {
 		log_unusual(ld->log, "Bad gossip order: could not find channel %s for peer's "
 			    "channel update",
-			    short_channel_id_to_str(tmpctx, &update->scid));
+			    fmt_short_channel_id(tmpctx, update->scid));
 		return;
 	}
 

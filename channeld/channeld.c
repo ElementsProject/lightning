@@ -3684,7 +3684,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	psbt_finalize(ictx->current_psbt);
 
-	status_debug("Splice accepter adding inflight: %s", psbt_to_b64(tmpctx, ictx->current_psbt));
+	status_debug("Splice accepter adding inflight: %s",
+		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	msg = towire_channeld_add_inflight(NULL,
 					   &outpoint.txid,
@@ -3928,7 +3929,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
 	status_debug("Splice adding inflight: %s",
-		     psbt_to_b64(tmpctx, ictx->current_psbt));
+		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	psbt_txid(tmpctx, ictx->current_psbt, &current_psbt_txid, NULL);
 

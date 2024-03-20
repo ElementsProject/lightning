@@ -167,7 +167,7 @@ static void lowest_filter(const struct list_head *print_filters,
 	const char *node_id_str;
 
 	if (node_id)
-		node_id_str = node_id_to_hexstr(tmpctx, node_id);
+		node_id_str = fmt_node_id(tmpctx, node_id);
 	else
 		node_id_str = NULL;
 
@@ -216,7 +216,7 @@ static void log_to_files(const char *log_prefix,
 		tstamp[0] = '\0';
 
 	if (node_id)
-		nodestr = node_id_to_hexstr(tmpctx, node_id);
+		nodestr = fmt_node_id(tmpctx, node_id);
 	else
 		nodestr = "";
 	if (level == LOG_IO_IN || level == LOG_IO_OUT) {

@@ -183,8 +183,8 @@ int main(int argc, char *argv[])
 		sqlite3_column_pubkey(stmt, 6, &remote_fundingkey);
 
 		printf("Channel %s with peer %s: funding %s/%u: ",
-			     short_channel_id_to_str(ctx, &scid),
-			     node_id_to_hexstr(ctx, &peer_id),
+			     fmt_short_channel_id(ctx, scid),
+			     fmt_node_id(ctx, &peer_id),
 			     txid_hex, funding_outnum);
 		fflush(stdout);
 

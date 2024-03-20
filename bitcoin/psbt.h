@@ -293,7 +293,7 @@ bool elements_psbt_output_is_fee(const struct wally_psbt *psbt, size_t outnum);
 struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 const char *b64,
 				 size_t b64len);
-char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt);
+char *fmt_wally_psbt(const tal_t *ctx, const struct wally_psbt *psbt);
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written);
 bool validate_psbt(const struct wally_psbt *psbt);

@@ -237,8 +237,8 @@ static bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
 	return bitcoin_txid_to_hex(&fake_txid, hexstr, hexstr_len);
 }
 
-static char *fmt_bitcoin_blkid(const tal_t *ctx,
-			       const struct bitcoin_blkid *blkid)
+char *fmt_bitcoin_blkid(const tal_t *ctx,
+			const struct bitcoin_blkid *blkid)
 {
 	char *hexstr = tal_arr(ctx, char, hex_str_size(sizeof(*blkid)));
 

@@ -693,7 +693,7 @@ openchannel_update_ok(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: openchannel_update %s returned.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	assert(!dest->updated_psbt);
 	psbt_tok = json_get_member(buf, result, "psbt");
@@ -794,7 +794,7 @@ openchannel_update_dest(struct multifundchannel_destination *dest)
 		   "mfc %"PRIu64", dest %u: `openchannel_update` %s "
 		   "with psbt %s",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
+		   fmt_node_id(tmpctx, &dest->id),
 		   type_to_string(tmpctx, struct wally_psbt, dest->psbt));
 
 	req = jsonrpc_request_start(cmd->plugin,
@@ -923,7 +923,7 @@ openchannel_init_ok(struct command *cmd,
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: openchannel_init %s done.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	err = json_scan(mfc, buf, result,
 			"{psbt:%,"
@@ -980,7 +980,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: openchannel_init %s.",
 		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
+		   fmt_node_id(tmpctx, &dest->id));
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "openchannel_init",
@@ -1021,7 +1021,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 		plugin_log(cmd->plugin, LOG_INFORM,
 			   "Using openchannel for %s open, "
 			   "ignoring `push_msat` of %s",
-			   node_id_to_hexstr(tmpctx, &dest->id),
+			   fmt_node_id(tmpctx, &dest->id),
 			   type_to_string(tmpctx, struct amount_msat,
 					  &dest->push_msat));
 

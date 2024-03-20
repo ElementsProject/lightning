@@ -72,6 +72,9 @@ void towire_height_states(u8 **pptr, const struct height_states *height_states);
 struct height_states *fromwire_height_states(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
 
+char *fmt_height_states(const tal_t *ctx,
+			const struct height_states *states);
+
 /**
  * is this height_state struct valid for this side?
  */

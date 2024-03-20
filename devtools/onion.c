@@ -301,7 +301,7 @@ static void decompress(char *hexprivkey, char *hexonion)
 		errx(1,
 		     "Could not generate shared secret from ephemeral key %s "
 		     "and private key %s",
-		     pubkey_to_hexstr(NULL, &ephkey), hexprivkey);
+		     fmt_pubkey(NULL, &ephkey), hexprivkey);
 
 	onion = sphinx_decompress(NULL, tinyonion, &shared_secret);
 	if (onion == NULL)

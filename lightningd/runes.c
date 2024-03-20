@@ -733,7 +733,7 @@ static const char *check_condition(const tal_t *ctx,
 		return rune_alt_single_int(ctx, alt, cinfo->now.ts.tv_sec);
 	} else if (streq(alt->fieldname, "id")) {
 		if (cinfo->peer) {
-			const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
+			const char *id = fmt_node_id(tmpctx, cinfo->peer);
 			return rune_alt_single_str(ctx, alt, id, strlen(id));
 		}
 		return rune_alt_single_missing(ctx, alt);

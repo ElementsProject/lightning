@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 				     shad.sha.u.u8))
 		errx(1, "Signature not recoverable");
 
-	keystr = pubkey_to_hexstr(NULL, &reckey);
+	keystr = fmt_pubkey(NULL, &reckey);
 	if (argv[3]) {
 		if (!streq(keystr, argv[3]))
 			errx(1, "Signature is invalid");
