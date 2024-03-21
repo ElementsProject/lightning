@@ -7,6 +7,7 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/chan_extra.c		\
 	plugins/renepay/route.c			\
 	plugins/renepay/routebuilder.c		\
+	plugins/renepay/routetracker.c		\
 	plugins/renepay/success.c		\
 	plugins/renepay/unetwork.c		\
 	plugins/renepay/failure.c		\
@@ -22,6 +23,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/chan_extra.h		\
 	plugins/renepay/route.h			\
 	plugins/renepay/routebuilder.h		\
+	plugins/renepay/routetracker.h		\
 	plugins/renepay/success.h		\
 	plugins/renepay/unetwork.h		\
 	plugins/renepay/failure.h		\

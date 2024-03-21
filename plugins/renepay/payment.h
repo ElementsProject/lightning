@@ -131,9 +131,6 @@ struct payment {
 	/* Channels we decided to disable for various reasons. */
 	struct short_channel_id *disabled_scids;
 
-	/* pending sendpay callbacks, we need these to complete before we can
-	 * decide wether to retry or fail the payment. */
-	size_t pending_routes;
 
 	/* Flag to indicate wether we have collected enough results to make a
 	 * decision on the payment progress. */
@@ -145,15 +142,8 @@ struct payment {
 	/* Timer we use to wait for results. */
 	struct plugin_timer *waitresult_timer;
 
-	/* A temporary location to put routes that we have not yet sent.
-	 * compute_routes_pay_mod will write its result here. */
-	struct route **routes_to_send;
-
-	/* A temporary location to put routes that have completed, either fail
-	 * or success, but we haven't processed yet. Route threads will write
-	 * their results here. */
-	struct route **routes_completed;
-
+	struct route **routes_computed;
+	struct routetracker *routetracker;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)

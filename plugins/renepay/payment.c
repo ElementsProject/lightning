@@ -8,6 +8,7 @@
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/routetracker.h>
 
 struct payment *payment_new(
 	    const tal_t *ctx,
@@ -97,13 +98,13 @@ struct payment *payment_new(
 	p->local_gossmods = NULL;
 	p->local_unetwork = unetwork_new(p);
 	p->disabled_scids = tal_arr(p, struct short_channel_id, 0);
-	p->pending_routes = 0;
+
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = NULL;
-	p->routes_to_send = tal_arr(p, struct route *, 0);
-	p->routes_completed = tal_arr(p, struct route *, 0);
 
+	p->routes_computed = NULL;
+	p->routetracker = new_routetracker(p);
 	return p;
 }
 
@@ -116,8 +117,9 @@ static void payment_cleanup(struct payment *p)
 	p->local_unetwork = tal_free(p->local_unetwork);
 	tal_resize(&p->disabled_scids, 0);
 	p->waitresult_timer = tal_free(p->waitresult_timer);
-	tal_resize(&p->routes_to_send, 0);
-	tal_resize(&p->routes_completed, 0);
+
+	p->routes_computed = tal_free(p->routes_computed);
+	routetracker_cleanup(p->routetracker);
 }
 
 bool payment_update(
@@ -186,26 +188,16 @@ bool payment_update(
 	assert(p->disabled_scids);
 	tal_resize(&p->disabled_scids, 0);
 
-	p->pending_routes = 0;
 	p->have_results = false;
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	/* It is weird to have routes here stuck, we */
-	assert(p->routes_to_send);
-	if(tal_count(p->routes_to_send) != 0)
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL, "We have saved (unsent) routes in this payment.");
-	tal_resize(&p->routes_to_send, 0);
-
-	assert(p->routes_completed);
-	/* Since routes results are asyncrhonous with the payment thread, we
-	 * might get to this point with tal_count(p->routes_completed)>0, that
-	 * is routes results that we have not processed yet. However, since we
-	 * already failed the previous payment attempts we should be able to
-	 * ignore those results. We will keep them until we call
-	 * collect_results. */
-	// tal_resize(&p->routes_completed, 0);
-
+	/* It is weird to have routes here stuck. */
+	if (p->routes_computed)
+		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
+			   "We have %zu unsent routes in this payment.",
+			   tal_count(p->routes_computed));
+	p->routes_computed = tal_free(p->routes_computed);
 	return true;
 }
 

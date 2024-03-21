@@ -326,9 +326,10 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		 * routes in the current payment. */
 		delivering = AMOUNT_MSAT(0);
 		fee = AMOUNT_MSAT(0);
+		// TODO check ownership of these routes
 		for (size_t i = 0; i < tal_count(flows); i++) {
 			struct route *r = flow_to_route(
-			    routes, payment, payment->groupid,
+			    ctx, payment, payment->groupid,
 			    payment->next_partid, payment->payment_hash,
 			    final_cltv, gossmap, flows[i]);
 			if (!r) {
@@ -415,6 +416,10 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 	/* remove the temporary routes from the uncertainty network */
 	unetwork_remove_routes(unetwork, routes);
+
+	/* ownership */
+	for (size_t i = 0; i < tal_count(routes); i++)
+		routes[i] = tal_steal(routes, routes[i]);
 
 	tal_free(this_ctx);
 	return routes;
