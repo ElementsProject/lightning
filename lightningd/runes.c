@@ -38,6 +38,12 @@ struct runes {
 	struct rune_blacklist *blacklist;
 };
 
+enum invoice_field {
+	INV_FIELD_AMOUNT,
+	INV_FIELD_DESCRIPTION,
+	INV_FIELD_NODE_ID,
+};
+
 const char *rune_is_ours(struct lightningd *ld, const struct rune *rune)
 {
 	return rune_is_derived(ld->runes->master, rune);
@@ -721,6 +727,89 @@ static const struct json_command destroyrune_command = {
 };
 AUTODATA(json_command, &destroyrune_command);
 
+/* Returns the parameter name and set *invf, or NULL */
+static const char *match_inv_condition(const tal_t *ctx,
+				       const char *fieldname,
+				       enum invoice_field *invf)
+{
+	struct {
+		const char *prefix;
+		enum invoice_field invf;
+	} fields[] = { {"_amount", INV_FIELD_AMOUNT},
+		       {"_description", INV_FIELD_DESCRIPTION},
+		       {"_node", INV_FIELD_NODE_ID},
+		       /* Insert new ones here! */
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(fields); i++) {
+		if (strends(fieldname, fields[i].prefix)) {
+			*invf = fields[i].invf;
+			return tal_strndup(ctx, fieldname,
+					   strlen(fieldname)
+					   - strlen(fields[i].prefix));
+		}
+	}
+	return NULL;
+}
+
+static const char *check_bolt11_condition(const tal_t *ctx,
+					  const struct rune_altern *alt,
+					  const struct bolt11 *b11,
+					  enum invoice_field invf)
+{
+
+	switch (invf) {
+	case INV_FIELD_AMOUNT:
+		if (!b11->msat)
+			return rune_alt_single_missing(ctx, alt);
+		return rune_alt_single_int(ctx, alt,
+					   b11->msat->millisatoshis /* Raw: rune check */);
+	case INV_FIELD_NODE_ID: {
+		const char *id = fmt_node_id(tmpctx, &b11->receiver_id);
+		return rune_alt_single_str(ctx, alt, id, strlen(id));
+	}
+	case INV_FIELD_DESCRIPTION:
+		if (!b11->description)
+			return rune_alt_single_missing(ctx, alt);
+		return rune_alt_single_str(ctx, alt, b11->description,
+					   strlen(b11->description));
+	}
+	abort();
+}
+
+static const char *check_inv_condition(const tal_t *ctx,
+				       const struct rune_altern *alt,
+				       struct cond_info *cinfo)
+{
+	const char *invfield = alt->fieldname + strlen("pinv");
+	const char *param;
+	char *fail;
+	const struct bolt11 *b11;
+	enum invoice_field invf;
+	const jsmntok_t *ptok;
+
+	param = match_inv_condition(tmpctx, invfield, &invf);
+	if (!param)
+		return tal_fmt(ctx, "Unknown invoice field %s", invfield);
+
+	/* strmap contains pname<param> */
+	ptok = strmap_get(&cinfo->cached_params,
+			  tal_fmt(tmpctx, "pname%s", param));
+	if (!ptok)
+		return tal_fmt(ctx, "Unknown invoice parameter %s", param);
+
+	b11 = bolt11_decode(tmpctx,
+			    json_strdup(tmpctx, cinfo->buf, ptok),
+			    NULL,
+			    NULL,
+			    NULL,
+			    &fail);
+	if (b11)
+		return check_bolt11_condition(ctx, alt, b11, invf);
+
+	/* FIXME!  Decode bolt12 too! */
+	return tal_fmt(ctx, "Invalid invoice: %s", fail);
+}
+
 static const char *check_condition(const tal_t *ctx,
 				   const struct rune *rune,
 				   const struct rune_altern *alt,
@@ -750,7 +839,7 @@ static const char *check_condition(const tal_t *ctx,
 		return per_time_check(ctx, cinfo->runes, rune, alt, cinfo);
 	}
 
-	/* Rest are params looksup: generate this once! */
+	/* Rest need params lookups: generate this once! */
 	if (cinfo->params && strmap_empty(&cinfo->cached_params)) {
 		const jsmntok_t *t;
 		size_t i;
@@ -783,6 +872,10 @@ static const char *check_condition(const tal_t *ctx,
 			}
 		}
 	}
+
+	/* This references into the (cached) params array */
+	if (strstarts(alt->fieldname, "pinv"))
+		return check_inv_condition(ctx, alt, cinfo);
 
 	ptok = strmap_get(&cinfo->cached_params, alt->fieldname);
 	if (!ptok)
@@ -861,6 +954,8 @@ static struct command_result *json_checkrune(struct command *cmd,
 			err = tal_strcat(tmpctx, "parameter #", err + strlen("parr"));
 		else if (strstarts(err, "pnum"))
 			err = tal_strcat(tmpctx, "number of parameters", err + strlen("pnum"));
+		else if (strstarts(err, "pinv"))
+			err = tal_strcat(tmpctx, "invoice parameter ", err + strlen("pinv"));
 		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
 	}
 
