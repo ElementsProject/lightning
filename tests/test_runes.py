@@ -756,6 +756,17 @@ def test_rune_bolt11_parse(node_factory):
                      method='pay',
                      params={'bolt11': inv})
 
+    # Also with lightning: prefix (both cases)
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_amount_1,
+                     method='pay',
+                     params={'bolt11': 'lightning:' + inv})
+
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_amount_1,
+                     method='pay',
+                     params={'bolt11': 'LIGHTNING:' + inv})
+
     # Rune amount_1 fail (no amount)
     with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_amount not present'):
         l1.rpc.checkrune(nodeid=l1.info['id'],

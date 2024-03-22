@@ -786,6 +786,7 @@ static const char *check_inv_condition(const tal_t *ctx,
 	const struct bolt11 *b11;
 	enum invoice_field invf;
 	const jsmntok_t *ptok;
+	const char *invstr;
 
 	param = match_inv_condition(tmpctx, invfield, &invf);
 	if (!param)
@@ -797,8 +798,12 @@ static const char *check_inv_condition(const tal_t *ctx,
 	if (!ptok)
 		return tal_fmt(ctx, "Unknown invoice parameter %s", param);
 
+	invstr = json_strdup(tmpctx, cinfo->buf, ptok);
+	if (strstarts(invstr, "lightning:") || strstarts(invstr, "LIGHTNING:"))
+		invstr += strlen("lightning:");
+
 	b11 = bolt11_decode(tmpctx,
-			    json_strdup(tmpctx, cinfo->buf, ptok),
+			    invstr,
 			    NULL,
 			    NULL,
 			    NULL,
