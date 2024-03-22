@@ -32,7 +32,7 @@ struct payment_result {
 	struct preimage *payment_preimage;
 	enum sendpay_result_status status;
 	struct amount_msat amount_sent;
-	u32 code;
+	enum jsonrpc_errcode code;
 	const char *failcodename;
 	enum onion_wire failcode;
 	const u8 *raw_message;

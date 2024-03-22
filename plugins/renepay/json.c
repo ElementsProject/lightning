@@ -65,7 +65,9 @@ struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	result = tal(ctx, struct payment_result);
 
 	if (codetok != NULL)
-		json_to_u32(buffer, codetok, &result->code);
+		// u32? isn't this an int?
+		// json_to_u32(buffer, codetok, &result->code);
+		json_to_int(buffer, codetok, &result->code);
 	else
 		result->code = 0;
 

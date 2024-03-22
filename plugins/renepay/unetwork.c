@@ -6,8 +6,23 @@ void unetwork_route_success(struct unetwork *unetwork,
 {
 	// TODO
 }
-void unetwork_remove_htlcs(struct unetwork *unetwork,
-			   const struct route *route)
+void unetwork_remove_htlcs(struct unetwork *unetwork, const struct route *route)
+{
+	// TODO
+}
+
+void unetwork_commit_htlcs(struct unetwork *unetwork, const struct route *route)
+{
+	// TODO
+}
+
+void unetwork_channel_can_send(struct unetwork *unetwork, struct route *route,
+			       u32 erridx)
+{
+	// TODO
+}
+void unetwork_channel_cannot_send(struct unetwork *unetwork,
+				  struct short_channel_id scid, int direction)
 {
 	// TODO
 }

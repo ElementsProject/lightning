@@ -8,9 +8,8 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/route.c			\
 	plugins/renepay/routebuilder.c		\
 	plugins/renepay/routetracker.c		\
-	plugins/renepay/success.c		\
+	plugins/renepay/routefail.c		\
 	plugins/renepay/unetwork.c		\
-	plugins/renepay/failure.c		\
 	plugins/renepay/mods.c			\
 	plugins/renepay/json.c
 
@@ -24,9 +23,8 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/route.h			\
 	plugins/renepay/routebuilder.h		\
 	plugins/renepay/routetracker.h		\
-	plugins/renepay/success.h		\
+	plugins/renepay/routefail.h		\
 	plugins/renepay/unetwork.h		\
-	plugins/renepay/failure.h		\
 	plugins/renepay/mods.h			\
 	plugins/renepay/errorcodes.h		\
 	plugins/renepay/json.c

@@ -27,6 +27,12 @@ void unetwork_remove_htlcs(struct unetwork *unetwork,
 void unetwork_commit_htlcs(struct unetwork *unetwork,
 			   const struct route *route);
 
+void unetwork_channel_can_send(struct unetwork *unetwork, struct route *route,
+			       u32 erridx);
+
+void unetwork_channel_cannot_send(struct unetwork *unetwork,
+				  struct short_channel_id scid, int direction);
+
 void unetwork_update(struct unetwork *unetwork, struct gossmap *gossmap);
 
 struct unetwork *unetwork_new(const tal_t *ctx);

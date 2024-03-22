@@ -14,11 +14,10 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <plugins/renepay/failure.h>
-#include <plugins/renepay/mods.h>
 #include <plugins/renepay/json.h>
+#include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
-#include <plugins/renepay/success.h>
+#include <plugins/renepay/routetracker.h>
 #include <stdio.h>
 
 // TODO(eduardo): notice that pending attempts performed with another

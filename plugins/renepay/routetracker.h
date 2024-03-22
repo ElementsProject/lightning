@@ -43,6 +43,8 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 						    const char *buf,
 						    const jsmntok_t *params);
 
+void route_is_failure(struct route *route);
+
 // FIXME: double-check that we actually get one notification for each sendpay,
 // ie. that after some time we don't have yet pending sendpays for old failed or
 // successful payments that we havent processed because we haven't received the

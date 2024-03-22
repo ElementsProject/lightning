@@ -2,6 +2,7 @@
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/payplugin.h>
+#include <plugins/renepay/routefail.h>
 #include <plugins/renepay/routetracker.h>
 
 struct routetracker *new_routetracker(const tal_t *ctx)
@@ -43,7 +44,7 @@ static void route_is_success(struct route *route)
 {
 	routetracker_add_to_final(route->payment->routetracker, route);
 }
-static void route_is_failure(struct route *route)
+void route_is_failure(struct route *route)
 {
 	routetracker_add_to_final(route->payment->routetracker, route);
 }
@@ -336,10 +337,7 @@ struct command_result *notification_sendpay_failure(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
-	route_is_failure(route);
-
-	// TODO: now we need to perform a sequence of steps to process this
-	// failure
+	routefail_start(route, route, cmd);
 	return notification_handled(cmd);
 }
 
