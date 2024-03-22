@@ -717,3 +717,112 @@ def test_rune_error_messages(node_factory):
                          rune=rune3,
                          method='pay',
                          params=['xxx', 12000])
+
+
+def test_rune_bolt11_parse(node_factory):
+    l1 = node_factory.get_node()
+    # Simple
+    inv = l1.rpc.invoice(1, "inv", "inv")['bolt11']
+    # No amount
+    inv_no_amount = l1.rpc.invoice("any", "inv_no_amount", "inv_no_amount")['bolt11']
+    # No description
+    inv_no_description = l1.rpc.invoice(2, "inv_no_description", "inv_no_description", deschashonly=True)['bolt11']
+
+    rune_amount_1 = l1.rpc.createrune(restrictions=[['pinvbolt11_amount=1']])['rune']
+    rune_no_amount = l1.rpc.createrune(restrictions=[['pinvbolt11_amount!']])['rune']
+    rune_desc_inv = l1.rpc.createrune(restrictions=[['pinvbolt11_description=inv']])['rune']
+    rune_no_desc = l1.rpc.createrune(restrictions=[['pinvbolt11_description!']])['rune']
+    rune_node_l1 = l1.rpc.createrune(restrictions=[['pinvbolt11_node=' + l1.info['id']]])['rune']
+
+    # parameter (bolt11) must exist
+    for r in [rune_amount_1, rune_no_amount, rune_desc_inv, rune_no_desc, rune_node_l1]:
+        with pytest.raises(RpcError, match='Not permitted: Unknown invoice parameter bolt11'):
+            l1.rpc.checkrune(nodeid=l1.info['id'],
+                             rune=r,
+                             method='pay',
+                             params={'bolt11x': inv})
+
+    # parameter must be valid invoice
+    for r in [rune_amount_1, rune_no_amount, rune_desc_inv, rune_no_desc, rune_node_l1]:
+        with pytest.raises(RpcError, match='Not permitted: Invalid invoice: '):
+            l1.rpc.checkrune(nodeid=l1.info['id'],
+                             rune=r,
+                             method='pay',
+                             params={'bolt11': 'xxx'})
+
+    # Rune amount_1 success:
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_amount_1,
+                     method='pay',
+                     params={'bolt11': inv})
+
+    # Rune amount_1 fail (no amount)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_amount not present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_amount_1,
+                         method='pay',
+                         params={'bolt11': inv_no_amount})
+
+    # Rune amount_1 fail (wrong amount)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_amount is not equal to 1'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_amount_1,
+                         method='pay',
+                         params={'bolt11': inv_no_description})
+
+    # rune no_amount success:
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_no_amount,
+                     method='pay',
+                     params={'bolt11': inv_no_amount})
+
+    # Rune no_amount fail (has amount)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_amount is present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_no_amount,
+                         method='pay',
+                         params={'bolt11': inv})
+
+    # Rune desc success:
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_desc_inv,
+                     method='pay',
+                     params={'bolt11': inv})
+    # Rune desc fail (no description)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_description not present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_desc_inv,
+                         method='pay',
+                         params={'bolt11': inv_no_description})
+
+    # Rune desc fail (wrong description)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_description is not equal to inv'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_desc_inv,
+                         method='pay',
+                         params={'bolt11': inv_no_amount})
+
+    # Rune no_desc success:
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_no_desc,
+                     method='pay',
+                     params={'bolt11': inv_no_description})
+    # Rune no_desc fail (has description)
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_description is present'):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_no_desc,
+                         method='pay',
+                         params={'bolt11': inv})
+
+    # Node comparison success.
+    l1.rpc.checkrune(nodeid=l1.info['id'],
+                     rune=rune_node_l1,
+                     method='pay',
+                     params={'bolt11': inv})
+    # Node comparison failure
+    other_inv = 'lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl'
+    with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_node is not equal to ' + l1.info['id']):
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune_node_l1,
+                         method='pay',
+                         params={'bolt11': other_inv})
