@@ -4848,7 +4848,11 @@
                 "    * rate: the rate limit, per minute, e.g. \"rate=60\" is equivalent to \"per=1sec\".",
                 "    * pnum: the number of parameters. e.g. \"pnum<2\".",
                 "    * pnameX: the parameter named X e.g. \"pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\".  NOTE: until v24.05, X had to remove underscores from the parameter name (e.g. `pnameamount_msat` had to be specified as `pnameamountmsat`) but that is now fixed.",
-                "    * parrN: the N'th parameter. e.g. \"parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\"."
+                "    * parrN: the N'th parameter. e.g. \"parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\".",
+                "    * pinvX_N: parse the parameter X as an invoice (bolt11 or bolt12) and extract field N for comparison.  Fails if parameter X is not present, does not parse, or N is not one of the following field names:",
+                "      * amount",
+                "      * description",
+                "      * node"
               ],
               "items": {
                 "type": "array",
