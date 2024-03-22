@@ -3,6 +3,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt12.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -776,14 +777,41 @@ static const char *check_bolt11_condition(const tal_t *ctx,
 	abort();
 }
 
+static const char *check_bolt12_condition(const tal_t *ctx,
+					  const struct rune_altern *alt,
+					  const struct tlv_invoice *b12,
+					  enum invoice_field invf)
+{
+
+	switch (invf) {
+	case INV_FIELD_AMOUNT:
+		if (!b12->invoice_amount)
+			return rune_alt_single_missing(ctx, alt);
+		return rune_alt_single_int(ctx, alt, *b12->invoice_amount);
+	case INV_FIELD_NODE_ID: {
+		if (!b12->offer_node_id)
+			return rune_alt_single_missing(ctx, alt);
+		const char *id = fmt_pubkey(tmpctx, b12->offer_node_id);
+		return rune_alt_single_str(ctx, alt, id, strlen(id));
+	}
+	case INV_FIELD_DESCRIPTION:
+		if (!b12->offer_description)
+			return rune_alt_single_missing(ctx, alt);
+		return rune_alt_single_str(ctx, alt, b12->offer_description,
+					   tal_bytelen(b12->offer_description));
+	}
+	abort();
+}
+
 static const char *check_inv_condition(const tal_t *ctx,
 				       const struct rune_altern *alt,
 				       struct cond_info *cinfo)
 {
 	const char *invfield = alt->fieldname + strlen("pinv");
 	const char *param;
-	char *fail;
+	char *b11fail, *b12fail;
 	const struct bolt11 *b11;
+	const struct tlv_invoice *b12;
 	enum invoice_field invf;
 	const jsmntok_t *ptok;
 	const char *invstr;
@@ -807,12 +835,23 @@ static const char *check_inv_condition(const tal_t *ctx,
 			    NULL,
 			    NULL,
 			    NULL,
-			    &fail);
+			    &b11fail);
 	if (b11)
 		return check_bolt11_condition(ctx, alt, b11, invf);
 
-	/* FIXME!  Decode bolt12 too! */
-	return tal_fmt(ctx, "Invalid invoice: %s", fail);
+	b12 = invoice_decode(tmpctx,
+			     invstr, strlen(invstr),
+			     NULL,
+			     NULL,
+			     &b12fail);
+	if (b12)
+		return check_bolt12_condition(ctx, alt, b12, invf);
+
+	/* If it looks like BOLT11, use that fail msg (it's probably
+	 * more informative!) */
+	if (strstarts(invstr, "lni"))
+		return tal_fmt(ctx, "Invalid invoice: %s", b12fail);
+	return tal_fmt(ctx, "Invalid invoice: %s", b11fail);
 }
 
 static const char *check_condition(const tal_t *ctx,
