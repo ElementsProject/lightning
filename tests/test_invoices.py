@@ -574,6 +574,9 @@ def test_autocleaninvoice_deprecated(node_factory):
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)
     l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
+
+    # Should log the correct name of the API
+    l1.daemon.wait_for_log(r"\*\*BROKEN\*\* jsonrpc#[0-9]*: DEPRECATED API USED autocleaninvoice ")
     start_time = time.time()
 
     # time 0
