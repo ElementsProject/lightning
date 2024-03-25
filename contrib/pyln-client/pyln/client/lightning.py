@@ -1148,6 +1148,20 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_abort", payload)
 
+    def stfu_channels(self, channel_ids):
+        """ STFU multiple channels """
+        payload = {
+            "channel_ids": channel_ids,
+        }
+        return self.call("stfu_channels", payload)
+
+    def abort_channels(self, channel_ids):
+        """ Abort multiple channels """
+        payload = {
+            "channel_ids": channel_ids,
+        }
+        return self.call("abort_channels", payload)
+
     def splice_init(self, chan_id, amount, initialpsbt=None, feerate_per_kw=None):
         """ Initiate a splice """
         payload = {
