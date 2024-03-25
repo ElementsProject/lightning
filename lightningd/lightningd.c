@@ -271,7 +271,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->always_use_proxy = false;
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
-	ld->websocket_port = 0;
 	ld->deprecated_ok = true;
 
 	/*~ This is initialized later, but the plugin loop examines this,

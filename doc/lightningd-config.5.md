@@ -763,16 +763,6 @@ The operations will be bundled into a single transaction. The channel will remai
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
 
-* **experimental-websocket-port**=*PORT* (deprecated in v23.08)
-
-  Specifying this enables support for accepting incoming WebSocket
-connections on that port, on any IPv4 and IPv6 addresses you listen
-to ([bolt][bolt] #891).  The normal protocol is expected to be sent over WebSocket binary
-frames once the connection is upgraded.
-
-  You should use `bind-addr=ws::<portnum>` instead to create a WebSocket listening port.
-  see [Networking options](getting-started/getting-started/configuration.md#networking-options)
-
 * **experimental-peer-storage**
 
   Specifying this option means we will store up to 64k of encrypted

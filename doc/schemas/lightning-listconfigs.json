@@ -613,28 +613,6 @@
               }
             }
           },
-          "experimental-websocket-port": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "value_int",
-              "source"
-            ],
-            "properties": {
-              "value_int": {
-                "type": "u32",
-                "description": [
-                  "Field from config or cmdline, or default."
-                ]
-              },
-              "source": {
-                "type": "string",
-                "description": [
-                  "Source of configuration setting."
-                ]
-              }
-            }
-          },
           "experimental-peer-storage": {
             "added": "v23.02",
             "type": "object",
@@ -1940,16 +1918,6 @@
         "type": "boolean",
         "description": [
           "`experimental-shutdown-wrong-funding` field from config or cmdline, or default."
-        ]
-      },
-      "experimental-websocket-port": {
-        "deprecated": [
-          "v23.08",
-          "v24.02"
-        ],
-        "type": "u16",
-        "description": [
-          "`experimental-websocket-port` field from config or cmdline, or default."
         ]
       },
       "experimental-peer-storage": {

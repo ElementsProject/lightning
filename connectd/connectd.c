@@ -1257,42 +1257,6 @@ setup_listeners(const tal_t *ctx,
 		return NULL;
 	}
 
-	/* If we want websockets to match IPv4/v6, set it up now. */
-	if (daemon->websocket_port) {
-		bool announced_some = false;
-		struct wireaddr_internal addr;
-		/* Only consider bindings added before this! */
-		size_t num_nonws_listens = tal_count(listen_fds);
-
-		for (size_t i = 0; i < num_nonws_listens; i++) {
-			/* Ignore UNIX sockets */
-			if (listen_fds[i]->wi.itype != ADDR_INTERNAL_WIREADDR)
-				continue;
-
-			/* Override with websocket port */
-			addr = listen_fds[i]->wi;
-			addr.u.wireaddr.is_websocket = true;
-			addr.u.wireaddr.wireaddr.port = daemon->websocket_port;
-
-			/* We set mayfail on all but the first websocket;
-			 * it's quite common to have multple overlapping
-			 * addresses. */
-			lfd = handle_wireaddr_listen(ctx, &addr, announced_some,
-						     errstr);
-			if (!lfd)
-				continue;
-
-			announced_some = true;
-			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
-		}
-
-		/* If none of those was possible, it's a configuration error? */
-		if (tal_count(listen_fds) == num_nonws_listens) {
-			*errstr = "Cannot listen on websocket: not listening on any IPv4/6 addresses";
-			return NULL;
-		}
-	}
-
 	/* FIXME: Websocket over Tor (difficult for autotor, since we need
 	 * to use the same onion addr!) */
 
@@ -1403,7 +1367,6 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&tor_password,
 		&daemon->timeout_secs,
 		&daemon->websocket_helper,
-		&daemon->websocket_port,
 		&daemon->announce_websocket,
 		&daemon->dev_fast_gossip,
 		&dev_disconnect,
