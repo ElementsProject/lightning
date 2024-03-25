@@ -154,7 +154,6 @@ message ListpeersPeers {
 	bool connected = 2;
 	optional uint32 num_channels = 8;
 	repeated ListpeersPeersLog log = 3;
-	repeated ListpeersPeersChannels channels = 4;
 	repeated string netaddr = 5;
 	optional string remote_addr = 7;
 	optional bytes features = 6;
@@ -178,118 +177,6 @@ message ListpeersPeersLog {
 	optional string log = 5;
 	optional bytes node_id = 6;
 	optional bytes data = 7;
-}
-
-message ListpeersPeersChannels {
-	// ListPeers.peers[].channels[].state
-	enum ListpeersPeersChannelsState {
-		OPENINGD = 0;
-		CHANNELD_AWAITING_LOCKIN = 1;
-		CHANNELD_NORMAL = 2;
-		CHANNELD_SHUTTING_DOWN = 3;
-		CLOSINGD_SIGEXCHANGE = 4;
-		CLOSINGD_COMPLETE = 5;
-		AWAITING_UNILATERAL = 6;
-		FUNDING_SPEND_SEEN = 7;
-		ONCHAIN = 8;
-		DUALOPEND_OPEN_INIT = 9;
-		DUALOPEND_AWAITING_LOCKIN = 10;
-		DUALOPEND_OPEN_COMMITTED = 11;
-		DUALOPEND_OPEN_COMMIT_READY = 12;
-	}
-	ListpeersPeersChannelsState state = 1;
-	optional bytes scratch_txid = 2;
-	optional ListpeersPeersChannelsFeerate feerate = 3;
-	optional string owner = 4;
-	optional string short_channel_id = 5;
-	optional bytes channel_id = 6;
-	optional bytes funding_txid = 7;
-	optional uint32 funding_outnum = 8;
-	optional string initial_feerate = 9;
-	optional string last_feerate = 10;
-	optional string next_feerate = 11;
-	optional uint32 next_fee_step = 12;
-	repeated ListpeersPeersChannelsInflight inflight = 13;
-	optional bytes close_to = 14;
-	optional bool private = 15;
-	ChannelSide opener = 16;
-	optional ChannelSide closer = 17;
-	repeated string features = 18;
-	optional ListpeersPeersChannelsFunding funding = 19;
-	optional Amount to_us_msat = 20;
-	optional Amount min_to_us_msat = 21;
-	optional Amount max_to_us_msat = 22;
-	optional Amount total_msat = 23;
-	optional Amount fee_base_msat = 24;
-	optional uint32 fee_proportional_millionths = 25;
-	optional Amount dust_limit_msat = 26;
-	optional Amount max_total_htlc_in_msat = 27;
-	optional Amount their_reserve_msat = 28;
-	optional Amount our_reserve_msat = 29;
-	optional Amount spendable_msat = 30;
-	optional Amount receivable_msat = 31;
-	optional Amount minimum_htlc_in_msat = 32;
-	optional Amount minimum_htlc_out_msat = 48;
-	optional Amount maximum_htlc_out_msat = 49;
-	optional uint32 their_to_self_delay = 33;
-	optional uint32 our_to_self_delay = 34;
-	optional uint32 max_accepted_htlcs = 35;
-	optional ListpeersPeersChannelsAlias alias = 50;
-	repeated string status = 37;
-	optional uint64 in_payments_offered = 38;
-	optional Amount in_offered_msat = 39;
-	optional uint64 in_payments_fulfilled = 40;
-	optional Amount in_fulfilled_msat = 41;
-	optional uint64 out_payments_offered = 42;
-	optional Amount out_offered_msat = 43;
-	optional uint64 out_payments_fulfilled = 44;
-	optional Amount out_fulfilled_msat = 45;
-	repeated ListpeersPeersChannelsHtlcs htlcs = 46;
-	optional string close_to_addr = 47;
-}
-
-message ListpeersPeersChannelsFeerate {
-	uint32 perkw = 1;
-	uint32 perkb = 2;
-}
-
-message ListpeersPeersChannelsInflight {
-	bytes funding_txid = 1;
-	uint32 funding_outnum = 2;
-	string feerate = 3;
-	Amount total_funding_msat = 4;
-	Amount our_funding_msat = 5;
-	optional sint64 splice_amount = 7;
-	bytes scratch_txid = 6;
-}
-
-message ListpeersPeersChannelsFunding {
-	optional Amount pushed_msat = 3;
-	Amount local_funds_msat = 4;
-	Amount remote_funds_msat = 7;
-	optional Amount fee_paid_msat = 5;
-	optional Amount fee_rcvd_msat = 6;
-}
-
-message ListpeersPeersChannelsAlias {
-	optional string local = 1;
-	optional string remote = 2;
-}
-
-message ListpeersPeersChannelsHtlcs {
-	// ListPeers.peers[].channels[].htlcs[].direction
-	enum ListpeersPeersChannelsHtlcsDirection {
-		IN = 0;
-		OUT = 1;
-	}
-	ListpeersPeersChannelsHtlcsDirection direction = 1;
-	uint64 id = 2;
-	Amount amount_msat = 3;
-	uint32 expiry = 4;
-	bytes payment_hash = 5;
-	optional bool local_trimmed = 6;
-	optional string status = 7;
-	HtlcState state = 8;
 }
 
 message ListfundsRequest {

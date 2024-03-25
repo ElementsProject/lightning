@@ -807,11 +807,11 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 	return receivable;
 }
 
-static void json_add_channel(struct lightningd *ld,
-			     struct json_stream *response, const char *key,
-			     const struct channel *channel,
-			     /* Only set for listpeerchannels */
-			     const struct peer *peer)
+static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct lightningd *ld,
+						       struct json_stream *response,
+						       const char *key,
+						       const struct channel *channel,
+						       const struct peer *peer)
 {
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
@@ -821,54 +821,52 @@ static void json_add_channel(struct lightningd *ld,
 	u32 feerate;
 
 	json_object_start(response, key);
-	if (peer) {
-		json_add_node_id(response, "peer_id", &peer->id);
-		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-		if (peer->connected == PEER_CONNECTED) {
-			json_add_bool(response, "reestablished", channel->reestablished);
-		}
-		json_add_channel_type(response, "channel_type", channel->type);
-		if (channel->ignore_fee_limits) {
-			json_add_bool(response, "ignore_fee_limits", channel->ignore_fee_limits);
-		}
-		/* This reflects current gossip */
-		json_object_start(response, "updates");
-		json_object_start(response, "local");
+	json_add_node_id(response, "peer_id", &peer->id);
+	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+	if (peer->connected == PEER_CONNECTED) {
+		json_add_bool(response, "reestablished", channel->reestablished);
+	}
+	json_add_channel_type(response, "channel_type", channel->type);
+	if (channel->ignore_fee_limits) {
+		json_add_bool(response, "ignore_fee_limits", channel->ignore_fee_limits);
+	}
+	/* This reflects current gossip */
+	json_object_start(response, "updates");
+	json_object_start(response, "local");
+	json_add_amount_msat(response,
+			     "htlc_minimum_msat",
+			     channel->htlc_minimum_msat);
+	json_add_amount_msat(response,
+			     "htlc_maximum_msat",
+			     channel->htlc_maximum_msat);
+	json_add_u32(response, "cltv_expiry_delta", ld->config.cltv_expiry_delta);
+	json_add_amount_msat(response, "fee_base_msat",
+			     amount_msat(channel->feerate_base));
+	json_add_u32(response, "fee_proportional_millionths",
+		     channel->feerate_ppm);
+	json_object_end(response);
+
+	peer_update = channel_gossip_get_remote_update(channel);
+	if (peer_update) {
+		json_object_start(response, "remote");
 		json_add_amount_msat(response,
 				     "htlc_minimum_msat",
-				     channel->htlc_minimum_msat);
+				     peer_update->htlc_minimum_msat);
 		json_add_amount_msat(response,
 				     "htlc_maximum_msat",
-				     channel->htlc_maximum_msat);
-		json_add_u32(response, "cltv_expiry_delta", ld->config.cltv_expiry_delta);
+				     peer_update->htlc_maximum_msat);
+		json_add_u32(response, "cltv_expiry_delta", peer_update->cltv_delta);
 		json_add_amount_msat(response, "fee_base_msat",
-				     amount_msat(channel->feerate_base));
+				     amount_msat(peer_update->fee_base));
 		json_add_u32(response, "fee_proportional_millionths",
-			     channel->feerate_ppm);
+			     peer_update->fee_ppm);
 		json_object_end(response);
+	}
+	json_object_end(response);
 
-		peer_update = channel_gossip_get_remote_update(channel);
-		if (peer_update) {
-			json_object_start(response, "remote");
-			json_add_amount_msat(response,
-					     "htlc_minimum_msat",
-					     peer_update->htlc_minimum_msat);
-			json_add_amount_msat(response,
-					     "htlc_maximum_msat",
-					     peer_update->htlc_maximum_msat);
-			json_add_u32(response, "cltv_expiry_delta", peer_update->cltv_delta);
-			json_add_amount_msat(response, "fee_base_msat",
-					     amount_msat(peer_update->fee_base));
-			json_add_u32(response, "fee_proportional_millionths",
-				     peer_update->fee_ppm);
-			json_object_end(response);
-		}
-		json_object_end(response);
-
-		if (channel->last_stable_connection != 0) {
-			json_add_u64(response, "last_stable_connection",
-				     channel->last_stable_connection);
-		}
+	if (channel->last_stable_connection != 0) {
+		json_add_u64(response, "last_stable_connection",
+			     channel->last_stable_connection);
 	}
 
 	json_add_string(response, "state", channel_state_name(channel));
@@ -1379,16 +1377,18 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 
 	/* Developer hack to fail all channels on permfail line. */
 	if (dev_disconnect_permanent(ld)) {
-		list_for_each(&peer->channels, channel, list) {
+		struct channel *c;
+		list_for_each(&peer->channels, c, list) {
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_peer_send_msg(NULL, &peer->id,
 									 peer->connectd_counter,
-									 channel->error)));
+			/* cppcheck-suppress uninitvar - false positive on c */
+									 c->error)));
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_discard_peer(NULL,
 									&peer->id,
 									peer->connectd_counter)));
-			channel_fail_permanent(channel, REASON_LOCAL,
+			channel_fail_permanent(c, REASON_LOCAL,
 					       "dev_disconnect permfail");
 		}
 		return;
@@ -2228,20 +2228,6 @@ static void json_add_peer(struct lightningd *ld,
 	/* Note: If !PEER_CONNECTED, peer may use different features on reconnect */
 	json_add_hex_talarr(response, "features", p->their_features);
 
-	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-					 "listpeers", "channels", "v23.02", "v24.02")) {
-		json_array_start(response, "channels");
-		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
-
-		list_for_each(&p->channels, channel, list) {
-			if (channel_state_uncommitted(channel->state))
-				json_add_unsaved_channel(response, channel, NULL);
-			else
-				json_add_channel(ld, response, NULL, channel, NULL);
-		}
-		json_array_end(response);
-	}
-
 	if (ll)
 		json_add_log(response, ld->log_book, &p->id, *ll);
 	json_object_end(response);
@@ -2313,7 +2299,6 @@ static struct command_result *json_staticbackup(struct command *cmd,
 {
 	struct json_stream *response;
 	struct peer *peer;
-	struct channel *channel;
 	struct peer_node_id_map_iter it;
 
 	if (!param(cmd, buffer, params, NULL))
@@ -2325,7 +2310,9 @@ static struct command_result *json_staticbackup(struct command *cmd,
 	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
 	     peer;
 	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
+		struct channel *channel;
 		list_for_each(&peer->channels, channel, list){
+			/* cppcheck-suppress uninitvar - false positive on channel */
 			if (!channel->scb)
 				continue;
 			json_add_scb(cmd, NULL, response, channel);
@@ -3123,6 +3110,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 			struct channel *channel;
 			list_for_each(&peer->channels, channel, list) {
+				/* cppcheck-suppress uninitvar - false positive on channel */
 				if (!channel_state_can_setchannel(channel->state))
 					continue;
 				set_channel_config(cmd, channel, base, ppm,

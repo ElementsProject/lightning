@@ -106,14 +106,10 @@ static void channel_err_broken(struct channel *channel,
 
 void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel,
-			      /* Only set for listpeerchannels */
 			      const struct peer *peer)
 {
 	struct amount_msat total;
 	struct open_attempt *oa;
-
-	if (!channel)
-		return;
 
 	/* If we're chatting but no channel, that's shown by connected: True */
 	if (!channel->open_attempt)
@@ -127,12 +123,9 @@ void json_add_unsaved_channel(struct json_stream *response,
 	oa = channel->open_attempt;
 
 	json_object_start(response, NULL);
-	/* listpeerchannels only */
-	if (peer) {
-		json_add_node_id(response, "peer_id", &peer->id);
-		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-		json_add_channel_type(response, "channel_type", channel->type);
-	}
+	json_add_node_id(response, "peer_id", &peer->id);
+	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+	json_add_channel_type(response, "channel_type", channel->type);
 	json_add_string(response, "state", channel_state_name(channel));
 	json_add_string(response, "owner", channel->owner->name);
 	json_add_string(response, "opener", channel->opener == LOCAL ?
