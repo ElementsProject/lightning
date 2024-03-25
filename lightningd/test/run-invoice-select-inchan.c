@@ -404,10 +404,6 @@ bool invoices_delete_description(struct invoices *invoices UNNEEDED,
 				 const struct json_escape *label UNNEEDED,
 				 const char *description UNNEEDED)
 { fprintf(stderr, "invoices_delete_description called!\n"); abort(); }
-/* Generated stub for invoices_delete_expired */
-void invoices_delete_expired(struct invoices *invoices UNNEEDED,
-			     u64 max_expiry_time UNNEEDED)
-{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
 /* Generated stub for invoices_find_by_fallback_script */
 bool invoices_find_by_fallback_script(struct invoices *invoices UNNEEDED,
 			    u64 *inv_dbid UNNEEDED,
@@ -675,16 +671,6 @@ struct jsonrpc_request *jsonrpc_request_start_(
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for lightningd_deprecated_in_ok */
-bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
-				 struct logger *log UNNEEDED,
-				 bool deprecated_apis UNNEEDED,
-				 const char *subsys UNNEEDED,
-				 const char *api UNNEEDED,
-				 const char *start UNNEEDED,
-				 const char *end UNNEEDED,
-				 const char *details UNNEEDED)
-{ fprintf(stderr, "lightningd_deprecated_in_ok called!\n"); abort(); }
 /* Generated stub for lightningd_deprecated_out_ok */
 bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
 				  bool deprecated_apis UNNEEDED,

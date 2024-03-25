@@ -158,16 +158,6 @@ bool invoices_delete_description(struct invoices *invoices,
 				 const char *description);
 
 /**
- * invoices_delete_expired - Delete all expired invoices
- * with expiration time less than or equal to the given.
- *
- * @invoices - the invoice handler.
- * @max_expiry_time - the maximum expiry time to delete.
- */
-void invoices_delete_expired(struct invoices *invoices,
-			     u64 max_expiry_time);
-
-/**
  * Iterate through all the invoices.
  * @invoices: the invoices
  * @listindex: what index order to use (if you care)

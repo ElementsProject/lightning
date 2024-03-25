@@ -706,8 +706,7 @@ def test_listinvoices_filter(node_factory):
 
 
 def test_wait_invoices(node_factory, executor):
-    # We use delexpiredinvoice, and CLN complains!
-    l1, l2 = node_factory.line_graph(2, opts={'i-promise-to-fix-broken-api-user': 'delexpiredinvoice'})
+    l1, l2 = node_factory.line_graph(2)
 
     # Asking for 0 gives us current index.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 0})
@@ -787,10 +786,10 @@ def test_wait_invoices(node_factory, executor):
     assert waitres == {'subsystem': 'invoices',
                        'deleted': 1}
 
-    # Now check delexpiredinvoice works.
+    # Now check autoclean works.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 2})
-    time.sleep(1)
-    l2.rpc.delexpiredinvoice()
+    time.sleep(2)
+    l2.rpc.autoclean_once('expiredinvoices', 1)
     waitres = waitfut.result(TIMEOUT)
 
     assert waitres == {'subsystem': 'invoices',

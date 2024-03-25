@@ -89,11 +89,6 @@ class NodeStub(object):
                 request_serializer=node__pb2.DeldatastoreRequest.SerializeToString,
                 response_deserializer=node__pb2.DeldatastoreResponse.FromString,
                 )
-        self.DelExpiredInvoice = channel.unary_unary(
-                '/cln.Node/DelExpiredInvoice',
-                request_serializer=node__pb2.DelexpiredinvoiceRequest.SerializeToString,
-                response_deserializer=node__pb2.DelexpiredinvoiceResponse.FromString,
-                )
         self.DelInvoice = channel.unary_unary(
                 '/cln.Node/DelInvoice',
                 request_serializer=node__pb2.DelinvoiceRequest.SerializeToString,
@@ -424,12 +419,6 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DelDatastore(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DelExpiredInvoice(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -800,11 +789,6 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelDatastore,
                     request_deserializer=node__pb2.DeldatastoreRequest.FromString,
                     response_serializer=node__pb2.DeldatastoreResponse.SerializeToString,
-            ),
-            'DelExpiredInvoice': grpc.unary_unary_rpc_method_handler(
-                    servicer.DelExpiredInvoice,
-                    request_deserializer=node__pb2.DelexpiredinvoiceRequest.FromString,
-                    response_serializer=node__pb2.DelexpiredinvoiceResponse.SerializeToString,
             ),
             'DelInvoice': grpc.unary_unary_rpc_method_handler(
                     servicer.DelInvoice,
@@ -1308,23 +1292,6 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/DelDatastore',
             node__pb2.DeldatastoreRequest.SerializeToString,
             node__pb2.DeldatastoreResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def DelExpiredInvoice(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/cln.Node/DelExpiredInvoice',
-            node__pb2.DelexpiredinvoiceRequest.SerializeToString,
-            node__pb2.DelexpiredinvoiceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

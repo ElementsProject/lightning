@@ -607,15 +607,6 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("deldatastore", payload)
 
-    def delexpiredinvoice(self, maxexpirytime=None):
-        """
-        Delete all invoices that have expired on or before the given {maxexpirytime}.
-        """
-        payload = {
-            "maxexpirytime": maxexpirytime
-        }
-        return self.call("delexpiredinvoice", payload)
-
     def delinvoice(self, label, status, desconly=None):
         """
         Delete unpaid invoice {label} with {status} (or, with {desconly} true, remove its description).

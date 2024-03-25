@@ -506,38 +506,6 @@ async fn del_datastore(
 
 }
 
-async fn del_expired_invoice(
-    &self,
-    request: tonic::Request<pb::DelexpiredinvoiceRequest>,
-) -> Result<tonic::Response<pb::DelexpiredinvoiceResponse>, tonic::Status> {
-    let req = request.into_inner();
-    let req: requests::DelexpiredinvoiceRequest = req.into();
-    debug!("Client asked for del_expired_invoice");
-    trace!("del_expired_invoice request: {:?}", req);
-    let mut rpc = ClnRpc::new(&self.rpc_path)
-        .await
-        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-    let result = rpc.call(Request::DelExpiredInvoice(req))
-        .await
-        .map_err(|e| Status::new(
-           Code::Unknown,
-           format!("Error calling method DelExpiredInvoice: {:?}", e)))?;
-    match result {
-        Response::DelExpiredInvoice(r) => {
-           trace!("del_expired_invoice response: {:?}", r);
-           Ok(tonic::Response::new(r.into()))
-        },
-        r => Err(Status::new(
-            Code::Internal,
-            format!(
-                "Unexpected result {:?} to method call DelExpiredInvoice",
-                r
-            )
-        )),
-    }
-
-}
-
 async fn del_invoice(
     &self,
     request: tonic::Request<pb::DelinvoiceRequest>,

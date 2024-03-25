@@ -389,11 +389,6 @@ def deldatastore2py(m):
     })
 
 
-def delexpiredinvoice2py(m):
-    return remove_default({
-    })
-
-
 def delinvoice2py(m):
     return remove_default({
         "label": m.label,  # PrimitiveField in generate_composite

@@ -7932,53 +7932,6 @@
       "Main web site: <https://github.com/ElementsProject/lightning>"
     ]
   },
-  "lightning-delexpiredinvoice.json": {
-    "$schema": "../rpc-schema-draft.json",
-    "type": "object",
-    "additionalProperties": false,
-    "rpc": "delexpiredinvoice",
-    "title": "Command for removing expired invoices",
-    "description": [
-      "The **delexpiredinvoice** RPC command removes all invoices that have expired on or before the given *maxexpirytime*."
-    ],
-    "request": {
-      "required": [],
-      "properties": {
-        "maxexpirytime": {
-          "type": "u64",
-          "description": [
-            "Invoice expiry time in seconds. If not specified then all expired invoices are deleted."
-          ]
-        }
-      }
-    },
-    "response": {
-      "required": [],
-      "properties": {}
-    },
-    "example_json_request": [
-      {
-        "id": "example:delexpiredinvoice#1",
-        "method": "delexpiredinvoice",
-        "params": {
-          "maxexpirytime": null
-        }
-      }
-    ],
-    "example_json_response": [
-      {}
-    ],
-    "author": [
-      "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
-    ],
-    "see_also": [
-      "lightning-delinvoice(7)",
-      "lightning-autoclean-status(7)"
-    ],
-    "resources": [
-      "Main web site: <https://github.com/ElementsProject/lightning>"
-    ]
-  },
   "lightning-delforward.json": {
     "$schema": "../rpc-schema-draft.json",
     "type": "object",
@@ -8396,7 +8349,6 @@
       "lightning-listinvoice(7)",
       "lightning-waitinvoice(7)",
       "lightning-invoice(7)",
-      "lightning-delexpiredinvoice(7)",
       "lightning-autoclean-status(7)"
     ],
     "resources": [
