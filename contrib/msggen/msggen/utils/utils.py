@@ -73,7 +73,6 @@ def load_jsonrpc_service():
         "DatastoreUsage",
         "CreateOnion",
         "DelDatastore",
-        "DelExpiredInvoice",
         "DelInvoice",
         "Invoice",
         "ListDatastore",

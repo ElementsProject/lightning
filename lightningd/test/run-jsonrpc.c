@@ -19,21 +19,12 @@ s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defv
 /* Generated stub for db_set_readonly */
 void db_set_readonly(struct db *db UNNEEDED, bool readonly UNNEEDED)
 { fprintf(stderr, "db_set_readonly called!\n"); abort(); }
-/* Generated stub for delayed_to_us_feerate */
-u32 delayed_to_us_feerate(struct chain_topology *topo UNNEEDED)
-{ fprintf(stderr, "delayed_to_us_feerate called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for feerate_for_deadline */
 u32 feerate_for_deadline(const struct chain_topology *topo UNNEEDED, u32 blockcount UNNEEDED)
 { fprintf(stderr, "feerate_for_deadline called!\n"); abort(); }
-/* Generated stub for feerate_max */
-u32 feerate_max(struct lightningd *ld UNNEEDED, bool *unknown UNNEEDED)
-{ fprintf(stderr, "feerate_max called!\n"); abort(); }
-/* Generated stub for feerate_min */
-u32 feerate_min(struct lightningd *ld UNNEEDED, bool *unknown UNNEEDED)
-{ fprintf(stderr, "feerate_min called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
@@ -52,9 +43,6 @@ char *hsm_secret_arg(const tal_t *ctx UNNEEDED,
 		     const char *arg UNNEEDED,
 		     const u8 **hsm_secret UNNEEDED)
 { fprintf(stderr, "hsm_secret_arg called!\n"); abort(); }
-/* Generated stub for htlc_resolution_feerate */
-u32 htlc_resolution_feerate(struct chain_topology *topo UNNEEDED)
-{ fprintf(stderr, "htlc_resolution_feerate called!\n"); abort(); }
 /* Generated stub for json_to_jsonrpc_errcode */
 bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			     enum jsonrpc_errcode *errcode UNNEEDED)

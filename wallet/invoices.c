@@ -499,30 +499,6 @@ bool invoices_delete_description(struct invoices *invoices, u64 inv_dbid,
 	return changes == 1;
 }
 
-void invoices_delete_expired(struct invoices *invoices,
-			     u64 max_expiry_time)
-{
-	u64 *ids = expired_ids(tmpctx, invoices->wallet->db, max_expiry_time,
-			       EXPIRED);
-
-	for (size_t i = 0; i < tal_count(ids); i++) {
-		struct db_stmt *stmt;
-		const struct invoice_details *details;
-
-		details = invoices_get_details(tmpctx, invoices, ids[i]);
-		stmt = db_prepare_v2(invoices->wallet->db, SQL(
-					     "DELETE FROM invoices"
-					     " WHERE id = ?;"));
-		db_bind_u64(stmt, ids[i]);
-		db_exec_prepared_v2(take(stmt));
-
-		invoice_index_deleted(invoices->wallet->ld,
-				      details->state,
-				      details->label,
-				      details->invstring);
-	}
-}
-
 struct db_stmt *invoices_first(struct invoices *invoices,
 			       const enum wait_index *listindex,
 			       u64 liststart,

@@ -32,7 +32,6 @@ pub enum Request {
 	DatastoreUsage(requests::DatastoreusageRequest),
 	CreateOnion(requests::CreateonionRequest),
 	DelDatastore(requests::DeldatastoreRequest),
-	DelExpiredInvoice(requests::DelexpiredinvoiceRequest),
 	DelInvoice(requests::DelinvoiceRequest),
 	Invoice(requests::InvoiceRequest),
 	ListDatastore(requests::ListdatastoreRequest),
@@ -102,7 +101,6 @@ pub enum Response {
 	DatastoreUsage(responses::DatastoreusageResponse),
 	CreateOnion(responses::CreateonionResponse),
 	DelDatastore(responses::DeldatastoreResponse),
-	DelExpiredInvoice(responses::DelexpiredinvoiceResponse),
 	DelInvoice(responses::DelinvoiceResponse),
 	Invoice(responses::InvoiceResponse),
 	ListDatastore(responses::ListdatastoreResponse),
@@ -661,29 +659,6 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "deldatastore"
-	    }
-	}
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DelexpiredinvoiceRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub maxexpirytime: Option<u64>,
-	}
-
-	impl From<DelexpiredinvoiceRequest> for Request {
-	    fn from(r: DelexpiredinvoiceRequest) -> Self {
-	        Request::DelExpiredInvoice(r)
-	    }
-	}
-
-	impl IntoRequest for DelexpiredinvoiceRequest {
-	    type Response = super::responses::DelexpiredinvoiceResponse;
-	}
-
-	impl TypedRequest for DelexpiredinvoiceRequest {
-	    type Response = super::responses::DelexpiredinvoiceResponse;
-
-	    fn method(&self) -> &str {
-	        "delexpiredinvoice"
 	    }
 	}
 	/// ['Label of the invoice to be deleted. The caller should be particularly aware of the error case caused by the *status* changing just before this command is invoked!']
@@ -3482,21 +3457,6 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelDatastore(response) => Ok(response),
-	            _ => Err(TryFromResponseError)
-	        }
-	    }
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DelexpiredinvoiceResponse {
-	}
-
-	impl TryFrom<Response> for DelexpiredinvoiceResponse {
-	    type Error = super::TryFromResponseError;
-
-	    fn try_from(response: Response) -> Result<Self, Self::Error> {
-	        match response {
-	            Response::DelExpiredInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

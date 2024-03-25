@@ -503,14 +503,6 @@ impl From<responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
 }
 
 #[allow(unused_variables)]
-impl From<responses::DelexpiredinvoiceResponse> for pb::DelexpiredinvoiceResponse {
-    fn from(c: responses::DelexpiredinvoiceResponse) -> Self {
-        Self {
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
     fn from(c: responses::DelinvoiceResponse) -> Self {
         Self {
@@ -2083,15 +2075,6 @@ impl From<requests::DeldatastoreRequest> for pb::DeldatastoreRequest {
 }
 
 #[allow(unused_variables)]
-impl From<requests::DelexpiredinvoiceRequest> for pb::DelexpiredinvoiceRequest {
-    fn from(c: requests::DelexpiredinvoiceRequest) -> Self {
-        Self {
-            maxexpirytime: c.maxexpirytime, // Rule #2 for type u64?
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<requests::DelinvoiceRequest> for pb::DelinvoiceRequest {
     fn from(c: requests::DelinvoiceRequest) -> Self {
         Self {
@@ -2874,15 +2857,6 @@ impl From<pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
         Self {
             key: c.key.into_iter().map(|s| s.into()).collect(), // Rule #4
             generation: c.generation, // Rule #1 for type u64?
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<pb::DelexpiredinvoiceRequest> for requests::DelexpiredinvoiceRequest {
-    fn from(c: pb::DelexpiredinvoiceRequest) -> Self {
-        Self {
-            maxexpirytime: c.maxexpirytime, // Rule #1 for type u64?
         }
     }
 }

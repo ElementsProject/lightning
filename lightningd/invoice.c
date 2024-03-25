@@ -1468,33 +1468,6 @@ static const struct json_command delinvoice_command = {
 };
 AUTODATA(json_command, &delinvoice_command);
 
-static struct command_result *json_delexpiredinvoice(struct command *cmd,
-						     const char *buffer,
-						     const jsmntok_t *obj UNNEEDED,
-						     const jsmntok_t *params)
-{
-	u64 *maxexpirytime;
-
-	if (!param(cmd, buffer, params,
-		   p_opt_def("maxexpirytime", param_u64, &maxexpirytime,
-				 time_now().ts.tv_sec),
-		   NULL))
-		return command_param_failed();
-
-	invoices_delete_expired(cmd->ld->wallet->invoices, *maxexpirytime);
-
-	return command_success(cmd, json_stream_success(cmd));
-}
-static const struct json_command delexpiredinvoice_command = {
-	"delexpiredinvoice",
-	"payment",
-	json_delexpiredinvoice,
-	"Delete all expired invoices that expired as of given {maxexpirytime} (a UNIX epoch time), or all expired invoices if not specified",
-	.depr_start = "v22.11",
-	.depr_end = "v24.02",
-};
-AUTODATA(json_command, &delexpiredinvoice_command);
-
 static struct command_result *json_waitanyinvoice(struct command *cmd,
 						  const char *buffer,
 						  const jsmntok_t *obj UNNEEDED,

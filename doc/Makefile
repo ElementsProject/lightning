@@ -33,7 +33,6 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-decode.7 \
 	doc/lightning-decodepay.7 \
 	doc/lightning-deldatastore.7 \
- 	doc/lightning-delexpiredinvoice.7 \
 	doc/lightning-delforward.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
@@ -112,7 +111,7 @@ GENERATE_MARKDOWN := doc/lightning-addgossip.7 \
 	doc/lightning-splice_init.7 \
 	doc/lightning-splice_signed.7 \
 	doc/lightning-splice_update.7 \
- 	doc/lightning-staticbackup.7 \
+	doc/lightning-staticbackup.7 \
 	doc/lightning-stop.7 \
 	doc/lightning-txdiscard.7 \
 	doc/lightning-txprepare.7 \

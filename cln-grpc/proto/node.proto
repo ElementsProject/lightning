@@ -23,7 +23,6 @@ service Node {
 	rpc DatastoreUsage(DatastoreusageRequest) returns (DatastoreusageResponse) {}
 	rpc CreateOnion(CreateonionRequest) returns (CreateonionResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
-	rpc DelExpiredInvoice(DelexpiredinvoiceRequest) returns (DelexpiredinvoiceResponse) {}
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
@@ -591,13 +590,6 @@ message DeldatastoreResponse {
 	optional uint64 generation = 2;
 	optional bytes hex = 3;
 	optional string string = 4;
-}
-
-message DelexpiredinvoiceRequest {
-	optional uint64 maxexpirytime = 1;
-}
-
-message DelexpiredinvoiceResponse {
 }
 
 message DelinvoiceRequest {

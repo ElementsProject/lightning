@@ -597,16 +597,6 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for lightningd_deprecated_in_ok */
-bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
-				 struct logger *log UNNEEDED,
-				 bool deprecated_apis UNNEEDED,
-				 const char *subsys UNNEEDED,
-				 const char *api UNNEEDED,
-				 const char *start UNNEEDED,
-				 const char *end UNNEEDED,
-				 const char *details UNNEEDED)
-{ fprintf(stderr, "lightningd_deprecated_in_ok called!\n"); abort(); }
 /* Generated stub for lightningd_deprecated_out_ok */
 bool lightningd_deprecated_out_ok(struct lightningd *ld UNNEEDED,
 				  bool deprecated_apis UNNEEDED,
@@ -1110,9 +1100,6 @@ u8 *towire_invalid_onion_blinding(const tal_t *ctx UNNEEDED, const struct sha256
 /* Generated stub for towire_invalid_onion_payload */
 u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, bigsize type UNNEEDED, u16 offset UNNEEDED)
 { fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
-/* Generated stub for towire_invalid_realm */
-u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_invalid_realm called!\n"); abort(); }
 /* Generated stub for towire_onchaind_dev_memleak */
 u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
@@ -1125,15 +1112,6 @@ u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_permanent_channel_failure */
 u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_permanent_channel_failure called!\n"); abort(); }
-/* Generated stub for towire_permanent_node_failure */
-u8 *towire_permanent_node_failure(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_permanent_node_failure called!\n"); abort(); }
-/* Generated stub for towire_required_channel_feature_missing */
-u8 *towire_required_channel_feature_missing(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_required_channel_feature_missing called!\n"); abort(); }
-/* Generated stub for towire_required_node_feature_missing */
-u8 *towire_required_node_feature_missing(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_required_node_feature_missing called!\n"); abort(); }
 /* Generated stub for towire_scb_chan */
 void towire_scb_chan(u8 **p UNNEEDED, const struct scb_chan *scb_chan UNNEEDED)
 { fprintf(stderr, "towire_scb_chan called!\n"); abort(); }
