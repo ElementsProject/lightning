@@ -20,7 +20,6 @@ msgdata,connectd_init,use_dns,bool,
 msgdata,connectd_init,tor_password,wirestring,
 msgdata,connectd_init,timeout_secs,u32,
 msgdata,connectd_init,websocket_helper,wirestring,
-msgdata,connectd_init,websocket_port,u16,
 msgdata,connectd_init,announce_websocket,bool,
 msgdata,connectd_init,dev_fast_gossip,bool,
 # If this is set, then fd 5 is dev_disconnect_fd.

@@ -514,7 +514,3 @@ A build _with_ `--enable-experimental-features` flag hard-codes some of below op
 - **experimental-dual-fund**
 
   Specifying this enables support for the dual funding protocol ([bolt](https://github.com/lightning/bolts) #851), allowing both parties to contribute funds to a channel. The decision about whether to add funds or not to a proposed channel is handled automatically by a plugin that implements the appropriate logic for your needs. The default behavior is to not contribute funds.
-
-- **experimental-websocket-port**=_PORT_
-
-  Specifying this enables support for accepting incoming WebSocket connections on that port, on any IPv4 and IPv6 addresses you listen to ([bolt](https://github.com/lightning/bolts) #891).  The normal protocol is expected to be sent over WebSocket binary frames once the connection is upgraded.

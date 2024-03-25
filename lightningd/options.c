@@ -1195,25 +1195,6 @@ static char *opt_set_wumbo(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
-{
-	u32 port COMPILER_WANTS_INIT("9.3.0 -O2");
-	char *err;
-
-	if (!opt_deprecated_ok(ld, "experimental-websocket-port", NULL,
-			       "v23.08", "v23.08"))
-		return "--experimental-websocket-port been deprecated, use --bind-addr=ws:...";
-
-	err = opt_set_u32(arg, &port);
-	if (err)
-		return err;
-
-	ld->websocket_port = port;
-	if (ld->websocket_port != port)
-		return tal_fmt(tmpctx, "'%s' is out of range", arg);
-	return NULL;
-}
-
 static char *opt_set_dual_fund(struct lightningd *ld)
 {
 	/* Dual funding implies static remotkey */
@@ -1630,9 +1611,6 @@ static void register_opts(struct lightningd *ld)
 		       "--subdaemon=hsmd:remote_signer "
 		       "would use a hypothetical remote signing subdaemon.");
 
-	clnopt_witharg("--experimental-websocket-port", OPT_SHOWINT,
-		       opt_set_websocket_port, NULL,
-		       ld, opt_hidden);
 	opt_register_noarg("--experimental-upgrade-protocol",
 			   opt_set_bool, &ld->experimental_upgrade_protocol,
 			   "experimental: allow channel types to be upgraded on reconnect");
@@ -2120,11 +2098,6 @@ void add_config_deprecated(struct lightningd *ld,
 			json_add_opt_disable_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_force_feerates) {
 			answer = fmt_force_feerates(name0, ld->force_feerates);
-		} else if (opt->cb_arg == (void *)opt_set_websocket_port) {
-			if (ld->websocket_port)
-				json_add_u32(response, name0,
-					     ld->websocket_port);
-			return;
 		} else if (opt->cb_arg == (void *)opt_set_db_upgrade) {
 			if (ld->db_upgrade_ok)
 				json_add_bool(response, name0,
@@ -2168,7 +2141,6 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_add_proxy_addr
 		|| cb_arg == (void *)opt_force_feerates
 		|| cb_arg == (void *)opt_set_accept_extra_tlv_types
-		|| cb_arg == (void *)opt_set_websocket_port
 		|| cb_arg == (void *)opt_add_plugin
 		|| cb_arg == (void *)opt_add_plugin_dir
 		|| cb_arg == (void *)opt_important_plugin
