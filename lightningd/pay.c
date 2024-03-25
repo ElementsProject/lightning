@@ -816,12 +816,8 @@ find_channel_for_htlc_add(struct lightningd *ld,
 		goto found;
 	}
 
-	/* We used to ignore scid: now all-zero means "any" */
-	if (!channel
-	    && (memeqzero(&scid_or_alias, sizeof(scid_or_alias))
-		|| command_deprecated_in_ok(cmd,
-					    "channel.ignored",
-					    "v0.12", "v24.02"))) {
+	/* All-zero means "any" */
+	if (!channel && memeqzero(&scid_or_alias, sizeof(scid_or_alias))) {
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_state_can_add_htlc(channel->state) &&
 			    amount_msat_greater(channel->our_msat, *amount)) {
