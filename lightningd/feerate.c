@@ -76,43 +76,6 @@ static struct command_result *param_feerate_unchecked(struct command *cmd,
 		return NULL;
 	}
 
-	/* Other names are deprecated */
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		bool unknown;
-
-		if (!json_tok_streq(buffer, tok, feerate_name(i)))
-			continue;
-		if (!command_deprecated_in_ok(cmd, feerate_name(i), "v23.05", "v23.05")) {
-			return command_fail_badparam(cmd, name, buffer, tok,
-						     "removed feerate by names");
-		}
-		switch (i) {
-		case FEERATE_OPENING:
-		case FEERATE_MUTUAL_CLOSE:
-		case FEERATE_PENALTY:
-		case FEERATE_UNILATERAL_CLOSE:
-			/* Handled above */
-			abort();
-		case FEERATE_DELAYED_TO_US:
-			**feerate = delayed_to_us_feerate(cmd->ld->topology);
-			return NULL;
-		case FEERATE_HTLC_RESOLUTION:
-			**feerate = htlc_resolution_feerate(cmd->ld->topology);
-			return NULL;
-		case FEERATE_MAX:
-			**feerate = feerate_max(cmd->ld, &unknown);
-			if (unknown)
-				**feerate = 0;
-			return NULL;
-		case FEERATE_MIN:
-			**feerate = feerate_min(cmd->ld, &unknown);
-			if (unknown)
-				**feerate = 0;
-			return NULL;
-		}
-		abort();
-	}
-
 	/* We used SLOW, NORMAL, and URGENT as feerate targets previously,
 	 * and many commands rely on this syntax now.
 	 * It's also really more natural for an user interface. */
