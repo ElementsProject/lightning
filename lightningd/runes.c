@@ -482,22 +482,8 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	size_t i;
 	struct rune_restr *restr;
 
-	/* \| is not valid JSON, so they use \\|: undo it! */
-	if (tok->type == JSMN_STRING
-	    && command_deprecated_in_ok(cmd, "restrictions.string",
-					"v23.05", "v24.02")) {
-		const char *unescape;
-		struct json_escape *e = json_escape_string_(tmpctx,
-							    buffer + tok->start,
-							    tok->end - tok->start);
-		unescape = json_escape_unescape(tmpctx, e);
-		if (!unescape)
-			return NULL;
-		return rune_restr_from_string(ctx, unescape, strlen(unescape));
-	}
-
 	restr = tal(ctx, struct rune_restr);
-	/* FIXME: after deprecation removed, allow singletons again! */
+	/* FIXME: allow singletons again? */
 	if (tok->type != JSMN_ARRAY)
 		return NULL;
 
