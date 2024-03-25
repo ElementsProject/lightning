@@ -568,15 +568,13 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 
 
 def test_autocleaninvoice_deprecated(node_factory):
-    # This is so deprecated it emits a broken message when we use it!
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True}, allow_broken_log=True)
+    # This is so deprecated we have to re-enable it by name!
+    l1 = node_factory.get_node(options={'i-promise-to-fix-broken-api-user': 'autocleaninvoice'})
 
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)
     l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
 
-    # Should log the correct name of the API
-    l1.daemon.wait_for_log(r"\*\*BROKEN\*\* jsonrpc#[0-9]*: DEPRECATED API USED autocleaninvoice ")
     start_time = time.time()
 
     # time 0
@@ -709,7 +707,7 @@ def test_listinvoices_filter(node_factory):
 
 def test_wait_invoices(node_factory, executor):
     # We use delexpiredinvoice, and CLN complains!
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True, 'allow_broken_log': True})
+    l1, l2 = node_factory.line_graph(2, opts={'i-promise-to-fix-broken-api-user': 'delexpiredinvoice'})
 
     # Asking for 0 gives us current index.
     waitres = l2.rpc.call('wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 0})
