@@ -218,7 +218,6 @@ doc/error-states.dot: test/test_state_coverage
 doc/full-states.dot: test/test_state_coverage
 	test/test_state_coverage --dot-all --dot-include-errors --dot-include-nops > $@
 
-maintainer-clean: doc-maintainer-clean
 clean: doc-clean
 check: check-manpages
 
@@ -233,10 +232,8 @@ check-config-docs:
 	@for c in `sed -n 's/^	"\(.*\)": {/\1/p' doc/schemas/lightning-listconfigs.json | grep -v '^# version$$' | grep -v '^plugins$$' | grep -v '^important-plugins$$'`; do if ! grep -q "^ \*\*$$c\*\*" doc/lightningd-config.5.md; then echo "$$c undocumented!"; exit 1; fi; done
 	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '"'"$$c"'"' doc/schemas/lightning-listconfigs.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
 
-doc-maintainer-clean:
-	$(RM) $(MANPAGES)
-
 doc-clean:
+	$(RM) $(MANPAGES) $(MARKDOWN_WITH_SCHEMA)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 doc/index.rst: $(MANPAGES:=.md)
