@@ -9,7 +9,10 @@ enum renepay_errorcode {
 	RENEPAY_CHANNEL_NOT_FOUND,
 	RENEPAY_BAD_CHANNEL,
 	RENEPAY_BAD_ALLOCATION,
+	RENEPAY_PRECONDITION_ERROR,
 	RENEPAY_UNEXPECTED,
 };
+
+const char *renepay_errorcode_name(enum renepay_errorcode e);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_ERRORCODES_H */

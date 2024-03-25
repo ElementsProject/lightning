@@ -224,13 +224,13 @@ static struct command_result *update_knowledge_cb(struct routefail *r)
 	if (!route->hops)
 		goto skip_update_network;
 
-	unetwork_channel_can_send(pay_plugin->unetwork, r->route,
+	uncertainty_channel_can_send(pay_plugin->uncertainty, r->route,
 				  *result->erring_index);
 
 	if (result->failcode == WIRE_PERMANENT_CHANNEL_FAILURE &&
 	    *result->erring_index < tal_count(route->hops)) {
-		unetwork_channel_cannot_send(
-		    pay_plugin->unetwork,
+		uncertainty_channel_cannot_send(
+		    pay_plugin->uncertainty,
 		    route->hops[*result->erring_index].scid,
 		    route->hops[*result->erring_index].direction);
 	}

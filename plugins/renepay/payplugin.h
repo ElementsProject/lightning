@@ -6,7 +6,7 @@
 #include <plugins/libplugin.h>
 #include <plugins/renepay/flow.h>
 #include <plugins/renepay/payment.h>
-#include <plugins/renepay/unetwork.h>
+#include <plugins/renepay/uncertainty.h>
 
 // TODO(eduardo): renepaystatus should be similar to paystatus
 
@@ -69,7 +69,7 @@ struct pay_plugin {
 	struct payment_map *payment_map;
 
 	/* Per-channel metadata: some persists between payments */
-	struct unetwork *unetwork;
+	struct uncertainty *uncertainty;
 
 	/* Pending sendpays (to match notifications to). */
 	struct route_map *route_map;

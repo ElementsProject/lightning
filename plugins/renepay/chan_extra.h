@@ -135,30 +135,41 @@ static inline struct amount_msat amount_msat_max(struct amount_msat a,
 }
 
 /* Update the knowledge that this (channel,direction) can send x msat.*/
-bool chan_extra_can_send(const tal_t *ctx,
-			 struct chan_extra_map *chan_extra_map,
-			 const struct short_channel_id_dir *scidd, char **fail);
+enum renepay_errorcode
+chan_extra_can_send(struct chan_extra_map *chan_extra_map,
+		    const struct short_channel_id_dir *scidd);
 
 /* Update the knowledge that this (channel,direction) cannot send x msat.*/
-bool chan_extra_cannot_send(const tal_t *ctx,
-			    struct chan_extra_map *chan_extra_map,
-			    const struct short_channel_id_dir *scidd,
-			    char **fail);
+enum renepay_errorcode
+chan_extra_cannot_send(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd);
+
+enum renepay_errorcode
+chan_extra_remove_htlc(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat amount);
+
+enum renepay_errorcode
+chan_extra_commit_htlc(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat amount);
+
 
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
-bool chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
-			      const struct short_channel_id_dir *scidd,
-			      struct amount_msat x);
+enum renepay_errorcode
+chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat x);
 
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
-bool chan_extra_sent_success(const tal_t *ctx,
-			     struct chan_extra_map *chan_extra_map,
-			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat x, char **fail);
+enum renepay_errorcode
+chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
+			const struct short_channel_id_dir *scidd,
+			struct amount_msat x);
 
 /* Forget the channel information by a fraction of the capacity. */
-bool chan_extra_relax_fraction(const tal_t *ctx, struct chan_extra *ce,
-			       double fraction, char **fail);
+enum renepay_errorcode chan_extra_relax_fraction(struct chan_extra *ce,
+						 double fraction);
 
 /* Returns either NULL, or an entry from the hash */
 struct chan_extra_half *

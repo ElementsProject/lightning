@@ -74,8 +74,8 @@ static const char *init(struct plugin *p,
 		plugin_log(p, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_channel_updates_rejected);
-	pay_plugin->unetwork = unetwork_new(pay_plugin);
-	unetwork_update(pay_plugin->unetwork, pay_plugin->gossmap);
+	pay_plugin->uncertainty = uncertainty_new(pay_plugin);
+	uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
 
 	plugin_set_memleak_handler(p, memleak_mark);
 	return NULL;

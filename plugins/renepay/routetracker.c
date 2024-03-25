@@ -90,7 +90,7 @@ void route_pending(const struct route *route)
 			   __PRETTY_FUNCTION__,
 			   fmt_routekey(tmpctx, &route->key));
 
-	unetwork_commit_htlcs(pay_plugin->unetwork, route);
+	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 	route_map_add(routetracker->pending_routes, route);
 	tal_steal(routetracker, route);
 
@@ -110,7 +110,7 @@ static void route_result_collected(struct route *route TAKES)
 	assert(route);
 	assert(route->result);
 	// TODO: also improve knowledge here?
-	unetwork_remove_htlcs(pay_plugin->unetwork, route);
+	uncertainty_remove_htlcs(pay_plugin->uncertainty, route);
 
 	assert(route->payment);
 	struct payment *payment = route->payment;

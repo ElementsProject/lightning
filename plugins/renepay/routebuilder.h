@@ -6,13 +6,13 @@
 #include <common/gossmap.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/route.h>
-#include <plugins/renepay/unetwork.h>
+#include <plugins/renepay/uncertainty.h>
 
 struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 			  const struct node_id *source,
 			  const struct node_id *destination,
-			  struct gossmap *gossmap, struct unetwork *unetwork,
+			  struct gossmap *gossmap, struct uncertainty *uncertainty,
 
 			  struct amount_msat amount_to_deliver,
 			  const u32 final_cltv, struct amount_msat feebudget,

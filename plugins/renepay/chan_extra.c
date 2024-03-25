@@ -6,13 +6,13 @@
 #include <math.h>
 #include <plugins/renepay/chan_extra.h>
 
-static char *chan_extra_not_found_error(const tal_t *ctx,
-					const struct short_channel_id *scid)
-{
-	return tal_fmt(ctx,
-		       "chan_extra for scid=%s not found in chan_extra_map",
-		       type_to_string(ctx, struct short_channel_id, scid));
-}
+// static char *chan_extra_not_found_error(const tal_t *ctx,
+// 					const struct short_channel_id *scid)
+// {
+// 	return tal_fmt(ctx,
+// 		       "chan_extra for scid=%s not found in chan_extra_map",
+// 		       type_to_string(ctx, struct short_channel_id, scid));
+// }
 
 bool chan_extra_is_busy(const struct chan_extra *const ce)
 {
@@ -128,9 +128,10 @@ struct chan_extra *new_chan_extra(struct chan_extra_map *chan_extra_map,
 /* Based on the knowledge that we have and HTLCs, returns the greatest
  * amount that we can send through this channel. */
 enum renepay_errorcode channel_liquidity(struct amount_msat *liquidity,
-		       const struct gossmap *gossmap,
-		       struct chan_extra_map *chan_extra_map,
-		       const struct gossmap_chan *chan, const int dir)
+					 const struct gossmap *gossmap,
+					 struct chan_extra_map *chan_extra_map,
+					 const struct gossmap_chan *chan,
+					 const int dir)
 {
 	const struct chan_extra_half *h =
 	    get_chan_extra_half_by_chan(gossmap, chan_extra_map, chan, dir);
@@ -200,8 +201,9 @@ bool check_fee_inequality(struct amount_msat recv, struct amount_msat send,
  *  send+1 because Bound(recv, send) < Bound_simple(recv) + 2.
  * */
 enum renepay_errorcode channel_maximum_forward(struct amount_msat *max_forward,
-			     const struct gossmap_chan *chan, const int dir,
-			     struct amount_msat recv)
+					       const struct gossmap_chan *chan,
+					       const int dir,
+					       struct amount_msat recv)
 {
 	const u64 b = chan->half[dir].base_fee,
 		  p = chan->half[dir].proportional_fee;
@@ -244,8 +246,8 @@ enum renepay_errorcode channel_maximum_forward(struct amount_msat *max_forward,
 /* This helper function preserves the uncertainty network invariant after the
  * knowledge is updated. It assumes that the (channel,!dir) knowledge is
  * correct. */
-static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
-				   int dir, char **fail)
+static enum renepay_errorcode chan_extra_adjust_half(struct chan_extra *ce,
+						     int dir)
 {
 	assert(ce);
 	assert(dir == 0 || dir == 1);
@@ -253,57 +255,26 @@ static bool chan_extra_adjust_half(const tal_t *ctx, struct chan_extra *ce,
 	struct amount_msat new_known_max, new_known_min;
 
 	if (!amount_msat_sub(&new_known_max, ce->capacity,
-			     ce->half[!dir].known_min)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "cannot substract capacity=%s and known_min=%s",
-			    type_to_string(ctx, struct amount_msat,
-					   &ce->capacity),
-			    type_to_string(ctx, struct amount_msat,
-					   &ce->half[!dir].known_min));
-		goto function_fail;
-	}
-	if (!amount_msat_sub(&new_known_min, ce->capacity,
-			     ce->half[!dir].known_max)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "cannot substract capacity=%s and known_max=%s",
-			    type_to_string(ctx, struct amount_msat,
-					   &ce->capacity),
-			    type_to_string(ctx, struct amount_msat,
-					   &ce->half[!dir].known_max));
-		goto function_fail;
-	}
+			     ce->half[!dir].known_min) ||
+	    !amount_msat_sub(&new_known_min, ce->capacity,
+			     ce->half[!dir].known_max))
+		return RENEPAY_AMOUNT_OVERFLOW;
 
 	ce->half[dir].known_max = new_known_max;
 	ce->half[dir].known_min = new_known_min;
-	return true;
-
-function_fail:
-	return false;
+	return RENEPAY_NOERROR;
 }
 
 /* Update the knowledge that this (channel,direction) can send x msat.*/
-static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
-				 int dir, struct amount_msat x, char **fail)
+static enum renepay_errorcode
+chan_extra_can_send_(struct chan_extra *ce, int dir, struct amount_msat x)
 {
 	assert(ce);
 	assert(dir == 0 || dir == 1);
-	const tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
-	if (amount_msat_greater(x, ce->capacity)) {
-		if (fail)
-			*fail =
-			    tal_fmt(ctx,
-				    "can send amount (%s) is larger than the "
-				    "channel's capacity (%s)",
-				    type_to_string(ctx, struct amount_msat, &x),
-				    type_to_string(ctx, struct amount_msat,
-						   &ce->capacity));
-		goto function_fail;
-	}
+	enum renepay_errorcode err;
+
+	if (amount_msat_greater(x, ce->capacity))
+		return RENEPAY_PRECONDITION_ERROR;
 
 	struct amount_msat known_min, known_max;
 
@@ -314,77 +285,49 @@ static bool chan_extra_can_send_(const tal_t *ctx, struct chan_extra *ce,
 	ce->half[dir].known_min = amount_msat_max(ce->half[dir].known_min, x);
 	ce->half[dir].known_max = amount_msat_max(ce->half[dir].known_max, x);
 
-	if (!chan_extra_adjust_half(this_ctx, ce, !dir, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "chan_extra_adjust_half failed: %s", errmsg);
-
+	err = chan_extra_adjust_half(ce, !dir);
+	if (err != RENEPAY_NOERROR)
 		goto restore_and_fail;
-	}
-	return true;
+
+	return RENEPAY_NOERROR;
 
 restore_and_fail:
 	// we fail, thus restore the original state
 	ce->half[dir].known_min = known_min;
 	ce->half[dir].known_max = known_max;
-
-function_fail:
-	return false;
+	return err;
 }
 
-bool chan_extra_can_send(const tal_t *ctx,
-			 struct chan_extra_map *chan_extra_map,
-			 const struct short_channel_id_dir *scidd, char **fail)
+enum renepay_errorcode
+chan_extra_can_send(struct chan_extra_map *chan_extra_map,
+		    const struct short_channel_id_dir *scidd)
 {
 	assert(scidd);
 	assert(chan_extra_map);
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
-	if (!ce) {
-		if (fail)
-			*fail = chan_extra_not_found_error(ctx, &scidd->scid);
-		goto function_fail;
-	}
-	if (!chan_extra_can_send_(ctx, ce, scidd->dir,
-				  ce->half[scidd->dir].htlc_total, fail)) {
-		goto function_fail;
-	}
-	return true;
-
-function_fail:
-	return false;
+	if (!ce)
+		return RENEPAY_CHANNEL_NOT_FOUND;
+	return chan_extra_can_send_(ce, scidd->dir,
+				    ce->half[scidd->dir].htlc_total);
 }
 
 /* Update the knowledge that this (channel,direction) cannot send.*/
-bool chan_extra_cannot_send(const tal_t *ctx,
-			    struct chan_extra_map *chan_extra_map,
-			    const struct short_channel_id_dir *scidd,
-			    char **fail)
+enum renepay_errorcode
+chan_extra_cannot_send(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd)
 {
 	assert(scidd);
 	assert(chan_extra_map);
-	const tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
 	struct amount_msat x;
+	enum renepay_errorcode err;
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
-	if (!ce) {
-		if (fail)
-			*fail = chan_extra_not_found_error(ctx, &scidd->scid);
-		goto function_fail;
-	}
+	if (!ce)
+		return RENEPAY_CHANNEL_NOT_FOUND;
 
 	/* Note: sent is already included in htlc_total! */
 	if (!amount_msat_sub(&x, ce->half[scidd->dir].htlc_total,
-			     AMOUNT_MSAT(1))) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "htlc_total=%s is less than 0msats in channel %s",
-			    type_to_string(this_ctx, struct amount_msat,
-					   &ce->half[scidd->dir].htlc_total),
-			    type_to_string(this_ctx, struct short_channel_id,
-					   &scidd->scid));
-		goto function_fail;
-	}
+			     AMOUNT_MSAT(1)))
+		return RENEPAY_AMOUNT_OVERFLOW;
 
 	struct amount_msat known_min, known_max;
 	// in case we fail, let's remember the original state
@@ -401,47 +344,30 @@ bool chan_extra_cannot_send(const tal_t *ctx,
 	ce->half[scidd->dir].known_max =
 	    amount_msat_min(ce->half[scidd->dir].known_max, x);
 
-	if (!chan_extra_adjust_half(this_ctx, ce, !scidd->dir, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "chan_extra_adjust_half failed: %s", errmsg);
+	err = chan_extra_adjust_half(ce, !scidd->dir);
+	if (err != RENEPAY_NOERROR)
 		goto restore_and_fail;
-	}
-	tal_free(this_ctx);
-	return true;
+	return err;
 
 restore_and_fail:
 	// we fail, thus restore the original state
 	ce->half[scidd->dir].known_min = known_min;
 	ce->half[scidd->dir].known_max = known_max;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
+	return err;
 }
+
 /* Update the knowledge that this (channel,direction) has liquidity x.*/
 // FIXME for being this low level API, I thinkg it's too much to have verbose
 // error messages
-static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
-				      int dir, struct amount_msat x,
-				      char **fail)
+static enum renepay_errorcode
+chan_extra_set_liquidity_(struct chan_extra *ce, int dir, struct amount_msat x)
 {
 	assert(ce);
 	assert(dir == 0 || dir == 1);
-	const tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
-	if (amount_msat_greater(x, ce->capacity)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "tried to set liquidity (%s) to a value greater "
-			    "than "
-			    "channel's capacity (%s)",
-			    type_to_string(this_ctx, struct amount_msat, &x),
-			    type_to_string(this_ctx, struct amount_msat,
-					   &ce->capacity));
-		goto function_fail;
-	}
+	enum renepay_errorcode err;
+
+	if (amount_msat_greater(x, ce->capacity))
+		return RENEPAY_PRECONDITION_ERROR;
 
 	// in case we fail, let's remember the original state
 	struct amount_msat known_min, known_max;
@@ -451,80 +377,54 @@ static bool chan_extra_set_liquidity_(const tal_t *ctx, struct chan_extra *ce,
 	ce->half[dir].known_min = x;
 	ce->half[dir].known_max = x;
 
-	if (!chan_extra_adjust_half(this_ctx, ce, !dir, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "chan_extra_adjust_half failed: %s", errmsg);
+	err = chan_extra_adjust_half(ce, !dir);
+	if (err != RENEPAY_NOERROR)
 		goto restore_and_fail;
-	}
-	tal_free(this_ctx);
-	return true;
+	return err;
 
 restore_and_fail:
 	// we fail, thus restore the original state
 	ce->half[dir].known_min = known_min;
 	ce->half[dir].known_max = known_max;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
+	return err;
 }
-bool chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
-			      const struct short_channel_id_dir *scidd,
-			      struct amount_msat x)
+
+enum renepay_errorcode
+chan_extra_set_liquidity(struct chan_extra_map *chan_extra_map,
+			 const struct short_channel_id_dir *scidd,
+			 struct amount_msat x)
 {
 	assert(scidd);
 	assert(chan_extra_map);
 	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
 	if (!ce)
-		goto function_fail;
+		return RENEPAY_CHANNEL_NOT_FOUND;
 
-	if (!chan_extra_set_liquidity_(NULL, ce, scidd->dir, x, NULL))
-		goto function_fail;
-
-	return true;
-
-function_fail:
-	return false;
+	return chan_extra_set_liquidity_(ce, scidd->dir, x);
 }
+
 /* Update the knowledge that this (channel,direction) has sent x msat.*/
-bool chan_extra_sent_success(const tal_t *ctx,
-			     struct chan_extra_map *chan_extra_map,
-			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat x, char **fail)
+enum renepay_errorcode
+chan_extra_sent_success(struct chan_extra_map *chan_extra_map,
+			const struct short_channel_id_dir *scidd,
+			struct amount_msat x)
 {
 	assert(scidd);
 	assert(chan_extra_map);
-	tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
+
+	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
+	if (!ce)
+		return RENEPAY_CHANNEL_NOT_FOUND;
 
 	// if we sent amount x, it first means that all htlcs on this channel
 	// fit in the liquidity
-	if (!chan_extra_can_send(this_ctx, chan_extra_map, scidd, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(ctx, "chan_extra_can_send failed: %s",
-					errmsg);
-		goto function_fail;
-	}
+	enum renepay_errorcode err;
+	err = chan_extra_can_send(chan_extra_map, scidd);
+	if (err != RENEPAY_NOERROR)
+		return err;
 
-	struct chan_extra *ce = chan_extra_map_get(chan_extra_map, scidd->scid);
-	if (!ce) {
-		if (fail)
-			*fail = chan_extra_not_found_error(ctx, &scidd->scid);
-		goto function_fail;
-	}
-
-	if (amount_msat_greater(x, ce->capacity)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx,
-			    "sent success (%s) is larger than the "
-			    "channel's capacity (%s)",
-			    type_to_string(this_ctx, struct amount_msat, &x),
-			    type_to_string(this_ctx, struct amount_msat,
-					   &ce->capacity));
-		goto function_fail;
-	}
+	if (amount_msat_greater(x, ce->capacity))
+		return RENEPAY_PRECONDITION_ERROR;
 
 	// in case we fail, let's remember the original state
 	struct amount_msat known_min, known_max;
@@ -541,34 +441,28 @@ bool chan_extra_sent_success(const tal_t *ctx,
 	ce->half[scidd->dir].known_min = new_a;
 	ce->half[scidd->dir].known_max = new_b;
 
-	if (!chan_extra_adjust_half(this_ctx, ce, !scidd->dir, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "chan_extra_adjust_half failed: %s", errmsg);
+	err = chan_extra_adjust_half(ce, !scidd->dir);
+	if (err != RENEPAY_NOERROR)
 		goto restore_and_fail;
-	}
-	tal_free(this_ctx);
-	return true;
+
+	return err;
 
 // we fail, thus restore the original state
 restore_and_fail:
 	ce->half[scidd->dir].known_min = known_min;
 	ce->half[scidd->dir].known_max = known_max;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
+	return err;
 }
+
 /* Forget a bit about this (channel,direction) state. */
-static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
-			     struct amount_msat down, struct amount_msat up,
-			     char **fail)
+static enum renepay_errorcode chan_extra_relax(struct chan_extra *ce, int dir,
+					       struct amount_msat down,
+					       struct amount_msat up)
 {
 	assert(ce);
 	assert(dir == 0 || dir == 1);
-	const tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
 	struct amount_msat new_a, new_b;
+	enum renepay_errorcode err;
 
 	if (!amount_msat_sub(&new_a, ce->half[dir].known_min, down))
 		new_a = AMOUNT_MSAT(0);
@@ -584,34 +478,26 @@ static bool chan_extra_relax(const tal_t *ctx, struct chan_extra *ce, int dir,
 	ce->half[dir].known_min = new_a;
 	ce->half[dir].known_max = new_b;
 
-	if (!chan_extra_adjust_half(this_ctx, ce, !dir, &errmsg)) {
-		if (fail)
-			*fail = tal_fmt(
-			    ctx, "chan_extra_adjust_half failed: %s", errmsg);
+	err = chan_extra_adjust_half(ce, !dir);
+	if (err != RENEPAY_NOERROR)
 		goto restore_and_fail;
-	}
-	tal_free(this_ctx);
-	return true;
+	return err;
 
 // we fail, thus restore the original state
 restore_and_fail:
 	ce->half[dir].known_min = known_min;
 	ce->half[dir].known_max = known_max;
-
-	tal_free(this_ctx);
-	return false;
+	return err;
 }
 
 /* Forget the channel information by a fraction of the capacity. */
-bool chan_extra_relax_fraction(const tal_t *ctx, struct chan_extra *ce,
-			       double fraction, char **fail)
+enum renepay_errorcode chan_extra_relax_fraction(struct chan_extra *ce,
+						 double fraction)
 {
 	assert(ce);
 	assert(fraction >= 0);
 	/* Allow to have values greater than 1 to indicate full relax. */
 	// assert(fraction<=1);
-	const tal_t *this_ctx = tal(ctx, tal_t);
-	char *errmsg;
 	fraction = fabs(fraction);     // this number is always non-negative
 	fraction = MIN(1.0, fraction); // this number cannot be greater than 1.
 	struct amount_msat delta =
@@ -624,18 +510,7 @@ bool chan_extra_relax_fraction(const tal_t *ctx, struct chan_extra *ce,
 	 * (a-d,b+d) then its counterpart chan[1] changes from (C-b,C-a) to
 	 * (C-b-d,C-a+d), hence both dirs are applied the same transformation.
 	 */
-	if (!chan_extra_relax(this_ctx, ce, /*dir=*/0, delta, delta, &errmsg)) {
-		if (fail)
-			*fail =
-			    tal_fmt(ctx, "chan_extra_relax failed: %s", errmsg);
-		goto function_fail;
-	}
-	tal_free(this_ctx);
-	return true;
-
-function_fail:
-	tal_free(this_ctx);
-	return false;
+	return chan_extra_relax(ce, /*dir=*/0, delta, delta);
 }
 
 /* Returns either NULL, or an entry from the hash */
@@ -780,3 +655,35 @@ function_fail:
 	return -1;
 }
 
+enum renepay_errorcode
+chan_extra_remove_htlc(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat amount)
+{
+	struct chan_extra_half *h =
+	    get_chan_extra_half_by_scid(chan_extra_map, scidd);
+	if (!h)
+		return RENEPAY_CHANNEL_NOT_FOUND;
+	if (h->num_htlcs <= 0)
+		return RENEPAY_PRECONDITION_ERROR;
+
+	if (!amount_msat_sub(&h->htlc_total, h->htlc_total, amount))
+		return RENEPAY_AMOUNT_OVERFLOW;
+	h->num_htlcs--;
+	return RENEPAY_NOERROR;
+}
+
+enum renepay_errorcode
+chan_extra_commit_htlc(struct chan_extra_map *chan_extra_map,
+		       const struct short_channel_id_dir *scidd,
+		       struct amount_msat amount)
+{
+	struct chan_extra_half *h =
+	    get_chan_extra_half_by_scid(chan_extra_map, scidd);
+	if (!h)
+		return RENEPAY_CHANNEL_NOT_FOUND;
+	if (!amount_msat_add(&h->htlc_total, h->htlc_total, amount))
+		return RENEPAY_AMOUNT_OVERFLOW;
+	h->num_htlcs++;
+	return RENEPAY_NOERROR;
+}

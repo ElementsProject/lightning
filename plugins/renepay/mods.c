@@ -407,7 +407,7 @@ REGISTER_PAYMENT_MODIFIER(selfpay, selfpay_cb);
  */
 
 static void
-unetwork_update_from_listpeerchannels(struct unetwork *unetwork,
+uncertainty_update_from_listpeerchannels(struct uncertainty *uncertainty,
 				      const struct short_channel_id_dir *scidd,
 				      struct amount_msat max, bool enabled,
 				      const char *buf, const jsmntok_t *chantok)
@@ -421,7 +421,7 @@ unetwork_update_from_listpeerchannels(struct unetwork *unetwork,
 	if (errmsg)
 		goto error;
 
-	if (!unetwork_add_channel(pay_plugin->unetwork, scidd->scid,
+	if (!uncertainty_add_channel(pay_plugin->uncertainty, scidd->scid,
 				  capacity)) {
 		errmsg = tal_fmt(
 		    tmpctx,
@@ -431,7 +431,7 @@ unetwork_update_from_listpeerchannels(struct unetwork *unetwork,
 		goto error;
 	}
 	// FIXME this does not include pending HTLC of ongoing payments!
-	if (!unetwork_set_liquidity(pay_plugin->unetwork, scidd, max)) {
+	if (!uncertainty_set_liquidity(pay_plugin->uncertainty, scidd, max)) {
 		errmsg = tal_fmt(
 		    tmpctx,
 		    "Unable to set liquidity to channel scidd=%s in the "
@@ -493,7 +493,7 @@ static void gossmod_cb(struct gossmap_localmods *mods,
 				     "listpeerchannels says not enabled");
 
 	/* Also update the uncertainty network */
-	unetwork_update_from_listpeerchannels(pay_plugin->unetwork, scidd, max,
+	uncertainty_update_from_listpeerchannels(pay_plugin->uncertainty, scidd, max,
 					      enabled, buf, chantok);
 }
 
@@ -546,7 +546,7 @@ refreshgossmap_done(struct command *cmd UNUSED, const char *buf UNUSED,
 			   num_channel_updates_rejected);
 
 	if (gossmap_changed)
-		unetwork_update(pay_plugin->unetwork, pay_plugin->gossmap);
+		uncertainty_update(pay_plugin->uncertainty, pay_plugin->gossmap);
 	return payment_continue(payment);
 }
 
@@ -582,7 +582,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 
 	const char *errmsg;
 	const struct chan_extra *ce =
-	    unetwork_find_channel(pay_plugin->unetwork, scid);
+	    uncertainty_find_channel(pay_plugin->uncertainty, scid);
 
 	if (!ce) {
 		/* This channel is not public, we don't know his capacity
@@ -591,7 +591,7 @@ static void add_hintchan(struct payment *payment, const struct node_id *src,
 		 the capacity to amount and state to [amount,amount], but that
 		 wouldn't work if the recepient provides more than one hints
 		 telling us to partition the payment in multiple routes. */
-		ce = unetwork_add_channel(payment->local_unetwork, scid,
+		ce = uncertainty_add_channel(pay_plugin->uncertainty, scid,
 					  MAX_CAPACITY);
 		if (!ce) {
 			errmsg = tal_fmt(tmpctx,
@@ -734,7 +734,7 @@ compute_routes_done(struct command *cmd UNUSED, const char *buf UNUSED,
 		&pay_plugin->my_id,
 		&payment->destination,
 		pay_plugin->gossmap,
-		pay_plugin->unetwork,
+		pay_plugin->uncertainty,
 		remaining,
 		payment->final_cltv,
 		feebudget,

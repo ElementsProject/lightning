@@ -17,19 +17,19 @@ static bitmap *make_disabled_bitmap(const tal_t *ctx,
 	return disabled;
 }
 
-// static void unetwork_commit_routes(struct unetwork *unetwork,
+// static void uncertainty_commit_routes(struct uncertainty *uncertainty,
 // 				   struct route **routes)
 // {
 // 	const size_t N = tal_count(routes);
 // 	for (size_t i = 0; i < N; i++)
-// 		unetwork_commit_htlcs(unetwork, routes[i]);
+// 		uncertainty_commit_htlcs(uncertainty, routes[i]);
 // }
-static void unetwork_remove_routes(struct unetwork *unetwork,
+static void uncertainty_remove_routes(struct uncertainty *uncertainty,
 				   struct route **routes)
 {
 	const size_t N = tal_count(routes);
 	for (size_t i = 0; i < N; i++)
-		unetwork_remove_htlcs(unetwork, routes[i]);
+		uncertainty_remove_htlcs(uncertainty, routes[i]);
 }
 
 static void mark_chan_disabled(const struct gossmap_chan *chan,
@@ -136,7 +136,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 			  const struct node_id *source,
 			  const struct node_id *destination,
-			  struct gossmap *gossmap, struct unetwork *unetwork,
+			  struct gossmap *gossmap, struct uncertainty *uncertainty,
 
 			  struct amount_msat amount_to_deliver,
 			  const u32 final_cltv, struct amount_msat feebudget,
@@ -144,7 +144,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 			  enum jsonrpc_errcode *ecode, const char **fail)
 {
 	assert(gossmap);
-	assert(unetwork);
+	assert(uncertainty);
 
 	const tal_t *this_ctx = tal(ctx, tal_t);
 	struct route **routes = tal_arr(ctx, struct route *, 0);
@@ -187,13 +187,13 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		 * options and that can be changed according to some conditions
 		 * met during the payment process, eg. add "select_solver" pay
 		 * mod. */
-		/* TODO: use unetwork instead of chan_extra */
+		/* TODO: use uncertainty instead of chan_extra */
 		/* TODO: shall we add to possibility to blacklist nodes? */
 
 		/* Min. Cost Flow algorithm to find optimal flows. */
 		struct flow **flows =
 		    minflow(this_ctx, gossmap, src, dst,
-			    unetwork_get_chan_extra_map(unetwork),
+			    uncertainty_get_chan_extra_map(uncertainty),
 			    disabled_bitmap, amount_to_deliver, feebudget,
 			    probability_budget, delay_feefactor,
 			    base_fee_penalty, prob_cost_factor, &errmsg);
@@ -218,7 +218,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		 * iteration. */
 		flows = flows_adjust_htlcmax_constraints(
 		    this_ctx, take(flows), gossmap,
-		    unetwork_get_chan_extra_map(unetwork),
+		    uncertainty_get_chan_extra_map(uncertainty),
 		    &payment->disabled_scids, disabled_bitmap);
 		if (!flows) {
 			if (ecode)
@@ -234,7 +234,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 		flows = flows_adjust_htlcmin_constraints(
 		    this_ctx, take(flows), gossmap,
-		    unetwork_get_chan_extra_map(unetwork),
+		    uncertainty_get_chan_extra_map(uncertainty),
 		    &payment->disabled_scids, disabled_bitmap);
 		if (!flows) {
 			if (ecode)
@@ -302,7 +302,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 		/* TODO: review this, only flows with non-zero amounts */
 		double prob = flowset_probability(
 		    this_ctx, flows, gossmap,
-		    unetwork_get_chan_extra_map(unetwork), NULL);
+		    uncertainty_get_chan_extra_map(uncertainty), NULL);
 		if (prob < 0) {
 			if (ecode)
 				*ecode = PLUGIN_ERROR;
@@ -337,7 +337,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 				continue;
 			}
 			payment->next_partid++;
-			unetwork_commit_htlcs(unetwork, r);
+			uncertainty_commit_htlcs(uncertainty, r);
 			tal_arr_expand(&routes, r);
 
 			struct amount_msat route_fee = route_fees(r),
@@ -415,7 +415,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 	}
 
 	/* remove the temporary routes from the uncertainty network */
-	unetwork_remove_routes(unetwork, routes);
+	uncertainty_remove_routes(uncertainty, routes);
 
 	/* ownership */
 	for (size_t i = 0; i < tal_count(routes); i++)
@@ -426,7 +426,7 @@ struct route **get_routes(const tal_t *ctx, struct payment *payment,
 
 function_fail:
 	/* remove the temporary routes from the uncertainty network */
-	unetwork_remove_routes(unetwork, routes);
+	uncertainty_remove_routes(uncertainty, routes);
 
 	/* Discard any routes we have constructed here. */
 	tal_free(this_ctx);

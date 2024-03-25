@@ -126,7 +126,6 @@ struct payment {
 
 	/* Localmods to apply to gossip_map for our own use. */
 	struct gossmap_localmods *local_gossmods;
-	struct unetwork *local_unetwork;
 
 	/* Channels we decided to disable for various reasons. */
 	struct short_channel_id *disabled_scids;
