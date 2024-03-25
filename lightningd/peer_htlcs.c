@@ -851,35 +851,6 @@ struct htlc_accepted_hook_payload {
 	size_t failtlvpos;
 };
 
-/* We only handle the simplest cases here */
-static u8 *convert_failcode(const tal_t *ctx,
-			    struct lightningd *ld,
-			    unsigned int failure_code)
-{
-	switch (failure_code) {
-	case WIRE_INVALID_REALM:
-		return towire_invalid_realm(ctx);
-	case WIRE_TEMPORARY_NODE_FAILURE:
-		return towire_temporary_node_failure(ctx);
-	case WIRE_PERMANENT_NODE_FAILURE:
-		return towire_permanent_node_failure(ctx);
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-		return towire_required_node_feature_missing(ctx);
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-		return towire_permanent_channel_failure(ctx);
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		return towire_required_channel_feature_missing(ctx);
-	case WIRE_UNKNOWN_NEXT_PEER:
-		return towire_unknown_next_peer(ctx);
-	default:
-		log_broken(ld->log,
-			   "htlc_accepted_hook plugin returned failure_code %u,"
-			   " turning to WIRE_TEMPORARY_NODE_FAILURE",
-			   failure_code);
-		return towire_temporary_node_failure(ctx);
-	}
-}
-
 static void
 htlc_accepted_hook_try_resolve(struct htlc_accepted_hook_payload *request,
 			       struct preimage *payment_preimage)
@@ -992,7 +963,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 
 	if (json_tok_streq(buffer, resulttok, "fail")) {
 		u8 *failmsg;
-		const jsmntok_t *failoniontok, *failmsgtok, *failcodetok;
+		const jsmntok_t *failoniontok, *failmsgtok;
 
 		failoniontok = json_get_member(buffer, toks, "failure_onion");
 		failmsgtok = json_get_member(buffer, toks, "failure_message");
@@ -1015,36 +986,21 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 							      failonion)));
 			return false;
 		}
-		if (failmsgtok) {
-			failmsg = json_tok_bin_from_hex(NULL, buffer,
-							failmsgtok);
-			if (!failmsg)
-				fatal("Bad failure_message for htlc_accepted"
-				      " hook: %.*s",
-				      failmsgtok->end - failmsgtok->start,
-				      buffer + failmsgtok->start);
-			local_fail_in_htlc(hin, take(failmsg));
-			return false;
-		} else if ((failcodetok = json_get_member(buffer, toks,
-							     "failure_code"))
-			   && lightningd_deprecated_in_ok(ld, ld->log, ld->deprecated_ok,
-							  "htlc_accepted_hook", "failure_code",
-							  "v0.8", "v24.02", NULL)) {
-			unsigned int failcode;
-			if (!json_to_number(buffer, failcodetok, &failcode))
-				fatal("Bad failure_code for htlc_accepted"
-				      " hook: %.*s",
-				      failcodetok->end
-				      - failcodetok->start,
-				      buffer + failcodetok->start);
-			failmsg = convert_failcode(NULL, ld, failcode);
-			local_fail_in_htlc(hin, take(failmsg));
-			return false;
-		} else {
-			failmsg = towire_temporary_node_failure(NULL);
-			local_fail_in_htlc(hin, take(failmsg));
-			return false;
+		if (!failmsgtok) {
+			fatal("Missing both failure_onion and failure_message for htlc_accepted"
+			      " hook fail: %.*s",
+			      resulttok->end - resulttok->start,
+			      buffer + resulttok->start);
 		}
+
+		failmsg = json_tok_bin_from_hex(NULL, buffer, failmsgtok);
+		if (!failmsg)
+			fatal("Bad failure_message for htlc_accepted"
+			      " hook: %.*s",
+			      failmsgtok->end - failmsgtok->start,
+			      buffer + failmsgtok->start);
+		local_fail_in_htlc(hin, take(failmsg));
+		return false;
 	} else if (json_tok_streq(buffer, resulttok, "resolve")) {
 		paykeytok = json_get_member(buffer, toks, "payment_key");
 		if (!paykeytok)
