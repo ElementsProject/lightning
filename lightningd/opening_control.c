@@ -33,7 +33,6 @@
 
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc,
-				  /* Only set for listpeerchannels */
 				  const struct peer *peer)
 {
 	struct amount_msat total, ours;
@@ -46,12 +45,10 @@ void json_add_uncommitted_channel(struct json_stream *response,
 		return;
 
 	json_object_start(response, NULL);
-	if (peer) {
-		json_add_node_id(response, "peer_id", &peer->id);
-		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-		if (uc->fc->channel_type)
+	json_add_node_id(response, "peer_id", &peer->id);
+	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+	if (uc->fc->channel_type)
 			json_add_channel_type(response, "channel_type", uc->fc->channel_type);
-	}
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "opener", "local");

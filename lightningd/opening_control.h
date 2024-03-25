@@ -11,10 +11,9 @@ struct lightningd;
 struct peer_fd;
 struct uncommitted_channel;
 
-void json_add_uncommitted_channel(struct json_stream *response,
-				  const struct uncommitted_channel *uc,
-				  /* Only set for listpeerchannels */
-				  const struct peer *peer);
+void NON_NULL_ARGS(1, 3) json_add_uncommitted_channel(struct json_stream *response,
+						      const struct uncommitted_channel *uc,
+						      const struct peer *peer);
 
 bool peer_start_openingd(struct peer *peer,
 			 struct peer_fd *peer_fd);

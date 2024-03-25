@@ -20,10 +20,9 @@ void watch_opening_inflight(struct lightningd *ld,
 /* Close connection to an unsaved channel */
 void channel_unsaved_close_conn(struct channel *channel, const char *why);
 
-void json_add_unsaved_channel(struct json_stream *response,
-			      const struct channel *channel,
-			      /* Only set for listpeerchannels */
-			      const struct peer *peer);
+void NO_NULL_ARGS json_add_unsaved_channel(struct json_stream *response,
+					   const struct channel *channel,
+					   const struct peer *peer);
 
 void channel_update_reserve(struct channel *channel,
 			    struct channel_config *their_config,

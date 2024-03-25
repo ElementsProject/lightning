@@ -77,113 +77,12 @@ def listpeers_peers_log2py(m):
     })
 
 
-def listpeers_peers_channels_feerate2py(m):
-    return remove_default({
-        "perkw": m.perkw,  # PrimitiveField in generate_composite
-        "perkb": m.perkb,  # PrimitiveField in generate_composite
-    })
-
-
-def listpeers_peers_channels_inflight2py(m):
-    return remove_default({
-        "funding_txid": hexlify(m.funding_txid),  # PrimitiveField in generate_composite
-        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
-        "feerate": m.feerate,  # PrimitiveField in generate_composite
-        "total_funding_msat": amount2msat(m.total_funding_msat),  # PrimitiveField in generate_composite
-        "our_funding_msat": amount2msat(m.our_funding_msat),  # PrimitiveField in generate_composite
-        "splice_amount": m.splice_amount,  # PrimitiveField in generate_composite
-        "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
-    })
-
-
-def listpeers_peers_channels_funding2py(m):
-    return remove_default({
-        "pushed_msat": amount2msat(m.pushed_msat),  # PrimitiveField in generate_composite
-        "local_funds_msat": amount2msat(m.local_funds_msat),  # PrimitiveField in generate_composite
-        "remote_funds_msat": amount2msat(m.remote_funds_msat),  # PrimitiveField in generate_composite
-        "fee_paid_msat": amount2msat(m.fee_paid_msat),  # PrimitiveField in generate_composite
-        "fee_rcvd_msat": amount2msat(m.fee_rcvd_msat),  # PrimitiveField in generate_composite
-    })
-
-
-def listpeers_peers_channels_alias2py(m):
-    return remove_default({
-        "local": m.local,  # PrimitiveField in generate_composite
-        "remote": m.remote,  # PrimitiveField in generate_composite
-    })
-
-
-def listpeers_peers_channels_htlcs2py(m):
-    return remove_default({
-        "direction": str(m.direction),  # EnumField in generate_composite
-        "id": m.id,  # PrimitiveField in generate_composite
-        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
-        "expiry": m.expiry,  # PrimitiveField in generate_composite
-        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
-        "local_trimmed": m.local_trimmed,  # PrimitiveField in generate_composite
-        "status": m.status,  # PrimitiveField in generate_composite
-        "state": str(m.state),  # EnumField in generate_composite
-    })
-
-
-def listpeers_peers_channels2py(m):
-    return remove_default({
-        "state": str(m.state),  # EnumField in generate_composite
-        "scratch_txid": hexlify(m.scratch_txid),  # PrimitiveField in generate_composite
-        "owner": m.owner,  # PrimitiveField in generate_composite
-        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
-        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
-        "funding_txid": hexlify(m.funding_txid),  # PrimitiveField in generate_composite
-        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
-        "initial_feerate": m.initial_feerate,  # PrimitiveField in generate_composite
-        "last_feerate": m.last_feerate,  # PrimitiveField in generate_composite
-        "next_feerate": m.next_feerate,  # PrimitiveField in generate_composite
-        "next_fee_step": m.next_fee_step,  # PrimitiveField in generate_composite
-        "inflight": [listpeers_peers_channels_inflight2py(i) for i in m.inflight],  # ArrayField[composite] in generate_composite
-        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
-        "private": m.private,  # PrimitiveField in generate_composite
-        "opener": str(m.opener),  # EnumField in generate_composite
-        "closer": str(m.closer),  # EnumField in generate_composite
-        "features": [str(i) for i in m.features],  # ArrayField[composite] in generate_composite
-        "to_us_msat": amount2msat(m.to_us_msat),  # PrimitiveField in generate_composite
-        "min_to_us_msat": amount2msat(m.min_to_us_msat),  # PrimitiveField in generate_composite
-        "max_to_us_msat": amount2msat(m.max_to_us_msat),  # PrimitiveField in generate_composite
-        "total_msat": amount2msat(m.total_msat),  # PrimitiveField in generate_composite
-        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
-        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
-        "dust_limit_msat": amount2msat(m.dust_limit_msat),  # PrimitiveField in generate_composite
-        "max_total_htlc_in_msat": amount2msat(m.max_total_htlc_in_msat),  # PrimitiveField in generate_composite
-        "their_reserve_msat": amount2msat(m.their_reserve_msat),  # PrimitiveField in generate_composite
-        "our_reserve_msat": amount2msat(m.our_reserve_msat),  # PrimitiveField in generate_composite
-        "spendable_msat": amount2msat(m.spendable_msat),  # PrimitiveField in generate_composite
-        "receivable_msat": amount2msat(m.receivable_msat),  # PrimitiveField in generate_composite
-        "minimum_htlc_in_msat": amount2msat(m.minimum_htlc_in_msat),  # PrimitiveField in generate_composite
-        "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
-        "maximum_htlc_out_msat": amount2msat(m.maximum_htlc_out_msat),  # PrimitiveField in generate_composite
-        "their_to_self_delay": m.their_to_self_delay,  # PrimitiveField in generate_composite
-        "our_to_self_delay": m.our_to_self_delay,  # PrimitiveField in generate_composite
-        "max_accepted_htlcs": m.max_accepted_htlcs,  # PrimitiveField in generate_composite
-        "status": [m.status for i in m.status], # ArrayField[primitive] in generate_composite
-        "in_payments_offered": m.in_payments_offered,  # PrimitiveField in generate_composite
-        "in_offered_msat": amount2msat(m.in_offered_msat),  # PrimitiveField in generate_composite
-        "in_payments_fulfilled": m.in_payments_fulfilled,  # PrimitiveField in generate_composite
-        "in_fulfilled_msat": amount2msat(m.in_fulfilled_msat),  # PrimitiveField in generate_composite
-        "out_payments_offered": m.out_payments_offered,  # PrimitiveField in generate_composite
-        "out_offered_msat": amount2msat(m.out_offered_msat),  # PrimitiveField in generate_composite
-        "out_payments_fulfilled": m.out_payments_fulfilled,  # PrimitiveField in generate_composite
-        "out_fulfilled_msat": amount2msat(m.out_fulfilled_msat),  # PrimitiveField in generate_composite
-        "htlcs": [listpeers_peers_channels_htlcs2py(i) for i in m.htlcs],  # ArrayField[composite] in generate_composite
-        "close_to_addr": m.close_to_addr,  # PrimitiveField in generate_composite
-    })
-
-
 def listpeers_peers2py(m):
     return remove_default({
         "id": hexlify(m.id),  # PrimitiveField in generate_composite
         "connected": m.connected,  # PrimitiveField in generate_composite
         "num_channels": m.num_channels,  # PrimitiveField in generate_composite
         "log": [listpeers_peers_log2py(i) for i in m.log],  # ArrayField[composite] in generate_composite
-        "channels": [listpeers_peers_channels2py(i) for i in m.channels],  # ArrayField[composite] in generate_composite
         "netaddr": [m.netaddr for i in m.netaddr], # ArrayField[primitive] in generate_composite
         "remote_addr": m.remote_addr,  # PrimitiveField in generate_composite
         "features": hexlify(m.features),  # PrimitiveField in generate_composite
