@@ -540,6 +540,36 @@ static const struct json_command payersign_command = {
 };
 AUTODATA(json_command, &payersign_command);
 
+static struct command_result *json_derivepayerid(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	u8 *invreq_metadata;
+	struct pubkey key;
+
+	if (!param(cmd, buffer, params,
+		   p_req("metadata", param_bin_from_hex, &invreq_metadata),
+		   NULL))
+		return command_param_failed();
+
+	payer_key(cmd->ld, invreq_metadata, tal_bytelen(invreq_metadata), &key);
+
+	response = json_stream_success(cmd);
+	json_add_pubkey(response, "payer_id", &key);
+	return command_success(cmd, response);
+}
+
+static const struct json_command derivepayerid_command = {
+	"derivepayerid",
+	"payment",
+	json_derivepayerid,
+	"Derive the Payer Id from the {invreq_metadata} {merkle}",
+};
+AUTODATA(json_command, &derivepayerid_command);
+
+
 static struct command_result *json_listinvoicerequests(struct command *cmd,
 						       const char *buffer,
 						       const jsmntok_t *obj UNNEEDED,
