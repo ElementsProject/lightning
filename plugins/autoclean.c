@@ -55,8 +55,6 @@ struct clean_info {
 	u64 num_uncleaned;
 };
 
-/* For deprecated API, setting this to zero disabled autoclean */
-static u64 deprecated_cycle_seconds = UINT64_MAX;
 static u64 cycle_seconds = 3600;
 static struct clean_info timer_cinfo;
 static u64 total_cleaned[NUM_SUBSYSTEM];
@@ -566,14 +564,6 @@ static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	plugin = p;
-	if (deprecated_cycle_seconds != UINT64_MAX) {
-		if (deprecated_cycle_seconds == 0) {
-			plugin_log(p, LOG_DBG, "autocleaning not active");
-			return NULL;
-		} else
-			cycle_seconds = deprecated_cycle_seconds;
-	}
-
 	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean_timer, NULL);
 
 	/* We don't care if this fails (it usually does, since entries
@@ -633,19 +623,6 @@ int main(int argc, char *argv[])
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_STATIC, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
-		    plugin_option_deprecated("autocleaninvoice-cycle",
-				  "string",
-				  "Perform cleanup of expired invoices every"
-				  " given seconds, or do not autoclean if 0",
-			          "v22.11", "v24.02",
-				  u64_option, &deprecated_cycle_seconds),
-		    plugin_option_deprecated("autocleaninvoice-expired-by",
-				  "string",
-				  "If expired invoice autoclean enabled,"
-				  " invoices that have expired for at least"
-				  " this given seconds are cleaned",
-			          "v22.11", "v24.02",
-				  u64_option, &timer_cinfo.subsystem_age[EXPIREDINVOICES]),
 		    plugin_option_dynamic("autoclean-cycle",
 					  "int",
 					  "Perform cleanup every"
