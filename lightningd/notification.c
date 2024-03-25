@@ -237,9 +237,6 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "id", node_id);
 	json_add_amount_sat_msat(stream, "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
-	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-					 "channel_opened", "funding_locked", "v22.11", "v24.02"))
-		json_add_bool(stream, "funding_locked", channel_ready);
 	json_add_bool(stream, "channel_ready", channel_ready);
 }
 
