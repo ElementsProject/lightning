@@ -703,18 +703,6 @@ static struct command_result *json_feerates(struct command *cmd,
 	if (rate)
 		json_add_num(response, "penalty",
 			     feerate_to_style(rate, *style));
-	if (command_deprecated_out_ok(cmd, "delayed_to_us", "v23.05", "v24.02")) {
-		rate = delayed_to_us_feerate(topo);
-		if (rate)
-			json_add_num(response, "delayed_to_us",
-				     feerate_to_style(rate, *style));
-	}
-	if (command_deprecated_out_ok(cmd, "htlc_resolution", "v23.05", "v24.02")) {
-		rate = htlc_resolution_feerate(topo);
-		if (rate)
-			json_add_num(response, "htlc_resolution",
-				     feerate_to_style(rate, *style));
-	}
 
 	json_add_u64(response, "min_acceptable",
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
