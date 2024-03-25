@@ -1157,8 +1157,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
 		    method->end - method->start, jcon->buffer + method->start);
 	}
-	if (!command_deprecated_in_ok(c,
-				      json_strdup(tmpctx, jcon->buffer, method),
+	if (!command_deprecated_in_ok(c, NULL,
 				      c->json_cmd->depr_start,
 				      c->json_cmd->depr_end)) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
