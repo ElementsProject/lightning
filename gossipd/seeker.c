@@ -239,6 +239,16 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer)
 {
 	bool enable_stream = false;
 
+	/* BOLT-remove-old-features #7:
+	 * Understanding of messages used to be indicated with the `gossip_queries`
+	 * feature bit; now these messages are universally supported, that feature has
+	 * now been slightly repurposed.  Not offering this feature means a node is not
+	 * worth querying for gossip: either they do not store the entire gossip map, or
+	 * they are only connected to a single peer (this one).
+	 */
+	if (!peer->gossip_queries_feature)
+		return;
+
 	/* Make this one of our streaming gossipers if we aren't full */
 	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == NULL) {
@@ -850,6 +860,13 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 {
 	const struct seeker *seeker = peer->daemon->seeker;
 
+	/* BOLT-remove-old-features #7:
+	 * `gossip_queries`... Not offering this feature means a node is not
+	 * worth querying for gossip
+	 */
+	if (!peer->gossip_queries_feature)
+		return false;
+
 	for (size_t i = 0; i < ARRAY_SIZE(seeker->gossiper); i++) {
 		if (seeker->gossiper[i] == peer)
 			return false;
@@ -864,7 +881,7 @@ static void maybe_rotate_gossipers(struct seeker *seeker)
 	struct peer *peer;
 	size_t i;
 
-	/* If all peers are gossiping, we're done */
+	/* If all (usable) peers are gossiping, we're done */
 	peer = random_seeker(seeker, peer_is_not_gossipper);
 	if (!peer)
 		return;
