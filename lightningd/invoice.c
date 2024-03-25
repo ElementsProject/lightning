@@ -246,7 +246,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 {
 	const jsmntok_t *resulttok;
 	const jsmntok_t *t;
-	unsigned int val;
+	const u8 *failmsg;
 
 	/* No plugin registered on hook at all? */
 	if (!buffer)
@@ -264,49 +264,16 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 	}
 
 	t = json_get_member(buffer, toks, "failure_message");
-	if (t) {
-		const u8 *failmsg = json_tok_bin_from_hex(ctx, buffer, t);
-		if (!failmsg)
-			fatal("Invalid invoice_payment_hook failure_message: %.*s",
-			      toks[0].end - toks[1].start, buffer);
-		return failmsg;
-	}
-
-	t = json_get_member(buffer, toks, "failure_code");
 	if (!t) {
-		static bool warned = false;
-		if (!warned) {
-			warned = true;
-			log_unusual(ld->log,
-				    "Plugin did not return object with "
-				    "'result' or 'failure_message' fields.  "
-				    "This is now deprecated and you should "
-				    "return {'result': 'continue' } or "
-				    "{'result': 'reject'} or "
-				    "{'failure_message'... instead.");
-		}
-		return failmsg_incorrect_or_unknown(ctx, ld, hin);
+		fatal("Missing failure_message in invoice_payment hook result: %.*s",
+		      toks[0].end - toks[0].start, buffer);
 	}
 
-	if (!lightningd_deprecated_in_ok(ld, ld->log,
-					 ld->deprecated_ok,
-					 "invoice_payment_hook", "failure_code",
-					 "v22.08", "V23.02", NULL))
-		return NULL;
-
-	if (!json_to_number(buffer, t, &val))
-		fatal("Invalid invoice_payment_hook failure_code: %.*s",
+	failmsg = json_tok_bin_from_hex(ctx, buffer, t);
+	if (!failmsg)
+		fatal("Invalid invoice_payment_hook failure_message: %.*s",
 		      toks[0].end - toks[1].start, buffer);
-
-	if (val == WIRE_TEMPORARY_NODE_FAILURE)
-		return towire_temporary_node_failure(ctx);
-	if (val != WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS)
-		log_broken(hin->key.channel->log,
-			   "invoice_payment hook returned failcode %u,"
-			   " changing to incorrect_or_unknown_payment_details",
-			   val);
-
-	return failmsg_incorrect_or_unknown(ctx, ld, hin);
+	return failmsg;
 }
 
 static void
