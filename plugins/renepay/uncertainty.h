@@ -51,8 +51,7 @@ bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 			       const struct short_channel_id_dir *scidd,
 			       struct amount_msat amount);
 
-const struct chan_extra *
-uncertainty_find_channel(struct uncertainty *uncertainty,
-			 const struct short_channel_id scid);
+struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
+					    const struct short_channel_id scid);
 
 #endif /* LIGHTNING_PLUGINS_RENEPAY_UNETWORK_H */

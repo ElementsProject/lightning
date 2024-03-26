@@ -157,9 +157,8 @@ bool uncertainty_set_liquidity(struct uncertainty *uncertainty,
 	return err == RENEPAY_NOERROR;
 }
 
-const struct chan_extra *
-uncertainty_find_channel(struct uncertainty *uncertainty,
-			 const struct short_channel_id scid)
+struct chan_extra *uncertainty_find_channel(struct uncertainty *uncertainty,
+					    const struct short_channel_id scid)
 {
 	return chan_extra_map_get(uncertainty->chan_extra_map, scid);
 }
