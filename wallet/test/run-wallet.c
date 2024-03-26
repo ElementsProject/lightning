@@ -336,6 +336,9 @@ bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
+/* Generated stub for get_network_blockheight */
+u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
+{ fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }
