@@ -242,58 +242,8 @@ struct command_result *route_sendpay_request(struct command *cmd,
 	struct out_req *req =
 	    jsonrpc_request_start(pay_plugin->plugin, cmd, "sendpay",
 				  sendpay_done, sendpay_failed, route);
-	json_array_start(req->js, "route");
-	assert(route->hops);
-	const size_t pathlen = tal_count(route->hops);
-	assert(pathlen > 0);
 
-	struct payment *payment = route->payment;
-	assert(payment);
-
-	for (size_t j = 0; j < pathlen; j++) {
-		const struct route_hop *hop = &route->hops[j];
-
-		json_object_start(req->js, NULL);
-		json_add_node_id(req->js, "id", &hop->node_id);
-		json_add_short_channel_id(req->js, "channel", &hop->scid);
-		json_add_amount_msat(req->js, "amount_msat", hop->amount);
-		json_add_num(req->js, "direction", hop->direction);
-		json_add_u32(req->js, "delay", hop->delay);
-		json_add_string(req->js, "style", "tlv");
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
-	json_add_secret(req->js, "payment_secret", payment->payment_secret);
-
-	/* FIXME: sendpay has a check that we don't total more than
-	 * the exact amount, if we're setting partid (i.e. MPP).
-	 * However, we always set partid, and we add a shadow amount if
-	 * we've only have one part, so we have to use that amount
-	 * here.
-	 *
-	 * The spec was loosened so you are actually allowed
-	 * to overpay, so this check is now overzealous. */
-	if (amount_msat_greater(route_delivers(route), payment->amount)) {
-		json_add_amount_msat(req->js, "amount_msat",
-				     route_delivers(route));
-	} else {
-		json_add_amount_msat(req->js, "amount_msat", payment->amount);
-	}
-	json_add_u64(req->js, "partid", route->key.partid);
-	json_add_u64(req->js, "groupid", route->key.groupid);
-
-	/* FIXME: some of these fields might not be required for all
-	 * payment parts. */
-	json_add_string(req->js, "bolt11", payment->invstr);
-
-	if (payment->payment_metadata)
-		json_add_hex_talarr(req->js, "payment_metadata",
-				    payment->payment_metadata);
-	if (payment->label)
-		json_add_string(req->js, "label", payment->label);
-	if (payment->description)
-		json_add_string(req->js, "description", payment->description);
+	json_add_route(req->js, route);
 
 	route_sent(route);
 	return send_outreq(pay_plugin->plugin, req);
@@ -377,6 +327,9 @@ struct command_result *notification_sendpay_success(struct command *cmd,
 			   json_tok_full_len(sub), json_tok_full(buf, sub));
 
 	assert(route->result->status == SENDPAY_COMPLETE);
+
+	// FIXME: what happens when several success notification arrive for the
+	// same payment? Even after the payment has been resolved.
 	route_is_success(route);
 	return notification_handled(cmd);
 }

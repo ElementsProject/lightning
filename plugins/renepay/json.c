@@ -215,3 +215,65 @@ void json_add_payment(struct json_stream *s, const struct payment *payment)
 	// - payment_metadata?
 	// - number of parts?
 }
+
+void json_add_route(struct json_stream *js, const struct route *route)
+{
+	assert(js);
+	assert(route);
+
+	struct payment *payment = route->payment;
+	assert(payment);
+
+	assert(route->hops);
+	const size_t pathlen = tal_count(route->hops);
+
+	json_array_start(js, "route");
+	/* An empty route means a payment to oneself, pathlen=0 */
+	for (size_t j = 0; j < pathlen; j++) {
+		const struct route_hop *hop = &route->hops[j];
+
+		json_object_start(js, NULL);
+		json_add_node_id(js, "id", &hop->node_id);
+		json_add_short_channel_id(js, "channel", &hop->scid);
+		json_add_amount_msat(js, "amount_msat", hop->amount);
+		json_add_num(js, "direction", hop->direction);
+		json_add_u32(js, "delay", hop->delay);
+		json_add_string(js, "style", "tlv");
+		json_object_end(js);
+	}
+	json_array_end(js);
+	json_add_sha256(js, "payment_hash", &payment->payment_hash);
+
+	if (payment->payment_secret)
+		json_add_secret(js, "payment_secret", payment->payment_secret);
+
+	/* FIXME: sendpay has a check that we don't total more than
+	 * the exact amount, if we're setting partid (i.e. MPP).
+	 * However, we always set partid, and we add a shadow amount if
+	 * we've only have one part, so we have to use that amount
+	 * here.
+	 *
+	 * The spec was loosened so you are actually allowed
+	 * to overpay, so this check is now overzealous. */
+	if (pathlen > 0 &&
+	    amount_msat_greater(route_delivers(route), payment->amount)) {
+		json_add_amount_msat(js, "amount_msat", route_delivers(route));
+	} else {
+		json_add_amount_msat(js, "amount_msat", payment->amount);
+	}
+	json_add_u64(js, "partid", route->key.partid);
+	json_add_u64(js, "groupid", route->key.groupid);
+
+	/* FIXME: some of these fields might not be required for all
+	 * payment parts. */
+	json_add_string(js, "bolt11", payment->invstr);
+
+	if (payment->payment_metadata)
+		json_add_hex_talarr(js, "payment_metadata",
+				    payment->payment_metadata);
+	if (payment->label)
+		json_add_string(js, "label", payment->label);
+	if (payment->description)
+		json_add_string(js, "description", payment->description);
+
+}

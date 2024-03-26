@@ -4,6 +4,7 @@
 #include <common/bolt11.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
+#include <plugins/renepay/json.h>
 #include <plugins/renepay/mcf.h>
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
@@ -360,6 +361,29 @@ static struct command_result *selfpay_success(struct command *cmd,
 	return payment_finish(payment);
 }
 
+static void route_selfpaypending(const struct route *route)
+{
+	assert(route);
+	struct payment *payment = route->payment;
+	assert(payment);
+	struct routetracker *routetracker = payment->routetracker;
+	assert(routetracker);
+
+	/* we already keep track of this route */
+	assert(!route_map_get(routetracker->pending_routes, &route->key));
+	route_map_add(routetracker->pending_routes, route);
+	tal_steal(routetracker, route);
+
+	if (!amount_msat_add(&payment->total_sent, payment->total_sent,
+			     payment->amount) ||
+	    !amount_msat_add(&payment->total_delivering,
+			     payment->total_delivering, payment->amount)) {
+		plugin_err(pay_plugin->plugin,
+			   "%s: amount_msat arithmetic overflow.",
+			   __PRETTY_FUNCTION__);
+	}
+}
+
 static struct command_result *selfpay_cb(struct payment *payment)
 {
 	if (!node_id_eq(&pay_plugin->my_id, &payment->destination)) {
@@ -374,27 +398,13 @@ static struct command_result *selfpay_cb(struct payment *payment)
 	req =
 	    jsonrpc_request_start(cmd->plugin, cmd, "sendpay", selfpay_success,
 				  payment_rpc_failure, payment);
-	/* Empty route means "to-self" */
-	json_array_start(req->js, "route");
-	json_array_end(req->js);
-	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
-	if (payment->label)
-		json_add_string(req->js, "label", payment->label);
-	json_add_amount_msat(req->js, "amount_msat", payment->amount);
-	json_add_string(req->js, "bolt11", payment->invstr);
-	if (payment->payment_secret)
-		json_add_secret(req->js, "payment_secret",
-				payment->payment_secret);
-	json_add_u32(req->js, "groupid", payment->groupid);
-	if (payment->payment_metadata)
-		json_add_hex_talarr(req->js, "payment_metadata",
-				    payment->payment_metadata);
-	if (payment->description)
-		json_add_string(req->js, "description", payment->description);
 
-	payment->next_partid++;
-	payment->total_sent = payment->amount;
-	payment->total_delivering = payment->amount;
+	struct route *route = new_route(payment, payment, payment->groupid,
+		/*partid=*/ 0, payment->payment_hash);
+	route->hops = tal_arr(route, struct route_hop, 0);
+	json_add_route(req->js, route);
+
+	route_selfpaypending(route);
 	return send_outreq(cmd->plugin, req);
 }
 
