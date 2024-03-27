@@ -58,7 +58,7 @@ struct configvar {
 #define OPT_SHOWMSATS (1 << (OPT_USER_START+4))
 /* listconfigs should treat as a literal boolean `true` or `false` */
 #define OPT_SHOWBOOL (1 << (OPT_USER_START+5))
-/* Can be changed at runtime */
+/* Can be changed at runtime: cb will get called with NULL for `check`! */
 #define OPT_DYNAMIC (1 << (OPT_USER_START+6))
 
 /* Use this instead of opt_register_*_arg if you want OPT_* from above */

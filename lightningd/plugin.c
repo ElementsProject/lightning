@@ -356,6 +356,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->checksum = file_checksum(plugins->ld, p->cmd);
 	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
+	p->can_check = false;
 
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
@@ -1299,6 +1300,46 @@ struct plugin *find_plugin_for_command(struct lightningd *ld,
 	return NULL;
 }
 
+static struct command_result *plugin_rpcmethod_check(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *toks,
+						     const jsmntok_t *params)
+{
+	const jsmntok_t *idtok;
+	struct plugin *plugin;
+	struct jsonrpc_request *req;
+
+	plugin = find_plugin_for_command(cmd->ld, cmd->json_cmd->name);
+	if (!plugin)
+		fatal("No plugin for %s ?", cmd->json_cmd->name);
+
+	assert(command_check_only(cmd));
+
+	if (!plugin->can_check) {
+		log_unusual(plugin->log, "Plugin does not support check command for %s (id %s)",
+			    cmd->json_cmd->name, cmd->id);
+		return command_check_done(cmd);
+	}
+
+	/* Find id again (we've parsed them before, this should not fail!) */
+	idtok = json_get_member(buffer, toks, "id");
+	assert(idtok != NULL);
+
+	/* Send check command through, it says it can handle it! */
+	req = jsonrpc_request_start_raw(plugin, "check",
+					cmd->id, plugin->non_numeric_ids,
+					plugin->log,
+					plugin_notify_cb,
+					plugin_rpcmethod_cb, cmd);
+
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id);
+	json_stream_double_cr(req->stream);
+	plugin_request_send(plugin, req);
+	req->stream = NULL;
+
+	return command_still_pending(cmd);
+}
+
 static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *toks,
@@ -1309,12 +1350,12 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	struct jsonrpc_request *req;
 	bool cmd_ok;
 
-	if (cmd->mode == CMD_CHECK)
-		return command_param_failed();
-
 	plugin = find_plugin_for_command(cmd->ld, cmd->json_cmd->name);
 	if (!plugin)
 		fatal("No plugin for %s ?", cmd->json_cmd->name);
+
+	/* This should go to plugin_rpcmethod_check! */
+	assert(!command_check_only(cmd));
 
 	/* Find ID again (We've parsed them before, this should not fail!) */
 	idtok = json_get_member(buffer, toks, "id");
@@ -1407,6 +1448,7 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 
 	cmd->dev_only = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
+	cmd->check = plugin_rpcmethod_check;
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		struct plugin *p =
 		    find_plugin_for_command(plugin->plugins->ld, cmd->name);
@@ -1800,6 +1842,17 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		plugin->non_numeric_ids = !lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
 									"plugin", "nonnumericids",
 									"v23.08", "v24.08");
+	}
+
+	tok = json_get_member(buffer, resulttok, "cancheck");
+	if (tok) {
+		if (!json_to_bool(buffer, tok, &plugin->can_check))
+			return tal_fmt(plugin,
+				       "Invalid cancheck: %.*s",
+				       json_tok_full_len(tok),
+				       json_tok_full(buffer, tok));
+	} else {
+		plugin->can_check = false;
 	}
 
 	err = plugin_notifications_add(buffer, resulttok, plugin);
@@ -2324,12 +2377,25 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 	psr->optname = tal_strdup(psr, ot->names + 2);
 	psr->success = success;
 
-	req = jsonrpc_request_start(cmd, "setconfig",
-				    cmd->id,
-				    plugin->non_numeric_ids,
-				    command_log(cmd),
-				    NULL, plugin_setconfig_done,
-				    psr);
+	if (command_check_only(cmd)) {
+		/* If plugin doesn't support check, we can't check */
+		if (!plugin->can_check)
+			return command_check_done(cmd);
+		req = jsonrpc_request_start(cmd, "check",
+					    cmd->id,
+					    plugin->non_numeric_ids,
+					    command_log(cmd),
+					    NULL, plugin_setconfig_done,
+					    psr);
+		json_add_string(req->stream, "command_to_check", "setconfig");
+	} else {
+		req = jsonrpc_request_start(cmd, "setconfig",
+					    cmd->id,
+					    plugin->non_numeric_ids,
+					    command_log(cmd),
+					    NULL, plugin_setconfig_done,
+					    psr);
+	}
 	json_add_string(req->stream, "config", psr->optname);
 	if (psr->val)
 		json_add_string(req->stream, "val", psr->val);

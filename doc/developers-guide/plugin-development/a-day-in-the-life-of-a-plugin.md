@@ -94,6 +94,7 @@ The `getmanifest` method is required for all plugins and will be called on start
     11010
   ],
   "nonnumericids": true,
+  "cancheck": true,
   "dynamic": true
 }
 ```
@@ -110,6 +111,8 @@ The `nonnumericids` indicates that the plugin can handle string JSON request `id
 
 The `dynamic` indicates if the plugin can be managed after `lightningd` has been started using the [lightning-plugin](ref:lightning-plugin) JSON-RPC command. Critical plugins that should not be stopped should set it to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
 
+If you can handle the `check` command on your commands, you should set `cancheck` to `true` and expect `lightningd` to pass through any user-requested `check` commands to you directly (without this, `check` currently always passes, which is not very useful!).
+  
 If a `disable` member exists, the plugin will be disabled and the contents of this member is the reason why.  This allows plugins to disable themselves if they are not supported in this configuration.
 
 The `featurebits` object allows the plugin to register featurebits that should be announced in a number of places in [the protocol](https://github.com/lightning/bolts/blob/master/09-features). They can be used to signal support for custom protocol extensions to direct peers, remote nodes and in invoices. Custom protocol extensions can be implemented for example using the `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for features that should be announced via the `node_announcement` to all nodes in the network, `init` for features that should be announced to direct peers during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be announced to a potential sender of a payment in the invoice. The low range of featurebits is reserved for standardize features, so please pick random, high position bits for experiments. If you'd like to standardize your extension please reach out to the [specification repository][spec] to get a featurebit assigned.

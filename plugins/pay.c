@@ -970,7 +970,6 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 }
 
 struct payment_modifier *paymod_mods[] = {
-	&check_preapproveinvoice_pay_mod,
 	/* NOTE: The order in which these four paymods are executed is
 	 * significant!
 	 * local_channel_hints *must* execute first before route_exclusions
@@ -1010,6 +1009,32 @@ static void destroy_payment(struct payment *p)
 	list_del(&p->list);
 }
 
+static struct command_result *
+preapproveinvoice_succeed(struct command *cmd,
+			  const char *buf,
+			  const jsmntok_t *result,
+			  struct payment *p)
+{
+	struct out_req *req;
+
+	/* Now we can conclude `check` command */
+	if (command_check_only(cmd)) {
+		return command_check_done(cmd);
+	}
+
+	list_add_tail(&payments, &p->list);
+	tal_add_destructor(p, destroy_payment);
+	/* We're keeping this around now */
+	tal_steal(cmd->plugin, p);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+				    payment_listsendpays_previous,
+				    payment_listsendpays_previous, p);
+
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *json_pay(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *params)
@@ -1036,7 +1061,7 @@ static struct command_result *json_pay(struct command *cmd,
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
-	if (!param(cmd, buf, params,
+	if (!param_check(cmd, buf, params,
 		   /* FIXME: parameter should be invstring now */
 		   p_req("bolt11", param_invstring, &b11str),
 		   p_opt("amount_msat", param_msat, &msat),
@@ -1279,16 +1304,19 @@ static struct command_result *json_pay(struct command *cmd,
 	tal_free(dev_use_shadow);
 
 	p->label = tal_steal(p, label);
-	list_add_tail(&payments, &p->list);
-	tal_add_destructor(p, destroy_payment);
-	/* We're keeping this around now */
-	tal_steal(cmd->plugin, p);
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
-				    payment_listsendpays_previous,
-				    payment_listsendpays_previous, p);
-
-	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	/* Now preapprove, then start payment. */
+	if (command_check_only(cmd)) {
+		req = jsonrpc_request_start(p->plugin, cmd, "check",
+					    &preapproveinvoice_succeed,
+					    &forward_error, p);
+		json_add_string(req->js, "command_to_check", "preapproveinvoice");
+	} else {
+		req = jsonrpc_request_start(p->plugin, cmd, "preapproveinvoice",
+					    &preapproveinvoice_succeed,
+					    &forward_error, p);
+	}
+	json_add_string(req->js, "bolt11", p->invstring);
 	return send_outreq(cmd->plugin, req);
 }
 

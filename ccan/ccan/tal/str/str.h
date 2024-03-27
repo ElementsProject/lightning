@@ -17,7 +17,8 @@
  * The returned string will have tal_count() == strlen() + 1.
  */
 #define tal_strdup(ctx, p) tal_strdup_(ctx, p, TAL_LABEL(char, "[]"))
-char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label);
+char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label)
+	TAL_RETURN_PTR;
 
 /**
  * tal_strndup - duplicate a limited amount of a string.
@@ -30,7 +31,8 @@ char *tal_strdup_(const tal_t *ctx, const char *p TAKES, const char *label);
  */
 #define tal_strndup(ctx, p, n) tal_strndup_(ctx, p, n, TAL_LABEL(char, "[]"))
 char *tal_strndup_(const tal_t *ctx, const char *p TAKES, size_t n,
-		   const char *label);
+		   const char *label)
+	TAL_RETURN_PTR;
 
 /**
  * tal_fmt - allocate a formatted string
@@ -42,7 +44,7 @@ char *tal_strndup_(const tal_t *ctx, const char *p TAKES, size_t n,
 #define tal_fmt(ctx, ...)				 \
 	tal_fmt_(ctx, TAL_LABEL(char, "[]"), __VA_ARGS__)
 char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt TAKES,
-	        ...) PRINTF_FMT(3,4);
+	        ...) PRINTF_FMT(3,4) TAL_RETURN_PTR;
 
 /**
  * tal_vfmt - allocate a formatted string (va_list version)
@@ -56,7 +58,7 @@ char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt TAKES,
 	tal_vfmt_(ctx, fmt, va, TAL_LABEL(char, "[]"))
 char *tal_vfmt_(const tal_t *ctx, const char *fmt TAKES, va_list ap,
 		const char *label)
-	PRINTF_FMT(2,0);
+	PRINTF_FMT(2,0) TAL_RETURN_PTR;
 
 /**
  * tal_append_fmt - append a formatted string to a talloc string.
@@ -89,7 +91,7 @@ bool tal_append_vfmt(char **baseptr, const char *fmt TAKES, va_list ap);
  */
 #define tal_strcat(ctx, s1, s2) tal_strcat_(ctx, s1, s2, TAL_LABEL(char, "[]"))
 char *tal_strcat_(const tal_t *ctx, const char *s1 TAKES, const char *s2 TAKES,
-		  const char *label);
+		  const char *label) TAL_RETURN_PTR;
 
 enum strsplit {
 	STR_EMPTY_OK,
@@ -137,7 +139,8 @@ char **tal_strsplit_(const tal_t *ctx,
 		     const char *string TAKES,
 		     const char *delims TAKES,
 		     enum strsplit flag,
-		     const char *label);
+		     const char *label)
+	TAL_RETURN_PTR;
 
 enum strjoin {
 	STR_TRAIL,
@@ -175,7 +178,8 @@ char *tal_strjoin_(const void *ctx,
 		   char *strings[] TAKES,
 		   const char *delim TAKES,
 		   enum strjoin flags,
-		   const char *label);
+		   const char *label)
+	TAL_RETURN_PTR;
 
 /**
  * tal_strreg - match/extract from a string via (extended) regular expressions.

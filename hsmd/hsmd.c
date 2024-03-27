@@ -425,6 +425,29 @@ static void load_hsm(const struct secret *encryption_key)
 	close(fd);
 }
 
+/*~ We have a pre-init call in developer mode, to set dev flags */
+static struct io_plan *preinit_hsm(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in)
+{
+	struct tlv_hsmd_dev_preinit_tlvs *tlv;
+	assert(developer);
+
+	if (!fromwire_hsmd_dev_preinit(tmpctx, msg_in, &tlv))
+		return bad_req(conn, c, msg_in);
+
+	if (tlv->fail_preapprove)
+		dev_fail_preapprove = *tlv->fail_preapprove;
+
+	if (tlv->no_preapprove_check)
+		dev_no_preapprove_check = *tlv->no_preapprove_check;
+
+	status_debug("preinit: dev_fail_preapprove = %u, dev_no_preapprove_check = %u",
+		     dev_fail_preapprove, dev_no_preapprove_check);
+	/* We don't send a reply, just read next */
+	return client_read_next(conn, c);
+}
+
 /*~ This is the response to lightningd's HSM_INIT request, which is the first
  * thing it sends. */
 static struct io_plan *init_hsm(struct io_conn *conn,
@@ -634,6 +657,9 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
+	case WIRE_HSMD_DEV_PREINIT:
+		return preinit_hsm(conn, c, c->msg_in);
+
 	case WIRE_HSMD_INIT:
 		return init_hsm(conn, c, c->msg_in);
 
@@ -667,6 +693,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
@@ -720,6 +748,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:

@@ -3782,6 +3782,22 @@ def test_setconfig(node_factory, bitcoind):
     with pytest.raises(RpcError, match='is not a number'):
         l2.rpc.setconfig(config='min-capacity-sat', val="abcd")
 
+    # Check will fail the same way.
+    with pytest.raises(RpcError, match='requires a value'):
+        l2.rpc.check('setconfig', config='min-capacity-sat')
+
+    with pytest.raises(RpcError, match='is not a number'):
+        l2.rpc.check('setconfig', config='min-capacity-sat', val="abcd")
+
+    # Check will pass, but NOT change value.
+    assert l2.rpc.check(command_to_check='setconfig', config='min-capacity-sat', val=500000) == {'command_to_check': 'setconfig'}
+
+    assert (l2.rpc.listconfigs('min-capacity-sat')['configs']
+            == {'min-capacity-sat':
+                {'source': 'default',
+                 'value_int': 10000,
+                 'dynamic': True}})
+
     ret = l2.rpc.setconfig(config='min-capacity-sat', val=500000)
     assert ret == {'config':
                    {'config': 'min-capacity-sat',
@@ -3979,3 +3995,92 @@ def test_set_feerate_offset(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
     l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+
+@pytest.mark.parametrize("preapprove", [False, True])
+def test_preapprove(node_factory, bitcoind, preapprove):
+    # l1 uses old routine which doesn't support check.
+    opts = [{'dev-hsmd-no-preapprove-check': None}, {}]
+    if preapprove is False:
+        opts[0]['dev-hsmd-fail-preapprove'] = None
+        opts[1]['dev-hsmd-fail-preapprove'] = None
+
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    if preapprove:
+        l2.rpc.check('preapproveinvoice', bolt11=inv)
+    else:
+        with pytest.raises(RpcError, match='invoice was declined'):
+            l2.rpc.check('preapproveinvoice', bolt11=inv)
+
+    l2.daemon.wait_for_log("preapprove_invoice: check_only=1")
+
+    # But l1 can't check properly, will always pass.
+    inv = l2.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    l1.rpc.check('preapproveinvoice', bolt11=inv)
+
+    assert not l1.daemon.is_in_log("preapprove_invoice: check_only=1")
+
+    # But if we try to actually preapprove we fail if told.
+    if preapprove:
+        l1.rpc.preapproveinvoice(inv)
+    else:
+        with pytest.raises(RpcError, match='invoice was declined'):
+            l1.rpc.preapproveinvoice(bolt11=inv)
+    l1.daemon.wait_for_log("preapprove_invoice: check_only=0")
+
+    # Same for keysend
+    if preapprove:
+        l2.rpc.check('preapprovekeysend',
+                     destination=l1.info['id'],
+                     payment_hash='00' * 32,
+                     amount_msat=1000)
+    else:
+        with pytest.raises(RpcError, match='keysend was declined'):
+            l2.rpc.check('preapprovekeysend',
+                         destination=l1.info['id'],
+                         payment_hash='00' * 32,
+                         amount_msat=1000)
+
+    l2.daemon.wait_for_log("preapprove_keysend: check_only=1")
+
+    # But l1 can't check properly, will always pass.
+    l1.rpc.check('preapprovekeysend',
+                 destination=l2.info['id'],
+                 payment_hash='00' * 32,
+                 amount_msat=1000)
+
+    assert not l1.daemon.is_in_log("preapprove_keysend: check_only=1")
+
+    # But if we try to actually preapprove we fail if told.
+    if preapprove:
+        l1.rpc.preapprovekeysend(l2.info['id'], '00' * 32, 1000)
+    else:
+        with pytest.raises(RpcError, match='keysend was declined'):
+            l1.rpc.preapprovekeysend(l2.info['id'], '00' * 32, 1000)
+    l1.daemon.wait_for_log("preapprove_keysend: check_only=0")
+
+
+def test_preapprove_use(node_factory, bitcoind):
+    """Test preapprove calls implicitly made by pay and keysend"""
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None}])
+
+    # Create some balance, make sure it's entirely settled.
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # This will fail at the preapprove step.
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
+    with pytest.raises(RpcError, match='invoice was declined'):
+        l2.rpc.pay(inv)
+
+    # This will fail the same way
+    with pytest.raises(RpcError, match='invoice was declined'):
+        l2.rpc.check('pay', bolt11=inv)
+
+    # Now keysend.
+    with pytest.raises(RpcError, match='keysend was declined'):
+        l2.rpc.keysend(l1.info['id'], 1000)
+    with pytest.raises(RpcError, match='keysend was declined'):
+        l2.rpc.check('keysend', destination=l1.info['id'], amount_msat=1000)

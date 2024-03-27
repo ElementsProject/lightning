@@ -93,6 +93,9 @@ struct plugin {
 
 	/* Custom message types we want to allow incoming */
 	u16 *custom_msgs;
+
+	/* Can this handle check commands? */
+	bool can_check;
 };
 
 /**

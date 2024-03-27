@@ -1870,22 +1870,43 @@ static struct command_result *json_preapproveinvoice(struct command *cmd,
 	const char *invstring;
 	struct json_stream *response;
 	bool approved;
+	u8 *req;
 	const u8 *msg;
 
-	if (!param(cmd, buffer, params,
-		   /* FIXME: parameter should be invstring now */
-		   p_req("bolt11", param_invstring, &invstring),
+	if (!param_check(cmd, buffer, params,
+			 /* FIXME: parameter should be invstring now */
+			 p_req("bolt11", param_invstring, &invstring),
 		   NULL))
 		return command_param_failed();
 
-	msg = hsm_sync_req(tmpctx, cmd->ld,
-			   take(towire_hsmd_preapprove_invoice(NULL, invstring)));
-        if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved))
+	/* Old version didn't have `bool check_only` at end */
+	if (!hsm_capable(cmd->ld, WIRE_HSMD_PREAPPROVE_INVOICE_CHECK)) {
+		/* We can't just check this, so "succeed".  Log message for
+		 * tests though */
+		if (command_check_only(cmd)) {
+			log_debug(cmd->ld->log, "hsmd too old to check preapprove");
+			return command_check_done(cmd);
+		}
+		req = towire_hsmd_preapprove_invoice(NULL, invstring);
+	} else {
+		req = towire_hsmd_preapprove_invoice_check(NULL, invstring,
+							   command_check_only(cmd));
+	}
+
+	msg = hsm_sync_req(tmpctx, cmd->ld, take(req));
+
+	/* These are identical, but use separate numbers for clarity */
+        if (!fromwire_hsmd_preapprove_invoice_reply(msg, &approved)
+	    && !fromwire_hsmd_preapprove_invoice_check_reply(msg, &approved)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_invoice_reply %s", tal_hex(msg, msg));
+	}
 
 	if (!approved)
 		return command_fail(cmd, PAY_INVOICE_PREAPPROVAL_DECLINED, "invoice was declined");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	response = json_stream_success(cmd);
 	return command_success(cmd, response);
@@ -1910,23 +1931,42 @@ static struct command_result *json_preapprovekeysend(struct command *cmd,
 	struct json_stream *response;
 	bool approved;
 	const u8 *msg;
+	u8 *req;
 
-	if (!param(cmd, buffer, params,
-		   p_req("destination", param_node_id, &destination),
-		   p_req("payment_hash", param_sha256, &payment_hash),
-		   p_req("amount_msat", param_msat, &amount),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("destination", param_node_id, &destination),
+			 p_req("payment_hash", param_sha256, &payment_hash),
+			 p_req("amount_msat", param_msat, &amount),
+			 NULL))
 		return command_param_failed();
 
-	msg = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
+	if (!hsm_capable(cmd->ld, WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK)) {
+		/* We can't just check this, so "succeed".  Log message for
+		 * tests though */
+		if (command_check_only(cmd)) {
+			log_debug(cmd->ld->log, "hsmd too old to check preapprove");
+			return command_check_done(cmd);
+		}
+		req = towire_hsmd_preapprove_keysend(NULL, destination, payment_hash, *amount);
+	} else {
+		req = towire_hsmd_preapprove_keysend_check(NULL, destination, payment_hash,
+							   *amount, command_check_only(cmd));
+	}
 
-	msg = hsm_sync_req(tmpctx, cmd->ld, take(msg));
-        if (!fromwire_hsmd_preapprove_keysend_reply(msg, &approved))
+	msg = hsm_sync_req(tmpctx, cmd->ld, take(req));
+
+	/* These are identical, but use separate numbers for clarity */
+        if (!fromwire_hsmd_preapprove_keysend_reply(msg, &approved)
+	    && !fromwire_hsmd_preapprove_keysend_check_reply(msg, &approved)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "HSM gave bad preapprove_keysend_reply %s", tal_hex(msg, msg));
+	}
 
 	if (!approved)
 		return command_fail(cmd, PAY_KEYSEND_PREAPPROVAL_DECLINED, "keysend was declined");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	response = json_stream_success(cmd);
 	return command_success(cmd, response);

@@ -1627,6 +1627,17 @@ def test_libplugin(node_factory):
     del l1.daemon.opts["somearg-deprecated"]
     l1.start()
 
+    # Test that check works as expected.
+    assert only_one(l1.rpc.checkthis(["test_libplugin", "name"])['datastore'])['string'] == "foobar"
+    with pytest.raises(RpcError, match="key: should be an array"):
+        assert l1.rpc.checkthis("badkey")
+
+    with pytest.raises(RpcError, match="key: should be an array"):
+        assert l1.rpc.check('checkthis', key="badkey")
+
+    # This works
+    assert l1.rpc.check('checkthis', key=["test_libplugin", "name"]) == {'command_to_check': 'checkthis'}
+
 
 def test_libplugin_deprecated(node_factory):
     """Sanity checks for plugins made with libplugin using deprecated args"""
@@ -3121,6 +3132,14 @@ def test_autoclean(node_factory):
     # It must be an integer!
     with pytest.raises(RpcError, match=r'is not a number'):
         l3.rpc.setconfig('autoclean-expiredinvoices-age', 'xxx')
+
+    # check gives the same answer.
+    with pytest.raises(RpcError, match=r'is not a number'):
+        l3.rpc.check('setconfig', config='autoclean-expiredinvoices-age', val='xxx')
+
+    # check does not actually set!
+    l3.rpc.check('setconfig', config='autoclean-expiredinvoices-age', val=2) == {'command_to_check': 'setconfig'}
+    assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is False
 
     l3.rpc.setconfig('autoclean-expiredinvoices-age', 2)
     assert l3.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True

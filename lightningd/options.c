@@ -68,6 +68,18 @@ static char *opt_set_u64(const char *arg, u64 *u)
 		return tal_fmt(tmpctx, "'%s' is out of range", arg);
 	return NULL;
 }
+
+static char *opt_set_u64_dynamic(const char *arg, u64 *u)
+{
+	u64 ignored;
+
+	/* In case we're called for arg checking only */
+	if (!u)
+		u = &ignored;
+
+	return opt_set_u64(arg, u);
+}
+
 static char *opt_set_u32(const char *arg, u32 *u)
 {
 	char *endp;
@@ -919,6 +931,14 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,
 		     "Allow destination override on close, even if risky");
+	clnopt_noarg("--dev-hsmd-no-preapprove-check", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_hsmd_no_preapprove_check,
+		     "Tell hsmd not to support preapprove_check msgs");
+	clnopt_noarg("--dev-hsmd-fail-preapprove", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_hsmd_fail_preapprove,
+		     "Tell hsmd to always deny preapprove_invoice / preapprove_keysend");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
@@ -1533,9 +1553,10 @@ static void register_opts(struct lightningd *ld)
 		       opt_set_msat,
 		       opt_show_msat, &ld->config.max_dust_htlc_exposure_msat,
 		       "Max HTLC amount that can be trimmed");
-	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC, opt_set_u64, opt_show_u64,
-			 &ld->config.min_capacity_sat,
-			 "Minimum capacity in satoshis for accepting channels");
+	clnopt_witharg("--min-capacity-sat", OPT_SHOWINT|OPT_DYNAMIC,
+		       opt_set_u64_dynamic, opt_show_u64,
+		       &ld->config.min_capacity_sat,
+		       "Minimum capacity in satoshis for accepting channels");
 	clnopt_witharg("--addr", OPT_MULTI, opt_add_addr, NULL,
 		       ld,
 		       "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
