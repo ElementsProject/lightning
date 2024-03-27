@@ -188,9 +188,9 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     # Make sure it's connected to l2 (otherwise we get TEMPORARY_CHANNEL_FAILURE)
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
-    # Payments will fail.  FIXME: More informative msg?
-    with pytest.raises(RpcError, match=r'TEMPORARY_NODE_FAILURE'):
-        l1.pay(l2, 1000)
+    # Payments will succced.
+    l1.pay(l2, 1000)
+    assert l1.daemon.is_in_log(r"Sending HTLC while still syncing with bitcoin network \(104 vs 105\)")
 
     # Can't fund a new channel.
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
