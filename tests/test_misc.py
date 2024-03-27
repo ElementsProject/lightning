@@ -192,19 +192,19 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     l1.pay(l2, 1000)
     assert l1.daemon.is_in_log(r"Sending HTLC while still syncing with bitcoin network \(104 vs 105\)")
 
-    # Can't fund a new channel.
-    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    with pytest.raises(RpcError, match=r'304'):
-        if l1.config('experimental-dual-fund'):
-            psbt = l1.rpc.fundpsbt('10000sat', '253perkw', 250)['psbt']
-            l1.rpc.openchannel_init(l3.info['id'], '10000sat', psbt)
-        else:
-            l1.rpc.fundchannel_start(l3.info['id'], '10000sat')
-
     # Attempting to fund an extremely large transaction should fail
     # with a 'unsynced' error
     with pytest.raises(RpcError, match=r'304'):
         l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: '200000000sat'}])
+
+    # Funding a new channel blocks...
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    if l1.config('experimental-dual-fund'):
+        psbt = l1.rpc.fundpsbt('20000sat', '253perkw', 250)['psbt']
+        fut_open = executor.submit(l1.rpc.openchannel_init, l3.info['id'], '20000sat', psbt)
+    else:
+        with pytest.raises(RpcError, match=r'304'):
+            l1.rpc.fundchannel_start(l3.info['id'], '20000sat')
 
     # This will work, but will be delayed until synced.
     fut = executor.submit(l2.pay, l1, 1000)
@@ -214,6 +214,8 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     mock_release.set()
     fut.result()
 
+    if l1.config('experimental-dual-fund'):
+        fut_open.result()
     assert 'warning_lightningd_sync' not in l1.rpc.getinfo()
 
     # Now we get insufficient funds error
