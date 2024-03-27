@@ -483,11 +483,18 @@ static bool linearize_channel(const struct pay_parameters *params,
 	a = MAX(a,0);
 	b = MAX(a+1,b);
 
+	/* An extra bound on capacity, here we use it to reduce the flow such
+	 * that it does not exceed htlcmax. */
+	s64 cap_on_capacity =
+	 channel_htlc_max(c, dir).millisatoshis/1000; /* Raw: linearize_channel */
+
 	capacity[0]=a;
 	cost[0]=0;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
-		capacity[i] = params->cap_fraction[i]*(b-a);
+		capacity[i] = MIN(params->cap_fraction[i]*(b-a), cap_on_capacity);
+		cap_on_capacity -= capacity[i];
+		assert(cap_on_capacity>=0);
 
 		cost[i] = params->cost_fraction[i]
 		          *params->amount.millisatoshis /* Raw: linearize_channel */
