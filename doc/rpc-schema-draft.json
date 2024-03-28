@@ -389,16 +389,25 @@
                 "type": "string"
             }
         },
-        "example_json_request": {
+        "json_examples": {
             "type": "array",
             "items": {
-                "id": {
-                    "type": "integer"
+                "request": {
+                    "type": "array",
+                    "items": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "method": {
+                            "type": "string"
+                        },
+                        "params": {}
+                    }
                 },
-                "method": {
-                    "type": "string"
-                },
-                "params": {}
+                "response": {
+                    "type": "array",
+                    "items": {}
+                }
             }
         },
         "notes": {
@@ -463,10 +472,6 @@
             "items": {
                 "type": "string"
             }
-        },
-        "example_json_response": {
-            "type": "array",
-            "items": {}
         },
         "example_json_notifications": {
             "type": "array",
