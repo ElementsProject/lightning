@@ -253,10 +253,14 @@ PLUGIN_BASES := $(PLUGINS:plugins/%=%) $(PY_PLUGINS:plugins/%=%)
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
 
+target/${RUST_PROFILE}/examples/cln-subscribe-wildcard: ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
+	cargo build ${CARGO_OPTS} --example cln-subscribe-wildcard
+
 CLN_PLUGIN_EXAMPLES := \
 	target/${RUST_PROFILE}/examples/cln-plugin-startup \
 	target/${RUST_PROFILE}/examples/cln-plugin-reentrant \
-	target/${RUST_PROFILE}/examples/cln-rpc-getinfo
+	target/${RUST_PROFILE}/examples/cln-rpc-getinfo \
+	target/${RUST_PROFILE}/examples/cln-subscribe-wildcard
 
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
 
