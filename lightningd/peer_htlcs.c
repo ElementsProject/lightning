@@ -629,10 +629,12 @@ const u8 *send_htlc_out(const tal_t *ctx,
 							channel_update_for_error(tmpctx, out));
 	}
 
+	/* Note: we allow outgoing HTLCs before sync, for fast startup. */
 	if (!topology_synced(out->peer->ld->topology)) {
-		log_info(out->log, "Attempt to send HTLC but still syncing"
-			 " with bitcoin network");
-		return towire_temporary_node_failure(ctx);
+		log_debug(out->log, "Sending HTLC while still syncing"
+			  " with bitcoin network (%u vs %u)",
+			  get_block_height(out->peer->ld->topology),
+			  get_network_blockheight(out->peer->ld->topology));
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */

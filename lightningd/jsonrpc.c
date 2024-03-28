@@ -731,20 +731,27 @@ void json_notify_fmt(struct command *cmd,
 {
 	va_list ap;
 	struct json_stream *js;
+	const char *msg;
 
+	va_start(ap, fmt);
+	msg = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	/* Help for tests */
+	log_debug(cmd->ld->log, "NOTIFY %s %s %s",
+		  cmd->id, log_level_name(level), msg);
 	if (!cmd->send_notifications)
 		return;
 
 	js = json_stream_raw_for_cmd(cmd);
 
-	va_start(ap, fmt);
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_string(js, "method", "message");
 	json_object_start(js, "params");
 	json_add_id(js, cmd->id);
 	json_add_string(js, "level", log_level_name(level));
-	json_add_string(js, "message", tal_vfmt(tmpctx, fmt, ap));
+	json_add_string(js, "message", msg);
 	json_object_end(js);
 	json_object_end(js);
 
