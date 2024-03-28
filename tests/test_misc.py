@@ -200,11 +200,11 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     # Funding a new channel blocks...
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     if l1.config('experimental-dual-fund'):
-        psbt = l1.rpc.fundpsbt('20000sat', '253perkw', 250)['psbt']
-        fut_open = executor.submit(l1.rpc.openchannel_init, l3.info['id'], '20000sat', psbt)
+        psbt = l1.rpc.fundpsbt('30000sat', '253perkw', 250)['psbt']
+        fut_open = executor.submit(l1.rpc.openchannel_init, l3.info['id'], '30000sat', psbt)
     else:
-        with pytest.raises(RpcError, match=r'304'):
-            l1.rpc.fundchannel_start(l3.info['id'], '20000sat')
+        fut_open = executor.submit(l1.rpc.fundchannel_start, l3.info['id'], '30000sat')
+    l1.daemon.wait_for_log("NOTIFY .* unusual Waiting to sync with bitcoind network")
 
     # This will work, but will be delayed until synced.
     fut = executor.submit(l2.pay, l1, 1000)
@@ -212,10 +212,11 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
     # Release the mock.
     mock_release.set()
+    # Incoming pay now completes
     fut.result()
 
-    if l1.config('experimental-dual-fund'):
-        fut_open.result()
+    # Channel open now completes
+    fut_open.result()
     assert 'warning_lightningd_sync' not in l1.rpc.getinfo()
 
     # Now we get insufficient funds error
